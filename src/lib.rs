@@ -70,6 +70,11 @@ pub mod trie;
 
 pub mod network;
 pub mod mcp;
+pub mod quality;
+pub mod wiki;
+pub mod industrial;
+pub mod ingest;
+pub mod inventory;
 
 #[cfg(feature = "cli")]
 pub mod cli;

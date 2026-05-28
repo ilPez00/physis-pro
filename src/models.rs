@@ -8,15 +8,20 @@ pub struct Goal {
     pub id: String,
     pub embedding: Vec<f32>,
     pub progress: Score,
+    pub domain_name: String,
 }
 
 impl Goal {
-    pub fn new_vec(embedding: Vec<f32>) -> Self {
+    pub fn new(embedding: Vec<f32>, domain_name: String) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             embedding,
             progress: 0.0,
+            domain_name,
         }
+    }
+    pub fn new_vec(embedding: Vec<f32>) -> Self {
+        Self::new(embedding, "unknown".to_string())
     }
 }
 
@@ -27,15 +32,19 @@ pub struct Dream {
     pub source: Vec<f32>,
     pub embedding: Vec<f32>,
     pub grade: Option<Score>,
+    pub dream_type: String,
+    pub description: String,
 }
 
 impl Dream {
-    pub fn new(source: Vec<f32>, embedding: Vec<f32>) -> Self {
+    pub fn new(source: Vec<f32>, embedding: Vec<f32>, dream_type: String, description: String) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             source,
             embedding,
             grade: None,
+            dream_type,
+            description,
         }
     }
 }
@@ -67,10 +76,14 @@ pub struct Experience {
     pub after: Vec<f32>,
     pub delta: Vec<f32>,
     pub grade: Score,
+    pub action: String,
+    pub rationale: String,
+    pub scores: std::collections::HashMap<String, f32>,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 impl Experience {
-    pub fn new(goal_id: &str, before: Vec<f32>, after: Vec<f32>) -> Self {
+    pub fn new(goal_id: &str, before: Vec<f32>, after: Vec<f32>, action: String, rationale: String, scores: std::collections::HashMap<String, f32>) -> Self {
         let delta: Vec<f32> = before.iter().zip(after.iter()).map(|(b, a)| a - b).collect();
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -79,6 +92,10 @@ impl Experience {
             after,
             delta,
             grade: 0.0,
+            action,
+            rationale,
+            scores,
+            timestamp: chrono::Utc::now(),
         }
     }
 }
@@ -490,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_dream_new() {
-        let d = Dream::new(vec![1.0, 0.0], vec![0.5, 0.5]);
+        let d = Dream::new(vec![1.0, 0.0], vec![0.5, 0.5], "test".to_string(), "test dream".to_string());
         assert!(!d.id.is_empty());
         assert_eq!(d.source, vec![1.0, 0.0]);
         assert_eq!(d.embedding, vec![0.5, 0.5]);
@@ -507,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_experience_new_computes_delta() {
-        let e = Experience::new("goal-1", vec![1.0, 0.0, 0.0], vec![1.0, 0.5, 0.3]);
+        let e = Experience::new("goal-1", vec![1.0, 0.0, 0.0], vec![1.0, 0.5, 0.3], "action".to_string(), "rationale".to_string(), std::collections::HashMap::new());
         assert_eq!(e.goal_id, "goal-1");
         assert_eq!(e.before, vec![1.0, 0.0, 0.0]);
         assert_eq!(e.after, vec![1.0, 0.5, 0.3]);

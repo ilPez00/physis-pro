@@ -1,8 +1,8 @@
-use physis::ai::provider::ProviderCascade;
-use physis::ai::agent::{run_agent, AgentConfig};
-use physis::ai::tools::ToolRegistry;
-use physis::embed::{RandomProjectionEmbedder, VectorEmbed};
-use physis::{OntologyLoader, PhysisConfig, OntologicalMap, Goal};
+use physis_pro::ai::provider::ProviderCascade;
+use physis_pro::ai::agent::{run_agent, AgentConfig};
+use physis_pro::ai::tools::ToolRegistry;
+use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
+use physis_pro::{OntologyLoader, PhysisConfig, OntologicalMap, Goal};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -55,9 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tools = ToolRegistry::new();
             let config = PhysisConfig::default();
             let ontology = OntologyLoader::load_all(&config);
-            let mapper = physis::OntologyMapper::new(ontology, config.embed_dim);
+            let mapper = physis_pro::OntologyMapper::new(ontology, config.embed_dim);
             let embedder = RandomProjectionEmbedder::new(config.embed_dim);
-            let mut dream_engine = physis::DreamEngine::new();
+            let mut dream_engine = physis_pro::DreamEngine::new();
 
             loop {
                 {
@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let dreams = dream_engine.generate_dreams(&goals, 1);
                     let mut state = app_state_clone.lock().unwrap();
                     for d in dreams {
-                        state.dreams.push(format!("{}: sim={:.3}", d.id, physis::models::cosine_sim(&d.source, &d.embedding)));
+                        state.dreams.push(format!("{}: sim={:.3}", d.id, physis_pro::models::cosine_sim(&d.source, &d.embedding)));
                     }
                 }
             }

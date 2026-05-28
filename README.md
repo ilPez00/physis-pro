@@ -264,19 +264,20 @@ Physis now includes a **holarchic graph engine** for real-time causal processing
 
 ## Semiotic Grid & Ontology Expansion
 
-Physis ships **9 ontologies** (511 domain entries) mapped onto a **5-domain × 6-mode semiotic grid**:
+Physis Pro ships **10 ontologies** (630 domain entries) mapped onto a **5-domain × 6-mode semiotic grid**:
 
 | Ontology | Kind | Entries | Coverage |
 |----------|------|---------|----------|
 | `praxis_ontology` | human | 54 | Human activities (body, career, social, finance, etc.) |
-| `machine_ontology` | machine | 84 | CNC, vehicles, sensors, actuators, electronics, etc. |
+| `machine_ontology` | machine | ~110 | CNC + 23 industrial process monitoring domains (thermal, pressure, speed, flow, OEE, SPC, etc.) |
 | `semiotic_ontology` | semiotic | 44 | Peirce, Saussure, Barthes, Eco, Jakobson, Greimas |
 | `category_ontology` | category | 54 | Category theory — objects, morphisms, functors, monads |
-| `agent_ontology` | agent | 48 | AI cognitive architectures, reasoning, learning paradigms |
+| `agent_ontology` | agent | ~69 | AI cognitive architectures + 21 agent workflow domains (prompt pipeline, tool execution, agent lifecycle) |
 | `natural_ontology` | natural | 56 | Physics, chemistry, biology, astronomy, ecology |
 | `social_ontology` | social | 50 | Sociology, culture, politics, economics, law |
 | `abstract_ontology` | abstract | 56 | Math, logic, computation, systems, linguistics, info |
 | `engineering_ontology` | engineering | 65 | Software, civil, mechanical, electrical, chemical, etc. |
+| `office_ontology` | office | 75 | **NEW** — Communication, Finance, Procurement, People, Projects, Customer, Reporting, IT, Facilities, Legal, Marketing, Travel, R&D |
 
 Each entry maps to one of 30 grid cells: **5 domains** (HEAL, CONSTRUCT, FABRICATE, BOND, STUDY) × **6 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN).
 
@@ -301,7 +302,41 @@ curl -X POST http://127.0.0.1:19876/api/v1/classify \
 # → top: FABRICATE×CREATE (0.89) — Visual Arts, Storytelling, Music & Performance
 ```
 
-At startup, all 511 ontology entries are embedded (name + hints concatenated) and averaged per DOMAIN×MODE cell. At query time, the same embedder scores input text against all centroids via cosine similarity.
+At startup, all 630 ontology entries are embedded (name + hints concatenated) and averaged per DOMAIN×MODE cell. At query time, the same embedder scores input text against all centroids via cosine similarity.
+
+## Business Backoffice Modules
+
+Physis Pro adds 5 new modules for industrial backoffice automation on top of the core engine:
+
+### Quality (`src/quality.rs`)
+`QualityTracker` implements a feedback loop: classify an output as "wrong" → embed against the semiotic grid → identify top cell → apply penalty → persist → adjust future scores.
+```rust
+let mut qt = QualityTracker::load_or_new()?;
+qt.report_failure(&output_text, &ontology);
+qt.save()?;  // persists to ~/.physis/quality_failures.json
+```
+
+### Industrial (`src/industrial.rs`)
+Machine adapter trait with pluggable protocol backends (MQTT, Modbus, serial, REST).
+```rust
+let adapter = MqttAdapter::new("tcp://localhost:1883");
+let reading: MachineReading = adapter.read()?;
+let anomalies = detect_anomalies(&readings);
+```
+
+### Ingest (`src/ingest.rs`)
+Document classification and ingestion pipeline — classifies files, structures them, and routes by kind (Invoice, Report, Contract, Manual, etc.).
+
+### Inventory (`src/inventory.rs`)
+Stock tracker with SMA-30 moving average forecast and human-in-loop ordering with cooldown:
+```rust
+inv.upsert("widget", 100.0);
+let should_order = inv.check_reorder("widget", reorder_point)?;
+inv.record_order("widget", 500, "manual")?;
+```
+
+### Wiki (`src/wiki.rs`)
+`llmwiki` CLI fallback with recursive grep fallback for offline vector retrieval.
 
 ## Future: Multi-Modal & Gemma Re-ranking
 

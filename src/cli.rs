@@ -110,7 +110,7 @@ pub struct PhysisApp {
     /// Embedder for classify.
     embedder: Box<dyn VectorEmbed>,
     /// Pre-computed centroids per DOMAIN\x00MODE cell.
-    cell_centroids: HashMap<String, Vec<f32>>,
+    pub cell_centroids: HashMap<String, Vec<f32>>,
 }
 
 impl PhysisApp {

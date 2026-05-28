@@ -1,44 +1,36 @@
-# Physis — AI Engine
+# Physis Pro — Industrial Backoffice Intelligence
 
-## `/mcp` — Toggle Physis MCP
-Toggles the Physis engine (Rust HTTP API) on/off.
+## Overview
+Physis Pro extends the core engine with **industrial backoffice intelligence**:
+- **Quality feedback loop** — embed failures against the semiotic grid, apply penalty, persist
+- **Industrial monitoring** — machine adapter pattern (MQTT, Modbus, serial, REST)
+- **Document ingest** — classify and process structured/unstructured documents
+- **Inventory tracking** — SMA-30 forecast + human-in-loop ordering with cooldown
+- **Ontology extensions** — 75 office domains + 23 machine process + 21 AI agent workflow
 
-```
-/mcp             — toggle (start if stopped, stop if running)
-/mcp on          — start the Physis engine on :19876
-/mcp off         — stop the Physis engine
-/mcp status      — check if Physis is running
-```
+## Key Modules
 
-The script: `physis/bin/physis-toggle`
+| Module | File | Description |
+|--------|------|-------------|
+| Quality | `quality.rs` | `QualityTracker` — `report_failure()`, `report_success()`, `save()`, `load()`. Persists 384-dim embeddings to `~/.physis/quality_failures.json`. 6 tests |
+| Wiki | `wiki.rs` | `llmwiki` CLI fallback with recursive grep fallback |
+| Industrial | `industrial.rs` | `MachineAdapter` trait, `MachineReading`, `ProcessAnomaly`, `detect_anomalies`, stub `MqttAdapter`. 4 tests |
+| Ingest | `ingest.rs` | `DocKind`, `IngestedDoc`, `classify_file()`, `ingest_all()`, `sort_by_kind()`. 4 tests |
+| Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 8 tests |
 
-When running, `physis_*` MCP tools are available. When stopped, tool calls will fail gracefully.
+## Ontology Extensions
 
-## Paradigm
-Physis operates in **pure vector space**. All data structures are vectors:
-- Goals: `{id, embedding: Vec<f32>, progress: f32}` — no name, no domain, no labels
-- Coherence nodes: `{id, embedding: Vec<f32>, coherence_score: f32}` — no rating, no axis, no domain
-- Experiences: `{id, goal_id, before: Vec<f32>, after: Vec<f32>, grade: f32}` — no action, no rationale
-- Dreams: `{id, source: Vec<f32>, embedding: Vec<f32>, grade: Option<f32>}` — no type, no description, no variation
+Three new ontology domains added on top of the 9 built-in ontologies (511 entries):
 
-Text is embedded server-side using RandomProjectionEmbedder (384-d, deterministic). Semantic quality can be upgraded via the `embed-onnx` feature (ONNX MiniLM).
+| Ontology | File | Type | New Domains |
+|----------|------|------|-------------|
+| Machine Process | `config/machine_ontology.json` | machine (kind) | 23 — Thermal Zone, Pressure Reg, Torque & Force, Speed, Flow, Level, Material Feed, Power Draw, Machine Mode, Startup Sequence, Changeover, Batch Tracking, Machine Health State, RUL, Safety Interlock, Environmental Condition, Alarm Categorization, Anomaly Detection, Production Throughput, OEE, Cycle Time, Yield & Scrap, SPC Quality |
+| AI Agent Workflow | `config/agent_ontology.json` | agent (kind) | 21 — System Prompt, User Input, Assistant Response, Context Window, Prompt Template, Working Memory, Episodic Memory, Semantic Memory, Tool Invocation, Tool Result, Output Publishing, Error Recovery, Quality Check, Confidence Threshold, Human Escalation, PDCA Cycle, Workflow Chain, Agent Loop, Agent State, Agent Versioning, Telemetry & Log |
+| Office | `config/office_ontology.json` | office (kind, fresh axis_kind) | 75 across 12 categories: Communication, Finance, Procurement, People, Projects, Customer, Reporting, IT, Facilities, Legal, Marketing, Travel, R&D |
 
-## Prompt Ingest
-When the user gives you a task, request, or instruction, call `physis_ingest_prompt` with the prompt text to register it as a vector Goal in the Physis engine. This enables PDCA tracking, dreaming, and coherence evaluation.
-
-## MCP Tools
-- `physis_ingest_prompt(prompt)` — register a user prompt as a vector Goal
-- `physis_health()` — check if the engine is running
-- `physis_stats()` — get trie/coherence/domain statistics (vector band counts, no qualia)
-- `physis_query(query, max_results)` — search the UberWiki trie
-- `physis_scan(dir)` — index a directory into the trie as vector Goals
-- `physis_dream_generate(count, force)` — generate vector-space dreams (interpolate/extrapolate/mutate)
-- `physis_dream_evaluate(dream_id, grade)` — accept/reject a dream
-- `physis_coherence_snapshot()` — get geometric coherence snapshot (bands: high/mid/low)
-- `physis_coherence_register(input)` — register a coherence node (embedding server-side)
-- `physis_context_filter(input)` — filter text through geometric context filter
-- `physis_compress_logs(logs)` — compress logs into causal rules
-- `physis_pdca_plan()` — get the PDCA plan (goals sorted by progress)
-- `physis_pdca_act(goal_id, state_vector)` — execute a PDCA action (state transition vector)
-- `physis_pdca_stats()` — get PDCA statistics (actions, progress, stagnant count)
-- `physis_reconstruct(input)` — find nearest neighbor vectors for a query
+## Config (`PhysisProConfig`)
+- `PhysisProConfig` extends the base config with ontology loader fields
+- Office ontology loaded as a new file with `kind: "office"` and `axis_kind: "office"`
+- `wenyan_enabled=false`, `sanskrit_enabled=false` by default (business mode)
+- Token trie built by `scan` is per-invocation only (not persisted)
+- Quality feedback persists to `~/.physis/quality_failures.json`

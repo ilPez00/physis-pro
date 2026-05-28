@@ -23,6 +23,7 @@ pub const NATURAL_ONTOLOGY_NAME: &str = "natural_ontology";
 pub const SOCIAL_ONTOLOGY_NAME: &str = "social_ontology";
 pub const ABSTRACT_ONTOLOGY_NAME: &str = "abstract_ontology";
 pub const ENGINEERING_ONTOLOGY_NAME: &str = "engineering_ontology";
+pub const OFFICE_ONTOLOGY_NAME: &str = "office_ontology";
 
 #[cfg(test)]
 mod tests {

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::*;
 use crate::ontology::*;
 use crate::ontology_nonhuman::MACHINE_ONTOLOGY_NAME;
+use crate::ontology::OFFICE_ONTOLOGY_NAME;
 
 static BUILTIN_HUMAN_JSON: &str = include_str!("../config/praxis_ontology.json");
 static BUILTIN_MACHINE_JSON: &str = include_str!("../config/machine_ontology.json");
@@ -19,6 +20,7 @@ static BUILTIN_NATURAL_JSON: &str = include_str!("../config/natural_ontology.jso
 static BUILTIN_SOCIAL_JSON: &str = include_str!("../config/social_ontology.json");
 static BUILTIN_ABSTRACT_JSON: &str = include_str!("../config/abstract_ontology.json");
 static BUILTIN_ENGINEERING_JSON: &str = include_str!("../config/engineering_ontology.json");
+static BUILTIN_OFFICE_JSON: &str = include_str!("../config/office_ontology.json");
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
 
 /// Controls which linguistic lenses (Wenyan, Piraha, Sanskrit) are active at runtime.
@@ -38,6 +40,45 @@ impl Default for LinguisticConfig {
             wenyan_enabled: true,
             piraha_enabled: true,
             sanskrit_enabled: true,
+        }
+    }
+}
+
+/// Business backoffice configuration — wraps PhysisConfig with business-specific settings
+/// and defaults with Sanskrit dreaming + Wenyan compression disabled.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhysisProConfig {
+    /// Base Physis engine configuration (linguistic defaults overridden below).
+    pub physis: PhysisConfig,
+    /// Directories to watch for document ingestion (invoices, emails, spreadsheets).
+    pub ingest_dirs: Vec<PathBuf>,
+    /// llmwiki directory path for semantic search fallback.
+    pub wiki_path: Option<PathBuf>,
+    /// Industrial machine endpoints (MQTT broker URLs, Modbus TCP addresses).
+    pub industrial_endpoints: Vec<String>,
+    /// Path to sled inventory database (default: ~/.physis/inventory).
+    pub inventory_db: PathBuf,
+    /// Inventory ordering: "manual" (human-in-loop) or "auto".
+    pub order_mode: String,
+    /// Cooldown hours between duplicate order suggestions.
+    pub order_cooldown_hours: u64,
+}
+
+impl Default for PhysisProConfig {
+    fn default() -> Self {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let mut physis = PhysisConfig::default();
+        // Disable Sanskrit dreaming and Wenyan compression by default for business use
+        physis.linguistic.wenyan_enabled = false;
+        physis.linguistic.sanskrit_enabled = false;
+        Self {
+            physis,
+            ingest_dirs: vec![PathBuf::from(&home).join("inbox")],
+            wiki_path: Some(PathBuf::from(&home).join(".physis").join("wiki")),
+            industrial_endpoints: vec![],
+            inventory_db: PathBuf::from(&home).join(".physis").join("inventory"),
+            order_mode: "manual".to_string(),
+            order_cooldown_hours: 24,
         }
     }
 }
@@ -210,6 +251,12 @@ impl Default for PhysisConfig {
                     kind: "engineering".to_string(),
                     enabled: true,
                 },
+                OntologySource {
+                    name: OFFICE_ONTOLOGY_NAME.to_string(),
+                    path: None,
+                    kind: "office".to_string(),
+                    enabled: true,
+                },
             ],
             network_scan_interval_secs: 60,
             dream_batch_size: 5,
@@ -248,6 +295,8 @@ pub struct OntologyLoader {
     pub abstract_domains: HashMap<String, DomainDef>,
     /// Engineering domain definitions.
     pub engineering_domains: HashMap<String, DomainDef>,
+    /// Office/business domain definitions.
+    pub office_domains: HashMap<String, DomainDef>,
     /// Custom domain definitions loaded from file paths.
     pub custom_domains: HashMap<String, DomainDef>,
 }
@@ -265,6 +314,7 @@ impl OntologyLoader {
             social_domains: HashMap::new(),
             abstract_domains: HashMap::new(),
             engineering_domains: HashMap::new(),
+            office_domains: HashMap::new(),
             custom_domains: HashMap::new(),
         }
     }
@@ -329,6 +379,13 @@ impl OntologyLoader {
     pub fn load_builtin_engineering() -> HashMap<String, DomainDef> {
         let entries: OntologyConfig = serde_json::from_str(BUILTIN_ENGINEERING_JSON)
             .expect("Built-in engineering ontology is valid JSON");
+        Self::entries_to_map(&entries.domains)
+    }
+
+    /// Load the built-in office ontology.
+    pub fn load_builtin_office() -> HashMap<String, DomainDef> {
+        let entries: OntologyConfig = serde_json::from_str(BUILTIN_OFFICE_JSON)
+            .expect("Built-in office ontology is valid JSON");
         Self::entries_to_map(&entries.domains)
     }
 
@@ -402,6 +459,8 @@ impl OntologyLoader {
                 Self::load_builtin_abstract()
             } else if source.name == ENGINEERING_ONTOLOGY_NAME {
                 Self::load_builtin_engineering()
+            } else if source.name == OFFICE_ONTOLOGY_NAME {
+                Self::load_builtin_office()
             } else {
                 HashMap::new()
             };
@@ -417,6 +476,7 @@ impl OntologyLoader {
                     "social" => { loader.social_domains.insert(name, def); }
                     "abstract" => { loader.abstract_domains.insert(name, def); }
                     "engineering" => { loader.engineering_domains.insert(name, def); }
+                    "office" => { loader.office_domains.insert(name, def); }
                     _ => { loader.custom_domains.insert(name, def); }
                 }
             }
@@ -478,5 +538,53 @@ mod tests {
     fn test_load_from_str_invalid() {
         let result = OntologyLoader::load_from_str("not valid json");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_builtin_office_ontology_count() {
+        let map = OntologyLoader::load_builtin_office();
+        assert!(map.len() >= 60, "expected at least 60 office domains, got {}", map.len());
+    }
+
+    #[test]
+    fn test_all_ontologies_loaded() {
+        let config = PhysisConfig::default();
+        let loader = OntologyLoader::load_all(&config);
+        assert!(!loader.office_domains.is_empty(), "office domains should be loaded");
+        assert!(!loader.machine_domains.is_empty(), "machine domains should be loaded");
+        assert!(!loader.agent_domains.is_empty(), "agent domains should be loaded");
+        assert!(!loader.human_domains.is_empty(), "human domains should be loaded");
+        assert!(!loader.engineering_domains.is_empty(), "engineering domains should be loaded");
+    }
+
+    #[test]
+    fn test_office_domains_have_valid_grid_cells() {
+        let map = OntologyLoader::load_builtin_office();
+        let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
+        let valid_modes = ["WORK", "WALK", "LEARN", "CREATE", "REST", "LIFT"];
+        for (name, def) in &map {
+            let d = def.domain.as_deref().unwrap_or("");
+            let m = def.mode.as_deref().unwrap_or("");
+            assert!(valid_domains.contains(&d), "office domain '{}' has invalid domain '{}'", name, d);
+            assert!(valid_modes.contains(&m), "office domain '{}' has invalid mode '{}'", name, m);
+        }
+    }
+
+    #[test]
+    fn test_machine_ontology_has_new_process_domains() {
+        let map = OntologyLoader::load_builtin_machine();
+        assert!(map.len() >= 100, "expected at least 100 machine domains after extension, got {}", map.len());
+        assert!(map.contains_key("Thermal Zone Monitoring"), "should contain new ProcessMonitoring domains");
+        assert!(map.contains_key("Anomaly Detection"), "should contain new MachineHealth domains");
+        assert!(map.contains_key("OEE Metrics"), "should contain new ProductionMetrics domains");
+    }
+
+    #[test]
+    fn test_agent_ontology_has_new_workflow_domains() {
+        let map = OntologyLoader::load_builtin_agent();
+        assert!(map.len() >= 60, "expected at least 60 agent domains after extension, got {}", map.len());
+        assert!(map.contains_key("System Prompt"), "should contain new PromptPipeline domains");
+        assert!(map.contains_key("Working Memory"), "should contain new AgentMemory domains");
+        assert!(map.contains_key("PDCA Cycle"), "should contain new QualityAssurance domains");
     }
 }

@@ -912,6 +912,395 @@
         "stream-based selective sampling",
         "synthetic query generation via adversarial examples"
       ]
+    },
+    {
+      "name": "System Prompt",
+      "category": "PromptPipeline",
+      "domain": "STUDY",
+      "mode": "CREATE",
+      "axis_kind": "agent",
+      "axis_name": "prompt_pipeline",
+      "unit": "tokens",
+      "hints": [
+        "system prompt",
+        "instructions",
+        "role",
+        "persona",
+        "directives",
+        "constraints",
+        "preamble",
+        "context setting"
+      ]
+    },
+    {
+      "name": "User Input",
+      "category": "PromptPipeline",
+      "domain": "FABRICATE",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "prompt_pipeline",
+      "unit": "message",
+      "hints": [
+        "user input",
+        "query",
+        "question",
+        "command",
+        "instruction",
+        "request",
+        "utterance",
+        "message"
+      ]
+    },
+    {
+      "name": "Assistant Response",
+      "category": "PromptPipeline",
+      "domain": "CONSTRUCT",
+      "mode": "CREATE",
+      "axis_kind": "agent",
+      "axis_name": "prompt_pipeline",
+      "unit": "response",
+      "hints": [
+        "assistant",
+        "completion",
+        "answer",
+        "generated output",
+        "reply",
+        "content",
+        "response"
+      ]
+    },
+    {
+      "name": "Context Window",
+      "category": "PromptPipeline",
+      "domain": "STUDY",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "memory_manager",
+      "unit": "tokens",
+      "hints": [
+        "context window",
+        "sliding window",
+        "truncation",
+        "summarization",
+        "history",
+        "buffer",
+        "token limit"
+      ]
+    },
+    {
+      "name": "Prompt Template",
+      "category": "PromptPipeline",
+      "domain": "STUDY",
+      "mode": "CREATE",
+      "axis_kind": "agent",
+      "axis_name": "prompt_pipeline",
+      "unit": "templates",
+      "hints": [
+        "template",
+        "variable",
+        "placeholder",
+        "format",
+        "few-shot",
+        "example",
+        "pattern",
+        "prompt template"
+      ]
+    },
+    {
+      "name": "Working Memory",
+      "category": "AgentMemory",
+      "domain": "HEAL",
+      "mode": "REST",
+      "axis_kind": "agent",
+      "axis_name": "memory_manager",
+      "unit": "items",
+      "hints": [
+        "working memory",
+        "scratchpad",
+        "active",
+        "short-term",
+        "buffer",
+        "current",
+        "immediate"
+      ]
+    },
+    {
+      "name": "Episodic Memory",
+      "category": "AgentMemory",
+      "domain": "HEAL",
+      "mode": "REST",
+      "axis_kind": "agent",
+      "axis_name": "memory_manager",
+      "unit": "episodes",
+      "hints": [
+        "episodic",
+        "experience",
+        "recall",
+        "past",
+        "event",
+        "history",
+        "episode",
+        "memory"
+      ]
+    },
+    {
+      "name": "Semantic Memory",
+      "category": "AgentMemory",
+      "domain": "HEAL",
+      "mode": "REST",
+      "axis_kind": "agent",
+      "axis_name": "memory_manager",
+      "unit": "facts",
+      "hints": [
+        "semantic",
+        "knowledge",
+        "fact",
+        "concept",
+        "long-term",
+        "persistent",
+        "stored",
+        "memory"
+      ]
+    },
+    {
+      "name": "Tool Invocation",
+      "category": "ToolExecution",
+      "domain": "FABRICATE",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "tool_executor",
+      "unit": "calls",
+      "hints": [
+        "tool call",
+        "function call",
+        "invoke",
+        "execute",
+        "run",
+        "call",
+        "command"
+      ]
+    },
+    {
+      "name": "Tool Result",
+      "category": "ToolExecution",
+      "domain": "CONSTRUCT",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "tool_executor",
+      "unit": "results",
+      "hints": [
+        "tool output",
+        "return value",
+        "result",
+        "status code",
+        "response",
+        "data",
+        "error"
+      ]
+    },
+    {
+      "name": "Output Publishing",
+      "category": "ToolExecution",
+      "domain": "FABRICATE",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "output_handler",
+      "unit": "outputs",
+      "hints": [
+        "write",
+        "save",
+        "publish",
+        "stream",
+        "artifact",
+        "file",
+        "database",
+        "broadcast"
+      ]
+    },
+    {
+      "name": "Error Recovery",
+      "category": "QualityAssurance",
+      "domain": "HEAL",
+      "mode": "WALK",
+      "axis_kind": "agent",
+      "axis_name": "error_handler",
+      "unit": "retries",
+      "hints": [
+        "error",
+        "exception",
+        "retry",
+        "fallback",
+        "degrade",
+        "recover",
+        "handle",
+        "resilience"
+      ]
+    },
+    {
+      "name": "Quality Check",
+      "category": "QualityAssurance",
+      "domain": "HEAL",
+      "mode": "LEARN",
+      "axis_kind": "agent",
+      "axis_name": "quality_monitor",
+      "unit": "events",
+      "hints": [
+        "quality",
+        "feedback",
+        "correct",
+        "wrong",
+        "fix",
+        "adjust",
+        "refine",
+        "review"
+      ]
+    },
+    {
+      "name": "Confidence Threshold",
+      "category": "QualityAssurance",
+      "domain": "STUDY",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "confidence_estimator",
+      "unit": "score",
+      "hints": [
+        "confidence",
+        "threshold",
+        "low confidence",
+        "uncertainty",
+        "abstain",
+        "gate",
+        "certainty"
+      ]
+    },
+    {
+      "name": "Human Escalation",
+      "category": "QualityAssurance",
+      "domain": "BOND",
+      "mode": "WALK",
+      "axis_kind": "agent",
+      "axis_name": "escalation_manager",
+      "unit": "handoffs",
+      "hints": [
+        "escalate",
+        "handoff",
+        "human review",
+        "supervisor",
+        "approve",
+        "override",
+        "human in loop"
+      ]
+    },
+    {
+      "name": "PDCA Cycle",
+      "category": "QualityAssurance",
+      "domain": "CONSTRUCT",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "quality_monitor",
+      "unit": "cycles",
+      "hints": [
+        "pdca",
+        "plan",
+        "do",
+        "check",
+        "act",
+        "continuous improvement",
+        "iterate",
+        "deming"
+      ]
+    },
+    {
+      "name": "Workflow Chain",
+      "category": "AgentLifecycle",
+      "domain": "CONSTRUCT",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "workflow_engine",
+      "unit": "steps",
+      "hints": [
+        "workflow",
+        "pipeline",
+        "chain",
+        "sequence",
+        "stage",
+        "phase",
+        "task",
+        "step"
+      ]
+    },
+    {
+      "name": "Agent Loop",
+      "category": "AgentLifecycle",
+      "domain": "FABRICATE",
+      "mode": "WALK",
+      "axis_kind": "agent",
+      "axis_name": "workflow_engine",
+      "unit": "iterations",
+      "hints": [
+        "loop",
+        "retry",
+        "recursion",
+        "backoff",
+        "max attempts",
+        "repeat",
+        "iteration"
+      ]
+    },
+    {
+      "name": "Agent State",
+      "category": "AgentLifecycle",
+      "domain": "HEAL",
+      "mode": "REST",
+      "axis_kind": "agent",
+      "axis_name": "state_manager",
+      "unit": "state",
+      "hints": [
+        "idle",
+        "running",
+        "paused",
+        "stopped",
+        "ready",
+        "sleeping",
+        "initializing"
+      ]
+    },
+    {
+      "name": "Agent Versioning",
+      "category": "AgentLifecycle",
+      "domain": "BOND",
+      "mode": "WORK",
+      "axis_kind": "agent",
+      "axis_name": "config_manager",
+      "unit": "versions",
+      "hints": [
+        "version",
+        "deploy",
+        "rollback",
+        "release",
+        "tag",
+        "staging",
+        "production"
+      ]
+    },
+    {
+      "name": "Telemetry & Log",
+      "category": "AgentLifecycle",
+      "domain": "STUDY",
+      "mode": "WALK",
+      "axis_kind": "agent",
+      "axis_name": "monitor",
+      "unit": "events",
+      "hints": [
+        "log",
+        "trace",
+        "audit",
+        "observability",
+        "event",
+        "metric",
+        "monitor",
+        "telemetry"
+      ]
     }
   ]
 }

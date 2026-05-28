@@ -60,7 +60,14 @@ impl PDCActor {
 
     /// Do — record a state transition for a goal, returning the new Experience.
     pub fn do_action(&mut self, goal_id: &str, before: Vec<f32>, after: Vec<f32>) -> Experience {
-        let exp = Experience::new(goal_id, before, after);
+        let exp = Experience::new(
+            goal_id,
+            before,
+            after,
+            "action".to_string(),
+            "rationale".to_string(),
+            std::collections::HashMap::new(),
+        );
         self.experiences.push(exp.clone());
         exp
     }

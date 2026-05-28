@@ -59,7 +59,7 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        Dream::new(g1.embedding.clone(), embedding)
+        Dream::new(g1.embedding.clone(), embedding, "dream".to_string(), "description".to_string())
     }
 
     /// Extrapolate from a goal vector away from the centroid.
@@ -79,8 +79,9 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        Dream::new(g.embedding.clone(), embedding)
+        Dream::new(g.embedding.clone(), embedding, "mutate".to_string(), "mutated dream".to_string())
     }
+
 
     /// Mutate a goal vector with gaussian noise.
     fn mutate(&mut self, goals: &[Goal]) -> Dream {
@@ -92,10 +93,8 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        Dream::new(g.embedding.clone(), embedding)
+        Dream::new(g.embedding.clone(), embedding, "mutate".to_string(), "mutated dream".to_string())
     }
-
-    /// Grade a dream by ID. Returns false if no dream with that ID exists.
     pub fn evaluate_dream(&mut self, dream_id: &str, grade: f32) -> bool {
         if let Some(dream) = self.dreams.iter_mut().find(|d| d.id == dream_id) {
             dream.grade = Some(grade);
@@ -132,7 +131,7 @@ mod tests {
             let v: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>() * 2.0 - 1.0).collect();
             let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
             let embedding: Vec<f32> = v.iter().map(|x| x / norm).collect();
-            Goal::new_vec(embedding)
+            Goal::new(embedding, "test".to_string())
         }).collect()
     }
 

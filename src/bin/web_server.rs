@@ -12,26 +12,26 @@ use serde::{Deserialize, Serialize};
 
 use base64::Engine;
 
-use physis::actor::PDCActor;
-use physis::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
-use physis::core::PhysisCore;
-use physis::dream::DreamEngine;
-use physis::embed::VectorEmbed;
+use physis_pro::actor::PDCActor;
+use physis_pro::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
+use physis_pro::core::PhysisCore;
+use physis_pro::dream::DreamEngine;
+use physis_pro::embed::VectorEmbed;
 #[cfg(feature = "embed-onnx")]
-use physis::embed::clip::ClipEmbedder;
+use physis_pro::embed::clip::ClipEmbedder;
 #[cfg(feature = "embed-onnx")]
-use physis::embed::jina::JinaEmbedder;
+use physis_pro::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
-use physis::embed::onnx::OnnxEmbedder;
-use physis::embed::RandomProjectionEmbedder;
-use physis::linguistic::{LinguisticLense, LinguisticRouter};
-use physis::mapper::OntologyMapper;
-use physis::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
-use physis::CoherenceSnapshot;
+use physis_pro::embed::onnx::OnnxEmbedder;
+use physis_pro::embed::RandomProjectionEmbedder;
+use physis_pro::linguistic::{LinguisticLense, LinguisticRouter};
+use physis_pro::mapper::OntologyMapper;
+use physis_pro::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
+use physis_pro::CoherenceSnapshot;
 
-use physis::graph::{IngestRing};
-use physis::ai::onnx_worker::OnnxHolon;
-use physis::rachmaninov::RachmaninovHolon;
+use physis_pro::graph::{IngestRing};
+use physis_pro::ai::onnx_worker::OnnxHolon;
+use physis_pro::rachmaninov::RachmaninovHolon;
 
 struct AppState {
     config: PhysisConfig,
@@ -393,7 +393,7 @@ async fn pdca_act_handler(
 
 async fn pdca_stats_handler(
     State(state): State<SharedState>,
-) -> Json<physis::actor::PDCAStats> {
+) -> Json<physis_pro::actor::PDCAStats> {
     let s = state.lock().unwrap();
     Json(s.actor.stats(&s.goals))
 }
@@ -401,9 +401,9 @@ async fn pdca_stats_handler(
 async fn reconstruct_handler(
     State(state): State<SharedState>,
     Json(req): Json<ContextFilterRequest>,
-) -> Json<physis::Reconstruction> {
+) -> Json<physis_pro::Reconstruction> {
     let s = state.lock().unwrap();
-    let rec = physis::reconstruct(&req.input, &s.embedder, &s.core, 5);
+    let rec = physis_pro::reconstruct(&req.input, &s.embedder, &s.core, 5);
     Json(rec)
 }
 
@@ -437,16 +437,16 @@ async fn holarchy_snapshot_handler(
 
 async fn holarchy_trajectory_handler(
     State(state): State<SharedState>,
-) -> Json<physis::gantt::Trajectory> {
+) -> Json<physis_pro::gantt::Trajectory> {
     let s = state.lock().unwrap();
-    let trajectory = physis::gantt::GanttHolon::compute_trajectory(&s.core.holarchy);
+    let trajectory = physis_pro::gantt::GanttHolon::compute_trajectory(&s.core.holarchy);
     Json(trajectory)
 }
 
 #[derive(Serialize)]
 struct GraphResponse {
-    nodes: Vec<(physis::graph::RawNodeKey, physis::graph::NodePayload)>,
-    edges: Vec<physis::graph::Edge>,
+    nodes: Vec<(physis_pro::graph::RawNodeKey, physis_pro::graph::NodePayload)>,
+    edges: Vec<physis_pro::graph::Edge>,
 }
 
 async fn holarchy_graph_handler(
@@ -454,7 +454,7 @@ async fn holarchy_graph_handler(
 ) -> Json<GraphResponse> {
     let s = state.lock().unwrap();
     let nodes = s.core.holarchy.nodes.iter()
-        .map(|(k, p)| (physis::graph::RawNodeKey::from(k), *p))
+        .map(|(k, p)| (physis_pro::graph::RawNodeKey::from(k), *p))
         .collect();
     let edges = s.core.holarchy.edges.clone();
     Json(GraphResponse { nodes, edges })
@@ -559,7 +559,7 @@ struct SemioticTriangleResponse {
 }
 
 async fn semiotic_triangle_handler() -> Json<SemioticTriangleResponse> {
-    let mermaid = physis::output::format_semiotic_triangle(
+    let mermaid = physis_pro::output::format_semiotic_triangle(
         "Peircean",
         "Sign\n(Quality/Feeling)",
         "Object\n(Fact/Reality)",
@@ -574,7 +574,7 @@ struct GreimasSquareResponse {
 }
 
 async fn greimas_square_handler() -> Json<GreimasSquareResponse> {
-    let mermaid = physis::output::format_greimas_square(
+    let mermaid = physis_pro::output::format_greimas_square(
         "Physis", "HEAL", "FABRICATE", "CONSTRUCT", "STUDY",
     );
     Json(GreimasSquareResponse { mermaid })
@@ -609,7 +609,7 @@ async fn category_diagram_handler(
 ) -> Json<CategoryDiagramResponse> {
     let objects: Vec<(&str, &str)> = req.objects.iter().map(|o| (o.id.as_str(), o.label.as_str())).collect();
     let morphisms: Vec<(&str, &str, &str)> = req.morphisms.iter().map(|m| (m.from.as_str(), m.to.as_str(), m.label.as_str())).collect();
-    let mermaid = physis::output::format_category_diagram(&objects, &morphisms);
+    let mermaid = physis_pro::output::format_category_diagram(&objects, &morphisms);
     Json(CategoryDiagramResponse { mermaid })
 }
 
@@ -630,7 +630,7 @@ async fn heatmap_handler(
             grid.classify(&def.name, d, m);
         }
     }
-    let table = physis::output::format_heatmap_table(&grid);
+    let table = physis_pro::output::format_heatmap_table(&grid);
     let matrix = grid.heatmap_matrix();
     Json(HeatmapResponse { table, matrix })
 }
@@ -686,7 +686,7 @@ async fn classify_handler(
 
     let mut results: Vec<ClassifyResult> = Vec::new();
     for (key, centroid) in &s.cell_centroids {
-        let score = physis::models::cosine_sim(&embedding, centroid);
+        let score = physis_pro::models::cosine_sim(&embedding, centroid);
         let parts: Vec<&str> = key.splitn(2, '\x00').collect();
         let (domain, mode) = if parts.len() == 2 {
             (parts[0].to_string(), parts[1].to_string())
@@ -853,7 +853,7 @@ async fn main() {
     // 3. Sensory Server
     tokio::spawn(async move {
         let socket_path = "/tmp/physis_sensory.sock";
-        if let Err(e) = physis::sensory::listener::start_sensory_server(socket_path, ingest_sensory).await {
+        if let Err(e) = physis_pro::sensory::listener::start_sensory_server(socket_path, ingest_sensory).await {
             log::error!("Sensory server error: {}", e);
         }
     });

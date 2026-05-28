@@ -11,7 +11,7 @@ use crate::config::OnnxConfig;
 pub struct ClipEmbedder {
     dim: usize,
     text_session: Mutex<Option<ort::session::Session>>,
-    vision_session: Mutex<Option<ort::session::Session>>,
+    pub vision_session: Mutex<Option<ort::session::Session>>,
     tokenizer: Option<tokenizers::Tokenizer>,
     model_dir: String,
     max_length: usize,

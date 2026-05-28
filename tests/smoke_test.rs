@@ -1,10 +1,10 @@
-use physis::config::{OntologyLoader, PhysisConfig};
-use physis::mapper::OntologyMapper;
-use physis::actor::PDCActor;
-use physis::dream::DreamEngine;
-use physis::scanner;
-use physis::embed::RandomProjectionEmbedder;
-use physis::embed::VectorEmbed;
+use physis_pro::config::{OntologyLoader, PhysisConfig};
+use physis_pro::mapper::OntologyMapper;
+use physis_pro::actor::PDCActor;
+use physis_pro::dream::DreamEngine;
+use physis_pro::scanner;
+use physis_pro::embed::RandomProjectionEmbedder;
+use physis_pro::embed::VectorEmbed;
 
 #[test]
 fn test_mediation_pipeline() {
