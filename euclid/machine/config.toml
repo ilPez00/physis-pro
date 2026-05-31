@@ -1,0 +1,29 @@
+[perception]
+camera_index       = 0
+frame_width        = 640
+frame_height       = 480
+gaussian_blur      = 5
+canny_low          = 50
+canny_high         = 150
+min_contour_area   = 500
+saliency_threshold = 0.3
+
+[recognition]
+approx_epsilon     = 0.03
+circularity_limit  = 0.75
+min_vertices       = 2
+max_vertices       = 12
+
+[composition]
+proximity_threshold = 0.15
+shared_edge_tolerance = 0.05
+
+[elaboration]
+max_generation     = 6
+contemplate_secs   = 30
+
+[memory]
+memory_dir         = "euclid/machine/memory/"
+output_dir         = "euclid/machine/output/"
+observations_dir   = "euclid/machine/observations/"
+log_file           = "euclid/machine/memory/log.jsonl"

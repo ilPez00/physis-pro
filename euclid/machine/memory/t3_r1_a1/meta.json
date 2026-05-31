@@ -1,0 +1,14 @@
+{
+  "hash": "t3_r1_a1",
+  "label": "triangle",
+  "generation": 0,
+  "count": 1,
+  "last_seen": "2026-05-31T12:00:00",
+  "svgs": [
+    "gen_0.svg"
+  ],
+  "observations": [
+    "obs1.jpg"
+  ],
+  "status": "new"
+}
