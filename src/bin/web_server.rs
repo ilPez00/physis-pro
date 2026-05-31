@@ -31,10 +31,12 @@ use physis_pro::CoherenceSnapshot;
 
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
+use physis_pro::ai::provider::{ProviderCascade, Message, Content};
 use physis_pro::rachmaninov::RachmaninovHolon;
 
 struct AppState {
     config: PhysisConfig,
+    cascade: Arc<ProviderCascade>,
     core: PhysisCore,
     mapper: OntologyMapper,
     actor: PDCActor,
@@ -169,6 +171,59 @@ fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<ErrorRespons
 
 async fn health() -> Json<&'static str> {
     Json("ok")
+}
+
+// ── /api/v1/chat ─────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct ChatApiRequest {
+    messages: Vec<Message>,
+    #[serde(default)]
+    task_type: Option<String>,
+    #[serde(default)]
+    max_tokens: Option<u32>,
+    #[serde(default)]
+    has_image: bool,
+}
+
+#[derive(Serialize)]
+struct ChatApiResponse {
+    content: String,
+    provider: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<serde_json::Value>,
+}
+
+async fn chat_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<ChatApiRequest>,
+) -> Result<Json<ChatApiResponse>, StatusCode> {
+    let cascade = state.lock().unwrap().cascade.clone();
+    let hint = {
+        let task = req.task_type.as_deref().unwrap_or("smart");
+        physis_pro::ai::provider::RouteHint {
+            task_type: task.to_string(),
+            has_image: req.has_image,
+        }
+    };
+    match cascade.complete(&req.messages, None, &hint, req.max_tokens).await {
+        Ok((msg, provider)) => Ok(Json(ChatApiResponse {
+            content: msg.content.unwrap_or_default(),
+            provider,
+            tool_calls: msg.tool_calls.as_ref().map(|tc| serde_json::to_value(tc).unwrap_or_default()),
+        })),
+        Err(e) => {
+            log::warn!("[chat] all providers failed: {}", e);
+            Err(StatusCode::SERVICE_UNAVAILABLE)
+        }
+    }
+}
+
+// ── /api/v1/providers ────────────────────────────────────────────────────────
+
+async fn providers_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+    let cascade = state.lock().unwrap().cascade.clone();
+    Json(serde_json::json!({ "providers": cascade.providers_list() }))
 }
 
 async fn stats_handler(State(state): State<SharedState>) -> Json<StatsResponse> {
@@ -810,8 +865,12 @@ async fn main() {
         })
         .collect();
 
+    let cascade = Arc::new(ProviderCascade::from_env());
+    log::info!("AI cascade: {} providers loaded", cascade.provider_names().len());
+
     let state = Arc::new(Mutex::new(AppState {
         config,
+        cascade: cascade.clone(),
         core,
         mapper,
         actor,
@@ -860,6 +919,8 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/api/v1/chat", post(chat_handler))
+        .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))

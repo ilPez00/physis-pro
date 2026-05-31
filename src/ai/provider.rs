@@ -265,14 +265,15 @@ impl Provider {
             self.config.base_url.trim_end_matches('/')
         );
 
-        let resp = self
+        let mut request = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Content-Type", "application/json")
-            .body(body)
-            .send()
-            .await?;
+            .body(body);
+        if !self.config.api_key.is_empty() {
+            request = request.header("Authorization", format!("Bearer {}", self.config.api_key));
+        }
+        let resp = request.send().await?;
 
         let status = resp.status();
         if status == 429 {
@@ -404,93 +405,285 @@ impl ProviderCascade {
     pub fn from_env() -> Self {
         let mut cascade = Self::new();
 
-        let openrouter_key = std::env::var("AI_OPENROUTER_KEY").ok().filter(|k| !k.is_empty());
-        if let Some(key) = openrouter_key {
+        // ── helpers ───────────────────────────────────────────────────────────
+        let first_env = |keys: &[&str]| -> Option<String> {
+            for k in keys {
+                if let Ok(v) = std::env::var(k) {
+                    let v = v.trim().trim_matches(|c| c == '\'' || c == '"').to_string();
+                    // comma-separated key list → take first
+                    let v = v.split(',').next().unwrap_or("").trim().to_string();
+                    if !v.is_empty() { return Some(v); }
+                }
+            }
+            None
+        };
+        // EP_<NAME> env var overrides the default base URL
+        let ep = |name: &str, default: &str| -> String {
+            let key = format!("EP_{}", name.to_uppercase());
+            std::env::var(&key)
+                .ok()
+                .map(|s| s.trim().trim_end_matches('/').to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| default.to_string())
+        };
+
+        // ── Priority 0: local orchestrator ────────────────────────────────────
+        if let Some(url) = std::env::var("EP_ORCHESTRATOR").ok().filter(|s| !s.is_empty()) {
             cascade.add(ProviderConfig {
-                name: "openrouter".into(),
-                base_url: "https://openrouter.ai/api/v1".into(),
-                model: "deepseek/deepseek-chat".into(),
-                api_key: key,
-                supports_vision: true,
-                supports_tools: true,
-                max_tokens: 4096,
-                timeout_secs: 30.0,
+                name: "orchestrator".into(), base_url: url,
+                model: "langgraph-orchestrator".into(), api_key: String::new(),
+                supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 60.0,
             });
         }
 
-        let groq_key = std::env::var("AI_GROQ_KEY").ok().filter(|k| !k.is_empty());
-        if let Some(key) = groq_key {
+        // ── Priority 1: Vertex / Gemini ───────────────────────────────────────
+        if let Some(key) = first_env(&["VERTEX_API_KEY", "AI_VERTEX_KEY", "AI_GEMINI_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "gemini".into(),
+                base_url: ep("gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
+                model: "gemini-2.5-flash".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 8192, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 2: Groq ──────────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_GROQ_KEY", "GROQ_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "groq".into(),
-                base_url: "https://api.groq.com/openai/v1".into(),
-                model: "llama-3.3-70b-versatile".into(),
-                api_key: key,
-                supports_vision: false,
-                supports_tools: true,
-                max_tokens: 8192,
-                timeout_secs: 15.0,
+                base_url: ep("groq", "https://api.groq.com/openai/v1"),
+                model: "llama-3.3-70b-versatile".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 15.0,
             });
         }
 
-        let openai_key = std::env::var("AURA_OPENAI_KEY")
-            .or_else(|_| std::env::var("OPENAI_API_KEY"))
-            .ok()
-            .filter(|k| !k.is_empty());
-        if let Some(key) = openai_key {
+        // ── Priority 3: OpenAI ────────────────────────────────────────────────
+        if let Some(key) = first_env(&["AURA_OPENAI_KEY", "OPENAI_API_KEY"]) {
             let url = std::env::var("AURA_BASE_URL").unwrap_or_else(|_| "https://api.openai.com/v1".into());
             let model = std::env::var("AURA_MODEL").unwrap_or_else(|_| "gpt-4o-mini".into());
             cascade.add(ProviderConfig {
-                name: "openai".into(),
-                base_url: url,
-                model,
-                api_key: key,
-                supports_vision: true,
-                supports_tools: true,
-                max_tokens: 4096,
-                timeout_secs: 30.0,
+                name: "openai".into(), base_url: url, model, api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
             });
         }
 
-        let deepseek_key = std::env::var("AI_DEEPSEEK_KEY").ok().filter(|k| !k.is_empty());
-        if let Some(key) = deepseek_key {
+        // ── Priority 4: DeepSeek ──────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_DEEPSEEK_KEY", "DEEPSEEK_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "deepseek".into(),
-                base_url: "https://api.deepseek.com".into(),
-                model: "deepseek-chat".into(),
-                api_key: key,
-                supports_vision: false,
-                supports_tools: true,
-                max_tokens: 8192,
-                timeout_secs: 30.0,
+                base_url: ep("deepseek", "https://api.deepseek.com/v1"),
+                model: "deepseek-chat".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 30.0,
             });
         }
 
-        if let Some(keys) = std::env::var("AI_GEMINI_KEY").ok().filter(|k| !k.is_empty()) {
-            let first = keys.split(',').next().unwrap_or("").to_string();
+        // ── Priority 5: OpenRouter ────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_OPENROUTER_KEY", "OPENROUTER_KEY"]) {
             cascade.add(ProviderConfig {
-                name: "gemini".into(),
-                base_url: "https://generativelanguage.googleapis.com/v1beta/openai/".into(),
-                model: "gemini-2.0-flash".into(),
-                api_key: first,
-                supports_vision: true,
-                supports_tools: true,
-                max_tokens: 8192,
-                timeout_secs: 30.0,
+                name: "openrouter".into(),
+                base_url: ep("hermes", "https://openrouter.ai/api/v1"),
+                model: "deepseek/deepseek-chat".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
             });
         }
 
-        cascade.add(ProviderConfig {
-            name: "ollama".into(),
-            base_url: "http://localhost:11434/v1".into(),
-            model: "llama3.2".into(),
-            api_key: "ollama".into(),
-            supports_vision: false,
-            supports_tools: false,
-            max_tokens: 4096,
-            timeout_secs: 60.0,
-        });
+        // ── Priority 6: Mistral ───────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_MISTRAL_KEY", "MISTRAL"]) {
+            cascade.add(ProviderConfig {
+                name: "mistral".into(),
+                base_url: ep("mistral", "https://api.mistral.ai/v1"),
+                model: "mistral-large-latest".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 7: Cerebras ──────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_CEREBRAS_KEY", "CEREBRAS_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "cerebras".into(),
+                base_url: ep("cerebras", "https://api.cerebras.ai/v1"),
+                model: "llama3.1-70b".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 15.0,
+            });
+        }
+
+        // ── Priority 8: SambaNova ─────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_SAMBA_NOVA_KEY", "SAMBA_NOVA_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "sambanova".into(),
+                base_url: ep("samba_nova", "https://api.sambanova.ai/v1"),
+                model: "Meta-Llama-3.1-70B-Instruct".into(), api_key: key,
+                supports_vision: false, supports_tools: false, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 9: Together ──────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_TOGETHER_KEY", "TOGETHER_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "together".into(),
+                base_url: ep("together", "https://api.together.xyz/v1"),
+                model: "meta-llama/Llama-3.3-70B-Instruct-Turbo".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 10: xAI / Grok ───────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_XAI_KEY", "XAI_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "xai".into(),
+                base_url: ep("xai", "https://api.x.ai/v1"),
+                model: "grok-2".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 11: DeepInfra ────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_DEEPINFRA_KEY", "DEEPINFRA_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "deepinfra".into(),
+                base_url: ep("deepinfra", "https://api.deepinfra.com/v1"),
+                model: "meta-llama/Llama-3.3-70B-Instruct-Turbo".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 12: NVIDIA ───────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_NVIDIA_KEY", "NVIDIA_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "nvidia".into(),
+                base_url: ep("nvidia", "https://integrate.api.nvidia.com/v1"),
+                model: "nvidia/llama-3.1-nemotron-70b-instruct".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 13: Cohere ───────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_COHERE_KEY", "COHERE_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "cohere".into(),
+                base_url: ep("cohere", "https://api.cohere.com/v2"),
+                model: "command-r-plus".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 14: HuggingFace ──────────────────────────────────────────
+        if let Some(key) = first_env(&["SVC_HUGGINGFACE_TOKEN", "AI_HUGGINGFACE_KEY", "HUGGINGFACE_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "huggingface".into(),
+                base_url: ep("huggingface", "https://api-inference.huggingface.co/v1"),
+                model: "Qwen/Qwen2.5-72B-Instruct".into(), api_key: key,
+                supports_vision: false, supports_tools: false, max_tokens: 2048, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 15: GitHub Models ────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_GITHUB_TOKEN", "GITHUB_TOKEN"]) {
+            cascade.add(ProviderConfig {
+                name: "github".into(),
+                base_url: ep("github", "https://models.inference.ai.azure.com"),
+                model: "gpt-4o-mini".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 16: Kluster ──────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_KLUSTER_KEY", "KLUSTER_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "kluster".into(),
+                base_url: ep("kluster", "https://api.kluster.ai/v1"),
+                model: "llama-3.3-70b".into(), api_key: key,
+                supports_vision: false, supports_tools: false, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 17: Zhipu ───────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_ZHIPU_KEY", "ZHIPU_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "zhipu".into(),
+                base_url: ep("zhipu", "https://open.bigmodel.cn/api/paas/v4"),
+                model: "glm-4".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 18: BazaarLink ───────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_BAZAARLINK_KEY", "BAZAARLINK_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "bazaarlink".into(),
+                base_url: ep("bazaarlink", "https://api.bazaarlink.ai/v1"),
+                model: "gpt-4o".into(), api_key: key,
+                supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 19: AIML API ─────────────────────────────────────────────
+        if let Some(key) = first_env(&["AI_AIMLAPI_KEY", "AIMLAPI_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "aimlapi".into(),
+                base_url: ep("aimlapi", "https://api.aimlapi.com/v2"),
+                model: "gpt-4o-mini".into(), api_key: key,
+                supports_vision: false, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Priority 20: Replicate ────────────────────────────────────────────
+        if let Some(key) = first_env(&["SVC_REPLICATE_KEY", "AI_REPLICATE_KEY", "REPLICATE_KEY"]) {
+            cascade.add(ProviderConfig {
+                name: "replicate".into(),
+                base_url: ep("replicate", "https://api.replicate.com/v1"),
+                model: "meta/llama-2-70b-chat".into(), api_key: key,
+                supports_vision: false, supports_tools: false, max_tokens: 4096, timeout_secs: 30.0,
+            });
+        }
+
+        // ── Keyless proxies (always added, lowest priority) ───────────────────
+        let keyless: &[(&str, &str, &str)] = &[
+            ("llm7",         "https://llm7.io/v1",                                               "gpt-4o"),
+            ("pollinations",  ep("pollinations", "https://gen.pollinations.ai/v1").leak(),        "openai"),
+            ("airforce",      ep("airforce",     "https://api.airforce/v1").leak(),               "gpt-4o"),
+            ("g4f",          "https://g4f.space/v1",                                              "gpt-4o"),
+            ("g4f_groq",     "https://g4f.space/api/groq",                                        "llama-3.1-8b"),
+            ("g4f_gemini",   "https://g4f.space/api/gemini",                                      "gemini-2.5-flash"),
+            ("g4f_ollama",   "https://g4f.space/api/ollama",                                      "llama3.1"),
+            ("g4f_auto",     "https://g4f.space/api/auto",                                        "auto"),
+        ];
+        for (name, url, model) in keyless {
+            cascade.add(ProviderConfig {
+                name: (*name).into(), base_url: (*url).into(), model: (*model).into(),
+                api_key: String::new(),
+                supports_vision: false, supports_tools: false, max_tokens: 2048, timeout_secs: 20.0,
+            });
+        }
+
+        // ── Remote public Ollama nodes ────────────────────────────────────────
+        let ollama_nodes: &[(&str, &str)] = &[
+            ("ollama1", "http://108.181.196.208:11434/v1"),
+            ("ollama2", "http://5.149.249.212:11434/v1"),
+            ("ollama3", "http://89.111.170.212:11434/v1"),
+            ("ollama4", "http://185.211.5.32:11434/v1"),
+            ("ollama_local", "http://localhost:11434/v1"),
+        ];
+        for (name, url) in ollama_nodes {
+            cascade.add(ProviderConfig {
+                name: (*name).into(), base_url: (*url).into(), model: "llama3.1".into(),
+                api_key: String::new(),
+                supports_vision: false, supports_tools: false, max_tokens: 4096, timeout_secs: 60.0,
+            });
+        }
 
         cascade
+    }
+
+    /// List all registered providers with their current availability.
+    pub fn providers_list(&self) -> Vec<serde_json::Value> {
+        self.providers.iter().map(|p| serde_json::json!({
+            "name": p.name(),
+            "model": p.model(),
+            "available": p.is_available(),
+            "supports_vision": p.config.supports_vision,
+            "supports_tools": p.config.supports_tools,
+            "has_key": !p.config.api_key.is_empty(),
+        })).collect()
     }
 
     /// Classify a request to determine the best routing strategy.
