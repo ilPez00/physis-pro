@@ -52,8 +52,9 @@ calamine = { version = "0.24", optional = true }
 csv = { version = "1.3", optional = true }
 quick-xml = { version = "0.36", optional = true }
 
+# Enable ONNX feature by default
 [features]
-default = ["cli", "voice", "web", "tui"]
+default = ["cli", "voice", "web", "tui", "embed-onnx"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
 network = ["dep:notify"]

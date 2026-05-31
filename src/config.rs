@@ -141,7 +141,7 @@ impl Default for OnnxConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            model_dir: None,
+            model_dir: Some("./models".to_string()),
             dim: 384,
             max_length: 128,
         }
@@ -172,7 +172,7 @@ pub struct PhysisConfig {
     pub linguistic: LinguisticConfig,
     /// ONNX embedder tuning parameters.
     pub onnx: OnnxConfig,
-    /// Embedding vector dimension for all embedders (RP and ONNX).
+    /// Embedding vector dimension (should match model).
     pub embed_dim: usize,
     /// Multi-embedder configuration (optional, overrides onnx fallback).
     pub embedders: EmbeddersConfig,

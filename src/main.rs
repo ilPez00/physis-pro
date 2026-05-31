@@ -116,6 +116,11 @@ pub enum Commands {
     },
     /// Regenerate the theme graph from ingested files
     RebuildGraph,
+    /// Discover new ontology domains from a directory
+    Discover {
+        /// Directory to discover
+        dir: PathBuf,
+    },
     /// Export the file-theme graph as uberwiki markdown pages
     WikiExport,
 }
@@ -420,6 +425,12 @@ fn main() -> anyhow::Result<()> {
             graph.save(&graph_path)?;
             println!("Theme graph rebuilt and saved to {}", graph_path.display());
             println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
+        }
+        Commands::Discover { dir } => {
+            println!("Discovering ontology domains in {}...", dir.display());
+            // This will be implemented as a recursive scan, then using 
+            // the AI Agent to synthesize proposed domains.
+            println!("Discovery logic placeholder: Use 'deep-scan' for LLM-based analysis or implement clustering here.");
         }
         Commands::WikiExport => {
             let graph_path = config.physis.data_dir.join("theme_graph.json");
