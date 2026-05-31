@@ -890,7 +890,8 @@ async fn main() {
         .with_state(state);
 
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
-    let addr = format!("127.0.0.1:{}", port);
+    let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let addr = format!("{}:{}", host, port);
     println!("Physis Web API listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
