@@ -1,0 +1,9 @@
+[build]
+dockerfile = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+startCommand = "./physis-pro-web"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
