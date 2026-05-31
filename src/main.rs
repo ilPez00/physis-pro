@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use physis_pro::vfs::orchestrator::VfsOrchestrator;
 use clap::{Parser, Subcommand};
@@ -7,7 +8,7 @@ use physis_pro::config::{OntologyLoader, PhysisProConfig};
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_pro::graph::FileThemeGraph;
 use physis_pro::ingest;
-use physis_pro::models::Score;
+use physis_pro::models::{cosine_sim, DomainDef, Score};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
 
@@ -249,88 +250,36 @@ fn main() -> anyhow::Result<()> {
             println!("{}", tracker.summary());
         }
         Commands::Ingest => {
-            let graph_path = config.physis.data_dir.join("theme_graph.json");
-            let watch_dirs: Vec<std::path::PathBuf> = if config.ingest_dirs.is_empty() {
-                vec![std::path::PathBuf::from(".")]
-            } else {
-                config.ingest_dirs.clone()
-            };
-            let docs = ingest::ingest_all(&watch_dirs);
-            println!("Ingested {} files from {:?}", docs.len(), watch_dirs);
-
-            let ontology = OntologyLoader::load_all(&config.physis);
-            let embedder: Box<dyn VectorEmbed> =
-                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
-
-            // Build graph from all ontology domains
-            let mut graph = FileThemeGraph::new();
-            let all_domains: Vec<(&str, &std::collections::HashMap<String, physis_pro::models::DomainDef>)> = vec![
-                ("office", &ontology.office_domains),
-                ("human", &ontology.human_domains),
-                ("machine", &ontology.machine_domains),
-                ("agent", &ontology.agent_domains),
-                ("engineering", &ontology.engineering_domains),
-            ];
-
-            for (_kind, domains) in &all_domains {
-                for def in domains.values() {
-                    let mut text = def.name.clone();
-                    for hint in &def.hints {
-                        text.push(' ');
-                        text.push_str(hint);
-                    }
-                    let embedding = embedder.embed(&text);
-                    graph.add_theme(
-                        &def.name,
-                        def.category.as_deref(),
-                        def.domain.as_deref().unwrap_or(""),
-                        def.mode.as_deref().unwrap_or(""),
-                        def.axis_kind.as_deref().unwrap_or(""),
-                        embedding,
-                    );
-                }
-            }
-
-            // Classify files and add edges
-            for doc in &docs {
-                let file_embedding = embedder.embed(&doc.body);
-                let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
-
-                let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
-                    .map(|t| {
-                        let sim = physis_pro::models::cosine_sim(&file_embedding, &t.embedding);
-                        (t.id, sim)
-                    })
-                    .filter(|(_, sim)| *sim > 0.25)
-                    .collect();
-                theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-                for (theme_id, score) in theme_scores.iter().take(5) {
-                    graph.add_edge(*theme_id, file_id, *score);
-                }
-
-                let top_themes: Vec<String> = theme_scores.iter().take(3)
-                    .filter_map(|(tid, _)| graph.get_theme(*tid))
-                    .map(|t| t.name.clone())
-                    .collect();
-                println!("  {} → matches: {}", doc.title, top_themes.join(", "));
-            }
-
-            
-            // Sync VFS (new orchestration layer)
-            let mut vfs = VfsOrchestrator::new(config.physis.data_dir.clone());
-            vfs.sync_graph(&graph)?;
-            println!("Virtual File System synchronized in {}", config.physis.data_dir.join("virtual").display());
-            
-            graph.save(&graph_path)?;
-            println!("\nTheme graph saved to {}", graph_path.display());
-            println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
+            run_ingest_pipeline(&config, "Ingested", true)?;
         }
         Commands::Process => {
-            println!("Process monitoring not yet implemented.");
+            if config.industrial_endpoints.is_empty() {
+                println!("Process monitoring: no industrial endpoints configured.");
+                println!("  Add MQTT/Modbus endpoints to physis_pro_config.industrial_endpoints.");
+            } else {
+                println!("Process monitoring: {} endpoint(s) configured:", config.industrial_endpoints.len());
+                for ep in &config.industrial_endpoints {
+                    println!("  - {ep}");
+                }
+                println!("Use 'physis-pro ingest' to index documents, then check theme graph for process signals.");
+            }
         }
         Commands::Inventory => {
-            println!("Inventory tracking not yet implemented.");
+            let db_path = &config.inventory_db;
+            if db_path.exists() {
+                let entries = match std::fs::read_dir(db_path) {
+                    Ok(e) => e.filter_map(|e| e.ok()).count(),
+                    Err(_) => 0,
+                };
+                println!("Inventory database: {}", db_path.display());
+                println!("  Entries: {entries} (sled database)");
+                println!("  Order mode: {}", config.order_mode);
+                println!("  Order cooldown: {} hours", config.order_cooldown_hours);
+                println!("Use 'physis-pro order <item> <qty>' to suggest a restock.");
+            } else {
+                println!("No inventory database found at {}.", db_path.display());
+                println!("  Run 'physis-pro ingest' to build the theme graph first.");
+            }
         }
         Commands::Order { item, qty } => {
             println!(
@@ -366,69 +315,7 @@ fn main() -> anyhow::Result<()> {
             browse_graph_interactive(&graph, dir.as_deref())?;
         }
         Commands::RebuildGraph => {
-            // Same as Ingest but explicit
-            let graph_path = config.physis.data_dir.join("theme_graph.json");
-            let watch_dirs: Vec<std::path::PathBuf> = if config.ingest_dirs.is_empty() {
-                vec![std::path::PathBuf::from(".")]
-            } else {
-                config.ingest_dirs.clone()
-            };
-            let docs = ingest::ingest_all(&watch_dirs);
-            println!("Rebuilding graph from {} files", docs.len());
-
-            let ontology = OntologyLoader::load_all(&config.physis);
-            let embedder: Box<dyn VectorEmbed> =
-                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
-
-            let mut graph = FileThemeGraph::new();
-            let all_domains: Vec<(&str, &std::collections::HashMap<String, physis_pro::models::DomainDef>)> = vec![
-                ("office", &ontology.office_domains),
-                ("human", &ontology.human_domains),
-                ("machine", &ontology.machine_domains),
-                ("agent", &ontology.agent_domains),
-                ("engineering", &ontology.engineering_domains),
-            ];
-
-            for (_kind, domains) in &all_domains {
-                for def in domains.values() {
-                    let mut text = def.name.clone();
-                    for hint in &def.hints {
-                        text.push(' ');
-                        text.push_str(hint);
-                    }
-                    let embedding = embedder.embed(&text);
-                    graph.add_theme(
-                        &def.name,
-                        def.category.as_deref(),
-                        def.domain.as_deref().unwrap_or(""),
-                        def.mode.as_deref().unwrap_or(""),
-                        def.axis_kind.as_deref().unwrap_or(""),
-                        embedding,
-                    );
-                }
-            }
-
-            for doc in &docs {
-                let file_embedding = embedder.embed(&doc.body);
-                let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
-
-                let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
-                    .map(|t| {
-                        let sim = physis_pro::models::cosine_sim(&file_embedding, &t.embedding);
-                        (t.id, sim)
-                    })
-                    .filter(|(_, sim)| *sim > 0.25)
-                    .collect();
-                theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-                for (theme_id, score) in theme_scores.iter().take(5) {
-                    graph.add_edge(*theme_id, file_id, *score);
-                }
-            }
-
-            graph.save(&graph_path)?;
-            println!("Theme graph rebuilt and saved to {}", graph_path.display());
-            println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
+            run_ingest_pipeline(&config, "Rebuilding graph from", false)?;
         }
         Commands::Discover { dir } => {
             let rt = tokio::runtime::Runtime::new()?;
@@ -517,6 +404,86 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn run_ingest_pipeline(config: &PhysisProConfig, label: &str, sync_vfs: bool) -> anyhow::Result<()> {
+    let graph_path = config.physis.data_dir.join("theme_graph.json");
+    let watch_dirs: Vec<PathBuf> = if config.ingest_dirs.is_empty() {
+        vec![PathBuf::from(".")]
+    } else {
+        config.ingest_dirs.clone()
+    };
+    let docs = ingest::ingest_all(&watch_dirs);
+    println!("{} {} files from {:?}", label, docs.len(), watch_dirs);
+
+    let ontology = OntologyLoader::load_all(&config.physis);
+    let embedder: Box<dyn VectorEmbed> =
+        Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+
+    let mut graph = FileThemeGraph::new();
+    let all_domains: Vec<(&str, &HashMap<String, DomainDef>)> = vec![
+        ("office", &ontology.office_domains),
+        ("human", &ontology.human_domains),
+        ("machine", &ontology.machine_domains),
+        ("agent", &ontology.agent_domains),
+        ("engineering", &ontology.engineering_domains),
+    ];
+
+    for (_kind, domains) in &all_domains {
+        for def in domains.values() {
+            let mut text = def.name.clone();
+            for hint in &def.hints {
+                text.push(' ');
+                text.push_str(hint);
+            }
+            let embedding = embedder.embed(&text);
+            graph.add_theme(
+                &def.name,
+                def.category.as_deref(),
+                def.domain.as_deref().unwrap_or(""),
+                def.mode.as_deref().unwrap_or(""),
+                def.axis_kind.as_deref().unwrap_or(""),
+                embedding,
+            );
+        }
+    }
+
+    for doc in &docs {
+        let file_embedding = embedder.embed(&doc.body);
+        let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
+
+        let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
+            .map(|t| {
+                let sim = cosine_sim(&file_embedding, &t.embedding);
+                (t.id, sim)
+            })
+            .filter(|(_, sim)| *sim > 0.25)
+            .collect();
+        theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        for (theme_id, score) in theme_scores.iter().take(5) {
+            graph.add_edge(*theme_id, file_id, *score);
+        }
+
+        let top_themes: Vec<String> = theme_scores.iter().take(3)
+            .filter_map(|(tid, _)| graph.get_theme(*tid))
+            .map(|t| t.name.clone())
+            .collect();
+        if sync_vfs {
+            println!("  {} → matches: {}", doc.title, top_themes.join(", "));
+        }
+    }
+
+    if sync_vfs {
+        let mut vfs = VfsOrchestrator::new(config.physis.data_dir.clone());
+        vfs.sync_graph(&graph)?;
+        println!("Virtual File System synchronized in {}", config.physis.data_dir.join("virtual").display());
+    }
+
+    graph.save(&graph_path)?;
+    println!("\nTheme graph saved to {}", graph_path.display());
+    println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
     Ok(())
 }
 

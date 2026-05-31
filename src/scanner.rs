@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
@@ -70,6 +71,20 @@ impl FileInfo {
         self.path.replace('/', " → ")
     }
 }
+
+static EXTRACTORS: Lazy<Vec<(String, Vec<(Regex, String)>)>> = Lazy::new(build_extractors);
+
+static HEADING_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^(#{1,6})\s+(.+)").unwrap()
+});
+
+static EQ_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^([A-Za-z_][A-Za-z0-9_.]*)\s*=").unwrap()
+});
+
+static BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(\w+)\s*\{").unwrap()
+});
 
 fn build_extractors() -> Vec<(String, Vec<(Regex, String)>)> {
     let raw: Vec<(&str, Vec<(&str, &str)>)> = vec![
@@ -147,7 +162,7 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
     match ext {
         ".md" => {
             for line in text.lines() {
-                if let Some(caps) = Regex::new(r"^(#{1,6})\s+(.+)").unwrap().captures(line) {
+                if let Some(caps) = HEADING_RE.captures(line) {
                     let level = caps.get(1).unwrap().as_str().len();
                     let heading = caps.get(2).unwrap().as_str().trim();
                     if level <= 3 {
@@ -182,24 +197,22 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
             }
         }
         ".yaml" | ".yml" | ".toml" | ".ini" | ".cfg" | ".conf" | ".env" | ".properties" => {
-            let eq_re = Regex::new(r"^([A-Za-z_][A-Za-z0-9_.]*)\s*=").unwrap();
             for line in text.lines() {
                 let line = line.trim();
                 if line.is_empty() || line.starts_with('#') {
                     continue;
                 }
-                if let Some(caps) = eq_re.captures(line) {
+                if let Some(caps) = EQ_RE.captures(line) {
                     lines.push(format!("config:{}", caps.get(1).unwrap().as_str()));
                 }
             }
         }
         ".gradle" | ".gradle.kts" => {
-            let block_re = Regex::new(r"(\w+)\s*\{").unwrap();
             let blocks: HashSet<&str> = ["plugins", "android", "dependencies", "defaultConfig",
                 "buildTypes", "repositories", "signingConfigs"].into();
             for line in text.lines() {
                 let line = line.trim();
-                if let Some(caps) = block_re.captures(line) {
+                if let Some(caps) = BLOCK_RE.captures(line) {
                     let name = caps.get(1).unwrap().as_str();
                     if blocks.contains(name) {
                         lines.push(format!("block:{name}"));
@@ -224,11 +237,9 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
         _ => {}
     }
 
-    let extractors_by_ext = build_extractors();
-    let all_extractors: Vec<(Regex, String)> = extractors_by_ext
-        .into_iter()
+    let all_extractors: Vec<(Regex, String)> = EXTRACTORS.iter()
         .find(|(e, _)| e == ext)
-        .map(|(_, v)| v)
+        .map(|(_, v)| v.clone())
         .unwrap_or_default();
 
     if !all_extractors.is_empty() {
