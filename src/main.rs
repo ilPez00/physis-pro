@@ -7,8 +7,11 @@ use std::path::Path;
 use physis_pro::cli::PhysisApp;
 use physis_pro::config::{OntologyLoader, PhysisProConfig};
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
+use physis_pro::graph::FileThemeGraph;
+use physis_pro::ingest;
 use physis_pro::models::Score;
 use physis_pro::quality::QualityTracker;
+use physis_pro::wiki;
 
 #[derive(Parser)]
 #[command(name = "physis-pro", version, about = "Industrial backoffice intelligence engine")]
@@ -101,10 +104,20 @@ pub enum Commands {
         /// Quantity
         qty: u32,
     },
-    /// Search the wiki
+    /// Search the wiki (llmwiki + file-theme graph)
     Wiki {
         query: String,
     },
+    /// Browse the file-theme graph interactively
+    BrowseGraph {
+        /// Path to a specific directory to browse (optional, uses ingest dirs otherwise)
+        #[arg(short, long)]
+        dir: Option<PathBuf>,
+    },
+    /// Regenerate the theme graph from ingested files
+    RebuildGraph,
+    /// Export the file-theme graph as uberwiki markdown pages
+    WikiExport,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -233,7 +246,76 @@ fn main() -> anyhow::Result<()> {
             println!("{}", tracker.summary());
         }
         Commands::Ingest => {
-            println!("Ingest not yet implemented. Configured dirs: {:?}", config.ingest_dirs);
+            let graph_path = config.physis.data_dir.join("theme_graph.json");
+            let watch_dirs: Vec<std::path::PathBuf> = if config.ingest_dirs.is_empty() {
+                vec![std::path::PathBuf::from(".")]
+            } else {
+                config.ingest_dirs.clone()
+            };
+            let docs = ingest::ingest_all(&watch_dirs);
+            println!("Ingested {} files from {:?}", docs.len(), watch_dirs);
+
+            let ontology = OntologyLoader::load_all(&config.physis);
+            let embedder: Box<dyn VectorEmbed> =
+                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+
+            // Build graph from all ontology domains
+            let mut graph = FileThemeGraph::new();
+            let all_domains: Vec<(&str, &std::collections::HashMap<String, physis_pro::models::DomainDef>)> = vec![
+                ("office", &ontology.office_domains),
+                ("human", &ontology.human_domains),
+                ("machine", &ontology.machine_domains),
+                ("agent", &ontology.agent_domains),
+                ("engineering", &ontology.engineering_domains),
+            ];
+
+            for (_kind, domains) in &all_domains {
+                for def in domains.values() {
+                    let mut text = def.name.clone();
+                    for hint in &def.hints {
+                        text.push(' ');
+                        text.push_str(hint);
+                    }
+                    let embedding = embedder.embed(&text);
+                    graph.add_theme(
+                        &def.name,
+                        def.category.as_deref(),
+                        def.domain.as_deref().unwrap_or(""),
+                        def.mode.as_deref().unwrap_or(""),
+                        def.axis_kind.as_deref().unwrap_or(""),
+                        embedding,
+                    );
+                }
+            }
+
+            // Classify files and add edges
+            for doc in &docs {
+                let file_embedding = embedder.embed(&doc.body);
+                let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
+
+                let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
+                    .map(|t| {
+                        let sim = physis_pro::models::cosine_sim(&file_embedding, &t.embedding);
+                        (t.id, sim)
+                    })
+                    .filter(|(_, sim)| *sim > 0.25)
+                    .collect();
+                theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                for (theme_id, score) in theme_scores.iter().take(5) {
+                    graph.add_edge(*theme_id, file_id, *score);
+                }
+
+                let top_themes: Vec<String> = theme_scores.iter().take(3)
+                    .filter_map(|(tid, _)| graph.get_theme(*tid))
+                    .map(|t| t.name.clone())
+                    .collect();
+                println!("  {} → matches: {}", doc.title, top_themes.join(", "));
+            }
+
+            graph.save(&graph_path)?;
+            println!("\nTheme graph saved to {}", graph_path.display());
+            println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
         }
         Commands::Process => {
             println!("Process monitoring not yet implemented.");
@@ -248,11 +330,385 @@ fn main() -> anyhow::Result<()> {
             );
         }
         Commands::Wiki { query } => {
-            println!("Wiki search for '{query}' not yet implemented.");
+            let wiki_path = config.wiki_path.unwrap_or_else(|| config.physis.data_dir.join("wiki"));
+            let graph_path = config.physis.data_dir.join("theme_graph.json");
+            let results = wiki::search_all(&query, &wiki_path, &graph_path);
+            if results.is_empty() {
+                println!("No results found for: {query}");
+                println!("  Tip: Run 'physis-pro ingest' to build the theme graph, then wiki pages with 'physis-pro wiki-export'.");
+            } else {
+                println!("=== Results for '{query}' ===\n");
+                for r in &results {
+                    println!("{r}");
+                }
+                println!("\n{} results total", results.len());
+            }
+        }
+        Commands::BrowseGraph { dir } => {
+            let graph_path = config.physis.data_dir.join("theme_graph.json");
+            let graph = match FileThemeGraph::load(&graph_path) {
+                Ok(g) => g,
+                Err(e) => {
+                    eprintln!("No theme graph found at {}. Run 'physis-pro ingest' first.", graph_path.display());
+                    eprintln!("Error: {e}");
+                    return Ok(());
+                }
+            };
+            browse_graph_interactive(&graph, dir.as_deref())?;
+        }
+        Commands::RebuildGraph => {
+            // Same as Ingest but explicit
+            let graph_path = config.physis.data_dir.join("theme_graph.json");
+            let watch_dirs: Vec<std::path::PathBuf> = if config.ingest_dirs.is_empty() {
+                vec![std::path::PathBuf::from(".")]
+            } else {
+                config.ingest_dirs.clone()
+            };
+            let docs = ingest::ingest_all(&watch_dirs);
+            println!("Rebuilding graph from {} files", docs.len());
+
+            let ontology = OntologyLoader::load_all(&config.physis);
+            let embedder: Box<dyn VectorEmbed> =
+                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+
+            let mut graph = FileThemeGraph::new();
+            let all_domains: Vec<(&str, &std::collections::HashMap<String, physis_pro::models::DomainDef>)> = vec![
+                ("office", &ontology.office_domains),
+                ("human", &ontology.human_domains),
+                ("machine", &ontology.machine_domains),
+                ("agent", &ontology.agent_domains),
+                ("engineering", &ontology.engineering_domains),
+            ];
+
+            for (_kind, domains) in &all_domains {
+                for def in domains.values() {
+                    let mut text = def.name.clone();
+                    for hint in &def.hints {
+                        text.push(' ');
+                        text.push_str(hint);
+                    }
+                    let embedding = embedder.embed(&text);
+                    graph.add_theme(
+                        &def.name,
+                        def.category.as_deref(),
+                        def.domain.as_deref().unwrap_or(""),
+                        def.mode.as_deref().unwrap_or(""),
+                        def.axis_kind.as_deref().unwrap_or(""),
+                        embedding,
+                    );
+                }
+            }
+
+            for doc in &docs {
+                let file_embedding = embedder.embed(&doc.body);
+                let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
+
+                let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
+                    .map(|t| {
+                        let sim = physis_pro::models::cosine_sim(&file_embedding, &t.embedding);
+                        (t.id, sim)
+                    })
+                    .filter(|(_, sim)| *sim > 0.25)
+                    .collect();
+                theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                for (theme_id, score) in theme_scores.iter().take(5) {
+                    graph.add_edge(*theme_id, file_id, *score);
+                }
+            }
+
+            graph.save(&graph_path)?;
+            println!("Theme graph rebuilt and saved to {}", graph_path.display());
+            println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
+        }
+        Commands::WikiExport => {
+            let graph_path = config.physis.data_dir.join("theme_graph.json");
+            let wiki_dir = config.wiki_path.unwrap_or_else(|| config.physis.data_dir.join("wiki"));
+            let graph = match FileThemeGraph::load(&graph_path) {
+                Ok(g) => g,
+                Err(e) => {
+                    eprintln!("No theme graph found at {}. Run 'physis-pro ingest' first.", graph_path.display());
+                    eprintln!("Error: {e}");
+                    return Ok(());
+                }
+            };
+            graph.export_to_wiki(&wiki_dir)?;
+            println!("Wiki pages exported to {}", wiki_dir.display());
+            println!("  {} categories, {} themes, {} files", graph.list_categories().len(), graph.themes.len(), graph.files.len());
+            println!("  Index: {}/index.md", wiki_dir.display());
+
+            // Also generate an uberwiki index file listing all themes and files
+            let uber_path = config.physis.data_dir.join("uberwiki_index.md");
+            let mut uber = String::new();
+            uber.push_str("# Physis Uberwiki Index\n\n");
+            uber.push_str("Generated from the File Theme Graph.\n\n");
+            uber.push_str("## Quick Links\n\n");
+            uber.push_str("- [[theme_graph_index|File Theme Graph]]\n");
+            uber.push_str(&format!("- [[wiki|LLM Wiki]] — {}/index.md\n\n", wiki_dir.display()));
+            uber.push_str("## By Theme\n\n");
+            for theme in &graph.themes {
+                let safe = theme.name.to_lowercase().replace(' ', "_");
+                uber.push_str(&format!("- [[{}|{}]]  [{}×{}]\n", safe, theme.name, theme.domain, theme.mode));
+            }
+            uber.push_str("\n## By File\n\n");
+            for file in &graph.files {
+                let safe = file.title.to_lowercase().replace(' ', "_");
+                uber.push_str(&format!("- [[{}|{}]] — {}\n", safe, file.title, file.path.display()));
+            }
+            std::fs::write(&uber_path, &uber)?;
+            println!("  Uberwiki index: {}", uber_path.display());
         }
     }
 
     Ok(())
+}
+
+/// Interactive graph browser — navigate themes by category, see files per theme.
+fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) -> anyhow::Result<()> {
+    use std::io::{self, BufRead, Write};
+
+    let categories = graph.list_categories();
+
+    println!("\n━━━ Physis File Theme Graph ━━━");
+    println!("{} themes, {} files, {} edges\n", graph.themes.len(), graph.files.len(), graph.edges.len());
+
+    'outer: loop {
+        println!("\n── Categories ──");
+        for (i, cat) in categories.iter().enumerate() {
+            let count = graph.themes_by_category(cat).len();
+            println!("  {}. {} ({} themes)", i + 1, cat, count);
+        }
+        println!("  s. Search files by name");
+        println!("  q. Quit");
+        print!("\n> ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().lock().read_line(&mut input)?;
+        let input = input.trim();
+
+        if input == "q" {
+            break 'outer;
+        }
+
+        if input == "s" {
+            print!("Search query: ");
+            io::stdout().flush()?;
+            let mut q = String::new();
+            io::stdin().lock().read_line(&mut q)?;
+            let results = graph.search_files(q.trim());
+            if results.is_empty() {
+                println!("No files match '{}'", q.trim());
+            } else {
+                println!("\n── Search Results ──");
+                for file in results {
+                    let themes: Vec<String> = graph.edges.iter()
+                        .filter(|e| e.file_id == file.id)
+                        .filter_map(|e| graph.get_theme(e.theme_id))
+                        .map(|t| t.name.clone())
+                        .collect();
+                    println!("  {} ({})", file.title, file.path.display());
+                    if !themes.is_empty() {
+                        println!("    themes: {}", themes.join(", "));
+                    }
+                }
+            }
+            continue;
+        }
+
+        if let Ok(idx) = input.parse::<usize>() {
+            if idx == 0 || idx > categories.len() {
+                println!("Invalid choice");
+                continue;
+            }
+            let category = &categories[idx - 1];
+            let themes = graph.themes_by_category(category);
+
+            'category: loop {
+                println!("\n── {} ──", category);
+                for (i, theme) in themes.iter().enumerate() {
+                    let file_count = graph.edges.iter().filter(|e| e.theme_id == theme.id).count();
+                    let domain_mode = format!("{}×{}", theme.domain, theme.mode);
+                    println!("  {}. {}  [{}]  ({} files)", i + 1, theme.name, domain_mode, file_count);
+                }
+                println!("  b. Back to categories");
+                println!("  q. Quit");
+                print!("\n> ");
+                io::stdout().flush()?;
+
+                let mut input2 = String::new();
+                io::stdin().lock().read_line(&mut input2)?;
+                let input2 = input2.trim();
+
+                if input2 == "q" {
+                    break 'outer;
+                }
+                if input2 == "b" {
+                    break 'category;
+                }
+
+                if let Ok(idx2) = input2.parse::<usize>() {
+                    if idx2 == 0 || idx2 > themes.len() {
+                        println!("Invalid choice");
+                        continue;
+                    }
+                    let theme = themes[idx2 - 1];
+
+                    'theme: loop {
+                        println!("\n── {} ──", theme.name);
+                        println!("  Domain: {} × {}", theme.domain, theme.mode);
+                        println!("  Axis: {} ({})", theme.axis_kind, theme.category.as_deref().unwrap_or(""));
+
+                        // Show files
+                        let files = graph.files_for_theme(theme.id);
+                        if files.is_empty() {
+                            println!("  No files linked to this theme.");
+                        } else {
+                            println!("\n  Files:");
+                            for (fi, file) in files.iter().enumerate() {
+                                println!("    {}. {}  ({})", fi + 1, file.title, file.path.display());
+                            }
+                        }
+
+                        // Show related themes
+                        let related = graph.find_related_themes(theme.id, 0.5);
+                        if !related.is_empty() {
+                            println!("\n  Related themes:");
+                            for (ri, (rid, sim)) in related.iter().enumerate().take(8) {
+                                if let Some(rt) = graph.get_theme(*rid) {
+                                    let pct = (sim * 100.0) as u32;
+                                    println!("    {}. {}  ({}% similar)", ri + 1, rt.name, pct);
+                                }
+                            }
+                        }
+
+                        println!("\n  r. Choose related theme");
+                        println!("  b. Back to category");
+                        println!("  q. Quit");
+                        print!("\n> ");
+                        io::stdout().flush()?;
+
+                        let mut input3 = String::new();
+                        io::stdin().lock().read_line(&mut input3)?;
+                        let input3 = input3.trim();
+
+                        if input3 == "q" {
+                            break 'outer;
+                        }
+                        if input3 == "b" {
+                            break 'theme;
+                        }
+                        if input3 == "r" && !related.is_empty() {
+                            print!("  Related theme # (1-{}): ", related.len().min(8));
+                            io::stdout().flush()?;
+                            let mut r_input = String::new();
+                            io::stdin().lock().read_line(&mut r_input)?;
+                            if let Ok(ri) = r_input.trim().parse::<usize>() {
+                                if ri > 0 && ri <= related.len().min(8) {
+                                    let (rid, _) = related[ri - 1];
+                                    // Navigate to this theme's detail
+                                    // Re-enter the theme loop for this theme
+                                    // We'll locate the theme in the themes list
+                                    if let Some(r_theme) = graph.get_theme(rid) {
+                                        // Create a single-element view for the related theme
+                                        println!("\n── {} (related) ──", r_theme.name);
+                                        println!("  Domain: {} × {}", r_theme.domain, r_theme.mode);
+                                        let r_files = graph.files_for_theme(rid);
+                                        if r_files.is_empty() {
+                                            println!("  No files linked to this theme.");
+                                        } else {
+                                            println!("\n  Files:");
+                                            for (fi, rf) in r_files.iter().enumerate() {
+                                                println!("    {}. {}  ({})", fi + 1, rf.title, rf.path.display());
+                                            }
+                                        }
+                                        // Just show once and return to related theme menu
+                                        println!("\n  Press Enter to go back...");
+                                        let mut _pause = String::new();
+                                        io::stdin().lock().read_line(&mut _pause)?;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use physis_pro::graph::FileThemeGraph;
+
+    #[test]
+    fn test_browse_graph_empty() {
+        let graph = FileThemeGraph::new();
+        let cats = graph.list_categories();
+        assert!(cats.is_empty());
+        assert_eq!(graph.themes.len(), 0);
+    }
+
+    #[test]
+    fn test_browse_graph_with_themes() {
+        let mut graph = FileThemeGraph::new();
+        graph.add_theme("Email", Some("Communication"), "BOND", "WORK", "office", vec![0.9, 0.1]);
+        graph.add_theme("Meeting", Some("Communication"), "BOND", "CREATE", "office", vec![0.8, 0.2]);
+        graph.add_theme("Budget", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
+        graph.add_file(Path::new("msg.eml").to_path_buf(), "Q4 report", "Email", vec![0.85, 0.15]);
+        graph.add_edge(0, 0, 0.95);
+
+        let cats = graph.list_categories();
+        assert_eq!(cats.len(), 2);
+        assert!(cats.contains(&"Communication".to_string()));
+
+        let comm_themes = graph.themes_by_category("Communication");
+        assert_eq!(comm_themes.len(), 2);
+
+        let files = graph.files_for_theme(0);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].title, "Q4 report");
+    }
+
+    #[test]
+    fn test_graph_persistence() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test_graph.json");
+
+        let mut graph = FileThemeGraph::new();
+        graph.add_theme("Test", None, "STUDY", "WORK", "human", vec![0.5; 4]);
+        graph.save(&path).unwrap();
+
+        let loaded = FileThemeGraph::load(&path).unwrap();
+        assert_eq!(loaded.themes.len(), 1);
+        assert_eq!(loaded.themes[0].name, "Test");
+    }
+
+    #[test]
+    fn test_search_files() {
+        let mut graph = FileThemeGraph::new();
+        graph.add_file(Path::new("invoices/2024-01.pdf").to_path_buf(), "Invoice Jan", "Invoice", vec![0.5; 4]);
+        graph.add_file(Path::new("reports/q4.md").to_path_buf(), "Q4 Report", "Report", vec![0.5; 4]);
+
+        let results = graph.search_files("invoice");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Invoice Jan");
+    }
+
+    #[test]
+    fn test_related_themes_similarity() {
+        let mut graph = FileThemeGraph::new();
+        graph.add_theme("A", None, "STUDY", "WORK", "human", vec![1.0, 0.0, 0.0]);
+        graph.add_theme("B", None, "STUDY", "WORK", "human", vec![0.95, 0.1, 0.0]);
+        graph.add_theme("C", None, "BOND", "WALK", "human", vec![0.0, 0.0, 1.0]);
+
+        let related = graph.find_related_themes(0, 0.5);
+        assert_eq!(related.len(), 1);
+        assert_eq!(related[0].0, 1);
+    }
 }
 
 /// Load quality tracker from disk, or create empty if no saved state.
