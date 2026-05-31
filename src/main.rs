@@ -1,8 +1,6 @@
-use std::path::PathBuf;
-
+use std::path::{Path, PathBuf};
+use physis_pro::vfs::orchestrator::VfsOrchestrator;
 use clap::{Parser, Subcommand};
-
-use std::path::Path;
 
 use physis_pro::cli::PhysisApp;
 use physis_pro::config::{OntologyLoader, PhysisProConfig};
@@ -318,6 +316,12 @@ fn main() -> anyhow::Result<()> {
                 println!("  {} → matches: {}", doc.title, top_themes.join(", "));
             }
 
+            
+            // Sync VFS (new orchestration layer)
+            let mut vfs = VfsOrchestrator::new(config.physis.data_dir.clone());
+            vfs.sync_graph(&graph)?;
+            println!("Virtual File System synchronized in {}", config.physis.data_dir.join("virtual").display());
+            
             graph.save(&graph_path)?;
             println!("\nTheme graph saved to {}", graph_path.display());
             println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());

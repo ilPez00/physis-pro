@@ -86,7 +86,28 @@ impl NetworkScanner {
             }
         }
     }
+
+    /// Perform a VFS health check by verifying all symlinks in the orchestrator's virtual structure.
+    pub fn vfs_health_check(&self, orchestrator: &mut crate::vfs::orchestrator::VfsOrchestrator) -> anyhow::Result<()> {
+        let mut to_remove = Vec::new();
+        for reference in &orchestrator.reference_map {
+            if !reference.physical_path.exists() {
+                // Physical file gone, remove symlink and entry
+                if reference.virtual_path.exists() {
+                    let _ = std::fs::remove_file(&reference.virtual_path);
+                }
+                to_remove.push(reference.virtual_path.clone());
+            } else if !reference.virtual_path.exists() {
+                // Symlink gone, recreate it
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(&reference.physical_path, &reference.virtual_path)?;
+            }
+        }
+        orchestrator.reference_map.retain(|r| !to_remove.contains(&r.virtual_path));
+        Ok(())
+    }
 }
+
 
 #[cfg(feature = "network")]
 pub mod watcher {

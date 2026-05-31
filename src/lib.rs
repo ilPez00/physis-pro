@@ -75,6 +75,7 @@ pub mod wiki;
 pub mod industrial;
 pub mod ingest;
 pub mod inventory;
+pub mod vfs;
 
 #[cfg(feature = "cli")]
 pub mod cli;
