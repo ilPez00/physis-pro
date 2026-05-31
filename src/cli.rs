@@ -406,7 +406,7 @@ No other text."#.into(),
             };
             let entries: Vec<&str> = self.ontology.human_domains.values()
                 .filter(|def| def.domain.as_deref() == Some(domain) && def.mode.as_deref() == Some(mode))
-                .map(|def| def.name.as_str())
+                .flat_map(|def| def.hints.iter().map(|h| h.as_str()))
                 .collect();
             results.push((domain, mode, score, entries));
         }
@@ -415,15 +415,13 @@ No other text."#.into(),
         let mut out = String::new();
         out.push_str(&format!("━━━ Physis Classification Map ━━━\n"));
         out.push_str(&format!("File: {}\n\n", file.display()));
-        for (i, (domain, mode, score, entries)) in results.iter().enumerate() {
+        for (i, (domain, mode, score, hints)) in results.iter().enumerate() {
             if i == 0 {
                 out.push_str(&format!("★ TOP: {}×{} — {:.3}\n", domain, mode, score));
-                out.push_str(&format!("   {}", entries.join(", ")));
-                out.push('\n');
+                out.push_str(&format!("   Reasoning: Matches hints: {}\n", hints.iter().take(5).cloned().collect::<Vec<_>>().join(", ")));
                 out.push('\n');
             } else if *score > 0.6 {
                 out.push_str(&format!("  {}×{} — {:.3}\n", domain, mode, score));
-                out.push_str(&format!("   {}\n", entries.join(", ")));
             }
         }
         out.push_str(&format!("\n{} cells scored (threshold >0.6 shown)\n", results.len()));
