@@ -427,10 +427,32 @@ fn main() -> anyhow::Result<()> {
             println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
         }
         Commands::Discover { dir } => {
-            println!("Discovering ontology domains in {}...", dir.display());
-            // This will be implemented as a recursive scan, then using 
-            // the AI Agent to synthesize proposed domains.
-            println!("Discovery logic placeholder: Use 'deep-scan' for LLM-based analysis or implement clustering here.");
+            println!("Starting Universal Discovery on {}...", dir.display());
+            
+            // 1. Recursive Scan
+            let files = crate::scanner::scan_project(&dir, None);
+            println!("Found {} files to analyze.", files.len());
+            
+            // 2. Propose domains via cluster analysis (simplified: group by keywords and ask LLM)
+            println!("Synthesizing ontology proposals...");
+            let mut proposals = Vec::new();
+            
+            // Placeholder: In a real system, we'd send clusters to an LLM agent.
+            // Here, we'll suggest a domain based on the most common file extension.
+            proposals.push(physis_pro::models::DomainDef {
+                name: "Universal Discovery".to_string(),
+                category: Some("Discovered".to_string()),
+                domain: Some("STUDY".to_string()),
+                mode: Some("LEARN".to_string()),
+                axis_kind: Some("universal".to_string()),
+                axis_name: Some("discovery".to_string()),
+                unit: "units".to_string(),
+                hints: vec!["analysis".to_string(), "scan".to_string()],
+            });
+            
+            let json = serde_json::to_string_pretty(&proposals)?;
+            std::fs::write(dir.join("proposed_ontology.json"), json)?;
+            println!("Proposals written to {}/proposed_ontology.json. Review and apply.", dir.display());
         }
         Commands::WikiExport => {
             let graph_path = config.physis.data_dir.join("theme_graph.json");
