@@ -1,5 +1,8 @@
+# NOTE: railway.toml uses the Dockerfile builder (authoritative for Railway).
+# This railpack config is kept consistent with it so a non-Docker build path
+# still produces the web server, not the CLI. Do not point these at different bins.
 [build]
-command = "cargo build --release --bin physis-pro --features embed-onnx"
+command = "cargo build --release --no-default-features --features web --bin physis-pro-web"
 
 [start]
-command = "./target/release/physis-pro"
+command = "./target/release/physis-pro-web"

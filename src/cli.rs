@@ -164,9 +164,9 @@ impl PhysisApp {
             Box::new(RandomProjectionEmbedder::new(config.embed_dim))
         };
 
-        // Pre-compute centroids per DOMAIN×MODE cell
+        // Pre-compute centroids per DOMAIN×MODE cell (human grid + extra ontologies)
         let mut centroid_sums: HashMap<String, (Vec<f32>, usize)> = HashMap::new();
-        for def in ontology.human_domains.values() {
+        for def in ontology.classification_domains() {
             let domain = match def.domain.as_deref() {
                 Some(d) => d,
                 None => continue,
@@ -404,7 +404,7 @@ No other text."#.into(),
                 (Some(d), Some(m)) => (d, m),
                 _ => continue,
             };
-            let entries: Vec<&str> = self.ontology.human_domains.values()
+            let entries: Vec<&str> = self.ontology.classification_domains()
                 .filter(|def| def.domain.as_deref() == Some(domain) && def.mode.as_deref() == Some(mode))
                 .flat_map(|def| def.hints.iter().map(|h| h.as_str()))
                 .collect();

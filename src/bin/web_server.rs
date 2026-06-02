@@ -749,11 +749,9 @@ async fn classify_handler(
             continue;
         };
         let mut entries: Vec<String> = Vec::new();
-        if let (Some(d), Some(m)) = (HumanDomain::from_str(&domain), HumanMode::from_str(&mode)) {
-            for def in s.ontology.human_domains.values() {
-                if def.domain.as_deref() == Some(&domain) && def.mode.as_deref() == Some(&mode) {
-                    entries.push(def.name.clone());
-                }
+        for def in s.ontology.classification_domains() {
+            if def.domain.as_deref() == Some(&domain) && def.mode.as_deref() == Some(&mode) {
+                entries.push(def.name.clone());
             }
         }
         results.push(ClassifyResult { domain, mode, score, entries });
@@ -766,6 +764,47 @@ async fn classify_handler(
         entries: vec![],
     });
     Json(ClassifyResponse { results, top })
+}
+
+// ── Embed Handler ─────────────────────────────────────────────────
+// Raw vector embedding — for pgvector storage and semantic search.
+
+#[derive(Deserialize)]
+struct EmbedRequest {
+    text: String,
+    /// Optional base64-encoded image bytes (PNG/JPEG). If present, image
+    /// embedding is used instead of text embedding.
+    #[serde(default)]
+    image: Option<String>,
+}
+
+#[derive(Serialize)]
+struct EmbedResponse {
+    embedding: Vec<f32>,
+    dim: usize,
+}
+
+async fn embed_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<EmbedRequest>,
+) -> Json<EmbedResponse> {
+    let s = state.lock().unwrap();
+    let embedding = if let Some(ref b64) = req.image {
+        match base64::engine::general_purpose::STANDARD.decode(b64) {
+            Ok(bytes) => s.embedder.embed_image(&bytes).unwrap_or_else(|| {
+                log::warn!("image embedding not available; falling back to text");
+                s.embedder.embed(&req.text)
+            }),
+            Err(e) => {
+                log::warn!("base64 decode failed: {e}; falling back to text");
+                s.embedder.embed(&req.text)
+            }
+        }
+    } else {
+        s.embedder.embed(&req.text)
+    };
+    let dim = embedding.len();
+    Json(EmbedResponse { embedding, dim })
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -833,9 +872,11 @@ async fn main() {
     };
     let embed_dim = embedder.dimension();
 
-    // Pre-compute centroid embeddings per DOMAIN×MODE cell from ontology hints
+    // Pre-compute centroid embeddings per DOMAIN×MODE cell from ontology hints.
+    // Uses the human grid plus every extra domain-specific ontology so the
+    // centroids are enriched across software, fitness, finance, etc.
     let mut cell_centroids: HashMap<String, (Vec<f32>, usize)> = HashMap::new();
-    for def in ontology.human_domains.values() {
+    for def in ontology.classification_domains() {
         let domain = match def.domain.as_deref() {
             Some(d) => d,
             None => continue,
@@ -947,6 +988,7 @@ async fn main() {
         .route("/api/v1/semiotic/square", get(greimas_square_handler))
         .route("/api/v1/semiotic/heatmap", get(heatmap_handler))
         .route("/api/v1/classify", post(classify_handler))
+        .route("/api/v1/embed", post(embed_handler))
         .route("/api/v1/category/diagram", post(category_diagram_handler))
         .with_state(state);
 

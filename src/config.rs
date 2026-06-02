@@ -21,6 +21,34 @@ static BUILTIN_SOCIAL_JSON: &str = include_str!("../config/social_ontology.json"
 static BUILTIN_ABSTRACT_JSON: &str = include_str!("../config/abstract_ontology.json");
 static BUILTIN_ENGINEERING_JSON: &str = include_str!("../config/engineering_ontology.json");
 static BUILTIN_OFFICE_JSON: &str = include_str!("../config/office_ontology.json");
+
+/// Extra domain-specific ontologies, baked in at compile time. Each contributes
+/// entries to `custom_domains` and is always loaded (CWD-independent). To add a
+/// new ontology: drop a JSON file in `config/` (using the HEAL/CONSTRUCT/FABRICATE/
+/// BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN vocabulary) and add one line here.
+static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
+    ("software_dev", include_str!("../config/software_dev_ontology.json")),
+    ("devops", include_str!("../config/devops_ontology.json")),
+    ("data_science", include_str!("../config/data_science_ontology.json")),
+    ("cybersecurity", include_str!("../config/cybersecurity_ontology.json")),
+    ("health_fitness", include_str!("../config/health_fitness_ontology.json")),
+    ("nutrition_cooking", include_str!("../config/nutrition_cooking_ontology.json")),
+    ("personal_finance", include_str!("../config/personal_finance_ontology.json")),
+    ("learning_education", include_str!("../config/learning_education_ontology.json")),
+    ("creative_writing", include_str!("../config/creative_writing_ontology.json")),
+    ("music", include_str!("../config/music_ontology.json")),
+    ("visual_arts", include_str!("../config/visual_arts_ontology.json")),
+    ("relationships", include_str!("../config/relationships_ontology.json")),
+    ("productivity", include_str!("../config/productivity_ontology.json")),
+    ("travel", include_str!("../config/travel_ontology.json")),
+    ("home_maintenance", include_str!("../config/home_maintenance_ontology.json")),
+    ("mindfulness_spirituality", include_str!("../config/mindfulness_spirituality_ontology.json")),
+    ("science_research", include_str!("../config/science_research_ontology.json")),
+    ("business_entrepreneurship", include_str!("../config/business_entrepreneurship_ontology.json")),
+    ("language_learning", include_str!("../config/language_learning_ontology.json")),
+    ("outdoors_sports", include_str!("../config/outdoors_sports_ontology.json")),
+];
+
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
 
 /// Controls which linguistic lenses (Wenyan, Piraha, Sanskrit) are active at runtime.
@@ -482,7 +510,28 @@ impl OntologyLoader {
             }
         }
 
+        // Always-on extra domain-specific ontologies → custom_domains.
+        // Keyed by "kind:name" so identical entry names across files don't collide.
+        for (kind, json) in EXTRA_ONTOLOGIES {
+            match Self::load_from_str(json) {
+                Ok(map) => {
+                    for (name, def) in map {
+                        loader.custom_domains.insert(format!("{kind}:{name}"), def);
+                    }
+                }
+                Err(e) => eprintln!("Warning: failed to parse built-in ontology '{kind}': {e}"),
+            }
+        }
+
         loader
+    }
+
+    /// All domain definitions used for classification: the human (praxis) grid
+    /// plus every extra domain-specific ontology in `custom_domains`. All share
+    /// the HEAL/CONSTRUCT/FABRICATE/BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN
+    /// vocabulary, so they enrich the same semiotic grid.
+    pub fn classification_domains(&self) -> impl Iterator<Item = &DomainDef> {
+        self.human_domains.values().chain(self.custom_domains.values())
     }
 
     /// Resolve a goal name to a human domain definition. Currently returns the first available.
