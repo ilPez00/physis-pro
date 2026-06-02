@@ -168,19 +168,19 @@ impl PhysisCore {
         ConsistencyResult::Clean
     }
 
-    /// filtra_contesto: input text → vector. No more qualia text output.
-    pub fn filtra_contesto(
+    /// filter_context: input text → vector. No more qualia text output.
+    pub fn filter_context(
         &self,
-        input_grezzo: &str,
+        raw_input: &str,
         embedder: &dyn crate::embed::VectorEmbed,
     ) -> FilteredContext {
-        let embedding = embedder.embed(input_grezzo);
+        let embedding = embedder.embed(raw_input);
         let consistency = self.check_consistency(&embedding, 0.85);
         let valid = matches!(consistency, ConsistencyResult::Clean);
         FilteredContext {
             embedding,
             valid,
-            token_estimate: input_grezzo.split_whitespace().count(),
+            token_estimate: raw_input.split_whitespace().count(),
         }
     }
 
@@ -388,10 +388,10 @@ mod tests {
     }
 
     #[test]
-    fn test_filtra_contesto() {
+    fn test_filter_context() {
         let g = fixture_core();
         let emb = fixture_embedder();
-        let result = g.filtra_contesto("swimming is good exercise", &emb);
+        let result = g.filter_context("swimming is good exercise", &emb);
         assert!(result.valid);
         assert_eq!(result.embedding.len(), 32);
     }

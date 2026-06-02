@@ -331,7 +331,7 @@ async fn context_filter_handler(
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<FilterResponse> {
     let s = state.lock().unwrap();
-    let result = s.core.filtra_contesto(&req.input, &s.embedder);
+    let result = s.core.filter_context(&req.input, &s.embedder);
     Json(FilterResponse {
         embedding: result.embedding,
         valid: result.valid,
