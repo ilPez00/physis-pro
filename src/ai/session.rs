@@ -25,6 +25,7 @@ impl Session {
                 system_prompt: system_prompt.to_string(),
                 max_tokens: 4096,
                 detail: "low".into(),
+                ..Default::default()
             },
             history: Vec::new(),
         }
@@ -164,6 +165,7 @@ impl Session {
             system_prompt: self.config.system_prompt.clone(),
             max_tokens: 200,
             detail: "low".into(),
+            ..Default::default()
         };
 
         let output = run_agent(

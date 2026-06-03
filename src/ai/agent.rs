@@ -4,12 +4,30 @@
 //! and loops until the model produces a final text response or the maximum
 //! number of tool rounds is reached.
 
+use std::collections::HashMap;
+
 use crate::ai::provider::{Content, ContentPart, ImageUrl, Message};
 use crate::ai::tools::{ToolRegistry, call_tool};
 use crate::ai::{AiError, AiResult, provider::ProviderCascade};
 use serde::{Deserialize, Serialize};
 
 const MAX_TOOL_ROUNDS: u32 = 8;
+
+/// A tool result counts as a failure (for the PDCA rail) when it contains one of
+/// these markers. Rough heuristic — only used to gate recalibration guidance.
+fn looks_like_failure(result: &str) -> bool {
+    let r = result.to_lowercase();
+    ["error", "failed", "failure", "exception", "panic", "traceback", "not found", "❌"]
+        .iter()
+        .any(|m| r.contains(m))
+}
+
+/// A short, stable signature for a tool call so repeated identical failures can
+/// be detected: tool name + the first 80 chars of its arguments.
+fn failure_signature(tool_name: &str, args_raw: &str) -> String {
+    let args_trim: String = args_raw.chars().take(80).collect();
+    format!("{tool_name}::{args_trim}")
+}
 
 /// Configuration for an agent run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +38,10 @@ pub struct AgentConfig {
     pub max_tokens: u32,
     /// Image detail level ("low", "high").
     pub detail: String,
+    /// PDCA rails: when a tool call fails, inject self-assessment guidance and,
+    /// on a repeated identical failure, force a strategy change instead of a
+    /// blind retry. Reduces wasted rounds re-exploring a known-bad branch.
+    pub pdca_rails: bool,
 }
 
 /// The result of an agent run.
@@ -33,6 +55,8 @@ pub struct AgentOutput {
     pub tool_rounds: u32,
     /// Approximate tokens used across all rounds.
     pub tokens_used: u32,
+    /// How many times the PDCA rail forced a recalibration on a repeated failure.
+    pub pdca_recalibrations: u32,
 }
 
 impl Default for AgentConfig {
@@ -41,6 +65,7 @@ impl Default for AgentConfig {
             system_prompt: String::new(),
             max_tokens: 1024,
             detail: "low".into(),
+            pdca_rails: true,
         }
     }
 }
@@ -118,6 +143,9 @@ pub async fn run_agent(
 
     let mut tool_rounds = 0u32;
     let mut total_tokens = 0u32;
+    // PDCA rail state: count failures per call signature across the run.
+    let mut failure_counts: HashMap<String, u32> = HashMap::new();
+    let mut pdca_recalibrations = 0u32;
 
     loop {
         let (resp, provider_name) = if let Some(m) = model_override {
@@ -152,6 +180,7 @@ pub async fn run_agent(
                     provider: provider_name,
                     tool_rounds,
                     tokens_used: total_tokens,
+                    pdca_recalibrations,
                 });
             }
         };
@@ -161,10 +190,37 @@ pub async fn run_agent(
             return Err(AiError::MaxToolRounds);
         }
 
+        // Collected PDCA guidance to append after this round's tool results.
+        let mut pdca_notes: Vec<String> = Vec::new();
+
         for call in &calls {
             let args: serde_json::Value =
                 serde_json::from_str(&call.function.arguments).unwrap_or(serde_json::json!({}));
             let result = call_tool(tools, &call.function.name, args).await;
+
+            // PDCA rail: on a failing tool result, escalate guidance — a light
+            // CHECK note on the first failure, a hard recalibration directive
+            // once the same call has failed repeatedly (stop blind retries).
+            if config.pdca_rails && looks_like_failure(&result) {
+                let sig = failure_signature(&call.function.name, &call.function.arguments);
+                let count = failure_counts.entry(sig).or_insert(0);
+                *count += 1;
+                if *count >= 2 {
+                    pdca_recalibrations += 1;
+                    pdca_notes.push(format!(
+                        "=== PDCA RECALIBRATION === `{}` has now failed {} times with the same arguments. \
+                         Do NOT retry the same approach. Change strategy (different tool, different \
+                         arguments, or revised plan), or stop and report the blocker.",
+                        call.function.name, count
+                    ));
+                } else {
+                    pdca_notes.push(format!(
+                        "=== PDCA CHECK === `{}` failed. Before retrying, assess the cause and try a \
+                         different approach rather than repeating the same call.",
+                        call.function.name
+                    ));
+                }
+            }
 
             messages.push(Message {
                 role: "tool".into(),
@@ -172,6 +228,16 @@ pub async fn run_agent(
                 tool_calls: None,
                 tool_call_id: Some(call.id.clone()),
                 name: Some(call.function.name.clone()),
+            });
+        }
+
+        if !pdca_notes.is_empty() {
+            messages.push(Message {
+                role: "user".into(),
+                content: Content::Text(pdca_notes.join("\n\n")),
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
             });
         }
     }
@@ -211,5 +277,32 @@ mod tests {
     #[test]
     fn test_agent_max_tool_rounds_constant() {
         assert_eq!(MAX_TOOL_ROUNDS, 8);
+    }
+
+    #[test]
+    fn test_pdca_rails_default_on() {
+        assert!(AgentConfig::default().pdca_rails);
+    }
+
+    #[test]
+    fn test_looks_like_failure() {
+        assert!(looks_like_failure("Error: file not found"));
+        assert!(looks_like_failure("compilation FAILED"));
+        assert!(looks_like_failure("panic at line 4"));
+        assert!(looks_like_failure("❌ blocked"));
+        assert!(!looks_like_failure("ok, wrote 3 files"));
+        assert!(!looks_like_failure("success"));
+    }
+
+    #[test]
+    fn test_failure_signature_stable_and_truncated() {
+        let a = failure_signature("run", "{\"cmd\":\"build\"}");
+        let b = failure_signature("run", "{\"cmd\":\"build\"}");
+        assert_eq!(a, b);
+        assert!(a.starts_with("run::"));
+        let long = "x".repeat(200);
+        let sig = failure_signature("t", &long);
+        // name + "::" + 80 arg chars
+        assert_eq!(sig.len(), "t::".len() + 80);
     }
 }
