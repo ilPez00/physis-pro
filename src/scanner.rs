@@ -1,8 +1,11 @@
 use once_cell::sync::Lazy;
+use rayon::prelude::*;
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+use std::io::Read;
 use std::path::Path;
+use walkdir::WalkDir;
 
 pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
     ".git", ".hg", ".svn", "__pycache__", "node_modules",
@@ -330,6 +333,45 @@ pub fn should_include_file(
     false
 }
 
+fn compute_file_hash(path: &Path) -> Option<String> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    loop {
+        let n = file.read(&mut buffer).ok()?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buffer[..n]);
+    }
+    Some(format!("{:x}", hasher.finalize()))
+}
+
+fn process_file(path: &Path, root: &Path) -> Option<FileInfo> {
+    let rel_path = path.strip_prefix(root).unwrap_or(path);
+    let ext = path.extension()
+        .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
+        .unwrap_or_default();
+
+    let hash = compute_file_hash(path)?;
+    let meta = std::fs::metadata(path).ok()?;
+    let structural_lines = extract_structural_lines(path, &ext);
+
+    Some(FileInfo {
+        path: rel_path.to_string_lossy().to_string(),
+        abs_path: path.to_string_lossy().to_string(),
+        ext,
+        size: meta.len(),
+        mtime: meta.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0),
+        hash,
+        structural_lines,
+    })
+}
+
 pub fn scan_project(
     root_dir: &Path,
     extra_exclude_dirs: Option<&HashSet<String>>,
@@ -343,76 +385,42 @@ pub fn scan_project(
         s
     };
 
-    let mut files = Vec::new();
     if !root.is_dir() {
-        return files;
+        return vec![];
     }
 
-    let mut entries: Vec<_> = match std::fs::read_dir(&root) {
-        Ok(rd) => rd.filter_map(|e| e.ok().map(|e| e.path())).collect(),
-        Err(_) => return files,
-    };
-
-    while let Some(path) = entries.pop() {
-        if path.is_dir() {
-            if let Some(name) = path.file_name() {
-                let name_str = name.to_string_lossy().to_string();
-                if exclude.contains(&name_str) {
-                    continue;
-                }
+    let file_paths: Vec<_> = WalkDir::new(&root)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.depth() == 0 {
+                return true;
             }
-            if let Ok(rd) = std::fs::read_dir(&path) {
-                for entry in rd.flatten() {
-                    entries.push(entry.path());
-                }
+            if e.file_type().is_dir() {
+                let name = e.file_name().to_string_lossy();
+                !exclude.contains(name.as_ref())
+            } else {
+                true
             }
-        } else if path.is_file() {
-            if !should_include_file(&path, &exclude, &root) {
-                continue;
+        })
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .map(|e| e.path().to_path_buf())
+        .collect();
+
+    let mut files: Vec<FileInfo> = file_paths
+        .par_iter()
+        .filter_map(|path| {
+            if !should_include_file(path, &exclude, &root) {
+                return None;
             }
-            if !is_text_file(&path) {
-                continue;
+            if !is_text_file(path) {
+                return None;
             }
+            process_file(path, &root)
+        })
+        .collect();
 
-            let rel_path = path.strip_prefix(&root).unwrap_or(&path);
-            let ext = path.extension()
-                .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
-                .unwrap_or_default();
-
-            let content = match std::fs::read(&path) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-            let hash = {
-                let mut hasher = Sha256::new();
-                hasher.update(&content);
-                format!("{:x}", hasher.finalize())
-            };
-
-            let meta = match std::fs::metadata(&path) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-
-            let structural_lines = extract_structural_lines(&path, &ext);
-
-            files.push(FileInfo {
-                path: rel_path.to_string_lossy().to_string(),
-                abs_path: path.to_string_lossy().to_string(),
-                ext,
-                size: meta.len(),
-                mtime: meta.modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs_f64())
-                    .unwrap_or(0.0),
-                hash,
-                structural_lines,
-            });
-        }
-    }
-
-    files.sort_by(|a, b| a.path.cmp(&b.path));
+    files.par_sort_by(|a, b| a.path.cmp(&b.path));
     files
 }
 

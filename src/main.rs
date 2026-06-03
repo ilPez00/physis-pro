@@ -253,32 +253,77 @@ fn main() -> anyhow::Result<()> {
             run_ingest_pipeline(&config, "Ingested", true)?;
         }
         Commands::Process => {
-            if config.industrial_endpoints.is_empty() {
-                println!("Process monitoring: no industrial endpoints configured.");
-                println!("  Add MQTT/Modbus endpoints to physis_pro_config.industrial_endpoints.");
-            } else {
-                println!("Process monitoring: {} endpoint(s) configured:", config.industrial_endpoints.len());
-                for ep in &config.industrial_endpoints {
-                    println!("  - {ep}");
+            #[cfg(feature = "industrial")]
+            {
+                if config.industrial_endpoints.is_empty() {
+                    println!("Process monitoring: no industrial endpoints configured.");
+                    println!("  Add MQTT/Modbus endpoints to config.industrial_endpoints.");
+                } else {
+                    println!("Process monitoring — checking {} endpoint(s):", config.industrial_endpoints.len());
+                    let rt = tokio::runtime::Runtime::new()?;
+                    rt.block_on(async {
+                        for ep in &config.industrial_endpoints {
+                            let clean = ep
+                                .trim_start_matches("mqtt://")
+                                .trim_start_matches("tcp://")
+                                .trim_start_matches("modbus://");
+                            let host = clean.split(':').next().unwrap_or(clean);
+                            let port: u16 = clean.split(':').nth(1).and_then(|p| p.parse().ok()).unwrap_or(1883);
+                            let addr = format!("{host}:{port}");
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(3),
+                                tokio::net::TcpStream::connect(&addr),
+                            )
+                            .await
+                            {
+                                Ok(Ok(_)) => println!("  ✅ {ep} — reachable"),
+                                Ok(Err(e)) => println!("  ❌ {ep} — {e}"),
+                                Err(_) => println!("  ❌ {ep} — timeout (3s)"),
+                            }
+                        }
+                    });
                 }
-                println!("Use 'physis-pro ingest' to index documents, then check theme graph for process signals.");
+            }
+            #[cfg(not(feature = "industrial"))]
+            {
+                println!("Process monitoring requires the 'industrial' feature.");
+                if !config.industrial_endpoints.is_empty() {
+                    println!("  Configured endpoints: {}", config.industrial_endpoints.len());
+                    for ep in &config.industrial_endpoints {
+                        println!("    - {ep}");
+                    }
+                }
+                println!("  Rebuild with: cargo build --features industrial");
             }
         }
         Commands::Inventory => {
-            let db_path = &config.inventory_db;
-            if db_path.exists() {
-                let entries = match std::fs::read_dir(db_path) {
-                    Ok(e) => e.filter_map(|e| e.ok()).count(),
-                    Err(_) => 0,
-                };
-                println!("Inventory database: {}", db_path.display());
-                println!("  Entries: {entries} (sled database)");
-                println!("  Order mode: {}", config.order_mode);
-                println!("  Order cooldown: {} hours", config.order_cooldown_hours);
-                println!("Use 'physis-pro order <item> <qty>' to suggest a restock.");
-            } else {
-                println!("No inventory database found at {}.", db_path.display());
-                println!("  Run 'physis-pro ingest' to build the theme graph first.");
+            match sled::open(&config.inventory_db) {
+                Ok(db) => {
+                    let count = db.iter().count();
+                    println!("Inventory database: {count} item(s)");
+                    println!("  Path: {}", config.inventory_db.display());
+                    println!("  Order mode: {}", config.order_mode);
+                    println!("  Order cooldown: {} hours", config.order_cooldown_hours);
+                    if count > 0 {
+                        println!("\n  Items (first 20):");
+                        for result in db.iter().take(20) {
+                            match result {
+                                Ok((key, value)) => {
+                                    let k = String::from_utf8_lossy(&key);
+                                    let v = String::from_utf8_lossy(&value);
+                                    println!("    {k}: {v}");
+                                }
+                                Err(e) => eprintln!("    Error reading item: {e}"),
+                            }
+                        }
+                    }
+                    println!("\n  Use 'physis-pro order <item> <qty>' to suggest a restock.");
+                }
+                Err(e) => {
+                    println!("Could not open inventory database at {}.", config.inventory_db.display());
+                    println!("  Error: {e}");
+                    println!("  Run 'physis-pro ingest' to initialize it.");
+                }
             }
         }
         Commands::Order { item, qty } => {

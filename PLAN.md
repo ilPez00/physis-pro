@@ -6,9 +6,29 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 ## Implementation Plan
 
 ### Phase 1: Technical Perfection (The "Intelligence" Upgrade)
-- **Upgrade Embeddings**: Replace `RandomProjectionEmbedder` with a production-grade ONNX model (e.g., `MiniLM` or `JinaV2`) to enable true semantic understanding of industrial documents.
-- **Automated Ontology Discovery**: Implement a "discovery" mode that scans a new environment and suggests ontology mappings based on file content, reducing manual setup time.
-- **Real-time Industrial Adapters**: Move from stubs to production-ready MQTT/Modbus adapters that feed directly into the `HolonicGraph`.
+
+#### 1A — Scanner & Ingestion Pipeline
+- [x] **Scanner overhaul**: `WalkDir` directory traversal + `rayon::par_iter()` parallel file processing + streaming SHA256 (64KB buffer).
+- [x] **Pipeline dedup**: Extracted 160-line duplicate Ingest/RebuildGraph code into `run_ingest_pipeline()`.
+- [x] **Regex caching**: 4 `once_cell::sync::Lazy` statics replacing repeated `Regex::new()` calls.
+
+#### 1B — Error Handling & Code Quality
+- [x] **Critical unwrap elimination**: `file_name().unwrap()` → `unwrap_or_default()` in `vfs/orchestrator.rs`.
+- [x] **CI/CD pipeline**: Rust CI with `cargo check` (3 feature sets), `clippy` (deny warnings), `cargo test`.
+
+#### 1C — Feature Completeness
+- [x] **Inventory command**: Real sled DB access showing item count + first 20 key/value pairs.
+- [x] **Process command**: TCP connectivity checks behind `#[cfg(feature = "industrial")]`.
+- [ ] **Real-time Industrial Adapters**: Move from TCP pings to full MQTT/Modbus subscribe/publish loops feeding `HolonicGraph`.
+
+#### 1D — Embeddings & Ontology
+- [ ] **Upgrade Embeddings**: Replace `RandomProjectionEmbedder` with a production-grade ONNX model (e.g., `MiniLM` or `JinaV2`).
+- [ ] **Automated Ontology Discovery**: "Discovery" mode that scans a new environment and suggests ontology mappings.
+- [ ] **Config dedup**: `OntologyLoader` has 10 copy-paste load functions — collapse into a macro or dynamic dispatch.
+
+#### 1E — Packaging
+- [x] **`setup.py` + `install.sh`**: pip-installable packaging with binary installation.
+- [x] **`monitor_resource.sh`**: cgroup-based CPU throttling for heat-throttled environments.
 
 ### Phase 2: User Experience (The "Backoffice" Polish)
 - **Web-based Dashboard**: Build a React/Next.js dashboard (using the existing `web` feature) that visualizes the `FileThemeGraph` as an interactive force-directed graph.

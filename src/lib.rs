@@ -1,73 +1,26 @@
 //! Physis — an ontological mapper and PDCA dream engine.
-//!
-//! Physis builds structured ontological maps from filesystem contents and drives
-//! a Plan-Do-Check-Act (PDCA) loop over the resulting vector-space goals.
-//! Everything lives in pure vector space — goals, experiences, dreams, coherence.
-//!
-//! # Core concepts
-//!
-//! - **Ontological mapping** — scan directories, extract entities & relationships,
-//!   store them in a `DynamicVectorTrie` with TF-IDF scoring and random-projection
-//!   vector embeddings.
-//! - **PDCA loop** — track goals through Plan → Do → Check → Act cycles, detect
-//!   stagnation, and drive iterative improvement.
-//! - **Dream engine** — generate stochastic "dreams" (hypotheses) from the goal set,
-//!   then grade and curate them.
-//! - **Semantic search** — hybrid trie + vector search via the `DynamicVectorTrie`
-//!   and `RandomProjectionEmbedder`.
-//! - **AI agents** — `ProviderCascade` (OpenAI / Anthropic) powers deep-scan,
-//!   reconstruction, and agent-driven tool use.
-//! - **Network scanning** — watch filesystem changes with hash caching.
-//! - **Output formats** — Wiki-style, JSON graph, Mermaid mindmap.
-//!
-//! # Feature flags
-//!
-//! | Feature | Description |
-//! |---------|-------------|
-//! | `cli`   | CLI subcommands via `clap` |
-//! | `web`   | Axum HTTP server on `:19876` |
-//! | `mcp`   | MCP protocol server (stdio) |
-//! | `network` | Filesystem watching via `notify` |
-//! | `voice` | Voice input via `reqwest` |
-//! | `tui`   | Terminal UI via `ratatui` |
-//! | `embed-onnx` | ONNX MiniLM embeddings (upgrade from RP) |
-//!
-//! # Example
-//!
-//! ```ignore
-//! use physis::config::PhysisConfig;
-//! use physis::OntologyMapper;
-//!
-//! let config = PhysisConfig::default();
-//! let ontology = physis::OntologyLoader::load_all(&config);
-//! let mut mapper = OntologyMapper::new(ontology, 384);
-//! let goals = mapper.map_filesystem(std::path::Path::new("/some/dir"), None);
-//! println!("Found {} goals", goals.len());
-//! ```
 
 pub mod ai;
 pub mod linguistic;
-
 pub mod actor;
 pub mod config;
 pub mod core;
 pub mod dream;
 pub mod embed;
-pub mod graph;
 pub mod mapper;
-pub mod rachmaninov;
-pub mod storage;
-pub mod gantt;
-pub mod sensory;
 pub mod models;
-pub mod ontology;
-pub mod ontology_nonhuman;
-pub mod output;
+pub mod graph;
+pub mod rachmaninov;
+pub mod sensory;
+pub mod storage;
+pub mod vfs;
+pub mod trie;
 pub mod quantize;
+pub mod life_os;
+pub mod social;
+pub mod output;
 pub mod reconstruct;
 pub mod scanner;
-pub mod trie;
-
 pub mod network;
 pub mod mcp;
 pub mod quality;
@@ -75,7 +28,9 @@ pub mod wiki;
 pub mod industrial;
 pub mod ingest;
 pub mod inventory;
-pub mod vfs;
+pub mod ontology;
+pub mod ontology_nonhuman;
+pub mod gantt;
 
 #[cfg(feature = "cli")]
 pub mod cli;

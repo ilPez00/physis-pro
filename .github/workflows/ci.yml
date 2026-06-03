@@ -3,11 +3,26 @@ name: Rust CI
 on: [push, pull_request]
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --features embed-onnx
-      - name: Run tests
-        run: cargo test --features embed-onnx
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: cargo check (default)
+        run: cargo check
+      - name: cargo check (full)
+        run: cargo check --features full
+      - name: cargo check (industrial)
+        run: cargo check --features industrial,cli
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --features full

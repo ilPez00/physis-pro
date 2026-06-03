@@ -4,6 +4,7 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY config ./config
+COPY models ./models
 
 RUN cargo build --release --no-default-features --features web --bin physis-pro-web
 

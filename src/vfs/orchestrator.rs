@@ -38,7 +38,8 @@ impl VfsOrchestrator {
                     .join(&theme.mode);
 
                 fs::create_dir_all(&virtual_path)?;
-                let symlink_path = virtual_path.join(file.path.file_name().unwrap());
+                let file_name = file.path.file_name().unwrap_or_default();
+                let symlink_path = virtual_path.join(file_name);
 
                 if !symlink_path.exists() {
                     #[cfg(unix)]
