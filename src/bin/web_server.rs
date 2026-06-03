@@ -34,26 +34,52 @@ use physis_pro::ai::onnx_worker::OnnxHolon;
 use physis_pro::ai::provider::{ProviderCascade, Message, Content};
 use physis_pro::rachmaninov::RachmaninovHolon;
 
-struct AppState {
+/// Read-only context built once at startup, shared by every request WITHOUT
+/// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
+/// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
+/// or the healthcheck. See PREMORTEM.md P1.
+struct SharedCtx {
     config: PhysisConfig,
     cascade: Arc<ProviderCascade>,
-    core: PhysisCore,
-    mapper: OntologyMapper,
-    actor: PDCActor,
-    dreams: DreamEngine,
     ontology: OntologyLoader,
-    goals: Vec<Goal>,
     embedder: Box<dyn VectorEmbed>,
+    /// Pre-computed centroid embeddings for each DOMAIN×MODE cell
+    cell_centroids: HashMap<String, Vec<f32>>,
+    embed_dim: usize,
+    /// Which embedder kind actually loaded (provenance of every vector).
+    embedder_kind: &'static str,
+    /// True when no real ONNX model loaded and vectors are random-projection noise.
+    degraded: bool,
     // Holarchy
     onnx: Arc<OnnxHolon>,
     rachmaninov: Arc<Mutex<RachmaninovHolon>>,
     ingest: Arc<IngestRing>,
-    /// Pre-computed centroid embeddings for each DOMAIN×MODE cell
-    cell_centroids: HashMap<String, Vec<f32>>,
-    embed_dim: usize,
 }
 
-type SharedState = Arc<Mutex<AppState>>;
+/// Mutable runtime state behind a single mutex. Kept small and cheap to mutate so
+/// the lock is never held across embedding/inference — only across state writes.
+struct RuntimeState {
+    core: PhysisCore,
+    mapper: OntologyMapper,
+    actor: PDCActor,
+    dreams: DreamEngine,
+    goals: Vec<Goal>,
+}
+
+struct AppCtx {
+    shared: Arc<SharedCtx>,
+    state: Mutex<RuntimeState>,
+}
+
+impl AppCtx {
+    /// Poison-tolerant lock: a panic while the lock is held no longer permanently
+    /// 500s every subsequent request — we recover the inner guard. PREMORTEM.md P1.
+    fn lock(&self) -> std::sync::MutexGuard<'_, RuntimeState> {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+type SharedState = Arc<AppCtx>;
 
 #[derive(Deserialize)]
 struct QueryParams {
@@ -173,6 +199,18 @@ async fn health() -> Json<&'static str> {
     Json("ok")
 }
 
+/// Reports the live embedder provenance so degraded (random-projection) mode is
+/// observable instead of silent. See PREMORTEM.md P0.
+async fn embedder_info_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+    let s = &state.shared;
+    Json(serde_json::json!({
+        "kind": s.embedder_kind,
+        "dim": s.embed_dim,
+        "degraded": s.degraded,
+        "semantic": !s.degraded,
+    }))
+}
+
 // ── /api/v1/chat ─────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -198,7 +236,7 @@ async fn chat_handler(
     State(state): State<SharedState>,
     Json(req): Json<ChatApiRequest>,
 ) -> Result<Json<ChatApiResponse>, StatusCode> {
-    let cascade = state.lock().unwrap().cascade.clone();
+    let cascade = state.shared.cascade.clone();
     let hint = {
         let task = req.task_type.as_deref().unwrap_or("smart");
         physis_pro::ai::provider::RouteHint {
@@ -222,12 +260,12 @@ async fn chat_handler(
 // ── /api/v1/providers ────────────────────────────────────────────────────────
 
 async fn providers_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
-    let cascade = state.lock().unwrap().cascade.clone();
+    let cascade = state.shared.cascade.clone();
     Json(serde_json::json!({ "providers": cascade.providers_list() }))
 }
 
 async fn stats_handler(State(state): State<SharedState>) -> Json<StatsResponse> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     Json(StatsResponse {
         mapper: s.mapper.stats(),
         core: s.core.snapshot(),
@@ -238,7 +276,7 @@ async fn query_handler(
     State(state): State<SharedState>,
     Query(params): Query<QueryParams>,
 ) -> Json<QueryResponse> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let results = s.mapper.query(&params.q);
     let limited: Vec<Vec<String>> = results.into_iter().take(params.max).collect();
     Json(QueryResponse { count: limited.len(), results: limited })
@@ -252,7 +290,7 @@ async fn scan_handler(
     if !path.exists() {
         return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
     }
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
     let goals = s.mapper.map_filesystem(&path, None);
     s.goals = goals.clone();
     Ok(Json(ScanResponse { count: goals.len(), goals }))
@@ -262,7 +300,7 @@ async fn dream_generate_handler(
     State(state): State<SharedState>,
     Json(req): Json<DreamGenerateRequest>,
 ) -> Json<serde_json::Value> {
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
 
     if s.goals.is_empty() {
         return Json(serde_json::json!({
@@ -300,7 +338,7 @@ async fn dream_evaluate_handler(
     State(state): State<SharedState>,
     Json(req): Json<DreamEvaluateRequest>,
 ) -> Json<serde_json::Value> {
-    let mut s = state.lock().unwrap();
+    let mut s = state.lock();
     let accepted = s.dreams.evaluate_dream(&req.id, req.grade);
     Json(serde_json::json!({
         "accepted": accepted,
@@ -312,7 +350,7 @@ async fn dream_evaluate_handler(
 async fn coherence_snapshot_handler(
     State(state): State<SharedState>,
 ) -> Json<CoherenceSnapshot> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     Json(s.core.snapshot())
 }
 
@@ -320,9 +358,8 @@ async fn coherence_register_handler(
     State(state): State<SharedState>,
     Json(req): Json<CoherenceRegisterRequest>,
 ) -> Json<CoherenceRegisterResponse> {
-    let mut s = state.lock().unwrap();
-    let embedding = s.embedder.embed(&req.input);
-    let node_id = s.core.register_node_vec(embedding);
+    let embedding = state.shared.embedder.embed(&req.input);
+    let node_id = state.lock().core.register_node_vec(embedding);
     Json(CoherenceRegisterResponse { node_id })
 }
 
@@ -330,8 +367,8 @@ async fn context_filter_handler(
     State(state): State<SharedState>,
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<FilterResponse> {
-    let s = state.lock().unwrap();
-    let result = s.core.filter_context(&req.input, &s.embedder);
+    let s = state.lock();
+    let result = s.core.filter_context(&req.input, &state.shared.embedder);
     Json(FilterResponse {
         embedding: result.embedding,
         valid: result.valid,
@@ -343,7 +380,7 @@ async fn compress_logs_handler(
     State(state): State<SharedState>,
     Json(req): Json<CompressLogsRequest>,
 ) -> Json<CompressResponse> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let compressed = s.core.compress_logs(&req.logs);
     Json(CompressResponse {
         input_count: req.logs.len(),
@@ -356,8 +393,7 @@ async fn translate_handler(
     State(state): State<SharedState>,
     Json(req): Json<TranslateRequest>,
 ) -> Json<TranslateResponse> {
-    let s = state.lock().unwrap();
-    let router = LinguisticRouter::with_config(&s.config.linguistic);
+    let router = LinguisticRouter::with_config(&state.shared.config.linguistic);
     let mut results = std::collections::HashMap::new();
     match req.lense {
         Some(ref l) => {
@@ -386,11 +422,10 @@ async fn ingest_prompt_handler(
     Json(req): Json<serde_json::Value>,
 ) -> Json<IngestResponse> {
     let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let mut s = state.lock().unwrap();
-    let embedding = s.embedder.embed(&prompt);
+    let embedding = state.shared.embedder.embed(&prompt);
     let mut goal = Goal::new_vec(embedding);
     goal.progress = 0.0;
-    s.goals.push(goal.clone());
+    state.lock().goals.push(goal.clone());
     Json(IngestResponse {
         message: format!("Goal created from prompt ({} chars)", prompt.len()),
         goal,
@@ -400,7 +435,7 @@ async fn ingest_prompt_handler(
 async fn pdca_plan_handler(
     State(state): State<SharedState>,
 ) -> Json<serde_json::Value> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let planned = s.actor.plan(&s.goals);
     let goals: Vec<serde_json::Value> = planned.iter().map(|g| {
         serde_json::json!({
@@ -417,7 +452,7 @@ async fn pdca_act_handler(
     Json(req): Json<PDCARequest>,
 ) -> Json<serde_json::Value> {
     let (before, after) = {
-        let s = state.lock().unwrap();
+        let s = state.lock();
         let goal = s.goals.iter().find(|g| g.id == req.goal_id);
         match goal {
             Some(g) => (g.embedding.clone(), req.state_vector),
@@ -426,16 +461,16 @@ async fn pdca_act_handler(
     };
 
     let exp_id = {
-        let mut s = state.lock().unwrap();
+        let mut s = state.lock();
         s.actor.do_action(&req.goal_id, before, after.clone()).id
     };
 
     let exps = {
-        let s = state.lock().unwrap();
+        let s = state.lock();
         s.actor.experiences.clone()
     };
     {
-        let mut s = state.lock().unwrap();
+        let mut s = state.lock();
         let mut goals = std::mem::take(&mut s.goals);
         s.actor.act(&exps, &mut goals);
         s.goals = goals;
@@ -449,7 +484,7 @@ async fn pdca_act_handler(
 async fn pdca_stats_handler(
     State(state): State<SharedState>,
 ) -> Json<physis_pro::actor::PDCAStats> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     Json(s.actor.stats(&s.goals))
 }
 
@@ -457,8 +492,8 @@ async fn reconstruct_handler(
     State(state): State<SharedState>,
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<physis_pro::Reconstruction> {
-    let s = state.lock().unwrap();
-    let rec = physis_pro::reconstruct(&req.input, &s.embedder, &s.core, 5);
+    let s = state.lock();
+    let rec = physis_pro::reconstruct(&req.input, &state.shared.embedder, &s.core, 5);
     Json(rec)
 }
 
@@ -473,15 +508,14 @@ async fn holarchy_ingest_handler(
     State(state): State<SharedState>,
     Json(req): Json<HolarchyIngestRequest>,
 ) -> Json<serde_json::Value> {
-    let s = state.lock().unwrap();
-    s.ingest.push(3, req.data.as_bytes().to_vec()); // Default: ThoughtCapture
+    state.shared.ingest.push(3, req.data.as_bytes().to_vec()); // Default: ThoughtCapture
     Json(serde_json::json!({ "status": "pushed_to_ring" }))
 }
 
 async fn holarchy_snapshot_handler(
     State(state): State<SharedState>,
 ) -> Json<serde_json::Value> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let nodes_count = s.core.holarchy.nodes.len();
     let edges_count = s.core.holarchy.edges.len();
     Json(serde_json::json!({
@@ -493,7 +527,7 @@ async fn holarchy_snapshot_handler(
 async fn holarchy_trajectory_handler(
     State(state): State<SharedState>,
 ) -> Json<physis_pro::gantt::Trajectory> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let trajectory = physis_pro::gantt::GanttHolon::compute_trajectory(&s.core.holarchy);
     Json(trajectory)
 }
@@ -507,7 +541,7 @@ struct GraphResponse {
 async fn holarchy_graph_handler(
     State(state): State<SharedState>,
 ) -> Json<GraphResponse> {
-    let s = state.lock().unwrap();
+    let s = state.lock();
     let nodes = s.core.holarchy.nodes.iter()
         .map(|(k, p)| (physis_pro::graph::RawNodeKey::from(k), *p))
         .collect();
@@ -526,7 +560,7 @@ struct OntologyListing {
 async fn ontology_list_handler(
     State(state): State<SharedState>,
 ) -> Json<Vec<OntologyListing>> {
-    let s = state.lock().unwrap();
+    let s = &state.shared;
     Json(vec![
         OntologyListing { kind: "human".into(), count: s.ontology.human_domains.len() },
         OntologyListing { kind: "machine".into(), count: s.ontology.machine_domains.len() },
@@ -548,7 +582,7 @@ struct SemioticGridResponse {
 async fn semiotic_grid_handler(
     State(state): State<SharedState>,
 ) -> Json<SemioticGridResponse> {
-    let s = state.lock().unwrap();
+    let s = &state.shared;
     let mut grid = SemioticGrid::new();
     // Classify all ontology entries into the grid
     for def in s.ontology.human_domains.values() {
@@ -677,7 +711,7 @@ struct HeatmapResponse {
 async fn heatmap_handler(
     State(state): State<SharedState>,
 ) -> Json<HeatmapResponse> {
-    let s = state.lock().unwrap();
+    let s = &state.shared;
     let mut grid = SemioticGrid::new();
     for def in s.ontology.human_domains.values() {
         if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
@@ -719,7 +753,7 @@ async fn classify_handler(
     State(state): State<SharedState>,
     Json(req): Json<ClassifyRequest>,
 ) -> Json<ClassifyResponse> {
-    let s = state.lock().unwrap();
+    let s = &state.shared;
 
     // Embed: use image if provided, otherwise text
     let embedding = if let Some(ref b64) = req.image {
@@ -788,7 +822,7 @@ async fn embed_handler(
     State(state): State<SharedState>,
     Json(req): Json<EmbedRequest>,
 ) -> Json<EmbedResponse> {
-    let s = state.lock().unwrap();
+    let s = &state.shared;
     let embedding = if let Some(ref b64) = req.image {
         match base64::engine::general_purpose::STANDARD.decode(b64) {
             Ok(bytes) => s.embedder.embed_image(&bytes).unwrap_or_else(|| {
@@ -827,50 +861,66 @@ async fn main() {
     let ingest = Arc::new(IngestRing::spawn(onnx.get_tx(), graph_tx));
     let rachmaninov = Arc::new(Mutex::new(RachmaninovHolon::new()));
 
-    let embedder: Box<dyn VectorEmbed> = {
+    // Select the embedder, tracking which kind actually loaded. `kind` is the
+    // real provenance of every vector this process produces — surfaced at startup
+    // and on /api/v1/embedder so a silent fall-through to random projection
+    // (P0 in PREMORTEM.md) can never masquerade as a working model.
+    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = {
         #[cfg(feature = "embed-onnx")]
         {
             // Try the configured primary embedder, then fall through Jina → CLIP → MiniLM → RP
-            let try_primary = || -> Option<Box<dyn VectorEmbed>> {
+            let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
                 if !ec.enabled { return None; }
                 match ec.kind {
                     EmbedderKindConfig::JinaV2 => {
                         let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                        j.is_available().then(|| Box::new(j) as Box<dyn VectorEmbed>)
+                        j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                     }
                     EmbedderKindConfig::Clip => {
                         let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
+                        c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                     }
                     EmbedderKindConfig::MiniLM => {
                         let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
+                        m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     }
                     EmbedderKindConfig::RandomProjection => {
-                        Some(Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
+                        Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
                     }
                 }
             };
             try_primary()
                 .or_else(|| {
                     let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-                    j.is_available().then(|| Box::new(j) as Box<dyn VectorEmbed>)
+                    j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                 })
                 .or_else(|| {
                     let c = ClipEmbedder::with_config(&config.onnx);
-                    c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
+                    c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                 })
                 .or_else(|| {
                     let m = OnnxEmbedder::with_config(&config.onnx);
-                    m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
+                    m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                 })
-                .unwrap_or_else(|| Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
+                .unwrap_or_else(|| (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
         }
         #[cfg(not(feature = "embed-onnx"))]
-        Box::new(RandomProjectionEmbedder::new(config.embed_dim))
+        { (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection") }
     };
     let embed_dim = embedder.dimension();
+    let degraded = embedder_kind == "random-projection";
+
+    if degraded {
+        log::error!("════════════════════════════════════════════════════════════════");
+        log::error!("  DEGRADED: no ONNX model loaded — using RANDOM-PROJECTION embedder.");
+        log::error!("  Classification output is NOT semantic; cosine scores are noise.");
+        log::error!("  Set MODEL_DIR / MODEL_BASE_URL so real weights load. See PREMORTEM.md P0.");
+        log::error!("════════════════════════════════════════════════════════════════");
+        eprintln!("[physis] WARNING: DEGRADED random-projection embedder active — classification is non-semantic.");
+    } else {
+        log::info!("Embedder loaded: kind={embedder_kind} dim={embed_dim}");
+    }
 
     // Pre-compute centroid embeddings per DOMAIN×MODE cell from ontology hints.
     // Uses the human grid plus every extra domain-specific ontology so the
@@ -909,28 +959,35 @@ async fn main() {
     let cascade = Arc::new(ProviderCascade::from_env());
     log::info!("AI cascade: {} providers loaded", cascade.provider_names().len());
 
-    let state = Arc::new(Mutex::new(AppState {
+    let shared = Arc::new(SharedCtx {
         config,
         cascade: cascade.clone(),
-        core,
-        mapper,
-        actor,
-        dreams,
         ontology,
-        goals: Vec::new(),
         embedder,
+        cell_centroids,
+        embed_dim,
+        embedder_kind,
+        degraded,
         onnx: onnx.clone(),
         rachmaninov: rachmaninov.clone(),
         ingest: ingest.clone(),
-        cell_centroids,
-        embed_dim,
-    }));
+    });
+    let state = Arc::new(AppCtx {
+        shared: shared.clone(),
+        state: Mutex::new(RuntimeState {
+            core,
+            mapper,
+            actor,
+            dreams,
+            goals: Vec::new(),
+        }),
+    });
 
     let state_clone = state.clone();
     // 1. Holarchy Graph Updater
     std::thread::spawn(move || {
         while let Ok((payload, embedding)) = graph_rx.recv() {
-            let mut s = state_clone.lock().unwrap();
+            let mut s = state_clone.lock();
             s.core.holarchy.add_node(payload, embedding);
         }
     });
@@ -943,8 +1000,8 @@ async fn main() {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
-            let mut s = state_clone_2.lock().unwrap();
-            let mut rach = rachmaninov_clone.lock().unwrap();
+            let mut s = state_clone_2.lock();
+            let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
             s.core.tick_holarchy(&onnx_clone, &mut rach);
         }
     });
@@ -960,6 +1017,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/api/v1/embedder", get(embedder_info_handler))
         .route("/api/v1/chat", post(chat_handler))
         .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))

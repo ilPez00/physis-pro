@@ -4,7 +4,9 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY config ./config
-COPY models ./models
+# NOTE: models/ is git-ignored (~1.5GB) and is NOT part of the build context.
+# Weights are fetched at boot by docker-entrypoint.sh from MODEL_BASE_URL.
+# See PREMORTEM.md P0.
 
 RUN cargo build --release --no-default-features --features web --bin physis-pro-web
 

@@ -8,6 +8,25 @@ distributed dream synchronization.
 
 ---
 
+## Phase 0: Hardening (premortem-driven — TOP PRIORITY) 🔴
+
+See `PREMORTEM.md`. These gate everything below: until the engine can prove it
+loaded a real model, no roadmap metric is trustworthy.
+
+| # | Risk | Fix | Status |
+|---|------|-----|--------|
+| P0 | Silent embedder degradation (random projection in prod, no signal) | Loud startup banner + `degraded` flag + `/api/v1/embedder` endpoint; runtime model download from `MODEL_BASE_URL`; drop dead `COPY models` | 🔄 In progress |
+| P1 | Global `Mutex<AppState>` serializes server; lock poisoning | Split read-only embedder/ontology out of the lock; poison-tolerant locking | ⬜ Next |
+| P3 | No accuracy measurement | `tests/classification_fixtures.json` + top-1 floor test (also catches P0 in CI) | ⬜ Next |
+| P6 | Unauthenticated public API + open LLM relay + `/scan` path traversal | `PHYSIS_API_TOKEN` bearer guard, default-deny non-loopback bind, sandbox `/scan` root | ⬜ Queued |
+| P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
+
+**Discipline (P2):** freeze new holons (gantt, MCP mesh, graph-dreams, industrial
+adapters, SigLIP/ImageBind/Gemma) until the text+image classify path is measured
+and the P0/P1/P6 launch-blockers are closed.
+
+---
+
 ## Phase 1: Holarchy & Real-time Graph (Current — In Progress)
 
 ### Graph Engine (`graph.rs`)
