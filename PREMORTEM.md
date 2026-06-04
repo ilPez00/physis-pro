@@ -93,6 +93,13 @@ duplicated in the web bin. **First measurement exposed two problems:** Jina
 only top-1 domain 0.556 / cell 0.333 with a BOND bias — well under the 0.85
 target. The number now exists and is gated; improving it is the next quality arc.
 
+**Follow-up win (2026-06-04):** the low score was a **scoring bug**, not just a
+weak model. Mean-centroid scoring let densely-populated cells (BOND) win via the
+embedder's hub direction. Switching to **nearest-entry** scoring (top-2 member
+cosines) lifted the same MiniLM from 0.556 → **0.852 domain / 0.741 cell** — at
+the 0.85 target. Floor raised to 0.75. This also lifts both downstream consumers
+(Praxis goal-tagging, Agora quality scoring) at once.
+
 ---
 
 ## P4 — ONNX runtime / model format drift breaks builds silently

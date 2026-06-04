@@ -138,13 +138,13 @@ fn accuracy_floor() {
     eprintln!("top-1 domain accuracy: {domain_acc:.3} ({domain_hits}/{})", fx.len());
     eprintln!("top-1 cell accuracy:   {cell_acc:.3} ({cell_hits}/{})", fx.len());
 
-    // Floor separates a real semantic model from random-projection degradation
-    // (P0): RP lands near chance (5 domains → 0.2) with no stable domain signal;
-    // a loaded model clears it comfortably (MiniLM ≈ 0.56, Jina expected higher
-    // once it loads — see PREMORTEM.md P4). Raise toward the 0.85 plan target as
-    // the ontology centroids are densified.
+    // Floor: nearest-entry scoring on MiniLM hits ≈0.85 domain top-1, so the
+    // floor sits at 0.75 — well above random-projection degradation (P0, ~0.2)
+    // and tight enough to catch a real regression (model swap, ontology drift,
+    // a revert to the old mean-centroid scoring that scored ~0.56). Jina is
+    // expected higher once it loads (P4).
     assert!(
-        domain_acc >= 0.45,
-        "top-1 domain accuracy {domain_acc:.3} below floor 0.45 — model degraded (random projection?) or ontology drift"
+        domain_acc >= 0.75,
+        "top-1 domain accuracy {domain_acc:.3} below floor 0.75 — model degraded or scoring/ontology regression"
     );
 }
