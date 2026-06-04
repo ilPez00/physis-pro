@@ -33,7 +33,11 @@ impl OnnxEmbedder {
         let dim = config.dim;
         let max_length = config.max_length;
         let model_dir = config.model_dir.as_deref().unwrap_or("./models");
-        let model_path = Path::new(model_dir).join("model.onnx");
+        // Accept either a flat layout (model_dir/model.onnx) or an `onnx/`
+        // subdir (model_dir/onnx/model.onnx), as exported by Xenova/* repos.
+        let flat = Path::new(model_dir).join("model.onnx");
+        let nested = Path::new(model_dir).join("onnx/model.onnx");
+        let model_path = if flat.exists() { flat } else { nested };
         let tok_path = Path::new(model_dir).join("tokenizer.json");
 
         let session = if model_path.exists() {

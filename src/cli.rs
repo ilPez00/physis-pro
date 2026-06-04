@@ -139,6 +139,16 @@ impl PhysisApp {
                             let m = OnnxEmbedder::with_config(&config.onnx);
                             m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
                         }
+                        EmbedderKindConfig::BgeBase => {
+                            let cfg = crate::config::OnnxConfig {
+                                enabled: true,
+                                model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                                dim: 768,
+                                max_length: 512,
+                            };
+                            let b = OnnxEmbedder::with_config(&cfg);
+                            b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                        }
                         EmbedderKindConfig::RandomProjection => {
                             Some(Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
                         }

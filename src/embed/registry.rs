@@ -38,6 +38,20 @@ impl EmbedderRegistry {
                         Self::fallback_onnx(onnx_cfg)
                     }
                 }
+                EmbedderKindConfig::BgeBase => {
+                    let cfg = OnnxConfig {
+                        enabled: true,
+                        model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                        dim: 768,
+                        max_length: 512,
+                    };
+                    let bge = OnnxEmbedder::with_config(&cfg);
+                    if bge.is_available() {
+                        (Box::new(bge), None)
+                    } else {
+                        Self::fallback_onnx(onnx_cfg)
+                    }
+                }
                 EmbedderKindConfig::Clip => {
                     let clip = ClipEmbedder::with_config(onnx_cfg);
                     if clip.is_available() {

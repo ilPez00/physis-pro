@@ -138,6 +138,10 @@ pub enum EmbedderKindConfig {
     Clip,
     #[serde(rename = "jina-v2")]
     JinaV2,
+    /// BGE-base-en-v1.5 (768-d text). Strong, ONNX-friendly fallback that loads
+    /// cleanly under the current `ort` when Jina's quant won't. Text-only.
+    #[serde(rename = "bge-base")]
+    BgeBase,
 }
 
 /// Configuration for a single embedder.

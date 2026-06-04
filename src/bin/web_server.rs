@@ -922,7 +922,20 @@ async fn main() {
     let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = {
         #[cfg(feature = "embed-onnx")]
         {
-            // Try the configured primary embedder, then fall through Jina → CLIP → MiniLM → RP
+            // BGE-base-en-v1.5 (768-d). Loads `onnx/model.onnx` + tokenizer from
+            // models/bge-base-en-v1.5. Strong text-only fallback when Jina's quant
+            // won't load under the current ort.
+            let make_bge = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                let cfg = physis_pro::config::OnnxConfig {
+                    enabled: true,
+                    model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                    dim: 768,
+                    max_length: 512,
+                };
+                let b = OnnxEmbedder::with_config(&cfg);
+                b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
+            };
+            // Try the configured primary embedder, then fall through Jina → BGE → CLIP → MiniLM → RP
             let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
                 if !ec.enabled { return None; }
@@ -939,6 +952,7 @@ async fn main() {
                         let m = OnnxEmbedder::with_config(&config.onnx);
                         m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     }
+                    EmbedderKindConfig::BgeBase => make_bge(),
                     EmbedderKindConfig::RandomProjection => {
                         Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
                     }
@@ -949,6 +963,7 @@ async fn main() {
                     let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
                     j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                 })
+                .or_else(make_bge)
                 .or_else(|| {
                     let c = ClipEmbedder::with_config(&config.onnx);
                     c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
