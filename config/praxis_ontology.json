@@ -39,7 +39,7 @@
       "axis_kind": "human",
       "axis_name": "psychological",
       "unit": "tasks",
-      "hints": ["home", "clean", "organize", "repair", "declutter"]
+      "hints": ["tidy the home", "clean the house", "declutter", "organize a room", "homemaking", "arrange the space"]
     },
     {
       "name": "Health & Longevity",
@@ -129,7 +129,7 @@
       "axis_kind": "human",
       "axis_name": "intellectual",
       "unit": "projects",
-      "hints": ["write", "publish", "launch", "build", "create", "found"]
+      "hints": ["legacy", "lasting impact", "life work", "mission", "leave a mark", "magnum opus", "found an institution"]
     },
     {
       "name": "Spirit & Purpose",

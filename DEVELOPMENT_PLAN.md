@@ -8,6 +8,60 @@ distributed dream synchronization.
 
 ---
 
+## Recommendation: lift accuracy past the MiniLM ceiling
+
+Measured state (nearest-entry scoring, de-hubbed ontology, 2026-06-04):
+**CORE 0.872 domain / 0.795 cell**, **HARD 0.444** — on `all-MiniLM-L6-v2`
+(384-d), the only model that loads. The remaining errors are two distinct
+problems with two distinct fixes; do them in this order.
+
+### 1. Swap the text embedder (biggest lift, least work) 🔴
+
+`all-MiniLM-L6-v2` is a 2021-era 384-d model near the bottom of MTEB. The hard
+tier and the abstract core misses ("blog" vs "legacy", "incubate", "dough rest")
+are its semantic ceiling, not an ontology bug. **Jina is the intended primary but
+its `model_q4f16.onnx` won't load under `ort 2.0.0-rc.12`** (4-bit quant trips the
+graph optimizer — P4). Two clean paths:
+
+- **Fastest:** obtain Jina CLIP v2 as **`model_fp16.onnx`** (or full `model.onnx`)
+  instead of the q4f16 quant — the loader already prefers those filenames
+  (`jina.rs`). Same 1024-d multilingual text+image space, no code change.
+- **Strong text-only alternative that loads cleanly in `ort` today:**
+  `BAAI/bge-base-en-v1.5` (768-d) or `Alibaba-NLP/gte-base-en-v1.5` — both are
+  small, ONNX-exportable, and far above MiniLM on MTEB semantic-similarity.
+  Wire as another `EmbedderKind`; centroids/classifier are dimension-agnostic.
+  (Loses native image embedding — keep CLIP/Jina for the image path.)
+
+Expected: CORE → 0.92+, HARD materially up. Re-run the floor to confirm, then
+raise it.
+
+### 2. Nested (hierarchical) classification — structural, model-agnostic 🟠
+
+Flat 30-way scoring lets a populous/hub cell (CONSTRUCT/CREATE) bleed across
+unrelated queries, and conflates same-domain modes (BOND/CREATE vs BOND/LEARN).
+Replace with two stages in `classify::CellClassifier`:
+
+1. **Domain (5-way):** score the query against each domain's *pooled* entries;
+   pick the top domain (already ~0.87 — the reliable signal).
+2. **Mode within that domain (≤6-way):** re-score only against the chosen
+   domain's entries to pick the mode.
+
+This caps cross-domain hub bleed and turns one hard 30-way decision into two
+easy ones. Model-agnostic — compounds with the embedder upgrade. Keep the flat
+score available for the full ranked list the API returns.
+
+### 3. Densify toward 25/cell (ongoing)
+
+Mean is ~9 entries/cell. Add domain-specific entries (human + machine + natural)
+per Phase 6F so each cell's nearest-entry has real coverage. Highest value on the
+sparse cells that back the hard tier.
+
+**Net recommendation:** ship #1 (fp16 Jina, or bge/gte for text) first — it is the
+single highest-leverage change and unblocks the hard tier. Then #2 for structural
+robustness, then #3 as continuous improvement.
+
+---
+
 ## Phase 0: Hardening (premortem-driven — TOP PRIORITY) 🔴
 
 See `PREMORTEM.md`. These gate everything below: until the engine can prove it

@@ -157,7 +157,7 @@ fn accuracy_floor() {
     // exercises the newly-filled empty cells; a weak embedder is expected to
     // miss many — those lift once a stronger model (Jina, P4) loads.
     assert!(
-        core_dom_acc >= 0.75,
-        "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.75 — model degraded or scoring/ontology regression"
+        core_dom_acc >= 0.80,
+        "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.80 — model degraded or scoring/ontology regression"
     );
 }
