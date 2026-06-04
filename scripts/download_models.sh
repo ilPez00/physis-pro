@@ -69,7 +69,7 @@ download_llm() {
   # AI provider cascade or a llama.cpp server at this file). Swap the repo/file
   # for a different uncensored model if preferred.
   local LD="$MODELS_DIR/llm"
-  hf_get cognitivecomputations/Dolphin3.0-Llama3.1-8B-GGUF \
+  hf_get dphn/Dolphin3.0-Llama3.1-8B-GGUF \
     Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf "$LD"
   echo "[models] LLM done: $LD/Dolphin3.0-Llama3.1-8B-Q4_K_M.gguf"
 }
