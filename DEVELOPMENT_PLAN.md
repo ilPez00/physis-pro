@@ -35,20 +35,20 @@ graph optimizer — P4). Two clean paths:
 Expected: CORE → 0.92+, HARD materially up. Re-run the floor to confirm, then
 raise it.
 
-### 2. Nested (hierarchical) classification — structural, model-agnostic 🟠
+### 2. Nested (hierarchical) classification — ✅ done (model-agnostic)
 
-Flat 30-way scoring lets a populous/hub cell (CONSTRUCT/CREATE) bleed across
-unrelated queries, and conflates same-domain modes (BOND/CREATE vs BOND/LEARN).
-Replace with two stages in `classify::CellClassifier`:
+Flat 30-way scoring conflates same-domain modes (BOND/CREATE vs BOND/LEARN).
+`classify::CellClassifier` now blends a domain prior:
+`final = ALPHA·domain_score + (1-ALPHA)·cell_score`, `ALPHA=0.4`, where
+`domain_score` is the top-2 mean of the domain's **per-cell** scores.
 
-1. **Domain (5-way):** score the query against each domain's *pooled* entries;
-   pick the top domain (already ~0.87 — the reliable signal).
-2. **Mode within that domain (≤6-way):** re-score only against the chosen
-   domain's entries to pick the mode.
-
-This caps cross-domain hub bleed and turns one hard 30-way decision into two
-easy ones. Model-agnostic — compounds with the embedder upgrade. Keep the flat
-score available for the full ranked list the API returns.
+**Implementation note (two dead ends first):** pooling *all* of a domain's entry
+cosines for `domain_score` made it *worse* (0.846) — `max` over more entries
+favours entry-rich domains (BOND), a sampling bias. Using the domain's per-cell
+scores instead is unbiased. Result: domain top-1 unchanged (0.872), **cell top-1
+0.795 → 0.821** — the mode-disambiguation win, no domain regression. The gain is
+small on MiniLM because the embedder, not the structure, is the ceiling; expect
+more once #1 lands. Floors now gate both domain (≥0.80) and cell (≥0.78).
 
 ### 3. Densify toward 25/cell (ongoing)
 

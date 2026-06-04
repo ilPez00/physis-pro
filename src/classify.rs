@@ -23,6 +23,23 @@ use crate::models::cosine_sim;
 /// nearest-entry; >1 smooths noise from a single outlier entry.
 const TOP_K: usize = 2;
 
+/// Nested-classification blend weight. The final cell score is
+/// `ALPHA·domain_score + (1-ALPHA)·cell_score`, where `domain_score` is the
+/// top-2 mean of the cell's DOMAIN's per-cell scores. Domain is the reliable
+/// 5-way signal; blending it as a prior disambiguates same-domain modes (lifts
+/// cell accuracy 0.795 → 0.821 on MiniLM) without changing domain top-1.
+/// Empirically flat across 0.35–0.5; >0.5 starts to hurt domain. 0.0 = flat.
+const ALPHA: f32 = 0.4;
+
+/// Mean of the top-`k` values of an already-descending-sorted slice.
+fn topk_mean(sorted_desc: &[f32], k: usize) -> f32 {
+    if sorted_desc.is_empty() {
+        return 0.0;
+    }
+    let k = k.min(sorted_desc.len()).max(1);
+    sorted_desc.iter().take(k).sum::<f32>() / k as f32
+}
+
 /// Score for a single DOMAIN×MODE cell.
 #[derive(Debug, Clone, Serialize)]
 pub struct CellScore {
@@ -81,25 +98,47 @@ impl CellClassifier {
         self.cells.len()
     }
 
-    /// Classify a pre-computed embedding. Each cell scores as the mean of its
-    /// top-`TOP_K` member-entry cosine similarities; results sorted descending.
+    /// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
+    ///
+    /// Per cell: `cell_score` = mean of its top-`TOP_K` member cosines.
+    /// Per domain: `domain_score` = top-2 mean of that domain's per-cell scores
+    /// (cell-level, not entry-pooled — pooling all entries would favour
+    /// entry-rich domains). Final score = `ALPHA·domain_score +
+    /// (1-ALPHA)·cell_score`, so the strongest domain acts as a prior and the
+    /// mode is disambiguated within it. Results sorted by final score, desc.
     pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
+        // First pass: per-cell top-k cell score + collect per-domain cell scores.
+        let mut domain_cell_scores: HashMap<&str, Vec<f32>> = HashMap::new();
+        let mut cell_scores: Vec<f32> = Vec::with_capacity(self.cells.len());
+        for cell in &self.cells {
+            let mut sims: Vec<f32> = cell.embeddings.iter().map(|e| cosine_sim(embedding, e)).collect();
+            sims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+            let cs = topk_mean(&sims, TOP_K);
+            cell_scores.push(cs);
+            domain_cell_scores.entry(cell.domain.as_str()).or_default().push(cs);
+        }
+
+        // Per-domain score: top-2 mean of the domain's *cell* scores (not entry-
+        // pooled — pooling all entries favours entry-rich domains by sampling).
+        let domain_score: HashMap<&str, f32> = domain_cell_scores
+            .into_iter()
+            .map(|(d, mut cs)| {
+                cs.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+                (d, topk_mean(&cs, 2))
+            })
+            .collect();
+
+        // Second pass: blend.
         let mut results: Vec<CellScore> = self
             .cells
             .iter()
-            .map(|cell| {
-                let mut sims: Vec<f32> = cell
-                    .embeddings
-                    .iter()
-                    .map(|e| cosine_sim(embedding, e))
-                    .collect();
-                sims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-                let k = TOP_K.min(sims.len()).max(1);
-                let score = sims.iter().take(k).sum::<f32>() / k as f32;
+            .zip(cell_scores)
+            .map(|(cell, cell_score)| {
+                let ds = *domain_score.get(cell.domain.as_str()).unwrap_or(&0.0);
                 CellScore {
                     domain: cell.domain.clone(),
                     mode: cell.mode.clone(),
-                    score,
+                    score: ALPHA * ds + (1.0 - ALPHA) * cell_score,
                     entries: cell.entries.clone(),
                 }
             })

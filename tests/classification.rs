@@ -160,4 +160,9 @@ fn accuracy_floor() {
         core_dom_acc >= 0.80,
         "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.80 — model degraded or scoring/ontology regression"
     );
+    // Cell floor locks the nested domain→mode gain (0.795 → 0.821).
+    assert!(
+        core_cell_acc >= 0.78,
+        "CORE top-1 cell accuracy {core_cell_acc:.3} below floor 0.78 — nested scoring or ontology regression"
+    );
 }
