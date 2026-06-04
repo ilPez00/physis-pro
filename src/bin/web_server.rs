@@ -935,6 +935,21 @@ async fn main() {
                 let b = OnnxEmbedder::with_config(&cfg);
                 b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
             };
+            // Self-test gate: accept a candidate only if it loads AND produces
+            // semantic vectors. A model that loads but emits garbage (e.g. Jina
+            // fp16, whose float16 outputs the f32 extractor can't read → random
+            // fallback) is skipped so the next working candidate wins instead of
+            // the engine silently running on noise. PREMORTEM.md P4.
+            let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
+                opt.and_then(|(e, k)| {
+                    if embedder_self_test(e.as_ref()) {
+                        Some((e, k))
+                    } else {
+                        log::warn!("embedder '{k}' loaded but FAILED the semantic self-test — skipping to next candidate.");
+                        None
+                    }
+                })
+            };
             // Try the configured primary embedder, then fall through Jina → BGE → CLIP → MiniLM → RP
             let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
@@ -958,20 +973,20 @@ async fn main() {
                     }
                 }
             };
-            try_primary()
-                .or_else(|| {
+            gate(try_primary())
+                .or_else(|| gate({
                     let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
                     j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                })
-                .or_else(make_bge)
-                .or_else(|| {
+                }))
+                .or_else(|| gate(make_bge()))
+                .or_else(|| gate({
                     let c = ClipEmbedder::with_config(&config.onnx);
                     c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                })
-                .or_else(|| {
+                }))
+                .or_else(|| gate({
                     let m = OnnxEmbedder::with_config(&config.onnx);
                     m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                })
+                }))
                 .unwrap_or_else(|| (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
         }
         #[cfg(not(feature = "embed-onnx"))]

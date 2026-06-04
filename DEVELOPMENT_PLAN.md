@@ -15,7 +15,23 @@ Measured state (nearest-entry scoring, de-hubbed ontology, 2026-06-04):
 (384-d), the only model that loads. The remaining errors are two distinct
 problems with two distinct fixes; do them in this order.
 
-### 1. Swap the text embedder (biggest lift, least work) 🔴
+### ✅ RESULT (2026-06-04): BGE-base swapped in — 0.974 domain / 0.923 cell
+
+Downloaded the models and measured. **BGE-base-en-v1.5 (768-d)** lifts CORE
+top-1 from MiniLM's 0.872/0.821 to **0.974 domain / 0.923 cell**, and the HARD
+tier (abstract/empty-cell concepts) from 0.444 to **1.000** — past the 0.85
+target. It is now the engine's live embedder (self-test-gated selection).
+
+**Jina is downloaded but unusable as-is:** fp16 *loads* (after disabling ort
+graph optimization, commit 6a9615f) but outputs **float16** tensors that
+`jina.rs` extracts as f32 → silently returns the random fallback (0.154, below
+chance). The semantic self-test catches it and the selection skips to BGE.
+To use Jina: either handle f16 outputs in `jina.rs` (extract as `half::f16` →
+convert), or fetch the fp32 `model.onnx` + `model.onnx_data` (3.4GB external).
+Deferred — BGE already clears the target; Jina's only added value is image
+embedding (CLIP path).
+
+### 1. Swap the text embedder (biggest lift, least work) 🔴 — done, see above
 
 `all-MiniLM-L6-v2` is a 2021-era 384-d model near the bottom of MTEB. The hard
 tier and the abstract core misses ("blog" vs "legacy", "incubate", "dough rest")

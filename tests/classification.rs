@@ -88,21 +88,47 @@ fn fixtures_use_valid_vocabulary() {
     }
 }
 
-/// Best available real (semantic) embedder for local accuracy checks: Jina,
-/// else MiniLM (`models/model.onnx`). `None` when no model is on disk.
+/// Semantic self-test: a related pair must out-score an unrelated pair, all
+/// vectors finite. Mirrors the engine's gate so a model that loads but emits
+/// garbage (e.g. Jina fp16's float16 outputs read as f32 → random) is rejected.
+#[cfg(feature = "embed-onnx")]
+fn is_semantic(e: &dyn VectorEmbed) -> bool {
+    let a = e.embed("a photograph of a dog");
+    let related = e.embed("a photograph of a puppy");
+    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
+    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
+    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
+        return false;
+    }
+    physis_pro::models::cosine_sim(&a, &related) > physis_pro::models::cosine_sim(&a, &unrelated) + 0.05
+}
+
+/// Best available real (semantic) embedder for local accuracy checks: Jina →
+/// BGE-base → MiniLM, self-test-gated. `None` when no usable model is on disk.
 #[cfg(feature = "embed-onnx")]
 fn real_embedder() -> Option<Box<dyn VectorEmbed>> {
+    use physis_pro::config::OnnxConfig;
     use physis_pro::embed::jina::JinaEmbedder;
     use physis_pro::embed::onnx::OnnxEmbedder;
 
     let jina = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-    if jina.is_available() {
-        eprintln!("using embedder: jina-clip-v2");
+    if jina.is_available() && is_semantic(&jina) {
+        eprintln!("using embedder: jina-clip-v2 (1024-d)");
         return Some(Box::new(jina));
     }
+    let bge = OnnxEmbedder::with_config(&OnnxConfig {
+        enabled: true,
+        model_dir: Some("models/bge-base-en-v1.5".to_string()),
+        dim: 768,
+        max_length: 512,
+    });
+    if bge.is_available() && is_semantic(&bge) {
+        eprintln!("using embedder: bge-base-en-v1.5 (768-d)");
+        return Some(Box::new(bge));
+    }
     let onnx = OnnxEmbedder::with_config(&PhysisConfig::default().onnx);
-    if onnx.is_available() {
-        eprintln!("using embedder: minilm (models/model.onnx)");
+    if onnx.is_available() && is_semantic(&onnx) {
+        eprintln!("using embedder: minilm (models/model.onnx, 384-d)");
         return Some(Box::new(onnx));
     }
     None
@@ -156,13 +182,14 @@ fn accuracy_floor() {
     // revert to the old mean-centroid scoring that scored ~0.56). The HARD tier
     // exercises the newly-filled empty cells; a weak embedder is expected to
     // miss many — those lift once a stronger model (Jina, P4) loads.
+    // Floors reflect the BGE-base standard (CORE 0.974 domain / 0.923 cell).
+    // A regression to weak-model level (MiniLM ≈ 0.87/0.82) trips them.
     assert!(
-        core_dom_acc >= 0.80,
-        "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.80 — model degraded or scoring/ontology regression"
+        core_dom_acc >= 0.88,
+        "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.88 — weak/degraded model or scoring/ontology regression"
     );
-    // Cell floor locks the nested domain→mode gain (0.795 → 0.821).
     assert!(
-        core_cell_acc >= 0.78,
-        "CORE top-1 cell accuracy {core_cell_acc:.3} below floor 0.78 — nested scoring or ontology regression"
+        core_cell_acc >= 0.85,
+        "CORE top-1 cell accuracy {core_cell_acc:.3} below floor 0.85 — weak/degraded model or scoring/ontology regression"
     );
 }

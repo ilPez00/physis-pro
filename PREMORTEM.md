@@ -124,6 +124,15 @@ the 4-bit quant export trips this rc's graph optimizer. Fix path: export/obtain 
 loads the quant. Until then the engine correctly runs on MiniLM (self-test
 green) at 0.556 domain accuracy.
 
+**Resolved (2026-06-04):** root-caused and fixed. Jina fp16 *loads* once ort
+graph optimization is disabled, but emits float16 tensors the f32 extractor reads
+as random — caught by the self-test. The selection is now **self-test-gated**: a
+model that loads but fails the semantic probe is skipped. Swapped in
+**BGE-base-en-v1.5 (768-d)**, which lifts CORE top-1 to **0.974 domain / 0.923
+cell** and the HARD tier to **1.000** — comfortably past target. The engine runs
+on BGE; Jina is deferred (needs f16 handling or the fp32 export, only adds image
+embedding).
+
 ---
 
 ## P5 — Legal/compliance on the consumer side (Agora)
