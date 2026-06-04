@@ -75,6 +75,7 @@ impl FileInfo {
     }
 }
 
+#[allow(clippy::type_complexity)]
 static EXTRACTORS: Lazy<Vec<(String, Vec<(Regex, String)>)>> = Lazy::new(build_extractors);
 
 static HEADING_RE: Lazy<Regex> = Lazy::new(|| {
@@ -178,11 +179,10 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
                 if para.len() > 20 && para.len() < 200 {
                     if let Some(first_line) = para.lines().next() {
                         let fl = first_line.trim();
-                        if !fl.starts_with('#') && !fl.starts_with('-') && !fl.starts_with('*') && !fl.starts_with('>') {
-                            if fl.split_whitespace().count() <= 15 {
+                        if !fl.starts_with('#') && !fl.starts_with('-') && !fl.starts_with('*') && !fl.starts_with('>')
+                            && fl.split_whitespace().count() <= 15 {
                                 lines.push(fl.to_string());
                             }
-                        }
                     }
                 }
             }
@@ -263,8 +263,8 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
 
     if lines.is_empty() && ext.is_empty() {
         if let Some(first) = text.lines().next() {
-            if first.starts_with("#!") {
-                lines.push(format!("shebang:{}", first[2..].trim()));
+            if let Some(rest) = first.strip_prefix("#!") {
+                lines.push(format!("shebang:{}", rest.trim()));
             }
         }
     }
@@ -322,11 +322,10 @@ pub fn should_include_file(
     if ext.is_empty() {
         if let Ok(mut f) = std::fs::File::open(file_path) {
             let mut buf = [0u8; 128];
-            if std::io::Read::read_exact(&mut f, &mut buf).is_ok() {
-                if buf.starts_with(b"#!") {
+            if std::io::Read::read_exact(&mut f, &mut buf).is_ok()
+                && buf.starts_with(b"#!") {
                     return true;
                 }
-            }
         }
     }
 
@@ -485,7 +484,7 @@ pub fn compute_diff(
         .filter(|f| {
             cached_hashes
                 .get(&f.path)
-                .map_or(false, |h| h != &f.hash)
+                .is_some_and(|h| h != &f.hash)
         })
         .cloned()
         .collect();
@@ -500,8 +499,7 @@ pub fn compute_diff(
         .iter()
         .filter(|f| {
             cached_hashes
-                .get(&f.path)
-                .map_or(false, |h| h == &f.hash)
+                .get(&f.path) == Some(&f.hash)
         })
         .cloned()
         .collect();

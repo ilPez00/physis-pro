@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::*;
 use crate::trie::DynamicVectorTrie;
 use crate::quantize::ProductQuantizer;
-use crate::graph::{HolonicGraph, NodePayload};
+use crate::graph::HolonicGraph;
 
 /// Central engine state — coherence graph, certified/isolated branches, dream archive,
 /// and optional PQ-accelerated nearest-neighbour search.

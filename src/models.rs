@@ -267,6 +267,7 @@ impl HumanDomain {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<HumanDomain> {
         match s.to_uppercase().as_str() {
             "HEAL" => Some(HumanDomain::Heal),
@@ -317,6 +318,7 @@ impl HumanMode {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<HumanMode> {
         match s.to_uppercase().as_str() {
             "LIFT" => Some(HumanMode::Lift),
@@ -630,7 +632,7 @@ mod tests {
         let b = vec![1.0, 0.0];
         let sim = cosine_sim(&a, &b);
         assert!(!sim.is_nan());
-        assert!(sim >= -1.0 && sim <= 1.0);
+        assert!((-1.0..=1.0).contains(&sim));
     }
 
     #[test]

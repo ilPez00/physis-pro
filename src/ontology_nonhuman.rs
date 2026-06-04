@@ -19,13 +19,7 @@ pub fn resolve_nonhuman_domain<'a>(
         }
     }
 
-    for def in domains.values() {
-        if lower.contains(&def.name.to_lowercase()) {
-            return Some(def);
-        }
-    }
-
-    None
+    domains.values().find(|&def| lower.contains(&def.name.to_lowercase())).map(|v| v as _)
 }
 
 pub fn enrich_nonhuman_goal(

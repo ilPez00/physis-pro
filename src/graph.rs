@@ -57,6 +57,12 @@ pub struct HolonicGraph {
     pub embeddings: DenseSlotMap<NodeKey, Vec<f32>>,
 }
 
+impl Default for HolonicGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HolonicGraph {
     pub fn new() -> Self {
         Self {
@@ -79,7 +85,7 @@ impl HolonicGraph {
         self.edges.retain(|e| e.weight > confidence_threshold);
 
         // 2. Decay activation energy and apply prune flags
-        for (key, payload) in self.nodes.iter_mut() {
+        for (_key, payload) in self.nodes.iter_mut() {
             payload.activation_energy *= 0.95; // 5% decay per cycle
             if payload.activation_energy < 0.1 {
                 payload.prune_flag = 1;
@@ -480,7 +486,7 @@ impl Default for FileThemeGraph {
 pub fn build_theme_graph(
     docs: &[crate::ingest::IngestedDoc],
     embedder: &dyn crate::embed::VectorEmbed,
-    ontology: &crate::config::OntologyLoader,
+    _ontology: &crate::config::OntologyLoader,
     domains: &HashMap<String, crate::models::DomainDef>,
 ) -> FileThemeGraph {
     let mut graph = FileThemeGraph::new();

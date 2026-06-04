@@ -31,7 +31,7 @@ use physis_pro::CoherenceSnapshot;
 
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
-use physis_pro::ai::provider::{ProviderCascade, Message, Content};
+use physis_pro::ai::provider::{ProviderCascade, Message};
 use physis_pro::rachmaninov::RachmaninovHolon;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
@@ -50,9 +50,8 @@ struct SharedCtx {
     embedder_kind: &'static str,
     /// True when no real ONNX model loaded and vectors are random-projection noise.
     degraded: bool,
-    // Holarchy
-    onnx: Arc<OnnxHolon>,
-    rachmaninov: Arc<Mutex<RachmaninovHolon>>,
+    /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
+    /// background tasks via their own Arc clones, not through this struct).
     ingest: Arc<IngestRing>,
 }
 
@@ -968,8 +967,6 @@ async fn main() {
         embed_dim,
         embedder_kind,
         degraded,
-        onnx: onnx.clone(),
-        rachmaninov: rachmaninov.clone(),
         ingest: ingest.clone(),
     });
     let state = Arc::new(AppCtx {

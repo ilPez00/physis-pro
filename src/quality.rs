@@ -14,10 +14,9 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::{OntologyLoader, PhysisProConfig};
+use crate::config::OntologyLoader;
 use crate::embed::VectorEmbed;
 use crate::models::*;
-use crate::trie::DynamicVectorTrie;
 
 /// A recorded quality failure — what was wrong, where in the semiotic grid it landed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +72,7 @@ pub struct QualityTracker {
     /// Embedder for classifying feedback.
     embedder: Box<dyn VectorEmbed>,
     /// Ontology loader for semiotic grid lookup.
+    #[allow(dead_code)]
     ontology: OntologyLoader,
 }
 
@@ -186,7 +186,7 @@ impl QualityTracker {
         for f in self.failures.iter().rev().take(5) {
             out.push_str(&format!(
                 "  [{}] cell={} score={:.3} sev={:.1} feedback={}\n",
-                f.id[..8].to_string(),
+                &f.id[..8],
                 f.top_cell,
                 f.top_score,
                 f.severity,
@@ -237,8 +237,8 @@ impl QualityTracker {
             let penalty = t.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
             *penalty = (*penalty + f.severity * 0.2).min(1.0);
             if let Some(ref correct) = f.correct_domain {
-                let c_emb = t.embedder.embed(correct);
-                for (key, _centroid) in &t.embedder_cells() {
+                let _c_emb = t.embedder.embed(correct);
+                for key in t.embedder_cells().keys() {
                     if key.contains(&f.top_cell) {
                         let boost = t.cell_boosts.entry((*key).clone()).or_insert(0.0);
                         *boost = (*boost + 0.1).min(1.0);
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_adjust_score_with_boost() {
-        let tracker = make_tracker();
+        let _tracker = make_tracker();
         // Can't call report_success on immutable...we can construct the state manually
         let mut t = make_tracker();
         t.cell_boosts.insert("WORK\x00DO".to_string(), 0.5);

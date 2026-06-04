@@ -61,7 +61,7 @@ pub fn search_wiki(query: &str, wiki_path: &Path) -> Vec<String> {
 /// Search the FileThemeGraph for matching themes and files (uberwiki integration).
 pub fn search_graph(query: &str, graph: &FileThemeGraph) -> Vec<String> {
     let mut results = Vec::new();
-    let q = query.to_lowercase();
+    let _q = query.to_lowercase();
 
     // Match themes
     let matching_themes = graph.search_themes_by_text(query);

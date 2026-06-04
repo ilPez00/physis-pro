@@ -174,6 +174,7 @@ pub struct Usage {
 /// orchestration.
 pub struct Provider {
     config: ProviderConfig,
+    #[allow(dead_code)]
     key_idx: AtomicI64,
     available: AtomicBool,
     cooldown_until: AtomicI64,

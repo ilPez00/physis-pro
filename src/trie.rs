@@ -127,7 +127,7 @@ impl DynamicVectorTrie {
     }
 
     pub fn search(&self, tokens: &[u32]) -> bool {
-        self.walk(tokens).map_or(false, |idx| self.pool[idx].terminal)
+        self.walk(tokens).is_some_and(|idx| self.pool[idx].terminal)
     }
 
     pub fn search_str(&self, text: &str) -> bool {
@@ -135,7 +135,7 @@ impl DynamicVectorTrie {
     }
 
     pub fn delete(&mut self, tokens: &[u32]) -> bool {
-        self.walk(tokens).map_or(false, |idx| {
+        self.walk(tokens).is_some_and(|idx| {
             if self.pool[idx].terminal {
                 self.pool[idx].terminal = false;
                 true

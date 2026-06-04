@@ -22,7 +22,6 @@ use crate::mapper::OntologyMapper;
 use crate::models::{Goal, Score};
 use crate::network::NetworkScanner;
 use crate::output;
-use crate::trie::DynamicVectorTrie;
 
 #[derive(Parser)]
 #[command(name = "physis", version, about = "Ontological mapper and PDCA dream engine")]
@@ -249,7 +248,7 @@ impl PhysisApp {
         use crate::ai::provider::ProviderCascade;
         use crate::ai::agent::{run_agent, AgentConfig};
         use crate::ai::tools::ToolRegistry;
-        use crate::scanner::{scan_project, BINARY_EXTENSIONS};
+        use crate::scanner::scan_project;
         use base64::prelude::*;
 
         println!("Starting Deep Scan on {}...", dir.display());
@@ -413,7 +412,7 @@ No other text."#.into(),
         results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut out = String::new();
-        out.push_str(&format!("━━━ Physis Classification Map ━━━\n"));
+        out.push_str("━━━ Physis Classification Map ━━━\n");
         out.push_str(&format!("File: {}\n\n", file.display()));
         for (i, (domain, mode, score, hints)) in results.iter().enumerate() {
             if i == 0 {

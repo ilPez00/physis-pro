@@ -1,8 +1,10 @@
 //! Product quantizer for compressed vector storage — f32 → byte codes.
 //! Splits D-dim vector into M sub-vectors, each quantized to K centroids.
 //! Compression ratio: D * 4 → M bytes (e.g., 384 * 4 = 1536 → 8 bytes).
+// Index-based loops here read parallel slices (vec/sub/codes/centroids) by the
+// same index; rewriting as zipped iterators hurts readability with no gain.
+#![allow(clippy::needless_range_loop)]
 use std::cmp::Ordering;
-use std::collections::HashMap;
 
 const DEFAULT_M: usize = 8;
 const DEFAULT_K: usize = 256;
@@ -26,7 +28,7 @@ impl ProductQuantizer {
     pub fn new(dim: usize) -> Self {
         let m = DEFAULT_M;
         let k = DEFAULT_K;
-        let sub_dim = (dim + m - 1) / m;
+        let sub_dim = dim.div_ceil(m);
         let codebooks = vec![vec![vec![0.0f32; sub_dim]; k]; m];
         let codebook_counts = vec![vec![0usize; k]; m];
         Self {
@@ -42,7 +44,7 @@ impl ProductQuantizer {
 
     /// Creates a PQ with custom M sub-vectors and K centroids per subspace.
     pub fn with_params(dim: usize, m: usize, k: usize) -> Self {
-        let sub_dim = (dim + m - 1) / m;
+        let sub_dim = dim.div_ceil(m);
         let codebooks = vec![vec![vec![0.0f32; sub_dim]; k]; m];
         let codebook_counts = vec![vec![0usize; k]; m];
         Self {

@@ -14,6 +14,12 @@ pub struct LifeOSTracker {
     client: Client,
 }
 
+impl Default for LifeOSTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LifeOSTracker {
     pub fn new() -> Self {
         Self { 

@@ -303,7 +303,7 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
         let entities = parsed["entities"].as_array().unwrap();
         let _relations = parsed["relations"].as_array().unwrap();
-        assert!(entities.len() >= 1, "should have at least one entity");
+        assert!(!entities.is_empty(), "should have at least one entity");
     }
 
     #[test]

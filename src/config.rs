@@ -152,6 +152,7 @@ fn return_true() -> bool { true }
 
 /// Multi-embedder configuration block.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EmbeddersConfig {
     /// Primary embedder for text (and optionally image).
     pub primary: Option<EmbedderConfig>,
@@ -159,11 +160,6 @@ pub struct EmbeddersConfig {
     pub image: Option<EmbedderConfig>,
 }
 
-impl Default for EmbeddersConfig {
-    fn default() -> Self {
-        Self { primary: None, image: None }
-    }
-}
 
 impl Default for OnnxConfig {
     fn default() -> Self {
@@ -331,6 +327,7 @@ pub struct OntologyLoader {
 
 impl OntologyLoader {
     /// Create an empty ontology loader.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             human_domains: HashMap::new(),

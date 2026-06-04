@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let tools = ToolRegistry::new();
             let config = PhysisConfig::default();
             let ontology = OntologyLoader::load_all(&config);
-            let mapper = physis_pro::OntologyMapper::new(ontology, config.embed_dim);
+            let _mapper = physis_pro::OntologyMapper::new(ontology, config.embed_dim);
             let embedder = RandomProjectionEmbedder::new(config.embed_dim);
             let mut dream_engine = physis_pro::DreamEngine::new();
 
@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let wav_path = "chunk_tui.wav";
                 let _ = Command::new("arecord")
-                    .args(&["-d", "10", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "wav", wav_path])
+                    .args(["-d", "10", "-f", "S16_LE", "-r", "16000", "-c", "1", "-t", "wav", wav_path])
                     .status();
 
                 {

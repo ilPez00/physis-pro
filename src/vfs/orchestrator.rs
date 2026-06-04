@@ -33,7 +33,7 @@ impl VfsOrchestrator {
 
             for theme in file_themes {
                 let virtual_path = vfs_root
-                    .join(&theme.category.as_deref().unwrap_or("Misc"))
+                    .join(theme.category.as_deref().unwrap_or("Misc"))
                     .join(&theme.domain)
                     .join(&theme.mode);
 

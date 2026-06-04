@@ -10,6 +10,7 @@ pub struct JinaEmbedder {
     dim: usize,
     session: Mutex<Option<ort::session::Session>>,
     tokenizer: Option<tokenizers::Tokenizer>,
+    #[allow(dead_code)]
     model_dir: String,
     max_length: usize,
     image_size: u32,

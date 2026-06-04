@@ -185,7 +185,7 @@ mod tests {
         let goals = test_goals(32);
         let dreams = engine.generate_dreams(&goals, 1);
         let n = engine.novelty(&dreams[0]);
-        assert!(n >= 0.0 && n <= 2.0);
+        assert!((0.0..=2.0).contains(&n));
     }
 
     #[test]

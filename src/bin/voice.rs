@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_state: SharedState = Arc::new(Mutex::new(AppState::default()));
     let config = PhysisConfig::default();
     let ontology = OntologyLoader::load_all(&config);
-    let mapper = physis_pro::OntologyMapper::new(ontology, config.embed_dim);
+    let _mapper = physis_pro::OntologyMapper::new(ontology, config.embed_dim);
     let embedder = RandomProjectionEmbedder::new(config.embed_dim);
     let mut dream_engine = DreamEngine::new();
 
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Recording {}s with {}...", record_secs, trans_model);
         // arecord with improved quality: 44100Hz Stereo
         let _ = Command::new("arecord")
-            .args(&["-d", &record_secs.to_string(), "-f", "S16_LE", "-r", "44100", "-c", "2", "-t", "wav", wav_path])
+            .args(["-d", &record_secs.to_string(), "-f", "S16_LE", "-r", "44100", "-c", "2", "-t", "wav", wav_path])
             .status();
 
         if let Ok(transcript) = cascade.transcribe(wav_path, Some(&trans_model)).await {

@@ -42,6 +42,7 @@ static SEMANTIC_NET: once_cell::sync::Lazy<HashMap<&'static str, Vec<&'static st
         m
     });
 
+#[allow(dead_code)]
 static ASSOCIATION_WORDS: &[&str] = &[
     "thus", "therefore", "moreover", "likewise", "furthermore",
     "indeed", "surely", "verily", "hence", "thereby",

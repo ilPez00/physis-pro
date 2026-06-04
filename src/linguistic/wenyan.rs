@@ -131,7 +131,7 @@ impl WenyanFilter {
     pub fn compress_domain(&self, text: &str) -> String {
         let lower = text.to_lowercase();
         let mut keys: Vec<&String> = self.domain_prefixes.keys().collect();
-        keys.sort_by(|a, b| b.len().cmp(&a.len()));
+        keys.sort_by_key(|k| std::cmp::Reverse(k.len()));
         for key in keys {
             if lower.contains(key.as_str()) {
                 return self.domain_prefixes.get(key.as_str()).unwrap().to_string();

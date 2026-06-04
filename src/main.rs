@@ -708,6 +708,27 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
     Ok(())
 }
 
+/// Load quality tracker from disk, or create empty if no saved state.
+fn load_tracker(path: &Path, config: &PhysisProConfig) -> QualityTracker {
+    let embedder: Box<dyn VectorEmbed> =
+        Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+    let ontology = OntologyLoader::load_all(&config.physis);
+    let mut tracker = QualityTracker::new(embedder, ontology);
+    if path.exists() {
+        let failures = QualityTracker::load(path).unwrap_or_default();
+        for f in &failures {
+            let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
+            *penalty = (*penalty + f.severity * 0.2).min(1.0);
+            if let Some(ref _correct) = f.correct_domain {
+                let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
+                *boost = (*boost + 0.1).min(1.0);
+            }
+        }
+        tracker.failures = failures;
+    }
+    tracker
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -778,25 +799,4 @@ mod tests {
         assert_eq!(related.len(), 1);
         assert_eq!(related[0].0, 1);
     }
-}
-
-/// Load quality tracker from disk, or create empty if no saved state.
-fn load_tracker(path: &Path, config: &PhysisProConfig) -> QualityTracker {
-    let embedder: Box<dyn VectorEmbed> =
-        Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
-    let ontology = OntologyLoader::load_all(&config.physis);
-    let mut tracker = QualityTracker::new(embedder, ontology);
-    if path.exists() {
-        let failures = QualityTracker::load(path).unwrap_or_default();
-        for f in &failures {
-            let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
-            *penalty = (*penalty + f.severity * 0.2).min(1.0);
-            if let Some(ref _correct) = f.correct_domain {
-                let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
-                *boost = (*boost + 0.1).min(1.0);
-            }
-        }
-        tracker.failures = failures;
-    }
-    tracker
 }

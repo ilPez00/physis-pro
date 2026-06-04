@@ -1,4 +1,4 @@
-use crossbeam_channel::{unbounded, Sender, Receiver};
+use crossbeam_channel::{unbounded, Sender};
 use std::thread;
 use crate::graph::NodePayload;
 

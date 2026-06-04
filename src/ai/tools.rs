@@ -43,6 +43,12 @@ pub struct ToolRegistry {
     definitions: Vec<ToolDefinition>,
 }
 
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ToolRegistry {
     /// Create a new registry with all builtin tools pre-registered.
     pub fn new() -> Self {

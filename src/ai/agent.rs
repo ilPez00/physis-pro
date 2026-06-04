@@ -76,6 +76,7 @@ impl Default for AgentConfig {
 /// provider cascade. If the model returns tool calls, they are executed via
 /// `ToolRegistry` and the results are fed back. The loop terminates when the
 /// model returns a plain text response or `MAX_TOOL_ROUNDS` is exceeded.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_agent(
     provider_cascade: &ProviderCascade,
     tools: &ToolRegistry,

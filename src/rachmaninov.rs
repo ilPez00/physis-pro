@@ -14,6 +14,12 @@ pub struct RachmaninovHolon {
     pub active_directives: Vec<Directive>,
 }
 
+impl Default for RachmaninovHolon {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RachmaninovHolon {
     pub fn new() -> Self {
         Self {

@@ -2,6 +2,7 @@
 //! Each adapter implements the `MachineAdapter` trait for uniform health polling.
 
 use std::collections::HashMap;
+#[cfg(feature = "industrial")]
 use std::time::Duration;
 
 use async_trait::async_trait;

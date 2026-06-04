@@ -1,8 +1,9 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use crate::vfs::orchestrator::VfsOrchestrator;
     use crate::graph::FileThemeGraph;
-    use std::path::PathBuf;
+    
 
     #[test]
     fn test_vfs_sync() {

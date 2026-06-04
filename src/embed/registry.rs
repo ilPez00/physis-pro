@@ -20,7 +20,7 @@ impl EmbedderRegistry {
     pub fn from_config(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> Self {
         let (text, image) = Self::build_embedders(config, onnx_cfg);
         let text_dim = text.dimension();
-        Self { text: text.into(), image, text_dim }
+        Self { text, image, text_dim }
     }
 
     fn build_embedders(
@@ -79,6 +79,6 @@ impl EmbedderRegistry {
 
     /// Get the image embedder if available
     pub fn image_embedder(&self) -> Option<&dyn VectorEmbed> {
-        self.image.as_ref().map(|e| &**e)
+        self.image.as_deref()
     }
 }

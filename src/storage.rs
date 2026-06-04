@@ -1,6 +1,6 @@
 use std::fs::{OpenOptions, File};
 use std::path::Path;
-use memmap2::{MmapMut, Mmap};
+use memmap2::MmapMut;
 use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
@@ -24,6 +24,7 @@ impl MmappedStorage {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(false)
             .open(path)?;
 
         file.set_len(size as u64)?;

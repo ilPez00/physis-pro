@@ -5,7 +5,7 @@ pub mod orchestrator;
 #[cfg(test)]
 mod tests;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// VFS state mapping for reverse lookup (virtual symlink → physical path).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

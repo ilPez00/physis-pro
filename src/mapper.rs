@@ -68,6 +68,7 @@ impl OntologyMapper {
         }
     }
 
+    #[allow(dead_code)]
     fn resolve_domain_for_file(&self, file: &FileInfo) -> String {
         let ext_no_dot = file.ext.trim_start_matches('.');
         if ext_no_dot.is_empty() {
@@ -85,7 +86,7 @@ impl OntologyMapper {
         };
 
         let lower_path = file.path.to_lowercase();
-        for (_name, def) in &self.ontology.machine_domains {
+        for def in self.ontology.machine_domains.values() {
             if def.hints.iter().any(|h| lower_path.contains(h)) {
                 return def.name.clone();
             }
