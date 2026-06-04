@@ -15,10 +15,11 @@ loaded a real model, no roadmap metric is trustworthy.
 
 | # | Risk | Fix | Status |
 |---|------|-----|--------|
-| P0 | Silent embedder degradation (random projection in prod, no signal) | Loud startup banner + `degraded` flag + `/api/v1/embedder` endpoint; runtime model download from `MODEL_BASE_URL`; drop dead `COPY models` | 🔄 In progress |
-| P1 | Global `Mutex<AppState>` serializes server; lock poisoning | Split read-only embedder/ontology out of the lock; poison-tolerant locking | ⬜ Next |
+| P0 | Silent embedder degradation (random projection in prod, no signal) | Loud startup banner + `degraded` flag + `/api/v1/embedder` endpoint; runtime model download from `MODEL_BASE_URL`; drop dead `COPY models` | ✅ Done |
+| P1 | Global `Mutex<AppState>` serializes server; lock poisoning | Split read-only embedder/ontology into `Arc<SharedCtx>`; poison-tolerant `AppCtx::lock()` | ✅ Done |
+| P6 | Unauthenticated public API + open LLM relay + `/scan` path traversal | `PHYSIS_API_TOKEN` Bearer guard (constant-time), fail-closed on non-loopback bind without token, `/scan` confined to `PHYSIS_SCAN_ROOT` | ✅ Done |
 | P3 | No accuracy measurement | `tests/classification_fixtures.json` + top-1 floor test (also catches P0 in CI) | ⬜ Next |
-| P6 | Unauthenticated public API + open LLM relay + `/scan` path traversal | `PHYSIS_API_TOKEN` bearer guard, default-deny non-loopback bind, sandbox `/scan` root | ⬜ Queued |
+| P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
 | P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
 
 **Discipline (P2):** freeze new holons (gantt, MCP mesh, graph-dreams, industrial

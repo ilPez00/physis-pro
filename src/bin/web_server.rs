@@ -3,8 +3,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use axum::{
-    extract::{Query, State},
-    http::StatusCode,
+    extract::{Query, Request, State},
+    http::{header::AUTHORIZATION, StatusCode},
+    middleware::{self, Next},
+    response::Response,
     routing::{get, post},
     Json, Router,
 };
@@ -53,6 +55,12 @@ struct SharedCtx {
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     ingest: Arc<IngestRing>,
+    /// Bearer token required on protected routes. `None` only when bound to
+    /// loopback (dev) — a non-loopback bind without a token aborts at startup.
+    /// See PREMORTEM.md P6.
+    api_token: Option<String>,
+    /// Canonical root that `/api/v1/scan` is confined to (path-traversal guard).
+    scan_root: PathBuf,
 }
 
 /// Mutable runtime state behind a single mutex. Kept small and cheap to mutate so
@@ -192,6 +200,45 @@ fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<ErrorRespons
     (status, Json(ErrorResponse { error: msg.to_string() }))
 }
 
+// ── Auth ───────────────────────────────────────────────────────────────
+
+/// Constant-time byte comparison — avoids leaking the token via timing.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
+/// Require `Authorization: Bearer <PHYSIS_API_TOKEN>` on protected routes.
+/// When no token is configured (loopback-only dev), requests pass through.
+async fn require_auth(
+    State(state): State<SharedState>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    match &state.shared.api_token {
+        None => Ok(next.run(req).await),
+        Some(expected) => {
+            let presented = req
+                .headers()
+                .get(AUTHORIZATION)
+                .and_then(|h| h.to_str().ok())
+                .and_then(|h| h.strip_prefix("Bearer "));
+            match presented {
+                Some(tok) if constant_time_eq(tok.as_bytes(), expected.as_bytes()) => {
+                    Ok(next.run(req).await)
+                }
+                _ => Err(StatusCode::UNAUTHORIZED),
+            }
+        }
+    }
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────
 
 async fn health() -> Json<&'static str> {
@@ -289,8 +336,19 @@ async fn scan_handler(
     if !path.exists() {
         return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
     }
+    // Path-traversal guard: resolve symlinks/`..` and confine the scan to
+    // scan_root. Without this, `{"dir":"/etc"}` would expose the host fs.
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+    })?;
+    if !canonical.starts_with(&state.shared.scan_root) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.shared.scan_root.display()),
+        ));
+    }
     let mut s = state.lock();
-    let goals = s.mapper.map_filesystem(&path, None);
+    let goals = s.mapper.map_filesystem(&canonical, None);
     s.goals = goals.clone();
     Ok(Json(ScanResponse { count: goals.len(), goals }))
 }
@@ -958,6 +1016,34 @@ async fn main() {
     let cascade = Arc::new(ProviderCascade::from_env());
     log::info!("AI cascade: {} providers loaded", cascade.provider_names().len());
 
+    let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
+    let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+
+    // ── Security gate (PREMORTEM.md P6) ──────────────────────────────────
+    // A non-loopback bind with no token would publish an unauthenticated API
+    // that also proxies paid LLM providers (/api/v1/chat) — an open relay.
+    // Refuse to start in that configuration.
+    let api_token = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty());
+    let is_loopback = matches!(host.as_str(), "127.0.0.1" | "::1" | "localhost");
+    if !is_loopback && api_token.is_none() {
+        log::error!("Refusing to bind {host} without PHYSIS_API_TOKEN — would expose an unauthenticated API + open LLM relay.");
+        eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN. Set it, or bind 127.0.0.1.");
+        std::process::exit(1);
+    }
+    if api_token.is_some() {
+        log::info!("API auth enabled: Bearer token required on protected routes.");
+    } else {
+        log::warn!("API auth DISABLED (loopback dev bind, PHYSIS_API_TOKEN unset).");
+    }
+
+    // Confine /api/v1/scan to a root (path-traversal guard). Defaults to the
+    // data dir; override with PHYSIS_SCAN_ROOT. Canonicalized for real-path compare.
+    let scan_root = std::env::var("PHYSIS_SCAN_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| config.data_dir.clone());
+    let scan_root = scan_root.canonicalize().unwrap_or(scan_root);
+    log::info!("scan root: {}", scan_root.display());
+
     let shared = Arc::new(SharedCtx {
         config,
         cascade: cascade.clone(),
@@ -968,6 +1054,8 @@ async fn main() {
         embedder_kind,
         degraded,
         ingest: ingest.clone(),
+        api_token,
+        scan_root,
     });
     let state = Arc::new(AppCtx {
         shared: shared.clone(),
@@ -1012,9 +1100,15 @@ async fn main() {
         }
     });
 
-    let app = Router::new()
+    // Public routes: liveness + embedder provenance (no secrets, needed by the
+    // Railway healthcheck and ops).
+    let public = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/embedder", get(embedder_info_handler))
+        .route("/api/v1/embedder", get(embedder_info_handler));
+
+    // Protected routes: everything that mutates state, reads data, or proxies
+    // to paid LLM providers. Gated by the Bearer-token middleware.
+    let protected = Router::new()
         .route("/api/v1/chat", post(chat_handler))
         .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))
@@ -1045,10 +1139,10 @@ async fn main() {
         .route("/api/v1/classify", post(classify_handler))
         .route("/api/v1/embed", post(embed_handler))
         .route("/api/v1/category/diagram", post(category_diagram_handler))
-        .with_state(state);
+        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
-    let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
-    let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let app = public.merge(protected).with_state(state);
+
     let addr = format!("{}:{}", host, port);
     println!("Physis Web API listening on http://{}", addr);
 

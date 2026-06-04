@@ -18,9 +18,21 @@ The engine persists ontological state and quality logs to a local directory:
 - **For Docker/Railway:** Define the `PHYSIS_DATA_DIR` environment variable and mount a persistent volume to that directory.
 
 ## 4. Authentication (Railway/Production)
-Physis Pro is best secured using an authentication proxy in front of the web server (port `8080`).
-- **Recommended Proxy:** `oauth2-proxy`
-- **Steps:**
+
+### 4.1 Built-in Bearer token (required for public binds)
+The server is **fail-closed**: when `PHYSIS_HOST` is non-loopback (e.g. `0.0.0.0`
+on Railway), it **refuses to start** unless `PHYSIS_API_TOKEN` is set. This stops
+an accidental deploy from publishing an unauthenticated API that also proxies
+paid LLM providers (`/api/v1/chat`) — an open relay.
+
+- Set `PHYSIS_API_TOKEN` to a strong random value: `openssl rand -hex 32`.
+- All routes except `/health` and `/api/v1/embedder` then require:
+  `Authorization: Bearer <token>`. Missing/wrong token → `401`.
+- `/api/v1/scan` is confined to `PHYSIS_SCAN_ROOT` (default `/app/.physis`);
+  a path resolving outside it → `403` (path-traversal guard).
+
+### 4.2 Optional auth proxy (defense in depth)
+For SSO/user identity, also front the server with `oauth2-proxy`:
   1. Configure `oauth2-proxy` as a sidecar service on Railway.
   2. Map the upstream to your Physis Pro internal service URL.
   3. Provide `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, and `OAUTH_COOKIE_SECRET` via environment variables.

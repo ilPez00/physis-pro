@@ -129,6 +129,12 @@ that refuses to start the public bind without an auth front.
 mutating/chat routes, default-deny when binding non-loopback without it; sandbox
 `/scan` to an allow-listed root.
 
+**✅ Done (2026-06-04):** constant-time Bearer middleware (`require_auth`) on all
+routes except `/health` + `/api/v1/embedder`; fail-closed — the server exits if
+`PHYSIS_HOST` is non-loopback and `PHYSIS_API_TOKEN` is unset; `/api/v1/scan`
+canonicalizes the path and rejects anything outside `PHYSIS_SCAN_ROOT` (403).
+Railway vars + `MANUAL_CONFIG.md` updated.
+
 ---
 
 ## Decision: proceed with **P0** now

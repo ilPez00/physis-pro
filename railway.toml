@@ -15,6 +15,13 @@ data = { mountPath = "/app/.physis" }
 PHYSIS_DATA_DIR = "/app/.physis"
 PHYSIS_HOST = "0.0.0.0"
 PHYSIS_PORT = "8080"
+# REQUIRED for a 0.0.0.0 bind: the server refuses to start without a token
+# (fail-closed against an unauthenticated public API + open LLM relay).
+# Set a strong random value in the Railway dashboard, e.g. `openssl rand -hex 32`.
+# Protected routes then require `Authorization: Bearer <token>`.
+PHYSIS_API_TOKEN = ""
+# Directory that /api/v1/scan is confined to (path-traversal guard).
+PHYSIS_SCAN_ROOT = "/app/.physis"
 # Auth placeholder variables for your Railway dashboard to override
 OAUTH_CLIENT_ID = ""
 OAUTH_CLIENT_SECRET = ""
