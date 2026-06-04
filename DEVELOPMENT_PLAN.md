@@ -18,8 +18,10 @@ loaded a real model, no roadmap metric is trustworthy.
 | P0 | Silent embedder degradation (random projection in prod, no signal) | Loud startup banner + `degraded` flag + `/api/v1/embedder` endpoint; runtime model download from `MODEL_BASE_URL`; drop dead `COPY models` | ✅ Done |
 | P1 | Global `Mutex<AppState>` serializes server; lock poisoning | Split read-only embedder/ontology into `Arc<SharedCtx>`; poison-tolerant `AppCtx::lock()` | ✅ Done |
 | P6 | Unauthenticated public API + open LLM relay + `/scan` path traversal | `PHYSIS_API_TOKEN` Bearer guard (constant-time), fail-closed on non-loopback bind without token, `/scan` confined to `PHYSIS_SCAN_ROOT` | ✅ Done |
-| P3 | No accuracy measurement | `tests/classification_fixtures.json` + top-1 floor test (also catches P0 in CI) | ⬜ Next |
-| P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
+| P3 | No accuracy measurement | `tests/classification.rs`: always-on pipeline invariants (RP, CI) + `#[ignore]` top-1 domain-accuracy floor (real model). Classify logic extracted to lib `classify::CellClassifier` (dedups web_server, testable) | ✅ Done |
+| P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Next (Jina `model_q4f16.onnx` already fails to load) |
+
+**P3 finding (2026-06-04):** first real measurement. Jina `model_q4f16.onnx` does **not load** under `ort 2.0.0-rc.12` → `is_available()` false (→ P4). The only loadable model (MiniLM `models/model.onnx`, 384-d) scores **top-1 domain 0.556, cell 0.333** on 27 fixtures, with a strong **BOND over-prediction bias**. Far below the 0.85 plan target — densifying ontology centroids + fixing Jina loading (P4) are the levers. Floor set at 0.45 to cleanly separate a real model from random-projection degradation (~0.2).
 | P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
 
 **Discipline (P2):** freeze new holons (gantt, MCP mesh, graph-dreams, industrial

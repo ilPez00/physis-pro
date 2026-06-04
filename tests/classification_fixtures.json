@@ -1,0 +1,33 @@
+[
+  { "text": "lifting heavy weights at the gym this morning", "domain": "HEAL", "mode": "LIFT" },
+  { "text": "eating a high-protein nutritious meal", "domain": "HEAL", "mode": "LIFT" },
+  { "text": "taking a nap to recover and rest", "domain": "HEAL", "mode": "REST" },
+  { "text": "meditation and mindful breathing to stay calm", "domain": "HEAL", "mode": "REST" },
+  { "text": "going for a walk outside to stay healthy", "domain": "HEAL", "mode": "WALK" },
+  { "text": "stretching and physio therapy for injury rehab", "domain": "HEAL", "mode": "WALK" },
+
+  { "text": "cooking a recipe in the kitchen", "domain": "FABRICATE", "mode": "CREATE" },
+  { "text": "painting and drawing a picture", "domain": "FABRICATE", "mode": "CREATE" },
+  { "text": "playing guitar and performing music in a band", "domain": "FABRICATE", "mode": "CREATE" },
+  { "text": "writing a blog post and journaling", "domain": "FABRICATE", "mode": "CREATE" },
+  { "text": "budgeting finances and paying invoices", "domain": "FABRICATE", "mode": "WORK" },
+  { "text": "investing in a stock portfolio", "domain": "FABRICATE", "mode": "WORK" },
+
+  { "text": "fixing the plumbing and hvac at home", "domain": "CONSTRUCT", "mode": "WORK" },
+  { "text": "using tools in the workshop with a drill and saw", "domain": "CONSTRUCT", "mode": "WORK" },
+  { "text": "organizing files and folders on the desktop", "domain": "CONSTRUCT", "mode": "CREATE" },
+  { "text": "launching a startup business venture", "domain": "CONSTRUCT", "mode": "CREATE" },
+  { "text": "climbing and hiking and camping outdoors", "domain": "CONSTRUCT", "mode": "WALK" },
+
+  { "text": "calling a friend to meet up socially", "domain": "BOND", "mode": "REST" },
+  { "text": "spending time with family and the kids", "domain": "BOND", "mode": "CREATE" },
+  { "text": "mentoring and coaching a junior teammate", "domain": "BOND", "mode": "LEARN" },
+  { "text": "team collaboration and a sync meeting", "domain": "BOND", "mode": "WORK" },
+  { "text": "walking the dog and feeding the cat", "domain": "BOND", "mode": "CREATE" },
+
+  { "text": "researching and analyzing data for a report", "domain": "STUDY", "mode": "WORK" },
+  { "text": "studying for a course and learning in class", "domain": "STUDY", "mode": "LEARN" },
+  { "text": "planning a strategy and roadmap with milestones", "domain": "STUDY", "mode": "WORK" },
+  { "text": "traveling and exploring on a trip abroad", "domain": "STUDY", "mode": "WALK" },
+  { "text": "practicing language vocabulary and grammar", "domain": "STUDY", "mode": "LEARN" }
+]

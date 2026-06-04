@@ -84,6 +84,15 @@ loaded Jina model from random projection by looking at outputs.
 text→cell labels) + a test that asserts top-1 accuracy floor. This *also* catches
 P0 in CI (random projection fails the floor).
 
+**✅ Done (2026-06-04):** `tests/classification.rs` — always-on pipeline
+invariants (deterministic RP, runs in CI: every cell scored, sorted, finite,
+non-empty) + an `#[ignore]` accuracy floor on a real model. Classify path
+extracted to `classify::CellClassifier` (lib) so it is testable and no longer
+duplicated in the web bin. **First measurement exposed two problems:** Jina
+`model_q4f16.onnx` won't load under the current `ort` (→ P4), and MiniLM scores
+only top-1 domain 0.556 / cell 0.333 with a BOND bias — well under the 0.85
+target. The number now exists and is gated; improving it is the next quality arc.
+
 ---
 
 ## P4 — ONNX runtime / model format drift breaks builds silently

@@ -31,6 +31,7 @@ pub mod inventory;
 pub mod ontology;
 pub mod ontology_nonhuman;
 pub mod gantt;
+pub mod classify;
 
 #[cfg(feature = "cli")]
 pub mod cli;
