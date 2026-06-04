@@ -29,5 +29,15 @@
   { "text": "studying for a course and learning in class", "domain": "STUDY", "mode": "LEARN" },
   { "text": "planning a strategy and roadmap with milestones", "domain": "STUDY", "mode": "WORK" },
   { "text": "traveling and exploring on a trip abroad", "domain": "STUDY", "mode": "WALK" },
-  { "text": "practicing language vocabulary and grammar", "domain": "STUDY", "mode": "LEARN" }
+  { "text": "practicing language vocabulary and grammar", "domain": "STUDY", "mode": "LEARN" },
+
+  { "text": "letting the bread dough rest and proof", "domain": "FABRICATE", "mode": "REST", "tier": "hard" },
+  { "text": "waiting for the paint and varnish to dry and cure", "domain": "FABRICATE", "mode": "REST", "tier": "hard" },
+  { "text": "doing an apprenticeship to learn the trade", "domain": "FABRICATE", "mode": "LEARN", "tier": "hard" },
+  { "text": "following a recipe tutorial to learn cooking technique", "domain": "FABRICATE", "mode": "LEARN", "tier": "hard" },
+  { "text": "sleeping on it to let the idea incubate", "domain": "STUDY", "mode": "REST", "tier": "hard" },
+  { "text": "taking a quiet reflective pause to ponder", "domain": "STUDY", "mode": "REST", "tier": "hard" },
+  { "text": "winterizing and storing the equipment for the off-season", "domain": "CONSTRUCT", "mode": "REST", "tier": "hard" },
+  { "text": "operating a crane to hoist a steel beam on site", "domain": "CONSTRUCT", "mode": "LIFT", "tier": "hard" },
+  { "text": "a deep-focus exam cram and study sprint", "domain": "STUDY", "mode": "LIFT", "tier": "hard" }
 ]

@@ -47,6 +47,9 @@ static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
     ("business_entrepreneurship", include_str!("../config/business_entrepreneurship_ontology.json")),
     ("language_learning", include_str!("../config/language_learning_ontology.json")),
     ("outdoors_sports", include_str!("../config/outdoors_sports_ontology.json")),
+    // Targeted fill for the empty/thin DOMAIN×MODE cells (Phase 6F) so every
+    // grid cell is a reachable classification target.
+    ("grid_fill", include_str!("../config/grid_fill_ontology.json")),
 ];
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";

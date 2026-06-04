@@ -24,6 +24,14 @@ struct Fixture {
     domain: String,
     #[allow(dead_code)]
     mode: String,
+    /// "core" = unambiguous case (gated). "hard" = abstract/empty-cell concept
+    /// where a weak embedder is expected to struggle (reported, not gated).
+    #[serde(default = "default_tier")]
+    tier: String,
+}
+
+fn default_tier() -> String {
+    "core".to_string()
 }
 
 fn fixtures() -> Vec<Fixture> {
@@ -116,35 +124,40 @@ fn accuracy_floor() {
     let clf = CellClassifier::build(&ontology, embedder.as_ref());
     let fx = fixtures();
 
-    let mut domain_hits = 0usize;
-    let mut cell_hits = 0usize;
+    // Tally per tier: "core" is gated, "hard" is reported only.
+    let (mut core_n, mut core_dom, mut core_cell) = (0usize, 0usize, 0usize);
+    let (mut hard_n, mut hard_dom) = (0usize, 0usize);
     for f in &fx {
         let top = &clf.classify_text(&f.text, embedder.as_ref())[0];
-        if top.domain == f.domain {
-            domain_hits += 1;
-        }
-        if top.domain == f.domain && top.mode == f.mode {
-            cell_hits += 1;
+        let dom_ok = top.domain == f.domain;
+        let cell_ok = dom_ok && top.mode == f.mode;
+        if f.tier == "hard" {
+            hard_n += 1;
+            if dom_ok { hard_dom += 1; }
         } else {
-            eprintln!(
-                "miss: {:?} → got {}/{} want {}/{}",
-                f.text, top.domain, top.mode, f.domain, f.mode
-            );
+            core_n += 1;
+            if dom_ok { core_dom += 1; }
+            if cell_ok { core_cell += 1; }
+        }
+        if !cell_ok {
+            eprintln!("[{}] miss: {:?} → got {}/{} want {}/{}", f.tier, f.text, top.domain, top.mode, f.domain, f.mode);
         }
     }
-    let n = fx.len() as f32;
-    let domain_acc = domain_hits as f32 / n;
-    let cell_acc = cell_hits as f32 / n;
-    eprintln!("top-1 domain accuracy: {domain_acc:.3} ({domain_hits}/{})", fx.len());
-    eprintln!("top-1 cell accuracy:   {cell_acc:.3} ({cell_hits}/{})", fx.len());
+    let core_dom_acc = core_dom as f32 / core_n.max(1) as f32;
+    let core_cell_acc = core_cell as f32 / core_n.max(1) as f32;
+    eprintln!("CORE top-1 domain: {core_dom_acc:.3} ({core_dom}/{core_n}); cell: {core_cell_acc:.3} ({core_cell}/{core_n})");
+    if hard_n > 0 {
+        eprintln!("HARD top-1 domain: {:.3} ({hard_dom}/{hard_n}) [informational — abstract/empty-cell concepts, model-limited]", hard_dom as f32 / hard_n as f32);
+    }
 
-    // Floor: nearest-entry scoring on MiniLM hits ≈0.85 domain top-1, so the
-    // floor sits at 0.75 — well above random-projection degradation (P0, ~0.2)
-    // and tight enough to catch a real regression (model swap, ontology drift,
-    // a revert to the old mean-centroid scoring that scored ~0.56). Jina is
-    // expected higher once it loads (P4).
+    // Floor gates the CORE (unambiguous) tier: nearest-entry scoring on MiniLM
+    // hits ≈0.85 there — well above random-projection degradation (P0, ~0.2) and
+    // tight enough to catch a real regression (model swap, ontology drift, a
+    // revert to the old mean-centroid scoring that scored ~0.56). The HARD tier
+    // exercises the newly-filled empty cells; a weak embedder is expected to
+    // miss many — those lift once a stronger model (Jina, P4) loads.
     assert!(
-        domain_acc >= 0.75,
-        "top-1 domain accuracy {domain_acc:.3} below floor 0.75 — model degraded or scoring/ontology regression"
+        core_dom_acc >= 0.75,
+        "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.75 — model degraded or scoring/ontology regression"
     );
 }

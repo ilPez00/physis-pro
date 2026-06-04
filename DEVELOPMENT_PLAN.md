@@ -21,7 +21,9 @@ loaded a real model, no roadmap metric is trustworthy.
 | P3 | No accuracy measurement | `tests/classification.rs`: always-on pipeline invariants (RP, CI) + `#[ignore]` top-1 domain-accuracy floor (real model). Classify logic extracted to lib `classify::CellClassifier` (dedups web_server, testable) | ✅ Done |
 | P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort` exactly; log the real load error; startup semantic self-test marks a loaded-but-broken model degraded | ✅ Done |
 
-**P3 finding + fix (2026-06-04):** first measurement exposed a **scoring bug**, not just a weak model. Mean-centroid scoring gave MiniLM only **0.556 domain / 0.333 cell** with a heavy BOND over-prediction — the mean of a densely-populated cell drifts toward the embedder's common (hub) direction and wins regardless of query. Switching to **nearest-entry scoring** (cell score = mean of its top-2 member-entry cosines, `classify.rs`) lifted the *same* MiniLM to **0.852 domain / 0.741 cell** — at the 0.85 plan target. (Mean-centering the centroids was tried first and made it *worse*, 0.481 — confirming the hub is real, not a fixed offset.) Floor raised 0.45 → **0.75**. Jina (`model_q4f16.onnx`) still won't load under rc.12 (→ P4); expected higher once it does. Remaining lever: densify ontology cells (Phase 6F) toward >0.85.
+**P3 finding + fix (2026-06-04):** first measurement exposed a **scoring bug**, not just a weak model. Mean-centroid scoring gave MiniLM only **0.556 domain / 0.333 cell** with a heavy BOND over-prediction — the mean of a densely-populated cell drifts toward the embedder's common (hub) direction and wins regardless of query. Switching to **nearest-entry scoring** (cell score = mean of its top-2 member-entry cosines, `classify.rs`) lifted the *same* MiniLM to **0.852 domain / 0.741 cell** — at the 0.85 plan target. (Mean-centering the centroids was tried first and made it *worse*, 0.481 — confirming the hub is real, not a fixed offset.) Floor raised 0.45 → **0.75**. Jina (`model_q4f16.onnx`) still won't load under rc.12 (→ P4); expected higher once it does.
+
+**Densification (Phase 6F, 2026-06-04):** added `config/grid_fill_ontology.json` — the 4 empty cells (CONSTRUCT/REST, FABRICATE/REST, FABRICATE/LEARN, STUDY/REST) and 8 thin cells now populated; **all 30 grid cells are reachable** classification targets. Fixtures split into **core** (27 clear cases, gated at 0.75 — still 0.852 domain / 0.741 cell, no regression) and **hard** (9 abstract/empty-cell concepts, informational — MiniLM hits only 0.333; they need a stronger model). Known residual: CONSTRUCT/CREATE is a hub (its "Impact & Legacy" entry has generic write/build/create/launch hints) that absorbs many misses — tighten when revisiting, or let Jina resolve. Net: coverage complete; quality past 0.85 on hard cells awaits Jina (P4).
 | P4 | `ort` rc / opset drift breaks inference at runtime | Pin `ort`, startup embed self-test on vector norm/spread | ⬜ Queued |
 
 **Discipline (P2):** freeze new holons (gantt, MCP mesh, graph-dreams, industrial
@@ -346,7 +348,7 @@ Text: "chopping vegetables for a hearty soup"
 | 4 | Jina v2 text+vision embedder (`src/embed/jina.rs`) | Steps 1 | 2 days | ✅ Done |
 | 5 | SigLIP embedder (drop-in) | Steps 1 | 1 day | ⬜ Pending |
 | 6 | ImageBind Python sidecar (optional) | Steps 1 | 2 days | ⬜ Pending |
-| 7 | Ontology expansion — fill 30 cells to 30+ entries each | — | 3 days | ⬜ Pending |
+| 7 | Ontology expansion — fill 30 cells to 30+ entries each | — | 3 days | 🔄 Cells: 0 empty (was 4). `config/grid_fill_ontology.json` fills empties + thin cells; all 30 reachable. Mean ~9/cell, target 25 |
 | 8 | Multi-modal classify endpoint — accepts text + base64 image | Steps 3, 4 | 1 day | ✅ Done |
 | 9 | Gemma re-ranker — confidence-gated generative path | Steps 8 | 2 days | ⬜ Pending |
 | 10 | Process embedding — task graph → vector via Gemma structural summarization | Steps 9 | 2 days | ⬜ Pending |
