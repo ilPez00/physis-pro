@@ -10,7 +10,18 @@ use sha2::{Sha256, Digest};
 /// *why* a model (e.g. Jina `model_q4f16.onnx`) didn't load. PREMORTEM.md P4.
 #[cfg(feature = "embed-onnx")]
 pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::session::Session> {
-    match ort::session::Session::builder().and_then(|mut b| b.commit_from_file(model_path)) {
+    use ort::session::builder::GraphOptimizationLevel;
+    // Disable graph optimization: Jina CLIP v2's exported graph trips ort
+    // rc.12's SimplifiedLayerNormFusion pass (GetIndexFromName panic) at every
+    // precision. Skipping fusion lets the model load; the cost is slightly
+    // slower inference, which we accept. Plain BERT models (MiniLM/BGE) are
+    // unaffected. PREMORTEM.md P4.
+    let build = || -> ort::Result<ort::session::Session> {
+        ort::session::Session::builder()?
+            .with_optimization_level(GraphOptimizationLevel::Disable)?
+            .commit_from_file(model_path)
+    };
+    match build() {
         Ok(s) => Some(s),
         Err(e) => {
             log::warn!("failed to load ONNX model {}: {e}", model_path.display());
