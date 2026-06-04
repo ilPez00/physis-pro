@@ -20,18 +20,16 @@ use super::load_onnx_session as load_session;
 
 impl JinaEmbedder {
     pub fn new(model_dir: &str) -> Self {
-        let model_path = Path::new(model_dir).join("onnx/model_q4f16.onnx");
-        let alt_path = Path::new(model_dir).join("onnx/model_fp16.onnx");
-        let fallback_path = Path::new(model_dir).join("onnx/model.onnx");
-        let session = if model_path.exists() {
-            load_session(&model_path)
-        } else if alt_path.exists() {
-            load_session(&alt_path)
-        } else if fallback_path.exists() {
-            load_session(&fallback_path)
-        } else {
-            None
-        };
+        // Preference order: fp16 (standalone, loads under ort rc.12) → fp32
+        // model.onnx → q4f16 (the 4-bit quant trips rc.12's graph optimizer, so
+        // it is tried last). `find_map` falls through to the next candidate when
+        // one fails to load, instead of short-circuiting to None on the first
+        // file that merely *exists*. See PREMORTEM.md P4.
+        let session = ["onnx/model_fp16.onnx", "onnx/model.onnx", "onnx/model_q4f16.onnx"]
+            .iter()
+            .map(|p| Path::new(model_dir).join(p))
+            .filter(|p| p.exists())
+            .find_map(|p| load_session(&p));
         let tok_path = Path::new(model_dir).join("tokenizer.json");
         let tokenizer = if tok_path.exists() {
             tokenizers::Tokenizer::from_file(&tok_path).ok()
