@@ -37,9 +37,7 @@ impl OnnxEmbedder {
         let tok_path = Path::new(model_dir).join("tokenizer.json");
 
         let session = if model_path.exists() {
-            ort::session::Session::builder()
-                .ok()
-                .and_then(|mut b| b.commit_from_file(&model_path).ok())
+            super::load_onnx_session(&model_path)
         } else {
             None
         };

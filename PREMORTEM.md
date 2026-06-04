@@ -105,6 +105,18 @@ time), and the fallback chain masks it as "merely degraded" (see P0).
 add a startup self-test embed of a known string with a sanity-check on vector
 norm/spread, fail loudly if the loaded model produces garbage.
 
+**✅ Done (2026-06-04):** `ort` pinned `=2.0.0-rc.12`; a shared `load_onnx_session`
+logs the real `ort` error instead of swallowing it; startup runs a semantic
+self-test (dog≈puppy must beat dog≈tax-spreadsheet) and marks the embedder
+`degraded` if a loaded model emits non-semantic vectors — surfaced on
+`/api/v1/embedder` as `self_test`. **Root cause now visible:** Jina
+`model_q4f16.onnx` fails to load under rc.12 with
+`SimplifiedLayerNormFusion / InsertedPrecisionFreeCast ... GetIndexFromName` —
+the 4-bit quant export trips this rc's graph optimizer. Fix path: export/obtain a
+`model_fp16.onnx` or full `model.onnx` Jina, or upgrade `ort` once a stable line
+loads the quant. Until then the engine correctly runs on MiniLM (self-test
+green) at 0.556 domain accuracy.
+
 ---
 
 ## P5 — Legal/compliance on the consumer side (Agora)

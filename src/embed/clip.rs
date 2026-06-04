@@ -18,11 +18,7 @@ pub struct ClipEmbedder {
     max_length: usize,
 }
 
-fn load_session(model_path: &Path) -> Option<ort::session::Session> {
-    ort::session::Session::builder()
-        .ok()
-        .and_then(|mut b| b.commit_from_file(model_path).ok())
-}
+use super::load_onnx_session as load_session;
 
 impl ClipEmbedder {
     fn load_text(model_dir: &str) -> (Option<ort::session::Session>, Option<tokenizers::Tokenizer>) {

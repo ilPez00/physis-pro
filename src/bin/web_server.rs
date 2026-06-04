@@ -53,6 +53,8 @@ struct SharedCtx {
     embedder_kind: &'static str,
     /// True when no real ONNX model loaded and vectors are random-projection noise.
     degraded: bool,
+    /// Whether the embedder passed the semantic self-test at startup (P4).
+    self_test: bool,
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     ingest: Arc<IngestRing>,
@@ -201,6 +203,24 @@ fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<ErrorRespons
     (status, Json(ErrorResponse { error: msg.to_string() }))
 }
 
+// ── Embedder self-test ──────────────────────────────────────────────────
+
+/// Probe whether an embedder is actually semantic: a related pair must score
+/// clearly higher cosine than an unrelated pair, and all vectors must be finite
+/// and non-empty. Random-projection and broken-inference fallbacks fail this.
+fn embedder_self_test(e: &dyn VectorEmbed) -> bool {
+    let a = e.embed("a photograph of a dog");
+    let related = e.embed("a photograph of a puppy");
+    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
+    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
+    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
+        return false;
+    }
+    let sim_related = physis_pro::models::cosine_sim(&a, &related);
+    let sim_unrelated = physis_pro::models::cosine_sim(&a, &unrelated);
+    sim_related > sim_unrelated + 0.05
+}
+
 // ── Auth ───────────────────────────────────────────────────────────────
 
 /// Constant-time byte comparison — avoids leaking the token via timing.
@@ -255,6 +275,7 @@ async fn embedder_info_handler(State(state): State<SharedState>) -> Json<serde_j
         "dim": s.embed_dim,
         "degraded": s.degraded,
         "semantic": !s.degraded,
+        "self_test": s.self_test,
     }))
 }
 
@@ -942,7 +963,18 @@ async fn main() {
         { (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection") }
     };
     let embed_dim = embedder.dimension();
-    let degraded = embedder_kind == "random-projection";
+
+    // Semantic self-test (PREMORTEM.md P4): a model can load yet silently emit
+    // garbage (opset/quant mismatch → inference falls back to random vectors).
+    // Verify dog≈puppy lands clearly closer than dog≈tax-spreadsheet; if not,
+    // the embedder is non-semantic regardless of which kind "loaded".
+    let self_test_ok = embedder_self_test(embedder.as_ref());
+    let mut degraded = embedder_kind == "random-projection";
+    if !degraded && !self_test_ok {
+        log::error!("embedder '{embedder_kind}' loaded but FAILED the semantic self-test — output is non-semantic (PREMORTEM.md P4).");
+        eprintln!("[physis] WARNING: embedder '{embedder_kind}' failed semantic self-test — treating as DEGRADED.");
+        degraded = true;
+    }
 
     if degraded {
         log::error!("════════════════════════════════════════════════════════════════");
@@ -1001,6 +1033,7 @@ async fn main() {
         embed_dim,
         embedder_kind,
         degraded,
+        self_test: self_test_ok,
         ingest: ingest.clone(),
         api_token,
         scan_root,

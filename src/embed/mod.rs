@@ -5,6 +5,20 @@ use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use sha2::{Sha256, Digest};
 
+/// Load an ONNX session, logging the actual `ort` error on failure instead of
+/// swallowing it. A returned `None` plus a `warn!` line tells the operator
+/// *why* a model (e.g. Jina `model_q4f16.onnx`) didn't load. PREMORTEM.md P4.
+#[cfg(feature = "embed-onnx")]
+pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::session::Session> {
+    match ort::session::Session::builder().and_then(|mut b| b.commit_from_file(model_path)) {
+        Ok(s) => Some(s),
+        Err(e) => {
+            log::warn!("failed to load ONNX model {}: {e}", model_path.display());
+            None
+        }
+    }
+}
+
 /// Trait for embedding text and images into fixed-dimension vectors.
 ///
 /// Implementors must guarantee that the same input always produces the

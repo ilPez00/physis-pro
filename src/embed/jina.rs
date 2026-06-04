@@ -16,11 +16,7 @@ pub struct JinaEmbedder {
     image_size: u32,
 }
 
-fn load_session(model_path: &Path) -> Option<ort::session::Session> {
-    ort::session::Session::builder()
-        .ok()
-        .and_then(|mut b| b.commit_from_file(model_path).ok())
-}
+use super::load_onnx_session as load_session;
 
 impl JinaEmbedder {
     pub fn new(model_dir: &str) -> Self {
