@@ -1,244 +1,189 @@
-# Physis
+# Physis Pro
 
-**Standalone Runtime Engine — Ontology, Immunization, Token Economy**
+**A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 
-Physis is the central engine of the Ayu Ecosystem. It governs three fundamental
-architectural domains in both the local (Aura) and global (Praxis/Praxisweb.xyz)
-contexts: the UberWiki, the Compression Function, and the Dream Function. It
-communicates via MCP (Model Context Protocol) with AI agents and remote instances.
+Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
+text, image, video, audio, a code log, a human action — to a vector in one shared
+embedding space, classifies it against a 30-cell semiotic grid, and tracks each
+thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
+the failures to propose corrective actions.
 
-## Architecture: The Three Domains
+It runs as:
+- a **CLI** (`physis-pro`) for scanning, querying, and one-off dreams,
+- an **HTTP server** (`physis-pro-web`, default `127.0.0.1:19876`) that Praxis and
+  Aura clients call,
+- an **MCP server** (feature `mcp`) for agent tool-use,
+- a **TUI** and a **voice** binary for live ontological mapping.
+
+> Crate: `physis_pro` v0.1.0 · edition 2021 · the Praxis backend talks to it through
+> `src/lib/physisProClient.ts`.
+
+---
+
+## Core model — three functions over one state
 
 ```
                          ┌──────────────────────────┐
-                         │     PRAXIS / AURA (UI)    │
-                         │  Gantt · PDCA · MCP Tool  │
+                         │   PRAXIS / AURA clients   │
+                         │  classify · pdca · dream  │
                          └───────────┬──────────────┘
-                                     │ prompt / categorization
+                                     │ HTTP / MCP
                                      ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                          PHYSIS (Runtime Core)                            │
+│                          PHYSIS (runtime core)                            │
 │                                                                           │
-│  ┌─────────────────────────────────────────────────────────────────────┐ │
-│  │                     1. UBERWIKI (Immutable State)                    │ │
-│  │                                                                      │ │
-│  │  ┌─────────────────────┐    ┌──────────────────────────────────┐    │ │
-│  │  │ DynamicVectorTrie   │    │ CoherenceNode (±1.0 weights)     │    │ │
-│  │  │ (geometric causal   │◀──▶│ Success (+1.0) / Inert (0.0) /   │    │ │
-│  │  │  structures)        │    │ Failure (-1.0)                   │    │ │
-│  │  └─────────────────────┘    └──────────────────────────────────┘    │ │
-│  └─────────────────────────────────────────────────────────────────────┘ │
-│                                    │                                      │
-│                    ┌───────────────┴───────────────┐                      │
-│                    ▼                               ▼                      │
-│  ┌─────────────────────────────┐  ┌─────────────────────────────────┐   │
-│  │ 2. COMPRESSION FUNCTION     │  │ 3. DREAM FUNCTION               │   │
-│  │    (Waking Phase)           │  │    (Rest / Async Phase)         │   │
-│  │                             │  │                                  │   │
-│  │  • filter_context()         │  │  • dream() — predictive         │   │
-│  │  • compress_logs()          │  │    collapse simulations         │   │
-│  │  • Wenyan-density           │  │  • Collides contingent          │   │
-│  │    summarization            │  │    failures with universal      │   │
-│  │  • Token economy            │  │    UberWiki myths               │   │
-│  │                             │  │  • Generates Effective Actions  │   │
-│  │  Input: raw logs,           │  │  • Recalibrates the global      │   │
-│  │  commands, telemetry        │  │    Coherence Index              │   │
-│  └─────────────────────────────┘  └─────────────────────────────────┘   │
-│                                                                           │
-│  ┌───────────────────────────────────────────────────────────────────┐   │
-│  │                 Linguistic Routing Middleware                       │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐                         │   │
-│  │  │  Wenyan  │  │  Pirahã  │  │ Sanskrit │                         │   │
-│  │  │ archive  │  │  logging │  │ dreaming │                         │   │
-│  │  └──────────┘  └──────────┘  └──────────┘                         │   │
-│  └───────────────────────────────────────────────────────────────────┘   │
+│   UBERWIKI (state):  DynamicVectorTrie + CoherenceNode (+1.0 / 0 / -1.0)  │
+│                                    │                                       │
+│            ┌───────────────────────┴───────────────────────┐             │
+│            ▼                                                ▼             │
+│   COMPRESSION (waking):                       DREAM (rest/async):         │
+│   strip noise from raw input,                 replay Inert/Failure nodes, │
+│   keep minimal causal tokens                  simulate fixes, recalibrate │
+│                                               the coherence index         │
 └──────────────────────────────────────────────────────────────────────────┘
-                                     │
-                                     ▼
-                          ┌──────────────────────┐
-                          │     Aura (sensors)    │
-                          │  filesystem · network │
-                          └──────────────────────┘
 ```
 
-## Physis Core: The Three Domains
+### 1. UberWiki — the state
+A vector store of causal nodes. Each node carries a **coherence weight**: stable
+flows are `+1.0`, frictions/failures are `-1.0`. Backed by a `DynamicVectorTrie`
+of `CoherenceNode`s.
 
-### 1. UBERWIKI — The Immutable State
+### 2. Compression — the waking/input phase
+Strips raw input (logs, commands, telemetry, prose) of identity and redundancy,
+leaving the minimal causal tokens before they reach the host AI. Keeps the working
+context clean and cheap. `filter_context()`, `compress_logs()`.
 
-The impersonal vector database of geometric causal structures. It maintains the
-distinction between positive weights (+1.0, stable flows) and negative weights
-(-1.0, frictions/failures). Implemented as a `DynamicVectorTrie` with
-`CoherenceNode` nodes.
+### 3. Dream — the rest/async phase
+Runs in the background. Takes accumulated Inert (`0.0`) and Failure (`-1.0`)
+fragments, simulates the missing causal link, and emits corrective **Effective
+Actions** while recalibrating the global coherence index. `dream()`.
 
-### 2. COMPRESSION FUNCTION — Waking Phase / Input
+### Coherence ontology
 
-Acts as the real-time 'gauntlet' during AURA's local operations or PRAXIS
-interactions:
-- Strips raw logs (Rust compiler errors, commands, telemetry) of identities and
-  syntactic redundancies.
-- Reduces the input to the minimal causal tokens before passing them to the Host AI.
-- Keeps the working context clean and immune to erroneous statistical inertia.
+The same three states apply identically to machine functions and human behaviour:
 
-### 3. DREAM FUNCTION — Rest Phase / Asynchronous Processing
-
-Runs in the background when the user or agents are inactive:
-- Takes the failure fragments (0.0 or -1.0) accumulated in the local Wiki during
-  the active cycle.
-- Runs logical simulations to find the missing link of causality: it collides
-  contingent failures with the universal myths of the UberWiki.
-- Generates the Effective Actions, recalibrating the Coherence Index and laying
-  the rails for the next cycle's Gantt.
-
-## Coherence Ontology
-
-Three isomorphic states applied identically to machine functions and human behaviors:
-
-| State    | Weight | Machine                                       | Human                                          |
-|----------|--------|-----------------------------------------------|------------------------------------------------|
-| Success  | +1.0   | Compiled + functional test confirmed          | Action completed with a real, detected effect  |
-| Inert    |  0.0   | Compiles but does not produce the expected effect | Task executed without cognitive progress    |
-| Failure  | -1.0   | Compiler error or refuted pattern             | Violation of a self-imposed rule (diet slip)   |
-
-## Validation Flow
-
-```
-raw_input ──▶ [Phase 1: scrub noise] ──▶ [Phase 2: extract causal constraints]
-                                     ──▶ [Phase 3: inject vector history]
-                                     ──▶ [Phase 4: check_consistency]
-                                          │
-                                ┌─────────┴─────────┐
-                                ▼                   ▼
-                              Clean             Conflict
-                                                  │
-                                                  ▼
-                                      ConstructiveRefutation
-                                      (suspension + PDCA notification)
-```
-
-If a user categorization conflicts with established Success nodes, the system
-suspends execution and generates a Constructive Refutation payload for PDCA
-cycle recalibration.
-
-## Behavioral Isomorphism
-
-`register_behavioural_vector(domain, action, outcome, reason)` records a human
-action with the same logic as a software function:
+| State   | Weight | Machine                                  | Human                                      |
+|---------|:------:|------------------------------------------|--------------------------------------------|
+| Success |  +1.0  | Compiles + functional test passes        | Action completed with a real, detected effect |
+| Inert   |   0.0  | Compiles but produces no expected effect | Task done without cognitive progress       |
+| Failure |  −1.0  | Compiler error / refuted pattern         | Self-imposed rule violated (e.g. diet slip)|
 
 ```rust
-// Diet violation → Failure (-1.0), coherence drops
+// A human action is registered with the same logic as a software function.
 core.register_behavioural_vector("Body & Fitness", "ate_cake",
-    CoherenceRating::Failure, "voluntary_slip");
-
-// Task completed without effect → Inert (0.0)
+    CoherenceRating::Failure, "voluntary_slip");      // -1.0
 core.register_behavioural_vector("Intellectual", "studied_3h",
-    CoherenceRating::Inert, "no_retention");
-
-// The system will inject these constraints into the next planning cycle
+    CoherenceRating::Inert,   "no_retention");        //  0.0
+// These constraints are injected into the next planning cycle.
 ```
 
-## MCP Flows: AURA ↔ PRAXIS
+When a new categorization conflicts with an established Success node, the engine
+suspends it and returns a **Constructive Refutation** payload for the PDCA loop to
+recalibrate, instead of silently overwriting state.
 
-Physis instances communicate over asynchronous MCP connections:
+---
 
-### Upstream (Local → Global)
-1. Friction detected in the local Scheduler → failure recorded in the Local UberWiki
-2. The Dream Phase isolates the resolving causal string, compresses and immunizes it
-3. The package is pushed to the Global UberWiki as a universal Myth
+## HTTP API
 
-### Downstream (Global → Local)
-1. The user queries the Global UberWiki from the unified UI
-2. Physis downloads the Global Wiki branch as an MCP resource
-3. The Client's Ontological Filter re-clothes the abstract causal bone by injecting
-   local parameters, constraints, and variables (hardware, resources, personal Gantt)
-4. The adapted guidance becomes a positive constraint (+1.0) in the AI agent's context
+Default bind `127.0.0.1:19876` (`PHYSIS_PORT`, `PHYSIS_HOST`). All `/api/v1/*`
+routes below the line are **protected** (see [Auth](#auth)); `/health` and
+`/api/v1/embedder` are public for healthchecks/ops.
 
-## Modules
+**Per-user state** is selected by the `X-Physis-User: <id>` header. Each id gets an
+isolated `RuntimeState` (its own goals / PDCA / dreams / coherence). A missing or
+`_default` id routes to the shared global tenant that the holarchy threads drive.
+Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 
-| Module | Description |
-|--------|-------------|
-| `core` | **PhysisCore** — UberWiki, Compression, Dream, branch certification, context filtering |
-| `models` | Core types: CoherenceRating, CoherenceNode, ConstructiveRefutation, Goal, Experience, Dream |
-| `scanner` | Filesystem scanning with hash-based change detection |
-| `trie` | DynamicVectorTrie for token-based storage and retrieval |
-| `mapper` | Ontological filesystem→goal mapping |
-| `config` | Ontology loading (human + machine) |
-| `actor` | PDCA (Plan-Do-Check-Act) cycle engine |
-| `dream` | DreamEngine — stochastic generation (mutation, graft, prune) |
-| `output` | Formatters: Wiki, JSON graph, Mermaid, domain report |
-| `network` | Watch directories, network event detection |
-| `mcp` | MCP server for external tool integration and Aura↔Praxis communication |
-| `linguistic` | Linguistic routing middleware — Wenyan / Pirahã / Sanskrit |
-| `cli` | CLI interface via clap |
-| `graph` | Holarchic graph engine — `DenseSlotMap`, `NodePayload`, `Edge`, `MmappedStorage`, ONNX worker integration |
-| `rachmaninov` | PDCA directive engine — `Focus`/`Expand`/`Prune`/`Synthesize`, state-vs-goal tick cycle |
-| `sensory` | `SensorPayload` bridge — raw real-world input (audio, network) → graph node space |
-| `gantt` | `GanttTask` scheduler — start/end, dependencies, `RawNodeKey` causal integration |
-| `storage` | Zero-copy memory-mapped `MmappedStorage` for Pod types |
-| `quantize` | Product quantizer — f32 vectors → byte codes, M centroids per sub-vector |
-| `reconstruct` | Nearest-neighbor reconstruction and LLM-assisted interpretation |
-| `embed` | `VectorEmbed` trait + `RandomProjectionEmbedder` (deterministic) + `OnnxEmbedder` (MiniLM) |
-| `ai` | Provider cascade (OpenAI/Anthropic), tool-using agent loop, episodic memory, ONNX worker |
+| Method | Route | Tenant-aware | Purpose |
+|--------|-------|:---:|---------|
+| GET  | `/health` | — | Liveness (public) |
+| GET  | `/api/v1/embedder` | — | Active embedder provenance (public) |
+| POST | `/api/v1/classify` | — | Embed text (or base64 `image`) → ranked `{domain, mode, score, entries}[]` |
+| POST | `/api/v1/embed` | — | Raw embedding vector + dimension (text or image) |
+| POST | `/api/v1/embed/video` | — | ffmpeg-sampled clip vector → `{embedding, dim, frames}` |
+| GET  | `/api/v1/ontology/list` | — | Domain counts per loaded ontology |
+| GET  | `/api/v1/semiotic/grid` | — | 30-cell DOMAIN×MODE grid with entries |
+| GET  | `/api/v1/semiotic/triangle` | — | Peircean triangle (Mermaid) |
+| GET  | `/api/v1/semiotic/square` | — | Greimas square (Mermaid) |
+| GET  | `/api/v1/semiotic/heatmap` | — | Activation heatmap table + matrix |
+| POST | `/api/v1/category/diagram` | — | Custom category diagram (objects + morphisms) |
+| GET  | `/api/v1/coherence/snapshot` | ✓ | Current coherence index + nodes |
+| POST | `/api/v1/coherence/register` | ✓ | Register a node `{id, label, coherence_score}` |
+| GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
+| POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
+| GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
+| POST | `/api/v1/goals` | ✓ | Ingest a prompt as a goal → `{goal:{id}}` |
+| POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force}` |
+| POST | `/api/v1/dream/evaluate` | ✓ | Grade a dream `{id, grade}` (0.0–1.0) |
+| GET  | `/api/v1/stats` | ✓ | Engine statistics |
+| POST | `/api/v1/context/filter` | ✓ | Compression: filter a raw input |
+| POST | `/api/v1/compress/logs` | ✓ | Compression: logs → dense causal rules |
+| POST | `/api/v1/reconstruct` | ✓ | Nearest-neighbour reconstruction + LLM interpretation |
+| POST | `/api/v1/translate` | ✓ | Linguistic routing (Wenyan / Pirahã / Sanskrit) |
+| GET  | `/api/v1/query` | ✓ | Query the trie |
+| POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
+| GET  | `/api/v1/holarchy/snapshot` | global | Holarchy graph snapshot |
+| GET  | `/api/v1/holarchy/trajectory` | global | State-vs-goal trajectory |
+| GET  | `/api/v1/holarchy/graph` | global | Full graph export |
+| POST | `/api/v1/chat` | ✓ | LLM provider-cascade chat proxy |
+| GET  | `/api/v1/providers` | — | Configured LLM providers |
 
-## Main API
+### Example — classify
 
-### PhysisCore
-
-```rust
-use physis::PhysisCore;
-use physis::models::{CoherenceRating, AxisKind};
-
-let mut core = PhysisCore::new();
-
-// Register coherence nodes
-core.register_node("exercise:running", CoherenceRating::Success,
-    AxisKind::Human, Some("Body & Fitness"));
-
-// Filter a raw input (Compression Function)
-let result = core.filter_context(
-    "exercise:running is not producing any effect",
-    AxisKind::Human,
-    &ontology,
-);
-// result.valid == false
-// result.conflict == Some(ConstructiveRefutation { ... })
-
-// Transition Success → Inert
-core.mark_inert("exercise:running", "no endurance gain detected");
-
-// Certify stable branches
-let certified = core.certify_branches(&ontology);
-
-// Detect contradictions
-let isolated = core.detect_contradictions();
-
-// Compress daily logs → dense causal rules (Compression Function)
-let compressed = core.compress_logs(&daily_logs);
-
-// Run a predictive dream over Inert nodes (Dream Function)
-let dreams = core.dream(&ontology);
-// If collapse detected → preventive downgrade to Failure
-
-// Coherence index (Stock Market metric)
-let coherence = core.coherence_index(Some(AxisKind::Human));
-
-// Snapshot for UI
-let snap = core.snapshot();
+```bash
+curl -X POST http://127.0.0.1:19876/api/v1/classify \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"text":"a serene landscape painting with soft brush strokes"}'
+# → top: FABRICATE×CREATE (0.89) — Visual Arts, Storytelling, Music & Performance
 ```
 
-## CLI
+At startup every ontology entry (name + hints) is embedded and averaged per
+DOMAIN×MODE cell. At query time the same embedder scores the input against all
+centroids; each cell's score is the **max cosine to any member entry**.
 
-```
-physis scan <dir>              # Scan a directory, build the ontological map
-physis query <query>           # Query the trie
-physis dream [--count N]       # Generate stochastic dreams
-physis evaluate <id> <grade>   # Evaluate a dream (0.0-1.0)
-physis watch <dirs...>         # Watch directories for changes
-physis stats                   # Show engine statistics
-physis config                  # Print the current configuration
-physis serve                   # Start the MCP server (feature: mcp)
+### Auth
+
+Protected routes require `Authorization: Bearer <PHYSIS_API_TOKEN>` (constant-time
+compared).
+
+- **Token unset** + loopback bind → auth is skipped (local dev convenience).
+- **Token unset** + non-loopback bind → the server **refuses to start** (it would
+  publish an unauthenticated API that also proxies paid LLM providers — an open
+  relay). Set the token or bind `127.0.0.1`.
+
+---
+
+## Run
+
+```bash
+# CLI
+cargo run --bin physis-pro -- scan <dir>
+cargo run --bin physis-pro -- query "<text>"
+cargo run --bin physis-pro -- dream --count 5
+cargo run --bin physis-pro -- stats
+
+# HTTP server (feature: web, on by default)
+cargo run --bin physis-pro-web          # binds 127.0.0.1:19876
+
+# Voice — live ontological mapping (features: voice,web), UI on :3000
+cargo run --bin physis-pro-voice
+
+# TUI (features: voice,tui)
+cargo run --bin physis-pro-tui
 ```
 
-## Configuration
+### Environment
+
+| Var | Default | Purpose |
+|-----|---------|---------|
+| `PHYSIS_PORT` | `19876` | HTTP port |
+| `PHYSIS_HOST` | `127.0.0.1` | Bind host (non-loopback requires a token) |
+| `PHYSIS_API_TOKEN` | — | Bearer token for protected routes |
+| `PHYSIS_SCAN_ROOT` | data dir | Confines `/api/v1/scan` (path-traversal guard) |
+
+### Config (`~/.physis`)
 
 ```json
 {
@@ -249,204 +194,168 @@ physis serve                   # Start the MCP server (feature: mcp)
 }
 ```
 
-Default ontologies: `config/praxis_ontology.json` (human, 14+ domains) and
-`config/machine_ontology.json` (machine, 50+ domains).
+Default ontologies live in `config/` (`praxis_ontology.json`, human;
+`machine_ontology.json`, machine; plus the semiotic set below).
 
-## Holarchy — Real-time Graph Engine
+---
 
-Physis now includes a **holarchic graph engine** for real-time causal processing:
+## Semiotic grid & ontologies
 
-- **Graph** (`graph.rs`) — `DenseSlotMap<NodeKey, NodePayload>` with zero-copy `Pod` types, edges with semantic weights, `MmappedStorage` for persistence. New nodes/edges flow through an ONNX worker thread for async embedding enrichment.
-- **Rachmaninov Holon** (`rachmaninov.rs`) — PDCA-driven directive engine. `tick(state_vector)` compares current state vs goal vector, emits `Focus`, `Expand`, `Prune`, or `Synthesize` directives when coherence drifts past threshold.
-- **Sensory Pipeline** (`sensory.rs`) — Packed binary `SensorPayload` structs (timestamp + f32x4 vector) bridging real-world input to graph node space.
-- **ONNX Worker** (`ai/onnx_worker.rs`) — Background thread pool processing embedding requests via `crossbeam_channel`. Non-blocking from the web server.
-- **Gantt Scheduling** (`gantt.rs`) — `GanttTask` with start/end, dependencies, `RawNodeKey` integration for critical path analysis.
+Every entry maps to one of **30 cells** — **5 domains** (HEAL, CONSTRUCT,
+FABRICATE, BOND, STUDY) × **6 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN).
 
-## Semiotic Grid & Ontology Expansion
+Ships **10 ontologies** (~630 entries):
 
-Physis Pro ships **10 ontologies** (630 domain entries) mapped onto a **5-domain × 6-mode semiotic grid**:
-
-| Ontology | Kind | Entries | Coverage |
-|----------|------|---------|----------|
-| `praxis_ontology` | human | 54 | Human activities (body, career, social, finance, etc.) |
-| `machine_ontology` | machine | ~110 | CNC + 23 industrial process monitoring domains (thermal, pressure, speed, flow, OEE, SPC, etc.) |
+| Ontology | Kind | ~Entries | Coverage |
+|----------|------|:---:|----------|
+| `praxis_ontology` | human | 54 | Body, career, social, finance, … |
+| `machine_ontology` | machine | 110 | CNC + 23 industrial monitoring domains |
 | `semiotic_ontology` | semiotic | 44 | Peirce, Saussure, Barthes, Eco, Jakobson, Greimas |
-| `category_ontology` | category | 54 | Category theory — objects, morphisms, functors, monads |
-| `agent_ontology` | agent | ~69 | AI cognitive architectures + 21 agent workflow domains (prompt pipeline, tool execution, agent lifecycle) |
+| `category_ontology` | category | 54 | Objects, morphisms, functors, monads |
+| `agent_ontology` | agent | 69 | AI cognitive architectures + agent workflows |
 | `natural_ontology` | natural | 56 | Physics, chemistry, biology, astronomy, ecology |
 | `social_ontology` | social | 50 | Sociology, culture, politics, economics, law |
-| `abstract_ontology` | abstract | 56 | Math, logic, computation, systems, linguistics, info |
-| `engineering_ontology` | engineering | 65 | Software, civil, mechanical, electrical, chemical, etc. |
-| `office_ontology` | office | 75 | Communication, Finance, Procurement, People, Projects, Customer, Reporting, IT, Facilities, Legal, Marketing, Travel, R&D |
+| `abstract_ontology` | abstract | 56 | Math, logic, computation, systems, linguistics |
+| `engineering_ontology` | engineering | 65 | Software, civil, mechanical, electrical, chemical |
+| `office_ontology` | office | 75 | Comms, finance, procurement, people, projects, … |
 
-Plus **20 extra domain ontologies** (`software_dev`, `devops`, `data_science`, `cybersecurity`, `health_fitness`, `nutrition_cooking`, `personal_finance`, `learning_education`, `creative_writing`, `music`, `visual_arts`, `relationships`, `productivity`, `travel`, `home_maintenance`, `mindfulness_spirituality`, `science_research`, `business_entrepreneurship`, `language_learning`, `outdoors_sports`) baked in via `EXTRA_ONTOLOGIES` and used by `classify`.
+Plus **20 extra domain ontologies** baked in via `EXTRA_ONTOLOGIES` and used by
+`classify` (`software_dev`, `devops`, `data_science`, `cybersecurity`,
+`health_fitness`, `nutrition_cooking`, `personal_finance`, `learning_education`,
+`creative_writing`, `music`, `visual_arts`, `relationships`, `productivity`,
+`travel`, `home_maintenance`, `mindfulness_spirituality`, `science_research`,
+`business_entrepreneurship`, `language_learning`, `outdoors_sports`).
 
-Each entry maps to one of 30 grid cells: **5 domains** (HEAL, CONSTRUCT, FABRICATE, BOND, STUDY) × **6 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN).
+---
 
-### Semiotic API Endpoints
+## Multimodal — one shared vector space
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/ontology/list` | GET | Domain counts per ontology |
-| `/api/v1/semiotic/grid` | GET | 30-cell grid with entries per cell |
-| `/api/v1/semiotic/triangle` | GET | Peircean semiotic triangle (Mermaid) |
-| `/api/v1/semiotic/square` | GET | Greimas semiotic square (Mermaid) |
-| `/api/v1/semiotic/heatmap` | GET | Activation heatmap table + matrix |
-| `/api/v1/category/diagram` | POST | Custom category diagram (objects + morphisms) |
-| `/api/v1/classify` | POST | Embed query text → classify against the populated DOMAIN×MODE centroids. Returns sorted `{domain, mode, score, entries}[]` |
-| `/api/v1/embed` | POST | Raw deterministic embedding vector + dimension |
+Text, images, and video land in the **same** embedding space, so a photo and a
+sentence are directly comparable and classifiable through the same core.
 
-### Query Classification
+- **Images** — `embed_image(bytes)` on **CLIP** (`embed/clip.rs`) or **Jina v2**
+  (`embed/jina.rs`); `/classify` and `/embed` accept an optional base64 `image`
+  and fall back to `text` on failure (never 500).
+- **Video** (`src/video.rs`) — ffmpeg frame-sample → `embed_image` per frame →
+  temporal mean-pool + L2-norm → one clip vector. `POST /api/v1/embed/video` takes
+  a server-side `path` (confined to scan root) or base64 `video_base64`, plus
+  optional `fps` (1.0) / `max_frames` (32). Fail-soft → `422`, never a crash;
+  needs an image-capable embedder.
+- **Voice** (`physis-pro-voice`) — `arecord` 15s chunks → whisper-large-v3
+  (provider cascade) → llama3.2 concept extraction → live `OntologicalMap` graph
+  UI on `:3000`. Supersedes the standalone `physis_voice` repo.
+- **Sensory bus** (`src/sensory.rs`) — `AuraFrame` wire format (`'AURA'` magic,
+  µs timestamp, `SignalType`, payload) over a Unix socket. `SignalType`:
+  `AudioPCM`, `VisionFeature`, `Acceleration`, `Gyroscope`, `ThoughtCapture`. Any
+  source that speaks `AuraFrame` streams into the same engine.
 
-```bash
-curl -X POST http://127.0.0.1:19876/api/v1/classify \
-  -H "Content-Type: application/json" \
-  -d '{"text":"a serene landscape painting with soft brush strokes"}'
-# → top: FABRICATE×CREATE (0.89) — Visual Arts, Storytelling, Music & Performance
-```
+### Embedders
 
-At startup, all ontology entries are embedded (name + hints concatenated) and
-averaged per DOMAIN×MODE cell. At query time, the same embedder scores input
-text against all centroids via cosine similarity.
-
-## Business Backoffice Modules
-
-Physis Pro adds 5 new modules for industrial backoffice automation on top of the core engine:
-
-### Quality (`src/quality.rs`)
-`QualityTracker` implements a feedback loop: classify an output as "wrong" → embed against the semiotic grid → identify top cell → apply penalty → persist → adjust future scores.
-```rust
-let mut qt = QualityTracker::load_or_new()?;
-qt.report_failure(&output_text, &ontology);
-qt.save()?;  // persists to ~/.physis/quality_failures.json
-```
-
-### Industrial (`src/industrial.rs`)
-Machine adapter trait with pluggable protocol backends (MQTT, Modbus, serial, REST).
-```rust
-let adapter = MqttAdapter::new("tcp://localhost:1883");
-let reading: MachineReading = adapter.read()?;
-let anomalies = detect_anomalies(&readings);
-```
-
-### Ingest (`src/ingest.rs`)
-Document classification and ingestion pipeline — classifies files, structures them, and routes by kind (Invoice, Report, Contract, Manual, etc.).
-
-### Inventory (`src/inventory.rs`)
-Stock tracker with SMA-30 moving average forecast and human-in-loop ordering with cooldown:
-```rust
-inv.upsert("widget", 100.0);
-let should_order = inv.check_reorder("widget", reorder_point)?;
-inv.record_order("widget", 500, "manual")?;
-```
-
-### Wiki (`src/wiki.rs`)
-`llmwiki` CLI fallback with recursive grep fallback for offline vector retrieval.
-
-## Multimodal Sensory (Voice · Images · Video)
-
-Physis is a single multimodal engine: every modality is reduced to a vector in
-the **shared embedding space**, then classified / coheres / dreams through the
-same core. The former standalone **`physis_voice`** project is folded in here
-(see `src/bin/voice.rs` — keep the old repo for reference only).
-
-### Voice — `physis-pro-voice`
-
-Real-time ontological mapping for live talks/lectures. Pipeline:
-
-```
-arecord (44.1 kHz) ─15s chunks─▶ whisper-large-v3 (provider cascade)
-  ─transcript─▶ llama3.2 concept extraction ─▶ OntologicalMap (entities + relations)
-  ─▶ live graph UI  http://localhost:3000   (+ optional Dream provocations)
-```
-
-- Bin: `cargo run --bin physis-pro-voice` (features `voice,web`). UI routes:
-  `GET /`, `GET /api/data`, `POST /api/settings`.
-- Settings: `record_secs` (15), `transcription_model` (`whisper-large-v3`),
-  `extraction_model` (`llama3.2`), `show_dreams`.
-- Supersedes standalone `physis_voice` (arecord → Groq/Deepgram → Ollama →
-  Cytoscape). Same `OntologicalMap` model, now sharing this engine's cascade,
-  ontology classifier, and Dream Function.
-
-### Images
-
-Real today — image vectors land in the **same space** as text, so a photo and a
-sentence are directly comparable / classifiable.
-
-- `embed_image(bytes)` implemented on **CLIP** (`embed/clip.rs`) and **Jina v2**
-  (`embed/jina.rs`); the `VectorEmbed` trait default is text-fallback.
-- HTTP: `POST /api/v1/classify` and `POST /api/v1/embed` accept an optional
-  base64 `image` (PNG/JPEG) → image embedding; on decode/availability failure
-  they fall back to embedding `text` (logged), never 500.
-- Sensory bus carries images as `SignalType::VisionFeature` frames.
-
-### Video
-
-Real today (`src/video.rs`). Pipeline: **ffmpeg** frame-sample (`fps` filter) →
-`embed_image` per frame → **temporal mean-pool + L2-normalize** → one clip vector
-in the shared space — directly comparable / classifiable like text or a still.
-
-- HTTP: `POST /api/v1/embed/video` → `{ embedding, dim, frames }`. Body takes a
-  server-side `path` (confined to `scan_root`) **or** base64 `video_base64`
-  (+`ext`), plus optional `fps` (default 1.0) / `max_frames` (default 32).
-- Runs on a blocking thread (ffmpeg + N inferences). **Fail-soft:** missing
-  ffmpeg, a text-only embedder (e.g. BGE — no image path), or zero frames →
-  `422`, never a crash. Needs an image-capable embedder (CLIP / Jina).
-- Audio track reuses the voice pipeline above.
-
-Follow-ups: attention pooling (vs mean), a `/classify/video` convenience, and
-shot-boundary sampling instead of fixed fps.
-
-### Sensory protocol — `AuraFrame` (`src/sensory.rs`)
-
-The multimodal ingestion bus (Unix socket) that feeds the holarchy. Wire format
-is a fixed `AuraFrameHeader` (`'AURA'` magic, µs timestamp, signal type, payload
-len) + payload, with `SignalType`:
-
-| Variant | Modality |
-|---------|----------|
-| `AudioPCM` | raw audio (voice) |
-| `VisionFeature` | image / video-frame features |
-| `Acceleration`, `Gyroscope` | motion (wearable / Aura) |
-| `ThoughtCapture` | text / note capture |
-
-Any source that speaks `AuraFrame` (the voice bin, a camera client, the Aura
-wearable) streams into the same engine.
-
-## Future: Multi-Modal & Gemma Re-ranking
-
-See `DEVELOPMENT_PLAN.md` Phase 6 for the full roadmap. Short version:
-
-- **Multi-embedder registry** — CLIP, Jina v2, SigLIP for text+image in shared vector space
-- **Jina v2** recommended primary (1024-d, multilingual, beats CLIP)
-- **Ontology expansion** — fill all 30 cells to 30+ entries each (900+ total), human+machine
-- **Gemma re-ranker** — vector classify first (5ms), fall back to Gemma for ambiguous cases
-- **Gemma as pure mapper** — optional mode: skip centroids, use Gemma prompt for all classification. Trade: 5ms→5s per query, but with reasoning and context awareness
-
-### ONNX MiniLM
-
-For production-grade semantic embeddings (instead of deterministic random projection):
+The default embedder is a deterministic **random projection** (no model files
+needed). For real semantic embeddings, enable **ONNX MiniLM**:
 
 ```bash
 pip install optimum onnx
 optimum-cli export sentence-transformers models/sentence-transformers/all-MiniLM-L6-v2
-# Creates models/model.onnx and models/tokenizer.json
+# → models/model.onnx + models/tokenizer.json
+cargo build --features embed-onnx     # (on by default; falls back to RP if absent)
 ```
 
-Enable with `--features embed-onnx`. Falls back to RP when model files are absent.
+---
 
-## Build
+## Modules
+
+| Module | Role |
+|--------|------|
+| `core` | `PhysisCore` — UberWiki, compression, dream, branch certification, context filter |
+| `models` | `CoherenceRating`, `CoherenceNode`, `ConstructiveRefutation`, `Goal`, `Experience`, `Dream` |
+| `trie` | `DynamicVectorTrie` token storage/retrieval |
+| `classify` | Semiotic-grid classification (nearest-entry max-cosine over DOMAIN×MODE cells) |
+| `ontology` / `ontology_nonhuman` | Human + machine/non-human ontology loading |
+| `config` | Config + ontology bootstrap |
+| `scanner` | Filesystem scan with hash-based change detection |
+| `mapper` | Filesystem → goal ontological mapping |
+| `vfs` | Read-only ontology-organized view of files via symlinks |
+| `actor` | PDCA (Plan-Do-Check-Act) cycle engine |
+| `rachmaninov` | PDCA directive engine — `Focus`/`Expand`/`Prune`/`Synthesize`, state-vs-goal tick |
+| `dream` | `DreamEngine` — stochastic generation (mutate / graft / prune) |
+| `graph` | Holarchic graph — `DenseSlotMap`, `NodePayload`, `Edge`, mmap storage, ONNX worker |
+| `gantt` | `GanttTask` scheduler — start/end, deps, critical path over `RawNodeKey` |
+| `sensory` | `AuraFrame` multimodal ingestion bus |
+| `video` | ffmpeg frame-sample → clip vector |
+| `embed` | `VectorEmbed` trait — RandomProjection / ONNX-MiniLM / CLIP / Jina |
+| `quantize` | Product quantizer (f32 → byte codes) |
+| `reconstruct` | Nearest-neighbour reconstruction + LLM interpretation |
+| `storage` | Zero-copy mmap storage for `Pod` types |
+| `output` | Formatters — Wiki / JSON graph / Mermaid / domain report |
+| `linguistic` | Routing middleware — Wenyan / Pirahã / Sanskrit |
+| `network` | Directory watch + network event detection (feature `network`) |
+| `mcp` | MCP server for agent tool-use (feature `mcp`) |
+| `ai` | Provider cascade (OpenAI/Anthropic/…), tool-using agent loop, episodic memory, ONNX worker |
+| `life_os` | `LifeOSTracker` — goal/habit tracking layer |
+| `social` | `SocialAlgorithm` — engagement metrics × coherence scoring |
+| `quality` | `QualityTracker` — classify-failure feedback loop, persisted |
+| `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection (feature `industrial`) |
+| `ingest` | Document classification/ingest pipeline (feature `ingest`) |
+| `inventory` | Stock tracker — SMA-30 forecast + human-in-loop reorder |
+| `wiki` | `llmwiki` CLI fallback with recursive-grep offline retrieval |
+| `cli` | clap CLI (feature `cli`) |
+
+---
+
+## Core API (Rust)
+
+```rust
+use physis_pro::PhysisCore;
+use physis_pro::models::{CoherenceRating, AxisKind};
+
+let mut core = PhysisCore::new();
+
+core.register_node("exercise:running", CoherenceRating::Success,
+    AxisKind::Human, Some("Body & Fitness"));
+
+// Compression — validate a raw input against state
+let result = core.filter_context(
+    "exercise:running is not producing any effect", AxisKind::Human, &ontology);
+// result.valid == false; result.conflict == Some(ConstructiveRefutation { .. })
+
+core.mark_inert("exercise:running", "no endurance gain detected"); // Success → Inert
+let certified = core.certify_branches(&ontology);
+let isolated  = core.detect_contradictions();
+let compressed = core.compress_logs(&daily_logs);                  // Compression
+let dreams    = core.dream(&ontology);                             // Dream
+let coherence = core.coherence_index(Some(AxisKind::Human));       // global metric
+let snap      = core.snapshot();                                   // for UI
+```
+
+---
+
+## Build & test
 
 ```bash
-cargo build                    # Default (CLI + voice + web + TUI)
-cargo build --features mcp     # With MCP server support
-cargo build --features network # With directory watching
-cargo build --features full    # All features
-cargo test                     # Run the test suite
-cargo test core                # Test the Physis Core engine
+cargo build                       # default: cli, voice, web, tui, embed-onnx
+cargo build --features mcp        # + MCP server
+cargo build --features network    # + directory watching
+cargo build --features full       # everything (incl. industrial, ingest)
+cargo test                        # full suite
+cargo test core                   # core engine only
 ```
 
-## CI/CD
+### Features
 
-The project compiles automatically on GitHub Actions on every push and PR.
-See `.github/workflows/ci.yml`.
+`cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `industrial`
+· `ingest` · `full`. Default = `cli, voice, web, tui, embed-onnx`.
+
+### Binaries
+
+`physis-pro` (CLI) · `physis-pro-web` (HTTP) · `physis-pro-tui` · `physis-pro-voice`.
+
+---
+
+## See also
+
+- `AGENTS.md` — multi-tenancy contract + agent integration notes
+- `DEVELOPMENT_PLAN.md` — roadmap (Phase 6: multi-embedder registry, Gemma re-ranker)
+- `PREMORTEM.md` — risk register (P4 ONNX pin, P6 open-relay gate)
+- `MANUAL_CONFIG.md` — deploy/config steps
+- CI: `.github/workflows/ci.yml` (builds on every push/PR)
