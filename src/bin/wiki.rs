@@ -38,6 +38,15 @@ struct Neighbor {
     id: String,
     cosine_similarity: f32,
     coherence_score: f32,
+    #[serde(default)]
+    label: Option<String>,
+}
+
+impl Neighbor {
+    /// Human handle: the retained source text, else the raw id.
+    fn display(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.id)
+    }
 }
 
 #[derive(Deserialize)]
@@ -387,13 +396,17 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         .results
         .iter()
         .map(|n| {
+            let mut text = n.display().replace('\n', " ");
+            if text.chars().count() > 60 {
+                text = format!("{}…", text.chars().take(60).collect::<String>());
+            }
             ListItem::new(Line::from(vec![
                 Span::styled("● ", Style::default().fg(coherence_color(n.coherence_score))),
                 Span::styled(
                     format!("{:.2}  ", n.cosine_similarity),
                     Style::default().fg(Color::Yellow),
                 ),
-                Span::raw(n.id.clone()),
+                Span::raw(text),
             ]))
         })
         .collect();
@@ -416,9 +429,16 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
     if let Some(n) = app.selected() {
         lines.push(Line::from(Span::styled(
-            n.id.clone(),
+            n.display().to_string(),
             Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
         )));
+        if n.label.is_some() {
+            lines.push(Line::from(Span::styled(
+                format!("id {}", n.id),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+        lines.push(Line::from(""));
         lines.push(Line::from(format!("cosine     {:.4}", n.cosine_similarity)));
         lines.push(Line::from(vec![
             Span::raw("coherence  "),

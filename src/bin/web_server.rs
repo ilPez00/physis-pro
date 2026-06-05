@@ -504,7 +504,9 @@ async fn coherence_register_handler(
 ) -> Json<CoherenceRegisterResponse> {
     let embedding = state.shared.embedder.embed(&req.input);
     let uid = user_key(&headers);
-    let node_id = state.with_user(&uid, |s| s.core.register_node_vec(embedding));
+    // Retain the source text so the node can be recalled/browsed by content.
+    let label = Some(req.input.clone());
+    let node_id = state.with_user(&uid, |s| s.core.register_node_vec_labeled(embedding, label));
     Json(CoherenceRegisterResponse { node_id })
 }
 

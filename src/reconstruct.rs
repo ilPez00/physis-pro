@@ -14,6 +14,10 @@ pub struct Neighbor {
     pub embedding: Vec<f32>,
     pub cosine_similarity: f32,
     pub coherence_score: f32,
+    /// Source text the vector came from, when retained — lets clients show
+    /// real content instead of an opaque id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 /// The result of a nearest-neighbor query: query embedding plus ranked neighbors.
@@ -49,6 +53,7 @@ pub fn find_neighbors(
                     embedding: n.embedding.clone(),
                     cosine_similarity: cosine_sim(query, &n.embedding),
                     coherence_score: n.coherence_score,
+                    label: n.label.clone(),
                 })
             })
             .collect();
@@ -63,6 +68,7 @@ pub fn find_neighbors(
             embedding: n.embedding.clone(),
             cosine_similarity: cosine_sim(query, &n.embedding),
             coherence_score: n.coherence_score,
+            label: n.label.clone(),
         })
         .collect();
 
@@ -89,6 +95,7 @@ pub fn find_nearest_goals(
             embedding: g.embedding.clone(),
             cosine_similarity: cosine_sim(query, &g.embedding),
             coherence_score: g.progress,
+            label: Some(g.domain_name.clone()),
         })
         .collect();
 

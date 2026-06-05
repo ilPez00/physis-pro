@@ -50,11 +50,15 @@ impl Dream {
 }
 
 /// Coherence is purely geometric — a node is just a vector with a density score.
+/// `label` optionally retains the human source text the vector came from, so the
+/// node can be browsed by content (otherwise the id is the only readable handle).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoherenceNode {
     pub id: String,
     pub embedding: Vec<f32>,
     pub coherence_score: Score,
+    #[serde(default)]
+    pub label: Option<String>,
 }
 
 impl CoherenceNode {
@@ -63,7 +67,14 @@ impl CoherenceNode {
             id: uuid::Uuid::new_v4().to_string(),
             embedding,
             coherence_score: 0.0,
+            label: None,
         }
+    }
+
+    /// Attach the source text the vector was embedded from.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 }
 

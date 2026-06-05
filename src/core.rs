@@ -66,7 +66,13 @@ impl PhysisCore {
 
     /// Register a coherence node from a vector.
     pub fn register_node_vec(&mut self, embedding: Vec<f32>) -> String {
-        let node = CoherenceNode::new(embedding.clone());
+        self.register_node_vec_labeled(embedding, None)
+    }
+
+    /// Register a vector, optionally retaining the source text as a browsable label.
+    pub fn register_node_vec_labeled(&mut self, embedding: Vec<f32>, label: Option<String>) -> String {
+        let mut node = CoherenceNode::new(embedding.clone());
+        node.label = label;
         let id = node.id.clone();
         // Train PQ quantizer if enabled
         if let Some(ref mut pq) = self.quantizer {
@@ -79,10 +85,11 @@ impl PhysisCore {
         id
     }
 
-    /// Register from text (embed first using an embedder).
+    /// Register from text (embed first using an embedder). The text is kept as
+    /// the node's label so it can be recalled by content later.
     pub fn register_node_from_text(&mut self, text: &str, embedder: &dyn crate::embed::VectorEmbed) -> String {
         let embedding = embedder.embed(text);
-        self.register_node_vec(embedding)
+        self.register_node_vec_labeled(embedding, Some(text.to_string()))
     }
 
     /// Update coherence score for a node (mean cosine to k nearest neighbors).
