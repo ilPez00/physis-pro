@@ -448,11 +448,59 @@ Text: "chopping vegetables for a hearty soup"
 
 ---
 
+## Phase 7: Content Recall — Ingestion & TUI Wiki Browser 🔜 NEXT
+
+Goal: make the UberWiki **fillable without ceremony** and **browsable by content**
+when you don't remember a thing's name or type. Leans entirely on shipped
+primitives (shared vector space, `classify`, `reconstruct`, holarchy, coherence).
+Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
+
+### 7A. TUI Wiki Browser (`physis-pro-wiki`) — highest leverage, no engine change
+
+A new `ratatui` binary (dep already present) that drives the HTTP API over
+`reqwest`, so it works against a local or remote engine.
+
+- **Semantic palette** — type remembered *content*; embed the query and live
+  re-rank by cosine. Recall without name/type.
+- **Panes** — cosine-ranked results (DOMAIN×MODE chip + coherence color) · preview
+  (content + neighbors + `reconstruct` LLM interpretation) · 30-cell heatmap to
+  scope by cell.
+- **Graph walk** (`g`) — traverse holarchy edges like a file browser (vim keys).
+- **Dream** (`d`) — show corrective actions for an Inert/Failure node.
+- Endpoints (all exist): `/classify`, `/query`, `/reconstruct`,
+  `/holarchy/snapshot`, `/holarchy/graph`, `/semiotic/heatmap`, `/stats`.
+  Bearer auth + `X-Physis-User` tenant.
+- New bin: `[[bin]] name = "physis-pro-wiki"`, `required-features = ["tui"]`.
+
+### 7B. Ingestion connectors — keep the wiki fed
+
+Each connector is thin: `source → embed → register node (+edges)`.
+
+- **Watch mode** — `network`/`notify`: auto-ingest on file create/modify.
+- **Vault importers** — Obsidian/markdown, plain notes, `git log`, code repos.
+- **Personal-history importers** — browser history+bookmarks, email/chat exports,
+  RSS/read-later, photo library (EXIF + CLIP embed).
+- **Praxis backfill** — `notebook_entries` + trackers → `register_behavioural_vector`
+  (Success/Inert/Failure) to seed coherence from the real life-log.
+
+### 7C. Spanner Graph sink — durable, multi-device memory
+
+Persist holarchy nodes/edges into Google **Spanner Graph** (property graph over
+Spanner SQL). physis = local reasoning; Spanner Graph = durable, GQL-queryable,
+cross-device memory. Optional vector column for server-side ANN. Re-hydrate a
+local tenant from Spanner on a new device.
+
+**Order:** 7A (browser) → 7B (auto-fill) → Praxis backfill → 7C (durability).
+7A/7B need no engine changes; 7C is a new optional sink module.
+
+---
+
 ## Milestone Dependencies
 
 ```
 Phase 1 ──┬──> Phase 2 ──> Phase 3
-           │
+           │        │
+           │        └──> Phase 7 (Content recall: TUI + ingest + Spanner sink)
            └──> Phase 4 ──> Phase 5
                               │
                               ▼
@@ -461,6 +509,8 @@ Phase 1 ──┬──> Phase 2 ──> Phase 3
 
 Phase 6 is mostly independent of Phases 1-5 (new embedder module, new endpoints).
 Only depends on Phase 2's centroid + classify infrastructure (already built).
+Phase 7 depends only on the existing classify/reconstruct/holarchy endpoints
+(7A/7B are client-side); 7C adds an optional Spanner sink.
 
 ---
 
@@ -477,3 +527,5 @@ Only depends on Phase 2's centroid + classify infrastructure (already built).
 | Embedding latency | P99 CLIP image embed | <200ms |
 | Embedding latency | P99 Jina embed (text) | <100ms |
 | Ontology density | Entries per cell (mean) | >25 |
+| Content recall (TUI) | Forgotten-item found in top-5 by content query | >0.85 |
+| Recall latency | Keystroke → re-ranked results (local engine) | <150ms |
