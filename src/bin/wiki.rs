@@ -16,6 +16,8 @@
 use std::io::stdout;
 use std::time::{Duration, Instant};
 
+use tokio::sync::mpsc;
+
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -92,6 +94,7 @@ struct DreamResponse {
 
 // ── HTTP client ─────────────────────────────────────────────────────────────
 
+#[derive(Clone)]
 struct Api {
     base: String,
     token: Option<String>,
@@ -182,6 +185,17 @@ struct App {
     dirty: bool,                        // query edited since last search
     last_edit: Instant,                 // for debounce
     searched: String,                   // query of the last completed search
+    seq: u64,                           // monotonic id of the last dispatched search
+    applied_seq: u64,                   // seq of the last result applied to the UI
+}
+
+/// A completed background search, tagged with the seq it was dispatched under so
+/// the UI can drop results that a newer keystroke has already superseded.
+struct SearchMsg {
+    seq: u64,
+    query: String,
+    neighbors: Result<Vec<Neighbor>, String>,
+    cell: CellScore,
 }
 
 const DEBOUNCE: Duration = Duration::from_millis(250);
@@ -200,6 +214,8 @@ impl App {
             dirty: false,
             last_edit: Instant::now(),
             searched: String::new(),
+            seq: 0,
+            applied_seq: 0,
         }
     }
 
@@ -253,26 +269,52 @@ async fn main() -> anyhow::Result<()> {
     res
 }
 
-/// Embed the current query → ranked neighbors (+ classify the cell).
-async fn do_search(app: &mut App, api: &Api) {
+/// Kick off a search in the background; never blocks the event loop.
+///
+/// Each dispatch carries a monotonic `seq`. The worker round-trips reconstruct +
+/// classify off-thread and sends a [`SearchMsg`] back; `run` applies only the
+/// newest seq, so stale in-flight responses from earlier keystrokes are dropped.
+fn dispatch_search(app: &mut App, api: &Api, tx: &mpsc::UnboundedSender<SearchMsg>) {
     let q = app.query.trim().to_string();
     app.dirty = false;
     app.searched = app.query.clone();
     if q.is_empty() {
+        // Empty query resolves locally — bump applied_seq so any in-flight
+        // search for a previous (non-empty) query can't clobber the cleared UI.
+        app.seq += 1;
+        app.applied_seq = app.seq;
         app.results.clear();
         app.top_cell = CellScore::default();
         app.status = "type to search the wiki by content".into();
         return;
     }
-    match api.reconstruct(&q).await {
+    app.seq += 1;
+    let seq = app.seq;
+    app.status = format!("searching… · {q}");
+    let task_api = api.clone();
+    let tx = tx.clone();
+    tokio::spawn(async move {
+        let neighbors = task_api.reconstruct(&q).await.map_err(|e| e.to_string());
+        let cell = task_api.classify(&q).await.unwrap_or_default();
+        let _ = tx.send(SearchMsg { seq, query: q, neighbors, cell });
+    });
+}
+
+/// Apply a completed search to the UI, ignoring superseded responses.
+fn apply_search(app: &mut App, msg: SearchMsg) {
+    if msg.seq < app.applied_seq {
+        return; // a newer query already landed
+    }
+    app.applied_seq = msg.seq;
+    match msg.neighbors {
         Ok(n) => {
             app.results = n;
             app.list.select(Some(0));
-            app.status = format!("{} matches · {q}", app.results.len());
+            app.status = format!("{} matches · {}", app.results.len(), msg.query);
         }
         Err(e) => app.status = format!("reconstruct failed: {e}"),
     }
-    app.top_cell = api.classify(&q).await.unwrap_or_default();
+    app.top_cell = msg.cell;
 }
 
 async fn run<B: ratatui::backend::Backend>(
@@ -280,8 +322,14 @@ async fn run<B: ratatui::backend::Backend>(
     app: &mut App,
     api: &Api,
 ) -> anyhow::Result<()> {
+    let (tx, mut rx) = mpsc::unbounded_channel::<SearchMsg>();
     loop {
         terminal.draw(|f| draw(f, app))?;
+
+        // Drain any background searches that finished since the last frame.
+        while let Ok(msg) = rx.try_recv() {
+            apply_search(app, msg);
+        }
 
         if event::poll(Duration::from_millis(120))? {
             let Event::Key(key) = event::read()? else { continue };
@@ -325,7 +373,7 @@ async fn run<B: ratatui::backend::Backend>(
                     }
                     Err(e) => app.status = format!("dream failed: {e}"),
                 },
-                KeyCode::Enter => do_search(app, api).await,
+                KeyCode::Enter => dispatch_search(app, api, &tx),
                 KeyCode::Backspace => {
                     app.query.pop();
                     app.edited();
@@ -340,7 +388,7 @@ async fn run<B: ratatui::backend::Backend>(
 
         // Live re-rank: fire once the user pauses typing.
         if app.dirty && app.query != app.searched && app.last_edit.elapsed() >= DEBOUNCE {
-            do_search(app, api).await;
+            dispatch_search(app, api, &tx);
         }
     }
 }
