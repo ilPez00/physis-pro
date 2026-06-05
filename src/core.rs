@@ -32,6 +32,10 @@ pub struct PhysisCore {
     pub encoded_nodes: Vec<(String, Vec<u8>)>,
     /// Dimension used when training the quantizer.
     pub quantizer_dim: usize,
+    /// label → node id, for O(1) dedup of labeled registrations (e.g. re-scanning
+    /// the same dir must not create duplicate nodes). Only labeled nodes are
+    /// indexed; unlabeled `register_node_vec` calls are never deduped.
+    label_index: HashMap<String, String>,
 }
 
 impl PhysisCore {
@@ -47,6 +51,7 @@ impl PhysisCore {
             quantizer: None,
             encoded_nodes: vec![],
             quantizer_dim: 0,
+            label_index: HashMap::new(),
         }
     }
 
@@ -70,10 +75,21 @@ impl PhysisCore {
     }
 
     /// Register a vector, optionally retaining the source text as a browsable label.
+    /// Labeled registrations are deduped: re-registering the same label returns the
+    /// existing node id instead of creating a duplicate (so re-scanning a dir is
+    /// idempotent). Unlabeled registrations are always inserted.
     pub fn register_node_vec_labeled(&mut self, embedding: Vec<f32>, label: Option<String>) -> String {
+        if let Some(ref l) = label {
+            if let Some(existing) = self.label_index.get(l) {
+                return existing.clone();
+            }
+        }
         let mut node = CoherenceNode::new(embedding.clone());
-        node.label = label;
+        node.label = label.clone();
         let id = node.id.clone();
+        if let Some(l) = label {
+            self.label_index.insert(l, id.clone());
+        }
         // Train PQ quantizer if enabled
         if let Some(ref mut pq) = self.quantizer {
             pq.train_one(&embedding);
@@ -409,6 +425,24 @@ mod tests {
         let emb = fixture_embedder();
         let id = g.register_node_from_text("test node", &emb);
         assert!(g.nodes.contains_key(&id));
+    }
+
+    #[test]
+    fn test_labeled_registration_is_deduped() {
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        // Same label twice (e.g. re-scanning the same file) → one node, same id.
+        let id1 = g.register_node_from_text("src/main.rs", &emb);
+        let id2 = g.register_node_from_text("src/main.rs", &emb);
+        assert_eq!(id1, id2);
+        assert_eq!(g.nodes.len(), 1);
+        // A different label adds a distinct node.
+        g.register_node_from_text("src/lib.rs", &emb);
+        assert_eq!(g.nodes.len(), 2);
+        // Unlabeled registrations are never deduped.
+        g.register_node_vec(vec![0.1; 32]);
+        g.register_node_vec(vec![0.1; 32]);
+        assert_eq!(g.nodes.len(), 4);
     }
 
     #[test]

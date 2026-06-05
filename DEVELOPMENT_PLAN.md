@@ -472,7 +472,12 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   per query, seq-tagged results return over an mpsc channel, `run` applies only
   the newest seq (stale keystroke responses dropped). UI no longer blocks on the
   reconstruct+classify round-trip — kills remote-engine lag.
+- ✅ Scan dedup: `register_node_vec_labeled` keys a `label_index` (label → id);
+  re-registering a seen label returns the existing id, so re-scanning a dir is
+  idempotent instead of duplicating every file/line node. Unlabeled registrations
+  are never deduped. In-memory index (core isn't persisted), O(1) per insert.
 - ⬜ 7C Spanner Graph sink.
+- ⬜ Watch mode / vault importers (auto-feed the wiki).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
 
