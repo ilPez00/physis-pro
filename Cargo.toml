@@ -90,3 +90,8 @@ path = "src/bin/tui.rs"
 name = "physis-pro-voice"
 required-features = ["voice", "web"]
 path = "src/bin/voice.rs"
+
+[[bin]]
+name = "physis-pro-wiki"
+required-features = ["tui"]
+path = "src/bin/wiki.rs"
