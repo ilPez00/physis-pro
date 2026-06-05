@@ -461,8 +461,13 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   coherence-colored results, preview, F2 heatmap / F3 dreams overlays.
 - ✅ Node labels: `CoherenceNode.label` retains source text; `coherence/register`
   + `register_node_from_text` keep it; flows through `Neighbor` → API → TUI.
-- 🔜 7B scan-labelling (this iteration): register scanned files as labeled core
-  nodes using the **shared** embedder so they're recallable in the wiki.
+- ✅ 7B scan-labelling: register scanned files as labeled core nodes using the
+  **shared** embedder so they're recallable in the wiki.
+- ✅ Structural-line nodes: `map_filesystem_labeled` now also emits one label per
+  structural line (`path → fn/struct …`), so a scan registers fine-grained nodes
+  and you can recall an inner function/struct by content, not just the file.
+  (Cost: a scan embeds file + all structural-line labels with the shared embedder;
+  acceptable for a one-shot scan, revisit a cap if scans get huge.)
 - ✅ 7A.1 background-task the live search: `dispatch_search` spawns a tokio task
   per query, seq-tagged results return over an mpsc channel, `run` applies only
   the newest seq (stale keystroke responses dropped). UI no longer blocks on the

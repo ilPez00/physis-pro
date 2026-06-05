@@ -35,9 +35,12 @@ impl OntologyMapper {
         self.map_filesystem_labeled(root_dir, extra_exclude).0
     }
 
-    /// Like `map_filesystem`, but also returns each file's readable structural
-    /// path (parallel to the goals). Callers can register these as labeled core
-    /// nodes so scanned files become recallable by content in the wiki.
+    /// Like `map_filesystem`, but also returns readable content labels for the
+    /// scan: one per file (its structural path) plus one per structural line
+    /// (`path → line`, e.g. a function/struct). Callers register these as labeled
+    /// core nodes so scanned files AND their inner structures are recallable by
+    /// content in the wiki. `goals` stays one-per-file; `labels` is independent
+    /// (longer) and not parallel to `goals`.
     pub fn map_filesystem_labeled(
         &mut self,
         root_dir: &Path,
@@ -60,6 +63,7 @@ impl OntologyMapper {
                 let line_path = format!("{} → {}", path_str, line);
                 let line_tids = self.trie.tokenize_mut(&line_path);
                 self.trie.insert(&line_tids);
+                labels.push(line_path);
             }
 
             labels.push(path_str);
