@@ -48,6 +48,16 @@ dream core. README → "Multimodal Sensory" has the full picture.
   `SignalType` = `AudioPCM | VisionFeature | Acceleration | Gyroscope |
   ThoughtCapture`. Single ingestion path into the holarchy.
 
+## Wiki (in-process, `wiki-embedded` feature)
+
+`src/wiki.rs` historically shelled out to the `llmwiki`/`wiki` binary. With the
+`wiki-embedded` feature it instead links the **`llmwiki` crate**
+(`../llmwiki_physis`, package `llmwiki`) in-process — no subprocess. Phase 1 is
+**Tantivy BM25 only** (`default-features = false` → no `fastembed`/`usearch`, so
+no `ort` clash with physis's embedder). `search_wiki()` tries in-process first,
+falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/index`
+(gated). Phase 2 = swap llmwiki's fastembed for physis's `VectorEmbed` (one model).
+
 ## Key Modules
 
 | Module | File | Description |

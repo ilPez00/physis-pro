@@ -20,6 +20,9 @@ once_cell = "1"
 walkdir = "2"
 rayon = "1"
 
+# In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
+llmwiki_physis = { path = "../llmwiki_physis", package = "llmwiki", default-features = false, optional = true }
+
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
 notify = { version = "7", optional = true }
@@ -69,6 +72,9 @@ embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
+# In-process wiki engine (Tantivy BM25) — replaces the llmwiki subprocess.
+# BM25 only for now (no fastembed/usearch → no ort conflict); semantic = Phase 2.
+wiki-embedded = ["dep:llmwiki_physis"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest"]
 

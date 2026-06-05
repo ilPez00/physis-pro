@@ -855,6 +855,49 @@ async fn category_diagram_handler(
     Json(CategoryDiagramResponse { mermaid })
 }
 
+// ── Wiki (in-process Tantivy BM25; replaces the llmwiki subprocess) ──────────
+
+#[cfg(feature = "wiki-embedded")]
+#[derive(Deserialize)]
+struct WikiSearchRequest {
+    query: String,
+    wiki_root: String,
+    #[serde(default)]
+    top_k: Option<usize>,
+}
+
+#[cfg(feature = "wiki-embedded")]
+async fn wiki_search_handler(Json(req): Json<WikiSearchRequest>) -> Json<serde_json::Value> {
+    let root = PathBuf::from(&req.wiki_root);
+    match llmwiki_physis::search_bm25(&root, &req.query, req.top_k.unwrap_or(10)) {
+        Ok(results) => Json(serde_json::json!({
+            "count": results.len(),
+            "results": llmwiki_physis::results_to_json(&results),
+        })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string(), "results": [] })),
+    }
+}
+
+#[cfg(feature = "wiki-embedded")]
+#[derive(Deserialize)]
+struct WikiIndexRequest {
+    wiki_root: String,
+    #[serde(default)]
+    incremental: bool,
+}
+
+#[cfg(feature = "wiki-embedded")]
+async fn wiki_index_handler(Json(req): Json<WikiIndexRequest>) -> Json<serde_json::Value> {
+    let root = PathBuf::from(&req.wiki_root);
+    match llmwiki_physis::index(&root, req.incremental) {
+        Ok(s) => Json(serde_json::json!({
+            "added": s.added, "updated": s.updated,
+            "skipped": s.skipped, "removed": s.removed,
+        })),
+        Err(e) => Json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
 #[derive(Serialize)]
 struct HeatmapResponse {
     table: String,
@@ -1313,8 +1356,16 @@ async fn main() {
         .route("/api/v1/classify", post(classify_handler))
         .route("/api/v1/embed", post(embed_handler))
         .route("/api/v1/embed/video", post(embed_video_handler))
-        .route("/api/v1/category/diagram", post(category_diagram_handler))
-        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
+        .route("/api/v1/category/diagram", post(category_diagram_handler));
+
+    // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
+    #[cfg(feature = "wiki-embedded")]
+    let protected = protected
+        .route("/api/v1/wiki/search", post(wiki_search_handler))
+        .route("/api/v1/wiki/index", post(wiki_index_handler));
+
+    let protected =
+        protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     let app = public.merge(protected).with_state(state);
 

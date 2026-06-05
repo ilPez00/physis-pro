@@ -35,6 +35,22 @@ pub fn search_all(query: &str, wiki_path: &Path, graph_path: &Path) -> Vec<Strin
 /// Search the llmwiki index for a query.
 /// Tries to call the `wiki` CLI binary first; falls back to grep.
 pub fn search_wiki(query: &str, wiki_path: &Path) -> Vec<String> {
+    // In-process Tantivy BM25 (no subprocess). Falls through to the binary/grep
+    // on empty results or error. Gated behind `wiki-embedded`.
+    #[cfg(feature = "wiki-embedded")]
+    {
+        match llmwiki_physis::search_bm25(wiki_path, query, 10) {
+            Ok(results) if !results.is_empty() => {
+                return llmwiki_physis::format_results(&results)
+                    .lines()
+                    .map(|l| l.to_string())
+                    .collect();
+            }
+            Ok(_) => {}
+            Err(e) => log::warn!("[wiki] in-process search failed: {e}; falling back"),
+        }
+    }
+
     let wiki_bin = which("wiki").or_else(|| which("llmwiki"));
     if let Some(bin) = wiki_bin {
         match Command::new(bin).arg("search").arg(query).arg("--path").arg(wiki_path).output() {
