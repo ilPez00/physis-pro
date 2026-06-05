@@ -10,11 +10,11 @@
 //!   PHYSIS_API_TOKEN  Bearer token (sent if set)
 //!   PHYSIS_USER       X-Physis-User tenant (sent if set)
 //!
-//! Keys: type to edit query · Enter search · ↑/↓ or j/k select · h heatmap ·
+//! Keys: type to live-search · ↑/↓ select · F2 heatmap · F3 dreams ·
 //!       Esc/Ctrl-C quit.
 
 use std::io::stdout;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ratatui::{
     backend::CrosstermBackend,
@@ -63,6 +63,22 @@ struct ClassifyResponse {
 #[derive(Deserialize)]
 struct HeatmapResponse {
     table: String,
+}
+
+#[derive(Deserialize)]
+struct Dream {
+    id: String,
+    source: String,
+    #[serde(default)]
+    grade: Option<f32>,
+}
+
+#[derive(Deserialize)]
+struct DreamResponse {
+    #[serde(default)]
+    dreams: Vec<Dream>,
+    #[serde(default)]
+    reason: Option<String>,
 }
 
 // ── HTTP client ─────────────────────────────────────────────────────────────
@@ -131,6 +147,18 @@ impl Api {
             .await?;
         Ok(r.table)
     }
+
+    async fn dreams(&self) -> anyhow::Result<DreamResponse> {
+        let url = format!("{}/api/v1/dream/generate", self.base);
+        let r: DreamResponse = self
+            .auth(self.http.post(url).json(&serde_json::json!({ "count": 5 })))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        Ok(r)
+    }
 }
 
 // ── App state ───────────────────────────────────────────────────────────────
@@ -141,8 +169,13 @@ struct App {
     top_cell: CellScore,
     list: ListState,
     status: String,
-    heatmap: Option<String>, // Some => overlay shown
+    overlay: Option<(String, String)>, // (title, body) — heatmap / dreams
+    dirty: bool,                        // query edited since last search
+    last_edit: Instant,                 // for debounce
+    searched: String,                   // query of the last completed search
 }
+
+const DEBOUNCE: Duration = Duration::from_millis(250);
 
 impl App {
     fn new() -> Self {
@@ -153,9 +186,17 @@ impl App {
             results: Vec::new(),
             top_cell: CellScore::default(),
             list,
-            status: "type a content query · Enter to search".into(),
-            heatmap: None,
+            status: "type to search the wiki by content".into(),
+            overlay: None,
+            dirty: false,
+            last_edit: Instant::now(),
+            searched: String::new(),
         }
+    }
+
+    fn edited(&mut self) {
+        self.dirty = true;
+        self.last_edit = Instant::now();
     }
 
     fn selected(&self) -> Option<&Neighbor> {
@@ -203,6 +244,28 @@ async fn main() -> anyhow::Result<()> {
     res
 }
 
+/// Embed the current query → ranked neighbors (+ classify the cell).
+async fn do_search(app: &mut App, api: &Api) {
+    let q = app.query.trim().to_string();
+    app.dirty = false;
+    app.searched = app.query.clone();
+    if q.is_empty() {
+        app.results.clear();
+        app.top_cell = CellScore::default();
+        app.status = "type to search the wiki by content".into();
+        return;
+    }
+    match api.reconstruct(&q).await {
+        Ok(n) => {
+            app.results = n;
+            app.list.select(Some(0));
+            app.status = format!("{} matches · {q}", app.results.len());
+        }
+        Err(e) => app.status = format!("reconstruct failed: {e}"),
+    }
+    app.top_cell = api.classify(&q).await.unwrap_or_default();
+}
+
 async fn run<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -211,70 +274,75 @@ async fn run<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|f| draw(f, app))?;
 
-        if !event::poll(Duration::from_millis(200))? {
-            continue;
-        }
-        let Event::Key(key) = event::read()? else { continue };
-        if key.kind != crossterm::event::KeyEventKind::Press {
-            continue;
-        }
-
-        // Global quit
-        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-            return Ok(());
-        }
-
-        // Heatmap overlay: any key dismisses
-        if app.heatmap.is_some() {
-            app.heatmap = None;
-            continue;
-        }
-
-        match key.code {
-            KeyCode::Esc => return Ok(()),
-            KeyCode::Enter => {
-                let q = app.query.trim().to_string();
-                if q.is_empty() {
-                    continue;
-                }
-                app.status = "searching…".into();
-                terminal.draw(|f| draw(f, app))?;
-                match api.reconstruct(&q).await {
-                    Ok(n) => {
-                        app.results = n;
-                        app.list.select(Some(0));
-                        app.status = format!("{} matches · {}", app.results.len(), &q);
-                    }
-                    Err(e) => app.status = format!("reconstruct failed: {e}"),
-                }
-                app.top_cell = api.classify(&q).await.unwrap_or_default();
+        if event::poll(Duration::from_millis(120))? {
+            let Event::Key(key) = event::read()? else { continue };
+            if key.kind != crossterm::event::KeyEventKind::Press {
+                continue;
             }
-            KeyCode::Char('h') if app.query.is_empty() => {
-                match api.heatmap().await {
-                    Ok(t) => app.heatmap = Some(t),
+
+            // Global quit
+            if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                return Ok(());
+            }
+            // Any key dismisses an open overlay
+            if app.overlay.is_some() {
+                app.overlay = None;
+                continue;
+            }
+
+            match key.code {
+                KeyCode::Esc => return Ok(()),
+                KeyCode::Down => app.move_sel(1),
+                KeyCode::Up => app.move_sel(-1),
+                KeyCode::F(2) => match api.heatmap().await {
+                    Ok(t) => app.overlay = Some((" SEMIOTIC HEATMAP — any key to close ".into(), t)),
                     Err(e) => app.status = format!("heatmap failed: {e}"),
+                },
+                KeyCode::F(3) => match api.dreams().await {
+                    Ok(d) => {
+                        let body = if d.dreams.is_empty() {
+                            d.reason.unwrap_or_else(|| "no dreams".into())
+                        } else {
+                            d.dreams
+                                .iter()
+                                .map(|x| {
+                                    let g = x.grade.map(|g| format!("  [{g:.2}]")).unwrap_or_default();
+                                    format!("✦ {}{g}\n   {}", x.id, x.source)
+                                })
+                                .collect::<Vec<_>>()
+                                .join("\n\n")
+                        };
+                        app.overlay = Some((" DREAMS — any key to close ".into(), body));
+                    }
+                    Err(e) => app.status = format!("dream failed: {e}"),
+                },
+                KeyCode::Enter => do_search(app, api).await,
+                KeyCode::Backspace => {
+                    app.query.pop();
+                    app.edited();
                 }
+                KeyCode::Char(c) => {
+                    app.query.push(c);
+                    app.edited();
+                }
+                _ => {}
             }
-            KeyCode::Down => app.move_sel(1),
-            KeyCode::Up => app.move_sel(-1),
-            KeyCode::Char('j') if app.query.is_empty() => app.move_sel(1),
-            KeyCode::Char('k') if app.query.is_empty() => app.move_sel(-1),
-            KeyCode::Backspace => {
-                app.query.pop();
-            }
-            KeyCode::Char(c) => app.query.push(c),
-            _ => {}
+        }
+
+        // Live re-rank: fire once the user pauses typing.
+        if app.dirty && app.query != app.searched && app.last_edit.elapsed() >= DEBOUNCE {
+            do_search(app, api).await;
         }
     }
 }
 
 fn draw(f: &mut ratatui::Frame, app: &App) {
-    // Heatmap overlay takes the whole screen
-    if let Some(table) = &app.heatmap {
-        let p = Paragraph::new(table.as_str())
+    // Overlay (heatmap / dreams) takes the whole screen
+    if let Some((title, body)) = &app.overlay {
+        let p = Paragraph::new(body.as_str())
             .block(
                 Block::default()
-                    .title(" SEMIOTIC HEATMAP — any key to close ")
+                    .title(title.as_str())
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan)),
             )
@@ -396,10 +464,12 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     let help = Paragraph::new(Line::from(vec![
         Span::styled(" ↑/↓ ", Style::default().fg(Color::Cyan)),
         Span::raw("move  "),
-        Span::styled("Enter ", Style::default().fg(Color::Cyan)),
+        Span::styled("type ", Style::default().fg(Color::Cyan)),
         Span::raw("search  "),
-        Span::styled("h ", Style::default().fg(Color::Cyan)),
+        Span::styled("F2 ", Style::default().fg(Color::Cyan)),
         Span::raw("heatmap  "),
+        Span::styled("F3 ", Style::default().fg(Color::Cyan)),
+        Span::raw("dreams  "),
         Span::styled("Esc ", Style::default().fg(Color::Cyan)),
         Span::raw("quit   "),
         Span::styled(&app.status, Style::default().fg(Color::DarkGray)),
