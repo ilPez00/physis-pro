@@ -199,9 +199,11 @@ This phase is the answer to: *"What if we could classify images, audio, processe
   on the shared cascade + ontology + Dream Function.
 - **Images** ✅ — `embed_image()` (CLIP / Jina v2); `/classify` + `/embed` take
   base64 `image`, text-fallback on failure. Shared vector space with text.
-- **Video** 🔄 — planned pipeline: frame-sample (`image`/ffmpeg) → `embed_image`
-  per frame → temporal pool (mean/attention) → one clip vector; audio track via
-  the voice pipeline.
+- **Video** ✅ — `src/video.rs`: ffmpeg frame-sample → `embed_image` per frame →
+  temporal mean-pool + L2-normalize → one clip vector. `POST /api/v1/embed/video`
+  (path or base64; `fps`/`max_frames`); blocking thread; fail-soft `422` when
+  ffmpeg/image-embedder absent. Follow-ups: attention pool, `/classify/video`,
+  shot-boundary sampling. Audio track via the voice pipeline.
 - **Sensory bus** ✅ — `AuraFrame` / `SignalType` (`sensory.rs`): `AudioPCM`,
   `VisionFeature`, `Acceleration`, `Gyroscope`, `ThoughtCapture` over a Unix
   socket into the holarchy.

@@ -931,6 +931,33 @@ struct EmbedResponse {
     dim: usize,
 }
 
+#[derive(Deserialize)]
+struct VideoEmbedRequest {
+    /// Server-side path (confined to scan_root), OR base64 below.
+    #[serde(default)]
+    path: Option<String>,
+    /// Base64-encoded video bytes (alternative to `path`).
+    #[serde(default)]
+    video_base64: Option<String>,
+    /// Container hint for base64 input (e.g. "mp4", "webm"). Default "mp4".
+    #[serde(default)]
+    ext: Option<String>,
+    /// Frames sampled per second. Default 1.0.
+    #[serde(default)]
+    fps: Option<f32>,
+    /// Max frames embedded. Default 32.
+    #[serde(default)]
+    max_frames: Option<usize>,
+}
+
+#[derive(Serialize)]
+struct VideoEmbedResponse {
+    embedding: Vec<f32>,
+    dim: usize,
+    /// Frames that contributed to the pooled vector.
+    frames: usize,
+}
+
 async fn embed_handler(
     State(state): State<SharedState>,
     Json(req): Json<EmbedRequest>,
@@ -952,6 +979,67 @@ async fn embed_handler(
     };
     let dim = embedding.len();
     Json(EmbedResponse { embedding, dim })
+}
+
+/// Embed a video into the shared space: ffmpeg frame-sample → image-embed each →
+/// temporal mean-pool. Runs on a blocking thread (ffmpeg + N inferences).
+async fn embed_video_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<VideoEmbedRequest>,
+) -> Result<Json<VideoEmbedResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let opts = physis_pro::video::VideoEmbedOptions {
+        fps: req.fps.unwrap_or(1.0).clamp(0.1, 30.0),
+        max_frames: req.max_frames.unwrap_or(32).clamp(1, 128),
+    };
+
+    enum Src {
+        Path(PathBuf),
+        Bytes(Vec<u8>, String),
+    }
+
+    let src = if let Some(p) = req.path {
+        // Same path-traversal guard as /scan: confine to scan_root.
+        let canonical = PathBuf::from(&p)
+            .canonicalize()
+            .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}")))?;
+        if !canonical.starts_with(&state.shared.scan_root) {
+            return Err(err_response(
+                StatusCode::FORBIDDEN,
+                &format!("path outside scan root ({})", state.shared.scan_root.display()),
+            ));
+        }
+        Src::Path(canonical)
+    } else if let Some(b64) = req.video_base64 {
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(b64)
+            .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("base64 decode failed: {e}")))?;
+        Src::Bytes(bytes, req.ext.unwrap_or_else(|| "mp4".to_string()))
+    } else {
+        return Err(err_response(StatusCode::BAD_REQUEST, "provide `path` or `video_base64`"));
+    };
+
+    let shared = state.shared.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let emb = shared.embedder.as_ref();
+        match src {
+            Src::Path(p) => physis_pro::video::embed_video_file(&p, emb, &opts),
+            Src::Bytes(b, ext) => physis_pro::video::embed_video_bytes(&b, &ext, emb, &opts),
+        }
+    })
+    .await
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("video task failed: {e}")))?;
+
+    match result {
+        Some(r) => Ok(Json(VideoEmbedResponse {
+            dim: r.embedding.len(),
+            embedding: r.embedding,
+            frames: r.frames,
+        })),
+        None => Err(err_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "video embedding unavailable: ffmpeg missing, embedder has no image path, or no frames decoded",
+        )),
+    }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────
@@ -1209,6 +1297,7 @@ async fn main() {
         .route("/api/v1/semiotic/heatmap", get(heatmap_handler))
         .route("/api/v1/classify", post(classify_handler))
         .route("/api/v1/embed", post(embed_handler))
+        .route("/api/v1/embed/video", post(embed_video_handler))
         .route("/api/v1/category/diagram", post(category_diagram_handler))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 

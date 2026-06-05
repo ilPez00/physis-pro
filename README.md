@@ -382,10 +382,20 @@ sentence are directly comparable / classifiable.
 
 ### Video
 
-**Path (partial — not yet a built pipeline):** sample frames (via the `image`
-crate / ffmpeg) → `embed_image` per frame → temporal pool (mean / attention)
-into one clip vector → classify/cohere like any other. Tracked in
-`DEVELOPMENT_PLAN.md`. Audio track reuses the voice pipeline above.
+Real today (`src/video.rs`). Pipeline: **ffmpeg** frame-sample (`fps` filter) →
+`embed_image` per frame → **temporal mean-pool + L2-normalize** → one clip vector
+in the shared space — directly comparable / classifiable like text or a still.
+
+- HTTP: `POST /api/v1/embed/video` → `{ embedding, dim, frames }`. Body takes a
+  server-side `path` (confined to `scan_root`) **or** base64 `video_base64`
+  (+`ext`), plus optional `fps` (default 1.0) / `max_frames` (default 32).
+- Runs on a blocking thread (ffmpeg + N inferences). **Fail-soft:** missing
+  ffmpeg, a text-only embedder (e.g. BGE — no image path), or zero frames →
+  `422`, never a crash. Needs an image-capable embedder (CLIP / Jina).
+- Audio track reuses the voice pipeline above.
+
+Follow-ups: attention pooling (vs mean), a `/classify/video` convenience, and
+shot-boundary sampling instead of fixed fps.
 
 ### Sensory protocol — `AuraFrame` (`src/sensory.rs`)
 

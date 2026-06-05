@@ -12,6 +12,7 @@ pub mod models;
 pub mod graph;
 pub mod rachmaninov;
 pub mod sensory;
+pub mod video;
 pub mod storage;
 pub mod vfs;
 pub mod trie;
