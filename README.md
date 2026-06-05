@@ -343,6 +343,66 @@ inv.record_order("widget", 500, "manual")?;
 ### Wiki (`src/wiki.rs`)
 `llmwiki` CLI fallback with recursive grep fallback for offline vector retrieval.
 
+## Multimodal Sensory (Voice · Images · Video)
+
+Physis is a single multimodal engine: every modality is reduced to a vector in
+the **shared embedding space**, then classified / coheres / dreams through the
+same core. The former standalone **`physis_voice`** project is folded in here
+(see `src/bin/voice.rs` — keep the old repo for reference only).
+
+### Voice — `physis-pro-voice`
+
+Real-time ontological mapping for live talks/lectures. Pipeline:
+
+```
+arecord (44.1 kHz) ─15s chunks─▶ whisper-large-v3 (provider cascade)
+  ─transcript─▶ llama3.2 concept extraction ─▶ OntologicalMap (entities + relations)
+  ─▶ live graph UI  http://localhost:3000   (+ optional Dream provocations)
+```
+
+- Bin: `cargo run --bin physis-pro-voice` (features `voice,web`). UI routes:
+  `GET /`, `GET /api/data`, `POST /api/settings`.
+- Settings: `record_secs` (15), `transcription_model` (`whisper-large-v3`),
+  `extraction_model` (`llama3.2`), `show_dreams`.
+- Supersedes standalone `physis_voice` (arecord → Groq/Deepgram → Ollama →
+  Cytoscape). Same `OntologicalMap` model, now sharing this engine's cascade,
+  ontology classifier, and Dream Function.
+
+### Images
+
+Real today — image vectors land in the **same space** as text, so a photo and a
+sentence are directly comparable / classifiable.
+
+- `embed_image(bytes)` implemented on **CLIP** (`embed/clip.rs`) and **Jina v2**
+  (`embed/jina.rs`); the `VectorEmbed` trait default is text-fallback.
+- HTTP: `POST /api/v1/classify` and `POST /api/v1/embed` accept an optional
+  base64 `image` (PNG/JPEG) → image embedding; on decode/availability failure
+  they fall back to embedding `text` (logged), never 500.
+- Sensory bus carries images as `SignalType::VisionFeature` frames.
+
+### Video
+
+**Path (partial — not yet a built pipeline):** sample frames (via the `image`
+crate / ffmpeg) → `embed_image` per frame → temporal pool (mean / attention)
+into one clip vector → classify/cohere like any other. Tracked in
+`DEVELOPMENT_PLAN.md`. Audio track reuses the voice pipeline above.
+
+### Sensory protocol — `AuraFrame` (`src/sensory.rs`)
+
+The multimodal ingestion bus (Unix socket) that feeds the holarchy. Wire format
+is a fixed `AuraFrameHeader` (`'AURA'` magic, µs timestamp, signal type, payload
+len) + payload, with `SignalType`:
+
+| Variant | Modality |
+|---------|----------|
+| `AudioPCM` | raw audio (voice) |
+| `VisionFeature` | image / video-frame features |
+| `Acceleration`, `Gyroscope` | motion (wearable / Aura) |
+| `ThoughtCapture` | text / note capture |
+
+Any source that speaks `AuraFrame` (the voice bin, a camera client, the Aura
+wearable) streams into the same engine.
+
 ## Future: Multi-Modal & Gemma Re-ranking
 
 See `DEVELOPMENT_PLAN.md` Phase 6 for the full roadmap. Short version:

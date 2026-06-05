@@ -31,6 +31,23 @@ Tenant-scoped handlers: `goals`, `scan`, `query`, `stats`, `pdca/*`, `dream/*`,
 Praxis callers must send `X-Physis-User: <praxis_user_id>` on those endpoints
 (see `physisProClient.ts` `tenant()` helper).
 
+## Multimodal & Sensory
+
+Physis is one multimodal engine — voice, images, and video all reduce to vectors
+in the shared embedding space, then run through the same classify / cohere /
+dream core. README → "Multimodal Sensory" has the full picture.
+
+- **Voice** — `src/bin/voice.rs` (`physis-pro-voice`, features `voice,web`).
+  arecord → whisper-large-v3 → llama3.2 extraction → `OntologicalMap` → live
+  graph UI on `:3000`. **Folds in the standalone `physis_voice` repo** (now
+  superseded; keep for reference only).
+- **Images** — `embed_image()` on `embed/clip.rs` + `embed/jina.rs`; `/classify`
+  and `/embed` accept base64 `image`, fall back to text on failure (never 500).
+- **Video** — planned: frame-sample → `embed_image` → temporal pool. Not built.
+- **Sensory bus** — `src/sensory.rs` `AuraFrame` over a Unix socket;
+  `SignalType` = `AudioPCM | VisionFeature | Acceleration | Gyroscope |
+  ThoughtCapture`. Single ingestion path into the holarchy.
+
 ## Key Modules
 
 | Module | File | Description |

@@ -193,6 +193,19 @@ and the P0/P1/P6 launch-blockers are closed.
 
 This phase is the answer to: *"What if we could classify images, audio, processes — not just text? And what if the ontology was deep enough to distinguish a welding robot from a chef?"*
 
+**Modality status (2026-06-05):**
+- **Voice** ✅ — `physis-pro-voice` bin folds in the standalone `physis_voice`
+  repo (arecord → whisper-large-v3 → llama3.2 → `OntologicalMap` graph UI). Now
+  on the shared cascade + ontology + Dream Function.
+- **Images** ✅ — `embed_image()` (CLIP / Jina v2); `/classify` + `/embed` take
+  base64 `image`, text-fallback on failure. Shared vector space with text.
+- **Video** 🔄 — planned pipeline: frame-sample (`image`/ffmpeg) → `embed_image`
+  per frame → temporal pool (mean/attention) → one clip vector; audio track via
+  the voice pipeline.
+- **Sensory bus** ✅ — `AuraFrame` / `SignalType` (`sensory.rs`): `AudioPCM`,
+  `VisionFeature`, `Acceleration`, `Gyroscope`, `ThoughtCapture` over a Unix
+  socket into the holarchy.
+
 ### 6A. Multi-Embedder Architecture
 
 Replace the single `Box<dyn VectorEmbed>` with a **trait-typed registry** that dispatches by modality and model type.
