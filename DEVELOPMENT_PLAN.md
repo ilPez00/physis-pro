@@ -463,7 +463,10 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   + `register_node_from_text` keep it; flows through `Neighbor` → API → TUI.
 - 🔜 7B scan-labelling (this iteration): register scanned files as labeled core
   nodes using the **shared** embedder so they're recallable in the wiki.
-- ⬜ 7A.1 background-task the live search (channel) — kill remote-engine lag.
+- ✅ 7A.1 background-task the live search: `dispatch_search` spawns a tokio task
+  per query, seq-tagged results return over an mpsc channel, `run` applies only
+  the newest seq (stale keystroke responses dropped). UI no longer blocks on the
+  reconstruct+classify round-trip — kills remote-engine lag.
 - ⬜ 7C Spanner Graph sink.
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
