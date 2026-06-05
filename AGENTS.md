@@ -8,6 +8,29 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 - **Inventory tracking** — SMA-30 forecast + human-in-loop ordering with cooldown
 - **Ontology extensions** — 75 office domains + 23 machine process + 21 AI agent workflow
 
+## Multi-Tenancy (Web API — `physis-pro-web`)
+
+The web server (`src/bin/web_server.rs`) is **per-user**. Session state
+(`goals`, `actor`/PDCA, `dreams`, coherence `core`) lives in a tenant map keyed
+by the **`X-Physis-User`** request header:
+
+- Header absent/blank → `"_default"` tenant (the original single global state;
+  the holarchy background threads drive this one). Back-compatible.
+- Any other value → an isolated `RuntimeState`, created on first use, so one
+  user's PDCA/dream/coherence/goals never bleed into another's.
+
+Shared, immutable infra stays global in `SharedCtx`: embedder, classifier,
+ontology, provider cascade. **Stateless** endpoints (`/chat`, `/embed`,
+`/classify`, `/compress/logs`, `/context/filter`, `/translate`, `/semiotic/*`,
+`/reconstruct`) ignore the header. The **holarchy** (`/holarchy/*`) stays global
+— it's the shared knowledge graph fed by a single ingest/sensory pipeline.
+
+Tenant-scoped handlers: `goals`, `scan`, `query`, `stats`, `pdca/*`, `dream/*`,
+`coherence/*`. Helper: `AppCtx::with_user(uid, |rt| …)`.
+
+Praxis callers must send `X-Physis-User: <praxis_user_id>` on those endpoints
+(see `physisProClient.ts` `tenant()` helper).
+
 ## Key Modules
 
 | Module | File | Description |

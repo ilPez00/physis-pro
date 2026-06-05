@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     extract::{Query, Request, State},
-    http::{header::AUTHORIZATION, StatusCode},
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::Response,
     routing::{get, post},
@@ -76,9 +76,33 @@ struct RuntimeState {
     goals: Vec<Goal>,
 }
 
+impl RuntimeState {
+    /// Fresh per-tenant session state. Shares nothing mutable with other users;
+    /// the embedder/classifier/cascade/ontology live in SharedCtx and stay global.
+    fn new(shared: &SharedCtx) -> Self {
+        RuntimeState {
+            core: PhysisCore::new(),
+            mapper: OntologyMapper::new(shared.ontology.clone(), shared.embed_dim),
+            actor: PDCActor::new(
+                shared.config.pdca_stagnant_threshold,
+                shared.config.pdca_stagnant_window,
+            ),
+            dreams: DreamEngine::new(),
+            goals: Vec::new(),
+        }
+    }
+}
+
 struct AppCtx {
     shared: Arc<SharedCtx>,
+    /// The "_default" tenant. Holarchy background threads drive this one, and
+    /// any request without an X-Physis-User header falls here (back-compat).
     state: Mutex<RuntimeState>,
+    /// Per-user session state (goals / PDCA / dreams / coherence), created on
+    /// first use and keyed by the X-Physis-User header. The holarchy stays
+    /// global (single ingest/sensory pipeline), so a tenant is an isolated
+    /// reasoning session, not a separate knowledge graph.
+    tenants: Mutex<HashMap<String, RuntimeState>>,
 }
 
 impl AppCtx {
@@ -87,6 +111,33 @@ impl AppCtx {
     fn lock(&self) -> std::sync::MutexGuard<'_, RuntimeState> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
+
+    /// Run `f` against the runtime state for `uid`. Empty or "_default" routes to
+    /// the global default tenant (holarchy-connected); any other id gets its own
+    /// isolated session, created on demand. The lock is held across `f`, matching
+    /// the single-tenant behavior.
+    fn with_user<R>(&self, uid: &str, f: impl FnOnce(&mut RuntimeState) -> R) -> R {
+        if uid.is_empty() || uid == "_default" {
+            let mut g = self.lock();
+            f(&mut g)
+        } else {
+            let mut map = self.tenants.lock().unwrap_or_else(|e| e.into_inner());
+            let rt = map
+                .entry(uid.to_string())
+                .or_insert_with(|| RuntimeState::new(&self.shared));
+            f(rt)
+        }
+    }
+}
+
+/// Tenant key from the `X-Physis-User` header; "_default" when absent/blank.
+fn user_key(headers: &HeaderMap) -> String {
+    headers
+        .get("x-physis-user")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "_default".to_string())
 }
 
 type SharedState = Arc<AppCtx>;
@@ -332,26 +383,32 @@ async fn providers_handler(State(state): State<SharedState>) -> Json<serde_json:
     Json(serde_json::json!({ "providers": cascade.providers_list() }))
 }
 
-async fn stats_handler(State(state): State<SharedState>) -> Json<StatsResponse> {
-    let s = state.lock();
-    Json(StatsResponse {
-        mapper: s.mapper.stats(),
-        core: s.core.snapshot(),
+async fn stats_handler(State(state): State<SharedState>, headers: HeaderMap) -> Json<StatsResponse> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        Json(StatsResponse {
+            mapper: s.mapper.stats(),
+            core: s.core.snapshot(),
+        })
     })
 }
 
 async fn query_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Query(params): Query<QueryParams>,
 ) -> Json<QueryResponse> {
-    let s = state.lock();
-    let results = s.mapper.query(&params.q);
-    let limited: Vec<Vec<String>> = results.into_iter().take(params.max).collect();
-    Json(QueryResponse { count: limited.len(), results: limited })
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let results = s.mapper.query(&params.q);
+        let limited: Vec<Vec<String>> = results.into_iter().take(params.max).collect();
+        Json(QueryResponse { count: limited.len(), results: limited })
+    })
 }
 
 async fn scan_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<ScanRequest>,
 ) -> Result<Json<ScanResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.dir);
@@ -369,56 +426,62 @@ async fn scan_handler(
             &format!("path outside scan root ({})", state.shared.scan_root.display()),
         ));
     }
-    let mut s = state.lock();
-    let goals = s.mapper.map_filesystem(&canonical, None);
-    s.goals = goals.clone();
+    let uid = user_key(&headers);
+    let goals = state.with_user(&uid, |s| {
+        let goals = s.mapper.map_filesystem(&canonical, None);
+        s.goals = goals.clone();
+        goals
+    });
     Ok(Json(ScanResponse { count: goals.len(), goals }))
 }
 
 async fn dream_generate_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<DreamGenerateRequest>,
 ) -> Json<serde_json::Value> {
-    let mut s = state.lock();
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        if s.goals.is_empty() {
+            return Json(serde_json::json!({
+                "dreams": [],
+                "count": 0,
+                "active": false,
+                "reason": "No goals exist."
+            }));
+        }
 
-    if s.goals.is_empty() {
-        return Json(serde_json::json!({
-            "dreams": [],
-            "count": 0,
-            "active": false,
-            "reason": "No goals exist."
-        }));
-    }
+        if !req.force && s.actor.is_working(&s.goals) {
+            return Json(serde_json::json!({
+                "dreams": [],
+                "count": 0,
+                "active": false,
+                "reason": "PDCA cycle active — dreaming suppressed. Pass {'force': true} to override."
+            }));
+        }
 
-    if !req.force && s.actor.is_working(&s.goals) {
-        return Json(serde_json::json!({
-            "dreams": [],
-            "count": 0,
-            "active": false,
-            "reason": "PDCA cycle active — dreaming suppressed. Pass {'force': true} to override."
-        }));
-    }
-
-    let goals = s.goals.clone();
-    let dreams = s.dreams.generate_dreams(&goals, req.count);
-    Json(serde_json::json!({
-        "dreams": dreams.iter().map(|d| serde_json::json!({
-            "id": d.id,
-            "source": d.source,
-            "embedding": d.embedding,
-            "grade": d.grade,
-        })).collect::<Vec<_>>(),
-        "count": dreams.len(),
-        "active": true,
-    }))
+        let goals = s.goals.clone();
+        let dreams = s.dreams.generate_dreams(&goals, req.count);
+        Json(serde_json::json!({
+            "dreams": dreams.iter().map(|d| serde_json::json!({
+                "id": d.id,
+                "source": d.source,
+                "embedding": d.embedding,
+                "grade": d.grade,
+            })).collect::<Vec<_>>(),
+            "count": dreams.len(),
+            "active": true,
+        }))
+    })
 }
 
 async fn dream_evaluate_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<DreamEvaluateRequest>,
 ) -> Json<serde_json::Value> {
-    let mut s = state.lock();
-    let accepted = s.dreams.evaluate_dream(&req.id, req.grade);
+    let uid = user_key(&headers);
+    let accepted = state.with_user(&uid, |s| s.dreams.evaluate_dream(&req.id, req.grade));
     Json(serde_json::json!({
         "accepted": accepted,
         "dream_id": req.id,
@@ -428,17 +491,20 @@ async fn dream_evaluate_handler(
 
 async fn coherence_snapshot_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<CoherenceSnapshot> {
-    let s = state.lock();
-    Json(s.core.snapshot())
+    let uid = user_key(&headers);
+    Json(state.with_user(&uid, |s| s.core.snapshot()))
 }
 
 async fn coherence_register_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<CoherenceRegisterRequest>,
 ) -> Json<CoherenceRegisterResponse> {
     let embedding = state.shared.embedder.embed(&req.input);
-    let node_id = state.lock().core.register_node_vec(embedding);
+    let uid = user_key(&headers);
+    let node_id = state.with_user(&uid, |s| s.core.register_node_vec(embedding));
     Json(CoherenceRegisterResponse { node_id })
 }
 
@@ -498,13 +564,15 @@ async fn translate_handler(
 
 async fn ingest_prompt_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<serde_json::Value>,
 ) -> Json<IngestResponse> {
     let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let embedding = state.shared.embedder.embed(&prompt);
     let mut goal = Goal::new_vec(embedding);
     goal.progress = 0.0;
-    state.lock().goals.push(goal.clone());
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| s.goals.push(goal.clone()));
     Json(IngestResponse {
         message: format!("Goal created from prompt ({} chars)", prompt.len()),
         goal,
@@ -513,58 +581,49 @@ async fn ingest_prompt_handler(
 
 async fn pdca_plan_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<serde_json::Value> {
-    let s = state.lock();
-    let planned = s.actor.plan(&s.goals);
-    let goals: Vec<serde_json::Value> = planned.iter().map(|g| {
-        serde_json::json!({
-            "id": g.id,
-            "embedding": g.embedding,
-            "progress": g.progress,
-        })
-    }).collect();
-    Json(serde_json::json!({ "planned": goals, "count": goals.len() }))
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let planned = s.actor.plan(&s.goals);
+        let goals: Vec<serde_json::Value> = planned.iter().map(|g| {
+            serde_json::json!({
+                "id": g.id,
+                "embedding": g.embedding,
+                "progress": g.progress,
+            })
+        }).collect();
+        Json(serde_json::json!({ "planned": goals, "count": goals.len() }))
+    })
 }
 
 async fn pdca_act_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<PDCARequest>,
 ) -> Json<serde_json::Value> {
-    let (before, after) = {
-        let s = state.lock();
-        let goal = s.goals.iter().find(|g| g.id == req.goal_id);
-        match goal {
-            Some(g) => (g.embedding.clone(), req.state_vector),
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let before = match s.goals.iter().find(|g| g.id == req.goal_id) {
+            Some(g) => g.embedding.clone(),
             None => return Json(serde_json::json!({"error": "goal not found"})),
-        }
-    };
-
-    let exp_id = {
-        let mut s = state.lock();
-        s.actor.do_action(&req.goal_id, before, after.clone()).id
-    };
-
-    let exps = {
-        let s = state.lock();
-        s.actor.experiences.clone()
-    };
-    {
-        let mut s = state.lock();
+        };
+        let after = req.state_vector.clone();
+        let exp_id = s.actor.do_action(&req.goal_id, before, after).id;
+        let exps = s.actor.experiences.clone();
         let mut goals = std::mem::take(&mut s.goals);
         s.actor.act(&exps, &mut goals);
         s.goals = goals;
-    }
-
-    Json(serde_json::json!({
-        "experience_id": exp_id,
-    }))
+        Json(serde_json::json!({ "experience_id": exp_id }))
+    })
 }
 
 async fn pdca_stats_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<physis_pro::actor::PDCAStats> {
-    let s = state.lock();
-    Json(s.actor.stats(&s.goals))
+    let uid = user_key(&headers);
+    Json(state.with_user(&uid, |s| s.actor.stats(&s.goals)))
 }
 
 async fn reconstruct_handler(
@@ -1077,6 +1136,7 @@ async fn main() {
             dreams,
             goals: Vec::new(),
         }),
+        tenants: Mutex::new(HashMap::new()),
     });
 
     let state_clone = state.clone();
