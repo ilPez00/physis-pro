@@ -32,8 +32,20 @@ impl OntologyMapper {
         root_dir: &Path,
         extra_exclude: Option<&HashSet<String>>,
     ) -> Vec<Goal> {
+        self.map_filesystem_labeled(root_dir, extra_exclude).0
+    }
+
+    /// Like `map_filesystem`, but also returns each file's readable structural
+    /// path (parallel to the goals). Callers can register these as labeled core
+    /// nodes so scanned files become recallable by content in the wiki.
+    pub fn map_filesystem_labeled(
+        &mut self,
+        root_dir: &Path,
+        extra_exclude: Option<&HashSet<String>>,
+    ) -> (Vec<Goal>, Vec<String>) {
         let files = scanner::scan_project(root_dir, extra_exclude);
         let mut goals = Vec::new();
+        let mut labels = Vec::new();
         let embedder = RandomProjectionEmbedder::new(self.embed_dim);
 
         for file in &files {
@@ -42,17 +54,18 @@ impl OntologyMapper {
             self.trie.insert(&tids);
 
             let embedding = embedder.embed(&path_str);
-            let goal = Goal::new_vec(embedding);
-            goals.push(goal);
+            goals.push(Goal::new_vec(embedding));
 
             for line in &file.structural_lines {
-                let line_path = format!("{} → {}", file.structural_path(), line);
+                let line_path = format!("{} → {}", path_str, line);
                 let line_tids = self.trie.tokenize_mut(&line_path);
                 self.trie.insert(&line_tids);
             }
+
+            labels.push(path_str);
         }
 
-        goals
+        (goals, labels)
     }
 
     /// Inserts goal embeddings into the trie as tokenized paths.

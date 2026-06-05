@@ -455,7 +455,18 @@ when you don't remember a thing's name or type. Leans entirely on shipped
 primitives (shared vector space, `classify`, `reconstruct`, holarchy, coherence).
 Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
 
-### 7A. TUI Wiki Browser (`physis-pro-wiki`) — highest leverage, no engine change
+### Status (2026-06-05)
+
+- ✅ 7A TUI Wiki Browser shipped (`src/bin/wiki.rs`): live-as-you-type re-rank,
+  coherence-colored results, preview, F2 heatmap / F3 dreams overlays.
+- ✅ Node labels: `CoherenceNode.label` retains source text; `coherence/register`
+  + `register_node_from_text` keep it; flows through `Neighbor` → API → TUI.
+- 🔜 7B scan-labelling (this iteration): register scanned files as labeled core
+  nodes using the **shared** embedder so they're recallable in the wiki.
+- ⬜ 7A.1 background-task the live search (channel) — kill remote-engine lag.
+- ⬜ 7C Spanner Graph sink.
+
+### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
 
 A new `ratatui` binary (dep already present) that drives the HTTP API over
 `reqwest`, so it works against a local or remote engine.
@@ -474,14 +485,24 @@ A new `ratatui` binary (dep already present) that drives the HTTP API over
 
 ### 7B. Ingestion connectors — keep the wiki fed
 
-Each connector is thin: `source → embed → register node (+edges)`.
+Each connector is thin: `source → embed (shared embedder) → register labeled node`.
 
+- **Scan-labelling** (🔜 this iteration) — `/api/v1/scan` mapped files into
+  `mapper`/`s.goals` only (RandomProjection-embedded, outside the reconstruct
+  index → unsearchable). Now also register each file as a labeled core node via
+  `mapper.map_filesystem_labeled()` + the **shared** embedder, embedded outside
+  the lock, so scanned data is recallable by content in the wiki.
 - **Watch mode** — `network`/`notify`: auto-ingest on file create/modify.
 - **Vault importers** — Obsidian/markdown, plain notes, `git log`, code repos.
 - **Personal-history importers** — browser history+bookmarks, email/chat exports,
   RSS/read-later, photo library (EXIF + CLIP embed).
 - **Praxis backfill** — `notebook_entries` + trackers → `register_behavioural_vector`
   (Success/Inert/Failure) to seed coherence from the real life-log.
+
+> Embedder consistency rule: nodes must be embedded with the **same** embedder
+> that embeds queries (the shared `SharedCtx.embedder`), or cosine recall is
+> meaningless. `mapper`'s internal RandomProjection embedder is for trie tokens
+> only — never register its vectors into the searchable core index.
 
 ### 7C. Spanner Graph sink — durable, multi-device memory
 

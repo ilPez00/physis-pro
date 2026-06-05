@@ -427,11 +427,24 @@ async fn scan_handler(
         ));
     }
     let uid = user_key(&headers);
-    let goals = state.with_user(&uid, |s| {
-        let goals = s.mapper.map_filesystem(&canonical, None);
+    let (goals, labels) = state.with_user(&uid, |s| {
+        let (goals, labels) = s.mapper.map_filesystem_labeled(&canonical, None);
         s.goals = goals.clone();
-        goals
+        (goals, labels)
     });
+
+    // Register each scanned file as a labeled core node so it's recallable by
+    // content in the wiki. Embed with the SHARED embedder (not mapper's internal
+    // RandomProjection one) so these vectors are comparable to query vectors.
+    // Embedding runs outside the lock — the CPU-heavy step never blocks writes.
+    let embeddings: Vec<Vec<f32>> =
+        labels.iter().map(|l| state.shared.embedder.embed(l)).collect();
+    state.with_user(&uid, |s| {
+        for (emb, label) in embeddings.into_iter().zip(labels.into_iter()) {
+            s.core.register_node_vec_labeled(emb, Some(label));
+        }
+    });
+
     Ok(Json(ScanResponse { count: goals.len(), goals }))
 }
 
