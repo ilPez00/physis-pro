@@ -75,6 +75,8 @@ ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
 # In-process wiki engine (Tantivy BM25) — replaces the llmwiki subprocess.
 # BM25 only for now (no fastembed/usearch → no ort conflict); semantic = Phase 2.
 wiki-embedded = ["dep:llmwiki_physis"]
+# Spanner Graph sink (Phase 7C) — durable wiki mirror. No new deps (reqwest).
+spanner = []
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest"]
 

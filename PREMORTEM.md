@@ -174,6 +174,38 @@ Railway vars + `MANUAL_CONFIG.md` updated.
 
 ---
 
+## P7 — Spanner sink: untested external write path + auth/cost/consistency
+
+**Failure modes** (the sink is a scaffold, `--features spanner`, default off):
+- **Untested REST flow.** session-create → commit-mutations is coded to the
+  Spanner v1 REST shape but has **never run against a live instance**. The
+  mutation `values` are stringified floats/ints (Spanner's wire convention) — a
+  type/format mismatch surfaces only at first real commit.
+- **Auth is a bare env token.** `GOOGLE_OAUTH_TOKEN` from `gcloud auth
+  print-access-token` expires in ~1h. No refresh, no service-account JWT minting.
+  A long-running sync dies after an hour with a 401. Real deploys need ADC /
+  signed-JWT token minting.
+- **Cost / runaway writes.** A full `insertOrUpdate` of every node on each sync,
+  with no batching cap or backoff. A large wiki = a large single commit (Spanner
+  has a ~80k mutation / commit-size limit) → `InvalidArgument`. No chunking yet.
+- **No deletes / no incremental.** Today it only upserts. Nodes removed locally
+  (or after a future eviction) linger in Spanner — divergence over time.
+- **Embeddings not shipped.** Intentional (large, re-derivable), but it means
+  Spanner can't serve ANN; a later "vector column" decision is deferred, not free.
+- **Id bridge missing for edges.** Holarchy edges key `RawNodeKey`s, not
+  coherence ids — there's no stable mapping, so the graph half of "Spanner
+  **Graph**" isn't actually exported yet (nodes only).
+
+**Mitigation before this leaves scaffold:** (1) integration-test against a real
+Spanner emulator (`gcloud emulators spanner`) in CI; (2) replace the env token
+with service-account JWT mint + refresh; (3) chunk mutations (≤ ~1k rows/commit)
+with retry/backoff; (4) decide deletes (tombstone vs full-resync); (5) only then
+wire a server background sync — never on the hot path.
+
+**Status:** ⬜ scaffold only. Do NOT enable in prod until (1)–(3) land.
+
+---
+
 ## Decision: proceed with **P0** now
 
 P0 is highest damage × highest likelihood, blocks honest evaluation of everything

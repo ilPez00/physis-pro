@@ -34,6 +34,9 @@ pub mod ontology_nonhuman;
 pub mod gantt;
 pub mod classify;
 
+#[cfg(feature = "spanner")]
+pub mod spanner;
+
 #[cfg(feature = "cli")]
 pub mod cli;
 

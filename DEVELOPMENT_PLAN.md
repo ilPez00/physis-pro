@@ -486,7 +486,11 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   recalls a user's whole journal. Also fixed `registerCoherence` to send the text
   as `input` (was sent only as `label`, which the engine ignored → coherence
   nodes embedded empty strings; repaired goal/checkin registration too).
-- ⬜ 7C Spanner Graph sink.
+- 🟡 7C Spanner Graph sink — **scaffold only** (`src/spanner.rs`, `--features
+  spanner`, default off). Exports labeled nodes → Spanner `insertOrUpdate` via
+  REST (session + commit). Compiles + unit-tested; NOT run against live Spanner.
+  Blockers before prod in PREMORTEM P7: untested REST flow, env-token auth (no
+  refresh), no mutation chunking, no deletes, edges not exported.
 - ⬜ Vault / personal-history importers (Obsidian, browser, email…).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
