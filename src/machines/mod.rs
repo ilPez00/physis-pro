@@ -2,7 +2,7 @@
 //!
 //! Each machine turns a modality into *primitives* (the smallest elaborable
 //! unit), registers them as labeled coherence nodes, and lets the core handle
-//! recall / coherence / dream / durability. See `MACHINES_BUILD_PLAN.md`.
+//! recall / coherence / dream / durability. See `docs/machines/`.
 //!
 //! Shipped: `chronos` (temporal). Planned: techne, soma, elenchus, lex, harmony,
 //! polis.

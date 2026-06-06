@@ -1,6 +1,7 @@
 # Build Plan — Physis Philosophical Machines
 
-Concrete plan to build the machines sketched in `PHILOSOPHICAL_MACHINES.md`. Each
+Concrete plan to build the machines sketched in `PHILOSOPHICAL_MACHINES.md`
+(both in `docs/machines/`; implementation target → `PIKA_HERMES_PLAN.md`). Each
 is a thin client over the physis core; the core now exposes everything a machine
 needs, including the **id bridge** (coherence id ↔ holarchy key) so every machine
 reads/writes one shared graph.
