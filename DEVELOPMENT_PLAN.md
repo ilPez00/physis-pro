@@ -501,7 +501,16 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
 - ✅ chronos (temporal machine): `src/machines/chronos.rs` — `detect_rhythms`
   (recurrence primitives from timestamped events), `upcoming`/`slipping`
   (predict next / flag about-to-break), `register_rhythms` (→ labeled bridged
-  nodes). Pure + tested (weekly rhythm, prediction, upcoming/slipping).
+  nodes). Pure + tested. Demo + sample: `examples/chronos_demo.rs`,
+  `docs/machines/samples/chronos.md`.
+- ✅ techne (codebase machine): `src/machines/techne.rs` — `classify_capabilities`
+  (cluster files by purpose), `dependency_edges` (module graph from imports,
+  module-root → parent-dir resolution), `impact_of` (transitive "what breaks if
+  this changes"), `register_capabilities` (→ bridged nodes + dependency edges).
+  Pure + tested. Demo + sample: `examples/techne_demo.rs`,
+  `docs/machines/samples/techne.md`.
+- 📦 Sibling machines committed to the agora monorepo: euclid (geometric, demo +
+  SVG output samples) + empedocles (physical-machine, four-elements reducer).
 - ⬜ Vault / personal-history importers (Obsidian, browser, email…).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
