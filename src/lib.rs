@@ -33,6 +33,7 @@ pub mod ontology;
 pub mod ontology_nonhuman;
 pub mod gantt;
 pub mod classify;
+pub mod machines;
 
 #[cfg(feature = "spanner")]
 pub mod spanner;

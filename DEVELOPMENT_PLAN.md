@@ -496,7 +496,12 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   Blockers before prod in PREMORTEM P7: untested REST flow, env-token auth (no
   refresh), no mutation chunking, no deletes, no `WikiEdge` upsert yet.
 - 📋 New machines: build plan in `MACHINES_BUILD_PLAN.md` (chronos, techne, soma,
-  elenchus, lex, harmony, polis) on the shared core + id bridge.
+  elenchus, lex, harmony, polis) on the shared core + id bridge. Grouped under
+  `src/machines/`.
+- ✅ chronos (temporal machine): `src/machines/chronos.rs` — `detect_rhythms`
+  (recurrence primitives from timestamped events), `upcoming`/`slipping`
+  (predict next / flag about-to-break), `register_rhythms` (→ labeled bridged
+  nodes). Pure + tested (weekly rhythm, prediction, upcoming/slipping).
 - ⬜ Vault / personal-history importers (Obsidian, browser, email…).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
