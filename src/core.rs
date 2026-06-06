@@ -64,6 +64,9 @@ pub struct PhysisCore {
     label_index: HashMap<String, String>,
     /// coherence id ↔ holarchy RawNodeKey. See `IdBridge`.
     pub bridge: IdBridge,
+    /// When true, every newly registered node is auto-bridged into the holarchy
+    /// (machines share one graph without manual `bridge_node`). Default false.
+    pub auto_bridge: bool,
 }
 
 impl PhysisCore {
@@ -81,7 +84,31 @@ impl PhysisCore {
             quantizer_dim: 0,
             label_index: HashMap::new(),
             bridge: IdBridge::default(),
+            auto_bridge: false,
         }
+    }
+
+    /// Assert a relation between two coherence nodes. Both are bridged into the
+    /// holarchy (idempotent), then a holarchy edge is added between their keys.
+    /// This is how a machine's reducer composes a graph — not just nodes, but
+    /// the relations between them. Returns false if either id is unknown.
+    pub fn add_edge_between(
+        &mut self,
+        coh_a: &str,
+        coh_b: &str,
+        weight: f32,
+        semantic_type: u32,
+    ) -> bool {
+        let (Some(a), Some(b)) = (self.bridge_node(coh_a), self.bridge_node(coh_b)) else {
+            return false;
+        };
+        self.holarchy.edges.push(crate::graph::Edge {
+            source: a,
+            target: b,
+            weight,
+            semantic_type,
+        });
+        true
     }
 
     /// Ensure the coherence node `coh_id` has a corresponding holarchy node and
@@ -167,6 +194,12 @@ impl PhysisCore {
         }
         self.update_coherence(&id);
         self.nodes.insert(id.clone(), node);
+        // Auto-bridge: when enabled, every new node is joined into the holarchy
+        // so machines populate one shared graph without calling bridge_node by
+        // hand. Off by default (back-compat with the separate ingest pipeline).
+        if self.auto_bridge {
+            self.bridge_node(&id);
+        }
         id
     }
 
@@ -538,6 +571,27 @@ mod tests {
         assert_eq!(resolved[0].0.as_deref(), Some(a.as_str()));
         assert_eq!(resolved[0].1.as_deref(), Some(b.as_str()));
         assert_eq!(resolved[0].2, 0.7);
+    }
+
+    #[test]
+    fn test_auto_bridge_and_edge_write() {
+        let mut g = PhysisCore::new();
+        g.auto_bridge = true;
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("alpha", &emb);
+        let b = g.register_node_from_text("beta", &emb);
+        // auto-bridged at registration time
+        assert!(g.bridge.holon_for(&a).is_some());
+        assert!(g.bridge.holon_for(&b).is_some());
+        assert_eq!(g.holarchy.nodes.len(), 2);
+
+        // edge-write API composes a relation
+        assert!(g.add_edge_between(&a, &b, 0.5, 1));
+        assert!(!g.add_edge_between(&a, "missing", 0.5, 1));
+        let resolved = g.resolved_edges();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].0.as_deref(), Some(a.as_str()));
+        assert_eq!(resolved[0].1.as_deref(), Some(b.as_str()));
     }
 
     #[test]

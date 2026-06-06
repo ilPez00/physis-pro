@@ -679,6 +679,37 @@ async fn holarchy_ingest_handler(
     Json(serde_json::json!({ "status": "pushed_to_ring" }))
 }
 
+#[derive(Deserialize)]
+struct EdgeWriteRequest {
+    /// Coherence node ids (not RawNodeKeys). Both are bridged automatically.
+    source: String,
+    target: String,
+    #[serde(default = "default_edge_weight")]
+    weight: f32,
+    #[serde(default)]
+    semantic_type: u32,
+}
+fn default_edge_weight() -> f32 { 1.0 }
+
+/// Assert a relation between two coherence nodes (machines compose graphs, not
+/// just nodes). Bridges both endpoints, then adds a holarchy edge. 404 if either
+/// id is unknown in the tenant.
+async fn holarchy_edge_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<EdgeWriteRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let ok = state.with_user(&uid, |s| {
+        s.core.add_edge_between(&req.source, &req.target, req.weight, req.semantic_type)
+    });
+    if ok {
+        Ok(Json(serde_json::json!({ "status": "edge_added" })))
+    } else {
+        Err(err_response(StatusCode::NOT_FOUND, "source or target node id not found"))
+    }
+}
+
 async fn holarchy_snapshot_handler(
     State(state): State<SharedState>,
 ) -> Json<serde_json::Value> {
@@ -1402,6 +1433,7 @@ async fn main() {
         .route("/api/v1/reconstruct", post(reconstruct_handler))
         .route("/api/v1/translate", post(translate_handler))
         .route("/api/v1/holarchy/ingest", post(holarchy_ingest_handler))
+        .route("/api/v1/holarchy/edge", post(holarchy_edge_handler))
         .route("/api/v1/holarchy/snapshot", get(holarchy_snapshot_handler))
         .route("/api/v1/holarchy/trajectory", get(holarchy_trajectory_handler))
         .route("/api/v1/holarchy/graph", get(holarchy_graph_handler))

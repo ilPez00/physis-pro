@@ -118,7 +118,10 @@ register (follow-up) so machines populate one graph without each calling
 all machines come for free.
 
 ## Open core work these depend on
-- **Auto-bridge on register** (opt-in flag) so reducers don't have to bridge by hand.
-- **Edge-write API** (`/api/v1/holarchy/edge` or via register) so reducers can
+- ✅ **Auto-bridge on register** — `PhysisCore.auto_bridge` flag; when set, every
+  registered node is bridged into the holarchy automatically (default off).
+- ✅ **Edge-write API** — `core::add_edge_between(a, b, weight, type)` +
+  `POST /api/v1/holarchy/edge { source, target, weight?, semantic_type? }`
+  (coherence ids; bridges both endpoints, 404 on unknown). Reducers can now
   assert relations, not just nodes.
 - **Spanner `WikiEdge` + `upsert_edges`** (PREMORTEM P7) for durable shared graph.

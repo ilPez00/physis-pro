@@ -123,6 +123,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/api/v1/query` | ✓ | Query the trie |
 | POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
+| POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
 | GET  | `/api/v1/holarchy/snapshot` | global | Holarchy graph snapshot |
 | GET  | `/api/v1/holarchy/trajectory` | global | State-vs-goal trajectory |
 | GET  | `/api/v1/holarchy/graph` | global | Full graph export |
