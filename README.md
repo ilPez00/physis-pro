@@ -182,6 +182,8 @@ cargo run --bin physis-pro-tui
 | `PHYSIS_HOST` | `127.0.0.1` | Bind host (non-loopback requires a token) |
 | `PHYSIS_API_TOKEN` | — | Bearer token for protected routes |
 | `PHYSIS_SCAN_ROOT` | data dir | Confines `/api/v1/scan` (path-traversal guard) |
+| `PHYSIS_WATCH_DIR` | — | Poll this dir (within scan root) and auto-register new/changed files as labeled nodes |
+| `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Watch-mode poll interval |
 
 ### Config (`~/.physis`)
 

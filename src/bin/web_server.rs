@@ -448,6 +448,20 @@ async fn scan_handler(
     Ok(Json(ScanResponse { count: goals.len(), goals }))
 }
 
+/// Browsable content labels for one scanned file: one per structural line
+/// (`path → fn/struct`) plus the file's structural path. Mirrors the format in
+/// `OntologyMapper::map_filesystem_labeled` so watch-mode and /scan agree.
+fn file_labels(f: &physis_pro::scanner::FileInfo) -> Vec<String> {
+    let p = f.structural_path();
+    let mut labels: Vec<String> = f
+        .structural_lines
+        .iter()
+        .map(|line| format!("{} → {}", p, line))
+        .collect();
+    labels.push(p);
+    labels
+}
+
 async fn dream_generate_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -1316,6 +1330,50 @@ async fn main() {
             log::error!("Sensory server error: {}", e);
         }
     });
+
+    // 4. Watch-mode auto-ingest (Phase 7B): poll PHYSIS_WATCH_DIR and register
+    //    new/changed files as labeled core nodes, so the wiki stays fed without a
+    //    manual /scan. Confined to scan_root; dedup makes repeated polls cheap.
+    //    Runs on a std::thread (blocking FS + hashing) off the async runtime.
+    if let Ok(watch_dir) = std::env::var("PHYSIS_WATCH_DIR") {
+        match PathBuf::from(&watch_dir).canonicalize() {
+            Ok(canon) if canon.starts_with(&state.shared.scan_root) => {
+                let interval_secs: u64 = std::env::var("PHYSIS_WATCH_INTERVAL_SECS")
+                    .ok().and_then(|s| s.parse().ok()).unwrap_or(30);
+                let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
+                let scanner = physis_pro::network::NetworkScanner::new(
+                    vec![canon.clone()], cache_path, interval_secs);
+                let watch_state = state.clone();
+                log::info!("Watch-mode: polling {} every {}s", canon.display(), interval_secs);
+                std::thread::spawn(move || loop {
+                    let diffs = scanner.scan_all();
+                    let mut labels: Vec<String> = Vec::new();
+                    for d in &diffs {
+                        for f in d.new.iter().chain(d.changed.iter()) {
+                            labels.extend(file_labels(f));
+                        }
+                    }
+                    if !labels.is_empty() {
+                        // Embed outside the lock (CPU-heavy); register under it.
+                        let embedded: Vec<(Vec<f32>, String)> = labels
+                            .into_iter()
+                            .map(|l| (watch_state.shared.embedder.embed(&l), l))
+                            .collect();
+                        let mut s = watch_state.lock();
+                        for (emb, label) in embedded {
+                            s.core.register_node_vec_labeled(emb, Some(label));
+                        }
+                    }
+                    scanner.update_cache(&diffs);
+                    std::thread::sleep(std::time::Duration::from_secs(interval_secs));
+                });
+            }
+            Ok(canon) => log::error!(
+                "PHYSIS_WATCH_DIR {} outside scan root {} — watch disabled",
+                canon.display(), state.shared.scan_root.display()),
+            Err(e) => log::error!("PHYSIS_WATCH_DIR invalid ({watch_dir}): {e} — watch disabled"),
+        }
+    }
 
     // Public routes: liveness + embedder provenance (no secrets, needed by the
     // Railway healthcheck and ops).

@@ -476,8 +476,14 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   re-registering a seen label returns the existing id, so re-scanning a dir is
   idempotent instead of duplicating every file/line node. Unlabeled registrations
   are never deduped. In-memory index (core isn't persisted), O(1) per insert.
+- ✅ Watch mode (auto-feed): `PHYSIS_WATCH_DIR` (confined to scan_root) is polled
+  every `PHYSIS_WATCH_INTERVAL_SECS` (default 30) by a std::thread; new/changed
+  files (hash-diffed via `NetworkScanner`) are registered as labeled core nodes
+  with the shared embedder. Embeds outside the lock; dedup keeps repeated polls
+  cheap. The wiki stays fed without a manual `/scan`.
 - ⬜ 7C Spanner Graph sink.
-- ⬜ Watch mode / vault importers (auto-feed the wiki).
+- ⬜ Vault / personal-history importers (Obsidian, browser, email…).
+- ⬜ Praxis backfill (`notebook_entries` → physis).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
 
