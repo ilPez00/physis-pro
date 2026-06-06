@@ -481,9 +481,13 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   files (hash-diffed via `NetworkScanner`) are registered as labeled core nodes
   with the shared embedder. Embeds outside the lock; dedup keeps repeated polls
   cheap. The wiki stays fed without a manual `/scan`.
+- ✅ Praxis backfill (praxis_webapp repo): `scripts/backfill-physis-wiki.ts`
+  pages `notebook_entries` → `/coherence/register` per user tenant, so the wiki
+  recalls a user's whole journal. Also fixed `registerCoherence` to send the text
+  as `input` (was sent only as `label`, which the engine ignored → coherence
+  nodes embedded empty strings; repaired goal/checkin registration too).
 - ⬜ 7C Spanner Graph sink.
 - ⬜ Vault / personal-history importers (Obsidian, browser, email…).
-- ⬜ Praxis backfill (`notebook_entries` → physis).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)
 
