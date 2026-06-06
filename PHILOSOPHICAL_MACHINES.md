@@ -78,10 +78,12 @@ Each is: pick a **modality**, define the **reduction to primitives**, the
    broken rhythm before it breaks. (Praxis already has the data — notebook
    waypoints + tracker cadence.)
 
-2. **agora — the dialogue machine.** Perceive a conversation; reduce to *claim /
-   warrant / rebuttal* primitives (Toulmin); compose an argument graph; elaborate
-   by finding the missing premise; coherence = whether a claim ever produced a
-   real effect. A debate partner that gets sharper each time you argue a topic.
+2. **elenchus — the dialogue machine.** (Socratic cross-examination — *not*
+   "agora", which is the social network.) Perceive a conversation; reduce to
+   *claim / warrant / rebuttal* primitives (Toulmin); compose an argument graph;
+   elaborate by finding the missing premise; coherence = whether a claim ever
+   produced a real effect; conflicts trigger physis's ConstructiveRefutation. A
+   debate partner that gets sharper each time you argue a topic.
 
 3. **lex — the legal/contract machine.** Perceive documents; reduce to
    *obligation / right / condition* primitives; compose an obligations graph;

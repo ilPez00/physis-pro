@@ -26,8 +26,9 @@
 //! - ✅ node export from core + Spanner `insertOrUpdate` mutation payload shape
 //! - ✅ session-create + commit REST calls (compiles; not run against real Spanner)
 //! - ⬜ token minting from a service account (currently env bearer token)
-//! - ⬜ edge export (holarchy edges key RawNodeKeys, not coherence ids — needs a
-//!   stable id bridge first)
+//! - ✅ edge export via the id bridge (`export_edges` resolves holarchy edges to
+//!   coherence ids; bridge endpoints with `PhysisCore::bridge_node`). A
+//!   `WikiEdge(source, target, weight)` table + `upsert_edges` is the next step.
 //! - ⬜ incremental sync / deletes (today: full insertOrUpdate upsert)
 
 use serde::Serialize;
@@ -53,6 +54,28 @@ pub fn export_nodes(core: &PhysisCore) -> Vec<NodeRow> {
             label: n.label.clone(),
             coherence: n.coherence_score,
             dim: n.embedding.len(),
+        })
+        .collect()
+}
+
+/// One durable edge between two coherence nodes. Built from holarchy edges via
+/// the id bridge; only edges whose BOTH endpoints are bridged are exportable.
+#[derive(Debug, Clone, Serialize)]
+pub struct EdgeRow {
+    pub source: String,
+    pub target: String,
+    pub weight: f32,
+}
+
+/// Project holarchy edges into durable rows, resolving endpoints to coherence
+/// ids through the bridge. Unbridged endpoints are skipped (not an error — they
+/// just aren't joined to the wiki yet; call `bridge_node` to include them).
+pub fn export_edges(core: &PhysisCore) -> Vec<EdgeRow> {
+    core.resolved_edges()
+        .into_iter()
+        .filter_map(|(s, t, w)| match (s, t) {
+            (Some(source), Some(target)) => Some(EdgeRow { source, target, weight: w }),
+            _ => None,
         })
         .collect()
 }

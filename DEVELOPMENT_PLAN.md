@@ -486,11 +486,17 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   recalls a user's whole journal. Also fixed `registerCoherence` to send the text
   as `input` (was sent only as `label`, which the engine ignored → coherence
   nodes embedded empty strings; repaired goal/checkin registration too).
+- ✅ Id bridge: `core::IdBridge` joins coherence id ↔ holarchy `RawNodeKey`.
+  `bridge_node(coh_id)` creates+links a holarchy node (idempotent);
+  `resolved_edges()` maps holarchy edges back to coherence ids. Unblocks edge
+  export, durable shared graph, and a label-walkable TUI graph. Tested.
 - 🟡 7C Spanner Graph sink — **scaffold only** (`src/spanner.rs`, `--features
-  spanner`, default off). Exports labeled nodes → Spanner `insertOrUpdate` via
-  REST (session + commit). Compiles + unit-tested; NOT run against live Spanner.
+  spanner`, default off). `export_nodes` + (now) `export_edges` via the bridge →
+  Spanner `insertOrUpdate`. Compiles + unit-tested; NOT run against live Spanner.
   Blockers before prod in PREMORTEM P7: untested REST flow, env-token auth (no
-  refresh), no mutation chunking, no deletes, edges not exported.
+  refresh), no mutation chunking, no deletes, no `WikiEdge` upsert yet.
+- 📋 New machines: build plan in `MACHINES_BUILD_PLAN.md` (chronos, techne, soma,
+  elenchus, lex, harmony, polis) on the shared core + id bridge.
 - ⬜ Vault / personal-history importers (Obsidian, browser, email…).
 
 ### 7A. TUI Wiki Browser (`physis-pro-wiki`) — ✅ shipped (no engine change)

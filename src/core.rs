@@ -8,7 +8,33 @@ use serde::{Deserialize, Serialize};
 use crate::models::*;
 use crate::trie::DynamicVectorTrie;
 use crate::quantize::ProductQuantizer;
-use crate::graph::HolonicGraph;
+use crate::graph::{HolonicGraph, NodePayload, RawNodeKey};
+
+/// Bridges the two identity spaces: a coherence node's string id and its
+/// holarchy `RawNodeKey` (a packed slotmap key). Without this, holarchy edges
+/// (keyed by `RawNodeKey`) can't be mapped back to the labeled wiki nodes, so
+/// edges can't be exported (Spanner) or browsed by label (TUI graph-walk).
+/// Maps store `RawNodeKey.data` (u64) since `RawNodeKey` isn't `Hash`.
+#[derive(Debug, Default)]
+pub struct IdBridge {
+    coh_to_holon: HashMap<String, u64>,
+    holon_to_coh: HashMap<u64, String>,
+}
+
+impl IdBridge {
+    pub fn link(&mut self, coh_id: &str, raw: RawNodeKey) {
+        self.coh_to_holon.insert(coh_id.to_string(), raw.data);
+        self.holon_to_coh.insert(raw.data, coh_id.to_string());
+    }
+    pub fn holon_for(&self, coh_id: &str) -> Option<RawNodeKey> {
+        self.coh_to_holon.get(coh_id).map(|&data| RawNodeKey { data })
+    }
+    pub fn coh_for(&self, raw: RawNodeKey) -> Option<&str> {
+        self.holon_to_coh.get(&raw.data).map(String::as_str)
+    }
+    pub fn len(&self) -> usize { self.coh_to_holon.len() }
+    pub fn is_empty(&self) -> bool { self.coh_to_holon.is_empty() }
+}
 
 /// Central engine state — coherence graph, certified/isolated branches, dream archive,
 /// and optional PQ-accelerated nearest-neighbour search.
@@ -36,6 +62,8 @@ pub struct PhysisCore {
     /// the same dir must not create duplicate nodes). Only labeled nodes are
     /// indexed; unlabeled `register_node_vec` calls are never deduped.
     label_index: HashMap<String, String>,
+    /// coherence id ↔ holarchy RawNodeKey. See `IdBridge`.
+    pub bridge: IdBridge,
 }
 
 impl PhysisCore {
@@ -52,7 +80,48 @@ impl PhysisCore {
             encoded_nodes: vec![],
             quantizer_dim: 0,
             label_index: HashMap::new(),
+            bridge: IdBridge::default(),
         }
+    }
+
+    /// Ensure the coherence node `coh_id` has a corresponding holarchy node and
+    /// is linked to it; returns the holarchy key. Idempotent — a second call
+    /// returns the existing key without adding a duplicate holarchy node. This
+    /// is the one place the two identity spaces get joined, so edges and durable
+    /// rows can share a stable id. Returns `None` if `coh_id` is unknown.
+    pub fn bridge_node(&mut self, coh_id: &str) -> Option<RawNodeKey> {
+        if let Some(raw) = self.bridge.holon_for(coh_id) {
+            return Some(raw);
+        }
+        let embedding = self.nodes.get(coh_id)?.embedding.clone();
+        let payload = NodePayload {
+            activation_energy: 1.0,
+            decay_metrics: 0.0,
+            prune_flag: 0,
+            compress_flag: 0,
+            _padding: [0; 2],
+        };
+        let key = self.holarchy.add_node(payload, embedding);
+        let raw = RawNodeKey::from(key);
+        self.bridge.link(coh_id, raw);
+        Some(raw)
+    }
+
+    /// Holarchy edges mapped back to coherence ids via the bridge. Endpoints not
+    /// yet bridged resolve to `None`. Lets clients export edges with stable ids
+    /// (Spanner) or render a label-walkable graph instead of opaque keys.
+    pub fn resolved_edges(&self) -> Vec<(Option<String>, Option<String>, f32)> {
+        self.holarchy
+            .edges
+            .iter()
+            .map(|e| {
+                (
+                    self.bridge.coh_for(e.source).map(str::to_string),
+                    self.bridge.coh_for(e.target).map(str::to_string),
+                    e.weight,
+                )
+            })
+            .collect()
     }
 
     /// Create an engine core pre-populated with an existing wiki trie.
@@ -443,6 +512,32 @@ mod tests {
         g.register_node_vec(vec![0.1; 32]);
         g.register_node_vec(vec![0.1; 32]);
         assert_eq!(g.nodes.len(), 4);
+    }
+
+    #[test]
+    fn test_id_bridge_links_and_resolves_edges() {
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("alpha", &emb);
+        let b = g.register_node_from_text("beta", &emb);
+
+        let ka = g.bridge_node(&a).expect("alpha bridged");
+        let kb = g.bridge_node(&b).expect("beta bridged");
+        // Idempotent: re-bridging returns the same holarchy key, no new node.
+        assert_eq!(g.bridge_node(&a).unwrap().data, ka.data);
+        assert_eq!(g.bridge.len(), 2);
+        assert_eq!(g.holarchy.nodes.len(), 2);
+        assert!(g.bridge_node("does-not-exist").is_none());
+
+        // A holarchy edge between two bridged nodes resolves back to coherence ids.
+        g.holarchy.edges.push(crate::graph::Edge {
+            source: ka, target: kb, weight: 0.7, semantic_type: 0,
+        });
+        let resolved = g.resolved_edges();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].0.as_deref(), Some(a.as_str()));
+        assert_eq!(resolved[0].1.as_deref(), Some(b.as_str()));
+        assert_eq!(resolved[0].2, 0.7);
     }
 
     #[test]
