@@ -4,8 +4,9 @@
 //! unit), registers them as labeled coherence nodes, and lets the core handle
 //! recall / coherence / dream / durability. See `docs/machines/`.
 //!
-//! Shipped: `chronos` (temporal), `techne` (codebase). Planned: soma, elenchus,
-//! lex, harmony, polis.
+//! Shipped: `chronos` (temporal), `techne` (codebase), `soma` (body),
+//! `elenchus` (dialogue), `lex` (contracts), `harmony` (music), `polis` (social).
 
 pub mod chronos;
 pub mod techne;
+pub mod soma;
