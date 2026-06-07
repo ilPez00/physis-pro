@@ -93,7 +93,7 @@ path = "src/bin/web_server.rs"
 
 [[bin]]
 name = "physis-pro-tui"
-required-features = ["voice", "tui"]
+required-features = ["tui"]
 path = "src/bin/tui.rs"
 
 [[bin]]

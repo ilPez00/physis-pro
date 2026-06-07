@@ -501,6 +501,10 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   (PHILOSOPHICAL_MACHINES, MACHINES_BUILD_PLAN, PIKA_HERMES_PLAN). CI builds them
   (default `cargo check` + `clippy --all-targets` covers examples) + a `spanner`
   feature check.
+- ✅ physis-pro-tui = control panel (`src/bin/tui.rs`, was the voice mapper):
+  3 tabs — STATUS (poll engine /health + /api/v1/embedder), MACHINES (run any of
+  the 7 in-process, see output), CONFIG (edit + save ~/.physis/config.json:
+  dream/pdca/scan/embed knobs). required-features now just `tui`.
 - ✅ chronos (temporal machine): `src/machines/chronos.rs` — `detect_rhythms`
   (recurrence primitives from timestamped events), `upcoming`/`slipping`
   (predict next / flag about-to-break), `register_rhythms` (→ labeled bridged
