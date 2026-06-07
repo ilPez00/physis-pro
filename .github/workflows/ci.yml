@@ -7,16 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: stub the llmwiki path dep (private sibling, absent on CI)
-        # `llmwiki_physis` is a private sibling crate referenced by path. It's an
-        # OPTIONAL dep behind `wiki-embedded`, which no CI step enables — so cargo
-        # only needs the manifest to *resolve*, never to compile. Generate a
-        # minimal stub crate named `llmwiki` so resolution succeeds without a
-        # cross-repo token. (Real builds use the actual crate locally.)
-        run: |
-          mkdir -p ../llmwiki_physis/src
-          printf '[package]\nname = "llmwiki"\nversion = "0.2.1"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
-          : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -28,6 +18,8 @@ jobs:
         run: cargo check --features industrial,cli
       - name: cargo check (spanner)
         run: cargo check --features spanner
+      - name: cargo check (wiki-embedded — vendored llmwiki)
+        run: cargo check --features wiki-embedded
       - name: cargo build (examples — machine demos)
         run: cargo build --examples
       - name: clippy
@@ -37,16 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: stub the llmwiki path dep (private sibling, absent on CI)
-        # `llmwiki_physis` is a private sibling crate referenced by path. It's an
-        # OPTIONAL dep behind `wiki-embedded`, which no CI step enables — so cargo
-        # only needs the manifest to *resolve*, never to compile. Generate a
-        # minimal stub crate named `llmwiki` so resolution succeeds without a
-        # cross-repo token. (Real builds use the actual crate locally.)
-        run: |
-          mkdir -p ../llmwiki_physis/src
-          printf '[package]\nname = "llmwiki"\nversion = "0.2.1"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
-          : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
         run: cargo test --features full

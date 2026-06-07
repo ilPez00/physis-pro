@@ -21,7 +21,9 @@ walkdir = "2"
 rayon = "1"
 
 # In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
-llmwiki_physis = { path = "../llmwiki_physis", package = "llmwiki", default-features = false, optional = true }
+# Vendored in-repo (vendor/llmwiki) so prod/CI builds resolve + can compile it
+# without the private sibling crate. default-features=false → no fastembed/usearch.
+llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", default-features = false, optional = true }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
