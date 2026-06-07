@@ -153,6 +153,48 @@ fn user_key(headers: &HeaderMap) -> String {
 
 type SharedState = Arc<AppCtx>;
 
+// ── Off-thread embedding ─────────────────────────────────────────────────────
+// Embedding is CPU-heavy (and, for ONNX, serialized behind a session mutex), so
+// run it via spawn_blocking — a slow embedder then never blocks a tokio worker
+// (the healthcheck + non-embed requests stay responsive). The embedder is
+// Send+Sync behind Arc<SharedCtx>.
+
+async fn embed_text(shared: Arc<SharedCtx>, text: String) -> Vec<f32> {
+    tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
+        .await
+        .unwrap_or_default()
+}
+
+/// Image (base64) → `embed_image`, else text — off-thread.
+async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<String>) -> Vec<f32> {
+    tokio::task::spawn_blocking(move || {
+        if let Some(b64) = image {
+            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b64) {
+                if let Some(v) = shared.embedder.embed_image(&bytes) {
+                    return v;
+                }
+                log::warn!("image embedding unavailable; falling back to text");
+            } else {
+                log::warn!("base64 decode failed; falling back to text");
+            }
+        }
+        shared.embedder.embed(&text)
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Batch-embed off-thread via `embed_batch` (one hop; embedders that truly batch
+/// — e.g. a single ONNX run — get the throughput).
+async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> Vec<Vec<f32>> {
+    tokio::task::spawn_blocking(move || {
+        let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+        shared.embedder.embed_batch(&refs)
+    })
+    .await
+    .unwrap_or_default()
+}
+
 #[derive(Deserialize)]
 struct QueryParams {
     q: String,
@@ -460,9 +502,8 @@ async fn scan_handler(
     // Register each scanned file as a labeled core node so it's recallable by
     // content in the wiki. Embed with the SHARED embedder (not mapper's internal
     // RandomProjection one) so these vectors are comparable to query vectors.
-    // Embedding runs outside the lock — the CPU-heavy step never blocks writes.
-    let embeddings: Vec<Vec<f32>> =
-        labels.iter().map(|l| state.shared.embedder.embed(l)).collect();
+    // Batched + off-thread: one spawn_blocking hop, never blocks a tokio worker.
+    let embeddings = embed_batch_off_thread(state.shared.clone(), labels.clone()).await;
     state.with_user(&uid, |s| {
         for (emb, label) in embeddings.into_iter().zip(labels) {
             s.core.register_node_vec_labeled(emb, Some(label));
@@ -556,7 +597,7 @@ async fn coherence_nodes_handler(
     headers: HeaderMap,
     Query(params): Query<QueryParams>,
 ) -> Json<CoherenceNodesResponse> {
-    let emb = state.shared.embedder.embed(&params.q);
+    let emb = embed_text(state.shared.clone(), params.q.clone()).await;
     let uid = user_key(&headers);
     let matches = state.with_user(&uid, |s| s.core.search_nodes(&emb, params.max));
     let results: Vec<CoherenceNodeMatch> = matches
@@ -571,7 +612,7 @@ async fn coherence_register_handler(
     headers: HeaderMap,
     Json(req): Json<CoherenceRegisterRequest>,
 ) -> Json<CoherenceRegisterResponse> {
-    let embedding = state.shared.embedder.embed(&req.input);
+    let embedding = embed_text(state.shared.clone(), req.input.clone()).await;
     let uid = user_key(&headers);
     // Retain the source text so the node can be recalled/browsed by content.
     let label = Some(req.input.clone());
@@ -639,7 +680,7 @@ async fn ingest_prompt_handler(
     Json(req): Json<serde_json::Value>,
 ) -> Json<IngestResponse> {
     let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let embedding = state.shared.embedder.embed(&prompt);
+    let embedding = embed_text(state.shared.clone(), prompt.clone()).await;
     let mut goal = Goal::new_vec(embedding);
     goal.progress = 0.0;
     let uid = user_key(&headers);
@@ -1076,27 +1117,8 @@ async fn classify_handler(
     State(state): State<SharedState>,
     Json(req): Json<ClassifyRequest>,
 ) -> Json<ClassifyResponse> {
-    let s = &state.shared;
-
-    // Embed: use image if provided, otherwise text
-    let embedding = if let Some(ref b64) = req.image {
-        match base64::engine::general_purpose::STANDARD.decode(b64) {
-            Ok(bytes) => {
-                s.embedder.embed_image(&bytes).unwrap_or_else(|| {
-                    log::warn!("image embedding not available; falling back to text");
-                    s.embedder.embed(&req.text)
-                })
-            }
-            Err(e) => {
-                log::warn!("base64 decode failed: {e}; falling back to text");
-                s.embedder.embed(&req.text)
-            }
-        }
-    } else {
-        s.embedder.embed(&req.text)
-    };
-
-    let results = s.classifier.classify(&embedding);
+    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
+    let results = state.shared.classifier.classify(&embedding);
     let top = results.first().cloned().unwrap_or(CellScore {
         domain: "unknown".into(),
         mode: "unknown".into(),
@@ -1155,21 +1177,7 @@ async fn embed_handler(
     State(state): State<SharedState>,
     Json(req): Json<EmbedRequest>,
 ) -> Json<EmbedResponse> {
-    let s = &state.shared;
-    let embedding = if let Some(ref b64) = req.image {
-        match base64::engine::general_purpose::STANDARD.decode(b64) {
-            Ok(bytes) => s.embedder.embed_image(&bytes).unwrap_or_else(|| {
-                log::warn!("image embedding not available; falling back to text");
-                s.embedder.embed(&req.text)
-            }),
-            Err(e) => {
-                log::warn!("base64 decode failed: {e}; falling back to text");
-                s.embedder.embed(&req.text)
-            }
-        }
-    } else {
-        s.embedder.embed(&req.text)
-    };
+    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
     let dim = embedding.len();
     Json(EmbedResponse { embedding, dim })
 }
@@ -1475,13 +1483,12 @@ async fn main() {
                         }
                     }
                     if !labels.is_empty() {
-                        // Embed outside the lock (CPU-heavy); register under it.
-                        let embedded: Vec<(Vec<f32>, String)> = labels
-                            .into_iter()
-                            .map(|l| (watch_state.shared.embedder.embed(&l), l))
-                            .collect();
+                        // Batch-embed outside the lock (CPU-heavy); register under it.
+                        // This thread is already off the async runtime.
+                        let refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+                        let embs = watch_state.shared.embedder.embed_batch(&refs);
                         let mut s = watch_state.lock();
-                        for (emb, label) in embedded {
+                        for (emb, label) in embs.into_iter().zip(labels) {
                             s.core.register_node_vec_labeled(emb, Some(label));
                         }
                     }

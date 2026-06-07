@@ -448,6 +448,22 @@ Text: "chopping vegetables for a hearty soup"
 
 ---
 
+## Embedder scaling (ready for a heavier model)
+
+- ✅ Embedding is dim-agnostic at startup: `embed_dim = embedder.dimension()`,
+  centroids rebuilt from the embedder, PQ retrains — drop in a better model freely.
+- ✅ Off-thread embeds: all request-path embeds go through `spawn_blocking`
+  (`embed_text`/`embed_input` helpers) so a slow/GPU/remote embedder never blocks
+  a tokio worker (ONNX is serialized behind a session mutex). Bulk paths (scan,
+  watch) route through `embed_batch` in one hop.
+- ⬜ ONNX `embed_batch` override: today the default maps `embed` (one session.run
+  per text). A single batched `[N, max_length]` run is the real GPU/CPU throughput
+  win — internal optimization, no API change. (Needs careful masked mean-pool per
+  row; deferred to keep correctness verifiable.)
+- ⬜ Vector provenance: tag stored vectors with the embedder id so a model swap
+  triggers a re-embed instead of silently mixing spaces (matters once Spanner
+  persistence is live).
+
 ## Phase 7: Content Recall — Ingestion & TUI Wiki Browser 🔜 NEXT
 
 Goal: make the UberWiki **fillable without ceremony** and **browsable by content**
