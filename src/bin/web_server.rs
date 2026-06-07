@@ -440,7 +440,7 @@ async fn scan_handler(
     let embeddings: Vec<Vec<f32>> =
         labels.iter().map(|l| state.shared.embedder.embed(l)).collect();
     state.with_user(&uid, |s| {
-        for (emb, label) in embeddings.into_iter().zip(labels.into_iter()) {
+        for (emb, label) in embeddings.into_iter().zip(labels) {
             s.core.register_node_vec_labeled(emb, Some(label));
         }
     });

@@ -16,6 +16,10 @@ jobs:
         run: cargo check --features full
       - name: cargo check (industrial)
         run: cargo check --features industrial,cli
+      - name: cargo check (spanner)
+        run: cargo check --features spanner
+      - name: cargo build (examples — machine demos)
+        run: cargo build --examples
       - name: clippy
         run: cargo clippy --all-targets -- -D warnings
 

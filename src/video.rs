@@ -70,7 +70,7 @@ pub fn embed_video_file(
     let mut frames: Vec<PathBuf> = std::fs::read_dir(&work)
         .ok()?
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().map_or(false, |x| x == "jpg"))
+        .filter(|p| p.extension().is_some_and(|x| x == "jpg"))
         .collect();
     frames.sort();
     if frames.is_empty() {

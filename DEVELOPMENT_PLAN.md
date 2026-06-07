@@ -495,9 +495,12 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   Spanner `insertOrUpdate`. Compiles + unit-tested; NOT run against live Spanner.
   Blockers before prod in PREMORTEM P7: untested REST flow, env-token auth (no
   refresh), no mutation chunking, no deletes, no `WikiEdge` upsert yet.
-- 📋 New machines: docs grouped in `docs/machines/` (PHILOSOPHICAL_MACHINES,
-  MACHINES_BUILD_PLAN, PIKA_HERMES_PLAN); code under `src/machines/`. Roster:
-  chronos, techne, soma, elenchus, lex, harmony, polis.
+- ✅ New machines (ALL built): `src/machines/` — chronos, techne, soma, elenchus,
+  lex, harmony, polis. Each pure + unit-tested + an `examples/<m>_demo.rs` + a
+  captured `docs/machines/samples/<m>.md`. Docs grouped in `docs/machines/`
+  (PHILOSOPHICAL_MACHINES, MACHINES_BUILD_PLAN, PIKA_HERMES_PLAN). CI builds them
+  (default `cargo check` + `clippy --all-targets` covers examples) + a `spanner`
+  feature check.
 - ✅ chronos (temporal machine): `src/machines/chronos.rs` — `detect_rhythms`
   (recurrence primitives from timestamped events), `upcoming`/`slipping`
   (predict next / flag about-to-break), `register_rhythms` (→ labeled bridged
