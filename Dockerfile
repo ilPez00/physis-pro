@@ -8,6 +8,15 @@ COPY config ./config
 # Weights are fetched at boot by docker-entrypoint.sh from MODEL_BASE_URL.
 # See PREMORTEM.md P0.
 
+# The optional `llmwiki_physis` path dep (pkg `llmwiki`, feature `wiki-embedded`)
+# is a private sibling crate NOT in the build context. This build doesn't enable
+# `wiki-embedded`, so cargo only needs the manifest to RESOLVE, never to compile.
+# Stub a matching `llmwiki` crate at ../llmwiki_physis (= /llmwiki_physis). To
+# ship wiki-embedded in prod, vendor the real crate here instead.
+RUN mkdir -p /llmwiki_physis/src \
+ && printf '[package]\nname = "llmwiki"\nversion = "0.2.1"\nedition = "2021"\n' > /llmwiki_physis/Cargo.toml \
+ && : > /llmwiki_physis/src/lib.rs
+
 RUN cargo build --release --no-default-features --features web --bin physis-pro-web
 
 # ── Runtime ───────────────────────────────────────────────────────────────────

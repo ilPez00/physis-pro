@@ -15,7 +15,7 @@ jobs:
         # cross-repo token. (Real builds use the actual crate locally.)
         run: |
           mkdir -p ../llmwiki_physis/src
-          printf '[package]\nname = "llmwiki"\nversion = "0.1.0"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
+          printf '[package]\nname = "llmwiki"\nversion = "0.2.1"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
           : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,7 +45,7 @@ jobs:
         # cross-repo token. (Real builds use the actual crate locally.)
         run: |
           mkdir -p ../llmwiki_physis/src
-          printf '[package]\nname = "llmwiki"\nversion = "0.1.0"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
+          printf '[package]\nname = "llmwiki"\nversion = "0.2.1"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
           : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
