@@ -8,6 +8,12 @@
 //! warranted and unrefuted.
 //!
 //! Pure + testable.
+//!
+//! Standalone twin: `physis-logos` (Python). It works one layer *below* dialogue:
+//! it reduces raw text to **syntactic / rhetorical** primitives (SVO triples,
+//! clause types, rhetorical figures) and elaborates by sentence generation. A
+//! future `logos` reducer (or an elenchus pre-pass) could feed those forms in as
+//! the claims/warrants elenchus argues over.
 
 use crate::core::PhysisCore;
 use crate::embed::VectorEmbed;

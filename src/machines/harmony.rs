@@ -7,6 +7,11 @@
 //! any key.
 //!
 //! Pure + testable.
+//!
+//! Standalone twin: `physis-pythagoras` (Python). Same interval core, but adds
+//! two primitives not yet ported here — **rhythm** (temporal interval ratios
+//! alongside pitch intervals) and **counterpoint** as the elaboration step.
+//! Fold those in here rather than adding a separate `pythagoras` module.
 
 use std::collections::HashMap;
 

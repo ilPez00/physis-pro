@@ -5,7 +5,13 @@
 //! recall / coherence / dream / durability. See `docs/machines/`.
 //!
 //! Shipped: `chronos` (temporal), `techne` (codebase), `soma` (body),
-//! `elenchus` (dialogue), `lex` (contracts), `harmony` (music), `polis` (social).
+//! `elenchus` (dialogue), `lex` (contracts), `harmony` (music), `polis` (social),
+//! `empedocles` (physical telemetry → elements), `euclid` (geometry).
+//!
+//! The standalone Python machines (github.com/ilPez00/physis-*) own the
+//! perception layer (camera / mic / psutil / parser); these modules are the thin
+//! reducers over the core. `physis-logos`→[`elenchus`], `physis-nous`→[`techne`],
+//! `physis-pythagoras`→[`harmony`] map onto existing reducers (see their notes).
 
 pub mod chronos;
 pub mod techne;
@@ -14,3 +20,5 @@ pub mod elenchus;
 pub mod lex;
 pub mod harmony;
 pub mod polis;
+pub mod empedocles;
+pub mod euclid;

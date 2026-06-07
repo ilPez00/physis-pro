@@ -8,6 +8,12 @@
 //!
 //! Pure + testable: the reducers take plain data; `register_*` is the only core
 //! touch. A capability is the elaborable unit (a single file isn't — it's a leaf).
+//!
+//! Standalone twin: `physis-nous` (Python). It overlaps techne's code domain but
+//! adds two distinct primitives not yet ported here — **design-pattern**
+//! recognition (control-flow / signature shapes) and **refactoring** as the
+//! elaboration step (extract-method, introduce-parameter, replace-conditional).
+//! Fold those in here rather than adding a separate `nous` module.
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
