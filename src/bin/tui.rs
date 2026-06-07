@@ -228,6 +228,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let res = run(&mut terminal, &mut app, &status);
 
+    // Kill-on-quit: an engine started from here doesn't outlive the panel.
+    if let Some(mut child) = app.engine.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;

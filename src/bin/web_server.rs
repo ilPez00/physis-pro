@@ -62,8 +62,6 @@ struct SharedCtx {
     /// loopback (dev) — a non-loopback bind without a token aborts at startup.
     /// See PREMORTEM.md P6.
     api_token: Option<String>,
-    /// Canonical root that `/api/v1/scan` is confined to (path-traversal guard).
-    scan_root: PathBuf,
 }
 
 /// Mutable runtime state behind a single mutex. Kept small and cheap to mutate so
@@ -103,6 +101,19 @@ struct AppCtx {
     /// global (single ingest/sensory pipeline), so a tenant is an isolated
     /// reasoning session, not a separate knowledge graph.
     tenants: Mutex<HashMap<String, RuntimeState>>,
+    /// Live-reloadable scan-root guard (the only `/scan` path confinement).
+    /// Behind an RwLock so `/config/reload` can repoint it without a restart —
+    /// reads are a cheap shared lock and `/scan` isn't a hot path. (The embedder
+    /// stays fixed at startup: changing embed_dim live would corrupt every stored
+    /// vector, and it's read lock-free on the hot path — see PREMORTEM P1.)
+    scan_root: std::sync::RwLock<PathBuf>,
+}
+
+impl AppCtx {
+    /// Current scan root (clone out of the lock; callers compare/canonicalize).
+    fn scan_root(&self) -> PathBuf {
+        self.scan_root.read().unwrap_or_else(|e| e.into_inner()).clone()
+    }
 }
 
 impl AppCtx {
@@ -433,10 +444,10 @@ async fn scan_handler(
     let canonical = path.canonicalize().map_err(|e| {
         err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
     })?;
-    if !canonical.starts_with(&state.shared.scan_root) {
+    if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
             StatusCode::FORBIDDEN,
-            &format!("path outside scan root ({})", state.shared.scan_root.display()),
+            &format!("path outside scan root ({})", state.scan_root().display()),
         ));
     }
     let uid = user_key(&headers);
@@ -711,11 +722,18 @@ async fn config_reload_handler(
             state.with_user(&uid, |s| {
                 s.actor = PDCActor::new(c.pdca_stagnant_threshold, c.pdca_stagnant_window);
             });
+            // scan_root reloads live (behind its RwLock): PHYSIS_SCAN_ROOT env, else
+            // the reloaded config's data_dir. Canonicalized like at startup.
+            let new_root = std::env::var("PHYSIS_SCAN_ROOT")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| c.data_dir.clone());
+            let new_root = new_root.canonicalize().unwrap_or(new_root);
+            *state.scan_root.write().unwrap_or_else(|e| e.into_inner()) = new_root.clone();
             Json(ConfigReloadResponse {
                 reloaded: true,
                 pdca_threshold: c.pdca_stagnant_threshold,
                 pdca_window: c.pdca_stagnant_window,
-                note: "PDCA params applied live; embedder/embed_dim/scan_root need a restart".into(),
+                note: format!("applied live: PDCA knobs + scan_root={}. embedder/embed_dim need a restart (dim change corrupts vectors)", new_root.display()),
             })
         }
         None => Json(ConfigReloadResponse {
@@ -1177,10 +1195,10 @@ async fn embed_video_handler(
         let canonical = PathBuf::from(&p)
             .canonicalize()
             .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}")))?;
-        if !canonical.starts_with(&state.shared.scan_root) {
+        if !canonical.starts_with(state.scan_root()) {
             return Err(err_response(
                 StatusCode::FORBIDDEN,
-                &format!("path outside scan root ({})", state.shared.scan_root.display()),
+                &format!("path outside scan root ({})", state.scan_root().display()),
             ));
         }
         Src::Path(canonical)
@@ -1388,7 +1406,6 @@ async fn main() {
         self_test: self_test_ok,
         ingest: ingest.clone(),
         api_token,
-        scan_root,
     });
     let state = Arc::new(AppCtx {
         shared: shared.clone(),
@@ -1400,6 +1417,7 @@ async fn main() {
             goals: Vec::new(),
         }),
         tenants: Mutex::new(HashMap::new()),
+        scan_root: std::sync::RwLock::new(scan_root),
     });
 
     let state_clone = state.clone();
@@ -1440,7 +1458,7 @@ async fn main() {
     //    Runs on a std::thread (blocking FS + hashing) off the async runtime.
     if let Ok(watch_dir) = std::env::var("PHYSIS_WATCH_DIR") {
         match PathBuf::from(&watch_dir).canonicalize() {
-            Ok(canon) if canon.starts_with(&state.shared.scan_root) => {
+            Ok(canon) if canon.starts_with(state.scan_root()) => {
                 let interval_secs: u64 = std::env::var("PHYSIS_WATCH_INTERVAL_SECS")
                     .ok().and_then(|s| s.parse().ok()).unwrap_or(30);
                 let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
@@ -1473,7 +1491,7 @@ async fn main() {
             }
             Ok(canon) => log::error!(
                 "PHYSIS_WATCH_DIR {} outside scan root {} — watch disabled",
-                canon.display(), state.shared.scan_root.display()),
+                canon.display(), state.scan_root().display()),
             Err(e) => log::error!("PHYSIS_WATCH_DIR invalid ({watch_dir}): {e} — watch disabled"),
         }
     }
