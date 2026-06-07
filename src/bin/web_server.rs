@@ -655,6 +655,47 @@ async fn pdca_stats_handler(
     Json(state.with_user(&uid, |s| s.actor.stats(&s.goals)))
 }
 
+#[derive(Serialize)]
+struct ConfigReloadResponse {
+    reloaded: bool,
+    pdca_threshold: f32,
+    pdca_window: usize,
+    note: String,
+}
+
+/// Re-read `<data_dir>/config.json` and apply the live-tunable knobs to the
+/// tenant's PDCA actor (stagnation threshold + window). Structural params
+/// (embedder, dim, scan_root) are fixed at startup and need a restart — say so.
+async fn config_reload_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<ConfigReloadResponse> {
+    let path = state.shared.config.data_dir.join("config.json");
+    let cfg = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<PhysisConfig>(&s).ok());
+    match cfg {
+        Some(c) => {
+            let uid = user_key(&headers);
+            state.with_user(&uid, |s| {
+                s.actor = PDCActor::new(c.pdca_stagnant_threshold, c.pdca_stagnant_window);
+            });
+            Json(ConfigReloadResponse {
+                reloaded: true,
+                pdca_threshold: c.pdca_stagnant_threshold,
+                pdca_window: c.pdca_stagnant_window,
+                note: "PDCA params applied live; embedder/embed_dim/scan_root need a restart".into(),
+            })
+        }
+        None => Json(ConfigReloadResponse {
+            reloaded: false,
+            pdca_threshold: state.shared.config.pdca_stagnant_threshold,
+            pdca_window: state.shared.config.pdca_stagnant_window,
+            note: format!("no readable config.json at {}", path.display()),
+        }),
+    }
+}
+
 async fn reconstruct_handler(
     State(state): State<SharedState>,
     Json(req): Json<ContextFilterRequest>,
@@ -1430,6 +1471,7 @@ async fn main() {
         .route("/api/v1/pdca/plan", get(pdca_plan_handler))
         .route("/api/v1/pdca/act", post(pdca_act_handler))
         .route("/api/v1/pdca/stats", get(pdca_stats_handler))
+        .route("/api/v1/config/reload", post(config_reload_handler))
         .route("/api/v1/reconstruct", post(reconstruct_handler))
         .route("/api/v1/translate", post(translate_handler))
         .route("/api/v1/holarchy/ingest", post(holarchy_ingest_handler))

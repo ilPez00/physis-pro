@@ -112,6 +112,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
+| POST | `/api/v1/config/reload` | ✓ | Re-read `config.json`; apply PDCA knobs live (embedder/dim/scan_root need restart) |
 | POST | `/api/v1/goals` | ✓ | Ingest a prompt as a goal → `{goal:{id}}` |
 | POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force}` |
 | POST | `/api/v1/dream/evaluate` | ✓ | Grade a dream `{id, grade}` (0.0–1.0) |

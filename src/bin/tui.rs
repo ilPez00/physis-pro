@@ -64,6 +64,68 @@ struct App {
     cfg_sel: usize,
     status_msg: String,
     url: String,
+    token: Option<String>,
+    /// The engine process, when started from here.
+    engine: Option<std::process::Child>,
+}
+
+/// Resolve the physis-pro-web binary: sibling of this exe, else rely on PATH.
+fn engine_bin() -> std::path::PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let sib = dir.join("physis-pro-web");
+            if sib.exists() { return sib; }
+        }
+    }
+    std::path::PathBuf::from("physis-pro-web")
+}
+
+fn start_engine(app: &mut App) {
+    if app.engine.is_some() {
+        app.status_msg = "engine already started from here".into();
+        return;
+    }
+    match std::process::Command::new(engine_bin())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        Ok(child) => { app.status_msg = format!("engine started (pid {})", child.id()); app.engine = Some(child); }
+        Err(e) => app.status_msg = format!("start failed: {e} (is physis-pro-web built?)"),
+    }
+}
+
+fn stop_engine(app: &mut App) {
+    match app.engine.take() {
+        Some(mut child) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            app.status_msg = "engine stopped".into();
+        }
+        None => app.status_msg = "no engine started from here (start it with 's')".into(),
+    }
+}
+
+/// POST /api/v1/config/reload to apply saved config knobs live. Blocks briefly.
+fn reload_config(app: &mut App) {
+    let url = format!("{}/api/v1/config/reload", app.url);
+    let token = app.token.clone();
+    let rt = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+        Ok(rt) => rt,
+        Err(e) => { app.status_msg = format!("reload runtime: {e}"); return; }
+    };
+    app.status_msg = rt.block_on(async move {
+        let client = reqwest::Client::new();
+        let mut rb = client.post(&url);
+        if let Some(t) = token { rb = rb.bearer_auth(t); }
+        match rb.send().await {
+            Ok(r) => match r.json::<serde_json::Value>().await {
+                Ok(v) => v.get("note").and_then(|n| n.as_str()).unwrap_or("reloaded").to_string(),
+                Err(_) => "reloaded".into(),
+            },
+            Err(e) => format!("reload failed: {e}"),
+        }
+    });
 }
 
 fn cfg_path(cfg: &PhysisConfig) -> std::path::PathBuf {
@@ -121,6 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let status = status.clone();
         let url = url.clone();
+        let token = token.clone();
         std::thread::spawn(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let client = reqwest::Client::new();
@@ -154,6 +217,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg_sel: 0,
         status_msg: format!("engine: {url}"),
         url,
+        token,
+        engine: None,
     };
 
     enable_raw_mode()?;
@@ -213,6 +278,10 @@ fn run<B: ratatui::backend::Backend>(
                     Err(e) => format!("save failed: {e}"),
                 };
             }
+            // Status tab: engine control.
+            KeyCode::Char('s') if app.tab == 0 => start_engine(app),
+            KeyCode::Char('x') if app.tab == 0 => stop_engine(app),
+            KeyCode::Char('r') if app.tab == 0 => reload_config(app),
             _ => {}
         }
     }
@@ -241,7 +310,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     let help = match app.tab {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
-        _ => " Tab switch · r refresh · q quit",
+        _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
         Span::styled(help, Style::default().fg(Color::Cyan)),

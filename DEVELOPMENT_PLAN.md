@@ -502,9 +502,11 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   (default `cargo check` + `clippy --all-targets` covers examples) + a `spanner`
   feature check.
 - ✅ physis-pro-tui = control panel (`src/bin/tui.rs`, was the voice mapper):
-  3 tabs — STATUS (poll engine /health + /api/v1/embedder), MACHINES (run any of
-  the 7 in-process, see output), CONFIG (edit + save ~/.physis/config.json:
-  dream/pdca/scan/embed knobs). required-features now just `tui`.
+  3 tabs — STATUS (poll engine /health + /api/v1/embedder; **s start / x stop /
+  r reload-config** the engine), MACHINES (run any of the 7 in-process), CONFIG
+  (edit + save ~/.physis/config.json). required-features just `tui`. Live reload:
+  `POST /api/v1/config/reload` re-reads config.json + applies PDCA knobs to the
+  tenant actor (structural params need restart).
 - ✅ chronos (temporal machine): `src/machines/chronos.rs` — `detect_rhythms`
   (recurrence primitives from timestamped events), `upcoming`/`slipping`
   (predict next / flag about-to-break), `register_rhythms` (→ labeled bridged
