@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: fetch sibling llmwiki crate (path dep ../llmwiki_physis)
+        run: git clone --depth 1 https://github.com/ilPez00/llmwiki_physis.git ../llmwiki_physis
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -27,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: fetch sibling llmwiki crate (path dep ../llmwiki_physis)
+        run: git clone --depth 1 https://github.com/ilPez00/llmwiki_physis.git ../llmwiki_physis
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
         run: cargo test --features full
