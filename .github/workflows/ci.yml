@@ -7,11 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: fetch sibling llmwiki crate (path dep ../llmwiki_physis)
-        # Anonymous clone of the public crate. The `-c …extraheader=` clears the
-        # auth header actions/checkout persists globally (scoped to this repo,
-        # which would 404 on a different repo).
-        run: git -c http.https://github.com/.extraheader= clone --depth 1 https://github.com/ilPez00/llmwiki_physis.git ../llmwiki_physis
+      - name: stub the llmwiki path dep (private sibling, absent on CI)
+        # `llmwiki_physis` is a private sibling crate referenced by path. It's an
+        # OPTIONAL dep behind `wiki-embedded`, which no CI step enables — so cargo
+        # only needs the manifest to *resolve*, never to compile. Generate a
+        # minimal stub crate named `llmwiki` so resolution succeeds without a
+        # cross-repo token. (Real builds use the actual crate locally.)
+        run: |
+          mkdir -p ../llmwiki_physis/src
+          printf '[package]\nname = "llmwiki"\nversion = "0.1.0"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
+          : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -32,11 +37,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: fetch sibling llmwiki crate (path dep ../llmwiki_physis)
-        # Anonymous clone of the public crate. The `-c …extraheader=` clears the
-        # auth header actions/checkout persists globally (scoped to this repo,
-        # which would 404 on a different repo).
-        run: git -c http.https://github.com/.extraheader= clone --depth 1 https://github.com/ilPez00/llmwiki_physis.git ../llmwiki_physis
+      - name: stub the llmwiki path dep (private sibling, absent on CI)
+        # `llmwiki_physis` is a private sibling crate referenced by path. It's an
+        # OPTIONAL dep behind `wiki-embedded`, which no CI step enables — so cargo
+        # only needs the manifest to *resolve*, never to compile. Generate a
+        # minimal stub crate named `llmwiki` so resolution succeeds without a
+        # cross-repo token. (Real builds use the actual crate locally.)
+        run: |
+          mkdir -p ../llmwiki_physis/src
+          printf '[package]\nname = "llmwiki"\nversion = "0.1.0"\nedition = "2021"\n' > ../llmwiki_physis/Cargo.toml
+          : > ../llmwiki_physis/src/lib.rs
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
         run: cargo test --features full
