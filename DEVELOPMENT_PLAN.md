@@ -456,10 +456,10 @@ Text: "chopping vegetables for a hearty soup"
   (`embed_text`/`embed_input` helpers) so a slow/GPU/remote embedder never blocks
   a tokio worker (ONNX is serialized behind a session mutex). Bulk paths (scan,
   watch) route through `embed_batch` in one hop.
-- ⬜ ONNX `embed_batch` override: today the default maps `embed` (one session.run
-  per text). A single batched `[N, max_length]` run is the real GPU/CPU throughput
-  win — internal optimization, no API change. (Needs careful masked mean-pool per
-  row; deferred to keep correctness verifiable.)
+- ✅ ONNX `embed_batch` override: single `[N, max_length]` session pass + per-row
+  masked mean-pool matching `embed`; lock dropped before any fallback. Tested:
+  fallback-equality (no model, always runs) + `#[ignore]` real-model batched-vs-
+  per-text within 1e-4.
 - ⬜ Vector provenance: tag stored vectors with the embedder id so a model swap
   triggers a re-embed instead of silently mixing spaces (matters once Spanner
   persistence is live).
