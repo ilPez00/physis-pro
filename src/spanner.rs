@@ -18,6 +18,7 @@
 //!   label      STRING(MAX),
 //!   coherence  FLOAT64,
 //!   dim        INT64,
+//!   embedder   STRING(64),  -- vector provenance (which embedder made it)
 //! ) PRIMARY KEY (id);
 //! -- optional property-graph view over WikiNode (+ a WikiEdge table) for GQL.
 //! ```
@@ -43,6 +44,9 @@ pub struct NodeRow {
     pub label: Option<String>,
     pub coherence: f32,
     pub dim: usize,
+    /// Embedder that produced the vector (provenance). A loader compares this to
+    /// the live embedder; a mismatch means re-embed, not compare across spaces.
+    pub embedder: Option<String>,
 }
 
 /// Project the in-memory core into durable rows (labeled nodes only).
@@ -54,6 +58,7 @@ pub fn export_nodes(core: &PhysisCore) -> Vec<NodeRow> {
             label: n.label.clone(),
             coherence: n.coherence_score,
             dim: n.embedding.len(),
+            embedder: n.embedder.clone(),
         })
         .collect()
 }
@@ -139,7 +144,7 @@ impl SpannerSink {
         }
         let session = self.create_session().await?;
 
-        let columns = serde_json::json!(["id", "label", "coherence", "dim"]);
+        let columns = serde_json::json!(["id", "label", "coherence", "dim", "embedder"]);
         let values: Vec<serde_json::Value> = rows
             .iter()
             .map(|r| {
@@ -148,6 +153,7 @@ impl SpannerSink {
                     r.label.clone().unwrap_or_default(),
                     r.coherence.to_string(),
                     r.dim.to_string(),
+                    r.embedder.clone().unwrap_or_default(),
                 ])
             })
             .collect();

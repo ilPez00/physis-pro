@@ -78,8 +78,10 @@ impl RuntimeState {
     /// Fresh per-tenant session state. Shares nothing mutable with other users;
     /// the embedder/classifier/cascade/ontology live in SharedCtx and stay global.
     fn new(shared: &SharedCtx) -> Self {
+        let mut core = PhysisCore::new();
+        core.set_embedder_id(shared.embedder_kind); // vector provenance
         RuntimeState {
-            core: PhysisCore::new(),
+            core,
             mapper: OntologyMapper::new(shared.ontology.clone(), shared.embed_dim),
             actor: PDCActor::new(
                 shared.config.pdca_stagnant_threshold,
@@ -1255,8 +1257,8 @@ async fn main() {
     let mapper = OntologyMapper::new(ontology.clone(), config.embed_dim);
     let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
     let dreams = DreamEngine::new();
-    let core = PhysisCore::new();
-    
+    let mut core = PhysisCore::new();
+
     // Initialize Holarchy
     let onnx = Arc::new(OnnxHolon::spawn());
     let (graph_tx, graph_rx) = crossbeam_channel::unbounded();
@@ -1267,7 +1269,15 @@ async fn main() {
     // real provenance of every vector this process produces — surfaced at startup
     // and on /api/v1/embedder so a silent fall-through to random projection
     // (P0 in PREMORTEM.md) can never masquerade as a working model.
-    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = {
+    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) =
+    if matches!(std::env::var("PHYSIS_EMBEDDER").as_deref(), Ok("random-projection") | Ok("rp")) {
+        // Fast-start override: skip the ONNX embedder cascade entirely. Comparable
+        // vectors are enough for coherence/machine recall, and loading ONNX models
+        // off slow storage stalls cold starts. Default path (below) is unchanged:
+        // the real embedder cascade with random-projection only as last resort.
+        log::info!("PHYSIS_EMBEDDER=random-projection: fast-start, ONNX cascade skipped.");
+        (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
+    } else {
         #[cfg(feature = "embed-onnx")]
         {
             // BGE-base-en-v1.5 (768-d). Loads `onnx/model.onnx` + tokenizer from
@@ -1364,6 +1374,7 @@ async fn main() {
     } else {
         log::info!("Embedder loaded: kind={embedder_kind} dim={embed_dim}");
     }
+    core.set_embedder_id(embedder_kind); // vector provenance on the default tenant
 
     // Pre-compute per-cell centroids from the human grid + every extra
     // domain-specific ontology (software, fitness, finance, …). The classify

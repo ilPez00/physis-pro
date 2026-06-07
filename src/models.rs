@@ -59,6 +59,11 @@ pub struct CoherenceNode {
     pub coherence_score: Score,
     #[serde(default)]
     pub label: Option<String>,
+    /// Which embedder produced `embedding` (provenance). Lets a loader detect a
+    /// model swap (mismatched id ⇒ stale vector, re-embed) instead of silently
+    /// comparing vectors from different spaces. `None` for legacy/unstamped nodes.
+    #[serde(default)]
+    pub embedder: Option<String>,
 }
 
 impl CoherenceNode {
@@ -68,6 +73,7 @@ impl CoherenceNode {
             embedding,
             coherence_score: 0.0,
             label: None,
+            embedder: None,
         }
     }
 

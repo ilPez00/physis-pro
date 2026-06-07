@@ -67,6 +67,9 @@ pub struct PhysisCore {
     /// When true, every newly registered node is auto-bridged into the holarchy
     /// (machines share one graph without manual `bridge_node`). Default false.
     pub auto_bridge: bool,
+    /// Embedder id stamped onto every node registered here (vector provenance).
+    /// Set once at startup via `set_embedder_id`. `None` = unstamped.
+    embedder_id: Option<String>,
 }
 
 impl PhysisCore {
@@ -85,7 +88,14 @@ impl PhysisCore {
             label_index: HashMap::new(),
             bridge: IdBridge::default(),
             auto_bridge: false,
+            embedder_id: None,
         }
+    }
+
+    /// Stamp the embedder id onto every node registered after this call (vector
+    /// provenance). Call once at startup with the loaded embedder's kind.
+    pub fn set_embedder_id(&mut self, id: impl Into<String>) {
+        self.embedder_id = Some(id.into());
     }
 
     /// Assert a relation between two coherence nodes. Both are bridged into the
@@ -182,6 +192,7 @@ impl PhysisCore {
         }
         let mut node = CoherenceNode::new(embedding.clone());
         node.label = label.clone();
+        node.embedder = self.embedder_id.clone();
         let id = node.id.clone();
         if let Some(l) = label {
             self.label_index.insert(l, id.clone());

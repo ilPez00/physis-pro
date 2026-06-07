@@ -460,9 +460,11 @@ Text: "chopping vegetables for a hearty soup"
   masked mean-pool matching `embed`; lock dropped before any fallback. Tested:
   fallback-equality (no model, always runs) + `#[ignore]` real-model batched-vs-
   per-text within 1e-4.
-- ⬜ Vector provenance: tag stored vectors with the embedder id so a model swap
-  triggers a re-embed instead of silently mixing spaces (matters once Spanner
-  persistence is live).
+- ✅ Vector provenance: `CoherenceNode.embedder: Option<String>` (serde default),
+  stamped via `PhysisCore.set_embedder_id` (set at startup from the loaded
+  embedder kind — default tenant + per-tenant). Flows into the Spanner
+  `NodeRow`/schema (`embedder` column). A loader can detect a model swap
+  (mismatched id ⇒ re-embed) instead of silently mixing vector spaces.
 
 ## Phase 7: Content Recall — Ingestion & TUI Wiki Browser 🔜 NEXT
 
