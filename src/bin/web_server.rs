@@ -215,6 +215,19 @@ struct CoherenceRegisterResponse {
 }
 
 #[derive(Serialize)]
+struct CoherenceNodeMatch {
+    id: String,
+    label: String,
+    score: Score,
+}
+
+#[derive(Serialize)]
+struct CoherenceNodesResponse {
+    results: Vec<CoherenceNodeMatch>,
+    count: usize,
+}
+
+#[derive(Serialize)]
 struct FilterResponse {
     embedding: Vec<f32>,
     valid: bool,
@@ -522,6 +535,24 @@ async fn coherence_snapshot_handler(
 ) -> Json<CoherenceSnapshot> {
     let uid = user_key(&headers);
     Json(state.with_user(&uid, |s| s.core.snapshot()))
+}
+
+/// Recall registered coherence nodes by content similarity — across every
+/// machine that wrote into the shared graph. Unlike `/query` (mapper/ontology
+/// surface), this reads the coherence nodes that `/coherence/register` creates.
+async fn coherence_nodes_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<QueryParams>,
+) -> Json<CoherenceNodesResponse> {
+    let emb = state.shared.embedder.embed(&params.q);
+    let uid = user_key(&headers);
+    let matches = state.with_user(&uid, |s| s.core.search_nodes(&emb, params.max));
+    let results: Vec<CoherenceNodeMatch> = matches
+        .into_iter()
+        .map(|(id, label, score)| CoherenceNodeMatch { id, label, score })
+        .collect();
+    Json(CoherenceNodesResponse { count: results.len(), results })
 }
 
 async fn coherence_register_handler(
@@ -1464,6 +1495,7 @@ async fn main() {
         .route("/api/v1/dream/generate", post(dream_generate_handler))
         .route("/api/v1/dream/evaluate", post(dream_evaluate_handler))
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
+        .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
         .route("/api/v1/coherence/register", post(coherence_register_handler))
         .route("/api/v1/context/filter", post(context_filter_handler))
         .route("/api/v1/compress/logs", post(compress_logs_handler))

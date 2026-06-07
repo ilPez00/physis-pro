@@ -210,6 +210,26 @@ impl PhysisCore {
         self.register_node_vec_labeled(embedding, Some(text.to_string()))
     }
 
+    /// Recall labeled coherence nodes by similarity to `query`. Embeddings are
+    /// L2-normalized, so cosine reduces to a dot product. Returns up to `max`
+    /// matches as `(id, label, score)`, highest score first. Unlabeled nodes are
+    /// skipped. This is how a machine recalls what the shared graph already holds
+    /// — across every domain that registered into it.
+    pub fn search_nodes(&self, query: &[f32], max: usize) -> Vec<(String, String, Score)> {
+        let mut scored: Vec<(String, String, Score)> = self
+            .nodes
+            .values()
+            .filter_map(|n| {
+                let label = n.label.as_ref()?;
+                let dot: f32 = n.embedding.iter().zip(query).map(|(a, b)| a * b).sum();
+                Some((n.id.clone(), label.clone(), dot))
+            })
+            .collect();
+        scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(max);
+        scored
+    }
+
     /// Update coherence score for a node (mean cosine to k nearest neighbors).
     fn update_coherence(&mut self, node_id: &str) {
         if self.nodes.len() <= 1 {
@@ -527,6 +547,21 @@ mod tests {
         let emb = fixture_embedder();
         let id = g.register_node_from_text("test node", &emb);
         assert!(g.nodes.contains_key(&id));
+    }
+
+    #[test]
+    fn test_search_nodes_ranks_by_similarity() {
+        let g = fixture_core();
+        let emb = fixture_embedder();
+        let q = emb.embed("exercise running success");
+        let hits = g.search_nodes(&q, 3);
+        assert_eq!(hits.len(), 3, "all labeled nodes returned, capped at max");
+        // Exact-text node ranks first (cosine 1.0 to itself).
+        assert_eq!(hits[0].1, "exercise running success");
+        // Sorted descending by score.
+        assert!(hits[0].2 >= hits[1].2 && hits[1].2 >= hits[2].2);
+        // max caps the result count.
+        assert_eq!(g.search_nodes(&q, 1).len(), 1);
     }
 
     #[test]
