@@ -202,7 +202,13 @@ with service-account JWT mint + refresh; (3) chunk mutations (≤ ~1k rows/commi
 with retry/backoff; (4) decide deletes (tombstone vs full-resync); (5) only then
 wire a server background sync — never on the hot path.
 
-**Status:** ⬜ scaffold only. Do NOT enable in prod until (1)–(3) land.
+**Status:** 🟡 partial. ✅ chunking (≤500/commit), ✅ read-back (`fetch_nodes`),
+✅ re-embed migration (`hydrate_into`/`stale_nodes`/`migrate` — durable rows keep
+labels, vectors regenerated under the live embedder + provenance re-stamped; pure
+logic unit-tested), ✅ vector provenance (`embedder` column). Still ⬜: live
+integration test (Spanner emulator in CI), service-account JWT auth (env token
+expires ~1h), deletes/tombstones. Library-only, NOT wired into the server hot
+path. Do NOT enable in prod until the emulator test + JWT auth land.
 
 ---
 

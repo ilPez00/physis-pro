@@ -508,11 +508,14 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   `bridge_node(coh_id)` creates+links a holarchy node (idempotent);
   `resolved_edges()` maps holarchy edges back to coherence ids. Unblocks edge
   export, durable shared graph, and a label-walkable TUI graph. Tested.
-- 🟡 7C Spanner Graph sink — **scaffold only** (`src/spanner.rs`, `--features
-  spanner`, default off). `export_nodes` + (now) `export_edges` via the bridge →
-  Spanner `insertOrUpdate`. Compiles + unit-tested; NOT run against live Spanner.
-  Blockers before prod in PREMORTEM P7: untested REST flow, env-token auth (no
-  refresh), no mutation chunking, no deletes, no `WikiEdge` upsert yet.
+- 🟡 7C Spanner Graph sink (`src/spanner.rs`, `--features spanner`, default off).
+  Persistence + re-embed: chunked `upsert_nodes` (≤500/commit), `fetch_nodes`
+  read-back, `export_nodes`/`export_edges` via the bridge, and re-embed migration
+  (`hydrate_into` regenerates vectors from labels under the live embedder,
+  `stale_nodes` flags swap targets, `migrate` = fetch→re-embed→write-back).
+  Vector provenance (`embedder` column). Pure logic unit-tested; **NOT run against
+  live Spanner** — library-only, not on the hot path. Remaining (PREMORTEM P7):
+  emulator integration test, service-account JWT auth, deletes, `WikiEdge` upsert.
 - ✅ New machines (ALL built): `src/machines/` — chronos, techne, soma, elenchus,
   lex, harmony, polis. Each pure + unit-tested + an `examples/<m>_demo.rs` + a
   captured `docs/machines/samples/<m>.md`. Docs grouped in `docs/machines/`
