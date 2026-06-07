@@ -13,3 +13,4 @@ pub mod soma;
 pub mod elenchus;
 pub mod lex;
 pub mod harmony;
+pub mod polis;
