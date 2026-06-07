@@ -11,3 +11,4 @@ pub mod chronos;
 pub mod techne;
 pub mod soma;
 pub mod elenchus;
+pub mod lex;
