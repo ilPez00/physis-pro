@@ -3,6 +3,7 @@
 
 #[cfg(feature = "mcp")]
 mod mcp_impl {
+    use std::path::PathBuf;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
@@ -197,6 +198,16 @@ mod mcp_impl {
                     tool("physis_stats", "Get engine statistics", json!({
                         "type": "object", "properties": {}, "required": []
                     })),
+                    tool("physis_wiki_search", "Search the physis wiki documentation (Tantivy BM25)", json!({
+                        "type": "object", "properties": {
+                            "query": {"type": "string", "description": "Search query"}
+                        }, "required": ["query"]
+                    })),
+                    tool("physis_scan", "Scan a directory and populate the ontology trie", json!({
+                        "type": "object", "properties": {
+                            "path": {"type": "string", "description": "Directory to scan (default: data dir)"}
+                        }, "required": []
+                    })),
                 ],
             })
         }
@@ -346,6 +357,27 @@ mod mcp_impl {
                         "dreams": ctx.dreams.dreams.len(),
                     });
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                "physis_wiki_search" => {
+                    let query = get_str(&request, "query")?;
+                    let ctx = self.ctx.lock().await;
+                    let wiki_path = ctx.config.data_dir.join("wiki");
+                    let graph_path = ctx.config.data_dir.join("theme_graph.json");
+                    let results = crate::wiki::search_all(&query, &wiki_path, &graph_path);
+                    Ok(CallToolResult::success(vec![
+                        json_content(&json!({"count": results.len(), "results": results}))?]))
+                }
+
+                "physis_scan" => {
+                    let mut ctx = self.ctx.lock().await;
+                    let scan_dir = match get_str(&request, "path") {
+                        Ok(p) => PathBuf::from(p),
+                        Err(_) => ctx.config.data_dir.clone(),
+                    };
+                    let inserted = ctx.mapper.map_filesystem(&scan_dir, None);
+                    Ok(CallToolResult::success(vec![
+                        json_content(&json!({"inserted": inserted, "path": scan_dir.to_string_lossy().to_string()}))?]))
                 }
 
                 name => Ok(CallToolResult::error(vec![
