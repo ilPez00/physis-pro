@@ -109,6 +109,8 @@ struct AppCtx {
     /// stays fixed at startup: changing embed_dim live would corrupt every stored
     /// vector, and it's read lock-free on the hot path — see PREMORTEM P1.)
     scan_root: std::sync::RwLock<PathBuf>,
+    #[cfg(feature = "mcp")]
+    mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
 
 impl AppCtx {
@@ -1437,6 +1439,8 @@ async fn main() {
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
+        #[cfg(feature = "mcp")]
+        mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
 
     let state_clone = state.clone();
@@ -1564,6 +1568,14 @@ async fn main() {
         .route("/api/v1/wiki/search", post(wiki_search_handler))
         .route("/api/v1/wiki/index", post(wiki_index_handler));
 
+    // MCP SSE transport — makes Physis tools available to any MCP client
+    // (Claude Desktop, Codex, Cursor, etc.) over HTTP/SSE on the same port.
+    // Each session gets an independent PhysisMcpServer clone with shared state.
+    #[cfg(feature = "mcp")]
+    let protected = protected
+        .route("/mcp/sse", get(mcp_sse_handler))
+        .route("/mcp/message", post(mcp_message_handler));
+
     let protected =
         protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
@@ -1574,4 +1586,96 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+// ── MCP SSE transport ──────────────────────────────────────────────────────
+// Model Context Protocol over HTTP/SSE.
+//   GET  /mcp/sse?session_id=X  → SSE stream (endpoint + message events)
+//   POST /mcp/message           → send JSON-RPC to server
+//
+// Each SSE session creates a channel-based transport for rmcp::serve_server.
+
+#[cfg(feature = "mcp")]
+async fn mcp_sse_handler(
+    state: axum::extract::State<Arc<AppCtx>>,
+) -> Result<
+    axum::response::sse::Sse<impl futures::Stream<Item = Result<axum::response::sse::Event, std::io::Error>>>,
+    axum::response::Response<String>,
+> {
+    use futures::channel::mpsc;
+    use futures::{SinkExt, StreamExt};
+    use rmcp::{ServiceExt, model::*};
+
+    let session_id = format!("{:016x}", rand::random::<u128>());
+
+    // Server → client channel: rmcp writes responses here
+    let (server_tx, server_rx) = mpsc::channel::<ServerJsonRpcMessage>(64);
+    // Client → server channel: POST handler writes here
+    let (client_tx, client_rx) = mpsc::channel::<ClientJsonRpcMessage>(64);
+
+    // Register client_tx so the POST handler can deliver messages
+    state.mcp_sessions.lock().await.insert(session_id.clone(), client_tx);
+
+    // Create fresh PhysisMcpServer using the shared config
+    let handler = physis_pro::mcp::PhysisMcpServer::new(state.shared.config.clone());
+
+    // Build the transport with error mapping (mpsc::SendError → io::Error)
+    use std::io;
+    let transport = (server_tx.sink_map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "mcp session closed")), client_rx);
+    let sid = session_id.clone();
+    let mcp_sessions = state.mcp_sessions.clone();
+    tokio::spawn(async move {
+        let result = handler.serve(transport).await;
+        mcp_sessions.lock().await.remove(&sid);
+        if let Err(e) = result {
+            eprintln!("[mcp] session {sid} error: {e}");
+        } else {
+            eprintln!("[mcp] session {sid} ended");
+        }
+    });
+
+    // Build the SSE response
+    let post_path = format!("/mcp/message?session_id={session_id}");
+    let endpoint_event = axum::response::sse::Event::default()
+        .event("endpoint")
+        .data(post_path);
+
+    let message_stream = server_rx.map(|msg| {
+        serde_json::to_string(&msg)
+            .map(|json| axum::response::sse::Event::default().event("message").data(json))
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    });
+
+    let stream = futures::stream::once(futures::future::ok(endpoint_event)).chain(message_stream);
+    Ok(axum::response::sse::Sse::new(stream))
+}
+
+#[cfg(feature = "mcp")]
+async fn mcp_message_handler(
+    state: axum::extract::State<Arc<AppCtx>>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+    axum::Json(msg): axum::Json<serde_json::Value>,
+) -> axum::http::StatusCode {
+    use futures::SinkExt;
+    use rmcp::model::ClientJsonRpcMessage;
+
+    let session_id = match query.get("session_id").or_else(|| query.get("sessionId")) {
+        Some(id) => id,
+        None => return axum::http::StatusCode::BAD_REQUEST,
+    };
+
+    let msg: ClientJsonRpcMessage = match serde_json::from_value(msg) {
+        Ok(m) => m,
+        Err(_) => return axum::http::StatusCode::BAD_REQUEST,
+    };
+
+    let mut tx = match state.mcp_sessions.lock().await.get(session_id).cloned() {
+        Some(tx) => tx,
+        None => return axum::http::StatusCode::NOT_FOUND,
+    };
+
+    if tx.send(msg).await.is_err() {
+        return axum::http::StatusCode::GONE;
+    }
+    axum::http::StatusCode::ACCEPTED
 }

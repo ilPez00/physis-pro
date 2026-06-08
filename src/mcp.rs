@@ -44,6 +44,27 @@ mod mcp_impl {
         ctx: SharedContext,
     }
 
+    impl PhysisMcpServer {
+        pub fn new(config: PhysisConfig) -> Self {
+            let ontology = OntologyLoader::load_all(&config);
+            let mapper = OntologyMapper::new(ontology.clone(), config.embed_dim);
+            let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
+            let dreams = DreamEngine::new();
+            let embedder: Box<dyn VectorEmbed> = Box::new(RandomProjectionEmbedder::new(config.embed_dim));
+            let classifier = CellClassifier::build(&ontology, embedder.as_ref());
+            let ctx = Arc::new(Mutex::new(PhysisContext {
+                config,
+                mapper,
+                actor,
+                dreams,
+                goals: Vec::new(),
+                embedder,
+                classifier,
+            }));
+            PhysisMcpServer { ctx }
+        }
+    }
+
     fn tool(name: &'static str, description: &'static str, input_schema: JsonValue) -> Tool {
         Tool::new(
             name,
@@ -337,22 +358,7 @@ mod mcp_impl {
     pub async fn start_mcp_server(config: PhysisConfig) -> anyhow::Result<()> {
         use tokio::net::TcpListener;
 
-        let ontology = OntologyLoader::load_all(&config);
-        let mapper = OntologyMapper::new(ontology.clone(), config.embed_dim);
-        let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
-        let dreams = DreamEngine::new();
-        let embedder: Box<dyn VectorEmbed> = Box::new(RandomProjectionEmbedder::new(config.embed_dim));
-        let classifier = CellClassifier::build(&ontology, embedder.as_ref());
-
-        let ctx = Arc::new(Mutex::new(PhysisContext {
-            config,
-            mapper,
-            actor,
-            dreams,
-            goals: Vec::new(),
-            embedder,
-            classifier,
-        }));
+        let server = PhysisMcpServer::new(config);
 
         let listener = TcpListener::bind("127.0.0.1:9876").await?;
         println!("Physis MCP server listening on 127.0.0.1:9876");
@@ -360,7 +366,7 @@ mod mcp_impl {
         loop {
             let (stream, addr) = listener.accept().await?;
             log::info!("MCP client connected: {addr}");
-            let server = PhysisMcpServer { ctx: ctx.clone() };
+            let server = server.clone();
             tokio::spawn(async move {
                 if let Err(e) = server.serve(stream).await {
                     log::warn!("MCP connection {addr} error: {e}");
