@@ -50,6 +50,9 @@ static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
     // Targeted fill for the empty/thin DOMAIN×MODE cells (Phase 6F) so every
     // grid cell is a reachable classification target.
     ("grid_fill", include_str!("../config/grid_fill_ontology.json")),
+    // One MODE-pure anchor per cell — sharpens the 6-mode axis (same-domain modes
+    // were noisy, e.g. heavy lifting leaking to WALK). Phase 6F.
+    ("mode_anchors", include_str!("../config/mode_anchors_ontology.json")),
 ];
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
