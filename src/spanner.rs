@@ -171,13 +171,16 @@ impl SpannerSink {
 
         let mut total = 0usize;
         for chunk in rows.chunks(UPSERT_CHUNK) {
+            // Spanner JSON value encoding: INT64 + bytes are strings; FLOAT64 is a
+            // JSON number; STRING is a string. So coherence (FLOAT64) is a number,
+            // dim (INT64) a string.
             let values: Vec<serde_json::Value> = chunk
                 .iter()
                 .map(|r| {
                     serde_json::json!([
                         r.id,
                         r.label.clone().unwrap_or_default(),
-                        r.coherence.to_string(),
+                        r.coherence,
                         r.dim.to_string(),
                         r.embedder.clone().unwrap_or_default(),
                     ])
@@ -189,13 +192,12 @@ impl SpannerSink {
                 }],
                 "singleUseTransaction": { "readWrite": {} }
             });
-            self.http
-                .post(&commit_url)
-                .bearer_auth(&self.token)
-                .json(&body)
-                .send()
-                .await?
-                .error_for_status()?;
+            let resp = self.http.post(&commit_url).bearer_auth(&self.token).json(&body).send().await?;
+            if !resp.status().is_success() {
+                let st = resp.status();
+                let txt = resp.text().await.unwrap_or_default();
+                anyhow::bail!("Spanner commit {st}: {txt}");
+            }
             total += chunk.len();
         }
         Ok(total)
@@ -228,7 +230,11 @@ impl SpannerSink {
                 Some(NodeRow {
                     id: c.first()?.as_str()?.to_string(),
                     label: c.get(1).and_then(opt),
-                    coherence: c.get(2).and_then(|v| v.as_str()).and_then(|s| s.parse().ok()).unwrap_or(0.0),
+                    // FLOAT64 comes back as a JSON number; tolerate a string too.
+                    coherence: c.get(2)
+                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                        .map(|f| f as f32)
+                        .unwrap_or(0.0),
                     dim: c.get(3).and_then(|v| v.as_str()).and_then(|s| s.parse().ok()).unwrap_or(0),
                     embedder: c.get(4).and_then(opt),
                 })
