@@ -30,11 +30,13 @@
 //!   embedder (stamping the current id); `stale_nodes` flags model-swap targets;
 //!   `migrate` does fetch → re-embed → write-back. Pure parts unit-tested.
 //! - ✅ edge export via the id bridge (`export_edges`); `WikiEdge` upsert is next
+//! - ✅ REST round-trip VERIFIED against the official Spanner emulator in CI
+//!   (`spanner-emulator` job: gcloud provisions, `spanner_emulator_roundtrip`
+//!   upserts → fetches → asserts). Host via `SPANNER_REST_ENDPOINT`.
 //! - ⬜ token minting from a service account (currently env bearer token, ~1h)
 //! - ⬜ deletes / tombstones (today: insertOrUpdate only)
-//! - ⬜ **NOT run against live Spanner** — REST flow compiles + pure logic tested,
-//!   but the wire round-trip is unverified (PREMORTEM P7). Library-only; not wired
-//!   into the server hot path.
+//! - ⬜ `WikiEdge` table + `upsert_edges` (edge half not persisted yet)
+//! Library-only; not wired into the server hot path until JWT auth lands.
 
 use serde::Serialize;
 

@@ -203,12 +203,12 @@ with retry/backoff; (4) decide deletes (tombstone vs full-resync); (5) only then
 wire a server background sync — never on the hot path.
 
 **Status:** 🟡 partial. ✅ chunking (≤500/commit), ✅ read-back (`fetch_nodes`),
-✅ re-embed migration (`hydrate_into`/`stale_nodes`/`migrate` — durable rows keep
-labels, vectors regenerated under the live embedder + provenance re-stamped; pure
-logic unit-tested), ✅ vector provenance (`embedder` column). Still ⬜: live
-integration test (Spanner emulator in CI), service-account JWT auth (env token
-expires ~1h), deletes/tombstones. Library-only, NOT wired into the server hot
-path. Do NOT enable in prod until the emulator test + JWT auth land.
+✅ re-embed migration (`hydrate_into`/`stale_nodes`/`migrate`; pure logic
+unit-tested), ✅ vector provenance (`embedder` column), ✅ **REST round-trip now
+VERIFIED against the Spanner emulator in CI** (`spanner-emulator` job — closes the
+original "untested REST flow" risk). Still ⬜: service-account JWT auth (env token
+expires ~1h), deletes/tombstones, `WikiEdge` upsert. Library-only, NOT wired into
+the server hot path. Do NOT enable in prod until JWT auth lands.
 
 ---
 
