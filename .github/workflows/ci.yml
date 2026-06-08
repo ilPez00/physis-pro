@@ -20,6 +20,8 @@ jobs:
         run: cargo check --features spanner
       - name: cargo check (wiki-embedded — vendored llmwiki)
         run: cargo check --features wiki-embedded
+      - name: cargo check (mcp — model context protocol)
+        run: cargo check --features mcp
       - name: cargo build (examples — machine demos)
         run: cargo build --examples
       - name: clippy

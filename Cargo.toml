@@ -82,7 +82,7 @@ wiki-embedded = ["dep:llmwiki_physis"]
 # Spanner Graph sink (Phase 7C) — durable wiki mirror. jsonwebtoken for SA auth.
 spanner = ["dep:jsonwebtoken"]
 
-full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest"]
+full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "mcp"]
 
 [[bin]]
 name = "physis-pro"
