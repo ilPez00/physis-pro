@@ -186,6 +186,8 @@ cargo run --bin physis-pro-tui
 | `PHYSIS_SCAN_ROOT` | data dir | Confines `/api/v1/scan` (path-traversal guard) |
 | `PHYSIS_WATCH_DIR` | — | Poll this dir (within scan root) and auto-register new/changed files as labeled nodes |
 | `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Watch-mode poll interval |
+| `PHYSIS_RERANK` | unset | Enable LLM re-rank on `/classify` for ambiguous cells (Gemma/provider cascade); needs provider keys |
+| `PHYSIS_RERANK_MARGIN` | `0.05` | Top-2 score gap below which re-rank fires — only ambiguous queries hit the LLM |
 
 ### Config (`~/.physis`)
 

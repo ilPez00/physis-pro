@@ -1117,12 +1117,71 @@ struct ClassifyResponse {
     top: CellScore,
 }
 
+/// Gemma re-ranker (Phase 6G): when the top-2 cells are close (vector classify is
+/// uncertain), ask the LLM cascade to pick among the top candidates. Returns the
+/// chosen (domain, mode). Best-effort — any failure leaves the vector result.
+/// Text-only (the prompt is textual). Gated by `PHYSIS_RERANK`; margin via
+/// `PHYSIS_RERANK_MARGIN` (default 0.05). Most queries skip the LLM entirely.
+async fn rerank_cell(
+    cascade: &ProviderCascade,
+    text: &str,
+    candidates: &[CellScore],
+) -> Option<(String, String)> {
+    use physis_pro::ai::provider::{Content, RouteHint};
+    let options = candidates
+        .iter()
+        .enumerate()
+        .map(|(i, c)| {
+            let ex = c.entries.iter().take(4).cloned().collect::<Vec<_>>().join(", ");
+            format!("{}. {}×{} (e.g. {ex})", i + 1, c.domain, c.mode)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let user = format!(
+        "Activity: \"{text}\"\nWhich cell fits best?\n{options}\n\nAnswer with ONLY the option number."
+    );
+    let messages = vec![
+        Message {
+            role: "system".into(),
+            content: Content::Text(
+                "You classify a human activity into one DOMAIN×MODE cell. \
+                 DOMAIN = what (HEAL/CONSTRUCT/FABRICATE/BOND/STUDY); \
+                 MODE = how (LIFT=intense, REST=recover, WALK=steady, WORK=execute, \
+                 CREATE=make, LEARN=study). Reply with ONLY a number.".into(),
+            ),
+            tool_calls: None, tool_call_id: None, name: None,
+        },
+        Message { role: "user".into(), content: Content::Text(user), tool_calls: None, tool_call_id: None, name: None },
+    ];
+    let hint = RouteHint { task_type: "fast".into(), has_image: false };
+    let (msg, _provider) = cascade.complete(&messages, None, &hint, Some(8)).await.ok()?;
+    let txt = msg.content.unwrap_or_default();
+    let n: usize = txt.trim().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()?;
+    candidates.get(n.checked_sub(1)?).map(|c| (c.domain.clone(), c.mode.clone()))
+}
+
 async fn classify_handler(
     State(state): State<SharedState>,
     Json(req): Json<ClassifyRequest>,
 ) -> Json<ClassifyResponse> {
     let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
-    let results = state.shared.classifier.classify(&embedding);
+    let mut results = state.shared.classifier.classify(&embedding);
+
+    // Re-rank ambiguous, text-only cases with the LLM (opt-in via PHYSIS_RERANK).
+    if std::env::var("PHYSIS_RERANK").is_ok() && req.image.is_none() && results.len() >= 2 {
+        let margin_thresh: f32 = std::env::var("PHYSIS_RERANK_MARGIN")
+            .ok().and_then(|s| s.parse().ok()).unwrap_or(0.05);
+        if results[0].score - results[1].score < margin_thresh {
+            let topk = results[..results.len().min(4)].to_vec();
+            if let Some((d, m)) = rerank_cell(&state.shared.cascade, &req.text, &topk).await {
+                if let Some(pos) = results.iter().position(|c| c.domain == d && c.mode == m) {
+                    let chosen = results.remove(pos);
+                    results.insert(0, chosen);
+                }
+            }
+        }
+    }
+
     let top = results.first().cloned().unwrap_or(CellScore {
         domain: "unknown".into(),
         mode: "unknown".into(),

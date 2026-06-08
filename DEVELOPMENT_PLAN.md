@@ -435,7 +435,7 @@ Text: "chopping vegetables for a hearty soup"
 | 6 | ImageBind Python sidecar (optional) | Steps 1 | 2 days | ⬜ Pending |
 | 7 | Ontology expansion — fill 30 cells to 30+ entries each | — | 3 days | 🔄 Cells: 0 empty (was 4). `config/grid_fill_ontology.json` fills empties + thin cells; all 30 reachable. Mean ~9/cell, target 25 |
 | 8 | Multi-modal classify endpoint — accepts text + base64 image | Steps 3, 4 | 1 day | ✅ Done |
-| 9 | Gemma re-ranker — confidence-gated generative path | Steps 8 | 2 days | ⬜ Pending |
+| 9 | Gemma re-ranker — confidence-gated generative path | Steps 8 | 2 days | ✅ Shipped (`rerank_cell` in web_server; margin-gated, `PHYSIS_RERANK` opt-in, cascade/RouteHint "fast") |
 | 10 | Process embedding — task graph → vector via Gemma structural summarization | Steps 9 | 2 days | ⬜ Pending |
 
 ### 6I. Key Decisions
