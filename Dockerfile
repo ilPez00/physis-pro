@@ -52,6 +52,15 @@ ENV PHYSIS_HOST=0.0.0.0
 ENV PHYSIS_PORT=8080
 # Override to pull weights from your own bucket (Supabase Storage / S3). Defaults to HF.
 # ENV MODEL_BASE_URL=https://<project>.supabase.co/storage/v1/object/public/models/jina-clip-v2
+#
+# Runtime env contract — set these as SECRETS in the platform (Railway/compose),
+# never bake values into this image:
+#   PHYSIS_API_TOKEN     required for the non-loopback bind above (P6 gate)
+#   PHYSIS_RERANK=1      enable the LLM re-ranker on /classify (ambiguous cells)
+#   AI_GEMINI_KEY        cascade priority-1 (gemini-2.5-flash) — the re-rank model
+#   AI_GROQ_KEY          cascade priority-2 fallback (llama-3.3-70b)
+# See .env.example for the full provider list. Without a provider key the
+# re-ranker silently no-ops back to the vector result.
 
 EXPOSE 8080 9876
 CMD ["./docker-entrypoint.sh"]
