@@ -192,8 +192,9 @@ Design specs, CAD files, BOM, test protocols, validation reports.
             std::fs::create_dir_all(parent)?;
         }
         let tag_str = tags.iter().map(|t| format!("  - {t}")).collect::<Vec<_>>().join("\n");
+        let escaped_desc = description.replace('"', r#"\""#);
         let content = format!(
-            "---\ntitle: {title}\ndescription: {description}\ntags:\n{tag_str}\n---\n\n{body}"
+            "---\ntitle: {title}\ndescription: \"{escaped_desc}\"\ntags:\n{tag_str}\n---\n\n{body}"
         );
         std::fs::write(&file_path, content)?;
     }
