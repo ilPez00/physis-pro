@@ -9,7 +9,7 @@
       "axis_kind": "human",
       "axis_name": "physical",
       "unit": "reps",
-      "hints": ["gym", "lift weights", "strength workout", "resistance training", "squat", "deadlift", "press"]
+      "hints": ["gym", "lift weights", "strength workout", "resistance training", "exercise", "squat", "deadlift", "press"]
     },
     {
       "name": "Rest & Recovery",
