@@ -37,11 +37,14 @@
 //! - ✅ edge export via the id bridge (`export_edges`); `WikiEdge` upsert is next
 //! - ✅ REST round-trip VERIFIED against the official Spanner emulator in CI
 //!   (`spanner-emulator` job: gcloud provisions, `spanner_emulator_roundtrip`
-//!   upserts → fetches → asserts). Host via `SPANNER_REST_ENDPOINT`.
-//! - ⬜ token minting from a service account (currently env bearer token, ~1h)
+//!   upserts → fetches → asserts nodes AND edges). Host via `SPANNER_REST_ENDPOINT`.
+//! - ✅ `WikiEdge` upsert/fetch (edge half persisted + emulator-verified)
+//! - ✅ service-account JWT auth — RS256 JWT-bearer → access_token, cached +
+//!   self-refreshing (`GOOGLE_APPLICATION_CREDENTIALS` / `GOOGLE_SA_KEY`); the
+//!   static `GOOGLE_OAUTH_TOKEN` path still works (emulator/dev). Signing
+//!   unit-tested; the token *exchange* is network (not unit-run).
 //! - ⬜ deletes / tombstones (today: insertOrUpdate only)
-//! - ⬜ `WikiEdge` table + `upsert_edges` (edge half not persisted yet)
-//! Library-only; not wired into the server hot path until JWT auth lands.
+//! Library-only; not yet wired into the server hot path.
 
 use serde::Serialize;
 
@@ -100,6 +103,89 @@ pub fn export_edges(core: &PhysisCore) -> Vec<EdgeRow> {
         .collect()
 }
 
+const TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
+const SPANNER_SCOPE: &str = "https://www.googleapis.com/auth/spanner.data";
+
+/// Spanner auth: a static bearer token (emulator / pre-minted), or a service
+/// account that mints + caches short-lived access tokens via the OAuth
+/// JWT-bearer flow (RS256-signed assertion → access_token). The static path
+/// expired after ~1h with no refresh; the service-account path self-refreshes.
+enum Auth {
+    Static(String),
+    ServiceAccount {
+        client_email: String,
+        private_key: String, // PEM (PKCS#8 or PKCS#1)
+        cache: std::sync::Mutex<Option<(String, std::time::Instant)>>,
+    },
+}
+
+#[derive(serde::Serialize)]
+struct JwtClaims<'a> {
+    iss: &'a str,
+    scope: &'a str,
+    aud: &'a str,
+    iat: u64,
+    exp: u64,
+}
+
+/// Sign the OAuth JWT-bearer assertion (RS256). Pure — no network.
+fn build_assertion(client_email: &str, pem: &str) -> anyhow::Result<String> {
+    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+    let claims = JwtClaims {
+        iss: client_email,
+        scope: SPANNER_SCOPE,
+        aud: TOKEN_ENDPOINT,
+        iat: now,
+        exp: now + 3600,
+    };
+    let key = EncodingKey::from_rsa_pem(pem.as_bytes())?;
+    Ok(encode(&Header::new(Algorithm::RS256), &claims, &key)?)
+}
+
+impl Auth {
+    /// Parse a service-account key JSON (`{client_email, private_key, ...}`).
+    fn from_sa_json(json: &str) -> anyhow::Result<Self> {
+        let v: serde_json::Value = serde_json::from_str(json)?;
+        let client_email = v.get("client_email").and_then(|x| x.as_str())
+            .ok_or_else(|| anyhow::anyhow!("SA key: no client_email"))?.to_string();
+        let private_key = v.get("private_key").and_then(|x| x.as_str())
+            .ok_or_else(|| anyhow::anyhow!("SA key: no private_key"))?.to_string();
+        Ok(Auth::ServiceAccount { client_email, private_key, cache: std::sync::Mutex::new(None) })
+    }
+
+    /// Current bearer token; mints + caches for service accounts (60s safety margin).
+    async fn token(&self, http: &reqwest::Client) -> anyhow::Result<String> {
+        match self {
+            Auth::Static(t) => Ok(t.clone()),
+            Auth::ServiceAccount { client_email, private_key, cache } => {
+                if let Some((tok, exp)) = cache.lock().unwrap().as_ref() {
+                    if *exp > std::time::Instant::now() {
+                        return Ok(tok.clone());
+                    }
+                }
+                let assertion = build_assertion(client_email, private_key)?;
+                let resp: serde_json::Value = http
+                    .post(TOKEN_ENDPOINT)
+                    .form(&[
+                        ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
+                        ("assertion", assertion.as_str()),
+                    ])
+                    .send().await?.error_for_status()?.json().await?;
+                let tok = resp.get("access_token").and_then(|x| x.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("token endpoint: no access_token"))?.to_string();
+                let ttl = resp.get("expires_in").and_then(|x| x.as_u64()).unwrap_or(3600);
+                let exp = std::time::Instant::now()
+                    + std::time::Duration::from_secs(ttl.saturating_sub(60));
+                *cache.lock().unwrap() = Some((tok.clone(), exp));
+                Ok(tok)
+            }
+        }
+    }
+}
+
 /// Config for the Spanner REST endpoint. `database` is the full resource name:
 /// `projects/<p>/instances/<i>/databases/<d>`. `host` is the REST origin — the
 /// real API by default, or the emulator's REST gateway when overridden.
@@ -109,7 +195,7 @@ pub struct SpannerSink {
     database: String,
     table: String,
     edge_table: String,
-    token: String,
+    auth: Auth,
     http: reqwest::Client,
 }
 
@@ -124,8 +210,15 @@ impl SpannerSink {
         let database = std::env::var("SPANNER_DATABASE")?;
         let table = std::env::var("SPANNER_TABLE").unwrap_or_else(|_| "WikiNode".into());
         let edge_table = std::env::var("SPANNER_EDGE_TABLE").unwrap_or_else(|_| "WikiEdge".into());
-        // Emulator accepts any token; only required when hitting the live API.
-        let token = std::env::var("GOOGLE_OAUTH_TOKEN").unwrap_or_else(|_| "emulator".into());
+        // Auth precedence: service-account key (self-refreshing) → static token →
+        // "emulator" (the emulator ignores it).
+        let auth = if let Ok(path) = std::env::var("GOOGLE_APPLICATION_CREDENTIALS") {
+            Auth::from_sa_json(&std::fs::read_to_string(path)?)?
+        } else if let Ok(json) = std::env::var("GOOGLE_SA_KEY") {
+            Auth::from_sa_json(&json)?
+        } else {
+            Auth::Static(std::env::var("GOOGLE_OAUTH_TOKEN").unwrap_or_else(|_| "emulator".into()))
+        };
         let host = std::env::var("SPANNER_REST_ENDPOINT")
             .unwrap_or_else(|_| "https://spanner.googleapis.com".into());
         Ok(Self {
@@ -135,7 +228,7 @@ impl SpannerSink {
             ),
             table,
             edge_table,
-            token,
+            auth,
             http: reqwest::Client::new(),
         })
     }
@@ -155,7 +248,7 @@ impl SpannerSink {
         let resp: serde_json::Value = self
             .http
             .post(url)
-            .bearer_auth(&self.token)
+            .bearer_auth(self.auth.token(&self.http).await?)
             .json(&serde_json::json!({}))
             .send()
             .await?
@@ -202,7 +295,7 @@ impl SpannerSink {
                 }],
                 "singleUseTransaction": { "readWrite": {} }
             });
-            let resp = self.http.post(&commit_url).bearer_auth(&self.token).json(&body).send().await?;
+            let resp = self.http.post(&commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
             if !resp.status().is_success() {
                 let st = resp.status();
                 let txt = resp.text().await.unwrap_or_default();
@@ -223,7 +316,7 @@ impl SpannerSink {
         let resp: serde_json::Value = self
             .http
             .post(url)
-            .bearer_auth(&self.token)
+            .bearer_auth(self.auth.token(&self.http).await?)
             .json(&serde_json::json!({ "sql": sql }))
             .send()
             .await?
@@ -273,7 +366,7 @@ impl SpannerSink {
                 }],
                 "singleUseTransaction": { "readWrite": {} }
             });
-            let resp = self.http.post(&commit_url).bearer_auth(&self.token).json(&body).send().await?;
+            let resp = self.http.post(&commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
             if !resp.status().is_success() {
                 let st = resp.status();
                 let txt = resp.text().await.unwrap_or_default();
@@ -292,7 +385,7 @@ impl SpannerSink {
         let resp: serde_json::Value = self
             .http
             .post(url)
-            .bearer_auth(&self.token)
+            .bearer_auth(self.auth.token(&self.http).await?)
             .json(&serde_json::json!({ "sql": sql }))
             .send()
             .await?
@@ -414,11 +507,33 @@ mod tests {
             database: "projects/p/instances/i/databases/d".into(),
             table: "WikiNode".into(),
             edge_table: "WikiEdge".into(),
-            token: "emulator".into(),
+            auth: Auth::Static("emulator".into()),
             http: reqwest::Client::new(),
         };
         assert_eq!(sink.base(), "http://localhost:9020/v1/projects/p/instances/i/databases/d");
         assert_eq!(sink.url("x:commit"), "http://localhost:9020/v1/x:commit");
+    }
+
+    #[test]
+    fn test_sa_json_parse_and_assertion_sign() {
+        // Throwaway test RSA key (PKCS#8) — not a real credential.
+        let pem = include_str!("../tests/fixtures/sa_test_key.pem");
+        // Embed it in a minimal SA-key JSON (private_key needs literal \n escapes).
+        let json = serde_json::json!({
+            "client_email": "test@proj.iam.gserviceaccount.com",
+            "private_key": pem,
+        }).to_string();
+        let auth = Auth::from_sa_json(&json).expect("parse SA json");
+        let (email, key) = match &auth {
+            Auth::ServiceAccount { client_email, private_key, .. } => (client_email.clone(), private_key.clone()),
+            _ => panic!("expected ServiceAccount"),
+        };
+        assert_eq!(email, "test@proj.iam.gserviceaccount.com");
+        // Signs a valid RS256 JWT (3 dot-separated parts; header decodes to RS256).
+        let jwt = build_assertion(&email, &key).expect("sign assertion");
+        assert_eq!(jwt.split('.').count(), 3, "JWT must have 3 parts");
+        let header = jsonwebtoken::decode_header(&jwt).expect("decode header");
+        assert_eq!(header.alg, jsonwebtoken::Algorithm::RS256);
     }
 
     /// Round-trip against a running Spanner emulator (CI provisions the table via

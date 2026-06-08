@@ -202,13 +202,14 @@ with service-account JWT mint + refresh; (3) chunk mutations (≤ ~1k rows/commi
 with retry/backoff; (4) decide deletes (tombstone vs full-resync); (5) only then
 wire a server background sync — never on the hot path.
 
-**Status:** 🟡 partial. ✅ chunking (≤500/commit), ✅ read-back (`fetch_nodes`),
-✅ re-embed migration (`hydrate_into`/`stale_nodes`/`migrate`; pure logic
-unit-tested), ✅ vector provenance (`embedder` column), ✅ **REST round-trip now
-VERIFIED against the Spanner emulator in CI** (`spanner-emulator` job — closes the
-original "untested REST flow" risk). Still ⬜: service-account JWT auth (env token
-expires ~1h), deletes/tombstones, `WikiEdge` upsert. Library-only, NOT wired into
-the server hot path. Do NOT enable in prod until JWT auth lands.
+**Status:** 🟢 mostly closed. ✅ chunking (≤500/commit), ✅ read-back, ✅ re-embed
+migration, ✅ vector provenance, ✅ **REST round-trip VERIFIED against the Spanner
+emulator in CI** (nodes + edges), ✅ `WikiEdge` upsert/fetch, ✅ **service-account
+JWT auth** — RS256 JWT-bearer → access_token, cached + self-refreshing
+(`GOOGLE_APPLICATION_CREDENTIALS`/`GOOGLE_SA_KEY`); signing unit-tested (the token
+*exchange* is network, not unit-run). Remaining ⬜: deletes/tombstones; a live
+real-Spanner smoke (the emulator doesn't exercise the OAuth exchange). Still
+library-only — wire into the server when a deploy needs durable sync.
 
 ---
 

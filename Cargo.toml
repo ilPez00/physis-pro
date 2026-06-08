@@ -60,6 +60,8 @@ tokio-modbus = { version = "0.17", optional = true }
 calamine = { version = "0.24", optional = true }
 csv = { version = "1.3", optional = true }
 quick-xml = { version = "0.36", optional = true }
+# Spanner service-account JWT minting (RS256).
+jsonwebtoken = { version = "9", optional = true }
 
 # Enable ONNX feature by default
 [features]
@@ -77,8 +79,8 @@ ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
 # In-process wiki engine (Tantivy BM25) — replaces the llmwiki subprocess.
 # BM25 only for now (no fastembed/usearch → no ort conflict); semantic = Phase 2.
 wiki-embedded = ["dep:llmwiki_physis"]
-# Spanner Graph sink (Phase 7C) — durable wiki mirror. No new deps (reqwest).
-spanner = []
+# Spanner Graph sink (Phase 7C) — durable wiki mirror. jsonwebtoken for SA auth.
+spanner = ["dep:jsonwebtoken"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest"]
 

@@ -513,10 +513,11 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   read-back, `export_nodes`/`export_edges` via the bridge, and re-embed migration
   (`hydrate_into` regenerates vectors from labels under the live embedder,
   `stale_nodes` flags swap targets, `migrate` = fetch→re-embed→write-back).
-  Vector provenance (`embedder` column). Pure logic unit-tested **and the REST
-  round-trip is verified against the Spanner emulator in CI** (`spanner-emulator`
-  job, host via `SPANNER_REST_ENDPOINT`). Library-only, not on the hot path.
-  Remaining (PREMORTEM P7): service-account JWT auth, deletes, `WikiEdge` upsert.
+  Vector provenance (`embedder` column). `WikiEdge` upsert/fetch + service-account
+  JWT auth (RS256, cached/refreshing). REST round-trip (nodes + edges) **verified
+  against the Spanner emulator in CI**; JWT signing unit-tested. Library-only, not
+  on the hot path. Remaining (PREMORTEM P7): deletes/tombstones + a live-Spanner
+  OAuth-exchange smoke.
 - ✅ New machines (ALL built): `src/machines/` — chronos, techne, soma, elenchus,
   lex, harmony, polis. Each pure + unit-tested + an `examples/<m>_demo.rs` + a
   captured `docs/machines/samples/<m>.md`. Docs grouped in `docs/machines/`
