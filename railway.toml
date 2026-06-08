@@ -4,7 +4,7 @@ dockerfile = "Dockerfile"
 [deploy]
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-startCommand = "./physis-pro-web"
+startCommand = "./docker-entrypoint.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
