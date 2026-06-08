@@ -1,4 +1,4 @@
-FROM rust:1-bookworm AS builder
+FROM rust:1-trixie AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
@@ -11,14 +11,15 @@ COPY vendor ./vendor
 # Weights are fetched at boot by docker-entrypoint.sh from MODEL_BASE_URL.
 # See PREMORTEM.md P0.
 
-RUN cargo build --release --no-default-features --features web --bin physis-pro-web
+RUN cargo build --release --no-default-features --features web,embed-onnx,cli,wiki-embedded --bin physis-pro-web --bin physis-pro
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates curl ffmpeg && rm -rf /var/lib/apt/lists/*
+FROM debian:trixie-slim
+RUN apt-get update && apt-get install -y ca-certificates curl ffmpeg awscli && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY --from=builder /app/target/release/physis-pro-web .
+COPY --from=builder /app/target/release/physis-pro .
 COPY --from=builder /app/config ./config
 COPY docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
