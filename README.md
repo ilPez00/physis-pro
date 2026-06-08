@@ -189,6 +189,12 @@ cargo run --bin physis-pro-tui
 | `PHYSIS_RERANK` | unset | Enable LLM re-rank on `/classify` for ambiguous cells (Gemma/provider cascade); needs provider keys |
 | `PHYSIS_RERANK_MARGIN` | `0.05` | Top-2 score gap below which re-rank fires — only ambiguous queries hit the LLM |
 
+**BYOK re-rank**: a caller can activate the re-ranker per request without any server
+key by passing `llm_key` (and optional `llm_base_url`, `llm_model`) in the `/classify`
+body — physis builds a one-off OpenAI-compatible provider for that call. Defaults to
+Gemini (`gemini-2.5-flash`). The caller's key is used only for that request and never
+stored. Lets each user bring (and pay for) their own model.
+
 ### Config (`~/.physis`)
 
 ```json

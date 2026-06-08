@@ -34,7 +34,7 @@ use physis_pro::CoherenceSnapshot;
 use physis_pro::classify::{CellClassifier, CellScore};
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
-use physis_pro::ai::provider::{ProviderCascade, Message};
+use physis_pro::ai::provider::{ProviderCascade, ProviderConfig, Message};
 use physis_pro::rachmaninov::RachmaninovHolon;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
@@ -1109,6 +1109,15 @@ struct ClassifyRequest {
     /// embedding is used instead of text embedding.
     #[serde(default)]
     image: Option<String>,
+    /// BYOK re-ranker: a caller-supplied LLM key activates the Gemma re-ranker
+    /// for this request using the caller's own provider (no server key needed).
+    /// Defaults to an OpenAI-compatible Gemini endpoint + `gemini-2.5-flash`.
+    #[serde(default)]
+    llm_key: Option<String>,
+    #[serde(default)]
+    llm_base_url: Option<String>,
+    #[serde(default)]
+    llm_model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1126,6 +1135,7 @@ async fn rerank_cell(
     cascade: &ProviderCascade,
     text: &str,
     candidates: &[CellScore],
+    task_hint: &str,
 ) -> Option<(String, String)> {
     use physis_pro::ai::provider::{Content, RouteHint};
     let options = candidates
@@ -1153,7 +1163,7 @@ async fn rerank_cell(
         },
         Message { role: "user".into(), content: Content::Text(user), tool_calls: None, tool_call_id: None, name: None },
     ];
-    let hint = RouteHint { task_type: "fast".into(), has_image: false };
+    let hint = RouteHint { task_type: task_hint.into(), has_image: false };
     let (msg, _provider) = cascade.complete(&messages, None, &hint, Some(8)).await.ok()?;
     let txt = msg.content.unwrap_or_default();
     let n: usize = txt.trim().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()?;
@@ -1167,13 +1177,38 @@ async fn classify_handler(
     let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
     let mut results = state.shared.classifier.classify(&embedding);
 
-    // Re-rank ambiguous, text-only cases with the LLM (opt-in via PHYSIS_RERANK).
-    if std::env::var("PHYSIS_RERANK").is_ok() && req.image.is_none() && results.len() >= 2 {
+    // Re-rank ambiguous, text-only cases with the LLM. Activated by the server
+    // (PHYSIS_RERANK) OR by a caller-supplied key (BYOK) — the latter lets users
+    // bring their own provider without a server key (and pay for their own calls).
+    let byok = req.llm_key.as_ref().filter(|k| !k.is_empty()).map(|key| {
+        let mut c = ProviderCascade::new();
+        c.add(ProviderConfig {
+            name: "byok".into(),
+            base_url: req.llm_base_url.clone()
+                .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta/openai".into()),
+            model: req.llm_model.clone().unwrap_or_else(|| "gemini-2.5-flash".into()),
+            api_key: key.clone(),
+            supports_vision: false,
+            supports_tools: false,
+            max_tokens: 64,
+            timeout_secs: 15.0,
+        });
+        c
+    });
+    let rerank_on = byok.is_some() || std::env::var("PHYSIS_RERANK").is_ok();
+    if rerank_on && req.image.is_none() && results.len() >= 2 {
         let margin_thresh: f32 = std::env::var("PHYSIS_RERANK_MARGIN")
             .ok().and_then(|s| s.parse().ok()).unwrap_or(0.05);
         if results[0].score - results[1].score < margin_thresh {
             let topk = results[..results.len().min(4)].to_vec();
-            if let Some((d, m)) = rerank_cell(&state.shared.cascade, &req.text, &topk).await {
+            // BYOK uses the caller's provider with the "smart" hint (so their chosen
+            // model isn't dropped by the fast-path gpt-4 filter); else the server
+            // cascade on the "fast" path.
+            let (cascade, hint): (&ProviderCascade, &str) = match &byok {
+                Some(c) => (c, "smart"),
+                None => (state.shared.cascade.as_ref(), "fast"),
+            };
+            if let Some((d, m)) = rerank_cell(cascade, &req.text, &topk, hint).await {
                 if let Some(pos) = results.iter().position(|c| c.domain == d && c.mode == m) {
                     let chosen = results.remove(pos);
                     results.insert(0, chosen);
@@ -1501,6 +1536,14 @@ async fn main() {
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
+
+    // Seed the wiki with default physis documentation pages and build the
+    // Tantivy BM25 index. Safe to call on every startup (incremental index).
+    #[cfg(feature = "wiki-embedded")]
+    {
+        let wiki_path = config.data_dir.join("wiki");
+        physis_pro::wiki::ensure_wiki_indexed(&wiki_path);
+    }
 
     let state_clone = state.clone();
     // 1. Holarchy Graph Updater
