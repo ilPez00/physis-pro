@@ -94,8 +94,11 @@ pub fn export_edges(core: &PhysisCore) -> Vec<EdgeRow> {
 }
 
 /// Config for the Spanner REST endpoint. `database` is the full resource name:
-/// `projects/<p>/instances/<i>/databases/<d>`.
+/// `projects/<p>/instances/<i>/databases/<d>`. `host` is the REST origin — the
+/// real API by default, or the emulator's REST gateway when overridden.
 pub struct SpannerSink {
+    /// REST origin, e.g. `https://spanner.googleapis.com` or `http://localhost:9020`.
+    host: String,
     database: String,
     table: String,
     token: String,
@@ -104,14 +107,20 @@ pub struct SpannerSink {
 
 impl SpannerSink {
     /// Build from env: SPANNER_PROJECT, SPANNER_INSTANCE, SPANNER_DATABASE,
-    /// SPANNER_TABLE (default `WikiNode`), GOOGLE_OAUTH_TOKEN.
+    /// SPANNER_TABLE (default `WikiNode`), GOOGLE_OAUTH_TOKEN. Set
+    /// SPANNER_REST_ENDPOINT (e.g. `http://localhost:9020`) to target the Spanner
+    /// emulator's REST gateway instead of the live API (token is then ignored).
     pub fn from_env() -> anyhow::Result<Self> {
         let project = std::env::var("SPANNER_PROJECT")?;
         let instance = std::env::var("SPANNER_INSTANCE")?;
         let database = std::env::var("SPANNER_DATABASE")?;
         let table = std::env::var("SPANNER_TABLE").unwrap_or_else(|_| "WikiNode".into());
-        let token = std::env::var("GOOGLE_OAUTH_TOKEN")?;
+        // Emulator accepts any token; only required when hitting the live API.
+        let token = std::env::var("GOOGLE_OAUTH_TOKEN").unwrap_or_else(|_| "emulator".into());
+        let host = std::env::var("SPANNER_REST_ENDPOINT")
+            .unwrap_or_else(|_| "https://spanner.googleapis.com".into());
         Ok(Self {
+            host,
             database: format!(
                 "projects/{project}/instances/{instance}/databases/{database}"
             ),
@@ -121,8 +130,13 @@ impl SpannerSink {
         })
     }
 
+    /// Build a REST URL: `{host}/v1/{suffix}`.
+    fn url(&self, suffix: &str) -> String {
+        format!("{}/v1/{}", self.host, suffix)
+    }
+
     fn base(&self) -> String {
-        format!("https://spanner.googleapis.com/v1/{}", self.database)
+        self.url(&self.database)
     }
 
     /// Create a short-lived session (required before a commit).
@@ -152,7 +166,7 @@ impl SpannerSink {
             return Ok(0);
         }
         let session = self.create_session().await?;
-        let commit_url = format!("https://spanner.googleapis.com/v1/{session}:commit");
+        let commit_url = self.url(&format!("{session}:commit"));
         let columns = serde_json::json!(["id", "label", "coherence", "dim", "embedder"]);
 
         let mut total = 0usize;
@@ -192,7 +206,7 @@ impl SpannerSink {
     /// value as a string; we parse.
     pub async fn fetch_nodes(&self) -> anyhow::Result<Vec<NodeRow>> {
         let session = self.create_session().await?;
-        let url = format!("https://spanner.googleapis.com/v1/{session}:executeSql");
+        let url = self.url(&format!("{session}:executeSql"));
         let sql = format!("SELECT id, label, coherence, dim, embedder FROM {}", self.table);
         let resp: serde_json::Value = self
             .http
@@ -307,6 +321,46 @@ mod tests {
         let node = core.nodes.values().next().unwrap();
         assert_eq!(node.label.as_deref(), Some("alpha"));
         assert_eq!(node.embedder.as_deref(), Some("live")); // re-stamped, not "old"
+    }
+
+    #[test]
+    fn test_host_override_builds_emulator_urls() {
+        // Verify SPANNER_REST_ENDPOINT redirects every REST URL (env-isolated).
+        // (Uses from_env via process env — kept simple: just check `url`.)
+        let sink = SpannerSink {
+            host: "http://localhost:9020".into(),
+            database: "projects/p/instances/i/databases/d".into(),
+            table: "WikiNode".into(),
+            token: "emulator".into(),
+            http: reqwest::Client::new(),
+        };
+        assert_eq!(sink.base(), "http://localhost:9020/v1/projects/p/instances/i/databases/d");
+        assert_eq!(sink.url("x:commit"), "http://localhost:9020/v1/x:commit");
+    }
+
+    /// Round-trip against a running Spanner emulator (CI provisions the table via
+    /// gcloud). Skips unless SPANNER_REST_ENDPOINT is set. Run with:
+    ///   cargo test --features spanner -- --ignored spanner_emulator_roundtrip
+    #[tokio::test]
+    #[ignore]
+    async fn spanner_emulator_roundtrip() {
+        if std::env::var("SPANNER_REST_ENDPOINT").is_err() {
+            eprintln!("skipping: no SPANNER_REST_ENDPOINT (emulator)");
+            return;
+        }
+        let sink = SpannerSink::from_env().expect("from_env");
+        let rows = vec![
+            NodeRow { id: "n1".into(), label: Some("alpha".into()), coherence: 0.5, dim: 16, embedder: Some("bge".into()) },
+            NodeRow { id: "n2".into(), label: Some("beta".into()), coherence: -1.0, dim: 16, embedder: None },
+        ];
+        let up = sink.upsert_nodes(&rows).await.expect("upsert");
+        assert_eq!(up, 2);
+
+        let got = sink.fetch_nodes().await.expect("fetch");
+        let n1 = got.iter().find(|r| r.id == "n1").expect("n1 round-tripped");
+        assert_eq!(n1.label.as_deref(), Some("alpha"));
+        assert_eq!(n1.embedder.as_deref(), Some("bge"));
+        assert!(got.iter().any(|r| r.id == "n2"));
     }
 
     #[test]

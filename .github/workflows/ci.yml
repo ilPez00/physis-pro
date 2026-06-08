@@ -32,3 +32,35 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo test
         run: cargo test --features full
+
+  # Verify the Spanner sink's REST round-trip against the official emulator
+  # (gcloud provisions the instance/db/table; the Rust test does the data plane).
+  spanner-emulator:
+    runs-on: ubuntu-latest
+    services:
+      spanner:
+        image: gcr.io/cloud-spanner-emulator/emulator:latest
+        ports:
+          - 9010:9010
+          - 9020:9020
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: provision emulator (instance + db + WikiNode table)
+        env:
+          SPANNER_EMULATOR_HOST: localhost:9010
+        run: |
+          gcloud config set auth/disable_credentials true
+          gcloud config set project test-project
+          gcloud spanner instances create test-instance \
+            --config=emulator-config --description=ci --nodes=1
+          gcloud spanner databases create test-db --instance=test-instance \
+            --ddl="CREATE TABLE WikiNode (id STRING(64) NOT NULL, label STRING(MAX), coherence FLOAT64, dim INT64, embedder STRING(64)) PRIMARY KEY (id)"
+      - name: round-trip test
+        env:
+          SPANNER_REST_ENDPOINT: http://localhost:9020
+          SPANNER_PROJECT: test-project
+          SPANNER_INSTANCE: test-instance
+          SPANNER_DATABASE: test-db
+        run: cargo test --features spanner -- --ignored --nocapture spanner_emulator_roundtrip
