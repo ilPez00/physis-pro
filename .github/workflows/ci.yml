@@ -57,6 +57,8 @@ jobs:
             --config=emulator-config --description=ci --nodes=1
           gcloud spanner databases create test-db --instance=test-instance \
             --ddl="CREATE TABLE WikiNode (id STRING(64) NOT NULL, label STRING(MAX), coherence FLOAT64, dim INT64, embedder STRING(64)) PRIMARY KEY (id)"
+          gcloud spanner databases ddl update test-db --instance=test-instance \
+            --ddl="CREATE TABLE WikiEdge (source STRING(64) NOT NULL, target STRING(64) NOT NULL, weight FLOAT64) PRIMARY KEY (source, target)"
       - name: round-trip test
         env:
           SPANNER_REST_ENDPOINT: http://localhost:9020

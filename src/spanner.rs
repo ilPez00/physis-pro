@@ -20,7 +20,12 @@
 //!   dim        INT64,
 //!   embedder   STRING(64),  -- vector provenance (which embedder made it)
 //! ) PRIMARY KEY (id);
-//! -- optional property-graph view over WikiNode (+ a WikiEdge table) for GQL.
+//! CREATE TABLE WikiEdge (
+//!   source  STRING(64) NOT NULL,
+//!   target  STRING(64) NOT NULL,
+//!   weight  FLOAT64,
+//! ) PRIMARY KEY (source, target);
+//! -- optionally define a property graph over WikiNode/WikiEdge for GQL.
 //! ```
 //!
 //! ## Status
@@ -103,6 +108,7 @@ pub struct SpannerSink {
     host: String,
     database: String,
     table: String,
+    edge_table: String,
     token: String,
     http: reqwest::Client,
 }
@@ -117,6 +123,7 @@ impl SpannerSink {
         let instance = std::env::var("SPANNER_INSTANCE")?;
         let database = std::env::var("SPANNER_DATABASE")?;
         let table = std::env::var("SPANNER_TABLE").unwrap_or_else(|_| "WikiNode".into());
+        let edge_table = std::env::var("SPANNER_EDGE_TABLE").unwrap_or_else(|_| "WikiEdge".into());
         // Emulator accepts any token; only required when hitting the live API.
         let token = std::env::var("GOOGLE_OAUTH_TOKEN").unwrap_or_else(|_| "emulator".into());
         let host = std::env::var("SPANNER_REST_ENDPOINT")
@@ -127,6 +134,7 @@ impl SpannerSink {
                 "projects/{project}/instances/{instance}/databases/{database}"
             ),
             table,
+            edge_table,
             token,
             http: reqwest::Client::new(),
         })
@@ -243,12 +251,78 @@ impl SpannerSink {
             })
             .collect())
     }
+
+    /// Upsert edges into the `WikiEdge` table (chunked). PK = (source, target);
+    /// weight is FLOAT64 (JSON number).
+    pub async fn upsert_edges(&self, edges: &[EdgeRow]) -> anyhow::Result<usize> {
+        if edges.is_empty() {
+            return Ok(0);
+        }
+        let session = self.create_session().await?;
+        let commit_url = self.url(&format!("{session}:commit"));
+        let columns = serde_json::json!(["source", "target", "weight"]);
+        let mut total = 0usize;
+        for chunk in edges.chunks(UPSERT_CHUNK) {
+            let values: Vec<serde_json::Value> = chunk
+                .iter()
+                .map(|e| serde_json::json!([e.source, e.target, e.weight]))
+                .collect();
+            let body = serde_json::json!({
+                "mutations": [{
+                    "insertOrUpdate": { "table": self.edge_table, "columns": columns, "values": values }
+                }],
+                "singleUseTransaction": { "readWrite": {} }
+            });
+            let resp = self.http.post(&commit_url).bearer_auth(&self.token).json(&body).send().await?;
+            if !resp.status().is_success() {
+                let st = resp.status();
+                let txt = resp.text().await.unwrap_or_default();
+                anyhow::bail!("Spanner edge commit {st}: {txt}");
+            }
+            total += chunk.len();
+        }
+        Ok(total)
+    }
+
+    /// Read edges back from the `WikiEdge` table.
+    pub async fn fetch_edges(&self) -> anyhow::Result<Vec<EdgeRow>> {
+        let session = self.create_session().await?;
+        let url = self.url(&format!("{session}:executeSql"));
+        let sql = format!("SELECT source, target, weight FROM {}", self.edge_table);
+        let resp: serde_json::Value = self
+            .http
+            .post(url)
+            .bearer_auth(&self.token)
+            .json(&serde_json::json!({ "sql": sql }))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+        let rows = resp.get("rows").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+        Ok(rows
+            .iter()
+            .filter_map(|row| {
+                let c = row.as_array()?;
+                Some(EdgeRow {
+                    source: c.first()?.as_str()?.to_string(),
+                    target: c.get(1)?.as_str()?.to_string(),
+                    weight: c.get(2)
+                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                        .map(|f| f as f32)
+                        .unwrap_or(0.0),
+                })
+            })
+            .collect())
+    }
 }
 
-/// Convenience: export the core and upsert in one call.
-pub async fn sync(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<usize> {
-    let rows = export_nodes(core);
-    sink.upsert_nodes(&rows).await
+/// Convenience: export the core and upsert nodes + edges in one call.
+/// Returns (nodes_upserted, edges_upserted).
+pub async fn sync(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<(usize, usize)> {
+    let n = sink.upsert_nodes(&export_nodes(core)).await?;
+    let e = sink.upsert_edges(&export_edges(core)).await?;
+    Ok((n, e))
 }
 
 /// Rows whose embedder id differs from the live one — the re-embed targets.
@@ -339,6 +413,7 @@ mod tests {
             host: "http://localhost:9020".into(),
             database: "projects/p/instances/i/databases/d".into(),
             table: "WikiNode".into(),
+            edge_table: "WikiEdge".into(),
             token: "emulator".into(),
             http: reqwest::Client::new(),
         };
@@ -369,6 +444,13 @@ mod tests {
         assert_eq!(n1.label.as_deref(), Some("alpha"));
         assert_eq!(n1.embedder.as_deref(), Some("bge"));
         assert!(got.iter().any(|r| r.id == "n2"));
+
+        // Edges round-trip too.
+        let edges = vec![EdgeRow { source: "n1".into(), target: "n2".into(), weight: 0.7 }];
+        assert_eq!(sink.upsert_edges(&edges).await.expect("upsert edges"), 1);
+        let got_edges = sink.fetch_edges().await.expect("fetch edges");
+        let e = got_edges.iter().find(|e| e.source == "n1" && e.target == "n2").expect("edge round-tripped");
+        assert!((e.weight - 0.7).abs() < 1e-5);
     }
 
     #[test]
