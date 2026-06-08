@@ -13,8 +13,9 @@ use crate::graph::FileThemeGraph;
 /// Safe to call repeatedly — overwrites existing files.
 #[cfg(feature = "wiki-embedded")]
 pub fn seed_default_wiki(wiki_path: &Path) -> std::io::Result<()> {
-    let pages: Vec<(&str, &str, Vec<&str>, &str)> = vec![
-        ("physis/overview.md", "Physis System Overview", vec!["physis", "architecture", "overview"],
+    let pages: Vec<(&str, &str, &str, Vec<&str>, &str)> = vec![
+        ("physis/overview.md", "Physis System Overview",
+         "Industrial backoffice intelligence engine with ontology grid, PDCA loop, dream engine, and MCP server.", vec!["physis", "architecture", "overview"],
          r#"Physis is an industrial backoffice intelligence engine that embeds business observations into a semiotic ontology grid and drives a PDCA (Plan-Do-Check-Act) improvement loop.
 
 ## Architecture
@@ -27,7 +28,8 @@ pub fn seed_default_wiki(wiki_path: &Path) -> std::io::Result<()> {
 - **Wiki** — Tantivy BM25 search over markdown documentation with YAML frontmatter.
 - **MCP Server** — Model Context Protocol via SSE on port 8080; 13+ tools for AI agent integration.
 "#),
-        ("physis/ontologies.md", "Ontology Reference", vec!["ontology", "domain", "semiotic"],
+        ("physis/ontologies.md", "Ontology Reference",
+         "Complete ontology reference: 10 ontologies with 500+ domains across human, machine, AI agent, office, and more.", vec!["ontology", "domain", "semiotic"],
          r#"Physis uses 10 ontologies, each containing multiple domains. Every domain is mapped to a semiotic coordinate (domain×mode).
 
 ## Human Ontology
@@ -67,7 +69,8 @@ Design specs, CAD files, BOM, test protocols, validation reports.
 - **Abstract** — conceptual categories, theoretical frameworks
 - **Category** — classification systems, taxonomies
 "#),
-        ("physis/mcp_tools.md", "MCP Tools Reference", vec!["mcp", "tools", "api"],
+        ("physis/mcp_tools.md", "MCP Tools Reference",
+         "Complete reference for all 14 MCP tools exposed via SSE at /mcp/sse for AI agent integration.", vec!["mcp", "tools", "api"],
          r#"Physis exposes tools via the Model Context Protocol (MCP) over SSE at `/mcp/sse`.
 
 ## Available Tools
@@ -142,7 +145,8 @@ Design specs, CAD files, BOM, test protocols, validation reports.
 - **Arguments**: `query` (string)
 - **Returns**: Wiki search results with titles and excerpts
 "#),
-        ("physis/configuration.md", "Configuration Guide", vec!["config", "environment", "setup"],
+        ("physis/configuration.md", "Configuration Guide",
+         "Environment variables, data paths, feature flags, and deployment configuration for physis-pro.", vec!["config", "environment", "setup"],
          r#"Physis configuration is loaded from `~/.physis/config.json` and environment variables.
 
 ## Environment Variables
@@ -182,14 +186,14 @@ Design specs, CAD files, BOM, test protocols, validation reports.
     let wiki_physis_dir = wiki_path.join("physis");
     std::fs::create_dir_all(&wiki_physis_dir)?;
 
-    for (rel_path, title, tags, body) in &pages {
+    for (rel_path, title, description, tags, body) in &pages {
         let file_path = wiki_path.join(rel_path);
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let tag_str = tags.iter().map(|t| format!("  - {t}")).collect::<Vec<_>>().join("\n");
         let content = format!(
-            "---\ntitle: {title}\ntags:\n{tag_str}\n---\n\n{body}"
+            "---\ntitle: {title}\ndescription: {description}\ntags:\n{tag_str}\n---\n\n{body}"
         );
         std::fs::write(&file_path, content)?;
     }
