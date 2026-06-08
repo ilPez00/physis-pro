@@ -1509,6 +1509,15 @@ async fn main() {
     let scan_root = scan_root.canonicalize().unwrap_or(scan_root);
     log::info!("scan root: {}", scan_root.display());
 
+    // Seed the wiki with default physis documentation pages and build the
+    // Tantivy BM25 index. Safe to call on every startup (incremental index).
+    // Must happen before config is moved into SharedCtx below.
+    #[cfg(feature = "wiki-embedded")]
+    {
+        let wiki_path = config.data_dir.join("wiki");
+        physis_pro::wiki::ensure_wiki_indexed(&wiki_path);
+    }
+
     let shared = Arc::new(SharedCtx {
         config,
         cascade: cascade.clone(),
@@ -1536,14 +1545,6 @@ async fn main() {
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
-
-    // Seed the wiki with default physis documentation pages and build the
-    // Tantivy BM25 index. Safe to call on every startup (incremental index).
-    #[cfg(feature = "wiki-embedded")]
-    {
-        let wiki_path = config.data_dir.join("wiki");
-        physis_pro::wiki::ensure_wiki_indexed(&wiki_path);
-    }
 
     let state_clone = state.clone();
     // 1. Holarchy Graph Updater

@@ -4,8 +4,6 @@
 //! Also searches the FileThemeGraph for matching themes and files.
 
 use std::path::Path;
-#[cfg(feature = "wiki-embedded")]
-use std::path::PathBuf;
 use std::process::Command;
 
 use crate::graph::FileThemeGraph;
