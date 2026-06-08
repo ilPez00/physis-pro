@@ -11,7 +11,7 @@ COPY vendor ./vendor
 # Weights are fetched at boot by docker-entrypoint.sh from MODEL_BASE_URL.
 # See PREMORTEM.md P0.
 
-RUN cargo build --release --no-default-features --features web,embed-onnx,cli,wiki-embedded --bin physis-pro-web --bin physis-pro
+RUN cargo build --release --no-default-features --features web,embed-onnx,cli,wiki-embedded,mcp --bin physis-pro-web --bin physis-pro
 
 # Download ONNX model weights during build (avoids runtime S3 download).
 # S3 creds from Railway project bucket are injected by Railway build env.
@@ -53,5 +53,5 @@ ENV PHYSIS_PORT=8080
 # Override to pull weights from your own bucket (Supabase Storage / S3). Defaults to HF.
 # ENV MODEL_BASE_URL=https://<project>.supabase.co/storage/v1/object/public/models/jina-clip-v2
 
-EXPOSE 8080
+EXPOSE 8080 9876
 CMD ["./docker-entrypoint.sh"]

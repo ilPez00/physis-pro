@@ -172,8 +172,8 @@ fn main() -> anyhow::Result<()> {
         Commands::Serve => {
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async {
-                let config = PhysisConfig::default();
-                physis_pro::mcp::start_mcp_server(config).await
+                let config = PhysisProConfig::default();
+                physis_pro::mcp::start_mcp_server(config.physis).await
             })?;
         }
         Commands::Watch { dirs } => {
