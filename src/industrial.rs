@@ -82,36 +82,120 @@ pub fn detect_anomalies(
 }
 
 /// Stub MQTT adapter (requires rumqttc feature).
+/// Lenient wire format for an inbound MQTT/REST telemetry payload. Every metric
+/// is optional so a sensor can publish only what it has; `into_reading` fills the
+/// rest. `status` accepts `online`/`offline`/`warning`/`critical` (any case).
+#[derive(Debug, Clone, Deserialize)]
+pub struct TelemetryPayload {
+    pub temperature: Option<f32>,
+    pub pressure: Option<f32>,
+    pub vibration: Option<f32>,
+    pub rpm: Option<f32>,
+    pub status: Option<String>,
+    #[serde(default)]
+    pub raw: HashMap<String, f32>,
+}
+
+impl TelemetryPayload {
+    /// Parse a JSON byte payload into a `MachineReading` for `machine_id`.
+    pub fn parse_reading(machine_id: &str, bytes: &[u8]) -> anyhow::Result<MachineReading> {
+        let p: TelemetryPayload = serde_json::from_slice(bytes)?;
+        Ok(p.into_reading(machine_id))
+    }
+
+    fn into_reading(self, machine_id: &str) -> MachineReading {
+        let status = match self.status.as_deref().map(str::to_ascii_lowercase).as_deref() {
+            Some("offline") => MachineStatus::Offline,
+            Some("warning") => MachineStatus::Warning,
+            Some("critical") => MachineStatus::Critical,
+            _ => MachineStatus::Online,
+        };
+        MachineReading {
+            machine_id: machine_id.to_string(),
+            timestamp: chrono::Utc::now(),
+            temperature: self.temperature,
+            pressure: self.pressure,
+            vibration: self.vibration,
+            rpm: self.rpm,
+            status,
+            raw: self.raw,
+        }
+    }
+}
+
 #[cfg(feature = "industrial")]
 pub mod mqtt {
     use super::*;
-    use rumqttc::{AsyncClient, MqttOptions, QoS, EventLoop};
+    use rumqttc::{AsyncClient, MqttOptions, QoS, EventLoop, Event, Packet};
 
     pub struct MqttAdapter {
         client: Option<AsyncClient>,
         eventloop: Option<EventLoop>,
         machine_id: String,
+        /// Topic carrying this machine's telemetry. Defaults to
+        /// `physis/<machine_id>/reading`; override with `set_topic`.
+        topic: String,
+        subscribed: bool,
     }
 
     impl MqttAdapter {
         pub fn new(machine_id: &str) -> Self {
-            Self { client: None, eventloop: None, machine_id: machine_id.to_string() }
+            Self {
+                client: None,
+                eventloop: None,
+                machine_id: machine_id.to_string(),
+                topic: format!("physis/{machine_id}/reading"),
+                subscribed: false,
+            }
+        }
+
+        /// Override the telemetry topic this adapter subscribes to.
+        pub fn set_topic(&mut self, topic: impl Into<String>) {
+            self.topic = topic.into();
         }
     }
 
     #[async_trait]
     impl MachineAdapter for MqttAdapter {
         async fn connect(&mut self, endpoint: &str) -> anyhow::Result<()> {
-            let mut mqttoptions = MqttOptions::new("physis-pro", endpoint, 1883);
+            // Accept "host" or "host:port"; default broker port 1883.
+            let (host, port) = match endpoint.rsplit_once(':') {
+                Some((h, p)) => (h.to_string(), p.parse().unwrap_or(1883)),
+                None => (endpoint.to_string(), 1883),
+            };
+            let mut mqttoptions = MqttOptions::new(format!("physis-{}", self.machine_id), host, port);
             mqttoptions.set_keep_alive(Duration::from_secs(5));
             let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
             self.client = Some(client);
             self.eventloop = Some(eventloop);
+            self.subscribed = false;
             Ok(())
         }
 
         async fn poll(&mut self) -> anyhow::Result<MachineReading> {
-            anyhow::bail!("poll not implemented for MQTT adapter yet")
+            let client = self.client.clone().ok_or_else(|| anyhow::anyhow!("not connected"))?;
+            let eventloop = self
+                .eventloop
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("not connected"))?;
+
+            // Drive the event loop until a publish on our topic arrives. The
+            // subscribe is sent once, after the broker ack (ConnAck), so it
+            // survives a reconnect.
+            loop {
+                match eventloop.poll().await? {
+                    Event::Incoming(Packet::ConnAck(_)) => {
+                        client.subscribe(&self.topic, QoS::AtLeastOnce).await?;
+                        self.subscribed = true;
+                    }
+                    Event::Incoming(Packet::Publish(p)) => {
+                        if p.topic == self.topic {
+                            return TelemetryPayload::parse_reading(&self.machine_id, &p.payload);
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
 
         async fn disconnect(&mut self) -> anyhow::Result<()> {
@@ -120,6 +204,40 @@ pub mod mqtt {
             }
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod payload_tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_partial_payload() {
+        let json = br#"{"temperature": 88.5, "status": "warning"}"#;
+        let r = TelemetryPayload::parse_reading("press-01", json).unwrap();
+        assert_eq!(r.machine_id, "press-01");
+        assert_eq!(r.temperature, Some(88.5));
+        assert_eq!(r.status, MachineStatus::Warning);
+        assert_eq!(r.pressure, None);
+    }
+
+    #[test]
+    fn test_parse_defaults_to_online() {
+        let r = TelemetryPayload::parse_reading("m1", br#"{"rpm": 1200}"#).unwrap();
+        assert_eq!(r.status, MachineStatus::Online);
+        assert_eq!(r.rpm, Some(1200.0));
+    }
+
+    #[test]
+    fn test_parse_raw_map() {
+        let json = br#"{"raw": {"torque": 42.0, "amps": 3.1}}"#;
+        let r = TelemetryPayload::parse_reading("m1", json).unwrap();
+        assert_eq!(r.raw.get("torque"), Some(&42.0));
+    }
+
+    #[test]
+    fn test_parse_bad_json_errors() {
+        assert!(TelemetryPayload::parse_reading("m1", b"not json").is_err());
     }
 }
 

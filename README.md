@@ -112,6 +112,10 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
+| POST | `/api/v1/oee/machine` | plant | Register a machine `{machine_id, shift_length_secs, ideal_cycle_time_secs}` |
+| POST | `/api/v1/oee/event` | plant | Record a shop-floor event: `{kind:"stop", machine_id, reason, duration_secs, note?}` (reason ∈ six big losses), `{kind:"production", machine_id, good, scrap?}`, or `{kind:"start_shift", machine_id}` |
+| GET  | `/api/v1/oee/:machine` | plant | OEE report (A×P×Q + six-big-losses Pareto) for one machine |
+| GET  | `/api/v1/oee/plant` | plant | Planned-time-weighted plant OEE rollup + merged Pareto |
 | POST | `/api/v1/config/reload` | ✓ | Re-read `config.json`; apply PDCA knobs + scan_root live (embedder/embed_dim need restart — dim change corrupts vectors) |
 | POST | `/api/v1/goals` | ✓ | Ingest a prompt as a goal → `{goal:{id}}` |
 | POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force}` |
@@ -310,6 +314,7 @@ cargo build --features embed-onnx     # (on by default; falls back to RP if abse
 | `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection (feature `industrial`) |
 | `ingest` | Document classification/ingest pipeline (feature `ingest`) |
 | `inventory` | Stock tracker — SMA-30 forecast + human-in-loop reorder |
+| `oee` | Overall Equipment Effectiveness — `OeeShift`/`OeeBoard`, A×P×Q, six-big-losses Pareto, plant rollup |
 | `wiki` | `llmwiki` CLI fallback with recursive-grep offline retrieval |
 | `cli` | clap CLI (feature `cli`) |
 

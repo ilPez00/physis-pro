@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use axum::{
-    extract::{Query, Request, State},
+    extract::{Path, Query, Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::Response,
@@ -31,6 +31,11 @@ use physis_pro::mapper::OntologyMapper;
 use physis_pro::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
 use physis_pro::CoherenceSnapshot;
 
+use physis_pro::oee::{OeeBoard, OeeReport, PlantOee, StopReason};
+use physis_pro::maintenance::{
+    AnomalyScore, HealthBaseline, MaintenanceMonitor, RulEstimate, DEFAULT_SIGMA_THRESHOLD,
+};
+use physis_pro::industrial::{MachineReading, MachineStatus};
 use physis_pro::classify::{CellClassifier, CellScore};
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
@@ -109,6 +114,11 @@ struct AppCtx {
     /// stays fixed at startup: changing embed_dim live would corrupt every stored
     /// vector, and it's read lock-free on the hot path — see PREMORTEM P1.)
     scan_root: std::sync::RwLock<PathBuf>,
+    /// Plant-wide OEE board. Shop-floor equipment is shared infra, not per-tenant
+    /// reasoning state, so it lives here behind one mutex.
+    oee: Mutex<OeeBoard>,
+    /// Plant-wide predictive-maintenance monitor (health baselines + trends).
+    maintenance: Mutex<MaintenanceMonitor>,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -622,6 +632,220 @@ async fn coherence_register_handler(
     let label = Some(req.input.clone());
     let node_id = state.with_user(&uid, |s| s.core.register_node_vec_labeled(embedding, label));
     Json(CoherenceRegisterResponse { node_id })
+}
+
+// ── OEE / shop-floor ─────────────────────────────────────────────────────────
+// Plant-wide Overall Equipment Effectiveness. The board is shared infra, so all
+// of these touch `state.oee` (one mutex) and ignore the tenant header.
+
+#[derive(Deserialize)]
+struct OeeMachineRequest {
+    machine_id: String,
+    shift_length_secs: f32,
+    ideal_cycle_time_secs: f32,
+}
+
+#[derive(Serialize)]
+struct OkResponse {
+    ok: bool,
+    detail: String,
+}
+
+/// Register a machine / set its shift parameters.
+async fn oee_machine_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<OeeMachineRequest>,
+) -> Json<OkResponse> {
+    state
+        .oee
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .upsert_machine(&req.machine_id, req.shift_length_secs, req.ideal_cycle_time_secs);
+    Json(OkResponse { ok: true, detail: format!("machine {} registered", req.machine_id) })
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum OeeEvent {
+    /// A stoppage: `reason` is one of the six big losses
+    /// (`breakdown`, `setup_adjustment`, `minor_stop`, `reduced_speed`, `planned_stop`).
+    Stop {
+        machine_id: String,
+        reason: StopReason,
+        duration_secs: f32,
+        #[serde(default)]
+        note: String,
+    },
+    /// Produced parts: `good` pass quality, `scrap` are defects/rework.
+    Production {
+        machine_id: String,
+        good: u64,
+        #[serde(default)]
+        scrap: u64,
+    },
+    /// Start a fresh shift (zero counts + stops, keep config).
+    StartShift { machine_id: String },
+}
+
+/// Record a shop-floor event (stop / production / shift start).
+async fn oee_event_handler(
+    State(state): State<SharedState>,
+    Json(ev): Json<OeeEvent>,
+) -> (StatusCode, Json<OkResponse>) {
+    let mut board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
+    let (ok, detail) = match ev {
+        OeeEvent::Stop { machine_id, reason, duration_secs, note } => {
+            let ok = board.record_stop(&machine_id, reason, duration_secs, note);
+            (ok, format!("stop on {machine_id}"))
+        }
+        OeeEvent::Production { machine_id, good, scrap } => {
+            let ok = board.record_production(&machine_id, good, scrap);
+            (ok, format!("+{good} good, +{scrap} scrap on {machine_id}"))
+        }
+        OeeEvent::StartShift { machine_id } => {
+            let ok = board.start_shift(&machine_id);
+            (ok, format!("shift started on {machine_id}"))
+        }
+    };
+    let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
+    let detail = if ok { detail } else { format!("unknown machine ({detail})") };
+    (code, Json(OkResponse { ok, detail }))
+}
+
+/// OEE report for one machine.
+async fn oee_machine_report_handler(
+    State(state): State<SharedState>,
+    Path(machine_id): Path<String>,
+) -> Result<Json<OeeReport>, StatusCode> {
+    state
+        .oee
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .report(&machine_id)
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+/// Plant-wide OEE rollup + merged six-big-losses Pareto.
+async fn oee_plant_handler(State(state): State<SharedState>) -> Json<PlantOee> {
+    Json(state.oee.lock().unwrap_or_else(|e| e.into_inner()).plant())
+}
+
+// ── Predictive maintenance ───────────────────────────────────────────────────
+// Learn a per-machine health baseline from readings the operator marks healthy,
+// then score live readings for multivariate drift threshold rules miss. An
+// anomaly is registered as a coherence node so the dream loop can propose a
+// countermeasure — detect → cohere → dream, the auto-kaizen seam.
+
+/// A telemetry reading on the wire. Every metric optional; `status` is a string
+/// (`online`/`offline`/`warning`/`critical`).
+#[derive(Deserialize)]
+struct ReadingRequest {
+    machine_id: String,
+    temperature: Option<f32>,
+    pressure: Option<f32>,
+    vibration: Option<f32>,
+    rpm: Option<f32>,
+    status: Option<String>,
+    #[serde(default)]
+    raw: HashMap<String, f32>,
+    /// Optional anomaly cutoff in σ (default 3.0).
+    sigma_threshold: Option<f32>,
+    /// Optional RUL projection: forecast time until `rul_metric` hits `rul_limit`.
+    rul_metric: Option<String>,
+    rul_limit: Option<f64>,
+}
+
+impl ReadingRequest {
+    fn to_reading(&self) -> MachineReading {
+        let status = match self.status.as_deref().map(str::to_ascii_lowercase).as_deref() {
+            Some("offline") => MachineStatus::Offline,
+            Some("warning") => MachineStatus::Warning,
+            Some("critical") => MachineStatus::Critical,
+            _ => MachineStatus::Online,
+        };
+        MachineReading {
+            machine_id: self.machine_id.clone(),
+            timestamp: chrono::Utc::now(),
+            temperature: self.temperature,
+            pressure: self.pressure,
+            vibration: self.vibration,
+            rpm: self.rpm,
+            status,
+            raw: self.raw.clone(),
+        }
+    }
+}
+
+/// Fold a healthy reading into the machine's baseline (training).
+async fn maintenance_observe_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<ReadingRequest>,
+) -> Json<OkResponse> {
+    let reading = req.to_reading();
+    let n = {
+        let mut mon = state.maintenance.lock().unwrap_or_else(|e| e.into_inner());
+        mon.observe_healthy(&reading);
+        mon.baseline(&req.machine_id).map(|b| b.min_count()).unwrap_or(0)
+    };
+    Json(OkResponse { ok: true, detail: format!("baseline {} now {} samples", req.machine_id, n) })
+}
+
+#[derive(Serialize)]
+struct MaintenanceCheckResponse {
+    score: AnomalyScore,
+    /// RUL projection, present only when `rul_metric` + `rul_limit` were supplied
+    /// and the metric is trending toward the limit.
+    rul: Option<RulEstimate>,
+    /// Coherence node id, present when an anomaly was registered for the dream
+    /// loop to reason over (the auto-kaizen seam).
+    coherence_node_id: Option<String>,
+}
+
+/// Score a live reading; on anomaly, register it as a coherence node.
+async fn maintenance_check_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<ReadingRequest>,
+) -> Result<Json<MaintenanceCheckResponse>, StatusCode> {
+    let reading = req.to_reading();
+    let threshold = req.sigma_threshold.unwrap_or(DEFAULT_SIGMA_THRESHOLD);
+
+    let (score, rul) = {
+        let mut mon = state.maintenance.lock().unwrap_or_else(|e| e.into_inner());
+        let score = mon.check(&reading, threshold).ok_or(StatusCode::NOT_FOUND)?;
+        let rul = match (&req.rul_metric, req.rul_limit) {
+            (Some(m), Some(limit)) => mon.rul(&req.machine_id, m, limit),
+            _ => None,
+        };
+        (score, rul)
+    };
+
+    // Auto-kaizen seam: an anomaly becomes a coherence node so the dream loop
+    // already sees the defect and can propose a countermeasure.
+    let coherence_node_id = if score.is_anomaly {
+        let text = score.describe();
+        let mut s = state.lock();
+        Some(s.core.register_node_from_text(&text, state.shared.embedder.as_ref()))
+    } else {
+        None
+    };
+
+    Ok(Json(MaintenanceCheckResponse { score, rul, coherence_node_id }))
+}
+
+/// Health baseline summary for one machine.
+async fn maintenance_baseline_handler(
+    State(state): State<SharedState>,
+    Path(machine_id): Path<String>,
+) -> Result<Json<HealthBaseline>, StatusCode> {
+    state
+        .maintenance
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .baseline(&machine_id)
+        .cloned()
+        .map(Json)
+        .ok_or(StatusCode::NOT_FOUND)
 }
 
 async fn context_filter_handler(
@@ -1542,6 +1766,8 @@ async fn main() {
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
+        oee: Mutex::new(OeeBoard::new()),
+        maintenance: Mutex::new(MaintenanceMonitor::new(256)),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -1647,6 +1873,13 @@ async fn main() {
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
         .route("/api/v1/coherence/register", post(coherence_register_handler))
+        .route("/api/v1/oee/machine", post(oee_machine_handler))
+        .route("/api/v1/oee/event", post(oee_event_handler))
+        .route("/api/v1/oee/plant", get(oee_plant_handler))
+        .route("/api/v1/oee/:machine", get(oee_machine_report_handler))
+        .route("/api/v1/maintenance/observe", post(maintenance_observe_handler))
+        .route("/api/v1/maintenance/check", post(maintenance_check_handler))
+        .route("/api/v1/maintenance/:machine", get(maintenance_baseline_handler))
         .route("/api/v1/context/filter", post(context_filter_handler))
         .route("/api/v1/compress/logs", post(compress_logs_handler))
         .route("/api/v1/goals", post(ingest_prompt_handler))
