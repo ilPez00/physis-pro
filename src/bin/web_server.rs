@@ -43,7 +43,7 @@ use physis_pro::ai::onnx_worker::OnnxHolon;
 use physis_pro::ai::provider::{ProviderCascade, ProviderConfig, Message};
 use physis_pro::gantt::{compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput};
 use physis_pro::rachmaninov::RachmaninovHolon;
-use physis_pro::life_os::tracker::{DriftReport, LifeOSGoal, LifeOSTracker};
+use physis_pro::life_os::tracker::{Charge, DriftReport, LifeOSGoal, LifeOSTracker, TodayPlan};
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -1238,6 +1238,42 @@ async fn lifeos_status_handler(
     })
 }
 
+#[derive(Deserialize)]
+struct ChargeRequest {
+    charge: Charge,
+}
+
+/// Set the current bioenergetic charge (Praxis derives it from check-ins).
+async fn lifeos_charge_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<ChargeRequest>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let db = state.db.clone();
+    state.with_user(&uid, |s| {
+        s.lifeos.set_charge(req.charge);
+        if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+    });
+    Json(serde_json::json!({ "ok": true }))
+}
+
+/// Charge-governed "today": goals matched to current charge + a bioenergetic
+/// countermeasure when depleted/drifting. The keystone of the bioenergetics↔
+/// lifeos merge.
+async fn lifeos_today_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<TodayPlan> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let RuntimeState { lifeos, scheduler, .. } = s;
+        lifeos.apply_to_scheduler(scheduler);
+        scheduler.recompute();
+        Json(lifeos.today(scheduler))
+    })
+}
+
 #[derive(Serialize)]
 struct ConfigReloadResponse {
     reloaded: bool,
@@ -2215,6 +2251,8 @@ async fn main() {
         .route("/api/v1/lifeos/goal", post(lifeos_goal_handler))
         .route("/api/v1/lifeos/progress", post(lifeos_progress_handler))
         .route("/api/v1/lifeos/status", get(lifeos_status_handler))
+        .route("/api/v1/lifeos/charge", post(lifeos_charge_handler))
+        .route("/api/v1/lifeos/today", get(lifeos_today_handler))
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))
