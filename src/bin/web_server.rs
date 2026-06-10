@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tokio::sync::Mutex as AsyncMutex;
 
 use axum::{
     extract::{Path, Query, Request, State},
@@ -44,7 +43,7 @@ use physis_pro::ai::onnx_worker::OnnxHolon;
 use physis_pro::ai::provider::{ProviderCascade, ProviderConfig, Message};
 use physis_pro::gantt::{compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput};
 use physis_pro::rachmaninov::RachmaninovHolon;
-use physis_pro::life_os::tracker::LifeOSTracker;
+use physis_pro::life_os::tracker::{DriftReport, LifeOSGoal, LifeOSTracker};
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -82,6 +81,7 @@ struct RuntimeState {
     dreams: DreamEngine,
     goals: Vec<Goal>,
     scheduler: GanttScheduler,
+    lifeos: LifeOSTracker,
 }
 
 impl RuntimeState {
@@ -100,6 +100,7 @@ impl RuntimeState {
             dreams: DreamEngine::new(),
             goals: Vec::new(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
+            lifeos: LifeOSTracker::new(),
         }
     }
 }
@@ -125,9 +126,6 @@ struct AppCtx {
     oee: Mutex<OeeBoard>,
     /// Plant-wide predictive-maintenance monitor (health baselines + trends).
     maintenance: Mutex<MaintenanceMonitor>,
-    /// LifeOS tracker for syncing Praxis goals + Agora engagement.
-    /// Lives behind its own async Mutex so async sync doesn't block the state lock.
-    tracker: AsyncMutex<LifeOSTracker>,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -1151,6 +1149,64 @@ async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -> Js
     Json(compute_schedule(&req.tasks, &req.goal_progress, req.domain.as_deref().unwrap_or("abstract")))
 }
 
+// ── LifeOS (native goal/habit tracking) ──────────────────────────────────────
+// Goals live in-engine (per tenant) — physis owns them rather than pulling from
+// an external Praxis/Agora service. Push goals in, poll status/drift out.
+
+/// Insert or replace a LifeOS goal in the caller's tenant.
+async fn lifeos_goal_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(goal): Json<LifeOSGoal>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let id = goal.id.clone();
+    let replaced = state.with_user(&uid, |s| s.lifeos.upsert_goal(goal));
+    Json(serde_json::json!({ "status": "ok", "id": id, "replaced": replaced }))
+}
+
+#[derive(Deserialize)]
+struct LifeOsProgressRequest {
+    id: String,
+    progress: f32,
+}
+
+/// Update a goal's progress.
+async fn lifeos_progress_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<LifeOsProgressRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let uid = user_key(&headers);
+    let ok = state.with_user(&uid, |s| s.lifeos.update_progress(&req.id, req.progress));
+    let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
+    (code, Json(serde_json::json!({ "ok": ok, "id": req.id })))
+}
+
+#[derive(Serialize)]
+struct LifeOsStatus {
+    goals: Vec<LifeOSGoal>,
+    drift: DriftReport,
+}
+
+/// Current goals + schedule-drift snapshot (replaces the old outbound push).
+async fn lifeos_status_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<LifeOsStatus> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        // Reflect current goals in the schedule before reporting drift.
+        let RuntimeState { lifeos, scheduler, .. } = s;
+        lifeos.apply_to_scheduler(scheduler);
+        scheduler.recompute();
+        Json(LifeOsStatus {
+            goals: lifeos.goals.clone(),
+            drift: lifeos.drift_report(scheduler),
+        })
+    })
+}
+
 #[derive(Serialize)]
 struct ConfigReloadResponse {
     reloaded: bool,
@@ -1897,10 +1953,6 @@ async fn main() {
 
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
     let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    // Empty by default → the tick's LifeOS sync/drift-push is disabled unless the
-    // operator sets these. Avoids hammering localhost:9090/9091 every 10s in prod.
-    let praxis_url = std::env::var("PHYSIS_PRAXIS_URL").unwrap_or_default();
-    let agora_url = std::env::var("PHYSIS_AGORA_URL").unwrap_or_default();
 
     // ── Security gate (PREMORTEM.md P6) ──────────────────────────────────
     // A non-loopback bind with no token would publish an unauthenticated API
@@ -1958,12 +2010,12 @@ async fn main() {
             dreams,
             goals: Vec::new(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
+            lifeos: LifeOSTracker::new(),
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
         oee: Mutex::new(OeeBoard::new()),
         maintenance: Mutex::new(MaintenanceMonitor::new(256)),
-        tracker: AsyncMutex::new(LifeOSTracker::new()),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -1980,55 +2032,27 @@ async fn main() {
     let onnx_clone = onnx.clone();
     let rachmaninov_clone = rachmaninov.clone();
     let state_clone_2 = state.clone();
-    let praxis_url_clone = praxis_url.clone();
-    let agora_url_clone = agora_url.clone();
-    // 2. PDCA/Rachmaninov Tick Cycle (every 10s)
+    // 2. PDCA/Rachmaninov Tick Cycle (every 10s). Fully self-contained now —
+    // LifeOS goals live in-engine, so a tick is pure-sync: mirror the native
+    // goals into the schedule, recompute CPM, and log Gantt-aware dreams. No
+    // outbound HTTP to Praxis/Agora.
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
 
-            // Phase 1: Holarchy tick + scheduler recompute (sync, no await)
-            let schedule_health;
-            {
-                let mut s = state_clone_2.lock();
-                let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
-                s.core.tick_holarchy(&onnx_clone, &mut rach);
-                s.scheduler.recompute();
-                schedule_health = s.scheduler.schedule_health();
-                // Gantt-aware dreaming
-                if schedule_health < 0.7 {
-                    let proposals = s.scheduler.dream_proposals();
-                    for prop in proposals {
-                        log::info!("Gantt dream: {}", prop.description);
-                    }
+            let mut s = state_clone_2.lock();
+            let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
+            s.core.tick_holarchy(&onnx_clone, &mut rach);
+            // Mirror native LifeOS goals into the schedule, then recompute.
+            // (split borrow: take lifeos out by ref, scheduler by mut)
+            let RuntimeState { lifeos, scheduler, .. } = &mut *s;
+            lifeos.apply_to_scheduler(scheduler);
+            scheduler.recompute();
+            if scheduler.schedule_health() < 0.7 {
+                for prop in scheduler.dream_proposals() {
+                    log::info!("Gantt dream: {}", prop.description);
                 }
-            } // state + rach guards dropped
-
-            // Phase 2: LifeOS sync + drift push (async, no state lock held)
-            let mut do_sync = false;
-            if !praxis_url_clone.is_empty() {
-                let mut tracker = state_clone_2.tracker.lock().await;
-                let _ = tracker.sync_external_data(&praxis_url_clone, &agora_url_clone).await;
-                do_sync = true;
-            }
-
-            // Phase 3: Apply tracker results to scheduler (sync back)
-            if do_sync {
-                let tracker = state_clone_2.tracker.lock().await;
-                let mut s = state_clone_2.lock();
-                tracker.apply_to_scheduler(&mut s.scheduler);
-            }
-
-            // Phase 4: Push drift notifications (no state lock)
-            if !praxis_url_clone.is_empty() && (schedule_health < 0.7 || schedule_health.is_nan()) {
-                let tracker = state_clone_2.tracker.lock().await;
-                let at_risk: Vec<String> = state_clone_2.lock().scheduler
-                    .tasks_approaching_late_finish(3600)
-                    .iter().map(|t| t.id.clone()).collect();
-                let _ = tracker.push_schedule_drift(
-                    &praxis_url_clone, &agora_url_clone, &at_risk, schedule_health,
-                ).await;
             }
         }
     });
@@ -2142,6 +2166,9 @@ async fn main() {
         .route("/api/v1/schedule/add-task", post(schedule_add_task_handler))
         .route("/api/v1/schedule/recompute", post(schedule_recompute_handler))
         .route("/api/v1/schedule/compute", post(schedule_compute_handler))
+        .route("/api/v1/lifeos/goal", post(lifeos_goal_handler))
+        .route("/api/v1/lifeos/progress", post(lifeos_progress_handler))
+        .route("/api/v1/lifeos/status", get(lifeos_status_handler))
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))
