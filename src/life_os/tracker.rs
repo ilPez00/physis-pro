@@ -1,5 +1,12 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 use serde::{Deserialize, Serialize};
 use reqwest::Client;
+use serde_json::json;
+
+use crate::gantt::GanttScheduler;
+use crate::graph::RawNodeKey;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct LifeOSGoal {
@@ -53,5 +60,51 @@ impl LifeOSTracker {
             .map_err(|e| e.to_string())?;
             
         Ok(())
+    }
+
+    /// Create Gantt tasks for any synced goals not already in the scheduler.
+    pub fn apply_to_scheduler(&self, scheduler: &mut GanttScheduler) {
+        for goal in &self.goals {
+            if !scheduler.has_task(&goal.id) {
+                let mut hasher = DefaultHasher::new();
+                goal.id.hash(&mut hasher);
+                let node_key = RawNodeKey { data: hasher.finish() };
+                // Default 1-hour duration; domain will adjust on recompute
+                scheduler.add_task(
+                    node_key,
+                    goal.title.clone(),
+                    3600.0,
+                    0.0,
+                    0,
+                    vec![],
+                );
+            }
+        }
+    }
+
+    /// Best-effort push of schedule drift notifications to Praxis and Agora.
+    pub async fn push_schedule_drift(
+        &self,
+        praxis_url: &str,
+        agora_url: &str,
+        at_risk_tasks: &[String],
+        health: f32,
+    ) {
+        let payload = json!({
+            "type": "schedule_drift",
+            "schedule_health": health,
+            "at_risk_tasks": at_risk_tasks,
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+        });
+        let _ = self.client
+            .post(format!("{}/api/v1/notifications", praxis_url))
+            .json(&payload)
+            .send()
+            .await;
+        let _ = self.client
+            .post(format!("{}/api/v1/events/schedule", agora_url))
+            .json(&payload)
+            .send()
+            .await;
     }
 }

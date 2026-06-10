@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Mutex as AsyncMutex;
 
 use axum::{
     extract::{Path, Query, Request, State},
@@ -41,7 +42,9 @@ use physis_pro::classify::{CellClassifier, CellScore};
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
 use physis_pro::ai::provider::{ProviderCascade, ProviderConfig, Message};
+use physis_pro::gantt::{compute_trajectory, AbstractDomain, GanttScheduler};
 use physis_pro::rachmaninov::RachmaninovHolon;
+use physis_pro::life_os::tracker::LifeOSTracker;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -78,6 +81,7 @@ struct RuntimeState {
     actor: PDCActor,
     dreams: DreamEngine,
     goals: Vec<Goal>,
+    scheduler: GanttScheduler,
 }
 
 impl RuntimeState {
@@ -95,6 +99,7 @@ impl RuntimeState {
             ),
             dreams: DreamEngine::new(),
             goals: Vec::new(),
+            scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
         }
     }
 }
@@ -120,6 +125,9 @@ struct AppCtx {
     oee: Mutex<OeeBoard>,
     /// Plant-wide predictive-maintenance monitor (health baselines + trends).
     maintenance: Mutex<MaintenanceMonitor>,
+    /// LifeOS tracker for syncing Praxis goals + Agora engagement.
+    /// Lives behind its own async Mutex so async sync doesn't block the state lock.
+    tracker: AsyncMutex<LifeOSTracker>,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -1028,6 +1036,104 @@ async fn pdca_stats_handler(
     Json(state.with_user(&uid, |s| s.actor.stats(&s.goals)))
 }
 
+#[derive(Deserialize)]
+struct AddTaskRequest {
+    task_id: String,
+    duration_secs: f64,
+    #[serde(default)]
+    dependencies: Vec<String>,
+}
+
+async fn schedule_status_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let health = s.scheduler.schedule_health();
+        let tasks: Vec<serde_json::Value> = s.scheduler.tasks.iter().map(|t| {
+            serde_json::json!({
+                "id": t.id,
+                "name": t.name,
+                "duration": t.planned_duration_secs,
+                "early_start": t.early_start,
+                "early_finish": t.early_finish,
+                "late_start": t.late_start,
+                "late_finish": t.late_finish,
+                "float": t.float,
+                "critical": t.on_critical_path,
+                "progress": t.progress,
+            })
+        }).collect();
+        let critical_path: Vec<&str> = s.scheduler.tasks.iter()
+            .filter(|t| t.on_critical_path).map(|t| t.id.as_str()).collect();
+        let at_risk: Vec<&str> = s.scheduler.tasks_approaching_late_finish(3600)
+            .iter().map(|t| t.id.as_str()).collect();
+        Json(serde_json::json!({
+            "schedule_health": health,
+            "task_count": tasks.len(),
+            "tasks": tasks,
+            "critical_path": critical_path,
+            "at_risk_tasks": at_risk,
+        }))
+    })
+}
+
+async fn schedule_cross_correlate_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let progress_pairs: Vec<(String, f32)> = s.goals.iter()
+            .map(|g| (g.id.clone(), g.progress)).collect();
+        let r = s.scheduler.cross_correlate(&progress_pairs);
+        Json(serde_json::json!({
+            "pearson_r": r,
+            "interpretation": if r.abs() > 0.7 {
+                "strong correlation"
+            } else if r.abs() > 0.4 {
+                "moderate correlation"
+            } else {
+                "weak or no correlation"
+            }
+        }))
+    })
+}
+
+async fn schedule_add_task_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<AddTaskRequest>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        req.task_id.hash(&mut hasher);
+        let node_key = physis_pro::graph::RawNodeKey { data: hasher.finish() };
+        let deps: Vec<physis_pro::graph::RawNodeKey> = req.dependencies.iter().map(|d| {
+            let mut h = DefaultHasher::new();
+            d.hash(&mut h);
+            physis_pro::graph::RawNodeKey { data: h.finish() }
+        }).collect();
+        s.scheduler.add_task(node_key, req.task_id.clone(), req.duration_secs as f32, 0.0, 0, deps);
+        Json(serde_json::json!({ "status": "ok", "task_id": req.task_id }))
+    })
+}
+
+async fn schedule_recompute_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        s.scheduler.recompute();
+        Json(serde_json::json!({ "schedule_health": s.scheduler.schedule_health() }))
+    })
+}
+
 #[derive(Serialize)]
 struct ConfigReloadResponse {
     reloaded: bool,
@@ -1145,10 +1251,15 @@ async fn holarchy_snapshot_handler(
 
 async fn holarchy_trajectory_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<physis_pro::gantt::Trajectory> {
-    let s = state.lock();
-    let trajectory = physis_pro::gantt::GanttHolon::compute_trajectory(&s.core.holarchy);
-    Json(trajectory)
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let goals_progress: Vec<(String, f32)> = s.goals.iter()
+            .map(|g| (g.id.clone(), g.progress))
+            .collect();
+        Json(compute_trajectory(&s.scheduler, &goals_progress))
+    })
 }
 
 #[derive(Serialize)]
@@ -1769,6 +1880,8 @@ async fn main() {
 
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
     let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let praxis_url = std::env::var("PHYSIS_PRAXIS_URL").unwrap_or_else(|_| "http://localhost:9090".to_string());
+    let agora_url = std::env::var("PHYSIS_AGORA_URL").unwrap_or_else(|_| "http://localhost:9091".to_string());
 
     // ── Security gate (PREMORTEM.md P6) ──────────────────────────────────
     // A non-loopback bind with no token would publish an unauthenticated API
@@ -1825,11 +1938,13 @@ async fn main() {
             actor,
             dreams,
             goals: Vec::new(),
+            scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
         oee: Mutex::new(OeeBoard::new()),
         maintenance: Mutex::new(MaintenanceMonitor::new(256)),
+        tracker: AsyncMutex::new(LifeOSTracker::new()),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -1846,14 +1961,56 @@ async fn main() {
     let onnx_clone = onnx.clone();
     let rachmaninov_clone = rachmaninov.clone();
     let state_clone_2 = state.clone();
-    // 2. PDCA/Rachmaninov Tick Cycle
+    let praxis_url_clone = praxis_url.clone();
+    let agora_url_clone = agora_url.clone();
+    // 2. PDCA/Rachmaninov Tick Cycle (every 10s)
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
-            let mut s = state_clone_2.lock();
-            let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
-            s.core.tick_holarchy(&onnx_clone, &mut rach);
+
+            // Phase 1: Holarchy tick + scheduler recompute (sync, no await)
+            let schedule_health;
+            {
+                let mut s = state_clone_2.lock();
+                let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
+                s.core.tick_holarchy(&onnx_clone, &mut rach);
+                s.scheduler.recompute();
+                schedule_health = s.scheduler.schedule_health();
+                // Gantt-aware dreaming
+                if schedule_health < 0.7 {
+                    let proposals = s.scheduler.dream_proposals();
+                    for prop in proposals {
+                        log::info!("Gantt dream: {}", prop.description);
+                    }
+                }
+            } // state + rach guards dropped
+
+            // Phase 2: LifeOS sync + drift push (async, no state lock held)
+            let mut do_sync = false;
+            if !praxis_url_clone.is_empty() {
+                let mut tracker = state_clone_2.tracker.lock().await;
+                let _ = tracker.sync_external_data(&praxis_url_clone, &agora_url_clone).await;
+                do_sync = true;
+            }
+
+            // Phase 3: Apply tracker results to scheduler (sync back)
+            if do_sync {
+                let tracker = state_clone_2.tracker.lock().await;
+                let mut s = state_clone_2.lock();
+                tracker.apply_to_scheduler(&mut s.scheduler);
+            }
+
+            // Phase 4: Push drift notifications (no state lock)
+            if !praxis_url_clone.is_empty() && (schedule_health < 0.7 || schedule_health.is_nan()) {
+                let tracker = state_clone_2.tracker.lock().await;
+                let at_risk: Vec<String> = state_clone_2.lock().scheduler
+                    .tasks_approaching_late_finish(3600)
+                    .iter().map(|t| t.id.clone()).collect();
+                let _ = tracker.push_schedule_drift(
+                    &praxis_url_clone, &agora_url_clone, &at_risk, schedule_health,
+                ).await;
+            }
         }
     });
 
@@ -1961,6 +2118,10 @@ async fn main() {
         .route("/api/v1/holarchy/snapshot", get(holarchy_snapshot_handler))
         .route("/api/v1/holarchy/trajectory", get(holarchy_trajectory_handler))
         .route("/api/v1/holarchy/graph", get(holarchy_graph_handler))
+        .route("/api/v1/schedule/status", get(schedule_status_handler))
+        .route("/api/v1/schedule/cross-correlate", get(schedule_cross_correlate_handler))
+        .route("/api/v1/schedule/add-task", post(schedule_add_task_handler))
+        .route("/api/v1/schedule/recompute", post(schedule_recompute_handler))
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))

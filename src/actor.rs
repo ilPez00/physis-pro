@@ -1,45 +1,29 @@
-//! PDCA (Plan-Do-Check-Act) cycle orchestrator for driving goals through
-//! iterative state transitions. Tracks experiences, detects stagnation,
-//! and produces plans with measurable progress.
+use std::collections::HashMap;
 
 use serde::Serialize;
 
+use crate::gantt::GanttScheduler;
 use crate::models::{cosine_dist, cosine_sim, Experience, Goal, Score};
 
-/// Aggregate statistics from the PDCA cycle.
 #[derive(Debug, Clone, Serialize)]
 pub struct PDCAStats {
-    /// Number of actions executed across all goals.
     pub total_actions: usize,
-    /// Number of goals being tracked.
     pub total_goals: usize,
-    /// Average grade across all experiences.
     pub avg_grade: f64,
-    /// Mean progress across all goals (0.0–1.0).
     pub mean_progress: f64,
-    /// Number of goals that have stalled below the progress threshold.
     pub stagnant_count: usize,
+    pub schedule_correlation: f32,
+    pub at_risk_tasks: Vec<String>,
 }
 
-/// Drives the Plan-Do-Check-Act cycle over a set of vector-space goals.
-///
-/// Each action produces an Experience (before/after + delta), stagnation is
-/// detected when recent progress stays below `config_stagnant_threshold`.
 #[derive(Debug)]
 pub struct PDCActor {
-    /// History of all experiences across all goals.
     pub experiences: Vec<Experience>,
-    /// Progress threshold below which a goal is considered stagnant.
     pub config_stagnant_threshold: f32,
-    /// Number of recent actions to evaluate for stagnation.
     pub config_stagnant_window: usize,
 }
 
 impl PDCActor {
-    /// Create a new PDCActor with stagnation detection parameters.
-    ///
-    /// `stagnant_threshold` — progress must stay under this fraction to flag.
-    /// `stagnant_window` — number of recent actions to inspect.
     pub fn new(stagnant_threshold: f32, stagnant_window: usize) -> Self {
         Self {
             experiences: Vec::new(),
@@ -48,7 +32,6 @@ impl PDCActor {
         }
     }
 
-    /// Plan — return goals sorted by priority (lowest progress first, then stagnant).
     pub fn plan<'a>(&self, goals: &'a [Goal]) -> Vec<&'a Goal> {
         let mut sorted: Vec<&Goal> = goals.iter().collect();
         sorted.sort_by(|a, b| {
@@ -58,7 +41,27 @@ impl PDCActor {
         sorted
     }
 
-    /// Do — record a state transition for a goal, returning the new Experience.
+    pub fn plan_with_schedule<'a>(
+        &self,
+        goals: &'a [Goal],
+        schedule_priorities: Option<&HashMap<String, f32>>,
+    ) -> Vec<&'a Goal> {
+        let priorities = match schedule_priorities {
+            Some(p) => p,
+            None => return self.plan(goals),
+        };
+
+        let mut scored: Vec<(&Goal, f32)> = goals.iter().map(|g| {
+            let schedule_priority = priorities.get(&g.id).copied().unwrap_or(0.0);
+            let progress_score = 1.0 - g.progress;
+            (g, progress_score + schedule_priority)
+        }).collect();
+
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(3);
+        scored.into_iter().map(|(g, _)| g).collect()
+    }
+
     pub fn do_action(&mut self, goal_id: &str, before: Vec<f32>, after: Vec<f32>) -> Experience {
         let exp = Experience::new(
             goal_id,
@@ -72,7 +75,6 @@ impl PDCActor {
         exp
     }
 
-    /// Check — assign a grade to an experience by ID. Returns false if not found.
     pub fn check(&mut self, experience_id: &str, grade: Score) -> bool {
         if let Some(exp) = self.experiences.iter_mut().find(|e| e.id == experience_id) {
             exp.grade = grade;
@@ -82,7 +84,6 @@ impl PDCActor {
         }
     }
 
-    /// Act — update goal progress based on recent experience grades and vector deltas.
     pub fn act(&self, experiences: &[Experience], goals: &mut [Goal]) -> Vec<String> {
         let mut adjustments = Vec::new();
 
@@ -99,7 +100,6 @@ impl PDCActor {
             let avg_grade: Score = relevant.iter().map(|e| e.grade).sum::<Score>() / relevant.len() as Score;
             goal.progress = (goal.progress + avg_grade * 0.1).clamp(0.0, 1.0);
 
-            // Progress also measured by cosine distance to latest experience
             if let Some(latest) = relevant.last() {
                 let sim = cosine_sim(&goal.embedding, &latest.after);
                 let vec_progress = 1.0 - cosine_dist(&goal.embedding, &latest.after);
@@ -111,8 +111,33 @@ impl PDCActor {
         adjustments
     }
 
-    /// Aggregate PDCA statistics: action count, average grade, progress, stagnation.
+    pub fn act_with_schedule(
+        &self,
+        experiences: &[Experience],
+        goals: &mut [Goal],
+        scheduler_updates: Option<&mut GanttScheduler>,
+    ) -> Vec<String> {
+        let adjustments = self.act(experiences, goals);
+
+        if let Some(sched) = scheduler_updates {
+            for goal in goals.iter() {
+                sched.update_task_progress(&goal.id, goal.progress);
+            }
+            sched.recompute();
+        }
+
+        adjustments
+    }
+
     pub fn stats(&self, goals: &[Goal]) -> PDCAStats {
+        self.stats_with_schedule(goals, None)
+    }
+
+    pub fn stats_with_schedule(
+        &self,
+        goals: &[Goal],
+        scheduler: Option<&GanttScheduler>,
+    ) -> PDCAStats {
         let grades: Vec<Score> = self.experiences.iter().map(|e| e.grade).collect();
         let avg_grade = if grades.is_empty() {
             0.0
@@ -127,6 +152,18 @@ impl PDCActor {
         };
 
         let stagnant = self.detect_stagnant(goals);
+        let schedule_correlation = scheduler.map_or(0.0, |s| {
+            let goal_progress: Vec<(String, f32)> = goals.iter()
+                .map(|g| (g.id.clone(), g.progress))
+                .collect();
+            s.cross_correlate(&goal_progress)
+        });
+        let at_risk_tasks = scheduler.map_or(Vec::new(), |s| {
+            s.tasks_approaching_late_finish(0)
+                .iter()
+                .map(|t| t.id.clone())
+                .collect()
+        });
 
         PDCAStats {
             total_actions: self.experiences.len(),
@@ -134,10 +171,12 @@ impl PDCActor {
             avg_grade: avg_grade as f64,
             mean_progress: mean_progress as f64,
             stagnant_count: stagnant.len(),
+            schedule_correlation,
+            at_risk_tasks,
         }
     }
 
-    fn detect_stagnant(&self, goals: &[Goal]) -> Vec<String> {
+    pub fn detect_stagnant(&self, goals: &[Goal]) -> Vec<String> {
         let mut stagnant = Vec::new();
         let window = self.config_stagnant_window;
         let threshold = self.config_stagnant_threshold;
@@ -166,7 +205,22 @@ impl PDCActor {
         stagnant
     }
 
-    /// Returns true when at least one goal is both incomplete and not stagnant.
+    pub fn detect_stagnant_with_schedule(
+        &self,
+        goals: &[Goal],
+        scheduler: Option<&GanttScheduler>,
+    ) -> Vec<String> {
+        let mut stagnant = self.detect_stagnant(goals);
+
+        if let Some(sched) = scheduler {
+            for task in sched.tasks_approaching_late_finish(0) {
+                stagnant.push(task.id.clone());
+            }
+        }
+
+        stagnant
+    }
+
     pub fn is_working(&self, goals: &[Goal]) -> bool {
         let stagnant = self.detect_stagnant(goals);
         goals.iter().any(|g| g.progress < 1.0 && !stagnant.contains(&g.id))
@@ -176,6 +230,7 @@ impl PDCActor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gantt::{AbstractDomain, GanttScheduler};
 
     fn test_goal(progress: f32) -> Goal {
         let embedding = vec![0.1, 0.2, 0.3, 0.4];
@@ -200,6 +255,36 @@ mod tests {
     }
 
     #[test]
+    fn test_plan_with_schedule_no_scheduler() {
+        let actor = PDCActor::new(0.2, 3);
+        let goals = vec![test_goal(0.0), test_goal(0.5)];
+        let planned = actor.plan_with_schedule(&goals, None);
+        assert_eq!(planned.len(), 2);
+    }
+
+    #[test]
+    fn test_act_with_schedule_updates_scheduler() {
+        let mut actor = PDCActor::new(0.2, 3);
+        let mut goals = vec![test_goal(0.0)];
+        let mut scheduler = GanttScheduler::new(Box::new(AbstractDomain));
+
+        let exp = actor.do_action(&goals[0].id, vec![0.0; 4], vec![0.2, 0.3, 0.4, 0.5]);
+        actor.check(&exp.id, 0.8);
+
+        let _ = actor.act_with_schedule(&actor.experiences, &mut goals, Some(&mut scheduler));
+    }
+
+    #[test]
+    fn test_stats_with_schedule() {
+        let actor = PDCActor::new(0.2, 3);
+        let goals = vec![test_goal(0.3)];
+        let scheduler = GanttScheduler::new(Box::new(AbstractDomain));
+
+        let stats = actor.stats_with_schedule(&goals, Some(&scheduler));
+        assert_eq!(stats.total_goals, 1);
+    }
+
+    #[test]
     fn test_is_working_with_incomplete_goal() {
         let actor = PDCActor::new(0.3, 3);
         let goals = vec![test_goal(0.0)];
@@ -221,7 +306,7 @@ mod tests {
             let exp = actor.do_action(&goal.id, vec![0.0, 0.0, 0.0, 0.0], vec![0.1, 0.1, 0.1, 0.1]);
             actor.check(&exp.id, 0.1);
         }
-        assert!(!actor.is_working(&[goal])); // stagnant = not working
+        assert!(!actor.is_working(&[goal]));
     }
 
     #[test]

@@ -17,13 +17,17 @@ mod mcp_impl {
     use serde_json::json;
     use serde_json::Value as JsonValue;
 
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
     use crate::actor::PDCActor;
     use crate::classify::CellClassifier;
     use crate::config::{OntologyLoader, PhysisConfig};
     use crate::dream::DreamEngine;
     use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
+    use crate::gantt::{GanttScheduler, AbstractDomain};
     use crate::mapper::OntologyMapper;
-    use crate::models::Goal;
+    use crate::models::{Goal, Experience};
 
     /// Shared state served by the MCP server.
     pub struct PhysisContext {
@@ -34,6 +38,8 @@ mod mcp_impl {
         pub goals: Vec<Goal>,
         pub embedder: Box<dyn VectorEmbed>,
         pub classifier: CellClassifier,
+        pub scheduler: GanttScheduler,
+        pub experiences: Vec<Experience>,
     }
 
     /// Thread-safe shared reference.
@@ -61,6 +67,8 @@ mod mcp_impl {
                 goals: Vec::new(),
                 embedder,
                 classifier,
+                scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
+                experiences: Vec::new(),
             }));
             PhysisMcpServer { ctx }
         }
@@ -208,6 +216,23 @@ mod mcp_impl {
                             "path": {"type": "string", "description": "Directory to scan (default: data dir)"}
                         }, "required": []
                     })),
+                    tool("physis_gantt_schedule", "Manage the Gantt schedule — add tasks, recompute CPM, get status", json!({
+                        "type": "object", "properties": {
+                            "action": {"type": "string", "enum": ["add_task", "recompute", "status"], "description": "Action to perform"},
+                            "task_id": {"type": "string", "description": "Task ID (used with add_task)"},
+                            "duration_secs": {"type": "number", "description": "Duration in seconds (used with add_task)"},
+                            "dependencies": {"type": "array", "items": {"type": "string"}, "description": "Task dependency IDs (used with add_task)"}
+                        }, "required": ["action"]
+                    })),
+                    tool("physis_gantt_cross_correlate", "Cross-correlate PDCA progress with schedule adherence", json!({
+                        "type": "object", "properties": {}, "required": []
+                    })),
+                    tool("physis_dream_advanced", "Generate advanced dreams with schedule/countermeasure context", json!({
+                        "type": "object", "properties": {
+                            "count": {"type": "integer", "description": "Number of dreams", "default": 5},
+                            "context": {"type": "string", "enum": ["schedule", "countermeasure", "interpolation", "mixed"], "description": "Dream context type", "default": "mixed"}
+                        }, "required": []
+                    })),
                 ],
             })
         }
@@ -278,7 +303,18 @@ mod mcp_impl {
 
                 "physis_pdca_plan" => {
                     let ctx = self.ctx.lock().await;
-                    let planned = ctx.actor.plan(&ctx.goals);
+                    let priority_map: Option<std::collections::HashMap<String, f32>> = {
+                        let cp: Vec<&str> = ctx.scheduler.tasks.iter()
+                            .filter(|t| t.on_critical_path)
+                            .map(|t| t.id.as_str())
+                            .collect();
+                        if cp.is_empty() { None } else {
+                            let mut m = std::collections::HashMap::new();
+                            for t in cp { m.insert(t.to_string(), 1.0); }
+                            Some(m)
+                        }
+                    };
+                    let planned = ctx.actor.plan_with_schedule(&ctx.goals, priority_map.as_ref());
                     let goals: Vec<JsonValue> = planned.iter().map(|g| {
                         json!({"id": g.id, "progress": g.progress})
                     }).collect();
@@ -299,15 +335,21 @@ mod mcp_impl {
                     let exp_id = ctx.actor.do_action(&goal_id, before, state_vector).id;
                     let exps = ctx.actor.experiences.clone();
                     let mut goals = std::mem::take(&mut ctx.goals);
-                    ctx.actor.act(&exps, &mut goals);
+                    // Split borrows to avoid conflict between fields
+                    let actor: *mut PDCActor = &mut ctx.actor;
+                    let scheduler: *mut crate::gantt::GanttScheduler = &mut ctx.scheduler;
+                    unsafe {
+                        (*actor).act_with_schedule(&exps, &mut goals, Some(&mut *scheduler));
+                    }
+                    ctx.experiences = exps;
                     ctx.goals = goals;
                     Ok(CallToolResult::success(vec![json_content(&json!({"experience_id": exp_id}))?]))
                 }
 
                 "physis_pdca_stats" => {
                     let ctx = self.ctx.lock().await;
-                    let stats = ctx.actor.stats(&ctx.goals);
-                    Ok(CallToolResult::success(vec![json_content(&json!(stats))?]))
+                    let stats_json = json!(ctx.actor.stats_with_schedule(&ctx.goals, Some(&ctx.scheduler)));
+                    Ok(CallToolResult::success(vec![json_content(&stats_json)?]))
                 }
 
                 "physis_dream_generate" => {
@@ -378,6 +420,126 @@ mod mcp_impl {
                     let inserted = ctx.mapper.map_filesystem(&scan_dir, None);
                     Ok(CallToolResult::success(vec![
                         json_content(&json!({"inserted": inserted, "path": scan_dir.to_string_lossy().to_string()}))?]))
+                }
+
+                "physis_gantt_schedule" => {
+                    let action = get_str(&request, "action")?;
+                    let mut ctx = self.ctx.lock().await;
+                    let result = match action.as_str() {
+                        "add_task" => {
+                            let task_id = get_str(&request, "task_id")?;
+                            let duration = get_f64(&request, "duration_secs")? as f32;
+                            let dep_list: Vec<String> = args_map(&request)?
+                                .get("dependencies")
+                                .and_then(|v| v.as_array())
+                                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                .unwrap_or_default();
+                            let mut hasher = DefaultHasher::new();
+                            task_id.hash(&mut hasher);
+                            let node_data = hasher.finish();
+                            let node_key = crate::graph::RawNodeKey { data: node_data };
+                            let deps: Vec<crate::graph::RawNodeKey> = dep_list.iter().map(|d| {
+                                let mut h = DefaultHasher::new();
+                                d.hash(&mut h);
+                                crate::graph::RawNodeKey { data: h.finish() }
+                            }).collect();
+                            ctx.scheduler.add_task(node_key, task_id.clone(), duration, 0.0, 0, deps);
+                            json!({"status": "ok", "task_id": task_id, "duration_secs": duration})
+                        }
+                        "recompute" => {
+                            ctx.scheduler.recompute();
+                            let health = ctx.scheduler.schedule_health();
+                            json!({"status": "ok", "schedule_health": health})
+                        }
+                        "status" => {
+                            let health = ctx.scheduler.schedule_health();
+                            let tasks: Vec<JsonValue> = ctx.scheduler.tasks.iter().map(|t| {
+                                json!({
+                                    "id": t.id,
+                                    "name": t.name,
+                                    "duration": t.planned_duration_secs,
+                                    "early_start": t.early_start,
+                                    "early_finish": t.early_finish,
+                                    "late_start": t.late_start,
+                                    "late_finish": t.late_finish,
+                                    "float": t.float,
+                                    "critical": t.on_critical_path,
+                                    "progress": t.progress,
+                                })
+                            }).collect();
+                            let critical_path_ids: Vec<&str> = ctx.scheduler.tasks.iter()
+                                .filter(|t| t.on_critical_path)
+                                .map(|t| t.id.as_str())
+                                .collect();
+                            let at_risk: Vec<&str> = ctx.scheduler.tasks_approaching_late_finish(3600)
+                                .iter().map(|t| t.id.as_str()).collect();
+                            json!({
+                                "schedule_health": health,
+                                "task_count": tasks.len(),
+                                "tasks": tasks,
+                                "critical_path": critical_path_ids,
+                                "at_risk": at_risk,
+                            })
+                        }
+                        _ => json!({"error": format!("unknown action: {action}")}),
+                    };
+                    Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                "physis_gantt_cross_correlate" => {
+                    let ctx = self.ctx.lock().await;
+                    let progress_pairs: Vec<(String, f32)> = ctx.goals.iter()
+                        .map(|g| (g.id.clone(), g.progress))
+                        .collect();
+                    let r = ctx.scheduler.cross_correlate(&progress_pairs);
+                    let result = json!({
+                        "pearson_r": r,
+                        "interpretation": if r.abs() > 0.7 {
+                            "strong correlation"
+                        } else if r.abs() > 0.4 {
+                            "moderate correlation"
+                        } else {
+                            "weak or no correlation"
+                        }
+                    });
+                    Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                "physis_dream_advanced" => {
+                    let count = get_i64(&request, "count").unwrap_or(5) as usize;
+                    let context = get_str(&request, "context").unwrap_or_else(|_| "mixed".to_string());
+                    let mut ctx = self.ctx.lock().await;
+                    if ctx.goals.is_empty() {
+                        return Ok(CallToolResult::success(vec![
+                            json_content(&json!({"dreams": [], "count": 0, "reason": "no goals"}))?]));
+                    }
+                    if ctx.actor.is_working(&ctx.goals) {
+                        return Ok(CallToolResult::success(vec![
+                            json_content(&json!({"dreams": [], "count": 0, "reason": "PDCA active"}))?]));
+                    }
+                    let use_schedule = context == "schedule" || context == "mixed";
+                    let use_cm = context == "countermeasure" || context == "mixed";
+                    let goals = ctx.goals.clone();
+                    let exps = ctx.experiences.clone();
+                    // Extract scheduler and dreams from ctx to avoid borrow conflicts
+                    let scheduler: *const crate::gantt::GanttScheduler = &ctx.scheduler;
+                    let dreams = &mut ctx.dreams;
+                    let sched_ref = if use_schedule { Some(unsafe { &*scheduler }) } else { None };
+                    let exps_ref = if use_cm { Some(&exps[..]) } else { None };
+                    let generated = dreams.generate_dreams_with_context(
+                        &goals, count, sched_ref, exps_ref,
+                    );
+                    let result = json!({
+                        "dreams": generated.iter().map(|d| json!({
+                            "id": d.id,
+                            "source": d.source,
+                            "grade": d.grade,
+                            "dream_type": d.dream_type,
+                        })).collect::<Vec<_>>(),
+                        "count": generated.len(),
+                        "context_type": context,
+                    });
+                    Ok(CallToolResult::success(vec![json_content(&result)?]))
                 }
 
                 name => Ok(CallToolResult::error(vec![
