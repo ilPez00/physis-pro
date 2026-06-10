@@ -75,6 +75,17 @@ pub struct DriftReport {
     pub drifting: bool,
 }
 
+/// A concrete bioenergetic practice the engine proposes when charge is low or the
+/// schedule drifts. `tool` is a bioenergetics-hub tool key (e.g. `5r`, `posture`,
+/// `coldheat`) the UI opens directly — the countermeasure becomes actionable, not
+/// just prose.
+#[derive(Serialize, Clone, Debug)]
+pub struct SuggestedPractice {
+    pub tool: String,
+    pub title: String,
+    pub why: String,
+}
+
 /// A charge-governed "today" plan: what to do given the user's current charge.
 #[derive(Serialize, Clone, Debug)]
 pub struct TodayPlan {
@@ -83,8 +94,10 @@ pub struct TodayPlan {
     pub doable: Vec<LifeOSGoal>,
     /// Incomplete goals that need more charge than is available right now.
     pub deferred: Vec<LifeOSGoal>,
-    /// A bioenergetic countermeasure when charge is low or the schedule is drifting.
+    /// A bioenergetic countermeasure (prose) when charge is low or drifting.
     pub countermeasure: Option<String>,
+    /// The same countermeasure as an openable practice (tool key + rationale).
+    pub suggested_practice: Option<SuggestedPractice>,
     pub drift: DriftReport,
 }
 
@@ -155,20 +168,36 @@ impl LifeOSTracker {
         doable.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal));
 
         let drift = self.drift_report(scheduler);
-        let countermeasure = match self.charge {
-            Charge::Depleted => Some(
-                "Charge depleted — restore before pushing. Diaphragmatic breathing + warmth/light \
-                 (Peat), release jaw & chest armoring (Reich). Take the gentle wins; don't force the \
-                 critical path.".to_string(),
+        let (countermeasure, suggested_practice) = match self.charge {
+            Charge::Depleted => (
+                Some(
+                    "Charge depleted — restore before pushing. Diaphragmatic breathing + warmth/light \
+                     (Peat), release jaw & chest armoring (Reich). Take the gentle wins; don't force the \
+                     critical path.".to_string(),
+                ),
+                Some(SuggestedPractice {
+                    tool: "5r".to_string(),
+                    title: "5R regenerative breathing".to_string(),
+                    why: "Depleted — rebuild metabolic charge (Peat) with regenerative breathing before \
+                          pushing the critical path.".to_string(),
+                }),
             ),
-            Charge::Steady if drift.drifting => Some(
-                "Steady but the schedule is slipping — one focused 25-min block on the critical-path \
-                 goal, then a short reset.".to_string(),
+            Charge::Steady if drift.drifting => (
+                Some(
+                    "Steady but the schedule is slipping — release the held tension, then one focused \
+                     25-min block on the critical-path goal.".to_string(),
+                ),
+                Some(SuggestedPractice {
+                    tool: "posture".to_string(),
+                    title: "Release the armor".to_string(),
+                    why: "Steady but slipping — release held tension (Reich: jaw / chest / diaphragm) to \
+                          clear the block, then one focused block.".to_string(),
+                }),
             ),
-            _ => None,
+            _ => (None, None),
         };
 
-        TodayPlan { charge: self.charge, doable, deferred, countermeasure, drift }
+        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, drift }
     }
 
     /// Persist this tenant's goals + charge to sled under `lifeos:<uid>`.
@@ -300,6 +329,7 @@ mod tests {
         assert_eq!(plan.doable.iter().map(|g| g.id.as_str()).collect::<Vec<_>>(), ["rest"]);
         assert_eq!(plan.deferred.len(), 2);
         assert!(plan.countermeasure.is_some());
+        assert_eq!(plan.suggested_practice.as_ref().map(|p| p.tool.as_str()), Some("5r"));
 
         // Charged: everything doable, sorted by progress asc, no countermeasure.
         t.set_charge(Charge::Charged);
