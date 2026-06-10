@@ -8,6 +8,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+use chrono::Timelike;
 use serde::{Deserialize, Serialize};
 
 use crate::gantt::GanttScheduler;
@@ -96,9 +97,38 @@ pub struct TodayPlan {
     pub deferred: Vec<LifeOSGoal>,
     /// A bioenergetic countermeasure (prose) when charge is low or drifting.
     pub countermeasure: Option<String>,
-    /// The same countermeasure as an openable practice (tool key + rationale).
+    /// The primary openable practice (tool key + rationale), rotated through the day.
     pub suggested_practice: Option<SuggestedPractice>,
+    /// Other recovery methods for the same state (the rest of the pool).
+    pub alternatives: Vec<SuggestedPractice>,
     pub drift: DriftReport,
+}
+
+fn practice(tool: &str, title: &str, why: &str) -> SuggestedPractice {
+    SuggestedPractice { tool: tool.into(), title: title.into(), why: why.into() }
+}
+
+/// Peat-metabolic / parasympathetic restoration methods for a depleted charge.
+fn depleted_pool() -> Vec<SuggestedPractice> {
+    vec![
+        practice("5r", "5R regenerative breathing", "Rebuild metabolic charge (Peat) with regenerative breathing before pushing."),
+        practice("coldheat", "Warmth protocol", "Raise metabolic rate with heat/light (Peat) — cold drains, warmth restores."),
+        practice("hydration", "Rehydrate + salt", "Cellular energy needs water + sodium (Peat) — depletion often hides as thirst."),
+        practice("circadian", "Get bright light", "Light restores rhythm + thyroid (Peat) — the cheapest charge."),
+        practice("gratitude", "Gratitude pause", "Shift to parasympathetic; lower the stress load so energy returns."),
+        practice("color", "Color meditation", "Calm the nervous system before re-engaging."),
+    ]
+}
+
+/// Reich-release / focus-reset methods for a steady-but-drifting state.
+fn drifting_pool() -> Vec<SuggestedPractice> {
+    vec![
+        practice("posture", "Release the armor", "Release held tension (Reich: jaw / chest / diaphragm) to clear the block."),
+        practice("5r", "Emotional-control breath", "5R controllo emozionale — steady the system, then one focused block."),
+        practice("guided", "Focused reset", "A short guided session to re-center on the critical path."),
+        practice("cbt", "Reframe the block", "Defuse the stuck thought (CBT) so the schedule can move."),
+        practice("bolt", "Breath-hold reset", "CO2-tolerance breathing calms arousal and sharpens focus."),
+    ]
 }
 
 /// Native in-memory goal store. No HTTP client, no external dependency.
@@ -168,36 +198,42 @@ impl LifeOSTracker {
         doable.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal));
 
         let drift = self.drift_report(scheduler);
-        let (countermeasure, suggested_practice) = match self.charge {
+        let (countermeasure, pool) = match self.charge {
             Charge::Depleted => (
                 Some(
                     "Charge depleted — restore before pushing. Diaphragmatic breathing + warmth/light \
                      (Peat), release jaw & chest armoring (Reich). Take the gentle wins; don't force the \
                      critical path.".to_string(),
                 ),
-                Some(SuggestedPractice {
-                    tool: "5r".to_string(),
-                    title: "5R regenerative breathing".to_string(),
-                    why: "Depleted — rebuild metabolic charge (Peat) with regenerative breathing before \
-                          pushing the critical path.".to_string(),
-                }),
+                depleted_pool(),
             ),
             Charge::Steady if drift.drifting => (
                 Some(
                     "Steady but the schedule is slipping — release the held tension, then one focused \
                      25-min block on the critical-path goal.".to_string(),
                 ),
-                Some(SuggestedPractice {
-                    tool: "posture".to_string(),
-                    title: "Release the armor".to_string(),
-                    why: "Steady but slipping — release held tension (Reich: jaw / chest / diaphragm) to \
-                          clear the block, then one focused block.".to_string(),
-                }),
+                drifting_pool(),
             ),
-            _ => (None, None),
+            _ => (None, Vec::new()),
         };
 
-        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, drift }
+        // Rotate the primary practice through the day (deterministic, no RNG) so the
+        // same method isn't proposed every time; the rest become alternatives.
+        let (suggested_practice, alternatives) = if pool.is_empty() {
+            (None, Vec::new())
+        } else {
+            let i = chrono::Utc::now().hour() as usize % pool.len();
+            let primary = pool[i].clone();
+            let alts = pool
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, p)| p.clone())
+                .collect();
+            (Some(primary), alts)
+        };
+
+        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, alternatives, drift }
     }
 
     /// Persist this tenant's goals + charge to sled under `lifeos:<uid>`.
@@ -329,7 +365,12 @@ mod tests {
         assert_eq!(plan.doable.iter().map(|g| g.id.as_str()).collect::<Vec<_>>(), ["rest"]);
         assert_eq!(plan.deferred.len(), 2);
         assert!(plan.countermeasure.is_some());
-        assert_eq!(plan.suggested_practice.as_ref().map(|p| p.tool.as_str()), Some("5r"));
+        // A practice is proposed (rotated through the depleted pool) + alternatives.
+        let pool = depleted_pool();
+        let primary = plan.suggested_practice.as_ref().unwrap();
+        assert!(pool.iter().any(|p| p.tool == primary.tool));
+        assert_eq!(plan.alternatives.len(), pool.len() - 1);
+        assert!(!plan.alternatives.iter().any(|a| a.tool == primary.tool));
 
         // Charged: everything doable, sorted by progress asc, no countermeasure.
         t.set_charge(Charge::Charged);
