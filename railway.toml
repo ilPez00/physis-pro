@@ -29,8 +29,13 @@ OAUTH_COOKIE_SECRET = ""
 # ── LLM cascade resilience floor (set real values in the dashboard) ──────────
 # Groq: free + fast, recommended always-on floor (cascade priority 2).
 AI_GROQ_KEY = ""
-# Self-hosted Ollama floor — opt-in, needs ~3GB RAM. See MANUAL_CONFIG.md §4.3.
+# Self-hosted Ollama floor — opt-in. ~3GB RAM for gemma2:2b; ~6GB for the
+# uncensored Gemma 3n E4B GGUF (needs the 8GB service). See MANUAL_CONFIG.md §4.3.
 ENABLE_OLLAMA = "0"
 OLLAMA_FLOOR_MODEL = "gemma2:2b"
+# Custom uncensored Gemma (models/gemma-4-E4B-it-uncensored-Q4_K_M.gguf, 2.4GB).
+# Set ONE source + OLLAMA_FLOOR_MODEL=gemma-uncensored. File caches on the volume.
+# GEMMA_GGUF_S3_KEY = "gemma-4-E4B-it-uncensored-Q4_K_M.gguf"   # same bucket as ONNX
+# GEMMA_GGUF_URL    = "https://<host>/gemma-4-E4B-it-uncensored-Q4_K_M.gguf"
 # Sidecar alternative (leave ENABLE_OLLAMA=0, point at an ollama service):
 # OLLAMA_FLOOR_URL = "http://ollama.railway.internal:11434/v1"

@@ -52,7 +52,7 @@ Free, fast, reliable. Set in the Railway dashboard:
 Cascade provider `ollama_floor` (`http://localhost:11434`). **Off by default** —
 a 2B model needs ~3GB RAM, so size the service first. Two ways to run it:
 
-**A. In-container (simplest):** set on the physis service —
+**A. In-container, registry model (simplest):** set on the physis service —
 - `ENABLE_OLLAMA=1`
 - `OLLAMA_FLOOR_MODEL=gemma2:2b` (the tag the entrypoint pulls AND the cascade
   requests — keep them identical)
@@ -60,6 +60,21 @@ a 2B model needs ~3GB RAM, so size the service first. Two ways to run it:
 `docker-entrypoint.sh` installs Ollama, runs `ollama serve`, and pulls the model
 in the background (cached on the `/app/.physis` volume, so the pull happens once).
 `/health` passes during the download.
+
+**A2. In-container, custom uncensored Gemma GGUF** (`models/gemma-4-E4B-it-
+uncensored-Q4_K_M.gguf`, Gemma 3n E4B, 2.4GB — needs the **8GB** service, ~6GB
+peak). Not on the Ollama registry, so ship the GGUF and `ollama create` it. Set —
+- `ENABLE_OLLAMA=1`
+- `OLLAMA_FLOOR_MODEL=gemma-uncensored`
+- **one** GGUF source:
+  - `GEMMA_GGUF_S3_KEY=gemma-4-E4B-it-uncensored-Q4_K_M.gguf` — upload the file to
+    the **same bucket** the ONNX weights come from (`AWS_S3_*` build vars); the
+    entrypoint `aws s3 cp`s it, **or**
+  - `GEMMA_GGUF_URL=https://…/gemma-4-E4B-it-uncensored-Q4_K_M.gguf` — any HTTPS.
+
+The entrypoint downloads the GGUF to the volume (once), writes a Gemma-templated
+Modelfile, and runs `ollama create gemma-uncensored`. `/health` passes during the
+download/import. The 26B "heretic" GGUF (9.9GB) does **not** fit 8GB — use E4B.
 
 **B. Sidecar (recommended for prod):** run the official `ollama/ollama` image as
 its own Railway service, pull the model there, and on the physis service set —
