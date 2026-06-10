@@ -37,6 +37,37 @@ For SSO/user identity, also front the server with `oauth2-proxy`:
   2. Map the upstream to your Physis Pro internal service URL.
   3. Provide `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, and `OAUTH_COOKIE_SECRET` via environment variables.
 
+## 4.3 LLM provider cascade + resilience floor
+
+`/api/v1/chat` runs `ProviderCascade::from_env` — keyed providers first, then
+keyless public Ollama nodes. Praxis's `AICoachingService` falls back to this when
+its own ("axiom") keys are exhausted. Two always-on floors keep the cascade alive
+when paid keys are down:
+
+### Groq (recommended primary floor)
+Free, fast, reliable. Set in the Railway dashboard:
+- `AI_GROQ_KEY=<groq key>` — cascade **priority 2**, model `llama-3.3-70b-versatile`.
+
+### Self-hosted Ollama (guaranteed local floor)
+Cascade provider `ollama_floor` (`http://localhost:11434`). **Off by default** —
+a 2B model needs ~3GB RAM, so size the service first. Two ways to run it:
+
+**A. In-container (simplest):** set on the physis service —
+- `ENABLE_OLLAMA=1`
+- `OLLAMA_FLOOR_MODEL=gemma2:2b` (the tag the entrypoint pulls AND the cascade
+  requests — keep them identical)
+
+`docker-entrypoint.sh` installs Ollama, runs `ollama serve`, and pulls the model
+in the background (cached on the `/app/.physis` volume, so the pull happens once).
+`/health` passes during the download.
+
+**B. Sidecar (recommended for prod):** run the official `ollama/ollama` image as
+its own Railway service, pull the model there, and on the physis service set —
+- `OLLAMA_FLOOR_URL=http://<ollama-service>.railway.internal:11434/v1`
+- `OLLAMA_FLOOR_MODEL=gemma2:2b`
+
+Isolates the model's memory from the engine. Leave `ENABLE_OLLAMA` unset.
+
 ## 5. Model Loading
 The engine is pre-bundled with Jina CLIP v2 models.
 - **Directory:** `/app/models/jina-clip-v2`

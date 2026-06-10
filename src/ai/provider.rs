@@ -656,13 +656,30 @@ impl ProviderCascade {
             });
         }
 
-        // ── Remote public Ollama nodes ────────────────────────────────────────
+        // ── Self-hosted Ollama floor (guaranteed last-resort) ─────────────────
+        // Configurable so it works whether Ollama runs in-container (the
+        // docker-entrypoint ENABLE_OLLAMA path → localhost) or as a sidecar
+        // service (set OLLAMA_FLOOR_URL to its internal URL). OLLAMA_FLOOR_MODEL
+        // MUST match the tag the entrypoint pulls (default gemma2:2b there).
+        // Defaults preserve the previous localhost/llama3.1 behaviour.
+        let floor_url = std::env::var("OLLAMA_FLOOR_URL")
+            .ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "http://localhost:11434/v1".into());
+        let floor_model = std::env::var("OLLAMA_FLOOR_MODEL")
+            .ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "llama3.1".into());
+        cascade.add(ProviderConfig {
+            name: "ollama_floor".into(), base_url: floor_url, model: floor_model,
+            api_key: String::new(),
+            supports_vision: false, supports_tools: false, max_tokens: 4096, timeout_secs: 120.0,
+        });
+
+        // ── Remote public Ollama nodes (best-effort, unreliable) ──────────────
         let ollama_nodes: &[(&str, &str)] = &[
             ("ollama1", "http://108.181.196.208:11434/v1"),
             ("ollama2", "http://5.149.249.212:11434/v1"),
             ("ollama3", "http://89.111.170.212:11434/v1"),
             ("ollama4", "http://185.211.5.32:11434/v1"),
-            ("ollama_local", "http://localhost:11434/v1"),
         ];
         for (name, url) in ollama_nodes {
             cascade.add(ProviderConfig {

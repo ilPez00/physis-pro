@@ -26,3 +26,11 @@ PHYSIS_SCAN_ROOT = "/app/.physis"
 OAUTH_CLIENT_ID = ""
 OAUTH_CLIENT_SECRET = ""
 OAUTH_COOKIE_SECRET = ""
+# ── LLM cascade resilience floor (set real values in the dashboard) ──────────
+# Groq: free + fast, recommended always-on floor (cascade priority 2).
+AI_GROQ_KEY = ""
+# Self-hosted Ollama floor — opt-in, needs ~3GB RAM. See MANUAL_CONFIG.md §4.3.
+ENABLE_OLLAMA = "0"
+OLLAMA_FLOOR_MODEL = "gemma2:2b"
+# Sidecar alternative (leave ENABLE_OLLAMA=0, point at an ollama service):
+# OLLAMA_FLOOR_URL = "http://ollama.railway.internal:11434/v1"
