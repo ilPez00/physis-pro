@@ -34,7 +34,14 @@ load_model() {
   # half-written blob keeps the small volume full and every retry hits ENOSPC).
   rm -rf "$DATA"/models/blobs/* "$DATA"/models/manifests/* 2>/dev/null || true
 
-  if [ -n "${GEMMA_GGUF_URL:-}" ] || [ -n "${GEMMA_GGUF_S3_KEY:-}" ]; then
+  # Registry pull takes precedence: it streams the blob once (fits a small
+  # volume), vs `ollama create` from a GGUF which needs ~2x transiently. So when
+  # OLLAMA_PULL_MODEL is set it wins even if a stale GEMMA_GGUF_URL is still around.
+  if [ -n "${OLLAMA_PULL_MODEL:-}" ]; then
+    echo "[ollama-sidecar] pulling $OLLAMA_PULL_MODEL" >&2
+    ollama pull "$OLLAMA_PULL_MODEL" && echo "[ollama-sidecar] ready: $OLLAMA_PULL_MODEL" >&2 \
+      || echo "[ollama-sidecar] pull failed" >&2
+  elif [ -n "${GEMMA_GGUF_URL:-}" ] || [ -n "${GEMMA_GGUF_S3_KEY:-}" ]; then
     mkdir -p "$GGUF_DIR"
     if [ ! -s "$GGUF" ]; then
       if [ -n "${GEMMA_GGUF_S3_KEY:-}" ] && [ -n "${AWS_S3_BUCKET:-}" ]; then
@@ -52,8 +59,6 @@ load_model() {
       echo "[ollama-sidecar] ollama create $MODEL" >&2
       if ollama create "$MODEL" -f "$DATA/Modelfile"; then
         echo "[ollama-sidecar] ready: $MODEL" >&2
-        # Ollama copied the weights into its blob store; drop the source GGUF so
-        # the volume isn't holding two copies (~2.4GB each).
         rm -f "$GGUF"
       else
         echo "[ollama-sidecar] create failed" >&2
@@ -61,10 +66,6 @@ load_model() {
     else
       echo "[ollama-sidecar] GGUF download failed" >&2
     fi
-  elif [ -n "${OLLAMA_PULL_MODEL:-}" ]; then
-    echo "[ollama-sidecar] pulling $OLLAMA_PULL_MODEL" >&2
-    ollama pull "$OLLAMA_PULL_MODEL" && echo "[ollama-sidecar] ready: $OLLAMA_PULL_MODEL" >&2 \
-      || echo "[ollama-sidecar] pull failed" >&2
   fi
 }
 
