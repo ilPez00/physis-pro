@@ -10,7 +10,10 @@ set -e
 
 MODEL="${OLLAMA_FLOOR_MODEL:-gemma-uncensored}"
 DATA="${OLLAMA_MODELS:-/root/.ollama}"
-GGUF_DIR="$DATA/gguf"
+# Source GGUF goes on EPHEMERAL disk, not the volume: `ollama create` copies the
+# weights into its blob store ($DATA, the volume), so keeping the source there too
+# would need ~2x the space. The volume only needs to hold the final blob.
+GGUF_DIR="/tmp/gguf"
 GGUF="$GGUF_DIR/floor.gguf"
 
 load_model() {
@@ -19,6 +22,12 @@ load_model() {
     ollama list >/dev/null 2>&1 && break
     sleep 1
   done
+
+  # Already imported on a prior boot (persisted on the volume)? Skip everything.
+  if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$MODEL"; then
+    echo "[ollama-sidecar] model already present, skipping load: $MODEL" >&2
+    return
+  fi
 
   if [ -n "${GEMMA_GGUF_URL:-}" ] || [ -n "${GEMMA_GGUF_S3_KEY:-}" ]; then
     mkdir -p "$GGUF_DIR"
@@ -36,8 +45,14 @@ load_model() {
       printf 'FROM %s\nTEMPLATE """<start_of_turn>user\n{{ .Prompt }}<end_of_turn>\n<start_of_turn>model\n"""\nPARAMETER stop "<end_of_turn>"\n' \
         "$GGUF" > "$DATA/Modelfile"
       echo "[ollama-sidecar] ollama create $MODEL" >&2
-      ollama create "$MODEL" -f "$DATA/Modelfile" && echo "[ollama-sidecar] ready: $MODEL" >&2 \
-        || echo "[ollama-sidecar] create failed" >&2
+      if ollama create "$MODEL" -f "$DATA/Modelfile"; then
+        echo "[ollama-sidecar] ready: $MODEL" >&2
+        # Ollama copied the weights into its blob store; drop the source GGUF so
+        # the volume isn't holding two copies (~2.4GB each).
+        rm -f "$GGUF"
+      else
+        echo "[ollama-sidecar] create failed" >&2
+      fi
     else
       echo "[ollama-sidecar] GGUF download failed" >&2
     fi
