@@ -2093,7 +2093,7 @@ async fn main() {
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
-        oee: Mutex::new(db.as_ref().map(OeeBoard::load).unwrap_or_else(OeeBoard::new)),
+        oee: Mutex::new(db.as_ref().map(OeeBoard::load).unwrap_or_default()),
         maintenance: Mutex::new(
             db.as_ref().map(|d| MaintenanceMonitor::load(d, 256)).unwrap_or_else(|| MaintenanceMonitor::new(256)),
         ),

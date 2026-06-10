@@ -130,7 +130,7 @@ impl DreamEngine {
                 let recent: Vec<&Experience> = experiences.iter()
                     .filter(|e| e.goal_id == g.id)
                     .collect();
-                recent.last().map_or(false, |e| e.grade < 0.3)
+                recent.last().is_some_and(|e| e.grade < 0.3)
             })
             .collect();
 
@@ -217,11 +217,6 @@ impl DreamEngine {
          DreamContext::Random)
     }
 
-    fn interpolate(&mut self, goals: &[Goal]) -> Dream {
-        let (dream, _) = self.generate_interpolation_dream(goals);
-        dream
-    }
-
     fn extrapolate(&mut self, goals: &[Goal]) -> Dream {
         let g = &goals[self.rng.gen_range(0..goals.len())];
 
@@ -240,11 +235,6 @@ impl DreamEngine {
 
         let desc = format!("Extrapolate {} factor={:.2}", g.domain_name, factor);
         Dream::new(g.embedding.clone(), embedding, "extrapolate".to_string(), desc)
-    }
-
-    fn mutate(&mut self, goals: &[Goal]) -> Dream {
-        let (dream, _) = self.generate_mutation_dream(goals);
-        dream
     }
 
     pub fn evaluate_dream(&mut self, dream_id: &str, grade: f32) -> bool {
