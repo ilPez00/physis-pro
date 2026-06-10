@@ -29,6 +29,11 @@ load_model() {
     return
   fi
 
+  # Reaching here means the model isn't loaded — clear any orphaned partial
+  # blobs/manifests a previous failed `create`/`pull` left on the volume (else a
+  # half-written blob keeps the small volume full and every retry hits ENOSPC).
+  rm -rf "$DATA"/models/blobs/* "$DATA"/models/manifests/* 2>/dev/null || true
+
   if [ -n "${GEMMA_GGUF_URL:-}" ] || [ -n "${GEMMA_GGUF_S3_KEY:-}" ]; then
     mkdir -p "$GGUF_DIR"
     if [ ! -s "$GGUF" ]; then
