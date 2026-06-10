@@ -126,6 +126,10 @@ struct AppCtx {
     oee: Mutex<OeeBoard>,
     /// Plant-wide predictive-maintenance monitor (health baselines + trends).
     maintenance: Mutex<MaintenanceMonitor>,
+    /// Durable state store (sled on the data-dir volume). `None` when it can't be
+    /// opened (e.g. no writable volume in local dev) → state is in-memory only.
+    /// Cheap to clone (sled::Db is an Arc internally).
+    db: Option<sled::Db>,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -154,11 +158,21 @@ impl AppCtx {
             f(&mut g)
         } else {
             let mut map = self.tenants.lock().unwrap_or_else(|e| e.into_inner());
-            let rt = map
-                .entry(uid.to_string())
-                .or_insert_with(|| RuntimeState::new(&self.shared));
+            let rt = map.entry(uid.to_string()).or_insert_with(|| {
+                let mut rt = RuntimeState::new(&self.shared);
+                // Rehydrate this tenant's persisted LifeOS goals on first access.
+                if let Some(db) = &self.db {
+                    rt.lifeos = LifeOSTracker::load(db, uid);
+                }
+                rt
+            });
             f(rt)
         }
+    }
+
+    /// Borrow the durable store, if persistence is enabled.
+    fn db(&self) -> Option<&sled::Db> {
+        self.db.as_ref()
     }
 }
 
@@ -663,11 +677,11 @@ async fn oee_machine_handler(
     State(state): State<SharedState>,
     Json(req): Json<OeeMachineRequest>,
 ) -> Json<OkResponse> {
-    state
-        .oee
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .upsert_machine(&req.machine_id, req.shift_length_secs, req.ideal_cycle_time_secs);
+    {
+        let mut board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
+        board.upsert_machine(&req.machine_id, req.shift_length_secs, req.ideal_cycle_time_secs);
+        if let Some(db) = state.db() { let _ = board.save(db); }
+    }
     Json(OkResponse { ok: true, detail: format!("machine {} registered", req.machine_id) })
 }
 
@@ -714,6 +728,9 @@ async fn oee_event_handler(
             (ok, format!("shift started on {machine_id}"))
         }
     };
+    if ok {
+        if let Some(db) = state.db() { let _ = board.save(db); }
+    }
     let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
     let detail = if ok { detail } else { format!("unknown machine ({detail})") };
     (code, Json(OkResponse { ok, detail }))
@@ -793,6 +810,7 @@ async fn maintenance_observe_handler(
     let n = {
         let mut mon = state.maintenance.lock().unwrap_or_else(|e| e.into_inner());
         mon.observe_healthy(&reading);
+        if let Some(db) = state.db() { let _ = mon.save(db); }
         mon.baseline(&req.machine_id).map(|b| b.min_count()).unwrap_or(0)
     };
     Json(OkResponse { ok: true, detail: format!("baseline {} now {} samples", req.machine_id, n) })
@@ -824,6 +842,7 @@ async fn maintenance_check_handler(
             (Some(m), Some(limit)) => mon.rul(&req.machine_id, m, limit),
             _ => None,
         };
+        if let Some(db) = state.db() { let _ = mon.save(db); } // check() appended history
         (score, rul)
     };
 
@@ -1161,7 +1180,12 @@ async fn lifeos_goal_handler(
 ) -> Json<serde_json::Value> {
     let uid = user_key(&headers);
     let id = goal.id.clone();
-    let replaced = state.with_user(&uid, |s| s.lifeos.upsert_goal(goal));
+    let db = state.db.clone();
+    let replaced = state.with_user(&uid, |s| {
+        let r = s.lifeos.upsert_goal(goal);
+        if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+        r
+    });
     Json(serde_json::json!({ "status": "ok", "id": id, "replaced": replaced }))
 }
 
@@ -1178,7 +1202,14 @@ async fn lifeos_progress_handler(
     Json(req): Json<LifeOsProgressRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     let uid = user_key(&headers);
-    let ok = state.with_user(&uid, |s| s.lifeos.update_progress(&req.id, req.progress));
+    let db = state.db.clone();
+    let ok = state.with_user(&uid, |s| {
+        let r = s.lifeos.update_progress(&req.id, req.progress);
+        if r {
+            if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+        }
+        r
+    });
     let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
     (code, Json(serde_json::json!({ "ok": ok, "id": req.id })))
 }
@@ -2001,6 +2032,17 @@ async fn main() {
         ingest: ingest.clone(),
         api_token,
     });
+
+    // Durable state store on the data-dir volume. Best-effort: if it can't open
+    // (no writable volume / local dev), run in-memory only.
+    let db: Option<sled::Db> = {
+        let path = shared.config.data_dir.join("state.sled");
+        match sled::open(&path) {
+            Ok(d) => { log::info!("state persistence: sled at {}", path.display()); Some(d) }
+            Err(e) => { log::warn!("state persistence disabled ({e}); in-memory only"); None }
+        }
+    };
+
     let state = Arc::new(AppCtx {
         shared: shared.clone(),
         state: Mutex::new(RuntimeState {
@@ -2010,12 +2052,16 @@ async fn main() {
             dreams,
             goals: Vec::new(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
-            lifeos: LifeOSTracker::new(),
+            // Rehydrate the default tenant's persisted goals.
+            lifeos: db.as_ref().map(|d| LifeOSTracker::load(d, "_default")).unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
-        oee: Mutex::new(OeeBoard::new()),
-        maintenance: Mutex::new(MaintenanceMonitor::new(256)),
+        oee: Mutex::new(db.as_ref().map(OeeBoard::load).unwrap_or_else(OeeBoard::new)),
+        maintenance: Mutex::new(
+            db.as_ref().map(|d| MaintenanceMonitor::load(d, 256)).unwrap_or_else(|| MaintenanceMonitor::new(256)),
+        ),
+        db: db.clone(),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });

@@ -320,6 +320,28 @@ impl MaintenanceMonitor {
     pub fn machine_ids(&self) -> Vec<String> {
         self.baselines.keys().cloned().collect()
     }
+
+    /// Persist baselines + trend history to sled under `maintenance`.
+    pub fn save(&self, db: &sled::Db) -> anyhow::Result<()> {
+        let snapshot = (&self.baselines, &self.history, self.history_cap);
+        db.insert("maintenance", serde_json::to_vec(&snapshot)?)?;
+        Ok(())
+    }
+
+    /// Load from sled, falling back to a fresh monitor with `default_cap`.
+    pub fn load(db: &sled::Db, default_cap: usize) -> Self {
+        type Snapshot = (
+            BTreeMap<String, HealthBaseline>,
+            BTreeMap<String, BTreeMap<String, Vec<Sample>>>,
+            usize,
+        );
+        if let Some(v) = db.get("maintenance").ok().flatten() {
+            if let Ok((baselines, history, history_cap)) = serde_json::from_slice::<Snapshot>(&v) {
+                return Self { baselines, history, history_cap };
+            }
+        }
+        Self::new(default_cap)
+    }
 }
 
 #[cfg(test)]

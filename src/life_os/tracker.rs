@@ -74,6 +74,23 @@ impl LifeOSTracker {
         self.goals.len() != before
     }
 
+    /// Persist this tenant's goals to sled under `lifeos:<uid>`.
+    pub fn save(&self, db: &sled::Db, uid: &str) -> anyhow::Result<()> {
+        db.insert(format!("lifeos:{uid}"), serde_json::to_vec(&self.goals)?)?;
+        Ok(())
+    }
+
+    /// Load a tenant's goals from sled (empty tracker if absent/unreadable).
+    pub fn load(db: &sled::Db, uid: &str) -> Self {
+        let goals = db
+            .get(format!("lifeos:{uid}"))
+            .ok()
+            .flatten()
+            .and_then(|v| serde_json::from_slice::<Vec<LifeOSGoal>>(&v).ok())
+            .unwrap_or_default();
+        Self { goals }
+    }
+
     fn task_id_for(goal_id: &str) -> (RawNodeKey, String) {
         let mut hasher = DefaultHasher::new();
         goal_id.hash(&mut hasher);

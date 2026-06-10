@@ -386,6 +386,23 @@ impl OeeBoard {
         let reports: Vec<OeeReport> = self.shifts.values().map(|s| s.compute()).collect();
         plant_oee(&reports)
     }
+
+    /// Persist the board (all machine shifts) to sled under `oee`.
+    pub fn save(&self, db: &sled::Db) -> anyhow::Result<()> {
+        db.insert("oee", serde_json::to_vec(&self.shifts)?)?;
+        Ok(())
+    }
+
+    /// Load the board from sled (empty if absent/unreadable).
+    pub fn load(db: &sled::Db) -> Self {
+        let shifts = db
+            .get("oee")
+            .ok()
+            .flatten()
+            .and_then(|v| serde_json::from_slice::<HashMap<String, OeeShift>>(&v).ok())
+            .unwrap_or_default();
+        Self { shifts }
+    }
 }
 
 /// `n / d`, with `0.0` when the denominator is non-positive (no shift, no parts).
