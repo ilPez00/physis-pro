@@ -4,8 +4,9 @@
 #   OLLAMA_FLOOR_MODEL=gemma-uncensored
 FROM ollama/ollama:latest
 
-# curl for an HTTPS GGUF, awscli for a bucket-hosted GGUF.
-RUN apt-get update && apt-get install -y curl awscli && rm -rf /var/lib/apt/lists/*
+# curl for an HTTPS GGUF (e.g. the HuggingFace resolve URL). (S3/bucket sourcing
+# would also need awscli, but we pull from a public URL.)
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Accept connections from other Railway services (not just localhost).
 ENV OLLAMA_HOST=0.0.0.0:11434
