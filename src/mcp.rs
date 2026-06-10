@@ -428,7 +428,7 @@ mod mcp_impl {
                     let result = match action.as_str() {
                         "add_task" => {
                             let task_id = get_str(&request, "task_id")?;
-                            let duration = get_f64(&request, "duration_secs")? as f32;
+                            let duration = get_f64(&request, "duration_secs")?.max(0.0) as u64;
                             let dep_list: Vec<String> = args_map(&request)?
                                 .get("dependencies")
                                 .and_then(|v| v.as_array())
@@ -443,7 +443,7 @@ mod mcp_impl {
                                 d.hash(&mut h);
                                 crate::graph::RawNodeKey { data: h.finish() }
                             }).collect();
-                            ctx.scheduler.add_task(node_key, task_id.clone(), duration, 0.0, 0, deps);
+                            ctx.scheduler.add_task_with_duration(node_key, task_id.clone(), duration, 0, deps);
                             json!({"status": "ok", "task_id": task_id, "duration_secs": duration})
                         }
                         "recompute" => {

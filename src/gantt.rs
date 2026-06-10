@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, VecDeque};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use crate::graph::RawNodeKey;
 
@@ -177,6 +179,39 @@ impl GanttScheduler {
         id
     }
 
+    /// Add a task with an explicit planned duration, bypassing the domain
+    /// estimator. Use for externally-specified work (API `/schedule/add-task`,
+    /// MCP, LifeOS goals) where the caller knows the duration in seconds.
+    pub fn add_task_with_duration(
+        &mut self,
+        node_id: RawNodeKey,
+        name: String,
+        planned_duration_secs: u64,
+        deadline_unix: u64,
+        dependencies: Vec<RawNodeKey>,
+    ) -> String {
+        let id = format!("task_{}", node_id.data);
+        let duration = planned_duration_secs.max(1);
+        self.tasks.push(ScheduledTask {
+            id: id.clone(),
+            node_id,
+            name,
+            planned_duration_secs: duration,
+            actual_duration_secs: 0,
+            early_start: 0,
+            early_finish: duration,
+            late_start: 0,
+            late_finish: duration,
+            float: 0,
+            progress: 0.0,
+            dependencies,
+            deadline_unix,
+            resource_allocations: Vec::new(),
+            on_critical_path: false,
+        });
+        id
+    }
+
     pub fn has_task(&self, task_id: &str) -> bool {
         self.tasks.iter().any(|t| t.id == task_id)
     }
@@ -307,6 +342,10 @@ impl GanttScheduler {
     pub fn recompute(&mut self) {
         let mut deps = Vec::new();
 
+        // Rebuild dependency edges from each task's dependency node keys. NB:
+        // planned_duration_secs is the fixed baseline set at add time — do NOT
+        // re-estimate it here, or it drifts on every recompute (the tick calls
+        // this every 10s) and float / critical path never stabilise.
         for i in 0..self.tasks.len() {
             let task_id = self.tasks[i].id.clone();
             let dep_nodes: Vec<RawNodeKey> = self.tasks[i].dependencies.clone();
@@ -318,14 +357,8 @@ impl GanttScheduler {
                     lag: 0,
                 });
             }
-            self.tasks[i].planned_duration_secs = self.domain.estimate_duration(
-                self.tasks[i].progress,
-                (self.tasks[i].actual_duration_secs as f32 / self.tasks[i].planned_duration_secs.max(1) as f32).clamp(0.0, 1.0),
-            );
         }
 
-        let domain_deps = self.domain.resolve_dependencies(&[]);
-        deps.extend(domain_deps);
         self.dependencies = deps;
         self.recompute_cpm();
     }
@@ -437,6 +470,111 @@ impl GanttScheduler {
         let num = n * sum_xy - sum_x * sum_y;
         let denom = ((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)).sqrt();
         if denom == 0.0 { 0.0 } else { (num / denom).clamp(-1.0, 1.0) }
+    }
+}
+
+// ── Stateless schedule compute (replica-safe) ───────────────────────────────────
+// The per-tenant `GanttScheduler` held in the web server is in-memory, so in a
+// multi-replica deploy it shards per replica and resets on redeploy. This pure
+// function takes the full task list in the request and returns the computed CPM
+// result holding NO server state — identical online (any replica) and locally.
+// The caller (Praxis/Postgres) owns the task list.
+
+/// One task supplied to `compute_schedule`. `dependencies` are other tasks' `id`s.
+#[derive(Debug, Clone, Deserialize)]
+pub struct TaskInput {
+    pub id: String,
+    pub duration_secs: u64,
+    #[serde(default)]
+    pub progress: f32,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+}
+
+/// Per-task CPM result, keyed by the caller's original `id`.
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskResult {
+    pub id: String,
+    pub early_start: u64,
+    pub early_finish: u64,
+    pub late_start: u64,
+    pub late_finish: u64,
+    pub float: i64,
+    pub on_critical_path: bool,
+    pub progress: f32,
+}
+
+/// Result of a stateless schedule computation.
+#[derive(Debug, Clone, Serialize)]
+pub struct ScheduleResult {
+    pub tasks: Vec<TaskResult>,
+    /// Caller `id`s on the critical path.
+    pub critical_path: Vec<String>,
+    pub schedule_health: f32,
+    pub cross_correlation: f32,
+    pub total_duration: u64,
+}
+
+fn id_hash(id: &str) -> u64 {
+    let mut h = DefaultHasher::new();
+    id.hash(&mut h);
+    h.finish()
+}
+
+/// Build a scheduler from `inputs`, run CPM, and return the result. `domain` is
+/// `"oee"` or anything else (→ abstract). `goal_progress` is keyed by caller task
+/// `id` and correlated against each task's progress (Pearson).
+pub fn compute_schedule(
+    inputs: &[TaskInput],
+    goal_progress: &[(String, f32)],
+    domain: &str,
+) -> ScheduleResult {
+    let dom: Box<dyn ScheduleDomain> = match domain {
+        "oee" => Box::new(OeeDomain),
+        _ => Box::new(AbstractDomain),
+    };
+    let mut s = GanttScheduler::new(dom);
+    for t in inputs {
+        let node = RawNodeKey { data: id_hash(&t.id) };
+        let deps: Vec<RawNodeKey> = t.dependencies.iter()
+            .map(|d| RawNodeKey { data: id_hash(d) })
+            .collect();
+        // Task `name` carries the caller's id so results map back cleanly.
+        s.add_task_with_duration(node, t.id.clone(), t.duration_secs, 0, deps);
+    }
+    s.recompute();
+    for t in inputs {
+        s.update_task_progress(&format!("task_{}", id_hash(&t.id)), t.progress);
+    }
+
+    // Remap caller goal ids → internal task ids so cross_correlate matches.
+    let gp_internal: Vec<(String, f32)> = goal_progress.iter()
+        .map(|(id, p)| (format!("task_{}", id_hash(id)), *p))
+        .collect();
+    let cross_correlation = s.cross_correlate(&gp_internal);
+
+    let tasks: Vec<TaskResult> = s.tasks.iter().map(|t| TaskResult {
+        id: t.name.clone(),
+        early_start: t.early_start,
+        early_finish: t.early_finish,
+        late_start: t.late_start,
+        late_finish: t.late_finish,
+        float: t.float,
+        on_critical_path: t.on_critical_path,
+        progress: t.progress,
+    }).collect();
+    let critical_path: Vec<String> = s.tasks.iter()
+        .filter(|t| t.on_critical_path)
+        .map(|t| t.name.clone())
+        .collect();
+    let total_duration = s.critical_path.as_ref().map(|c| c.total_duration).unwrap_or(0);
+
+    ScheduleResult {
+        tasks,
+        critical_path,
+        schedule_health: s.schedule_health(),
+        cross_correlation,
+        total_duration,
     }
 }
 
@@ -588,5 +726,26 @@ mod tests {
         assert!(dur > 0);
         let low = domain.estimate_duration(0.2, 0.0);
         assert!(low > dur);
+    }
+
+    #[test]
+    fn test_compute_schedule_stateless() {
+        let inputs = vec![
+            TaskInput { id: "a".into(), duration_secs: 100, progress: 0.5, dependencies: vec![] },
+            TaskInput { id: "b".into(), duration_secs: 100, progress: 0.0, dependencies: vec!["a".into()] },
+            TaskInput { id: "c".into(), duration_secs: 50, progress: 0.0, dependencies: vec![] },
+        ];
+        let r = compute_schedule(&inputs, &[("a".into(), 0.5), ("b".into(), 0.2)], "abstract");
+        assert_eq!(r.tasks.len(), 3);
+        // Explicit durations honored (not domain-estimated): b after a → ES ≥ 100.
+        let b = r.tasks.iter().find(|t| t.id == "b").unwrap();
+        assert!(b.early_start >= 100, "b.early_start={}", b.early_start);
+        assert_eq!(b.early_finish, b.early_start + 100);
+        // a→b is the longest chain → critical path; c (float>0) is not.
+        assert!(r.critical_path.contains(&"a".to_string()));
+        assert!(r.critical_path.contains(&"b".to_string()));
+        let c = r.tasks.iter().find(|t| t.id == "c").unwrap();
+        assert!(c.float > 0 && !c.on_critical_path);
+        assert!((-1.0..=1.0).contains(&r.cross_correlation));
     }
 }

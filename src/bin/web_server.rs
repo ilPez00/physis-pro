@@ -42,7 +42,7 @@ use physis_pro::classify::{CellClassifier, CellScore};
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
 use physis_pro::ai::provider::{ProviderCascade, ProviderConfig, Message};
-use physis_pro::gantt::{compute_trajectory, AbstractDomain, GanttScheduler};
+use physis_pro::gantt::{compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput};
 use physis_pro::rachmaninov::RachmaninovHolon;
 use physis_pro::life_os::tracker::LifeOSTracker;
 
@@ -1118,7 +1118,7 @@ async fn schedule_add_task_handler(
             d.hash(&mut h);
             physis_pro::graph::RawNodeKey { data: h.finish() }
         }).collect();
-        s.scheduler.add_task(node_key, req.task_id.clone(), req.duration_secs as f32, 0.0, 0, deps);
+        s.scheduler.add_task_with_duration(node_key, req.task_id.clone(), req.duration_secs.max(0.0) as u64, 0, deps);
         Json(serde_json::json!({ "status": "ok", "task_id": req.task_id }))
     })
 }
@@ -1132,6 +1132,23 @@ async fn schedule_recompute_handler(
         s.scheduler.recompute();
         Json(serde_json::json!({ "schedule_health": s.scheduler.schedule_health() }))
     })
+}
+
+#[derive(Deserialize)]
+struct ScheduleComputeRequest {
+    tasks: Vec<TaskInput>,
+    #[serde(default)]
+    goal_progress: Vec<(String, f32)>,
+    #[serde(default)]
+    domain: Option<String>,
+}
+
+/// Stateless CPM: caller supplies the full task list, gets the computed schedule
+/// back. Holds no server state, so it behaves identically across replicas and on
+/// a redeploy (unlike the in-memory `/schedule/*` routes above, which are
+/// single-instance/local only).
+async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -> Json<ScheduleResult> {
+    Json(compute_schedule(&req.tasks, &req.goal_progress, req.domain.as_deref().unwrap_or("abstract")))
 }
 
 #[derive(Serialize)]
@@ -1880,8 +1897,10 @@ async fn main() {
 
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".to_string());
     let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let praxis_url = std::env::var("PHYSIS_PRAXIS_URL").unwrap_or_else(|_| "http://localhost:9090".to_string());
-    let agora_url = std::env::var("PHYSIS_AGORA_URL").unwrap_or_else(|_| "http://localhost:9091".to_string());
+    // Empty by default → the tick's LifeOS sync/drift-push is disabled unless the
+    // operator sets these. Avoids hammering localhost:9090/9091 every 10s in prod.
+    let praxis_url = std::env::var("PHYSIS_PRAXIS_URL").unwrap_or_default();
+    let agora_url = std::env::var("PHYSIS_AGORA_URL").unwrap_or_default();
 
     // ── Security gate (PREMORTEM.md P6) ──────────────────────────────────
     // A non-loopback bind with no token would publish an unauthenticated API
@@ -2122,6 +2141,7 @@ async fn main() {
         .route("/api/v1/schedule/cross-correlate", get(schedule_cross_correlate_handler))
         .route("/api/v1/schedule/add-task", post(schedule_add_task_handler))
         .route("/api/v1/schedule/recompute", post(schedule_recompute_handler))
+        .route("/api/v1/schedule/compute", post(schedule_compute_handler))
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))

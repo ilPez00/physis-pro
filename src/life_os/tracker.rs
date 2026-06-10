@@ -65,19 +65,16 @@ impl LifeOSTracker {
     /// Create Gantt tasks for any synced goals not already in the scheduler.
     pub fn apply_to_scheduler(&self, scheduler: &mut GanttScheduler) {
         for goal in &self.goals {
-            if !scheduler.has_task(&goal.id) {
-                let mut hasher = DefaultHasher::new();
-                goal.id.hash(&mut hasher);
-                let node_key = RawNodeKey { data: hasher.finish() };
-                // Default 1-hour duration; domain will adjust on recompute
-                scheduler.add_task(
-                    node_key,
-                    goal.title.clone(),
-                    3600.0,
-                    0.0,
-                    0,
-                    vec![],
-                );
+            let mut hasher = DefaultHasher::new();
+            goal.id.hash(&mut hasher);
+            let node_key = RawNodeKey { data: hasher.finish() };
+            // Tasks are keyed "task_<node>", not the goal id — check that exact id
+            // so the per-tick sync is idempotent (otherwise a fresh task is added
+            // every 10s).
+            let task_id = format!("task_{}", node_key.data);
+            if !scheduler.has_task(&task_id) {
+                // Default 1-hour planned duration for an externally-synced goal.
+                scheduler.add_task_with_duration(node_key, goal.title.clone(), 3600, 0, vec![]);
             }
         }
     }
