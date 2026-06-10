@@ -201,7 +201,7 @@ impl AnomalyScore {
 }
 
 /// A timestamped scalar sample for trend projection.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Sample {
     /// Seconds (any consistent epoch).
     pub t: f64,

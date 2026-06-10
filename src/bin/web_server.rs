@@ -31,9 +31,10 @@ use physis_pro::mapper::OntologyMapper;
 use physis_pro::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
 use physis_pro::CoherenceSnapshot;
 
-use physis_pro::oee::{OeeBoard, OeeReport, PlantOee, StopReason};
+use physis_pro::oee::{plant_oee, OeeBoard, OeeReport, OeeShift, PlantOee, StopReason};
 use physis_pro::maintenance::{
-    AnomalyScore, HealthBaseline, MaintenanceMonitor, RulEstimate, DEFAULT_SIGMA_THRESHOLD,
+    project_time_to_limit, AnomalyScore, HealthBaseline, MaintenanceMonitor, RulEstimate, Sample,
+    DEFAULT_SIGMA_THRESHOLD,
 };
 use physis_pro::industrial::{MachineReading, MachineStatus};
 use physis_pro::classify::{CellClassifier, CellScore};
@@ -846,6 +847,67 @@ async fn maintenance_baseline_handler(
         .cloned()
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
+}
+
+// ── Stateless compute (replica-safe; works online + locally identically) ─────────
+// The in-memory board/monitor above holds state in ONE process — fine locally, but
+// in a multi-replica cloud deploy each request may hit a different replica, so the
+// state shards. These endpoints take ALL inputs in the request and hold nothing:
+// the caller (e.g. Praxis/Postgres) persists the shift / baseline / history and
+// passes it in. Same compute as the stateful path (shared `oee`/`maintenance`
+// modules), just no server state.
+
+/// Compute one machine's OEE from a full shift supplied in the body.
+/// Body = an `OeeShift` (`machine_id`, `shift_length_secs`, `ideal_cycle_time_secs`,
+/// `stops[]`, `total_count`, `good_count`).
+async fn oee_compute_handler(Json(shift): Json<OeeShift>) -> Json<OeeReport> {
+    Json(shift.compute())
+}
+
+/// Roll up a plant OEE from a list of per-machine reports supplied in the body.
+async fn oee_rollup_handler(Json(reports): Json<Vec<OeeReport>>) -> Json<PlantOee> {
+    Json(plant_oee(&reports))
+}
+
+#[derive(Deserialize)]
+struct FoldRequest {
+    /// Prior baseline (omit/null to start fresh). Persist the returned one.
+    baseline: Option<HealthBaseline>,
+    reading: ReadingRequest,
+}
+
+/// Fold a healthy reading into a baseline and return the updated baseline. The
+/// caller stores the result (replica-safe training).
+async fn maintenance_fold_handler(Json(req): Json<FoldRequest>) -> Json<HealthBaseline> {
+    let mut baseline = req
+        .baseline
+        .unwrap_or_else(|| HealthBaseline::new(&req.reading.machine_id));
+    baseline.observe(&req.reading.to_reading());
+    Json(baseline)
+}
+
+#[derive(Deserialize)]
+struct ScoreRequest {
+    baseline: HealthBaseline,
+    reading: ReadingRequest,
+    sigma_threshold: Option<f32>,
+}
+
+/// Score a reading against a caller-supplied baseline (no server state).
+async fn maintenance_score_handler(Json(req): Json<ScoreRequest>) -> Json<AnomalyScore> {
+    let threshold = req.sigma_threshold.unwrap_or(DEFAULT_SIGMA_THRESHOLD);
+    Json(req.baseline.score(&req.reading.to_reading(), threshold))
+}
+
+#[derive(Deserialize)]
+struct RulRequest {
+    samples: Vec<Sample>,
+    limit: f64,
+}
+
+/// Project time-to-limit from a caller-supplied metric history.
+async fn maintenance_rul_handler(Json(req): Json<RulRequest>) -> Json<Option<RulEstimate>> {
+    Json(project_time_to_limit(&req.samples, req.limit))
 }
 
 async fn context_filter_handler(
@@ -1879,6 +1941,11 @@ async fn main() {
         .route("/api/v1/oee/:machine", get(oee_machine_report_handler))
         .route("/api/v1/maintenance/observe", post(maintenance_observe_handler))
         .route("/api/v1/maintenance/check", post(maintenance_check_handler))
+        .route("/api/v1/oee/compute", post(oee_compute_handler))
+        .route("/api/v1/oee/rollup", post(oee_rollup_handler))
+        .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
+        .route("/api/v1/maintenance/score", post(maintenance_score_handler))
+        .route("/api/v1/maintenance/rul", post(maintenance_rul_handler))
         .route("/api/v1/maintenance/:machine", get(maintenance_baseline_handler))
         .route("/api/v1/context/filter", post(context_filter_handler))
         .route("/api/v1/compress/logs", post(compress_logs_handler))
