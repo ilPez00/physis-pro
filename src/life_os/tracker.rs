@@ -5,6 +5,7 @@
 //! (`POST /api/v1/lifeos/goal`) and poll status/drift out
 //! (`GET /api/v1/lifeos/status`). No outbound HTTP, no service URLs to configure.
 
+use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -76,6 +77,24 @@ pub struct DriftReport {
     pub drifting: bool,
 }
 
+/// Where a goal sits in the alchemical opus — read from its progress trajectory.
+/// Effort/recovery is the *conservative* loop within a fixed form (Working);
+/// solve-et-coagula is the *transmutative* loop on the form itself: Solutio (the
+/// definition is failing — dissolve + re-form) vs Coagulating (a form is taking).
+/// The keystone for phase-aware suggestions + the seeker's-protocol matching.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum AlchemicalPhase {
+    /// Too new to tell.
+    Nascent,
+    /// Progress rising — the form is crystallising.
+    Coagulating,
+    /// Oscillating mid-progress — effort/recovery within the form.
+    Working,
+    /// Stalled-low or declining — the definition isn't taking; dissolve + re-form.
+    Solutio,
+}
+
 /// A concrete bioenergetic practice the engine proposes when charge is low or the
 /// schedule drifts. `tool` is a bioenergetics-hub tool key (e.g. `5r`, `posture`,
 /// `coldheat`) the UI opens directly — the countermeasure becomes actionable, not
@@ -101,6 +120,8 @@ pub struct TodayPlan {
     pub suggested_practice: Option<SuggestedPractice>,
     /// Other recovery methods for the same state (the rest of the pool).
     pub alternatives: Vec<SuggestedPractice>,
+    /// Alchemical phase per doable/deferred goal id (effort vs solve/coagula).
+    pub phases: BTreeMap<String, AlchemicalPhase>,
     pub drift: DriftReport,
 }
 
@@ -137,6 +158,9 @@ pub struct LifeOSTracker {
     pub goals: Vec<LifeOSGoal>,
     /// Current bioenergetic charge (pushed in by Praxis from check-ins).
     pub charge: Charge,
+    /// Per-goal progress trajectory (unix ts, progress) — drives the phase read.
+    /// Only real changes are recorded, so the slope reflects actual movement.
+    history: BTreeMap<String, Vec<(i64, f32)>>,
 }
 
 impl LifeOSTracker {
@@ -146,13 +170,16 @@ impl LifeOSTracker {
 
     /// Insert or replace a goal by `id`. Returns true if it replaced an existing one.
     pub fn upsert_goal(&mut self, goal: LifeOSGoal) -> bool {
-        if let Some(existing) = self.goals.iter_mut().find(|g| g.id == goal.id) {
+        let (id, progress) = (goal.id.clone(), goal.progress);
+        let replaced = if let Some(existing) = self.goals.iter_mut().find(|g| g.id == goal.id) {
             *existing = goal;
             true
         } else {
             self.goals.push(goal);
             false
-        }
+        };
+        self.record_progress(&id, progress);
+        replaced
     }
 
     /// Set a goal's progress (0.0–1.0). Returns false if unknown.
@@ -160,9 +187,60 @@ impl LifeOSTracker {
         match self.goals.iter_mut().find(|g| g.id == id) {
             Some(g) => {
                 g.progress = progress.clamp(0.0, 1.0);
+                let p = g.progress;
+                self.record_progress(id, p);
                 true
             }
             None => false,
+        }
+    }
+
+    /// Append a progress sample for a goal, deduping no-change repeats so the
+    /// trajectory reflects real movement. Capped to the last 64 samples.
+    fn record_progress(&mut self, id: &str, progress: f32) {
+        let p = progress.clamp(0.0, 1.0);
+        let h = self.history.entry(id.to_string()).or_default();
+        if h.last().is_none_or(|(_, last)| (last - p).abs() > 0.001) {
+            h.push((chrono::Utc::now().timestamp(), p));
+            if h.len() > 64 {
+                let overflow = h.len() - 64;
+                h.drain(0..overflow);
+            }
+        }
+    }
+
+    /// Alchemical phase of a goal, read from its progress trajectory (slope +
+    /// stuck-low detection). `Nascent` until there's enough signal.
+    pub fn phase_of(&self, id: &str) -> AlchemicalPhase {
+        let h = match self.history.get(id) {
+            Some(h) if h.len() >= 3 => h,
+            _ => return AlchemicalPhase::Nascent,
+        };
+        // Least-squares slope of progress over time → progress/day.
+        let n = h.len() as f64;
+        let mean_t = h.iter().map(|(t, _)| *t as f64).sum::<f64>() / n;
+        let mean_p = h.iter().map(|(_, p)| *p as f64).sum::<f64>() / n;
+        let (mut sxx, mut sxy) = (0.0f64, 0.0f64);
+        for (t, p) in h {
+            let dt = *t as f64 - mean_t;
+            sxx += dt * dt;
+            sxy += dt * (*p as f64 - mean_p);
+        }
+        let slope_per_day = if sxx > 0.0 { (sxy / sxx) * 86_400.0 } else { 0.0 };
+        let last = h.last().map(|(_, p)| *p).unwrap_or(0.0);
+        let span_days = (h.last().unwrap().0 - h.first().unwrap().0) as f64 / 86_400.0;
+
+        const RISE: f64 = 0.02; // >2%/day is meaningful movement
+        if slope_per_day > RISE {
+            AlchemicalPhase::Coagulating
+        } else if slope_per_day < -RISE {
+            AlchemicalPhase::Solutio // declining — the form is dissolving
+        } else if last >= 0.95 {
+            AlchemicalPhase::Coagulating // basically formed
+        } else if last < 0.3 && span_days >= 7.0 {
+            AlchemicalPhase::Solutio // stuck low for a week+ → re-form, don't grind
+        } else {
+            AlchemicalPhase::Working
         }
     }
 
@@ -233,25 +311,35 @@ impl LifeOSTracker {
             (Some(primary), alts)
         };
 
-        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, alternatives, drift }
+        // Alchemical phase per surfaced goal (effort/recovery vs solve/coagula).
+        let phases: BTreeMap<String, AlchemicalPhase> = doable
+            .iter()
+            .chain(deferred.iter())
+            .map(|g| (g.id.clone(), self.phase_of(&g.id)))
+            .collect();
+
+        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, alternatives, phases, drift }
     }
 
-    /// Persist this tenant's goals + charge to sled under `lifeos:<uid>`.
+    /// Persist this tenant's goals + charge + trajectory to sled under `lifeos:<uid>`.
     pub fn save(&self, db: &sled::Db, uid: &str) -> anyhow::Result<()> {
-        let snapshot = (&self.goals, self.charge);
+        let snapshot = (&self.goals, self.charge, &self.history);
         db.insert(format!("lifeos:{uid}"), serde_json::to_vec(&snapshot)?)?;
         Ok(())
     }
 
     /// Load a tenant's state from sled (empty tracker if absent/unreadable).
-    /// Tolerates the old goals-only format (no charge).
+    /// Tolerates older formats (goals+charge, or goals-only).
     pub fn load(db: &sled::Db, uid: &str) -> Self {
         let raw = db.get(format!("lifeos:{uid}")).ok().flatten();
         let Some(v) = raw else { return Self::default() };
-        if let Ok((goals, charge)) = serde_json::from_slice::<(Vec<LifeOSGoal>, Charge)>(&v) {
-            Self { goals, charge }
+        type Full = (Vec<LifeOSGoal>, Charge, BTreeMap<String, Vec<(i64, f32)>>);
+        if let Ok((goals, charge, history)) = serde_json::from_slice::<Full>(&v) {
+            Self { goals, charge, history }
+        } else if let Ok((goals, charge)) = serde_json::from_slice::<(Vec<LifeOSGoal>, Charge)>(&v) {
+            Self { goals, charge, history: BTreeMap::new() }
         } else if let Ok(goals) = serde_json::from_slice::<Vec<LifeOSGoal>>(&v) {
-            Self { goals, charge: Charge::default() }
+            Self { goals, charge: Charge::default(), history: BTreeMap::new() }
         } else {
             Self::default()
         }
@@ -387,5 +475,30 @@ mod tests {
         assert!(!Charge::Depleted.can_sustain(Charge::Steady));
         assert!(Charge::Steady.can_sustain(Charge::Steady));
         assert!(Charge::Charged.availability() > Charge::Depleted.availability());
+    }
+
+    #[test]
+    fn test_alchemical_phase() {
+        let mut t = LifeOSTracker::new();
+        let day = 86_400i64;
+        let now = chrono::Utc::now().timestamp();
+        t.history.insert("rise".into(), vec![(now - 3 * day, 0.1), (now - 2 * day, 0.3), (now - day, 0.5), (now, 0.7)]);
+        assert_eq!(t.phase_of("rise"), AlchemicalPhase::Coagulating);
+        t.history.insert("fall".into(), vec![(now - 3 * day, 0.7), (now - 2 * day, 0.5), (now - day, 0.4), (now, 0.2)]);
+        assert_eq!(t.phase_of("fall"), AlchemicalPhase::Solutio);
+        t.history.insert("stuck".into(), vec![(now - 10 * day, 0.15), (now - 5 * day, 0.16), (now, 0.15)]);
+        assert_eq!(t.phase_of("stuck"), AlchemicalPhase::Solutio);
+        t.history.insert("work".into(), vec![(now - 2 * day, 0.50), (now - day, 0.52), (now, 0.50)]);
+        assert_eq!(t.phase_of("work"), AlchemicalPhase::Working);
+        assert_eq!(t.phase_of("new"), AlchemicalPhase::Nascent);
+    }
+
+    #[test]
+    fn test_record_progress_dedup() {
+        let mut t = LifeOSTracker::new();
+        t.record_progress("g", 0.2);
+        t.record_progress("g", 0.2); // no-change → not recorded
+        t.record_progress("g", 0.5);
+        assert_eq!(t.history.get("g").unwrap().len(), 2);
     }
 }
