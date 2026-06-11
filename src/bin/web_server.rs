@@ -315,6 +315,13 @@ struct CoherenceNodesResponse {
     count: usize,
 }
 
+#[derive(Deserialize)]
+struct AllNodesParams {
+    #[serde(default = "default_all_limit")]
+    limit: usize,
+}
+fn default_all_limit() -> usize { 500 }
+
 #[derive(Serialize)]
 struct FilterResponse {
     embedding: Vec<f32>,
@@ -639,6 +646,30 @@ async fn coherence_nodes_handler(
         .into_iter()
         .map(|(id, label, score)| CoherenceNodeMatch { id, label, score })
         .collect();
+    Json(CoherenceNodesResponse { count: results.len(), results })
+}
+
+/// List ALL coherence nodes for the tenant (id + label + score), capped + sorted
+/// by score desc. Unlike `/coherence/nodes` (similarity search, needs a query),
+/// this enumerates the graph so a client can render/browse it without a query.
+/// Per-tenant — NOT exposed via the public proxy.
+async fn coherence_nodes_all_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<AllNodesParams>,
+) -> Json<CoherenceNodesResponse> {
+    let uid = user_key(&headers);
+    let mut results: Vec<CoherenceNodeMatch> = state.with_user(&uid, |s| {
+        s.core.nodes.values()
+            .map(|n| CoherenceNodeMatch {
+                id: n.id.clone(),
+                label: n.label.clone().unwrap_or_default(),
+                score: n.coherence_score,
+            })
+            .collect()
+    });
+    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.truncate(params.limit);
     Json(CoherenceNodesResponse { count: results.len(), results })
 }
 
@@ -2216,6 +2247,7 @@ async fn main() {
         .route("/api/v1/dream/evaluate", post(dream_evaluate_handler))
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
+        .route("/api/v1/coherence/nodes/all", get(coherence_nodes_all_handler))
         .route("/api/v1/coherence/register", post(coherence_register_handler))
         .route("/api/v1/oee/machine", post(oee_machine_handler))
         .route("/api/v1/oee/event", post(oee_event_handler))
