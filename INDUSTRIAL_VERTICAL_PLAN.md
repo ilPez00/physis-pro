@@ -84,6 +84,47 @@ sigma scores, RUL warnings, and dream-proposed countermeasures.
 - [ ] Send; meeting decides the adapter roadmap (which machines, which
       protocol — MQTT, Modbus, OPC-UA, serial). ← human step
 
+## Step 4 — Grid expansion: Italian-language ontology anchors
+
+The measured Italian gap (0.733 domain / 0.600 cell) comes from cross-lingual
+embedding noise: Italian queries matched against English-only anchors under an
+English model. Fix without changing models: **add Italian-language ontology
+entries** — an Italian query against an Italian anchor is *same-language*
+matching, where bge-base is strong. Nearest-entry scoring picks the best anchor
+per cell, so Italian entries help Italian input without touching English paths.
+
+- [x] `config/italian_industrial_ontology.json` — 26 entries of generic Italian
+      vocabulary per cell (industrial + office + daily life), registered in
+      `EXTRA_ONTOLOGIES`. Anti-overfit rule held: entries carry vocabulary,
+      never fixture sentences.
+- [x] Measured (2026-06-12): **ITALIAN 0.733/0.600 → 0.867/0.867** (cell
+      accuracy +44% relative), CORE unchanged at 1.000/0.949 — zero English
+      regression. Same-language anchors beat the multilingual-model swap that
+      step 1 measured and rejected. ⬜ Gate the Italian tier after it survives
+      a few runs at this level.
+- [x] **Dogfood bonus** — classifying this session's own work log with the CLI
+      exposed two real bugs: the CLI embedder cascade had no semantic self-test
+      gate (broken Jina fp16 loaded first → every CLI verdict was ~0.06 noise)
+      and `run_classify` still used pre-P3 mean-centroid scoring. Both fixed:
+      shared `embed::semantic_self_test` gates web+CLI+tests, CLI uses
+      nearest-entry `CellClassifier`, and the CLI prints embedder provenance.
+
+## Future angles (validated by one customer before building)
+
+- **Transizione 5.0 evidence reports** — Italian tax credits require
+  *documented, measured* efficiency improvements; the OEE+report pipeline plus
+  the Power Draw ontology domains can emit the evidence document. Verify the
+  current credit rules before pitching. Sharpest wedge: customers are legally
+  incentivized to buy monitoring.
+- **ISO 9001 audit trail** — classified, timestamped machine/quality logs as
+  audit-ready documentation; reuses the report infra, different buyer.
+- **Coherence tripwire for AI outputs** — generalize Agora quality scoring:
+  score any LLM/agent output against accumulated ±1 coherence truth
+  ("does this claim cohere with what is known to have worked?").
+- **Process drift detection** — weekly classification of a team's
+  communication stream; drift in the cell distribution = early process-decay
+  signal. Fits the "facilitatore di processo" pitch directly.
+
 ## Explicitly deferred (until customer pull)
 
 - MQTT/Modbus subscribe loops (PLAN 1C) — after the meeting names protocols.

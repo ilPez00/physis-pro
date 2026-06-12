@@ -58,6 +58,11 @@ static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
     // One MODE-pure anchor per cell — sharpens the 6-mode axis (same-domain modes
     // were noisy, e.g. heavy lifting leaking to WALK). Phase 6F.
     ("mode_anchors", include_str!("../config/mode_anchors_ontology.json")),
+    // Italian-language anchors: an Italian query against an Italian entry is
+    // same-language matching, which sidesteps the cross-lingual weakness of the
+    // English embedder (measured Italian tier 0.733 → see INDUSTRIAL_VERTICAL_PLAN
+    // step 4). Vocabulary only — never fixture sentences (held-out test honesty).
+    ("italian", include_str!("../config/italian_industrial_ontology.json")),
 ];
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
