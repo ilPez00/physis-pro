@@ -267,15 +267,24 @@ sentence are directly comparable and classifiable through the same core.
 
 ### Embedders
 
-The default embedder is a deterministic **random projection** (no model files
-needed). For real semantic embeddings, enable **ONNX MiniLM**:
+Selection is **self-test-gated**: at startup each candidate must pass a semantic
+probe (dog≈puppy must beat dog≈tax-spreadsheet) or it is skipped. The chain:
+
+1. **BGE-base-en-v1.5** (768-d, production default) — `models/bge-base-en-v1.5/`
+2. **ONNX MiniLM** (384-d fallback) — `models/model.onnx` + `models/tokenizer.json`
+3. **Random projection** (deterministic, no model files) — last resort; the
+   server marks itself `degraded:true` on `/api/v1/embedder` and logs at `error`.
+
+Model weights are git-ignored. Locally, export with `optimum-cli`:
 
 ```bash
 pip install optimum onnx
-optimum-cli export sentence-transformers models/sentence-transformers/all-MiniLM-L6-v2
-# → models/model.onnx + models/tokenizer.json
-cargo build --features embed-onnx     # (on by default; falls back to RP if absent)
+optimum-cli export onnx -m BAAI/bge-base-en-v1.5 models/bge-base-en-v1.5/
+cargo build --features embed-onnx     # (on by default; falls back down the chain)
 ```
+
+In production, `docker-entrypoint.sh` fetches weights from `MODEL_BASE_URL`
+at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 
 ---
 
@@ -299,7 +308,7 @@ cargo build --features embed-onnx     # (on by default; falls back to RP if abse
 | `gantt` | `GanttTask` scheduler — start/end, deps, critical path over `RawNodeKey` |
 | `sensory` | `AuraFrame` multimodal ingestion bus |
 | `video` | ffmpeg frame-sample → clip vector |
-| `embed` | `VectorEmbed` trait — RandomProjection / ONNX-MiniLM / CLIP / Jina |
+| `embed` | `VectorEmbed` trait — BGE-base / ONNX-MiniLM / RandomProjection / CLIP / Jina |
 | `quantize` | Product quantizer (f32 → byte codes) |
 | `reconstruct` | Nearest-neighbour reconstruction + LLM interpretation |
 | `storage` | Zero-copy mmap storage for `Pod` types |

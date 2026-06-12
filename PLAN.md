@@ -22,9 +22,9 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 - [ ] **Real-time Industrial Adapters**: Move from TCP pings to full MQTT/Modbus subscribe/publish loops feeding `HolonicGraph`.
 
 #### 1D — Embeddings & Ontology
-- [ ] **Upgrade Embeddings**: Replace `RandomProjectionEmbedder` with a production-grade ONNX model (e.g., `MiniLM` or `JinaV2`).
+- [x] **Upgrade Embeddings**: BGE-base-en-v1.5 (768-d) ships as the production embedder, self-test-gated with MiniLM → RandomProjection fallback (see PREMORTEM P0/P4). Accuracy 0.974 domain / 0.923 cell on the curated set.
 - [ ] **Automated Ontology Discovery**: "Discovery" mode that scans a new environment and suggests ontology mappings.
-- [ ] **Config dedup**: `OntologyLoader` has 10 copy-paste load functions — collapse into a macro or dynamic dispatch.
+- [x] **Config dedup**: the 10 copy-paste `load_builtin_*` functions collapsed into a `BUILTIN_ONTOLOGIES` table + one `load_builtin(name)` lookup.
 
 #### 1E — Packaging
 - [x] **`setup.py` + `install.sh`**: pip-installable packaging with binary installation.

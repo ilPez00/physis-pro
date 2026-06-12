@@ -34,6 +34,12 @@ product is snake oil. We never notice because nothing errors.
 3. Stop pretending the image bundles models: drop the dead `COPY models` from the
    Dockerfile and document the bucket path.
 
+**✅ Done & verified in prod (2026-06-12):** all three mitigations shipped —
+`/api/v1/embedder` exposes `degraded`/`self_test` (unauthenticated, monitorable),
+`docker-entrypoint.sh` fetches weights at boot, Dockerfile documents that
+`models/` never rides in git. Live check on the Railway deploy:
+`{"degraded":false,"dim":768,"kind":"bge-base","self_test":true,"semantic":true}`.
+
 ---
 
 ## P1 — Single global `Mutex<AppState>` serializes the whole server
@@ -52,6 +58,14 @@ permanently until restart.
 read-only after startup and need no lock; only the mutable `goals`/`core`/`actor`
 need a lock (ideally `RwLock` or per-field). Replace `.lock().unwrap()` with
 poison-tolerant handling. Not urgent for a single-user demo, fatal at launch.
+
+**✅ Done (2026-06-12):** immutable infra lives lock-free in `Arc<SharedCtx>`
+(embedder, classifier, ontology, cascade); mutable state is per-tenant behind
+`with_user`; every lock is poison-tolerant (`unwrap_or_else(|e| e.into_inner())`);
+embeds run on `spawn_blocking` *outside* the lock (`embed_text`/`embed_input`/
+`embed_batch_off_thread`). Last two stragglers fixed today: `context_filter` and
+`maintenance_check` were still embedding under the global lock — both now embed
+first, lock briefly (`filter_context_embedded`, `register_node_vec_labeled`).
 
 ---
 
