@@ -921,6 +921,47 @@ async fn oee_compute_handler(Json(shift): Json<OeeShift>) -> Json<OeeReport> {
     Json(shift.compute())
 }
 
+/// Stateless shift report: caller supplies all data (`ShiftReportInput`),
+/// gets the Italian Markdown back. Replica-safe like the other compute routes.
+async fn report_shift_compute_handler(
+    Json(input): Json<physis_pro::report::ShiftReportInput>,
+) -> Json<serde_json::Value> {
+    let markdown = physis_pro::report::render_shift_report_it(&input);
+    Json(serde_json::json!({ "markdown": markdown }))
+}
+
+/// Stateful shift report from the live engine: every machine on the OEE board,
+/// plus accepted/ungraded dream descriptions from the default tenant as
+/// proposed countermeasures. Anomaly/RUL sections come via the stateless POST
+/// (the monitor scores readings as they arrive; it doesn't keep a shift log).
+async fn report_shift_live_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+    let oee: Vec<OeeReport> = {
+        let board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
+        board
+            .machine_ids()
+            .iter()
+            .filter_map(|id| board.report(id))
+            .collect()
+    };
+    let countermeasures: Vec<String> = {
+        let s = state.lock();
+        s.dreams
+            .dreams
+            .iter()
+            .filter(|d| d.grade.unwrap_or(1.0) > 0.5)
+            .map(|d| d.description.clone())
+            .take(10)
+            .collect()
+    };
+    let input = physis_pro::report::ShiftReportInput {
+        oee,
+        countermeasures,
+        ..Default::default()
+    };
+    let markdown = physis_pro::report::render_shift_report_it(&input);
+    Json(serde_json::json!({ "markdown": markdown }))
+}
+
 /// Roll up a plant OEE from a list of per-machine reports supplied in the body.
 async fn oee_rollup_handler(Json(reports): Json<Vec<OeeReport>>) -> Json<PlantOee> {
     Json(plant_oee(&reports))
@@ -2281,6 +2322,7 @@ async fn main() {
         .route("/api/v1/maintenance/check", post(maintenance_check_handler))
         .route("/api/v1/oee/compute", post(oee_compute_handler))
         .route("/api/v1/oee/rollup", post(oee_rollup_handler))
+        .route("/api/v1/report/shift", get(report_shift_live_handler).post(report_shift_compute_handler))
         .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
         .route("/api/v1/maintenance/score", post(maintenance_score_handler))
         .route("/api/v1/maintenance/rul", post(maintenance_rul_handler))

@@ -31,6 +31,7 @@ pub mod ingest;
 pub mod inventory;
 pub mod oee;
 pub mod maintenance;
+pub mod report;
 pub mod ontology;
 pub mod ontology_nonhuman;
 pub mod gantt;

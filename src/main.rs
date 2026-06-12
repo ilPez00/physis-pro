@@ -70,6 +70,12 @@ pub enum Commands {
     },
 
     // ── Business backoffice commands ──
+    /// Render the Italian shift report from a ShiftReportInput JSON file
+    Report {
+        /// Path to a JSON file with oee[] (+ optional anomalies/rul/countermeasures)
+        #[arg(long)]
+        shift: PathBuf,
+    },
     /// Score the quality of a business output against the semiotic grid
     Score {
         /// Text output to score
@@ -198,6 +204,11 @@ fn main() -> anyhow::Result<()> {
         }
 
         // ── Business commands ──
+        Commands::Report { shift } => {
+            let raw = std::fs::read_to_string(&shift)?;
+            let input: physis_pro::report::ShiftReportInput = serde_json::from_str(&raw)?;
+            println!("{}", physis_pro::report::render_shift_report_it(&input));
+        }
         Commands::Score { text } => {
             let embedder: Box<dyn VectorEmbed> =
                 Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));

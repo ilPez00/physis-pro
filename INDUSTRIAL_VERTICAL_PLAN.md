@@ -59,14 +59,17 @@ One readable report per shift, generated from data already in the engine:
 OEE (availability × performance × quality), top stops, anomalies with
 sigma scores, RUL warnings, and dream-proposed countermeasures.
 
-- [ ] `report.rs`: compose `OeeReport` + `MaintenanceMonitor` anomalies +
-      `dream` output into one Markdown document (Italian template first —
-      the buyer reads Italian).
-- [ ] CLI: `physis-pro report --shift <spec>`; HTTP: `GET /api/v1/report/shift`.
+- [x] `report.rs`: `ShiftReportInput` → Italian Markdown — plant rollup,
+      per-machine KPI + six-big-losses Pareto, anomalies (σ), RUL projections,
+      dream countermeasures. Pure/stateless, unit-tested.
+- [x] CLI: `physis-pro report --shift <json>`; HTTP: `POST /api/v1/report/shift`
+      (stateless, full input) + `GET /api/v1/report/shift` (live OEE board +
+      graded dream countermeasures).
 - [ ] Render path: Markdown → PDF (typst or headless pandoc) or clean HTML
       email. Samples to mirror: `docs/business/sample-outputs.md`.
-- [ ] Wire one demo dataset end-to-end so the proposal shows a real report,
-      not a mock.
+- [x] Demo dataset end-to-end: `examples/shift_report_demo.rs` →
+      `docs/business/demo-shift.json` + `docs/business/sample-shift-report.md`
+      (real engine output: OEE 67.8%/90.0%, 4.4σ bearing anomaly, RUL ~2h).
 
 ## Step 3 — Proposal out
 
