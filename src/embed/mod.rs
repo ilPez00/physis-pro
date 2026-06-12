@@ -50,6 +50,22 @@ pub trait VectorEmbed: Send + Sync {
     fn dimension(&self) -> usize;
 }
 
+/// Semantic self-test (PREMORTEM P0/P4): a model can load yet emit garbage
+/// (fp16 outputs read as f32, opset drift, truncated dims). A related pair
+/// must clearly out-score an unrelated pair, all vectors finite. Every
+/// cascade that selects an embedder must gate candidates with this — the
+/// CLI shipped without it and silently ran on Jina noise.
+pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
+    let a = e.embed("a photograph of a dog");
+    let related = e.embed("a photograph of a puppy");
+    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
+    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
+    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
+        return false;
+    }
+    crate::models::cosine_sim(&a, &related) > crate::models::cosine_sim(&a, &unrelated) + 0.05
+}
+
 impl<T: VectorEmbed + ?Sized> VectorEmbed for Box<T> {
     fn embed(&self, text: &str) -> Vec<f32> {
         (**self).embed(text)

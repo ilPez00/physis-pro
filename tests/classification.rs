@@ -88,19 +88,11 @@ fn fixtures_use_valid_vocabulary() {
     }
 }
 
-/// Semantic self-test: a related pair must out-score an unrelated pair, all
-/// vectors finite. Mirrors the engine's gate so a model that loads but emits
+/// Semantic self-test — the engine's shared gate: a model that loads but emits
 /// garbage (e.g. Jina fp16's float16 outputs read as f32 → random) is rejected.
 #[cfg(feature = "embed-onnx")]
 fn is_semantic(e: &dyn VectorEmbed) -> bool {
-    let a = e.embed("a photograph of a dog");
-    let related = e.embed("a photograph of a puppy");
-    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
-    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
-    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
-        return false;
-    }
-    physis_pro::models::cosine_sim(&a, &related) > physis_pro::models::cosine_sim(&a, &unrelated) + 0.05
+    physis_pro::embed::semantic_self_test(e)
 }
 
 /// Best available real (semantic) embedder for local accuracy checks: Jina →

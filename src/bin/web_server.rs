@@ -368,16 +368,7 @@ fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<ErrorRespons
 /// clearly higher cosine than an unrelated pair, and all vectors must be finite
 /// and non-empty. Random-projection and broken-inference fallbacks fail this.
 fn embedder_self_test(e: &dyn VectorEmbed) -> bool {
-    let a = e.embed("a photograph of a dog");
-    let related = e.embed("a photograph of a puppy");
-    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
-    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
-    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
-        return false;
-    }
-    let sim_related = physis_pro::models::cosine_sim(&a, &related);
-    let sim_unrelated = physis_pro::models::cosine_sim(&a, &unrelated);
-    sim_related > sim_unrelated + 0.05
+    physis_pro::embed::semantic_self_test(e)
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────

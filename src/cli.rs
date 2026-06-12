@@ -123,6 +123,13 @@ impl PhysisApp {
         let embedder: Box<dyn VectorEmbed> = {
             #[cfg(feature = "embed-onnx")]
             {
+                // Self-test gate (same as the web server): a candidate that loads
+                // but emits non-semantic vectors (e.g. Jina fp16 → garbage) is
+                // skipped so the next working candidate wins. Without this gate
+                // the CLI silently classified with noise.
+                let gate = |opt: Option<Box<dyn VectorEmbed>>| {
+                    opt.filter(|e| crate::embed::semantic_self_test(e.as_ref()))
+                };
                 let try_primary = || -> Option<Box<dyn VectorEmbed>> {
                     let ec = config.embedders.primary.as_ref()?;
                     if !ec.enabled { return None; }
@@ -166,24 +173,55 @@ impl PhysisApp {
                         }
                     }
                 };
-                try_primary()
-                    .or_else(|| {
+                // Mirror the web cascade: Jina → BGE → BGE-M3 → CLIP → MiniLM → RP,
+                // every candidate self-test-gated. Both halves matter: this cascade
+                // used to lack BGE *and* the gate, so the broken Jina fp16 export
+                // loaded first and every CLI classification was noise (~0.06 top
+                // score on real text). Found by dogfooding `physis-pro classify`.
+                gate(try_primary())
+                    .or_else(|| gate({
                         let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
                         j.is_available().then(|| Box::new(j) as Box<dyn VectorEmbed>)
-                    })
-                    .or_else(|| {
+                    }))
+                    .or_else(|| gate({
+                        let cfg = crate::config::OnnxConfig {
+                            enabled: true,
+                            model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                            dim: 768,
+                            max_length: 512,
+                            pooling: crate::config::PoolingStrategy::Mean,
+                        };
+                        let b = OnnxEmbedder::with_config(&cfg);
+                        b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                    }))
+                    .or_else(|| gate({
+                        let cfg = crate::config::OnnxConfig {
+                            enabled: true,
+                            model_dir: Some("models/bge-m3".to_string()),
+                            dim: 1024,
+                            max_length: 512,
+                            pooling: crate::config::PoolingStrategy::Cls,
+                        };
+                        let b = OnnxEmbedder::with_config(&cfg);
+                        b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                    }))
+                    .or_else(|| gate({
                         let c = ClipEmbedder::with_config(&config.onnx);
                         c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
-                    })
-                    .or_else(|| {
+                    }))
+                    .or_else(|| gate({
                         let m = OnnxEmbedder::with_config(&config.onnx);
                         m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
-                    })
+                    }))
                     .unwrap_or_else(|| Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
             }
             #[cfg(not(feature = "embed-onnx"))]
             Box::new(RandomProjectionEmbedder::new(config.embed_dim))
         };
+        // Embedder provenance on stderr — the CLI equivalent of the web banner.
+        // A silent fall-through to random projection makes every verdict noise
+        // (PREMORTEM P0); at least say which embedder is answering.
+        eprintln!("[physis] embedder: dim={}", embedder.dimension());
 
         // Pre-compute centroids per DOMAIN×MODE cell (human grid + extra ontologies)
         let mut centroid_sums: HashMap<String, (Vec<f32>, usize)> = HashMap::new();
@@ -417,35 +455,29 @@ No other text."#.into(),
             self.embedder.embed(&text)
         };
 
-        let mut results: Vec<(&str, &str, f32, Vec<&str>)> = Vec::new();
-        for (key, centroid) in &self.cell_centroids {
-            let score = crate::models::cosine_sim(&embedding, centroid);
-            let mut parts = key.splitn(2, '\x00');
-            let (domain, mode) = match (parts.next(), parts.next()) {
-                (Some(d), Some(m)) => (d, m),
-                _ => continue,
-            };
-            let entries: Vec<&str> = self.ontology.classification_domains()
-                .filter(|def| def.domain.as_deref() == Some(domain) && def.mode.as_deref() == Some(mode))
-                .flat_map(|def| def.hints.iter().map(|h| h.as_str()))
-                .collect();
-            results.push((domain, mode, score, entries));
-        }
-        results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        // Nearest-entry scoring via CellClassifier — the same path the web server
+        // and the gated accuracy test use. The previous mean-centroid scoring
+        // here predated the P3 fix (PREMORTEM.md) and compressed every score
+        // toward zero, so the CLI verdicts were noise (~0.07 on real text).
+        let clf = crate::classify::CellClassifier::build(&self.ontology, self.embedder.as_ref());
+        let results = clf.classify(&embedding);
 
         let mut out = String::new();
         out.push_str("━━━ Physis Classification Map ━━━\n");
         out.push_str(&format!("File: {}\n\n", file.display()));
-        for (i, (domain, mode, score, hints)) in results.iter().enumerate() {
+        for (i, r) in results.iter().enumerate() {
             if i == 0 {
-                out.push_str(&format!("★ TOP: {}×{} — {:.3}\n", domain, mode, score));
-                out.push_str(&format!("   Reasoning: Matches hints: {}\n", hints.iter().take(5).cloned().collect::<Vec<_>>().join(", ")));
+                out.push_str(&format!("★ TOP: {}×{} — {:.3}\n", r.domain, r.mode, r.score));
+                out.push_str(&format!(
+                    "   Reasoning: nearest entries: {}\n",
+                    r.entries.iter().take(5).cloned().collect::<Vec<_>>().join(", ")
+                ));
                 out.push('\n');
-            } else if *score > 0.6 {
-                out.push_str(&format!("  {}×{} — {:.3}\n", domain, mode, score));
+            } else if i < 5 {
+                out.push_str(&format!("  {}×{} — {:.3}\n", r.domain, r.mode, r.score));
             }
         }
-        out.push_str(&format!("\n{} cells scored (threshold >0.6 shown)\n", results.len()));
+        out.push_str(&format!("\n{} cells scored (top 5 shown)\n", results.len()));
         Ok(out)
     }
 }
