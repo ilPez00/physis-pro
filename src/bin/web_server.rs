@@ -881,8 +881,9 @@ async fn maintenance_check_handler(
     // already sees the defect and can propose a countermeasure.
     let coherence_node_id = if score.is_anomaly {
         let text = score.describe();
+        let embedding = embed_text(state.shared.clone(), text.clone()).await;
         let mut s = state.lock();
-        Some(s.core.register_node_from_text(&text, state.shared.embedder.as_ref()))
+        Some(s.core.register_node_vec_labeled(embedding, Some(text)))
     } else {
         None
     };
@@ -970,8 +971,12 @@ async fn context_filter_handler(
     State(state): State<SharedState>,
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<FilterResponse> {
+    // Embed off-thread before taking the lock — the ONNX embed is the slow part
+    // and must not serialize other handlers behind the global state mutex.
+    let token_estimate = req.input.split_whitespace().count();
+    let embedding = embed_text(state.shared.clone(), req.input.clone()).await;
     let s = state.lock();
-    let result = s.core.filter_context(&req.input, &state.shared.embedder);
+    let result = s.core.filter_context_embedded(embedding, token_estimate);
     Json(FilterResponse {
         embedding: result.embedding,
         valid: result.valid,

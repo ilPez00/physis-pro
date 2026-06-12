@@ -331,12 +331,23 @@ impl PhysisCore {
         embedder: &dyn crate::embed::VectorEmbed,
     ) -> FilteredContext {
         let embedding = embedder.embed(raw_input);
+        let token_estimate = raw_input.split_whitespace().count();
+        self.filter_context_embedded(embedding, token_estimate)
+    }
+
+    /// Same as `filter_context` but takes a pre-computed embedding, so callers
+    /// holding a lock can embed outside it (the embed is the expensive part).
+    pub fn filter_context_embedded(
+        &self,
+        embedding: Vec<f32>,
+        token_estimate: usize,
+    ) -> FilteredContext {
         let consistency = self.check_consistency(&embedding, 0.85);
         let valid = matches!(consistency, ConsistencyResult::Clean);
         FilteredContext {
             embedding,
             valid,
-            token_estimate: raw_input.split_whitespace().count(),
+            token_estimate,
         }
     }
 
