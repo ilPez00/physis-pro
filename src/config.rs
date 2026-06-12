@@ -133,6 +133,24 @@ pub struct OnnxConfig {
     pub dim: usize,
     /// Maximum sequence length for tokenization.
     pub max_length: usize,
+    /// How to reduce the token matrix to one sentence vector. BERT-family
+    /// sentence encoders (MiniLM, BGE-base) are trained for masked mean
+    /// pooling; BGE-M3's dense vector is the CLS (first) token — mean pooling
+    /// scrambles it (measured: CORE 0.923 vs 1.000 on the fixture set).
+    #[serde(default)]
+    pub pooling: PoolingStrategy,
+}
+
+/// Sentence-pooling strategy for ONNX encoder outputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum PoolingStrategy {
+    /// Masked mean over real tokens (BERT-family sentence encoders).
+    #[default]
+    #[serde(rename = "mean")]
+    Mean,
+    /// First-token (CLS) vector (BGE-M3 dense).
+    #[serde(rename = "cls")]
+    Cls,
 }
 
 /// Which embedder kind to use.
@@ -150,6 +168,11 @@ pub enum EmbedderKindConfig {
     /// cleanly under the current `ort` when Jina's quant won't. Text-only.
     #[serde(rename = "bge-base")]
     BgeBase,
+    /// BGE-M3 (1024-d text, XLM-R based, 100+ languages). Preferred over
+    /// BGE-base when present — Italian/multilingual industrial input is the
+    /// reason it exists here. Text-only.
+    #[serde(rename = "bge-m3")]
+    BgeM3,
 }
 
 /// Configuration for a single embedder.
@@ -183,6 +206,7 @@ impl Default for OnnxConfig {
             model_dir: Some("./models".to_string()),
             dim: 384,
             max_length: 128,
+            pooling: PoolingStrategy::Mean,
         }
     }
 }

@@ -145,6 +145,18 @@ impl PhysisApp {
                                 model_dir: Some("models/bge-base-en-v1.5".to_string()),
                                 dim: 768,
                                 max_length: 512,
+                                pooling: crate::config::PoolingStrategy::Mean,
+                            };
+                            let b = OnnxEmbedder::with_config(&cfg);
+                            b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                        }
+                        EmbedderKindConfig::BgeM3 => {
+                            let cfg = crate::config::OnnxConfig {
+                                enabled: true,
+                                model_dir: Some("models/bge-m3".to_string()),
+                                dim: 1024,
+                                max_length: 512,
+                                pooling: crate::config::PoolingStrategy::Cls,
                             };
                             let b = OnnxEmbedder::with_config(&cfg);
                             b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)

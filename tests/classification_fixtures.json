@@ -52,5 +52,21 @@
   { "text": "taking a quiet reflective pause to ponder", "domain": "STUDY", "mode": "REST", "tier": "hard" },
   { "text": "winterizing and storing the equipment for the off-season", "domain": "CONSTRUCT", "mode": "REST", "tier": "hard" },
   { "text": "operating a crane to hoist a steel beam on site", "domain": "CONSTRUCT", "mode": "LIFT", "tier": "hard" },
-  { "text": "a deep-focus exam cram and study sprint", "domain": "STUDY", "mode": "LIFT", "tier": "hard" }
+  { "text": "a deep-focus exam cram and study sprint", "domain": "STUDY", "mode": "LIFT", "tier": "hard" },
+
+  { "text": "sollevamento pesi in palestra questa mattina", "domain": "HEAL", "mode": "LIFT", "tier": "italian" },
+  { "text": "un pisolino per recuperare le energie dopo il turno", "domain": "HEAL", "mode": "REST", "tier": "italian" },
+  { "text": "camminata all'aperto per restare in salute", "domain": "HEAL", "mode": "WALK", "tier": "italian" },
+  { "text": "cucinare una ricetta in cucina", "domain": "FABRICATE", "mode": "CREATE", "tier": "italian" },
+  { "text": "scrivere un articolo per il blog aziendale", "domain": "FABRICATE", "mode": "CREATE", "tier": "italian" },
+  { "text": "pagare le fatture e gestire il bilancio aziendale", "domain": "FABRICATE", "mode": "WORK", "tier": "italian" },
+  { "text": "riparare l'impianto idraulico con chiave inglese e guarnizioni", "domain": "CONSTRUCT", "mode": "WORK", "tier": "italian" },
+  { "text": "manutenzione del macchinario: sostituzione del cuscinetto usurato", "domain": "CONSTRUCT", "mode": "WORK", "tier": "italian" },
+  { "text": "organizzare i file e le cartelle sul computer", "domain": "CONSTRUCT", "mode": "CREATE", "tier": "italian" },
+  { "text": "chiamare un amico per organizzare una cena insieme", "domain": "BOND", "mode": "REST", "tier": "italian" },
+  { "text": "riunione di coordinamento con il team di produzione", "domain": "BOND", "mode": "WORK", "tier": "italian" },
+  { "text": "fare da mentore a un collega junior in officina", "domain": "BOND", "mode": "LEARN", "tier": "italian" },
+  { "text": "studiare per un corso serale e imparare in aula", "domain": "STUDY", "mode": "LEARN", "tier": "italian" },
+  { "text": "analizzare i dati di produzione per il report del turno", "domain": "STUDY", "mode": "WORK", "tier": "italian" },
+  { "text": "pianificare la strategia e la roadmap del progetto con le milestone", "domain": "STUDY", "mode": "WORK", "tier": "italian" }
 ]

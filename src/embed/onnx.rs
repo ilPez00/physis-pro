@@ -8,7 +8,7 @@ use std::sync::Mutex;
 
 use ort::value::{DynTensorValueType, Tensor};
 
-use crate::config::OnnxConfig;
+use crate::config::{OnnxConfig, PoolingStrategy};
 
 /// Embedder that loads an ONNX MiniLM model for semantic embeddings.
 ///
@@ -21,6 +21,11 @@ pub struct OnnxEmbedder {
     /// Directory path where model.onnx and tokenizer.json are stored.
     pub model_path: String,
     max_length: usize,
+    /// Whether the model's input signature declares `token_type_ids`. BERT-family
+    /// exports (MiniLM, BGE-base) do; XLM-R-family exports (BGE-M3) don't, and
+    /// feeding an undeclared input errors the run (→ silent RP fallback).
+    wants_token_type_ids: bool,
+    pooling: PoolingStrategy,
 }
 
 impl OnnxEmbedder {
@@ -52,12 +57,19 @@ impl OnnxEmbedder {
             None
         };
 
+        let wants_token_type_ids = session
+            .as_ref()
+            .map(|s| s.inputs().iter().any(|i| i.name() == "token_type_ids"))
+            .unwrap_or(true);
+
         Self {
             dim,
             session: Mutex::new(session),
             tokenizer,
             model_path: model_dir.to_string(),
             max_length,
+            wants_token_type_ids,
+            pooling: config.pooling,
         }
     }
 
@@ -109,11 +121,13 @@ impl VectorEmbed for OnnxEmbedder {
             _ => return fallback_embed(text, self.dim),
         };
 
-        let inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
+        let mut inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
             ("input_ids", ids_t.into()),
             ("attention_mask", mask_t.into()),
-            ("token_type_ids", types_t.into()),
         ];
+        if self.wants_token_type_ids {
+            inputs.push(("token_type_ids", types_t.into()));
+        }
 
         let mut session_guard = self.session.lock().unwrap();
         let s = match session_guard.as_mut() {
@@ -151,17 +165,25 @@ impl VectorEmbed for OnnxEmbedder {
         let limit = tokens.min(actual_len);
 
         let mut pooled = vec![0.0f32; self.dim];
-        let mut count = 0usize;
-        for t in 0..limit {
-            count += 1;
-            for d in 0..features.min(self.dim) {
-                pooled[d] += view[[0, t, d]];
+        match self.pooling {
+            PoolingStrategy::Cls => {
+                for d in 0..features.min(self.dim) {
+                    pooled[d] = view[[0, 0, d]];
+                }
             }
-        }
-
-        if count > 0 {
-            for v in &mut pooled {
-                *v /= count as f32;
+            PoolingStrategy::Mean => {
+                let mut count = 0usize;
+                for t in 0..limit {
+                    count += 1;
+                    for d in 0..features.min(self.dim) {
+                        pooled[d] += view[[0, t, d]];
+                    }
+                }
+                if count > 0 {
+                    for v in &mut pooled {
+                        *v /= count as f32;
+                    }
+                }
             }
         }
 
@@ -216,11 +238,13 @@ impl VectorEmbed for OnnxEmbedder {
         ) else {
             return per_text();
         };
-        let inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
+        let mut inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
             ("input_ids", ids_t.into()),
             ("attention_mask", mask_t.into()),
-            ("token_type_ids", types_t.into()),
         ];
+        if self.wants_token_type_ids {
+            inputs.push(("token_type_ids", types_t.into()));
+        }
 
         // Run + pool inside a labeled block so the session lock drops at its end;
         // the fallback (which re-locks via self.embed) runs only AFTER, lock-free.
@@ -259,16 +283,25 @@ impl VectorEmbed for OnnxEmbedder {
             for (r, &actual_len) in lens.iter().enumerate() {
                 let limit = tokens.min(actual_len);
                 let mut pooled = vec![0.0f32; self.dim];
-                let mut count = 0usize;
-                for t in 0..limit {
-                    count += 1;
-                    for d in 0..features.min(self.dim) {
-                        pooled[d] += view[[r, t, d]];
+                match self.pooling {
+                    PoolingStrategy::Cls => {
+                        for d in 0..features.min(self.dim) {
+                            pooled[d] = view[[r, 0, d]];
+                        }
                     }
-                }
-                if count > 0 {
-                    for v in &mut pooled {
-                        *v /= count as f32;
+                    PoolingStrategy::Mean => {
+                        let mut count = 0usize;
+                        for t in 0..limit {
+                            count += 1;
+                            for d in 0..features.min(self.dim) {
+                                pooled[d] += view[[r, t, d]];
+                            }
+                        }
+                        if count > 0 {
+                            for v in &mut pooled {
+                                *v /= count as f32;
+                            }
+                        }
                     }
                 }
                 let norm = pooled.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);

@@ -1958,9 +1958,23 @@ async fn main() {
                     model_dir: Some("models/bge-base-en-v1.5".to_string()),
                     dim: 768,
                     max_length: 512,
+                    pooling: physis_pro::config::PoolingStrategy::Mean,
                 };
                 let b = OnnxEmbedder::with_config(&cfg);
                 b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
+            };
+            // BGE-M3 (1024-d, XLM-R, 100+ languages). Preferred over BGE-base when
+            // its weights are present: Italian/multilingual industrial input is why.
+            let make_bge_m3 = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                let cfg = physis_pro::config::OnnxConfig {
+                    enabled: true,
+                    model_dir: Some("models/bge-m3".to_string()),
+                    dim: 1024,
+                    max_length: 512,
+                    pooling: physis_pro::config::PoolingStrategy::Cls,
+                };
+                let b = OnnxEmbedder::with_config(&cfg);
+                b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
             };
             // Self-test gate: accept a candidate only if it loads AND produces
             // semantic vectors. A model that loads but emits garbage (e.g. Jina
@@ -1977,7 +1991,7 @@ async fn main() {
                     }
                 })
             };
-            // Try the configured primary embedder, then fall through Jina → BGE → CLIP → MiniLM → RP
+            // Try the configured primary embedder, then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
             let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
                 if !ec.enabled { return None; }
@@ -1995,6 +2009,7 @@ async fn main() {
                         m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     }
                     EmbedderKindConfig::BgeBase => make_bge(),
+                    EmbedderKindConfig::BgeM3 => make_bge_m3(),
                     EmbedderKindConfig::RandomProjection => {
                         Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
                     }
@@ -2006,6 +2021,10 @@ async fn main() {
                     j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                 }))
                 .or_else(|| gate(make_bge()))
+                // BGE-M3 sits BELOW bge-base: measured 2026-06-12, M3 CORE
+                // 0.923/0.769 vs bge-base 1.000/0.949; Italian only ties (0.733
+                // domain). Explicit `embedders.primary = bge-m3` still selects it.
+                .or_else(|| gate(make_bge_m3()))
                 .or_else(|| gate({
                     let c = ClipEmbedder::with_config(&config.onnx);
                     c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))

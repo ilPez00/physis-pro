@@ -44,10 +44,26 @@ impl EmbedderRegistry {
                         model_dir: Some("models/bge-base-en-v1.5".to_string()),
                         dim: 768,
                         max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Mean,
                     };
                     let bge = OnnxEmbedder::with_config(&cfg);
                     if bge.is_available() {
                         (Box::new(bge), None)
+                    } else {
+                        Self::fallback_onnx(onnx_cfg)
+                    }
+                }
+                EmbedderKindConfig::BgeM3 => {
+                    let cfg = OnnxConfig {
+                        enabled: true,
+                        model_dir: Some("models/bge-m3".to_string()),
+                        dim: 1024,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Cls,
+                    };
+                    let m3 = OnnxEmbedder::with_config(&cfg);
+                    if m3.is_available() {
+                        (Box::new(m3), None)
                     } else {
                         Self::fallback_onnx(onnx_cfg)
                     }
