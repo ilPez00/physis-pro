@@ -11,16 +11,21 @@ use crate::ontology::*;
 use crate::ontology_nonhuman::MACHINE_ONTOLOGY_NAME;
 use crate::ontology::OFFICE_ONTOLOGY_NAME;
 
-static BUILTIN_HUMAN_JSON: &str = include_str!("../config/praxis_ontology.json");
-static BUILTIN_MACHINE_JSON: &str = include_str!("../config/machine_ontology.json");
-static BUILTIN_SEMIOTIC_JSON: &str = include_str!("../config/semiotic_ontology.json");
-static BUILTIN_CATEGORY_JSON: &str = include_str!("../config/category_ontology.json");
-static BUILTIN_AGENT_JSON: &str = include_str!("../config/agent_ontology.json");
-static BUILTIN_NATURAL_JSON: &str = include_str!("../config/natural_ontology.json");
-static BUILTIN_SOCIAL_JSON: &str = include_str!("../config/social_ontology.json");
-static BUILTIN_ABSTRACT_JSON: &str = include_str!("../config/abstract_ontology.json");
-static BUILTIN_ENGINEERING_JSON: &str = include_str!("../config/engineering_ontology.json");
-static BUILTIN_OFFICE_JSON: &str = include_str!("../config/office_ontology.json");
+/// The named built-in ontologies, resolvable by `OntologyLoader::load_builtin`.
+/// To add one: drop a JSON file in `config/`, register its name constant, add a
+/// row here and (if it needs its own domain map) a `kind` arm in `load_all`.
+static BUILTIN_ONTOLOGIES: &[(&str, &str)] = &[
+    (HUMAN_ONTOLOGY_NAME, include_str!("../config/praxis_ontology.json")),
+    (MACHINE_ONTOLOGY_NAME, include_str!("../config/machine_ontology.json")),
+    (SEMIOTIC_ONTOLOGY_NAME, include_str!("../config/semiotic_ontology.json")),
+    (CATEGORY_ONTOLOGY_NAME, include_str!("../config/category_ontology.json")),
+    (AGENT_ONTOLOGY_NAME, include_str!("../config/agent_ontology.json")),
+    (NATURAL_ONTOLOGY_NAME, include_str!("../config/natural_ontology.json")),
+    (SOCIAL_ONTOLOGY_NAME, include_str!("../config/social_ontology.json")),
+    (ABSTRACT_ONTOLOGY_NAME, include_str!("../config/abstract_ontology.json")),
+    (ENGINEERING_ONTOLOGY_NAME, include_str!("../config/engineering_ontology.json")),
+    (OFFICE_ONTOLOGY_NAME, include_str!("../config/office_ontology.json")),
+];
 
 /// Extra domain-specific ontologies, baked in at compile time. Each contributes
 /// entries to `custom_domains` and is always loaded (CWD-independent). To add a
@@ -354,74 +359,13 @@ impl OntologyLoader {
         }
     }
 
-    /// Load the built-in human ontology from `config/praxis_ontology.json`.
-    pub fn load_builtin_human() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_HUMAN_JSON)
-            .expect("Built-in human ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in machine ontology from `config/machine_ontology.json`.
-    pub fn load_builtin_machine() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_MACHINE_JSON)
-            .expect("Built-in machine ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in semiotic ontology.
-    pub fn load_builtin_semiotic() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_SEMIOTIC_JSON)
-            .expect("Built-in semiotic ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in category ontology.
-    pub fn load_builtin_category() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_CATEGORY_JSON)
-            .expect("Built-in category ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in agent ontology.
-    pub fn load_builtin_agent() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_AGENT_JSON)
-            .expect("Built-in agent ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in natural ontology.
-    pub fn load_builtin_natural() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_NATURAL_JSON)
-            .expect("Built-in natural ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in social ontology.
-    pub fn load_builtin_social() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_SOCIAL_JSON)
-            .expect("Built-in social ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in abstract ontology.
-    pub fn load_builtin_abstract() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_ABSTRACT_JSON)
-            .expect("Built-in abstract ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in engineering ontology.
-    pub fn load_builtin_engineering() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_ENGINEERING_JSON)
-            .expect("Built-in engineering ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
-    }
-
-    /// Load the built-in office ontology.
-    pub fn load_builtin_office() -> HashMap<String, DomainDef> {
-        let entries: OntologyConfig = serde_json::from_str(BUILTIN_OFFICE_JSON)
-            .expect("Built-in office ontology is valid JSON");
-        Self::entries_to_map(&entries.domains)
+    /// Load a built-in ontology by its registered name (see `BUILTIN_ONTOLOGIES`).
+    /// Returns `None` for names that aren't built in.
+    pub fn load_builtin(name: &str) -> Option<HashMap<String, DomainDef>> {
+        let (_, json) = BUILTIN_ONTOLOGIES.iter().find(|(n, _)| *n == name)?;
+        let entries: OntologyConfig = serde_json::from_str(json)
+            .unwrap_or_else(|e| panic!("Built-in ontology '{name}' is invalid JSON: {e}"));
+        Some(Self::entries_to_map(&entries.domains))
     }
 
     /// Load domain definitions from a JSON file on disk.
@@ -476,28 +420,8 @@ impl OntologyLoader {
                     eprintln!("Warning: ontology path {} not found", path.display());
                     HashMap::new()
                 }
-            } else if source.name == HUMAN_ONTOLOGY_NAME {
-                Self::load_builtin_human()
-            } else if source.name == MACHINE_ONTOLOGY_NAME {
-                Self::load_builtin_machine()
-            } else if source.name == SEMIOTIC_ONTOLOGY_NAME {
-                Self::load_builtin_semiotic()
-            } else if source.name == CATEGORY_ONTOLOGY_NAME {
-                Self::load_builtin_category()
-            } else if source.name == AGENT_ONTOLOGY_NAME {
-                Self::load_builtin_agent()
-            } else if source.name == NATURAL_ONTOLOGY_NAME {
-                Self::load_builtin_natural()
-            } else if source.name == SOCIAL_ONTOLOGY_NAME {
-                Self::load_builtin_social()
-            } else if source.name == ABSTRACT_ONTOLOGY_NAME {
-                Self::load_builtin_abstract()
-            } else if source.name == ENGINEERING_ONTOLOGY_NAME {
-                Self::load_builtin_engineering()
-            } else if source.name == OFFICE_ONTOLOGY_NAME {
-                Self::load_builtin_office()
             } else {
-                HashMap::new()
+                Self::load_builtin(&source.name).unwrap_or_default()
             };
 
             for (name, def) in map {
@@ -563,19 +487,19 @@ mod tests {
 
     #[test]
     fn test_builtin_human_ontology_count() {
-        let map = OntologyLoader::load_builtin_human();
+        let map = OntologyLoader::load_builtin(HUMAN_ONTOLOGY_NAME).unwrap();
         assert!(map.len() >= 14, "expected at least 14 human domains, got {}", map.len());
     }
 
     #[test]
     fn test_builtin_machine_ontology_count() {
-        let map = OntologyLoader::load_builtin_machine();
+        let map = OntologyLoader::load_builtin(MACHINE_ONTOLOGY_NAME).unwrap();
         assert!(map.len() >= 50, "expected at least 50 machine domains, got {}", map.len());
     }
 
     #[test]
     fn test_domain_resolution_exact() {
-        let map = OntologyLoader::load_builtin_human();
+        let map = OntologyLoader::load_builtin(HUMAN_ONTOLOGY_NAME).unwrap();
         let def = map.get("Body & Fitness");
         assert!(def.is_some(), "Body & Fitness should be found");
         if let Some(d) = def {
@@ -598,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_builtin_office_ontology_count() {
-        let map = OntologyLoader::load_builtin_office();
+        let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
         assert!(map.len() >= 60, "expected at least 60 office domains, got {}", map.len());
     }
 
@@ -615,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_office_domains_have_valid_grid_cells() {
-        let map = OntologyLoader::load_builtin_office();
+        let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
         let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
         let valid_modes = ["WORK", "WALK", "LEARN", "CREATE", "REST", "LIFT"];
         for (name, def) in &map {
@@ -628,7 +552,7 @@ mod tests {
 
     #[test]
     fn test_machine_ontology_has_new_process_domains() {
-        let map = OntologyLoader::load_builtin_machine();
+        let map = OntologyLoader::load_builtin(MACHINE_ONTOLOGY_NAME).unwrap();
         assert!(map.len() >= 100, "expected at least 100 machine domains after extension, got {}", map.len());
         assert!(map.contains_key("Thermal Zone Monitoring"), "should contain new ProcessMonitoring domains");
         assert!(map.contains_key("Anomaly Detection"), "should contain new MachineHealth domains");
@@ -637,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_agent_ontology_has_new_workflow_domains() {
-        let map = OntologyLoader::load_builtin_agent();
+        let map = OntologyLoader::load_builtin(AGENT_ONTOLOGY_NAME).unwrap();
         assert!(map.len() >= 60, "expected at least 60 agent domains after extension, got {}", map.len());
         assert!(map.contains_key("System Prompt"), "should contain new PromptPipeline domains");
         assert!(map.contains_key("Working Memory"), "should contain new AgentMemory domains");
