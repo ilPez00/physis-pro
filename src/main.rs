@@ -75,6 +75,9 @@ pub enum Commands {
         /// Path to a JSON file with oee[] (+ optional anomalies/rul/countermeasures)
         #[arg(long)]
         shift: PathBuf,
+        /// Emit a self-contained HTML document (email-able / print-to-PDF) instead of Markdown
+        #[arg(long)]
+        html: bool,
     },
     /// Score the quality of a business output against the semiotic grid
     Score {
@@ -204,10 +207,14 @@ fn main() -> anyhow::Result<()> {
         }
 
         // ── Business commands ──
-        Commands::Report { shift } => {
+        Commands::Report { shift, html } => {
             let raw = std::fs::read_to_string(&shift)?;
             let input: physis_pro::report::ShiftReportInput = serde_json::from_str(&raw)?;
-            println!("{}", physis_pro::report::render_shift_report_it(&input));
+            if html {
+                println!("{}", physis_pro::report::render_shift_report_html(&input));
+            } else {
+                println!("{}", physis_pro::report::render_shift_report_it(&input));
+            }
         }
         Commands::Score { text } => {
             let embedder: Box<dyn VectorEmbed> =

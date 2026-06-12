@@ -183,6 +183,129 @@ pub fn render_shift_report_it(input: &ShiftReportInput) -> String {
     md
 }
 
+/// Minimal HTML escaping for text we interpolate into the document.
+fn esc(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+/// Render the Italian shift report as a self-contained HTML document —
+/// inline CSS, no external assets, so it works as an email body and prints
+/// cleanly to PDF from any browser (the "render path" without new binaries
+/// in the container; a native PDF writer can come later if a customer needs
+/// the file generated server-side).
+pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
+    let title = input.shift_label.as_deref().unwrap_or("Rapporto di turno");
+    let mut b = String::new();
+
+    let computed_plant;
+    let plant = match (&input.plant, input.oee.len()) {
+        (Some(p), _) => Some(p),
+        (None, n) if n >= 2 => {
+            computed_plant = crate::oee::plant_oee(&input.oee);
+            Some(&computed_plant)
+        }
+        _ => None,
+    };
+    if let Some(p) = plant {
+        b.push_str(&format!(
+            "<section><h2>Impianto</h2><p class=\"kpi-line\"><strong>OEE impianto: {}</strong> — \
+             disponibilità {}, prestazione {}, qualità {} ({} macchine, {} pezzi buoni su {}).</p></section>",
+            pct(p.oee), pct(p.availability), pct(p.performance), pct(p.quality),
+            p.machine_count, p.total_good, p.total_parts,
+        ));
+    }
+
+    for r in &input.oee {
+        b.push_str(&format!("<section><h2>Macchina {}</h2>", esc(&r.machine_id)));
+        let wc = if r.world_class { " <span class=\"badge\">world-class ≥85%</span>" } else { "" };
+        b.push_str(&format!(
+            "<table><tbody>\
+             <tr><th>Disponibilità</th><td>{}</td></tr>\
+             <tr><th>Prestazione</th><td>{}</td></tr>\
+             <tr><th>Qualità</th><td>{}</td></tr>\
+             <tr class=\"oee\"><th>OEE</th><td><strong>{}</strong>{}</td></tr>\
+             <tr><th>Produzione</th><td>{} pezzi buoni / {} totali</td></tr>\
+             <tr><th>Tempo di marcia</th><td>{} su {} pianificati</td></tr>\
+             </tbody></table>",
+            pct(r.availability), pct(r.performance), pct(r.quality), pct(r.oee), wc,
+            r.good_count, r.total_count,
+            dur(r.run_time_secs as f64), dur(r.planned_production_time_secs as f64),
+        ));
+        if !r.losses.is_empty() {
+            b.push_str("<h3>Perdite principali</h3><table><thead><tr><th>Causa</th><th>Tempo perso</th><th>Pezzi persi</th></tr></thead><tbody>");
+            for l in &r.losses {
+                b.push_str(&format!(
+                    "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
+                    esc(&l.label), dur(l.lost_secs as f64), l.lost_parts
+                ));
+            }
+            b.push_str("</tbody></table>");
+        }
+        b.push_str("</section>");
+    }
+
+    let live: Vec<&AnomalyScore> = input.anomalies.iter().filter(|a| a.is_anomaly).collect();
+    if !live.is_empty() {
+        b.push_str("<section><h2>Anomalie rilevate</h2><ul class=\"alert\">");
+        for a in live {
+            let f = a.per_feature.iter().find(|f| f.feature == a.worst_feature);
+            b.push_str(&format!(
+                "<li><strong>{}</strong> — {} a {:.1}σ dalla linea di base (valore {:.3}, z={:+.2})</li>",
+                esc(&a.machine_id), esc(&a.worst_feature), a.max_abs_z,
+                f.map(|f| f.value).unwrap_or(f32::NAN),
+                f.map(|f| f.z).unwrap_or(f32::NAN),
+            ));
+        }
+        b.push_str("</ul></section>");
+    }
+
+    if !input.rul.is_empty() {
+        b.push_str("<section><h2>Vita utile residua stimata</h2><ul>");
+        for e in &input.rul {
+            b.push_str(&format!(
+                "<li><strong>{} / {}</strong> — limite {} raggiunto tra ~{} (valore attuale {:.2}, deriva {:+.4}/s)</li>",
+                esc(&e.machine_id), esc(&e.metric), e.estimate.limit,
+                dur(e.estimate.seconds_to_limit), e.estimate.current_value, e.estimate.slope_per_sec,
+            ));
+        }
+        b.push_str("</ul></section>");
+    }
+
+    if !input.countermeasures.is_empty() {
+        b.push_str("<section><h2>Contromisure proposte</h2><ul>");
+        for c in &input.countermeasures {
+            b.push_str(&format!("<li>{}</li>", esc(c)));
+        }
+        b.push_str("</ul></section>");
+    }
+
+    format!(
+        "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\">\
+         <title>{t}</title><style>{css}</style></head><body>\
+         <h1>{t}</h1>{body}\
+         <footer>Generato da Physis — classificazione ontologica e coerenza di processo.</footer>\
+         </body></html>",
+        t = esc(title),
+        css = REPORT_CSS,
+        body = b,
+    )
+}
+
+/// Inline stylesheet: legible on screen and in email clients, compact when
+/// printed (browser "print to PDF" is the PDF path).
+const REPORT_CSS: &str = "\
+body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;max-width:720px;margin:2rem auto;padding:0 1rem;line-height:1.45}\
+h1{font-size:1.5rem;border-bottom:2px solid #1a1a1a;padding-bottom:.4rem}\
+h2{font-size:1.15rem;margin-top:1.6rem}h3{font-size:1rem}\
+table{border-collapse:collapse;width:100%;margin:.6rem 0}\
+th,td{border:1px solid #ccc;padding:.35rem .6rem;text-align:left;font-size:.92rem}\
+thead th{background:#f2f2f2}tbody th{width:11rem;font-weight:600;background:#fafafa}\
+tr.oee td,tr.oee th{background:#eef6ee}\
+.badge{background:#2e7d32;color:#fff;border-radius:3px;padding:.05rem .4rem;font-size:.78rem;margin-left:.4rem}\
+ul.alert li{color:#b71c1c}\
+footer{margin-top:2rem;font-size:.8rem;color:#666;border-top:1px solid #ddd;padding-top:.5rem}\
+@media print{body{margin:0;max-width:none}h2{break-after:avoid}section{break-inside:avoid}}";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -240,6 +363,24 @@ mod tests {
         assert!(!md.contains("Anomalie rilevate"));
         assert!(!md.contains("Vita utile residua"));
         assert!(!md.contains("Contromisure"));
+    }
+
+    #[test]
+    fn test_html_render_is_self_contained_and_escaped() {
+        let mut r = shift_report();
+        r.machine_id = "tornio <1>".into(); // must be escaped
+        let input = ShiftReportInput {
+            oee: vec![r],
+            countermeasures: vec!["Stringere & verificare".into()],
+            ..Default::default()
+        };
+        let html = render_shift_report_html(&input);
+        assert!(html.starts_with("<!DOCTYPE html>"));
+        assert!(html.contains("<style>"), "CSS must be inline");
+        assert!(html.contains("tornio &lt;1&gt;"), "machine id escaped");
+        assert!(html.contains("Stringere &amp; verificare"), "countermeasure escaped");
+        assert!(html.contains("Disponibilità"));
+        assert!(!html.contains("<script"), "no scripts in an email-able document");
     }
 
     #[test]

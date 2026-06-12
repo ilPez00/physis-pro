@@ -65,8 +65,11 @@ sigma scores, RUL warnings, and dream-proposed countermeasures.
 - [x] CLI: `physis-pro report --shift <json>`; HTTP: `POST /api/v1/report/shift`
       (stateless, full input) + `GET /api/v1/report/shift` (live OEE board +
       graded dream countermeasures).
-- [ ] Render path: Markdown → PDF (typst or headless pandoc) or clean HTML
-      email. Samples to mirror: `docs/business/sample-outputs.md`.
+- [x] Render path: self-contained HTML (inline CSS, print stylesheet) —
+      `render_shift_report_html`, `?format=html` on both endpoints, CLI
+      `--html`, sample at `docs/business/sample-shift-report.html`. Email-able
+      and browser print-to-PDF; a server-side PDF writer (typst/pandoc binary
+      in the container) is deferred until a customer needs the file generated.
 - [x] Demo dataset end-to-end: `examples/shift_report_demo.rs` →
       `docs/business/demo-shift.json` + `docs/business/sample-shift-report.md`
       (real engine output: OEE 67.8%/90.0%, 4.4σ bearing anomaly, RUL ~2h).

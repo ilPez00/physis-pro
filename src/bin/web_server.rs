@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, Query, Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
-    response::Response,
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -921,20 +921,43 @@ async fn oee_compute_handler(Json(shift): Json<OeeShift>) -> Json<OeeReport> {
     Json(shift.compute())
 }
 
+#[derive(Deserialize)]
+struct ReportFormatQuery {
+    /// "html" → self-contained HTML document (email-able, browser print-to-PDF);
+    /// anything else → JSON `{markdown}`.
+    #[serde(default)]
+    format: Option<String>,
+}
+
+fn report_response(input: &physis_pro::report::ShiftReportInput, format: Option<&str>) -> Response {
+    if format == Some("html") {
+        Html(physis_pro::report::render_shift_report_html(input)).into_response()
+    } else {
+        Json(serde_json::json!({
+            "markdown": physis_pro::report::render_shift_report_it(input)
+        }))
+        .into_response()
+    }
+}
+
 /// Stateless shift report: caller supplies all data (`ShiftReportInput`),
-/// gets the Italian Markdown back. Replica-safe like the other compute routes.
+/// gets Italian Markdown (default) or HTML (`?format=html`) back.
+/// Replica-safe like the other compute routes.
 async fn report_shift_compute_handler(
+    Query(q): Query<ReportFormatQuery>,
     Json(input): Json<physis_pro::report::ShiftReportInput>,
-) -> Json<serde_json::Value> {
-    let markdown = physis_pro::report::render_shift_report_it(&input);
-    Json(serde_json::json!({ "markdown": markdown }))
+) -> Response {
+    report_response(&input, q.format.as_deref())
 }
 
 /// Stateful shift report from the live engine: every machine on the OEE board,
 /// plus accepted/ungraded dream descriptions from the default tenant as
 /// proposed countermeasures. Anomaly/RUL sections come via the stateless POST
 /// (the monitor scores readings as they arrive; it doesn't keep a shift log).
-async fn report_shift_live_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+async fn report_shift_live_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<ReportFormatQuery>,
+) -> Response {
     let oee: Vec<OeeReport> = {
         let board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
         board
@@ -958,8 +981,7 @@ async fn report_shift_live_handler(State(state): State<SharedState>) -> Json<ser
         countermeasures,
         ..Default::default()
     };
-    let markdown = physis_pro::report::render_shift_report_it(&input);
-    Json(serde_json::json!({ "markdown": markdown }))
+    report_response(&input, q.format.as_deref())
 }
 
 /// Roll up a plant OEE from a list of per-machine reports supplied in the body.
