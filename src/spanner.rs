@@ -43,7 +43,11 @@
 //!   self-refreshing (`GOOGLE_APPLICATION_CREDENTIALS` / `GOOGLE_SA_KEY`); the
 //!   static `GOOGLE_OAUTH_TOKEN` path still works (emulator/dev). Signing
 //!   unit-tested; the token *exchange* is network (not unit-run).
-//! - ⬜ deletes / tombstones (today: insertOrUpdate only)
+//! - ✅ deletes — hard `delete` mutations (`delete_nodes`/`delete_edges`) +
+//!   `sync_full` mirror sync (upsert all, then delete remote orphans; edges
+//!   before nodes). Hard deletes chosen over tombstones: rows are re-derivable
+//!   from the local core, so soft-delete state buys nothing.
+//!
 //! Library-only; not yet wired into the server hot path.
 
 use serde::Serialize;
@@ -289,18 +293,10 @@ impl SpannerSink {
                     ])
                 })
                 .collect();
-            let body = serde_json::json!({
-                "mutations": [{
-                    "insertOrUpdate": { "table": self.table, "columns": columns, "values": values }
-                }],
-                "singleUseTransaction": { "readWrite": {} }
+            let mutation = serde_json::json!({
+                "insertOrUpdate": { "table": self.table, "columns": columns, "values": values }
             });
-            let resp = self.http.post(&commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
-            if !resp.status().is_success() {
-                let st = resp.status();
-                let txt = resp.text().await.unwrap_or_default();
-                anyhow::bail!("Spanner commit {st}: {txt}");
-            }
+            self.post_commit(&commit_url, mutation).await?;
             total += chunk.len();
         }
         Ok(total)
@@ -360,18 +356,68 @@ impl SpannerSink {
                 .iter()
                 .map(|e| serde_json::json!([e.source, e.target, e.weight]))
                 .collect();
-            let body = serde_json::json!({
-                "mutations": [{
-                    "insertOrUpdate": { "table": self.edge_table, "columns": columns, "values": values }
-                }],
-                "singleUseTransaction": { "readWrite": {} }
+            let mutation = serde_json::json!({
+                "insertOrUpdate": { "table": self.edge_table, "columns": columns, "values": values }
             });
-            let resp = self.http.post(&commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
-            if !resp.status().is_success() {
-                let st = resp.status();
-                let txt = resp.text().await.unwrap_or_default();
-                anyhow::bail!("Spanner edge commit {st}: {txt}");
-            }
+            self.post_commit(&commit_url, mutation).await?;
+            total += chunk.len();
+        }
+        Ok(total)
+    }
+
+    /// POST one commit with a single mutation (shared by upserts and deletes).
+    async fn post_commit(&self, commit_url: &str, mutation: serde_json::Value) -> anyhow::Result<()> {
+        let body = serde_json::json!({
+            "mutations": [mutation],
+            "singleUseTransaction": { "readWrite": {} }
+        });
+        let resp = self.http.post(commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
+        if !resp.status().is_success() {
+            let st = resp.status();
+            let txt = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Spanner commit {st}: {txt}");
+        }
+        Ok(())
+    }
+
+    /// Hard-delete nodes by id (chunked `delete` mutations with a keySet).
+    /// Chosen over tombstone columns: the wiki is fully re-derivable from the
+    /// local core, so a deleted row carries no information worth keeping, and
+    /// hard deletes keep the schema and every reader unchanged (PREMORTEM P7).
+    pub async fn delete_nodes(&self, ids: &[String]) -> anyhow::Result<usize> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        let session = self.create_session().await?;
+        let commit_url = self.url(&format!("{session}:commit"));
+        let mut total = 0usize;
+        for chunk in ids.chunks(UPSERT_CHUNK) {
+            let keys: Vec<serde_json::Value> =
+                chunk.iter().map(|id| serde_json::json!([id])).collect();
+            let mutation = serde_json::json!({
+                "delete": { "table": self.table, "keySet": { "keys": keys } }
+            });
+            self.post_commit(&commit_url, mutation).await?;
+            total += chunk.len();
+        }
+        Ok(total)
+    }
+
+    /// Hard-delete edges by (source, target) PK (chunked).
+    pub async fn delete_edges(&self, keys: &[(String, String)]) -> anyhow::Result<usize> {
+        if keys.is_empty() {
+            return Ok(0);
+        }
+        let session = self.create_session().await?;
+        let commit_url = self.url(&format!("{session}:commit"));
+        let mut total = 0usize;
+        for chunk in keys.chunks(UPSERT_CHUNK) {
+            let keys: Vec<serde_json::Value> =
+                chunk.iter().map(|(s, t)| serde_json::json!([s, t])).collect();
+            let mutation = serde_json::json!({
+                "delete": { "table": self.edge_table, "keySet": { "keys": keys } }
+            });
+            self.post_commit(&commit_url, mutation).await?;
             total += chunk.len();
         }
         Ok(total)
@@ -416,6 +462,51 @@ pub async fn sync(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<(usiz
     let n = sink.upsert_nodes(&export_nodes(core)).await?;
     let e = sink.upsert_edges(&export_edges(core)).await?;
     Ok((n, e))
+}
+
+/// Counts from a full (mirroring) sync.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SyncStats {
+    pub nodes_upserted: usize,
+    pub edges_upserted: usize,
+    pub nodes_deleted: usize,
+    pub edges_deleted: usize,
+}
+
+/// Remote node ids that no longer exist locally — the delete targets.
+pub fn orphan_node_ids(remote: &[NodeRow], local: &[NodeRow]) -> Vec<String> {
+    let live: std::collections::HashSet<&str> = local.iter().map(|r| r.id.as_str()).collect();
+    remote.iter().filter(|r| !live.contains(r.id.as_str())).map(|r| r.id.clone()).collect()
+}
+
+/// Remote edge keys that no longer exist locally — the delete targets.
+pub fn orphan_edge_keys(remote: &[EdgeRow], local: &[EdgeRow]) -> Vec<(String, String)> {
+    let live: std::collections::HashSet<(&str, &str)> =
+        local.iter().map(|e| (e.source.as_str(), e.target.as_str())).collect();
+    remote
+        .iter()
+        .filter(|e| !live.contains(&(e.source.as_str(), e.target.as_str())))
+        .map(|e| (e.source.clone(), e.target.clone()))
+        .collect()
+}
+
+/// Full mirror sync: upsert everything local, then hard-delete remote rows that
+/// no longer exist locally (nodes AND edges). This closes the PREMORTEM P7
+/// divergence item — locally removed nodes no longer linger in Spanner. Order
+/// matters: edges are deleted before nodes so a graph reader never sees an edge
+/// whose endpoint row is already gone. Never call on the hot path.
+pub async fn sync_full(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<SyncStats> {
+    let local_nodes = export_nodes(core);
+    let local_edges = export_edges(core);
+    let nodes_upserted = sink.upsert_nodes(&local_nodes).await?;
+    let edges_upserted = sink.upsert_edges(&local_edges).await?;
+
+    let stale_edges = orphan_edge_keys(&sink.fetch_edges().await?, &local_edges);
+    let edges_deleted = sink.delete_edges(&stale_edges).await?;
+    let stale_nodes = orphan_node_ids(&sink.fetch_nodes().await?, &local_nodes);
+    let nodes_deleted = sink.delete_nodes(&stale_nodes).await?;
+
+    Ok(SyncStats { nodes_upserted, edges_upserted, nodes_deleted, edges_deleted })
 }
 
 /// Rows whose embedder id differs from the live one — the re-embed targets.
@@ -566,6 +657,37 @@ mod tests {
         let got_edges = sink.fetch_edges().await.expect("fetch edges");
         let e = got_edges.iter().find(|e| e.source == "n1" && e.target == "n2").expect("edge round-tripped");
         assert!((e.weight - 0.7).abs() < 1e-5);
+
+        // Hard deletes: drop the edge then n2; both must be gone on read-back.
+        assert_eq!(
+            sink.delete_edges(&[("n1".into(), "n2".into())]).await.expect("delete edge"),
+            1
+        );
+        assert!(!sink.fetch_edges().await.expect("fetch edges after delete")
+            .iter().any(|e| e.source == "n1" && e.target == "n2"));
+        assert_eq!(sink.delete_nodes(&["n2".into()]).await.expect("delete node"), 1);
+        let after = sink.fetch_nodes().await.expect("fetch after delete");
+        assert!(!after.iter().any(|r| r.id == "n2"), "n2 must be hard-deleted");
+        assert!(after.iter().any(|r| r.id == "n1"), "n1 must survive");
+    }
+
+    #[test]
+    fn test_orphan_node_ids_diffs_remote_against_local() {
+        let remote = vec![row("a", None, None), row("b", None, None), row("c", None, None)];
+        let local = vec![row("b", None, None)];
+        let mut orphans = orphan_node_ids(&remote, &local);
+        orphans.sort();
+        assert_eq!(orphans, vec!["a".to_string(), "c".to_string()]);
+        assert!(orphan_node_ids(&remote, &remote).is_empty());
+    }
+
+    #[test]
+    fn test_orphan_edge_keys_diffs_on_full_pk() {
+        let e = |s: &str, t: &str| EdgeRow { source: s.into(), target: t.into(), weight: 1.0 };
+        let remote = vec![e("a", "b"), e("a", "c")];
+        let local = vec![e("a", "b"), e("c", "a")]; // (a,c) gone; (c,a) is a different key
+        let orphans = orphan_edge_keys(&remote, &local);
+        assert_eq!(orphans, vec![("a".to_string(), "c".to_string())]);
     }
 
     #[test]
