@@ -53,7 +53,12 @@ Il processo è lineare e richiede zero infrastruttura:
 
 ### Perché funziona anche in Italiano
 
-Il modello BGE-base-en-v1.5 gestisce l'italiano a livello semantico nativamente. Le frasi italiane vengono proiettate nel medesimo spazio vettoriale delle ontologie inglesi, permettendo classificazioni accurate senza bisogno di traduzione. I test sul campo mostrano una accuratezza del 97.4% sul dominio e 92.3% sulla cella esatta per testi italiani.
+Le frasi italiane vengono proiettate nel medesimo spazio vettoriale delle ontologie, senza bisogno di traduzione. I numeri, misurati su un set di test curato e verificato a ogni rilascio:
+
+- **Testi inglesi:** 100% di accuratezza sul dominio, 94.9% sulla cella esatta.
+- **Testi italiani (frasi industriali e quotidiane):** 73.3% sul dominio al primo tentativo — già utile per lo smistamento automatico, con la cella corretta quasi sempre tra le prime tre.
+
+L'accuratezza sull'italiano è un nostro cantiere attivo: il set di test italiano fa parte della suite di regressione, quindi ogni miglioramento è misurato, non dichiarato. Per i casi d'uso critici in italiano il workshop di onboarding configura ontologie con vocabolario specifico del vostro dominio, che alza sensibilmente la precisione sul vostro lessico reale.
 
 ---
 
@@ -74,6 +79,30 @@ La macchina Polis analizza la comunicazione tra reparti, misurando la reciprocit
 ### 4.4 Conformità e Contratti (Lex)
 
 I contratti di servizio e gli accordi con i fornitori vengono analizzati dalla macchina Lex, che verifica la coerenza tra gli impegni presi e le attività registrate nei report di produzione.
+
+### 4.5 OEE, Manutenzione Predittiva e Rapporto di Turno
+
+Oltre alla classificazione, Physis calcola direttamente gli indicatori di stabilimento:
+
+- **OEE per macchina e per impianto** — disponibilità × prestazione × qualità, con il dettaglio delle sei grandi perdite (guasti, setup, microfermate, velocità ridotta, scarti) ordinate per impatto.
+- **Rilevamento anomalie** — ogni macchina ha una linea di base "sana" appresa dai dati; una lettura anomala viene segnalata con la sua distanza in sigma (es. "temperatura cuscinetto a 4.4σ dalla norma").
+- **Vita utile residua (RUL)** — proiezione del tempo rimanente prima che una metrica in deriva raggiunga il limite (es. "limite 85°C raggiunto tra ~2 ore").
+- **Contromisure proposte** — il motore di analisi rielabora le anomalie registrate e propone azioni correttive concrete.
+
+Tutto confluisce nel **Rapporto di Turno**: un documento leggibile, in italiano, generato automaticamente alla fine di ogni turno — pronto da inviare via email o stampare in PDF. Un estratto dal report dimostrativo (dati reali del motore, due macchine):
+
+> **OEE impianto: 78.5%** — disponibilità 92.8%, prestazione 86.0%, qualità 98.4% (2 macchine, 1150 pezzi buoni su 1170).
+>
+> | Macchina | OEE | Nota |
+> |---|---|---|
+> | tornio-cnc-01 | 67.8% | guasto cuscinetto 45m + setup 20m |
+> | fresa-02 | **90.0%** | world-class ≥85% |
+>
+> **Anomalie:** tornio-cnc-01 — temperatura a 4.4σ dalla linea di base.
+> **Vita utile residua:** limite 85°C raggiunto tra ~2h 10m.
+> **Contromisure:** ispezionare e sostituire il cuscinetto mandrino entro 48h.
+
+Il report completo (HTML, stampabile in PDF) è allegato a questa proposta.
 
 ---
 
@@ -131,7 +160,7 @@ I contratti di servizio e gli accordi con i fornitori vengono analizzati dalla m
 | Piano | Prezzo | Cosa include |
 |---|---|---|
 | **Prova Gratuita** | **€ 0** | 7 giorni, 50 classificazioni, accesso a tutte le ontologie |
-| **Industriale** | **€ 1.500/mese** | Classificazioni illimitate, 5 utenti, web app Praxis, supporto email, report settimanali |
+| **Industriale** | **€ 1.500/mese** | Classificazioni illimitate, 5 utenti, web app Praxis, supporto email, rapporto di turno automatico (email/PDF), monitoraggio OEE e anomalie |
 | **Enterprise** | **€ 5.000/mese** | Tutto del piano Industriale più: istanza dedicata, macchine Polis/Elenchus complete, ontologie custom, formazione del personale, SLA garantito |
 
 ### Confronto ROI
@@ -182,7 +211,7 @@ Il cruscotto web è disponibile su:
 
 ## 8. Prossimi Passi
 
-1. **Attivazione prova gratuita** — Riceverete le credenziali API entro 24 ore. 50 classificazioni incluse per testare sui vostri dati reali.
+1. **Attivazione prova gratuita** — Riceverete le credenziali API entro 24 ore. 50 classificazioni incluse per testare sui vostri dati reali, più un rapporto di turno generato sui dati OEE di una vostra macchina.
 2. **Workshop di onboarding** — I nostri ingegneri semiotici lavorano con voi per configurare le ontologie sui vostri casi d'uso specifici.
 3. **Primo report** — Alla fine del periodo di prova, riceverete un report personalizzato che mostra l'impatto misurato sui vostri processi.
 4. **Passaggio al piano Industriale** — Attivazione immediata, nessun downtime.

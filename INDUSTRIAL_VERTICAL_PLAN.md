@@ -76,10 +76,13 @@ sigma scores, RUL warnings, and dream-proposed countermeasures.
 
 ## Step 3 — Proposal out
 
-- [ ] Refresh `proposta-generalmecannica.md` with the real shift report as an
-      attachment and the multilingual classify demo.
+- [x] Refresh `proposta-generalmecannica.md`: OEE/anomalie/RUL + shift-report
+      section with real demo excerpt (attachment:
+      `sample-shift-report.html`); corrected the stale accuracy claim (the
+      97.4/92.3 figures were the English fixture set — Italian is measured at
+      73.3% domain and now stated honestly with the onboarding mitigation).
 - [ ] Send; meeting decides the adapter roadmap (which machines, which
-      protocol — MQTT, Modbus, OPC-UA, serial).
+      protocol — MQTT, Modbus, OPC-UA, serial). ← human step
 
 ## Explicitly deferred (until customer pull)
 
