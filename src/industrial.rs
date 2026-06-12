@@ -188,10 +188,8 @@ pub mod mqtt {
                         client.subscribe(&self.topic, QoS::AtLeastOnce).await?;
                         self.subscribed = true;
                     }
-                    Event::Incoming(Packet::Publish(p)) => {
-                        if p.topic == self.topic {
-                            return TelemetryPayload::parse_reading(&self.machine_id, &p.payload);
-                        }
+                    Event::Incoming(Packet::Publish(p)) if p.topic == self.topic => {
+                        return TelemetryPayload::parse_reading(&self.machine_id, &p.payload);
                     }
                     _ => {}
                 }
