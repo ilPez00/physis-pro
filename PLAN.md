@@ -30,6 +30,40 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 - [x] **`setup.py` + `install.sh`**: pip-installable packaging with binary installation.
 - [x] **`monitor_resource.sh`**: cgroup-based CPU throttling for heat-throttled environments.
 
+### Phase 1.5 — Session 2026-06-12/13 architecture changes
+
+Shipped this arc (all on `main`, classify hot path untouched unless noted):
+- [x] **P1 lock split finished** — last two handlers (`context_filter`,
+  `maintenance_check`) embed off the global state lock (`spawn_blocking`).
+- [x] **Config dedup** — 10 `load_builtin_*` fns → `BUILTIN_ONTOLOGIES` table.
+- [x] **Spanner P7** — hard deletes + `sync_full` mirror sync (orphan pruning,
+  edges-before-nodes).
+- [x] **Embedder cascade hardened** — `embed::semantic_self_test` shared by web +
+  CLI + tests; CLI was ungated (Jina fp16 noise → 0.06 verdicts) and used
+  pre-P3 mean-centroid scoring. Both fixed; CLI prints embedder provenance.
+- [x] **BGE-M3** — measured, **rejected** (CORE 0.923/0.769 vs bge-base
+  1.000/0.949, Italian tie, 2.5× slower). Opt-in only. `PoolingStrategy` knob
+  (mean|cls) + `token_type_ids` signature detection kept.
+- [x] **Italian classification** — same-language ontology anchors lifted the
+  Italian tier 0.733/0.600 → **0.867/0.867**, CORE unchanged. Gated at 0.80.
+- [x] **Shift report** (`report.rs`) — Italian OEE/anomaly/RUL/countermeasure
+  report, Markdown + self-contained HTML; `report --shift`, `POST/GET
+  /api/v1/report/shift?format=html`. The sellable artifact.
+- [x] **Ontology discovery** (`discovery.rs`) — embedding-gap detector with
+  operator-tunable threshold + surfaced sim distribution (a dense ontology
+  scores ~0.64 vs out-of-domain, so a fixed threshold is useless); clusters
+  gaps → draft ontology JSON. CLI `discover`, `POST /api/v1/discover`; legacy
+  LLM path behind `--ai`. Closed Phase 1D.
+- [x] **Empedoclean dyad** (`empedocles.rs`, `docs/EMPEDOCLES_DYAD.md`) —
+  RESEARCH module, P2-quarantined, wired to nothing. A node field under
+  Eros (attraction + synthesis) vs Nemesis (repulsion + decay). The
+  `empedocles_criticality` falsifier **confirmed a phase transition**: a
+  critical band (heavy-tailed cluster sizes) sits between Love-collapse and
+  Strife-scatter. Open: it is *tunable* criticality, not *self-organised* —
+  coupling decay/synthesis back into the ratio to self-tune to the edge is the
+  next experiment. Promotion gate: a mechanism enters the live coherence core
+  only after it shows organising work AND a test proves no classify regression.
+
 ### Phase 2: User Experience (The "Backoffice" Polish)
 - **Web-based Dashboard**: Build a React/Next.js dashboard (using the existing `web` feature) that visualizes the `FileThemeGraph` as an interactive force-directed graph.
 - **Natural Language Interface**: Implement a chat-based interface (using the `ai` module) that allows users to query the graph in plain English (e.g., "Show me all invoices related to the Q4 budget").
