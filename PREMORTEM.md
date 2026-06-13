@@ -232,3 +232,92 @@ library-only — wire into the server when a deploy needs durable sync.
 P0 is highest damage × highest likelihood, blocks honest evaluation of everything
 else (P3 depends on it), and is fixable in-repo without external infra. P1/P6 are
 launch-blockers queued next. P2 is a discipline change reflected in the plan.
+
+---
+
+# Re-premortem — 2026-06-13
+
+> P0–P7 are **all closed** (verified in prod: `/api/v1/embedder` reports
+> `bge-base`, self-test green, not degraded). But this session shipped a lot
+> and changed the risk landscape. Re-running the method on the *current* state:
+> assume it is December 2026 and the project failed. New causes, ordered by
+> damage × likelihood. The honest finding: **the dominant risks are no longer
+> technical.**
+
+## P8 — The proposal is never sent (the real killer now)
+
+**Failure:** Six months on, the engine is excellent and earns €0. No customer
+ever evaluated it. `proposta-generalmecannica.md` + `sample-shift-report.html`
+sat ready the whole time; the meeting never happened.
+
+**Why it happens:** every session adds capability (shift report → discovery →
+Empedoclean dyad) because building is legible and sending an email is not.
+Capability growth *feels* like progress and silently substitutes for the one
+unvalidated assumption — that anyone will pay. This is P2 (scope sprawl) wearing
+a new mask: not "too many holons" but "infinite engine work as avoidance of the
+one hard, non-code step." This very session is an instance: a research module
+was built while the bottleneck stayed unsent.
+
+**Mitigation:** treat "send the proposal" as a P0-class blocker. **No new
+feature work until the prospect has the document in hand and a yes/no.** The
+deliverable that matters is a customer reaction, not a commit. Everything else
+is rehearsal.
+
+## P9 — The safety gate is decoupled from the deploy path
+
+**Failure:** A deploy ships a regression straight to prod — wrong-scoring
+classifier, a panic, a broken route — because the gate that would have caught it
+never ran. Customers see snake-oil output; trust is gone on first contact.
+
+**Why it happens:** GitHub Actions billing is exhausted, so CI (clippy 3 feature
+sets + `cargo test --features full` + the Spanner-emulator integration test) has
+been **red/0-step since 2026-06-12** and Railway auto-deploy is gated on it.
+Every deploy this session went out via manual `railway up`, which **bypasses CI
+entirely** and ships the *local working tree*, not a reviewed git ref. The
+quality discipline that took seven premortem items to build (P3 accuracy floor,
+P4 self-test, P7 emulator round-trip) is currently **unenforced on the path that
+actually reaches production**. The `#[ignore]` accuracy floor needs a real model
+(~10 min) and runs *nowhere* automatically — so a silent Italian/CORE accuracy
+regression would reach prod unflagged.
+
+**Mitigation:** (1) restore Actions billing — the structural fix. (2) Until then,
+a `scripts/predeploy.sh` that runs the exact CI gate locally (clippy `-D
+warnings` all targets + `cargo test` + the gated accuracy floor) and refuses on
+red, run before every `railway up`; deploying becomes "gate then ship", not
+"ship and hope". (3) Never `railway up` a dirty tree — prod must equal a pushed
+commit (provenance), or a future "what's actually live?" question is
+unanswerable.
+
+## P10 — Discovery's default makes the onboarding tool look broken
+
+**Failure:** A prospect runs `discover` on their corpus during the trial, the
+default threshold reports "covered N · unmapped 0 · no proposals", they conclude
+the flagship onboarding feature does nothing, and churn — on the exact tool the
+proposal sells as the differentiator.
+
+**Why:** a dense ontology (~650 entries) scores best-entry cosine ~0.64 against
+*out-of-domain* text, so the 0.55 default marks almost everything "covered".
+Correct behaviour, misleading first impression. Mitigated by surfacing the
+sim distribution + `--threshold`, but only if the operator reads the line and
+re-runs — an unguided trial user may not.
+
+**Mitigation:** auto-suggest a threshold (e.g. `mean + k·stdev` of the observed
+best-entry sims) and re-run once automatically when the first pass yields zero
+proposals, so the default *shows* gaps instead of asking the user to find the
+knob. Small, high-leverage for the onboarding story.
+
+## Standing risks, re-weighted
+
+- **P2 (scope sprawl) is now the meta-risk, not a queued item.** 60+ modules,
+  solo maintainer; every session it gets heavier. The Empedoclean module is
+  correctly quarantined, but quarantine bounds blast radius, not maintenance
+  cost. Discipline, not code, is the fix.
+- **Accuracy is unguarded in practice** (see P9): the floor exists but runs
+  nowhere automatically.
+
+## Decision: the next move is not a commit
+
+P8 dominates. The highest-value action in the project is now **sending the
+proposal**, and P9 (a one-file predeploy gate) is the only code worth doing
+first — because it protects whatever the customer eventually sees. Build P9's
+script, then stop building and ship the document.

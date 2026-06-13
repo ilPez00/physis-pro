@@ -387,7 +387,15 @@ cargo build --features network    # + directory watching
 cargo build --features full       # everything (incl. industrial, ingest)
 cargo test                        # full suite
 cargo test core                   # core engine only
+
+./scripts/predeploy.sh            # local CI gate before a manual `railway up`
 ```
+
+> **Deploys:** Railway auto-deploys on green CI. When CI is unavailable, deploy
+> by hand with `./scripts/predeploy.sh && railway up --service physis --detach`
+> — the script mirrors the CI gate (clippy `-D warnings`, full tests, the
+> accuracy floor) and refuses a dirty/unpushed tree, so prod always equals a
+> pushed, gated commit (PREMORTEM P9).
 
 ### Features
 
