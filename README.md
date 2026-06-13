@@ -58,6 +58,11 @@ Runs in the background. Takes accumulated Inert (`0.0`) and Failure (`-1.0`)
 fragments, simulates the missing causal link, and emits corrective **Effective
 Actions** while recalibrating the global coherence index. `dream()`.
 
+> Waking-compression and rest-dream are the two phases of one metabolism —
+> discrimination (separate signal from noise) and integration (replay,
+> recombine, synthesise). `docs/EMPEDOCLES_DYAD.md` develops this as the
+> Empedoclean dyad (Strife/Neikos vs Love/Philotes) and tests it.
+
 ### Coherence ontology
 
 The same three states apply identically to machine functions and human behaviour:
@@ -99,6 +104,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/health` | — | Liveness (public) |
 | GET  | `/api/v1/embedder` | — | Active embedder provenance (public) |
 | POST | `/api/v1/classify` | — | Embed text (or base64 `image`) → ranked `{domain, mode, score, entries}[]` |
+| POST | `/api/v1/discover` | — | Ontology-gap discovery over `{texts[]}` → coverage report + draft ontology JSON for the texts the grid covers poorly |
 | POST | `/api/v1/embed` | — | Raw embedding vector + dimension (text or image) |
 | POST | `/api/v1/embed/video` | — | ffmpeg-sampled clip vector → `{embedding, dim, frames}` |
 | GET  | `/api/v1/ontology/list` | — | Domain counts per loaded ontology |
@@ -116,6 +122,11 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/oee/event` | plant | Record a shop-floor event: `{kind:"stop", machine_id, reason, duration_secs, note?}` (reason ∈ six big losses), `{kind:"production", machine_id, good, scrap?}`, or `{kind:"start_shift", machine_id}` |
 | GET  | `/api/v1/oee/:machine` | plant | OEE report (A×P×Q + six-big-losses Pareto) for one machine |
 | GET  | `/api/v1/oee/plant` | plant | Planned-time-weighted plant OEE rollup + merged Pareto |
+| POST | `/api/v1/maintenance/observe` | plant | Fold a healthy reading into a machine's learned baseline |
+| POST | `/api/v1/maintenance/check` | plant | Score a reading (σ from baseline) + optional RUL; anomalies auto-register as coherence nodes |
+| GET  | `/api/v1/maintenance/:machine` | plant | Health baseline summary for one machine |
+| GET  | `/api/v1/report/shift` | plant | Italian shift report (Markdown, or HTML via `?format=html`) from the live OEE board + graded dream countermeasures |
+| POST | `/api/v1/report/shift` | — | Shift report from a supplied `ShiftReportInput` (OEE + anomalies + RUL + countermeasures); stateless, `?format=html` for HTML |
 | POST | `/api/v1/config/reload` | ✓ | Re-read `config.json`; apply PDCA knobs + scan_root live (embedder/embed_dim need restart — dim change corrupts vectors) |
 | POST | `/api/v1/goals` | ✓ | Ingest a prompt as a goal → `{goal:{id}}` |
 | POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force}` |
@@ -167,8 +178,14 @@ compared).
 # CLI
 cargo run --bin physis-pro -- scan <dir>
 cargo run --bin physis-pro -- query "<text>"
+cargo run --bin physis-pro -- classify <file.txt>          # semiotic-grid map of a text
 cargo run --bin physis-pro -- dream --count 5
+cargo run --bin physis-pro -- discover <dir> [--threshold T] [--json-out F]  # ontology gaps in a corpus → draft entries
+cargo run --bin physis-pro -- report --shift <input.json> [--html]           # Italian shift report (Markdown or HTML)
 cargo run --bin physis-pro -- stats
+
+# Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
+cargo run --release --example empedocles_criticality
 
 # HTTP server (feature: web, on by default)
 cargo run --bin physis-pro-web          # binds 127.0.0.1:19876
@@ -296,6 +313,7 @@ at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 | `models` | `CoherenceRating`, `CoherenceNode`, `ConstructiveRefutation`, `Goal`, `Experience`, `Dream` |
 | `trie` | `DynamicVectorTrie` token storage/retrieval |
 | `classify` | Semiotic-grid classification (nearest-entry max-cosine over DOMAIN×MODE cells) |
+| `discovery` | Ontology-gap discovery — embeds a corpus, flags texts the grid covers poorly (tunable threshold + surfaced sim distribution), clusters gaps → draft ontology JSON |
 | `ontology` / `ontology_nonhuman` | Human + machine/non-human ontology loading |
 | `config` | Config + ontology bootstrap |
 | `scanner` | Filesystem scan with hash-based change detection |
@@ -303,7 +321,8 @@ at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 | `vfs` | Read-only ontology-organized view of files via symlinks |
 | `actor` | PDCA (Plan-Do-Check-Act) cycle engine |
 | `rachmaninov` | PDCA directive engine — `Focus`/`Expand`/`Prune`/`Synthesize`, state-vs-goal tick |
-| `dream` | `DreamEngine` — stochastic generation (mutate / graft / prune) |
+| `dream` | `DreamEngine` — stochastic generation (mutate / graft / prune). Reframed as the Philotes (integration) phase of one metabolism — see `docs/EMPEDOCLES_DYAD.md` |
+| `empedocles` | **Research, quarantined.** `NodeField` under Eros (attraction + synthesis) vs Nemesis (repulsion + decay); the `empedocles_criticality` example confirms a phase transition. Wired to nothing on the product path |
 | `graph` | Holarchic graph — `DenseSlotMap`, `NodePayload`, `Edge`, mmap storage, ONNX worker |
 | `gantt` | `GanttTask` scheduler — start/end, deps, critical path over `RawNodeKey` |
 | `sensory` | `AuraFrame` multimodal ingestion bus |
@@ -324,6 +343,9 @@ at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 | `ingest` | Document classification/ingest pipeline (feature `ingest`) |
 | `inventory` | Stock tracker — SMA-30 forecast + human-in-loop reorder |
 | `oee` | Overall Equipment Effectiveness — `OeeShift`/`OeeBoard`, A×P×Q, six-big-losses Pareto, plant rollup |
+| `maintenance` | Per-machine learned health baselines, σ-anomaly scoring, least-squares RUL projection |
+| `report` | Italian shift report — composes OEE + anomalies + RUL + dream countermeasures into Markdown or self-contained HTML |
+| `spanner` | Optional Google Spanner sink (feature `spanner`) — durable holarchy mirror: chunked upsert, hard deletes, `sync_full`, SA-JWT auth |
 | `wiki` | `llmwiki` CLI fallback with recursive-grep offline retrieval |
 | `cli` | clap CLI (feature `cli`) |
 
@@ -370,7 +392,7 @@ cargo test core                   # core engine only
 ### Features
 
 `cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `industrial`
-· `ingest` · `full`. Default = `cli, voice, web, tui, embed-onnx`.
+· `ingest` · `spanner` · `wiki-embedded` · `full`. Default = `cli, voice, web, tui, embed-onnx`.
 
 ### Binaries
 
