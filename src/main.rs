@@ -124,10 +124,22 @@ pub enum Commands {
     },
     /// Regenerate the theme graph from ingested files
     RebuildGraph,
-    /// Discover new ontology domains from a directory
+    /// Discover ontology gaps in a corpus and draft new entries
     Discover {
-        /// Directory to discover
+        /// Directory of .txt/.md/.log/.csv files (one corpus text per line)
         dir: PathBuf,
+        /// Write the ready-to-edit ontology JSON draft here
+        #[arg(long)]
+        json_out: Option<PathBuf>,
+        /// Coverage threshold: texts with best-entry cosine below this are
+        /// "unmapped" (default 0.55). Run once, read the printed sim
+        /// distribution, then re-run with a tuned value.
+        #[arg(long)]
+        threshold: Option<f32>,
+        /// Use the LLM agent to synthesize proposals (legacy "Universal
+        /// Discovery") instead of the measured embedding-gap pipeline
+        #[arg(long)]
+        ai: bool,
     },
     /// Export the file-theme graph as uberwiki markdown pages
     WikiExport,
@@ -380,7 +392,14 @@ fn main() -> anyhow::Result<()> {
         Commands::RebuildGraph => {
             run_ingest_pipeline(&config, "Rebuilding graph from", false)?;
         }
-        Commands::Discover { dir } => {
+        Commands::Discover { dir, json_out, threshold, ai } => {
+            if !ai {
+                // Default: pure embedding-gap discovery — measured coverage
+                // against the live grid, draft entries from the gaps.
+                let output = app.run_discover(&dir, json_out.as_deref(), threshold)?;
+                println!("{output}");
+                return Ok(());
+            }
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async {
                 println!("Starting Universal Discovery on {}...", dir.display());

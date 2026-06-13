@@ -151,4 +151,44 @@ impl CellClassifier {
     pub fn classify_text(&self, text: &str, embedder: &dyn VectorEmbed) -> Vec<CellScore> {
         self.classify(&embedder.embed(text))
     }
+
+    /// Mean-of-entries centroid per cell, keyed `"DOMAIN\x00MODE"` — the legacy
+    /// shape `PhysisApp.cell_centroids` exposes. Derived from the entry
+    /// embeddings already computed in `build`, so callers don't pay a second
+    /// full-ontology embedding pass (in a debug build that pass is ~10 minutes).
+    pub fn cell_centroids(&self) -> HashMap<String, Vec<f32>> {
+        self.cells
+            .iter()
+            .filter(|c| !c.embeddings.is_empty())
+            .map(|c| {
+                let dim = c.embeddings[0].len();
+                let n = c.embeddings.len() as f32;
+                let mut mean = vec![0.0f32; dim];
+                for e in &c.embeddings {
+                    for (i, v) in e.iter().enumerate() {
+                        mean[i] += v;
+                    }
+                }
+                mean.iter_mut().for_each(|v| *v /= n);
+                (format!("{}\x00{}", c.domain, c.mode), mean)
+            })
+            .collect()
+    }
+
+    /// Raw best single-entry cosine and its owning cell — the ontology
+    /// *coverage* of an embedding, undiluted by the blended cell/domain
+    /// scoring above. Low values mean "no existing entry is near this text",
+    /// which is what discovery mode looks for.
+    pub fn best_entry_sim(&self, embedding: &[f32]) -> Option<(f32, &str, &str)> {
+        let mut best: Option<(f32, &str, &str)> = None;
+        for cell in &self.cells {
+            for e in &cell.embeddings {
+                let s = cosine_sim(embedding, e);
+                if best.map(|(b, _, _)| s > b).unwrap_or(true) {
+                    best = Some((s, cell.domain.as_str(), cell.mode.as_str()));
+                }
+            }
+        }
+        best
+    }
 }

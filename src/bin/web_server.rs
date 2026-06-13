@@ -931,6 +931,41 @@ fn report_response(input: &physis_pro::report::ShiftReportInput, format: Option<
     }
 }
 
+#[derive(Deserialize)]
+struct DiscoverRequest {
+    texts: Vec<String>,
+    #[serde(default)]
+    coverage_threshold: Option<f32>,
+    /// `kind` for the draft ontology JSON (default "discovered").
+    #[serde(default)]
+    kind: Option<String>,
+}
+
+/// Ontology discovery (PLAN 1D): which of the supplied texts does the current
+/// grid cover poorly, and what draft entries would cover them? Stateless —
+/// embeds off-thread against the shared classifier; returns the report plus a
+/// ready-to-edit ontology JSON draft.
+async fn discover_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<DiscoverRequest>,
+) -> Json<serde_json::Value> {
+    let shared = state.shared.clone();
+    let kind = req.kind.unwrap_or_else(|| "discovered".to_string());
+    let mut cfg = physis_pro::discovery::DiscoveryConfig::default();
+    if let Some(t) = req.coverage_threshold {
+        cfg.coverage_threshold = t;
+    }
+    let (report, draft) = tokio::task::spawn_blocking(move || {
+        let report =
+            physis_pro::discovery::discover(&req.texts, &shared.classifier, &shared.embedder, &cfg);
+        let draft = physis_pro::discovery::to_ontology_json(&report, &kind);
+        (report, draft)
+    })
+    .await
+    .expect("discovery task completes");
+    Json(serde_json::json!({ "report": report, "ontology_draft": draft }))
+}
+
 /// Stateless shift report: caller supplies all data (`ShiftReportInput`),
 /// gets Italian Markdown (default) or HTML (`?format=html`) back.
 /// Replica-safe like the other compute routes.
@@ -2336,6 +2371,7 @@ async fn main() {
         .route("/api/v1/oee/compute", post(oee_compute_handler))
         .route("/api/v1/oee/rollup", post(oee_rollup_handler))
         .route("/api/v1/report/shift", get(report_shift_live_handler).post(report_shift_compute_handler))
+        .route("/api/v1/discover", post(discover_handler))
         .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
         .route("/api/v1/maintenance/score", post(maintenance_score_handler))
         .route("/api/v1/maintenance/rul", post(maintenance_rul_handler))

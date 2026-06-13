@@ -110,6 +110,8 @@ pub struct PhysisApp {
     embedder: Box<dyn VectorEmbed>,
     /// Pre-computed centroids per DOMAIN\x00MODE cell.
     pub cell_centroids: HashMap<String, Vec<f32>>,
+    /// Nearest-entry classifier, built once (one full-ontology embedding pass).
+    pub classifier: crate::classify::CellClassifier,
 }
 
 impl PhysisApp {
@@ -223,37 +225,12 @@ impl PhysisApp {
         // (PREMORTEM P0); at least say which embedder is answering.
         eprintln!("[physis] embedder: dim={}", embedder.dimension());
 
-        // Pre-compute centroids per DOMAIN×MODE cell (human grid + extra ontologies)
-        let mut centroid_sums: HashMap<String, (Vec<f32>, usize)> = HashMap::new();
-        for def in ontology.classification_domains() {
-            let domain = match def.domain.as_deref() {
-                Some(d) => d,
-                None => continue,
-            };
-            let mode = match def.mode.as_deref() {
-                Some(m) => m,
-                None => continue,
-            };
-            let mut text = def.name.clone();
-            for hint in &def.hints {
-                text.push(' ');
-                text.push_str(hint);
-            }
-            let emb = embedder.embed(&text);
-            let key = format!("{domain}\x00{mode}");
-            let entry = centroid_sums.entry(key).or_insert((vec![0.0f32; emb.len()], 0));
-            for (i, v) in emb.iter().enumerate() {
-                entry.0[i] += v;
-            }
-            entry.1 += 1;
-        }
-        let cell_centroids: HashMap<String, Vec<f32>> = centroid_sums
-            .into_iter()
-            .map(|(k, (sum, count))| {
-                let n = count as f32;
-                (k, sum.into_iter().map(|v| v / n).collect())
-            })
-            .collect();
+        // ONE full-ontology embedding pass: build the nearest-entry classifier,
+        // then derive the legacy mean centroids from its entry embeddings.
+        // (Previously this constructor embedded all ~650 entries for centroids
+        // AND each command rebuilt the classifier — a second identical pass.)
+        let classifier = crate::classify::CellClassifier::build(&ontology, embedder.as_ref());
+        let cell_centroids = classifier.cell_centroids();
 
         Self {
             config,
@@ -264,6 +241,7 @@ impl PhysisApp {
             goals: Vec::new(),
             embedder,
             cell_centroids,
+            classifier,
         }
     }
 
@@ -436,6 +414,84 @@ No other text."#.into(),
 
     /// Classify a text file against the semiotic grid.
     /// Returns a formatted map: ranked domain×mode cells with scores + contributing entries.
+    /// Ontology discovery over a directory: every non-empty line of every
+    /// .txt/.md/.log/.csv file is one corpus text (notes and logs are
+    /// line-oriented). Returns the human report; when `json_out` is set, the
+    /// ready-to-edit ontology draft is written there.
+    pub fn run_discover(
+        &self,
+        dir: &std::path::Path,
+        json_out: Option<&std::path::Path>,
+        threshold: Option<f32>,
+    ) -> anyhow::Result<String> {
+        const MAX_TEXTS: usize = 5000;
+        let mut texts: Vec<String> = Vec::new();
+        for entry in walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
+            let ok_ext = matches!(
+                entry.path().extension().and_then(|e| e.to_str()),
+                Some("txt" | "md" | "log" | "csv")
+            );
+            if !entry.file_type().is_file() || !ok_ext {
+                continue;
+            }
+            if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                for line in content.lines() {
+                    let line = line.trim();
+                    if line.len() > 10 {
+                        texts.push(line.to_string());
+                        if texts.len() >= MAX_TEXTS {
+                            break;
+                        }
+                    }
+                }
+            }
+            if texts.len() >= MAX_TEXTS {
+                break;
+            }
+        }
+        if texts.is_empty() {
+            anyhow::bail!("no corpus lines found under {} (.txt/.md/.log/.csv)", dir.display());
+        }
+
+        let mut cfg = crate::discovery::DiscoveryConfig::default();
+        if let Some(t) = threshold {
+            cfg.coverage_threshold = t;
+        }
+        let report =
+            crate::discovery::discover(&texts, &self.classifier, self.embedder.as_ref(), &cfg);
+
+        let mut out = String::new();
+        out.push_str("━━━ Physis Ontology Discovery ━━━\n");
+        out.push_str(&format!(
+            "Corpus: {} texts · covered {} · unmapped {} (threshold {:.2})\n",
+            report.total, report.covered, report.unmapped, cfg.coverage_threshold
+        ));
+        out.push_str(&format!(
+            "Best-entry cosine: min {:.2} · mean {:.2} · max {:.2}  \
+             (tune --threshold between mean and max to surface gaps)\n\n",
+            report.sim_min, report.sim_mean, report.sim_max
+        ));
+        for p in &report.proposals {
+            out.push_str(&format!(
+                "▶ {} — {} texts, coverage {:.2}, nearest cell {}×{}\n",
+                p.name, p.count, p.coverage, p.domain, p.mode
+            ));
+            out.push_str(&format!("   hints: {}\n", p.hints.join(", ")));
+            for s in &p.samples {
+                let s = if s.len() > 90 { &s[..90] } else { s };
+                out.push_str(&format!("   · {s}\n"));
+            }
+        }
+        if report.proposals.is_empty() {
+            out.push_str("No proposals — the current ontology covers this corpus.\n");
+        }
+        if let Some(path) = json_out {
+            std::fs::write(path, crate::discovery::to_ontology_json(&report, "discovered"))?;
+            out.push_str(&format!("\nDraft ontology written to {}\n", path.display()));
+        }
+        Ok(out)
+    }
+
     pub fn run_classify(&self, file: &std::path::Path) -> anyhow::Result<String> {
         // Determine if it's an image file
         let is_image = matches!(
@@ -455,12 +511,10 @@ No other text."#.into(),
             self.embedder.embed(&text)
         };
 
-        // Nearest-entry scoring via CellClassifier — the same path the web server
-        // and the gated accuracy test use. The previous mean-centroid scoring
-        // here predated the P3 fix (PREMORTEM.md) and compressed every score
-        // toward zero, so the CLI verdicts were noise (~0.07 on real text).
-        let clf = crate::classify::CellClassifier::build(&self.ontology, self.embedder.as_ref());
-        let results = clf.classify(&embedding);
+        // Nearest-entry scoring via the shared classifier — the same path the
+        // web server and the gated accuracy test use. The previous mean-centroid
+        // scoring predated the P3 fix and compressed every score toward zero.
+        let results = self.classifier.classify(&embedding);
 
         let mut out = String::new();
         out.push_str("━━━ Physis Classification Map ━━━\n");

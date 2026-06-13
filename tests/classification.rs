@@ -196,6 +196,17 @@ fn accuracy_floor() {
         let it_dom_acc = it_dom as f32 / it_n as f32;
         let it_cell_acc = it_cell as f32 / it_n as f32;
         eprintln!("ITALIAN top-1 domain: {it_dom_acc:.3} ({it_dom}/{it_n}); cell: {it_cell_acc:.3} ({it_cell}/{it_n})");
+        // Gated since the Italian ontology anchors landed: measured 0.867/0.867
+        // under bge-base (was 0.733/0.600 with English-only anchors). The floor
+        // catches a regression of more than one fixture.
+        assert!(
+            it_dom_acc >= 0.80,
+            "ITALIAN top-1 domain accuracy {it_dom_acc:.3} below floor 0.80 — italian anchor regression"
+        );
+        assert!(
+            it_cell_acc >= 0.80,
+            "ITALIAN top-1 cell accuracy {it_cell_acc:.3} below floor 0.80 — italian anchor regression"
+        );
     }
 
     // Floor gates the CORE (unambiguous) tier: nearest-entry scoring on MiniLM

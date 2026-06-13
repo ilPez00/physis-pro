@@ -23,7 +23,7 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 
 #### 1D — Embeddings & Ontology
 - [x] **Upgrade Embeddings**: BGE-base-en-v1.5 (768-d) ships as the production embedder, self-test-gated with MiniLM → RandomProjection fallback (see PREMORTEM P0/P4). Accuracy 0.974 domain / 0.923 cell on the curated set.
-- [ ] **Automated Ontology Discovery**: "Discovery" mode that scans a new environment and suggests ontology mappings.
+- [x] **Automated Ontology Discovery**: `discover` mode (`src/discovery.rs`) embeds a corpus, flags texts the grid covers poorly (best-entry cosine below an operator-tunable threshold), clusters the gaps, and emits a ready-to-edit ontology JSON draft. Surfaces the best-entry cosine distribution so the threshold is calibrated from real numbers (a fixed default is useless — a dense ontology scores ~0.64 against out-of-domain text). CLI `physis-pro discover <dir> [--threshold T] [--json-out F]`, HTTP `POST /api/v1/discover`; the legacy LLM-synthesis path is kept behind `--ai`.
 - [x] **Config dedup**: the 10 copy-paste `load_builtin_*` functions collapsed into a `BUILTIN_ONTOLOGIES` table + one `load_builtin(name)` lookup.
 
 #### 1E — Packaging
