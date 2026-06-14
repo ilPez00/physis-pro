@@ -2415,7 +2415,10 @@ async fn main() {
         .route("/api/v1/machines/chronos", post(machines_chronos_handler))
         .route("/api/v1/machines/harmony", post(machines_harmony_handler))
         .route("/api/v1/machines/polis", post(machines_polis_handler))
-        .route("/api/v1/machines/soma", post(machines_soma_handler));
+        .route("/api/v1/machines/soma", post(machines_soma_handler))
+        .route("/api/v1/machines/elenchus", post(machines_elenchus_handler))
+        .route("/api/v1/machines/lex", post(machines_lex_handler))
+        .route("/api/v1/machines/empedocles", post(machines_empedocles_handler));
 
     // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
     #[cfg(feature = "wiki-embedded")]
@@ -2561,11 +2564,11 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
         MachineInfo { name: "chronos",    modality: "timed events",        primitive: "rhythm (recurrence)",            status: "live" },
         MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "live" },
-        MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "reducer-only" },
-        MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "reducer-only" },
+        MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "live" },
+        MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "live" },
         MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "live" },
         MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "live" },
-        MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "reducer-only" },
+        MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "live" },
         MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "reducer-only" },
         MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "reducer-only" },
     ];
@@ -2737,4 +2740,146 @@ async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_json:
     let window = req.window.unwrap_or(7);
     let drift = soma::drift(&sessions, window);
     Json(serde_json::json!({ "sessions": classified, "drift": drift }))
+}
+
+
+#[derive(Deserialize)]
+struct ElenchusStatement {
+    id: String,
+    /// "claim" | "warrant" | "rebuttal"
+    kind: String,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    target: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ElenchusRequest {
+    statements: Vec<ElenchusStatement>,
+}
+
+/// POST /api/v1/machines/elenchus — reduce a dialogue to Toulmin claim/warrant/
+/// rebuttal primitives; return each claim's standing + the unsupported/contested
+/// claims to press. Statements with an unknown kind are ignored. Stateless.
+async fn machines_elenchus_handler(Json(req): Json<ElenchusRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::elenchus;
+    let statements: Vec<elenchus::Statement> = req
+        .statements
+        .iter()
+        .filter_map(|s| {
+            let kind = match s.kind.to_ascii_lowercase().as_str() {
+                "claim" => elenchus::Kind::Claim,
+                "warrant" => elenchus::Kind::Warrant,
+                "rebuttal" => elenchus::Kind::Rebuttal,
+                _ => return None,
+            };
+            Some(elenchus::Statement { id: s.id.clone(), kind, text: s.text.clone(), target: s.target.clone() })
+        })
+        .collect();
+    let standings: Vec<serde_json::Value> = elenchus::evaluate(&statements)
+        .into_iter()
+        .map(|(id, st)| {
+            let label = match st {
+                elenchus::Standing::Supported => "supported",
+                elenchus::Standing::Contested => "contested",
+                elenchus::Standing::Unsupported => "unsupported",
+            };
+            serde_json::json!({ "claim": id, "standing": label })
+        })
+        .collect();
+    Json(serde_json::json!({
+        "standings": standings,
+        "unsupported": elenchus::unsupported_claims(&statements),
+        "contested": elenchus::contested_claims(&statements),
+    }))
+}
+
+#[derive(Deserialize)]
+struct LexClause {
+    id: String,
+    /// "obligation" | "right" | "condition"
+    kind: String,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    requires: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct LexRequest {
+    clauses: Vec<LexClause>,
+    /// Optional set of failed condition ids to compute breach paths for.
+    #[serde(default)]
+    failed: Vec<String>,
+}
+
+/// POST /api/v1/machines/lex — reduce contract clauses to obligation/right/
+/// condition primitives; return unconditional obligations, breach paths for the
+/// given failed conditions, and dangling (undefined) conditions. Stateless.
+async fn machines_lex_handler(Json(req): Json<LexRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::lex;
+    let clauses: Vec<lex::Clause> = req
+        .clauses
+        .iter()
+        .filter_map(|c| {
+            let kind = match c.kind.to_ascii_lowercase().as_str() {
+                "obligation" => lex::Kind::Obligation,
+                "right" => lex::Kind::Right,
+                "condition" => lex::Kind::Condition,
+                _ => return None,
+            };
+            Some(lex::Clause { id: c.id.clone(), kind, text: c.text.clone(), requires: c.requires.clone() })
+        })
+        .collect();
+    Json(serde_json::json!({
+        "unconditional_obligations": lex::unconditional_obligations(&clauses),
+        "breach_paths": lex::breach_paths(&clauses, &req.failed),
+        "dangling_conditions": lex::dangling_conditions(&clauses),
+    }))
+}
+
+#[derive(Deserialize)]
+struct EmpedoclesReading {
+    metric: String,
+    value: f32,
+    baseline: f32,
+}
+
+#[derive(Deserialize)]
+struct EmpedoclesRequest {
+    readings: Vec<EmpedoclesReading>,
+    #[serde(default)]
+    threshold: Option<f32>,
+    /// Optional single time-series to compute a trend slope over.
+    #[serde(default)]
+    series: Option<Vec<f32>>,
+}
+
+/// POST /api/v1/machines/empedocles — classify telemetry readings into the four
+/// elements (earth/air/fire/water) and flag stable vs anomaly past threshold;
+/// optional trend slope over a series. Stateless.
+async fn machines_empedocles_handler(Json(req): Json<EmpedoclesRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::empedocles;
+    let threshold = req.threshold.unwrap_or(1.0);
+    let readings: Vec<serde_json::Value> = req
+        .readings
+        .iter()
+        .map(|r| {
+            let reading = empedocles::Reading { metric: r.metric.clone(), value: r.value, baseline: r.baseline };
+            let element = match reading.element() {
+                empedocles::Element::Earth => "earth",
+                empedocles::Element::Air => "air",
+                empedocles::Element::Fire => "fire",
+                empedocles::Element::Water => "water",
+            };
+            let status = match empedocles::classify(&reading, threshold) {
+                empedocles::Status::Stable => "stable",
+                empedocles::Status::Anomaly => "anomaly",
+            };
+            serde_json::json!({ "metric": r.metric, "element": element, "deviation": reading.deviation(), "status": status })
+        })
+        .collect();
+    let trend = req.series.as_ref().map(|s| empedocles::trend(s));
+    Json(serde_json::json!({ "readings": readings, "trend": trend }))
 }
