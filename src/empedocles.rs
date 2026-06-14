@@ -103,6 +103,21 @@ impl NodeField {
         Self { nodes, cfg, rng, dim }
     }
 
+    /// Seed the field from real node embeddings (e.g. coherence-node vectors) at
+    /// full charge. This is the bridge from the research field to live nodes: the
+    /// criticality sweep validated the dynamics on synthetic seeds; this lets the
+    /// same dynamics run on the UberWiki's actual vectors. Dimension is taken from
+    /// the first vector; off the production classify path until the no-regression
+    /// gate (docs/EMPEDOCLES_DYAD.md §5) is met.
+    pub fn from_embeddings(positions: Vec<Vec<f32>>, cfg: DyadConfig, seed: u64) -> Self {
+        let dim = positions.first().map_or(0, Vec::len);
+        let nodes = positions
+            .into_iter()
+            .map(|pos| FieldNode { pos, charge: 1.0, age: 0 })
+            .collect();
+        Self { nodes, cfg, rng: StdRng::seed_from_u64(seed), dim }
+    }
+
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -395,6 +410,33 @@ mod tests {
             f.step();
         }
         assert!(!f.is_empty(), "a reinforced node must outlast decay");
+    }
+
+    #[test]
+    fn test_from_embeddings_runs_on_real_vectors() {
+        // The bridge: seed from given vectors (not the uniform RNG) and confirm the
+        // same dynamics apply. Two near vectors fall in the attraction band and
+        // merge; a far vector stays its own cluster.
+        let cfg = DyadConfig {
+            eros_radius: 0.5,
+            eros_strength: 0.1,
+            nemesis_radius: 0.0,
+            nemesis_strength: 0.0,
+            decay: 0.0,
+            death_charge: 0.0,
+            synthesis_prob: 0.0,
+            max_step: 0.05,
+            ..Default::default()
+        };
+        let pts = vec![vec![0.40, 0.50], vec![0.45, 0.50], vec![2.00, 0.50]];
+        let mut f = NodeField::from_embeddings(pts, cfg, 7);
+        assert_eq!(f.len(), 3);
+        for _ in 0..400 {
+            f.step();
+        }
+        let sizes = f.cluster_sizes(0.1);
+        assert_eq!(sizes.len(), 2, "near pair should cluster, far point separate");
+        assert_eq!(sizes[0], 2, "the two near vectors must coalesce");
     }
 
     #[test]

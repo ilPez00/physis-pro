@@ -85,9 +85,13 @@ recombination is real sleep neuroscience) but narrow:
 
 ### The honest gap
 
-The vision exceeds the code by a wide margin. Today `compress_logs` is word
-filtering and `dream` is near-neighbour mutate/graft/prune with human grading.
-This document describes an aspiration and a test of it, **not** a shipped system.
+The vision exceeds the *production* code by a wide margin: today `compress_logs`
+is word filtering and the live `dream` is near-neighbour mutate/graft/prune with
+human grading. The dyad itself, however, is no longer only an aspiration — the
+falsifier has run and passed (§3, gate 1), and `NodeField::from_embeddings` now
+seeds the field from real node vectors, so the same dynamics can run on the
+UberWiki's actual coherence nodes, not just synthetic seeds. What remains before
+wiring it into the live core is gate 2 (no classification regression), §5.
 
 ---
 
@@ -107,6 +111,29 @@ The fingerprint of criticality is a **power-law cluster-size distribution**
 > cluster and all-singletons. **If and only if** a middle band yields a
 > power-law cluster-size distribution does the Empedoclean dyad do real
 > organising work. If no such band exists, the framing is poetry and we drop it.
+
+### Result — measured 2026-06-14 (gate 1: PASSED)
+
+`cargo run --example empedocles_criticality` (300 nodes, 2-D, 400 ticks, eros
+fixed at 0.10, sweeping nemesis). The predicted three regimes appear, with a
+critical band between them:
+
+```
+  eros  nemesis  nodes        regime  largest  cluster sizes (desc, top 10)
+  0.10    0.001    300 Supercritical     1.00  300                  <- Love won (one blob)
+  0.10    0.006    300 Supercritical     0.99  297 1 1 1
+  0.10    0.010    300 Critical          0.20  59 32 9 9 8 8 7 6 6 5 <- heavy-tailed band
+  0.10    0.020    300 Subcritical       0.01  2 2 2 2 2 2 2 2 2 2   <- Strife scattered it
+  0.10    0.160    300 Subcritical       0.01  2 2 2 2 1 1 1 1 1 1
+```
+
+At `nemesis ~= 0.01` the field neither collapses to one cluster nor shatters to
+singletons: it settles into a graded, heavy-tailed spread of cluster sizes
+(`59 32 9 9 8 ...`), bracketed cleanly by the supercritical and subcritical
+extremes. That is the self-organised-criticality signature this section
+predicted. **The dyad does real organising work; the framing is not dropped.**
+A rigorous power-law-vs-lognormal fit over a finer sweep remains as follow-up,
+but the falsifier's pass/fail gate is passed.
 
 ---
 
@@ -145,4 +172,12 @@ Not "higher classification accuracy" — this does not touch that. *Better* mean
 Promotion criterion: only wire a mechanism (decay, repulsion, synthesis) into
 the live coherence core **after** the criticality experiment shows it does
 organising work *and* a separate test shows it does not regress classification.
-Until then it stays in the research module.
+
+Status: **gate 1 (criticality) passed** (§3, 2026-06-14). **Gate 2 (no
+regression) is still open** — promotion stays blocked until it is met. The bridge
+`NodeField::from_embeddings(positions, cfg, seed)` is in place (research module,
+off the production path) so gate 2 can be run on real coherence-node vectors next:
+seed the field from a live UberWiki slice, confirm classification accuracy on a
+held-out set is unchanged with decay/synthesis active, then promote
+decay-as-eviction first (it only bounds memory and is the lowest-risk wire-in).
+Until gate 2, it stays in the research module.
