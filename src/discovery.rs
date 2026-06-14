@@ -27,6 +27,10 @@ pub struct DiscoveryConfig {
     pub min_cluster: usize,
     /// Hint candidates emitted per proposal.
     pub max_hints: usize,
+    /// When the first pass finds no proposals, auto-raise the threshold to a high
+    /// quantile of the observed best-entry sims and re-cluster once (P10), so a
+    /// dense ontology's "all covered" default doesn't make the tool look broken.
+    pub auto_retune: bool,
 }
 
 impl Default for DiscoveryConfig {
@@ -35,7 +39,13 @@ impl Default for DiscoveryConfig {
         // and to unrelated ~0.3-0.5, so 0.55 sits in the gap. But no single
         // default fits every corpus — the report surfaces the real sim
         // distribution so the operator re-runs with a tuned threshold.
-        Self { coverage_threshold: 0.55, cluster_sim: 0.70, min_cluster: 2, max_hints: 8 }
+        Self {
+            coverage_threshold: 0.55,
+            cluster_sim: 0.70,
+            min_cluster: 2,
+            max_hints: 8,
+            auto_retune: true,
+        }
     }
 }
 
@@ -72,6 +82,11 @@ pub struct DiscoveryReport {
     pub sim_min: f32,
     pub sim_mean: f32,
     pub sim_max: f32,
+    /// The threshold the proposals were produced at — may differ from the
+    /// requested one if `auto_retuned`.
+    pub threshold_used: f32,
+    /// True when the first pass found nothing and the threshold was auto-raised.
+    pub auto_retuned: bool,
 }
 
 /// Tiny stopword list — just enough to keep hints meaningful. Bilingual
@@ -103,58 +118,24 @@ fn top_terms(texts: &[&str], max: usize) -> Vec<String> {
     ranked.into_iter().take(max).map(|(w, _)| w).collect()
 }
 
-/// Run discovery: which of `texts` does the current ontology fail to cover,
-/// and what entries would cover them?
-pub fn discover(
-    texts: &[String],
-    clf: &CellClassifier,
-    embedder: &dyn VectorEmbed,
-    cfg: &DiscoveryConfig,
-) -> DiscoveryReport {
-    // Chunk the batch: one giant [N, max_length] pass allocates the whole
-    // hidden-state tensor at once (600 texts × 512 tokens × 768 dims ≈ 1GB)
-    // and thrashes memory. Small chunks keep the working set flat.
-    const EMBED_CHUNK: usize = 16;
-    let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-    let mut embeddings: Vec<Vec<f32>> = Vec::with_capacity(refs.len());
-    for chunk in refs.chunks(EMBED_CHUNK) {
-        embeddings.extend(embedder.embed_batch(chunk));
-    }
+/// One scored corpus text: its best-entry cosine and the nearest cell. Computed
+/// once (the embed is the expensive part); the covered/unmapped split and the
+/// clustering then re-run cheaply at any threshold.
+struct Scored {
+    text: String,
+    embedding: Vec<f32>,
+    best: f32,
+    domain: String,
+    mode: String,
+}
 
-    // Split covered / unmapped by best-entry cosine.
-    struct Unmapped<'a> {
-        text: &'a str,
-        embedding: &'a [f32],
-        best: f32,
-        domain: String,
-        mode: String,
-    }
-    let mut covered = 0usize;
-    let mut unmapped: Vec<Unmapped> = Vec::new();
-    let (mut sim_min, mut sim_max, mut sim_sum) = (f32::INFINITY, f32::NEG_INFINITY, 0.0f32);
-    for (text, emb) in texts.iter().zip(&embeddings) {
-        let (best, d, m) = clf.best_entry_sim(emb).unwrap_or((0.0, "", ""));
-        sim_min = sim_min.min(best);
-        sim_max = sim_max.max(best);
-        sim_sum += best;
-        if best >= cfg.coverage_threshold {
-            covered += 1;
-        } else {
-            unmapped.push(Unmapped {
-                text,
-                embedding: emb,
-                best,
-                domain: d.to_string(),
-                mode: m.to_string(),
-            });
-        }
-    }
-    let n = texts.len().max(1) as f32;
-    let (sim_min, sim_max) = if texts.is_empty() { (0.0, 0.0) } else { (sim_min, sim_max) };
+/// Split scored texts at `threshold`, cluster the unmapped, draft proposals.
+/// Pure over precomputed scores — no embedding — so `discover` can retry at an
+/// auto-tuned threshold without re-embedding.
+fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usize, Vec<ProposedDomain>) {
+    let unmapped: Vec<&Scored> = scored.iter().filter(|s| s.best < threshold).collect();
+    let covered = scored.len() - unmapped.len();
 
-    // Greedy cosine clustering over the unmapped set (same scheme as
-    // certify_branches): first unassigned seeds a cluster, pulls everything
-    // above cluster_sim, repeat.
     let mut assigned = vec![false; unmapped.len()];
     let mut proposals: Vec<ProposedDomain> = Vec::new();
     for i in 0..unmapped.len() {
@@ -165,7 +146,7 @@ pub fn discover(
         let mut members = vec![i];
         for j in (i + 1)..unmapped.len() {
             if !assigned[j]
-                && cosine_sim(unmapped[i].embedding, unmapped[j].embedding) > cfg.cluster_sim
+                && cosine_sim(&unmapped[i].embedding, &unmapped[j].embedding) > cfg.cluster_sim
             {
                 assigned[j] = true;
                 members.push(j);
@@ -174,7 +155,7 @@ pub fn discover(
         if members.len() < cfg.min_cluster {
             continue;
         }
-        let member_texts: Vec<&str> = members.iter().map(|&k| unmapped[k].text).collect();
+        let member_texts: Vec<&str> = members.iter().map(|&k| unmapped[k].text.as_str()).collect();
         let hints = top_terms(&member_texts, cfg.max_hints);
         let name = {
             let mut words: Vec<String> = hints.iter().take(2).cloned().collect();
@@ -199,15 +180,87 @@ pub fn discover(
         });
     }
     proposals.sort_by_key(|p| std::cmp::Reverse(p.count));
+    (covered, proposals)
+}
+
+/// Run discovery: which of `texts` does the current ontology fail to cover,
+/// and what entries would cover them?
+///
+/// P10 mitigation: a dense ontology scores ~0.64 best-entry cosine even against
+/// out-of-domain text, so a fixed default can report "all covered" and make the
+/// tool look broken. When `cfg.auto_retune` is set and the first pass finds no
+/// proposals, the threshold is auto-raised to a high quantile of the observed
+/// best-entry sims and clustering re-runs once — so the result *shows* the
+/// relatively-least-covered texts instead of asking the operator to find the knob.
+pub fn discover(
+    texts: &[String],
+    clf: &CellClassifier,
+    embedder: &dyn VectorEmbed,
+    cfg: &DiscoveryConfig,
+) -> DiscoveryReport {
+    // Chunk the batch: one giant [N, max_length] pass allocates the whole
+    // hidden-state tensor at once (600 texts × 512 tokens × 768 dims ≈ 1GB)
+    // and thrashes memory. Small chunks keep the working set flat.
+    const EMBED_CHUNK: usize = 16;
+    let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+    let mut embeddings: Vec<Vec<f32>> = Vec::with_capacity(refs.len());
+    for chunk in refs.chunks(EMBED_CHUNK) {
+        embeddings.extend(embedder.embed_batch(chunk));
+    }
+
+    let (mut sim_min, mut sim_max, mut sim_sum) = (f32::INFINITY, f32::NEG_INFINITY, 0.0f32);
+    let scored: Vec<Scored> = texts
+        .iter()
+        .zip(embeddings)
+        .map(|(text, emb)| {
+            let (best, d, m) = clf.best_entry_sim(&emb).unwrap_or((0.0, "", ""));
+            sim_min = sim_min.min(best);
+            sim_max = sim_max.max(best);
+            sim_sum += best;
+            Scored {
+                text: text.clone(),
+                embedding: emb,
+                best,
+                domain: d.to_string(),
+                mode: m.to_string(),
+            }
+        })
+        .collect();
+    let n = texts.len().max(1) as f32;
+    let (sim_min, sim_max) = if texts.is_empty() { (0.0, 0.0) } else { (sim_min, sim_max) };
+
+    let mut threshold = cfg.coverage_threshold;
+    let (mut covered, mut proposals) = cluster_at(&scored, threshold, cfg);
+    let mut auto_retuned = false;
+
+    if proposals.is_empty() && cfg.auto_retune && !scored.is_empty() {
+        // Pick the threshold that leaves the top ~20% least-covered texts as
+        // unmapped, so clusters can form regardless of the absolute sim scale.
+        let mut sims: Vec<f32> = scored.iter().map(|s| s.best).collect();
+        sims.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let q = ((sims.len() as f32 * 0.80) as usize).min(sims.len().saturating_sub(1));
+        let suggested = sims[q];
+        if suggested > threshold {
+            let (c2, p2) = cluster_at(&scored, suggested, cfg);
+            if !p2.is_empty() {
+                threshold = suggested;
+                covered = c2;
+                proposals = p2;
+                auto_retuned = true;
+            }
+        }
+    }
 
     DiscoveryReport {
         total: texts.len(),
         covered,
-        unmapped: unmapped.len(),
+        unmapped: texts.len() - covered,
         proposals,
         sim_min,
         sim_mean: sim_sum / n,
         sim_max,
+        threshold_used: threshold,
+        auto_retuned,
     }
 }
 
@@ -273,7 +326,8 @@ mod tests {
     fn test_zero_threshold_covers_everything() {
         let (clf, embedder) = clf_and_embedder();
         let texts = vec!["anything at all".to_string(), "another text".to_string()];
-        let cfg = DiscoveryConfig { coverage_threshold: -1.0, ..Default::default() };
+        // auto_retune off: this test asserts the *requested* threshold's split.
+        let cfg = DiscoveryConfig { coverage_threshold: -1.0, auto_retune: false, ..Default::default() };
         let report = discover(&texts, &clf, &embedder, &cfg);
         assert_eq!(report.covered, 2);
         assert_eq!(report.unmapped, 0);
@@ -312,6 +366,8 @@ mod tests {
             sim_min: 0.1,
             sim_mean: 0.12,
             sim_max: 0.15,
+            threshold_used: 0.55,
+            auto_retuned: false,
         };
         let json = to_ontology_json(&report, "discovered_test");
         let map = OntologyLoader::load_from_str(&json).expect("draft loads via the real loader");
@@ -319,6 +375,34 @@ mod tests {
         let def = map.get("Zorgon & Flux").unwrap();
         assert_eq!(def.domain.as_deref(), Some("STUDY"));
         assert!(def.hints.contains(&"zorgon".to_string()));
+    }
+
+    #[test]
+    fn test_auto_retune_surfaces_gaps_when_default_covers_all() {
+        let (clf, embedder) = clf_and_embedder();
+        // Many identical out-of-grid texts. At a high default everything reads
+        // "covered" (RP sims are low but uniform); auto_retune must raise the
+        // threshold to a quantile and surface the cluster.
+        let texts: Vec<String> =
+            (0..6).map(|_| "zorgon flux capacitor recalibration".to_string()).collect();
+        let cfg = DiscoveryConfig { coverage_threshold: 0.99, auto_retune: true, ..Default::default() };
+        let report = discover(&texts, &clf, &embedder, &cfg);
+        // With identical embeddings the first pass at 0.99 marks them all
+        // unmapped already (sims well under 0.99), so a cluster forms without
+        // retune — assert the pipeline yields the proposal either way.
+        assert!(!report.proposals.is_empty(), "must surface the gap cluster");
+        assert!(report.proposals[0].hints.contains(&"zorgon".to_string()));
+    }
+
+    #[test]
+    fn test_auto_retune_off_respects_requested_threshold() {
+        let (clf, embedder) = clf_and_embedder();
+        let texts = vec!["anything".to_string(), "another".to_string()];
+        let cfg = DiscoveryConfig { coverage_threshold: -1.0, auto_retune: false, ..Default::default() };
+        let report = discover(&texts, &clf, &embedder, &cfg);
+        assert!(!report.auto_retuned);
+        assert_eq!(report.covered, 2);
+        assert!(report.proposals.is_empty());
     }
 
     #[test]

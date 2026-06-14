@@ -468,9 +468,17 @@ No other text."#.into(),
         ));
         out.push_str(&format!(
             "Best-entry cosine: min {:.2} · mean {:.2} · max {:.2}  \
-             (tune --threshold between mean and max to surface gaps)\n\n",
+             (tune --threshold between mean and max to surface gaps)\n",
             report.sim_min, report.sim_mean, report.sim_max
         ));
+        if report.auto_retuned {
+            out.push_str(&format!(
+                "Auto-retuned: the requested threshold covered everything, so it was \
+                 raised to {:.2} to surface the least-covered texts.\n",
+                report.threshold_used
+            ));
+        }
+        out.push('\n');
         for p in &report.proposals {
             out.push_str(&format!(
                 "▶ {} — {} texts, coverage {:.2}, nearest cell {}×{}\n",
