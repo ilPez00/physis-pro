@@ -2409,7 +2409,10 @@ async fn main() {
         .route("/api/v1/classify", post(classify_handler))
         .route("/api/v1/embed", post(embed_handler))
         .route("/api/v1/embed/video", post(embed_video_handler))
-        .route("/api/v1/category/diagram", post(category_diagram_handler));
+        .route("/api/v1/category/diagram", post(category_diagram_handler))
+        // Philosophical machines: registry + stateless reducers.
+        .route("/api/v1/machines", get(machines_list_handler))
+        .route("/api/v1/machines/chronos", post(machines_chronos_handler));
 
     // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
     #[cfg(feature = "wiki-embedded")]
@@ -2532,4 +2535,100 @@ async fn mcp_message_handler(
         return axum::http::StatusCode::GONE;
     }
     axum::http::StatusCode::ACCEPTED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Philosophical machines — HTTP surface.
+// Each machine reduces a modality to *primitives* (the smallest elaborable unit).
+// These handlers expose the stateless reducers (no core/embedder mutation); the
+// node-registering variants (register_*) are a planned follow-up. See src/machines/.
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct MachineInfo {
+    name: &'static str,
+    modality: &'static str,
+    primitive: &'static str,
+    /// "live" = HTTP reducer wired; "reducer-only" = Rust reducer exists, endpoint pending.
+    status: &'static str,
+}
+
+/// GET /api/v1/machines — registry of the philosophical machines.
+async fn machines_list_handler() -> Json<serde_json::Value> {
+    let machines = [
+        MachineInfo { name: "chronos",    modality: "timed events",        primitive: "rhythm (recurrence)",            status: "live" },
+        MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "reducer-only" },
+        MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "reducer-only" },
+        MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "reducer-only" },
+        MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "reducer-only" },
+        MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "reducer-only" },
+        MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "reducer-only" },
+        MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "reducer-only" },
+        MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "reducer-only" },
+    ];
+    Json(serde_json::json!({ "machines": machines }))
+}
+
+#[derive(Deserialize)]
+struct ChronosEvent {
+    label: String,
+    /// RFC3339 timestamp, e.g. "2026-06-14T08:00:00Z".
+    at: String,
+}
+
+#[derive(Deserialize)]
+struct ChronosRequest {
+    events: Vec<ChronosEvent>,
+    #[serde(default)]
+    horizon_days: Option<i64>,
+    #[serde(default)]
+    tolerance: Option<f64>,
+}
+
+/// POST /api/v1/machines/chronos — reduce timed events to recurrence rhythms,
+/// and partition them into upcoming (due within horizon) and slipping (overdue).
+/// Stateless: nothing is written to the core.
+async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::chronos;
+
+    let events: Vec<chronos::TimedEvent> = req
+        .events
+        .iter()
+        .filter_map(|e| {
+            chrono::DateTime::parse_from_rfc3339(&e.at).ok().map(|dt| chronos::TimedEvent {
+                label: e.label.clone(),
+                at: dt.with_timezone(&chrono::Utc),
+            })
+        })
+        .collect();
+
+    let rhythms = chronos::detect_rhythms(&events);
+    let now = chrono::Utc::now();
+    let horizon = req.horizon_days.unwrap_or(7);
+    let tol = req.tolerance.unwrap_or(0.5);
+
+    let upcoming: Vec<String> =
+        chronos::upcoming(&rhythms, now, horizon).iter().map(|r| r.label.clone()).collect();
+    let slipping: Vec<String> =
+        chronos::slipping(&rhythms, now, tol).iter().map(|r| r.label.clone()).collect();
+
+    let rhythms_json: Vec<serde_json::Value> = rhythms
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "label": r.label,
+                "period_days": r.period_days,
+                "count": r.count,
+                "last": r.last.to_rfc3339(),
+                "next_due": r.next_due.to_rfc3339(),
+                "confidence": r.confidence,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "rhythms": rhythms_json,
+        "upcoming": upcoming,
+        "slipping": slipping,
+    }))
 }
