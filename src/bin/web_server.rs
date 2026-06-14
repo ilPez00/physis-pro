@@ -2412,7 +2412,10 @@ async fn main() {
         .route("/api/v1/category/diagram", post(category_diagram_handler))
         // Philosophical machines: registry + stateless reducers.
         .route("/api/v1/machines", get(machines_list_handler))
-        .route("/api/v1/machines/chronos", post(machines_chronos_handler));
+        .route("/api/v1/machines/chronos", post(machines_chronos_handler))
+        .route("/api/v1/machines/harmony", post(machines_harmony_handler))
+        .route("/api/v1/machines/polis", post(machines_polis_handler))
+        .route("/api/v1/machines/soma", post(machines_soma_handler));
 
     // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
     #[cfg(feature = "wiki-embedded")]
@@ -2557,11 +2560,11 @@ struct MachineInfo {
 async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
         MachineInfo { name: "chronos",    modality: "timed events",        primitive: "rhythm (recurrence)",            status: "live" },
-        MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "reducer-only" },
+        MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "live" },
         MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "reducer-only" },
         MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "reducer-only" },
-        MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "reducer-only" },
-        MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "reducer-only" },
+        MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "live" },
+        MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "live" },
         MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "reducer-only" },
         MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "reducer-only" },
         MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "reducer-only" },
@@ -2631,4 +2634,107 @@ async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde
         "upcoming": upcoming,
         "slipping": slipping,
     }))
+}
+
+
+#[derive(Deserialize)]
+struct HarmonyRequest {
+    notes: Vec<i32>,
+    #[serde(default)]
+    motif_len: Option<usize>,
+}
+
+/// POST /api/v1/machines/harmony — reduce a melody to key-invariant intervals
+/// and recurring motifs. Stateless.
+async fn machines_harmony_handler(Json(req): Json<HarmonyRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::harmony;
+    let len = req.motif_len.unwrap_or(3);
+    let intervals = harmony::intervals(&req.notes);
+    let motifs: Vec<serde_json::Value> = harmony::motifs(&req.notes, len)
+        .into_iter()
+        .map(|(m, c)| serde_json::json!({ "intervals": m, "count": c }))
+        .collect();
+    Json(serde_json::json!({ "intervals": intervals, "motifs": motifs }))
+}
+
+#[derive(Deserialize)]
+struct PolisInteraction {
+    from: String,
+    to: String,
+    weight: f32,
+}
+
+#[derive(Deserialize)]
+struct PolisRequest {
+    interactions: Vec<PolisInteraction>,
+    #[serde(default)]
+    min_strength: Option<f32>,
+    #[serde(default)]
+    min_reciprocity: Option<f32>,
+    #[serde(default)]
+    max_reciprocity: Option<f32>,
+}
+
+/// POST /api/v1/machines/polis — reduce directed social interactions to
+/// reciprocity-weighted ties; flag strengthening vs fading. Stateless.
+async fn machines_polis_handler(Json(req): Json<PolisRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::polis;
+    let interactions: Vec<polis::Interaction> = req
+        .interactions
+        .iter()
+        .map(|i| polis::Interaction { from: i.from.clone(), to: i.to.clone(), weight: i.weight })
+        .collect();
+    let ties = polis::ties(&interactions);
+    let min_s = req.min_strength.unwrap_or(0.0);
+    let min_r = req.min_reciprocity.unwrap_or(0.5);
+    let max_r = req.max_reciprocity.unwrap_or(0.5);
+    let tie_json = |t: &polis::Tie| {
+        serde_json::json!({ "a": t.a, "b": t.b, "strength": t.strength, "reciprocity": t.reciprocity })
+    };
+    let all: Vec<serde_json::Value> = ties.iter().map(tie_json).collect();
+    let strengthening: Vec<serde_json::Value> =
+        polis::strengthening(&ties, min_s, min_r).into_iter().map(tie_json).collect();
+    let fading: Vec<serde_json::Value> =
+        polis::fading(&ties, max_r).into_iter().map(tie_json).collect();
+    Json(serde_json::json!({ "ties": all, "strengthening": strengthening, "fading": fading }))
+}
+
+#[derive(Deserialize)]
+struct SomaSession {
+    day: u32,
+    activity: String,
+    load: f32,
+    recovery: f32,
+}
+
+#[derive(Deserialize)]
+struct SomaRequest {
+    sessions: Vec<SomaSession>,
+    #[serde(default)]
+    window: Option<usize>,
+}
+
+/// POST /api/v1/machines/soma — classify training sessions as effort/recovery/
+/// overreaching and compute load drift over a window. Stateless.
+async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::soma;
+    let sessions: Vec<soma::Session> = req
+        .sessions
+        .iter()
+        .map(|s| soma::Session { day: s.day, activity: s.activity.clone(), load: s.load, recovery: s.recovery })
+        .collect();
+    let classified: Vec<serde_json::Value> = sessions
+        .iter()
+        .map(|s| {
+            let label = match soma::classify(s) {
+                soma::Status::Effort => "effort",
+                soma::Status::Recovery => "recovery",
+                soma::Status::Overreaching => "overreaching",
+            };
+            serde_json::json!({ "day": s.day, "activity": s.activity, "status": label })
+        })
+        .collect();
+    let window = req.window.unwrap_or(7);
+    let drift = soma::drift(&sessions, window);
+    Json(serde_json::json!({ "sessions": classified, "drift": drift }))
 }
