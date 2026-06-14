@@ -689,6 +689,116 @@ The linguistic router currently does deterministic transforms. Upgrade it to use
 
 ---
 
-## Total: ~16h of implementation for a complete ontology+semiotics engine
+## Phase 6: Dynamic Axis Expansion (the Self-Extending Grid)
+
+Everything above assumes a **fixed** grid: 6 domains × 6 modes, baked into
+`[[Option<&'static str>; 6]; 6]`. That is the constructivist's objection waiting to
+happen — and the philosophical claim of the thesis is the opposite: *the Axiom is
+not fixed; the grid expands in space and time, and the cause of the expansion is the
+subject who operates it.* This phase makes that literal. The grid stops being a
+constant and becomes a living set of axes that grow new rows/columns when the world
+demands them, and decay when it stops using them.
+
+The existing **discovery pass** already proposes new *cells* and whole ontology
+*packs*. Dynamic axis expansion is the missing tier: proposing a new **axis value**
+— a new domain or a new mode — when incoming data clusters in a region no existing
+axis can name. New cell ≠ new axis: a cell is an intersection of axes that already
+exist; an axis is a new dimension of carving.
+
+### 6A. Axis as data, not constant
+
+```rust
+pub struct Axis {
+    pub id: AxisId,
+    pub kind: AxisRole,            // Domain | Mode
+    pub name: String,             // "HEAL", "REGENERATE", ...
+    pub anchor: Vec<f32>,         // centroid embedding — the axis's location in space
+    pub hints: Vec<String>,
+    pub created_by: Provenance,   // WHO/WHAT operated it (subject = cause)
+    pub created_at: DateTime<Utc>,
+    pub world_scope: WorldScope,  // Global | Pack(pack_id) | Tenant(id) — space scoping
+    pub activation: f32,          // decays when unused (Axiom's obsolescence, at axis level)
+}
+
+pub struct SemioticGrid {
+    domains: Vec<Axis>,           // was a fixed dimension; now grows/shrinks
+    modes:   Vec<Axis>,
+}
+```
+
+`classify()` becomes nearest-domain-axis × nearest-mode-axis over the **current**
+(variable-length) sets — no code path assumes a count of 6.
+
+### 6B. Axis-orphan detection (the trigger)
+
+A cell-orphan is an item far from every *cell*; an **axis-orphan** is an item far
+from every value on a *single axis*. For each ingested embedding compute, separately
+per axis role:
+
+```
+best_domain_sim = max over domains of cos(e, domain.anchor)
+best_mode_sim   = max over modes   of cos(e, mode.anchor)
+```
+
+If `best_domain_sim < τ_axis` (or the mode equivalent), the item is an axis-orphan
+on that role: the existing axes cannot name what it is, only where among bad options
+it least-badly lands.
+
+### 6C. Promotion pipeline
+
+1. **Accumulate** axis-orphans in a buffer keyed by axis role.
+2. **Cluster** them in embedding space (incremental HDBSCAN / online k-means);
+   ignore singletons — one weird item is noise, a dense persistent cluster is a
+   missing dimension.
+3. **Name** the cluster via `ProviderCascade`: centroid + member hints → proposed
+   `{ kind, name, hints[] }`; the centroid is the anchor.
+4. **Emit an `AxisProposal`** with full provenance (source items, operator, cluster
+   stats) — never a silent mutation.
+5. **Install**: human review by default; auto-promote only above a confidence
+   threshold **and** only when the cluster recurs across **multiple sources/worlds**
+   (the anti-Matthew guard — a new axis must be earned by independent recurrence, not
+   by one loud tenant).
+6. On install the grid gains a row or column; all prior nodes are lazily
+   re-`classify()`-ed against the enlarged axis set on next touch.
+
+### 6D. Space-time scoping + demotion
+
+- **Space:** a new axis is born `Pack`- or `Tenant`-scoped. It is promoted to
+  `Global` only when it recurs independently across worlds. The shared grid stays
+  minimal; local worlds carry their own extra axes.
+- **Time:** every axis carries `created_at` and a decaying `activation`. An axis
+  that stops attracting coherent nodes decays and is **archived** (not deleted —
+  provenance is kept, exactly as failures are kept). This is Axiom's obsolescence
+  telos applied to the grid itself: an axis that has done its work and is no longer
+  used steps aside.
+
+### 6E. API
+
+```
+GET  /api/v1/axes                 → current axes (both roles) + provenance + activation
+GET  /api/v1/axes/proposals       → pending AxisProposals with cluster evidence
+POST /api/v1/axes/promote         → install a proposed axis (records operator as cause)
+POST /api/v1/axes/demote          → archive a decayed axis
+GET  /api/v1/axes/{id}/lineage    → who/what created it, from which source items
+```
+
+### 6F. Roadmap addition
+
+**Step 7 — Dynamic axes (~7h)**
+- Replace fixed `[[_;6];6]` with `Vec<Axis>` per role; make `classify/compose/dual`
+  count-agnostic (2h)
+- Axis-orphan detector + orphan buffer (1h)
+- Cluster→name→`AxisProposal` pipeline on `ProviderCascade`, with provenance (2h)
+- Promotion (review + cross-world recurrence guard) & decay/archival job (1h)
+- Axis API endpoints + lineage (1h)
+
+> Design invariant: the engine must never present a dynamically-added axis without
+> its **cause** — the operator and source items that earned it. An axis with no
+> lineage is inadmissible. This is the code form of the thesis's claim that the
+> grid's ground is not a self-spinning intellect but the subject who acts through it.
+
+---
+
+## Total: ~23h (~16h base + ~7h dynamic axes) for a complete, self-extending ontology+semiotics engine
 
 The key architectural insight: the 6×6 `domain × mode` grid is already the semiotic square. Every Physis operation (dream, compress, filter, reconstruct) maps to a cell in this grid. The ontologies I've added above just make those cells *named* and *queryable* — the engine was already semiotic, it just didn't know it yet.
