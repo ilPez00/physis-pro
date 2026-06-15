@@ -214,6 +214,106 @@ pub fn propose_axes(
     proposals
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Installed axes — the promote/persist/decay tier. An installed axis is a NEW
+// axis value an operator earned (from an AxisProposal) and chose to keep. It is
+// persisted, becomes a first-class anchor for the axis layer (so its region stops
+// producing orphans), and decays when unused. Installing does NOT mutate the
+// cell classifier — the axis layer is a self-extending set on top of the derived
+// builtin axes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+use chrono::{DateTime, Utc};
+
+const AXES_KEY: &[u8] = b"installed_axes_v1";
+/// Activation half-life: an axis untouched for ~30d decays to 0.5, etc.
+const ACTIVATION_HALF_LIFE_DAYS: f64 = 30.0;
+
+fn default_scope() -> String {
+    "global".to_string()
+}
+fn default_activation() -> f32 {
+    1.0
+}
+
+/// A promoted axis value. `operator` + `samples` are the lineage — the cause that
+/// earned the axis (Phase 6 invariant: no axis without its cause).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AxisValue {
+    pub id: String,
+    pub role: AxisRole,
+    pub name: String,
+    #[serde(default)]
+    pub anchor: Vec<f32>,
+    #[serde(default)]
+    pub hints: Vec<String>,
+    /// Who installed it (review path) — part of the cause.
+    pub operator: String,
+    /// Source texts the proposal clustered — the lineage.
+    pub samples: Vec<String>,
+    #[serde(default = "default_scope")]
+    pub world_scope: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub last_seen: String,
+    #[serde(default = "default_activation")]
+    pub activation: f32,
+    #[serde(default)]
+    pub archived: bool,
+}
+
+/// Time-decayed activation: stored `activation` scaled by half-life decay since
+/// `last_seen` (falls back to `created_at`). An axis that stops being touched fades.
+pub fn decayed_activation(av: &AxisValue, now: DateTime<Utc>) -> f32 {
+    let anchor_ts = if av.last_seen.is_empty() { &av.created_at } else { &av.last_seen };
+    let parsed = DateTime::parse_from_rfc3339(anchor_ts).ok();
+    let days = parsed
+        .map(|t| (now - t.with_timezone(&Utc)).num_seconds() as f64 / 86_400.0)
+        .unwrap_or(0.0)
+        .max(0.0);
+    let factor = 0.5f64.powf(days / ACTIVATION_HALF_LIFE_DAYS) as f32;
+    (av.activation * factor).clamp(0.0, 1.0)
+}
+
+/// Installed axes as anchors for a role (active only) — merged with the derived
+/// builtin anchors so a promoted axis's region is no longer orphaned.
+pub fn installed_anchors(installed: &[AxisValue], role: AxisRole) -> Vec<(String, Vec<f32>, usize)> {
+    installed
+        .iter()
+        .filter(|a| !a.archived && a.role == role && !a.anchor.is_empty())
+        .map(|a| (a.name.clone(), a.anchor.clone(), 1usize))
+        .collect()
+}
+
+/// Durable set of installed axes (JSON under one sled key on the data volume).
+#[derive(Default)]
+pub struct AxisStore {
+    pub axes: Vec<AxisValue>,
+}
+
+impl AxisStore {
+    pub fn load(db: &sled::Db) -> Self {
+        let axes = db
+            .get(AXES_KEY)
+            .ok()
+            .flatten()
+            .and_then(|b| serde_json::from_slice::<Vec<AxisValue>>(&b).ok())
+            .unwrap_or_default();
+        AxisStore { axes }
+    }
+
+    pub fn save(&self, db: &sled::Db) {
+        if let Ok(bytes) = serde_json::to_vec(&self.axes) {
+            let _ = db.insert(AXES_KEY, bytes);
+            let _ = db.flush();
+        }
+    }
+
+    pub fn active(&self) -> Vec<&AxisValue> {
+        self.axes.iter().filter(|a| !a.archived).collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
