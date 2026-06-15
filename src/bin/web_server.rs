@@ -2413,6 +2413,7 @@ async fn main() {
         // Philosophical machines: registry + stateless reducers.
         .route("/api/v1/machines", get(machines_list_handler))
         .route("/api/v1/machines/chronos", post(machines_chronos_handler))
+        .route("/api/v1/machines/topos", post(machines_topos_handler))
         .route("/api/v1/machines/harmony", post(machines_harmony_handler))
         .route("/api/v1/machines/polis", post(machines_polis_handler))
         .route("/api/v1/machines/soma", post(machines_soma_handler))
@@ -2563,6 +2564,7 @@ struct MachineInfo {
 async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
         MachineInfo { name: "chronos",    modality: "timed events",        primitive: "rhythm (recurrence)",            status: "live" },
+        MachineInfo { name: "topos",      modality: "geotagged waypoints",  primitive: "place / region (recurring)",     status: "live" },
         MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "live" },
         MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "live" },
         MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "live" },
@@ -2882,4 +2884,67 @@ async fn machines_empedocles_handler(Json(req): Json<EmpedoclesRequest>) -> Json
         .collect();
     let trend = req.series.as_ref().map(|s| empedocles::trend(s));
     Json(serde_json::json!({ "readings": readings, "trend": trend }))
+}
+
+
+#[derive(Deserialize)]
+struct ToposWaypoint {
+    lat: f64,
+    lng: f64,
+    #[serde(default)]
+    label: Option<String>,
+    /// Optional RFC3339 timestamp (enables fading detection).
+    #[serde(default)]
+    at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ToposRequest {
+    waypoints: Vec<ToposWaypoint>,
+    #[serde(default)]
+    radius_km: Option<f64>,
+    #[serde(default)]
+    min_visits: Option<usize>,
+    #[serde(default)]
+    stale_days: Option<i64>,
+}
+
+/// POST /api/v1/machines/topos — reduce geotagged waypoints to recurring places
+/// (clustered, visited >= min_visits) and flag fading ones (not seen within
+/// stale_days). Stateless.
+async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::topos;
+    let waypoints: Vec<topos::Waypoint> = req
+        .waypoints
+        .iter()
+        .map(|w| topos::Waypoint {
+            lat: w.lat,
+            lng: w.lng,
+            label: w.label.clone(),
+            at: w.at.as_ref().and_then(|s| {
+                chrono::DateTime::parse_from_rfc3339(s).ok().map(|dt| dt.with_timezone(&chrono::Utc))
+            }),
+        })
+        .collect();
+
+    let radius = req.radius_km.unwrap_or(0.5);
+    let min_visits = req.min_visits.unwrap_or(2);
+    let stale = req.stale_days.unwrap_or(30);
+
+    let places = topos::detect_places(&waypoints, radius, min_visits);
+    let now = chrono::Utc::now();
+    let place_json = |p: &topos::Place| {
+        serde_json::json!({
+            "lat": p.lat,
+            "lng": p.lng,
+            "label": p.label,
+            "visits": p.visits,
+            "last": p.last.map(|d| d.to_rfc3339()),
+            "radius_km": p.radius_km,
+        })
+    };
+    let all: Vec<serde_json::Value> = places.iter().map(place_json).collect();
+    let fading: Vec<serde_json::Value> = topos::fading(&places, now, stale).into_iter().map(place_json).collect();
+
+    Json(serde_json::json!({ "places": all, "fading": fading }))
 }

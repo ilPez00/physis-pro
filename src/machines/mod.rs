@@ -14,6 +14,7 @@
 //! `physis-pythagoras`→[`harmony`] map onto existing reducers (see their notes).
 
 pub mod chronos;
+pub mod topos;
 pub mod techne;
 pub mod soma;
 pub mod elenchus;
