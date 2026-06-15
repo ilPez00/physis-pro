@@ -174,10 +174,29 @@ the live coherence core **after** the criticality experiment shows it does
 organising work *and* a separate test shows it does not regress classification.
 
 Status: **gate 1 (criticality) passed** (§3, 2026-06-14). **Gate 2 (no
-regression) is still open** — promotion stays blocked until it is met. The bridge
-`NodeField::from_embeddings(positions, cfg, seed)` is in place (research module,
-off the production path) so gate 2 can be run on real coherence-node vectors next:
-seed the field from a live UberWiki slice, confirm classification accuracy on a
-held-out set is unchanged with decay/synthesis active, then promote
-decay-as-eviction first (it only bounds memory and is the lowest-risk wire-in).
-Until gate 2, it stays in the research module.
+regression) — measured 2026-06-15, split result.** `cargo run --example
+empedocles_no_regression` seeds three separated classes as labelled nodes,
+classifies a held-out set by nearest labelled node, and runs the dyad with
+perception reinforcing each class every tick:
+
+```
+ decay  synthesis   alive  dyad acc   verdict        (static baseline = 1.000)
+  0.00       0.00      36     1.000    OK
+  0.01       0.02    1000     0.933    REGRESSION  <- synthesis hit the cap, offspring drift
+  0.02       0.05     208     0.767    REGRESSION
+  0.05       0.05      52     1.000    OK
+  0.10       0.05       9     1.000    OK
+```
+
+The finding is specific, not a blanket pass. **Decay-as-eviction is safe**: every
+decay-dominant row holds at the baseline, and the bridge
+`NodeField::from_embeddings` / `from_labeled` plus the unit test
+`test_no_regression_classification_survives_dyad` (decay-only regime) lock it in.
+**Synthesis with insufficient decay regresses**: offspring accumulate to the
+population cap and their mutated positions pollute the nearest-label boundary.
+
+So promotion is staged: wire **decay-as-eviction into the live core first** (it
+bounds memory, no regression — the eviction the Spanner sink defers); keep
+**synthesis quarantined** until offspring are bounded (a charge/lifespan cap, or
+decay forced to dominate begetting). Repulsion is orthogonal and follows decay.
+Until those wire-ins land, the module stays research-only.

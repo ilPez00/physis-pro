@@ -26,6 +26,11 @@ pub struct FieldNode {
     pub charge: f32,
     /// Ticks since birth — diagnostics only.
     pub age: u64,
+    /// Optional class label, for the no-regression gate (§5): a seeded node may
+    /// carry the class it stands for. A synthesis offspring inherits a label only
+    /// when both parents agree; a cross-class birth is `None` — genuinely novel,
+    /// so it does not vote in nearest-label classification.
+    pub label: Option<u32>,
 }
 
 /// Force parameters. The attraction/repulsion ratio is the criticality tunable.
@@ -98,6 +103,7 @@ impl NodeField {
                 pos: (0..dim).map(|_| rng.gen::<f32>()).collect(),
                 charge: 1.0,
                 age: 0,
+                label: None,
             })
             .collect();
         Self { nodes, cfg, rng, dim }
@@ -113,7 +119,19 @@ impl NodeField {
         let dim = positions.first().map_or(0, Vec::len);
         let nodes = positions
             .into_iter()
-            .map(|pos| FieldNode { pos, charge: 1.0, age: 0 })
+            .map(|pos| FieldNode { pos, charge: 1.0, age: 0, label: None })
+            .collect();
+        Self { nodes, cfg, rng: StdRng::seed_from_u64(seed), dim }
+    }
+
+    /// Seed from `(vector, class)` pairs at full charge. Used by the no-regression
+    /// gate (§5): classification accuracy is measured on a field whose nodes carry
+    /// their class, before and after running the dyad with decay/synthesis active.
+    pub fn from_labeled(items: Vec<(Vec<f32>, u32)>, cfg: DyadConfig, seed: u64) -> Self {
+        let dim = items.first().map_or(0, |(p, _)| p.len());
+        let nodes = items
+            .into_iter()
+            .map(|(pos, label)| FieldNode { pos, charge: 1.0, age: 0, label: Some(label) })
             .collect();
         Self { nodes, cfg, rng: StdRng::seed_from_u64(seed), dim }
     }
@@ -209,7 +227,14 @@ impl NodeField {
                             })
                             .collect();
                         let charge = 0.5 * (self.nodes[i].charge + self.nodes[j].charge);
-                        offspring.push(FieldNode { pos, charge, age: 0 });
+                        // Offspring inherits a label only when both parents agree;
+                        // a cross-class synthesis is unlabelled (a genuinely novel
+                        // point), so it abstains from nearest-label voting.
+                        let label = match (self.nodes[i].label, self.nodes[j].label) {
+                            (Some(a), Some(b)) if a == b => Some(a),
+                            _ => None,
+                        };
+                        offspring.push(FieldNode { pos, charge, age: 0, label });
                         if self.nodes.len() + offspring.len() >= self.cfg.max_nodes {
                             break;
                         }
@@ -250,6 +275,22 @@ impl NodeField {
         for k in 0..self.dim.min(pos.len()) {
             node.pos[k] += 0.1 * (pos[k] - node.pos[k]);
         }
+    }
+
+    /// Classify `pos` by the label of the nearest *labelled* node — the engine's
+    /// nearest-entry classify, restricted to nodes that carry a class. `None` if
+    /// no labelled node survives. This is what the no-regression gate measures
+    /// before and after the dyad runs.
+    pub fn classify_nearest_label(&self, pos: &[f32]) -> Option<u32> {
+        self.nodes
+            .iter()
+            .filter(|n| n.label.is_some())
+            .min_by(|a, b| {
+                dist(&a.pos, pos)
+                    .partial_cmp(&dist(&b.pos, pos))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .and_then(|n| n.label)
     }
 
     /// Connected-component clustering at `link_dist`: two nodes share a cluster
@@ -437,6 +478,79 @@ mod tests {
         let sizes = f.cluster_sizes(0.1);
         assert_eq!(sizes.len(), 2, "near pair should cluster, far point separate");
         assert_eq!(sizes[0], 2, "the two near vectors must coalesce");
+    }
+
+    #[test]
+    fn test_no_regression_classification_survives_dyad() {
+        // Gate 2 (docs/EMPEDOCLES_DYAD.md §5): running the dyad with decay +
+        // synthesis active must not regress nearest-label classification. Three
+        // well-separated classes; held-out points are classified by the nearest
+        // labelled node before (static seeded field) and after the dyad runs with
+        // perception reinforcing each class every tick. Accuracy must not drop.
+        let centroids = [[0.12f32, 0.12], [0.88, 0.12], [0.50, 0.88]];
+        let mut rng = StdRng::seed_from_u64(99);
+        let mut jitter = |c: &[f32; 2]| {
+            vec![
+                c[0] + (rng.gen::<f32>() - 0.5) * 0.06,
+                c[1] + (rng.gen::<f32>() - 0.5) * 0.06,
+            ]
+        };
+        let mut train: Vec<(Vec<f32>, u32)> = Vec::new();
+        let mut test: Vec<(Vec<f32>, u32)> = Vec::new();
+        for (cls, c) in centroids.iter().enumerate() {
+            for _ in 0..8 {
+                train.push((jitter(c), cls as u32));
+            }
+            for _ in 0..6 {
+                test.push((jitter(c), cls as u32));
+            }
+        }
+
+        // Baseline: nearest labelled node on the static seeded field.
+        let base = NodeField::from_labeled(train.clone(), DyadConfig::default(), 1);
+        let base_correct = test
+            .iter()
+            .filter(|(p, y)| base.classify_nearest_label(p) == Some(*y))
+            .count();
+
+        // Dyad in the *decay-as-eviction* regime — the lowest-risk mechanism, the
+        // one promoted first. Decay dominates and synthesis is off, so the field
+        // prunes drift without begetting offspring that could pollute the nearest-
+        // label vote. (The companion example sweeps the synthesis-heavy regimes and
+        // shows they regress until tuned — hence synthesis stays quarantined.)
+        // Perception reinforces each class every tick, as the live core would.
+        let cfg = DyadConfig {
+            eros_radius: 0.30,
+            eros_strength: 0.05,
+            nemesis_radius: 0.05,
+            nemesis_strength: 0.01,
+            decay: 0.05,
+            death_charge: 0.10,
+            synthesis_prob: 0.0,
+            synthesis_min_charge: 0.8,
+            mutation: 0.01,
+            max_nodes: 500,
+            max_step: 0.05,
+        };
+        let mut field = NodeField::from_labeled(train, cfg, 2);
+        for _ in 0..120 {
+            for c in &centroids {
+                field.reinforce(c, 0.5);
+            }
+            field.step();
+        }
+        assert!(!field.is_empty(), "reinforced classes must survive decay");
+        let dyad_correct = test
+            .iter()
+            .filter(|(p, y)| field.classify_nearest_label(p) == Some(*y))
+            .count();
+
+        assert!(base_correct >= test.len() - 1, "baseline must be near-perfect");
+        assert!(
+            dyad_correct >= base_correct,
+            "dyad regressed classification: {dyad_correct} vs baseline {base_correct} of {}",
+            test.len()
+        );
     }
 
     #[test]
