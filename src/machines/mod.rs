@@ -4,9 +4,17 @@
 //! unit), registers them as labeled coherence nodes, and lets the core handle
 //! recall / coherence / dream / durability. See `docs/machines/`.
 //!
-//! Shipped: `chronos` (temporal), `techne` (codebase), `soma` (body),
-//! `elenchus` (dialogue), `lex` (contracts), `harmony` (music), `polis` (social),
-//! `empedocles` (physical telemetry → elements), `euclid` (geometry).
+//! Shipped: `chronos` (temporal), `topos` (place), `techne` (codebase),
+//! `soma` (body), `elenchus` (dialogue), `lex` (contracts), `harmony` (music),
+//! `polis` (social), `empedocles` (physical telemetry → elements),
+//! `euclid` (geometry), and the relational pair `erosp` / `erosa` (desire).
+//!
+//! `erosp` and `erosa` are twin reducers over the same perception (a directed
+//! reach), inverse in genealogy: `erosp` is the Platonic eros, child of Penia
+//! (lack) and Poros (resource) — the ascending longing; `erosa` is the mythic
+//! eros, child of Ares (strife) and Aphrodite (love) — possessive, agonistic
+//! conquest. `polis` reduces the *standing* tie; the eros pair reduces the
+//! *directed pull* and its two fates (ascent vs seizure).
 //!
 //! The standalone Python machines (github.com/ilPez00/physis-*) own the
 //! perception layer (camera / mic / psutil / parser); these modules are the thin

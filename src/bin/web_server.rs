@@ -130,6 +130,9 @@ struct AppCtx {
     /// opened (e.g. no writable volume in local dev) → state is in-memory only.
     /// Cheap to clone (sled::Db is an Arc internally).
     db: Option<sled::Db>,
+    /// Dynamically-promoted ontology axes (Phase 6). Persisted in `db`; global
+    /// across tenants (operator-installed). Merged as anchors for the axis layer.
+    axes: Mutex<physis_pro::axes::AxisStore>,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -2242,6 +2245,7 @@ async fn main() {
             db.as_ref().map(|d| MaintenanceMonitor::load(d, 256)).unwrap_or_else(|| MaintenanceMonitor::new(256)),
         ),
         db: db.clone(),
+        axes: Mutex::new(db.as_ref().map(physis_pro::axes::AxisStore::load).unwrap_or_default()),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -2420,9 +2424,14 @@ async fn main() {
         .route("/api/v1/machines/elenchus", post(machines_elenchus_handler))
         .route("/api/v1/machines/lex", post(machines_lex_handler))
         .route("/api/v1/machines/empedocles", post(machines_empedocles_handler))
-        // Dynamic axis expansion (Phase 6): read + propose.
+        .route("/api/v1/machines/erosp", post(machines_erosp_handler))
+        .route("/api/v1/machines/erosa", post(machines_erosa_handler))
+        // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
-        .route("/api/v1/axes/discover", post(axes_discover_handler));
+        .route("/api/v1/axes/discover", post(axes_discover_handler))
+        .route("/api/v1/axes/promote", post(axes_promote_handler))
+        .route("/api/v1/axes/demote", post(axes_demote_handler))
+        .route("/api/v1/axes/lineage", get(axes_lineage_handler));
 
     // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
     #[cfg(feature = "wiki-embedded")]
@@ -2574,6 +2583,8 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "live" },
         MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "live" },
         MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "live" },
+        MachineInfo { name: "erosp",      modality: "directed reaches",    primitive: "longing (Penia/Poros)",          status: "live" },
+        MachineInfo { name: "erosa",      modality: "directed reaches",    primitive: "conquest (Ares/Aphrodite)",      status: "live" },
         MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "reducer-only" },
         MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "reducer-only" },
     ];
@@ -2705,6 +2716,91 @@ async fn machines_polis_handler(Json(req): Json<PolisRequest>) -> Json<serde_jso
     let fading: Vec<serde_json::Value> =
         polis::fading(&ties, max_r).into_iter().map(tie_json).collect();
     Json(serde_json::json!({ "ties": all, "strengthening": strengthening, "fading": fading }))
+}
+
+/// A directed reaching — the shared perception of both eros machines.
+#[derive(Deserialize)]
+struct ErosReach {
+    subject: String,
+    object: String,
+    weight: f32,
+}
+
+#[derive(Deserialize)]
+struct ErospRequest {
+    reaches: Vec<ErosReach>,
+    #[serde(default)]
+    min_intensity: Option<f32>,
+    #[serde(default)]
+    min_ascent: Option<f32>,
+    #[serde(default)]
+    max_ascent: Option<f32>,
+}
+
+#[derive(Deserialize)]
+struct ErosaRequest {
+    reaches: Vec<ErosReach>,
+    #[serde(default)]
+    min_balance: Option<f32>,
+}
+
+fn to_eros_reaches(reaches: &[ErosReach]) -> Vec<physis_pro::machines::erosp::Reach> {
+    reaches
+        .iter()
+        .map(|r| physis_pro::machines::erosp::Reach {
+            subject: r.subject.clone(),
+            object: r.object.clone(),
+            weight: r.weight,
+        })
+        .collect()
+}
+
+/// POST /api/v1/machines/erosp — Platonic eros (Penia × Poros): reduce directed
+/// reaches to ascending longings; flag ascending (drive + resource) vs hopeless
+/// (drive, no resource). Stateless.
+async fn machines_erosp_handler(Json(req): Json<ErospRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::erosp;
+    let reaches = to_eros_reaches(&req.reaches);
+    let longings = erosp::detect_longings(&reaches);
+    let min_i = req.min_intensity.unwrap_or(0.0);
+    let min_a = req.min_ascent.unwrap_or(0.1);
+    let max_a = req.max_ascent.unwrap_or(0.05);
+    let lj = |l: &erosp::Longing| {
+        serde_json::json!({
+            "subject": l.subject, "object": l.object,
+            "penia": l.penia, "poros": l.poros,
+            "intensity": l.intensity, "ascent": l.ascent,
+        })
+    };
+    let all: Vec<serde_json::Value> = longings.iter().map(lj).collect();
+    let ascending: Vec<serde_json::Value> =
+        erosp::ascending(&longings, min_i, min_a).into_iter().map(lj).collect();
+    let hopeless: Vec<serde_json::Value> =
+        erosp::hopeless(&longings, max_a).into_iter().map(lj).collect();
+    Json(serde_json::json!({ "longings": all, "ascending": ascending, "hopeless": hopeless }))
+}
+
+/// POST /api/v1/machines/erosa — mythic eros (Ares × Aphrodite): reduce directed
+/// reaches to conquests (valid only as child of love AND strife); flag passionate
+/// (balanced) vs jealous (strife overruns love). Stateless.
+async fn machines_erosa_handler(Json(req): Json<ErosaRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::erosa;
+    let reaches = to_eros_reaches(&req.reaches);
+    let conquests = erosa::detect_conquests(&reaches);
+    let min_b = req.min_balance.unwrap_or(0.5);
+    let cj = |c: &erosa::Conquest| {
+        serde_json::json!({
+            "subject": c.subject, "object": c.object,
+            "aphrodite": c.aphrodite, "ares": c.ares,
+            "rivals": c.rivals, "balance": c.balance,
+        })
+    };
+    let all: Vec<serde_json::Value> = conquests.iter().map(cj).collect();
+    let passionate: Vec<serde_json::Value> =
+        erosa::passionate(&conquests, min_b).into_iter().map(cj).collect();
+    let jealous: Vec<serde_json::Value> =
+        erosa::jealous(&conquests).into_iter().map(cj).collect();
+    Json(serde_json::json!({ "conquests": all, "passionate": passionate, "jealous": jealous }))
 }
 
 #[derive(Deserialize)]
@@ -2954,20 +3050,48 @@ async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_jso
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dynamic axis expansion (Phase 6) — read + propose. Promote/persist/decay is a
-// planned follow-up (mutating the live grid). See src/axes.rs.
+// Dynamic axis expansion (Phase 6). Read + propose + promote/demote/lineage.
+// Installed axes are persisted (sled) and merged as anchors for the axis layer;
+// they do NOT mutate the cell classifier. See src/axes.rs.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// GET /api/v1/axes — the current axes (domain + mode values) derived from the
-/// live ontology entries, with how many cells contribute to each.
+fn parse_axis_role(role: &Option<String>) -> physis_pro::axes::AxisRole {
+    match role.as_deref() {
+        Some("mode") => physis_pro::axes::AxisRole::Mode,
+        _ => physis_pro::axes::AxisRole::Domain,
+    }
+}
+
+/// GET /api/v1/axes — current axes: the builtin values derived from the live
+/// ontology entries, plus any installed (promoted) axes with their time-decayed
+/// activation and lineage.
 async fn axes_list_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     let shared = state.shared.clone();
-    let axes = tokio::task::spawn_blocking(move || {
+    let derived = tokio::task::spawn_blocking(move || {
         physis_pro::axes::derive_axes(&shared.classifier.cell_centroids())
     })
     .await
     .expect("axes derivation completes");
-    Json(serde_json::json!({ "axes": axes }))
+
+    let now = chrono::Utc::now();
+    let store = state.axes.lock().unwrap_or_else(|e| e.into_inner());
+    let installed: Vec<serde_json::Value> = store
+        .active()
+        .into_iter()
+        .map(|a| {
+            serde_json::json!({
+                "id": a.id,
+                "role": a.role,
+                "name": a.name,
+                "operator": a.operator,
+                "world_scope": a.world_scope,
+                "created_at": a.created_at,
+                "activation": physis_pro::axes::decayed_activation(a, now),
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({ "builtin": derived, "installed": installed }))
 }
 
 #[derive(Deserialize)]
@@ -2982,25 +3106,162 @@ struct AxesDiscoverRequest {
 }
 
 /// POST /api/v1/axes/discover — propose NEW axis values (a new domain or mode)
-/// from texts that no existing axis can name (axis-orphans), clustered. Each
-/// proposal carries its lineage (sample source texts). Does not mutate the grid.
+/// from texts that no existing axis can name (axis-orphans), clustered. Anchors
+/// include both the builtin derived axes AND installed ones, so a promoted axis's
+/// region is no longer orphaned. Each proposal carries its lineage. No grid mutation.
 async fn axes_discover_handler(
     State(state): State<SharedState>,
     Json(req): Json<AxesDiscoverRequest>,
 ) -> Json<serde_json::Value> {
     let shared = state.shared.clone();
-    let role = match req.role.as_deref() {
-        Some("mode") => physis_pro::axes::AxisRole::Mode,
-        _ => physis_pro::axes::AxisRole::Domain,
-    };
+    let role = parse_axis_role(&req.role);
     let tau = req.tau.unwrap_or(0.5);
+
+    // Snapshot installed axes (clone out of the lock — not held across the await).
+    let installed: Vec<physis_pro::axes::AxisValue> = {
+        let store = state.axes.lock().unwrap_or_else(|e| e.into_inner());
+        store.axes.clone()
+    };
+
     let proposals = tokio::task::spawn_blocking(move || {
         let centroids = shared.classifier.cell_centroids();
-        let anchors = physis_pro::axes::axis_anchors(&centroids, role);
+        let mut anchors = physis_pro::axes::axis_anchors(&centroids, role);
+        anchors.extend(physis_pro::axes::installed_anchors(&installed, role));
         let embeddings: Vec<Vec<f32>> = req.texts.iter().map(|t| shared.embedder.embed(t)).collect();
         physis_pro::axes::propose_axes(role, &req.texts, &embeddings, &anchors, tau, 0.70, 2, 8)
     })
     .await
     .expect("axes discovery completes");
     Json(serde_json::json!({ "role": role, "proposals": proposals }))
+}
+
+#[derive(Deserialize)]
+struct AxesPromoteRequest {
+    #[serde(default)]
+    role: Option<String>,
+    name: String,
+    #[serde(default)]
+    hints: Vec<String>,
+    /// The source texts that earned the axis — the lineage (required).
+    samples: Vec<String>,
+    /// Who is installing it (review path) — required (the cause).
+    operator: String,
+    #[serde(default)]
+    world_scope: Option<String>,
+}
+
+/// POST /api/v1/axes/promote — install a proposed axis. The anchor is the centroid
+/// of the (re-embedded) sample texts. Refuses any axis without its cause: samples
+/// AND operator are required (the Phase 6 lineage invariant). Persisted to sled.
+async fn axes_promote_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<AxesPromoteRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    if req.samples.is_empty() || req.operator.trim().is_empty() || req.name.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "promotion requires name, operator, and samples — an axis must carry its cause" })),
+        );
+    }
+    let role = parse_axis_role(&req.role);
+    let shared = state.shared.clone();
+    let samples = req.samples.clone();
+    let anchor = tokio::task::spawn_blocking(move || {
+        let embs: Vec<Vec<f32>> = samples.iter().map(|t| shared.embedder.embed(t)).collect();
+        if embs.is_empty() {
+            return Vec::<f32>::new();
+        }
+        let dim = embs[0].len();
+        let mut mean = vec![0.0f32; dim];
+        for e in &embs {
+            if e.len() != dim {
+                continue;
+            }
+            for (i, v) in e.iter().enumerate() {
+                mean[i] += v;
+            }
+        }
+        let n = embs.len() as f32;
+        mean.iter_mut().for_each(|v| *v /= n);
+        mean
+    })
+    .await
+    .expect("anchor embed completes");
+
+    let now = chrono::Utc::now();
+    let id = format!("axis-{}-{}", now.timestamp_millis(), req.name.trim().to_lowercase().replace(|c: char| !c.is_alphanumeric(), "-"));
+    let av = physis_pro::axes::AxisValue {
+        id: id.clone(),
+        role,
+        name: req.name.trim().to_string(),
+        anchor,
+        hints: req.hints,
+        operator: req.operator.trim().to_string(),
+        samples: req.samples,
+        world_scope: req.world_scope.unwrap_or_else(|| "global".to_string()),
+        created_at: now.to_rfc3339(),
+        last_seen: now.to_rfc3339(),
+        activation: 1.0,
+        archived: false,
+    };
+    {
+        let mut store = state.axes.lock().unwrap_or_else(|e| e.into_inner());
+        store.axes.push(av.clone());
+        if let Some(db) = &state.db {
+            store.save(db);
+        }
+    }
+    log::info!("[axes] promoted {:?} axis '{}' by {} (id={})", role, av.name, av.operator, id);
+    (StatusCode::CREATED, Json(serde_json::json!({ "installed": av })))
+}
+
+#[derive(Deserialize)]
+struct AxesDemoteRequest {
+    id: String,
+}
+
+/// POST /api/v1/axes/demote — archive an installed axis (kept for provenance, not
+/// deleted — exactly as failure nodes are kept). Persisted.
+async fn axes_demote_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<AxesDemoteRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let mut store = state.axes.lock().unwrap_or_else(|e| e.into_inner());
+    match store.axes.iter_mut().find(|a| a.id == req.id) {
+        Some(a) => {
+            a.archived = true;
+            if let Some(db) = &state.db {
+                store.save(db);
+            }
+            (StatusCode::OK, Json(serde_json::json!({ "archived": req.id })))
+        }
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "axis id not found" }))),
+    }
+}
+
+#[derive(Deserialize)]
+struct AxesLineageQuery {
+    id: String,
+}
+
+/// GET /api/v1/axes/lineage?id=… — the cause of an installed axis: who installed
+/// it, the source texts that earned it, and when. An axis with no lineage is
+/// inadmissible — this is how you audit one.
+async fn axes_lineage_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<AxesLineageQuery>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let store = state.axes.lock().unwrap_or_else(|e| e.into_inner());
+    match store.axes.iter().find(|a| a.id == q.id) {
+        Some(a) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "id": a.id, "role": a.role, "name": a.name,
+                "operator": a.operator, "samples": a.samples,
+                "world_scope": a.world_scope, "created_at": a.created_at,
+                "archived": a.archived,
+            })),
+        ),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "axis id not found" }))),
+    }
 }
