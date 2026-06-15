@@ -2426,6 +2426,8 @@ async fn main() {
         .route("/api/v1/machines/empedocles", post(machines_empedocles_handler))
         .route("/api/v1/machines/erosp", post(machines_erosp_handler))
         .route("/api/v1/machines/erosa", post(machines_erosa_handler))
+        .route("/api/v1/machines/techne", post(machines_techne_handler))
+        .route("/api/v1/machines/euclid", post(machines_euclid_handler))
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -2585,8 +2587,8 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "live" },
         MachineInfo { name: "erosp",      modality: "directed reaches",    primitive: "longing (Penia/Poros)",          status: "live" },
         MachineInfo { name: "erosa",      modality: "directed reaches",    primitive: "conquest (Ares/Aphrodite)",      status: "live" },
-        MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "reducer-only" },
-        MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "reducer-only" },
+        MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "live" },
+        MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "live" },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -2801,6 +2803,111 @@ async fn machines_erosa_handler(Json(req): Json<ErosaRequest>) -> Json<serde_jso
     let jealous: Vec<serde_json::Value> =
         erosa::jealous(&conquests).into_iter().map(cj).collect();
     Json(serde_json::json!({ "conquests": all, "passionate": passionate, "jealous": jealous }))
+}
+
+#[derive(Deserialize)]
+struct TechneFile {
+    path: String,
+    #[serde(default)]
+    lines: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct TechneRequest {
+    files: Vec<TechneFile>,
+    /// Optional: list the modules transitively impacted if this one changes.
+    #[serde(default)]
+    impact_target: Option<String>,
+}
+
+/// POST /api/v1/machines/techne — reduce a set of source files to capabilities
+/// and module dependency edges; optionally compute the blast radius of a module.
+/// Stateless.
+async fn machines_techne_handler(Json(req): Json<TechneRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::techne;
+    let files: Vec<techne::SourceFile> = req
+        .files
+        .iter()
+        .map(|f| techne::SourceFile { path: f.path.clone(), lines: f.lines.clone() })
+        .collect();
+    let caps: Vec<serde_json::Value> = techne::classify_capabilities(&files)
+        .iter()
+        .map(|c| serde_json::json!({ "name": c.name, "files": c.files }))
+        .collect();
+    let edges = techne::dependency_edges(&files);
+    let deps: Vec<serde_json::Value> =
+        edges.iter().map(|(a, b)| serde_json::json!([a, b])).collect();
+    let impact = req.impact_target.as_ref().map(|t| techne::impact_of(&edges, t));
+    Json(serde_json::json!({ "capabilities": caps, "dependencies": deps, "impact": impact }))
+}
+
+#[derive(Deserialize)]
+struct EuclidPrimitive {
+    vertices: u32,
+    circularity: f32,
+    #[serde(default)]
+    aspect_ratio: f32,
+    #[serde(default)]
+    color: [u8; 3],
+    #[serde(default)]
+    texture: f32,
+    /// (x, y, w, h)
+    #[serde(default)]
+    bbox: [f32; 4],
+}
+
+#[derive(Deserialize)]
+struct EuclidRequest {
+    primitives: Vec<EuclidPrimitive>,
+    #[serde(default)]
+    circularity_limit: Option<f32>,
+    #[serde(default)]
+    near: Option<f32>,
+}
+
+/// POST /api/v1/machines/euclid — reduce closed forms to geometric primitives
+/// (Form vs Noise by circularity), and relate them (contained / near). Stateless.
+async fn machines_euclid_handler(Json(req): Json<EuclidRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::euclid;
+    let limit = req.circularity_limit.unwrap_or(0.85);
+    let near = req.near.unwrap_or(50.0);
+    let prims: Vec<euclid::Primitive> = req
+        .primitives
+        .iter()
+        .map(|p| euclid::Primitive {
+            vertices: p.vertices,
+            circularity: p.circularity,
+            aspect_ratio: p.aspect_ratio,
+            color: (p.color[0], p.color[1], p.color[2]),
+            texture: p.texture,
+            bbox: (p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]),
+        })
+        .collect();
+    let reduced: Vec<serde_json::Value> = prims
+        .iter()
+        .map(|p| {
+            let st = euclid::classify(p, limit);
+            serde_json::json!({
+                "shape": euclid::classify_by_vertices(p.vertices),
+                "status": if matches!(st, euclid::Status::Form) { "form" } else { "noise" },
+                "coherence": st.coherence(),
+                "hash": euclid::compute_hash(p),
+            })
+        })
+        .collect();
+    let mut relations = Vec::new();
+    for i in 0..prims.len() {
+        for j in (i + 1)..prims.len() {
+            let rel = euclid::relation(&prims[i], &prims[j], near);
+            let name = match rel {
+                euclid::Relation::Contained => "contained",
+                euclid::Relation::Near => "near",
+                euclid::Relation::Disjoint => continue,
+            };
+            relations.push(serde_json::json!({ "a": i, "b": j, "relation": name }));
+        }
+    }
+    Json(serde_json::json!({ "primitives": reduced, "relations": relations }))
 }
 
 #[derive(Deserialize)]
