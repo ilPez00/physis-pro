@@ -2419,7 +2419,10 @@ async fn main() {
         .route("/api/v1/machines/soma", post(machines_soma_handler))
         .route("/api/v1/machines/elenchus", post(machines_elenchus_handler))
         .route("/api/v1/machines/lex", post(machines_lex_handler))
-        .route("/api/v1/machines/empedocles", post(machines_empedocles_handler));
+        .route("/api/v1/machines/empedocles", post(machines_empedocles_handler))
+        // Dynamic axis expansion (Phase 6): read + propose.
+        .route("/api/v1/axes", get(axes_list_handler))
+        .route("/api/v1/axes/discover", post(axes_discover_handler));
 
     // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
     #[cfg(feature = "wiki-embedded")]
@@ -2947,4 +2950,57 @@ async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_jso
     let fading: Vec<serde_json::Value> = topos::fading(&places, now, stale).into_iter().map(place_json).collect();
 
     Json(serde_json::json!({ "places": all, "fading": fading }))
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dynamic axis expansion (Phase 6) — read + propose. Promote/persist/decay is a
+// planned follow-up (mutating the live grid). See src/axes.rs.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// GET /api/v1/axes — the current axes (domain + mode values) derived from the
+/// live ontology entries, with how many cells contribute to each.
+async fn axes_list_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+    let shared = state.shared.clone();
+    let axes = tokio::task::spawn_blocking(move || {
+        physis_pro::axes::derive_axes(&shared.classifier.cell_centroids())
+    })
+    .await
+    .expect("axes derivation completes");
+    Json(serde_json::json!({ "axes": axes }))
+}
+
+#[derive(Deserialize)]
+struct AxesDiscoverRequest {
+    texts: Vec<String>,
+    /// "domain" (default) | "mode"
+    #[serde(default)]
+    role: Option<String>,
+    /// Best-axis cosine below this = axis-orphan (default 0.5).
+    #[serde(default)]
+    tau: Option<f32>,
+}
+
+/// POST /api/v1/axes/discover — propose NEW axis values (a new domain or mode)
+/// from texts that no existing axis can name (axis-orphans), clustered. Each
+/// proposal carries its lineage (sample source texts). Does not mutate the grid.
+async fn axes_discover_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<AxesDiscoverRequest>,
+) -> Json<serde_json::Value> {
+    let shared = state.shared.clone();
+    let role = match req.role.as_deref() {
+        Some("mode") => physis_pro::axes::AxisRole::Mode,
+        _ => physis_pro::axes::AxisRole::Domain,
+    };
+    let tau = req.tau.unwrap_or(0.5);
+    let proposals = tokio::task::spawn_blocking(move || {
+        let centroids = shared.classifier.cell_centroids();
+        let anchors = physis_pro::axes::axis_anchors(&centroids, role);
+        let embeddings: Vec<Vec<f32>> = req.texts.iter().map(|t| shared.embedder.embed(t)).collect();
+        physis_pro::axes::propose_axes(role, &req.texts, &embeddings, &anchors, tau, 0.70, 2, 8)
+    })
+    .await
+    .expect("axes discovery completes");
+    Json(serde_json::json!({ "role": role, "proposals": proposals }))
 }

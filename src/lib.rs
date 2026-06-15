@@ -37,6 +37,7 @@ pub mod ontology_nonhuman;
 pub mod gantt;
 pub mod classify;
 pub mod discovery;
+pub mod axes;
 pub mod empedocles;
 pub mod machines;
 

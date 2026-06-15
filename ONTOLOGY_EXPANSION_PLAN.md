@@ -785,12 +785,22 @@ GET  /api/v1/axes/{id}/lineage    → who/what created it, from which source ite
 ### 6F. Roadmap addition
 
 **Step 7 — Dynamic axes (~7h)**
-- Replace fixed `[[_;6];6]` with `Vec<Axis>` per role; make `classify/compose/dual`
-  count-agnostic (2h)
-- Axis-orphan detector + orphan buffer (1h)
-- Cluster→name→`AxisProposal` pipeline on `ProviderCascade`, with provenance (2h)
-- Promotion (review + cross-world recurrence guard) & decay/archival job (1h)
-- Axis API endpoints + lineage (1h)
+- ~~Replace fixed `[[_;6];6]` with `Vec<Axis>` per role; make `classify` count-
+  agnostic~~ — N/A: the grid was already an entry list (`CellClassifier.cells`),
+  not a fixed array. Axes are *derived* (per-domain / per-mode centroids) rather
+  than stored, so `classify` needs no change. (`src/axes.rs::derive_axes`.)
+- [x] **Axis-orphan detector** — `axes::axis_orphans` (best-axis cosine < τ). ✅
+- [x] **Cluster→name→`AxisProposal`** with lineage — `axes::propose_axes` (greedy
+  cosine cluster of orphans, top-term name + hints, `samples` = source texts =
+  the cause). Pure + unit-tested. LLM naming can refine `name` later; the term
+  draft is the LLM-free baseline. ✅
+- [x] **Axis API (read + propose)** — `GET /api/v1/axes` (current axes + cell
+  counts), `POST /api/v1/axes/discover` (orphan→proposal). ✅
+- [ ] **Promotion (review + cross-world recurrence guard), decay/archival, and
+  persistence** — DEFERRED. This is the stateful tier: it mutates the live grid
+  (installs proposed axes as runtime entries the classifier consults) and needs a
+  writable axis store (sled) + `/axes/promote|demote|{id}/lineage`. Build it with
+  the engine running (it can't be safely validated by `cargo check` alone).
 
 > Design invariant: the engine must never present a dynamically-added axis without
 > its **cause** — the operator and source items that earned it. An axis with no
