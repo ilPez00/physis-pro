@@ -116,7 +116,7 @@ pub fn detect_places(waypoints: &[Waypoint], radius_km: f64, min_visits: usize) 
             }
         })
         .collect();
-    places.sort_by(|a, b| b.visits.cmp(&a.visits));
+    places.sort_by_key(|b| std::cmp::Reverse(b.visits));
     places
 }
 
