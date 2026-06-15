@@ -2428,6 +2428,7 @@ async fn main() {
         .route("/api/v1/machines/erosa", post(machines_erosa_handler))
         .route("/api/v1/machines/techne", post(machines_techne_handler))
         .route("/api/v1/machines/euclid", post(machines_euclid_handler))
+        .route("/api/v1/machines/plutos", post(machines_plutos_handler))
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -2589,6 +2590,7 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "erosa",      modality: "directed reaches",    primitive: "conquest (Ares/Aphrodite)",      status: "live" },
         MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "live" },
         MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "live" },
+        MachineInfo { name: "plutos",     modality: "transactions",        primitive: "value flow (recurring)",         status: "live" },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -2908,6 +2910,58 @@ async fn machines_euclid_handler(Json(req): Json<EuclidRequest>) -> Json<serde_j
         }
     }
     Json(serde_json::json!({ "primitives": reduced, "relations": relations }))
+}
+
+#[derive(Deserialize)]
+struct PlutosTransaction {
+    from: String,
+    to: String,
+    amount: f32,
+}
+
+#[derive(Deserialize)]
+struct PlutosRequest {
+    transactions: Vec<PlutosTransaction>,
+    #[serde(default)]
+    min_count: Option<usize>,
+    #[serde(default)]
+    min_total: Option<f32>,
+}
+
+/// POST /api/v1/machines/plutos — reduce transactions to recurring value flows;
+/// compose per-party balances; surface the largest drains and the breaching
+/// (net-negative) parties. Stateless.
+async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::plutos;
+    let txns: Vec<plutos::Transaction> = req
+        .transactions
+        .iter()
+        .map(|t| plutos::Transaction { from: t.from.clone(), to: t.to.clone(), amount: t.amount })
+        .collect();
+    let flows = plutos::detect_flows(&txns, req.min_count.unwrap_or(2));
+    let bals = plutos::balances(&flows);
+    let fj = |f: &plutos::Flow| {
+        serde_json::json!({
+            "from": f.from, "to": f.to, "total": f.total, "count": f.count, "mean": f.mean,
+        })
+    };
+    let bj = |b: &plutos::Balance| {
+        serde_json::json!({
+            "party": b.party, "inflow": b.inflow, "outflow": b.outflow, "net": b.net,
+        })
+    };
+    let flows_json: Vec<serde_json::Value> = flows.iter().map(fj).collect();
+    let drains: Vec<serde_json::Value> =
+        plutos::drains(&flows, req.min_total.unwrap_or(0.0)).into_iter().map(fj).collect();
+    let balances_json: Vec<serde_json::Value> = bals.iter().map(bj).collect();
+    let breaches: Vec<serde_json::Value> =
+        plutos::breaches(&bals).into_iter().map(bj).collect();
+    Json(serde_json::json!({
+        "flows": flows_json,
+        "drains": drains,
+        "balances": balances_json,
+        "breaches": breaches,
+    }))
 }
 
 #[derive(Deserialize)]
