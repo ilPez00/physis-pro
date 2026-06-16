@@ -143,10 +143,43 @@ pub enum Commands {
     },
     /// Export the file-theme graph as uberwiki markdown pages
     WikiExport,
+    /// Run a philosophical machine reducer over JSON input — no server, no
+    /// embedder, no disk state. Reads --input FILE or stdin; prints JSON.
+    /// e.g. `physis-pro machine chronos --input events.json`
+    Machine {
+        /// Machine name (chronos, topos, harmony, polis, soma, elenchus, lex,
+        /// empedocles, euclid, techne, erosp, erosa, plutos, krisis, pathos,
+        /// chroma, kinesis).
+        name: String,
+        /// JSON input file; omit or use '-' to read from stdin.
+        #[arg(short, long)]
+        input: Option<PathBuf>,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    // The `machine` subcommand is pure: dispatch it before building the heavy
+    // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
+    // a faulty mount or a quick offline reduction.
+    if let Commands::Machine { name, input } = &cli.command {
+        let raw = match input.as_deref() {
+            Some(p) if p != Path::new("-") => std::fs::read_to_string(p)?,
+            _ => {
+                use std::io::Read;
+                let mut s = String::new();
+                std::io::stdin().read_to_string(&mut s)?;
+                s
+            }
+        };
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("invalid JSON input: {e}"))?;
+        let out = physis_pro::machines::run::run(name, &value)?;
+        println!("{}", serde_json::to_string_pretty(&out)?);
+        return Ok(());
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -484,6 +517,7 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(&uber_path, &uber)?;
             println!("  Uberwiki index: {}", uber_path.display());
         }
+        Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
     }
 
     Ok(())
