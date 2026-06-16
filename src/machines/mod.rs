@@ -37,3 +37,4 @@ pub mod plutos;
 pub mod krisis;
 pub mod pathos;
 pub mod chroma;
+pub mod kinesis;

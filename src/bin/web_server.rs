@@ -2432,6 +2432,7 @@ async fn main() {
         .route("/api/v1/machines/krisis", post(machines_krisis_handler))
         .route("/api/v1/machines/pathos", post(machines_pathos_handler))
         .route("/api/v1/machines/chroma", post(machines_chroma_handler))
+        .route("/api/v1/machines/kinesis", post(machines_kinesis_handler))
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -2597,6 +2598,7 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "krisis",     modality: "pairwise choices",    primitive: "preference (A > B)",             status: "live" },
         MachineInfo { name: "pathos",     modality: "affect episodes",     primitive: "affect (valence x arousal)",     status: "live" },
         MachineInfo { name: "chroma",     modality: "colors",              primitive: "color relation (wheel)",         status: "live" },
+        MachineInfo { name: "kinesis",    modality: "trajectories",        primitive: "motion gestalt (reach/gait)",    status: "live" },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -3081,6 +3083,55 @@ async fn machines_chroma_handler(Json(req): Json<ChromaRequest>) -> Json<serde_j
     let harmonies: Vec<serde_json::Value> = chroma::harmonies(&rels).into_iter().map(rj).collect();
     let clashes: Vec<serde_json::Value> = chroma::clashes(&rels).into_iter().map(rj).collect();
     Json(serde_json::json!({ "relations": all, "harmonies": harmonies, "clashes": clashes }))
+}
+
+#[derive(Deserialize)]
+struct KinesisPoint {
+    x: f32,
+    y: f32,
+}
+
+#[derive(Deserialize)]
+struct KinesisGesture {
+    label: String,
+    points: Vec<KinesisPoint>,
+}
+
+#[derive(Deserialize)]
+struct KinesisRequest {
+    gestures: Vec<KinesisGesture>,
+    #[serde(default)]
+    min_move: Option<f32>,
+    #[serde(default)]
+    min_net: Option<f32>,
+    #[serde(default)]
+    drop: Option<f32>,
+}
+
+/// POST /api/v1/machines/kinesis — reduce gesture trajectories to motion gestalts
+/// (sub-threshold jitter rejected); mark reaches and degrading gaits. Stateless.
+async fn machines_kinesis_handler(Json(req): Json<KinesisRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::kinesis;
+    let gestures: Vec<kinesis::Gesture> = req
+        .gestures
+        .iter()
+        .map(|g| kinesis::Gesture {
+            label: g.label.clone(),
+            points: g.points.iter().map(|p| kinesis::Point { x: p.x, y: p.y }).collect(),
+        })
+        .collect();
+    let motions = kinesis::detect_motions(&gestures, req.min_move.unwrap_or(0.5));
+    let mj = |m: &kinesis::Motion| {
+        serde_json::json!({
+            "label": m.label, "path": m.path, "net": m.net,
+            "straightness": m.straightness, "moves": m.moves,
+        })
+    };
+    let all: Vec<serde_json::Value> = motions.iter().map(mj).collect();
+    let reaches: Vec<serde_json::Value> =
+        kinesis::reaches(&motions, req.min_net.unwrap_or(1.0)).into_iter().map(mj).collect();
+    let degrading = kinesis::degrading(&motions, req.drop.unwrap_or(0.2));
+    Json(serde_json::json!({ "motions": all, "reaches": reaches, "degrading": degrading }))
 }
 
 #[derive(Deserialize)]
