@@ -2429,6 +2429,9 @@ async fn main() {
         .route("/api/v1/machines/techne", post(machines_techne_handler))
         .route("/api/v1/machines/euclid", post(machines_euclid_handler))
         .route("/api/v1/machines/plutos", post(machines_plutos_handler))
+        .route("/api/v1/machines/krisis", post(machines_krisis_handler))
+        .route("/api/v1/machines/pathos", post(machines_pathos_handler))
+        .route("/api/v1/machines/chroma", post(machines_chroma_handler))
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -2591,6 +2594,9 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "live" },
         MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "live" },
         MachineInfo { name: "plutos",     modality: "transactions",        primitive: "value flow (recurring)",         status: "live" },
+        MachineInfo { name: "krisis",     modality: "pairwise choices",    primitive: "preference (A > B)",             status: "live" },
+        MachineInfo { name: "pathos",     modality: "affect episodes",     primitive: "affect (valence x arousal)",     status: "live" },
+        MachineInfo { name: "chroma",     modality: "colors",              primitive: "color relation (wheel)",         status: "live" },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -2962,6 +2968,119 @@ async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<serde_j
         "balances": balances_json,
         "breaches": breaches,
     }))
+}
+
+#[derive(Deserialize)]
+struct KrisisChoice {
+    over: String,
+    under: String,
+}
+
+#[derive(Deserialize)]
+struct KrisisRequest {
+    choices: Vec<KrisisChoice>,
+}
+
+/// POST /api/v1/machines/krisis — reduce pairwise choices to net preferences,
+/// rank them (Copeland), and flag intransitive cycles (the incoherent taste).
+/// Stateless.
+async fn machines_krisis_handler(Json(req): Json<KrisisRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::krisis;
+    let choices: Vec<krisis::Choice> = req
+        .choices
+        .iter()
+        .map(|c| krisis::Choice { over: c.over.clone(), under: c.under.clone() })
+        .collect();
+    let prefs = krisis::detect_preferences(&choices);
+    let prefs_json: Vec<serde_json::Value> = prefs
+        .iter()
+        .map(|p| serde_json::json!({ "over": p.over, "under": p.under, "margin": p.margin }))
+        .collect();
+    let ranking: Vec<serde_json::Value> = krisis::ranking(&prefs)
+        .iter()
+        .map(|r| serde_json::json!({ "option": r.option, "score": r.score }))
+        .collect();
+    let cycles: Vec<serde_json::Value> =
+        krisis::cycles(&prefs).into_iter().map(|c| serde_json::json!(c)).collect();
+    Json(serde_json::json!({ "preferences": prefs_json, "ranking": ranking, "cycles": cycles }))
+}
+
+#[derive(Deserialize)]
+struct PathosEpisode {
+    trigger: String,
+    valence: f32,
+    arousal: f32,
+}
+
+#[derive(Deserialize)]
+struct PathosRequest {
+    episodes: Vec<PathosEpisode>,
+    #[serde(default)]
+    min_count: Option<usize>,
+    #[serde(default)]
+    flat: Option<f32>,
+}
+
+/// POST /api/v1/machines/pathos — reduce affect episodes to recurring patterns
+/// (flat episodes rejected); mark amplifiers and soothers. Stateless.
+async fn machines_pathos_handler(Json(req): Json<PathosRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::pathos;
+    let episodes: Vec<pathos::Episode> = req
+        .episodes
+        .iter()
+        .map(|e| pathos::Episode { trigger: e.trigger.clone(), valence: e.valence, arousal: e.arousal })
+        .collect();
+    let affects = pathos::detect_affects(&episodes, req.min_count.unwrap_or(2), req.flat.unwrap_or(0.1));
+    let aj = |a: &pathos::Affect| {
+        serde_json::json!({ "trigger": a.trigger, "valence": a.valence, "arousal": a.arousal, "count": a.count })
+    };
+    let all: Vec<serde_json::Value> = affects.iter().map(aj).collect();
+    let amplifiers: Vec<serde_json::Value> =
+        pathos::amplifiers(&affects, 0.5).into_iter().map(aj).collect();
+    let soothers: Vec<serde_json::Value> =
+        pathos::soothers(&affects, 0.5).into_iter().map(aj).collect();
+    Json(serde_json::json!({ "affects": all, "amplifiers": amplifiers, "soothers": soothers }))
+}
+
+#[derive(Deserialize)]
+struct ChromaColor {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+#[derive(Deserialize)]
+struct ChromaRequest {
+    colors: Vec<ChromaColor>,
+    #[serde(default)]
+    min_chroma: Option<f32>,
+    #[serde(default)]
+    tol: Option<f32>,
+}
+
+/// POST /api/v1/machines/chroma — reduce colors to saturated hues (muddy grey
+/// rejected) and relate them on the wheel (complement/analogous/triad/clash).
+/// Stateless.
+async fn machines_chroma_handler(Json(req): Json<ChromaRequest>) -> Json<serde_json::Value> {
+    use physis_pro::machines::chroma;
+    let colors: Vec<chroma::Color> =
+        req.colors.iter().map(|c| chroma::Color { r: c.r, g: c.g, b: c.b }).collect();
+    let min_chroma = req.min_chroma.unwrap_or(0.2);
+    let tol = req.tol.unwrap_or(20.0);
+    let rels = chroma::detect_relations(&colors, min_chroma, tol);
+    let rj = |r: &chroma::Relation| {
+        let kind = match r.kind {
+            chroma::Kind::Complement => "complement",
+            chroma::Kind::Analogous => "analogous",
+            chroma::Kind::Triad => "triad",
+            chroma::Kind::Clash => "clash",
+        };
+        serde_json::json!({ "a": r.a, "b": r.b, "kind": kind })
+    };
+    let all: Vec<serde_json::Value> = rels.iter().map(rj).collect();
+    let harmonies: Vec<serde_json::Value> = chroma::harmonies(&rels).into_iter().map(rj).collect();
+    let clashes: Vec<serde_json::Value> = chroma::clashes(&rels).into_iter().map(rj).collect();
+    Json(serde_json::json!({ "relations": all, "harmonies": harmonies, "clashes": clashes }))
 }
 
 #[derive(Deserialize)]

@@ -34,3 +34,6 @@ pub mod euclid;
 pub mod erosp;
 pub mod erosa;
 pub mod plutos;
+pub mod krisis;
+pub mod pathos;
+pub mod chroma;
