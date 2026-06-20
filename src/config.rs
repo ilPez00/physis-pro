@@ -494,6 +494,24 @@ impl OntologyLoader {
         self.human_domains.values().chain(self.custom_domains.values())
     }
 
+    /// Every domain definition across all loaded ontologies, merged into one map.
+    /// Seeds theme nodes for the file-graph view. On key collision the later map
+    /// wins (custom overrides builtin).
+    pub fn all_domains(&self) -> HashMap<String, DomainDef> {
+        let mut out = HashMap::new();
+        for m in [
+            &self.human_domains, &self.machine_domains, &self.semiotic_domains,
+            &self.category_domains, &self.agent_domains, &self.natural_domains,
+            &self.social_domains, &self.abstract_domains, &self.engineering_domains,
+            &self.office_domains, &self.custom_domains,
+        ] {
+            for (k, v) in m {
+                out.insert(k.clone(), v.clone());
+            }
+        }
+        out
+    }
+
     /// Resolve a goal name to a human domain definition. Currently returns the first available.
     pub fn resolve_domain(&self, _goal_name: &str) -> Option<&DomainDef> {
         self.human_domains.values().next()

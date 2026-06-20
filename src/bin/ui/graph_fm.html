@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis — Graph File Manager</title>
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; flex-direction:column; }
+  header { padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0 12px 0 0; font-weight:600; }
+  input, button { background:#0d1117; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:13px; }
+  input { min-width:120px; }
+  #dir { min-width:260px; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .muted { color:var(--muted); }
+  main { flex:1; display:flex; min-height:0; }
+  #cy { flex:1; background:var(--bg); }
+  aside { width:380px; border-left:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; min-height:0; }
+  .pane { padding:10px 12px; border-bottom:1px solid var(--line); overflow:auto; }
+  #preview { flex:1; }
+  #content { white-space:pre-wrap; word-break:break-word; font:12px/1.45 ui-monospace,monospace; background:#0d1117; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:100%; overflow:auto; }
+  #heat { display:grid; gap:2px; font-size:9px; }
+  .hc { aspect-ratio:1; border-radius:2px; }
+  .rowlab,.collab { color:var(--muted); font-size:9px; }
+  h3 { margin:0 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  #status { margin-left:auto; font-size:12px; }
+  .err { color:#f85149; }
+  label.small { font-size:11px; color:var(--muted); display:block; margin:6px 0 2px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Physis · Graph File Manager</h1>
+  <input id="base" placeholder="API base (blank = same origin)" />
+  <input id="token" type="password" placeholder="API token (Bearer)" />
+  <input id="dir" placeholder="/abs/path/to/scan (inside scan root)" />
+  <button id="scan">Scan →</button>
+  <span id="status" class="muted">idle</span>
+</header>
+<main>
+  <div id="cy"></div>
+  <aside>
+    <div class="pane">
+      <h3>Semiotic heatmap (5×14)</h3>
+      <div id="heat"></div>
+    </div>
+    <div class="pane" id="info">
+      <h3>Selection</h3>
+      <div id="sel" class="muted">Click a node.</div>
+      <div id="moveBox" style="display:none">
+        <label class="small">Rename / move to (absolute path, inside scan root)</label>
+        <div style="display:flex; gap:6px">
+          <input id="dest" style="flex:1" />
+          <button id="move">Move</button>
+        </div>
+      </div>
+    </div>
+    <div class="pane" id="preview">
+      <h3>Preview</h3>
+      <div id="content" class="muted">—</div>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const LS = { base:'physis_base', token:'physis_token', dir:'physis_dir' };
+['base','token','dir'].forEach(k => { const v=localStorage.getItem(LS[k]); if(v) $(k).value=v; });
+const save = () => ['base','token','dir'].forEach(k => localStorage.setItem(LS[k], $(k).value));
+
+const DOMAINS = ["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
+const MODES = ["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
+// stable color per domain
+const DCOL = {HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+
+function api(path){ const b=$('base').value.trim().replace(/\/$/,''); return (b||'')+path; }
+function headers(){ const t=$('token').value.trim(); return t?{Authorization:'Bearer '+t}:{}; }
+function setStatus(msg, err){ const s=$('status'); s.textContent=msg; s.className=err?'err':'muted'; }
+
+async function getJSON(path){
+  const r = await fetch(api(path), {headers:headers()});
+  if(!r.ok){ throw new Error(r.status+' '+(await r.text()).slice(0,200)); }
+  return r.json();
+}
+
+let cy;
+function initCy(){
+  cy = cytoscape({
+    container: $('cy'),
+    style: [
+      { selector:'node[kind="theme"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#e6edf3','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#0e1116','text-outline-width':2 } },
+      { selector:'node[kind="file"]', style:{ 'background-color':'#30363d','border-color':'#58a6ff','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':10,'height':10 } },
+      { selector:'node:selected', style:{ 'border-color':'#f0f6fc','border-width':3 } },
+      { selector:'edge', style:{ 'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack' } }
+    ],
+    layout:{name:'cose', animate:false}
+  });
+  cy.on('tap','node', evt => onNode(evt.target));
+}
+
+function onNode(n){
+  const d=n.data();
+  $('moveBox').style.display = d.kind==='file' ? 'block' : 'none';
+  if(d.kind==='file'){
+    $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.path}</span><br>kind: ${d.fkind}`;
+    $('dest').value = d.path;
+    preview(d.path);
+  } else {
+    $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.domain}×${d.mode}${d.category?(' · '+d.category):''}</span>`;
+    $('content').textContent='—';
+  }
+}
+
+async function preview(path){
+  $('content').textContent='loading…';
+  try{
+    const j = await getJSON('/api/v1/fs/file?path='+encodeURIComponent(path));
+    $('content').textContent = j.content + (j.truncated?'\n\n… [truncated, '+j.size+' bytes]':'');
+    $('content').className='';
+  }catch(e){ $('content').textContent=String(e); $('content').className='err'; }
+}
+
+async function scan(){
+  save();
+  const dir=$('dir').value.trim();
+  if(!dir){ setStatus('enter a directory', true); return; }
+  setStatus('scanning…');
+  try{
+    const g = await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir));
+    render(g);
+    setStatus(`${g.themes.length} themes · ${g.files.length} files · ${g.edges.length} edges`);
+  }catch(e){ setStatus(String(e), true); }
+}
+
+function render(g){
+  const els=[];
+  const maxDeg = Math.max(1, ...g.themes.map(t => g.edges.filter(e=>e.theme_id===t.id).length));
+  for(const t of g.themes){
+    const deg = g.edges.filter(e=>e.theme_id===t.id).length;
+    els.push({data:{ id:'t'+t.id, kind:'theme', label:t.name, color:DCOL[t.domain]||DCOL[''],
+      domain:t.domain, mode:t.mode, category:t.category||'', sz:20+30*deg/maxDeg }});
+  }
+  for(const f of g.files){
+    els.push({data:{ id:'f'+f.id, kind:'file', label:f.title||f.path.split('/').pop(), path:f.path, fkind:f.kind }});
+  }
+  for(const e of g.edges){
+    els.push({data:{ id:'e'+e.theme_id+'_'+e.file_id, source:'t'+e.theme_id, target:'f'+e.file_id, w:1+3*e.score }});
+  }
+  cy.elements().remove();
+  cy.add(els);
+  cy.layout({name:'cose', animate:false, nodeRepulsion:8000, idealEdgeLength:60}).run();
+}
+
+async function move(){
+  const from=$('sel').querySelector('b')?.nextSibling; // not reliable; use stored path
+  const node = cy.$('node:selected').first();
+  if(!node || node.data('kind')!=='file'){ return; }
+  const dest=$('dest').value.trim();
+  setStatus('moving…');
+  try{
+    const r = await fetch(api('/api/v1/fs/move'), {method:'POST', headers:{...headers(),'Content-Type':'application/json'}, body:JSON.stringify({from:node.data('path'), to:dest})});
+    if(!r.ok) throw new Error(r.status+' '+(await r.text()).slice(0,200));
+    const j=await r.json();
+    node.data('path', j.to);
+    node.data('label', j.to.split('/').pop());
+    setStatus('moved → '+j.to);
+  }catch(e){ setStatus(String(e), true); }
+}
+
+async function loadHeat(){
+  try{
+    const j = await getJSON('/api/v1/semiotic/heatmap');
+    const m = j.matrix||[];
+    const heat=$('heat');
+    heat.style.gridTemplateColumns = `48px repeat(${MODES.length}, 1fr)`;
+    let html = `<div></div>` + MODES.map(x=>`<div class="collab" title="${x}">${x.slice(0,3)}</div>`).join('');
+    let max=0; m.forEach(r=>r.forEach(v=>{ if(v>max)max=v; }));
+    for(let i=0;i<m.length;i++){
+      html += `<div class="rowlab">${(DOMAINS[i]||'').slice(0,4)}</div>`;
+      for(let k=0;k<m[i].length;k++){
+        const v=m[i][k], a=max>0?v/max:0;
+        html += `<div class="hc" title="${DOMAINS[i]}×${MODES[k]} = ${v.toFixed(3)}" style="background:rgba(88,166,255,${0.12+0.88*a})"></div>`;
+      }
+    }
+    heat.innerHTML=html;
+  }catch(e){ $('heat').innerHTML=`<span class="err">${e}</span>`; }
+}
+
+$('scan').onclick=scan;
+$('move').onclick=move;
+['base','token'].forEach(k=>$(k).onchange=()=>{ save(); loadHeat(); });
+initCy();
+loadHeat();
+</script>
+</body>
+</html>

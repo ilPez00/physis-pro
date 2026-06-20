@@ -563,6 +563,229 @@ fn file_labels(f: &physis_pro::scanner::FileInfo) -> Vec<String> {
     labels
 }
 
+// ── Graph file manager (backs the /ui page) ─────────────────────────────────
+// fs/graph: scan a sandboxed dir → theme↔file semantic graph (FileThemeGraph),
+// embeddings stripped. fs/file: sandboxed text preview. fs/move: sandboxed
+// rename within scan_root. Every path is confined to scan_root (PREMORTEM P6).
+
+/// Resolve an existing user-supplied path and confine it to scan_root.
+fn sandbox_existing(state: &SharedState, raw: &str) -> Result<PathBuf, (StatusCode, Json<ErrorResponse>)> {
+    let p = PathBuf::from(raw);
+    if !p.exists() {
+        return Err(err_response(StatusCode::BAD_REQUEST, &format!("path not found: {raw}")));
+    }
+    let canon = p
+        .canonicalize()
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}")))?;
+    if !canon.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    Ok(canon)
+}
+
+#[derive(Deserialize)]
+struct FsGraphQuery {
+    dir: String,
+}
+
+#[derive(Serialize)]
+struct FsThemeDto {
+    id: usize,
+    name: String,
+    category: Option<String>,
+    domain: String,
+    mode: String,
+}
+
+#[derive(Serialize)]
+struct FsFileDto {
+    id: usize,
+    path: String,
+    title: String,
+    kind: String,
+}
+
+#[derive(Serialize)]
+struct FsEdgeDto {
+    theme_id: usize,
+    file_id: usize,
+    score: f32,
+}
+
+#[derive(Serialize)]
+struct FsGraphResponse {
+    root: String,
+    categories: Vec<String>,
+    themes: Vec<FsThemeDto>,
+    files: Vec<FsFileDto>,
+    edges: Vec<FsEdgeDto>,
+}
+
+/// GET /api/v1/fs/graph?dir=… — scan a directory into a theme↔file graph.
+async fn fs_graph_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<FsGraphQuery>,
+) -> Result<Json<FsGraphResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let canonical = sandbox_existing(&state, &q.dir)?;
+    let root_str = canonical.display().to_string();
+
+    // build_theme_graph embeds every theme + every file synchronously — keep it
+    // off the tokio workers.
+    let shared = state.shared.clone();
+    let graph = tokio::task::spawn_blocking(move || {
+        let domains = shared.ontology.all_domains();
+        let docs = physis_pro::ingest::ingest_all(&[canonical]);
+        physis_pro::graph::build_theme_graph(&docs, shared.embedder.as_ref(), &shared.ontology, &domains)
+    })
+    .await
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("graph build failed: {e}")))?;
+
+    // Only return themes that actually attracted a file — the full ontology has
+    // ~600 themes; an empty hub is noise in the view.
+    let used: std::collections::HashSet<usize> = graph.edges.iter().map(|e| e.theme_id).collect();
+    let themes: Vec<FsThemeDto> = graph
+        .themes
+        .iter()
+        .filter(|t| used.contains(&t.id))
+        .map(|t| FsThemeDto {
+            id: t.id,
+            name: t.name.clone(),
+            category: t.category.clone(),
+            domain: t.domain.clone(),
+            mode: t.mode.clone(),
+        })
+        .collect();
+    let files: Vec<FsFileDto> = graph
+        .files
+        .iter()
+        .map(|f| FsFileDto {
+            id: f.id,
+            path: f.path.display().to_string(),
+            title: f.title.clone(),
+            kind: f.kind.clone(),
+        })
+        .collect();
+    let edges: Vec<FsEdgeDto> = graph
+        .edges
+        .iter()
+        .map(|e| FsEdgeDto { theme_id: e.theme_id, file_id: e.file_id, score: e.score })
+        .collect();
+
+    // Categories actually present among the kept (edge-bearing) themes — not the
+    // full ontology's ~700.
+    let mut categories: Vec<String> = themes
+        .iter()
+        .filter_map(|t| t.category.clone())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    categories.sort();
+
+    Ok(Json(FsGraphResponse {
+        root: root_str,
+        categories,
+        themes,
+        files,
+        edges,
+    }))
+}
+
+#[derive(Deserialize)]
+struct FsFileQuery {
+    path: String,
+}
+
+#[derive(Serialize)]
+struct FsFileResponse {
+    path: String,
+    size: u64,
+    truncated: bool,
+    content: String,
+}
+
+/// GET /api/v1/fs/file?path=… — sandboxed text preview (first 16 KB).
+async fn fs_file_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<FsFileQuery>,
+) -> Result<Json<FsFileResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let canonical = sandbox_existing(&state, &q.path)?;
+    if canonical.is_dir() {
+        return Err(err_response(StatusCode::BAD_REQUEST, "path is a directory"));
+    }
+    const CAP: usize = 16 * 1024;
+    let bytes = std::fs::read(&canonical)
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("read failed: {e}")))?;
+    let size = bytes.len() as u64;
+    let truncated = bytes.len() > CAP;
+    let slice = &bytes[..bytes.len().min(CAP)];
+    let content = String::from_utf8_lossy(slice).to_string();
+    Ok(Json(FsFileResponse {
+        path: canonical.display().to_string(),
+        size,
+        truncated,
+        content,
+    }))
+}
+
+#[derive(Deserialize)]
+struct FsMoveRequest {
+    from: String,
+    to: String,
+}
+
+#[derive(Serialize)]
+struct FsMoveResponse {
+    from: String,
+    to: String,
+    moved: bool,
+}
+
+/// POST /api/v1/fs/move {from,to} — sandboxed rename within scan_root. Refuses
+/// to escape the root, overwrite an existing target, or move a directory.
+async fn fs_move_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<FsMoveRequest>,
+) -> Result<Json<FsMoveResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let from = sandbox_existing(&state, &req.from)?;
+    if from.is_dir() {
+        return Err(err_response(StatusCode::BAD_REQUEST, "moving directories is not allowed"));
+    }
+    // The destination does not exist yet, so confine its *parent* to scan_root.
+    let to = PathBuf::from(&req.to);
+    let parent = to
+        .parent()
+        .ok_or_else(|| err_response(StatusCode::BAD_REQUEST, "destination has no parent"))?;
+    let parent_canon = parent
+        .canonicalize()
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve destination dir: {e}")))?;
+    if !parent_canon.starts_with(state.scan_root()) {
+        return Err(err_response(StatusCode::FORBIDDEN, "destination outside scan root"));
+    }
+    let file_name = to
+        .file_name()
+        .ok_or_else(|| err_response(StatusCode::BAD_REQUEST, "destination has no file name"))?;
+    let dest = parent_canon.join(file_name);
+    if dest.exists() {
+        return Err(err_response(StatusCode::CONFLICT, "destination already exists"));
+    }
+    std::fs::rename(&from, &dest)
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("move failed: {e}")))?;
+    Ok(Json(FsMoveResponse {
+        from: from.display().to_string(),
+        to: dest.display().to_string(),
+        moved: true,
+    }))
+}
+
+/// GET /ui — the graph file-manager single-page app (public; calls the
+/// authenticated fs/* endpoints with a token the user pastes in the page).
+async fn graph_fm_ui_handler() -> Html<&'static str> {
+    Html(include_str!("ui/graph_fm.html"))
+}
+
 async fn dream_generate_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -2343,7 +2566,10 @@ async fn main() {
     // Railway healthcheck and ops).
     let public = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/embedder", get(embedder_info_handler));
+        .route("/api/v1/embedder", get(embedder_info_handler))
+        // Graph file-manager SPA. The page is public; its data calls hit the
+        // authenticated fs/* routes with a token the user pastes in-page.
+        .route("/ui", get(graph_fm_ui_handler));
 
     // MCP SSE transport — exposed without auth (the URL + port are not discoverable;
     // add token-based guard later if needed).
@@ -2360,6 +2586,9 @@ async fn main() {
         .route("/api/v1/stats", get(stats_handler))
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
+        .route("/api/v1/fs/graph", get(fs_graph_handler))
+        .route("/api/v1/fs/file", get(fs_file_handler))
+        .route("/api/v1/fs/move", post(fs_move_handler))
         .route("/api/v1/dream/generate", post(dream_generate_handler))
         .route("/api/v1/dream/evaluate", post(dream_evaluate_handler))
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
