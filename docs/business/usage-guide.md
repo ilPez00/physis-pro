@@ -2,7 +2,7 @@
 
 ## Overview
 
-Physis exposes a REST API that classifies any text into a 30-cell semiotic grid (5 domains × 6 modes). The API is live at:
+Physis exposes a REST API that classifies any text into a 70-cell semiotic grid (5 domains × 14 modes). The API is live at:
 
 **https://angelic-embrace-production-61dd.up.railway.app**
 

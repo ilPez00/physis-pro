@@ -570,7 +570,11 @@ mod tests {
     fn test_office_domains_have_valid_grid_cells() {
         let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
         let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
-        let valid_modes = ["WORK", "WALK", "LEARN", "CREATE", "REST", "LIFT"];
+        let valid_modes = [
+            "WORK", "WALK", "LEARN", "CREATE", "REST", "LIFT",
+            "DESTROY", "SENSE", "GUIDE", "PLAY", "BRAINSTORM",
+            "MAINTAIN", "MOVE", "PLAN",
+        ];
         for (name, def) in &map {
             let d = def.domain.as_deref().unwrap_or("");
             let m = def.mode.as_deref().unwrap_or("");

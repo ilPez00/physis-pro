@@ -4,7 +4,7 @@
 
 Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
 text, image, video, audio, a code log, a human action — to a vector in one shared
-embedding space, classifies it against a 30-cell semiotic grid, and tracks each
+embedding space, classifies it against a 70-cell semiotic grid, and tracks each
 thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
 the failures to propose corrective actions.
 
@@ -108,7 +108,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/embed` | — | Raw embedding vector + dimension (text or image) |
 | POST | `/api/v1/embed/video` | — | ffmpeg-sampled clip vector → `{embedding, dim, frames}` |
 | GET  | `/api/v1/ontology/list` | — | Domain counts per loaded ontology |
-| GET  | `/api/v1/semiotic/grid` | — | 30-cell DOMAIN×MODE grid with entries |
+| GET  | `/api/v1/semiotic/grid` | — | 70-cell DOMAIN×MODE grid with entries |
 | GET  | `/api/v1/semiotic/triangle` | — | Peircean triangle (Mermaid) |
 | GET  | `/api/v1/semiotic/square` | — | Greimas square (Mermaid) |
 | GET  | `/api/v1/semiotic/heatmap` | — | Activation heatmap table + matrix |
@@ -234,8 +234,14 @@ Default ontologies live in `config/` (`praxis_ontology.json`, human;
 
 ## Semiotic grid & ontologies
 
-Every entry maps to one of **30 cells** — **5 domains** (HEAL, CONSTRUCT,
-FABRICATE, BOND, STUDY) × **6 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN).
+Every entry maps to one of **70 cells** — **5 domains** (HEAL, CONSTRUCT,
+FABRICATE, BOND, STUDY) × **14 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN,
+DESTROY, SENSE, GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN). The last eight
+extend the original activity-energy axis: DESTROY completes the Greimas opposition
+with CREATE, SENSE is perception/measurement, GUIDE is leading/mentoring others
+(vs LEARN, self-study), PLAY is low-stakes generative, BRAINSTORM is divergent
+ideation, MAINTAIN is upkeep/repair/preserve, MOVE is relocate/transport/logistics,
+PLAN is convergent sequencing/organizing (the converge to BRAINSTORM's diverge).
 
 Ships **10 ontologies** (~630 entries):
 
