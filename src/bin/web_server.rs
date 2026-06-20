@@ -632,53 +632,52 @@ async fn fs_graph_handler(
     let canonical = sandbox_existing(&state, &q.dir)?;
     let root_str = canonical.display().to_string();
 
-    // build_theme_graph embeds every theme + every file synchronously — keep it
-    // off the tokio workers.
+    // Theme hubs are the semiotic cells (≤70) and reuse the classifier's
+    // *precomputed* centroids — so a scan only embeds the files themselves (a
+    // handful), never the ~600 ontology themes. (Re-embedding the ontology per
+    // request made BGE scans take minutes; centroids are built once at startup.)
+    const TOP_K: usize = 5;
+    const MIN_SCORE: f32 = 0.20;
     let shared = state.shared.clone();
-    let graph = tokio::task::spawn_blocking(move || {
-        let domains = shared.ontology.all_domains();
+    let (themes, files, edges) = tokio::task::spawn_blocking(move || {
         let docs = physis_pro::ingest::ingest_all(&[canonical]);
-        physis_pro::graph::build_theme_graph(&docs, shared.embedder.as_ref(), &shared.ontology, &domains)
+        let mut theme_ids: std::collections::HashMap<(String, String), usize> = std::collections::HashMap::new();
+        let mut themes: Vec<FsThemeDto> = Vec::new();
+        let mut files: Vec<FsFileDto> = Vec::new();
+        let mut edges: Vec<FsEdgeDto> = Vec::new();
+        for (fid, doc) in docs.iter().enumerate() {
+            let scores = shared.classifier.classify_text(&doc.body, shared.embedder.as_ref());
+            files.push(FsFileDto {
+                id: fid,
+                path: doc.path.display().to_string(),
+                title: doc.title.clone(),
+                kind: format!("{:?}", doc.kind),
+            });
+            for cs in scores.iter().take(TOP_K).filter(|c| c.score > MIN_SCORE) {
+                let key = (cs.domain.clone(), cs.mode.clone());
+                let tid = *theme_ids.entry(key).or_insert_with(|| {
+                    let id = themes.len();
+                    themes.push(FsThemeDto {
+                        id,
+                        name: format!("{} × {}", cs.domain, cs.mode),
+                        category: Some(cs.domain.clone()),
+                        domain: cs.domain.clone(),
+                        mode: cs.mode.clone(),
+                    });
+                    id
+                });
+                edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: cs.score });
+            }
+        }
+        (themes, files, edges)
     })
     .await
     .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("graph build failed: {e}")))?;
 
-    // Only return themes that actually attracted a file — the full ontology has
-    // ~600 themes; an empty hub is noise in the view.
-    let used: std::collections::HashSet<usize> = graph.edges.iter().map(|e| e.theme_id).collect();
-    let themes: Vec<FsThemeDto> = graph
-        .themes
-        .iter()
-        .filter(|t| used.contains(&t.id))
-        .map(|t| FsThemeDto {
-            id: t.id,
-            name: t.name.clone(),
-            category: t.category.clone(),
-            domain: t.domain.clone(),
-            mode: t.mode.clone(),
-        })
-        .collect();
-    let files: Vec<FsFileDto> = graph
-        .files
-        .iter()
-        .map(|f| FsFileDto {
-            id: f.id,
-            path: f.path.display().to_string(),
-            title: f.title.clone(),
-            kind: f.kind.clone(),
-        })
-        .collect();
-    let edges: Vec<FsEdgeDto> = graph
-        .edges
-        .iter()
-        .map(|e| FsEdgeDto { theme_id: e.theme_id, file_id: e.file_id, score: e.score })
-        .collect();
-
-    // Categories actually present among the kept (edge-bearing) themes — not the
-    // full ontology's ~700.
+    // Domains present among the cells that attracted a file.
     let mut categories: Vec<String> = themes
         .iter()
-        .filter_map(|t| t.category.clone())
+        .map(|t| t.domain.clone())
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect();
