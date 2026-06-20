@@ -8,7 +8,7 @@
 
 Generalmeccanica opera come **facilitatore di processo** — la vostra ragione d'essere è portare chiarezza, organizzazione e comunicazione efficace nei reparti produttivi dei vostri clienti.
 
-Physis è un motore di intelligenza artificiale semiotica che classifica qualsiasi testo in una griglia universale di 30 celle (5 domini × 6 modi), rivelando la struttura nascosta delle attività umane e delle macchine. Per Generalmeccanica significa: **trasformare la vostra esperienza di facilitazione in un servizio scalabile, misurabile e vendibile.**
+Physis è un motore di intelligenza artificiale semiotica che classifica qualsiasi testo in una griglia universale di 70 celle (5 domini × 14 modi), rivelando la struttura nascosta delle attività umane e delle macchine. Per Generalmeccanica significa: **trasformare la vostra esperienza di facilitazione in un servizio scalabile, misurabile e vendibile.**
 
 Questa proposta descrive come Physis può potenziare il vostro ruolo di facilitatori di processo — dalla diagnosi dei problemi di produzione al monitoraggio continuo della salute organizzativa.
 
@@ -16,17 +16,27 @@ Questa proposta descrive come Physis può potenziare il vostro ruolo di facilita
 
 ## 2. Cos'è Physis
 
-Physis non è un LLM generico né un tradizionale sistema di classificazione. È un **motore semiotico** che mappa qualsiasi comunicazione scritta — report di produzione, email, verbali di riunioni, log macchina, messaggi WhatsApp tra capi reparto — in uno spazio semantico universale a 30 dimensioni.
+Physis non è un LLM generico né un tradizionale sistema di classificazione. È un **motore semiotico** che mappa qualsiasi comunicazione scritta — report di produzione, email, verbali di riunioni, log macchina, messaggi WhatsApp tra capi reparto — in una griglia semantica universale di 70 celle.
 
-| | **CREATE** | **WORK** | **WALK** | **LIFT** | **LEARN** | **REST** |
+La griglia incrocia **5 domini** (cosa) con **14 modi** (come):
+
+- **Domini:** FABRICATE (produrre), CONSTRUCT (costruire/organizzare), HEAL (curare/rigenerare), BOND (relazioni), STUDY (analizzare/conoscere).
+- **Modi base:** CREATE (creare), WORK (eseguire), WALK (procedere), LIFT (sforzo di picco), LEARN (apprendere), REST (attesa/riposo).
+- **Modi estesi:** DESTROY (dismettere/demolire), SENSE (rilevare/misurare), GUIDE (guidare/coordinare), PLAY (esplorare), BRAINSTORM (ideare) e — particolarmente rilevanti per l'industria — **MAINTAIN (manutenere)**, **MOVE (movimentare/logistica)**, **PLAN (pianificare la produzione)**.
+
+I tre modi estesi industriali sono una differenza concreta per Generalmeccanica: manutenzione, movimentazione materiali e pianificazione non sono più ricondotti a celle generiche, ma riconosciuti come **modi nativi e distinti** — quindi smistabili e misurabili separatamente.
+
+Una porzione della griglia (modi base, a titolo illustrativo):
+
+| | **CREATE** | **WORK** | **WALK** | **MAINTAIN** | **MOVE** | **PLAN** |
 |---|---|---|---|---|---|---|
-| **FABRICATE** | Produrre | Amministrare | Distribuire | Sollevare | Apprendere | Attendere |
-| **CONSTRUCT** | Organizzare | Operare | Transitare | Montare | Istruire | Fermare |
-| **HEAL** | Rigenerare | Curare | Prevenire | Sforzare | Adattare | Riposare |
-| **BOND** | Unire | Collaborare | Incontrare | Sostenere | Insegnare | Confidare |
-| **STUDY** | Sperimentare | Analizzare | Esplorare | Approfondire | Studiare | Riflettere |
+| **FABRICATE** | Produrre | Amministrare | Distribuire | Manutenere | Movimentare | Pianificare |
+| **CONSTRUCT** | Organizzare | Operare | Transitare | Riparare | Trasportare | Schedulare |
+| **HEAL** | Rigenerare | Curare | Prevenire | Mantenere in forma | Spostare | Programmare |
+| **BOND** | Unire | Collaborare | Incontrare | Coltivare | Connettere | Coordinare |
+| **STUDY** | Sperimentare | Analizzare | Esplorare | Ripassare | Trasferire | Progettare |
 
-Ogni cella della griglia contiene un **centroide semantico** calcolato da oltre 555 voci ontologiche distribuite su 9 ontologie (umano, macchina, semiotica, ufficio, agente AI, e altre). Quando inviate un testo a Physis, il motore lo incorpora in uno spazio vettoriale a 768 dimensioni (BGE-base-en-v1.5) e calcola la similarità coseno con ogni cella, restituendo una classifica ordinata per punteggio.
+Ogni cella della griglia contiene un **centroide semantico** calcolato da oltre 630 voci ontologiche distribuite su 10 ontologie (umano, macchina, semiotica, ufficio, agente AI, e altre), più 20 ontologie di dominio aggiuntive. Quando inviate un testo a Physis, il motore lo incorpora in uno spazio vettoriale a 768 dimensioni (BGE-base-en-v1.5) e calcola la similarità coseno con ogni cella, restituendo una classifica ordinata per punteggio.
 
 ### Le Macchine di Physis
 
@@ -48,15 +58,15 @@ Il processo è lineare e richiede zero infrastruttura:
 
 1. **Acquisizione** — Inviate un testo via API REST (curl, integrazione custom) o tramite la web app Praxis (praxisweb.xyz).
 2. **Embedding** — Il testo viene convertito in un vettore a 768 dimensioni dal modello BGE-base-en-v1.5.
-3. **Classificazione** — Il vettore viene confrontato con tutte le 30 celle della griglia semiotica. Ogni cella riceve un punteggio di similarità (da −1 a +1).
+3. **Classificazione** — Il vettore viene confrontato con tutte le 70 celle della griglia semiotica. Ogni cella riceve un punteggio di similarità (da −1 a +1).
 4. **Interpretazione** — I risultati rivelano la natura semiotica del testo: cosa sta realmente accadendo in quel processo, al di là delle parole usate.
 
 ### Perché funziona anche in Italiano
 
 Le frasi italiane vengono proiettate nel medesimo spazio vettoriale delle ontologie, senza bisogno di traduzione. I numeri, misurati su un set di test curato e verificato a ogni rilascio:
 
-- **Testi inglesi:** 100% di accuratezza sul dominio, 94.9% sulla cella esatta.
-- **Testi italiani (frasi industriali e quotidiane):** 73.3% sul dominio al primo tentativo — già utile per lo smistamento automatico, con la cella corretta quasi sempre tra le prime tre.
+- **Testi inglesi:** 98.2% di accuratezza sul dominio, 89.1% sulla cella esatta (su un set di test ampliato che include i nuovi modi industriali).
+- **Testi italiani (frasi industriali e quotidiane):** 86.7% sul dominio e 86.7% sulla cella al primo tentativo — adatto allo smistamento automatico, con la cella corretta quasi sempre tra le prime tre.
 
 L'accuratezza sull'italiano è un nostro cantiere attivo: il set di test italiano fa parte della suite di regressione, quindi ogni miglioramento è misurato, non dichiarato. Per i casi d'uso critici in italiano il workshop di onboarding configura ontologie con vocabolario specifico del vostro dominio, che alza sensibilmente la precisione sul vostro lessico reale.
 
@@ -104,9 +114,21 @@ Tutto confluisce nel **Rapporto di Turno**: un documento leggibile, in italiano,
 
 Il report completo (HTML, stampabile in PDF) è allegato a questa proposta.
 
+### 4.6 Smistamento Nativo: Manutenzione, Logistica, Pianificazione
+
+Con i tre modi industriali (**MAINTAIN**, **MOVE**, **PLAN**) la griglia distingue automaticamente categorie di comunicazione che prima si confondevano:
+
+- **MAINTAIN (FABRICATE×MAINTAIN)** — "lubrificare il mandrino", "sostituire il cuscinetto usurato", "manutenzione preventiva programmata" finiscono in una cella dedicata alla manutenzione, separata dalla produzione attiva e dal fermo macchina. Lo smistamento dei ticket di manutenzione diventa immediato.
+- **MOVE (FABRICATE×MOVE)** — "spostare i pallet finiti a spedizione", "movimentare il semilavorato in linea", "trasportare le travi al cantiere" vengono riconosciuti come logistica/movimentazione, non come produzione — utile per separare i colli di bottiglia di flusso materiali dai problemi di lavorazione.
+- **PLAN (FABRICATE×PLAN / CONSTRUCT×PLAN)** — "pianificare il lotto", "schedulare le fasi del cantiere", "sequenziare gli ordini di lavoro" cadono in una cella di pianificazione, distinguendo le attività di programmazione dall'esecuzione.
+
+In pratica: i flussi di manutenzione, logistica e pianificazione si auto-instradano verso le persone e i cruscotti giusti, senza regole manuali.
+
 ---
 
 ## 5. Esempi di Classificazione Reali
+
+> *Nota: i punteggi seguenti provengono da una sessione di riferimento. Con l'introduzione dei modi industriali (MAINTAIN, MOVE, PLAN) alcune di queste frasi possono ora instradarsi su celle più specifiche (es. surriscaldamento → FABRICATE×MAINTAIN). Gli esempi vengono ri-misurati a ogni rilascio sui dati reali del cliente durante l'onboarding.*
 
 ### Esempio 1: Segnalazione di surriscaldamento CNC
 
@@ -183,12 +205,12 @@ Cliente (report, email, log)
        ▼
   ┌──────────────┐
   │  Physis API  │─── BGE-base-en-v1.5 (embedding 768-dim)
-  │  (Railway)   │─── Ontologie (555+ voci, 9 ontologie)
+  │  (Railway)   │─── Ontologie (630+ voci, 10 ontologie + 20 di dominio)
   └──────┬───────┘
          │
          ▼
    ┌─────────────┐
-   │ Grisaglia   │─── 30 celle (5×6)
+   │ Griglia     │─── 70 celle (5×14)
    │ Semiotica   │─── Punteggi di similarità
    └──────┬──────┘
           │

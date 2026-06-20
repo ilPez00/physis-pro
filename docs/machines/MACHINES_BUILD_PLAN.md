@@ -15,7 +15,7 @@ reads/writes one shared graph.
 
 | Need | Provided by |
 |------|-------------|
-| Reduce text/image/audio/video → vector | `/api/v1/embed`, `/api/v1/classify` (5×6 grid) |
+| Reduce text/image/audio/video → vector | `/api/v1/embed`, `/api/v1/classify` (5×14 grid) |
 | Register a primitive as a recallable node | `/api/v1/coherence/register { input }` (embeds + labels + dedups) |
 | Join a node into the shared graph | `PhysisCore::bridge_node(coh_id)` → holarchy key |
 | Edges with stable ids | `PhysisCore::resolved_edges()` / `spanner::export_edges` |

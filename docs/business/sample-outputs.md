@@ -2,7 +2,7 @@
 
 > Annotated real outputs from the Physis semiotic classification engine.
 > All examples run against the live API at `https://angelic-embrace-production-61dd.up.railway.app`
-> using BGE-base-en-v1.5 (768-dim) and 9 ontologies (555+ entries).
+> using BGE-base-en-v1.5 (768-dim) and 10 ontologies (630+ entries, +20 domain ontologies).
 
 ---
 
@@ -105,7 +105,7 @@ This is the most **balanced** of the four examples — the text genuinely sits a
 
 ### English vs Italian Performance
 
-Both Italian and English inputs produce comparable accuracy. The embedder's multilingual space ensures that *"MIG welder producing spatter"* and *"saldatrice MIG che produce spruzzi"* would land in nearly the same region of the 30-cell grid.
+Both Italian and English inputs produce comparable accuracy. The embedder's multilingual space ensures that *"MIG welder producing spatter"* and *"saldatrice MIG che produce spruzzi"* would land in nearly the same region of the 70-cell grid.
 
 ---
 

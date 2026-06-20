@@ -117,7 +117,12 @@ Return the raw embedding vector.
 
 ## Interpreting Results
 
-### The 5×6 Semiotic Grid
+### The 5×14 Semiotic Grid
+
+5 domains (FABRICATE, CONSTRUCT, HEAL, BOND, STUDY) × 14 modes = 70 cells. The
+6 base modes are shown below; the 8 extended modes are DESTROY, SENSE, GUIDE,
+PLAY, BRAINSTORM, and the industrial trio **MAINTAIN** (upkeep/repair), **MOVE**
+(relocate/transport/logistics), **PLAN** (sequence/organize).
 
 | | **CREATE** | **WORK** | **WALK** | **LIFT** | **LEARN** | **REST** |
 |---|---|---|---|---|---|---|
@@ -174,7 +179,7 @@ BGE-base-en-v1.5 handles Italian natively. The embedding space is multi-lingual,
 
 ## Ontology System
 
-Physis classifies against **9 ontologies** containing 555+ entries total:
+Physis classifies against **10 ontologies** containing 630+ entries total (plus 20 extra domain ontologies):
 
 | Ontology | Entries | Kind | Purpose |
 |---|---|---|---|
@@ -207,7 +212,7 @@ Useful when you know the domain (e.g., always machine data) and want to eliminat
 
 The web dashboard at **https://praxisweb.xyz** provides:
 
-- **Text classification** — paste any text and see the full 30-cell result grid
+- **Text classification** — paste any text and see the full 70-cell result grid
 - **History** — review past classifications and track patterns
 - **Reports** — auto-generated weekly summaries of your classification activity
 - **Visualization** — the semiotic grid rendered as a heatmap for quick scanning

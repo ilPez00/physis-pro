@@ -34,7 +34,7 @@ Two commitments make them "philosophical" rather than just pipelines:
 
 ### physis_pro — the text/ontology machine
 - **Perceive:** text, logs, images, video, audio (shared embedding space).
-- **Reduce:** classify against the 5×6 semiotic grid; register coherence nodes.
+- **Reduce:** classify against the 5×14 semiotic grid; register coherence nodes.
 - **Compose:** the holarchy graph + the DynamicVectorTrie.
 - **Elaborate/Dream:** the Dream Function replays Inert/Failure nodes to propose
   corrective Effective Actions; PDCA/Rachmaninov directives.
