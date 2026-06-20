@@ -308,7 +308,16 @@ impl HumanDomain {
     }
 }
 
-/// The 6 human modes of operation.
+/// The 14 human modes of operation.
+///
+/// First six are the original activity-energy axis (LIFT…LEARN). The rest extend
+/// it: DESTROY completes the Greimas opposition with CREATE; SENSE is
+/// input/perception; GUIDE is leading others (vs LEARN, self-study); PLAY is
+/// low-stakes generative; BRAINSTORM is divergent ideation; MAINTAIN is
+/// upkeep/repair/preserve (keep-existing); MOVE is relocate/transport/logistics;
+/// PLAN is convergent sequencing/organizing (the converge to BRAINSTORM's
+/// diverge). New variants are appended so existing `cell_index` ordinals are
+/// stable for the earlier modes.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum HumanMode {
     Lift,
@@ -317,11 +326,24 @@ pub enum HumanMode {
     Work,
     Create,
     Learn,
+    Destroy,
+    Sense,
+    Guide,
+    Play,
+    Brainstorm,
+    Maintain,
+    Move,
+    Plan,
 }
 
 impl HumanMode {
-    pub fn all() -> [HumanMode; 6] {
-        [HumanMode::Lift, HumanMode::Rest, HumanMode::Walk, HumanMode::Work, HumanMode::Create, HumanMode::Learn]
+    pub fn all() -> [HumanMode; 14] {
+        [
+            HumanMode::Lift, HumanMode::Rest, HumanMode::Walk, HumanMode::Work,
+            HumanMode::Create, HumanMode::Learn, HumanMode::Destroy, HumanMode::Sense,
+            HumanMode::Guide, HumanMode::Play, HumanMode::Brainstorm, HumanMode::Maintain,
+            HumanMode::Move, HumanMode::Plan,
+        ]
     }
 
     pub fn as_str(&self) -> &'static str {
@@ -332,6 +354,14 @@ impl HumanMode {
             HumanMode::Work => "WORK",
             HumanMode::Create => "CREATE",
             HumanMode::Learn => "LEARN",
+            HumanMode::Destroy => "DESTROY",
+            HumanMode::Sense => "SENSE",
+            HumanMode::Guide => "GUIDE",
+            HumanMode::Play => "PLAY",
+            HumanMode::Brainstorm => "BRAINSTORM",
+            HumanMode::Maintain => "MAINTAIN",
+            HumanMode::Move => "MOVE",
+            HumanMode::Plan => "PLAN",
         }
     }
 
@@ -344,12 +374,20 @@ impl HumanMode {
             "WORK" => Some(HumanMode::Work),
             "CREATE" => Some(HumanMode::Create),
             "LEARN" => Some(HumanMode::Learn),
+            "DESTROY" => Some(HumanMode::Destroy),
+            "SENSE" => Some(HumanMode::Sense),
+            "GUIDE" => Some(HumanMode::Guide),
+            "PLAY" => Some(HumanMode::Play),
+            "BRAINSTORM" => Some(HumanMode::Brainstorm),
+            "MAINTAIN" => Some(HumanMode::Maintain),
+            "MOVE" => Some(HumanMode::Move),
+            "PLAN" => Some(HumanMode::Plan),
             _ => None,
         }
     }
 }
 
-/// A grid position mapping an ontology entry to one of the 36 cells.
+/// A grid position mapping an ontology entry to one of the 70 cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GridPosition {
     pub domain: HumanDomain,
@@ -373,7 +411,7 @@ impl GridPosition {
     pub fn cell_index(&self) -> usize {
         let d = HumanDomain::all().iter().position(|x| *x == self.domain).unwrap_or(0);
         let m = HumanMode::all().iter().position(|x| *x == self.mode).unwrap_or(0);
-        d * 6 + m
+        d * HumanMode::all().len() + m
     }
 }
 
@@ -386,7 +424,7 @@ pub struct PeirceanSign {
     pub trichotomy: String,
 }
 
-/// A cell in the 6×6 semiotic grid with all its metadata.
+/// A cell in the 5×14 semiotic grid with all its metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemioticCell {
     pub domain: HumanDomain,
@@ -397,7 +435,7 @@ pub struct SemioticCell {
     pub greimas: Option<String>,
 }
 
-/// The semiotic grid — a 5×6 matrix of domain×mode cells.
+/// The semiotic grid — a 5×14 matrix of domain×mode cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SemioticGrid {
     pub cells: Vec<SemioticCell>,
@@ -405,7 +443,7 @@ pub struct SemioticGrid {
 
 impl SemioticGrid {
     pub fn new() -> Self {
-        let mut cells = Vec::with_capacity(30);
+        let mut cells = Vec::with_capacity(HumanDomain::all().len() * HumanMode::all().len());
         for d in HumanDomain::all() {
             for m in HumanMode::all() {
                 cells.push(SemioticCell {
@@ -468,15 +506,26 @@ impl SemioticGrid {
             HumanMode::Rest => HumanMode::Lift,
             HumanMode::Walk => HumanMode::Work,
             HumanMode::Work => HumanMode::Walk,
-            HumanMode::Create => HumanMode::Learn,
-            HumanMode::Learn => HumanMode::Create,
+            // Create/Destroy = make↔unmake; Learn(self-study)↔Guide(teach others);
+            // Sense(observe real)↔Brainstorm(imagine); Play(unstructured)↔Plan(structured);
+            // Maintain(keep-in-place)↔Move(relocate).
+            HumanMode::Create => HumanMode::Destroy,
+            HumanMode::Destroy => HumanMode::Create,
+            HumanMode::Learn => HumanMode::Guide,
+            HumanMode::Guide => HumanMode::Learn,
+            HumanMode::Sense => HumanMode::Brainstorm,
+            HumanMode::Brainstorm => HumanMode::Sense,
+            HumanMode::Play => HumanMode::Plan,
+            HumanMode::Plan => HumanMode::Play,
+            HumanMode::Maintain => HumanMode::Move,
+            HumanMode::Move => HumanMode::Maintain,
         };
         Some((d, m))
     }
 
-    /// Activation heatmap as a 5×6 matrix
+    /// Activation heatmap as a 5×14 matrix
     pub fn heatmap_matrix(&self) -> Vec<Vec<f32>> {
-        let mut matrix = vec![vec![0.0_f32; 6]; 5];
+        let mut matrix = vec![vec![0.0_f32; HumanMode::all().len()]; HumanDomain::all().len()];
         for cell in &self.cells {
             let di = HumanDomain::all().iter().position(|d| *d == cell.domain).unwrap_or(0);
             let mi = HumanMode::all().iter().position(|m| *m == cell.mode).unwrap_or(0);

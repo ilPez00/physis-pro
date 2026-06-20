@@ -6,7 +6,7 @@ How the physis engine manages **Praxis Notebook** (attention that *produces*) an
 
 ## Unifying model
 
-One embedding space, one 30-cell semiotic grid, one coherence index (+1/0/−1),
+One embedding space, one 70-cell semiotic grid, one coherence index (+1/0/−1),
 two opposite attention modes:
 
 ```
