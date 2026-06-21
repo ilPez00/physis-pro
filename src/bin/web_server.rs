@@ -13,6 +13,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use base64::Engine;
+use rayon::prelude::*;
 
 use physis_pro::actor::PDCActor;
 use physis_pro::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
@@ -593,10 +594,9 @@ struct FsGraphQuery {
     /// "discovered" = emergent clusters mined from the scanned files (content map).
     #[serde(default)]
     grid: Option<String>,
-    /// Discovered-mode cluster tightness (cosine threshold). Higher = more, smaller
-    /// clusters. BGE doc cosines run high, so the default is 0.78.
+    /// Discovered-mode cluster count (k-means). Omitted → auto ≈ √(files), 2..16.
     #[serde(default)]
-    sim: Option<f32>,
+    k: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -659,28 +659,29 @@ async fn fs_graph_handler(
     // file↔file network: each file linked to its top-K nearest neighbours above τ.
     const SIM_TOP_K: usize = 4;
     const SIM_TAU: f32 = 0.55;
-    // discovered-mode clustering: corpus carved into emergent groups.
-    // BGE doc-doc cosines run high (related docs 0.6-0.9), so the merge threshold
-    // must be high or everything collapses into one cluster; tunable via ?sim=.
-    let discover_sim: f32 = q.sim.unwrap_or(0.78).clamp(0.5, 0.95);
+    // discovered-mode clustering: corpus carved into emergent groups via spherical
+    // k-means (auto-k ≈ √files, or ?k=). Balanced topics + TF-IDF labels.
     const DISCOVER_MIN: usize = 2;
     let discovered = matches!(q.grid.as_deref(), Some("discovered"));
+    let want_k = q.k;
     let shared = state.shared.clone();
     let (themes, files, edges, file_edges) = tokio::task::spawn_blocking(move || {
         let docs = physis_pro::ingest::ingest_all(&[canonical]);
-        let mut files: Vec<FsFileDto> = Vec::new();
-        let mut embs: Vec<Vec<f32>> = Vec::new();
-        let mut texts: Vec<String> = Vec::new();
-        for (fid, doc) in docs.iter().enumerate() {
-            files.push(FsFileDto {
+        // Embed files in PARALLEL across cores (rayon) — the embed is the scan's
+        // whole cost and embed(&self) is Sync; ORT runs concurrently. order is
+        // preserved by par_iter().collect() so file ids stay stable.
+        let embs: Vec<Vec<f32>> = docs.par_iter().map(|d| shared.embedder.embed(&d.body)).collect();
+        let files: Vec<FsFileDto> = docs
+            .iter()
+            .enumerate()
+            .map(|(fid, doc)| FsFileDto {
                 id: fid,
                 path: doc.path.display().to_string(),
                 title: doc.title.clone(),
                 kind: format!("{:?}", doc.kind),
-            });
-            embs.push(shared.embedder.embed(&doc.body));
-            texts.push(doc.body.clone());
-        }
+            })
+            .collect();
+        let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
 
         let mut themes: Vec<FsThemeDto> = Vec::new();
         let mut edges: Vec<FsEdgeDto> = Vec::new();
@@ -689,7 +690,8 @@ async fn fs_graph_handler(
             // Hubs are the corpus's OWN emergent clusters, labelled by top terms.
             // Clusters below DISCOVER_MIN are lumped into one "Uncategorized" hub so
             // every file appears on the content map.
-            let clusters = physis_pro::axes::cluster_corpus(&texts, &embs, discover_sim, 8);
+            let k = want_k.unwrap_or_else(|| ((files.len() as f64).sqrt().round() as usize).clamp(2, 16));
+            let clusters = physis_pro::axes::cluster_corpus_kmeans(&texts, &embs, k, 8);
             let mut uncategorized: Vec<usize> = Vec::new();
             for c in &clusters {
                 if c.members.len() < DISCOVER_MIN {

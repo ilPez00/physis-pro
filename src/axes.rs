@@ -131,6 +131,14 @@ const STOPWORDS: &[&str] = &[
     "are", "was", "be", "this", "that", "it", "at", "by", "from", "as", "we",
     "il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "di", "del", "della",
     "e", "o", "che", "per", "con", "su", "da", "non", "si", "ha", "sono",
+    // common English filler that leaks into TF-IDF labels (not topical)
+    "already", "also", "very", "more", "most", "some", "such", "than", "then",
+    "them", "they", "will", "would", "can", "could", "should", "into", "about",
+    "over", "only", "just", "like", "what", "when", "which", "while", "your",
+    "you", "our", "have", "has", "had", "been", "being", "but", "not", "all",
+    "any", "each", "its", "their", "there", "these", "those", "use", "used",
+    "using", "via", "per", "out", "off", "one", "two", "new", "get", "set",
+    "may", "must", "now", "see", "how", "who", "why", "may", "does", "done",
 ];
 
 fn top_terms(texts: &[&str], max: usize) -> Vec<String> {
@@ -268,6 +276,175 @@ pub fn cluster_corpus(
             CorpusCluster { members, label, hints, centroid }
         })
         .collect();
+    out.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    out
+}
+
+fn l2_normalize(v: &[f32]) -> Vec<f32> {
+    let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if n > 0.0 { v.iter().map(|x| x / n).collect() } else { v.to_vec() }
+}
+
+/// Unique stopworded terms of a text (the token set used for TF-IDF labels).
+fn doc_terms(text: &str) -> std::collections::HashSet<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.len() > 2 && !STOPWORDS.contains(&w.as_str()))
+        .collect()
+}
+
+/// TF-IDF labels for one cluster: terms frequent *inside* the cluster but rare
+/// across the whole corpus rank highest (distinctive, not merely frequent).
+/// `doc_term_sets` is each document's term set; `df` is corpus document-frequency.
+fn tfidf_label(
+    members: &[usize],
+    doc_term_sets: &[std::collections::HashSet<String>],
+    df: &std::collections::HashMap<String, usize>,
+    n_docs: usize,
+    max_hints: usize,
+) -> Vec<String> {
+    let mut ctf: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for &m in members {
+        for t in &doc_term_sets[m] {
+            *ctf.entry(t.as_str()).or_default() += 1;
+        }
+    }
+    // A label term must be SHARED across the cluster (in ≥40% of members, ≥2),
+    // so one-off words can't name a group; score = coverage × idf (distinctive).
+    let m = members.len();
+    let min_ctf = ((m as f32) * 0.4).ceil().max(2.0) as usize;
+    let mut scored: Vec<(&str, f32)> = ctf
+        .into_iter()
+        .filter(|&(_, tf)| m < 2 || tf >= min_ctf.min(m))
+        .map(|(t, tf)| {
+            let d = *df.get(t).unwrap_or(&1) as f32;
+            let idf = ((n_docs as f32) / (1.0 + d)).ln().max(0.0);
+            let coverage = tf as f32 / m as f32;
+            (t, coverage * idf)
+        })
+        .collect();
+    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(b.0)));
+    // Fallback: if the shared-term filter left nothing, take the most frequent terms.
+    if scored.is_empty() {
+        let mut alt: Vec<(&str, usize)> = doc_term_sets
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| members.contains(i))
+            .flat_map(|(_, s)| s.iter().map(|t| t.as_str()))
+            .fold(std::collections::HashMap::new(), |mut acc, t| { *acc.entry(t).or_insert(0) += 1; acc })
+            .into_iter()
+            .collect();
+        alt.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+        return alt.into_iter().take(max_hints).map(|(t, _)| t.to_string()).collect();
+    }
+    scored.into_iter().take(max_hints).map(|(t, _)| t.to_string()).collect()
+}
+
+/// Spherical k-means content clustering with TF-IDF labels — the upgrade over
+/// `cluster_corpus`'s greedy pass. Balanced topic groups independent of the
+/// embedder's baseline similarity, and distinctive labels. `k` is the target
+/// cluster count (callers usually auto-pick ≈√n). Deterministic: farthest-point
+/// seeding + Lloyd iterations on L2-normalized vectors (euclidean ≡ cosine).
+pub fn cluster_corpus_kmeans(
+    texts: &[String],
+    embeddings: &[Vec<f32>],
+    k: usize,
+    max_hints: usize,
+) -> Vec<CorpusCluster> {
+    let n = embeddings.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let dim = embeddings[0].len();
+    let k = k.clamp(1, n);
+    let units: Vec<Vec<f32>> = embeddings.iter().map(|e| l2_normalize(e)).collect();
+
+    // Farthest-point seeding (deterministic k-means++ flavour): start at 0, then
+    // repeatedly add the point least similar to all chosen seeds.
+    let mut seeds: Vec<usize> = vec![0];
+    while seeds.len() < k {
+        let mut best = (0usize, f32::MAX);
+        for i in 0..n {
+            if seeds.contains(&i) {
+                continue;
+            }
+            let max_sim = seeds.iter().map(|&s| cosine_sim(&units[i], &units[s])).fold(f32::MIN, f32::max);
+            if max_sim < best.1 {
+                best = (i, max_sim);
+            }
+        }
+        if best.1 == f32::MAX {
+            break;
+        }
+        seeds.push(best.0);
+    }
+    let mut centroids: Vec<Vec<f32>> = seeds.iter().map(|&s| units[s].clone()).collect();
+
+    let mut assign = vec![0usize; n];
+    for _ in 0..20 {
+        let mut changed = false;
+        for i in 0..n {
+            let mut best = (0usize, f32::MIN);
+            for (ci, c) in centroids.iter().enumerate() {
+                let s = cosine_sim(&units[i], c);
+                if s > best.1 {
+                    best = (ci, s);
+                }
+            }
+            if assign[i] != best.0 {
+                assign[i] = best.0;
+                changed = true;
+            }
+        }
+        // Recompute centroids (mean of unit vectors, renormalized).
+        let mut sums = vec![vec![0.0f32; dim]; centroids.len()];
+        let mut counts = vec![0usize; centroids.len()];
+        for i in 0..n {
+            let c = assign[i];
+            counts[c] += 1;
+            for d in 0..dim {
+                sums[c][d] += units[i][d];
+            }
+        }
+        for c in 0..centroids.len() {
+            if counts[c] > 0 {
+                centroids[c] = l2_normalize(&sums[c]);
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    // TF-IDF prep over the corpus.
+    let doc_term_sets: Vec<std::collections::HashSet<String>> = texts.iter().map(|t| doc_terms(t)).collect();
+    let mut df: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for set in &doc_term_sets {
+        for t in set {
+            *df.entry(t.clone()).or_default() += 1;
+        }
+    }
+
+    let mut out: Vec<CorpusCluster> = Vec::new();
+    for c in 0..centroids.len() {
+        let members: Vec<usize> = (0..n).filter(|&i| assign[i] == c).collect();
+        if members.is_empty() {
+            continue;
+        }
+        // Centroid in RAW embedding space (for downstream cosine scoring).
+        let mut centroid = vec![0.0f32; dim];
+        for &m in &members {
+            for d in 0..dim {
+                centroid[d] += embeddings[m][d];
+            }
+        }
+        for d in 0..dim {
+            centroid[d] /= members.len() as f32;
+        }
+        let hints = tfidf_label(&members, &doc_term_sets, &df, n, max_hints);
+        let label = hints.first().cloned().unwrap_or_else(|| "misc".to_string());
+        out.push(CorpusCluster { members, label, hints, centroid });
+    }
     out.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
     out
 }
