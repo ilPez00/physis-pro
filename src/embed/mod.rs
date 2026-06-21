@@ -11,26 +11,31 @@ use sha2::{Sha256, Digest};
 #[cfg(feature = "embed-onnx")]
 pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::session::Session> {
     use ort::session::builder::GraphOptimizationLevel;
-    // Disable graph optimization: Jina CLIP v2's exported graph trips ort
-    // rc.12's SimplifiedLayerNormFusion pass (GetIndexFromName panic) at every
-    // precision. Skipping fusion lets the model load; the cost is slightly
-    // slower inference, which we accept. Plain BERT models (MiniLM/BGE) are
-    // unaffected. PREMORTEM.md P4.
-    // Use all cores for intra-op (matmul) parallelism within a single inference.
-    // The embedder serializes runs behind a Mutex (one embed at a time), so the
-    // only way to use >1 core is to parallelize inside each run.
+    // Intra-op threads = all cores: matmul parallelism within ONE inference. The
+    // embedder serializes runs behind a Mutex (one embed at a time), so per-run
+    // threading is the only core-level parallelism available.
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
-    let build = || -> ort::Result<ort::session::Session> {
+    let build = |opt: GraphOptimizationLevel| -> ort::Result<ort::session::Session> {
         ort::session::Session::builder()?
-            .with_optimization_level(GraphOptimizationLevel::Disable)?
+            .with_optimization_level(opt)?
             .with_intra_threads(threads)?
             .commit_from_file(model_path)
     };
-    match build() {
+    // Try FULL optimization first — it enables fused, multi-threaded kernels
+    // (big speedup for BERT models like BGE/MiniLM). Only Jina CLIP v2's exported
+    // graph trips ort rc.12's SimplifiedLayerNormFusion pass (GetIndexFromName
+    // panic), so fall back to Disable just for that. PREMORTEM.md P4.
+    match build(GraphOptimizationLevel::Level3) {
         Ok(s) => Some(s),
-        Err(e) => {
-            log::warn!("failed to load ONNX model {}: {e}", model_path.display());
-            None
+        Err(e_opt) => {
+            log::warn!("optimized load of {} failed ({e_opt}); retrying with optimization disabled", model_path.display());
+            match build(GraphOptimizationLevel::Disable) {
+                Ok(s) => Some(s),
+                Err(e) => {
+                    log::warn!("failed to load ONNX model {}: {e}", model_path.display());
+                    None
+                }
+            }
         }
     }
 }
