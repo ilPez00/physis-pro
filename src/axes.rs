@@ -214,6 +214,64 @@ pub fn propose_axes(
     proposals
 }
 
+/// A data-driven cluster over an arbitrary corpus — **no anchors, keeps every
+/// cluster** (incl. singletons). Where `propose_axes` finds only what the fixed
+/// axes miss, this carves the corpus into its *own* emergent groups: the basis
+/// for a "content map" whose hubs are discovered, not predefined.
+#[derive(Debug, Clone, Serialize)]
+pub struct CorpusCluster {
+    /// Indices into the input `texts`/`embeddings`.
+    pub members: Vec<usize>,
+    /// Top term — the cluster's display label.
+    pub label: String,
+    /// Top terms (provenance / richer label).
+    pub hints: Vec<String>,
+    /// Cluster centroid (mean of member embeddings) for downstream scoring.
+    pub centroid: Vec<f32>,
+}
+
+/// Greedy single-pass cosine clustering (same kernel as `propose_axes`, but over
+/// the whole corpus). Returns clusters sorted largest-first.
+pub fn cluster_corpus(
+    texts: &[String],
+    embeddings: &[Vec<f32>],
+    cluster_sim: f32,
+    max_hints: usize,
+) -> Vec<CorpusCluster> {
+    let mut clusters: Vec<Vec<usize>> = Vec::new();
+    let mut centroids: Vec<Vec<f32>> = Vec::new();
+    for (i, e) in embeddings.iter().enumerate() {
+        let mut placed = false;
+        for (ci, c) in centroids.iter_mut().enumerate() {
+            if cosine_sim(e, c) >= cluster_sim {
+                let n = clusters[ci].len() as f32;
+                for (k, v) in c.iter_mut().enumerate() {
+                    *v = (*v * n + e[k]) / (n + 1.0);
+                }
+                clusters[ci].push(i);
+                placed = true;
+                break;
+            }
+        }
+        if !placed {
+            clusters.push(vec![i]);
+            centroids.push(e.clone());
+        }
+    }
+    let mut out: Vec<CorpusCluster> = clusters
+        .into_iter()
+        .zip(centroids)
+        .map(|(members, centroid)| {
+            let member_texts: Vec<&str> = members.iter().map(|&i| texts[i].as_str()).collect();
+            let hints = top_terms(&member_texts, max_hints);
+            let label = hints.first().cloned().unwrap_or_else(|| "misc".to_string());
+            CorpusCluster { members, label, hints, centroid }
+        })
+        .collect();
+    out.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    out
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Installed axes — the promote/persist/decay tier. An installed axis is a NEW
 // axis value an operator earned (from an AxisProposal) and chose to keep. It is

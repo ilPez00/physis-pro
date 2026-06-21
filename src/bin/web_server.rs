@@ -589,6 +589,14 @@ fn sandbox_existing(state: &SharedState, raw: &str) -> Result<PathBuf, (StatusCo
 #[derive(Deserialize)]
 struct FsGraphQuery {
     dir: String,
+    /// "cells" (default) = fixed 70-cell semiotic grid as hubs;
+    /// "discovered" = emergent clusters mined from the scanned files (content map).
+    #[serde(default)]
+    grid: Option<String>,
+    /// Discovered-mode cluster tightness (cosine threshold). Higher = more, smaller
+    /// clusters. BGE doc cosines run high, so the default is 0.78.
+    #[serde(default)]
+    sim: Option<f32>,
 }
 
 #[derive(Serialize)]
@@ -651,41 +659,91 @@ async fn fs_graph_handler(
     // file↔file network: each file linked to its top-K nearest neighbours above τ.
     const SIM_TOP_K: usize = 4;
     const SIM_TAU: f32 = 0.55;
+    // discovered-mode clustering: corpus carved into emergent groups.
+    // BGE doc-doc cosines run high (related docs 0.6-0.9), so the merge threshold
+    // must be high or everything collapses into one cluster; tunable via ?sim=.
+    let discover_sim: f32 = q.sim.unwrap_or(0.78).clamp(0.5, 0.95);
+    const DISCOVER_MIN: usize = 2;
+    let discovered = matches!(q.grid.as_deref(), Some("discovered"));
     let shared = state.shared.clone();
     let (themes, files, edges, file_edges) = tokio::task::spawn_blocking(move || {
         let docs = physis_pro::ingest::ingest_all(&[canonical]);
-        let mut theme_ids: std::collections::HashMap<(String, String), usize> = std::collections::HashMap::new();
-        let mut themes: Vec<FsThemeDto> = Vec::new();
         let mut files: Vec<FsFileDto> = Vec::new();
-        let mut edges: Vec<FsEdgeDto> = Vec::new();
-        // Keep each file's vector so we can build the similarity network after.
         let mut embs: Vec<Vec<f32>> = Vec::new();
+        let mut texts: Vec<String> = Vec::new();
         for (fid, doc) in docs.iter().enumerate() {
-            let emb = shared.embedder.embed(&doc.body);
-            let scores = shared.classifier.classify(&emb);
             files.push(FsFileDto {
                 id: fid,
                 path: doc.path.display().to_string(),
                 title: doc.title.clone(),
                 kind: format!("{:?}", doc.kind),
             });
-            for cs in scores.iter().take(TOP_K).filter(|c| c.score > MIN_SCORE) {
-                let key = (cs.domain.clone(), cs.mode.clone());
-                let tid = *theme_ids.entry(key).or_insert_with(|| {
-                    let id = themes.len();
-                    themes.push(FsThemeDto {
-                        id,
-                        name: format!("{} × {}", cs.domain, cs.mode),
-                        category: Some(cs.domain.clone()),
-                        domain: cs.domain.clone(),
-                        mode: cs.mode.clone(),
-                    });
-                    id
-                });
-                edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: cs.score });
-            }
-            embs.push(emb);
+            embs.push(shared.embedder.embed(&doc.body));
+            texts.push(doc.body.clone());
         }
+
+        let mut themes: Vec<FsThemeDto> = Vec::new();
+        let mut edges: Vec<FsEdgeDto> = Vec::new();
+
+        if discovered {
+            // Hubs are the corpus's OWN emergent clusters, labelled by top terms.
+            // Clusters below DISCOVER_MIN are lumped into one "Uncategorized" hub so
+            // every file appears on the content map.
+            let clusters = physis_pro::axes::cluster_corpus(&texts, &embs, discover_sim, 8);
+            let mut uncategorized: Vec<usize> = Vec::new();
+            for c in &clusters {
+                if c.members.len() < DISCOVER_MIN {
+                    uncategorized.extend(c.members.iter().copied());
+                    continue;
+                }
+                let tid = themes.len();
+                themes.push(FsThemeDto {
+                    id: tid,
+                    name: format!("{} ({})", c.label, c.members.len()),
+                    category: Some("discovered".into()),
+                    domain: "discovered".into(),
+                    mode: c.label.clone(),
+                });
+                for &fid in &c.members {
+                    let score = physis_pro::models::cosine_sim(&embs[fid], &c.centroid);
+                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score });
+                }
+            }
+            if !uncategorized.is_empty() {
+                let tid = themes.len();
+                themes.push(FsThemeDto {
+                    id: tid,
+                    name: format!("Uncategorized ({})", uncategorized.len()),
+                    category: Some("discovered".into()),
+                    domain: "discovered".into(),
+                    mode: "uncategorized".into(),
+                });
+                for fid in uncategorized {
+                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: 0.5 });
+                }
+            }
+        } else {
+            // Fixed 70-cell semiotic grid via precomputed centroids.
+            let mut theme_ids: std::collections::HashMap<(String, String), usize> = std::collections::HashMap::new();
+            for (fid, emb) in embs.iter().enumerate() {
+                for cs in shared.classifier.classify(emb).iter().take(TOP_K).filter(|c| c.score > MIN_SCORE) {
+                    let key = (cs.domain.clone(), cs.mode.clone());
+                    let tid = *theme_ids.entry(key).or_insert_with(|| {
+                        let id = themes.len();
+                        themes.push(FsThemeDto {
+                            id,
+                            name: format!("{} × {}", cs.domain, cs.mode),
+                            category: Some(cs.domain.clone()),
+                            domain: cs.domain.clone(),
+                            mode: cs.mode.clone(),
+                        });
+                        id
+                    });
+                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: cs.score });
+                }
+            }
+        }
+
         // file↔file similarity edges: top-K neighbours per file (cosine > τ),
         // deduped to one undirected edge per pair.
         let mut file_edges: Vec<FsSimEdge> = Vec::new();

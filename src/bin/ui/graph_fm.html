@@ -39,11 +39,16 @@
   <input id="token" type="password" placeholder="API token (Bearer)" />
   <input id="dir" placeholder="/abs/path/to/scan (inside scan root)" />
   <button id="scan">Scan →</button>
-  <select id="view" title="graph view">
-    <option value="cells">cells</option>
-    <option value="both">cells + similarity</option>
+  <select id="grid" title="hubs">
+    <option value="cells">semiotic cells</option>
+    <option value="discovered">discovered modes</option>
+  </select>
+  <select id="view" title="edges">
+    <option value="cells">hub edges</option>
+    <option value="both">hubs + similarity</option>
     <option value="sim">similarity only</option>
   </select>
+  <input id="search" placeholder="filter files…" style="min-width:130px" />
   <span id="status" class="muted">idle</span>
 </header>
 <main>
@@ -135,37 +140,41 @@ async function scan(){
   if(!dir){ setStatus('enter a directory', true); return; }
   setStatus('scanning…');
   try{
-    const g = await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir));
+    const grid=$('grid').value;
+    const g = await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir)+'&grid='+grid);
     lastG = g;
     render(g);
-    setStatus(`${g.themes.length} cells · ${g.files.length} files · ${g.edges.length} cell-edges · ${(g.file_edges||[]).length} sim-edges`);
+    const hub = grid==='discovered' ? 'discovered-modes' : 'cells';
+    setStatus(`${g.themes.length} ${hub} · ${g.files.length} files · ${g.edges.length} hub-edges · ${(g.file_edges||[]).length} sim-edges`);
   }catch(e){ setStatus(String(e), true); }
 }
 
+// Palette for discovered-mode hubs (no fixed domain → color by index).
+const PALETTE = ['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba','#f0883e','#56d4dd','#db61a2','#a5d6ff','#7ee787'];
 let lastG = null;
 function render(g){
   if(!g) return;
   const view = $('view').value;            // cells | both | sim
   const showCells = view !== 'sim';
   const showSim   = view !== 'cells';
+  // Hub color: fixed grid → by domain; discovered → palette by hub index.
+  const hubColor = {};
+  g.themes.forEach((t,i)=>{ hubColor[t.id] = (t.domain==='discovered') ? PALETTE[i%PALETTE.length] : (DCOL[t.domain]||DCOL['']); });
   const els=[];
-  // Theme (cell) hubs only matter when cell edges are shown.
   if(showCells){
     const maxDeg = Math.max(1, ...g.themes.map(t => g.edges.filter(e=>e.theme_id===t.id).length));
     for(const t of g.themes){
       const deg = g.edges.filter(e=>e.theme_id===t.id).length;
-      els.push({data:{ id:'t'+t.id, kind:'theme', label:t.name, color:DCOL[t.domain]||DCOL[''],
+      els.push({data:{ id:'t'+t.id, kind:'theme', label:t.name, color:hubColor[t.id],
         domain:t.domain, mode:t.mode, category:t.category||'', sz:20+30*deg/maxDeg }});
     }
   }
-  // File nodes colored by their top cell's domain (so clusters are readable in sim view).
-  const topDom = {};
-  for(const e of g.edges){ if(topDom[e.file_id]===undefined) topDom[e.file_id]=e.theme_id; }
-  const tById = Object.fromEntries(g.themes.map(t=>[t.id,t]));
+  // File nodes colored by their top hub (so clusters read in similarity view too).
+  const topHub = {};
+  for(const e of g.edges){ if(topHub[e.file_id]===undefined) topHub[e.file_id]=e.theme_id; }
   for(const f of g.files){
-    const t = tById[topDom[f.id]];
     els.push({data:{ id:'f'+f.id, kind:'file', label:f.title||f.path.split('/').pop(), path:f.path, fkind:f.kind,
-      color: t?(DCOL[t.domain]||DCOL['']):DCOL[''] }});
+      color: hubColor[topHub[f.id]]||DCOL[''] }});
   }
   if(showCells){
     for(const e of g.edges){
@@ -180,6 +189,18 @@ function render(g){
   cy.elements().remove();
   cy.add(els);
   cy.layout({name:'cose', animate:false, nodeRepulsion:8000, idealEdgeLength:60}).run();
+  applySearch();
+}
+
+// Dim file nodes whose name doesn't match the search box.
+function applySearch(){
+  const q=($('search').value||'').toLowerCase().trim();
+  cy.batch(()=>{
+    cy.nodes('[kind="file"]').forEach(n=>{
+      const hit = !q || (n.data('label')||'').toLowerCase().includes(q) || (n.data('path')||'').toLowerCase().includes(q);
+      n.style('opacity', hit?1:0.08);
+    });
+  });
 }
 
 async function move(){
@@ -220,6 +241,8 @@ async function loadHeat(){
 $('scan').onclick=scan;
 $('move').onclick=move;
 $('view').onchange=()=>render(lastG);
+$('grid').onchange=scan;          // hubs come from the server → re-scan
+$('search').oninput=applySearch;
 ['base','token'].forEach(k=>$(k).onchange=()=>{ save(); loadHeat(); });
 initCy();
 loadHeat();
