@@ -13,7 +13,6 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use base64::Engine;
-use rayon::prelude::*;
 
 use physis_pro::actor::PDCActor;
 use physis_pro::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
@@ -667,10 +666,15 @@ async fn fs_graph_handler(
     let shared = state.shared.clone();
     let (themes, files, edges, file_edges) = tokio::task::spawn_blocking(move || {
         let docs = physis_pro::ingest::ingest_all(&[canonical]);
-        // Embed files in PARALLEL across cores (rayon) — the embed is the scan's
-        // whole cost and embed(&self) is Sync; ORT runs concurrently. order is
-        // preserved by par_iter().collect() so file ids stay stable.
-        let embs: Vec<Vec<f32>> = docs.par_iter().map(|d| shared.embedder.embed(&d.body)).collect();
+        // Embed in BATCHES — one ORT session run per chunk amortizes per-call
+        // overhead and lets the batch matmul use multiple cores, far cheaper than
+        // N separate embed() runs (which serialize on the session Mutex). Order is
+        // preserved so file ids stay stable.
+        let bodies: Vec<&str> = docs.iter().map(|d| d.body.as_str()).collect();
+        let embs: Vec<Vec<f32>> = bodies
+            .chunks(32)
+            .flat_map(|c| shared.embedder.embed_batch(c))
+            .collect();
         let files: Vec<FsFileDto> = docs
             .iter()
             .enumerate()
