@@ -16,9 +16,14 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
     // precision. Skipping fusion lets the model load; the cost is slightly
     // slower inference, which we accept. Plain BERT models (MiniLM/BGE) are
     // unaffected. PREMORTEM.md P4.
+    // Use all cores for intra-op (matmul) parallelism within a single inference.
+    // The embedder serializes runs behind a Mutex (one embed at a time), so the
+    // only way to use >1 core is to parallelize inside each run.
+    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let build = || -> ort::Result<ort::session::Session> {
         ort::session::Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Disable)?
+            .with_intra_threads(threads)?
             .commit_from_file(model_path)
     };
     match build() {

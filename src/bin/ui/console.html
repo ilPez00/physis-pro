@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis Console</title>
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  :root{--bg:#0e1116;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg);height:100vh;display:flex;flex-direction:column}
+  header{padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0 14px 0 0;font-weight:600}
+  header h1 span{color:var(--accent)}
+  input,button,select,textarea{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit}
+  button{cursor:pointer}button:hover{border-color:var(--accent)}
+  #status{margin-left:auto;font-size:12px}
+  .muted{color:var(--muted)}.err{color:#f85149}
+  main{flex:1;display:flex;min-height:0}
+  nav{width:130px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:8px 0}
+  nav button{background:none;border:none;border-radius:0;text-align:left;padding:9px 14px;color:var(--muted);font-size:13px}
+  nav button.active{color:var(--fg);border-left:2px solid var(--accent);background:#0d1117}
+  nav button:hover{color:var(--fg)}
+  .tab{flex:1;min-width:0;display:none;overflow:auto;padding:14px}
+  .tab.active{display:flex;flex-direction:column}
+  h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500}
+  .bar{height:8px;background:var(--accent);border-radius:4px}
+  textarea{width:100%;min-height:80px;resize:vertical}
+  /* file graph */
+  #graphWrap{flex:1;display:flex;min-height:0}
+  #cy{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px}
+  #gAside{width:340px;border-left:1px solid var(--line);margin-left:10px;display:flex;flex-direction:column;min-height:0}
+  .pane{padding:8px 0;overflow:auto}
+  #content{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,monospace;background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px;max-height:280px;overflow:auto}
+  #heat{display:grid;gap:2px;font-size:9px}.hc{aspect-ratio:1;border-radius:2px}.rowlab,.collab{color:var(--muted);font-size:9px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  label.sm{font-size:11px;color:var(--muted)}
+  .big{font-size:34px;font-weight:700}
+  .kpi{display:flex;gap:20px;flex-wrap:wrap;margin:10px 0}
+  .kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:110px}
+  .kpi small{color:var(--muted);display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Physis <span>Console</span></h1>
+  <input id="base" placeholder="API base (blank=same origin)" style="min-width:200px"/>
+  <input id="token" type="password" placeholder="Bearer token" style="min-width:160px"/>
+  <span id="status" class="muted">ready</span>
+</header>
+<main>
+  <nav>
+    <button data-tab="classify" class="active">Classify</button>
+    <button data-tab="grid">Grid</button>
+    <button data-tab="graph">File Graph</button>
+    <button data-tab="oee">OEE</button>
+  </nav>
+
+  <!-- CLASSIFY -->
+  <section class="tab active" id="tab-classify">
+    <h3>Classify text → semiotic cell</h3>
+    <textarea id="clText" placeholder="paste any observation, log line, note…"></textarea>
+    <div class="row" style="margin-top:8px"><button id="clRun">Classify →</button></div>
+    <div id="clOut"></div>
+  </section>
+
+  <!-- GRID -->
+  <section class="tab" id="tab-grid">
+    <h3>Semiotic grid — 5 domains × 14 modes (70 cells)</h3>
+    <div id="heat"></div>
+    <p class="muted" id="gridNote" style="margin-top:8px"></p>
+  </section>
+
+  <!-- FILE GRAPH -->
+  <section class="tab" id="tab-graph">
+    <div class="row">
+      <input id="dir" placeholder="/abs/dir (inside scan root)" style="min-width:300px"/>
+      <select id="hubs"><option value="cells">semiotic cells</option><option value="discovered">discovered modes</option></select>
+      <select id="view"><option value="cells">hub edges</option><option value="both">hubs+similarity</option><option value="sim">similarity only</option></select>
+      <input id="search" placeholder="filter files…" style="min-width:120px"/>
+      <button id="scan">Scan →</button>
+    </div>
+    <div id="graphWrap">
+      <div id="cy"></div>
+      <div id="gAside">
+        <div class="pane"><h3>Selection</h3><div id="sel" class="muted">Click a node.</div>
+          <div id="moveBox" style="display:none;margin-top:6px">
+            <label class="sm">Move/rename to (abs path, inside scan root)</label>
+            <div class="row" style="margin-top:2px"><input id="dest" style="flex:1"/><button id="move">Move</button></div>
+          </div>
+        </div>
+        <div class="pane" style="flex:1"><h3>Preview</h3><div id="content" class="muted">—</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OEE -->
+  <section class="tab" id="tab-oee">
+    <div class="row"><h3 style="margin:0">Plant OEE</h3><button id="oeeLoad">Refresh</button></div>
+    <div id="oeeOut" class="muted">Loading…</div>
+  </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const LS={base:'physis_base',token:'physis_token',dir:'physis_dir'};
+['base','token','dir'].forEach(k=>{const v=localStorage.getItem(LS[k]); if(v&&$(k))$(k).value=v;});
+const save=()=>['base','token','dir'].forEach(k=>$(k)&&localStorage.setItem(LS[k],$(k).value));
+const api=p=>{const b=$('base').value.trim().replace(/\/$/,'');return (b||'')+p;};
+const hdr=()=>{const t=$('token').value.trim();return t?{Authorization:'Bearer '+t}:{};};
+const setS=(m,e)=>{const s=$('status');s.textContent=m;s.className=e?'err':'muted';};
+async function getJSON(p){const r=await fetch(api(p),{headers:hdr()});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
+async function postJSON(p,body){const r=await fetch(api(p),{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
+
+const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
+const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
+const DCOL={HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+
+// ── tabs ──
+let cyReady=false;
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('tab-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='grid') loadHeat();
+  if(b.dataset.tab==='oee') loadOee();
+  if(b.dataset.tab==='graph'){ if(!cyReady){initCy();cyReady=true;} setTimeout(()=>{cy.resize();cy.fit();},50); }
+});
+
+// ── classify ──
+$('clRun').onclick=async()=>{
+  const text=$('clText').value.trim(); if(!text){setS('enter text',1);return;}
+  setS('classifying…');
+  try{
+    const j=await postJSON('/api/v1/classify',{text});
+    const max=Math.max(...j.results.map(r=>r.score),0.0001);
+    $('clOut').innerHTML='<table><tr><th>#</th><th>domain × mode</th><th>score</th><th></th></tr>'+
+      j.results.slice(0,12).map((r,i)=>`<tr><td>${i+1}</td><td style="color:${DCOL[r.domain]||DCOL['']}">${r.domain} × ${r.mode}</td><td>${r.score.toFixed(3)}</td><td style="width:120px"><div class="bar" style="width:${Math.round(100*r.score/max)}%"></div></td></tr>`).join('')+'</table>';
+    setS('top: '+j.top.domain+'×'+j.top.mode+' '+j.top.score.toFixed(3));
+  }catch(e){setS(String(e),1);}
+};
+
+// ── grid / heatmap ──
+async function loadHeat(){
+  try{
+    const j=await getJSON('/api/v1/semiotic/heatmap'); const m=j.matrix||[];
+    const heat=$('heat'); heat.style.gridTemplateColumns=`60px repeat(${MODES.length},1fr)`;
+    let max=0; m.forEach(r=>r.forEach(v=>{if(v>max)max=v;}));
+    let html=`<div></div>`+MODES.map(x=>`<div class="collab" title="${x}">${x.slice(0,4)}</div>`).join('');
+    for(let i=0;i<m.length;i++){
+      html+=`<div class="rowlab">${DOMAINS[i]||''}</div>`;
+      for(let k=0;k<m[i].length;k++){const v=m[i][k],a=max>0?v/max:0;
+        html+=`<div class="hc" title="${DOMAINS[i]}×${MODES[k]} = ${v.toFixed(3)}" style="background:rgba(88,166,255,${0.10+0.9*a})"></div>`;}
+    }
+    heat.innerHTML=html; $('gridNote').textContent='cell intensity = activation from ontology entries.';
+  }catch(e){$('gridNote').innerHTML='<span class="err">'+e+'</span>';}
+}
+
+// ── OEE ──
+async function loadOee(){
+  $('oeeOut').textContent='Loading…';
+  try{
+    const p=await getJSON('/api/v1/oee/plant');
+    const pct=v=>(v*100).toFixed(1)+'%';
+    let html=`<div class="big" style="color:${p.oee>=0.85?'var(--green)':'var(--accent)'}">${pct(p.oee)} <span style="font-size:14px" class="muted">plant OEE</span></div>`;
+    html+=`<div class="kpi">
+      <div><small>Availability</small>${pct(p.availability)}</div>
+      <div><small>Performance</small>${pct(p.performance)}</div>
+      <div><small>Quality</small>${pct(p.quality)}</div>
+      <div><small>Machines</small>${p.machine_count}</div>
+      <div><small>Good / total</small>${p.total_good} / ${p.total_parts}</div></div>`;
+    if(p.losses&&p.losses.length){
+      html+='<h3>Six big losses</h3><table><tr><th>loss</th><th>factor</th><th>lost (min)</th><th>lost parts</th></tr>'+
+        p.losses.map(l=>`<tr><td>${l.label}</td><td class="muted">${l.factor}</td><td>${(l.lost_secs/60).toFixed(1)}</td><td>${l.lost_parts}</td></tr>`).join('')+'</table>';
+    } else { html+='<p class="muted">No machines registered. Feed data via POST /api/v1/oee/machine + /oee/event.</p>'; }
+    $('oeeOut').innerHTML=html; setS('OEE loaded');
+  }catch(e){$('oeeOut').innerHTML='<span class="err">'+e+'</span>';}
+}
+
+// ── file graph (cytoscape) ──
+const PALETTE=['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba','#f0883e','#56d4dd','#db61a2','#a5d6ff','#7ee787'];
+let cy,lastG=null;
+function initCy(){
+  cy=cytoscape({container:$('cy'),style:[
+    {selector:'node[kind="theme"]',style:{'background-color':'data(color)','label':'data(label)','color':'#e6edf3','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#0e1116','text-outline-width':2}},
+    {selector:'node[kind="file"]',style:{'background-color':'data(color)','border-color':'#0e1116','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':11,'height':11}},
+    {selector:'node:selected',style:{'border-color':'#f0f6fc','border-width':3}},
+    {selector:'edge[etype="theme"]',style:{'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack'}},
+    {selector:'edge[etype="sim"]',style:{'width':'data(w)','line-color':'#3fb950','line-style':'dashed','opacity':0.5,'curve-style':'haystack'}}
+  ],layout:{name:'cose',animate:false}});
+  cy.on('tap','node',e=>onNode(e.target));
+}
+function onNode(n){const d=n.data();$('moveBox').style.display=d.kind==='file'?'block':'none';
+  if(d.kind==='file'){$('sel').innerHTML=`<b>${d.label}</b><br><span class="muted">${d.path}</span><br>kind: ${d.fkind}`;$('dest').value=d.path;preview(d.path);}
+  else{$('sel').innerHTML=`<b>${d.label}</b><br><span class="muted">${d.domain}×${d.mode}</span>`;$('content').textContent='—';}}
+async function preview(path){$('content').textContent='loading…';try{const j=await getJSON('/api/v1/fs/file?path='+encodeURIComponent(path));$('content').textContent=j.content+(j.truncated?'\n\n… [truncated, '+j.size+' bytes]':'');$('content').className='';}catch(e){$('content').textContent=String(e);$('content').className='err';}}
+async function scan(){save();const dir=$('dir').value.trim();if(!dir){setS('enter a dir',1);return;}setS('scanning…');
+  try{const hubs=$('hubs').value;const g=await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir)+'&grid='+hubs);lastG=g;render(g);
+    setS(`${g.themes.length} ${hubs==='discovered'?'modes':'cells'} · ${g.files.length} files · ${g.edges.length} edges · ${(g.file_edges||[]).length} sim`);}catch(e){setS(String(e),1);}}
+function render(g){if(!g)return;const view=$('view').value,showC=view!=='sim',showS=view!=='cells';
+  const hubColor={};g.themes.forEach((t,i)=>{hubColor[t.id]=(t.domain==='discovered')?PALETTE[i%PALETTE.length]:(DCOL[t.domain]||DCOL['']);});
+  const els=[];
+  if(showC){const md=Math.max(1,...g.themes.map(t=>g.edges.filter(e=>e.theme_id===t.id).length));
+    for(const t of g.themes){const deg=g.edges.filter(e=>e.theme_id===t.id).length;
+      els.push({data:{id:'t'+t.id,kind:'theme',label:t.name,color:hubColor[t.id],domain:t.domain,mode:t.mode,sz:20+30*deg/md}});}}
+  const topHub={};for(const e of g.edges){if(topHub[e.file_id]===undefined)topHub[e.file_id]=e.theme_id;}
+  for(const f of g.files)els.push({data:{id:'f'+f.id,kind:'file',label:f.title||f.path.split('/').pop(),path:f.path,fkind:f.kind,color:hubColor[topHub[f.id]]||DCOL['']}});
+  if(showC)for(const e of g.edges)els.push({data:{id:'te'+e.theme_id+'_'+e.file_id,etype:'theme',source:'t'+e.theme_id,target:'f'+e.file_id,w:1+3*e.score}});
+  if(showS)for(const e of (g.file_edges||[]))els.push({data:{id:'se'+e.source+'_'+e.target,etype:'sim',source:'f'+e.source,target:'f'+e.target,w:1+3*(e.score-0.5)}});
+  cy.elements().remove();cy.add(els);cy.layout({name:'cose',animate:false,nodeRepulsion:8000,idealEdgeLength:60}).run();applySearch();}
+function applySearch(){const q=($('search').value||'').toLowerCase().trim();cy.batch(()=>{cy.nodes('[kind="file"]').forEach(n=>{const hit=!q||(n.data('label')||'').toLowerCase().includes(q)||(n.data('path')||'').toLowerCase().includes(q);n.style('opacity',hit?1:0.08);});});}
+async function move(){const n=cy.$('node:selected').first();if(!n||n.data('kind')!=='file')return;const dest=$('dest').value.trim();setS('moving…');
+  try{const j=await postJSON('/api/v1/fs/move',{from:n.data('path'),to:dest});n.data('path',j.to);n.data('label',j.to.split('/').pop());setS('moved → '+j.to);}catch(e){setS(String(e),1);}}
+
+$('scan').onclick=scan;$('move').onclick=move;$('view').onchange=()=>render(lastG);$('hubs').onchange=scan;$('search').oninput=applySearch;
+['base','token'].forEach(k=>$(k).onchange=save);
+</script>
+</body>
+</html>

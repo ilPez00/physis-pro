@@ -878,7 +878,7 @@ async fn fs_move_handler(
 /// GET /ui — the graph file-manager single-page app (public; calls the
 /// authenticated fs/* endpoints with a token the user pastes in the page).
 async fn graph_fm_ui_handler() -> Html<&'static str> {
-    Html(include_str!("ui/graph_fm.html"))
+    Html(include_str!("ui/console.html"))
 }
 
 async fn dream_generate_handler(
