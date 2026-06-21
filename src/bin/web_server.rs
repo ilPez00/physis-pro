@@ -615,6 +615,14 @@ struct FsEdgeDto {
     score: f32,
 }
 
+/// Semantic similarity edge between two files (undirected; ids index `files`).
+#[derive(Serialize)]
+struct FsSimEdge {
+    source: usize,
+    target: usize,
+    score: f32,
+}
+
 #[derive(Serialize)]
 struct FsGraphResponse {
     root: String,
@@ -622,6 +630,8 @@ struct FsGraphResponse {
     themes: Vec<FsThemeDto>,
     files: Vec<FsFileDto>,
     edges: Vec<FsEdgeDto>,
+    /// file↔file edges by cosine of the BGE vectors — the classified-item network.
+    file_edges: Vec<FsSimEdge>,
 }
 
 /// GET /api/v1/fs/graph?dir=… — scan a directory into a theme↔file graph.
@@ -638,15 +648,21 @@ async fn fs_graph_handler(
     // request made BGE scans take minutes; centroids are built once at startup.)
     const TOP_K: usize = 5;
     const MIN_SCORE: f32 = 0.20;
+    // file↔file network: each file linked to its top-K nearest neighbours above τ.
+    const SIM_TOP_K: usize = 4;
+    const SIM_TAU: f32 = 0.55;
     let shared = state.shared.clone();
-    let (themes, files, edges) = tokio::task::spawn_blocking(move || {
+    let (themes, files, edges, file_edges) = tokio::task::spawn_blocking(move || {
         let docs = physis_pro::ingest::ingest_all(&[canonical]);
         let mut theme_ids: std::collections::HashMap<(String, String), usize> = std::collections::HashMap::new();
         let mut themes: Vec<FsThemeDto> = Vec::new();
         let mut files: Vec<FsFileDto> = Vec::new();
         let mut edges: Vec<FsEdgeDto> = Vec::new();
+        // Keep each file's vector so we can build the similarity network after.
+        let mut embs: Vec<Vec<f32>> = Vec::new();
         for (fid, doc) in docs.iter().enumerate() {
-            let scores = shared.classifier.classify_text(&doc.body, shared.embedder.as_ref());
+            let emb = shared.embedder.embed(&doc.body);
+            let scores = shared.classifier.classify(&emb);
             files.push(FsFileDto {
                 id: fid,
                 path: doc.path.display().to_string(),
@@ -668,8 +684,27 @@ async fn fs_graph_handler(
                 });
                 edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: cs.score });
             }
+            embs.push(emb);
         }
-        (themes, files, edges)
+        // file↔file similarity edges: top-K neighbours per file (cosine > τ),
+        // deduped to one undirected edge per pair.
+        let mut file_edges: Vec<FsSimEdge> = Vec::new();
+        let mut seen: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
+        for i in 0..embs.len() {
+            let mut sims: Vec<(usize, f32)> = (0..embs.len())
+                .filter(|&j| j != i)
+                .map(|j| (j, physis_pro::models::cosine_sim(&embs[i], &embs[j])))
+                .filter(|(_, s)| *s > SIM_TAU)
+                .collect();
+            sims.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            for (j, s) in sims.into_iter().take(SIM_TOP_K) {
+                let key = if i < j { (i, j) } else { (j, i) };
+                if seen.insert(key) {
+                    file_edges.push(FsSimEdge { source: key.0, target: key.1, score: s });
+                }
+            }
+        }
+        (themes, files, edges, file_edges)
     })
     .await
     .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("graph build failed: {e}")))?;
@@ -689,6 +724,7 @@ async fn fs_graph_handler(
         themes,
         files,
         edges,
+        file_edges,
     }))
 }
 

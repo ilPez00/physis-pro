@@ -39,6 +39,11 @@
   <input id="token" type="password" placeholder="API token (Bearer)" />
   <input id="dir" placeholder="/abs/path/to/scan (inside scan root)" />
   <button id="scan">Scan →</button>
+  <select id="view" title="graph view">
+    <option value="cells">cells</option>
+    <option value="both">cells + similarity</option>
+    <option value="sim">similarity only</option>
+  </select>
   <span id="status" class="muted">idle</span>
 </header>
 <main>
@@ -92,9 +97,10 @@ function initCy(){
     container: $('cy'),
     style: [
       { selector:'node[kind="theme"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#e6edf3','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#0e1116','text-outline-width':2 } },
-      { selector:'node[kind="file"]', style:{ 'background-color':'#30363d','border-color':'#58a6ff','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':10,'height':10 } },
+      { selector:'node[kind="file"]', style:{ 'background-color':'data(color)','border-color':'#0e1116','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':11,'height':11 } },
       { selector:'node:selected', style:{ 'border-color':'#f0f6fc','border-width':3 } },
-      { selector:'edge', style:{ 'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack' } }
+      { selector:'edge[etype="theme"]', style:{ 'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack' } },
+      { selector:'edge[etype="sim"]', style:{ 'width':'data(w)','line-color':'#3fb950','line-style':'dashed','opacity':0.5,'curve-style':'haystack' } }
     ],
     layout:{name:'cose', animate:false}
   });
@@ -130,24 +136,46 @@ async function scan(){
   setStatus('scanning…');
   try{
     const g = await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir));
+    lastG = g;
     render(g);
-    setStatus(`${g.themes.length} themes · ${g.files.length} files · ${g.edges.length} edges`);
+    setStatus(`${g.themes.length} cells · ${g.files.length} files · ${g.edges.length} cell-edges · ${(g.file_edges||[]).length} sim-edges`);
   }catch(e){ setStatus(String(e), true); }
 }
 
+let lastG = null;
 function render(g){
+  if(!g) return;
+  const view = $('view').value;            // cells | both | sim
+  const showCells = view !== 'sim';
+  const showSim   = view !== 'cells';
   const els=[];
-  const maxDeg = Math.max(1, ...g.themes.map(t => g.edges.filter(e=>e.theme_id===t.id).length));
-  for(const t of g.themes){
-    const deg = g.edges.filter(e=>e.theme_id===t.id).length;
-    els.push({data:{ id:'t'+t.id, kind:'theme', label:t.name, color:DCOL[t.domain]||DCOL[''],
-      domain:t.domain, mode:t.mode, category:t.category||'', sz:20+30*deg/maxDeg }});
+  // Theme (cell) hubs only matter when cell edges are shown.
+  if(showCells){
+    const maxDeg = Math.max(1, ...g.themes.map(t => g.edges.filter(e=>e.theme_id===t.id).length));
+    for(const t of g.themes){
+      const deg = g.edges.filter(e=>e.theme_id===t.id).length;
+      els.push({data:{ id:'t'+t.id, kind:'theme', label:t.name, color:DCOL[t.domain]||DCOL[''],
+        domain:t.domain, mode:t.mode, category:t.category||'', sz:20+30*deg/maxDeg }});
+    }
   }
+  // File nodes colored by their top cell's domain (so clusters are readable in sim view).
+  const topDom = {};
+  for(const e of g.edges){ if(topDom[e.file_id]===undefined) topDom[e.file_id]=e.theme_id; }
+  const tById = Object.fromEntries(g.themes.map(t=>[t.id,t]));
   for(const f of g.files){
-    els.push({data:{ id:'f'+f.id, kind:'file', label:f.title||f.path.split('/').pop(), path:f.path, fkind:f.kind }});
+    const t = tById[topDom[f.id]];
+    els.push({data:{ id:'f'+f.id, kind:'file', label:f.title||f.path.split('/').pop(), path:f.path, fkind:f.kind,
+      color: t?(DCOL[t.domain]||DCOL['']):DCOL[''] }});
   }
-  for(const e of g.edges){
-    els.push({data:{ id:'e'+e.theme_id+'_'+e.file_id, source:'t'+e.theme_id, target:'f'+e.file_id, w:1+3*e.score }});
+  if(showCells){
+    for(const e of g.edges){
+      els.push({data:{ id:'te'+e.theme_id+'_'+e.file_id, etype:'theme', source:'t'+e.theme_id, target:'f'+e.file_id, w:1+3*e.score }});
+    }
+  }
+  if(showSim){
+    for(const e of (g.file_edges||[])){
+      els.push({data:{ id:'se'+e.source+'_'+e.target, etype:'sim', source:'f'+e.source, target:'f'+e.target, w:1+3*(e.score-0.5) }});
+    }
   }
   cy.elements().remove();
   cy.add(els);
@@ -191,6 +219,7 @@ async function loadHeat(){
 
 $('scan').onclick=scan;
 $('move').onclick=move;
+$('view').onchange=()=>render(lastG);
 ['base','token'].forEach(k=>$(k).onchange=()=>{ save(); loadHeat(); });
 initCy();
 loadHeat();
