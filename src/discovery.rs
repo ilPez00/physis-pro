@@ -129,6 +129,19 @@ struct Scored {
     mode: String,
 }
 
+/// Threshold that isolates the least-covered `frac` tail of `sims` (the lowest
+/// cosines — the texts the grid misses most). Returns the value at the `frac`
+/// quantile, so `best < threshold` selects roughly the bottom `frac` of texts.
+/// Used by the P10 auto-retune: a *low* quantile surfaces a focused tail; a high
+/// one would mark most of the corpus "uncovered" (the inverse snake-oil look).
+fn tail_threshold(sorted_sims: &[f32], frac: f32) -> Option<f32> {
+    if sorted_sims.is_empty() {
+        return None;
+    }
+    let q = ((sorted_sims.len() as f32 * frac) as usize).min(sorted_sims.len() - 1);
+    Some(sorted_sims[q])
+}
+
 /// Split scored texts at `threshold`, cluster the unmapped, draft proposals.
 /// Pure over precomputed scores — no embedding — so `discover` can retry at an
 /// auto-tuned threshold without re-embedding.
@@ -234,12 +247,12 @@ pub fn discover(
     let mut auto_retuned = false;
 
     if proposals.is_empty() && cfg.auto_retune && !scored.is_empty() {
-        // Pick the threshold that leaves the top ~20% least-covered texts as
-        // unmapped, so clusters can form regardless of the absolute sim scale.
+        // Surface only the genuinely least-covered ~20% tail (lowest cosines);
+        // the well-covered 80% stay covered. Works regardless of the absolute
+        // sim scale — a dense grid's ~0.64 uniform band still yields a tail.
         let mut sims: Vec<f32> = scored.iter().map(|s| s.best).collect();
         sims.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let q = ((sims.len() as f32 * 0.80) as usize).min(sims.len().saturating_sub(1));
-        let suggested = sims[q];
+        let suggested = tail_threshold(&sims, 0.20).unwrap_or(threshold);
         if suggested > threshold {
             let (c2, p2) = cluster_at(&scored, suggested, cfg);
             if !p2.is_empty() {
@@ -403,6 +416,26 @@ mod tests {
         assert!(!report.auto_retuned);
         assert_eq!(report.covered, 2);
         assert!(report.proposals.is_empty());
+    }
+
+    #[test]
+    fn test_tail_threshold_selects_least_covered_not_majority() {
+        // Sorted ascending best-entry cosines. The bottom-20% tail at 0.20 must
+        // sit near the LOW end (catches the worst-covered ~20%), not the top —
+        // regression guard for the inverted-quantile bug (was 0.80 → 80% flagged).
+        let sims: Vec<f32> = (0..10).map(|i| 0.50 + i as f32 * 0.01).collect(); // 0.50..0.59
+        let t = tail_threshold(&sims, 0.20).unwrap();
+        let unmapped = sims.iter().filter(|&&s| s < t).count();
+        assert!(unmapped <= 3, "bottom-20% tail must stay small, got {unmapped}/10");
+        // A high quantile would do the opposite — prove the direction.
+        let high = tail_threshold(&sims, 0.80).unwrap();
+        let unmapped_high = sims.iter().filter(|&&s| s < high).count();
+        assert!(unmapped_high > unmapped, "0.80 over-marks vs 0.20");
+    }
+
+    #[test]
+    fn test_tail_threshold_empty_is_none() {
+        assert!(tail_threshold(&[], 0.20).is_none());
     }
 
     #[test]
