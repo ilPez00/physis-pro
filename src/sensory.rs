@@ -55,6 +55,52 @@ impl AuraFrame {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HEADER_SIZE: usize = std::mem::size_of::<AuraFrameHeader>();
+
+    #[test]
+    fn header_layout_is_wire_stable() {
+        // The listener reads exactly this many bytes off the socket; a padding
+        // or field change silently desyncs every producer.
+        assert_eq!(HEADER_SIZE, 24);
+    }
+
+    #[test]
+    fn new_frame_populates_header() {
+        let frame = AuraFrame::new(SignalType::Gyroscope, vec![1, 2, 3]);
+        assert_eq!(&frame.header.magic, b"AURA");
+        assert_eq!(frame.header.signal_type, SignalType::Gyroscope as u8);
+        assert_eq!(frame.header.payload_len, 3);
+        assert!(frame.header.timestamp > 0);
+    }
+
+    #[test]
+    fn to_bytes_roundtrips_through_listener_parse() {
+        // Mirror the listener's decode: header bytes → bytemuck::from_bytes,
+        // then payload_len bytes of payload.
+        let payload = vec![9u8, 8, 7, 6];
+        let frame = AuraFrame::new(SignalType::AudioPCM, payload.clone());
+        let bytes = frame.to_bytes();
+        assert_eq!(bytes.len(), HEADER_SIZE + payload.len());
+
+        let parsed: AuraFrameHeader = *bytemuck::from_bytes(&bytes[..HEADER_SIZE]);
+        assert_eq!(&parsed.magic, b"AURA");
+        assert_eq!(parsed.signal_type, SignalType::AudioPCM as u8);
+        assert_eq!(parsed.payload_len as usize, payload.len());
+        assert_eq!(&bytes[HEADER_SIZE..], payload.as_slice());
+    }
+
+    #[test]
+    fn empty_payload_frame_is_valid() {
+        let frame = AuraFrame::new(SignalType::ThoughtCapture, Vec::new());
+        assert_eq!(frame.header.payload_len, 0);
+        assert_eq!(frame.to_bytes().len(), HEADER_SIZE);
+    }
+}
+
 pub mod listener {
     use tokio::net::UnixListener;
     use tokio::io::AsyncReadExt;

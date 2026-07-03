@@ -568,6 +568,58 @@ mod mcp_impl {
             });
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn request(args: JsonValue) -> CallToolRequestParam {
+            CallToolRequestParam {
+                name: "test_tool".into(),
+                arguments: args.as_object().cloned(),
+            }
+        }
+
+        #[test]
+        fn get_str_extracts_and_rejects() {
+            let req = request(json!({"text": "hello", "count": 3}));
+            assert_eq!(get_str(&req, "text").unwrap(), "hello");
+            assert!(get_str(&req, "missing").is_err());
+            assert!(get_str(&req, "count").is_err(), "non-string must not coerce");
+        }
+
+        #[test]
+        fn get_f64_accepts_ints_and_floats() {
+            let req = request(json!({"weight": 0.5, "count": 3, "text": "x"}));
+            assert_eq!(get_f64(&req, "weight").unwrap(), 0.5);
+            assert_eq!(get_f64(&req, "count").unwrap(), 3.0);
+            assert!(get_f64(&req, "text").is_err());
+            assert!(get_f64(&req, "missing").is_err());
+        }
+
+        #[test]
+        fn get_i64_is_optional() {
+            let req = request(json!({"limit": 10, "weight": 0.5}));
+            assert_eq!(get_i64(&req, "limit"), Some(10));
+            assert_eq!(get_i64(&req, "missing"), None);
+            assert_eq!(get_i64(&req, "weight"), None, "float must not coerce to int");
+        }
+
+        #[test]
+        fn get_vec_f64_downcasts_and_skips_non_numeric() {
+            let req = request(json!({"vec": [1.0, 2, "skip", 3.5], "text": "x"}));
+            assert_eq!(get_vec_f64(&req, "vec").unwrap(), vec![1.0f32, 2.0, 3.5]);
+            assert!(get_vec_f64(&req, "text").is_err());
+        }
+
+        #[test]
+        fn missing_arguments_map_errors() {
+            let req = CallToolRequestParam { name: "test_tool".into(), arguments: None };
+            assert!(args_map(&req).is_err());
+            assert!(get_str(&req, "any").is_err());
+            assert_eq!(get_i64(&req, "any"), None);
+        }
+    }
 }
 
 #[cfg(feature = "mcp")]

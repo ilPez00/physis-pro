@@ -192,3 +192,119 @@ impl CellClassifier {
         best
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Unit basis vector of `dim` dimensions with 1.0 at `axis`.
+    fn basis(dim: usize, axis: usize) -> Vec<f32> {
+        let mut v = vec![0.0f32; dim];
+        v[axis] = 1.0;
+        v
+    }
+
+    fn cell(domain: &str, mode: &str, embeddings: Vec<Vec<f32>>) -> Cell {
+        let entries = (0..embeddings.len()).map(|i| format!("{domain}/{mode}#{i}")).collect();
+        Cell { domain: domain.to_string(), mode: mode.to_string(), embeddings, entries }
+    }
+
+    #[test]
+    fn topk_mean_edge_cases() {
+        assert_eq!(topk_mean(&[], 2), 0.0);
+        assert_eq!(topk_mean(&[0.8], 2), 0.8); // k > len → mean of all
+        assert_eq!(topk_mean(&[1.0, 0.5, 0.0], 2), 0.75); // takes top-2 only
+        assert_eq!(topk_mean(&[1.0, 0.5], 0), 1.0); // k clamped up to 1
+    }
+
+    #[test]
+    fn classify_ranks_matching_cell_first_and_sorts_desc() {
+        let clf = CellClassifier {
+            cells: vec![
+                cell("A", "X", vec![basis(4, 0)]),
+                cell("A", "Y", vec![basis(4, 1)]),
+                cell("B", "X", vec![basis(4, 2)]),
+            ],
+        };
+        let results = clf.classify(&basis(4, 0));
+        assert_eq!(results.len(), 3);
+        assert_eq!((results[0].domain.as_str(), results[0].mode.as_str()), ("A", "X"));
+        for w in results.windows(2) {
+            assert!(w[0].score >= w[1].score, "not sorted desc");
+        }
+        for r in &results {
+            assert!(r.score.is_finite());
+        }
+    }
+
+    #[test]
+    fn nearest_entry_scoring_resists_dense_cell_hub_bias() {
+        // Dense cell: many entries clustered on a hub direction, none close to
+        // the query. Sparse cell: one entry exactly at the query. Mean-centroid
+        // scoring would reward the dense mass; nearest-entry must not.
+        let hub = basis(4, 3);
+        let dense = cell("B", "X", vec![hub.clone(); 10]);
+        let sparse = cell("A", "X", vec![basis(4, 0)]);
+        let clf = CellClassifier { cells: vec![dense, sparse] };
+        let results = clf.classify(&basis(4, 0));
+        assert_eq!(results[0].domain, "A");
+    }
+
+    #[test]
+    fn domain_prior_lifts_sibling_cell_over_equal_foreign_cell() {
+        // A/X matches the query exactly; A/Y and B/X have identical raw cell
+        // scores. The nested blend gives A/Y the stronger domain prior, so it
+        // must outrank B/X.
+        let q = basis(4, 0);
+        let half = {
+            // Vector at 60° from q: cosine 0.5 against the query.
+            let mut v = vec![0.0f32; 4];
+            v[0] = 0.5;
+            v[1] = (1.0f32 - 0.25).sqrt();
+            v
+        };
+        let clf = CellClassifier {
+            cells: vec![
+                cell("A", "X", vec![q.clone()]),
+                cell("A", "Y", vec![half.clone()]),
+                cell("B", "X", vec![half]),
+            ],
+        };
+        let results = clf.classify(&q);
+        let pos = |d: &str, m: &str| {
+            results.iter().position(|r| r.domain == d && r.mode == m).unwrap()
+        };
+        assert!(pos("A", "Y") < pos("B", "X"), "domain prior did not lift the sibling cell");
+    }
+
+    #[test]
+    fn classify_on_empty_classifier_returns_empty() {
+        let clf = CellClassifier { cells: vec![] };
+        assert!(clf.classify(&basis(4, 0)).is_empty());
+        assert!(clf.best_entry_sim(&basis(4, 0)).is_none());
+        assert_eq!(clf.cell_count(), 0);
+    }
+
+    #[test]
+    fn best_entry_sim_returns_global_max_undiluted() {
+        let clf = CellClassifier {
+            cells: vec![
+                cell("A", "X", vec![basis(4, 1), basis(4, 0)]),
+                cell("B", "Y", vec![basis(4, 2)]),
+            ],
+        };
+        let (score, domain, mode) = clf.best_entry_sim(&basis(4, 0)).unwrap();
+        assert!((score - 1.0).abs() < 1e-6);
+        assert_eq!((domain, mode), ("A", "X"));
+    }
+
+    #[test]
+    fn cell_centroids_mean_and_key_format() {
+        let clf = CellClassifier {
+            cells: vec![cell("A", "X", vec![vec![1.0, 0.0], vec![0.0, 1.0]])],
+        };
+        let centroids = clf.cell_centroids();
+        let c = centroids.get("A\x00X").expect("key must be DOMAIN\\x00MODE");
+        assert_eq!(c, &vec![0.5, 0.5]);
+    }
+}

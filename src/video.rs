@@ -142,3 +142,56 @@ impl Drop for TempFile {
         let _ = std::fs::remove_file(&self.0);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Text-only embedder: `embed_image` keeps the trait default (`None`).
+    struct TextOnly;
+    impl VectorEmbed for TextOnly {
+        fn embed(&self, _text: &str) -> Vec<f32> {
+            vec![0.0; 4]
+        }
+        fn dimension(&self) -> usize {
+            4
+        }
+    }
+
+    // These exercise the documented fail-soft contract: every failure path
+    // (missing file, undecodable bytes, hostile extension, absent ffmpeg)
+    // returns None and never panics. They hold whether or not ffmpeg is
+    // installed, since a missing binary is itself one of the guarded paths.
+
+    #[test]
+    fn missing_file_returns_none() {
+        let opts = VideoEmbedOptions::default();
+        let result = embed_video_file(Path::new("/nonexistent/clip.mp4"), &TextOnly, &opts);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn undecodable_bytes_return_none() {
+        let opts = VideoEmbedOptions::default();
+        let result = embed_video_bytes(b"definitely not a video", "mp4", &TextOnly, &opts);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn hostile_extension_is_sanitized_not_trusted() {
+        // Path-traversal / shell metacharacters in `ext` must not escape the
+        // temp dir or panic; the call just fails soft on the garbage payload.
+        let opts = VideoEmbedOptions::default();
+        for ext in ["../../etc/passwd", "mp4; rm -rf /", "", ".."] {
+            let result = embed_video_bytes(b"junk", ext, &TextOnly, &opts);
+            assert!(result.is_none(), "ext {ext:?} should fail soft");
+        }
+    }
+
+    #[test]
+    fn default_options_are_sane() {
+        let opts = VideoEmbedOptions::default();
+        assert!(opts.fps > 0.0);
+        assert!(opts.max_frames > 0);
+    }
+}
