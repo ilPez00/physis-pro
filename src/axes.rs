@@ -276,7 +276,7 @@ pub fn cluster_corpus(
             CorpusCluster { members, label, hints, centroid }
         })
         .collect();
-    out.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    out.sort_by_key(|c| std::cmp::Reverse(c.members.len()));
     out
 }
 
@@ -438,14 +438,14 @@ pub fn cluster_corpus_kmeans(
                 centroid[d] += embeddings[m][d];
             }
         }
-        for d in 0..dim {
-            centroid[d] /= members.len() as f32;
+        for v in centroid.iter_mut() {
+            *v /= members.len() as f32;
         }
         let hints = tfidf_label(&members, &doc_term_sets, &df, n, max_hints);
         let label = hints.first().cloned().unwrap_or_else(|| "misc".to_string());
         out.push(CorpusCluster { members, label, hints, centroid });
     }
-    out.sort_by(|a, b| b.members.len().cmp(&a.members.len()));
+    out.sort_by_key(|c| std::cmp::Reverse(c.members.len()));
     out
 }
 
