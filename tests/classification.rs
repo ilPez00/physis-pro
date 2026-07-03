@@ -78,13 +78,14 @@ fn pipeline_invariants() {
 #[test]
 fn fixtures_use_valid_vocabulary() {
     // Guard the fixture file itself: every label is a real grid token.
-    let domains = ["HEAL", "CONSTRUCT", "FABRICATE", "BOND", "STUDY"];
-    let modes = ["LIFT", "REST", "WALK", "WORK", "CREATE", "LEARN"];
+    // Validated against the canonical enums so this can't go stale when the
+    // grid grows (as it did at 6 -> 14 modes).
+    use physis_pro::models::{HumanDomain, HumanMode};
     let fx = fixtures();
     assert!(fx.len() >= 20, "expected a non-trivial fixture set");
     for f in &fx {
-        assert!(domains.contains(&f.domain.as_str()), "bad domain {}", f.domain);
-        assert!(modes.contains(&f.mode.as_str()), "bad mode {}", f.mode);
+        assert!(HumanDomain::from_str(&f.domain).is_some(), "bad domain {}", f.domain);
+        assert!(HumanMode::from_str(&f.mode).is_some(), "bad mode {}", f.mode);
     }
 }
 
