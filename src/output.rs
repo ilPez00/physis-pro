@@ -10,9 +10,19 @@ pub fn format_wiki(trie: &DynamicVectorTrie, goals: &[Goal], title: &str) -> Str
     let mut out = String::new();
     out.push_str(&format!("# {}\n\n", title));
 
+    // Only goals with tracked progress are worth listing. A fresh scan maps
+    // one goal per file, all at 0% — dumping tens of thousands of those UUID
+    // stubs (a full-disk scan produced ~93k lines) drowns the report. Collapse
+    // the untracked ones to a single count; keep real progress goals verbatim.
     out.push_str("## Goals\n\n");
-    for goal in goals {
+    let tracked: Vec<&Goal> = goals.iter().filter(|g| g.progress > 0.0).collect();
+    for goal in &tracked {
         out.push_str(&format!("- [[{}]] — progress: {:.0}%\n", goal.id, goal.progress * 100.0));
+    }
+    let untracked = goals.len() - tracked.len();
+    if untracked > 0 {
+        let sep = if tracked.is_empty() { "" } else { "\n" };
+        out.push_str(&format!("{sep}_{untracked} entries mapped, no progress tracked yet._\n"));
     }
 
     out.push_str("\n## Ontology Tree\n\n");
@@ -302,6 +312,25 @@ mod tests {
         let goals = vec![Goal::new_vec(embedding)];
         let wiki = format_wiki(&trie, &goals, "Test Wiki");
         assert!(wiki.contains("Test Wiki"));
+    }
+
+    #[test]
+    fn test_format_wiki_goals_collapse() {
+        // Untracked (0%) goals collapse to one count line; tracked ones stay.
+        let mut goals = vec![
+            Goal::new_vec(vec![0.0]),
+            Goal::new_vec(vec![0.0]),
+            Goal::new_vec(vec![0.0]),
+        ];
+        goals[2].progress = 0.5;
+        let tracked_id = goals[2].id.clone();
+        let wiki = format_wiki(&DynamicVectorTrie::new(), &goals, "T");
+        let section = wiki.split("## Goals").nth(1).unwrap()
+            .split("## Ontology Tree").next().unwrap();
+        assert!(section.contains(&format!("[[{tracked_id}]]")), "tracked goal missing");
+        assert!(section.contains("2 entries mapped"), "untracked not collapsed: {section}");
+        // The two 0% goals must NOT be listed individually.
+        assert_eq!(section.matches("progress:").count(), 1, "0% goals not collapsed");
     }
 
     #[test]
