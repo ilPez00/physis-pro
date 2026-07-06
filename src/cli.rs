@@ -175,17 +175,25 @@ impl PhysisApp {
                         }
                     }
                 };
-                // Mirror the web cascade: Jina → BGE → BGE-M3 → CLIP → MiniLM → RP,
-                // every candidate self-test-gated. Both halves matter: this cascade
-                // used to lack BGE *and* the gate, so the broken Jina fp16 export
-                // loaded first and every CLI classification was noise (~0.06 top
-                // score on real text). Found by dogfooding `physis-pro classify`.
-                gate(try_primary())
-                    .or_else(|| gate({
-                        let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-                        j.is_available().then(|| Box::new(j) as Box<dyn VectorEmbed>)
-                    }))
-                    .or_else(|| gate({
+                // Cascade: BGE → BGE-M3 → CLIP → MiniLM → RP, every candidate
+                // self-test-gated. Jina is deliberately NOT in the auto-fallback:
+                // the bundled jina-clip-v2 fp16 export is broken (self-test always
+                // fails, ~0.06 top score on real text) yet mmapping it cost a cold
+                // 1.7 GB disk read on every scan — minutes stuck in state-D before
+                // the gate rejected it. It stays reachable only when explicitly set
+                // as `embedders.primary` (try_primary), so a fixed export can opt in.
+                // Heavy ONNX fallbacks (bge-base 417 MB, bge-m3 2.2 GB) are routed
+                // through a persistent self-test cache: after the first run records
+                // them as failing, later scans skip the multi-GB load entirely
+                // instead of re-reading and re-rejecting them every time. Sequential
+                // `if let` (not a `.or_else` chain) so `stc` is borrowed once at a
+                // time. `break 'pick` yields the first embedder that passes.
+                let mut stc = crate::embed::SelfTestCache::load(&config.data_dir);
+                let chosen: Box<dyn VectorEmbed> = 'pick: {
+                    if let Some(e) = gate(try_primary()) {
+                        break 'pick e;
+                    }
+                    if let Some(e) = stc.gated("bge-base", "models/bge-base-en-v1.5", || {
                         let cfg = crate::config::OnnxConfig {
                             enabled: true,
                             model_dir: Some("models/bge-base-en-v1.5".to_string()),
@@ -195,8 +203,10 @@ impl PhysisApp {
                         };
                         let b = OnnxEmbedder::with_config(&cfg);
                         b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }))
-                    .or_else(|| gate({
+                    }) {
+                        break 'pick e;
+                    }
+                    if let Some(e) = stc.gated("bge-m3", "models/bge-m3", || {
                         let cfg = crate::config::OnnxConfig {
                             enabled: true,
                             model_dir: Some("models/bge-m3".to_string()),
@@ -206,16 +216,25 @@ impl PhysisApp {
                         };
                         let b = OnnxEmbedder::with_config(&cfg);
                         b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }))
-                    .or_else(|| gate({
+                    }) {
+                        break 'pick e;
+                    }
+                    if let Some(e) = gate({
                         let c = ClipEmbedder::with_config(&config.onnx);
                         c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
-                    }))
-                    .or_else(|| gate({
+                    }) {
+                        break 'pick e;
+                    }
+                    if let Some(e) = gate({
                         let m = OnnxEmbedder::with_config(&config.onnx);
                         m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
-                    }))
-                    .unwrap_or_else(|| Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
+                    }) {
+                        break 'pick e;
+                    }
+                    Box::new(RandomProjectionEmbedder::new(config.embed_dim))
+                };
+                stc.save();
+                chosen
             }
             #[cfg(not(feature = "embed-onnx"))]
             Box::new(RandomProjectionEmbedder::new(config.embed_dim))

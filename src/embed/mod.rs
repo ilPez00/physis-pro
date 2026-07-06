@@ -76,6 +76,77 @@ pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
     crate::models::cosine_sim(&a, &related) > crate::models::cosine_sim(&a, &unrelated) + 0.05
 }
 
+/// Persistent cache of embedder self-test verdicts.
+///
+/// Loading an ONNX model is eager (the session is built in the embedder
+/// constructor), so a cascade that self-tests candidates pays a full model
+/// read on every run — even for multi-GB exports that always fail the test
+/// (bge-m3 is 2.2 GB). This cache records pass/fail keyed by the model file
+/// path + mtime, letting later runs skip building a known-bad model entirely.
+/// Replacing a model changes its mtime, so a fixed export is re-tested.
+#[derive(Default)]
+pub struct SelfTestCache {
+    path: std::path::PathBuf,
+    map: std::collections::HashMap<String, bool>,
+    dirty: bool,
+}
+
+impl SelfTestCache {
+    pub fn load(data_dir: &std::path::Path) -> Self {
+        let path = data_dir.join("embedder_selftest.json");
+        let map = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        Self { path, map, dirty: false }
+    }
+
+    /// Key by the resolved model file (flat `model.onnx`, else `onnx/model.onnx`,
+    /// matching OnnxEmbedder) plus its mtime, so a changed model re-tests.
+    fn key(&self, label: &str, model_dir: &str) -> String {
+        let flat = std::path::Path::new(model_dir).join("model.onnx");
+        let nested = std::path::Path::new(model_dir).join("onnx/model.onnx");
+        let file = if flat.exists() { flat } else { nested };
+        let mtime = std::fs::metadata(&file)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        format!("{label}:{}:{mtime}", file.display())
+    }
+
+    /// Build + self-test an embedder, but skip the (eager, possibly multi-GB)
+    /// build entirely when a prior run recorded this model as failing.
+    pub fn gated<F>(&mut self, label: &str, model_dir: &str, build: F) -> Option<Box<dyn VectorEmbed>>
+    where
+        F: FnOnce() -> Option<Box<dyn VectorEmbed>>,
+    {
+        let key = self.key(label, model_dir);
+        if self.map.get(&key) == Some(&false) {
+            return None; // known bad: do not load the model at all
+        }
+        let e = build()?; // eager model load happens here
+        let ok = semantic_self_test(e.as_ref());
+        if self.map.insert(key, ok) != Some(ok) {
+            self.dirty = true;
+        }
+        ok.then_some(e)
+    }
+
+    pub fn save(&self) {
+        if !self.dirty {
+            return;
+        }
+        if let Some(parent) = self.path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(s) = serde_json::to_string_pretty(&self.map) {
+            let _ = std::fs::write(&self.path, s);
+        }
+    }
+}
+
 impl<T: VectorEmbed + ?Sized> VectorEmbed for Box<T> {
     fn embed(&self, text: &str) -> Vec<f32> {
         (**self).embed(text)

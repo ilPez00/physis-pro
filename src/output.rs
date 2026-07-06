@@ -17,12 +17,39 @@ pub fn format_wiki(trie: &DynamicVectorTrie, goals: &[Goal], title: &str) -> Str
 
     out.push_str("\n## Ontology Tree\n\n");
     out.push_str("```mermaid\nmindmap\n  root((Physis))\n");
-    for i in 1..trie.pool.len().min(4) {
-        let token = trie.token_str(trie.pool[i].token_id);
-        if !token.is_empty() {
-            out.push_str(&format!("    {}\n", token));
+    // Bounded recursive walk: keep the wiki tree readable on huge tries.
+    const MAX_DEPTH: usize = 4;
+    const MAX_NODES: usize = 300;
+    fn walk(
+        pool: &[crate::trie::Node],
+        dict: &[String],
+        idx: usize,
+        depth: usize,
+        emitted: &mut usize,
+        out: &mut String,
+    ) {
+        if depth > MAX_DEPTH || *emitted >= MAX_NODES {
+            return;
+        }
+        let node = &pool[idx];
+        if depth > 0 && !dict[node.token_id as usize].is_empty() {
+            let indent = "  ".repeat(depth + 1);
+            out.push_str(&format!("{}{}\n", indent, dict[node.token_id as usize]));
+            *emitted += 1;
+        }
+        let cs = node.child_start;
+        let cc = node.child_count as usize;
+        if cs >= 0 {
+            for i in 0..cc {
+                if *emitted >= MAX_NODES {
+                    break;
+                }
+                walk(pool, dict, cs as usize + i, depth + 1, emitted, out);
+            }
         }
     }
+    let mut emitted = 0usize;
+    walk(&trie.pool, &trie.dictionary, 0, 0, &mut emitted, &mut out);
     out.push_str("```\n\n");
 
     let s = trie.stats();
@@ -275,6 +302,27 @@ mod tests {
         let goals = vec![Goal::new_vec(embedding)];
         let wiki = format_wiki(&trie, &goals, "Test Wiki");
         assert!(wiki.contains("Test Wiki"));
+    }
+
+    #[test]
+    fn test_format_wiki_ontology_tree() {
+        // Ontology Tree must be a real recursive walk, not a flat 3-node slice.
+        let mut trie = DynamicVectorTrie::new();
+        trie.insert_path("alpha/beta/gamma");
+        trie.insert_path("alpha/delta");
+        let wiki = format_wiki(&trie, &[], "T");
+        let tree = wiki
+            .split("## Ontology Tree").nth(1).unwrap()
+            .split("## Stats").next().unwrap();
+        // All four path tokens should appear, at increasing indentation depth.
+        for tok in ["alpha", "beta", "gamma", "delta"] {
+            assert!(tree.contains(tok), "tree missing token {tok}: {tree}");
+        }
+        // Nested token must be indented deeper than its ancestor (real tree, not flat).
+        let a = tree.lines().find(|l| l.trim() == "alpha").unwrap();
+        let g = tree.lines().find(|l| l.trim() == "gamma").unwrap();
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        assert!(indent(g) > indent(a), "gamma not nested under alpha");
     }
 
     #[test]
