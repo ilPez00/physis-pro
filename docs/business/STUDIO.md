@@ -2,7 +2,8 @@
 
 `physis-pro studio` is the sellable demo wedge: drop a folder of a prospect's
 documents in, get back (1) one self-contained HTML they can open in a browser,
-and (2) a loadable `discovered_ontology.json` that *grows the grid itself*.
+(2) a loadable `discovered_ontology.json` that *grows the grid itself*, and
+(3) a typed `ontology_graph.json` — the Palantir-like layer.
 
 ## Build (needs the optional ingestion backends)
 
@@ -40,6 +41,19 @@ What it does, in order:
 
 > Palantir models your ontology by hand, with consultants. physis grows it from
 > your own documents — offline, deterministic, and yours to inspect.
+
+## Outputs
+
+| File | What it is |
+|------|------------|
+| `studio.html` | Self-contained, openable report (coverage, document table, gaps). |
+| `discovered_ontology.json` | The discovered domains as loadable grid cells (`EXTRA_ONTOLOGIES`). |
+| `ontology_graph.json` | The **typed** graph — nodes tagged `theme` / `document` / `concept`, links tagged `maps_to` / `discovered` / … with property bags. The Palantir-like substrate, inspectable and diff-able. |
+
+The typed graph is the real differentiator: instead of one flat "theme↔file
+score" edge, every relationship has a named type and every node carries
+free-form attributes. Re-run after loading `discovered_ontology.json` and the
+new Concept nodes become first-class Theme nodes — the grid visibly learns.
 
 ## Try it
 
