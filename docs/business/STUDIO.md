@@ -49,6 +49,7 @@ What it does, in order:
 | `studio.html` | Self-contained, openable report (coverage, document table, gaps). |
 | `discovered_ontology.json` | The discovered domains as loadable grid cells (`EXTRA_ONTOLOGIES`). |
 | `ontology_graph.json` | The **typed** graph — nodes tagged `theme` / `document` / `concept`, links tagged `maps_to` / `discovered` / … with property bags. The Palantir-like substrate, inspectable and diff-able. |
+| `ontology_events.json` | The **provenance ledger** — every discovery/merge recorded with a deterministic `seq`, the affected node, and the source documents. Audit trail of what the ontology learned, and from what. |
 
 The typed graph is the real differentiator: instead of one flat "theme↔file
 score" edge, every relationship has a named type and every node carries

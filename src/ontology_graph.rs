@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 /// What kind of thing a node represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NodeKind {
     /// A cell from the baked-in grid (the 370-cell ontology).
     Theme,
@@ -45,6 +46,7 @@ impl NodeKind {
 /// Named relationship between two nodes. Replaces the legacy single
 /// "theme->file score" edge with semantically meaningful link types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum LinkType {
     /// Document maps onto a known theme (the Studio's grid coverage).
     MapsTo,
@@ -94,15 +96,64 @@ pub struct OntologyEdge {
     pub props: HashMap<String, String>,
 }
 
+/// Why a node/link entered the graph. Powers the provenance ledger: an
+/// enterprise buyer can see *what the ontology learned, when, and from what* —
+/// the trust substrate beneath "your ontology grows itself."
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKind {
+    /// A domain was discovered from the corpus (not yet in the grid).
+    Discovery,
+    /// A discovered domain was merged into the live grid.
+    Merge,
+    /// A node was added (theme/file/concept).
+    NodeAdded,
+    /// A link was added.
+    LinkAdded,
+}
+
+impl EventKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EventKind::Discovery => "discovery",
+            EventKind::Merge => "merge",
+            EventKind::NodeAdded => "node_added",
+            EventKind::LinkAdded => "link_added",
+        }
+    }
+}
+
+/// One provenance entry. `seq` is a monotonic counter (not wall-clock) so the
+/// ledger is deterministic and diff-stable across re-runs — important for an
+/// offline, reproducible demo. `ts` is optional caller-supplied timestamp.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEvent {
+    pub seq: u64,
+    pub kind: EventKind,
+    /// Label of the affected node, when applicable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node: Option<String>,
+    /// Human-readable detail (e.g. the source document or hint list).
+    pub detail: String,
+    /// Optional ISO timestamp; left empty for deterministic runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ts: Option<String>,
+}
+
 /// The typed ontology graph.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OntologyGraph {
     pub nodes: Vec<OntologyNode>,
     pub edges: Vec<OntologyEdge>,
+    /// Provenance ledger (kept out of the main JSON; use `save_events`).
+    #[serde(skip)]
+    pub events: Vec<GraphEvent>,
     #[serde(skip)]
     label_index: HashMap<String, usize>,
     #[serde(skip)]
     next_id: usize,
+    #[serde(skip)]
+    next_event: u64,
 }
 
 impl OntologyGraph {
@@ -200,6 +251,34 @@ impl OntologyGraph {
         std::fs::write(path, self.to_json())
     }
 
+    /// Append a provenance event (monotonic `seq`; deterministic across runs).
+    pub fn log_event(&mut self, kind: EventKind, node: Option<&str>, detail: &str) {
+        let seq = self.next_event;
+        self.next_event += 1;
+        self.events.push(GraphEvent {
+            seq,
+            kind,
+            node: node.map(|s| s.to_string()),
+            detail: detail.to_string(),
+            ts: None,
+        });
+    }
+
+    /// Serialize just the provenance ledger.
+    pub fn to_events_json(&self) -> String {
+        serde_json::to_string_pretty(&self.events).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Save the provenance ledger to its own inspectable file.
+    pub fn save_events(&self, path: &std::path::Path) -> std::io::Result<()> {
+        std::fs::write(path, self.to_events_json())
+    }
+
+    /// Events affecting a particular node label (in insertion order).
+    pub fn events_for(&self, label: &str) -> Vec<&GraphEvent> {
+        self.events.iter().filter(|e| e.node.as_deref() == Some(label)).collect()
+    }
+
     // ---- Adapters (the "reuse, don't rewrite" bridge) ----
 
     /// Build the typed graph from the legacy flat grid. Themes become Theme
@@ -250,6 +329,7 @@ impl OntologyGraph {
     /// Merge discovered domains into this graph as Concept nodes linked from a
     /// `DiscoveredOntology` hub. Lets one JSON carry both the baked-in grid and
     /// the corpus-derived gaps — the full typed picture in a single artifact.
+    /// Each proposal is also recorded in the provenance ledger.
     pub fn merge_discovery(&mut self, report: &crate::discovery::DiscoveryReport) {
         let hub_label = "DiscoveredOntology";
         let hub = match self.node_by_label(hub_label) {
@@ -274,7 +354,26 @@ impl OntologyGraph {
             props.insert("hints".into(), p.hints.join(", "));
             props.insert("samples".into(), p.samples.join(" | "));
             let cid = self.add_node(NodeKind::Concept, &p.name, props, Vec::new());
-            self.add_link(hub, cid, LinkType::Discovered, p.coverage.max(0.5), HashMap::new());
+            self.add_link(
+                hub,
+                cid,
+                LinkType::Discovered,
+                p.coverage.max(0.5),
+                HashMap::new(),
+            );
+            // Provenance: what was discovered, from which documents.
+            self.log_event(
+                EventKind::Discovery,
+                Some(&p.name),
+                &format!("from {} doc(s); hints: {}", p.count, p.hints.join(", ")),
+            );
+        }
+        if !report.proposals.is_empty() {
+            self.log_event(
+                EventKind::Merge,
+                Some(hub_label),
+                &format!("merged {} discovered domain(s) into the grid", report.proposals.len()),
+            );
         }
     }
 }
@@ -358,5 +457,42 @@ mod tests {
         let by_link = og.count_by_link();
         assert_eq!(by_link.get(&LinkType::Discovered).copied(), Some(1));
         assert!(og.node_by_label("Cyber & SOC").is_some());
+    }
+
+    #[test]
+    fn test_event_ledger_recorded() {
+        let proposal = crate::discovery::ProposedDomain {
+            name: "Cyber & SOC".into(),
+            domain: "BOND".into(),
+            mode: "WORK".into(),
+            hints: vec!["network".into()],
+            samples: vec!["security_incident.md".into()],
+            count: 3,
+            coverage: 0.42,
+        };
+        let report = crate::discovery::DiscoveryReport {
+            total: 10,
+            covered: 9,
+            unmapped: 1,
+            proposals: vec![proposal],
+            sim_min: 0.1,
+            sim_mean: 0.4,
+            sim_max: 0.9,
+            threshold_used: 0.3,
+            auto_retuned: false,
+        };
+        let og = OntologyGraph::from_discovery(&report);
+        // One Discovery event for the proposal + one Merge event for the hub.
+        assert_eq!(og.events.len(), 2);
+        let kinds: Vec<_> = og.events.iter().map(|e| e.kind).collect();
+        assert!(kinds.contains(&EventKind::Discovery));
+        assert!(kinds.contains(&EventKind::Merge));
+        // seq is monotonic and deterministic.
+        assert!(og.events[0].seq < og.events[1].seq);
+        // events_for filters by node.
+        assert!(!og.events_for("Cyber & SOC").is_empty());
+        // ledger serializes independently of the graph JSON.
+        let ev_json = og.to_events_json();
+        assert!(ev_json.contains("discovery"));
     }
 }
