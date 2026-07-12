@@ -669,6 +669,8 @@ No other text."#.into(),
         typed.merge_discovery(&report);
         let typed_path = dir.join("ontology_graph.json");
         typed.save(&typed_path)?;
+        let events_path = dir.join("ontology_events.json");
+        typed.save_events(&events_path)?;
 
         let mut out = String::new();
         out.push_str(&format!(
@@ -691,6 +693,10 @@ No other text."#.into(),
             "Typed graph: {} nodes / {} links (themes, documents, discovered concepts)\n",
             typed.nodes.len(),
             typed.edges.len(),
+        ));
+        out.push_str(&format!(
+            "Provenance: {} event(s) recorded (what the ontology learned, and from what)\n",
+            typed.events.len(),
         ));
         out.push_str(&format!(
             "Generated ontology: {}  (add to EXTRA_ONTOLOGIES to grow the grid)\n",
