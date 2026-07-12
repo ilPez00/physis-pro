@@ -649,6 +649,7 @@ mod file_theme_graph_tests {
                 body: "some financial report about budget planning".into(),
                 timestamp: chrono::Utc::now(),
                 ontology_tags: vec![],
+                meta: crate::ingest::DocMeta::default(),
             },
         ];
         let embedder = RandomProjectionEmbedder::new(4);
