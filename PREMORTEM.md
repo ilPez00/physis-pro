@@ -288,6 +288,15 @@ red, run before every `railway up`; deploying becomes "gate then ship", not
 commit (provenance), or a future "what's actually live?" question is
 unanswerable.
 
+**✅ Update (2026-07-12):** the structural fix landed — GitHub Actions runs
+again and `Rust CI` has been **green on every `main` push since 2026-07-03**
+(checked via `gh run list`). Mitigation (2) also shipped:
+`scripts/predeploy.sh` exists and stays as the belt-and-braces local gate for
+any manual `railway up`. Rule (3) — never deploy a dirty tree — remains the
+standing discipline; with CI green, Railway auto-deploy from reviewed refs is
+the default path again. Residual gap: the `#[ignore]` accuracy floor still
+needs a real model and runs only when invoked locally (predeploy.sh does).
+
 ## P10 — Discovery's default makes the onboarding tool look broken
 
 **Failure:** A prospect runs `discover` on their corpus during the trial, the
