@@ -107,7 +107,7 @@ fn terms(text: &str) -> impl Iterator<Item = String> + '_ {
 
 /// Most frequent terms across a cluster, ties broken alphabetically (determinism).
 fn top_terms(texts: &[&str], max: usize) -> Vec<String> {
-    let mut freq: std::collections::BTreeMap<String, usize> = Default::default();
+    let mut freq: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
     for t in texts {
         for w in terms(t) {
             *freq.entry(w).or_default() += 1;
@@ -202,7 +202,7 @@ fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usiz
             domain: unmapped[members[0]].domain.clone(),
             mode: unmapped[members[0]].mode.clone(),
             hints,
-            samples: member_texts.iter().take(3).map(|s| s.to_string()).collect(),
+            samples: member_texts.iter().take(3).map(ToString::to_string).collect(),
             count: members.len(),
             coverage,
         });
@@ -230,7 +230,7 @@ pub fn discover(
     // hidden-state tensor at once (600 texts × 512 tokens × 768 dims ≈ 1GB)
     // and thrashes memory. Small chunks keep the working set flat.
     const EMBED_CHUNK: usize = 16;
-    let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
+    let refs: Vec<&str> = texts.iter().map(String::as_str).collect();
     let mut embeddings: Vec<Vec<f32>> = Vec::with_capacity(refs.len());
     for chunk in refs.chunks(EMBED_CHUNK) {
         embeddings.extend(embedder.embed_batch(chunk));
@@ -343,6 +343,13 @@ pub fn discover(
 /// Render proposals as a ready-to-edit ontology JSON file (the same shape as
 /// every file in `config/`). The operator renames entries, fixes cells, then
 /// registers the file in `EXTRA_ONTOLOGIES`.
+/// Serialize a `DiscoveryReport`'s proposals to the ontology JSON shape used by
+/// the ingest operator (`config/EXTRA_ONTOLOGIES` + a per-run file).
+///
+/// # Panics
+/// Panics if the assembled value fails to serialize to JSON — that can only
+/// happen on an internal `serde_json` failure, which is unrecoverable here.
+#[must_use]
 pub fn to_ontology_json(report: &DiscoveryReport, kind: &str) -> String {
     let domains: Vec<serde_json::Value> = report
         .proposals
