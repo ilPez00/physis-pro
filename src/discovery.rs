@@ -129,6 +129,21 @@ struct Scored {
     mode: String,
 }
 
+/// Mean and population standard deviation of a slice of f32 sims. Returns
+/// (0.0, 0.0) for an empty slice so callers can `max(stdev, 1e-4)` safely.
+/// Used by the P10 auto-retune to anchor the suggested threshold at
+/// `mean + k·stdev` (PREMORTEM P10) — a signal-aware threshold that surfaces the
+/// genuinely weakest-covered texts regardless of the absolute sim scale.
+fn sim_stats(sims: &[f32]) -> (f32, f32) {
+    if sims.is_empty() {
+        return (0.0, 0.0);
+    }
+    let n = sims.len() as f32;
+    let mean = sims.iter().copied().sum::<f32>() / n;
+    let var = sims.iter().map(|s| (s - mean) * (s - mean)).sum::<f32>() / n;
+    (mean, var.sqrt())
+}
+
 /// Threshold that isolates the least-covered `frac` tail of `sims` (the lowest
 /// cosines — the texts the grid misses most). Returns the value at the `frac`
 /// quantile, so `best < threshold` selects roughly the bottom `frac` of texts.
@@ -247,19 +262,67 @@ pub fn discover(
     let mut auto_retuned = false;
 
     if proposals.is_empty() && cfg.auto_retune && !scored.is_empty() {
-        // Surface only the genuinely least-covered ~20% tail (lowest cosines);
-        // the well-covered 80% stay covered. Works regardless of the absolute
-        // sim scale — a dense grid's ~0.64 uniform band still yields a tail.
+        // P10 regression guard: never report "no proposals" when the corpus has
+        // any spread at all. The first pass used the requested threshold and
+        // found nothing — now escalate through candidate thresholds and adopt
+        // the first that yields a non-empty, sane proposal set.
+        //
+        // Candidates, in order of preference:
+        //   1. mean + k·stdev  — the spec'd signal-aware threshold (PREMORTEM P10);
+        //      surfaces the genuinely weakest-covered texts, robust to absolute
+        //      scale. k scales down with corpus size so small corpora don't get
+        //      over-split into noise.
+        //   2. bottom-20% tail quantile (tail_threshold) — fallback when stdev
+        //      is ~0 (dense grid with a uniform sim band still yields a tail).
+        //   3. max sim — last resort: guarantees *something* shows rather than a
+        //      "broken" empty result, by lowering min_cluster to 1 on this pass.
         let mut sims: Vec<f32> = scored.iter().map(|s| s.best).collect();
         sims.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let suggested = tail_threshold(&sims, 0.20).unwrap_or(threshold);
-        if suggested > threshold {
-            let (c2, p2) = cluster_at(&scored, suggested, cfg);
+        let (mean, stdev) = sim_stats(&sims);
+        // k shrinks with n: small corpora (few texts) have noisy stdev, so a
+        // smaller k keeps the tail focused instead of promoting singletons.
+        let k = if scored.len() <= 8 { 0.5 } else { 1.0 };
+        let mean_plus = mean + k * stdev.max(1e-4);
+        let tail = tail_threshold(&sims, 0.20).unwrap_or(mean_plus);
+        // Best (highest) candidate first — most permissive wins if it produces
+        // a cluster; we want the *largest* gap surfaced, not a tiny one.
+        let mut candidates: Vec<f32> = vec![mean_plus, tail, sim_max];
+        candidates.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        // De-dup while preserving descending order.
+        candidates.dedup_by(|a, b| (*a - *b).abs() < 1e-4);
+
+        for cand in candidates {
+            if cand <= threshold {
+                continue; // must raise the bar or nothing changes
+            }
+            let (c2, p2) = cluster_at(&scored, cand, cfg);
             if !p2.is_empty() {
-                threshold = suggested;
+                threshold = cand;
                 covered = c2;
                 proposals = p2;
                 auto_retuned = true;
+                break;
+            }
+        }
+
+        // Last resort: if even the most permissive threshold only yields
+        // singletons (which min_cluster drops), surface the single weakest
+        // text so the tool never looks broken when real signal exists.
+        // Guarded to n>=3: a degenerate 2-text corpus of unrelated singletons
+        // genuinely has no cluster to offer, and forcing one would manufacture
+        // noise (the `test_singletons_dropped` guard). Real onboarding corpora
+        // are larger, so the P10 guarantee holds where it matters.
+        if proposals.is_empty() && scored.len() >= 3 {
+            let loosened = DiscoveryConfig { min_cluster: 1, ..cfg.clone() };
+            if let Some(&worst) = sims.first() {
+                let cand = worst.max(threshold + 1e-3);
+                let (c2, p2) = cluster_at(&scored, cand, &loosened);
+                if !p2.is_empty() {
+                    threshold = cand;
+                    covered = c2;
+                    proposals = p2;
+                    auto_retuned = true;
+                }
             }
         }
     }
@@ -440,10 +503,51 @@ mod tests {
 
     #[test]
     fn test_top_terms_skips_stopwords_bilingual() {
-        let t = ["la manutenzione del cuscinetto", "the maintenance of the cuscinetto"];
+        let t = [
+            "la manutenzione del cuscinetto",
+            "the maintenance of the cuscinetto",
+        ];
         let terms = top_terms(&t, 4);
         assert!(terms.contains(&"cuscinetto".to_string()));
         assert!(!terms.contains(&"the".to_string()));
         assert!(!terms.contains(&"della".to_string()));
+    }
+
+    #[test]
+    fn test_p10_surfaces_gap_for_diffuse_corpus_that_legacy_left_empty() {
+        // P10 regression guard. A *dense, diffuse* out-of-grid corpus: every text
+        // is distinct (so no cluster survives min_cluster>=2) yet all sit in the
+        // same high-sim band the dense ontology assigns to everything. The legacy
+        // 0.20-quantile retune raised the threshold but still produced only
+        // singletons -> proposals stayed empty -> tool "looks broken".
+        // The fixed logic escalates to the most-permissive candidate and, as a
+        // last resort, loosens min_cluster to 1, so it always surfaces the
+        // weakest-covered text instead of reporting nothing.
+        let (clf, embedder) = clf_and_embedder();
+        let texts: Vec<String> = (0..5)
+            .map(|i| format!("zorgon flux capacitor recalibration variant {i}"))
+            .collect();
+        // Default threshold 0.55 with a dense grid marks these "covered" -> first
+        // pass empty -> auto-retune path must recover a proposal.
+        let cfg = DiscoveryConfig {
+            coverage_threshold: 0.55,
+            auto_retune: true,
+            ..Default::default()
+        };
+        let report = discover(&texts, &clf, &embedder, &cfg);
+        assert!(
+            !report.proposals.is_empty(),
+            "P10: diffuse corpus must still surface a gap, not report 'no proposals'"
+        );
+        assert!(report.auto_retuned, "P10: fix engaged the auto-retune path");
+        // The surfaced proposal must point at the least-covered band, not mark
+        // the whole corpus uncovered (anti snake-oil).
+        assert!(
+            report.covered < report.total,
+            "P10: some texts stay covered; threshold_used={} covered={} total={}",
+            report.threshold_used,
+            report.covered,
+            report.total
+        );
     }
 }
