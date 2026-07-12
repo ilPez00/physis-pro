@@ -17,9 +17,11 @@ use crate::embed::jina::JinaEmbedder;
 use crate::embed::onnx::OnnxEmbedder;
 use crate::embed::RandomProjectionEmbedder;
 use crate::embed::VectorEmbed;
+use crate::graph::FileThemeGraph;
+use crate::ingest;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
 use crate::mapper::OntologyMapper;
-use crate::models::{Goal, Score};
+use crate::models::{cosine_sim, DomainDef, Goal, Score};
 use crate::network::NetworkScanner;
 use crate::output;
 
@@ -561,6 +563,275 @@ No other text."#.into(),
         out.push_str(&format!("\n{} cells scored (top 5 shown)\n", results.len()));
         Ok(out)
     }
+
+    /// Ontology Studio — the sellable demo wedge.
+    ///
+    /// Ingest `dir`, build the file-theme graph (existing ontology coverage of
+    /// the prospect's docs), run discovery to surface the gaps the *current*
+    /// ontology can't name, and render one self-contained HTML file a
+    /// non-technical buyer can open. Reuses the same embedder/classifier the
+    /// rest of the engine uses, so it's deterministic and offline.
+    ///
+    /// This is what makes the "your ontology grows itself from your documents"
+    /// pitch visible in one sitting: the left half is their data against the
+    /// shipped 370-cell grid; the right half is what the grid *misses*.
+    pub fn run_studio(
+        &self,
+        dir: &std::path::Path,
+        html_out: &std::path::Path,
+    ) -> anyhow::Result<String> {
+        let docs = ingest::ingest_all(&[dir.to_path_buf()]);
+        if docs.is_empty() {
+            anyhow::bail!("no documents found under {} (.txt/.md/.csv/.log/.xlsx/.eml)", dir.display());
+        }
+
+        // Build the file-theme graph from the live ontology + the prospect's docs.
+        // Mirror run_ingest_pipeline: themes = ontology domains, files = docs,
+        // edges = top-5 similarity > 0.25.
+        let mut graph = FileThemeGraph::new();
+        let all_domains: Vec<(&str, &HashMap<String, DomainDef>)> = vec![
+            ("office", &self.ontology.office_domains),
+            ("human", &self.ontology.human_domains),
+            ("machine", &self.ontology.machine_domains),
+            ("agent", &self.ontology.agent_domains),
+            ("engineering", &self.ontology.engineering_domains),
+        ];
+        for (_kind, domains) in &all_domains {
+            for def in domains.values() {
+                let mut text = def.name.clone();
+                for hint in &def.hints {
+                    text.push(' ');
+                    text.push_str(hint);
+                }
+                let embedding = self.embedder.embed(&text);
+                graph.add_theme(
+                    &def.name,
+                    def.category.as_deref(),
+                    def.domain.as_deref().unwrap_or(""),
+                    def.mode.as_deref().unwrap_or(""),
+                    def.axis_kind.as_deref().unwrap_or(""),
+                    embedding,
+                );
+            }
+        }
+        let mut file_texts: Vec<String> = Vec::with_capacity(docs.len());
+        for doc in &docs {
+            let file_embedding = self.embedder.embed(&doc.body);
+            let file_id = graph.add_file(
+                doc.path.clone(),
+                &doc.title,
+                &format!("{:?}", doc.kind),
+                file_embedding.clone(),
+            );
+            let mut theme_scores: Vec<(usize, f32)> = graph
+                .themes
+                .iter()
+                .map(|t| (t.id, cosine_sim(&file_embedding, &t.embedding)))
+                .filter(|(_, sim)| *sim > 0.25)
+                .collect();
+            theme_scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            for (theme_id, score) in theme_scores.iter().take(5) {
+                graph.add_edge(*theme_id, file_id, *score);
+            }
+            let body = doc.body.trim();
+            if !body.is_empty() {
+                for line in body.lines() {
+                    let line = line.trim();
+                    if line.len() > 10 {
+                        file_texts.push(line.to_string());
+                    }
+                }
+            }
+        }
+
+        // Discovery: what does the current grid fail to cover?
+        let cfg = crate::discovery::DiscoveryConfig {
+            auto_retune: true,
+            ..Default::default()
+        };
+        let report = crate::discovery::discover(&file_texts, &self.classifier, self.embedder.as_ref(), &cfg);
+
+        let html = render_studio_html(&graph, &report, dir, &docs);
+        std::fs::write(html_out, &html)?;
+
+        let mut out = String::new();
+        out.push_str(&format!(
+            "Ontology Studio → {}  ({} docs, {} themes, {} files, {} edges)\n",
+            html_out.display(),
+            docs.len(),
+            graph.themes.len(),
+            graph.files.len(),
+            graph.edges.len(),
+        ));
+        out.push_str(&format!(
+            "Coverage: {} of {} corpus lines map to a known cell · {} unmapped\n",
+            report.covered, report.total, report.unmapped,
+        ));
+        out.push_str(&format!(
+            "Discovered gaps: {} proposed domain(s) the current ontology can't name\n",
+            report.proposals.len(),
+        ));
+        out.push_str(&format!("Open: file://{}\n", html_out.display()));
+        Ok(out)
+    }
+}
+
+/// Escape a string for safe inclusion in HTML text/attribute context.
+fn html_escape(s: &str) -> String {
+    let mut o = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => o.push_str("&amp;"),
+            '<' => o.push_str("&lt;"),
+            '>' => o.push_str("&gt;"),
+            '"' => o.push_str("&quot;"),
+            _ => o.push(c),
+        }
+    }
+    o
+}
+
+/// Render the studio as a single self-contained HTML document (inline CSS, no JS
+/// deps) so a non-technical prospect can open it directly in a browser.
+fn render_studio_html(
+    graph: &FileThemeGraph,
+    report: &crate::discovery::DiscoveryReport,
+    dir: &std::path::Path,
+    docs: &[ingest::IngestedDoc],
+) -> String {
+    let mut h = String::from("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
+    h.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
+    h.push_str("<title>Physis Ontology Studio</title>\n<style>\n");
+    h.push_str(
+        "body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;\
+        margin:0;color:#1a1f2b;background:#f4f6fa}\n",
+    );
+    h.push_str(
+        ".wrap{max-width:960px;margin:0 auto;padding:32px 20px}\n\
+        header{background:linear-gradient(120deg,#1f3a5f,#2a6f97);color:#fff;\
+        border-radius:12px;padding:28px 32px;margin-bottom:24px}\n",
+    );
+    h.push_str("header h1{margin:0 0 6px;font-size:24px}\nheader p{margin:0;opacity:.9}\n");
+    h.push_str(
+        ".cards{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}\n\
+        .card{flex:1;min-width:150px;background:#fff;border:1px solid #e2e8f0;\
+        border-radius:10px;padding:14px 16px}\n",
+    );
+    h.push_str(".card .n{font-size:26px;font-weight:700;color:#1f3a5f}\n.card .l{font-size:12px;color:#64748b}\n");
+    h.push_str("section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:20px 22px;margin-bottom:20px}\n");
+    h.push_str("section h2{margin:0 0 12px;font-size:18px;color:#1f3a5f}\n");
+    h.push_str(".cat{font-weight:600;color:#334155;margin:14px 0 6px}\n");
+    h.push_str(".theme{padding:8px 10px;border-left:3px solid #2a6f97;background:#f8fafc;margin:4px 0;border-radius:0 6px 6px 0}\n");
+    h.push_str(".theme .meta{font-size:12px;color:#64748b}\n");
+    h.push_str(".gap{border-left:3px solid #e07a3f;background:#fdf6f0;padding:10px 12px;margin:8px 0;border-radius:0 6px 6px 0}\n");
+    h.push_str(".gap .name{font-weight:600;color:#b45309}\n.gap .samp{font-size:12px;color:#64748b;margin-top:4px}\n");
+    h.push_str(".muted{color:#94a3b8;font-size:13px}\n.footer{color:#94a3b8;font-size:12px;text-align:center;margin-top:8px}\n");
+    h.push_str("table.docs{width:100%;border-collapse:collapse;font-size:13px}\n");
+    h.push_str("table.docs th,table.docs td{text-align:left;padding:7px 9px;border-bottom:1px solid #eef2f7}\n");
+    h.push_str("table.docs th{color:#64748b;font-weight:600;background:#f8fafc}\n");
+    h.push_str("</style>\n</head>\n<body>\n<div class=\"wrap\">\n");
+    h.push_str(&format!(
+        "<header><h1>Physis Ontology Studio</h1><p>Adaptive industrial intelligence — \
+        your documents, mapped onto a live, self-growing ontology.</p>\
+        <p class=\"muted\">Source: {}</p></header>\n",
+        html_escape(&dir.display().to_string()),
+    ));
+
+    h.push_str("<div class=\"cards\">\n");
+    h.push_str(&format!(
+        "<div class=\"card\"><div class=\"n\">{}</div><div class=\"l\">Documents ingested</div></div>\n",
+        docs.len(),
+    ));
+    h.push_str(&format!(
+        "<div class=\"card\"><div class=\"n\">{}</div><div class=\"l\">Ontology cells</div></div>\n",
+        graph.themes.len(),
+    ));
+    h.push_str(&format!(
+        "<div class=\"card\"><div class=\"n\">{}</div><div class=\"l\">Lines covered</div></div>\n",
+        report.covered,
+    ));
+    h.push_str(&format!(
+        "<div class=\"card\"><div class=\"n\">{}</div><div class=\"l\">Lines the grid misses</div></div>\n",
+        report.unmapped,
+    ));
+    h.push_str("</div>\n");
+
+    // Documents table — proves the ingestion line works: real bodies + meta.
+    h.push_str("<section><h2>Documents ingested</h2>\n");
+    h.push_str("<p class=\"muted\">Real text extraction (PDF/email) + structured fields when the pdf/email features are on.</p>\n");
+    h.push_str("<table class=\"docs\"><tr><th>File</th><th>Type</th><th>Extracted</th></tr>\n");
+    for d in docs {
+        let meta_bits: Vec<String> = vec![
+            d.meta.vendor.clone().map(|v| format!("Vendor: {v}")),
+            d.meta.date.clone().map(|v| format!("Date: {v}")),
+            d.meta.doc_number.clone().map(|v| format!("No: {v}")),
+            d.meta.from.clone().map(|v| format!("From: {v}")),
+            d.meta.subject.clone().map(|v| format!("Subject: {v}")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let meta_str = if meta_bits.is_empty() {
+            if d.body.trim().is_empty() { "no text extracted".to_string() } else { format!("{} chars", d.body.trim().len()) }
+        } else {
+            meta_bits.join(" · ")
+        };
+        h.push_str(&format!(
+            "<tr><td>{}</td><td>{:?}</td><td>{}</td></tr>\n",
+            html_escape(&d.title),
+            d.kind,
+            html_escape(&meta_str),
+        ));
+    }
+    h.push_str("</table>\n</section>\n");
+
+    h.push_str("<section><h2>Your ontology coverage</h2>\n");
+    h.push_str("<p class=\"muted\">Where your documents land in the shipped 370-cell grid.</p>\n");
+    for cat in graph.list_categories() {
+        h.push_str(&format!("<div class=\"cat\">{}</div>\n", html_escape(&cat)));
+        for t in graph.themes_by_category(&cat) {
+            let fc = graph.files_for_theme(t.id).len();
+            h.push_str(&format!(
+                "<div class=\"theme\"><div>{}</div>\
+                <div class=\"meta\">{}×{} · {} file(s) linked</div></div>\n",
+                html_escape(&t.name),
+                html_escape(&t.domain),
+                html_escape(&t.mode),
+                fc,
+            ));
+        }
+    }
+    h.push_str("</section>\n");
+
+    h.push_str("<section><h2>Where your ontology is thin</h2>\n");
+    h.push_str("<p class=\"muted\">Clusters of your text the current grid can't name — \
+    these are the domains Physis would propose to add, grown from your own data.</p>\n");
+    if report.proposals.is_empty() {
+        h.push_str("<p>The current ontology already covers this corpus well — no gaps found.</p>\n");
+    } else {
+        for p in &report.proposals {
+            h.push_str(&format!("<div class=\"gap\"><div class=\"name\">{}</div>\n", html_escape(&p.name)));
+            h.push_str(&format!(
+                "<div class=\"meta\">{} texts · nearest cell {}×{} · coverage {:.2}</div>\n",
+                p.count, html_escape(&p.domain), html_escape(&p.mode), p.coverage,
+            ));
+            h.push_str(&format!("<div class=\"meta\">hints: {}</div>\n", html_escape(&p.hints.join(", "))));
+            for s in &p.samples {
+                h.push_str(&format!("<div class=\"samp\">· {}</div>\n", html_escape(s)));
+            }
+            h.push_str("</div>\n");
+        }
+    }
+    h.push_str("</section>\n");
+
+    h.push_str(&format!(
+        "<div class=\"footer\">Generated by physis-pro studio · best-entry cosine \
+        min {:.2} / mean {:.2} / max {:.2} · threshold used {:.2}{}</div>\n",
+        report.sim_min, report.sim_mean, report.sim_max, report.threshold_used,
+        if report.auto_retuned { " (auto-raised)" } else { "" },
+    ));
+    h.push_str("</div>\n</body>\n</html>\n");
+    h
 }
 
 #[cfg(test)]
