@@ -10,6 +10,7 @@ pub mod embed;
 pub mod mapper;
 pub mod models;
 pub mod graph;
+pub mod ontology_graph;
 pub mod rachmaninov;
 pub mod sensory;
 pub mod video;
