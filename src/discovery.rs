@@ -138,6 +138,8 @@ fn sim_stats(sims: &[f32]) -> (f32, f32) {
     if sims.is_empty() {
         return (0.0, 0.0);
     }
+    // corpus length is at most a few thousand entries → no precision loss
+    #[allow(clippy::cast_precision_loss)]
     let n = sims.len() as f32;
     let mean = sims.iter().copied().sum::<f32>() / n;
     let var = sims.iter().map(|s| (s - mean) * (s - mean)).sum::<f32>() / n;
@@ -153,6 +155,13 @@ fn tail_threshold(sorted_sims: &[f32], frac: f32) -> Option<f32> {
     if sorted_sims.is_empty() {
         return None;
     }
+    // len is small and frac ∈ [0,1], so the f32 product ≤ len and `.min` bounds
+    // it; the f32→usize is a valid floor over a non-negative value.
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     let q = ((sorted_sims.len() as f32 * frac) as usize).min(sorted_sims.len() - 1);
     Some(sorted_sims[q])
 }
@@ -195,6 +204,7 @@ fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usiz
             }
             if words.is_empty() { "Unnamed Cluster".to_string() } else { words.join(" & ") }
         };
+        #[allow(clippy::cast_precision_loss)]
         let coverage =
             members.iter().map(|&k| unmapped[k].best).sum::<f32>() / members.len() as f32;
         proposals.push(ProposedDomain {
@@ -254,6 +264,8 @@ pub fn discover(
             }
         })
         .collect();
+    // text count in a discovery run is small → no precision loss
+    #[allow(clippy::cast_precision_loss)]
     let n = texts.len().max(1) as f32;
     let (sim_min, sim_max) = if texts.is_empty() { (0.0, 0.0) } else { (sim_min, sim_max) };
 

@@ -5,11 +5,15 @@ Minimize `warnings` on `src/discovery.rs`. **Lower is better.**
 Baseline (measured on a clean checkout, 2026-07-12): `warnings: 11`
 (clippy::pedantic warnings attributed to discovery.rs; 962 lib-wide)
 
-Best so far: `warnings: 6` (commit on 2026-07-12) — fixed redundant closures,
-`BTreeMap::default()` → `::new()`, and added `#[must_use]` + `# Panics` to
-`to_ontology_json`. The remaining 6 are `usize as f32` precision casts (counts
-known-safe); left for a later iteration with explicit `#[allow]` justification
-per the task rules. Still 10/10 discovery tests passing..
+Best so far: `warnings: 0` (commit on 2026-07-12) — loop driven to its floor.
+The 6 remaining `usize as f32` casts from the previous best got explicit,
+justified `#[allow]`:
+- `cast_precision_loss` on the three `len() as f32` count→mean conversions
+  (corpus length is small → no precision loss);
+- `cast_precision_loss` + `cast_possible_truncation` + `cast_sign_loss` on the
+  `tail_threshold` quantile index (`len * frac` ≤ len with `frac ∈ [0,1]`, then
+  `.min` bounds it — a valid non-negative floor).
+All 10/10 discovery tests still pass, `compiles: 1`. Target file is now pedantic-clean..
 
 Metric is produced by `scripts/autoresearch/evaluate_clippy.py src/discovery.rs`:
 - `warnings` = count of `clippy::pedantic` warnings whose diagnostic path is
