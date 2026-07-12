@@ -112,6 +112,16 @@ pub enum Commands {
         /// Quantity
         qty: u32,
     },
+    /// Ontology Studio — ingest a directory, map docs onto the live grid, surface
+    /// the gaps the current ontology can't name, and emit one self-contained
+    /// HTML a prospect can open. The "drop in your docs → see your ontology" wedge.
+    Studio {
+        /// Directory of documents (.txt/.md/.csv/.log/.xlsx/.eml) to ingest
+        dir: PathBuf,
+        /// Where to write the studio HTML (default <dir>/studio.html)
+        #[arg(long)]
+        html_out: Option<PathBuf>,
+    },
     /// Search the wiki (llmwiki + file-theme graph)
     Wiki {
         query: String,
@@ -516,6 +526,11 @@ fn main() -> anyhow::Result<()> {
             }
             std::fs::write(&uber_path, &uber)?;
             println!("  Uberwiki index: {}", uber_path.display());
+        }
+        Commands::Studio { dir, html_out } => {
+            let out_path = html_out.unwrap_or_else(|| dir.join("studio.html"));
+            let result = app.run_studio(&dir, &out_path)?;
+            println!("{result}");
         }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
     }

@@ -64,6 +64,13 @@ quick-xml = { version = "0.36", optional = true }
 # Spanner service-account JWT minting (RS256).
 jsonwebtoken = { version = "9", optional = true }
 
+# Optional document-ingestion backends (kept out of default so the core stays
+# light and CI/disk stay sane; enable with --features pdf,email).
+# pdf-extract: pure-Rust text extraction from PDF page streams.
+pdf-extract = { version = "0.7", optional = true }
+# mailparse: RFC-822 (.eml) parsing — From/Subject/body, quoted-reply stripping.
+mailparse = { version = "0.15", optional = true }
+
 # Enable ONNX feature by default
 [features]
 default = ["cli", "voice", "web", "tui", "embed-onnx"]
@@ -77,13 +84,16 @@ embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
+# Document ingestion: real PDF text extraction + structured email parsing.
+pdf = ["dep:pdf-extract"]
+email = ["dep:mailparse"]
 # In-process wiki engine (Tantivy BM25) — replaces the llmwiki subprocess.
 # BM25 only for now (no fastembed/usearch → no ort conflict); semantic = Phase 2.
 wiki-embedded = ["dep:llmwiki_physis"]
 # Spanner Graph sink (Phase 7C) — durable wiki mirror. jsonwebtoken for SA auth.
 spanner = ["dep:jsonwebtoken"]
 
-full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "mcp"]
+full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp"]
 
 [[bin]]
 name = "physis-pro"
