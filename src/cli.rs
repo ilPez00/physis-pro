@@ -654,6 +654,13 @@ No other text."#.into(),
         let html = render_studio_html(&graph, &report, dir, &docs);
         std::fs::write(html_out, &html)?;
 
+        // Close the loop: the discovered gaps become a loadable ontology file
+        // the engine can pick up via EXTRA_ONTOLOGIES — so "your ontology grows
+        // itself from your documents" is demonstrable, not just shown in HTML.
+        let onto_json = crate::discovery::to_ontology_json(&report, "discovered");
+        let onto_path = dir.join("discovered_ontology.json");
+        std::fs::write(&onto_path, &onto_json)?;
+
         let mut out = String::new();
         out.push_str(&format!(
             "Ontology Studio → {}  ({} docs, {} themes, {} files, {} edges)\n",
@@ -670,6 +677,10 @@ No other text."#.into(),
         out.push_str(&format!(
             "Discovered gaps: {} proposed domain(s) the current ontology can't name\n",
             report.proposals.len(),
+        ));
+        out.push_str(&format!(
+            "Generated ontology: {}  (add to EXTRA_ONTOLOGIES to grow the grid)\n",
+            onto_path.display(),
         ));
         out.push_str(&format!("Open: file://{}\n", html_out.display()));
         Ok(out)
