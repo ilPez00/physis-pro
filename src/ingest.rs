@@ -93,6 +93,12 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
         if path.is_dir() {
             walk_and_ingest(&path, docs)?;
         } else {
+            // Skip the Studio's own generated artifacts so a re-run doesn't
+            // ingest its previous HTML/JSON output and pollute discovery.
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            if ext == "html" || ext == "json" {
+                continue;
+            }
             let kind = classify_file(&path);
             // Extract real text + structured metadata per document type. Each
             // extractor is feature-gated and fallible; on any failure we fall
@@ -332,5 +338,20 @@ mod tests {
     fn test_ingest_nonexistent_dir() {
         let docs = ingest_all(&[PathBuf::from("/nonexistent/ingest/path")]);
         assert!(docs.is_empty());
+    }
+
+    #[test]
+    fn test_ingest_skips_studio_artifacts() {
+        let tmp = std::env::temp_dir().join("physis_ingest_skip_test");
+        let _ = std::fs::create_dir_all(&tmp);
+        std::fs::write(tmp.join("report.md"), "# hello").unwrap();
+        std::fs::write(tmp.join("studio.html"), "<html>noise</html>").unwrap();
+        std::fs::write(tmp.join("discovered_ontology.json"), "{}").unwrap();
+        let docs = ingest_all(&[tmp.clone()]);
+        let names: Vec<String> = docs.iter().map(|d| d.title.clone()).collect();
+        assert!(names.contains(&"report".to_string()), "md should be ingested: {names:?}");
+        assert!(!names.contains(&"studio".to_string()), "studio.html must be skipped: {names:?}");
+        assert!(!names.contains(&"discovered_ontology".to_string()), "json must be skipped: {names:?}");
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
