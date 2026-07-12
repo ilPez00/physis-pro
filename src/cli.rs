@@ -661,6 +661,15 @@ No other text."#.into(),
         let onto_path = dir.join("discovered_ontology.json");
         std::fs::write(&onto_path, &onto_json)?;
 
+        // Typed ontology graph (the Palantir-like layer): themes/files become
+        // typed nodes joined by named link types; discovered gaps become Concept
+        // nodes on the same graph. One inspectable artifact carries the whole
+        // picture.
+        let mut typed = crate::ontology_graph::OntologyGraph::from_file_theme_graph(&graph);
+        typed.merge_discovery(&report);
+        let typed_path = dir.join("ontology_graph.json");
+        typed.save(&typed_path)?;
+
         let mut out = String::new();
         out.push_str(&format!(
             "Ontology Studio → {}  ({} docs, {} themes, {} files, {} edges)\n",
@@ -677,6 +686,11 @@ No other text."#.into(),
         out.push_str(&format!(
             "Discovered gaps: {} proposed domain(s) the current ontology can't name\n",
             report.proposals.len(),
+        ));
+        out.push_str(&format!(
+            "Typed graph: {} nodes / {} links (themes, documents, discovered concepts)\n",
+            typed.nodes.len(),
+            typed.edges.len(),
         ));
         out.push_str(&format!(
             "Generated ontology: {}  (add to EXTRA_ONTOLOGIES to grow the grid)\n",
