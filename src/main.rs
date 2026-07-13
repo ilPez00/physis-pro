@@ -121,6 +121,10 @@ pub enum Commands {
         /// Where to write the studio HTML (default <dir>/studio.html)
         #[arg(long)]
         html_out: Option<PathBuf>,
+        /// Seed the directory with a bundled sample corpus first (one-command demo
+        /// — no file gathering needed). Creates <dir> if missing.
+        #[arg(long)]
+        demo: bool,
     },
     /// Search the wiki (llmwiki + file-theme graph)
     Wiki {
@@ -527,7 +531,10 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(&uber_path, &uber)?;
             println!("  Uberwiki index: {}", uber_path.display());
         }
-        Commands::Studio { dir, html_out } => {
+        Commands::Studio { dir, html_out, demo } => {
+            if demo {
+                physis_pro::demo_corpus::seed_demo_corpus(&dir)?;
+            }
             let out_path = html_out.unwrap_or_else(|| dir.join("studio.html"));
             let result = app.run_studio(&dir, &out_path)?;
             println!("{result}");
