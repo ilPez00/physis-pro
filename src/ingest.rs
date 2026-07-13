@@ -158,10 +158,22 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
 #[cfg(feature = "pdf")]
 fn extract_pdf(path: &Path) -> anyhow::Result<(String, DocMeta)> {
     use pdf_extract::extract_text;
-    let text = extract_text(path)
-        .map_err(|e| anyhow::anyhow!("pdf text extraction failed: {e}"))?;
-    let meta = invoice_meta_from_text(&text);
-    Ok((text, meta))
+    match extract_text(path) {
+        Ok(text) if !text.trim().is_empty() => {
+            let meta = invoice_meta_from_text(&text);
+            Ok((text, meta))
+        }
+        // Malformed/unparseable PDF (bad xref, scanned image, …): fall back to
+        // the raw bytes as lossy UTF-8 so at least the stream text + any
+        // embedded invoice strings (vendor/date/number) survive. Never return
+        // an empty body — that would make a real document look like nothing.
+        _ => {
+            let raw = std::fs::read(path).unwrap_or_default();
+            let text = String::from_utf8_lossy(&raw).into_owned();
+            let meta = invoice_meta_from_text(&text);
+            Ok((text, meta))
+        }
+    }
 }
 
 /// Heuristic invoice metadata: pull a vendor line, an ISO-ish date, and a
@@ -178,12 +190,23 @@ fn invoice_meta_from_text(text: &str) -> DocMeta {
         }
     }
     // Invoice / document number: a token following "Invoice", "Fattura", "N.",
-    // or "No." on the same line.
+    // "No.", or "Document" on the same line. Accepts dashed/dotted numbers
+    // like "2026-088" or "INV.4471".
     for line in text.lines() {
         let low = line.to_lowercase();
         if low.contains("invoice") || low.contains("fattura") || low.contains("document") {
-            if let Some(num) = line.split_whitespace().find(|w| w.contains('#') || w.parse::<u32>().is_ok()) {
-                meta.doc_number = Some(num.to_string());
+            let toks: Vec<&str> = line.split_whitespace().collect();
+            for (i, w) in toks.iter().enumerate() {
+                let lw = w.to_lowercase();
+                if lw == "no." || lw == "n." || lw == "invoice" || lw == "fattura" || lw == "document" {
+                    if let Some(next) = toks.get(i + 1) {
+                        let cand = next.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '.');
+                        if !cand.is_empty() && cand.chars().any(|c| c.is_ascii_digit()) {
+                            meta.doc_number = Some(cand.to_string());
+                            break;
+                        }
+                    }
+                }
             }
         }
         // Vendor: a short ALL-CAPS or Title-Cased line near the top often is
@@ -353,5 +376,16 @@ mod tests {
         assert!(!names.contains(&"studio".to_string()), "studio.html must be skipped: {names:?}");
         assert!(!names.contains(&"discovered_ontology".to_string()), "json must be skipped: {names:?}");
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[cfg(feature = "pdf")]
+    #[test]
+    fn test_invoice_meta_extraction() {
+        // The bundled-demo invoice shape: vendor / dashed doc number / ISO date.
+        let text = "ACME INDUSTRIES S.P.A.\nInvoice No. 2026-088\nDate: 2026-05-10\n";
+        let meta = invoice_meta_from_text(text);
+        assert_eq!(meta.vendor.as_deref(), Some("ACME INDUSTRIES S.P.A."));
+        assert_eq!(meta.doc_number.as_deref(), Some("2026-088"));
+        assert_eq!(meta.date.as_deref(), Some("2026-05-10"));
     }
 }
