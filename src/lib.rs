@@ -12,6 +12,7 @@ pub mod models;
 pub mod graph;
 pub mod ontology_graph;
 pub mod demo_corpus;
+pub mod rbac;
 pub mod rachmaninov;
 pub mod sensory;
 pub mod video;
