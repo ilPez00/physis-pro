@@ -66,10 +66,12 @@ struct SharedCtx {
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     ingest: Arc<IngestRing>,
-    /// Bearer token required on protected routes. `None` only when bound to
-    /// loopback (dev) — a non-loopback bind without a token aborts at startup.
-    /// See PREMORTEM.md P6.
-    api_token: Option<String>,
+    /// Bearer tokens + their roles. `None`-equivalent empty table only when
+    /// bound to loopback (dev) — a non-loopback bind without any token aborts
+    /// at startup. See PREMORTEM.md P6.
+    /// See src/rbac.rs for the role model (viewer/editor/admin) enforced by
+    /// `require_auth`.
+    tokens: physis_pro::rbac::TokenTable,
 }
 
 /// Mutable runtime state behind a single mutex. Kept small and cheap to mutate so
@@ -388,28 +390,45 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     diff == 0
 }
 
-/// Require `Authorization: Bearer <PHYSIS_API_TOKEN>` on protected routes.
-/// When no token is configured (loopback-only dev), requests pass through.
+/// Require `Authorization: Bearer <secret>` on protected routes, and enforce the
+/// minimum role for the request's method + path (see `rbac::min_role_for`):
+/// GET/HEAD -> viewer, POST/PUT/DELETE -> editor, config/axis-promote -> admin.
+///
+/// When no tokens are configured (loopback-only dev), requests pass through.
 async fn require_auth(
     State(state): State<SharedState>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    match &state.shared.api_token {
-        None => Ok(next.run(req).await),
-        Some(expected) => {
-            let presented = req
-                .headers()
-                .get(AUTHORIZATION)
-                .and_then(|h| h.to_str().ok())
-                .and_then(|h| h.strip_prefix("Bearer "));
-            match presented {
-                Some(tok) if constant_time_eq(tok.as_bytes(), expected.as_bytes()) => {
-                    Ok(next.run(req).await)
+    use physis_pro::rbac::min_role_for;
+    if !state.shared.tokens.is_enforced() {
+        return Ok(next.run(req).await);
+    }
+    let presented = req
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "));
+    match presented {
+        Some(tok) => {
+            let min = min_role_for(req.method().as_str(), req.uri().path());
+            match state.shared.tokens.authenticate(tok) {
+                Some(role) if role >= min => Ok(next.run(req).await),
+                Some(role) => {
+                    log::warn!(
+                        "RBAC: role {:?} insufficient for {} {} (needs {:?})",
+                        role,
+                        req.method(),
+                        req.uri().path(),
+                        min
+                    );
+                    Err(StatusCode::FORBIDDEN)
                 }
-                _ => Err(StatusCode::UNAUTHORIZED),
+                None if constant_time_eq(tok.as_bytes(), b"") => Err(StatusCode::UNAUTHORIZED),
+                None => Err(StatusCode::UNAUTHORIZED),
             }
         }
+        None => Err(StatusCode::UNAUTHORIZED),
     }
 }
 
@@ -2494,17 +2513,33 @@ async fn main() {
     // A non-loopback bind with no token would publish an unauthenticated API
     // that also proxies paid LLM providers (/api/v1/chat) — an open relay.
     // Refuse to start in that configuration.
-    let api_token = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty());
+    //
+    // Tokens: build a role-aware table.
+    //   PHYSIS_API_TOKEN (legacy, flat secret)  -> registered as editor:<secret>
+    //   PHYSIS_TOKENS     (new, "role:secret" list, space/comma separated)
+    //                      -> viewer/editor/admin tokens for least-privilege use
+    // See src/rbac.rs for the role model enforced by require_auth.
+    let mut tokens = physis_pro::rbac::TokenTable::new();
+    if let Some(legacy) = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty()) {
+        tokens.register(&format!("editor:{}", legacy));
+    }
+    if let Ok(list) = std::env::var("PHYSIS_TOKENS") {
+        for tok in list.split([',', ' ', '\n']).filter(|s| !s.is_empty()) {
+            if !tokens.register(tok) {
+                log::warn!("PHYSIS_TOKENS: skipping malformed entry {:?} (want role:secret)", tok);
+            }
+        }
+    }
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "::1" | "localhost");
-    if !is_loopback && api_token.is_none() {
-        log::error!("Refusing to bind {host} without PHYSIS_API_TOKEN — would expose an unauthenticated API + open LLM relay.");
-        eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN. Set it, or bind 127.0.0.1.");
+    if !is_loopback && !tokens.is_enforced() {
+        log::error!("Refusing to bind {host} without any token — would expose an unauthenticated API + open LLM relay.");
+        eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS. Set one, or bind 127.0.0.1.");
         std::process::exit(1);
     }
-    if api_token.is_some() {
-        log::info!("API auth enabled: Bearer token required on protected routes.");
+    if tokens.is_enforced() {
+        log::info!("API auth enabled (RBAC): Bearer tokens required on protected routes (viewer/editor/admin).");
     } else {
-        log::warn!("API auth DISABLED (loopback dev bind, PHYSIS_API_TOKEN unset).");
+        log::warn!("API auth DISABLED (loopback dev bind, no token set).");
     }
 
     // Confine /api/v1/scan to a root (path-traversal guard). Defaults to the
@@ -2535,7 +2570,7 @@ async fn main() {
         degraded,
         self_test: self_test_ok,
         ingest: ingest.clone(),
-        api_token,
+        tokens,
     });
 
     // Durable state store on the data-dir volume. Best-effort: if it can't open
