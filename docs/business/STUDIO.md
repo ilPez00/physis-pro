@@ -59,10 +59,18 @@ new Concept nodes become first-class Theme nodes — the grid visibly learns.
 ## Try it
 
 ```bash
-mkdir -p /tmp/demo && cp <some-invoices-and-emails> /tmp/demo
-./target/debug/physis-pro studio /tmp/demo --html-out /tmp/demo/studio.html
+# Zero setup — seeds a sample corpus (shift report, PO email, PDF invoice,
+# off-grid security incident) and runs the full wedge in one command:
+mkdir -p /tmp/demo
+./target/debug/physis-pro studio /tmp/demo --demo --html-out /tmp/demo/studio.html
 xdg-open /tmp/demo/studio.html
+
+# Or point it at your own documents:
+./target/debug/physis-pro studio /path/to/your/docs --html-out /path/to/your/docs/studio.html
 ```
+
+The `--demo` flag is idempotent: it only writes the sample files if they're
+missing, so it never overwrites a real prospect's data on re-run.
 
 Add an off-grid document (e.g. a cybersecurity or HR report) to watch discovery
 surface a brand-new domain, then load `discovered_ontology.json` to prove the
