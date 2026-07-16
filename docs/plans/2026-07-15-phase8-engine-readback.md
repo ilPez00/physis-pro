@@ -199,35 +199,27 @@ Expected: all GREEN.
 - A concurrent agent may be working in `physis_pro` (split remote) — check
   `git status` / `git log` before branching; branch from `physis-pro` HEAD.
 
-## Task 5 — SUPERSEDED (proven-negative: no `Machine` base exists)
+## Task 5 — DONE (revived 2026-07-16)
 
-Exhaustive search (user directive: "search both disk and git") — ALL negative:
-- `/home/gio` (direct, non-venv): no `physis_machine` / `class Machine`.
-- `/media/.../home-gio-sync/` (disk mirror of home): no physis `Machine`.
-- Disk-wide grep: only `odysseus/` (unrelated project) + `site-packages`
-  false-positives (numpy/PIL/onnx/sqlalchemy). No physis `Machine`.
-- **Git mirrors do NOT include a `physis-machine-template.git`** at all —
-  mirror set = agent-bridge/aion/claude-skills/cyclops/CyclUno/
-  physis_pro/pika-hermes/praxis-mcp-server/praxis_webapp/vault.
-- On-disk `physis-machine-template/` is **mis-wired** to `agora.git`
-  and its `physis_machine/` is **empty** (only `__pycache__`).
-- `gh search code` (owner=ilPez00) returns nothing (all repos private
-  except pika-hermes).
+The canonical `Machine` base was found on the OLD (degrading) disk at
+`philosophical_machines/physis-machine-template/physis_machine/machine.py`
+and rescued to the NEW disk (it was MISSING on NEW). Resolution (1) resolved:
+the source existed, just not on the main disk.
 
-=> The canonical Python `Machine` base **does not exist in any reachable
-location** — it was never committed. Resolution (1) "point at the
-source" is impossible (there is no source). Fabricating one from
-scratch would be inventing, not thinning — rejected per factory-loop.
+Verification (TDD, no engine needed — `PhysisClient` is fail-soft):
+- `from physis_machine import Machine` imports cleanly.
+- A sample subclass `reduce()` yields primitives (pure perception).
+- `run_once()` registers each primitive via the client (no-op when engine
+  down) and returns echoes — no crash.
 
-**Closed via resolution (2):** the Rust `reduce()` (Tasks 1-4) IS the
-canonical engine-side seam. Phase-8 intent — *canonical reduce moves
-engine-side; Python machines stay pure perception* — is **delivered**.
-Task 5 as literally specified ("thin the existing `Machine.reduce()`")
-is impossible because that file does not exist. Marked SUPERSEDED.
+The architecture ALREADY matches Phase-8 intent: `Machine.reduce()` is
+pure perception; elaboration happens engine-side (Rust `reduce()`, Tasks 1-4)
+via `PhysisClient.register()`. No fake thinning was needed — the design is
+correct by construction. Task 5 CLOSED DONE.
 
-## Status (final, 2026-07-15)
+## Status (final, 2026-07-16)
 - Tasks 1-4 DONE: euclid/empedocles/chronos(kairos) engine-side `reduce()`.
-- Task 5 SUPERSEDED: no `Machine` base exists anywhere; Rust `reduce()` is canonical.
+- Task 5 DONE: real `Machine` base rescued + verified (pure perception).
 - Task 6 PASS: `cargo test` = 412 passed / 0 failed; Phase-5 cross-domain recall intact.
 
 ## Status (2026-07-15)
