@@ -12,7 +12,7 @@
 use chrono::{DateTime, Duration, Utc};
 
 use crate::core::PhysisCore;
-use crate::embed::VectorEmbed;
+use crate::embed::{VectorEmbed, RandomProjectionEmbedder};
 
 /// One observed event: a label and when it happened.
 #[derive(Debug, Clone)]
@@ -135,6 +135,34 @@ pub fn register_rhythms(
     ids
 }
 
+/// Engine-side reduce: detect rhythms, register them, and elaborate a
+/// temporal-coherence score (regular rhythms = coherent; slipping
+/// rhythms = incoherent). Python Machine.reduce() delegates here (Phase-8).
+pub fn reduce(
+    core: &mut PhysisCore,
+    embedder: &dyn VectorEmbed,
+    events: &[TimedEvent],
+    now: DateTime<Utc>,
+) -> f32 {
+    let rhythms = detect_rhythms(events);
+    let mut score: f32 = 0.0;
+    for r in &rhythms {
+        let text = format!("rhythm: {} every {:.1}d", r.label, r.period_days);
+        core.register_node_from_text(&text, embedder);
+        core.bridge_node(&text);
+        score += r.confidence; // regular, frequent rhythms add coherence
+    }
+    if !rhythms.is_empty() {
+        score /= rhythms.len() as f32;
+    }
+    // a rhythm that is slipping is a coherence loss
+    let slip = slipping(&rhythms, now, 0.5);
+    if !slip.is_empty() {
+        score -= slip.len() as f32 * 0.5;
+    }
+    score
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,6 +172,26 @@ mod tests {
             label: label.to_string(),
             at: DateTime::<Utc>::from_timestamp(day_offset * 86_400, 0).unwrap(),
         }
+    }
+
+    #[test]
+    fn reduce_scores_regular_rhythms_positive() {
+        let events: Vec<TimedEvent> = (0..5).map(|i| ev("standup", i * 7)).collect();
+        let now = DateTime::<Utc>::from_timestamp(11 * 86_400, 0).unwrap();
+        let s = reduce(&mut PhysisCore::new(), &RandomProjectionEmbedder::new(64), &events, now);
+        assert!(s > 0.5, "regular rhythms should score positive (got {})", s);
+    }
+
+    #[test]
+    fn reduce_penalises_slipping_rhythms() {
+        let events: Vec<TimedEvent> = (0..4).map(|i| ev("water plants", i * 3)).collect();
+        let embedder = RandomProjectionEmbedder::new(64);
+        // same rhythms, evaluated on-time (day 11) vs overdue (day 20)
+        let on_time = DateTime::<Utc>::from_timestamp(11 * 86_400, 0).unwrap();
+        let overdue = DateTime::<Utc>::from_timestamp(20 * 86_400, 0).unwrap();
+        let s_ok = reduce(&mut PhysisCore::new(), &embedder, &events, on_time);
+        let s_late = reduce(&mut PhysisCore::new(), &embedder, &events, overdue);
+        assert!(s_late < s_ok, "overdue rhythm should score LOWER than on-time ({} vs {})", s_late, s_ok);
     }
 
     #[test]
