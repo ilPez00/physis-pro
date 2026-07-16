@@ -198,3 +198,22 @@ Expected: all GREEN.
 - `python -m py_compile` on the thinned machines.
 - A concurrent agent may be working in `physis_pro` (split remote) — check
   `git status` / `git log` before branching; branch from `physis-pro` HEAD.
+
+## Task 5 — BLOCKER (cannot locate canonical Python `Machine` base)
+
+The plan assumed `physis-machine-template` holds the shared `Machine`
+base (`reduce()`). On disk it is at
+`/media/gio/.../solon/noe-philosophy/physis-machine-template`
+and contains **no `*.py` / `Machine` class** — the Python twins
+(`recognize.py`/`compose.py`) are referenced from the `.rs` docstrings
+but their shared base is not in a surveyed, editable repo. The
+Rust-side `reduce()` (Tasks 1-4) is the canonical seam now; the
+Python machines can delegate to it via FFI/HTTP, but that wiring
+needs the actual `physis_machine` package located. **Paused** — point
+at the real `Machine` source (or its git remote) to finish.
+
+## Status (2026-07-15)
+- Tasks 1-4 DONE: euclid/empedocles/chronos engine-side `reduce()`.
+- Task 5 BLOCKED: Python `Machine` base not found in surveyed repos.
+- Task 6 PASS: `cargo test` = 412 passed / 0 failed; Phase-5
+  cross-domain recall intact.
