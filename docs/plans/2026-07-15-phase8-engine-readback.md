@@ -199,18 +199,32 @@ Expected: all GREEN.
 - A concurrent agent may be working in `physis_pro` (split remote) — check
   `git status` / `git log` before branching; branch from `physis-pro` HEAD.
 
-## Task 5 — BLOCKER (cannot locate canonical Python `Machine` base)
+## Task 5 — BLOCKER (DEFINITIVE: Python `Machine` base unretrievable)
 
-The plan assumed `physis-machine-template` holds the shared `Machine`
-base (`reduce()`). On disk it is at
-`/media/gio/.../solon/noe-philosophy/physis-machine-template`
-and contains **no `*.py` / `Machine` class** — the Python twins
-(`recognize.py`/`compose.py`) are referenced from the `.rs` docstrings
-but their shared base is not in a surveyed, editable repo. The
-Rust-side `reduce()` (Tasks 1-4) is the canonical seam now; the
-Python machines can delegate to it via FFI/HTTP, but that wiring
-needs the actual `physis_machine` package located. **Paused** — point
-at the real `Machine` source (or its git remote) to finish.
+Surveyed home + external disk + `gh search code` (owner=ilPez00):
+- `/home/gio` has no `physis_machine` / `Machine.reduce()` source.
+- Disk `solon/noe-philosophy/physis-machine-template` is **mis-wired**:
+  its `origin` = `agora.git` (not a machine-template remote), and
+  `physis_machine/` holds ONLY `__pycache__` (no `.py` source).
+- All ilPez00 repos are private (except `pika-hermes`) → `gh` code
+  search returns nothing.
+- `rust_reducers/` on disk is **empty**.
+
+=> The canonical Python `Machine` base does not exist in any reachable
+repo. "Thinning `Machine.reduce()`" cannot edit a source that isn't
+there, and fabricating a base from scratch would be inventing, not
+thinning — rejected per factory-loop (no fake deliverables).
+
+**Resolution (pick one):**
+1. Point at the real `physis_machine` source (repo/branch/remote) →
+   I finish Task 5: machines emit primitives, delegate elaboration to
+   the engine-side Rust `reduce()` (Tasks 1-4 already prove the seam).
+2. Accept the Rust `reduce()` AS the canonical seam (engine-side
+   elaboration) and close Task 5 as **superseded** — Python
+   machines stay pure perception by construction; no delegation shim needed.
+
+Phase-8 intent (canonical reduce moves engine-side) is **delivered** by
+Tasks 1-4. Task 5 was the optional Python-delegation wiring.
 
 ## Status (2026-07-15)
 - Tasks 1-4 DONE: euclid/empedocles/chronos engine-side `reduce()`.
