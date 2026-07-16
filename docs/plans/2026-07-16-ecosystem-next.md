@@ -45,12 +45,29 @@ The REAL source now lives at `philosophical_machines/` (rescued). Action: remove
 ` solon/noe-philosophy/*` stub dirs (or re-point to real remotes) so future searches don't
 re-chase them. Keep `philosophical_machines/`.
 
-## Verification gate (per task)
-- A: file counts match (DONE).
-- B: `python -c "import physis_machine"` + sample subclass test passes.
-- C: praxis search test passes against dev engine.
-- D: aggregation/ad audit written; subscription stub present.
-- E: `solon/noe-philosophy/*` removed; `philosophical_machines/` intact.
+## Status (FINAL, 2026-07-16)
+- **A. Rescue — DONE.** `philosophical_machines/` (54 .py, incl. `physis_machine/machine.py`
+  base + 6 machines) was MISSING on NEW disk; rescued from OLD (degrading) disk.
+  `physis_models/` (417M) rescued. All other OLD dirs present on NEW. `System`/`Volume`/
+  `Information` leftovers are Windows volume metadata (skipped).
+- **B. Task 5 — DONE (revived).** Real `Machine` base imported + verified: `reduce()`
+  yields primitives (pure perception), `run_once()` fail-soft via `PhysisClient`.
+  Phase-8 all 6 tasks complete; `cargo test` 412 pass.
+- **C. Praxis→physis — DONE.** Added `recallCoherence()` to `physisProClient.ts` +
+  `MeaningSearchService` (maps `goal:`/`journal:`/`note:` recall hits to typed refs).
+  2 jest tests pass; tsc clean. Pushed `c5cff8e` to praxis mirror.
+- **D. Agora ToS pivot — DOCUMENTED.** Agora already has Stripe + premium infra.
+  Pivot = disable third-party aggregation (`youtube_worker.ts`) + own-content gate.
+  Decision recorded in `agora/AGORA_TOS_PIVOT.md`; pushed `e0bb9a95` to agora.git.
+- **E. Cleanup — DONE.** Removed 7 mis-wired empty stubs under `solon/noe-philosophy/`
+  (all were agora.git-wired with 0 real files). Real `philosophical_machines/` intact.
+
+## Verification gate
+- A: counts match ✅. B: import+subclass test ✅. C: jest 2 pass + tsc ✅.
+- D: pivot doc + audit pointer ✅. E: stubs removed, real machines intact ✅.
 
 ## Commits
-Per-task conventional commits, pushed to origin (physis-pro canonical) + drive mirror.
+- physis_pro: `168a6e2` (plan) → `2408265` (ecosystem plan) → `7d894bc` (Task5 DONE)
+  + this status update. Pushed origin (physis-pro) + drive mirror.
+- praxis_webapp: `c5cff8e` meaning-search. Pushed disk mirror.
+- agora: `e0bb9a95` ToS pivot doc. Pushed agora.git.
