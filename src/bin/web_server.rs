@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use axum::{
-    extract::{Path, Query, Request, State},
+    extract::{ConnectInfo, Path, Query, Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
@@ -135,6 +137,8 @@ struct AppCtx {
     /// Dynamically-promoted ontology axes (Phase 6). Persisted in `db`; global
     /// across tenants (operator-installed). Merged as anchors for the axis layer.
     axes: Mutex<physis_pro::axes::AxisStore>,
+    /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
+    limiter: RateLimiter,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -377,6 +381,51 @@ fn embedder_self_test(e: &dyn VectorEmbed) -> bool {
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────
+
+/// Per-IP sliding-window rate limiter (PREMORTEM.md P6: throttle token guessing
+/// and accidental request floods). Lock is held only for a cheap HashMap touch.
+struct RateLimiter {
+    max: usize,
+    window: Duration,
+    buckets: Mutex<HashMap<String, Vec<Instant>>>,
+}
+
+impl RateLimiter {
+    fn new(max: usize, window: Duration) -> Self {
+        RateLimiter { max, window, buckets: Mutex::new(HashMap::new()) }
+    }
+    /// Returns true if `key` is still within its quota; false if throttled.
+    /// Rejected requests are not counted, so a burst of 429s can't extend the block.
+    fn allow(&self, key: &str) -> bool {
+        let now = Instant::now();
+        let mut map = self.buckets.lock().unwrap_or_else(|e| e.into_inner());
+        let bucket = map.entry(key.to_string()).or_default();
+        bucket.retain(|t| now.duration_since(*t) < self.window);
+        if bucket.len() < self.max {
+            bucket.push(now);
+            if map.len() > 4096 {
+                map.retain(|_, v| !v.is_empty()); // drop idle buckets
+            }
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Axum middleware: throttle every request by client IP before auth runs.
+async fn rate_limit(
+    State(ctx): State<SharedState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if ctx.limiter.allow(&addr.ip().to_string()) {
+        Ok(next.run(req).await)
+    } else {
+        Err(StatusCode::TOO_MANY_REQUESTS)
+    }
+}
 
 /// Constant-time byte comparison — avoids leaking the token via timing.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
@@ -2349,6 +2398,21 @@ async fn embed_video_handler(
 
 // ── Main ──────────────────────────────────────────────────────────────
 
+/// Parse `PHYSIS_RATE_LIMIT` ("N/WINDOW_SECONDS", e.g. "60/60" = 60 req/min).
+/// Falls back to 60 req / 60 s when unset or malformed.
+fn rate_limit_from_env() -> RateLimiter {
+    let (max, window) = std::env::var("PHYSIS_RATE_LIMIT")
+        .ok()
+        .and_then(|v| {
+            let mut parts = v.trim().split('/');
+            let n = parts.next()?.parse::<usize>().ok()?;
+            let secs = parts.next().unwrap_or("60").parse::<u64>().ok()?;
+            Some((n, secs))
+        })
+        .unwrap_or((60, 60));
+    RateLimiter::new(max, Duration::from_secs(window))
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
@@ -2603,6 +2667,7 @@ async fn main() {
         ),
         db: db.clone(),
         axes: Mutex::new(db.as_ref().map(physis_pro::axes::AxisStore::load).unwrap_or_default()),
+        limiter: rate_limit_from_env(),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -2697,24 +2762,26 @@ async fn main() {
     }
 
     // Public routes: liveness + embedder provenance (no secrets, needed by the
-    // Railway healthcheck and ops).
+    // Public, unauthenticated routes: healthcheck + embedder metadata (ops dashboards
+    // poll it without a token). Everything else — including the /ui SPA page and the
+    // MCP SSE transport — is gated by the Bearer-token middleware below.
     let public = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/embedder", get(embedder_info_handler))
-        // Graph file-manager SPA. The page is public; its data calls hit the
-        // authenticated fs/* routes with a token the user pastes in-page.
-        .route("/ui", get(graph_fm_ui_handler));
+        .route("/api/v1/embedder", get(embedder_info_handler));
 
-    // MCP SSE transport — exposed without auth (the URL + port are not discoverable;
-    // add token-based guard later if needed).
+    // MCP SSE transport — gated like every other route. The URL + port are not a
+    // secret; the token is. (Was previously exposed without auth — see PREMORTEM P6.)
     #[cfg(feature = "mcp")]
-    let public = public
+    let protected = protected
         .route("/mcp/sse", get(mcp_sse_handler))
         .route("/mcp/message", post(mcp_message_handler));
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
     let protected = Router::new()
+        // Graph file-manager SPA. The page is gated; its data calls hit the
+        // authenticated fs/* routes with a token the user pastes in-page.
+        .route("/ui", get(graph_fm_ui_handler))
         .route("/api/v1/chat", post(chat_handler))
         .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))
