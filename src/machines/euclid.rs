@@ -166,11 +166,16 @@ pub fn reduce(
         registered.push(p);
         score += Status::Form.coherence(); // +1 per clean form
     }
-    // compose relations between registered forms (mirrors compose.py)
+    // compose relations between registered forms (mirrors compose.py):
+    // a Near/Contained pair is a coherent composition -> +coherence.
     for i in 0..registered.len() {
         for j in (i + 1)..registered.len() {
-            let _rel = relation(registered[i], registered[j], 5.0);
-            // relation elaboration hook kept minimal; score reflects form count
+            match relation(registered[i], registered[j], 5.0) {
+                Relation::Contained | Relation::Near => {
+                    score += 1.0; // a composed relation adds coherence
+                }
+                Relation::Disjoint => {}
+            }
         }
     }
     if !primitives.is_empty() {
@@ -232,6 +237,20 @@ mod tests {
         let blob = prim(8, 0.95, (0.0, 0.0, 10.0, 10.0)); // noise
         let score = reduce(&mut core, &embedder, &[tri, blob], 0.85);
         assert_eq!(score, 0.5); // only tri counts -> 1/2
+    }
+
+    #[test]
+    fn reduce_composes_adjacent_forms() {
+        let mut core = PhysisCore::new();
+        let embedder = RandomProjectionEmbedder::new(64);
+        // two clean forms, adjacent (within `near`) -> composed coherence
+        let a = prim(3, 0.1, (0.0, 0.0, 10.0, 10.0));
+        let b = prim(4, 0.1, (2.0, 0.0, 10.0, 10.0)); // centroid ~(7,5): dist 2 <= near(5) -> Near
+        let score = reduce(&mut core, &embedder, &[a, b], 0.85);
+        // each form +1, plus 1 composed relation -> (1+1+1)/2 = 1.5 normalised? no:
+        // score sums (1+1 +1 relation) / total primitives(2) = 1.5 -> clamp not applied;
+        // assert strictly greater than a lone form's 1.0/1 = 1.0
+        assert!(score > 1.0, "composed forms should exceed lone-form coherence");
     }
 
     #[test]
