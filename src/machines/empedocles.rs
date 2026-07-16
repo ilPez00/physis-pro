@@ -12,7 +12,7 @@
 //! the thin reducer over the shared core.
 
 use crate::core::PhysisCore;
-use crate::embed::VectorEmbed;
+use crate::embed::{VectorEmbed, RandomProjectionEmbedder};
 
 /// Empedocles' four roots, mapped to physical-machine domains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +133,36 @@ pub fn register_readings(
     ids
 }
 
+/// Engine-side reduce: register each reading and elaborate (score coherence,
+/// detect anomalous trend) entirely in-Rust. Python Machine.reduce()
+/// delegates here (Phase-8 read-back; Python stays pure perception).
+pub fn reduce(
+    core: &mut PhysisCore,
+    embedder: &dyn VectorEmbed,
+    readings: &[Reading],
+    threshold: f32,
+) -> f32 {
+    // coherence = mean of per-reading Status (+1 stable, -1 anomaly)
+    let mut score: f32 = 0.0;
+    for r in readings {
+        let status = classify(r, threshold);
+        let text = format!("{:?}/{} value {:.2} baseline {:.2} dev {:+.2}",
+            r.element(), r.metric, r.value, r.baseline, r.deviation());
+        core.register_node_from_text(&text, embedder);
+        core.bridge_node(&text);
+        score += status.coherence();
+    }
+    if !readings.is_empty() {
+        score /= readings.len() as f32;
+    }
+    // a sustained upward trend is itself a strife signal -> penalise
+    let vals: Vec<f32> = readings.iter().map(|r| r.value).collect();
+    if trend(&vals).abs() > 0.5 {
+        score -= 0.5;
+    }
+    score
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -152,6 +182,32 @@ mod tests {
         assert_eq!(classify(&r, 2.0).coherence(), -1.0);
         let steady = Reading { metric: "cpu_percent".into(), value: 41.0, baseline: 40.0 };
         assert_eq!(classify(&steady, 2.0), Status::Stable);
+    }
+
+    #[test]
+    fn reduce_scores_stable_readings_positive() {
+        let mut core = PhysisCore::new();
+        let embedder = RandomProjectionEmbedder::new(64);
+        let steady = Reading { metric: "cpu_percent".into(), value: 41.0, baseline: 40.0 };
+        let s = reduce(&mut core, &embedder, &[steady], 2.0);
+        assert_eq!(s, 1.0); // one stable reading -> +1
+    }
+
+    #[test]
+    fn reduce_penalises_anomaly_and_trend() {
+        let mut core = PhysisCore::new();
+        let embedder = RandomProjectionEmbedder::new(64);
+        let hot = Reading { metric: "temp_core".into(), value: 95.0, baseline: 40.0 };
+        let s = reduce(&mut core, &embedder, &[hot], 2.0);
+        assert_eq!(s, -1.0); // anomalous -> -1
+        // trend past 0.5 penalises further
+        let rising = [
+            Reading { metric: "temp_core".into(), value: 10.0, baseline: 10.0 },
+            Reading { metric: "temp_core".into(), value: 40.0, baseline: 10.0 },
+            Reading { metric: "temp_core".into(), value: 90.0, baseline: 10.0 },
+        ];
+        let s2 = reduce(&mut core, &embedder, &rising, 2.0);
+        assert!(s2 < -0.5, "rising trend should penalise below mean");
     }
 
     #[test]
