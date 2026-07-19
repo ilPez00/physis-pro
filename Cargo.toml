@@ -84,7 +84,7 @@ embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 # GPU execution provider for ONNX (AMD ROCm). Build with
 #   cargo build --features embed-onnx,rocm
 # Requires the ROCm userspace (libamdhip64, hsa-runtime) to be installed.
-rocm = ["ort/rocm"]
+rocm = ["ort/rocm", "ort/download-binaries", "ort/copy-dylibs"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]

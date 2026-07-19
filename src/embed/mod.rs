@@ -24,7 +24,7 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
         // ORT if no ROCm device is visible.
         #[cfg(feature = "rocm")]
         {
-            b = b.with_execution_providers([ort::execution_providers::ROCmExecutionProvider::default()])?;
+            b = b.with_execution_providers([ort::execution_providers::ROCmExecutionProvider::default().into()])?;
         }
         b.commit_from_file(model_path)
     };

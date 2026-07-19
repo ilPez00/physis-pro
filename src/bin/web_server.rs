@@ -2769,13 +2769,6 @@ async fn main() {
         .route("/health", get(health))
         .route("/api/v1/embedder", get(embedder_info_handler));
 
-    // MCP SSE transport — gated like every other route. The URL + port are not a
-    // secret; the token is. (Was previously exposed without auth — see PREMORTEM P6.)
-    #[cfg(feature = "mcp")]
-    let protected = protected
-        .route("/mcp/sse", get(mcp_sse_handler))
-        .route("/mcp/message", post(mcp_message_handler));
-
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
     let protected = Router::new()
@@ -2875,6 +2868,13 @@ async fn main() {
     let protected = protected
         .route("/api/v1/wiki/search", post(wiki_search_handler))
         .route("/api/v1/wiki/index", post(wiki_index_handler));
+
+    // MCP SSE transport — gated like every other route. The URL + port are not a
+    // secret; the token is. (Was previously exposed without auth — see PREMORTEM P6.)
+    #[cfg(feature = "mcp")]
+    let protected = protected
+        .route("/mcp/sse", get(mcp_sse_handler))
+        .route("/mcp/message", post(mcp_message_handler));
 
     let protected =
         protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
