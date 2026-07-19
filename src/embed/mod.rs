@@ -16,10 +16,17 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
     // threading is the only core-level parallelism available.
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let build = |opt: GraphOptimizationLevel| -> ort::Result<ort::session::Session> {
-        ort::session::Session::builder()?
+        let mut b = ort::session::Session::builder()?
             .with_optimization_level(opt)?
-            .with_intra_threads(threads)?
-            .commit_from_file(model_path)
+            .with_intra_threads(threads)?;
+        // When built with the `rocm` feature, prefer the AMD GPU execution
+        // provider (RX 6650M / 680M on this host) and fall back to CPU inside
+        // ORT if no ROCm device is visible.
+        #[cfg(feature = "rocm")]
+        {
+            b = b.with_execution_providers([ort::execution_providers::ROCmExecutionProvider::default()])?;
+        }
+        b.commit_from_file(model_path)
     };
     // Try FULL optimization first — it enables fused, multi-threaded kernels
     // (big speedup for BERT models like BGE/MiniLM). Only Jina CLIP v2's exported

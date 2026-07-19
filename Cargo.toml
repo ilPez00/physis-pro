@@ -81,6 +81,10 @@ voice = []
 web = ["dep:axum", "dep:tower-http"]
 tui = ["dep:ratatui", "dep:crossterm"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
+# GPU execution provider for ONNX (AMD ROCm). Build with
+#   cargo build --features embed-onnx,rocm
+# Requires the ROCm userspace (libamdhip64, hsa-runtime) to be installed.
+rocm = ["ort/rocm"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
@@ -102,6 +106,12 @@ path = "src/main.rs"
 [[bin]]
 name = "physis-pro-web"
 required-features = ["web"]
+path = "src/bin/web_server.rs"
+
+# GPU build (ROCm) — isolates the AMD-accelerated binary from the CPU one.
+[[bin]]
+name = "physis-pro-web-rocm"
+required-features = ["web", "embed-onnx", "rocm"]
 path = "src/bin/web_server.rs"
 
 [[bin]]
