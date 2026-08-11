@@ -12,7 +12,7 @@
 //! the thin reducer over the shared core.
 
 use crate::core::PhysisCore;
-use crate::embed::{VectorEmbed, RandomProjectionEmbedder};
+use crate::embed::VectorEmbed;
 
 /// Empedocles' four roots, mapped to physical-machine domains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,6 +166,7 @@ pub fn reduce(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::embed::RandomProjectionEmbedder;
 
     #[test]
     fn metric_names_map_to_elements() {

@@ -327,7 +327,7 @@ fn walk_files(dir: &Path, query: &str, results: &mut Vec<String>) -> std::io::Re
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if content.to_lowercase().contains(&q) {
                         results.push(format!("{}: ...{}...", path.display(),
-                            &content[content.to_lowercase().find(&q)
+                            content[content.to_lowercase().find(&q)
                                 .map(|i| i.saturating_sub(20))
                                 .unwrap_or(0)..]
                                 .chars().take(100).collect::<String>()));
