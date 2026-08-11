@@ -1474,14 +1474,17 @@ async fn maintenance_rul_handler(Json(req): Json<RulRequest>) -> Json<Option<Rul
 
 async fn context_filter_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<FilterResponse> {
     // Embed off-thread before taking the lock — the ONNX embed is the slow part
     // and must not serialize other handlers behind the global state mutex.
     let token_estimate = req.input.split_whitespace().count();
     let embedding = embed_text(state.shared.clone(), req.input.clone()).await;
-    let s = state.lock();
-    let result = s.core.filter_context_embedded(embedding, token_estimate);
+    let uid = user_key(&headers);
+    let result = state.with_user(&uid, |s| {
+        s.core.filter_context_embedded(embedding, token_estimate)
+    });
     Json(FilterResponse {
         embedding: result.embedding,
         valid: result.valid,
@@ -1491,10 +1494,11 @@ async fn context_filter_handler(
 
 async fn compress_logs_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<CompressLogsRequest>,
 ) -> Json<CompressResponse> {
-    let s = state.lock();
-    let compressed = s.core.compress_logs(&req.logs);
+    let uid = user_key(&headers);
+    let compressed = state.with_user(&uid, |s| s.core.compress_logs(&req.logs));
     Json(CompressResponse {
         input_count: req.logs.len(),
         output_chars: compressed.len(),
@@ -1863,12 +1867,19 @@ async fn config_reload_handler(
     }
 }
 
+/// Nearest nodes to `input` within the caller's tenant. This read the default
+/// tenant's core regardless of `X-Physis-User`, so a client that wrote its nodes
+/// under its own id (aion, praxis) always got an empty reconstruction back —
+/// the write half of the loop worked and the read half silently returned nothing.
 async fn reconstruct_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<ContextFilterRequest>,
 ) -> Json<physis_pro::Reconstruction> {
-    let s = state.lock();
-    let rec = physis_pro::reconstruct(&req.input, &state.shared.embedder, &s.core, 5);
+    let uid = user_key(&headers);
+    let rec = state.with_user(&uid, |s| {
+        physis_pro::reconstruct(&req.input, &state.shared.embedder, &s.core, 5)
+    });
     Json(rec)
 }
 
