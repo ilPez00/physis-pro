@@ -370,7 +370,7 @@ mod tests {
         std::fs::write(tmp.join("report.md"), "# hello").unwrap();
         std::fs::write(tmp.join("studio.html"), "<html>noise</html>").unwrap();
         std::fs::write(tmp.join("discovered_ontology.json"), "{}").unwrap();
-        let docs = ingest_all(&[tmp.clone()]);
+        let docs = ingest_all(std::slice::from_ref(&tmp));
         let names: Vec<String> = docs.iter().map(|d| d.title.clone()).collect();
         assert!(names.contains(&"report".to_string()), "md should be ingested: {names:?}");
         assert!(!names.contains(&"studio".to_string()), "studio.html must be skipped: {names:?}");

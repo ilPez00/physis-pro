@@ -12,7 +12,7 @@
 //! reducer over the shared core. Ports `recognize.py` + `compose.py`.
 
 use crate::core::PhysisCore;
-use crate::embed::{VectorEmbed, RandomProjectionEmbedder};
+use crate::embed::VectorEmbed;
 
 /// Axis-aligned bounding box: `(x, y, w, h)`.
 pub type BBox = (f32, f32, f32, f32);
@@ -188,6 +188,7 @@ pub fn reduce(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::embed::RandomProjectionEmbedder;
 
     fn prim(vertices: u32, circularity: f32, bbox: BBox) -> Primitive {
         Primitive { vertices, circularity, aspect_ratio: 1.0, color: (2, 2, 2), texture: 0.0, bbox }
@@ -219,8 +220,6 @@ mod tests {
 
     #[test]
     fn reduce_returns_normalised_coherence_for_triangle() {
-        use crate::core::PhysisCore;
-        use crate::embed::VectorEmbed;
         let mut core = PhysisCore::new();
         let embedder = RandomProjectionEmbedder::new(64);
         let p = prim(3, 0.1, (0.0, 0.0, 10.0, 10.0));

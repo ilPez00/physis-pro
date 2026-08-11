@@ -12,7 +12,7 @@
 use chrono::{DateTime, Duration, Utc};
 
 use crate::core::PhysisCore;
-use crate::embed::{VectorEmbed, RandomProjectionEmbedder};
+use crate::embed::VectorEmbed;
 
 /// One observed event: a label and when it happened.
 #[derive(Debug, Clone)]
@@ -166,6 +166,7 @@ pub fn reduce(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::embed::RandomProjectionEmbedder;
 
     fn ev(label: &str, day_offset: i64) -> TimedEvent {
         TimedEvent {
