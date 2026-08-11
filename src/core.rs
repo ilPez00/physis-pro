@@ -224,6 +224,48 @@ impl PhysisCore {
         self.register_node_vec_labeled(embedding, Some(text.to_string()))
     }
 
+    /// Report whether a node actually worked. `score` is clamped to `[-1, 1]`;
+    /// returns false if the id is unknown.
+    ///
+    /// This writes the *asserted* axis and deliberately leaves `coherence_score`
+    /// (derived density) alone — a caller's verdict and a geometric measurement
+    /// answer different questions, and overwriting one with the other is how the
+    /// outcome signal was lost before. Re-asserting an id replaces the verdict,
+    /// so a task that later fails can correct an earlier optimistic report.
+    pub fn assert_coherence(&mut self, id: &str, score: Score) -> bool {
+        match self.nodes.get_mut(id) {
+            Some(node) => {
+                node.asserted = Some(score.clamp(-1.0, 1.0));
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Mean of the reported verdicts, or `None` when nothing has been judged.
+    ///
+    /// Distinct from `coherence_index`, which averages derived density over
+    /// *every* node: unjudged nodes must not read as failures, so they are
+    /// excluded rather than counted as zero.
+    pub fn asserted_index(&self) -> Option<Score> {
+        let judged: Vec<Score> = self.nodes.values().filter_map(|n| n.asserted).collect();
+        if judged.is_empty() {
+            return None;
+        }
+        Some(judged.iter().sum::<Score>() / judged.len() as Score)
+    }
+
+    /// Nodes someone has reported as not working, worst first.
+    pub fn asserted_failures(&self) -> Vec<&CoherenceNode> {
+        let mut out: Vec<&CoherenceNode> =
+            self.nodes.values().filter(|n| n.is_asserted_failure()).collect();
+        out.sort_by(|a, b| {
+            a.asserted.unwrap_or(0.0).partial_cmp(&b.asserted.unwrap_or(0.0))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        out
+    }
+
     /// sled key for one coherence node: `coh:<uid>:<node_id>`.
     fn node_key(uid: &str, id: &str) -> String {
         format!("coh:{uid}:{id}")
@@ -502,10 +544,20 @@ impl PhysisCore {
         rules.join("│")
     }
 
-    /// Dream simulation on low-coherence nodes.
+    /// Dream simulation over the nodes worth replaying.
+    ///
+    /// A reported failure is always replayed, however dense its neighbourhood —
+    /// that is the point of the loop. Nodes nobody has judged fall back to the
+    /// geometric proxy (sparse neighbourhood = suspicious), and a node reported
+    /// as *working* is skipped even if it sits alone in the space, because a
+    /// caller's verdict outranks a guess drawn from how typical it looks.
     pub fn dream(&mut self) -> Vec<DreamResult> {
         let low_coherence: Vec<CoherenceNode> = self.nodes.values()
-            .filter(|n| n.coherence_score < 0.5)
+            .filter(|n| match n.rating() {
+                Some(CoherenceRating::Failure) | Some(CoherenceRating::Inert) => true,
+                Some(CoherenceRating::Success) => false,
+                None => n.coherence_score < 0.5,
+            })
             .cloned()
             .collect();
 
@@ -541,6 +593,9 @@ impl PhysisCore {
         let high = self.nodes.values().filter(|n| n.coherence_score > 0.7).count();
         let mid = self.nodes.values().filter(|n| n.coherence_score > 0.3 && n.coherence_score <= 0.7).count();
         let low = self.nodes.values().filter(|n| n.coherence_score <= 0.3).count();
+        let rated = |want: CoherenceRating| {
+            self.nodes.values().filter(|n| n.rating() == Some(want)).count()
+        };
         CoherenceSnapshot {
             total_nodes: total,
             high_coherence: high,
@@ -552,6 +607,10 @@ impl PhysisCore {
             coherence_index: self.coherence_index(),
             cluster_count: self.certified_branches.len(),
             outlier_count: self.isolated_branches.len(),
+            asserted_success: rated(CoherenceRating::Success),
+            asserted_inert: rated(CoherenceRating::Inert),
+            asserted_failure: rated(CoherenceRating::Failure),
+            asserted_index: self.asserted_index(),
         }
     }
 }
@@ -581,9 +640,21 @@ pub struct CoherenceSnapshot {
     pub certified_branches_count: usize,
     pub isolated_branches_count: usize,
     pub dream_cycle_count: usize,
+    /// Mean *derived* density over every node. Never negative.
     pub coherence_index: Score,
     pub cluster_count: usize,
     pub outlier_count: usize,
+    /// Counts on the *asserted* axis. Nodes nobody has judged appear in none of
+    /// these — "unknown" must not read as "inert".
+    #[serde(default)]
+    pub asserted_success: usize,
+    #[serde(default)]
+    pub asserted_inert: usize,
+    #[serde(default)]
+    pub asserted_failure: usize,
+    /// Mean verdict over judged nodes only; `None` when nothing is judged.
+    #[serde(default)]
+    pub asserted_index: Option<Score>,
 }
 
 #[cfg(test)]
@@ -777,6 +848,74 @@ mod tests {
     }
 
     #[test]
+    fn test_asserted_axis_is_separate_from_density() {
+        // The two axes answer different questions and must not overwrite each
+        // other -- collapsing them into one number is what erased the outcome
+        // signal before: density is clamped at >= 0, so failure was unsayable.
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("deploy script that always works", &emb);
+        let b = g.register_node_from_text("deploy script that always works, but fails", &emb);
+
+        // Unjudged: no verdict, and the index has nothing to average.
+        assert_eq!(g.nodes[&a].rating(), None);
+        assert_eq!(g.asserted_index(), None);
+
+        let density_before = g.nodes[&b].coherence_score;
+        assert!(g.assert_coherence(&b, -1.0));
+        assert_eq!(g.nodes[&b].rating(), Some(CoherenceRating::Failure));
+        assert!(g.nodes[&b].is_asserted_failure());
+        // Density is a measurement, not a verdict -- asserting must not touch it.
+        assert_eq!(g.nodes[&b].coherence_score, density_before);
+        // ...and the derived index still can't go negative.
+        assert!(g.coherence_index() >= 0.0);
+
+        // The asserted index averages judged nodes ONLY. `a` is unjudged, so a
+        // single -1.0 verdict must read as -1.0, not be diluted toward zero.
+        assert_eq!(g.asserted_index(), Some(-1.0));
+
+        g.assert_coherence(&a, 1.0);
+        assert_eq!(g.asserted_index(), Some(0.0)); // mean of +1 and -1
+
+        // Re-asserting corrects a verdict (a task reported at spawn, then failed).
+        g.assert_coherence(&a, -0.5);
+        assert_eq!(g.nodes[&a].rating(), Some(CoherenceRating::Failure));
+        // Out-of-range verdicts are clamped, never stored raw.
+        g.assert_coherence(&a, 9.0);
+        assert_eq!(g.nodes[&a].asserted, Some(1.0));
+
+        assert!(!g.assert_coherence("no-such-node", 1.0));
+
+        let snap = g.snapshot();
+        assert_eq!((snap.asserted_success, snap.asserted_failure), (1, 1));
+        assert_eq!(snap.asserted_inert, 0);
+    }
+
+    #[test]
+    fn test_dream_replays_asserted_failures() {
+        // The thesis: the dream loop replays what DIDN'T WORK. A reported
+        // failure must be picked up however typical it looks, and a reported
+        // success must be left alone however isolated it is -- a caller's
+        // verdict outranks a guess drawn from neighbourhood density.
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        let failed = g.register_node_from_text("migration that corrupted the index", &emb);
+        let worked = g.register_node_from_text("migration that corrupted the index, fixed", &emb);
+
+        g.assert_coherence(&failed, -1.0);
+        g.assert_coherence(&worked, 1.0);
+        // Force both into the dense band so density alone would skip them.
+        g.nodes.get_mut(&failed).unwrap().coherence_score = 0.9;
+        g.nodes.get_mut(&worked).unwrap().coherence_score = 0.1;
+
+        let dreams = g.dream();
+        let tested: Vec<&String> = dreams.iter().flat_map(|d| &d.nodes_tested).collect();
+        assert!(tested.contains(&&failed), "a reported failure must be replayed");
+        assert!(!tested.contains(&&worked),
+                "a reported success must not be replayed on density alone");
+    }
+
+    #[test]
     fn test_nodes_survive_a_restart() {
         // Regression: tenant coherence state was in-memory only, so every node
         // aion/praxis registered was lost on the next deploy.
@@ -788,6 +927,7 @@ mod tests {
             g.set_embedder_id("fixture");
             let id = g.register_node_from_text("morning yoga completed", &emb);
             g.register_node_from_text("completed morning yoga session", &emb);
+            g.assert_coherence(&id, -1.0); // a verdict must persist with the node
             for n in g.nodes.keys().cloned().collect::<Vec<_>>() {
                 g.persist_node(&db, "tenant-a", &n).unwrap();
             }
@@ -799,6 +939,8 @@ mod tests {
         let (loaded, skipped) = restored.load_nodes(&db, "tenant-a");
         assert_eq!((loaded, skipped), (2, 0));
         assert_eq!(restored.nodes[&id].coherence_score, score, "scores survive too");
+        assert_eq!(restored.nodes[&id].asserted, Some(-1.0), "the verdict survives too");
+        assert_eq!(restored.nodes[&id].rating(), Some(CoherenceRating::Failure));
         assert_eq!(restored.nodes[&id].label.as_deref(), Some("morning yoga completed"));
 
         // The label index is rebuilt, so dedupe still holds after a restart --

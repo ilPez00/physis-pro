@@ -49,14 +49,67 @@ impl Dream {
     }
 }
 
-/// Coherence is purely geometric — a node is just a vector with a density score.
+/// Did this thing actually work? The **asserted** axis — a caller's verdict,
+/// not something the engine can compute.
+///
+/// The same three states apply to a machine function and a human behaviour,
+/// which is the symmetry the whole model rests on: a compile that produces no
+/// effect and a study session with no retention are both `Inert`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CoherenceRating {
+    /// Worked, with a detected effect. `+1.0`
+    Success,
+    /// Ran, but produced no expected effect. `0.0`
+    Inert,
+    /// Refuted, errored, or a self-imposed rule broken. `-1.0`
+    Failure,
+}
+
+impl CoherenceRating {
+    pub fn weight(self) -> Score {
+        match self {
+            CoherenceRating::Success => 1.0,
+            CoherenceRating::Inert => 0.0,
+            CoherenceRating::Failure => -1.0,
+        }
+    }
+
+    /// Bucket a continuous assertion. Callers report confidence (praxis sends a
+    /// reliability score, aion a loop outcome), so the stored value stays a
+    /// float and this is only the reading of it.
+    pub fn from_score(score: Score) -> Self {
+        if score > 0.2 {
+            CoherenceRating::Success
+        } else if score < -0.2 {
+            CoherenceRating::Failure
+        } else {
+            CoherenceRating::Inert
+        }
+    }
+}
+
+/// A node carries **two** coherence axes, and conflating them is what hollowed
+/// the model out once already:
+///
+/// - `coherence_score` is *derived* — mean cosine to the k nearest neighbours,
+///   clamped at `>= 0`. It answers "how typical is this?" and every vector store
+///   can compute it. It cannot express failure.
+/// - `asserted` is *reported* — a caller's verdict in `[-1, 1]`, `None` until
+///   someone says. It answers "did it work?", which is the only question the
+///   dream loop can actually act on.
+///
 /// `label` optionally retains the human source text the vector came from, so the
 /// node can be browsed by content (otherwise the id is the only readable handle).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoherenceNode {
     pub id: String,
     pub embedding: Vec<f32>,
+    /// Derived density. Never negative — see `asserted` for outcome.
     pub coherence_score: Score,
+    /// Asserted outcome in `[-1, 1]`; `None` = nobody has judged this yet.
+    /// Absent in rows written before the axis existed, hence `serde(default)`.
+    #[serde(default)]
+    pub asserted: Option<Score>,
     #[serde(default)]
     pub label: Option<String>,
     /// Which embedder produced `embedding` (provenance). Lets a loader detect a
@@ -72,6 +125,7 @@ impl CoherenceNode {
             id: uuid::Uuid::new_v4().to_string(),
             embedding,
             coherence_score: 0.0,
+            asserted: None,
             label: None,
             embedder: None,
         }
@@ -81,6 +135,17 @@ impl CoherenceNode {
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
+    }
+
+    /// The reported verdict, if one has been made.
+    pub fn rating(&self) -> Option<CoherenceRating> {
+        self.asserted.map(CoherenceRating::from_score)
+    }
+
+    /// True when someone has reported this as not working. This — not a low
+    /// density — is what the dream loop exists to replay.
+    pub fn is_asserted_failure(&self) -> bool {
+        matches!(self.rating(), Some(CoherenceRating::Failure))
     }
 }
 
