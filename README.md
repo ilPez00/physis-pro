@@ -63,9 +63,20 @@ Actions** while recalibrating the global coherence index. `dream()`.
 > recombine, synthesise). `docs/EMPEDOCLES_DYAD.md` develops this as the
 > Empedoclean dyad (Strife/Neikos vs Love/Philotes) and tests it.
 
-### Coherence ontology
+### Coherence ontology — two axes
 
-The same three states apply identically to machine functions and human behaviour:
+A node carries **two** coherence numbers, and they answer different questions:
+
+| Axis | Field | Range | Who sets it | Question |
+|------|-------|-------|-------------|----------|
+| **Derived** | `coherence_score` | `0 … 1` | the engine (mean cosine to the 5 nearest neighbours) | *how typical is this?* |
+| **Asserted** | `asserted` | `-1 … 1`, `None` until judged | the caller | *did it work?* |
+
+Only the asserted axis can express failure — derived density is clamped at `>= 0`
+by construction. Keeping them separate is deliberate: a node can be perfectly
+typical (density `1.0`) and still be a reported disaster (`-1.0`).
+
+The three asserted states apply identically to machine functions and human behaviour:
 
 | State   | Weight | Machine                                  | Human                                      |
 |---------|:------:|------------------------------------------|--------------------------------------------|
@@ -74,13 +85,19 @@ The same three states apply identically to machine functions and human behaviour
 | Failure |  −1.0  | Compiler error / refuted pattern         | Self-imposed rule violated (e.g. diet slip)|
 
 ```rust
-// A human action is registered with the same logic as a software function.
-core.register_behavioural_vector("Body & Fitness", "ate_cake",
-    CoherenceRating::Failure, "voluntary_slip");      // -1.0
-core.register_behavioural_vector("Intellectual", "studied_3h",
-    CoherenceRating::Inert,   "no_retention");        //  0.0
-// These constraints are injected into the next planning cycle.
+// A human action is judged with the same logic as a software function.
+let id = core.register_node_from_text("ate cake at midnight", &embedder);
+core.assert_coherence(&id, CoherenceRating::Failure.weight());   // -1.0
+core.assert_coherence(&study_id, CoherenceRating::Inert.weight());  // 0.0
+
+core.asserted_index();     // mean verdict over JUDGED nodes only (None if none)
+core.asserted_failures();  // what to replay, worst first
+core.coherence_index();    // unrelated: mean derived density over every node
 ```
+
+`dream()` replays a reported failure however dense its neighbourhood, and skips a
+reported success however isolated it is — a caller's verdict outranks a guess
+drawn from geometry. Nodes nobody has judged fall back to the density proxy.
 
 When a new categorization conflicts with an established Success node, the engine
 suspends it and returns a **Constructive Refutation** payload for the PDCA loop to
@@ -114,7 +131,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/api/v1/semiotic/heatmap` | — | Activation heatmap table + matrix |
 | POST | `/api/v1/category/diagram` | — | Custom category diagram (objects + morphisms) |
 | GET  | `/api/v1/coherence/snapshot` | ✓ | Current coherence index + nodes |
-| POST | `/api/v1/coherence/register` | ✓ | Register a node `{id, label, coherence_score}` |
+| POST | `/api/v1/coherence/register` | ✓ | Register a node `{input, coherence_score?}` — `input` is embedded **and** kept as the label; optional `coherence_score` (−1…1) is the asserted verdict. Deduped by label, so re-posting the same `input` returns the same id and **updates** its verdict |
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
@@ -360,26 +377,34 @@ at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 ## Core API (Rust)
 
 ```rust
-use physis_pro::PhysisCore;
-use physis_pro::models::{CoherenceRating, AxisKind};
+use physis_pro::core::PhysisCore;
+use physis_pro::models::CoherenceRating;
 
 let mut core = PhysisCore::new();
+core.set_embedder_id("bge-base");   // vector provenance, stamped on every node
 
-core.register_node("exercise:running", CoherenceRating::Success,
-    AxisKind::Human, Some("Body & Fitness"));
+// Register by text — the text is kept as the label, so the node is browsable
+// by content. Labeled registrations are deduped: same text ⇒ same id.
+let id = core.register_node_from_text("exercise: running", &embedder);
+
+// Report the outcome (the asserted axis). Re-asserting corrects a verdict.
+core.assert_coherence(&id, CoherenceRating::Success.weight());
 
 // Compression — validate a raw input against state
-let result = core.filter_context(
-    "exercise:running is not producing any effect", AxisKind::Human, &ontology);
+let result = core.filter_context_embedded(embedder.embed("running does nothing"), 4);
 // result.valid == false; result.conflict == Some(ConstructiveRefutation { .. })
 
-core.mark_inert("exercise:running", "no endurance gain detected"); // Success → Inert
-let certified = core.certify_branches(&ontology);
-let isolated  = core.detect_contradictions();
-let compressed = core.compress_logs(&daily_logs);                  // Compression
-let dreams    = core.dream(&ontology);                             // Dream
-let coherence = core.coherence_index(Some(AxisKind::Human));       // global metric
-let snap      = core.snapshot();                                   // for UI
+let certified  = core.certify_branches();
+let isolated   = core.detect_contradictions();
+let compressed = core.compress_logs(&daily_logs);   // Compression
+let dreams     = core.dream();                      // Dream — replays failures
+let density    = core.coherence_index();            // derived, over all nodes
+let verdicts   = core.asserted_index();             // reported, judged nodes only
+let snap       = core.snapshot();                   // for UI (both axes)
+
+// Durability — nodes (and their verdicts) survive a restart.
+core.persist_node(&db, "tenant-a", &id)?;
+let (loaded, skipped) = core.load_nodes(&db, "tenant-a");  // skipped = embedder mismatch
 ```
 
 ---

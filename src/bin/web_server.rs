@@ -276,6 +276,11 @@ struct DreamEvaluateRequest {
 #[derive(Deserialize)]
 struct CoherenceRegisterRequest {
     input: String,
+    /// Optional asserted outcome in [-1, 1]: did this actually work?
+    /// Praxis has been sending this field since before the axis existed (it was
+    /// accepted and dropped); aion sends it too. It is now applied.
+    #[serde(default)]
+    coherence_score: Option<f32>,
 }
 
 #[derive(Deserialize)]
@@ -315,13 +320,21 @@ struct QueryResponse {
 #[derive(Serialize)]
 struct CoherenceRegisterResponse {
     node_id: String,
+    /// Echoes the stored verdict so a caller can tell an applied assertion from
+    /// a silently ignored one. `None` = nobody has judged this node.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asserted: Option<f32>,
 }
 
 #[derive(Serialize)]
 struct CoherenceNodeMatch {
     id: String,
     label: String,
+    /// Derived density (never negative).
     score: Score,
+    /// Asserted outcome, when someone has judged this node.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asserted: Option<Score>,
 }
 
 #[derive(Serialize)]
@@ -1034,11 +1047,17 @@ async fn coherence_nodes_handler(
 ) -> Json<CoherenceNodesResponse> {
     let emb = embed_text(state.shared.clone(), params.q.clone()).await;
     let uid = user_key(&headers);
-    let matches = state.with_user(&uid, |s| s.core.search_nodes(&emb, params.max));
-    let results: Vec<CoherenceNodeMatch> = matches
-        .into_iter()
-        .map(|(id, label, score)| CoherenceNodeMatch { id, label, score })
-        .collect();
+    // Resolve the verdict inside the same lock as the search: a recalled node is
+    // far more useful when the caller can see it was reported as blocked.
+    let results: Vec<CoherenceNodeMatch> = state.with_user(&uid, |s| {
+        s.core.search_nodes(&emb, params.max)
+            .into_iter()
+            .map(|(id, label, score)| {
+                let asserted = s.core.nodes.get(&id).and_then(|n| n.asserted);
+                CoherenceNodeMatch { id, label, score, asserted }
+            })
+            .collect()
+    });
     Json(CoherenceNodesResponse { count: results.len(), results })
 }
 
@@ -1058,6 +1077,7 @@ async fn coherence_nodes_all_handler(
                 id: n.id.clone(),
                 label: n.label.clone().unwrap_or_default(),
                 score: n.coherence_score,
+                asserted: n.asserted,
             })
             .collect()
     });
@@ -1075,8 +1095,15 @@ async fn coherence_register_handler(
     let uid = user_key(&headers);
     // Retain the source text so the node can be recalled/browsed by content.
     let label = Some(req.input.clone());
-    let node_id = state.with_user(&uid, |s| {
+    let (node_id, asserted) = state.with_user(&uid, |s| {
         let id = s.core.register_node_vec_labeled(embedding, label);
+        // Apply the verdict AFTER registration, so re-registering an existing
+        // label (dedupe returns the same id) updates its outcome rather than
+        // being ignored — that is how a task reported optimistically at spawn
+        // gets corrected when it later fails.
+        if let Some(score) = req.coherence_score {
+            s.core.assert_coherence(&id, score);
+        }
         // Write through so the node survives a restart (dedupe makes a repeat
         // registration idempotent here too — same id, same key, same bytes).
         if let Some(db) = state.db() {
@@ -1084,9 +1111,10 @@ async fn coherence_register_handler(
                 log::warn!("coherence node {id} not persisted: {e}");
             }
         }
-        id
+        let asserted = s.core.nodes.get(&id).and_then(|n| n.asserted);
+        (id, asserted)
     });
-    Json(CoherenceRegisterResponse { node_id })
+    Json(CoherenceRegisterResponse { node_id, asserted })
 }
 
 // ── OEE / shop-floor ─────────────────────────────────────────────────────────
