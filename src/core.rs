@@ -203,8 +203,11 @@ impl PhysisCore {
             let codes = pq.quantize(&embedding);
             self.encoded_nodes.push((id.clone(), codes));
         }
-        self.update_coherence(&id);
+        // Insert BEFORE scoring: `update_coherence` looks the node up in
+        // `self.nodes` (both branches), so scoring first silently left every
+        // node at the 0.0 default and pinned `coherence_index` to 0.0.
         self.nodes.insert(id.clone(), node);
+        self.update_coherence(&id);
         // Auto-bridge: when enabled, every new node is joined into the holarchy
         // so machines populate one shared graph without calling bridge_node by
         // hand. Off by default (back-compat with the separate ingest pipeline).
@@ -219,6 +222,53 @@ impl PhysisCore {
     pub fn register_node_from_text(&mut self, text: &str, embedder: &dyn crate::embed::VectorEmbed) -> String {
         let embedding = embedder.embed(text);
         self.register_node_vec_labeled(embedding, Some(text.to_string()))
+    }
+
+    /// sled key for one coherence node: `coh:<uid>:<node_id>`.
+    fn node_key(uid: &str, id: &str) -> String {
+        format!("coh:{uid}:{id}")
+    }
+
+    /// Persist a single node so it survives a restart. No-op for an unknown id.
+    ///
+    /// One key per node, not one blob per tenant (the `OeeBoard`/`LifeOSTracker`
+    /// pattern): a board holds a bounded set of machines, but the wiki grows
+    /// without limit, and re-serialising every node on every registration would
+    /// make a scan quadratic.
+    pub fn persist_node(&self, db: &sled::Db, uid: &str, id: &str) -> anyhow::Result<()> {
+        if let Some(node) = self.nodes.get(id) {
+            db.insert(Self::node_key(uid, id), serde_json::to_vec(node)?)?;
+        }
+        Ok(())
+    }
+
+    /// Rehydrate a tenant's persisted nodes into this core. Returns
+    /// `(loaded, skipped)`.
+    ///
+    /// A node whose `embedder` provenance disagrees with this core's is
+    /// **skipped**: its vector was produced by a different model, so admitting it
+    /// would let cosine compare across two embedding spaces and quietly corrupt
+    /// every coherence score and search result. Unstamped (`None`) nodes predate
+    /// provenance tracking and are accepted.
+    pub fn load_nodes(&mut self, db: &sled::Db, uid: &str) -> (usize, usize) {
+        let (mut loaded, mut skipped) = (0, 0);
+        for item in db.scan_prefix(Self::node_key(uid, "")) {
+            let Ok((_, raw)) = item else { continue };
+            let Ok(node) = serde_json::from_slice::<CoherenceNode>(&raw) else {
+                skipped += 1;
+                continue;
+            };
+            if node.embedder.is_some() && node.embedder != self.embedder_id {
+                skipped += 1;
+                continue;
+            }
+            if let Some(label) = node.label.clone() {
+                self.label_index.insert(label, node.id.clone());
+            }
+            self.nodes.insert(node.id.clone(), node);
+            loaded += 1;
+        }
+        (loaded, skipped)
     }
 
     /// Recall labeled coherence nodes by similarity to `query`. Embeddings are
@@ -698,6 +748,74 @@ mod tests {
         let vec = emb.embed("morning yoga completed");
         let id = g.register_behavioural_vector(vec);
         assert!(g.nodes.contains_key(&id));
+    }
+
+    #[test]
+    fn test_registration_scores_coherence() {
+        // Regression: `update_coherence` was called before the node was inserted
+        // into `self.nodes`, so its lookup missed and every node kept the 0.0
+        // default forever — `coherence_index` was pinned at 0.0 and `dream()`
+        // (which selects on `score < 0.5`) treated the whole graph as failing.
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+
+        let lone = g.register_node_from_text("morning yoga completed", &emb);
+        assert_eq!(g.nodes[&lone].coherence_score, 1.0,
+                   "the only node has nothing to disagree with");
+
+        // A near-synonym must land close to it, not at the 0.0 default.
+        let near = g.register_node_from_text("completed morning yoga session", &emb);
+        assert!(g.nodes[&near].coherence_score > 0.0,
+                "a scored node must not keep the default 0.0 (got {})",
+                g.nodes[&near].coherence_score);
+
+        // The index is the mean over nodes, so it moves off 0.0 too.
+        assert!(g.coherence_index() > 0.0, "coherence_index must not be pinned at 0.0");
+
+        // Score is the mean cosine to the k nearest, so it stays a similarity.
+        assert!(g.nodes[&near].coherence_score <= 1.0);
+    }
+
+    #[test]
+    fn test_nodes_survive_a_restart() {
+        // Regression: tenant coherence state was in-memory only, so every node
+        // aion/praxis registered was lost on the next deploy.
+        let db = sled::Config::new().temporary(true).open().unwrap();
+        let emb = fixture_embedder();
+
+        let (id, score) = {
+            let mut g = PhysisCore::new();
+            g.set_embedder_id("fixture");
+            let id = g.register_node_from_text("morning yoga completed", &emb);
+            g.register_node_from_text("completed morning yoga session", &emb);
+            for n in g.nodes.keys().cloned().collect::<Vec<_>>() {
+                g.persist_node(&db, "tenant-a", &n).unwrap();
+            }
+            (id.clone(), g.nodes[&id].coherence_score)
+        }; // drop the core — this is the "restart"
+
+        let mut restored = PhysisCore::new();
+        restored.set_embedder_id("fixture");
+        let (loaded, skipped) = restored.load_nodes(&db, "tenant-a");
+        assert_eq!((loaded, skipped), (2, 0));
+        assert_eq!(restored.nodes[&id].coherence_score, score, "scores survive too");
+        assert_eq!(restored.nodes[&id].label.as_deref(), Some("morning yoga completed"));
+
+        // The label index is rebuilt, so dedupe still holds after a restart --
+        // otherwise a restart would silently duplicate every re-registered node.
+        let again = restored.register_node_from_text("morning yoga completed", &emb);
+        assert_eq!(again, id);
+        assert_eq!(restored.nodes.len(), 2);
+
+        // Tenants stay isolated: another tenant's prefix sees nothing.
+        let mut other = PhysisCore::new();
+        assert_eq!(other.load_nodes(&db, "tenant-b"), (0, 0));
+
+        // A core on a different embedder must refuse the vectors: comparing
+        // across embedding spaces would corrupt every score silently.
+        let mut swapped = PhysisCore::new();
+        swapped.set_embedder_id("some-other-model");
+        assert_eq!(swapped.load_nodes(&db, "tenant-a"), (0, 2));
     }
 
     #[test]
