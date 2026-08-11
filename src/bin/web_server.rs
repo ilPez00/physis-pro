@@ -169,9 +169,15 @@ impl AppCtx {
             let mut map = self.tenants.lock().unwrap_or_else(|e| e.into_inner());
             let rt = map.entry(uid.to_string()).or_insert_with(|| {
                 let mut rt = RuntimeState::new(&self.shared);
-                // Rehydrate this tenant's persisted LifeOS goals on first access.
+                // Rehydrate this tenant's persisted LifeOS goals + coherence
+                // nodes on first access.
                 if let Some(db) = &self.db {
                     rt.lifeos = LifeOSTracker::load(db, uid);
+                    let (loaded, skipped) = rt.core.load_nodes(db, uid);
+                    if loaded > 0 || skipped > 0 {
+                        log::info!("tenant {uid}: {loaded} coherence nodes restored, \
+                                    {skipped} skipped (embedder mismatch)");
+                    }
                 }
                 rt
             });
@@ -610,7 +616,10 @@ async fn scan_handler(
     let embeddings = embed_batch_off_thread(state.shared.clone(), labels.clone()).await;
     state.with_user(&uid, |s| {
         for (emb, label) in embeddings.into_iter().zip(labels) {
-            s.core.register_node_vec_labeled(emb, Some(label));
+            let id = s.core.register_node_vec_labeled(emb, Some(label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
         }
     });
 
@@ -1066,7 +1075,17 @@ async fn coherence_register_handler(
     let uid = user_key(&headers);
     // Retain the source text so the node can be recalled/browsed by content.
     let label = Some(req.input.clone());
-    let node_id = state.with_user(&uid, |s| s.core.register_node_vec_labeled(embedding, label));
+    let node_id = state.with_user(&uid, |s| {
+        let id = s.core.register_node_vec_labeled(embedding, label);
+        // Write through so the node survives a restart (dedupe makes a repeat
+        // registration idempotent here too — same id, same key, same bytes).
+        if let Some(db) = state.db() {
+            if let Err(e) = s.core.persist_node(db, &uid, &id) {
+                log::warn!("coherence node {id} not persisted: {e}");
+            }
+        }
+        id
+    });
     Json(CoherenceRegisterResponse { node_id })
 }
 
@@ -1267,7 +1286,11 @@ async fn maintenance_check_handler(
         let text = score.describe();
         let embedding = embed_text(state.shared.clone(), text.clone()).await;
         let mut s = state.lock();
-        Some(s.core.register_node_vec_labeled(embedding, Some(text)))
+        let id = s.core.register_node_vec_labeled(embedding, Some(text));
+        if let Some(db) = state.db() {
+            let _ = s.core.persist_node(db, "_default", &id);
+        }
+        Some(id)
     } else {
         None
     };
@@ -2672,6 +2695,17 @@ async fn main() {
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
 
+    // Rehydrate the default tenant's coherence nodes (the other tenants load
+    // lazily on first access in `with_user`). Done after construction because
+    // `core` is moved into the struct above.
+    if let Some(db) = state.db().cloned() {
+        let (loaded, skipped) = state.lock().core.load_nodes(&db, "_default");
+        if loaded > 0 || skipped > 0 {
+            log::info!("tenant _default: {loaded} coherence nodes restored, \
+                        {skipped} skipped (embedder mismatch)");
+        }
+    }
+
     let state_clone = state.clone();
     // 1. Holarchy Graph Updater
     std::thread::spawn(move || {
@@ -2747,7 +2781,10 @@ async fn main() {
                         let embs = watch_state.shared.embedder.embed_batch(&refs);
                         let mut s = watch_state.lock();
                         for (emb, label) in embs.into_iter().zip(labels) {
-                            s.core.register_node_vec_labeled(emb, Some(label));
+                            let id = s.core.register_node_vec_labeled(emb, Some(label));
+                            if let Some(db) = watch_state.db() {
+                                let _ = s.core.persist_node(db, "_default", &id);
+                            }
                         }
                     }
                     scanner.update_cache(&diffs);
@@ -2879,13 +2916,25 @@ async fn main() {
     let protected =
         protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
-    let app = public.merge(protected).with_state(state);
+    // Per-IP throttle, applied to the merged router so it runs BEFORE auth and
+    // covers the public routes too — otherwise a token-guessing loop is bounded
+    // only by how fast it can open sockets (PREMORTEM.md P6). The limiter was
+    // built and configured from env but never layered in, so until now every
+    // route was unthrottled.
+    let app = public
+        .merge(protected)
+        .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
+        .with_state(state);
 
     let addr = format!("{}:{}", host, port);
     println!("Physis Web API listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    // ConnectInfo is what gives `rate_limit` the peer IP; without this the
+    // middleware's extractor fails and every request 500s.
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
+        .await
+        .unwrap();
 }
 
 // ── MCP SSE transport ──────────────────────────────────────────────────────
