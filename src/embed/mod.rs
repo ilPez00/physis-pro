@@ -19,12 +19,43 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
         let mut b = ort::session::Session::builder()?
             .with_optimization_level(opt)?
             .with_intra_threads(threads)?;
-        // When built with the `rocm` feature, prefer the AMD GPU execution
-        // provider (RX 6650M / 680M on this host) and fall back to CPU inside
-        // ORT if no ROCm device is visible.
+        // The `rocm` feature asks for the AMD GPU execution provider.
+        //
+        // WARNING: this CANNOT currently succeed. ONNX Runtime removed the ROCm
+        // EP upstream before 1.24.2 (the version `ort` 2.0.0-rc.12 links) —
+        // `build.py` has no `--use_rocm` and MIGraphX is the only AMD provider
+        // left. The `ort` crate still exports `ROCmExecutionProvider`, so this
+        // compiles, registration then fails at runtime and ORT falls back to
+        // CPU. Measured: a full suite under `--features rocm` ran at 1451% CPU
+        // with no KFD processes on the GPU. See PLAN.md §1F.
+        //
+        // Kept as the seam for a real EP (MIGraphX / WebGPU), but it now says so
+        // out loud instead of quietly pretending to be accelerated.
+        // Failure here must NOT abort the load: the caller treats a `None`
+        // session as "this embedder is unavailable" and walks down the chain to
+        // random projection, so a hard error would turn a CPU build into a
+        // silently NON-SEMANTIC one. Log it and keep the CPU session.
         #[cfg(feature = "rocm")]
         {
-            b = b.with_execution_providers([ort::execution_providers::ROCmExecutionProvider::default().into()])?;
+            // `.error_on_failure()` opts out of ort's default silent-fail: without
+            // it registration returns Ok even when the EP is missing, which is
+            // precisely how this shipped as "GPU accelerated" while running on CPU.
+            let ep: ort::ep::ExecutionProviderDispatch =
+                ort::execution_providers::ROCmExecutionProvider::default().into();
+            b = match b.with_execution_providers([ep.error_on_failure()]) {
+                Ok(builder) => builder,
+                Err(e) => {
+                    log::error!(
+                        "`rocm` feature is enabled but the ROCm execution provider could not be \
+                         registered ({e}); inference will run on CPU. ONNX Runtime dropped the \
+                         ROCm EP upstream — see PLAN.md §1F."
+                    );
+                    // The call consumed the builder, so rebuild a plain CPU one.
+                    ort::session::Session::builder()?
+                        .with_optimization_level(opt)?
+                        .with_intra_threads(threads)?
+                }
+            };
         }
         b.commit_from_file(model_path)
     };
