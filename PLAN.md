@@ -132,12 +132,16 @@ Shipped this arc (all on `main`, classify hot path untouched unless noted):
   cursor, Enter scopes the search). Nodes carry no cell tag, so scoping cannot
   filter existing hits without re-classifying every row; it searches with the
   cell's own entry names instead, reaching the same region of the shared vector
-  space in one round-trip. **Found while building it:** `/semiotic/grid` reports
-  entries for only 27 of 70 cells because it exposes the base ontologies but not
-  `EXTRA_ONTOLOGIES`, which `classify` also scores against — text genuinely
-  lands in `FABRICATE×MAINTAIN` while the grid lists that cell as empty. The
-  pane falls back to the axis names there rather than claiming the cell is
-  uncovered. Worth fixing at the endpoint so the map stops under-reporting.
+  space in one round-trip. **Found while building it, now fixed:**
+  `/semiotic/grid` reported entries for only 27 of 70 cells because it
+  hand-enumerated eight ontology collections and omitted `custom_domains` —
+  where the 20 always-on `EXTRA_ONTOLOGIES` land, and what
+  `classification_domains()` scores against. Text genuinely landed in
+  `FABRICATE×MAINTAIN` ("Machine Maintenance") while the grid called that cell
+  empty; `office_domains` and `machine_domains` were missing for the same
+  reason. The handler now builds from the existing `all_domains()` helper:
+  **70/70 cells populated, 927 entries** (was 27/70), and 63 lines of
+  copy-pasted loops became 32.
 - [ ] **Still open from the §2 spec**: dream view (`d`) is blocked on the engine — `/dream/generate` returns raw 768-d
   vectors, not the human-readable corrective actions the README describes.
 

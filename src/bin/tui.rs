@@ -531,12 +531,12 @@ fn wiki_scope_to_cell(app: &mut App) {
         app.status_msg = "no such cell".into();
         return;
     };
-    // 43 of the 70 cells come back with no entries because /semiotic/grid
-    // exposes the base ontologies only, while `classify` also scores against
-    // EXTRA_ONTOLOGIES — text really does land in FABRICATE×MAINTAIN even
-    // though that cell lists nothing here. Refusing would report "uncovered"
-    // for cells the classifier covers, so fall back to the axis names, which
-    // the mode anchors put in the right region anyway.
+    // Empty cells are now rare — /semiotic/grid used to omit custom_domains
+    // (where the 20 EXTRA_ONTOLOGIES live), reporting 27 of 70 cells populated
+    // while `classify` was placing text in the other 43; it now builds from
+    // all_domains() and every cell has entries. The fallback stays as a guard:
+    // a trimmed ontology set can still empty a cell, and claiming "uncovered"
+    // for a cell the classifier covers is the failure worth preventing.
     let (query, how) = if cell.entries.is_empty() {
         (format!("{} {}", cell.domain, cell.mode), "axis names")
     } else {

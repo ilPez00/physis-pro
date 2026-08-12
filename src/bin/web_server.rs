@@ -2124,57 +2124,26 @@ struct SemioticGridResponse {
     cells: Vec<serde_json::Value>,
 }
 
+/// The DOMAIN x MODE grid with the entries that populate each cell.
+///
+/// Built from `all_domains()` — every loaded ontology — rather than a hand-kept
+/// list of collections. The previous version enumerated eight maps by hand and
+/// omitted `custom_domains`, which is where the 20 always-on EXTRA_ONTOLOGIES
+/// land and what `classification_domains()` scores against. The grid therefore
+/// reported 27 of 70 cells populated while `classify` was happily placing text
+/// in the other 43 — e.g. FABRICATE x MAINTAIN ("Machine Maintenance") read as
+/// empty here yet matched real input. `office_domains` and `machine_domains`
+/// were missing for the same reason.
 async fn semiotic_grid_handler(
     State(state): State<SharedState>,
 ) -> Json<SemioticGridResponse> {
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
-    // Classify all ontology entries into the grid
-    for def in s.ontology.human_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.semiotic_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.category_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.agent_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.natural_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.social_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.abstract_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
-            grid.classify(&def.name, d, m);
-        }
-    }
-    for def in s.ontology.engineering_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
+    for def in s.ontology.all_domains().values() {
+        if let (Some(d), Some(m)) = (
+            def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
+            def.mode.as_ref().and_then(|m| HumanMode::from_str(m)),
+        ) {
             grid.classify(&def.name, d, m);
         }
     }
