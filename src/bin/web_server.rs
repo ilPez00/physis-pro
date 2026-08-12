@@ -39,6 +39,8 @@ use physis_pro::maintenance::{
     DEFAULT_SIGMA_THRESHOLD,
 };
 use physis_pro::industrial::{MachineReading, MachineStatus};
+use physis_pro::operational::OperationalEvent;
+use physis_pro::operational_report::OperationalTimeline;
 use physis_pro::classify::{CellClassifier, CellScore};
 use physis_pro::graph::{IngestRing};
 use physis_pro::ai::onnx_worker::OnnxHolon;
@@ -1454,6 +1456,31 @@ async fn report_shift_live_handler(
     report_response(&input, q.format.as_deref())
 }
 
+#[derive(Deserialize)]
+struct OperationalTimelineRequest {
+    events: Vec<OperationalEvent>,
+}
+
+const OPERATIONAL_TIMELINE_DEMO: &str = include_str!("../../tests/fixtures/operational_timeline_demo.json");
+
+async fn operational_timeline_demo_handler() -> Json<OperationalTimeline> {
+    let events: Vec<OperationalEvent> = serde_json::from_str(OPERATIONAL_TIMELINE_DEMO)
+        .expect("embedded operational timeline demo fixture is valid");
+    Json(OperationalTimeline::from_events(&events))
+}
+
+async fn operational_timeline_demo_events_handler() -> Json<Vec<OperationalEvent>> {
+    let events: Vec<OperationalEvent> = serde_json::from_str(OPERATIONAL_TIMELINE_DEMO)
+        .expect("embedded operational timeline demo fixture is valid");
+    Json(events)
+}
+
+async fn operational_timeline_handler(
+    Json(req): Json<OperationalTimelineRequest>,
+) -> Json<OperationalTimeline> {
+    Json(OperationalTimeline::from_events(&req.events))
+}
+
 /// Roll up a plant OEE from a list of per-machine reports supplied in the body.
 async fn oee_rollup_handler(Json(reports): Json<Vec<OeeReport>>) -> Json<PlantOee> {
     Json(plant_oee(&reports))
@@ -1957,12 +1984,21 @@ async fn holarchy_edge_handler(
     }
 }
 
+/// Node/edge counts for the caller's tenant.
+///
+/// This read the default tenant unconditionally while `/holarchy/edge` writes
+/// through `with_user`, so an edge asserted by aion or praxis returned
+/// `edge_added` and then showed up in nobody's snapshot — the write landed in
+/// the tenant's graph and every reader looked at `_default`. Callers that send
+/// no header still get `_default`, so the previous behaviour is unchanged.
 async fn holarchy_snapshot_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<serde_json::Value> {
-    let s = state.lock();
-    let nodes_count = s.core.holarchy.nodes.len();
-    let edges_count = s.core.holarchy.edges.len();
+    let uid = user_key(&headers);
+    let (nodes_count, edges_count) = state.with_user(&uid, |s| {
+        (s.core.holarchy.nodes.len(), s.core.holarchy.edges.len())
+    });
     Json(serde_json::json!({
         "nodes": nodes_count,
         "edges": edges_count,
@@ -1988,14 +2024,73 @@ struct GraphResponse {
     edges: Vec<physis_pro::graph::Edge>,
 }
 
+#[derive(Deserialize)]
+struct NeighborsParams {
+    /// Coherence node id to walk from.
+    id: String,
+}
+
+#[derive(Serialize)]
+struct NeighborEdge {
+    id: String,
+    label: String,
+    weight: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asserted: Option<Score>,
+}
+
+/// Labelled neighbours of a coherence node — the walkable view of the holarchy.
+///
+/// `/holarchy/graph` exports `RawNodeKey`s, which are packed slotmap handles: a
+/// client can see that an edge exists but not what it joins, so a graph *walk*
+/// was impossible without this. Edges are treated as undirected here because
+/// browsing asks "what is this connected to", not "which way did the assertion
+/// point".
+async fn holarchy_neighbors_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<NeighborsParams>,
+) -> Json<Vec<NeighborEdge>> {
+    let uid = user_key(&headers);
+    let out = state.with_user(&uid, |s| {
+        let edges = s.core.resolved_edges();
+        edges
+            .iter()
+            .filter_map(|(src, tgt, weight)| {
+                let (a, b) = (src.as_deref()?, tgt.as_deref()?);
+                let other = if a == params.id {
+                    b
+                } else if b == params.id {
+                    a
+                } else {
+                    return None;
+                };
+                let node = s.core.nodes.get(other)?;
+                Some(NeighborEdge {
+                    id: other.to_string(),
+                    label: node.label.clone().unwrap_or_default(),
+                    weight: *weight,
+                    asserted: node.asserted,
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+    Json(out)
+}
+
+/// Full graph export for the caller's tenant (same tenancy fix as the snapshot
+/// above: writes were per-tenant, this read was not).
 async fn holarchy_graph_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<GraphResponse> {
-    let s = state.lock();
-    let nodes = s.core.holarchy.nodes.iter()
-        .map(|(k, p)| (physis_pro::graph::RawNodeKey::from(k), *p))
-        .collect();
-    let edges = s.core.holarchy.edges.clone();
+    let uid = user_key(&headers);
+    let (nodes, edges) = state.with_user(&uid, |s| {
+        let nodes: Vec<_> = s.core.holarchy.nodes.iter()
+            .map(|(k, p)| (physis_pro::graph::RawNodeKey::from(k), *p))
+            .collect();
+        (nodes, s.core.holarchy.edges.clone())
+    });
     Json(GraphResponse { nodes, edges })
 }
 
@@ -2874,6 +2969,9 @@ async fn main() {
         .route("/api/v1/oee/compute", post(oee_compute_handler))
         .route("/api/v1/oee/rollup", post(oee_rollup_handler))
         .route("/api/v1/report/shift", get(report_shift_live_handler).post(report_shift_compute_handler))
+        .route("/api/v1/operational/timeline", post(operational_timeline_handler))
+        .route("/api/v1/operational/timeline/demo", get(operational_timeline_demo_handler))
+        .route("/api/v1/operational/timeline/demo/events", get(operational_timeline_demo_events_handler))
         .route("/api/v1/discover", post(discover_handler))
         .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
         .route("/api/v1/maintenance/score", post(maintenance_score_handler))
@@ -2893,6 +2991,7 @@ async fn main() {
         .route("/api/v1/holarchy/snapshot", get(holarchy_snapshot_handler))
         .route("/api/v1/holarchy/trajectory", get(holarchy_trajectory_handler))
         .route("/api/v1/holarchy/graph", get(holarchy_graph_handler))
+        .route("/api/v1/holarchy/neighbors", get(holarchy_neighbors_handler))
         .route("/api/v1/schedule/status", get(schedule_status_handler))
         .route("/api/v1/schedule/cross-correlate", get(schedule_cross_correlate_handler))
         .route("/api/v1/schedule/add-task", post(schedule_add_task_handler))

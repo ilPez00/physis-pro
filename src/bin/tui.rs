@@ -67,6 +67,8 @@ struct EngineStatus {
 /// One recalled node. `density` is the engine's derived score; `asserted` is the
 /// reported verdict, when anyone has judged it (see PLAN.md coherence axes).
 struct WikiHit {
+    /// Coherence node id — the handle the holarchy walk needs.
+    id: String,
     label: String,
     density: f32,
     asserted: Option<f32>,
@@ -98,6 +100,10 @@ struct App {
     wiki_dirty: bool,
     /// When the query was last touched, for that debounce.
     wiki_last_input: std::time::Instant,
+    /// Graph walk: previous result lists, so Backspace climbs back out.
+    wiki_stack: Vec<Vec<WikiHit>>,
+    /// Labels of the nodes walked into, shown as a breadcrumb.
+    wiki_crumbs: Vec<String>,
 }
 
 /// Should a live re-rank fire?
@@ -273,6 +279,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_preview: "press / to search the wiki by meaning".into(),
         wiki_dirty: false,
         wiki_last_input: std::time::Instant::now(),
+        wiki_stack: Vec::new(),
+        wiki_crumbs: Vec::new(),
     };
 
     enable_raw_mode()?;
@@ -339,6 +347,7 @@ fn parse_hits(v: &serde_json::Value) -> Vec<WikiHit> {
         .map(|arr| {
             arr.iter()
                 .map(|n| WikiHit {
+                    id: n.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
                     label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
                     density: n.get("score").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
                     asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
@@ -411,6 +420,72 @@ fn wiki_load_preview(app: &mut App) {
             app.wiki_preview = out;
         }
         Err(e) => app.wiki_preview = format!("{head}  (neighbours unavailable: {e})"),
+    }
+}
+
+/// Walk into the selected node's holarchy edges — browse relations instead of
+/// similarity. Similarity says "these mean alike"; an edge says "someone
+/// asserted these are related", which is a different and usually stronger claim.
+fn wiki_walk_into(app: &mut App) {
+    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else { return };
+    let (id, label) = (hit.id.clone(), hit.label.clone());
+    if id.is_empty() {
+        app.status_msg = "this row has no node id to walk from".into();
+        return;
+    }
+    match wiki_fetch(app, &format!("/api/v1/holarchy/neighbors?id={}", urlencoding_minimal(&id)), None) {
+        Ok(v) => {
+            let hits: Vec<WikiHit> = v
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .map(|n| WikiHit {
+                            id: n.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                            label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                            // An edge carries a weight, not a density; show it in
+                            // the same column rather than inventing a fake score.
+                            density: n.get("weight").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                            asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if hits.is_empty() {
+                // Don't push an empty frame — the user would have to press
+                // Backspace to escape a view that shows nothing.
+                app.status_msg = format!("no edges from \"{}\"", truncate(&label, 40));
+                return;
+            }
+            app.wiki_stack.push(std::mem::take(&mut app.wiki_hits));
+            app.wiki_crumbs.push(label);
+            app.wiki_hits = hits;
+            app.wiki_sel = 0;
+            app.status_msg = format!("{} neighbour(s)", app.wiki_hits.len());
+            wiki_load_preview(app);
+        }
+        Err(e) => app.status_msg = format!("walk failed: {e}"),
+    }
+}
+
+/// Climb back out of a walk, one level per press.
+fn wiki_walk_back(app: &mut App) {
+    match app.wiki_stack.pop() {
+        Some(prev) => {
+            app.wiki_hits = prev;
+            app.wiki_crumbs.pop();
+            app.wiki_sel = 0;
+            app.status_msg = "back".into();
+            wiki_load_preview(app);
+        }
+        None => app.status_msg = "already at the search results".into(),
+    }
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        s.chars().take(max.saturating_sub(1)).collect::<String>() + "…"
     }
 }
 
@@ -500,6 +575,10 @@ fn run<B: ratatui::backend::Backend>(
                 app.wiki_query.clear();
             }
             KeyCode::Enter if app.tab == TAB_WIKI => wiki_search(app),
+            // Graph walk: 'g' descends into the selected node's edges,
+            // Backspace climbs back out (vim-ish, as the §2 spec describes).
+            KeyCode::Char('g') if app.tab == TAB_WIKI => wiki_walk_into(app),
+            KeyCode::Backspace if app.tab == TAB_WIKI => wiki_walk_back(app),
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
             }
@@ -547,7 +626,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
         TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
-        TAB_WIKI => " Tab switch · / search · ↑/↓ browse · Enter re-run · q quit",
+        TAB_WIKI => " Tab · / search · ↑/↓ browse · g walk edges · ⌫ back · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
@@ -613,8 +692,16 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
     }
     let list = List::new(items)
         .block(Block::default()
-            .title(format!(" {} hits · tenant {} · ●worked ●blocked ●inert ○unjudged ",
-                           app.wiki_hits.len(), app.user))
+            .title(if app.wiki_crumbs.is_empty() {
+                format!(" {} hits · tenant {} · ●worked ●blocked ●inert ○unjudged ",
+                        app.wiki_hits.len(), app.user)
+            } else {
+                // Show the walk path so it is obvious these are edges, not
+                // search results, and how deep the walk has gone.
+                format!(" edges of {} · {} neighbour(s) ",
+                        app.wiki_crumbs.iter().map(|c| truncate(c, 18)).collect::<Vec<_>>().join(" → "),
+                        app.wiki_hits.len())
+            })
             .borders(Borders::ALL))
         .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
     f.render_stateful_widget(list, cols[0], &mut state);
@@ -853,6 +940,28 @@ mod tests {
         assert!(parse_hits(&v).is_empty(), "unlabeled node has no readable handle");
         assert!(parse_hits(&serde_json::json!({})).is_empty());
         assert!(parse_hits(&serde_json::json!({ "results": "not-an-array" })).is_empty());
+    }
+
+    #[test]
+    fn parse_hits_captures_the_node_id_needed_to_walk() {
+        // Without the id the graph walk has no handle to follow, so a row that
+        // arrives without one must not silently look walkable.
+        let v = serde_json::json!({ "results": [
+            { "id": "abc-123", "label": "a node", "score": 0.5 },
+            { "label": "no id here", "score": 0.4 }
+        ]});
+        let hits = parse_hits(&v);
+        assert_eq!(hits[0].id, "abc-123");
+        assert!(hits[1].id.is_empty(), "missing id stays empty rather than faking one");
+    }
+
+    #[test]
+    fn truncate_is_char_safe_on_multibyte() {
+        // Labels are user text; slicing bytes would panic on a multi-byte
+        // boundary and take the whole UI down with it.
+        assert_eq!(truncate("short", 10), "short");
+        assert_eq!(truncate("abcdefghij", 5), "abcd…");
+        assert_eq!(truncate("caffè corretto", 6), "caffè…");
     }
 
     #[test]

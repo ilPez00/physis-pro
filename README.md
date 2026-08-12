@@ -157,9 +157,10 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
-| GET  | `/api/v1/holarchy/snapshot` | global | Holarchy graph snapshot |
-| GET  | `/api/v1/holarchy/trajectory` | global | State-vs-goal trajectory |
-| GET  | `/api/v1/holarchy/graph` | global | Full graph export |
+| GET  | `/api/v1/holarchy/snapshot` | ✓ | Holarchy node/edge counts for the tenant |
+| GET  | `/api/v1/holarchy/trajectory` | ✓ | State-vs-goal trajectory |
+| GET  | `/api/v1/holarchy/graph` | ✓ | Full graph export for the tenant |
+| GET  | `/api/v1/holarchy/neighbors` | ✓ | Labelled neighbours of a coherence node `?id=<node_id>` — the walkable view (`/graph` returns opaque `RawNodeKey`s) |
 | POST | `/api/v1/chat` | ✓ | LLM provider-cascade chat proxy |
 | GET  | `/api/v1/providers` | — | Configured LLM providers |
 
