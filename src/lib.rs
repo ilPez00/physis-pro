@@ -35,6 +35,10 @@ pub mod inventory;
 pub mod oee;
 pub mod maintenance;
 pub mod report;
+pub mod operational;
+pub mod operational_report;
+pub mod moonraker;
+pub mod moonraker_connect;
 pub mod ontology;
 pub mod ontology_nonhuman;
 pub mod gantt;
@@ -66,6 +70,8 @@ pub use mapper::OntologyMapper;
 pub use models::*;
 /// Output formatters: wiki, JSON graph, Mermaid mindmap, semiotic renderers.
 pub use output::*;
+/// Normalized operational event model.
+pub use operational::*;
 /// Product quantizer for compressed vector storage.
 pub use quantize::ProductQuantizer;
 /// Vector-space search, reconstruction, and nearest-neighbor lookup.

@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::operational::OperationalEvent;
+
 /// Classification of an ingested document.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DocKind {
@@ -81,6 +83,13 @@ pub fn ingest_all(watch_dirs: &[PathBuf]) -> Vec<IngestedDoc> {
         let _ = walk_and_ingest(dir, &mut docs);
     }
     docs
+}
+
+impl IngestedDoc {
+    /// Normalize the document into the shared operational event schema.
+    pub fn into_operational_event(&self) -> OperationalEvent {
+        OperationalEvent::from(self)
+    }
 }
 
 fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<()> {

@@ -1,0 +1,39 @@
+{
+  "observed_at": "2026-08-12T09:12:00Z",
+  "status": {
+    "webhooks": {
+      "state": "ready",
+      "state_message": "Printer is ready"
+    },
+    "print_stats": {
+      "filename": "benchy.gcode",
+      "total_duration": 4020.0,
+      "print_duration": 3120.0,
+      "filament_used": 1240.0,
+      "state": "paused",
+      "message": "Nozzle temp oscillating",
+      "info": {
+        "total_layer": 210,
+        "current_layer": 128
+      }
+    },
+    "virtual_sdcard": {
+      "file_path": "/gcodes/benchy.gcode",
+      "progress": 0.42,
+      "is_active": true,
+      "file_position": 420000,
+      "file_size": 1000000
+    },
+    "toolhead": {
+      "status": "Ready"
+    },
+    "heater_bed": {
+      "temperature": 59.8,
+      "target": 60.0
+    },
+    "extruder": {
+      "temperature": 78.5,
+      "target": 205.0
+    }
+  }
+}

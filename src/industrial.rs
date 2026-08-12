@@ -8,6 +8,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::operational::OperationalEvent;
+
 /// A health reading from an industrial machine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MachineReading {
@@ -27,6 +29,17 @@ pub enum MachineStatus {
     Offline,
     Warning,
     Critical,
+}
+
+impl MachineStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MachineStatus::Online => "online",
+            MachineStatus::Offline => "offline",
+            MachineStatus::Warning => "warning",
+            MachineStatus::Critical => "critical",
+        }
+    }
 }
 
 /// A detected process anomaly.
@@ -120,6 +133,13 @@ impl TelemetryPayload {
             status,
             raw: self.raw,
         }
+    }
+
+    /// Convert a machine reading payload into the normalized operational event
+    /// shape used by the demo/connectors layer.
+    pub fn into_operational_event(self, machine_id: &str) -> OperationalEvent {
+        let reading = self.into_reading(machine_id);
+        OperationalEvent::from(&reading)
     }
 }
 

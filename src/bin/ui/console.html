@@ -6,42 +6,235 @@
 <title>Physis Console</title>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <style>
-  :root{--bg:#0e1116;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;}
+  :root{
+    --bg:#0b1020;
+    --bg2:#0f1730;
+    --panel:#121a30;
+    --panel2:#0f1628;
+    --line:#24324f;
+    --fg:#edf2ff;
+    --muted:#97a7c3;
+    --accent:#7aa2ff;
+    --accent2:#7ee7d8;
+    --green:#4cd080;
+    --amber:#f4bf75;
+    --red:#ff6b6b;
+    --shadow:0 14px 40px rgba(0,0,0,.28);
+  }
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg);height:100vh;display:flex;flex-direction:column}
-  header{padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  header h1{font-size:15px;margin:0 14px 0 0;font-weight:600}
-  header h1 span{color:var(--accent)}
-  input,button,select,textarea{background:#0d1117;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit}
-  button{cursor:pointer}button:hover{border-color:var(--accent)}
-  #status{margin-left:auto;font-size:12px}
-  .muted{color:var(--muted)}.err{color:#f85149}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--fg);
+    background:
+      radial-gradient(1200px 800px at 10% 0%, rgba(122,162,255,.18), transparent 55%),
+      radial-gradient(900px 600px at 90% 10%, rgba(126,231,216,.12), transparent 50%),
+      linear-gradient(180deg, var(--bg), var(--bg2));
+    display:flex;
+    flex-direction:column;
+  }
+  header{
+    padding:12px 16px;
+    background:rgba(18,26,48,.88);
+    backdrop-filter: blur(12px);
+    border-bottom:1px solid rgba(36,50,79,.85);
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+    box-shadow:var(--shadow);
+  }
+  header h1{
+    font-size:15px;
+    margin:0 12px 0 0;
+    font-weight:700;
+    letter-spacing:.02em;
+  }
+  header h1 span{color:var(--accent2)}
+  header .sub{font-size:12px;color:var(--muted)}
+  input,button,select,textarea{
+    background:rgba(13,19,35,.9);
+    color:var(--fg);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:13px;
+    font-family:inherit;
+  }
+  textarea{width:100%;min-height:110px;resize:vertical}
+  button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+  button:hover{border-color:var(--accent);background:#15203b}
+  button:active{transform:translateY(1px)}
+  #status{margin-left:auto;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
+  .muted{color:var(--muted)}
+  .err{color:var(--red)}
   main{flex:1;display:flex;min-height:0}
-  nav{width:130px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:8px 0}
-  nav button{background:none;border:none;border-radius:0;text-align:left;padding:9px 14px;color:var(--muted);font-size:13px}
-  nav button.active{color:var(--fg);border-left:2px solid var(--accent);background:#0d1117}
+  nav{
+    width:178px;
+    background:rgba(18,26,48,.92);
+    border-right:1px solid rgba(36,50,79,.85);
+    display:flex;
+    flex-direction:column;
+    padding:12px 8px;
+    gap:4px;
+  }
+  nav button{
+    background:none;
+    border:none;
+    border-radius:10px;
+    text-align:left;
+    padding:10px 12px;
+    color:var(--muted);
+    font-size:13px;
+  }
+  nav button.active{
+    color:var(--fg);
+    background:rgba(122,162,255,.12);
+    border:1px solid rgba(122,162,255,.32);
+  }
   nav button:hover{color:var(--fg)}
-  .tab{flex:1;min-width:0;display:none;overflow:auto;padding:14px}
-  .tab.active{display:flex;flex-direction:column}
-  h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .tab{
+    flex:1;
+    min-width:0;
+    display:none;
+    overflow:auto;
+    padding:18px;
+  }
+  .tab.active{display:flex;flex-direction:column;gap:16px}
+  .hero{
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    align-items:flex-start;
+    padding:16px 18px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:rgba(14,20,39,.72);
+    box-shadow:var(--shadow);
+  }
+  .hero h2{margin:0 0 6px;font-size:20px}
+  .hero p{margin:0;color:var(--muted)}
+  .hero .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+  .card{
+    background:rgba(18,26,48,.82);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:14px 16px;
+    box-shadow:var(--shadow);
+  }
+  .card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .card .value{font-size:26px;font-weight:750;margin-top:4px}
+  .card .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .surface{
+    background:rgba(18,26,48,.82);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px;
+    box-shadow:var(--shadow);
+  }
+  h3{
+    margin:0 0 12px;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--muted);
+  }
   table{border-collapse:collapse;width:100%;font-size:13px}
-  th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:500}
-  .bar{height:8px;background:var(--accent);border-radius:4px}
-  textarea{width:100%;min-height:80px;resize:vertical}
-  /* file graph */
-  #graphWrap{flex:1;display:flex;min-height:0}
-  #cy{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px}
-  #gAside{width:340px;border-left:1px solid var(--line);margin-left:10px;display:flex;flex-direction:column;min-height:0}
-  .pane{padding:8px 0;overflow:auto}
-  #content{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,monospace;background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:8px;max-height:280px;overflow:auto}
-  #heat{display:grid;gap:2px;font-size:9px}.hc{aspect-ratio:1;border-radius:2px}.rowlab,.collab{color:var(--muted);font-size:9px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(36,50,79,.8);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  .bar{height:8px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:999px}
+  #graphWrap{flex:1;display:flex;min-height:0;gap:12px}
+  #cy{flex:1;background:rgba(7,11,22,.9);border:1px solid var(--line);border-radius:16px}
+  #gAside{
+    width:360px;
+    border-left:1px solid rgba(36,50,79,.85);
+    padding-left:12px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    gap:12px;
+  }
+  .pane{overflow:auto}
+  #content{
+    white-space:pre-wrap;
+    word-break:break-word;
+    font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    background:rgba(7,11,22,.9);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    max-height:280px;
+    overflow:auto;
+  }
+  #heat{display:grid;gap:3px;font-size:9px}
+  .hc{aspect-ratio:1;border-radius:4px}
+  .rowlab,.collab{color:var(--muted);font-size:9px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
   label.sm{font-size:11px;color:var(--muted)}
-  .big{font-size:34px;font-weight:700}
-  .kpi{display:flex;gap:20px;flex-wrap:wrap;margin:10px 0}
-  .kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:110px}
+  .big{font-size:34px;font-weight:750;letter-spacing:-.03em}
+  .kpi{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .kpi div{
+    background:rgba(7,11,22,.8);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 12px;
+    min-width:120px;
+    flex:1;
+  }
   .kpi small{color:var(--muted);display:block}
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 8px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    font-size:12px;
+    color:var(--muted);
+    background:rgba(7,11,22,.75);
+  }
+  .pill.good{color:var(--green);border-color:rgba(76,208,128,.28)}
+  .pill.warn{color:var(--amber);border-color:rgba(244,191,117,.28)}
+  .pill.bad{color:var(--red);border-color:rgba(255,107,107,.28)}
+  .timeline{
+    display:grid;
+    gap:10px;
+  }
+  .event{
+    display:grid;
+    grid-template-columns:104px 1fr;
+    gap:12px;
+    padding:12px;
+    border-radius:14px;
+    border:1px solid rgba(36,50,79,.85);
+    background:rgba(7,11,22,.72);
+  }
+  .event .time{font:12px/1.2 ui-monospace,monospace;color:var(--muted)}
+  .event .title{font-weight:650;margin-bottom:4px}
+  .event .meta{font-size:12px;color:var(--muted)}
+  .incident{
+    border:1px solid rgba(122,162,255,.32);
+    background:linear-gradient(180deg, rgba(122,162,255,.10), rgba(7,11,22,.75));
+    border-radius:16px;
+    padding:14px;
+  }
+  .incident h4{margin:0 0 6px;font-size:16px}
+  .incident p{margin:8px 0 0;color:var(--fg)}
+  .split{
+    display:grid;
+    grid-template-columns:1.4fr .9fr;
+    gap:12px;
+  }
+  @media (max-width: 1100px){
+    main{flex-direction:column}
+    nav{width:auto;flex-direction:row;overflow:auto;border-right:none;border-bottom:1px solid rgba(36,50,79,.85)}
+    nav button{white-space:nowrap}
+    #graphWrap,.split{grid-template-columns:1fr;display:grid}
+    #gAside{width:auto;border-left:none;padding-left:0}
+    .hero{flex-direction:column}
+  }
 </style>
 </head>
 <body>
@@ -53,18 +246,76 @@
 </header>
 <main>
   <nav>
-    <button data-tab="classify" class="active">Classify</button>
+    <button data-tab="overview" class="active">Overview</button>
+    <button data-tab="classify">Classify</button>
+    <button data-tab="timeline">Timeline</button>
     <button data-tab="grid">Grid</button>
     <button data-tab="graph">File Graph</button>
     <button data-tab="oee">OEE</button>
   </nav>
 
+  <!-- OVERVIEW -->
+  <section class="tab active" id="tab-overview">
+    <div class="hero">
+      <div>
+        <h2>Operational intelligence dashboard</h2>
+        <p>Demo-first view over printer telemetry, workflow notes, email threads, and machine health.</p>
+      </div>
+      <div class="actions">
+        <button id="ovLoad">Refresh overview</button>
+        <button id="ovDemo">Load demo timeline</button>
+        <button id="ovOee">Refresh OEE</button>
+      </div>
+    </div>
+    <div class="card-grid" id="ovCards"></div>
+    <div class="split">
+      <section class="surface">
+        <h3>Incident summary</h3>
+        <div id="ovIncident" class="muted">Loading…</div>
+      </section>
+      <section class="surface">
+        <h3>Live pointers</h3>
+        <div class="timeline" id="ovPointers"></div>
+      </section>
+    </div>
+  </section>
+
   <!-- CLASSIFY -->
-  <section class="tab active" id="tab-classify">
+  <section class="tab" id="tab-classify">
     <h3>Classify text → semiotic cell</h3>
     <textarea id="clText" placeholder="paste any observation, log line, note…"></textarea>
     <div class="row" style="margin-top:8px"><button id="clRun">Classify →</button></div>
     <div id="clOut"></div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="tab" id="tab-timeline">
+    <div class="hero">
+      <div>
+        <h2>Operational timeline</h2>
+        <p>Paste an array of <code>OperationalEvent</code> records or load the bundled workshop demo.</p>
+      </div>
+      <div class="actions">
+        <button id="tlDemo">Load demo events</button>
+        <button id="tlRun">Render timeline</button>
+      </div>
+    </div>
+    <div class="split">
+      <section class="surface">
+        <h3>Event input</h3>
+        <textarea id="tlInput" placeholder="Paste JSON array of OperationalEvent records here…"></textarea>
+        <p class="muted" style="margin:8px 0 0">The demo fixture is editable. You can replace event fields, add more events, or paste a live export.</p>
+      </section>
+      <section class="surface">
+        <h3>Timeline report</h3>
+        <div id="tlStats" class="card-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));"></div>
+        <div id="tlIncident" style="margin-top:12px"></div>
+      </section>
+    </div>
+    <section class="surface">
+      <h3>Event stream</h3>
+      <div id="tlStream" class="timeline"></div>
+    </section>
   </section>
 
   <!-- GRID -->
@@ -112,6 +363,12 @@ const save=()=>['base','token','dir'].forEach(k=>$(k)&&localStorage.setItem(LS[k
 const api=p=>{const b=$('base').value.trim().replace(/\/$/,'');return (b||'')+p;};
 const hdr=()=>{const t=$('token').value.trim();return t?{Authorization:'Bearer '+t}:{};};
 const setS=(m,e)=>{const s=$('status');s.textContent=m;s.className=e?'err':'muted';};
+const esc=s=>String(s??'')
+  .replace(/&/g,'&amp;')
+  .replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;')
+  .replace(/'/g,'&#39;');
 async function getJSON(p){const r=await fetch(api(p),{headers:hdr()});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
 async function postJSON(p,body){const r=await fetch(api(p),{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
 
@@ -125,10 +382,262 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   b.classList.add('active'); $('tab-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='overview') loadOverview();
+  if(b.dataset.tab==='timeline') loadTimelineDemo();
   if(b.dataset.tab==='grid') loadHeat();
   if(b.dataset.tab==='oee') loadOee();
   if(b.dataset.tab==='graph'){ if(!cyReady){initCy();cyReady=true;} setTimeout(()=>{cy.resize();cy.fit();},50); }
 });
+
+function fmtTime(iso){
+  try{
+    return new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }catch(_){
+    return iso;
+  }
+}
+function statusClass(s){
+  const v=(s||'').toLowerCase();
+  if(v==='failure' || v==='critical') return 'bad';
+  if(v==='warning') return 'warn';
+  return 'good';
+}
+function eventLabel(e){
+  return `${e.kind || 'event'} · ${e.status || 'info'}`;
+}
+const DEMO_EVENTS = [
+  {
+    event_key:"demo-machine-1",
+    observed_at:"2026-08-12T09:12:00Z",
+    duration_secs:null,
+    kind:"machine",
+    status:"warning",
+    subject:"voron-01",
+    actor:"moonraker",
+    target:"benchy.gcode",
+    machine_id:"voron-01",
+    thread_id:null,
+    project:"workshop",
+    evidence:["webhooks.state=ready","print_stats.state=paused","Nozzle temp oscillating"],
+    properties:{progress:"0.42",printer_state:"ready",print_state:"paused",severity:"0.7",file_path:"/gcodes/benchy.gcode"},
+    provenance:{connector:"moonraker",source:"machine",source_id:"voron-01",path:null,uri:"http://printer.local:7125"},
+    raw:{}
+  },
+  {
+    event_key:"demo-doc-1",
+    observed_at:"2026-08-12T09:16:00Z",
+    duration_secs:null,
+    kind:"document",
+    status:"info",
+    subject:"Resumed after nozzle clean",
+    actor:null,
+    target:null,
+    machine_id:null,
+    thread_id:null,
+    project:"workshop",
+    evidence:["cleaned nozzle, resumed"],
+    properties:{doc_kind:"Report"},
+    provenance:{connector:"ingest",source:"document",source_id:"notes.md",path:"/tmp/workshop/notes.md",uri:null},
+    raw:{}
+  },
+  {
+    event_key:"demo-email-1",
+    observed_at:"2026-08-12T09:30:00Z",
+    duration_secs:null,
+    kind:"email",
+    status:"info",
+    subject:"Supplier delay",
+    actor:"supplier@example.com",
+    target:null,
+    machine_id:null,
+    thread_id:"msg-123",
+    project:"workshop",
+    evidence:["Replacement nozzle ships tomorrow."],
+    properties:{from:"supplier@example.com",subject:"Delay update",thread_id:"msg-123"},
+    provenance:{connector:"ingest",source:"email",source_id:"msg-123",path:"/tmp/mail/eml/chain.eml",uri:null},
+    raw:{}
+  }
+];
+function cloneDemoEvents(){return JSON.parse(JSON.stringify(DEMO_EVENTS));}
+function buildIncident(trigger, entries){
+  const start = new Date(new Date(trigger.observed_at).getTime() - 30*60*1000).toISOString();
+  const end = new Date(new Date(trigger.observed_at).getTime() + 30*60*1000).toISOString();
+  const related = entries.filter(e=>{
+    const t = new Date(e.observed_at).getTime();
+    const ts = new Date(trigger.observed_at).getTime();
+    const window = Math.abs(t - ts) <= 30*60*1000;
+    const sameMachine = trigger.machine_id && trigger.machine_id === e.machine_id;
+    const sameThread = trigger.thread_id && trigger.thread_id === e.thread_id;
+    return window || sameMachine || sameThread;
+  });
+  let note = 'Operational interruption detected.';
+  if(trigger.kind === 'machine'){
+    if(related.some(e=>e.kind==='email') && related.some(e=>e.kind==='document')){
+      note = 'Machine evidence aligns with local document and email context, so this looks like a workflow friction window.';
+    }else if(related.some(e=>e.kind==='email')){
+      note = 'Machine evidence lines up with an email thread, so the event is probably part of a customer or supplier handoff.';
+    }else{
+      note = 'Machine evidence suggests an operational interruption that should be reviewed before the next run.';
+    }
+  }else if(trigger.kind === 'email'){
+    note = 'Email thread contains a process delay or approval step that should be reconciled with the operational record.';
+  }else if(trigger.kind === 'document'){
+    note = 'Document evidence indicates a workflow step that should be normalized into the event stream.';
+  }
+  const next_action = trigger.kind === 'machine'
+    ? 'Inspect the machine, attach the related note/email to the incident, and confirm a before-next-job action.'
+    : trigger.kind === 'email'
+      ? 'Clear the pending reply or approval and link the thread to the affected workflow.'
+      : trigger.kind === 'document'
+        ? 'Promote the document into a structured workflow event and attach the owning task.'
+        : 'Review the related events and record a human verdict.';
+  return {
+    headline:`${trigger.status} event on ${trigger.subject}`,
+    window_start:start,
+    window_end:end,
+    trigger,
+    related,
+    note,
+    next_action,
+  };
+}
+function buildTimelineReport(events){
+  const entries = [...events].sort((a,b)=>new Date(a.observed_at)-new Date(b.observed_at) || String(a.subject).localeCompare(String(b.subject)));
+  const counts_by_kind = {};
+  const counts_by_status = {};
+  for(const e of entries){
+    counts_by_kind[e.kind] = (counts_by_kind[e.kind]||0)+1;
+    counts_by_status[e.status] = (counts_by_status[e.status]||0)+1;
+  }
+  const trigger = entries.find(e=>['warning','failure'].includes(String(e.status).toLowerCase()));
+  return {entries, counts_by_kind, counts_by_status, incident: trigger ? buildIncident(trigger, entries) : null};
+}
+function renderOverviewCards(timeline, oee){
+  const cards = $('ovCards');
+  const incident = timeline.incident;
+  const o = oee || {};
+  const oeePct = typeof o.oee === 'number' ? (o.oee*100).toFixed(1)+'%' : '—';
+  cards.innerHTML = [
+    {label:'Plant OEE', value:oeePct, hint:oee ? `Availability ${(o.availability*100).toFixed(1)}% · Performance ${(o.performance*100).toFixed(1)}%` : 'No live plant summary yet'},
+    {label:'Timeline events', value:timeline.entries ? timeline.entries.length : 0, hint:'Normalized operational records'},
+    {label:'Warnings / failures', value:`${timeline.counts_by_status?.warning || 0} / ${timeline.counts_by_status?.failure || 0}`, hint:'Incident pressure'},
+    {label:'Active incident', value:incident ? 'Yes' : 'None', hint:incident ? incident.headline : 'No incident detected'},
+  ].map(c=>`<div class="card"><div class="label">${esc(c.label)}</div><div class="value">${esc(c.value)}</div><div class="hint">${esc(c.hint)}</div></div>`).join('');
+
+  $('ovIncident').innerHTML = incident ? `
+    <div class="incident">
+      <div class="pill ${statusClass(incident.trigger?.status)}">${esc(incident.trigger?.status || 'info')}</div>
+      <h4>${esc(incident.headline)}</h4>
+      <div class="muted">${esc(incident.window_start)} to ${esc(incident.window_end)}</div>
+      <p>${esc(incident.note)}</p>
+      <p><strong>Next action:</strong> ${esc(incident.next_action)}</p>
+    </div>
+  ` : '<p class="muted">No incident inferred from the current event set.</p>';
+
+  const entries = (timeline.entries || []).slice(0,5);
+  $('ovPointers').innerHTML = entries.length ? entries.map(e=>`
+    <div class="event">
+      <div>
+        <div class="time">${esc(fmtTime(e.observed_at))}</div>
+        <div class="pill ${statusClass(e.status)}" style="margin-top:6px">${esc(e.kind)}</div>
+      </div>
+      <div>
+        <div class="title">${esc(e.subject)}</div>
+        <div class="meta">${esc(eventLabel(e))}${e.machine_id ? ` · ${esc(e.machine_id)}` : ''}${e.thread_id ? ` · thread ${esc(e.thread_id)}` : ''}${e.provenance?.connector ? ` · ${esc(e.provenance.connector)}` : ''}</div>
+      </div>
+    </div>
+  `).join('') : '<p class="muted">No events loaded.</p>';
+}
+
+function renderTimelineReport(t){
+  const cards = $('tlStats');
+  cards.innerHTML = [
+    {label:'Events', value:t.entries?.length || 0, hint:'sorted by time'},
+    {label:'Kinds', value:Object.keys(t.counts_by_kind || {}).length, hint:'machine, document, email, ...'},
+    {label:'Warnings', value:t.counts_by_status?.warning || 0, hint:'process friction'},
+    {label:'Failures', value:t.counts_by_status?.failure || 0, hint:'hard interruptions'},
+  ].map(c=>`<div class="card"><div class="label">${esc(c.label)}</div><div class="value">${esc(c.value)}</div><div class="hint">${esc(c.hint)}</div></div>`).join('');
+
+  $('tlIncident').innerHTML = t.incident ? `
+    <div class="incident">
+      <div class="pill ${statusClass(t.incident.trigger?.status)}">${esc(t.incident.trigger?.status || 'info')}</div>
+      <h4>${esc(t.incident.headline)}</h4>
+      <div class="muted">${esc(t.incident.window_start)} to ${esc(t.incident.window_end)}</div>
+      <p>${esc(t.incident.note)}</p>
+      <p><strong>Next action:</strong> ${esc(t.incident.next_action)}</p>
+    </div>
+  ` : '<p class="muted">No incident detected.</p>';
+
+  $('tlStream').innerHTML = (t.entries || []).map(e=>`
+    <div class="event">
+      <div>
+        <div class="time">${esc(fmtTime(e.observed_at))}</div>
+        <div class="pill ${statusClass(e.status)}" style="margin-top:6px">${esc(e.kind)}</div>
+      </div>
+      <div>
+        <div class="title">${esc(e.subject)}</div>
+        <div class="meta">${esc(eventLabel(e))}${e.actor ? ` · ${esc(e.actor)}` : ''}${e.machine_id ? ` · ${esc(e.machine_id)}` : ''}${e.thread_id ? ` · thread ${esc(e.thread_id)}` : ''}${e.provenance?.connector ? ` · ${esc(e.provenance.connector)}` : ''}</div>
+        ${(e.evidence || []).length ? `<div class="meta" style="margin-top:6px">${e.evidence.map(x=>`<div>• ${esc(x)}</div>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  `).join('') || '<p class="muted">No events loaded.</p>';
+}
+
+async function loadOverview(){
+  if(!$('token').value.trim()){
+    const timeline = buildTimelineReport(cloneDemoEvents());
+    renderOverviewCards(timeline, null);
+    $('ovIncident').innerHTML = '<p class="muted">This is the offline demo view. Paste a bearer token to swap in live plant data.</p>';
+    setS('ready');
+    return;
+  }
+  setS('loading overview…');
+  try{
+    const [timeline,oee] = await Promise.all([
+      getJSON('/api/v1/operational/timeline/demo'),
+      getJSON('/api/v1/oee/plant').catch(()=>null)
+    ]);
+    renderOverviewCards(timeline,oee);
+    setS('overview ready');
+  }catch(e){
+    $('ovCards').innerHTML='<div class="card"><div class="label">Error</div><div class="value">!</div><div class="hint">'+esc(String(e))+'</div></div>';
+    $('ovIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    setS(String(e),1);
+  }
+}
+
+async function loadTimelineDemo(){
+  if(!$('token').value.trim()){
+    const events = cloneDemoEvents();
+    $('tlInput').value = JSON.stringify(events, null, 2);
+    const t = buildTimelineReport(events);
+    renderTimelineReport(t);
+    setS('offline demo loaded');
+    return;
+  }
+  try{
+    const events = await getJSON('/api/v1/operational/timeline/demo/events');
+    $('tlInput').value = JSON.stringify(events, null, 2);
+    const t = await postJSON('/api/v1/operational/timeline', {events});
+    renderTimelineReport(t);
+    if($('tab-timeline').classList.contains('active')) setS('timeline demo loaded');
+  }catch(e){
+    $('tlIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    setS(String(e),1);
+  }
+}
+
+async function runTimeline(){
+  try{
+    const events = JSON.parse($('tlInput').value || '[]');
+    const t = await postJSON('/api/v1/operational/timeline', {events});
+    renderTimelineReport(t);
+    setS('timeline rendered');
+  }catch(e){
+    $('tlIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    setS(String(e),1);
+  }
+}
 
 // ── classify ──
 $('clRun').onclick=async()=>{
@@ -161,6 +670,11 @@ async function loadHeat(){
 
 // ── OEE ──
 async function loadOee(){
+  if(!$('token').value.trim()){
+    $('oeeOut').innerHTML='<p class="muted">Paste a bearer token to load live OEE data.</p>';
+    setS('ready');
+    return;
+  }
   $('oeeOut').textContent='Loading…';
   try{
     const p=await getJSON('/api/v1/oee/plant');
@@ -179,6 +693,12 @@ async function loadOee(){
     $('oeeOut').innerHTML=html; setS('OEE loaded');
   }catch(e){$('oeeOut').innerHTML='<span class="err">'+e+'</span>';}
 }
+
+$('ovLoad').onclick=loadOverview;
+$('ovDemo').onclick=loadTimelineDemo;
+$('ovOee').onclick=loadOee;
+$('tlDemo').onclick=loadTimelineDemo;
+$('tlRun').onclick=runTimeline;
 
 // ── file graph (cytoscape) ──
 const PALETTE=['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba','#f0883e','#56d4dd','#db61a2','#a5d6ff','#7ee787'];
@@ -217,6 +737,8 @@ async function move(){const n=cy.$('node:selected').first();if(!n||n.data('kind'
 
 $('scan').onclick=scan;$('move').onclick=move;$('view').onchange=()=>render(lastG);$('hubs').onchange=scan;$('search').oninput=applySearch;
 ['base','token'].forEach(k=>$(k).onchange=save);
+
+loadOverview();
 </script>
 </body>
 </html>

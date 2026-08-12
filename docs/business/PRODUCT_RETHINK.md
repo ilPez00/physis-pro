@@ -147,4 +147,21 @@ B. Promote `CoherenceNode`/`Edge` to typed `OntologyObject`/`OntologyLink` with
 C. Bind `dream()` outputs to typed actions; add an event log for temporal.
 D. Then harden: authn/RBAC, integrations, on-prem installer, pricing.
 
+## 6. Concrete demo and connector boundary
+
+See [DEMO_AND_CONNECTORS.md](DEMO_AND_CONNECTORS.md) for a product demo built
+around a Klipper 3D printer, local workflow files, email threads, and explicit
+human verdicts. The printer is a safe validation environment for the ingestion
+and feedback loop; it is not evidence that Physis already performs industrial
+predictive maintenance.
+
+The important architectural step is to normalize all sources into a typed,
+timestamped `OperationalEvent` with provenance. Moonraker, system activity, and
+mailbox synchronization should be adapters around that model rather than new
+special cases inside the ontology engine.
+
+The first printer adapter now lives in `src/moonraker.rs`; the remaining work
+is the live demo surface and the incident/timeline views that consume the
+normalized event stream.
+
 The engine is genuinely good. The work is *productisation*, not more research.
