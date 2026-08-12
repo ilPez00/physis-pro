@@ -124,8 +124,13 @@ Shipped this arc (all on `main`, classify hot path untouched unless noted):
 - [x] **Live re-rank** — results follow the query as you type, debounced on a
   350ms pause with a 3-char floor. Per-keystroke would cost an HTTP hop plus an
   ONNX embed per letter; a pause gives the same feel for one request.
-- [ ] **Still open from the §2 spec**: semiotic
-  heatmap pane with cell filtering, graph-walk (`g`), dream view (`d`).
+- [x] **Graph walk** (`g` descend, `⌫` climb out) — browses holarchy edges
+  rather than similarity. Needed a new `GET /api/v1/holarchy/neighbors`: the
+  existing `/holarchy/graph` exports packed `RawNodeKey`s, so a client could see
+  that an edge existed but not what it joined.
+- [ ] **Still open from the §2 spec**: semiotic heatmap pane with cell filtering;
+  dream view (`d`) is blocked on the engine — `/dream/generate` returns raw 768-d
+  vectors, not the human-readable corrective actions the README describes.
 
 ### Phase 2: User Experience (The "Backoffice" Polish)
 - **Web-based Dashboard**: Build a React/Next.js dashboard (using the existing `web` feature) that visualizes the `FileThemeGraph` as an interactive force-directed graph.
