@@ -1,0 +1,104 @@
+[
+  {
+    "event_key": "demo-machine-1",
+    "observed_at": "2026-08-12T09:12:00Z",
+    "duration_secs": null,
+    "kind": "machine",
+    "status": "warning",
+    "subject": "voron-01",
+    "actor": "moonraker",
+    "target": "benchy.gcode",
+    "machine_id": "voron-01",
+    "thread_id": null,
+    "project": "workshop",
+    "evidence": [
+      "webhooks.state=ready",
+      "print_stats.state=paused",
+      "Nozzle temp oscillating"
+    ],
+    "properties": {
+      "progress": "0.42",
+      "printer_state": "ready",
+      "print_state": "paused",
+      "severity": "0.7",
+      "file_path": "/gcodes/benchy.gcode"
+    },
+    "provenance": {
+      "connector": "moonraker",
+      "source": "machine",
+      "source_id": "voron-01",
+      "path": null,
+      "uri": "http://printer.local:7125"
+    },
+    "raw": {
+      "observed_at": "2026-08-12T09:12:00Z",
+      "status": {}
+    }
+  },
+  {
+    "event_key": "demo-doc-1",
+    "observed_at": "2026-08-12T09:16:00Z",
+    "duration_secs": null,
+    "kind": "document",
+    "status": "info",
+    "subject": "Resumed after nozzle clean",
+    "actor": null,
+    "target": null,
+    "machine_id": null,
+    "thread_id": null,
+    "project": "workshop",
+    "evidence": [
+      "cleaned nozzle, resumed"
+    ],
+    "properties": {
+      "doc_kind": "Report"
+    },
+    "provenance": {
+      "connector": "ingest",
+      "source": "document",
+      "source_id": "notes.md",
+      "path": "/tmp/workshop/notes.md",
+      "uri": null
+    },
+    "raw": {
+      "path": "/tmp/workshop/notes.md",
+      "kind": "Report",
+      "title": "Resumed after nozzle clean",
+      "body": "cleaned nozzle, resumed"
+    }
+  },
+  {
+    "event_key": "demo-email-1",
+    "observed_at": "2026-08-12T09:30:00Z",
+    "duration_secs": null,
+    "kind": "email",
+    "status": "info",
+    "subject": "Supplier delay",
+    "actor": "supplier@example.com",
+    "target": null,
+    "machine_id": null,
+    "thread_id": "msg-123",
+    "project": "workshop",
+    "evidence": [
+      "Replacement nozzle ships tomorrow."
+    ],
+    "properties": {
+      "from": "supplier@example.com",
+      "subject": "Delay update",
+      "thread_id": "msg-123"
+    },
+    "provenance": {
+      "connector": "ingest",
+      "source": "email",
+      "source_id": "msg-123",
+      "path": "/tmp/mail/eml/chain.eml",
+      "uri": null
+    },
+    "raw": {
+      "path": "/tmp/mail/eml/chain.eml",
+      "kind": "Email",
+      "title": "Supplier delay",
+      "body": "Replacement nozzle ships tomorrow."
+    }
+  }
+]

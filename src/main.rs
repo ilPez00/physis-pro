@@ -68,6 +68,19 @@ pub enum Commands {
     Classify {
         file: PathBuf,
     },
+    /// Render a timeline/incident view from normalized operational events
+    Timeline {
+        /// JSON file containing an array of OperationalEvent records
+        input: PathBuf,
+        /// Emit JSON instead of markdown
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run a live connector, emitting normalized events as JSON lines
+    Connect {
+        #[command(subcommand)]
+        source: ConnectSource,
+    },
 
     // ── Business backoffice commands ──
     /// Render the Italian shift report from a ShiftReportInput JSON file
@@ -171,6 +184,36 @@ pub enum Commands {
     },
 }
 
+/// Sources a `connect` run can poll.
+#[derive(Subcommand)]
+pub enum ConnectSource {
+    /// Klipper printers via Moonraker's JSON-RPC API
+    Moonraker {
+        /// Moonraker base URL, e.g. http://printer.local:7125
+        #[arg(long)]
+        url: String,
+        /// Machine id recorded on every event
+        #[arg(long, default_value = "printer-01")]
+        machine_id: String,
+        /// Seconds between polls
+        #[arg(long, default_value_t = 10)]
+        interval: u64,
+        /// Poll once and exit (cron / smoke test)
+        #[arg(long)]
+        once: bool,
+        /// Also register events into this physis engine
+        #[arg(long)]
+        post_to: Option<String>,
+        /// Tenant for those registrations
+        #[arg(long, default_value = "_default")]
+        user: String,
+        /// Remember the last reported state here, so a restart does not
+        /// re-report what was already reported
+        #[arg(long)]
+        state_file: Option<PathBuf>,
+    },
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
@@ -263,6 +306,33 @@ fn main() -> anyhow::Result<()> {
         Commands::Classify { file } => {
             let output = app.run_classify(&file)?;
             println!("{output}");
+        }
+        Commands::Connect { source } => match source {
+            ConnectSource::Moonraker { url, machine_id, interval, once, post_to, user, state_file } => {
+                let opts = physis_pro::moonraker_connect::ConnectOptions {
+                    url,
+                    machine_id,
+                    interval_secs: interval,
+                    once,
+                    post_to,
+                    user,
+                    token: std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty()),
+                    state_file,
+                };
+                let rt = tokio::runtime::Runtime::new()?;
+                rt.block_on(physis_pro::moonraker_connect::run(opts))?;
+            }
+        },
+        Commands::Timeline { input, json } => {
+            let raw = std::fs::read_to_string(&input)?;
+            let events: Vec<physis_pro::operational::OperationalEvent> =
+                serde_json::from_str(&raw)?;
+            let timeline = physis_pro::operational_report::OperationalTimeline::from_events(&events);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&timeline)?);
+            } else {
+                println!("{}", timeline.render_markdown());
+            }
         }
 
         // ── Business commands ──

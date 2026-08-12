@@ -92,6 +92,14 @@ pub enum Commands {
         /// Path to .txt file
         file: PathBuf,
     },
+    /// Render a timeline/incident view from normalized operational events
+    Timeline {
+        /// JSON file containing an array of OperationalEvent records
+        input: PathBuf,
+        /// Emit JSON instead of markdown
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Top-level application state: config, ontology, mapper, PDCA actor, dream engine, goals.
