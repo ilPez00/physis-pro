@@ -121,7 +121,10 @@ Shipped this arc (all on `main`, classify hot path untouched unless noted):
   it — one colour cannot honestly carry both axes. Respects `PHYSIS_USER`, since
   coherence state is per-tenant and `_default` is empty when nodes were written
   under `aion` / `praxis`.
-- [ ] **Still open from the §2 spec**: live re-rank per keystroke, semiotic
+- [x] **Live re-rank** — results follow the query as you type, debounced on a
+  350ms pause with a 3-char floor. Per-keystroke would cost an HTTP hop plus an
+  ONNX embed per letter; a pause gives the same feel for one request.
+- [ ] **Still open from the §2 spec**: semiotic
   heatmap pane with cell filtering, graph-walk (`g`), dream view (`d`).
 
 ### Phase 2: User Experience (The "Backoffice" Polish)
