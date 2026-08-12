@@ -1,12 +1,19 @@
 //! physis-pro-tui — control panel for the physis engine.
 //!
-//! Three tabs (cycle with Tab):
+//! Four tabs (cycle with Tab):
 //!   STATUS   — live engine health (HTTP), embedder, node/edge counts, connection.
 //!   MACHINES — pick a philosophical machine and run it on a sample (in-process).
 //!   CONFIG   — edit + save ~/.physis/config.json (dream/pdca/scan/embed knobs).
+//!   WIKI     — browse the UberWiki by MEANING: describe what a thing was about
+//!              and get cosine-ranked nodes back, each showing whether it was
+//!              reported as worked/blocked and what it sits next to.
 //!
 //! Keys: Tab switch · ↑/↓ select · Enter run (machines) · +/- edit (config) ·
-//!       s save (config) · r refresh (status) · q quit.
+//!       s save (config) · r refresh (status) · / search (wiki) · q quit.
+//!
+//! Env: PHYSIS_URL, PHYSIS_API_TOKEN, PHYSIS_USER (which tenant's wiki to read —
+//! coherence state is per-user, so the default `_default` tenant is empty if
+//! your nodes were written under `aion` / `praxis`).
 
 use std::io::stdout;
 use std::sync::{Arc, Mutex};
@@ -31,7 +38,8 @@ use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
 
-const TABS: [&str; 3] = ["STATUS", "MACHINES", "CONFIG"];
+const TABS: [&str; 4] = ["STATUS", "MACHINES", "CONFIG", "WIKI"];
+const TAB_WIKI: usize = 3;
 const MACHINES: [(&str, &str); 7] = [
     ("chronos", "temporal — rhythms, what's due / slipping"),
     ("techne", "codebase — capabilities + change impact"),
@@ -56,6 +64,14 @@ struct EngineStatus {
     detail: String,
 }
 
+/// One recalled node. `density` is the engine's derived score; `asserted` is the
+/// reported verdict, when anyone has judged it (see PLAN.md coherence axes).
+struct WikiHit {
+    label: String,
+    density: f32,
+    asserted: Option<f32>,
+}
+
 struct App {
     tab: usize,
     machine_sel: usize,
@@ -65,8 +81,19 @@ struct App {
     status_msg: String,
     url: String,
     token: Option<String>,
+    /// Tenant to browse (`X-Physis-User`). Coherence state is per-user, so
+    /// without this the WIKI tab reads the empty `_default` tenant while the
+    /// real content sits under `aion` / `praxis` — the tool would look broken.
+    user: String,
     /// The engine process, when started from here.
     engine: Option<std::process::Child>,
+    /// WIKI tab: browse the UberWiki by meaning rather than by name.
+    wiki_query: String,
+    /// True while typing a query — keys go to the box, not to navigation.
+    wiki_typing: bool,
+    wiki_hits: Vec<WikiHit>,
+    wiki_sel: usize,
+    wiki_preview: String,
 }
 
 /// Resolve the physis-pro-web binary: sibling of this exe, else rely on PATH.
@@ -175,6 +202,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let url = std::env::var("PHYSIS_URL").unwrap_or_else(|_| "http://127.0.0.1:19876".into());
     let token = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty());
+    // Which tenant's wiki to browse. Matches the aion client's env var.
+    let user = std::env::var("PHYSIS_USER").unwrap_or_else(|_| "_default".into());
 
     let status = Arc::new(Mutex::new(EngineStatus::default()));
 
@@ -218,7 +247,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         status_msg: format!("engine: {url}"),
         url,
         token,
+        user,
         engine: None,
+        wiki_query: String::new(),
+        wiki_typing: false,
+        wiki_hits: Vec::new(),
+        wiki_sel: 0,
+        wiki_preview: "press / to search the wiki by meaning".into(),
     };
 
     enable_raw_mode()?;
@@ -240,6 +275,138 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     res
 }
 
+/// Blocking GET/POST helper for the WIKI tab. The UI loop is synchronous, so
+/// each call spins a current-thread runtime the same way `reload_config` does —
+/// searches are user-initiated (Enter), not per-keystroke, so this never runs
+/// hot enough to justify a background poller.
+fn wiki_fetch(app: &App, path: &str, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    let url = format!("{}{}", app.url, path);
+    let token = app.token.clone();
+    let user = app.user.clone();
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?;
+    rt.block_on(async move {
+        let client = reqwest::Client::new();
+        let mut rb = match &body {
+            Some(_) => client.post(&url),
+            None => client.get(&url),
+        };
+        if let Some(t) = token {
+            rb = rb.bearer_auth(t);
+        }
+        rb = rb.header("X-Physis-User", user);
+        if let Some(b) = body {
+            rb = rb.json(&b);
+        }
+        let resp = rb.send().await.map_err(|e| format!("{e}"))?;
+        if !resp.status().is_success() {
+            return Err(format!("HTTP {}", resp.status()));
+        }
+        resp.json::<serde_json::Value>().await.map_err(|e| format!("{e}"))
+    })
+}
+
+/// Turn a `/coherence/nodes` payload into hits.
+///
+/// `asserted` is absent for unjudged nodes (the engine skips serialising it),
+/// and that absence must survive as `None` rather than collapse to 0.0 — "nobody
+/// has judged this" and "judged inert" are different states and the browser
+/// shows them differently.
+fn parse_hits(v: &serde_json::Value) -> Vec<WikiHit> {
+    v.get("results")
+        .and_then(|r| r.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|n| WikiHit {
+                    label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                    density: n.get("score").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                    asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
+                })
+                // An unlabeled node has no readable handle, so it cannot be
+                // browsed by content — drop it rather than show a blank row.
+                .filter(|h| !h.label.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Recall nodes near the query *by meaning* — the whole point of the browser:
+/// you remember what a thing was about, not what it was called.
+fn wiki_search(app: &mut App) {
+    let q = app.wiki_query.trim().to_string();
+    if q.is_empty() {
+        app.status_msg = "type a query first (/)".into();
+        return;
+    }
+    let path = format!(
+        "/api/v1/coherence/nodes?q={}&max=30",
+        urlencoding_minimal(&q)
+    );
+    match wiki_fetch(app, &path, None) {
+        Ok(v) => {
+            app.wiki_hits = parse_hits(&v);
+            app.wiki_sel = 0;
+            app.status_msg = format!("{} hits for \"{q}\"", app.wiki_hits.len());
+            if app.wiki_hits.is_empty() {
+                app.wiki_preview = "nothing near that yet — the wiki only knows what has been \
+                                    registered into this tenant".into();
+            } else {
+                wiki_load_preview(app);
+            }
+        }
+        Err(e) => {
+            app.status_msg = format!("search failed: {e}");
+            app.wiki_preview = format!("search failed: {e}\n\nis physis-pro-web running? (STATUS tab, 's' starts it)");
+        }
+    }
+}
+
+/// Neighbours of the selected node — what this thing sits next to in meaning.
+fn wiki_load_preview(app: &mut App) {
+    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else { return };
+    let label = hit.label.clone();
+    let verdict = match hit.asserted {
+        Some(a) if a > 0.2 => format!("reported: WORKED ({a:+.2})"),
+        Some(a) if a < -0.2 => format!("reported: BLOCKED ({a:+.2})"),
+        Some(a) => format!("reported: inert ({a:+.2})"),
+        None => "reported: — (nobody has judged this)".to_string(),
+    };
+    let head = format!("{label}\n\ndensity: {:.3}   {verdict}\n\nnearest in meaning:\n", hit.density);
+    match wiki_fetch(app, "/api/v1/reconstruct", Some(serde_json::json!({ "input": label }))) {
+        Ok(v) => {
+            let mut out = head;
+            let neighbours = v.get("neighbors").and_then(|n| n.as_array()).cloned().unwrap_or_default();
+            for n in neighbours.iter().take(6) {
+                let l = n.get("label").and_then(|x| x.as_str()).unwrap_or("(unlabeled)");
+                let sim = n.get("cosine_similarity").and_then(|x| x.as_f64()).unwrap_or(0.0);
+                let mark = match n.get("asserted").and_then(|x| x.as_f64()) {
+                    Some(a) if a > 0.2 => "+",
+                    Some(a) if a < -0.2 => "-",
+                    Some(_) => "0",
+                    None => " ",
+                };
+                out.push_str(&format!("  {mark} {sim:.3}  {l}\n"));
+            }
+            app.wiki_preview = out;
+        }
+        Err(e) => app.wiki_preview = format!("{head}  (neighbours unavailable: {e})"),
+    }
+}
+
+/// Percent-encode the few characters that actually break a query string. Avoids
+/// pulling a dependency in for one call site.
+fn urlencoding_minimal(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+            ' ' => "+".to_string(),
+            other => other.to_string().bytes().map(|b| format!("%{b:02X}")).collect(),
+        })
+        .collect()
+}
+
 fn run<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
@@ -257,6 +424,18 @@ fn run<B: ratatui::backend::Backend>(
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(());
         }
+        // While typing a wiki query every printable key belongs to the box —
+        // otherwise searching for "quality" would quit on the first letter.
+        if app.wiki_typing {
+            match key.code {
+                KeyCode::Esc => { app.wiki_typing = false; }
+                KeyCode::Enter => { app.wiki_typing = false; wiki_search(app); }
+                KeyCode::Backspace => { app.wiki_query.pop(); }
+                KeyCode::Char(c) => app.wiki_query.push(c),
+                _ => {}
+            }
+            continue;
+        }
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
             KeyCode::Tab => app.tab = (app.tab + 1) % TABS.len(),
@@ -264,13 +443,27 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Down | KeyCode::Char('j') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + 1) % MACHINES.len(),
                 2 => app.cfg_sel = (app.cfg_sel + 1) % CFG_FIELDS.len(),
+                TAB_WIKI if !app.wiki_hits.is_empty() => {
+                    app.wiki_sel = (app.wiki_sel + 1) % app.wiki_hits.len();
+                    wiki_load_preview(app);
+                }
                 _ => {}
             },
             KeyCode::Up | KeyCode::Char('k') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + MACHINES.len() - 1) % MACHINES.len(),
                 2 => app.cfg_sel = (app.cfg_sel + CFG_FIELDS.len() - 1) % CFG_FIELDS.len(),
+                TAB_WIKI if !app.wiki_hits.is_empty() => {
+                    app.wiki_sel = (app.wiki_sel + app.wiki_hits.len() - 1) % app.wiki_hits.len();
+                    wiki_load_preview(app);
+                }
                 _ => {}
             },
+            // WIKI: '/' opens the query box, Enter re-runs the search.
+            KeyCode::Char('/') if app.tab == TAB_WIKI => {
+                app.wiki_typing = true;
+                app.wiki_query.clear();
+            }
+            KeyCode::Enter if app.tab == TAB_WIKI => wiki_search(app),
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
             }
@@ -310,12 +503,15 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         0 => draw_status(f, rows[1], app, status),
         1 => draw_machines(f, rows[1], app),
         2 => draw_config(f, rows[1], app),
+        TAB_WIKI => draw_wiki(f, rows[1], app),
         _ => {}
     }
 
     let help = match app.tab {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
+        TAB_WIKI if app.wiki_typing => " type a query · Enter search · Esc cancel",
+        TAB_WIKI => " Tab switch · / search · ↑/↓ browse · Enter re-run · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
@@ -323,6 +519,74 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         Span::styled(format!("   {}", app.status_msg), Style::default().fg(Color::DarkGray)),
     ]));
     f.render_widget(foot, rows[2]);
+}
+
+/// WIKI tab — search box on top, cosine-ranked hits left, preview right.
+///
+/// The colour dot encodes the *asserted* verdict, not the derived density:
+/// green worked, red blocked, yellow inert, dim grey nobody has judged. Density
+/// is shown as a number because "typical" and "worked" are different questions
+/// and a single colour cannot honestly carry both.
+fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .split(area);
+
+    let query_style = if app.wiki_typing {
+        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::Gray)
+    };
+    let shown = if app.wiki_query.is_empty() { "(press / and describe what it was about)" } else { &app.wiki_query };
+    let search = Paragraph::new(Line::from(Span::styled(shown.to_string(), query_style)))
+        .block(Block::default().title(" search by meaning ").borders(Borders::ALL)
+            .border_style(Style::default().fg(if app.wiki_typing { Color::Yellow } else { Color::DarkGray })));
+    f.render_widget(search, rows[0]);
+
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(rows[1]);
+
+    let items: Vec<ListItem> = app
+        .wiki_hits
+        .iter()
+        .map(|h| {
+            let (dot, colour) = match h.asserted {
+                Some(a) if a > 0.2 => ("●", Color::Green),
+                Some(a) if a < -0.2 => ("●", Color::Red),
+                Some(_) => ("●", Color::Yellow),
+                None => ("○", Color::DarkGray),
+            };
+            let mut label = h.label.replace('\n', " ");
+            if label.chars().count() > 46 {
+                label = label.chars().take(45).collect::<String>() + "…";
+            }
+            ListItem::new(Line::from(vec![
+                Span::styled(format!("{dot} "), Style::default().fg(colour)),
+                Span::styled(format!("{:.2} ", h.density), Style::default().fg(Color::DarkGray)),
+                Span::raw(label),
+            ]))
+        })
+        .collect();
+
+    let mut state = ListState::default();
+    if !app.wiki_hits.is_empty() {
+        state.select(Some(app.wiki_sel));
+    }
+    let list = List::new(items)
+        .block(Block::default()
+            .title(format!(" {} hits · tenant {} · ●worked ●blocked ●inert ○unjudged ",
+                           app.wiki_hits.len(), app.user))
+            .borders(Borders::ALL))
+        .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
+    f.render_stateful_widget(list, cols[0], &mut state);
+
+    let preview = Paragraph::new(app.wiki_preview.clone())
+        .block(Block::default().title(" node ").borders(Borders::ALL))
+        .wrap(Wrap { trim: false });
+    f.render_widget(preview, cols[1]);
 }
 
 fn draw_status(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App, status: &Arc<Mutex<EngineStatus>>) {
@@ -518,4 +782,50 @@ fn polis_demo() -> String {
         s += &format!("fading: {}", fade.iter().map(|t| format!("{}-{}", t.a, t.b)).collect::<Vec<_>>().join(", "));
     }
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_hits_keeps_unjudged_distinct_from_inert() {
+        // The engine omits `asserted` entirely for a node nobody has judged.
+        // That must stay None: collapsing it to 0.0 would render an unjudged
+        // node as "inert", i.e. an opinion the engine never expressed.
+        let v = serde_json::json!({
+            "results": [
+                { "id": "a", "label": "shipped the migration", "score": 0.9, "asserted": 1.0 },
+                { "id": "b", "label": "index rebuild",         "score": 0.5, "asserted": 0.0 },
+                { "id": "c", "label": "unjudged note",         "score": 0.4 }
+            ],
+            "count": 3
+        });
+        let hits = parse_hits(&v);
+        assert_eq!(hits.len(), 3);
+        assert_eq!(hits[0].asserted, Some(1.0));
+        assert_eq!(hits[1].asserted, Some(0.0), "an explicit 0.0 verdict is a judgement");
+        assert_eq!(hits[2].asserted, None, "a missing verdict must not become 0.0");
+        assert!((hits[0].density - 0.9).abs() < 1e-6);
+    }
+
+    #[test]
+    fn parse_hits_drops_unlabeled_and_tolerates_junk() {
+        // Unlabeled nodes cannot be browsed by content, and a malformed payload
+        // must yield an empty list rather than panic the UI loop.
+        let v = serde_json::json!({ "results": [ { "id": "a", "score": 0.9 } ] });
+        assert!(parse_hits(&v).is_empty(), "unlabeled node has no readable handle");
+        assert!(parse_hits(&serde_json::json!({})).is_empty());
+        assert!(parse_hits(&serde_json::json!({ "results": "not-an-array" })).is_empty());
+    }
+
+    #[test]
+    fn query_encoding_survives_a_real_sentence() {
+        // Spaces become '+' (serde_urlencoded decodes that back to a space) and
+        // anything that would break the query string is percent-encoded.
+        assert_eq!(urlencoding_minimal("ate cake at midnight"), "ate+cake+at+midnight");
+        assert_eq!(urlencoding_minimal("a&b=c"), "a%26b%3Dc");
+        assert_eq!(urlencoding_minimal("caffè"), "caff%C3%A8", "multi-byte utf8 encodes per byte");
+        assert_eq!(urlencoding_minimal("plain-text_1.0~"), "plain-text_1.0~");
+    }
 }

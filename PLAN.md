@@ -110,6 +110,20 @@ Shipped this arc (all on `main`, classify hot path untouched unless noted):
   next experiment. Promotion gate: a mechanism enters the live coherence core
   only after it shows organising work AND a test proves no classify regression.
 
+#### 1G — TUI wiki browser (shipped 2026-08-12)
+- [x] **WIKI tab in `physis-pro-tui`** — browse the UberWiki by *meaning*: describe
+  what a thing was about, get cosine-ranked nodes back. Built as a fourth tab
+  rather than the standalone binary in PHYSIS_PRO_USECASES.md §2, reusing the
+  existing HTTP/event-loop scaffolding; extract it later if it outgrows the tab.
+  Uses only endpoints that already existed (`/coherence/nodes`, `/reconstruct`).
+  Each row shows the **asserted verdict** as a colour dot (green worked / red
+  blocked / yellow inert / dim unjudged) with derived density as a number beside
+  it — one colour cannot honestly carry both axes. Respects `PHYSIS_USER`, since
+  coherence state is per-tenant and `_default` is empty when nodes were written
+  under `aion` / `praxis`.
+- [ ] **Still open from the §2 spec**: live re-rank per keystroke, semiotic
+  heatmap pane with cell filtering, graph-walk (`g`), dream view (`d`).
+
 ### Phase 2: User Experience (The "Backoffice" Polish)
 - **Web-based Dashboard**: Build a React/Next.js dashboard (using the existing `web` feature) that visualizes the `FileThemeGraph` as an interactive force-directed graph.
 - **Natural Language Interface**: Implement a chat-based interface (using the `ai` module) that allows users to query the graph in plain English (e.g., "Show me all invoices related to the Q4 budget").
