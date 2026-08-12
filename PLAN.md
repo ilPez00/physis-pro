@@ -11,6 +11,7 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 - [x] **Scanner overhaul**: `WalkDir` directory traversal + `rayon::par_iter()` parallel file processing + streaming SHA256 (64KB buffer).
 - [x] **Pipeline dedup**: Extracted 160-line duplicate Ingest/RebuildGraph code into `run_ingest_pipeline()`.
 - [x] **Regex caching**: 4 `once_cell::sync::Lazy` statics replacing repeated `Regex::new()` calls.
+- [ ] **Disk indexer**: `physis-pro index <mount-point> [--output F]` — generate a structured file catalog (tree depth, sizes, dates, type breakdown, largest files, total/human-readable). Outputs Markdown, JSON, or plain-text. Reuses scanner's `WalkDir` + `rayon` infra but skips hash/embedding (fast path). `--watch` mode: track changes across runs via a persisted manifest. Covers all mounted volumes in one invocation with `physis-pro index --all`.
 
 #### 1B — Error Handling & Code Quality
 - [x] **Critical unwrap elimination**: `file_name().unwrap()` → `unwrap_or_default()` in `vfs/orchestrator.rs`.
@@ -29,6 +30,51 @@ To evolve Physis Pro from an internal intelligence engine into a commercially vi
 #### 1E — Packaging
 - [x] **`setup.py` + `install.sh`**: pip-installable packaging with binary installation.
 - [x] **`monitor_resource.sh`**: cgroup-based CPU throttling for heat-throttled environments.
+
+#### 1F — GPU support (investigated 2026-08-12 — **the `rocm` feature is dead configuration**)
+
+**Finding: ONNX Runtime removed the ROCm execution provider upstream.** ORT 1.24.2
+(the version `ort` 2.0.0-rc.12 links) has no ROCm EP: `build.py` offers
+`--use_migraphx` but no `--use_rocm`, and `onnxruntime_providers_migraphx.cmake`
+is the only AMD provider file in the tree. The `ort` crate still exports a
+`rocm` feature and a `ROCMExecutionProvider` type, so our `rocm` feature and the
+`physis-pro-web-rocm` binary **compile and silently produce a CPU build**:
+
+```
+ERROR ort::ep] register `ROCMExecutionProvider`: ROCM execution provider is not enabled in this build.
+WARN  ort::ep] No execution providers from session options registered successfully; may fall back to CPU.
+```
+
+Confirmed empirically: full suite under `--features rocm` ran `1451% cpu` (~14.5
+cores) for 333s with `rocm-smi --showpids` reporting no KFD processes throughout.
+Every run since the "enable ROCm ONNX prebuilt download" commit has been on CPU.
+
+Ruled out along the way:
+- **Host ROCm SDK build** — ORT's AMD EP needs MIOpen, which Debian does not
+  package at all (`apt-cache search miopen` = 0 hits); the host stack is also an
+  incoherent HIP 5.7 / rocBLAS 5.5 / rocm-cmake 6.3 mix.
+- **AMD `onnxruntime-rocm` wheel** — only published at 1.22.x; `ort` rc.12 needs
+  the 1.24 C API, so it cannot initialise against it.
+- **Container build** (`rocm/dev-ubuntu-22.04`, ROCm 7.14, MIOpen present, both
+  GPUs visible via `/dev/kfd`) — got as far as a clean ORT 1.24.2 checkout before
+  hitting the upstream removal above. MIGraphX is not in that image's repos
+  either (773 ROCm packages, none named migraphx).
+
+Open options, none started:
+- [ ] **MIGraphX EP** — needs AMD's separate `rocm/migraphx` image, an ORT build
+  with `--use_migraphx`, and an EP-dispatch change in `src/embed/mod.rs` behind a
+  new `migraphx` feature. Risk: unsupported ops silently partition back to CPU.
+- [ ] **WebGPU EP** (`--use_webgpu`, Dawn/Vulkan) — vendor-neutral, needs no ROCm
+  userspace, and `ort` rc.12 exposes a `webgpu` feature. Most portable option;
+  op coverage for BERT-shaped graphs is unproven.
+- [ ] **Decide the fate of the `rocm` feature** — it currently promises
+  acceleration it cannot deliver. Either delete it with the
+  `physis-pro-web-rocm` binary, or keep it strictly as the seam for a future EP.
+
+**Payoff check before spending more on this:** the embedder serialises inference
+behind a Mutex (`src/embed/mod.rs`), so a GPU cuts per-embed latency, not suite
+throughput — realistic gain on the test suite is 333s → ~200s. Low priority
+against the TUI browser and the industrial wedge.
 
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 
