@@ -94,6 +94,23 @@ struct App {
     wiki_hits: Vec<WikiHit>,
     wiki_sel: usize,
     wiki_preview: String,
+    /// Query edited since the last search — drives the debounced live re-rank.
+    wiki_dirty: bool,
+    /// When the query was last touched, for that debounce.
+    wiki_last_input: std::time::Instant,
+}
+
+/// Should a live re-rank fire?
+///
+/// Every search is an HTTP round-trip *and* an ONNX embed of the query, so
+/// firing per keystroke would queue a request behind every letter and make the
+/// box feel worse than pressing Enter. Waiting for a pause in typing gives the
+/// "results move as you think" behaviour without hammering the engine.
+///
+/// Short fragments are skipped: 1-2 characters match nearly everything, so they
+/// cost a round-trip to produce noise.
+fn should_search(dirty: bool, idle_ms: u128, query_len: usize) -> bool {
+    dirty && query_len >= 3 && idle_ms >= 350
 }
 
 /// Resolve the physis-pro-web binary: sibling of this exe, else rely on PATH.
@@ -254,6 +271,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_hits: Vec::new(),
         wiki_sel: 0,
         wiki_preview: "press / to search the wiki by meaning".into(),
+        wiki_dirty: false,
+        wiki_last_input: std::time::Instant::now(),
     };
 
     enable_raw_mode()?;
@@ -415,6 +434,15 @@ fn run<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|f| draw(f, app, status))?;
         if !event::poll(Duration::from_millis(200))? {
+            // Idle tick: re-rank if typing has paused. Doing it here (rather
+            // than on each keypress) is what keeps one embed per pause instead
+            // of one per letter.
+            if app.wiki_typing
+                && should_search(app.wiki_dirty, app.wiki_last_input.elapsed().as_millis(), app.wiki_query.chars().count())
+            {
+                app.wiki_dirty = false;
+                wiki_search(app);
+            }
             continue;
         }
         let Event::Key(key) = event::read()? else { continue };
@@ -429,9 +457,17 @@ fn run<B: ratatui::backend::Backend>(
         if app.wiki_typing {
             match key.code {
                 KeyCode::Esc => { app.wiki_typing = false; }
-                KeyCode::Enter => { app.wiki_typing = false; wiki_search(app); }
-                KeyCode::Backspace => { app.wiki_query.pop(); }
-                KeyCode::Char(c) => app.wiki_query.push(c),
+                KeyCode::Enter => { app.wiki_typing = false; app.wiki_dirty = false; wiki_search(app); }
+                KeyCode::Backspace => {
+                    app.wiki_query.pop();
+                    app.wiki_dirty = true;
+                    app.wiki_last_input = std::time::Instant::now();
+                }
+                KeyCode::Char(c) => {
+                    app.wiki_query.push(c);
+                    app.wiki_dirty = true;
+                    app.wiki_last_input = std::time::Instant::now();
+                }
                 _ => {}
             }
             continue;
@@ -510,7 +546,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     let help = match app.tab {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
-        TAB_WIKI if app.wiki_typing => " type a query · Enter search · Esc cancel",
+        TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
         TAB_WIKI => " Tab switch · / search · ↑/↓ browse · Enter re-run · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
@@ -817,6 +853,19 @@ mod tests {
         assert!(parse_hits(&v).is_empty(), "unlabeled node has no readable handle");
         assert!(parse_hits(&serde_json::json!({})).is_empty());
         assert!(parse_hits(&serde_json::json!({ "results": "not-an-array" })).is_empty());
+    }
+
+    #[test]
+    fn live_rerank_waits_for_a_pause_and_ignores_fragments() {
+        // Fires only once typing has settled: every search costs an HTTP hop
+        // plus an ONNX embed of the query, so per-keystroke would queue a
+        // request behind every letter.
+        assert!(should_search(true, 400, 10), "settled typing re-ranks");
+        assert!(!should_search(true, 100, 10), "still typing — hold");
+        assert!(!should_search(false, 999, 10), "nothing changed since last search");
+        // 1-2 chars match nearly everything; a round-trip to rank noise.
+        assert!(!should_search(true, 999, 2), "fragment too short to mean anything");
+        assert!(should_search(true, 999, 3), "3 chars is the floor");
     }
 
     #[test]
