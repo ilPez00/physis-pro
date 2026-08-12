@@ -104,6 +104,27 @@ struct App {
     wiki_stack: Vec<Vec<WikiHit>>,
     /// Labels of the nodes walked into, shown as a breadcrumb.
     wiki_crumbs: Vec<String>,
+    /// Semiotic grid, fetched once — it describes the loaded ontologies, not
+    /// tenant state, so it does not change while the engine runs.
+    wiki_grid: Vec<GridCell>,
+    /// Distinct domains / modes in grid order (rows and columns of the map).
+    wiki_domains: Vec<String>,
+    wiki_modes: Vec<String>,
+    /// True when the heatmap has the keys — arrows then move the cell cursor
+    /// instead of the result list. A focus toggle avoids fighting j/k, which
+    /// already navigate results.
+    wiki_map_focus: bool,
+    wiki_cell_row: usize,
+    wiki_cell_col: usize,
+}
+
+/// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
+/// loaded ontologies populate it, and the entries that define it.
+struct GridCell {
+    domain: String,
+    mode: String,
+    activation: f32,
+    entries: Vec<String>,
 }
 
 /// Should a live re-rank fire?
@@ -281,6 +302,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_last_input: std::time::Instant::now(),
         wiki_stack: Vec::new(),
         wiki_crumbs: Vec::new(),
+        wiki_grid: Vec::new(),
+        wiki_domains: Vec::new(),
+        wiki_modes: Vec::new(),
+        wiki_map_focus: false,
+        wiki_cell_row: 0,
+        wiki_cell_col: 0,
     };
 
     enable_raw_mode()?;
@@ -423,6 +450,111 @@ fn wiki_load_preview(app: &mut App) {
     }
 }
 
+/// Block character for a cell's activation, densest first.
+///
+/// Activation counts how many ontology entries populate a cell, so it is a map
+/// of what the *grid* can express — not of what this tenant has recorded. An
+/// empty cell means "no ontology covers this intersection", which is exactly
+/// what `discover` exists to find.
+fn shade(activation: f32) -> char {
+    match activation {
+        a if a >= 1.5 => '█',
+        a if a >= 0.8 => '▓',
+        a if a > 0.0 => '▒',
+        _ => '·',
+    }
+}
+
+/// Load the semiotic grid once. It describes the loaded ontologies rather than
+/// tenant state, so it cannot change while the engine runs.
+fn wiki_load_grid(app: &mut App) {
+    if !app.wiki_grid.is_empty() {
+        return;
+    }
+    match wiki_fetch(app, "/api/v1/semiotic/grid", None) {
+        Ok(v) => {
+            let cells = v.get("cells").and_then(|c| c.as_array()).cloned().unwrap_or_default();
+            app.wiki_grid = cells
+                .iter()
+                .map(|c| GridCell {
+                    domain: c.get("domain").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                    mode: c.get("mode").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                    activation: c.get("activation").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                    entries: c
+                        .get("entries")
+                        .and_then(|e| e.as_array())
+                        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                        .unwrap_or_default(),
+                })
+                .collect();
+            // Axis order follows first appearance, so the map matches the
+            // engine's own DOMAIN x MODE ordering rather than an alphabetical
+            // one the operator would not recognise.
+            app.wiki_domains = distinct(app.wiki_grid.iter().map(|c| c.domain.clone()));
+            app.wiki_modes = distinct(app.wiki_grid.iter().map(|c| c.mode.clone()));
+            app.status_msg = format!(
+                "grid: {} x {} cells",
+                app.wiki_domains.len(),
+                app.wiki_modes.len()
+            );
+        }
+        Err(e) => app.status_msg = format!("grid unavailable: {e}"),
+    }
+}
+
+fn distinct(it: impl Iterator<Item = String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for v in it {
+        if !v.is_empty() && !out.contains(&v) {
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// The cell under the map cursor.
+fn cell_at(app: &App, row: usize, col: usize) -> Option<&GridCell> {
+    let domain = app.wiki_domains.get(row)?;
+    let mode = app.wiki_modes.get(col)?;
+    app.wiki_grid.iter().find(|c| &c.domain == domain && &c.mode == mode)
+}
+
+/// Scope the results to the selected cell.
+///
+/// Nodes are not stored with a cell tag, so this cannot filter the existing
+/// hits without re-classifying every one of them (an embed per row). Instead it
+/// searches with the cell's own entry names, which is what defines that cell in
+/// the shared vector space — the same region of meaning, reached honestly and
+/// in one round-trip. The query is left visible so it is obvious what was run.
+fn wiki_scope_to_cell(app: &mut App) {
+    let Some(cell) = cell_at(app, app.wiki_cell_row, app.wiki_cell_col) else {
+        app.status_msg = "no such cell".into();
+        return;
+    };
+    // 43 of the 70 cells come back with no entries because /semiotic/grid
+    // exposes the base ontologies only, while `classify` also scores against
+    // EXTRA_ONTOLOGIES — text really does land in FABRICATE×MAINTAIN even
+    // though that cell lists nothing here. Refusing would report "uncovered"
+    // for cells the classifier covers, so fall back to the axis names, which
+    // the mode anchors put in the right region anyway.
+    let (query, how) = if cell.entries.is_empty() {
+        (format!("{} {}", cell.domain, cell.mode), "axis names")
+    } else {
+        (
+            cell.entries.iter().take(6).cloned().collect::<Vec<_>>().join(", "),
+            "cell entries",
+        )
+    };
+    let note = format!("scoped to {}×{} by {how}", cell.domain, cell.mode);
+    app.wiki_query = query;
+    app.wiki_stack.clear();
+    app.wiki_crumbs.clear();
+    wiki_search(app);
+    // Say which basis was used, so a thin result set is legible rather than
+    // looking like the wiki is empty.
+    app.status_msg = format!("{note} — {} hits", app.wiki_hits.len());
+}
+
 /// Walk into the selected node's holarchy edges — browse relations instead of
 /// similarity. Similarity says "these mean alike"; an edge says "someone
 /// asserted these are related", which is a different and usually stronger claim.
@@ -554,6 +686,10 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Down | KeyCode::Char('j') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + 1) % MACHINES.len(),
                 2 => app.cfg_sel = (app.cfg_sel + 1) % CFG_FIELDS.len(),
+                TAB_WIKI if app.wiki_map_focus => {
+                    let n = app.wiki_domains.len().max(1);
+                    app.wiki_cell_row = (app.wiki_cell_row + 1) % n;
+                }
                 TAB_WIKI if !app.wiki_hits.is_empty() => {
                     app.wiki_sel = (app.wiki_sel + 1) % app.wiki_hits.len();
                     wiki_load_preview(app);
@@ -563,6 +699,10 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Up | KeyCode::Char('k') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + MACHINES.len() - 1) % MACHINES.len(),
                 2 => app.cfg_sel = (app.cfg_sel + CFG_FIELDS.len() - 1) % CFG_FIELDS.len(),
+                TAB_WIKI if app.wiki_map_focus => {
+                    let n = app.wiki_domains.len().max(1);
+                    app.wiki_cell_row = (app.wiki_cell_row + n - 1) % n;
+                }
                 TAB_WIKI if !app.wiki_hits.is_empty() => {
                     app.wiki_sel = (app.wiki_sel + app.wiki_hits.len() - 1) % app.wiki_hits.len();
                     wiki_load_preview(app);
@@ -570,9 +710,31 @@ fn run<B: ratatui::backend::Backend>(
                 _ => {}
             },
             // WIKI: '/' opens the query box, Enter re-runs the search.
+            // Map focus: 'm' toggles it (and loads the grid on first use).
+            // Arrows then move the cell cursor instead of the result list --
+            // a focus toggle rather than new key bindings, so j/k keep meaning
+            // exactly one thing.
+            KeyCode::Char('m') if app.tab == TAB_WIKI => {
+                wiki_load_grid(app);
+                if !app.wiki_grid.is_empty() {
+                    app.wiki_map_focus = !app.wiki_map_focus;
+                }
+            }
+            KeyCode::Left if app.tab == TAB_WIKI && app.wiki_map_focus => {
+                let n = app.wiki_modes.len().max(1);
+                app.wiki_cell_col = (app.wiki_cell_col + n - 1) % n;
+            }
+            KeyCode::Right if app.tab == TAB_WIKI && app.wiki_map_focus => {
+                let n = app.wiki_modes.len().max(1);
+                app.wiki_cell_col = (app.wiki_cell_col + 1) % n;
+            }
             KeyCode::Char('/') if app.tab == TAB_WIKI => {
                 app.wiki_typing = true;
                 app.wiki_query.clear();
+            }
+            KeyCode::Enter if app.tab == TAB_WIKI && app.wiki_map_focus => {
+                wiki_scope_to_cell(app);
+                app.wiki_map_focus = false;
             }
             KeyCode::Enter if app.tab == TAB_WIKI => wiki_search(app),
             // Graph walk: 'g' descends into the selected node's edges,
@@ -626,7 +788,8 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
         TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
-        TAB_WIKI => " Tab · / search · ↑/↓ browse · g walk edges · ⌫ back · q quit",
+        TAB_WIKI if app.wiki_map_focus => " ←/→ mode · ↑/↓ domain · Enter scope to cell · m unfocus",
+        TAB_WIKI => " Tab · / search · ↑/↓ browse · g walk · ⌫ back · m map · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
@@ -643,9 +806,13 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
 /// is shown as a number because "typical" and "worked" are different questions
 /// and a single colour cannot honestly carry both.
 fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    // Search box, results/preview, then the map. The map gets a fixed height
+    // (one line per domain plus header and borders) so the result list keeps
+    // every remaining row.
+    let map_height = if app.wiki_domains.is_empty() { 3 } else { app.wiki_domains.len() as u16 + 4 };
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .constraints([Constraint::Length(3), Constraint::Min(4), Constraint::Length(map_height)])
         .split(area);
 
     let query_style = if app.wiki_typing {
@@ -663,6 +830,7 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(rows[1]);
+
 
     let items: Vec<ListItem> = app
         .wiki_hits
@@ -710,6 +878,76 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
         .block(Block::default().title(" node ").borders(Borders::ALL))
         .wrap(Wrap { trim: false });
     f.render_widget(preview, cols[1]);
+
+    draw_heatmap(f, rows[2], app);
+}
+
+/// The 5x14 semiotic grid, shaded by how densely the ontologies populate each
+/// DOMAIN x MODE cell, with a cursor when the map has focus.
+fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    if app.wiki_grid.is_empty() {
+        let hint = Paragraph::new(Line::from(Span::styled(
+            " press m to load the semiotic map ",
+            Style::default().fg(Color::DarkGray),
+        )))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        f.render_widget(hint, area);
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+    // Header: first letter of each mode, so 14 columns fit a narrow terminal.
+    let mut header = vec![Span::raw(format!("{:<10}", ""))];
+    for (i, m) in app.wiki_modes.iter().enumerate() {
+        let initial = m.chars().next().unwrap_or('?');
+        let style = if app.wiki_map_focus && i == app.wiki_cell_col {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        header.push(Span::styled(format!("{initial} "), style));
+    }
+    lines.push(Line::from(header));
+
+    for (r, domain) in app.wiki_domains.iter().enumerate() {
+        let row_focused = app.wiki_map_focus && r == app.wiki_cell_row;
+        let mut spans = vec![Span::styled(
+            format!("{:<10}", truncate(domain, 9)),
+            if row_focused {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Gray)
+            },
+        )];
+        for c in 0..app.wiki_modes.len() {
+            let act = cell_at(app, r, c).map(|x| x.activation).unwrap_or(0.0);
+            let ch = shade(act);
+            let on_cursor = app.wiki_map_focus && r == app.wiki_cell_row && c == app.wiki_cell_col;
+            let style = if on_cursor {
+                Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else if act > 0.0 {
+                Style::default().fg(Color::Cyan)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            spans.push(Span::styled(format!("{ch} "), style));
+        }
+        lines.push(Line::from(spans));
+    }
+
+    let title = match cell_at(app, app.wiki_cell_row, app.wiki_cell_col) {
+        Some(c) if app.wiki_map_focus => format!(
+            " {}×{} · {} entries · Enter scopes the search ",
+            c.domain, c.mode, c.entries.len()
+        ),
+        _ => " semiotic map · m to focus ".to_string(),
+    };
+    let widget = Paragraph::new(lines).block(
+        Block::default().title(title).borders(Borders::ALL).border_style(
+            if app.wiki_map_focus { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::DarkGray) },
+        ),
+    );
+    f.render_widget(widget, area);
 }
 
 fn draw_status(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App, status: &Arc<Mutex<EngineStatus>>) {
@@ -953,6 +1191,29 @@ mod tests {
         let hits = parse_hits(&v);
         assert_eq!(hits[0].id, "abc-123");
         assert!(hits[1].id.is_empty(), "missing id stays empty rather than faking one");
+    }
+
+    #[test]
+    fn shade_maps_activation_to_density() {
+        // An empty cell must be visually distinct from a sparse one: "no
+        // ontology covers this" is the finding `discover` exists to surface,
+        // and rendering it like a weak cell would hide it.
+        assert_eq!(shade(0.0), '·');
+        assert_eq!(shade(0.3), '▒');
+        assert_eq!(shade(1.0), '▓');
+        assert_eq!(shade(2.4), '█');
+    }
+
+    #[test]
+    fn distinct_preserves_engine_axis_order() {
+        // Rows/columns must follow the engine's DOMAIN x MODE order, not an
+        // alphabetical one the operator would not recognise.
+        let got = distinct(
+            ["HEAL", "CONSTRUCT", "HEAL", "FABRICATE", "", "CONSTRUCT"]
+                .into_iter()
+                .map(String::from),
+        );
+        assert_eq!(got, vec!["HEAL", "CONSTRUCT", "FABRICATE"]);
     }
 
     #[test]
