@@ -175,6 +175,7 @@ impl AppCtx {
                 // nodes on first access.
                 if let Some(db) = &self.db {
                     rt.lifeos = LifeOSTracker::load(db, uid);
+                    rt.goals = load_goals(db, uid);
                     let (loaded, skipped) = rt.core.load_nodes(db, uid);
                     if loaded > 0 || skipped > 0 {
                         log::info!("tenant {uid}: {loaded} coherence nodes restored, \
@@ -1670,6 +1671,26 @@ async fn translate_handler(
     Json(TranslateResponse { results })
 }
 
+/// sled key for a tenant's goals. One blob per tenant rather than one key per
+/// goal: goals are a bounded working set (the PDCA plan), not an unbounded
+/// graph, so the whole-list write that would be wrong for nodes is right here.
+fn goals_key(uid: &str) -> String {
+    format!("goals:{uid}")
+}
+
+fn save_goals(db: &sled::Db, uid: &str, goals: &[Goal]) -> anyhow::Result<()> {
+    db.insert(goals_key(uid), serde_json::to_vec(goals)?)?;
+    Ok(())
+}
+
+fn load_goals(db: &sled::Db, uid: &str) -> Vec<Goal> {
+    db.get(goals_key(uid))
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_slice::<Vec<Goal>>(&v).ok())
+        .unwrap_or_default()
+}
+
 async fn ingest_prompt_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -1677,10 +1698,20 @@ async fn ingest_prompt_handler(
 ) -> Json<IngestResponse> {
     let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let embedding = embed_text(state.shared.clone(), prompt.clone()).await;
-    let mut goal = Goal::new_vec(embedding);
+    // Retain the prompt: the vector is the state, but without the text every
+    // dream proposal over this goal can only say "unknown".
+    let mut goal = Goal::new_vec(embedding).with_label(prompt.clone());
     goal.progress = 0.0;
     let uid = user_key(&headers);
-    state.with_user(&uid, |s| s.goals.push(goal.clone()));
+    state.with_user(&uid, |s| {
+        s.goals.push(goal.clone());
+        // Goals were the last tenant state still lost on restart.
+        if let Some(db) = state.db() {
+            if let Err(e) = save_goals(db, &uid, &s.goals) {
+                log::warn!("goals not persisted for {uid}: {e}");
+            }
+        }
+    });
     Json(IngestResponse {
         message: format!("Goal created from prompt ({} chars)", prompt.len()),
         goal,
@@ -2861,7 +2892,9 @@ async fn main() {
             mapper,
             actor,
             dreams,
-            goals: Vec::new(),
+            // Rehydrate the default tenant's goals (other tenants load lazily
+            // in `with_user`).
+            goals: db.as_ref().map(|d| load_goals(d, "_default")).unwrap_or_default(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
             // Rehydrate the default tenant's persisted goals.
             lifeos: db.as_ref().map(|d| LifeOSTracker::load(d, "_default")).unwrap_or_default(),
