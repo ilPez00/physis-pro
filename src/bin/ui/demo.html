@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Industrial Backoffice Intelligence — Live Demo</title>
+<script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<style>
+  :root{
+    --bg:#070b16;
+    --bg2:#0a1020;
+    --panel:#0d1526;
+    --panel2:#0a1120;
+    --line:#1d2b47;
+    --line-soft:#17233c;
+    --fg:#eaf1ff;
+    --muted:#8fa3c4;
+    --accent:#6ea8ff;
+    --accent2:#62e6d4;
+    --green:#3ddc84;
+    --amber:#f0b45a;
+    --red:#ff6b7a;
+    --purple:#b79bff;
+    --pink:#f791c9;
+    --shadow:0 18px 48px rgba(0,0,0,.35);
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--fg);
+    background:
+      radial-gradient(1100px 720px at 8% -8%, rgba(110,168,255,.16), transparent 55%),
+      radial-gradient(820px 560px at 96% 4%, rgba(98,230,212,.10), transparent 50%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    display:flex;flex-direction:column;min-height:100%;
+  }
+  a{color:var(--accent);text-decoration:none}
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  button,input,select,textarea{
+    background:rgba(10,17,32,.92);
+    color:var(--fg);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:9px 13px;
+    font-size:13px;
+    font-family:inherit;
+  }
+  button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+  button:hover{border-color:var(--accent);background:#13213d}
+  button:active{transform:translateY(1px)}
+  button.primary{
+    background:linear-gradient(135deg,rgba(110,168,255,.22),rgba(98,230,212,.14));
+    border-color:rgba(110,168,255,.55);
+  }
+  button.primary:hover{background:linear-gradient(135deg,rgba(110,168,255,.34),rgba(98,230,212,.22))}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:6px 12px;border:1px solid var(--line);border-radius:999px;
+    font-size:12px;color:var(--muted);background:rgba(10,17,32,.8);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+  .dot.ok{background:var(--green);box-shadow:0 0 8px rgba(61,220,132,.7)}
+  .dot.bad{background:var(--red);box-shadow:0 0 8px rgba(255,107,122,.7)}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 20px;
+    background:rgba(7,11,22,.82);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(29,43,71,.8);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;
+    box-shadow:0 0 22px rgba(110,168,255,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.12em;font-weight:700}
+  .brand .sub{font-size:11px;color:var(--muted);margin-top:1px;letter-spacing:.02em}
+  .spacer{flex:1}
+  #health{min-width:120px;justify-content:center}
+  header nav{display:flex;gap:4px;flex-wrap:wrap}
+  header nav a{
+    font-size:12px;color:var(--muted);padding:6px 10px;border-radius:8px;
+    border:1px solid transparent;
+  }
+  header nav a:hover{color:var(--fg);border-color:var(--line)}
+
+  main{flex:1;padding:18px 20px 40px;max-width:1440px;margin:0 auto;width:100%}
+  .section{margin-bottom:26px}
+  .section > h2{
+    font-size:12px;text-transform:uppercase;letter-spacing:.16em;
+    color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:10px;
+  }
+  .section > h2::before{content:"";width:14px;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px}
+
+  .grid-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+  .kpi{
+    background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,16,32,.9));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;display:flex;align-items:center;gap:14px;
+    box-shadow:var(--shadow);
+  }
+  .kpi .num{font-size:26px;font-weight:750;letter-spacing:-.01em}
+  .kpi .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+  .kpi .cap{display:flex;flex-direction:column;gap:2px}
+  .kpi .sub{font-size:11px;color:var(--muted)}
+
+  .grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .card{
+    background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,16,32,.9));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 2px;font-size:15px}
+  .card .tag{font-size:11px;color:var(--muted)}
+  .bar{height:6px;border-radius:3px;background:rgba(29,43,71,.7);overflow:hidden;position:relative}
+  .bar > i{position:absolute;inset:0;border-radius:3px;background:var(--accent);width:0;transition:width .6s ease}
+  .factor{display:grid;grid-template-columns:64px 1fr 44px;gap:8px;align-items:center;font-size:11px;color:var(--muted);margin-top:8px}
+  .factor b{font-weight:600;color:var(--fg);text-align:right}
+  .bigoee{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .badge{
+    display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;
+    padding:3px 8px;border-radius:999px;border:1px solid;
+  }
+  .badge.good{color:var(--green);border-color:rgba(61,220,132,.4);background:rgba(61,220,132,.08)}
+  .badge.warn{color:var(--amber);border-color:rgba(240,180,90,.4);background:rgba(240,180,90,.08)}
+  .badge.bad{color:var(--red);border-color:rgba(255,107,122,.4);background:rgba(255,107,122,.08)}
+
+  .two-col{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
+  @media(max-width:1100px){.two-col{grid-template-columns:1fr}}
+
+  .panel{
+    background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,16,32,.9));
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;box-shadow:var(--shadow);
+    min-width:0;
+  }
+  .panel h3{margin:0 0 10px;font-size:13px;letter-spacing:.08em;color:var(--fg)}
+  .panel h3 .hint{font-weight:400;color:var(--muted);letter-spacing:0;font-size:12px}
+
+  pre.report{
+    margin:0;white-space:pre-wrap;word-break:break-word;
+    font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color:#c9d8f2;max-height:520px;overflow:auto;
+  }
+
+  .timeline{position:relative;padding-left:20px;max-height:520px;overflow:auto}
+  .timeline::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line-soft)}
+  .tevent{position:relative;padding:7px 0 7px 14px}
+  .tevent::before{
+    content:"";position:absolute;left:-19px;top:13px;width:11px;height:11px;border-radius:50%;
+    background:var(--muted);border:3px solid var(--panel);
+  }
+  .tevent.s-Success::before{background:var(--green)}
+  .tevent.s-Warning::before{background:var(--amber)}
+  .tevent.s-Failure::before{background:var(--red)}
+  .tevent.s-Info::before{background:var(--accent)}
+  .tevent.s-Inert::before{background:#46587a}
+  .tevent .t{font-size:11px;color:var(--muted)}
+  .tevent .s{font-size:14px;font-weight:550}
+  .tevent .m{font-size:12px;color:var(--muted);margin-top:1px}
+  .tag-k{font-size:10px;text-transform:uppercase;letter-spacing:.1em;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);margin-left:6px}
+
+  .incident{
+    border:1px solid rgba(255,107,122,.45);border-radius:12px;
+    background:linear-gradient(90deg,rgba(255,107,122,.12),rgba(255,107,122,.03));
+    padding:12px 14px;margin-bottom:12px;
+  }
+  .incident .h{font-weight:700;color:var(--red);font-size:14px;margin-bottom:4px}
+  .incident .n{font-size:12.5px;color:#ffc9cf}
+  .incident .a{font-size:12px;color:var(--muted);margin-top:6px}
+  .incident .a b{color:var(--accent2);font-weight:600}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .chip{font-size:11px;color:var(--muted);border:1px solid var(--line-soft);border-radius:999px;padding:4px 10px;background:rgba(10,17,32,.6)}
+
+  .heatmap{
+    display:grid;gap:3px;
+    width:fit-content;margin:0 auto;
+  }
+  .heatmap .lab{font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:center;padding:2px}
+  .heatmap .cell{width:34px;height:34px;border-radius:6px;cursor:default;transition:transform .1s ease}
+  .heatmap .cell:hover{transform:scale(1.18);outline:1px solid rgba(255,255,255,.4)}
+
+  #holarchy{height:430px}
+  .graph-note{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
+
+  .probes{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .probes button{font-size:12px;padding:6px 10px;border-radius:8px;color:var(--muted)}
+  .probes button:hover{color:var(--fg)}
+  .clsrow{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px}
+  .clsrow textarea{min-height:88px;resize:vertical;width:100%}
+  table.res{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.res th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.res td{padding:7px 8px;border-bottom:1px solid var(--line-soft)}
+  table.res td.barwrap{width:120px}
+  .hbar{height:7px;border-radius:3px;background:rgba(29,43,71,.7);overflow:hidden}
+  .hbar > i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+  .corechips{display:flex;flex-wrap:wrap;gap:8px}
+  .corechip{flex:1;min-width:110px;background:rgba(10,17,32,.7);border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px}
+  .corechip .v{font-size:19px;font-weight:750}
+  .corechip .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+
+  .toast{
+    position:fixed;bottom:22px;right:22px;z-index:50;
+    background:#0d1526;border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;box-shadow:var(--shadow);font-size:13px;max-width:340px;
+    transform:translateY(120%);transition:transform .25s ease;opacity:0;
+  }
+  .toast.show{transform:translateY(0);opacity:1}
+  .toast.err{border-color:rgba(255,107,122,.6)}
+  .toast.ok{border-color:rgba(61,220,132,.5)}
+  footer{text-align:center;color:var(--muted);font-size:11px;padding:14px}
+  .loading{color:var(--muted);font-size:12.5px;padding:8px 2px}
+  .empty{color:#5c6f92;font-size:13px;padding:14px 2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div>
+      <h1>PHYSIS</h1>
+      <div class="sub">Industrial Backoffice Intelligence · Live Demo</div>
+    </div>
+  </div>
+  <nav>
+    <a href="#plant">Plant</a>
+    <a href="#machines">Machines</a>
+    <a href="#report">Shift Report</a>
+    <a href="#timeline">Timeline</a>
+    <a href="#grid">Semiotic Grid</a>
+    <a href="#holarchy">Holarchy</a>
+    <a href="#probes">Classify</a>
+  </nav>
+  <div class="spacer"></div>
+  <span id="health" class="pill"><span class="dot"></span><span id="healthTxt">checking…</span></span>
+  <button id="btnSeed" class="primary">Seed demo data</button>
+  <button id="btnRefresh">Refresh</button>
+</header>
+
+<main>
+
+  <!-- Plant KPIs -->
+  <section class="section" id="plant">
+    <h2>Plant OEE</h2>
+    <div class="grid-kpis" id="kpis"><div class="loading">loading plant OEE…</div></div>
+  </section>
+
+  <!-- Machines -->
+  <section class="section" id="machines">
+    <h2>Machines</h2>
+    <div id="maintNote"></div>
+    <div class="grid-cards" id="machinesGrid"><div class="loading">no machines registered — click <b>Seed demo data</b> to bring the shop floor alive.</div></div>
+  </section>
+
+  <div class="two-col">
+    <!-- Shift report -->
+    <section class="section" id="report" style="margin-bottom:0">
+      <h2>Shift Report</h2>
+      <div class="panel"><pre class="report" id="reportBody"><span class="muted">loads the live engine's shift report (every machine on the OEE board + proposed countermeasures).</span></pre></div>
+    </section>
+
+    <!-- Operational timeline -->
+    <section class="section" id="timeline" style="margin-bottom:0">
+      <h2>Operational Timeline</h2>
+      <div class="panel">
+        <div id="incident"></div>
+        <div class="chips" id="tlChips"></div>
+        <div class="timeline" id="tl"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="two-col">
+    <!-- Semiotic grid -->
+    <section class="section" id="grid" style="margin-bottom:0">
+      <h2>Semiotic Grid</h2>
+      <div class="panel">
+        <div class="heatmap" id="heat"><div class="loading">loading ontology activation grid…</div></div>
+        <p class="graph-note">cell intensity = activation from ontology entries (domain × mode)</p>
+      </div>
+    </section>
+
+    <!-- Holarchy -->
+    <section class="section" id="holarchy" style="margin-bottom:0">
+      <h2>Holarchy Graph</h2>
+      <div class="panel">
+        <div id="holarchy"></div>
+        <div class="graph-note" id="holNote"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Intelligence probes -->
+  <section class="section" id="probes">
+    <h2>Classify — the shop speaks in its own grammar</h2>
+    <div class="two-col">
+      <div class="panel">
+        <h3>Semiotic probe <span class="hint">paste any observation, log line, or note</span></h3>
+        <div class="clsrow">
+          <textarea id="clText" placeholder="e.g.  Spindle 3 vibration up 45%, press line stopped 40 min for tool change…"></textarea>
+          <button id="clRun" style="align-self:stretch">Classify →</button>
+        </div>
+        <div class="probes" id="probeBtns"></div>
+        <div id="clOut" class="muted">Mapping onto the 5 × 14 semiotic grid. Try a probe.</div>
+      </div>
+      <div class="panel">
+        <h3>Coherence core <span class="hint">the engine's shared judgment memory</span></h3>
+        <div class="corechips" id="coreChips"><div class="loading">loading core snapshot…</div></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>Physis demo · all data is generated in-process by the live engine — no external service required</footer>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const S = window.location.pathname.replace(/\/demo.*$/,'');
+
+async function getJSON(p){ const r = await fetch(S+p,{headers:hdr()}); if(!r.ok) throw new Error(r.status+' '+(await r.text()).slice(0,180)); return r.json(); }
+async function postJSON(p,body){ const r=await fetch(S+p,{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(r.status+' '+(await r.text()).slice(0,180)); return r.json(); }
+function hdr(){ return {}; }
+
+let toastTimer=null;
+function toast(msg,err){
+  const t=$('toast'); t.textContent=msg; t.className='toast show '+(err?'err':'ok');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast',4200);
+}
+
+const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
+const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
+const DCOL={HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+const STATUS_DOT={Success:"ok",Warning:"warn",Failure:"bad",Inert:"",Info:""};
+const KIND_ICON={Machine:"⚙",Document:"📄",Email:"✉",Workflow:"⇄",System:"🖧",Verdict:"✓"};
+const oeeColor=f=>f>=0.85?"var(--green)":f>=0.6?"var(--amber)":"var(--red)";
+const fmtPct=v=>(v*100).toFixed(1)+"%";
+const fmtSec=s=>{ s=Math.round(s||0); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; };
+
+// ── KPI rings ──
+function ring(frac,color,size){
+  const r=(size||84)/2-7, c=2*Math.PI*r;
+  const off=c*(1-Math.min(1,Math.max(0,frac)));
+  return `<svg width="${size||84}" height="${size||84}" viewBox="0 0 ${size||84} ${size||84}" style="flex:none">
+    <circle cx="${(size||84)/2}" cy="${(size||84)/2}" r="${r}" fill="none" stroke="rgba(29,43,71,.8)" stroke-width="8"/>
+    <circle cx="${(size||84)/2}" cy="${(size||84)/2}" r="${r}" fill="none" stroke="${color}" stroke-width="8"
+      stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 ${(size||84)/2} ${(size||84)/2})"/>
+  </svg>`;
+}
+
+async function loadHealth(){
+  try{
+    const h=await getJSON('/health');
+    const e=await getJSON('/api/v1/embedder').catch(()=>null);
+    $('healthTxt').textContent=h.status+' · '+(e&&e.provenance?e.provenance:'engine');
+    $('health').querySelector('.dot').className='dot '+(h.status==='ok'?'ok':'bad');
+  }catch(err){ $('healthTxt').textContent='offline'; $('health').querySelector('.dot').className='dot bad'; }
+}
+
+// ── Plant OEE ──
+async function loadKpis(){
+  const p=await getJSON('/api/v1/oee/plant');
+  const kpi=(frac,label,color,sub)=>`<div class="kpi">${ring(frac,color)}
+    <div class="cap"><span class="num" style="color:${color}">${fmtPct(frac)}</span>
+    <span class="lbl">${label}</span><span class="sub">${sub||''}</span></div></div>`;
+  $('kpis').innerHTML=
+    kpi(p.oee,'Plant OEE',oeeColor(p.oee),`${p.machine_count} machines`) +
+    kpi(p.availability,'Availability',oeeColor(p.availability),'up-time vs planned') +
+    kpi(p.performance,'Performance',oeeColor(p.performance),'speed vs ideal') +
+    kpi(p.quality,'Quality',oeeColor(p.quality),'first-pass yield') +
+    `<div class="kpi" style="align-items:center"><div class="cap"><span class="num">${p.total_good.toLocaleString()}</span>
+     <span class="lbl">Good parts</span><span class="sub">of ${p.total_parts.toLocaleString()} produced</span></div></div>`;
+  const losses=p.losses||[];
+  if(losses.length){
+    const max=Math.max(...losses.map(l=>l.lost_secs),1);
+    $('kpis').innerHTML+=`<div class="card" style="grid-column:1/-1"><h3 style="margin:0 0 8px">Six-big-losses Pareto <span class="tag">plant-wide lost time</span></h3>
+      ${losses.slice(0,6).map(l=>`<div style="display:grid;grid-template-columns:150px 1fr 90px;gap:10px;align-items:center;margin:5px 0;font-size:12px;color:var(--muted)">
+        <span title="${l.reason}">${l.label}</span><div class="bar"><i style="background:var(--amber);width:${Math.round(100*l.lost_secs/max)}%"></i></div>
+        <b style="text-align:right;color:var(--fg);font-weight:600">${fmtSec(l.lost_secs)}</b></div>`).join('')}
+    </div>`;
+  }
+}
+
+// ── Machines ──
+const MACHINES=[
+  {id:"tornio-1",name:"Tornio CNC 1",ideal:30},
+  {id:"fresa-3",name:"Fresa a 3 assi",ideal:45},
+  {id:"cnc-2",name:"Centro di lavoro",ideal:60},
+  {id:"presse-7",name:"Pressa 7",ideal:12},
+];
+async function loadMachines(){
+  const grid=$('machinesGrid');
+  grid.innerHTML='<div class="loading">loading machines…</div>';
+  const rows=await Promise.all(MACHINES.map(m=>getJSON('/api/v1/oee/'+encodeURIComponent(m.id)).catch(()=>null)));
+  let any=false, html='';
+  rows.forEach((r,i)=>{
+    if(!r)return;
+    any=true;
+    const color=oeeColor(r.oee);
+    const cls=r.oee>=0.85?'good':r.oee>=0.6?'warn':'bad';
+    const fact=(v,color)=>`<div class="factor"><span>Availability</span><div class="bar"><i style="background:${color};width:${Math.round(100*v)}%"></i></div><b>${fmtPct(v)}</b></div>`;
+    html+=`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><h3>${MACHINES[i].name}</h3><div class="tag">${r.machine_id} · ${MACHINES[i].ideal}s ideal cycle</div></div>
+        <span class="badge ${cls}">${r.world_class?'WORLD CLASS':cls==='good'?'SOLID':cls==='warn'?'WATCH':'ACTION'}</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin:12px 0 4px">
+        <span class="bigoee" style="color:${color}">${fmtPct(r.oee)}</span><span class="muted small">OEE</span>
+      </div>
+      <div class="bar" style="height:8px"><i style="background:${color};width:${Math.round(100*r.oee)}%"></i></div>
+      ${fact(r.availability,color)}${fact(r.performance,color)}${fact(r.quality,color)}
+      <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted)">
+        <span>good <b style="color:var(--green)">${r.good_count.toLocaleString()}</b></span>
+        <span>scrap <b style="color:${r.total_count-r.good_count>0?'var(--red)':'var(--muted)'}">${(r.total_count-r.good_count).toLocaleString()}</b></span>
+        <span>run ${fmtSec(r.run_time_secs)} / ${fmtSec(r.planned_production_time_secs)}</span>
+      </div>
+    </div>`;
+  });
+  grid.innerHTML=any?html:'<div class="empty">no machines registered — click <b>Seed demo data</b> to bring the shop floor alive.</div>';
+  renderMaintNote();
+}
+
+// ── Shift report ──
+async function loadReport(){
+  const t=$('reportBody');
+  t.innerHTML='<span class="muted">loading…</span>';
+  try{
+    const j=await getJSON('/api/v1/report/shift');
+    const md=(j&&j.markdown)||JSON.stringify(j);
+    t.textContent=md;
+  }catch(err){ t.innerHTML='<span class="muted">shift report empty — seed machines first.</span>'; }
+}
+
+// ── Timeline ──
+function ts(iso){ const d=new Date(iso); return isNaN(d)?iso:d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+async function loadTimeline(){
+  const t=await getJSON('/api/v1/operational/timeline/demo');
+  $('incident').innerHTML='';
+  if(t.incident){
+    $('incident').innerHTML=`<div class="incident"><div class="h">⚠ ${t.incident.headline}</div>
+      <div class="n">${t.incident.note}</div>
+      <div class="a">next action → <b>${t.incident.next_action}</b> · window ${ts(t.incident.window_start)} → ${ts(t.incident.window_end)}</div></div>`;
+  }
+  $('tlChips').innerHTML=Object.entries(t.counts_by_kind||{}).map(([k,v])=>`<span class="chip">${KIND_ICON[k]||''} ${k} · ${v}</span>`).join('')
+    +Object.entries(t.counts_by_status||{}).map(([k,v])=>`<span class="chip">${k} · ${v}</span>`).join('');
+  const entries=t.entries||[];
+  $('tl').innerHTML=entries.length?entries.map(e=>`<div class="tevent s-${e.status}">
+      <div class="t">${ts(e.observed_at)}<span class="tag-k">${e.kind}</span></div>
+      <div class="s">${e.subject}</div>
+      <div class="m">${[e.machine_id?'machine '+e.machine_id:'',e.actor?'actor '+e.actor:''].filter(Boolean).join(' · ')}</div>
+    </div>`).join(''):'<div class="empty">no events.</div>';
+}
+
+// ── Semiotic heatmap ──
+async function loadHeat(){
+  const j=await getJSON('/api/v1/semiotic/heatmap');
+  const m=j.matrix||[]; const heat=$('heat');
+  heat.style.gridTemplateColumns=`34px repeat(${m[0]?m[0].length:0},34px)`;
+  let max=0; m.forEach(r=>r.forEach(v=>{if(v>max)max=v;}));
+  let html=`<div></div>`+MODES.map(x=>`<div class="lab" title="${x}">${x.slice(0,4)}</div>`).join('');
+  for(let i=0;i<m.length;i++){
+    html+=`<div class="lab" title="${DOMAINS[i]||''}">${(DOMAINS[i]||'').slice(0,4)}</div>`;
+    for(let k=0;k<m[i].length;k++){const v=m[i][k],a=max>0?v/max:0;
+      html+=`<div class="cell" style="background:${DCOL[DOMAINS[i]]||'#58a6ff'}${''}" title="${DOMAINS[i]} × ${MODES[k]} = ${v.toFixed(3)}">
+        <div style="width:100%;height:100%;border-radius:6px;background:rgba(4,10,22,${1-Math.min(1,0.35+0.65*a)});"></div></div>`;}
+  }
+  heat.innerHTML=html;
+}
+
+// ── Holarchy graph ──
+let cy=null;
+async function loadHolarchy(){
+  const g=await getJSON('/api/v1/holarchy/graph');
+  const idStr=n=>typeof n==='object'&&n!==null?String(n.data??n):String(n);
+  const nodes=(g.nodes||[]).map(([k,p])=>({data:{id:idStr(k),label:'#'+idStr(k).slice(0,8)}}));
+  const edges=(g.edges||[]).map((e,i)=>({data:{id:'e'+i,source:idStr(e.source),target:idStr(e.target),label:(e.weight||1).toFixed(2)}}))
+    .filter(e=>e.data.source&&e.data.target&&e.data.source!==e.data.target);
+  const note=$('holNote');
+  if(nodes.length<2 || typeof cytoscape!=='function'){
+    $('holarchy').innerHTML=`<div class="empty" style="height:430px;display:flex;align-items:center;justify-content:center;text-align:center">
+      ${nodes.length?'<div>'+nodes.length+' nodes · '+edges.length+' edges in the shared judgment graph<br><span class="small">(graph canvas needs ≥2 nodes — seed populates it)</span></div>':'<div>holarchy empty — <b>Seed demo data</b> feeds documents and readings into the shared knowledge graph.</div>'}</div>`;
+    note.textContent='';
+    return;
+  }
+  note.textContent=`${nodes.length} nodes · ${edges.length} edges — the shared knowledge graph every tenant coheres against`;
+  const el=document.createElement('div'); el.id='cy-'+Date.now();
+  $('holarchy').innerHTML=''; $('holarchy').appendChild(el); el.style.width='100%'; el.style.height='430px';
+  cy=cytoscape({
+    container:el, elements:{nodes,edges},
+    style:[
+      {selector:'node',style:{'background-color':'#6ea8ff','border-color':'#0d1526','border-width':3,'label':'data(label)','color':'#c9d8f2','font-size':'9px','text-valign':'bottom','text-margin-y':6,'width':20,'height':20}},
+      {selector:'edge',style:{'width':3,'line-color':'rgba(110,168,255,.35)','curve-style':'bezier','target-arrow-color':'rgba(110,168,255,.4)','target-arrow-shape':'triangle'}}
+    ],
+    layout:{name:'cose',animate:true,nodeRepulsion:8000,idealEdgeLength:90,padding:30}
+  });
+}
+
+// ── Coherence core ──
+async function loadCore(){
+  const j=await getJSON('/api/v1/stats');
+  const c=j.core||{};
+  const chip=(v,k)=>`<div class="corechip"><div class="v" style="color:var(--accent2)">${v}</div><div class="k">${k}</div></div>`;
+  $('coreChips').innerHTML=
+    chip(c.total_nodes??'—','coherence nodes')+
+    chip(c.coherence_index!=null?(c.coherence_index*100).toFixed(0):'—','coherence index')+
+    chip(c.high_coherence??'—','high coherence')+
+    chip(c.outlier_count??'—','outliers')+
+    chip(c.dream_cycle_count??'—','dream cycles')+
+    chip((c.asserted_success||0)+(c.asserted_inert||0),'judged outcomes');
+}
+
+// ── Classify ──
+const PROBES=[
+  "Spindle 3 vibration rose 45% in the last shift; tool holder checked, nothing loose.",
+  "Press line stopped 40 minutes for tool change; 320 parts scrapped after restart.",
+  "PO-2048 from Valbruna is 12 days past due and we haven't invoiced it yet.",
+  "Shift produced 1,480 good parts on tornio-1, zero defects, OEE 92%.",
+];
+async function renderProbes(){
+  $('probeBtns').innerHTML=PROBES.map((p,i)=>`<button data-i="${i}">probe ${i+1}</button>`).join('');
+  document.querySelectorAll('#probeBtns button').forEach(b=>b.onclick=()=>{
+    $('clText').value=PROBES[+b.dataset.i]; classify(PROBES[+b.dataset.i]);
+  });
+}
+async function classify(text){
+  if(!text.trim())return;
+  const out=$('clOut'); out.innerHTML='<span class="muted">mapping…</span>';
+  try{
+    const j=await postJSON('/api/v1/classify',{text});
+    const max=Math.max(...j.results.map(r=>r.score),0.0001);
+    out.innerHTML=`<table class="res"><tr><th>#</th><th>domain × mode</th><th>score</th><th></th></tr>`+
+      j.results.slice(0,8).map((r,i)=>`<tr><td>${i+1}</td>
+        <td><span style="color:${DCOL[r.domain]||DCOL['']}">●</span> ${r.domain} × ${r.mode}</td>
+        <td>${r.score.toFixed(3)}</td><td class="barwrap"><div class="hbar"><i style="width:${Math.round(100*r.score/max)}%"></i></div></td></tr>`).join('')+
+      `</table><p class="small muted" style="margin:8px 0 0">top: <b style="color:var(--accent2)">${j.top.domain} × ${j.top.mode}</b> (${j.top.score.toFixed(3)})</p>`;
+  }catch(err){ out.innerHTML='<span class="err">'+err+'</span>'; }
+}
+
+// ── Seed ──
+async function postAll(urls,label){
+  let done=0;
+  for(const [p,b] of urls){
+    try{ await postJSON(p,b); }catch(e){ console.warn(p,e); }
+    done++;
+  }
+}
+async function seed(){
+  toast('Seeding demo data…');
+  const btn=$('btnSeed'); btn.disabled=true;
+  try{
+    // OEE board: machines + one live shift each.
+    for(const m of MACHINES){
+      await postJSON('/api/v1/oee/machine',{machine_id:m.id,shift_length_secs:28800,ideal_cycle_time_secs:m.ideal});
+      await postJSON('/api/v1/oee/event',{kind:'start_shift',machine_id:m.id});
+    }
+    const events=[
+      {kind:'production',machine_id:'tornio-1',good:880,scrap:10},
+      {kind:'stop',machine_id:'tornio-1',reason:'setup_adjustment',duration_secs:1500,note:'first-piece calibration'},
+      {kind:'stop',machine_id:'tornio-1',reason:'minor_stop',duration_secs:1800},
+      {kind:'production',machine_id:'cnc-2',good:410,scrap:2},
+      {kind:'stop',machine_id:'cnc-2',reason:'planned_stop',duration_secs:3600,note:'lunch break'},
+      {kind:'production',machine_id:'fresa-3',good:520,scrap:6},
+      {kind:'stop',machine_id:'fresa-3',reason:'setup_adjustment',duration_secs:2100},
+      {kind:'production',machine_id:'presse-7',good:1420,scrap:210},
+      {kind:'stop',machine_id:'presse-7',reason:'breakdown',duration_secs:2700,note:'die change + jams'},
+      {kind:'stop',machine_id:'presse-7',reason:'reduced_speed',duration_secs:5400},
+      {kind:'stop',machine_id:'presse-7',reason:'minor_stop',duration_secs:2400},
+    ];
+    for(const e of events) await postJSON('/api/v1/oee/event',e);
+
+    // Goals → the dream loop has something to work on.
+    await postJSON('/api/v1/goals',{prompt:"Cut press-line scrap below 2% before end of Q3"});
+    await postJSON('/api/v1/goals',{prompt:"Move spindle-3 maintenance from breakdown-driven to predictive before September"});
+    await postJSON('/api/v1/dream/generate',{force:true});
+
+    // Maintenance: backfill a 14-day healthy baseline on cnc-2, then the monitor
+    // loop (check) ticks vibration toward the limit for 4 days, then one spike
+    // → anomaly + RUL + coherence node. check() builds the trend history.
+    const HOUR = 3600*1000, DAY = 24*HOUR;
+    const tBase = Date.now() - 14*DAY;
+    for(let i=0;i<10;i++)
+      await postJSON('/api/v1/maintenance/observe',{
+        machine_id:'cnc-2',temperature:63,vibration:(0.9+0.05*i).toFixed(2),rpm:8200,status:'online',
+        timestamp:new Date(tBase + i*35*HOUR).toISOString()
+      });
+    const tMon = Date.now() - 4*DAY;
+    for(let i=0;i<8;i++)
+      await postJSON('/api/v1/maintenance/check',{
+        machine_id:'cnc-2',temperature:64,vibration:(1.45+0.05*i).toFixed(2),rpm:8100,status:'online',
+        timestamp:new Date(tMon + i*12*HOUR).toISOString()
+      });
+    await postJSON('/api/v1/maintenance/check',{machine_id:'cnc-2',temperature:71,vibration:2.6,rpm:7900,status:'warning',rul_metric:'vibration',rul_limit:3.0})
+      .then(r=>{ lastAnomaly=r; });
+
+    // Holarchy: register the day's documents/notes as coherence nodes and link
+    // the ones that belong together — a real shared judgment graph.
+    const regs=[
+      "Shift report 2026-08-13: presse-7 scrap at 13%, die change every 1900 parts",
+      "Maintenance note: spindle 3 bearing noise, vibration trending 0.9 to 2.6",
+      "Production order GM-8842: 12000 units tornio-1, due 2026-08-20",
+      "Quality alert: press-7 first-piece failed, 210 parts scrapped after tool change",
+    ];
+    const nodeIds=[];
+    for(const d of regs){ const r=await postJSON('/api/v1/coherence/register',{input:d}); nodeIds.push(r.node_id); }
+    await postJSON('/api/v1/holarchy/edge',{source:nodeIds[3],target:nodeIds[0],weight:0.8});
+    await postJSON('/api/v1/holarchy/edge',{source:nodeIds[1],target:nodeIds[3],weight:0.7});
+    await postJSON('/api/v1/holarchy/edge',{source:nodeIds[2],target:nodeIds[3],weight:0.5});
+    if(lastAnomaly&&lastAnomaly.coherence_node_id)
+      await postJSON('/api/v1/holarchy/edge',{source:nodeIds[1],target:lastAnomaly.coherence_node_id,weight:0.95});
+
+    await refreshAll();
+    toast('Demo data seeded — shop floor, goals, anomaly and holarchy are live.');
+  }catch(err){
+    toast('seed failed: '+err,true);
+  }
+  btn.disabled=false;
+}
+
+// ── Refresh ──
+let refreshTimer=null;
+let lastAnomaly=null;
+function renderMaintNote(){
+  const el=$('maintNote');
+  if(!lastAnomaly || !lastAnomaly.coherence_node_id){ el.innerHTML=''; return; }
+  const est=lastAnomaly.rul;
+  const days=est?((est.seconds_to_limit||0)/86400).toFixed(1):null;
+  el.innerHTML=`<div class="incident"><div class="h">⚙ Predictive watch — cnc-2 spindle vibration</div>
+    <div class="n">Anomaly registered (z=${lastAnomaly.score?(lastAnomaly.score.max_abs_z||0).toFixed(1):'?'} on vibration) as coherence node <b>${lastAnomaly.coherence_node_id.slice(0,8)}</b> — the dream loop sees it as a defect it can plan countermeasures for.
+      ${est?`<br>RUL projection → spindle ${days>1?days+' days':'~'+(Math.max(1,Math.round(est.seconds_to_limit/3600)))+' h'} until vibration hits ${est.limit.toFixed(1)}.`:''}</div>
+    <div class="a">this is the auto-kaizen seam: detect → cohere → dream, no rules written by hand.</div></div>`;
+}
+async function refreshAll(){
+  const jobs=[
+    loadHealth().catch(()=>{}),
+    loadKpis().catch(e=>{$('kpis').innerHTML='<span class="err">plant OEE: '+e+'</span>';}),
+    loadMachines().catch(e=>{$('machinesGrid').innerHTML='<span class="err">machines: '+e+'</span>';}),
+    loadReport().catch(e=>{$('reportBody').textContent='shift report: '+e;}),
+    loadTimeline().catch(e=>{$('tl').innerHTML='<span class="err">'+e+'</span>';}),
+    loadHeat().catch(e=>{$('heat').innerHTML='<span class="err">'+e+'</span>';}),
+    loadHolarchy().catch(e=>{$('holarchy').innerHTML='<span class="err">'+e+'</span>';}),
+    loadCore().catch(e=>{$('coreChips').innerHTML='<span class="err">'+e+'</span>';}),
+  ];
+  await Promise.all(jobs);
+  clearInterval(refreshTimer);
+  refreshTimer=setInterval(()=>{ loadKpis().catch(()=>{}); loadReport().catch(()=>{}); },12000);
+}
+
+// ── Init ──
+$('btnRefresh').onclick=()=>refreshAll().then(()=>toast('refreshed'));
+$('btnSeed').onclick=seed;
+$('clRun').onclick=()=>classify($('clText').value);
+renderProbes();
+refreshAll();
+</script>
+</body>
+</html>
