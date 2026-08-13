@@ -6,6 +6,10 @@ description = "Industrial backoffice intelligence — process monitoring, invent
 
 [dev-dependencies]
 tempfile = "3"
+# Drives the router in-process (ServiceExt::oneshot) so the HTTP surface can be
+# tested without binding a port.
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

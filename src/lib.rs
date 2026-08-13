@@ -38,6 +38,8 @@ pub mod report;
 pub mod operational;
 pub mod operational_report;
 pub mod moonraker;
+#[cfg(feature = "web")]
+pub mod web;
 pub mod moonraker_connect;
 pub mod ontology;
 pub mod ontology_nonhuman;
