@@ -983,6 +983,14 @@ async fn graph_fm_ui_handler() -> Html<&'static str> {
     Html(include_str!("bin/ui/console.html"))
 }
 
+/// The product demo dashboard — a single self-contained page wired to the live
+/// engine: plant OEE, machines, shift report, operational timeline, semiotic
+/// heatmap, holarchy graph, and the classify probes. "Seed demo data" drives
+/// the real endpoints, so everything on screen is computed live in-process.
+async fn demo_ui_handler() -> Html<&'static str> {
+    Html(include_str!("bin/ui/demo.html"))
+}
+
 async fn dream_generate_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -1308,7 +1316,9 @@ async fn oee_plant_handler(State(state): State<SharedState>) -> Json<PlantOee> {
 // countermeasure — detect → cohere → dream, the auto-kaizen seam.
 
 /// A telemetry reading on the wire. Every metric optional; `status` is a string
-/// (`online`/`offline`/`warning`/`critical`).
+/// (`online`/`offline`/`warning`/`critical`). `timestamp` is optional and
+/// defaults to now — supplying it lets callers backfill a metric history so RUL
+/// projection is demoable/realistic (the monitor otherwise stamps arrival time).
 #[derive(Deserialize)]
 struct ReadingRequest {
     machine_id: String,
@@ -1317,6 +1327,8 @@ struct ReadingRequest {
     vibration: Option<f32>,
     rpm: Option<f32>,
     status: Option<String>,
+    #[serde(default)]
+    timestamp: Option<chrono::DateTime<chrono::Utc>>,
     #[serde(default)]
     raw: HashMap<String, f32>,
     /// Optional anomaly cutoff in σ (default 3.0).
@@ -1336,7 +1348,7 @@ impl ReadingRequest {
         };
         MachineReading {
             machine_id: self.machine_id.clone(),
-            timestamp: chrono::Utc::now(),
+            timestamp: self.timestamp.unwrap_or_else(chrono::Utc::now),
             temperature: self.temperature,
             pressure: self.pressure,
             vibration: self.vibration,
@@ -3052,6 +3064,7 @@ pub async fn build_app() -> (SharedState, Router) {
         // Graph file-manager SPA. The page is gated; its data calls hit the
         // authenticated fs/* routes with a token the user pastes in-page.
         .route("/ui", get(graph_fm_ui_handler))
+        .route("/demo", get(demo_ui_handler))
         .route("/api/v1/chat", post(chat_handler))
         .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))

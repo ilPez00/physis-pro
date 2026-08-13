@@ -136,6 +136,34 @@ covered; the surface everyone actually calls is not.
   token format `role:secret`). Full suite: 429 lib + 10 HTTP-surface green, zero
   clippy warnings.
 
+### Phase 1I — Live product demo (2026-08-13)
+
+Asked for by the prospect work: a demo dashboard, not a dev console. Shipped as
+`src/bin/ui/demo.html` (self-contained single-file page) served at **`/demo`**
+and launched with **`scripts/demo.sh`** (one command; DEMO.md is the runbook).
+Not a chart mock: "Seed demo data" drives the real API — OEE board, goals +
+dream, a 14-day maintenance backfill ending in an anomaly with a live RUL
+projection and a coherence node, and the day's documents linked into the
+holarchy graph. Every panel (plant OEE + six-big-losses Pareto, per-machine
+cards, live shift report, operational timeline, 5×14 semiotic heatmap, holarchy
+graph, classify probes) is computed in-process from the running engine.
+
+Findings that came out of making it live:
+- `maintenance/observe` folds into the baseline but **never writes the trend
+  history** — RUL needs a series of `check` calls, which is exactly the monitor
+  loop, but the asymmetry wasn't documented. `ReadingRequest` now accepts an
+  optional `timestamp` (defaults to now) so history can be backfilled — the
+  seam a real connector needs to serve RUL with realistic numbers.
+- The prod rate limit `60 req/min/IP` is **right for deployments and wrong for
+  a seed+load burst (~70 req/min)**. `demo.sh` sets `PHYSIS_RATE_LIMIT=600/60`;
+  the prod default is unchanged and the env is documented so nobody "fixes" it
+  in prod.
+- `/holarchy/ingest` pushes to the sensory ring, it does **not** create graph
+  nodes — the demo registers coherence nodes (`/coherence/register`) and links
+  them (`/holarchy/edge`) instead.
+- One test added (`demo_and_console_ui_are_served`) + `send_text` helper; HTTP
+  suite now 11.
+
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 
 Shipped this arc (all on `main`, classify hot path untouched unless noted):

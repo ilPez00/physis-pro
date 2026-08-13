@@ -14,6 +14,7 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use axum::Router;
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use tokio::sync::MutexGuard;
@@ -66,6 +67,19 @@ async fn send(router: &axum::Router, mut req: Request<Body>) -> (StatusCode, Val
     (status, value)
 }
 
+/// Like `send`, but returns the raw body text (for HTML/text responses that
+/// aren't JSON, e.g. the `/ui` and `/demo` pages).
+async fn send_text(router: &Router, req: Request<Body>) -> (StatusCode, String) {
+    let mut req = req;
+    req.extensions_mut().insert(axum::extract::ConnectInfo(
+        std::net::SocketAddr::from(([127, 0, 0, 1], 40000)),
+    ));
+    let resp = router.clone().oneshot(req).await.expect("router responds");
+    let status = resp.status();
+    let bytes = resp.into_body().collect().await.expect("body").to_bytes();
+    (status, String::from_utf8_lossy(&bytes).into_owned())
+}
+
 fn post(path: &str, user: &str, body: Value) -> Request<Body> {
     Request::builder()
         .method("POST")
@@ -109,6 +123,22 @@ async fn health_and_embedder_are_public() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["kind"], "random-projection");
     assert_eq!(body["degraded"], true, "a non-semantic embedder must say so");
+}
+
+#[tokio::test]
+async fn demo_and_console_ui_are_served() {
+    // The demo dashboard and the dev console are single-file pages served by the
+    // router — a missing include_str or a broken route must not ship silently.
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send_text(&router, get("/demo", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Physis · Industrial Backoffice Intelligence"), "demo page must be the product dashboard");
+    assert!(body.contains("/api/v1/oee/plant"), "demo page must wire the live API");
+
+    let (status, body) = send_text(&router, get("/ui", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Physis Console"));
 }
 
 #[tokio::test]
