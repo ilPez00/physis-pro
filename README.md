@@ -146,7 +146,8 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/report/shift` | — | Shift report from a supplied `ShiftReportInput` (OEE + anomalies + RUL + countermeasures); stateless, `?format=html` for HTML |
 | POST | `/api/v1/config/reload` | ✓ | Re-read `config.json`; apply PDCA knobs + scan_root live (embedder/embed_dim need restart — dim change corrupts vectors) |
 | POST | `/api/v1/goals` | ✓ | Ingest a prompt as a goal → `{goal:{id}}` |
-| POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force}` |
+| POST | `/api/v1/dream/generate` | ✓ | Generate dreams `{count, force, embeddings?}` → `{id, kind, proposal, grade}`; vectors only with `embeddings:true` |
+| POST | `/api/v1/dream/replay` | ✓ | Nodes the dream loop is replaying, **named**: `{node_id, label, asserted, density, outcome, prevented_failure}` — reported failures first, unjudged nodes by sparse neighbourhood |
 | POST | `/api/v1/dream/evaluate` | ✓ | Grade a dream `{id, grade}` (0.0–1.0) |
 | GET  | `/api/v1/stats` | ✓ | Engine statistics |
 | POST | `/api/v1/context/filter` | ✓ | Compression: filter a raw input |
