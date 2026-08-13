@@ -142,8 +142,19 @@ Shipped this arc (all on `main`, classify hot path untouched unless noted):
   reason. The handler now builds from the existing `all_domains()` helper:
   **70/70 cells populated, 927 entries** (was 27/70), and 63 lines of
   copy-pasted loops became 32.
-- [ ] **Still open from the §2 spec**: dream view (`d`) is blocked on the engine — `/dream/generate` returns raw 768-d
-  vectors, not the human-readable corrective actions the README describes.
+- [x] **Dream view** (`d`) — it was NOT blocked on a missing capability, as
+  first assumed. `Dream` has always carried `dream_type` and `description`; the
+  handler serialised `id/source/embedding/grade` and dropped both, sending two
+  768-d vectors per dream instead of the proposal. It also called the 2-arg
+  `generate_dreams`, which passes `None` for the scheduler, so the schedule-drift
+  and countermeasure generators could never fire over HTTP. Both fixed; vectors
+  now opt-in via `embeddings:true`.
+  Added `POST /api/v1/dream/replay`, which is the view the browser needed:
+  `/dream/generate` works over *goals*, which are pure vectors with no text, so
+  its proposals can only ever say "mutate unknown". `core.dream()` runs over
+  *coherence nodes*, which carry labels and verdicts. Verified: it replays two
+  reported failures and skips a reported success — including a node with density
+  1.0 and verdict −1.0, exactly where the two axes disagree.
 
 ### Phase 2: User Experience (The "Backoffice" Polish)
 - **Web-based Dashboard**: Build a React/Next.js dashboard (using the existing `web` feature) that visualizes the `FileThemeGraph` as an interactive force-directed graph.

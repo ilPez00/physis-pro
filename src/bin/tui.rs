@@ -599,6 +599,45 @@ fn wiki_walk_into(app: &mut App) {
     }
 }
 
+/// Show what the dream loop is replaying, named.
+///
+/// Reuses the walk stack so Backspace returns to the results — the dream view
+/// is another lens on the same list, not a separate mode to escape from.
+fn wiki_dream(app: &mut App) {
+    match wiki_fetch(app, "/api/v1/dream/replay", Some(serde_json::json!({}))) {
+        Ok(v) => {
+            let hits: Vec<WikiHit> = v
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .map(|n| WikiHit {
+                            id: n.get("node_id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                            label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                            density: n.get("density").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                            asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if hits.is_empty() {
+                // Nothing to replay is good news, and the engine also skips
+                // anything already in the dream archive — so say which it is
+                // rather than showing a blank pane.
+                app.status_msg =
+                    "nothing to replay — no reported failures, or all already dreamt".into();
+                return;
+            }
+            app.wiki_stack.push(std::mem::take(&mut app.wiki_hits));
+            app.wiki_crumbs.push("dreams".to_string());
+            app.wiki_hits = hits;
+            app.wiki_sel = 0;
+            app.status_msg = format!("{} node(s) being replayed", app.wiki_hits.len());
+            wiki_load_preview(app);
+        }
+        Err(e) => app.status_msg = format!("dream replay failed: {e}"),
+    }
+}
+
 /// Climb back out of a walk, one level per press.
 fn wiki_walk_back(app: &mut App) {
     match app.wiki_stack.pop() {
@@ -740,6 +779,7 @@ fn run<B: ratatui::backend::Backend>(
             // Graph walk: 'g' descends into the selected node's edges,
             // Backspace climbs back out (vim-ish, as the §2 spec describes).
             KeyCode::Char('g') if app.tab == TAB_WIKI => wiki_walk_into(app),
+            KeyCode::Char('d') if app.tab == TAB_WIKI => wiki_dream(app),
             KeyCode::Backspace if app.tab == TAB_WIKI => wiki_walk_back(app),
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
@@ -789,7 +829,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
         TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
         TAB_WIKI if app.wiki_map_focus => " ←/→ mode · ↑/↓ domain · Enter scope to cell · m unfocus",
-        TAB_WIKI => " Tab · / search · ↑/↓ browse · g walk · ⌫ back · m map · q quit",
+        TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
