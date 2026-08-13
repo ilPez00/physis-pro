@@ -176,7 +176,7 @@ pub enum Commands {
     Machine {
         /// Machine name (chronos, topos, harmony, polis, soma, elenchus, lex,
         /// empedocles, euclid, techne, erosp, erosa, plutos, krisis, pathos,
-        /// chroma, kinesis).
+        /// chroma, kinesis, apodeixis).
         name: String,
         /// JSON input file; omit or use '-' to read from stdin.
         #[arg(short, long)]

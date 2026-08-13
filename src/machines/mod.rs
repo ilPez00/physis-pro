@@ -9,6 +9,12 @@
 //! `polis` (social), `empedocles` (physical telemetry → elements),
 //! `euclid` (geometry), and the relational pair `erosp` / `erosa` (desire).
 //!
+//! `apodeixis` is the demonstrative-proof machine: it reduces a proof obligation
+//! (a claim plus a Lean 4 formalization) into a machine-checked verdict —
+//! `certified` / `refuted` / `untestable` — by running the snippet through the
+//! Lean kernel. It is the deductive complement to the rest of the engine:
+//! elenchus scores what a claim *deserves*, apodeixis settles what it *is*.
+//!
 //! `erosp` and `erosa` are twin reducers over the same perception (a directed
 //! reach), inverse in genealogy: `erosp` is the Platonic eros, child of Penia
 //! (lack) and Poros (resource) — the ascending longing; `erosa` is the mythic
@@ -38,4 +44,5 @@ pub mod krisis;
 pub mod pathos;
 pub mod chroma;
 pub mod kinesis;
+pub mod apodeixis;
 pub mod run;
