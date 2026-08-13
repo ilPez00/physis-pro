@@ -38,7 +38,22 @@ RUN set -e; \
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
 FROM debian:trixie-slim
+ARG WITH_LEAN=0
 RUN apt-get update && apt-get install -y ca-certificates curl ffmpeg awscli && rm -rf /var/lib/apt/lists/*
+
+# Optional Lean 4 toolchain (apodeixis machine). ~500 MB; enabled with
+# `docker build --build-arg WITH_LEAN=1 ...`.
+RUN if [ "$WITH_LEAN" = "1" ]; then \
+      echo "[runtime] installing Lean 4 toolchain (~500 MB) ..." && \
+      curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain stable && \
+      rm -rf /root/.elan/tmp && \
+      echo "[runtime] Lean $(/root/.elan/bin/lean --version 2>&1 | head -1)"; \
+    else \
+      echo "[runtime] Lean skipped (build with --build-arg WITH_LEAN=1 to enable apodeixis)"; \
+    fi
+
+ENV LEAN_BIN=/root/.elan/bin/lean
+ENV PATH="$LEAN_BIN:$PATH"
 
 WORKDIR /app
 COPY --from=builder /app/target/release/physis-pro-web .
