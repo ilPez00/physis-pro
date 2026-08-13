@@ -2,13 +2,25 @@ use serde::{Deserialize, Serialize};
 
 pub type Score = f32;
 
-/// State of a goal in vector space. No human-readable qualia.
+/// State of a goal in vector space.
+///
+/// The vector is the state; `label` optionally retains the text it was embedded
+/// from. This mirrors `CoherenceNode`: the "no human-readable qualia" rule was
+/// already dropped there because it left nodes unbrowsable, and it cost goals
+/// the same way — every dream proposal read "Mutate unknown", because
+/// `new_vec` stamps `domain_name: "unknown"` and the description interpolates
+/// it. Keeping the source text costs one string and makes the engine able to
+/// say what it is reasoning about.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Goal {
     pub id: String,
     pub embedding: Vec<f32>,
     pub progress: Score,
     pub domain_name: String,
+    /// Source text this goal was embedded from. Absent on goals written before
+    /// the field existed, hence `serde(default)`.
+    #[serde(default)]
+    pub label: Option<String>,
 }
 
 impl Goal {
@@ -18,10 +30,60 @@ impl Goal {
             embedding,
             progress: 0.0,
             domain_name,
+            label: None,
         }
     }
     pub fn new_vec(embedding: Vec<f32>) -> Self {
         Self::new(embedding, "unknown".to_string())
+    }
+
+    /// Attach the text the vector came from.
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        let label = label.into();
+        if !label.trim().is_empty() {
+            self.label = Some(label);
+        }
+        self
+    }
+
+    /// What to call this goal in human-facing output: the source text when we
+    /// have it, else the domain, else the placeholder.
+    pub fn name(&self) -> &str {
+        self.label.as_deref().unwrap_or(&self.domain_name)
+    }
+}
+
+#[cfg(test)]
+mod goal_tests {
+    use super::*;
+
+    #[test]
+    fn a_goal_can_say_what_it_is_about() {
+        // Every dream proposal interpolates this name. Without a label it read
+        // "Mutate unknown", which is the engine failing to describe its own
+        // reasoning rather than a limit of the reasoning.
+        let bare = Goal::new_vec(vec![0.1; 8]);
+        assert_eq!(bare.name(), "unknown");
+        assert_eq!(bare.label, None);
+
+        let named = Goal::new_vec(vec![0.1; 8]).with_label("reduce nozzle clogs");
+        assert_eq!(named.name(), "reduce nozzle clogs");
+
+        // A blank prompt is not a name — it would render as an empty gap in
+        // every proposal, which reads worse than the domain placeholder.
+        let blank = Goal::new_vec(vec![0.1; 8]).with_label("   ");
+        assert_eq!(blank.name(), "unknown");
+    }
+
+    #[test]
+    fn goals_written_before_the_field_still_load() {
+        // Persisted goals predate `label`; they must deserialize, not fail the
+        // whole tenant's rehydration.
+        let legacy = r#"{"id":"g1","embedding":[0.1,0.2],"progress":0.5,"domain_name":"Body"}"#;
+        let g: Goal = serde_json::from_str(legacy).expect("legacy goal loads");
+        assert_eq!(g.label, None);
+        assert_eq!(g.name(), "Body");
+        assert_eq!(g.progress, 0.5);
     }
 }
 

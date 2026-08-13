@@ -76,6 +76,33 @@ behind a Mutex (`src/embed/mod.rs`), so a GPU cuts per-embed latency, not suite
 throughput — realistic gain on the test suite is 333s → ~200s. Low priority
 against the TUI browser and the industrial wedge.
 
+#### 1H — Goals carry their text, and persist (2026-08-13)
+
+`Goal` was documented "State of a goal in vector space. **No human-readable
+qualia**", and `new_vec` stamps `domain_name: "unknown"`. All five dream
+descriptions interpolate that field, so every proposal over an HTTP-created goal
+read *"Mutate unknown with noise_std=0.31"* — the engine unable to name what it
+was reasoning about. `CoherenceNode` had already abandoned that doctrine (its
+`label` exists precisely so a node "can be browsed by content"); `Goal` simply
+never got the same treatment. It now has `label`, set from the prompt, and
+`name()` used by the proposals.
+
+Goals were also the last tenant state lost on restart — coherence nodes,
+LifeOS, OEE, maintenance and axes all persisted, goals did not, so a redeploy
+silently answered `"No goals exist"` and dreaming stopped. Now written through
+to sled per tenant (one blob per tenant: goals are a bounded working set, unlike
+the unbounded node graph that needs per-key writes).
+
+**Structural finding worth acting on:** no test in the suite boots the HTTP
+router, and every wiring bug found this session was invisible to all 429 tests —
+the rate limiter never layered in, three tenancy readers on the wrong tenant,
+`/dream/generate` dropping `description`, and the `load_goals` call site missing
+from `with_user` (it compiled clean and persisted nothing). The engine is well
+covered; the surface everyone actually calls is not.
+- [ ] Extract the router into a lib function so `tests/` can exercise the HTTP
+  layer, then cover: tenancy isolation, persistence round-trips, and the rate
+  limit. That single change would have caught five bugs from this session.
+
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 
 Shipped this arc (all on `main`, classify hot path untouched unless noted):

@@ -141,6 +141,7 @@ mod tests {
             embedding: vec![0.5; 4],
             progress: 0.756,
             domain_name: "machine".to_string(),
+            label: None,
         };
         let s = enrich_nonhuman_goal(&goal, &domains);
         assert!(s.contains("progress=75%"));

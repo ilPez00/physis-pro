@@ -4,6 +4,18 @@ use rand::{Rng, SeedableRng};
 use crate::gantt::GanttScheduler;
 use crate::models::{cosine_sim, Dream, Experience, Goal};
 
+/// Keep a proposal on one line. A goal's label is whatever prompt created it,
+/// which can be a paragraph; a dream description is a headline.
+fn truncate_name(name: &str) -> String {
+    const MAX: usize = 48;
+    if name.chars().count() <= MAX {
+        name.to_string()
+    } else {
+        name.chars().take(MAX - 1).collect::<String>() + "…"
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub enum DreamContext {
     Random,
@@ -141,7 +153,7 @@ impl DreamEngine {
                 .collect();
             let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
             let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
-            let desc = format!("Explore near {} after stagnation", g.domain_name);
+            let desc = format!("Explore near {} after stagnation", truncate_name(g.name()));
             return (Dream::new(g.embedding.clone(), embedding, "explore".to_string(), desc), DreamContext::Random);
         }
 
@@ -172,7 +184,7 @@ impl DreamEngine {
             (vec, steps)
         };
 
-        let desc = format!("Countermeasure for {} — {} steps", source.domain_name, steps.len());
+        let desc = format!("Countermeasure for {} — {} steps", truncate_name(source.name()), steps.len());
         (Dream::new(source.embedding.clone(), embedding, "countermeasure".to_string(), desc),
          DreamContext::Countermeasure {
              steps,
@@ -195,7 +207,7 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Interpolate {:.2} {} ↔ {}", t, g1.domain_name, g2.domain_name);
+        let desc = format!("Interpolate {:.2} {} ↔ {}", t, truncate_name(g1.name()), truncate_name(g2.name()));
         (Dream::new(g1.embedding.clone(), embedding, "interpolate".to_string(), desc),
          DreamContext::Interpolation {
              source_goal: g1.id.clone(),
@@ -212,7 +224,7 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Mutate {} with noise_std={:.3}", g.domain_name, noise_std);
+        let desc = format!("Mutate {} with noise_std={:.3}", truncate_name(g.name()), noise_std);
         (Dream::new(g.embedding.clone(), embedding, "mutate".to_string(), desc),
          DreamContext::Random)
     }
@@ -233,7 +245,7 @@ impl DreamEngine {
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Extrapolate {} factor={:.2}", g.domain_name, factor);
+        let desc = format!("Extrapolate {} factor={:.2}", truncate_name(g.name()), factor);
         Dream::new(g.embedding.clone(), embedding, "extrapolate".to_string(), desc)
     }
 
