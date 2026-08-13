@@ -85,15 +85,6 @@ voice = []
 web = ["dep:axum", "dep:tower-http"]
 tui = ["dep:ratatui", "dep:crossterm"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
-# GPU execution provider for ONNX (AMD ROCm).
-#
-# NON-FUNCTIONAL as of ort 2.0.0-rc.12 / ONNX Runtime 1.24.2: upstream removed
-# the ROCm EP (no `--use_rocm` in build.py; MIGraphX is the only AMD provider
-# left). This builds and runs, but registration fails at runtime and inference
-# silently stays on CPU — verified at 1451% CPU with no KFD processes. The EP
-# call now logs an error instead of pretending. See PLAN.md §1F for the MIGraphX
-# and WebGPU options before enabling this expecting a speedup.
-rocm = ["ort/rocm", "ort/download-binaries", "ort/copy-dylibs"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
@@ -115,12 +106,6 @@ path = "src/main.rs"
 [[bin]]
 name = "physis-pro-web"
 required-features = ["web"]
-path = "src/bin/web_server.rs"
-
-# GPU build (ROCm) — isolates the AMD-accelerated binary from the CPU one.
-[[bin]]
-name = "physis-pro-web-rocm"
-required-features = ["web", "embed-onnx", "rocm"]
 path = "src/bin/web_server.rs"
 
 [[bin]]

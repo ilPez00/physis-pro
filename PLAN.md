@@ -70,6 +70,12 @@ Open options, none started:
 - [ ] **Decide the fate of the `rocm` feature** — it currently promises
   acceleration it cannot deliver. Either delete it with the
   `physis-pro-web-rocm` binary, or keep it strictly as the seam for a future EP.
+- [x] **Resolved (2026-08-13): deleted.** The `rocm` feature, the
+  `physis-pro-web-rocm` binary, and `build_rocm_test.sh` are gone. Dead
+  configuration that promises acceleration it cannot deliver is worse than no
+  configuration — and a future MIGraphX/WebGPU EP is a *new* feature with a
+  truthful name, not a resurrected one. The finding above stays in `PLAN.md §1F`
+  so the investigation isn't lost.
 
 **Payoff check before spending more on this:** the embedder serialises inference
 behind a Mutex (`src/embed/mod.rs`), so a GPU cuts per-embed latency, not suite
@@ -113,6 +119,22 @@ covered; the surface everyone actually calls is not.
   Note for future tests: `oneshot` supplies no `ConnectInfo`, so the rate-limit
   middleware rejects every request until the test injects a peer address —
   the same 500-on-everything the middleware comment warns about.
+
+  **Growth (2026-08-13):** the suite now has ten tests. A persistence test
+  (`goals_survive_a_restart`) tears the router down and rebuilds it in-process,
+  and it immediately exposed two real bugs no boot-ever test could see:
+  - `build_app` never created the data dir before `sled::open`, which *fails
+    rather than creates* when the parent is missing — so a fresh install ran
+    entirely in-memory (all persistence silently disabled) until something else
+    created `~/.physis`. Fixed with `create_dir_all` (`src/web.rs`).
+  - Two unconditional background tasks (graph updater thread + 10s Rachmaninov
+    tick) held a strong `Arc<AppCtx>` forever, keeping the sled `Db` open so a
+    second in-process app (or the test) couldn't reopen the same data dir. Both
+    now hold a `Weak` ref and exit when the app state is dropped.
+  Two more tests lock in earlier-only assumptions: `scan_is_confined_to_scan_root`
+  (canonicalize + prefix check) and `bearer_token_gates_protected_routes` (RBAC
+  token format `role:secret`). Full suite: 429 lib + 10 HTTP-surface green, zero
+  clippy warnings.
 
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 

@@ -16,17 +16,38 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
+use tokio::sync::MutexGuard;
 use tower::ServiceExt;
+
+// `build_app` reads the process environment directly (HOME, PHYSIS_EMBEDDER,
+// PHYSIS_API_TOKEN, PHYSIS_SCAN_ROOT). Cargo runs these tests on parallel
+// threads in ONE process, so two tests building apps concurrently would clobber
+// each other's env — the original harness had that latent race, and the auth
+// test below *must* set a token that no other test may see. Serializing every
+// env-touching test through this mutex makes the suite deterministic.
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Build the app over an explicit data dir, holding the env mutex for the
+/// caller. Every test (or repeated build in a restart test) passes through the
+/// same lock, so the shared process env is never mutated concurrently.
+async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>) {
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    // The bearer-token test sets PHYSIS_API_TOKEN itself; no other app build may
+    // inherit it (a stale token would 401 every request in the next test).
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("HOME", dir); // config resolves ~/.physis
+    let (_state, router) = physis_pro::web::build_app().await;
+    (router, env)
+}
 
 /// Build the app once per test with an isolated data dir, so tests never share
 /// sled state with each other or with a developer's real `~/.physis`.
-async fn app() -> (axum::Router, tempfile::TempDir) {
+async fn app() -> (axum::Router, tempfile::TempDir, MutexGuard<'static, ()>) {
     let dir = tempfile::tempdir().expect("temp data dir");
-    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
-    std::env::set_var("PHYSIS_DATA_DIR", dir.path());
-    std::env::set_var("HOME", dir.path()); // config resolves ~/.physis
-    let (_state, router) = physis_pro::web::build_app().await;
-    (router, dir)
+    let (router, env) = app_on(dir.path()).await;
+    (router, dir, env)
 }
 
 async fn send(router: &axum::Router, mut req: Request<Body>) -> (StatusCode, Value) {
@@ -64,11 +85,22 @@ fn get(path: &str, user: &str) -> Request<Body> {
         .unwrap()
 }
 
+fn post_auth(path: &str, user: &str, body: Value, token: &str) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json")
+        .header("authorization", format!("Bearer {token}"))
+        .header("x-physis-user", user)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
 #[tokio::test]
 async fn health_and_embedder_are_public() {
     // These two are the ops surface: they must answer without a token, and the
     // embedder must admit when it is degraded rather than look healthy.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     let (status, _) = send(&router, get("/health", "_default")).await;
     assert_eq!(status, StatusCode::OK);
@@ -84,7 +116,7 @@ async fn coherence_nodes_are_isolated_per_tenant() {
     // Regression: /reconstruct, /context/filter and /compress/logs all read the
     // default tenant regardless of X-Physis-User, so a client that wrote under
     // its own id got empty results back and no error.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     let (status, body) = send(
         &router,
@@ -124,7 +156,7 @@ async fn a_verdict_is_stored_and_can_be_corrected() {
     // The asserted axis travels on the wire and re-registering the same label
     // updates it — that is how a task reported optimistically at spawn gets
     // corrected when it later fails.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     let (_, first) = send(
         &router,
@@ -155,7 +187,7 @@ async fn dreams_return_a_readable_proposal_not_raw_vectors() {
     // Regression: the handler serialized two 768-d vectors per dream and
     // dropped `description`, so every client saw the arithmetic and none of
     // the reasoning.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     send(
         &router,
@@ -199,7 +231,7 @@ async fn dreams_return_a_readable_proposal_not_raw_vectors() {
 async fn dream_replay_names_failures_and_skips_successes() {
     // The thesis, over HTTP: replay what was reported broken, leave what was
     // reported working alone.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     for (text, score) in [
         ("nozzle clogged mid print", -1.0),
@@ -231,7 +263,7 @@ async fn dream_replay_names_failures_and_skips_successes() {
 async fn holarchy_edges_are_visible_to_the_tenant_that_wrote_them() {
     // Regression: /holarchy/edge wrote per-tenant while /holarchy/snapshot read
     // _default, so an edge returned "edge_added" and appeared in no snapshot.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     let mut ids = Vec::new();
     for text in ["source node", "target node"] {
@@ -276,7 +308,7 @@ async fn the_semiotic_grid_reports_every_loaded_ontology() {
     // Regression: the handler enumerated eight collections by hand and omitted
     // custom_domains, where the 20 EXTRA_ONTOLOGIES live — so it reported 27 of
     // 70 cells populated while classify used all of them.
-    let (router, _dir) = app().await;
+    let (router, _dir, _env) = app().await;
 
     let (status, body) = send(&router, get("/api/v1/semiotic/grid", "_default")).await;
     assert_eq!(status, StatusCode::OK);
@@ -297,4 +329,118 @@ async fn the_semiotic_grid_reports_every_loaded_ontology() {
         !maintain["entries"].as_array().unwrap().is_empty(),
         "the cell that classify demonstrably uses cannot read as empty"
     );
+}
+
+#[tokio::test]
+async fn goals_survive_a_restart() {
+    // Regression (PLAN 1H): goals were the last tenant state to silently die on
+    // restart — the load_goals call site was missing from with_user, so the
+    // persist code compiled clean, saved every goal, and nothing ever came back.
+    // This is "build a process, write, drop it, rebuild on the same data dir".
+    let dir = tempfile::tempdir().expect("temp data dir");
+
+    let (router, env) = app_on(dir.path()).await;
+    let (status, body) = send(
+        &router,
+        post("/api/v1/goals", "persist", json!({"prompt": "reduce nozzle clogs before the next batch"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["goal"]["id"].is_string(), "goal created");
+    drop(router); // process exit — drops AppCtx (and the sled Db, flushing it)
+    drop(env); // release the env lock before rebuilding, or app_on below deadlocks
+
+    // Second "process" over the same data dir: the goal must be back, and a
+    // tenant able to dream about it means load_goals actually fired.
+    let (router, _env) = app_on(dir.path()).await;
+    let (status, body) = send(
+        &router,
+        post("/api/v1/dream/generate", "persist", json!({"count": 2, "force": true})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let dreams = body["dreams"].as_array().expect("dreams array");
+    assert!(!dreams.is_empty(), "a tenant whose goal survived restart can dream");
+    let proposal = dreams[0]["proposal"].as_str().unwrap_or("");
+    assert!(
+        proposal.contains("nozzle"),
+        "the proposal must name the persisted goal, got {proposal:?}"
+    );
+}
+
+#[tokio::test]
+async fn scan_is_confined_to_scan_root() {
+    // Regression (PREMORTEM P6): /scan took an arbitrary server-side dir. The
+    // guard canonicalizes and rejects anything outside the root — without it
+    // `{"dir":"/etc"}` would expose the host filesystem.
+    let dir = tempfile::tempdir().expect("temp data dir");
+
+    // A real corpus inside the scan root (which defaults to the data dir).
+    let inside = dir.path().join(".physis").join("notes");
+    std::fs::create_dir_all(&inside).expect("mkdir inside scan root");
+    std::fs::write(inside.join("fixture.txt"), "hello from the shop floor").expect("write fixture");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, _) = send(
+        &router,
+        post("/api/v1/scan", "_default", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "a path inside scan root is scannable");
+
+    // An existing directory OUTSIDE the root must be refused, not scanned.
+    let outside = std::env::temp_dir();
+    let (status, body) = send(
+        &router,
+        post("/api/v1/scan", "_default", json!({"dir": outside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+    assert!(
+        body["error"].as_str().unwrap_or("").contains("scan root"),
+        "the refusal must name the confinement: {body}"
+    );
+}
+
+#[tokio::test]
+async fn bearer_token_gates_protected_routes() {
+    // Regression (PREMORTEM P6): the API used to bind wide open. With a token
+    // configured, protected routes must require it while the ops surface stays
+    // public — and a wrong secret must not pass.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::set_var("PHYSIS_API_TOKEN", "test-secret");
+    std::env::set_var("HOME", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await;
+
+    // Public ops surface: no token needed.
+    let (status, _) = send(&router, get("/health", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "health stays public");
+    let (status, _) = send(&router, get("/api/v1/embedder", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "embedder provenance stays public");
+
+    // A protected POST with no bearer — the header must be compulsory.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "u", json!({"input": "deploy step"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "no bearer is rejected");
+
+    let (status, _) = send(
+        &router,
+        post_auth("/api/v1/coherence/register", "u", json!({"input": "deploy step"}), "wrong-secret"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "a wrong secret is rejected");
+
+    let (status, _) = send(
+        &router,
+        post_auth("/api/v1/coherence/register", "u", json!({"input": "deploy step"}), "test-secret"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "the configured token passes");
+    drop(env);
 }
