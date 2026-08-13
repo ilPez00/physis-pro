@@ -328,6 +328,19 @@ cargo build --features embed-onnx     # (on by default; falls back down the chai
 In production, `docker-entrypoint.sh` fetches weights from `MODEL_BASE_URL`
 at boot (see PREMORTEM.md P0). Check what's live with `GET /api/v1/embedder`.
 
+### Docker (self-contained)
+
+```bash
+# Without Lean (default, smaller image)
+docker build -t physis-pro .
+
+# With Lean 4 toolchain (~+500 MB, enables apodeixis machine)
+docker build --build-arg WITH_LEAN=1 -t physis-pro:lean .
+```
+
+The runtime image is Debian slim + the Rust binary + optional Lean. Models are
+downloaded at boot from `MODEL_BASE_URL` unless baked in at build time via S3.
+
 ---
 
 ## Modules
@@ -414,14 +427,19 @@ let (loaded, skipped) = core.load_nodes(&db, "tenant-a");  // skipped = embedder
 ## Build & test
 
 ```bash
-cargo build                       # default: cli, voice, web, tui, embed-onnx
+# Quick build (default features: cli, voice, web, tui, embed-onnx)
+cargo build
+
+# Feature matrix
 cargo build --features mcp        # + MCP server
 cargo build --features network    # + directory watching
-cargo build --features full       # everything (incl. industrial, ingest)
-cargo test                        # full suite
-cargo test core                   # core engine only
+cargo build --features full       # everything (industrial, ingest, pdf, email)
 
-./scripts/predeploy.sh            # local CI gate before a manual `railway up`
+# One-shot dependency installer (probes + installs rust, lean, voice deps, models)
+./scripts/setup-physis.sh --full
+
+# Then deploy (systemd --user, no root required)
+./scripts/install-physis.sh --port 8080
 ```
 
 > **Deploys:** Railway auto-deploys on green CI. When CI is unavailable, deploy
