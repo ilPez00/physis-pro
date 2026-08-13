@@ -182,6 +182,29 @@ pub enum Commands {
         #[arg(short, long)]
         input: Option<PathBuf>,
     },
+    /// Record a study session: watch a directory and log every file you
+    /// generate, edit or delete — with date, time, place, file type and order —
+    /// into the running engine's Study Log (POST /api/v1/study/log). The
+    /// learning/teaching app renders it on /study.
+    Study {
+        /// Directory to watch (default: current directory)
+        dir: PathBuf,
+        /// Engine base URL
+        #[arg(long, default_value = "http://127.0.0.1:19876")]
+        url: String,
+        /// Where you're studying (room, library, lab) — context stamped on every event
+        #[arg(long, default_value = "studio")]
+        place: String,
+        /// X-Physis-User id (default "_default")
+        #[arg(long, default_value = "_default")]
+        user: String,
+        /// Poll interval in seconds
+        #[arg(long, default_value_t = 3)]
+        interval: u64,
+        /// Record the current snapshot as "opened" and exit (no loop)
+        #[arg(long)]
+        once: bool,
+    },
 }
 
 /// Sources a `connect` run can poll.
@@ -235,6 +258,12 @@ fn main() -> anyhow::Result<()> {
         let out = physis_pro::machines::run::run(name, &value)?;
         println!("{}", serde_json::to_string_pretty(&out)?);
         return Ok(());
+    }
+
+    // The `study` recorder only needs the filesystem + the running engine: run
+    // it before building the heavy PhysisApp (ontology + embedder).
+    if let Commands::Study { dir, url, place, user, interval, once } = &cli.command {
+        return run_study_recorder(dir, url, place, user, *interval, *once);
     }
 
     let config = PhysisProConfig::default();
@@ -610,8 +639,105 @@ fn main() -> anyhow::Result<()> {
             println!("{result}");
         }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
+        Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
     }
 
+    Ok(())
+}
+
+/// Watch a directory and post study events to the running engine. `prev` holds
+/// the last snapshot; every change diff maps to a generated / edited / deleted
+/// event carrying date, time, place and path. With `--once`, records what is
+/// already on disk as "opened" and exits.
+fn run_study_recorder(
+    dir: &Path,
+    url: &str,
+    place: &str,
+    user: &str,
+    interval: u64,
+    once: bool,
+) -> anyhow::Result<()> {
+    use physis_pro::study::{diff_snapshots, snapshot_dir, StudyAction, StudyEvent};
+    if !dir.is_dir() {
+        anyhow::bail!("not a directory: {}", dir.display());
+    }
+    let api = format!("{}/api/v1/study/log", url.trim_end_matches('/'));
+    let client = reqwest::blocking::Client::new();
+
+    if once {
+        let snap = snapshot_dir(dir)?;
+        if snap.is_empty() {
+            return Ok(());
+        }
+        let now = chrono::Utc::now();
+        let events: Vec<StudyEvent> = snap
+            .iter()
+            .enumerate()
+            .map(|(i, f)| {
+                StudyEvent::new(
+                    now - chrono::Duration::milliseconds(i as i64),
+                    StudyAction::Opened,
+                    f.path.clone(),
+                    place.to_string(),
+                )
+            })
+            .collect();
+        post_study_events(&client, &api, user, &events)?;
+        println!("recorded {} files as opened (place: {place})", events.len());
+        return Ok(());
+    }
+
+    let mut prev = snapshot_dir(dir)?;
+    println!("watching {} every {interval}s → {api} (place: {place})", dir.display());
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(interval));
+        let cur = snapshot_dir(dir)?;
+        let changes = diff_snapshots(&prev, &cur);
+        prev = cur;
+        if changes.is_empty() {
+            continue;
+        }
+        let now = chrono::Utc::now();
+        let events: Vec<StudyEvent> = changes
+            .iter()
+            .enumerate()
+            .map(|(i, (p, a))| {
+                StudyEvent::new(
+                    now - chrono::Duration::milliseconds(i as i64),
+                    *a,
+                    p.clone(),
+                    place.to_string(),
+                )
+            })
+            .collect();
+        post_study_events(&client, &api, user, &events)?;
+    }
+}
+
+fn post_study_events(
+    client: &reqwest::blocking::Client,
+    api: &str,
+    user: &str,
+    events: &[physis_pro::study::StudyEvent],
+) -> anyhow::Result<()> {
+    let resp = client
+        .post(api)
+        .header("X-Physis-User", user)
+        .json(&serde_json::json!({ "events": events }))
+        .send()?;
+    let status = resp.status();
+    if !status.is_success() {
+        anyhow::bail!("POST {api} → {status}");
+    }
+    println!(
+        "→ {} events{}",
+        events.len(),
+        events
+            .iter()
+            .map(|e| format!(" [{}] {}", e.action.as_str(), e.path))
+            .collect::<Vec<_>>()
+            .join("")
+    );
     Ok(())
 }
 

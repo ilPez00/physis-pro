@@ -164,6 +164,45 @@ Findings that came out of making it live:
 - One test added (`demo_and_console_ui_are_served`) + `send_text` helper; HTTP
   suite now 11.
 
+### Phase 1J — physis-schola: Study Log + Argument Trainer (2026-08-13)
+
+The learning/teaching application, built on the same move as the demo: new
+self-contained page, new stateless machine wired to the real API, zero new
+engine concepts.
+
+**Study Log (metadata-for-context layer)** — every study action is a
+`StudyEvent` carrying **date/time (`observed_at`), action (generated / edited /
+opened / deleted), file path, directory, file type, and place** (room / library
+/ lab). Persisted per tenant in sled (`study:log:{uid}`), rendered on
+**`/study`**:
+- `POST /api/v1/study/log` — append events (capped newest 5000).
+- `GET  /api/v1/study/session` — aggregates into a `StudySession`: an
+  `OperationalTimeline` (oldest→newest, delete → Warning → incident flag), file
+  tallies by type / directory / action / place, and **chronos study rhythms**
+  ("edit notes/topology.md every 1.0d").
+- `POST /api/v1/study/clear` — demo reset.
+- Events project onto `OperationalEvent` (provenance connector `study`), so the
+  timeline pipeline is reused untouched; the study connector never mixes with
+  shop-floor data.
+
+**Recorder** — `physis-pro study <dir> [--place <where>] [--interval N] [--once]`.
+Pure, unit-tested `snapshot_dir` + `diff_snapshots` (mtime/size diff: new path →
+generated, changed → edited, gone → deleted; `--once` records the on-disk files
+as "opened") poll the directory and POST the events to the running engine. Order
+is preserved via sub-second timestamps within a batch.
+
+**Elenchus trainer (slice 3)** — on the same `/study` page: paste an essay →
+split into sentences → tag each as claim / warrant / rebuttal (target the claim
+warrants/rebutes) → `POST /api/v1/machines/elenchus` → each claim's standing
+(supported / contested / unsupported) with the press-here / recalibrate-here
+lists. The auto-tag heuristic is a draft convenience, deliberately not magic —
+the student owns the Toulmin tagging.
+
+Tests: 5 new unit tests in `study.rs` (diff, context metadata, ordering,
+tallies, daily rhythm) + `study_log_sessions_are_served_and_isolated_per_tenant`
+(HTTP round-trip + per-tenant isolation: a teacher never sees a student's log).
+HTTP suite now 12; lib suite 434; clippy 0 warnings.
+
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 
 Shipped this arc (all on `main`, classify hot path untouched unless noted):

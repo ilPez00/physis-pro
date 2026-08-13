@@ -37,6 +37,7 @@ pub mod maintenance;
 pub mod report;
 pub mod operational;
 pub mod operational_report;
+pub mod study;
 pub mod moonraker;
 #[cfg(feature = "web")]
 pub mod web;

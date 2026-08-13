@@ -58,3 +58,23 @@ that's normal, it's loading the real model).
 - **The demo is honest:** every number is live-computed from the API — there is
   no pre-baked chart. If a panel shows "429", the operator exceeded the rate
   budget in that window (raise the env value on the next launch).
+
+## Learning & teaching — `/study`
+
+The same engine has a **Study Log + argument trainer** page at
+**`http://<host>:<port>/study`** (physis-schola).
+
+- **Study Log** — every file a student works on is logged with date/time,
+  action (generated / edited / opened / deleted), directory, file type and
+  place. "Seed study session" runs a believable study week through the real
+  endpoints: a chronos **daily rhythm** ("edit notes/topology.md every 1.0d")
+  and a **delete → incident flag** appear immediately. Per-user (an
+  `X-Physis-User` id), so one student's log never bleeds into another's.
+- **Recorder** — capture a live session instead of seeding:
+  `physis-pro study ~/study --place Library` polls the directory and posts
+  every generated/edited/deleted file to the running engine; `--once` records
+  what's already on disk as "opened".
+- **Elenchus trainer** — paste an essay, tag each sentence as claim / warrant /
+  rebuttal, evaluate: every claim comes back **supported / contested /
+  unsupported**, with the press-here (unsupported) and recalibrate-here
+  (contested) lists. A coherent claim is warranted and unrefuted.
