@@ -5,7 +5,7 @@
 set -uo pipefail
 export PATH="/home/gio/.cargo/bin:$PATH"
 export HOME=/home/gio
-PROJ=/media/gio/c459b156-2cc1-4b0b-a695-3db1923219bf/dev/physis_pro
+PROJ=/home/gio/dev/physis-pro
 LOG=/tmp/rocm_physis.log
 exec >"$LOG" 2>&1
 
