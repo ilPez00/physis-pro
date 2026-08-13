@@ -2886,7 +2886,15 @@ pub async fn build_app() -> (SharedState, Router) {
     // Durable state store on the data-dir volume. Best-effort: if it can't open
     // (no writable volume / local dev), run in-memory only.
     let db: Option<sled::Db> = {
-        let path = shared.config.data_dir.join("state.sled");
+        let dir = &shared.config.data_dir;
+        // sled::open fails (not creates) when the parent doesn't exist, and a
+        // fresh install has no data dir yet — which silently disabled ALL
+        // persistence (goals, nodes, OEE, maintenance) until something else
+        // happened to create the directory. Make it exist.
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            log::warn!("cannot create data dir {} ({e}); in-memory only", dir.display());
+        }
+        let path = dir.join("state.sled");
         match sled::open(&path) {
             Ok(d) => { log::info!("state persistence: sled at {}", path.display()); Some(d) }
             Err(e) => { log::warn!("state persistence disabled ({e}); in-memory only"); None }
@@ -2931,28 +2939,35 @@ pub async fn build_app() -> (SharedState, Router) {
         }
     }
 
-    let state_clone = state.clone();
-    // 1. Holarchy Graph Updater
+    let state_clone = Arc::downgrade(&state);
+    // 1. Holarchy Graph Updater. Holds only a Weak ref: when every strong
+    // handle to AppCtx is gone (server shutting down, or an embedded test
+    // dropping the router), the upgrade fails and this exits instead of keeping
+    // the sled Db open forever — which also lets a new app open the same data
+    // dir in-process.
     std::thread::spawn(move || {
         while let Ok((payload, embedding)) = graph_rx.recv() {
-            let mut s = state_clone.lock();
+            let Some(strong) = state_clone.upgrade() else { break };
+            let mut s = strong.lock();
             s.core.holarchy.add_node(payload, embedding);
         }
     });
 
     let onnx_clone = onnx.clone();
     let rachmaninov_clone = rachmaninov.clone();
-    let state_clone_2 = state.clone();
+    let state_clone_2 = Arc::downgrade(&state);
     // 2. PDCA/Rachmaninov Tick Cycle (every 10s). Fully self-contained now —
     // LifeOS goals live in-engine, so a tick is pure-sync: mirror the native
     // goals into the schedule, recompute CPM, and log Gantt-aware dreams. No
-    // outbound HTTP to Praxis/Agora.
+    // outbound HTTP to Praxis/Agora. Strong refs are taken per-tick; between
+    // ticks only the Weak handle is held, so dropping the app state stops it.
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
+            let Some(strong) = state_clone_2.upgrade() else { break };
 
-            let mut s = state_clone_2.lock();
+            let mut s = strong.lock();
             let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
             s.core.tick_holarchy(&onnx_clone, &mut rach);
             // Mirror native LifeOS goals into the schedule, then recompute.

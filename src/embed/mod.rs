@@ -16,48 +16,10 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
     // threading is the only core-level parallelism available.
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let build = |opt: GraphOptimizationLevel| -> ort::Result<ort::session::Session> {
-        let mut b = ort::session::Session::builder()?
+        ort::session::Session::builder()?
             .with_optimization_level(opt)?
-            .with_intra_threads(threads)?;
-        // The `rocm` feature asks for the AMD GPU execution provider.
-        //
-        // WARNING: this CANNOT currently succeed. ONNX Runtime removed the ROCm
-        // EP upstream before 1.24.2 (the version `ort` 2.0.0-rc.12 links) —
-        // `build.py` has no `--use_rocm` and MIGraphX is the only AMD provider
-        // left. The `ort` crate still exports `ROCmExecutionProvider`, so this
-        // compiles, registration then fails at runtime and ORT falls back to
-        // CPU. Measured: a full suite under `--features rocm` ran at 1451% CPU
-        // with no KFD processes on the GPU. See PLAN.md §1F.
-        //
-        // Kept as the seam for a real EP (MIGraphX / WebGPU), but it now says so
-        // out loud instead of quietly pretending to be accelerated.
-        // Failure here must NOT abort the load: the caller treats a `None`
-        // session as "this embedder is unavailable" and walks down the chain to
-        // random projection, so a hard error would turn a CPU build into a
-        // silently NON-SEMANTIC one. Log it and keep the CPU session.
-        #[cfg(feature = "rocm")]
-        {
-            // `.error_on_failure()` opts out of ort's default silent-fail: without
-            // it registration returns Ok even when the EP is missing, which is
-            // precisely how this shipped as "GPU accelerated" while running on CPU.
-            let ep: ort::ep::ExecutionProviderDispatch =
-                ort::execution_providers::ROCmExecutionProvider::default().into();
-            b = match b.with_execution_providers([ep.error_on_failure()]) {
-                Ok(builder) => builder,
-                Err(e) => {
-                    log::error!(
-                        "`rocm` feature is enabled but the ROCm execution provider could not be \
-                         registered ({e}); inference will run on CPU. ONNX Runtime dropped the \
-                         ROCm EP upstream — see PLAN.md §1F."
-                    );
-                    // The call consumed the builder, so rebuild a plain CPU one.
-                    ort::session::Session::builder()?
-                        .with_optimization_level(opt)?
-                        .with_intra_threads(threads)?
-                }
-            };
-        }
-        b.commit_from_file(model_path)
+            .with_intra_threads(threads)?
+            .commit_from_file(model_path)
     };
     // Try FULL optimization first — it enables fused, multi-threaded kernels
     // (big speedup for BERT models like BGE/MiniLM). Only Jina CLIP v2's exported
