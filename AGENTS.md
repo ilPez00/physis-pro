@@ -165,3 +165,14 @@ Categories (Finance, Communication, ...)
 | `search_all(query, wiki_path, graph_path)` | Combined llmwiki + graph search |
 | `search_wiki(query, wiki_path)` | Search llmwiki index |
 | `search_graph(query, graph)` | Search FileThemeGraph for matching themes/files |
+
+## Study Log (`study.rs`)
+
+| Type / fn | Description |
+|-----------|-------------|
+| `StudyEvent` | One study action: `observed_at` (date/time), `action` (generated/edited/opened/deleted), `path`, `place`, `file_type` |
+| `diff_snapshots` / `snapshot_dir` | Pure recorder logic: mtime+size diff → actions (new→generated, changed→edited, gone→deleted) |
+| `session(events)` | Aggregate into `StudySession`: `OperationalTimeline` (order + incident), tallies by type/dir/action/place, chronos rhythms |
+| `to_op_event` | Projects onto `OperationalEvent` (provenance connector `study`) so the timeline pipeline is reused; never mixes with shop-floor |
+| CLI | `physis-pro study <dir> --place <where>` (poll recorder, `--once` = opened) |
+| Web | `POST /api/v1/study/log` · `GET /api/v1/study/session` · `POST /api/v1/study/clear` · page at `/study` (Study Log dashboard + Elenchus argument trainer), page `src/bin/ui/study.html` |

@@ -142,6 +142,48 @@ async fn demo_and_console_ui_are_served() {
 }
 
 #[tokio::test]
+async fn study_log_sessions_are_served_and_isolated_per_tenant() {
+    // The learning/teaching layer: /study page serves, events persist with
+    // their context metadata, a session aggregates them (timeline in order,
+    // tallies, rhythms), and one student's log never leaks to another.
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send_text(&router, get("/study", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("physis-schola"), "study page must be the learning dashboard");
+    assert!(body.contains("/api/v1/study/session"), "study page must wire the live API");
+
+    let ev = |at, action, path, place| json!({
+        "observed_at": at, "action": action, "path": path, "place": place
+    });
+    let base = "2026-08-10T08:00:00Z";
+    let (_, logged) = send(
+        &router,
+        post("/api/v1/study/log", "stu", json!({
+            "events": [
+                ev(base, "generated", "notes/topology.md", "Library"),
+                ev("2026-08-11T08:00:00Z", "edited", "notes/topology.md", "Home"),
+                ev("2026-08-12T08:00:00Z", "edited", "notes/topology.md", "Library"),
+            ]
+        })),
+    )
+    .await;
+    assert_eq!(logged["accepted"], 3);
+    assert_eq!(logged["stored"], 3);
+
+    let (_, s) = send(&router, get("/api/v1/study/session", "stu")).await;
+    assert_eq!(s["timeline"]["entries"].as_array().unwrap().len(), 3);
+    assert_eq!(s["by_action"][0]["key"], "edited");
+    assert_eq!(s["by_action"][0]["count"], 2);
+    assert_eq!(s["by_type"][0]["key"], "md");
+    assert_eq!(s["rhythms"][0]["period_days"].as_f64().unwrap(), 1.0, "daily rhythm detected");
+    assert_eq!(s["timeline"]["entries"][0]["properties"]["place"], "Library");
+
+    let (_, t) = send(&router, get("/api/v1/study/session", "tea")).await;
+    assert_eq!(t["timeline"]["entries"].as_array().unwrap().len(), 0, "a teacher never sees a student's log");
+}
+
+#[tokio::test]
 async fn coherence_nodes_are_isolated_per_tenant() {
     // Regression: /reconstruct, /context/filter and /compress/logs all read the
     // default tenant regardless of X-Physis-User, so a client that wrote under

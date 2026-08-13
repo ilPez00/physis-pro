@@ -991,6 +991,14 @@ async fn demo_ui_handler() -> Html<&'static str> {
     Html(include_str!("bin/ui/demo.html"))
 }
 
+/// GET /study — the learning / teaching dashboard. A student's Study Log
+/// (timeline in order, files by type/directory, generated-vs-edited split,
+/// chronos study rhythms, place/date context) plus the elenchus argument
+/// trainer where you tag claims/warrants/rebuttals and see the standings.
+async fn study_ui_handler() -> Html<&'static str> {
+    Html(include_str!("bin/ui/study.html"))
+}
+
 async fn dream_generate_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -1575,6 +1583,63 @@ async fn operational_timeline_handler(
     Json(OperationalTimeline::from_events(&req.events))
 }
 
+/// POST /api/v1/study/log — persist study events for the caller's tenant. Each
+/// event carries date/time, action (generated/edited/opened/deleted), path,
+/// directory and place. Persisted to sled, capped at the newest 5000.
+async fn study_log_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    use crate::study::StudyEvent;
+    let uid = user_key(&headers);
+    let events: Vec<StudyEvent> = req
+        .get("events")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|e| serde_json::from_value::<StudyEvent>(e.clone()).ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut all = state.db().map(|db| load_study(db, &uid)).unwrap_or_default();
+    let accepted = events.len();
+    all.extend(events);
+    if all.len() > 5000 {
+        all = all[all.len() - 5000..].to_vec();
+    }
+    if let Some(db) = state.db() {
+        if let Err(e) = save_study(db, &uid, &all) {
+            log::warn!("study log not persisted for {uid}: {e}");
+        }
+    }
+    Json(serde_json::json!({ "stored": all.len(), "accepted": accepted }))
+}
+
+/// GET /api/v1/study/session — aggregate the tenant's Study Log into a
+/// `StudySession` (timeline, file-type/dir/action tallies, rhythms).
+async fn study_session_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let events = state.db().map(|db| load_study(db, &uid)).unwrap_or_default();
+    let s = crate::study::session(&events);
+    Json(serde_json::to_value(s).unwrap_or_else(|_| serde_json::json!({ "error": "session encode" })))
+}
+
+/// POST /api/v1/study/clear — wipe the tenant's Study Log (demo reset).
+async fn study_clear_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    if let Some(db) = state.db() {
+        let _ = db.remove(study_key(&uid));
+    }
+    Json(serde_json::json!({ "cleared": true, "uid": uid }))
+}
+
 /// Roll up a plant OEE from a list of per-machine reports supplied in the body.
 async fn oee_rollup_handler(Json(reports): Json<Vec<OeeReport>>) -> Json<PlantOee> {
     Json(plant_oee(&reports))
@@ -1700,6 +1765,25 @@ fn load_goals(db: &sled::Db, uid: &str) -> Vec<Goal> {
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_slice::<Vec<Goal>>(&v).ok())
+        .unwrap_or_default()
+}
+
+/// sled key for a tenant's Study Log. One blob per tenant (newest-capped), so a
+/// student's session history survives restarts and never bleeds across users.
+fn study_key(uid: &str) -> String {
+    format!("study:log:{uid}")
+}
+
+fn save_study(db: &sled::Db, uid: &str, events: &[crate::study::StudyEvent]) -> anyhow::Result<()> {
+    db.insert(study_key(uid), serde_json::to_vec(events)?)?;
+    Ok(())
+}
+
+fn load_study(db: &sled::Db, uid: &str) -> Vec<crate::study::StudyEvent> {
+    db.get(study_key(uid))
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_slice::<Vec<crate::study::StudyEvent>>(&v).ok())
         .unwrap_or_default()
 }
 
@@ -3065,6 +3149,7 @@ pub async fn build_app() -> (SharedState, Router) {
         // authenticated fs/* routes with a token the user pastes in-page.
         .route("/ui", get(graph_fm_ui_handler))
         .route("/demo", get(demo_ui_handler))
+        .route("/study", get(study_ui_handler))
         .route("/api/v1/chat", post(chat_handler))
         .route("/api/v1/providers", get(providers_handler))
         .route("/api/v1/stats", get(stats_handler))
@@ -3092,6 +3177,9 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/operational/timeline", post(operational_timeline_handler))
         .route("/api/v1/operational/timeline/demo", get(operational_timeline_demo_handler))
         .route("/api/v1/operational/timeline/demo/events", get(operational_timeline_demo_events_handler))
+        .route("/api/v1/study/log", post(study_log_handler))
+        .route("/api/v1/study/session", get(study_session_handler))
+        .route("/api/v1/study/clear", post(study_clear_handler))
         .route("/api/v1/discover", post(discover_handler))
         .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
         .route("/api/v1/maintenance/score", post(maintenance_score_handler))
