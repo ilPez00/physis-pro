@@ -41,6 +41,7 @@ use crate::maintenance::{
 use crate::industrial::{MachineReading, MachineStatus};
 use crate::operational::OperationalEvent;
 use crate::operational_report::OperationalTimeline;
+use crate::quality::QualityTracker;
 use crate::classify::{CellClassifier, CellScore};
 use crate::graph::{IngestRing};
 use crate::ai::onnx_worker::OnnxHolon;
@@ -139,6 +140,10 @@ pub struct AppCtx {
     /// Dynamically-promoted ontology axes (Phase 6). Persisted in `db`; global
     /// across tenants (operator-installed). Merged as anchors for the axis layer.
     axes: Mutex<crate::axes::AxisStore>,
+    /// Quality feedback tracker — auto-loaded from `quality_failures.json` if
+    /// it exists on the data dir. Mutex because `report_failure` mutates
+    /// penalties and appends a failure record.
+    quality: Mutex<QualityTracker>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     limiter: RateLimiter,
     #[cfg(feature = "mcp")]
@@ -216,6 +221,28 @@ async fn embed_text(shared: Arc<SharedCtx>, text: String) -> Vec<f32> {
     tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
         .await
         .unwrap_or_default()
+}
+
+/// Build a `QualityTracker` from the shared embedder + ontology, replaying any
+/// persisted failures so cell penalties survive restarts.
+fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
+    let embedder: Box<dyn VectorEmbed> = Box::new(RandomProjectionEmbedder::new(shared.embed_dim));
+    let mut tracker = QualityTracker::new(embedder, shared.ontology.clone());
+    let path = shared.config.data_dir.join("quality_failures.json");
+    if path.exists() {
+        if let Ok(failures) = QualityTracker::load(&path) {
+            for f in &failures {
+                let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
+                *penalty = (*penalty + f.severity * 0.2).min(1.0);
+                if let Some(ref _correct) = f.correct_domain {
+                    let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
+                    *boost = (*boost + 0.1).min(1.0);
+                }
+            }
+            tracker.failures = failures;
+        }
+    }
+    tracker
 }
 
 /// Image (base64) → `embed_image`, else text — off-thread.
@@ -3019,6 +3046,7 @@ pub async fn build_app() -> (SharedState, Router) {
         ),
         db: db.clone(),
         axes: Mutex::new(db.as_ref().map(crate::axes::AxisStore::load).unwrap_or_default()),
+        quality: Mutex::new(build_quality_tracker(&shared)),
         limiter: rate_limit_from_env(),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -3239,6 +3267,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/machines/pathos", post(machines_pathos_handler))
         .route("/api/v1/machines/chroma", post(machines_chroma_handler))
         .route("/api/v1/machines/kinesis", post(machines_kinesis_handler))
+        .route("/api/v1/machines/apodeixis", post(machines_apodeixis_handler))
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -3436,6 +3465,7 @@ async fn machines_list_handler() -> Json<serde_json::Value> {
         MachineInfo { name: "pathos",     modality: "affect episodes",     primitive: "affect (valence x arousal)",     status: "live" },
         MachineInfo { name: "chroma",     modality: "colors",              primitive: "color relation (wheel)",         status: "live" },
         MachineInfo { name: "kinesis",    modality: "trajectories",        primitive: "motion gestalt (reach/gait)",    status: "live" },
+        MachineInfo { name: "apodeixis",  modality: "lean proof obligations", primitive: "verdict (certified / refuted)",  status: "live" },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -4105,6 +4135,80 @@ async fn machines_lex_handler(Json(req): Json<LexRequest>) -> Json<serde_json::V
         "unconditional_obligations": lex::unconditional_obligations(&clauses),
         "breach_paths": lex::breach_paths(&clauses, &req.failed),
         "dangling_conditions": lex::dangling_conditions(&clauses),
+    }))
+}
+
+#[derive(Deserialize)]
+struct ApodeixisOb {
+    id: String,
+    #[serde(default)]
+    claim: String,
+    snippet: String,
+}
+
+#[derive(Deserialize)]
+struct ApodeixisRequest {
+    obligations: Vec<ApodeixisOb>,
+    #[serde(default)]
+    timeout_secs: Option<u64>,
+}
+
+/// POST /api/v1/machines/apodeixis — check Lean proof obligations against the
+/// kernel. Each obligation carries a natural-language `claim` plus a `.lean`
+/// `snippet` (theorem + proof) seeded by a proof-engine model; apodeixis runs
+/// it through the Lean kernel and returns `certified` / `refuted` / `untestable`
+/// verdicts with the kernel's witness. Refuted obligations feed back into the
+/// quality loop as embedded failures — claims beaten by the kernel are recorded,
+/// not just reported.
+async fn machines_apodeixis_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<ApodeixisRequest>,
+) -> Json<serde_json::Value> {
+    use crate::machines::apodeixis;
+    let obligations: Vec<apodeixis::Obligation> = req
+        .obligations
+        .iter()
+        .map(|o| apodeixis::Obligation { id: o.id.clone(), claim: o.claim.clone(), snippet: o.snippet.clone() })
+        .collect();
+    let checks = apodeixis::reduce(&obligations, req.timeout_secs.unwrap_or(30));
+    let cj: Vec<serde_json::Value> = checks
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "id": c.id, "claim": c.claim, "verdict": c.verdict.as_str(),
+                "witness": c.witness, "exit_code": c.exit_code, "engine": c.engine,
+            })
+        })
+        .collect();
+    let rep = apodeixis::evaluate(&checks);
+
+    // Hard verdicts → coherence nodes in the caller's tenant, and refutations
+    // → quality tracker as embedded failures the loop learns from.
+    let uid = user_key(&headers);
+    let mut coherence_ids = Vec::new();
+    let centroids = state.shared.classifier.cell_centroids();
+    for c in checks.iter().filter(|c| c.verdict != apodeixis::Verdict::Untestable) {
+        let label = format!("apodeixis {}: {}", c.verdict.as_str(), c.claim);
+        let embedding = embed_text(state.shared.clone(), label.clone()).await;
+        let id = state.with_user(&uid, |s| {
+            let id = s.core.register_node_vec_labeled(embedding, Some(label));
+            s.core.assert_coherence(&id, c.verdict.coherence());
+            id
+        });
+        coherence_ids.push(id);
+        if c.verdict == apodeixis::Verdict::Refuted {
+            let _ = state.quality.lock().unwrap_or_else(|e| e.into_inner())
+                .report_failure(&c.claim, &centroids, None);
+        }
+    }
+
+    Json(serde_json::json!({
+        "checks": cj,
+        "certified": rep.certified,
+        "refuted": rep.refuted,
+        "untestable": rep.untestable,
+        "coherence_ids": coherence_ids,
     }))
 }
 

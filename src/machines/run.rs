@@ -12,14 +12,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::{
-    chronos, chroma, elenchus, empedocles, erosa, erosp, euclid, harmony, kinesis, krisis, lex,
-    pathos, plutos, polis, soma, techne, topos,
+    apodeixis, chronos, chroma, elenchus, empedocles, erosa, erosp, euclid, harmony, kinesis,
+    krisis, lex, pathos, plutos, polis, soma, techne, topos,
 };
 
 /// The list of machine names this dispatcher knows.
 pub const NAMES: &[&str] = &[
     "chronos", "topos", "harmony", "polis", "soma", "elenchus", "lex", "empedocles", "euclid",
-    "techne", "erosp", "erosa", "plutos", "krisis", "pathos", "chroma", "kinesis",
+    "techne", "erosp", "erosa", "plutos", "krisis", "pathos", "chroma", "kinesis", "apodeixis",
 ];
 
 /// Run machine `name` over `input`, returning the reduced JSON.
@@ -293,6 +293,28 @@ pub fn run(name: &str, input: &Value) -> Result<Value> {
                 "degrading": kinesis::degrading(&motions, r.drop.unwrap_or(0.2)),
             })
         }
+        "apodeixis" => {
+            #[derive(Deserialize)]
+            struct Ob { id: String, #[serde(default)] claim: String, snippet: String }
+            #[derive(Deserialize)]
+            struct Req { obligations: Vec<Ob>, #[serde(default)] timeout_secs: Option<u64> }
+            let r: Req = serde_json::from_value(v)?;
+            let obligations: Vec<apodeixis::Obligation> = r
+                .obligations
+                .iter()
+                .map(|o| apodeixis::Obligation { id: o.id.clone(), claim: o.claim.clone(), snippet: o.snippet.clone() })
+                .collect();
+            let checks = apodeixis::reduce(&obligations, r.timeout_secs.unwrap_or(30));
+            let cj: Vec<Value> = checks
+                .iter()
+                .map(|c| json!({
+                    "id": c.id, "claim": c.claim, "verdict": c.verdict.as_str(),
+                    "witness": c.witness, "exit_code": c.exit_code, "engine": c.engine
+                }))
+                .collect();
+            let rep = apodeixis::evaluate(&checks);
+            json!({ "checks": cj, "certified": rep.certified, "refuted": rep.refuted, "untestable": rep.untestable })
+        }
         other => bail!("unknown machine '{other}'. known: {}", NAMES.join(", ")),
     };
     Ok(out)
@@ -313,6 +335,12 @@ mod tests {
             {"over":"a","under":"b"},{"over":"b","under":"c"},{"over":"c","under":"a"}
         ] })).unwrap();
         assert_eq!(out["cycles"].as_array().unwrap().len(), 1);
+
+        let out = run("apodeixis", &json!({ "obligations": [
+            {"id":"o1","claim":"unit","snippet":"#check True"}
+        ], "timeout_secs": 5 })).unwrap();
+        assert_eq!(out["checks"].as_array().unwrap().len(), 1);
+        assert!(out["checks"][0]["verdict"].as_str().is_some());
 
         assert!(run("nope", &json!({})).is_err());
     }
