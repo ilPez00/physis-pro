@@ -99,9 +99,20 @@ the rate limiter never layered in, three tenancy readers on the wrong tenant,
 `/dream/generate` dropping `description`, and the `load_goals` call site missing
 from `with_user` (it compiled clean and persisted nothing). The engine is well
 covered; the surface everyone actually calls is not.
-- [ ] Extract the router into a lib function so `tests/` can exercise the HTTP
-  layer, then cover: tenancy isolation, persistence round-trips, and the rate
-  limit. That single change would have caught five bugs from this session.
+- [x] **Done 2026-08-13.** The server moved from `src/bin/web_server.rs` into
+  `src/web.rs` (feature `web`); the bin is now 9 lines calling
+  `physis_pro::web::serve()`. `build_app()` returns `(state, Router)` so
+  `tests/http_surface.rs` drives the real router in-process via
+  `ServiceExt::oneshot` — no port, no network, 0.25s for the suite.
+  Seven tests cover the bug classes that shipped this session: tenancy
+  isolation on reads, verdict storage and correction, readable dream
+  proposals, failure-replay selection, holarchy edge visibility, and full
+  grid coverage. Each was mutation-checked — reverting the holarchy tenancy
+  fix turns `holarchy_edges_are_visible_to_the_tenant_that_wrote_them` red
+  with "the writer can see its own edge: left 0, right 1".
+  Note for future tests: `oneshot` supplies no `ConnectInfo`, so the rate-limit
+  middleware rejects every request until the test injects a peer address —
+  the same 500-on-everything the middleware comment warns about.
 
 ### Phase 1.5 — Session 2026-06-12/13 architecture changes
 
