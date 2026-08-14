@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physis — what it does</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --bg: #0a0a0f; --bg-subtle: #12121a; --fg: #e8e8f0; --muted: #6b6b80; --accent: #00d4aa; --accent-dim: #00a080; --card: #1a1a24; --border: #2a2a3a; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .container { max-width: 760px; margin: 2.5rem auto; padding: 0 1.2rem; }
+    h1 { font-size: 2.4rem; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+    h2 { font-size: 1.3rem; font-weight: 400; margin: 2.2rem 0 0.7rem; color: var(--accent); }
+    h3 { font-size: 1.02rem; font-weight: 500; margin: 1.2rem 0 0.4rem; }
+    .subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 1.6rem; }
+    p { margin: 0.6rem 0; }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dim); text-decoration: underline; }
+    code { background: var(--bg-subtle); padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.85em; }
+    .lead { font-size: 1.12rem; color: var(--fg); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.3rem 1.5rem; margin: 1rem 0; }
+    .cta { display: inline-block; background: var(--accent); color: var(--bg); padding: 0.8rem 1.6rem; border-radius: 5px; font-weight: 500; margin: 0.6rem 0.6rem 0.6rem 0; }
+    .cta:hover { background: var(--accent-dim); text-decoration: none; }
+    .pill { display: inline-block; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.78rem; color: var(--muted); margin: 0.15rem 0.2rem 0.15rem 0; }
+    .flow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+    .flow .step { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.9rem; }
+    .flow .arrow { color: var(--muted); }
+    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Physis</h1>
+    <div class="subtitle">An ontological engine that understands what an action <em>is</em>.</div>
+
+    <p class="lead">
+      Physis turns any text, image, or signal into a position on a
+      <strong>semiotic grid</strong> — a map of human activity — and then
+      <strong>learns from feedback</strong> about which classifications were right.
+      It is the engine behind the ontological features in
+      <a href="https://praxisweb.xyz/physis">Praxis</a>, and it ships as a small,
+      dependency-light core (<code>physis-core</code>) that larger systems build on.
+    </p>
+
+    <div class="flow">
+      <span class="step">embed</span><span class="arrow">→</span>
+      <span class="step">classify</span><span class="arrow">→</span>
+      <span class="step">cohere</span><span class="arrow">→</span>
+      <span class="step">learn from feedback</span>
+    </div>
+
+    <div style="text-align:center; margin:1.8rem 0;">
+      <a class="cta" href="https://praxisweb.xyz/physis">Open Physis on Praxis →</a>
+    </div>
+
+    <h2>What it actually does</h2>
+    <div class="card">
+      <h3>1 · Embed</h3>
+      <p class="muted">Every input becomes a vector. The default embedder is deterministic and model-free (so it runs anywhere with zero setup); a real ONNX MiniLM embedder can be swapped in behind the same trait when quality matters more than zero-dependency.</p>
+      <h3>2 · Classify</h3>
+      <p class="muted">The vector is scored against the ontology and placed in a cell of a <strong>5 × 14 grid</strong>: the <em>domain</em> (the <strong>what</strong>) against the <em>mode</em> (the <strong>how</strong>). Classification is nearest-entry cosine, so a densely populated cell can't drown out a precise match.</p>
+      <h3>3 · Cohere</h3>
+      <p class="muted">Entries become coherence nodes — goals, notes, observations — that cluster, branch (certified vs. isolated), and surface contradictions. A dream loop tests assertions against the graph before they harden.</p>
+      <h3>4 · Learn from feedback</h3>
+      <p class="muted">When a classification is marked right or wrong, the cell is rewarded or penalized. Future rankings shift accordingly, so the engine improves from use without retraining.</p>
+    </div>
+
+    <h2>The semiotic grid</h2>
+    <p>
+      A classification is a coordinate <code>domain × mode</code>. The vertical axis is the
+      <span class="pill">HEAL</span><span class="pill">CONSTRUCT</span><span class="pill">FABRICATE</span><span class="pill">BOND</span><span class="pill">STUDY</span>
+      and the horizontal axis is the manner of operation —
+      <span class="pill">LIFT</span><span class="pill">REST</span><span class="pill">WALK</span><span class="pill">WORK</span><span class="pill">CREATE</span><span class="pill">LEARN</span><span class="pill">DESTROY</span><span class="pill">SENSE</span><span class="pill">GUIDE</span><span class="pill">PLAY</span><span class="pill">BRAINSTORM</span><span class="pill">MAINTAIN</span><span class="pill">MOVE</span><span class="pill">PLAN</span>.
+      That is 70 base cells; ontology packs fill them with entries.
+    </p>
+
+    <h2>Beyond the grid: facets</h2>
+    <p class="muted">
+      The grid is a 2-D projection of a richer action space. To classify "whatever possible
+      action" without bloating the grid, each entry also carries orthogonal <strong>facets</strong>:
+      process <em>lifecycle</em> (Design/Build/Operate/Retire), <em>agency</em> (Self/Other/Automated/Collective),
+      <em>scale</em> (Personal→Civil), <em>abstraction</em>, and tree-nesting
+      (<code>sub_domain</code> / <code>sub_mode</code>). Facets are optional, so existing
+      ontologies keep working, and classification can be filtered by them.
+    </p>
+
+    <h2>Ontology packs</h2>
+    <p class="muted">
+      The human grid is the base layer. Parallel packs — <code>office</code> (75 domains),
+      <code>machine</code> (23 process domains), <code>agent</code> (21 AI-workflow domains) — share
+      the same grid vocabulary with their own terms, and custom layers can be added on top. Expansion
+      comes from adding packs and facets, not from rewriting the engine.
+    </p>
+
+    <h2>Where to use it</h2>
+    <p>
+      <a href="https://praxisweb.xyz/physis">praxisweb.xyz/physis</a> is the live Physis experience
+      inside Praxis — classify goals, browse the grid, and watch the quality loop learn. The
+      <code>physis-core</code> crate is the embeddable engine for everything else.
+    </p>
+
+    <footer>
+      <p>Physis core engine · <a href="https://github.com/ilPez00/physis-pro">github.com/ilPez00/physis-pro</a></p>
+    </footer>
+  </div>
+</body>
+</html>
