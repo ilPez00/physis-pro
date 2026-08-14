@@ -100,6 +100,26 @@
       <code>physis-core</code> crate is the embeddable engine for everything else.
     </p>
 
+    <h2>Downloads</h2>
+    <p class="muted">Self-contained Linux x86_64 builds (no installer, no dependencies). The same
+      MCP server powers both the <strong>Physis</strong> and <strong>Praxis</strong> roles — it is the
+      engine that underpins Praxis.</p>
+    <div class="card">
+      <h3>Studio GUI</h3>
+      <p class="muted">The ontology Studio: browse/edit the grid, heatmap, live classification, quality loop.
+        Run <code>./physis-core studio --port 3000</code> → open <code>http://localhost:3000</code>.</p>
+      <a class="cta" href="downloads/physis-core-gui-linux-x86_64.tar.gz">↓ Studio GUI (linux x86_64)</a>
+    </div>
+    <div class="card">
+      <h3>MCP server</h3>
+      <p class="muted">Exposes Physis as an MCP service on <code>127.0.0.1:9876</code> (the "Physis MCP" / "Praxis MCP").
+        Run <code>./physis-pro serve</code>, then point an MCP client there.</p>
+      <a class="cta" href="downloads/physis-mcp-linux-x86_64.tar.gz">↓ MCP server (linux x86_64)</a>
+    </div>
+    <p class="muted">Place these binaries at <code>downloads/</code> on whatever host serves this page
+      (e.g. the same origin as <code>praxisweb.xyz/physis</code>) so the links above resolve. They are
+      currently staged on the project's own server.</p>
+
     <footer>
       <p>Physis core engine · <a href="https://github.com/ilPez00/physis-pro">github.com/ilPez00/physis-pro</a></p>
     </footer>
