@@ -28,7 +28,7 @@ pub use ontology::OntologyLoader;
 pub use quality::{QualityFailure, QualityTracker};
 
 #[cfg(feature = "studio")]
-pub use studio::{run, StudioState};
+pub use studio::{run, run_with_model, StudioState};
 
 #[cfg(feature = "embed-onnx")]
 pub use embed_onnx::{OnnxConfig, OnnxEmbedder, PoolingStrategy};

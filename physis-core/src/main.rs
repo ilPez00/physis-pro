@@ -59,6 +59,10 @@ enum Command {
         /// Port to listen on.
         #[arg(long, default_value_t = 3000)]
         port: u16,
+        /// ONNX model directory (model.onnx + tokenizer.json). Optional — falls
+        /// back to deterministic random projection when absent or unloadable.
+        #[arg(long)]
+        model: Option<String>,
     },
 }
 
@@ -85,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         Command::Dream => run_dream(),
         Command::Quality { cmd } => run_quality(cmd),
         #[cfg(feature = "studio")]
-        Command::Studio { port } => run_studio(port),
+        Command::Studio { port, model } => run_studio(port, model),
     }
 }
 
@@ -285,9 +289,9 @@ fn run_quality(cmd: QualityCmd) -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "studio")]
-fn run_studio(port: u16) -> anyhow::Result<()> {
+fn run_studio(port: u16, model: Option<String>) -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(physis_core::run(port))
+    rt.block_on(physis_core::studio::run_with_model(port, model))
 }
 
 /// Load the persisted core (or a fresh one).

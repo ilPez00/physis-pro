@@ -88,6 +88,7 @@ footer{margin-top:20px;text-align:center;color:var(--muted);font-size:11px}
 <header>
   <h1>◆ Physis Ontology Studio</h1>
   <div class="stats">
+    <span class="chip" id="stEmbedder" title="active embedder">embedder <b>–</b></span>
     <span class="chip">entries <b id="stEntries">–</b></span>
     <span class="chip">custom <b id="stCustom">–</b></span>
     <span class="chip">penalized <b id="stPenal">–</b></span>
@@ -159,6 +160,14 @@ async function api(path, body) {
 }
 let toastTimer;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+async function loadEmbedder(){
+  const e = await api('/api/embedder');
+  const tag = $('stEmbedder');
+  tag.innerHTML = 'embedder <b>' + (e.semantic ? '◆ ' : '') + e.kind + '</b>';
+  tag.style.borderColor = e.semantic ? '#3ddc84' : '';
+  tag.title = e.semantic ? `ONNX semantic · ${e.dimension}d` : `deterministic fallback · ${e.dimension}d`;
+}
 
 /* ── ontology browser ── */
 async function loadOntology(){
@@ -424,6 +433,7 @@ function openEdit(name, domain, mode){
 $('modalBg').addEventListener('click', e => { if (e.target === $('modalBg')) { $('modalBg').classList.remove('open'); state.editingName=null; } });
 
 async function refreshAll(){
+  loadEmbedder();
   await loadOntology();
   await loadGrid();
   await loadQuality();

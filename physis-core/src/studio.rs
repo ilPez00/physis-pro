@@ -16,8 +16,7 @@ use axum::{
 
 use crate::classify::CellClassifier;
 use crate::discovery::{self, DiscoveryConfig, DiscoveryReport};
-use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
-use crate::models::*;
+use crate::embed::{RandomProjectionEmbedder, VectorEmbed};use crate::models::*;
 use crate::ontology::OntologyLoader;
 use crate::quality::QualityTracker;
 use crate::store;
@@ -26,7 +25,11 @@ const APP_HTML: &str = include_str!("studio/app.html");
 
 /// Shared, mutable studio state.
 pub struct StudioState {
-    pub embedder: RandomProjectionEmbedder,
+    pub embedder: Box<dyn VectorEmbed>,
+    /// "random-projection" or "onnx"; surfaced so the UI can label vectors.
+    pub embedder_kind: String,
+    /// True when a real model is loaded (semantic), vs deterministic fallback.
+    pub semantic: bool,
     pub ontology: OntologyLoader,
     /// Custom entries edited in the UI, persisted to custom_ontology.json.
     pub custom_entries: HashMap<String, DomainDef>,
@@ -37,7 +40,14 @@ pub struct StudioState {
 
 impl StudioState {
     pub fn new(data_dir: PathBuf) -> Self {
-        let embedder = RandomProjectionEmbedder::new(384);
+        Self::with_embedder(data_dir, None)
+    }
+
+    /// Build the studio with an embedder. When `model_dir` is Some and the
+    /// `embed-onnx` feature is enabled, an ONNX MiniLM embedder is attempted;
+    /// otherwise (or on failure) it falls back to deterministic random projection.
+    pub fn with_embedder(data_dir: PathBuf, model_dir: Option<String>) -> Self {
+        let (embedder, embedder_kind, semantic) = build_embedder(model_dir);
         let mut ontology = OntologyLoader::load_all();
 
         // Load persisted custom entries (from previous studio sessions).
@@ -46,9 +56,9 @@ impl StudioState {
             ontology.merge_custom("studio", custom_entries.clone());
         }
 
-        let classifier = CellClassifier::build(&ontology, &embedder);
+        let classifier = CellClassifier::build(&ontology, embedder.as_ref());
         let quality = QualityTracker::load_or_new(&quality_path(&data_dir));
-        Self { embedder, ontology, classifier, custom_entries, quality, data_dir }
+        Self { embedder, embedder_kind, semantic, ontology, classifier, custom_entries, quality, data_dir }
     }
 
     /// Rebuild the classifier (call after ontology edits) and save custom entries.
@@ -56,7 +66,7 @@ impl StudioState {
         let mut ontology = OntologyLoader::load_all();
         ontology.merge_custom("studio", self.custom_entries.clone());
         self.ontology = ontology;
-        self.classifier = CellClassifier::build(&self.ontology, &self.embedder);
+        self.classifier = CellClassifier::build(&self.ontology, self.embedder.as_ref());
         let _ = save_custom_entries(&self.data_dir, &self.custom_entries);
     }
 
@@ -65,16 +75,37 @@ impl StudioState {
     }
 }
 
+/// Resolve the active embedder: ONNX when requested + available, else RP.
+fn build_embedder(model_dir: Option<String>) -> (Box<dyn VectorEmbed>, String, bool) {
+    #[cfg(feature = "embed-onnx")]
+    if let Some(dir) = model_dir.as_deref() {
+        let onnx = crate::embed_onnx::OnnxEmbedder::new(dir);
+        if onnx.is_available() {
+            eprintln!("Ontology Studio embedder: ONNX MiniLM ({dir}, {} dims)", onnx.dimension());
+            return (Box::new(onnx), "onnx".to_string(), true);
+        }
+        eprintln!("warning: no ONNX model at {dir}; falling back to random projection");
+    }
+    let rp = RandomProjectionEmbedder::new(384);
+    (Box::new(rp), "random-projection".to_string(), false)
+}
+
 type Shared = Arc<RwLock<StudioState>>;
 
 pub async fn run(port: u16) -> anyhow::Result<()> {
-    let state: Shared = Arc::new(RwLock::new(StudioState::new(store::data_dir())));
+    run_with_model(port, None).await
+}
+
+/// Run the studio with an optional ONNX model directory (None = random projection).
+pub async fn run_with_model(port: u16, model_dir: Option<String>) -> anyhow::Result<()> {
+    let state: Shared = Arc::new(RwLock::new(StudioState::with_embedder(store::data_dir(), model_dir)));
 
     let app = Router::new()
         .route("/", get(index))
         .route("/api/ontology", get(ontology_json))
         .route("/api/grid", get(grid_json))
         .route("/api/classify", post(classify))
+        .route("/api/embedder", get(embedder_json))
         .route("/api/ontology/upsert", post(upsert_entry))
         .route("/api/ontology/delete", post(delete_entry))
         .route("/api/ingest", post(ingest_dir))
@@ -93,6 +124,23 @@ pub async fn run(port: u16) -> anyhow::Result<()> {
 
 async fn index() -> Html<&'static str> {
     Html(APP_HTML)
+}
+
+#[derive(serde::Serialize)]
+struct EmbedderJson {
+    kind: String,
+    semantic: bool,
+    dimension: usize,
+}
+
+async fn embedder_json(State(state): State<Shared>) -> Response {
+    let s = state.read().unwrap();
+    Json(EmbedderJson {
+        kind: s.embedder_kind.clone(),
+        semantic: s.semantic,
+        dimension: s.embedder.dimension(),
+    })
+    .into_response()
 }
 
 // ── Serialization DTOs ───────────────────────────────────────────────
@@ -241,7 +289,7 @@ struct CellScoreJson {
 
 async fn classify(State(state): State<Shared>, Json(req): Json<ClassifyReq>) -> Response {
     let s = state.read().unwrap();
-    let results = s.classifier.classify_text(&req.text, &s.embedder);
+    let results = s.classifier.classify_text(&req.text, s.embedder.as_ref());
     let resp = ClassifyResp {
         query_embedding_dim: s.embedder.dimension(),
         results: results
@@ -366,7 +414,7 @@ async fn ingest_dir(State(state): State<Shared>, Json(req): Json<IngestReq>) -> 
     }
 
     let cfg = DiscoveryConfig::default();
-    let report = discovery::discover(&lines, &s.classifier, &s.embedder, &cfg);
+    let report = discovery::discover(&lines, &s.classifier, s.embedder.as_ref(), &cfg);
     Json(IngestResp { files, lines: lines.len(), report }).into_response()
 }
 
