@@ -27,6 +27,10 @@
     .flow .step { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.9rem; }
     .flow .arrow { color: var(--muted); }
     footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.82rem; }
+    .demo { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.3rem 1.5rem; margin: 1rem 0; }
+    textarea#demoText { width: 100%; min-height: 64px; background: var(--bg-subtle); border: 1px solid var(--border); color: var(--fg); border-radius: 8px; padding: 0.6rem 0.8rem; font: inherit; resize: vertical; margin-bottom: 0.7rem; }
+    .demo-result { margin-top: 0.8rem; font-size: 1.05rem; }
+    pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); }
   </style>
 </head>
 <body>
@@ -95,16 +99,21 @@
 
     <h2>Live Demo</h2>
     <p>
-      <strong>Try Physis live now</strong> at <a href="https://praxisweb.xyz/physis">praxisweb.xyz/physis</a> — no installation required! The web interface lets you:
-      <ul>
-        <li>Classify any text or image instantly on the semiotic grid</li>
-        <li>Browse 70+ cells organized by domain (what) x mode (how)</li>
-        <li>View heatmaps showing classification density and gaps</li>
-      </ul>
+      Try the classifier right here — type a phrase and Physis places it on the
+      <strong>domain × mode</strong> grid. (This runs entirely in your browser as a
+      lightweight keyword projection of the engine; the full engine adds embeddings,
+      facets, and the quality loop.)
     </p>
-    <div style="text-align:center; margin:1.5rem 0;">
-      <a class="cta" href="https://praxisweb.xyz/physis">→ Open Physis Live Demo</a>
+    <div class="demo">
+      <textarea id="demoText" placeholder="e.g. welding the chassis bracket during the night shift…"></textarea>
+      <button class="cta" id="demoBtn" style="margin:0">Classify →</button>
+      <div id="demoResult" class="demo-result muted">Result appears here.</div>
     </div>
+    <p class="muted">
+      For the full interactive grid, heatmaps, and feedback training, run the
+      <a href="#studio">Ontology Studio GUI</a> locally, or open the live experience inside
+      <a href="https://praxisweb.xyz/physis">Praxis</a>.
+    </p>
 
     <h2>MCP Agent Connection</h2>
     <p>
@@ -123,6 +132,19 @@
         <li>Configure agent: <code>127.0.0.1:9876</code></li>
         <li>Example call: <code>{ name: 'physis_classify', arguments: { text: "your text" } }</code></li>
       </ol>
+    </div>
+    <div class="card">
+      <h3>Claude Desktop / MCP client config</h3>
+      <pre>{
+  "mcpServers": {
+    "physis": {
+      "command": "/path/to/physis-pro",
+      "args": ["serve"],
+      "env": { "PHYSIS_HOST": "127.0.0.1", "PHYSIS_PORT": "9876" }
+    }
+  }
+}</pre>
+      <p class="muted">Or point any SSE-capable MCP client at <code>http://127.0.0.1:9876</code> after starting the server. Tools exposed: <code>physis_classify</code>, <code>physis_ontology</code>, <code>physis_feedback</code>, <code>physis_discover</code>.</p>
     </div>
 
     <h2>Ontology Studio GUI</h2>
@@ -160,5 +182,51 @@
       <p>Physis core engine · <a href="https://github.com/ilPez00/physis-pro">github.com/ilPez00/physis-pro</a></p>
     </footer>
   </div>
+
+  <script>
+    // Lightweight browser-side projection of the Physis classifier (keyword → cell).
+    const DOMAIN_KW = {
+      HEAL: ['heal','cure','treat','health','medicine','recover','therapy','nurse','doctor','wellness','rest','sleep','care'],
+      CONSTRUCT: ['build','construct','assemble','architecture','design product','weld','3d print','brick','concrete','structure'],
+      FABRICATE: ['machine','manufacture','cnc','mill','lathe','produce','factory','tool','cut','drill','cast','mold'],
+      BOND: ['bond','connect','relationship','love','friend','team','social','community','marry','trust','support'],
+      STUDY: ['study','learn','read','research','analyze','observe','think','understand','investigate','examine','classify','note']
+    };
+    const MODE_KW = {
+      LIFT:['lift','raise','hoist','carry up','elevate'],
+      REST:['rest','sleep','relax','pause','break','recover'],
+      WALK:['walk','travel','stroll','commute','go to'],
+      WORK:['work','labor','task','job','operate','execute','run machine'],
+      CREATE:['create','write','compose','invent','generate','build'],
+      LEARN:['learn','study','read','train','practice','absorb'],
+      DESTROY:['destroy','break','demolish','delete','remove','tear down'],
+      SENSE:['sense','feel','see','hear','observe','detect','monitor','measure'],
+      GUIDE:['guide','lead','direct','steer','mentor','instruct','navigate'],
+      PLAY:['play','game','fun','sport','recreation','jam'],
+      BRAINSTORM:['brainstorm','ideate','discuss','imagine','sketch','plan loosely'],
+      MAINTAIN:['maintain','service','upkeep','calibrate','tune','inspect','oil'],
+      MOVE:['move','transport','shift','relocate','convey','haul'],
+      PLAN:['plan','schedule','organize','strategize','prepare','forecast']
+    };
+    function classifyDemo(text){
+      text = text.toLowerCase();
+      const dScore={}, mScore={};
+      for (const [d,kws] of Object.entries(DOMAIN_KW)) for (const k of kws) if (text.includes(k)) dScore[d]=(dScore[d]||0)+1;
+      for (const [m,kws] of Object.entries(MODE_KW)) for (const k of kws) if (text.includes(k)) mScore[m]=(mScore[m]||0)+1;
+      const topD = Object.entries(dScore).sort((a,b)=>b[1]-a[1])[0];
+      const topM = Object.entries(mScore).sort((a,b)=>b[1]-a[1])[0];
+      if (!topD || !topM) return null;
+      return topD[0] + ' × ' + topM[0];
+    }
+    document.getElementById('demoBtn').addEventListener('click', () => {
+      const t = document.getElementById('demoText').value.trim();
+      const el = document.getElementById('demoResult');
+      if (!t) { el.textContent = 'Type a phrase first.'; el.className = 'demo-result muted'; return; }
+      const r = classifyDemo(t);
+      if (!r) { el.textContent = 'No strong match — try words like build, heal, study, weld, plan, monitor…'; el.className = 'demo-result muted'; return; }
+      el.innerHTML = '→ <strong>' + r + '</strong>';
+      el.className = 'demo-result';
+    });
+  </script>
 </body>
 </html>
