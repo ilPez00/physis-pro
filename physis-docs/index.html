@@ -93,36 +93,68 @@
       comes from adding packs and facets, not from rewriting the engine.
     </p>
 
-    <h2>Where to use it</h2>
+    <h2>Live Demo</h2>
     <p>
-      <a href="https://praxisweb.xyz/physis">praxisweb.xyz/physis</a> is the live Physis experience
-      inside Praxis — classify goals, browse the grid, and watch the quality loop learn. The
-      <code>physis-core</code> crate is the embeddable engine for everything else.
+      <strong>Try Physis live now</strong> at <a href="https://praxisweb.xyz/physis">praxisweb.xyz/physis</a> — no installation required! The web interface lets you:
+      <ul>
+        <li>Classify any text or image instantly on the semiotic grid</li>
+        <li>Browse 70+ cells organized by domain (what) x mode (how)</li>
+        <li>View heatmaps showing classification density and gaps</li>
+      </ul>
     </p>
+    <div style="text-align:center; margin:1.5rem 0;">
+      <a class="cta" href="https://praxisweb.xyz/physis">→ Open Physis Live Demo</a>
+    </div>
+
+    <h2>MCP Agent Connection</h2>
+    <p>
+      <strong>Connect agents with Physis</strong> via MCP protocol. This enables AI agents like Claude Desktop, Cursor, or any MCP-compatible client to perform ontology tasks:
+      <ul>
+        <li>Classify text with <code>physis_classify</code></li>
+        <li>Query ontology with <code>physis_ontology</code></li>
+        <li>Train quality models via feedback with <code>physis_feedback</code></li>
+        <li>Discover entries from documents with <code>physis_discover</code></li>
+      </ul>
+    </p>
+    <div class="card">
+      <h3>Quick Setup</h3>
+      <ol>
+        <li>Start server: <code>./physis-pro serve</code></li>
+        <li>Configure agent: <code>127.0.0.1:9876</code></li>
+        <li>Example call: <code>{ name: 'physis_classify', arguments: { text: "your text" } }</code></li>
+      </ol>
+    </div>
 
     <h2>Ontology Studio GUI</h2>
     <p>
-      The complete ontology Studio GUI provides an interactive web interface for browsing, editing, 
-      and classifying against the semiotic grid. It features live heatmaps, classification with 
-      quality feedback loops, ontology discovery from directories, and full CRUD operations for 
-      grid entries. Run locally with <code>physis-core studio --port 3000</code> to access 
-      <code>http://localhost:3000</code>.
+      The full Ontology Studio GUI offers an interactive interface to explore the semiotic grid. Features include:
+      <ul>
+        <li>Live heatmaps of classification coverage</li>
+        <li>Real-time editing of ontology entries</li>
+        <li>Document-guided discovery of new grid cells</li>
+        <li>Classification with quality feedback loops</li>
+      </ul>
+      Run locally with <code>physis-core studio --port 3000</code> to access <code>http://localhost:3000</code>.
     </p>
     <div style="text-align:center; margin:1.5rem 0;">
-      <a class="cta" href="https://github.com/ilPez00/physis-pro/releases">↓ Download Studio GUI (linux x86_64)</a>
+      <a class="cta" href="https://github.com/ilPez00/physis-pro/releases">↓ Download Studio GUI</a>
     </div>
 
-    <h2>MCP server</h2>
+    <h2>MCP Server</h2>
     <p>
-      Exposes Physis as an MCP service on <code>127.0.0.1:9876</code> (the "Physis MCP" / "Praxis MCP").
-      Run <code>physis-pro serve</code>, then point an MCP client there.
+      The Physis MCP server exposes ontology capabilities via the Model Context Protocol. Run with:
+      <pre>./physis-pro serve</pre>
+      to start serving on <code>127.0.0.1:9876</code>.
     </p>
-    <div style="text-align:center; margin:1.5rem 0;">
-      <a class="cta" href="https://github.com/ilPez00/physis-pro/releases">↓ Download MCP server (linux x86_64)</a>
+    <div class="card">
+      <h3>Agent Capabilities</h3>
+      <ul>
+        <li><strong>Semantic classification:</strong> Place any input on the 5x14 grid</li>
+        <li><strong>Ontology management:</strong> Create/delete entries via natural language</li>
+        <li><strong>Quality feedback:</strong> Train the model with right/wrong markings</li>
+        <li><strong>Discovery:</strong> Find hidden patterns in documents</li>
+      </ul>
     </div>
-
-    <p class="muted">Place these binaries on your host server (same origin as <code>praxisweb.xyz/physis</code>) 
-    so downloads resolve correctly. Releases are available on GitHub with pre-built binaries.</p>
 
     <footer>
       <p>Physis core engine · <a href="https://github.com/ilPez00/physis-pro">github.com/ilPez00/physis-pro</a></p>
