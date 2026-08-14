@@ -216,15 +216,19 @@ impl HumanDomain {
             HumanDomain::Study => "STUDY",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<HumanDomain> {
+impl std::str::FromStr for HumanDomain {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
-            "HEAL" => Some(HumanDomain::Heal),
-            "CONSTRUCT" => Some(HumanDomain::Construct),
-            "FABRICATE" => Some(HumanDomain::Fabricate),
-            "BOND" => Some(HumanDomain::Bond),
-            "STUDY" => Some(HumanDomain::Study),
-            _ => None,
+            "HEAL" => Ok(HumanDomain::Heal),
+            "CONSTRUCT" => Ok(HumanDomain::Construct),
+            "FABRICATE" => Ok(HumanDomain::Fabricate),
+            "BOND" => Ok(HumanDomain::Bond),
+            "STUDY" => Ok(HumanDomain::Study),
+            _ => Err(()),
         }
     }
 }
@@ -276,24 +280,28 @@ impl HumanMode {
             HumanMode::Plan => "PLAN",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<HumanMode> {
+impl std::str::FromStr for HumanMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
-            "LIFT" => Some(HumanMode::Lift),
-            "REST" => Some(HumanMode::Rest),
-            "WALK" => Some(HumanMode::Walk),
-            "WORK" => Some(HumanMode::Work),
-            "CREATE" => Some(HumanMode::Create),
-            "LEARN" => Some(HumanMode::Learn),
-            "DESTROY" => Some(HumanMode::Destroy),
-            "SENSE" => Some(HumanMode::Sense),
-            "GUIDE" => Some(HumanMode::Guide),
-            "PLAY" => Some(HumanMode::Play),
-            "BRAINSTORM" => Some(HumanMode::Brainstorm),
-            "MAINTAIN" => Some(HumanMode::Maintain),
-            "MOVE" => Some(HumanMode::Move),
-            "PLAN" => Some(HumanMode::Plan),
-            _ => None,
+            "LIFT" => Ok(HumanMode::Lift),
+            "REST" => Ok(HumanMode::Rest),
+            "WALK" => Ok(HumanMode::Walk),
+            "WORK" => Ok(HumanMode::Work),
+            "CREATE" => Ok(HumanMode::Create),
+            "LEARN" => Ok(HumanMode::Learn),
+            "DESTROY" => Ok(HumanMode::Destroy),
+            "SENSE" => Ok(HumanMode::Sense),
+            "GUIDE" => Ok(HumanMode::Guide),
+            "PLAY" => Ok(HumanMode::Play),
+            "BRAINSTORM" => Ok(HumanMode::Brainstorm),
+            "MAINTAIN" => Ok(HumanMode::Maintain),
+            "MOVE" => Ok(HumanMode::Move),
+            "PLAN" => Ok(HumanMode::Plan),
+            _ => Err(()),
         }
     }
 }
@@ -309,8 +317,8 @@ pub struct GridPosition {
 
 impl GridPosition {
     pub fn from_ontology_entry(e: &OntologyEntry) -> Option<GridPosition> {
-        let domain = HumanDomain::from_str(&e.domain)?;
-        let mode = HumanMode::from_str(&e.mode)?;
+        let domain = e.domain.parse::<HumanDomain>().ok()?;
+        let mode = e.mode.parse::<HumanMode>().ok()?;
         Some(GridPosition {
             domain,
             mode,

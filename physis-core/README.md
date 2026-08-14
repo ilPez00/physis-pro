@@ -65,3 +65,41 @@ update immediately.
   same adjustment is applied in the CLI and the GUI so learning visibly changes
   ranking.
 - JSON persistence (no sled) keeps the core dependency-light.
+
+## Features
+
+| Feature | Default | Pulls in | Use |
+|---------|---------|----------|-----|
+| `cli` | yes | `clap` | The `physis-core` binary and its subcommands. |
+| `studio` | yes | `axum`, `tokio` | The embedded ontology GUI (`physis-core studio`). |
+| `embed-onnx` | no | `ort`, `tokenizers` | Real MiniLM embeddings; `--model <dir>` at runtime, falls back to random projection if the model is absent. |
+
+Build the engine alone (no GUI, no ONNX) for embedding into other crates:
+
+```sh
+cargo build -p physis-core --no-default-features
+```
+
+## Publishing
+
+`physis-core` is a workspace member of `physis-pro` (`Cargo.toml` root has
+`members = ["physis-core"]`), but it is also published as an independent crate so
+consumers can depend on just the engine without the industrial monolith:
+
+```toml
+[dependencies]
+physis-core = { version = "0.1", default-features = false } # engine only
+# physis-core = { version = "0.1" }                          # + cli + studio
+# physis-core = { version = "0.1", features = ["embed-onnx"] } # + ONNX embedder
+```
+
+- The crate lives in its own subdirectory and is CI-checked in isolation via
+  `.github/workflows/physis-core.yml` (no-default-features + default + all-features
+  + clippy + tests).
+- `default-features = false` is the documented "embed me" mode: no `axum`/`clap`/
+  `ort`. Consumers re-enable what they need.
+- Version is bumped independently of `physis_pro` (they share a repo but separate
+  semver lines). Tag core releases as `physis-core-vX.Y.Z`.
+- `cargo publish -p physis-core` (run from the repo root) publishes only the core
+  package; the monolith's path dependency means a published `physis-core` will be
+  picked up by downstream crates automatically.

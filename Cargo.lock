@@ -2753,11 +2753,17 @@ name = "physis-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "chrono",
+ "clap",
+ "ort",
  "rand 0.8.6",
  "serde",
  "serde_json",
  "sha2",
+ "tempfile",
+ "tokenizers",
+ "tokio",
  "uuid",
 ]
 

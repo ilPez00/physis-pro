@@ -262,7 +262,7 @@ fn run_quality(cmd: QualityCmd) -> anyhow::Result<()> {
                     f.top_cell.replace('\x00', " × "),
                     f.top_score,
                     f.severity,
-                    &f.feedback.chars().take(50).collect::<String>(),
+                    f.feedback.chars().take(50).collect::<String>(),
                 );
             }
         }

@@ -76,6 +76,7 @@ impl StudioState {
 }
 
 /// Resolve the active embedder: ONNX when requested + available, else RP.
+#[cfg_attr(not(feature = "embed-onnx"), allow(unused_variables))]
 fn build_embedder(model_dir: Option<String>) -> (Box<dyn VectorEmbed>, String, bool) {
     #[cfg(feature = "embed-onnx")]
     if let Some(dir) = model_dir.as_deref() {

@@ -126,3 +126,15 @@ path = "src/bin/voice.rs"
 name = "physis-pro-wiki"
 required-features = ["tui"]
 path = "src/bin/wiki.rs"
+
+# physis-core lives as a subdirectory and is also published as its own crate;
+# this workspace lets `cargo` build/test both the monolith and the core together
+# (resolver 2 keeps feature unification per-target, so physis_pro's
+# default-features=false on physis-core keeps its cli/studio out of the monolith).
+[workspace]
+resolver = "2"
+members = ["physis-core"]
+# vendor/llmwiki carries its own [profile.release]; keeping it out of the
+# workspace avoids the "profiles for the non root package will be ignored"
+# warning (it's still reachable as the `llmwiki_physis` path dependency).
+exclude = ["vendor/llmwiki"]
