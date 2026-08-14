@@ -388,6 +388,41 @@ function openEdit(name, domain, mode){
       <button id="mSave">Save</button>
       ${name ? '<button class="danger" id="mDel">Delete</button>' : ''}
       <button class="ghost" id="mCancel">Cancel</button>
+    </div>
+
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <h4>Facets</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><label>Lifecycle</label><select id="mLifecycle">
+          <option value="">—</option>
+          <option value="Design">Design</option>
+          <option value="Build">Build</option>
+          <option value="Operate">Operate</option>
+          <option value="Retire">Retire</option>
+        </select></div>
+        <div><label>Agency</label><select id="mAgency">
+          <option value="">—</option>
+          <option value="Self">Self</option>
+          <option value="Other">Other</option>
+          <option value="Automated">Automated</option>
+          <option value="Collective">Collective</option>
+        </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><label>Scale</label><select id="mScale">
+          <option value="">—</option>
+          <option value="Personal">Personal</option>
+          <option value="Team">Team</option>
+          <option value="Organization">Organization</option>
+          <option value="Civil">Civil</option>
+        </select></div>
+        <div><label>Abstraction</label><select id="mAbstraction">
+          <option value="">—</option>
+          <option value="Concept">Concept</option>
+          <option value="Implementation">Implementation</option>
+          <option value="Instance">Instance</option>
+        </select></div>
+      </div>
     </div>`;
   $('modalBg').classList.add('open');
   if (name) {

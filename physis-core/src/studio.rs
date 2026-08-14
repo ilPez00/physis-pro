@@ -322,6 +322,13 @@ struct EntryReq {
     axis_name: String,
     unit: String,
     hints: String,
+    // Facets for multi-dimensional categorization
+    sub_domain: Option<String>,
+    sub_mode: Option<String>,
+    lifecycle: Option<String>,
+    agency: Option<String>,
+    scale: Option<String>,
+    abstraction: Option<String>,
 }
 
 async fn upsert_entry(State(state): State<Shared>, Json(req): Json<EntryReq>) -> Response {
