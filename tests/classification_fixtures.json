@@ -1,0 +1,421 @@
+[
+  {
+    "text": "lifting heavy weights at the gym this morning",
+    "domain": "HEAL",
+    "mode": "LIFT"
+  },
+  {
+    "text": "eating a high-protein nutritious meal",
+    "domain": "HEAL",
+    "mode": "LIFT"
+  },
+  {
+    "text": "taking a nap to recover and rest",
+    "domain": "HEAL",
+    "mode": "REST"
+  },
+  {
+    "text": "meditation and mindful breathing to stay calm",
+    "domain": "HEAL",
+    "mode": "REST"
+  },
+  {
+    "text": "going for a walk outside to stay healthy",
+    "domain": "HEAL",
+    "mode": "WALK"
+  },
+  {
+    "text": "stretching and physio therapy for injury rehab",
+    "domain": "HEAL",
+    "mode": "WALK"
+  },
+  {
+    "text": "cooking a recipe in the kitchen",
+    "domain": "FABRICATE",
+    "mode": "CREATE"
+  },
+  {
+    "text": "painting and drawing a picture",
+    "domain": "FABRICATE",
+    "mode": "CREATE"
+  },
+  {
+    "text": "playing guitar and performing music in a band",
+    "domain": "FABRICATE",
+    "mode": "CREATE"
+  },
+  {
+    "text": "writing a blog post and journaling",
+    "domain": "FABRICATE",
+    "mode": "CREATE"
+  },
+  {
+    "text": "budgeting finances and paying invoices",
+    "domain": "FABRICATE",
+    "mode": "WORK"
+  },
+  {
+    "text": "investing in a stock portfolio",
+    "domain": "FABRICATE",
+    "mode": "WORK"
+  },
+  {
+    "text": "fixing the plumbing and hvac at home",
+    "domain": "CONSTRUCT",
+    "mode": "WORK"
+  },
+  {
+    "text": "using tools in the workshop with a drill and saw",
+    "domain": "CONSTRUCT",
+    "mode": "WORK"
+  },
+  {
+    "text": "organizing files and folders on the desktop",
+    "domain": "CONSTRUCT",
+    "mode": "CREATE"
+  },
+  {
+    "text": "launching a startup business venture",
+    "domain": "CONSTRUCT",
+    "mode": "CREATE"
+  },
+  {
+    "text": "climbing and hiking and camping outdoors",
+    "domain": "CONSTRUCT",
+    "mode": "WALK"
+  },
+  {
+    "text": "calling a friend to meet up socially",
+    "domain": "BOND",
+    "mode": "REST"
+  },
+  {
+    "text": "spending time with family and the kids",
+    "domain": "BOND",
+    "mode": "CREATE"
+  },
+  {
+    "text": "mentoring and coaching a junior teammate",
+    "domain": "BOND",
+    "mode": "LEARN"
+  },
+  {
+    "text": "team collaboration and a sync meeting",
+    "domain": "BOND",
+    "mode": "WORK"
+  },
+  {
+    "text": "walking the dog and feeding the cat",
+    "domain": "BOND",
+    "mode": "CREATE"
+  },
+  {
+    "text": "researching and analyzing data for a report",
+    "domain": "STUDY",
+    "mode": "WORK"
+  },
+  {
+    "text": "studying for a course and learning in class",
+    "domain": "STUDY",
+    "mode": "LEARN"
+  },
+  {
+    "text": "planning a strategy and roadmap with milestones",
+    "domain": "STUDY",
+    "mode": "WORK"
+  },
+  {
+    "text": "traveling and exploring on a trip abroad",
+    "domain": "STUDY",
+    "mode": "WALK"
+  },
+  {
+    "text": "practicing language vocabulary and grammar",
+    "domain": "STUDY",
+    "mode": "LEARN"
+  },
+  {
+    "text": "drinking water and electrolytes to stay hydrated",
+    "domain": "HEAL",
+    "mode": "WORK"
+  },
+  {
+    "text": "gardening and planting seeds in the soil",
+    "domain": "HEAL",
+    "mode": "CREATE"
+  },
+  {
+    "text": "sleeping a full eight hours to recover",
+    "domain": "HEAL",
+    "mode": "REST"
+  },
+  {
+    "text": "wiring the electrical panel and circuit breaker",
+    "domain": "CONSTRUCT",
+    "mode": "WORK"
+  },
+  {
+    "text": "decorating the interior with new furniture and decor",
+    "domain": "CONSTRUCT",
+    "mode": "CREATE"
+  },
+  {
+    "text": "sculpting and illustrating a piece of art",
+    "domain": "FABRICATE",
+    "mode": "CREATE"
+  },
+  {
+    "text": "coding at my desk on a work project",
+    "domain": "FABRICATE",
+    "mode": "WORK"
+  },
+  {
+    "text": "volunteering at a charity to help the community",
+    "domain": "BOND",
+    "mode": "CREATE"
+  },
+  {
+    "text": "networking at a conference to make connections",
+    "domain": "BOND",
+    "mode": "WALK"
+  },
+  {
+    "text": "analyzing data and writing a research report",
+    "domain": "STUDY",
+    "mode": "WORK"
+  },
+  {
+    "text": "running an experiment to test a hypothesis",
+    "domain": "STUDY",
+    "mode": "CREATE"
+  },
+  {
+    "text": "exploring museums while traveling abroad",
+    "domain": "STUDY",
+    "mode": "WALK"
+  },
+  {
+    "text": "letting the bread dough rest and proof",
+    "domain": "FABRICATE",
+    "mode": "REST",
+    "tier": "hard"
+  },
+  {
+    "text": "waiting for the paint and varnish to dry and cure",
+    "domain": "FABRICATE",
+    "mode": "REST",
+    "tier": "hard"
+  },
+  {
+    "text": "doing an apprenticeship to learn the trade",
+    "domain": "FABRICATE",
+    "mode": "LEARN",
+    "tier": "hard"
+  },
+  {
+    "text": "following a recipe tutorial to learn cooking technique",
+    "domain": "FABRICATE",
+    "mode": "LEARN",
+    "tier": "hard"
+  },
+  {
+    "text": "sleeping on it to let the idea incubate",
+    "domain": "STUDY",
+    "mode": "REST",
+    "tier": "hard"
+  },
+  {
+    "text": "taking a quiet reflective pause to ponder",
+    "domain": "STUDY",
+    "mode": "REST",
+    "tier": "hard"
+  },
+  {
+    "text": "winterizing and storing the equipment for the off-season",
+    "domain": "CONSTRUCT",
+    "mode": "REST",
+    "tier": "hard"
+  },
+  {
+    "text": "operating a crane to hoist a steel beam on site",
+    "domain": "CONSTRUCT",
+    "mode": "LIFT",
+    "tier": "hard"
+  },
+  {
+    "text": "a deep-focus exam cram and study sprint",
+    "domain": "STUDY",
+    "mode": "LIFT",
+    "tier": "hard"
+  },
+  {
+    "text": "sollevamento pesi in palestra questa mattina",
+    "domain": "HEAL",
+    "mode": "LIFT",
+    "tier": "italian"
+  },
+  {
+    "text": "un pisolino per recuperare le energie dopo il turno",
+    "domain": "HEAL",
+    "mode": "REST",
+    "tier": "italian"
+  },
+  {
+    "text": "camminata all'aperto per restare in salute",
+    "domain": "HEAL",
+    "mode": "WALK",
+    "tier": "italian"
+  },
+  {
+    "text": "cucinare una ricetta in cucina",
+    "domain": "FABRICATE",
+    "mode": "CREATE",
+    "tier": "italian"
+  },
+  {
+    "text": "scrivere un articolo per il blog aziendale",
+    "domain": "FABRICATE",
+    "mode": "CREATE",
+    "tier": "italian"
+  },
+  {
+    "text": "pagare le fatture e gestire il bilancio aziendale",
+    "domain": "FABRICATE",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "riparare l'impianto idraulico con chiave inglese e guarnizioni",
+    "domain": "CONSTRUCT",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "manutenzione del macchinario: sostituzione del cuscinetto usurato",
+    "domain": "CONSTRUCT",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "organizzare i file e le cartelle sul computer",
+    "domain": "CONSTRUCT",
+    "mode": "CREATE",
+    "tier": "italian"
+  },
+  {
+    "text": "chiamare un amico per organizzare una cena insieme",
+    "domain": "BOND",
+    "mode": "REST",
+    "tier": "italian"
+  },
+  {
+    "text": "riunione di coordinamento con il team di produzione",
+    "domain": "BOND",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "fare da mentore a un collega junior in officina",
+    "domain": "BOND",
+    "mode": "LEARN",
+    "tier": "italian"
+  },
+  {
+    "text": "studiare per un corso serale e imparare in aula",
+    "domain": "STUDY",
+    "mode": "LEARN",
+    "tier": "italian"
+  },
+  {
+    "text": "analizzare i dati di produzione per il report del turno",
+    "domain": "STUDY",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "pianificare la strategia e la roadmap del progetto con le milestone",
+    "domain": "STUDY",
+    "mode": "WORK",
+    "tier": "italian"
+  },
+  {
+    "text": "tear down the condemned structure with a wrecking crew",
+    "domain": "CONSTRUCT",
+    "mode": "DESTROY"
+  },
+  {
+    "text": "disprove the theory by exposing its logical flaws",
+    "domain": "STUDY",
+    "mode": "DESTROY"
+  },
+  {
+    "text": "check each component against spec using a caliper",
+    "domain": "FABRICATE",
+    "mode": "SENSE"
+  },
+  {
+    "text": "pick up on how tense everyone felt in the meeting",
+    "domain": "BOND",
+    "mode": "SENSE"
+  },
+  {
+    "text": "walk the students through the proof on the board",
+    "domain": "STUDY",
+    "mode": "GUIDE"
+  },
+  {
+    "text": "coach the junior engineer through her first project",
+    "domain": "BOND",
+    "mode": "GUIDE"
+  },
+  {
+    "text": "kick a ball around the park with friends after work",
+    "domain": "HEAL",
+    "mode": "PLAY"
+  },
+  {
+    "text": "imagine what would happen if gravity reversed, just for fun",
+    "domain": "STUDY",
+    "mode": "PLAY"
+  },
+  {
+    "text": "freewheel a list of possible research directions",
+    "domain": "STUDY",
+    "mode": "BRAINSTORM"
+  },
+  {
+    "text": "doodle rough massing options for the new wing",
+    "domain": "CONSTRUCT",
+    "mode": "BRAINSTORM"
+  },
+  {
+    "text": "grease the spindle and swap the worn bearing",
+    "domain": "FABRICATE",
+    "mode": "MAINTAIN"
+  },
+  {
+    "text": "do daily mobility drills to keep joints healthy",
+    "domain": "HEAL",
+    "mode": "MAINTAIN"
+  },
+  {
+    "text": "shuttle finished pallets from the cell to shipping",
+    "domain": "FABRICATE",
+    "mode": "MOVE"
+  },
+  {
+    "text": "crane the steel girders over to the foundation",
+    "domain": "CONSTRUCT",
+    "mode": "MOVE"
+  },
+  {
+    "text": "lay out the week's job order and machine sequence",
+    "domain": "FABRICATE",
+    "mode": "PLAN"
+  },
+  {
+    "text": "draw up the critical path for the renovation",
+    "domain": "CONSTRUCT",
+    "mode": "PLAN"
+  }
+]

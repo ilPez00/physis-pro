@@ -1,0 +1,103 @@
+{
+  "oee": [
+    {
+      "machine_id": "tornio-cnc-01",
+      "availability": 0.85555553,
+      "performance": 0.8142857,
+      "quality": 0.97288674,
+      "oee": 0.67777777,
+      "planned_production_time_secs": 27000.0,
+      "run_time_secs": 23100.0,
+      "total_count": 627,
+      "good_count": 610,
+      "losses": [
+        {
+          "reason": "breakdown",
+          "label": "Breakdown",
+          "factor": "availability",
+          "lost_secs": 2700.0,
+          "lost_parts": 0
+        },
+        {
+          "reason": "setup_adjustment",
+          "label": "Setup & Adjustment",
+          "factor": "availability",
+          "lost_secs": 1200.0,
+          "lost_parts": 0
+        },
+        {
+          "reason": "breakdown",
+          "label": "Defects / Rework",
+          "factor": "quality",
+          "lost_secs": 510.0,
+          "lost_parts": 17
+        }
+      ],
+      "world_class": false
+    },
+    {
+      "machine_id": "fresa-02",
+      "availability": 1.0,
+      "performance": 0.905,
+      "quality": 0.9944751,
+      "oee": 0.9,
+      "planned_production_time_secs": 27000.0,
+      "run_time_secs": 27000.0,
+      "total_count": 543,
+      "good_count": 540,
+      "losses": [
+        {
+          "reason": "minor_stop",
+          "label": "Minor Stop / Idling",
+          "factor": "performance",
+          "lost_secs": 600.0,
+          "lost_parts": 0
+        },
+        {
+          "reason": "breakdown",
+          "label": "Defects / Rework",
+          "factor": "quality",
+          "lost_secs": 135.0,
+          "lost_parts": 3
+        }
+      ],
+      "world_class": true
+    }
+  ],
+  "plant": null,
+  "anomalies": [
+    {
+      "machine_id": "tornio-cnc-01",
+      "max_abs_z": 4.3812823,
+      "rms_z": 4.3812823,
+      "worst_feature": "temperature",
+      "per_feature": [
+        {
+          "feature": "temperature",
+          "value": 78.5,
+          "z": 4.3812823
+        }
+      ],
+      "is_anomaly": true,
+      "baseline_ready": true
+    }
+  ],
+  "rul": [
+    {
+      "machine_id": "tornio-cnc-01",
+      "metric": "temperature",
+      "estimate": {
+        "slope_per_sec": 0.0008333333333333334,
+        "seconds_to_limit": 7800.0,
+        "current_value": 78.5,
+        "limit": 85.0
+      }
+    }
+  ],
+  "countermeasures": [
+    "Ispezionare e sostituire il cuscinetto mandrino del tornio-cnc-01 entro 48h",
+    "Anticipare il cambio utensile a fine turno per ridurre il fermo di setup",
+    "Verificare la taratura dell'alimentatore della fresa-02"
+  ],
+  "shift_label": "Turno 1 — officina meccanica"
+}

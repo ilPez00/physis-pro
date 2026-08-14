@@ -1,0 +1,7 @@
+target/
+.env
+*.wav
+models/
+.wiki/
+test_output.md
+bin/physis-pro

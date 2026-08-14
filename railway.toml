@@ -1,0 +1,41 @@
+[build]
+dockerfile = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+startCommand = "./docker-entrypoint.sh"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[deploy.volumes]
+data = { mountPath = "/app/.physis" }
+
+[variables]
+PHYSIS_DATA_DIR = "/app/.physis"
+PHYSIS_HOST = "0.0.0.0"
+PHYSIS_PORT = "8080"
+# REQUIRED for a 0.0.0.0 bind: the server refuses to start without a token
+# (fail-closed against an unauthenticated public API + open LLM relay).
+# Set a strong random value in the Railway dashboard, e.g. `openssl rand -hex 32`.
+# Protected routes then require `Authorization: Bearer <token>`.
+PHYSIS_API_TOKEN = ""
+# Directory that /api/v1/scan is confined to (path-traversal guard).
+PHYSIS_SCAN_ROOT = "/app/.physis"
+# Auth placeholder variables for your Railway dashboard to override
+OAUTH_CLIENT_ID = ""
+OAUTH_CLIENT_SECRET = ""
+OAUTH_COOKIE_SECRET = ""
+# ── LLM cascade resilience floor (set real values in the dashboard) ──────────
+# Groq: free + fast, recommended always-on floor (cascade priority 2).
+AI_GROQ_KEY = ""
+# Self-hosted Ollama floor — opt-in. ~3GB RAM for gemma2:2b; ~6GB for the
+# uncensored Gemma 3n E4B GGUF (needs the 8GB service). See MANUAL_CONFIG.md §4.3.
+ENABLE_OLLAMA = "0"
+OLLAMA_FLOOR_MODEL = "gemma2:2b"
+# Custom uncensored Gemma (models/gemma-4-E4B-it-uncensored-Q4_K_M.gguf, 2.4GB).
+# Set ONE source + OLLAMA_FLOOR_MODEL=gemma-uncensored. File caches on the volume.
+# GEMMA_GGUF_S3_KEY = "gemma-4-E4B-it-uncensored-Q4_K_M.gguf"   # same bucket as ONNX
+# GEMMA_GGUF_URL    = "https://<host>/gemma-4-E4B-it-uncensored-Q4_K_M.gguf"
+# Sidecar alternative (leave ENABLE_OLLAMA=0, point at an ollama service):
+# OLLAMA_FLOOR_URL = "http://ollama.railway.internal:11434/v1"

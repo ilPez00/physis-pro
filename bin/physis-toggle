@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Physis MCP toggle — /mcp command handler.
+# Usage: physis-toggle [on|off|status]
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PORT="${PHYSIS_PORT:-19876}"
+PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/physis-web.pid"
+
+health() {
+    curl -sf --max-time 1 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1
+}
+
+start() {
+    if health; then
+        echo "Physis already running on :${PORT}"
+        return 0
+    fi
+
+    # Build if needed
+    if [ ! -f "$ROOT/target/debug/physis-web" ]; then
+        echo "Building physis-web..."
+        (cd "$ROOT" && cargo build --features web --bin physis-web) >/dev/null 2>&1
+    fi
+
+    export PHYSIS_PORT="$PORT"
+    export PHYSIS_API_URL="http://127.0.0.1:${PORT}"
+
+    nohup "$ROOT/target/debug/physis-web" >/dev/null 2>&1 &
+    echo $! > "$PID_FILE"
+
+    for _ in $(seq 1 10); do
+        if health; then
+            echo "Physis started on :${PORT} (PID $(cat "$PID_FILE"))"
+            return 0
+        fi
+        sleep 0.5
+    done
+
+    echo "ERROR: Physis failed to start"
+    rm -f "$PID_FILE"
+    return 1
+}
+
+stop() {
+    if [ -f "$PID_FILE" ]; then
+        kill "$(cat "$PID_FILE")" 2>/dev/null || true
+        rm -f "$PID_FILE"
+    fi
+    # Also kill any orphan physis-web processes
+    pkill -f "target/debug/physis-web" 2>/dev/null || true
+    sleep 1
+    if ! health; then
+        echo "Physis stopped"
+    else
+        echo "WARNING: Physis still running — force kill with: pkill -9 -f physis-web"
+    fi
+}
+
+status() {
+    if health; then
+        echo "Physis: RUNNING on :${PORT}"
+        if [ -f "$PID_FILE" ]; then
+            echo "  PID: $(cat "$PID_FILE")"
+        fi
+    else
+        echo "Physis: STOPPED"
+    fi
+}
+
+case "${1:-toggle}" in
+    on|start)    start ;;
+    off|stop)    stop  ;;
+    status|st)   status ;;
+    toggle)
+        if health; then
+            stop
+        else
+            start
+        fi
+        ;;
+    *)
+        echo "Usage: $0 [on|off|status]"
+        exit 1
+        ;;
+esac

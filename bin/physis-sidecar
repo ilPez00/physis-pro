@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Physis Sidecar — starts the Rust HTTP API + Python MCP gateway.
+# Usage: ./bin/physis-sidecar [--build] [--port PORT]
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PORT="${PHYSIS_PORT:-19876}"
+BUILD=0
+MCP_ONLY=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --build) BUILD=1; shift ;;
+        --port) PORT="$2"; shift 2 ;;
+        --mcp-only) MCP_ONLY=1; shift ;;
+        *) echo "Usage: $0 [--build] [--port PORT] [--mcp-only]"; exit 1 ;;
+    esac
+done
+
+export PHYSIS_PORT="$PORT"
+export PHYSIS_API_URL="http://127.0.0.1:${PORT}"
+
+if [[ "$MCP_ONLY" -eq 1 ]]; then
+    exec python3 "$ROOT/gateway/physis_mcp_gateway.py"
+fi
+
+cleanup() {
+    echo "Shutting down Physis sidecar..."
+    kill $RUST_PID 2>/dev/null || true
+    kill $MCP_PID 2>/dev/null || true
+    wait $RUST_PID 2>/dev/null || true
+    wait $MCP_PID 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+if [[ "$BUILD" -eq 1 ]]; then
+    echo "Building physis-web..."
+    (cd "$ROOT" && cargo build --features web --bin physis-web)
+fi
+
+echo "Starting Physis Web API on port ${PORT}..."
+"$ROOT/target/debug/physis-web" &
+RUST_PID=$!
+
+sleep 2
+
+if ! kill -0 "$RUST_PID" 2>/dev/null; then
+    echo "ERROR: physis-web failed to start"
+    exit 1
+fi
+
+echo "Starting Physis MCP gateway..."
+python3 "$ROOT/gateway/physis_mcp_gateway.py" &
+MCP_PID=$!
+
+echo "Physis sidecar running:"
+echo "  HTTP API:  http://127.0.0.1:${PORT}"
+echo "  MCP:       stdio (via physis_mcp_gateway.py)"
+echo "  PID (Rust): $RUST_PID"
+echo "  PID (MCP):  $MCP_PID"
+echo ""
+echo "Press Ctrl+C to stop."
+
+wait

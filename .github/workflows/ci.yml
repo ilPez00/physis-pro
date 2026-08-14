@@ -1,0 +1,105 @@
+name: Rust CI
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: cargo check (default)
+        run: cargo check
+      - name: cargo check (full)
+        run: cargo check --features full
+      - name: cargo check (industrial)
+        run: cargo check --features industrial,cli
+      - name: cargo check (spanner)
+        run: cargo check --features spanner
+      - name: cargo check (wiki-embedded — vendored llmwiki)
+        run: cargo check --features wiki-embedded
+      - name: cargo check (mcp — model context protocol)
+        run: cargo check --features mcp
+      - name: cargo build (examples — machine demos)
+        run: cargo build --examples
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --features full
+
+  # PREMORTEM P9: the #[ignore] accuracy floor is the silent-regression guard —
+  # a degraded/swapped model or an ontology/scoring drift scores ~random (P0) and
+  # nothing else catches it. It's #[ignore] only because it needs a real model on
+  # disk; here CI provides one (BGE-base, English + Italian anchors → passes both
+  # the CORE and ITALIAN gates) so the guard finally runs automatically, the same
+  # way spanner-emulator provisions its dependency then runs its ignored test.
+  accuracy-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Cache the ~400MB model across runs — keyed on the script so a model
+      # change busts the cache.
+      - name: cache BGE-base model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: models/bge-base-en-v1.5
+          key: bge-base-en-v1.5-${{ hashFiles('scripts/download_models.sh') }}
+      - name: fetch BGE-base (cache miss only)
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BD=models/bge-base-en-v1.5
+          for p in onnx/model.onnx tokenizer.json config.json tokenizer_config.json; do
+            mkdir -p "$BD/$(dirname "$p")"
+            echo "fetching $p"
+            curl -fL --retry 5 --retry-delay 5 \
+              "https://huggingface.co/Xenova/bge-base-en-v1.5/resolve/main/$p" \
+              -o "$BD/$p"
+          done
+          ls -la "$BD" "$BD/onnx"
+      - name: accuracy floor (CORE + ITALIAN gates, real model)
+        run: cargo test --features full --test classification -- --ignored --nocapture accuracy_floor
+
+  # Verify the Spanner sink's REST round-trip against the official emulator
+  # (gcloud provisions the instance/db/table; the Rust test does the data plane).
+  spanner-emulator:
+    runs-on: ubuntu-latest
+    services:
+      spanner:
+        image: gcr.io/cloud-spanner-emulator/emulator:latest
+        ports:
+          - 9010:9010
+          - 9020:9020
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: provision emulator (instance + db + WikiNode table)
+        run: |
+          # Point the gcloud CLI at the emulator's REST gateway (not the live API).
+          gcloud config set auth/disable_credentials true
+          gcloud config set project test-project
+          gcloud config set api_endpoint_overrides/spanner http://localhost:9020/
+          gcloud spanner instances create test-instance \
+            --config=emulator-config --description=ci --nodes=1
+          gcloud spanner databases create test-db --instance=test-instance \
+            --ddl="CREATE TABLE WikiNode (id STRING(64) NOT NULL, label STRING(MAX), coherence FLOAT64, dim INT64, embedder STRING(64)) PRIMARY KEY (id)"
+          gcloud spanner databases ddl update test-db --instance=test-instance \
+            --ddl="CREATE TABLE WikiEdge (source STRING(64) NOT NULL, target STRING(64) NOT NULL, weight FLOAT64) PRIMARY KEY (source, target)"
+      - name: round-trip test
+        env:
+          SPANNER_REST_ENDPOINT: http://localhost:9020
+          SPANNER_PROJECT: test-project
+          SPANNER_INSTANCE: test-instance
+          SPANNER_DATABASE: test-db
+        run: cargo test --features spanner -- --ignored --nocapture spanner_emulator_roundtrip

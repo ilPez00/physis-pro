@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physis Ontology Studio</title>
+<style>
+:root{
+  --bg:#0f1420; --panel:#171d2e; --panel2:#1c2438; --border:#26304a;
+  --text:#e6ebf5; --muted:#8b96ad; --accent:#4f8cff; --accent2:#7c5cff;
+  --ok:#3ddc84; --warn:#ffb648; --err:#ff5c5c; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+header{display:flex;align-items:center;gap:16px;padding:14px 22px;background:linear-gradient(120deg,#1a2440,#232a4a);border-bottom:1px solid var(--border)}
+header h1{margin:0;font-size:18px;letter-spacing:.3px}
+header .stats{display:flex;gap:10px;margin-left:auto}
+.chip{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:12px}
+.chip b{color:var(--accent);font-weight:700}
+main{display:grid;grid-template-columns:320px 1fr 360px;gap:14px;padding:14px 22px;align-items:start}
+@media(max-width:1200px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
+.panel h2{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+input[type=text],input[type=number],textarea,select{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;margin-bottom:8px}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+button{background:var(--accent);border:none;color:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+button.ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+button.ghost:hover{color:var(--text);border-color:var(--accent)}
+button.small{padding:4px 8px;font-size:12px}
+button.danger{background:var(--err)}
+
+/* ontology browser */
+#search{width:100%}
+#cats{margin-top:8px;max-height:calc(100vh - 260px);overflow:auto}
+.cat{margin-bottom:10px}
+.cat > .name{font-size:12px;font-weight:700;color:var(--accent2);margin-bottom:4px;cursor:pointer}
+.cat > .name .n{color:var(--muted);font-weight:400}
+.entry{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.entry:hover{background:var(--panel2)}
+.entry .tag{font-size:10px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.entry.selected{background:rgba(79,140,255,.15);outline:1px solid var(--accent)}
+
+/* grid */
+#gridwrap{overflow-x:auto}
+table.grid{border-collapse:separate;border-spacing:3px;width:100%}
+table.grid th{font-size:10px;color:var(--muted);font-weight:600;padding:2px 4px;text-align:center}
+table.grid td.cell{width:44px;height:44px;border-radius:7px;text-align:center;font-size:11px;cursor:pointer;transition:transform .08s;position:relative}
+table.grid td.cell:hover{transform:scale(1.12)}
+table.grid td.cell .c{font-weight:700}
+table.grid td.cell .d{font-size:9px;opacity:.7}
+table.grid td.rowlabel{font-size:10px;color:var(--muted);font-weight:700;text-align:right;padding-right:6px}
+.legend{display:flex;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);align-items:center}
+.legend .sw{width:16px;height:16px;border-radius:4px}
+
+/* classify */
+#classifytext{min-height:90px;resize:vertical}
+#results{margin-top:8px}
+.res{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;margin-bottom:4px;background:var(--panel2)}
+.res .score{width:46px;font-family:var(--mono);font-size:12px}
+.res .label{flex:1;font-size:13px}
+.res .bar{width:110px;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.res .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px}
+.res .adj{font-size:10px;color:var(--muted)}
+.res button{background:none;border:none;color:var(--err);font-size:11px;cursor:pointer;padding:2px}
+#cellentries{margin-top:10px;font-size:12px}
+#cellentries .chip{display:inline-block;margin:2px;font-size:11px}
+
+/* quality */
+#qlist{margin-top:8px;max-height:240px;overflow:auto}
+.q{background:var(--panel2);border-left:3px solid var(--err);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:12px}
+.q .m{color:var(--muted);font-size:11px}
+.failure{display:flex;gap:8px;align-items:center}
+#failtext{flex:1}
+footer{margin-top:20px;text-align:center;color:var(--muted);font-size:11px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-bg.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;width:520px;max-width:94vw;max-height:90vh;overflow:auto}
+.modal h3{margin:0 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;z-index:100;opacity:0;transition:opacity .25s}
+.toast.show{opacity:1}
+.gap{background:var(--panel2);border-left:3px solid var(--warn);border-radius:6px;padding:8px 10px;margin:6px 0;font-size:12px}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>◆ Physis Ontology Studio</h1>
+  <div class="stats">
+    <span class="chip">entries <b id="stEntries">–</b></span>
+    <span class="chip">custom <b id="stCustom">–</b></span>
+    <span class="chip">penalized <b id="stPenal">–</b></span>
+    <span class="chip">failures <b id="stFail">–</b></span>
+  </div>
+</header>
+<main>
+  <!-- LEFT: ontology browser -->
+  <section class="panel">
+    <h2>Ontology</h2>
+    <input type="text" id="search" placeholder="search entries…">
+    <div id="cats"></div>
+  </section>
+
+  <!-- CENTER: semiotic grid -->
+  <section class="panel">
+    <h2>Semiotic grid · domain × mode</h2>
+    <div id="gridwrap"></div>
+    <div class="legend"><span class="sw" style="background:#10203a"></span>0 entries
+      <span class="sw" style="background:#1c3f6e"></span>1–2
+      <span class="sw" style="background:#2e6bb5"></span>3–6
+      <span class="sw" style="background:#4f9df0"></span>7–12
+      <span class="sw" style="background:#a6c9ff"></span>13+</div>
+    <div id="cellentries"></div>
+    <div style="margin-top:12px">
+      <button id="btnAdd">+ New entry in this cell</button>
+      <button class="ghost" id="btnClassifySample">Classify sample</button>
+    </div>
+
+    <h2 style="margin-top:18px">Ingest · find gaps</h2>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="ingestdir" placeholder="/path/to/documents" style="flex:1;margin:0">
+      <button id="btnIngest">Scan</button>
+    </div>
+    <div id="ingeststats" class="muted" style="font-size:12px;margin-top:6px"></div>
+    <div id="proposals"></div>
+  </section>
+
+  <!-- RIGHT: classify + quality -->
+  <section class="panel">
+    <h2>Classify</h2>
+    <textarea id="classifytext" placeholder="Paste text or pick a grid cell…"></textarea>
+    <button id="btnClassify" style="width:100%">Classify</button>
+    <div id="results"></div>
+
+    <h2 style="margin-top:18px">Quality feedback</h2>
+    <div class="failure">
+      <input type="text" id="failtext" placeholder="what's wrong? e.g. 'wrong domain'">
+      <button class="small danger" id="btnFail">Fail</button>
+    </div>
+    <div id="qlist"></div>
+  </section>
+</main>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = { selectedCell: null, editingName: null };
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? {'Content-Type':'application/json'} : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return res.json();
+}
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ── ontology browser ── */
+async function loadOntology(){
+  const o = await api('/api/ontology');
+  $('stEntries').textContent = o.entry_count;
+  $('stCustom').textContent = o.custom_count;
+  const q = $('search').value.toLowerCase();
+  const wrap = $('cats');
+  wrap.innerHTML = '';
+  for (const cat of o.categories) {
+    const entries = cat.entries.filter(e => !q || e.name.toLowerCase().includes(q));
+    if (!entries.length && q) continue;
+    const div = document.createElement('div');
+    div.className = 'cat';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = cat.name + ' · ' + entries.length;
+    div.appendChild(name);
+    for (const e of entries) {
+      const row = document.createElement('div');
+      row.className = 'entry' + (state.editingName === e.name ? ' selected' : '');
+      const lab = document.createElement('span');
+      lab.textContent = e.name + (e.custom ? ' ✎' : '');
+      lab.title = e.hints.join(', ');
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = e.domain + '×' + e.mode;
+      row.appendChild(lab); row.appendChild(tag);
+      row.onclick = () => openEdit(e.name);
+      div.appendChild(row);
+    }
+    wrap.appendChild(div);
+  }
+}
+$('search').addEventListener('input', loadOntology);
+
+/* ── grid ── */
+async function loadGrid(){
+  const g = await api('/api/grid');
+  const wrap = $('gridwrap');
+  let html = '<table class="grid"><tr><th></th>';
+  for (const m of g.modes) html += `<th>${m}</th>`;
+  html += '</tr>';
+  g.domains.forEach((d, di) => {
+    html += `<tr><td class="rowlabel">${d}</td>`;
+    g.modes.forEach((m, mi) => {
+      const cell = g.cells[di * g.modes.length + mi];
+      const bg = colorFor(cell.count);
+      html += `<td class="cell" style="background:${bg}" data-domain="${d}" data-mode="${m}" title="${cell.entries.join(', ')}">
+        <div class="c">${cell.count}</div><div class="d">${cell.count ? 'grid' : 'empty'}</div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('td.cell').forEach(td => {
+    td.onclick = () => {
+      state.selectedCell = { domain: td.dataset.domain, mode: td.dataset.mode };
+      showCellEntries(td.dataset.domain, td.dataset.mode);
+      wrap.querySelectorAll('td.cell').forEach(c=>c.style.outline='');
+      td.style.outline = '2px solid #fff';
+    };
+  });
+}
+function colorFor(n){
+  if (n===0) return '#10203a';
+  if (n<=2)  return '#1c3f6e';
+  if (n<=6)  return '#2e6bb5';
+  if (n<=12) return '#4f9df0';
+  return '#a6c9ff';
+}
+async function showCellEntries(d, m){
+  const g = await api('/api/grid');
+  const cell = g.cells.find(c => c.domain===d && c.mode===m);
+  const box = $('cellentries');
+  box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${d} × ${m} — ${cell.entries.length} entries</div>`;
+  cell.entries.forEach(e => {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.textContent = e;
+    c.onclick = () => openEdit(e);
+    box.appendChild(c);
+  });
+}
+$('btnAdd').onclick = () => {
+  const d = state.selectedCell ? state.selectedCell.domain : 'STUDY';
+  const m = state.selectedCell ? state.selectedCell.mode : 'WORK';
+  openEdit(null, d, m);
+};
+$('btnClassifySample').onclick = () => {
+  const sample = [
+    'first layer adhesion failed on the nozzle',
+    'invoice reconciliation complete for March',
+    'monitor vibration on the press during startup',
+  ][Math.floor(Math.random()*3)];
+  $('classifytext').value = sample;
+  doClassify();
+};
+
+/* ── classify ── */
+$('btnClassify').onclick = doClassify;
+async function doClassify(){
+  const text = $('classifytext').value.trim();
+  if (!text) return toast('enter some text first');
+  const r = await api('/api/classify', { text });
+  $('stPenal').textContent = Object.keys(r.quality_penalties).length;
+  const wrap = $('results');
+  wrap.innerHTML = '';
+  r.results.forEach((res, i) => {
+    const row = document.createElement('div');
+    row.className = 'res';
+    const pct = Math.round(res.adjusted_score * 100);
+    const adj = res.adjusted_score.toFixed(2);
+    row.innerHTML = `<div class="score">${adj}</div>
+      <div class="label">${res.domain}×${res.mode}</div>
+      <div class="bar"><i style="width:${Math.max(2,pct)}%"></i></div>
+      <div class="adj">adj</div>
+      <button title="mark wrong" data-cell="${res.domain}\u0000${res.mode}">✕</button>`;
+    row.querySelector('button').onclick = async () => {
+      await api('/api/quality/fail', { feedback: `wrong result for: ${text.slice(0,60)}` });
+      loadQuality(); toast(`penalized ${res.domain}×${res.mode}`);
+    };
+    wrap.appendChild(row);
+  });
+  if (!r.results.length) wrap.innerHTML = '<div class="muted">no populated cells — add ontology entries</div>';
+}
+$('classifytext').addEventListener('keydown', e => { if ((e.ctrlKey||e.metaKey) && e.key==='Enter') doClassify(); });
+
+/* ── ingest & discovery ── */
+$('btnIngest').onclick = async () => {
+  const dir = $('ingestdir').value.trim();
+  if (!dir) return toast('enter a directory path');
+  $('btnIngest').disabled = true;
+  $('btnIngest').textContent = 'Scanning…';
+  try {
+    const r = await api('/api/ingest', { dir });
+    $('ingeststats').textContent = `${r.files} files · ${r.lines} lines · covered ${r.report.covered}/${r.report.total} · ${r.report.unmapped} unmapped · threshold ${r.report.threshold_used.toFixed(2)}${r.report.auto_retuned ? ' (auto-raised)' : ''}`;
+    const box = $('proposals');
+    box.innerHTML = '<h3>Proposed new domains</h3>';
+    if (!r.report.proposals.length) {
+      box.innerHTML += '<div class="muted">No gaps — this corpus is already covered.</div>';
+    }
+    for (const p of r.report.proposals) {
+      const d = document.createElement('div');
+      d.className = 'gap';
+      d.innerHTML = `<div><b>${p.name}</b> <span class="muted">${p.count} texts · ${p.domain}×${p.mode} · cov ${p.coverage.toFixed(2)}</span></div>
+        <div class="muted">hints: ${p.hints.join(', ')}</div>
+        <div class="muted" style="font-size:11px">${p.samples.slice(0,2).join(' | ')}</div>
+        <button class="small" style="margin-top:4px">Promote to entry</button>`;
+      d.querySelector('button').onclick = async () => {
+        await api('/api/ingest/promote', { name: p.name, category: 'Discovered', domain: p.domain, mode: p.mode, hints: p.hints, samples: p.samples });
+        toast(`promoted ${p.name} — classifier rebuilt`);
+        refreshAll();
+      };
+      box.appendChild(d);
+    }
+  } catch (e) {
+    toast('ingest failed: ' + e.message);
+  } finally {
+    $('btnIngest').disabled = false;
+    $('btnIngest').textContent = 'Scan';
+  }
+};
+
+/* ── quality ── */
+$('btnFail').onclick = async () => {
+  const text = $('failtext').value.trim();
+  if (!text) return toast('describe the failure');
+  const r = await api('/api/quality/fail', { feedback: text });
+  $('failtext').value = '';
+  toast(`recorded → ${(r.top_cell||'').split('\u0000').join(' × ')}`);
+  loadQuality();
+};
+async function loadQuality(){
+  const q = await api('/api/quality');
+  $('stFail').textContent = q.failures.length;
+  $('stPenal').textContent = Object.keys(q.penalties).length;
+  const list = $('qlist');
+  list.innerHTML = '';
+  for (const p of Object.entries(q.penalties).sort((a,b)=>b[1]-a[1]).slice(0,6)) {
+    const row = document.createElement('div');
+    row.className = 'q';
+    row.innerHTML = `<span style="color:var(--err)">▼</span> ${p[0].split('\u0000').join(' × ')} — penalty ${p[1].toFixed(2)}`;
+    row.style.cursor='pointer';
+    row.onclick = () => toast('pass it to reduce the penalty');
+    list.appendChild(row);
+  }
+  for (const f of q.failures) {
+    const row = document.createElement('div');
+    row.className = 'q';
+    row.innerHTML = `<span class="m">${f.top_cell.split('\u0000').join(' × ')} · ${f.severity.toFixed(1)} · ${f.timestamp.slice(5,16)}</span><br>${f.feedback}`;
+    list.appendChild(row);
+  }
+}
+
+/* ── edit modal ── */
+function openEdit(name, domain, mode){
+  state.editingName = name;
+  const modal = $('modal');
+  const d = domain || 'STUDY';
+  const m = mode || 'WORK';
+  const domains = ['HEAL','CONSTRUCT','FABRICATE','BOND','STUDY'];
+  const modes = ['LIFT','REST','WALK','WORK','CREATE','LEARN','DESTROY','SENSE','GUIDE','PLAY','BRAINSTORM','MAINTAIN','MOVE','PLAN'];
+  modal.innerHTML = `<h3>${name ? 'Edit entry' : 'New entry'}</h3>
+    <label>Name</label><input type="text" id="mName" value="${name || ''}" placeholder="e.g. invoice line check">
+    <label>Category</label><input type="text" id="mCat" placeholder="e.g. Finance">
+    <div class="grid2">
+      <div><label>Domain</label><select id="mDomain">${domains.map(x=>`<option ${x===d?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div><label>Mode</label><select id="mMode">${modes.map(x=>`<option ${x===m?'selected':''}>${x}</option>`).join('')}</select></div>
+    </div>
+    <div class="grid2">
+      <div><label>Axis kind</label><input type="text" id="mAxisKind" placeholder="e.g. epistemic"></div>
+      <div><label>Axis name</label><input type="text" id="mAxisName" placeholder="e.g. formal"></div>
+    </div>
+    <label>Unit</label><input type="text" id="mUnit" placeholder="e.g. checks">
+    <label>Hints (comma separated)</label><input type="text" id="mHints" placeholder="reconcile, line item, payment">
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button id="mSave">Save</button>
+      ${name ? '<button class="danger" id="mDel">Delete</button>' : ''}
+      <button class="ghost" id="mCancel">Cancel</button>
+    </div>`;
+  $('modalBg').classList.add('open');
+  if (name) {
+    // prefill from ontology
+    api('/api/ontology').then(o => {
+      for (const cat of o.categories) {
+        for (const e of cat.entries) {
+          if (e.name === name) {
+            $('mCat').value = e.category || '';
+            $('mDomain').value = e.domain;
+            $('mMode').value = e.mode;
+            $('mAxisKind').value = e.axis_kind;
+            $('mAxisName').value = e.axis_name;
+            $('mUnit').value = e.unit;
+            $('mHints').value = e.hints.join(', ');
+          }
+        }
+      }
+    });
+  }
+  $('mCancel').onclick = () => { $('modalBg').classList.remove('open'); state.editingName=null; loadOntology(); };
+  $('mSave').onclick = async () => {
+    const payload = {
+      name: $('mName').value.trim(), category: $('mCat').value.trim(),
+      domain: $('mDomain').value, mode: $('mMode').value,
+      axis_kind: $('mAxisKind').value, axis_name: $('mAxisName').value,
+      unit: $('mUnit').value, hints: $('mHints').value,
+    };
+    await api('/api/ontology/upsert', payload);
+    $('modalBg').classList.remove('open');
+    state.editingName = null;
+    toast('saved — classifier rebuilt');
+    refreshAll();
+  };
+  if (name) $('mDel').onclick = async () => {
+    await api('/api/ontology/delete', { name });
+    $('modalBg').classList.remove('open');
+    state.editingName = null;
+    toast('deleted');
+    refreshAll();
+  };
+}
+$('modalBg').addEventListener('click', e => { if (e.target === $('modalBg')) { $('modalBg').classList.remove('open'); state.editingName=null; } });
+
+async function refreshAll(){
+  await loadOntology();
+  await loadGrid();
+  await loadQuality();
+  if (state.selectedCell) showCellEntries(state.selectedCell.domain, state.selectedCell.mode);
+}
+refreshAll();
+</script>
+</body>
+</html>
