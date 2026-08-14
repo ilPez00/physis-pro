@@ -54,6 +54,7 @@ enum Command {
         cmd: QualityCmd,
     },
     /// Run the ontology studio web GUI.
+    #[cfg(feature = "studio")]
     Studio {
         /// Port to listen on.
         #[arg(long, default_value_t = 3000)]
@@ -83,6 +84,7 @@ fn main() -> anyhow::Result<()> {
         Command::Assert { label, verdict } => run_assert(&label, &verdict),
         Command::Dream => run_dream(),
         Command::Quality { cmd } => run_quality(cmd),
+        #[cfg(feature = "studio")]
         Command::Studio { port } => run_studio(port),
     }
 }
@@ -282,9 +284,10 @@ fn run_quality(cmd: QualityCmd) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "studio")]
 fn run_studio(port: u16) -> anyhow::Result<()> {
     let rt = tokio::runtime::Runtime::new()?;
-    rt.block_on(physis_core::studio::run(port))
+    rt.block_on(physis_core::run(port))
 }
 
 /// Load the persisted core (or a fresh one).

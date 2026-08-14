@@ -14,11 +14,11 @@ anyhow = "1"
 rand = "0.8"
 sha2 = "0.10"
 
-# CLI + embedded studio GUI (axum). Kept out of the lib so the engine core
-# stays dependency-free for embedders that reuse it.
-clap = { version = "4", features = ["derive"] }
-axum = { version = "0.7", features = ["json", "macros"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+# CLI + embedded studio GUI (axum). Kept optional so the engine core stays
+# dependency-free for embedders that reuse it. Enable with --features cli/studio.
+clap = { version = "4", features = ["derive"], optional = true }
+axum = { version = "0.7", features = ["json", "macros"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"], optional = true }
 
 # Production semantic embeddings (optional — off by default so the package
 # builds anywhere without model files). Enable with --features embed-onnx.
@@ -27,8 +27,8 @@ tokenizers = { version = "0.21", optional = true }
 
 [features]
 default = ["cli", "studio"]
-cli = []
-studio = []
+cli = ["dep:clap"]
+studio = ["dep:axum", "dep:tokio"]
 # ONNX MiniLM embedder via the `ort` runtime. Requires model.onnx +
 # tokenizer.json in the model dir at runtime; falls back to random projection.
 embed-onnx = ["dep:ort", "dep:tokenizers"]
@@ -43,3 +43,4 @@ path = "src/lib.rs"
 [[bin]]
 name = "physis-core"
 path = "src/main.rs"
+required-features = ["cli"]

@@ -21,6 +21,7 @@ pub struct QualityFailure {
     pub top_cell: String,
     pub top_score: f32,
     pub correct_domain: Option<String>,
+    pub correct_embedding: Option<Vec<f32>>,
     pub severity: f32,
     pub resolved: bool,
 }
@@ -35,6 +36,7 @@ impl QualityFailure {
             top_cell: top_cell.to_string(),
             top_score,
             correct_domain: None,
+            correct_embedding: None,
             severity: 0.5,
             resolved: false,
         }
@@ -130,6 +132,44 @@ impl QualityTracker {
         let boost = self.cell_boosts.get(cell).copied().unwrap_or(0.0);
         let net = 1.0 - penalty + boost;
         (raw_score * net).clamp(0.0, 1.0)
+    }
+
+    /// Human-readable summary (used by the CLI).
+    pub fn summary(&self) -> String {
+        let mut out = String::new();
+        out.push_str("=== Quality Tracker ===");
+        out.push('\n');
+        out.push_str(&format!("Total failures: {}\n", self.failures.len()));
+        out.push_str(&format!("Cells with penalties: {}\n", self.cell_penalties.len()));
+        out.push_str(&format!("Cells with boosts: {}\n", self.cell_boosts.len()));
+        out.push('\n');
+
+        if self.failures.is_empty() {
+            out.push_str("No failures recorded.\n");
+            return out;
+        }
+
+        out.push_str("--- Recent Failures ---\n");
+        for f in self.failures.iter().rev().take(5) {
+            out.push_str(&format!(
+                "  [{}] cell={} score={:.3} sev={:.1} feedback={}\n",
+                &f.id[..8],
+                f.top_cell,
+                f.top_score,
+                f.severity,
+                &f.feedback[..f.feedback.len().min(60)],
+            ));
+        }
+        out.push('\n');
+
+        out.push_str("--- Cell Penalties ---\n");
+        let mut sorted: Vec<_> = self.cell_penalties.iter().collect();
+        sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(std::cmp::Ordering::Equal));
+        for (cell, penalty) in sorted.iter().take(10) {
+            out.push_str(&format!("  {}: penalty={:.2}\n", cell, penalty));
+        }
+
+        out
     }
 
     /// Persist failures to a JSON file.

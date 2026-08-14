@@ -13,6 +13,7 @@ pub mod ontology;
 pub mod quality;
 pub mod store;
 
+#[cfg(feature = "studio")]
 pub mod studio;
 
 #[cfg(feature = "embed-onnx")]
@@ -25,6 +26,9 @@ pub use embed::{RandomProjectionEmbedder, VectorEmbed};
 pub use models::*;
 pub use ontology::OntologyLoader;
 pub use quality::{QualityFailure, QualityTracker};
+
+#[cfg(feature = "studio")]
+pub use studio::{run, StudioState};
 
 #[cfg(feature = "embed-onnx")]
 pub use embed_onnx::{OnnxConfig, OnnxEmbedder, PoolingStrategy};

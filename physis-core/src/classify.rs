@@ -39,44 +39,81 @@ pub struct CellScore {
 }
 
 /// One populated cell with its member entry embeddings.
-struct Cell {
-    domain: String,
-    mode: String,
-    embeddings: Vec<Vec<f32>>,
-    entries: Vec<String>,
+pub struct Cell {
+    pub domain: String,
+    pub mode: String,
+    /// Per-entry embeddings (one row per member entry).
+    pub embeddings: Vec<Vec<f32>>,
+    /// Member entry display names (parallel to `embeddings`).
+    pub entries: Vec<String>,
+}
+
+impl Cell {
+    pub fn new(domain: String, mode: String, embeddings: Vec<Vec<f32>>, entries: Vec<String>) -> Self {
+        Self { domain, mode, embeddings, entries }
+    }
 }
 
 /// Pre-computed cell member embeddings ready for classification.
 pub struct CellClassifier {
-    cells: Vec<Cell>,
+    pub cells: Vec<Cell>,
+}
+
+/// A raw ontology entry feed for the classifier, decoupled from any specific
+/// loader type so physis-pro can hand its own `DomainDef`s straight in.
+pub struct EntrySeed {
+    pub name: String,
+    pub domain: String,
+    pub mode: String,
+    /// Space-joined text the entry is embedded from (name + hints).
+    pub text: String,
 }
 
 impl CellClassifier {
-    /// Embed every classification ontology entry ("name + hints") and group the
-    /// embeddings by DOMAIN×MODE cell.
-    pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
+    /// Embed every entry seed (its `text`), group embeddings by DOMAIN×MODE cell.
+    /// Takes an embed closure instead of the `VectorEmbed` trait so external
+    /// crates with their own embedder traits (physis-pro) can hook in directly.
+    pub fn build_seeds<F>(seeds: impl IntoIterator<Item = EntrySeed>, embed: F) -> Self
+    where
+        F: Fn(&str) -> Vec<f32>,
+    {
         type Acc = (Vec<Vec<f32>>, Vec<String>);
         let mut acc: HashMap<(String, String), Acc> = HashMap::new();
-        for def in ontology.classification_domains() {
-            let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
-                (Some(d), Some(m)) => (d.to_string(), m.to_string()),
-                _ => continue,
-            };
-            let mut text = def.name.clone();
-            for hint in &def.hints {
-                text.push(' ');
-                text.push_str(hint);
-            }
-            let emb = embedder.embed(&text);
-            let entry = acc.entry((domain, mode)).or_insert_with(|| (Vec::new(), Vec::new()));
+        for seed in seeds {
+            let emb = embed(&seed.text);
+            let entry = acc.entry((seed.domain.clone(), seed.mode.clone())).or_insert_with(|| (Vec::new(), Vec::new()));
             entry.0.push(emb);
-            entry.1.push(def.name.clone());
+            entry.1.push(seed.name);
         }
         let cells = acc
             .into_iter()
             .map(|((domain, mode), (embeddings, entries))| Cell { domain, mode, embeddings, entries })
             .collect();
         Self { cells }
+    }
+
+    /// Rebuild from pre-built cells (used by tests / adapters that already
+    /// constructed the internal shape).
+    pub fn from_cells(cells: Vec<Cell>) -> Self {
+        Self { cells }
+    }
+
+    /// Embed every classification ontology entry ("name + hints") and group the
+    /// embeddings by DOMAIN×MODE cell.
+    pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
+        let seeds = ontology.classification_domains().filter_map(|def| {
+            let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
+                (Some(d), Some(m)) => (d.to_string(), m.to_string()),
+                _ => return None,
+            };
+            let mut text = def.name.clone();
+            for hint in &def.hints {
+                text.push(' ');
+                text.push_str(hint);
+            }
+            Some(EntrySeed { name: def.name.clone(), domain, mode, text })
+        });
+        Self::build_seeds(seeds, |t| embedder.embed(t))
     }
 
     /// Number of populated cells.
