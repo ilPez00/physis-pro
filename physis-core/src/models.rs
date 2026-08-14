@@ -157,6 +157,152 @@ pub struct CoherenceSnapshot {
     pub asserted_index: Option<Score>,
 }
 
+// ── Facets: orthogonal dimensions beyond the DOMAIN×MODE grid ────────────
+//
+// The 5×14 grid is a 2-D projection of an N-dimensional action space. These
+// facets carry the dimensions a 2-D grid cannot hold, so the grid can stay at
+// 5×14 (navigation, heatmaps) while classification still captures process phase,
+// agency, scale, grain, and tree-nesting. All optional: an entry may specify
+// none and classify purely on DOMAIN×MODE.
+
+/// Process lifecycle phase — *when* in a process an entry applies, orthogonal
+/// to the manner-of-operation (mode). Stops "phase" overloading a mode.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum LifecyclePhase {
+    Design,
+    Build,
+    Operate,
+    Retire,
+}
+
+impl LifecyclePhase {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LifecyclePhase::Design => "DESIGN",
+            LifecyclePhase::Build => "BUILD",
+            LifecyclePhase::Operate => "OPERATE",
+            LifecyclePhase::Retire => "RETIRE",
+        }
+    }
+    pub fn all() -> [LifecyclePhase; 4] {
+        [LifecyclePhase::Design, LifecyclePhase::Build, LifecyclePhase::Operate, LifecyclePhase::Retire]
+    }
+}
+
+/// Who executes the action.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Agency {
+    SelfActor,
+    Other,
+    Automated,
+    Collective,
+}
+
+impl Agency {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Agency::SelfActor => "SELF",
+            Agency::Other => "OTHER",
+            Agency::Automated => "AUTOMATED",
+            Agency::Collective => "COLLECTIVE",
+        }
+    }
+    pub fn all() -> [Agency; 4] {
+        [Agency::SelfActor, Agency::Other, Agency::Automated, Agency::Collective]
+    }
+}
+
+/// Scope of the action.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Scale {
+    Personal,
+    Interpersonal,
+    Organizational,
+    Civil,
+}
+
+impl Scale {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Scale::Personal => "PERSONAL",
+            Scale::Interpersonal => "INTERPERSONAL",
+            Scale::Organizational => "ORGANIZATIONAL",
+            Scale::Civil => "CIVIL",
+        }
+    }
+    pub fn all() -> [Scale; 4] {
+        [Scale::Personal, Scale::Interpersonal, Scale::Organizational, Scale::Civil]
+    }
+}
+
+/// Grain of the action.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Abstraction {
+    Concrete,
+    Abstract,
+}
+
+impl Abstraction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Abstraction::Concrete => "CONCRETE",
+            Abstraction::Abstract => "ABSTRACT",
+        }
+    }
+}
+
+/// Orthogonal facets carried by an ontology entry. `sub_domain`/`sub_mode`
+/// tree-nest an entry under a domain/mode without enlarging the base grid; the
+/// enums capture cross-cutting dimensions that any cell can have.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct Facets {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_domain: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle: Option<LifecyclePhase>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agency: Option<Agency>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<Scale>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub abstraction: Option<Abstraction>,
+}
+
+impl Facets {
+    /// Aggregate member facets of a cell into one dominant profile: enums take
+    /// the most common non-`None` variant; sub-strings take the most common.
+    pub fn aggregate(members: &[Facets]) -> Facets {
+        let sub_domain: Vec<&str> = members.iter().filter_map(|f| f.sub_domain.as_deref()).collect();
+        let sub_mode: Vec<&str> = members.iter().filter_map(|f| f.sub_mode.as_deref()).collect();
+        let lifecycle: Vec<LifecyclePhase> = members.iter().filter_map(|f| f.lifecycle).collect();
+        let agency: Vec<Agency> = members.iter().filter_map(|f| f.agency).collect();
+        let scale: Vec<Scale> = members.iter().filter_map(|f| f.scale).collect();
+        let abstraction: Vec<Abstraction> = members.iter().filter_map(|f| f.abstraction).collect();
+        Facets {
+            sub_domain: majority(&sub_domain).map(|s| s.to_string()),
+            sub_mode: majority(&sub_mode).map(|s| s.to_string()),
+            lifecycle: majority(&lifecycle),
+            agency: majority(&agency),
+            scale: majority(&scale),
+            abstraction: majority(&abstraction),
+        }
+    }
+}
+
+/// Most common element of a slice, or `None` if empty.
+fn majority<T: Copy + Eq + std::hash::Hash>(xs: &[T]) -> Option<T> {
+    if xs.is_empty() {
+        return None;
+    }
+    let mut counts: std::collections::HashMap<T, usize> = std::collections::HashMap::new();
+    for x in xs {
+        *counts.entry(*x).or_insert(0) += 1;
+    }
+    counts.into_iter().max_by_key(|(_, c)| *c).map(|(k, _)| k)
+}
+
 /// One row of an ontology file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OntologyEntry {
@@ -168,6 +314,8 @@ pub struct OntologyEntry {
     pub axis_name: String,
     pub unit: String,
     pub hints: Vec<String>,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 /// An ontology file: kind + list of entries.
@@ -188,6 +336,8 @@ pub struct DomainDef {
     pub axis_name: Option<String>,
     pub unit: String,
     pub hints: Vec<String>,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 // ── Semiotic Grid ─────────────────────────────────────────────────────
@@ -306,13 +456,16 @@ impl std::str::FromStr for HumanMode {
     }
 }
 
-/// A grid position mapping an ontology entry to one of the 70 cells.
+/// A grid position mapping an ontology entry to one of the 70 cells, plus any
+/// orthogonal facets the entry carries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GridPosition {
     pub domain: HumanDomain,
     pub mode: HumanMode,
     pub axis_kind: String,
     pub axis_name: String,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 impl GridPosition {
@@ -324,6 +477,7 @@ impl GridPosition {
             mode,
             axis_kind: e.axis_kind.clone(),
             axis_name: e.axis_name.clone(),
+            facets: e.facets.clone(),
         })
     }
 
@@ -457,6 +611,7 @@ mod tests {
             axis_name: "n".into(),
             unit: "u".into(),
             hints: vec![],
+            facets: Facets::default(),
         };
         let gp = GridPosition::from_ontology_entry(&e).expect("parses");
         assert_eq!(gp.domain, HumanDomain::Heal);
@@ -472,5 +627,27 @@ mod tests {
         assert!((cosine_sim(&a, &a) - 1.0).abs() < 1e-6);
         assert!(cosine_sim(&a, &b).abs() < 1e-6);
         assert!((cosine_dist(&a, &b) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_facets_aggregate_majority_and_absent() {
+        let members = vec![
+            Facets { lifecycle: Some(LifecyclePhase::Operate), agency: Some(Agency::SelfActor), ..Default::default() },
+            Facets { lifecycle: Some(LifecyclePhase::Operate), agency: Some(Agency::Automated), ..Default::default() },
+            Facets { lifecycle: Some(LifecyclePhase::Design), agency: Some(Agency::SelfActor), ..Default::default() },
+        ];
+        let agg = Facets::aggregate(&members);
+        assert_eq!(agg.lifecycle, Some(LifecyclePhase::Operate));
+        assert_eq!(agg.agency, Some(Agency::SelfActor));
+        // Not every member set a scale → stays None.
+        assert_eq!(agg.scale, None);
+    }
+
+    #[test]
+    fn test_ontology_entry_default_facets_deserialize() {
+        // Existing JSON without a `facets` field must still parse (back-compat).
+        let json = r#"{"name":"x","domain":"HEAL","mode":"WORK","axis_kind":"k","axis_name":"n","unit":"u","hints":[]}"#;
+        let e: OntologyEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(e.facets, Facets::default());
     }
 }

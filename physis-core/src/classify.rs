@@ -12,6 +12,7 @@ use serde::Serialize;
 
 use crate::embed::VectorEmbed;
 use crate::models::cosine_sim;
+use crate::models::Facets;
 use crate::ontology::OntologyLoader;
 
 /// How many top member-entry similarities to average per cell.
@@ -36,9 +37,12 @@ pub struct CellScore {
     pub mode: String,
     pub score: f32,
     pub entries: Vec<String>,
+    /// Dominant facet profile across the cell's member entries.
+    pub facets: Facets,
 }
 
 /// One populated cell with its member entry embeddings.
+#[derive(Clone)]
 pub struct Cell {
     pub domain: String,
     pub mode: String,
@@ -46,11 +50,19 @@ pub struct Cell {
     pub embeddings: Vec<Vec<f32>>,
     /// Member entry display names (parallel to `embeddings`).
     pub entries: Vec<String>,
+    /// Per-entry facets (parallel to `embeddings`).
+    pub facets: Vec<Facets>,
 }
 
 impl Cell {
-    pub fn new(domain: String, mode: String, embeddings: Vec<Vec<f32>>, entries: Vec<String>) -> Self {
-        Self { domain, mode, embeddings, entries }
+    pub fn new(
+        domain: String,
+        mode: String,
+        embeddings: Vec<Vec<f32>>,
+        entries: Vec<String>,
+        facets: Vec<Facets>,
+    ) -> Self {
+        Self { domain, mode, embeddings, entries, facets }
     }
 }
 
@@ -61,12 +73,69 @@ pub struct CellClassifier {
 
 /// A raw ontology entry feed for the classifier, decoupled from any specific
 /// loader type so physis-pro can hand its own `DomainDef`s straight in.
+#[derive(Debug, Clone, Default)]
 pub struct EntrySeed {
     pub name: String,
     pub domain: String,
     pub mode: String,
     /// Space-joined text the entry is embedded from (name + hints).
     pub text: String,
+    /// Orthogonal facets the entry carries (default: none).
+    pub facets: Facets,
+}
+
+/// A caller-supplied facet constraint. Cells whose member facets don't match the
+/// specified dimensions are down-weighted so facet-known queries rank better.
+#[derive(Debug, Clone, Default)]
+pub struct FacetFilter {
+    pub lifecycle: Option<crate::models::LifecyclePhase>,
+    pub agency: Option<crate::models::Agency>,
+    pub scale: Option<crate::models::Scale>,
+    pub abstraction: Option<crate::models::Abstraction>,
+    pub sub_domain: Option<String>,
+    pub sub_mode: Option<String>,
+}
+
+impl FacetFilter {
+    /// How many dimensions the caller constrained (0 ⇒ no filtering).
+    fn weight(&self) -> usize {
+        let mut n = 0;
+        if self.lifecycle.is_some() { n += 1; }
+        if self.agency.is_some() { n += 1; }
+        if self.scale.is_some() { n += 1; }
+        if self.abstraction.is_some() { n += 1; }
+        if self.sub_domain.is_some() { n += 1; }
+        if self.sub_mode.is_some() { n += 1; }
+        n
+    }
+
+    /// Match ratio in `[0, 1]` of this filter against a cell's aggregated facets.
+    fn match_ratio(&self, cell: &Facets) -> f32 {
+        let total = self.weight();
+        if total == 0 {
+            return 1.0;
+        }
+        let mut hits = 0;
+        if let (Some(want), Some(have)) = (self.lifecycle, cell.lifecycle) {
+            if want == have { hits += 1; }
+        }
+        if let (Some(want), Some(have)) = (self.agency, cell.agency) {
+            if want == have { hits += 1; }
+        }
+        if let (Some(want), Some(have)) = (self.scale, cell.scale) {
+            if want == have { hits += 1; }
+        }
+        if let (Some(want), Some(have)) = (self.abstraction, cell.abstraction) {
+            if want == have { hits += 1; }
+        }
+        if let (Some(want), Some(have)) = (&self.sub_domain, &cell.sub_domain) {
+            if want.eq_ignore_ascii_case(have) { hits += 1; }
+        }
+        if let (Some(want), Some(have)) = (&self.sub_mode, &cell.sub_mode) {
+            if want.eq_ignore_ascii_case(have) { hits += 1; }
+        }
+        hits as f32 / total as f32
+    }
 }
 
 impl CellClassifier {
@@ -77,17 +146,20 @@ impl CellClassifier {
     where
         F: Fn(&str) -> Vec<f32>,
     {
-        type Acc = (Vec<Vec<f32>>, Vec<String>);
+        type Acc = (Vec<Vec<f32>>, Vec<String>, Vec<Facets>);
         let mut acc: HashMap<(String, String), Acc> = HashMap::new();
         for seed in seeds {
             let emb = embed(&seed.text);
-            let entry = acc.entry((seed.domain.clone(), seed.mode.clone())).or_insert_with(|| (Vec::new(), Vec::new()));
+            let entry = acc
+                .entry((seed.domain.clone(), seed.mode.clone()))
+                .or_insert_with(|| (Vec::new(), Vec::new(), Vec::new()));
             entry.0.push(emb);
             entry.1.push(seed.name);
+            entry.2.push(seed.facets);
         }
         let cells = acc
             .into_iter()
-            .map(|((domain, mode), (embeddings, entries))| Cell { domain, mode, embeddings, entries })
+            .map(|((domain, mode), (embeddings, entries, facets))| Cell { domain, mode, embeddings, entries, facets })
             .collect();
         Self { cells }
     }
@@ -99,7 +171,7 @@ impl CellClassifier {
     }
 
     /// Embed every classification ontology entry ("name + hints") and group the
-    /// embeddings by DOMAIN×MODE cell.
+    /// embeddings by DOMAIN×MODE cell, carrying each entry's facets.
     pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
         let seeds = ontology.classification_domains().filter_map(|def| {
             let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
@@ -111,7 +183,7 @@ impl CellClassifier {
                 text.push(' ');
                 text.push_str(hint);
             }
-            Some(EntrySeed { name: def.name.clone(), domain, mode, text })
+            Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
         });
         Self::build_seeds(seeds, |t| embedder.embed(t))
     }
@@ -152,9 +224,25 @@ impl CellClassifier {
                     mode: cell.mode.clone(),
                     score: ALPHA * ds + (1.0 - ALPHA) * cell_score,
                     entries: cell.entries.clone(),
+                    facets: Facets::aggregate(&cell.facets),
                 }
             })
             .collect();
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results
+    }
+
+    /// Classify with an optional facet constraint. Cells whose aggregated facets
+    /// match the filter are up-weighted; the more dimensions match, the higher
+    /// the factor (1.0 when the filter is empty, so this degrades to `classify`).
+    pub fn classify_filtered(&self, embedding: &[f32], filter: &FacetFilter) -> Vec<CellScore> {
+        let mut results = self.classify(embedding);
+        for r in &mut results {
+            if let Some(cell) = self.cells.iter().find(|c| c.domain == r.domain && c.mode == r.mode) {
+                let ratio = filter.match_ratio(&Facets::aggregate(&cell.facets));
+                r.score *= 0.5 + 0.5 * ratio;
+            }
+        }
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
         results
     }
@@ -205,6 +293,7 @@ impl CellClassifier {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{Agency, LifecyclePhase};
 
     fn basis(dim: usize, axis: usize) -> Vec<f32> {
         let mut v = vec![0.0f32; dim];
@@ -214,7 +303,8 @@ mod tests {
 
     fn cell(domain: &str, mode: &str, embeddings: Vec<Vec<f32>>) -> Cell {
         let entries = (0..embeddings.len()).map(|i| format!("{domain}/{mode}#{i}")).collect();
-        Cell { domain: domain.to_string(), mode: mode.to_string(), embeddings, entries }
+        let facets = vec![Facets::default(); embeddings.len()];
+        Cell::new(domain.to_string(), mode.to_string(), embeddings, entries, facets)
     }
 
     #[test]
@@ -265,5 +355,42 @@ mod tests {
         let centroids = clf.cell_centroids();
         let c = centroids.get("A\x00X").expect("key must be DOMAIN\\x00MODE");
         assert_eq!(c, &vec![0.5, 0.5]);
+    }
+
+    #[test]
+    fn classify_carries_aggregated_facets() {
+        let mut c = cell("A", "X", vec![basis(4, 0), basis(4, 0), basis(4, 0)]);
+        c.facets = vec![
+            Facets { lifecycle: Some(LifecyclePhase::Operate), agency: Some(Agency::SelfActor), ..Default::default() },
+            Facets { lifecycle: Some(LifecyclePhase::Operate), agency: Some(Agency::SelfActor), ..Default::default() },
+            Facets { lifecycle: Some(LifecyclePhase::Design), agency: Some(Agency::Automated), ..Default::default() },
+        ];
+        let clf = CellClassifier { cells: vec![c] };
+        let r = &clf.classify(&basis(4, 0))[0];
+        assert_eq!(r.domain, "A");
+        assert_eq!(r.facets.lifecycle, Some(LifecyclePhase::Operate));
+        // 2/3 SelfActor, 2/3 Operate → clear majorities.
+        assert_eq!(r.facets.agency, Some(Agency::SelfActor));
+    }
+
+    #[test]
+    fn classify_filtered_upweights_matching_facets() {
+        let mut c = cell("A", "X", vec![basis(4, 0)]);
+        c.facets = vec![Facets { lifecycle: Some(LifecyclePhase::Operate), ..Default::default() }];
+        let other = cell("B", "Y", vec![basis(4, 0)]);
+        let clf = CellClassifier { cells: vec![c, other.clone()] };
+
+        // Without a filter both cells tie on embedding; A should still surface via facets.
+        let filter = FacetFilter { lifecycle: Some(LifecyclePhase::Operate), ..Default::default() };
+        let ranked = clf.classify_filtered(&basis(4, 0), &filter);
+        assert_eq!((ranked[0].domain.as_str(), ranked[0].mode.as_str()), ("A", "X"));
+    }
+
+    #[test]
+    fn classify_filtered_empty_is_identity() {
+        let clf = CellClassifier { cells: vec![cell("A", "X", vec![basis(4, 0)])] };
+        let a = clf.classify(&basis(4, 0));
+        let b = clf.classify_filtered(&basis(4, 0), &FacetFilter::default());
+        assert!((a[0].score - b[0].score).abs() < 1e-6);
     }
 }

@@ -83,6 +83,7 @@ impl OntologyLoader {
                     axis_name: Some(e.axis_name.clone()),
                     unit: e.unit.clone(),
                     hints: e.hints.clone(),
+                    facets: e.facets.clone(),
                 },
             );
         }
@@ -219,5 +220,17 @@ mod tests {
         sorted.dedup();
         assert_eq!(cats, sorted);
         assert!(cats.iter().any(|c| c.to_lowercase().contains("reason")));
+    }
+
+    #[test]
+    fn faceted_example_loads_with_facets() {
+        let json = include_str!("../config/ontology_facets.example.json");
+        let map = OntologyLoader::load_from_str(json).unwrap();
+        let pump = &map["Pump Maintenance"];
+        assert_eq!(pump.facets.lifecycle, Some(crate::models::LifecyclePhase::Operate));
+        assert_eq!(pump.facets.agency, Some(crate::models::Agency::Automated));
+        assert_eq!(pump.facets.sub_domain.as_deref(), Some("Repair"));
+        // A facet-less entry in the example still parses (back-compat default).
+        assert!(map.contains_key("Contract Negotiation"));
     }
 }

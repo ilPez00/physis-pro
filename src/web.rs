@@ -2638,6 +2638,7 @@ async fn classify_handler(
         mode: "unknown".into(),
         score: 0.0,
         entries: vec![],
+        facets: crate::models::Facets::default(),
     });
     Json(ClassifyResponse { results, top })
 }

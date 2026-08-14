@@ -40,7 +40,7 @@ impl CellClassifier {
                 text.push(' ');
                 text.push_str(hint);
             }
-            Some(EntrySeed { name: def.name.clone(), domain, mode, text })
+            Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
         });
         Self(physis_core::classify::CellClassifier::build_seeds(seeds, |t| embedder.embed(t)))
     }
@@ -88,7 +88,8 @@ mod tests {
 
     fn cell(domain: &str, mode: &str, embeddings: Vec<Vec<f32>>) -> CoreCell {
         let entries = (0..embeddings.len()).map(|i| format!("{domain}/{mode}#{i}")).collect();
-        CoreCell::new(domain.to_string(), mode.to_string(), embeddings, entries)
+        let facets = vec![physis_core::models::Facets::default(); embeddings.len()];
+        CoreCell::new(domain.to_string(), mode.to_string(), embeddings, entries, facets)
     }
 
     fn basis(dim: usize, axis: usize) -> Vec<f32> {

@@ -342,6 +342,7 @@ async fn upsert_entry(State(state): State<Shared>, Json(req): Json<EntryReq>) ->
         axis_kind: Some(req.axis_kind.clone()),
         axis_name: Some(req.axis_name.clone()),
         unit: req.unit.clone(),
+        facets: Facets::default(),
         hints,
     };
     {
@@ -444,6 +445,7 @@ async fn promote_proposal(State(state): State<Shared>, Json(req): Json<PromoteRe
         axis_name: Some("discovered".into()),
         unit: "items".into(),
         hints: req.hints,
+        facets: Facets::default(),
     };
     s.custom_entries.insert(name.clone(), def);
     s.rebuild();
