@@ -51,9 +51,14 @@ pub enum Commands {
     /// Start MCP server
     #[cfg(feature = "mcp")]
     Serve,
-    /// Watch directories for changes
+    /// Watch directories for changes; register new/changed files as labeled
+    /// core nodes (auto-ingest), drop nodes for removed files
     Watch {
+        /// Directories to watch
         dirs: Vec<PathBuf>,
+        /// Single sweep then exit (cron / smoke test) instead of looping
+        #[arg(long)]
+        once: bool,
     },
     /// Show stats
     Stats,
@@ -310,6 +315,12 @@ pub enum ConnectSource {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
+    // `--version` still answer on an unlicensed host: an evaluator has to be
+    // able to see what the tool is before we demand a key, and support needs
+    // `--version` to triage an install that refuses to run.
+    let license = physis_pro::license::enforce();
+
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
     // a faulty mount or a quick offline reduction.
@@ -334,6 +345,22 @@ fn main() -> anyhow::Result<()> {
     // it before building the heavy PhysisApp (ontology + embedder).
     if let Commands::Study { dir, url, place, user, interval, once } = &cli.command {
         return run_study_recorder(dir, url, place, user, *interval, *once);
+    }
+
+    // Per-command entitlement. Kept as a single table rather than scattered
+    // checks so that adding a paid capability means adding one line here, and
+    // so the mapping between commands and SKUs stays auditable at a glance.
+    let required_feature = match &cli.command {
+        #[cfg(feature = "mcp")]
+        Commands::Serve => Some("mcp"),
+        Commands::Ingest => Some("ingest"),
+        _ => None,
+    };
+    if let Some(feature) = required_feature {
+        if let Err(e) = license.require(feature) {
+            eprintln!("physis: {e}");
+            std::process::exit(2);
+        }
     }
 
     let config = PhysisProConfig::default();
@@ -386,8 +413,8 @@ fn main() -> anyhow::Result<()> {
                 physis_pro::mcp::start_mcp_server(config.physis).await
             })?;
         }
-        Commands::Watch { dirs } => {
-            let output = app.run_watch(dirs);
+        Commands::Watch { dirs, once } => {
+            let output = app.run_watch(dirs, once)?;
             println!("{output}");
         }
         Commands::Stats => {
@@ -1333,5 +1360,37 @@ mod tests {
         let mut app2 = cli_app(dir2.path());
         let out2 = app2.run_node_search("anything", 100, 5).unwrap();
         assert!(out2.contains("0 result(s)"), "empty store: {out2}");
+    }
+
+    #[test]
+    fn test_cli_watch_ingests_and_removes() {
+        let dir = tempfile::tempdir().unwrap();
+        let watched = dir.path().join("notes");
+        std::fs::create_dir_all(&watched).unwrap();
+        let file = watched.join("topology.md");
+        std::fs::write(&file, "# Topology\n## Graphs\n").unwrap();
+        let mut app = cli_app(dir.path());
+
+        // First sweep registers the file as labeled core nodes.
+        let out = app.run_watch(vec![watched.clone()], true).unwrap();
+        assert!(out.contains("1 new"), "first sweep sees the new file: {out}");
+        assert!(out.contains("registered"), "registers nodes: {out}");
+
+        // Idle sweep: nothing to do.
+        let out2 = app.run_watch(vec![watched.clone()], true).unwrap();
+        assert!(out2.contains("0 new"), "second sweep sees nothing new: {out2}");
+
+        // Content change → re-register; removal → nodes dropped.
+        std::fs::write(&file, "# Topology edited\n").unwrap();
+        let out3 = app.run_watch(vec![watched.clone()], true).unwrap();
+        assert!(out3.contains("1 changed"), "content change detected: {out3}");
+
+        std::fs::remove_file(&file).unwrap();
+        let out4 = app.run_watch(vec![watched.clone()], true).unwrap();
+        assert!(out4.contains("1 deleted"), "removal detected: {out4}");
+
+        // Nothing left in the store for the removed file's prefix.
+        let out5 = app.run_node_search("Topology", 100, 10).unwrap();
+        assert!(out5.contains("0 result(s)"), "removed nodes are gone: {out5}");
     }
 }

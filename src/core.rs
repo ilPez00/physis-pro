@@ -339,6 +339,28 @@ impl PhysisCore {
         true
     }
 
+    /// Delete every node whose label is `label` or begins with `label → `.
+    /// Used by watch/ingest when a file is removed: its nodes were registered
+    /// under the structural path (`dir → file`) plus one per structural line
+    /// (`dir → file → fn`), so a single prefix sweep drops them all. Returns
+    /// the removed ids so callers can drop the persisted sled rows (the nodes
+    /// themselves are already gone from memory / holarchy / PQ / dedupe index).
+    pub fn delete_nodes_by_label_prefix(&mut self, label: &str) -> Vec<String> {
+        let prefix = format!("{label} → ");
+        let ids: Vec<String> = self
+            .nodes
+            .iter()
+            .filter(|(_, n)| {
+                n.label.as_deref().is_some_and(|l| l == label || l.starts_with(&prefix))
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in &ids {
+            self.delete_node(id);
+        }
+        ids
+    }
+
     /// Mean of the reported verdicts, or `None` when nothing has been judged.
     ///
     /// Distinct from `coherence_index`, which averages derived density over
@@ -862,6 +884,24 @@ mod tests {
         let mut g = PhysisCore::new();
         let err = g.edit_node("missing", "x", vec![0.1; 32], None, None);
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_delete_nodes_by_label_prefix() {
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        g.register_node_vec_labeled(emb.embed("a"), Some("src → main.rs".into()));
+        g.register_node_vec_labeled(emb.embed("b"), Some("src → main.rs → fn main".into()));
+        g.register_node_vec_labeled(emb.embed("c"), Some("src → lib.rs".into()));
+
+        let removed = g.delete_nodes_by_label_prefix("src → main.rs");
+        assert_eq!(removed.len(), 2, "structural path + its per-line labels drop together");
+        assert!(g.nodes.values().all(|n| n.label.as_deref() != Some("src → main.rs")));
+        assert!(g.nodes.len() == 1, "unrelated prefix survives");
+
+        // The label is free to register again (dedupe index cleaned up).
+        let again = g.register_node_vec_labeled(emb.embed("d"), Some("src → main.rs".into()));
+        assert!(!removed.contains(&again), "deleted label is free again");
     }
 
     #[test]

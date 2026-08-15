@@ -14,6 +14,7 @@
 - **Semiotic node editing (exchange parts)** — `PhysisCore::edit_node`/`delete_node` swap a node's content (label + embedding) while preserving structure (id, verdict, holarchy edges, provenance); `CoherenceNode.cell_pin` hybrid pin. Web: `POST /api/v1/coherence/edit` + `/delete`. Resolves the DEVELOPMENT_PLAN TODO; design in `docs/SEMIOTIC_EDITING.md`
 - **Fixed-token node search** — `POST /api/v1/search/nodes`, budget-bounded similarity over coherence + goal nodes (`total_tokens ≤ token_budget`) via `rag::TokenFixedRetriever`
 - **CLI node editing** — `physis-pro node-edit` / `node-delete` / `node-search`, sharing the web server's sled store with matching embedder provenance
+- **Watch-mode auto-ingest (Phase 7B)** — background thread (`PHYSIS_WATCH_DIR`), `POST /api/v1/watch` on-demand sweep, and `physis-pro watch <dirs> [--once]` register new/changed files as labeled core nodes and drop nodes for removed files; shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix`
 
 ## Pending Hosting Actions (user required)
 1. **DNS TXT** — Contact DNS provider to add TXT record. Once propagated, enable GitHub Pages

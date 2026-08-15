@@ -486,17 +486,91 @@ No other text."#.into(),
         Ok(serde_json::to_string_pretty(&global_map)?)
     }
 
-    /// Watch directories for file changes using hash-cache diffing.
-    pub fn run_watch(&mut self, dirs: Vec<PathBuf>) -> String {
+    /// Watch directories for file changes using hash-cache diffing. With
+    /// `once`, perform a single ingest sweep and return (cron/smoke-test
+    /// friendly); otherwise loop forever, re-scanning on `scan_interval_secs`.
+    ///
+    /// Each sweep registers new/changed files as labeled core nodes with the
+    /// shared embedder (so the wiki stays fed without a manual scan), drops
+    /// nodes for removed files, and advances the hash cache. Returns a summary
+    /// of the sweep.
+    pub fn run_watch(&mut self, dirs: Vec<PathBuf>, once: bool) -> anyhow::Result<String> {
+        loop {
+            let sweep = self.watch_sweep(dirs.clone())?;
+            if once {
+                return Ok(sweep);
+            }
+            println!("{sweep}");
+            std::thread::sleep(std::time::Duration::from_secs(self.config.network_scan_interval_secs));
+        }
+    }
+
+    /// One watch sweep: diff `dirs` against the hash cache, ingest new/changed
+    /// files as labeled core nodes (shared embedder, persisted), delete nodes
+    /// for removed files, advance the cache. Returns a summary string.
+    fn watch_sweep(&mut self, dirs: Vec<PathBuf>) -> anyhow::Result<String> {
         let cache_path = self.config.data_dir.join("hash_cache.json");
         let scanner = NetworkScanner::new(dirs.clone(), cache_path, self.config.network_scan_interval_secs);
         let diffs = scanner.scan_all();
-        let mut changes = Vec::new();
-        for diff in &diffs {
-            changes.push(format!("{} new, {} changed, {} deleted",
-                diff.summary.new, diff.summary.changed, diff.summary.deleted));
+
+        let mut new = 0usize;
+        let mut changed = 0usize;
+        let mut deleted = 0usize;
+        let mut ingested = 0usize;
+        let mut removed = 0usize;
+
+        // Only touch the store when there is something to do.
+        let any_change = diffs.iter().any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
+        if any_change {
+            let Some((db, mut core)) = self.open_persisted_core() else {
+                anyhow::bail!("node store unavailable (persistence off)");
+            };
+
+            // Register new/changed content as labeled core nodes. The app
+            // embedder carries the same provenance the web server stamps, so
+            // these nodes survive a web reload (embedder-mismatch skip).
+            let mut labels: Vec<String> = Vec::new();
+            for diff in &diffs {
+                new += diff.summary.new;
+                changed += diff.summary.changed;
+                deleted += diff.summary.deleted;
+                for f in diff.new.iter().chain(diff.changed.iter()) {
+                    labels.extend(f.labels());
+                }
+            }
+            if !labels.is_empty() {
+                let refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+                let embeddings = self.embedder.embed_batch(&refs);
+                for (emb, label) in embeddings.into_iter().zip(labels) {
+                    let id = core.register_node_vec_labeled(emb, Some(label));
+                    if let Err(e) = core.persist_node(&db, "_default", &id) {
+                        eprintln!("[physis] watch: node {id} not persisted: {e}");
+                    }
+                    ingested += 1;
+                }
+            }
+
+            // Removed files: their nodes live under the structural path
+            // (`dir → file` plus per-line labels). Delete them and their rows.
+            for diff in &diffs {
+                for p in &diff.deleted {
+                    let prefix = p.replace('/', " → ");
+                    for id in core.delete_nodes_by_label_prefix(&prefix) {
+                        let _ = db.remove(crate::core::PhysisCore::node_key("_default", &id));
+                        removed += 1;
+                    }
+                }
+            }
         }
-        changes.join("\n")
+
+        // Advance the hash cache so the next sweep only sees real changes.
+        scanner.update_cache(&diffs);
+
+        let watched: Vec<String> = dirs.iter().map(|d| d.display().to_string()).collect();
+        Ok(format!(
+            "watch[{}]: {} new, {} changed, {} deleted — registered {} labeled nodes, removed {}",
+            watched.join(", "), new, changed, deleted, ingested, removed,
+        ))
     }
 
     /// Print trie statistics and PDCA metrics.

@@ -595,7 +595,15 @@ Each connector is thin: `source → embed (shared embedder) → register labeled
   index → unsearchable). Now also register each file as a labeled core node via
   `mapper.map_filesystem_labeled()` + the **shared** embedder, embedded outside
   the lock, so scanned data is recallable by content in the wiki.
-- **Watch mode** — `network`/`notify`: auto-ingest on file create/modify.
+- **Watch mode** — ✅ done. Auto-ingest on file create/modify:
+  - Web background thread (`PHYSIS_WATCH_DIR` + `PHYSIS_WATCH_INTERVAL_SECS` env,
+    confined to scan_root) registers new/changed files as labeled core nodes.
+  - `POST /api/v1/watch` — on-demand sweep (same ingestion, scan-root confined);
+    returns `{new, changed, deleted, registered, removed, total_nodes}`.
+  - CLI `physis-pro watch <dirs> [--once]` — loop (or one sweep) ingesting diffs,
+    dropping nodes for removed files, advancing the hash cache.
+  - Labels come from `FileInfo::labels()` (shared by /scan, watch, and the CLI);
+    removal uses `PhysisCore::delete_nodes_by_label_prefix`.
 - **Vault importers** — Obsidian/markdown, plain notes, `git log`, code repos.
 - **Personal-history importers** — browser history+bookmarks, email/chat exports,
   RSS/read-later, photo library (EXIF + CLIP embed).
