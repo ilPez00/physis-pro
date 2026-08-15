@@ -31,6 +31,8 @@ use crate::embed::RandomProjectionEmbedder;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
 use crate::mapper::OntologyMapper;
 use crate::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
+use crate::structsim::{self, StructNode};
+use crate::rag::{self, RagCorpus};
 use crate::CoherenceSnapshot;
 
 use crate::oee::{plant_oee, OeeBoard, OeeReport, OeeShift, PlantOee, StopReason};
@@ -917,6 +919,122 @@ async fn fs_graph_handler(
     }))
 }
 
+// ── structsim: compare two data structures node-by-node by vector similarity ──
+
+#[derive(Deserialize)]
+struct StructSimRequest {
+    /// Path A (confined to scan_root). JSON or indentation-structured text.
+    a: String,
+    /// Path B (confined to scan_root).
+    b: String,
+    /// Minimum cosine for a field pair to count as a match (default 0.5).
+    #[serde(default = "default_struct_threshold")]
+    threshold: f32,
+}
+
+fn default_struct_threshold() -> f32 {
+    0.5
+}
+
+/// POST /api/v1/structsim — flatten two structures into node lists, embed each
+/// node, and match them by cosine. Returns matched pairs + missing/extra fields
+/// + overall similarity. Both paths are sandboxed to scan_root.
+async fn structsim_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<StructSimRequest>,
+) -> Result<Json<structsim::StructureGraph>, (StatusCode, Json<ErrorResponse>)> {
+    let pa = sandbox_existing(&state, &req.a)?;
+    let pb = sandbox_existing(&state, &req.b)?;
+    let shared = state.shared.clone();
+    let threshold = req.threshold;
+    let graph = tokio::task::spawn_blocking(move || -> anyhow::Result<structsim::StructureGraph> {
+        let ta = std::fs::read_to_string(&pa)?;
+        let tb = std::fs::read_to_string(&pb)?;
+        let na = flatten_any(&ta);
+        let nb = flatten_any(&tb);
+        Ok(structsim::compare_node_lists(
+            &na,
+            &nb,
+            shared.embedder.as_ref(),
+            threshold,
+        ))
+    })
+    .await
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("structsim failed: {e}")))?
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("structsim failed: {e}")))?;
+    Ok(Json(graph))
+}
+
+/// Flatten arbitrary text into nodes: JSON if it parses, else struct text.
+fn flatten_any(text: &str) -> Vec<StructNode> {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(text) {
+        structsim::flatten_json(&v)
+    } else {
+        structsim::flatten_struct_text(text)
+    }
+}
+
+// ── rag: token-fixed retrieval (hard token-budget context assembly) ──
+
+#[derive(Deserialize)]
+struct RagRequest {
+    /// Directory to retrieve from (confined to scan_root).
+    dir: String,
+    /// The retrieval query.
+    query: String,
+    /// Hard token budget for the assembled context (default 1500).
+    #[serde(default = "default_rag_tokens")]
+    tokens: usize,
+    /// Maximum chunks to select (default 8).
+    #[serde(default = "default_rag_topk")]
+    top_k: usize,
+}
+
+fn default_rag_tokens() -> usize {
+    1500
+}
+fn default_rag_topk() -> usize {
+    8
+}
+
+/// POST /api/v1/rag/retrieve — scan a sandboxed dir, embed each doc, and return
+/// the chunks whose packed token total stays within `tokens`. Deterministic and
+/// overflow-proof.
+async fn rag_retrieve_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<RagRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let canonical = sandbox_existing(&state, &req.dir)?;
+    let shared = state.shared.clone();
+    let query = req.query.clone();
+    let budget = req.tokens;
+    let top_k = req.top_k;
+    let (result, context) = tokio::task::spawn_blocking(move || -> anyhow::Result<(rag::RetrievalResult, String)> {
+        let docs = crate::ingest::ingest_all(&[canonical]);
+        if docs.is_empty() {
+            anyhow::bail!("no documents found under scan dir");
+        }
+        let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+        let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+        let q_emb = shared.embedder.embed(&query);
+        let retriever = rag::TokenFixedRetriever::new(budget, top_k);
+        let result = retriever.retrieve(&q_emb, &corpus);
+        let context = rag::assemble_context(&result, "\n\n---\n\n");
+        Ok((result, context))
+    })
+    .await
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("rag failed: {e}")))?
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("rag failed: {e}")))?;
+
+    Ok(Json(serde_json::json!({
+        "total_tokens": result.total_tokens,
+        "budget": result.budget,
+        "truncated": result.truncated,
+        "chunks": result.chunks,
+        "context": context,
+    })))
+}
+
 #[derive(Deserialize)]
 struct FsFileQuery {
     path: String,
@@ -1244,9 +1362,271 @@ async fn coherence_register_handler(
     Json(CoherenceRegisterResponse { node_id, asserted })
 }
 
-// ── OEE / shop-floor ─────────────────────────────────────────────────────────
-// Plant-wide Overall Equipment Effectiveness. The board is shared infra, so all
-// of these touch `state.oee` (one mutex) and ignore the tenant header.
+// ── Coherence node editing ("exchange parts") ───────────────────────────────
+// Semiotic editing of a *single* data node: swap the content (label → re-embed)
+// while preserving the structure (id, asserted verdict, holarchy edges, embedder
+// provenance). The grid cell is re-derived from the new content; an editor may
+// pin a desired cell, which overrides the auto result and survives restarts.
+
+#[derive(Deserialize, Serialize)]
+struct CellPin {
+    domain: String,
+    mode: String,
+}
+
+#[derive(Deserialize)]
+struct CoherenceEditRequest {
+    id: String,
+    /// New content. Re-embedded with the shared embedder; structure preserved.
+    label: String,
+    /// Optional semiotic cell pin (`{domain, mode}`). Overrides the auto-derived
+    /// cell — the hybrid semantics. Absent = auto-derive only.
+    #[serde(default)]
+    cell: Option<CellPin>,
+}
+
+#[derive(Serialize)]
+struct CoherenceEditResponse {
+    ok: bool,
+    node_id: String,
+    label: String,
+    /// Cell the classifier would place the new content in (auto result).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auto_cell: Option<CellPin>,
+    /// Cell the editor pinned, if any (persisted on the node).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pinned_cell: Option<CellPin>,
+    /// Cell the classifier placed the OLD content in, before the swap.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    before_cell: Option<CellPin>,
+    /// Caller's verdict, preserved verbatim across the swap.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    asserted: Option<Score>,
+    /// Derived density after the new content was scored.
+    coherence_score: Score,
+}
+
+/// POST /api/v1/coherence/edit — exchange a node's content while keeping its
+/// function (identity + structure). Re-embeds the new label, preserves id /
+/// asserted / edges / provenance, re-derives the cell (auto), applies an
+/// optional pin, and writes the node through to sled.
+async fn coherence_edit_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<CoherenceEditRequest>,
+) -> Result<Json<CoherenceEditResponse>, (StatusCode, Json<ErrorResponse>)> {
+    if req.id.trim().is_empty() || req.label.trim().is_empty() {
+        return Err(err_response(StatusCode::BAD_REQUEST, "id and label are required"));
+    }
+    // Validate the pin against the semiotic grid before mutating anything.
+    if let Some(pin) = &req.cell {
+        if HumanDomain::from_str(&pin.domain).is_none() || HumanMode::from_str(&pin.mode).is_none() {
+            return Err(err_response(
+                StatusCode::BAD_REQUEST,
+                &format!("invalid cell pin {}×{} — expected a HUMAN domain × mode",
+                         pin.domain, pin.mode),
+            ));
+        }
+    }
+    let uid = user_key(&headers);
+
+    // Old embedding → before-cell (computed before the swap).
+    let before_embedding = state.with_user(&uid, |s| {
+        s.core.nodes.get(&req.id).map(|n| n.embedding.clone())
+    });
+    let Some(before_embedding) = before_embedding else {
+        return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", req.id)));
+    };
+
+    let shared = state.shared.clone();
+    let new_embedding = embed_text(shared.clone(), req.label.clone()).await;
+
+    let auto_cell = shared.classifier.classify(&new_embedding).first().map(|c| CellPin {
+        domain: c.domain.clone(),
+        mode: c.mode.clone(),
+    });
+    let before_cell = shared.classifier.classify(&before_embedding).first().map(|c| CellPin {
+        domain: c.domain.clone(),
+        mode: c.mode.clone(),
+    });
+
+    let pin = req.cell.map(|p| (p.domain, p.mode));
+    let outcome = state.with_user(&uid, |s| {
+        let outcome = s.core.edit_node(
+            &req.id,
+            &req.label,
+            new_embedding,
+            pin,
+            Some(shared.embedder_kind),
+        );
+        if let Ok(o) = &outcome {
+            if let Some(db) = state.db() {
+                if let Err(e) = s.core.persist_node(db, &uid, &o.node_id) {
+                    log::warn!("edited node {} not persisted: {e}", o.node_id);
+                }
+            }
+        }
+        outcome
+    });
+    let outcome = outcome.map_err(|e| err_response(StatusCode::NOT_FOUND, &e.to_string()))?;
+
+    Ok(Json(CoherenceEditResponse {
+        ok: true,
+        node_id: outcome.node_id,
+        label: outcome.label,
+        auto_cell,
+        pinned_cell: outcome.pinned_cell.map(|(domain, mode)| CellPin { domain, mode }),
+        before_cell,
+        asserted: outcome.asserted,
+        coherence_score: outcome.coherence_score,
+    }))
+}
+
+#[derive(Deserialize)]
+struct CoherenceDeleteRequest {
+    id: String,
+}
+
+/// POST /api/v1/coherence/delete — remove a node and every structure referencing
+/// it (dedupe index, holarchy node + edges, persisted sled row).
+async fn coherence_delete_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<CoherenceDeleteRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let removed = state.with_user(&uid, |s| {
+        let ok = s.core.delete_node(&req.id);
+        if ok {
+            if let Some(db) = state.db() {
+                let key = crate::core::PhysisCore::node_key(&uid, &req.id);
+                let _ = db.remove(key);
+            }
+        }
+        ok
+    });
+    if !removed {
+        return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", req.id)));
+    }
+    Ok(Json(serde_json::json!({ "ok": true, "node_id": req.id })))
+}
+
+// ── Fixed-token node search ──────────────────────────────────────────────────
+// Search the tenant's coherence + goal nodes under a hard token budget: results
+// are ranked by cosine, then packed greedily so `total_tokens <= budget` no
+// matter how large the store grows. Same contract as `/api/v1/rag/retrieve`,
+// applied to the live node store instead of on-disk files — the "fixed" token
+// cost of a bounded response.
+
+#[derive(Deserialize)]
+struct SearchNodesRequest {
+    query: String,
+    /// Hard token budget for the packed result labels (default 600).
+    #[serde(default = "default_search_budget")]
+    token_budget: usize,
+    /// Maximum number of results (default 12).
+    #[serde(default = "default_search_topk")]
+    top_k: usize,
+}
+
+fn default_search_budget() -> usize { 600 }
+fn default_search_topk() -> usize { 12 }
+
+#[derive(Serialize)]
+struct SearchNodeHit {
+    /// "node" (coherence) or "goal".
+    kind: String,
+    id: String,
+    label: String,
+    score: f32,
+    tokens: usize,
+}
+
+#[derive(Serialize)]
+struct SearchNodesResponse {
+    query: String,
+    budget: usize,
+    total_tokens: usize,
+    truncated: bool,
+    results: Vec<SearchNodeHit>,
+}
+
+/// POST /api/v1/search/nodes — budget-bounded similarity search over coherence +
+/// goal nodes. The query is embedded once; node/goal labels are ranked by cosine
+/// to it, then greedily packed until the running token total would exceed the
+/// budget (or `top_k` is reached). The response is therefore token-fixed.
+async fn search_nodes_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<SearchNodesRequest>,
+) -> Json<SearchNodesResponse> {
+    let uid = user_key(&headers);
+    let query = req.query.clone();
+    let shared = state.shared.clone();
+    let q_emb = embed_text(shared, query.clone()).await;
+
+    // Collect (kind, id, label, embedding) from the tenant's store. Unlabeled
+    // goals (pure vectors) are skipped — nothing browsable to return.
+    let candidates: Vec<(String, String, String, Vec<f32>)> = state.with_user(&uid, |s| {
+        let mut out: Vec<(String, String, String, Vec<f32>)> = Vec::new();
+        for n in s.core.nodes.values() {
+            if let Some(label) = n.label.as_deref() {
+                if !label.trim().is_empty() {
+                    out.push(("node".to_string(), n.id.clone(), label.to_string(), n.embedding.clone()));
+                }
+            }
+        }
+        for g in &s.goals {
+            let label = match &g.label {
+                Some(l) if !l.trim().is_empty() => l.clone(),
+                _ => continue,
+            };
+            out.push(("goal".to_string(), g.id.clone(), label, g.embedding.clone()));
+        }
+        out
+    });
+
+    // Reuse the token-fixed retriever over a corpus built from node labels
+    // (embeddings already computed — no re-embed). Chunk id = candidate index.
+    let corpus = rag::RagCorpus {
+        chunks: candidates
+            .iter()
+            .enumerate()
+            .map(|(i, (_, _, label, emb))| rag::RagChunk {
+                id: i,
+                text: label.clone(),
+                tokens: rag::count_tokens(label),
+                embedding: emb.clone(),
+            })
+            .collect(),
+    };
+    let retriever = rag::TokenFixedRetriever::new(req.token_budget, req.top_k);
+    let result = retriever.retrieve(&q_emb, &corpus);
+
+    let results: Vec<SearchNodeHit> = result
+        .chunks
+        .iter()
+        .filter_map(|c| {
+            let (kind, id, label, _) = candidates.get(c.id)?;
+            Some(SearchNodeHit {
+                kind: kind.clone(),
+                id: id.clone(),
+                label: label.clone(),
+                score: c.score,
+                tokens: c.tokens,
+            })
+        })
+        .collect();
+
+    Json(SearchNodesResponse {
+        query,
+        budget: result.budget,
+        total_tokens: result.total_tokens,
+        truncated: result.truncated,
+        results,
+    })
+}
+
 
 #[derive(Deserialize)]
 struct OeeMachineRequest {
@@ -3184,6 +3564,8 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
         .route("/api/v1/fs/graph", get(fs_graph_handler))
+        .route("/api/v1/structsim", post(structsim_handler))
+        .route("/api/v1/rag/retrieve", post(rag_retrieve_handler))
         .route("/api/v1/fs/file", get(fs_file_handler))
         .route("/api/v1/fs/move", post(fs_move_handler))
         .route("/api/v1/dream/generate", post(dream_generate_handler))
@@ -3193,6 +3575,9 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
         .route("/api/v1/coherence/nodes/all", get(coherence_nodes_all_handler))
         .route("/api/v1/coherence/register", post(coherence_register_handler))
+        .route("/api/v1/coherence/edit", post(coherence_edit_handler))
+        .route("/api/v1/coherence/delete", post(coherence_delete_handler))
+        .route("/api/v1/search/nodes", post(search_nodes_handler))
         .route("/api/v1/oee/machine", post(oee_machine_handler))
         .route("/api/v1/oee/event", post(oee_event_handler))
         .route("/api/v1/oee/plant", get(oee_plant_handler))
