@@ -122,6 +122,25 @@ Response:
 `kind` is `"node"` (coherence) or `"goal"`. Unlabeled goals (pure vectors) are
 skipped — nothing browsable to return.
 
+## CLI
+
+The same primitives are reachable from the terminal (physis is CLI-first) and
+share the web server's sled store (`<data_dir>/state.sled`, `_default` tenant).
+The CLI stamps nodes with the same embedder-kind provenance as the server, so
+edits survive a later web-server reload.
+
+```bash
+# Register a node (what /scan + /coherence/register do on the web side)
+physis-pro node-edit <id> "welding robot joint recalibration" --domain FABRICATE --mode MAINTAIN
+physis-pro node-delete <id>
+physis-pro node-search "spindle bearing" --budget 600 --top 12
+```
+
+> The subcommand names are `node-edit` / `node-delete` / `node-search` (clap
+> lower-kebab-cases the `NodeEdit` / `NodeDelete` / `NodeSearch` variants).
+> `--domain` and `--mode` must be supplied together (they form the optional pin);
+> without them the cell is auto-derived from the new content.
+
 ## Implementation
 
 - `src/models.rs` — `CoherenceNode.cell_pin: Option<(String, String)>`
@@ -132,8 +151,13 @@ skipped — nothing browsable to return.
 - `src/web.rs` — `coherence_edit_handler`, `coherence_delete_handler`,
   `search_nodes_handler`; routes `/api/v1/coherence/edit`, `/delete`,
   `/api/v1/search/nodes`.
+- `src/cli.rs` / `src/main.rs` — `NodeEdit` / `NodeDelete` / `NodeSearch`
+  commands; `PhysisApp::run_node_edit` / `run_node_delete` / `run_node_search` /
+  `register_persisted_node`; `embedder_kind` tracked to match server provenance.
 - `tests/http_surface.rs` — integration tests: edit preserves identity+verdict,
   pin + invalid-cell rejection, delete cleanup + tenancy, token budget bound.
+- `src/main.rs` `tests` — CLI tests for the same invariants (identity + pin,
+  budget bound, empty store).
 
 ## Why this matters
 
