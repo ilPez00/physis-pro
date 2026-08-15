@@ -169,6 +169,10 @@ struct EntryJson {
     axis_name: String,
     unit: String,
     hints: Vec<String>,
+    /// Orthogonal facets (lifecycle/agency/scale/abstraction + sub-domain/mode).
+    /// Sent so the edit modal can prefill them — without this the studio would
+    /// silently blank an entry's facets every time it was saved.
+    facets: Facets,
     /// True when this entry was edited in the studio (persisted custom).
     custom: bool,
 }
@@ -183,6 +187,7 @@ fn entry_json(name: &str, d: &DomainDef, custom: bool) -> EntryJson {
         axis_name: d.axis_name.clone().unwrap_or_default(),
         unit: d.unit.clone(),
         hints: d.hints.clone(),
+        facets: d.facets.clone(),
         custom,
     }
 }
@@ -322,13 +327,11 @@ struct EntryReq {
     axis_name: String,
     unit: String,
     hints: String,
-    // Facets for multi-dimensional categorization
-    sub_domain: Option<String>,
-    sub_mode: Option<String>,
-    lifecycle: Option<String>,
-    agency: Option<String>,
-    scale: Option<String>,
-    abstraction: Option<String>,
+    /// Orthogonal facets, deserialized by the same `Facets` impl the ontology
+    /// JSON loader uses — so the studio and the config files cannot drift on
+    /// spelling. Absent/partial objects fall back to `None` per field.
+    #[serde(default)]
+    facets: Facets,
 }
 
 async fn upsert_entry(State(state): State<Shared>, Json(req): Json<EntryReq>) -> Response {
@@ -349,7 +352,7 @@ async fn upsert_entry(State(state): State<Shared>, Json(req): Json<EntryReq>) ->
         axis_kind: Some(req.axis_kind.clone()),
         axis_name: Some(req.axis_name.clone()),
         unit: req.unit.clone(),
-        facets: Facets::default(),
+        facets: req.facets.clone(),
         hints,
     };
     {
@@ -551,4 +554,86 @@ fn save_custom_entries(data_dir: &std::path::Path, entries: &HashMap<String, Dom
     let json = serde_json::to_string_pretty(entries)?;
     std::fs::write(custom_ontology_file(data_dir), json)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pull the `value="…"` list out of one `<select id="…">` in the embedded app.
+    fn option_values(select_id: &str) -> Vec<String> {
+        let start = APP_HTML
+            .find(&format!("id=\"{select_id}\""))
+            .unwrap_or_else(|| panic!("{select_id} not found in app.html"));
+        let rest = &APP_HTML[start..];
+        let end = rest.find("</select>").expect("select is closed");
+        rest[..end]
+            .match_indices("value=\"")
+            .map(|(i, m)| {
+                let v = &rest[i + m.len()..];
+                v[..v.find('"').expect("value is quoted")].to_string()
+            })
+            .filter(|v| !v.is_empty()) // the "—" placeholder
+            .collect()
+    }
+
+    /// The facet dropdowns live in an HTML string literal, so nothing in Rust
+    /// forces them to spell the enum variants correctly — and they didn't:
+    /// the UI once offered Self / Organization / Concept / Implementation /
+    /// Instance, none of which are variants. Every option must deserialize.
+    #[test]
+    fn studio_facet_options_match_the_enum_variants() {
+        for v in option_values("mLifecycle") {
+            serde_json::from_value::<LifecyclePhase>(serde_json::Value::String(v.clone()))
+                .unwrap_or_else(|e| panic!("lifecycle option {v:?} is not a variant: {e}"));
+        }
+        for v in option_values("mAgency") {
+            serde_json::from_value::<Agency>(serde_json::Value::String(v.clone()))
+                .unwrap_or_else(|e| panic!("agency option {v:?} is not a variant: {e}"));
+        }
+        for v in option_values("mScale") {
+            serde_json::from_value::<Scale>(serde_json::Value::String(v.clone()))
+                .unwrap_or_else(|e| panic!("scale option {v:?} is not a variant: {e}"));
+        }
+        for v in option_values("mAbstraction") {
+            serde_json::from_value::<Abstraction>(serde_json::Value::String(v.clone()))
+                .unwrap_or_else(|e| panic!("abstraction option {v:?} is not a variant: {e}"));
+        }
+    }
+
+    /// An upsert must carry the editor's facets onto the stored `DomainDef`.
+    /// Before this, `EntryReq` declared the facet fields, the handler wrote
+    /// `Facets::default()`, and editing an entry silently erased its facets.
+    #[test]
+    fn upsert_request_carries_facets_through() {
+        let req: EntryReq = serde_json::from_value(serde_json::json!({
+            "name": "Pump Maintenance",
+            "category": "reliability",
+            "domain": "CONSTRUCT",
+            "mode": "MAINTAIN",
+            "axis_kind": "machine",
+            "axis_name": "operational",
+            "unit": "tasks",
+            "hints": "lubricate, inspect",
+            "facets": { "lifecycle": "Operate", "agency": "Automated", "sub_domain": "Repair" },
+        }))
+        .expect("entry with facets deserializes");
+        assert_eq!(req.facets.lifecycle, Some(LifecyclePhase::Operate));
+        assert_eq!(req.facets.agency, Some(Agency::Automated));
+        assert_eq!(req.facets.sub_domain.as_deref(), Some("Repair"));
+        // Unset facets stay None rather than becoming a bogus default.
+        assert_eq!(req.facets.scale, None);
+    }
+
+    /// A request with no `facets` key at all still parses — the studio's older
+    /// clients (and the promote-proposal path) send none.
+    #[test]
+    fn upsert_request_without_facets_still_parses() {
+        let req: EntryReq = serde_json::from_value(serde_json::json!({
+            "name": "x", "domain": "STUDY", "mode": "WORK",
+            "axis_kind": "", "axis_name": "", "unit": "", "hints": "",
+        }))
+        .expect("entry without facets deserializes");
+        assert_eq!(req.facets, Facets::default());
+    }
 }

@@ -817,7 +817,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Rag { dir, query, tokens, top_k } => {
-            let docs = ingest::ingest_all(&[dir.clone()]);
+            let docs = ingest::ingest_all(std::slice::from_ref(&dir));
             if docs.is_empty() {
                 anyhow::bail!("no documents found under {}", dir.display());
             }
@@ -1365,7 +1365,7 @@ mod tests {
         let tokens: usize = header.split("tokens").next().unwrap()
             .split(',').nth(1).unwrap().trim().parse().unwrap();
         assert!(tokens <= 20, "total tokens {tokens} must respect budget 20");
-        assert!(!out.lines().skip(1).next().is_none(), "at least one result listed");
+        assert!(out.lines().nth(1).is_some(), "at least one result listed");
 
         // An empty store search still returns a bounded header.
         let dir2 = tempfile::tempdir().unwrap();

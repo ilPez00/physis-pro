@@ -364,6 +364,18 @@ async function loadQuality(){
 }
 
 /* ── edit modal ── */
+// Collect the facet controls into a Facets object. Empty selections are
+// OMITTED rather than sent as "": the Rust side parses each facet as an enum,
+// and "" is not a variant — sending it would 422 the whole entry.
+function facetsFromForm(){
+  const f = {};
+  const put = (key, id) => { const v = $(id).value.trim(); if (v) f[key] = v; };
+  put('lifecycle','mLifecycle'); put('agency','mAgency');
+  put('scale','mScale'); put('abstraction','mAbstraction');
+  put('sub_domain','mSubDomain'); put('sub_mode','mSubMode');
+  return f;
+}
+
 function openEdit(name, domain, mode){
   state.editingName = name;
   const modal = $('modal');
@@ -392,6 +404,9 @@ function openEdit(name, domain, mode){
 
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <h4>Facets</h4>
+      <!-- option values are the serde variant names of physis-core's facet
+           enums; the label may read differently (Self → SelfActor) but the
+           value must match or the entry fails to deserialize. -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><label>Lifecycle</label><select id="mLifecycle">
           <option value="">—</option>
@@ -402,7 +417,7 @@ function openEdit(name, domain, mode){
         </select></div>
         <div><label>Agency</label><select id="mAgency">
           <option value="">—</option>
-          <option value="Self">Self</option>
+          <option value="SelfActor">Self</option>
           <option value="Other">Other</option>
           <option value="Automated">Automated</option>
           <option value="Collective">Collective</option>
@@ -412,16 +427,19 @@ function openEdit(name, domain, mode){
         <div><label>Scale</label><select id="mScale">
           <option value="">—</option>
           <option value="Personal">Personal</option>
-          <option value="Team">Team</option>
-          <option value="Organization">Organization</option>
+          <option value="Interpersonal">Interpersonal</option>
+          <option value="Organizational">Organizational</option>
           <option value="Civil">Civil</option>
         </select></div>
         <div><label>Abstraction</label><select id="mAbstraction">
           <option value="">—</option>
-          <option value="Concept">Concept</option>
-          <option value="Implementation">Implementation</option>
-          <option value="Instance">Instance</option>
+          <option value="Concrete">Concrete</option>
+          <option value="Abstract">Abstract</option>
         </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+        <div><label>Sub-domain</label><input type="text" id="mSubDomain" placeholder="e.g. Repair"></div>
+        <div><label>Sub-mode</label><input type="text" id="mSubMode" placeholder="e.g. Preventive"></div>
       </div>
     </div>`;
   $('modalBg').classList.add('open');
@@ -438,6 +456,15 @@ function openEdit(name, domain, mode){
             $('mAxisName').value = e.axis_name;
             $('mUnit').value = e.unit;
             $('mHints').value = e.hints.join(', ');
+            // Prefill facets too — a save writes the whole DomainDef, so an
+            // unfilled facet control would silently blank an existing facet.
+            const f = e.facets || {};
+            $('mLifecycle').value = f.lifecycle || '';
+            $('mAgency').value = f.agency || '';
+            $('mScale').value = f.scale || '';
+            $('mAbstraction').value = f.abstraction || '';
+            $('mSubDomain').value = f.sub_domain || '';
+            $('mSubMode').value = f.sub_mode || '';
           }
         }
       }
@@ -450,6 +477,7 @@ function openEdit(name, domain, mode){
       domain: $('mDomain').value, mode: $('mMode').value,
       axis_kind: $('mAxisKind').value, axis_name: $('mAxisName').value,
       unit: $('mUnit').value, hints: $('mHints').value,
+      facets: facetsFromForm(),
     };
     await api('/api/ontology/upsert', payload);
     $('modalBg').classList.remove('open');

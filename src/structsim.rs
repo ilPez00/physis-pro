@@ -119,7 +119,7 @@ fn flatten_json_impl(value: &Value, path: String, out: &mut Vec<StructNode>, dep
             let key = leaf_key(&path);
             let elem_hint = arr
                 .first()
-                .map(|e| type_name(e))
+                .map(type_name)
                 .unwrap_or_else(|| "empty".into());
             out.push(StructNode {
                 path: path.clone(),
@@ -220,7 +220,7 @@ fn parse_field_line(line: &str) -> (String, String) {
 }
 
 fn leaf_key(path: &str) -> String {
-    match path.rfind(|c| c == '.' || c == ']') {
+    match path.rfind(['.', ']']) {
         Some(i) => {
             let start = if path.as_bytes().get(i) == Some(&b']') {
                 // path like "items[0]" → key "items"
@@ -312,8 +312,8 @@ pub fn compare_node_lists(
     for (i, na) in nodes_a.iter().enumerate() {
         let mut best = 0.0f32;
         let mut best_j = None;
-        for j in 0..nodes_b.len() {
-            let s = cosine_sim(&emb_a[i], &emb_b[j]);
+        for (j, eb) in emb_b.iter().enumerate() {
+            let s = cosine_sim(&emb_a[i], eb);
             if s > best {
                 best = s;
                 best_j = Some(j);
