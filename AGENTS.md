@@ -70,6 +70,7 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Semiotic editing | `core.rs` + `web.rs` | **Exchange-parts edit**: `PhysisCore::edit_node()`/`delete_node()` swap node content while preserving structure (id/verdict/edges/provenance); `CoherenceNode.cell_pin` hybrid-pin semantics. API: `POST /api/v1/coherence/edit` + `/delete`. CLI: `node-edit`/`node-delete`. See `docs/SEMIOTIC_EDITING.md` |
 | Fixed-token search | `web.rs` + `rag.rs` | `POST /api/v1/search/nodes` + CLI `node-search` — budget-bounded similarity search over coherence + goal nodes (`total_tokens ≤ token_budget`), reusing `rag::TokenFixedRetriever` + `count_tokens` |
 | Watch mode | `network.rs` + `web.rs` + `cli.rs` | **Auto-ingest**: `PHYSIS_WATCH_DIR` background thread, `POST /api/v1/watch` on-demand sweep, CLI `physis-pro watch [--once]` — register new/changed files as labeled core nodes (shared embedder), drop nodes for removed files. Shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix` |
+| Vault import | `vault.rs` + `web.rs` + `cli.rs` | **Vault importers (Phase 7B)**: Obsidian/markdown, plain notes, `git log` → `VaultDoc` (title from H1/frontmatter, `h1:`…`h3:` headings) → labeled core nodes. CLI `physis-pro vault <dir> [--git N]`, web `POST /api/v1/vault/import` (scan-root confined, dedupe by label); `parse_git_log` tested without a git binary |
 
 ## Ontology Extensions
 

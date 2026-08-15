@@ -604,7 +604,13 @@ Each connector is thin: `source → embed (shared embedder) → register labeled
     dropping nodes for removed files, advancing the hash cache.
   - Labels come from `FileInfo::labels()` (shared by /scan, watch, and the CLI);
     removal uses `PhysisCore::delete_nodes_by_label_prefix`.
-- **Vault importers** — Obsidian/markdown, plain notes, `git log`, code repos.
+- **Vault importers** — ✅ done. Obsidian/markdown, plain notes, and `git log`
+  reduced to labeled core nodes (`src/vault.rs`):
+  - `VaultDoc` (title from H1 / Obsidian `title:` frontmatter / file stem,
+    headings `h1:`…`h3:`, full body) with `labels()` = title + `title → hN:…`.
+  - CLI `physis-pro vault <dir> [--git N]` and web `POST /api/v1/vault/import`
+    (scan-root confined) register them with the shared embedder; re-import
+    dedupes by label. `parse_git_log` is unit-testable without a git binary.
 - **Personal-history importers** — browser history+bookmarks, email/chat exports,
   RSS/read-later, photo library (EXIF + CLIP embed).
 - **Praxis backfill** — `notebook_entries` + trackers → `register_behavioural_vector`

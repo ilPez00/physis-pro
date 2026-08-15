@@ -295,6 +295,25 @@ struct WatchRequest {
     dir: String,
 }
 
+#[derive(Deserialize)]
+struct VaultImportRequest {
+    dir: String,
+    /// Also import the last N commits of the enclosing git repo (0 = skip).
+    #[serde(default = "default_vault_git")]
+    git: usize,
+}
+
+fn default_vault_git() -> usize { 50 }
+
+#[derive(Serialize)]
+struct VaultImportResponse {
+    docs: usize,
+    notes: usize,
+    commits: usize,
+    registered: usize,
+    deduped: usize,
+}
+
 #[derive(Serialize)]
 struct WatchResponse {
     /// New files found by the sweep.
@@ -858,6 +877,81 @@ async fn watch_handler(
     let total_nodes = state.with_user(&uid, |s| s.core.nodes.len());
     Ok(Json(WatchResponse {
         new, changed, deleted, registered, removed, total_nodes,
+    }))
+}
+
+/// POST /api/v1/vault/import — import a knowledge vault (Obsidian/markdown,
+/// plain text, git log) as labeled core nodes. Same scan-root confinement as
+/// /scan; embedding runs off-thread with the shared embedder so the vault is
+/// recallable by content in the wiki.
+async fn vault_import_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<VaultImportRequest>,
+) -> Result<Json<VaultImportResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.dir);
+    if !path.exists() {
+        return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
+    }
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let uid = user_key(&headers);
+
+    // Scan notes + optional git log (off-thread; git runs a subprocess).
+    let (docs, commits) = tokio::task::spawn_blocking(move || {
+        let mut notes = crate::vault::scan_vault(&canonical);
+        let commits = if req.git > 0 {
+            crate::vault::scan_git_log(&canonical, req.git)
+        } else {
+            vec![]
+        };
+        notes.extend(commits.clone());
+        (notes, commits.len())
+    })
+    .await
+    .unwrap_or_default();
+    let docs_len = docs.len();
+    let note_count = docs_len.saturating_sub(commits);
+
+    if docs.is_empty() {
+        return Ok(Json(VaultImportResponse {
+            docs: 0, notes: 0, commits: 0, registered: 0, deduped: 0,
+        }));
+    }
+
+    // Label + embeddable text per doc; embed off-thread with the shared embedder.
+    let pairs = crate::vault::collect_labels(&docs);
+    let labels_total = pairs.len();
+    let texts: Vec<String> = pairs.iter().map(|(_, body)| body.clone()).collect();
+    let embeddings = embed_batch_off_thread(state.shared.clone(), texts).await;
+
+    // Dedupe is by label: count nodes before/after to know how many were new.
+    let (registered, deduped) = state.with_user(&uid, |s| {
+        let before = s.core.nodes.len();
+        for ((label, _), emb) in pairs.into_iter().zip(embeddings) {
+            let id = s.core.register_node_vec_labeled(emb, Some(label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        let registered = s.core.nodes.len().saturating_sub(before);
+        let deduped = labels_total.saturating_sub(registered);
+        (registered, deduped)
+    });
+
+    Ok(Json(VaultImportResponse {
+        docs: docs_len,
+        notes: note_count,
+        commits,
+        registered,
+        deduped,
     }))
 }
 
@@ -3735,6 +3829,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
         .route("/api/v1/watch", post(watch_handler))
+        .route("/api/v1/vault/import", post(vault_import_handler))
         .route("/api/v1/fs/graph", get(fs_graph_handler))
         .route("/api/v1/structsim", post(structsim_handler))
         .route("/api/v1/rag/retrieve", post(rag_retrieve_handler))
