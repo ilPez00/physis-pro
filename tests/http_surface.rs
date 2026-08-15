@@ -585,6 +585,69 @@ async fn vault_import_registers_recallable_nodes() {
 }
 
 #[tokio::test]
+async fn history_import_registers_recallable_nodes() {
+    // Personal-history importers (Phase 7B): /api/v1/history/import reduces a
+    // browser bookmarks export to labeled core nodes, recallable by content.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let notes = dir.path().join(".physis").join("exports");
+    std::fs::create_dir_all(&notes).expect("mkdir inside scan root");
+    let bookmarks = notes.join("bookmarks.html");
+    std::fs::write(&bookmarks, r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor portal</A></DL><p>"#)
+        .expect("write bookmarks");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/history/import", "h", json!({"path": bookmarks.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "import succeeds: {body}");
+    assert_eq!(body["items"], 1, "one bookmark: {body}");
+    assert_eq!(body["file"], "bookmarks.html");
+    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "labels registered: {body}");
+
+    // Recall by content.
+    let (_, search) = send(
+        &router,
+        post("/api/v1/search/nodes", "h", json!({"query": "shop floor portal", "token_budget": 100})),
+    )
+    .await;
+    assert!(
+        search["results"].as_array().map(|a| a.iter().any(|r| r["label"].as_str().unwrap_or("").contains("Shop floor")))
+            .unwrap_or(false),
+        "bookmark recallable by content: {search}"
+    );
+
+    // Re-import dedupes.
+    let (_, again) = send(
+        &router,
+        post("/api/v1/history/import", "h", json!({"path": bookmarks.to_string_lossy()})),
+    )
+    .await;
+    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-import dedupes: {again}");
+
+    // Unsupported file → 400; outside scan root → 403.
+    let csv = notes.join("data.csv");
+    std::fs::write(&csv, "a,b\n").expect("write csv");
+    let (status, _) = send(
+        &router,
+        post("/api/v1/history/import", "h", json!({"path": csv.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "unsupported extension rejected");
+
+    let outside = std::env::temp_dir();
+    let (status, _) = send(
+        &router,
+        post("/api/v1/history/import", "h", json!({"path": outside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+}
+
+#[tokio::test]
 async fn bearer_token_gates_protected_routes() {
     // Regression (PREMORTEM P6): the API used to bind wide open. With a token
     // configured, protected routes must require it while the ops surface stays

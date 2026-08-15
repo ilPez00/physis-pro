@@ -305,6 +305,22 @@ struct VaultImportRequest {
 
 fn default_vault_git() -> usize { 50 }
 
+#[derive(Deserialize)]
+struct HistoryImportRequest {
+    /// Absolute path to the export file (bookmarks .html, history .json,
+    /// feeds .opml/.xml, chat .jsonl/.txt). Confined to scan_root.
+    path: String,
+}
+
+#[derive(Serialize)]
+struct HistoryImportResponse {
+    /// Imported file name.
+    file: String,
+    items: usize,
+    registered: usize,
+    deduped: usize,
+}
+
 #[derive(Serialize)]
 struct VaultImportResponse {
     docs: usize,
@@ -953,6 +969,61 @@ async fn vault_import_handler(
         registered,
         deduped,
     }))
+}
+
+/// POST /api/v1/history/import — import a personal-history export (browser
+/// bookmarks/history, OPML feeds, chat JSONL) as labeled core nodes. Same
+/// scan-root confinement as /scan; each item is embedded off-thread with the
+/// shared embedder so the life-log is recallable by content in the wiki.
+async fn history_import_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<HistoryImportRequest>,
+) -> Result<Json<HistoryImportResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.path);
+    if !path.exists() {
+        return Err(err_response(StatusCode::BAD_REQUEST, &format!("file not found: {}", req.path)));
+    }
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let uid = user_key(&headers);
+
+    let (docs, name) = tokio::task::spawn_blocking(move || crate::history::import_file(&canonical))
+        .await
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    let items = docs.len();
+
+    if docs.is_empty() {
+        return Ok(Json(HistoryImportResponse { file: name, items: 0, registered: 0, deduped: 0 }));
+    }
+
+    let pairs = crate::vault::collect_labels(&docs);
+    let labels_total = pairs.len();
+    let texts: Vec<String> = pairs.iter().map(|(_, body)| body.clone()).collect();
+    let embeddings = embed_batch_off_thread(state.shared.clone(), texts).await;
+
+    let (registered, deduped) = state.with_user(&uid, |s| {
+        let before = s.core.nodes.len();
+        for ((label, _), emb) in pairs.into_iter().zip(embeddings) {
+            let id = s.core.register_node_vec_labeled(emb, Some(label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        let registered = s.core.nodes.len().saturating_sub(before);
+        let deduped = labels_total.saturating_sub(registered);
+        (registered, deduped)
+    });
+
+    Ok(Json(HistoryImportResponse { file: name, items, registered, deduped }))
 }
 
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
@@ -3831,6 +3902,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/scan", post(scan_handler))
         .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/vault/import", post(vault_import_handler))
+        .route("/api/v1/history/import", post(history_import_handler))
         .route("/api/v1/fs/graph", get(fs_graph_handler))
         .route("/api/v1/structsim", post(structsim_handler))
         .route("/api/v1/rag/retrieve", post(rag_retrieve_handler))
