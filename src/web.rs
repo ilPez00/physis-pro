@@ -567,6 +567,16 @@ struct ChatApiRequest {
     max_tokens: Option<u32>,
     #[serde(default)]
     has_image: bool,
+    /// Optional token-fixed RAG grounding: retrieve from this sandboxed dir and
+    /// prepend the retrieved context (capped to `rag_budget` tokens) as a system
+    /// message. Makes the LLM input-context cost deterministic regardless of
+    /// source document/object size.
+    #[serde(default)]
+    rag_dir: Option<String>,
+    #[serde(default = "default_rag_tokens")]
+    rag_budget: usize,
+    #[serde(default = "default_rag_topk")]
+    rag_top_k: usize,
 }
 
 #[derive(Serialize)]
@@ -575,6 +585,10 @@ struct ChatApiResponse {
     provider: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_calls: Option<serde_json::Value>,
+    /// Tokens of retrieved context actually injected (≤ rag_budget). `None` when
+    /// RAG was not requested — surfaced so the caller can see the bounded cost.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rag_tokens: Option<usize>,
 }
 
 async fn chat_handler(
@@ -589,17 +603,85 @@ async fn chat_handler(
             has_image: req.has_image,
         }
     };
-    match cascade.complete(&req.messages, None, &hint, req.max_tokens).await {
+
+    // Optional token-fixed RAG grounding: retrieve a context capped to a fixed
+    // token budget and inject it as a system message, so the LLM's input-context
+    // cost is bounded and independent of source size.
+    let (messages, rag_tokens) = match &req.rag_dir {
+        Some(dir) => {
+            let path = match sandbox_existing(&state, dir) {
+                Ok(p) => p,
+                Err((st, _)) => return Err(st),
+            };
+            let shared = state.shared.clone();
+            let query = last_user_text(&req.messages);
+            let (context, total) = match tokio::task::spawn_blocking(move || -> anyhow::Result<(String, usize)> {
+                let docs = crate::ingest::ingest_all(&[path]);
+                if docs.is_empty() {
+                    anyhow::bail!("no documents found under scan dir");
+                }
+                let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+                let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+                let q_emb = shared.embedder.embed(&query);
+                let retriever = rag::TokenFixedRetriever::new(req.rag_budget, req.rag_top_k);
+                let result = retriever.retrieve(&q_emb, &corpus);
+                Ok((rag::assemble_context(&result, "\n\n---\n\n"), result.total_tokens))
+            })
+            .await
+            {
+                Ok(Ok(v)) => v,
+                Ok(Err(e)) => {
+                    log::warn!("[chat] rag failed: {}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+                Err(e) => {
+                    log::warn!("[chat] rag task failed: {}", e);
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            };
+            let sys = crate::ai::provider::Message {
+                role: "system".into(),
+                content: crate::ai::provider::Content::Text(format!(
+                    "Answer using ONLY the retrieved context below. If the context \
+                     does not contain the answer, say so explicitly.\n\n\
+                     --- RETRIEVED CONTEXT (token-budgeted) ---\n{context}\n\
+                     --- END CONTEXT ---"
+                )),
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            };
+            let mut msgs = req.messages.clone();
+            msgs.insert(0, sys);
+            (msgs, Some(total))
+        }
+        None => (req.messages.clone(), None),
+    };
+
+    match cascade.complete(&messages, None, &hint, req.max_tokens).await {
         Ok((msg, provider)) => Ok(Json(ChatApiResponse {
             content: msg.content.unwrap_or_default(),
             provider,
             tool_calls: msg.tool_calls.as_ref().map(|tc| serde_json::to_value(tc).unwrap_or_default()),
+            rag_tokens,
         })),
         Err(e) => {
             log::warn!("[chat] all providers failed: {}", e);
             Err(StatusCode::SERVICE_UNAVAILABLE)
         }
     }
+}
+
+/// Best-effort extraction of the last user message text, used as the RAG query.
+fn last_user_text(messages: &[Message]) -> String {
+    for m in messages.iter().rev() {
+        if m.role == "user" {
+            if let crate::ai::provider::Content::Text(t) = &m.content {
+                return t.clone();
+            }
+        }
+    }
+    String::new()
 }
 
 // ── /api/v1/providers ────────────────────────────────────────────────────────
