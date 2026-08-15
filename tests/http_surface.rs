@@ -535,6 +535,56 @@ async fn watch_ingests_then_removes_nodes() {
 }
 
 #[tokio::test]
+async fn vault_import_registers_recallable_nodes() {
+    // Vault importers (Phase 7B): /api/v1/vault/import reduces a markdown/notes
+    // dir to labeled core nodes (title + headings), recallable via search/nodes.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let vault = dir.path().join(".physis").join("vault");
+    std::fs::create_dir_all(&vault).expect("mkdir inside scan root");
+    std::fs::write(vault.join("alpha.md"), "# Alpha Note\n\n## Fixes\n\nmachine body text").expect("write note");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/vault/import", "v", json!({"dir": vault.to_string_lossy(), "git": 0})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "import succeeds: {body}");
+    assert_eq!(body["docs"], 1, "one note: {body}");
+    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "labels registered: {body}");
+
+    // Recall by content.
+    let (_, search) = send(
+        &router,
+        post("/api/v1/search/nodes", "v", json!({"query": "alpha note", "token_budget": 100})),
+    )
+    .await;
+    assert!(
+        search["results"].as_array().map(|a| a.iter().any(|r| r["label"].as_str().unwrap_or("").contains("Alpha")))
+            .unwrap_or(false),
+        "vault note recallable by content: {search}"
+    );
+
+    // Re-import dedupes.
+    let (_, again) = send(
+        &router,
+        post("/api/v1/vault/import", "v", json!({"dir": vault.to_string_lossy(), "git": 0})),
+    )
+    .await;
+    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-import dedupes: {again}");
+
+    // Confinement.
+    let outside = std::env::temp_dir();
+    let (status, _) = send(
+        &router,
+        post("/api/v1/vault/import", "v", json!({"dir": outside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+}
+
+#[tokio::test]
 async fn bearer_token_gates_protected_routes() {
     // Regression (PREMORTEM P6): the API used to bind wide open. With a token
     // configured, protected routes must require it while the ops surface stays

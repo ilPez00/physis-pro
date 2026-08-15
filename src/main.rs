@@ -113,6 +113,15 @@ pub enum Commands {
         #[arg(long, default_value_t = 12)]
         top: usize,
     },
+    /// Import a knowledge vault (Obsidian/markdown notes, plain text, git log)
+    /// into the shared store as labeled core nodes
+    Vault {
+        /// Vault or notes directory
+        dir: PathBuf,
+        /// Also import the last N commits of the enclosing git repo (0 = skip)
+        #[arg(long, default_value_t = 50)]
+        git: usize,
+    },
     /// Run a live connector, emitting normalized events as JSON lines
     Connect {
         #[command(subcommand)]
@@ -474,6 +483,9 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::NodeSearch { query, budget, top } => {
             print!("{}", app.run_node_search(&query, budget, top)?);
+        }
+        Commands::Vault { dir, git } => {
+            println!("{}", app.run_vault_import(&dir, git)?);
         }
 
         // ── Business commands ──
@@ -1392,5 +1404,30 @@ mod tests {
         // Nothing left in the store for the removed file's prefix.
         let out5 = app.run_node_search("Topology", 100, 10).unwrap();
         assert!(out5.contains("0 result(s)"), "removed nodes are gone: {out5}");
+    }
+
+    #[test]
+    fn test_cli_vault_import_registers_nodes() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = dir.path().join("vault");
+        std::fs::create_dir_all(vault.join("notes")).unwrap();
+        std::fs::write(vault.join("notes").join("alpha.md"), "# Alpha\n\n## Sub\n\ncontent here").unwrap();
+        std::fs::write(vault.join("notes").join("beta.txt"), "Beta title\nplain body text").unwrap();
+        let mut app = cli_app(dir.path());
+
+        let out = app.run_vault_import(&vault, 0).unwrap();
+        assert!(out.contains("2 docs"), "two notes imported: {out}");
+        assert!(out.contains("registered"), "labels registered: {out}");
+
+        // The notes are recallable by content via node-search.
+        let search = app.run_node_search("alpha", 100, 10).unwrap();
+        assert!(search.contains("Alpha"), "vault note recallable: {search}");
+
+        // Re-importing is idempotent (dedupe by label).
+        let out2 = app.run_vault_import(&vault, 0).unwrap();
+        assert!(out2.contains("deduped"), "re-import dedupes: {out2}");
+
+        // Missing dir errors.
+        assert!(app.run_vault_import(&dir.path().join("nope"), 0).is_err());
     }
 }

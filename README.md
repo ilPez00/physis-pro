@@ -160,6 +160,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | GET  | `/api/v1/query` | ✓ | Query the trie |
 | POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
 | POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files → `{new, changed, deleted, registered, removed, total_nodes}` |
+| POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
 | GET  | `/api/v1/holarchy/snapshot` | ✓ | Holarchy node/edge counts for the tenant |
@@ -240,6 +241,10 @@ cargo run --bin physis-pro -- node-search "spindle bearing" --budget 600 --top 1
 # Watch-mode auto-ingest: register new/changed files as labeled core nodes
 cargo run --bin physis-pro -- watch <dir>            # loop (re-scan on interval)
 cargo run --bin physis-pro -- watch <dir> --once     # single sweep (cron/smoke)
+
+# Vault import: Obsidian/markdown notes (+ git log) → labeled core nodes
+cargo run --bin physis-pro -- vault <dir>            # notes only
+cargo run --bin physis-pro -- vault <dir> --git 50   # notes + last 50 commits
 
 # Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
 cargo run --release --example empedocles_criticality

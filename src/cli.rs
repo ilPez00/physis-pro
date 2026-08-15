@@ -409,6 +409,60 @@ impl PhysisApp {
         self.dreams.generate_dreams(&self.goals, count)
     }
 
+    /// Import a knowledge vault into the shared store as labeled core nodes.
+    /// Reads markdown/plain-text notes (title + headings → labels) and — when
+    /// `git_max > 0` — the recent commit history, embedding each label with the
+    /// shared embedder so the vault is recallable by content in the wiki.
+    pub fn run_vault_import(&mut self, dir: &std::path::Path, git_max: usize) -> anyhow::Result<String> {
+        if !dir.is_dir() {
+            anyhow::bail!("vault directory not found: {}", dir.display());
+        }
+        let docs = crate::vault::scan_vault(dir);
+        let mut all: Vec<crate::vault::VaultDoc> = docs;
+        if git_max > 0 {
+            let commits = crate::vault::scan_git_log(dir, git_max);
+            if !commits.is_empty() {
+                all.extend(commits);
+            }
+        }
+        if all.is_empty() {
+            return Ok(format!("vault[{}]: no notes found", dir.display()));
+        }
+
+        // Label + embeddable text per doc; embed with the shared embedder.
+        let pairs = crate::vault::collect_labels(&all);
+        let labels_total = pairs.len();
+        let texts: Vec<&str> = pairs.iter().map(|(_, body)| body.as_str()).collect();
+        let embeddings = self.embedder.embed_batch(&texts);
+
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        // Dedupe is by label: count nodes before/after to know how many were
+        // actually new (the label index collapses repeats to the existing id).
+        let before = core.nodes.len();
+        for ((label, _), emb) in pairs.into_iter().zip(embeddings) {
+            let id = core.register_node_vec_labeled(emb, Some(label));
+            if let Err(e) = core.persist_node(&db, "_default", &id) {
+                eprintln!("[physis] vault: node {id} not persisted: {e}");
+            }
+        }
+        let registered = core.nodes.len().saturating_sub(before);
+        let deduped = labels_total.saturating_sub(registered);
+
+        let commit_count = all.iter().filter(|d| d.source.starts_with("git ")).count();
+
+        Ok(format!(
+            "vault[{}]: {} docs ({} notes + {} commits) → {} labels registered ({} deduped)",
+            dir.display(),
+            all.len(),
+            all.len() - commit_count,
+            commit_count,
+            registered,
+            deduped,
+        ))
+    }
+
     /// Grade a dream by ID. Returns false if no dream with that ID exists.
     pub fn run_evaluate(&mut self, id: &str, grade: Score) -> bool {
         self.dreams.evaluate_dream(id, grade)
