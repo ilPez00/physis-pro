@@ -516,3 +516,190 @@ async fn bearer_token_gates_protected_routes() {
     assert_eq!(status, StatusCode::OK, "the configured token passes");
     drop(env);
 }
+
+#[tokio::test]
+async fn semiotic_edit_swaps_content_keeps_structure() {
+    // The "exchange parts" edit: change a node's content through the API while
+    // its identity + verdict survive, the auto cell is reported, a pin overrides
+    // it, and the dedupe index moves with the label.
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "ed", json!({"input": "milling spindle bearing", "coherence_score": -1.0})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+    assert_eq!(reg["asserted"], -1.0);
+
+    // Edit without a pin: verdict preserved, id stable, auto cell reported.
+    let (status, edit) = send(
+        &router,
+        post("/api/v1/coherence/edit", "ed", json!({"id": id, "label": "welding robot joint recalibration"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "edit succeeds: {edit}");
+    assert_eq!(edit["node_id"], id, "identity survives the content swap");
+    assert_eq!(edit["label"], "welding robot joint recalibration");
+    assert_eq!(edit["asserted"], -1.0, "verdict survives the swap");
+    assert!(edit["auto_cell"]["domain"].is_string(), "auto cell derived from new content");
+    assert!(edit["before_cell"].is_object(), "before cell reported for the delta");
+    assert_eq!(edit["pinned_cell"], Value::Null, "no pin supplied → none stored");
+
+    // The old label is no longer a dedupe alias: re-registering it makes a NEW
+    // node; re-registering the new label returns the same id.
+    let (_, dup_old) = send(
+        &router,
+        post("/api/v1/coherence/register", "ed", json!({"input": "milling spindle bearing"})),
+    )
+    .await;
+    assert_ne!(dup_old["node_id"], id, "old label must not dedupe to the edited node");
+    let (_, dup_new) = send(
+        &router,
+        post("/api/v1/coherence/register", "ed", json!({"input": "welding robot joint recalibration"})),
+    )
+    .await;
+    assert_eq!(dup_new["node_id"], id, "new label dedupes to the edited node");
+}
+
+#[tokio::test]
+async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "pn", json!({"input": "autoclave cycle log"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+
+    // Pin a cell: the pin is echoed + persisted (survives a re-read via edit).
+    let (status, pinned) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pn", json!({
+            "id": id,
+            "label": "autoclave cycle log (edited)",
+            "cell": {"domain": "FABRICATE", "mode": "MAINTAIN"},
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "pinned edit succeeds: {pinned}");
+    assert_eq!(pinned["pinned_cell"]["domain"], "FABRICATE");
+    assert_eq!(pinned["pinned_cell"]["mode"], "MAINTAIN");
+
+    // An invalid cell is rejected before anything is mutated.
+    let (status, bad) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pn", json!({
+            "id": id,
+            "label": "garbage cell",
+            "cell": {"domain": "NOPE", "mode": "MAYBE"},
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "bad cell rejected: {bad}");
+
+    // Unknown id → 404.
+    let (status, missing) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pn", json!({"id": "no-such-node", "label": "x"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "unknown id: {missing}");
+}
+
+#[tokio::test]
+async fn coherence_delete_removes_node_and_index() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "dl", json!({"input": "turbine bearing temp"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+    assert_eq!(reg["node_id"], id);
+
+    let (status, del) = send(
+        &router,
+        post("/api/v1/coherence/delete", "dl", json!({"id": id})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "delete succeeds: {del}");
+    assert_eq!(del["ok"], true);
+
+    // Second delete of the same id → 404.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/delete", "dl", json!({"id": id})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // The label is free to register again (dedupe index cleaned up).
+    let (_, dup) = send(
+        &router,
+        post("/api/v1/coherence/register", "dl", json!({"input": "turbine bearing temp"})),
+    )
+    .await;
+    assert_ne!(dup["node_id"], id, "deleted label is free again");
+
+    // Tenancy: another user cannot delete it (they can't even see it).
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/delete", "other", json!({"id": id})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "cross-tenant delete refused");
+}
+
+#[tokio::test]
+async fn fixed_token_node_search_bounds_the_response() {
+    // The response's token cost is bounded by the budget no matter how many
+    // nodes exist: labels are ranked, then greedily packed under the budget.
+    let (router, _dir, _env) = app().await;
+    let (_, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "sr", json!({"input": "milling spindle bearing wear"})),
+    )
+    .await;
+    let (_, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "sr", json!({"input": "furnace temperature profile"})),
+    )
+    .await;
+    let (_, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "sr", json!({"input": "welding robot joint calibration"})),
+    )
+    .await;
+
+    let (status, res) = send(
+        &router,
+        post("/api/v1/search/nodes", "sr", json!({"query": "spindle bearing", "token_budget": 20})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "search succeeds: {res}");
+    assert!(res["total_tokens"].as_u64().unwrap_or(u64::MAX) <= 20,
+            "total_tokens {} must respect the 20-token budget", res["total_tokens"]);
+    assert_eq!(res["budget"], 20);
+    assert!(!res["results"].as_array().unwrap().is_empty(), "relevant nodes found");
+    assert_eq!(res["results"][0]["kind"], "node");
+    assert!(res["results"][0]["label"].is_string());
+
+    // Empty budget → zero results, zero tokens (hard bound holds at the floor).
+    let (_, res) = send(
+        &router,
+        post("/api/v1/search/nodes", "sr", json!({"query": "spindle", "token_budget": 0})),
+    )
+    .await;
+    assert_eq!(res["total_tokens"], 0);
+
+    // Tenancy: an unrelated user sees none of sr's nodes.
+    let (_, other) = send(
+        &router,
+        post("/api/v1/search/nodes", "nobody", json!({"query": "spindle", "token_budget": 100})),
+    )
+    .await;
+    assert_eq!(other["results"].as_array().unwrap().len(), 0);
+}

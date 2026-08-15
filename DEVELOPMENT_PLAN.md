@@ -5,6 +5,30 @@
 Physis is moving from a single-threaded ontological mapper into a **holarchic runtime**
 with real-time graph processing, semantic classification, temporal scheduling, and
 distributed dream synchronization.
+### ✅ DONE (2026-08-15) — semiotic editing of individual data nodes
+
+Gio's vision — "ontology studio semiotics editing via file affinity scan and
+adaptation … hotswapping conceptual objects without losing identity (or
+function)" — is implemented as the **exchange-parts** edit primitive:
+
+- **`POST /api/v1/coherence/edit`** — swap a node's *content* (label → re-embed)
+  while its *structure* (id, `asserted` verdict, holarchy edges, embedder
+  provenance, dedupe index) survives. The grid cell is re-derived (auto) from the
+  new content; an optional `cell: {domain, mode}` **pin** overrides it and
+  persists (hybrid semantics). Response reports `before_cell`/`auto_cell`/
+  `pinned_cell` for the delta.
+- **`POST /api/v1/coherence/delete`** — remove a node and every reference (index,
+  holarchy node + edges, sled row).
+- **`POST /api/v1/search/nodes`** — fixed-token-cost search over coherence + goal
+  nodes (`total_tokens ≤ token_budget`, the `/rag/retrieve` contract applied to
+  the live node store).
+- The spiderweb surface was already there (`/api/v1/fs/graph` + `graph_fm.html`):
+  scanned files classified into the 70-cell grid, movable nodes. The edit half is
+  now the missing piece above.
+
+Design + API detail: `docs/SEMIOTIC_EDITING.md`. Core primitive +
+`CoherenceNode.cell_pin` in `src/core.rs` / `src/models.rs`, tests in
+`core::tests` + `tests/http_surface.rs`.
 
 ---
 

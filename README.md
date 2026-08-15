@@ -132,6 +132,9 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/category/diagram` | — | Custom category diagram (objects + morphisms) |
 | GET  | `/api/v1/coherence/snapshot` | ✓ | Current coherence index + nodes |
 | POST | `/api/v1/coherence/register` | ✓ | Register a node `{input, coherence_score?}` — `input` is embedded **and** kept as the label; optional `coherence_score` (−1…1) is the asserted verdict. Deduped by label, so re-posting the same `input` returns the same id and **updates** its verdict |
+| POST | `/api/v1/coherence/edit` | ✓ | **Exchange-parts edit** `{id, label, cell?}` — swap content while preserving structure (id, verdict, edges); `cell: {domain, mode}` pins the semiotic cell (auto re-derivation otherwise). Returns `before_cell`/`auto_cell`/`pinned_cell` |
+| POST | `/api/v1/coherence/delete` | ✓ | Delete a node + every reference (dedupe index, holarchy node/edges, sled row) `{id}` |
+| POST | `/api/v1/search/nodes` | ✓ | **Fixed-token search** over coherence + goal nodes `{query, token_budget?, top_k?}` — response `total_tokens ≤ token_budget` (same contract as `/rag/retrieve`) |
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
@@ -188,6 +191,30 @@ compared).
 - **Token unset** + non-loopback bind → the server **refuses to start** (it would
   publish an unauthenticated API that also proxies paid LLM providers — an open
   relay). Set the token or bind `127.0.0.1`.
+
+### Semiotic node editing ("exchange parts") & fixed-token search
+
+A coherence node is **structure** (id, `asserted` verdict, holarchy edges,
+embedder provenance, grid position) + **content** (label + embedding). Because
+the two are compatible, an edit swaps the content while the function survives:
+
+```bash
+# Exchange a node's content; the id/verdict/edges never change.
+curl -X POST http://127.0.0.1:19876/api/v1/coherence/edit \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"id":"<node_id>","label":"welding robot joint recalibration",
+       "cell":{"domain":"FABRICATE","mode":"MAINTAIN"}}'
+# → { ok, node_id, label, auto_cell, pinned_cell, before_cell, asserted, coherence_score }
+
+# Fixed-token search over coherence + goal nodes (cost is bounded up front).
+curl -X POST http://127.0.0.1:19876/api/v1/search/nodes \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"query":"spindle bearing","token_budget":600}'
+# → { query, budget, total_tokens ≤ 600, truncated, results:[{kind,id,label,score,tokens}] }
+```
+
+See [docs/SEMIOTIC_EDITING.md](docs/SEMIOTIC_EDITING.md) for the invariant, the
+hybrid pin semantics, and the full API contract.
 
 ---
 
