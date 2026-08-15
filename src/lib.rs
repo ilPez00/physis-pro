@@ -54,6 +54,9 @@ pub mod machines;
 #[cfg(feature = "spanner")]
 pub mod spanner;
 
+pub mod structsim;
+pub mod rag;
+
 #[cfg(feature = "cli")]
 pub mod cli;
 
