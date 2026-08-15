@@ -476,6 +476,65 @@ async fn scan_is_confined_to_scan_root() {
 }
 
 #[tokio::test]
+async fn watch_ingests_then_removes_nodes() {
+    // Watch-mode auto-ingest (Phase 7B): one /api/v1/watch sweep registers
+    // new/changed files as labeled core nodes, and a later sweep drops the
+    // nodes for a removed file. Same scan-root confinement as /scan.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let inside = dir.path().join(".physis").join("notes");
+    std::fs::create_dir_all(&inside).expect("mkdir inside scan root");
+    let file = inside.join("topology.md");
+    std::fs::write(&file, "# Topology\n## Graphs\n").expect("write fixture");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "first sweep succeeds: {body}");
+    assert_eq!(body["new"], 1, "new file seen: {body}");
+    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "nodes registered: {body}");
+
+    // Idle sweep: nothing new, cache advanced.
+    let (_, idle) = send(
+        &router,
+        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(idle["new"], 0, "second sweep sees nothing new: {idle}");
+
+    // Content change → re-register.
+    std::fs::write(&file, "# Topology edited\n").expect("rewrite");
+    let (_, changed) = send(
+        &router,
+        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(changed["changed"], 1, "content change detected: {changed}");
+
+    // Removal → nodes dropped.
+    std::fs::remove_file(&file).expect("remove");
+    let (_, removed) = send(
+        &router,
+        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(removed["deleted"], 1, "removal detected: {removed}");
+    assert!(removed["removed"].as_u64().unwrap_or(0) >= 1, "nodes dropped: {removed}");
+
+    // Confinement: an outside dir is refused, not watched.
+    let outside = std::env::temp_dir();
+    let (status, body) = send(
+        &router,
+        post("/api/v1/watch", "w", json!({"dir": outside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected: {body}");
+}
+
+#[tokio::test]
 async fn bearer_token_gates_protected_routes() {
     // Regression (PREMORTEM P6): the API used to bind wide open. With a token
     // configured, protected routes must require it while the ops surface stays

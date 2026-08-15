@@ -159,6 +159,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/translate` | ✓ | Linguistic routing (Wenyan / Pirahã / Sanskrit) |
 | GET  | `/api/v1/query` | ✓ | Query the trie |
 | POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files → `{new, changed, deleted, registered, removed, total_nodes}` |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
 | GET  | `/api/v1/holarchy/snapshot` | ✓ | Holarchy node/edge counts for the tenant |
@@ -236,6 +237,10 @@ cargo run --bin physis-pro -- node-edit <id> "welding robot joint recalibration"
 cargo run --bin physis-pro -- node-delete <id>
 cargo run --bin physis-pro -- node-search "spindle bearing" --budget 600 --top 12
 
+# Watch-mode auto-ingest: register new/changed files as labeled core nodes
+cargo run --bin physis-pro -- watch <dir>            # loop (re-scan on interval)
+cargo run --bin physis-pro -- watch <dir> --once     # single sweep (cron/smoke)
+
 # Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
 cargo run --release --example empedocles_criticality
 
@@ -257,6 +262,8 @@ cargo run --bin physis-pro-tui
 | `PHYSIS_HOST` | `127.0.0.1` | Bind host (non-loopback requires a token) |
 | `PHYSIS_API_TOKEN` | — | Bearer token for protected routes |
 | `PHYSIS_SCAN_ROOT` | data dir | Confines `/api/v1/scan` (path-traversal guard) |
+| `PHYSIS_WATCH_DIR` | — | Watch-mode auto-ingest: poll this dir (inside scan root) and register file changes as labeled core nodes |
+| `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Poll interval for `PHYSIS_WATCH_DIR` |
 | `PHYSIS_WATCH_DIR` | — | Poll this dir (within scan root) and auto-register new/changed files as labeled nodes |
 | `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Watch-mode poll interval |
 | `PHYSIS_RERANK` | unset | Enable LLM re-rank on `/classify` for ambiguous cells (Gemma/provider cascade); needs provider keys |

@@ -291,6 +291,27 @@ struct ScanRequest {
 }
 
 #[derive(Deserialize)]
+struct WatchRequest {
+    dir: String,
+}
+
+#[derive(Serialize)]
+struct WatchResponse {
+    /// New files found by the sweep.
+    new: usize,
+    /// Files whose content changed since the last sweep.
+    changed: usize,
+    /// Files removed since the last sweep.
+    deleted: usize,
+    /// Labeled core nodes registered (new + changed, deduped by label).
+    registered: usize,
+    /// Nodes dropped for removed files.
+    removed: usize,
+    /// Total labeled nodes persisted for this dir after the sweep.
+    total_nodes: usize,
+}
+
+#[derive(Deserialize)]
 struct DreamGenerateRequest {
     #[serde(default = "default_dream_count")]
     count: usize,
@@ -758,18 +779,86 @@ async fn scan_handler(
     Ok(Json(ScanResponse { count: goals.len(), goals }))
 }
 
-/// Browsable content labels for one scanned file: one per structural line
-/// (`path → fn/struct`) plus the file's structural path. Mirrors the format in
-/// `OntologyMapper::map_filesystem_labeled` so watch-mode and /scan agree.
-fn file_labels(f: &crate::scanner::FileInfo) -> Vec<String> {
-    let p = f.structural_path();
-    let mut labels: Vec<String> = f
-        .structural_lines
-        .iter()
-        .map(|line| format!("{} → {}", p, line))
-        .collect();
-    labels.push(p);
-    labels
+/// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
+/// scan_root): diff against the watch hash cache, register new/changed files as
+/// labeled core nodes (shared embedder, persisted), drop nodes for removed
+/// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
+/// thread — call this to catch up immediately or from a cron, then let the
+/// background poller take over.
+async fn watch_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<WatchRequest>,
+) -> Result<Json<WatchResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.dir);
+    if !path.exists() {
+        return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
+    }
+    // Same confinement as /scan: resolve symlinks/`..` and refuse outside root.
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let uid = user_key(&headers);
+
+    let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
+    let scanner = crate::network::NetworkScanner::new(vec![canonical.clone()], cache_path, 0);
+    let diffs = scanner.scan_all();
+
+    let mut new = 0usize;
+    let mut changed = 0usize;
+    let mut deleted = 0usize;
+    let mut registered = 0usize;
+    let mut removed = 0usize;
+
+    let any_change = diffs.iter().any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
+    if any_change {
+        let mut labels: Vec<String> = Vec::new();
+        for diff in &diffs {
+            new += diff.summary.new;
+            changed += diff.summary.changed;
+            deleted += diff.summary.deleted;
+            for f in diff.new.iter().chain(diff.changed.iter()) {
+                labels.extend(f.labels());
+            }
+        }
+
+        // Embed off-thread (CPU-heavy) then register under the lock, same as /scan.
+        let embeddings = embed_batch_off_thread(state.shared.clone(), labels.clone()).await;
+        state.with_user(&uid, |s| {
+            for (emb, label) in embeddings.into_iter().zip(labels) {
+                let id = s.core.register_node_vec_labeled(emb, Some(label));
+                if let Some(db) = state.db() {
+                    let _ = s.core.persist_node(db, &uid, &id);
+                }
+                registered += 1;
+            }
+            // Removed files: their nodes live under the structural path prefix.
+            for diff in &diffs {
+                for p in &diff.deleted {
+                    let prefix = p.replace('/', " → ");
+                    for id in s.core.delete_nodes_by_label_prefix(&prefix) {
+                        if let Some(db) = state.db() {
+                            let _ = db.remove(crate::core::PhysisCore::node_key(&uid, &id));
+                        }
+                        removed += 1;
+                    }
+                }
+            }
+        });
+    }
+
+    scanner.update_cache(&diffs);
+
+    let total_nodes = state.with_user(&uid, |s| s.core.nodes.len());
+    Ok(Json(WatchResponse {
+        new, changed, deleted, registered, removed, total_nodes,
+    }))
 }
 
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
@@ -3597,7 +3686,7 @@ pub async fn build_app() -> (SharedState, Router) {
                     let mut labels: Vec<String> = Vec::new();
                     for d in &diffs {
                         for f in d.new.iter().chain(d.changed.iter()) {
-                            labels.extend(file_labels(f));
+                            labels.extend(f.labels());
                         }
                     }
                     if !labels.is_empty() {
@@ -3645,6 +3734,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/stats", get(stats_handler))
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
+        .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/fs/graph", get(fs_graph_handler))
         .route("/api/v1/structsim", post(structsim_handler))
         .route("/api/v1/rag/retrieve", post(rag_retrieve_handler))

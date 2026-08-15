@@ -73,6 +73,21 @@ impl FileInfo {
     pub fn structural_path(&self) -> String {
         self.path.replace('/', " → ")
     }
+
+    /// Browsable content labels for this file: one per structural line
+    /// (`path → fn/struct`) plus the file's structural path. Callers register
+    /// these as labeled core nodes so scanned/watch-ingested files AND their
+    /// inner structures are recallable by content in the wiki.
+    pub fn labels(&self) -> Vec<String> {
+        let p = self.structural_path();
+        let mut labels: Vec<String> = self
+            .structural_lines
+            .iter()
+            .map(|line| format!("{} → {}", p, line))
+            .collect();
+        labels.push(p);
+        labels
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -536,6 +551,24 @@ mod tests {
         assert!(lines.contains(&"struct World".to_string()));
         assert!(lines.contains(&"fn another".to_string()));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_file_labels_cover_path_and_lines() {
+        let f = FileInfo {
+            path: "src/main.rs".to_string(),
+            abs_path: "/abs/src/main.rs".to_string(),
+            ext: ".rs".to_string(),
+            size: 10,
+            mtime: 0.0,
+            hash: "abc".to_string(),
+            structural_lines: vec!["fn main".to_string(), "struct Foo".to_string()],
+        };
+        let labels = f.labels();
+        assert!(labels.contains(&"src → main.rs".to_string()), "structural path is a label");
+        assert!(labels.contains(&"src → main.rs → fn main".to_string()), "per-line label");
+        assert!(labels.contains(&"src → main.rs → struct Foo".to_string()), "per-line label 2");
+        assert_eq!(labels.len(), 3);
     }
 
     #[test]
