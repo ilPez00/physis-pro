@@ -77,6 +77,37 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Edit a coherence node's content ("exchange parts"): new label is
+    /// re-embedded, structure (id / verdict / edges) preserved. Optional cell
+    /// pin overrides the auto-derived semiotic cell.
+    NodeEdit {
+        /// Node id
+        id: String,
+        /// New content (label)
+        label: String,
+        /// Pin domain (e.g. FABRICATE). Requires --mode.
+        #[arg(long)]
+        domain: Option<String>,
+        /// Pin mode (e.g. MAINTAIN). Requires --domain.
+        #[arg(long)]
+        mode: Option<String>,
+    },
+    /// Delete a coherence node and every reference to it.
+    NodeDelete {
+        /// Node id
+        id: String,
+    },
+    /// Fixed-token search over the persisted coherence + goal nodes.
+    NodeSearch {
+        /// Search query
+        query: String,
+        /// Hard token budget for the packed result labels
+        #[arg(long, default_value_t = 600)]
+        budget: usize,
+        /// Max results
+        #[arg(long, default_value_t = 12)]
+        top: usize,
+    },
     /// Run a live connector, emitting normalized events as JSON lines
     Connect {
         #[command(subcommand)]
@@ -401,6 +432,21 @@ fn main() -> anyhow::Result<()> {
             } else {
                 println!("{}", timeline.render_markdown());
             }
+        }
+        // ── Semiotic node editing ("exchange parts") ──
+        Commands::NodeEdit { id, label, domain, mode } => {
+            let pin = match (domain, mode) {
+                (Some(d), Some(m)) => Some((d, m)),
+                (None, None) => None,
+                _ => anyhow::bail!("--domain and --mode must be supplied together"),
+            };
+            println!("{}", app.run_node_edit(&id, &label, pin)?);
+        }
+        Commands::NodeDelete { id } => {
+            println!("{}", app.run_node_delete(&id)?);
+        }
+        Commands::NodeSearch { query, budget, top } => {
+            print!("{}", app.run_node_search(&query, budget, top)?);
         }
 
         // ── Business commands ──
@@ -1219,5 +1265,73 @@ mod tests {
         let related = graph.find_related_themes(0, 0.5);
         assert_eq!(related.len(), 1);
         assert_eq!(related[0].0, 1);
+    }
+
+    // ── Semiotic node editing via the CLI ──────────────────────────────────
+
+    /// Build a PhysisApp over an isolated HOME (so the shared sled store lives in
+    /// a temp dir), forced to random-projection for speed.
+    fn cli_app(dir: &std::path::Path) -> physis_pro::cli::PhysisApp {
+        let mut cfg = PhysisProConfig::default();
+        cfg.physis.data_dir = dir.join(".physis");
+        cfg.physis.embedders.primary = Some(physis_pro::config::EmbedderConfig {
+            kind: physis_pro::config::EmbedderKindConfig::RandomProjection,
+            model_dir: String::new(),
+            enabled: true,
+        });
+        physis_pro::cli::PhysisApp::new(cfg.physis.clone())
+    }
+
+    #[test]
+    fn test_cli_node_edit_swaps_content_keeps_structure() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = cli_app(dir.path());
+
+        // Register a node into the shared store (mirrors /scan + /coherence/register).
+        let id = app.register_persisted_node("milling spindle bearing").unwrap();
+
+        // Edit without a pin.
+        let out = app.run_node_edit(&id, "welding robot joint recalibration", None).unwrap();
+        assert!(out.contains(&id), "identity survives the swap: {out}");
+
+        // Edit with a pin.
+        let pinned = app.run_node_edit(
+            &id,
+            "welding robot joint recalibration (edited)",
+            Some(("FABRICATE".into(), "MAINTAIN".into())),
+        ).unwrap();
+        assert!(pinned.contains("FABRICATE×MAINTAIN"), "pin echoed: {pinned}");
+
+        // Unknown id errors.
+        assert!(app.run_node_edit("missing", "x", None).is_err());
+
+        // Delete, then the id is gone.
+        app.run_node_delete(&id).unwrap();
+        assert!(app.run_node_delete(&id).is_err(), "second delete is a no-op");
+    }
+
+    #[test]
+    fn test_cli_node_search_bounds_the_response() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = cli_app(dir.path());
+
+        for label in ["milling spindle bearing wear", "furnace temperature profile", "welding robot joint calibration"] {
+            app.register_persisted_node(label).unwrap();
+        }
+
+        let out = app.run_node_search("spindle bearing", 20, 12).unwrap();
+        assert!(out.contains("budget 20"), "budget echoed: {out}");
+        // The packed result is bounded: total tokens can't exceed the budget.
+        let header = out.lines().next().unwrap();
+        let tokens: usize = header.split("tokens").next().unwrap()
+            .split(',').nth(1).unwrap().trim().parse().unwrap();
+        assert!(tokens <= 20, "total tokens {tokens} must respect budget 20");
+        assert!(!out.lines().skip(1).next().is_none(), "at least one result listed");
+
+        // An empty store search still returns a bounded header.
+        let dir2 = tempfile::tempdir().unwrap();
+        let mut app2 = cli_app(dir2.path());
+        let out2 = app2.run_node_search("anything", 100, 5).unwrap();
+        assert!(out2.contains("0 result(s)"), "empty store: {out2}");
     }
 }

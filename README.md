@@ -230,6 +230,12 @@ cargo run --bin physis-pro -- discover <dir> [--threshold T] [--json-out F]  # o
 cargo run --bin physis-pro -- report --shift <input.json> [--html]           # Italian shift report (Markdown or HTML)
 cargo run --bin physis-pro -- stats
 
+# Semiotic node editing ("exchange parts") — same sled store as the web server
+cargo run --bin physis-pro -- node-edit <id> "welding robot joint recalibration" \
+    --domain FABRICATE --mode MAINTAIN     # optional pin; auto cell without it
+cargo run --bin physis-pro -- node-delete <id>
+cargo run --bin physis-pro -- node-search "spindle bearing" --budget 600 --top 12
+
 # Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
 cargo run --release --example empedocles_criticality
 
