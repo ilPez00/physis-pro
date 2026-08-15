@@ -13,6 +13,7 @@ pub fn parse_ontology_entry(entry: &OntologyEntry) -> DomainDef {
         axis_name: Some(entry.axis_name.clone()),
         unit: entry.unit.clone(),
         hints: entry.hints.clone(),
+        facets: entry.facets.clone(),
     }
 }
 
@@ -46,6 +47,7 @@ mod tests {
             axis_name: "formal".into(),
             unit: "tokens".into(),
             hints: vec!["therefore".into(), "implies".into()],
+            facets: Facets::default(),
         };
         let def = parse_ontology_entry(&entry);
         assert_eq!(def.name, "logic");
@@ -65,6 +67,7 @@ mod tests {
             axis_name: "none".into(),
             unit: "count".into(),
             hints: vec![],
+            facets: Facets::default(),
         };
         let def = parse_ontology_entry(&entry);
         assert!(def.category.is_none());

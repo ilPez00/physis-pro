@@ -1,0 +1,42 @@
+name: physis-core CI
+
+# Dedicated CI for the lean core engine (published as its own crate).
+# Mirrors the check/test/clippy split of the monolith's ci.yml but scoped to
+# physis-core, and verifies the dependency-light promise: the engine must build
+# with NO default features (no axum/clap/ort) and with ALL features.
+on:
+  push:
+    paths:
+      - "physis-core/**"
+      - ".github/workflows/physis-core.yml"
+  pull_request:
+    paths:
+      - "physis-core/**"
+      - ".github/workflows/physis-core.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: cargo check (no default features — dependency-light)
+        run: cargo check -p physis-core --no-default-features
+      - name: cargo check (default)
+        run: cargo check -p physis-core
+      - name: cargo check (all features)
+        run: cargo check -p physis-core --all-features
+      - name: clippy
+        run: cargo clippy -p physis-core --all-targets --all-features -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test (default)
+        run: cargo test -p physis-core
+      - name: cargo test (all features)
+        run: cargo test -p physis-core --all-features

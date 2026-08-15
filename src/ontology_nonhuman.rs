@@ -62,6 +62,7 @@ mod tests {
                 axis_name: Some("operational".into()),
                 unit: "tests".into(),
                 hints: vec!["assert".into(), "verify".into()],
+                facets: Facets::default(),
             },
         )]
         .into()

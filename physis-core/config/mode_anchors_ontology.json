@@ -1,0 +1,1292 @@
+{
+ "kind": "mode_anchors",
+ "_comment": "One crisp, MODE-pure anchor per (domain × mode) cell. Sharpens the 14-mode axis (LIFT=peak/intensity, REST=recover/idle, WALK=steady/flow, WORK=execute/labor, CREATE=make/design, LEARN=study/practice, DESTROY=teardown/remove, SENSE=perceive/measure, GUIDE=lead/mentor, PLAY=explore/improvise, BRAINSTORM=ideate/diverge, MAINTAIN=upkeep/repair/preserve, MOVE=relocate/transport/logistics, PLAN=sequence/organize/converge) so same-domain modes separate. Phase 6F + mode-expansion.",
+ "domains": [
+  {
+   "name": "Strength Push",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "LIFT",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "sets",
+   "hints": [
+    "heavy lifting",
+    "max effort",
+    "deadlift",
+    "squat heavy",
+    "push to the limit",
+    "high intensity",
+    "go hard",
+    "peak set",
+    "raise the weight",
+    "strength training"
+   ]
+  },
+  {
+   "name": "Deep Recovery",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "REST",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "hours",
+   "hints": [
+    "rest day",
+    "recover",
+    "sleep deeply",
+    "calm down",
+    "downtime",
+    "let the body rest",
+    "relax fully",
+    "unwind",
+    "restorative"
+   ]
+  },
+  {
+   "name": "Steady Cardio",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "WALK",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "minutes",
+   "hints": [
+    "steady jog",
+    "easy pace",
+    "zone two",
+    "cruise",
+    "maintain rhythm",
+    "gentle flow",
+    "long walk",
+    "moderate effort",
+    "keep moving"
+   ]
+  },
+  {
+   "name": "Run the Session",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "WORK",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "sessions",
+   "hints": [
+    "do the workout",
+    "run the routine",
+    "execute the plan",
+    "get the session done",
+    "labor through it",
+    "grind it out",
+    "complete the sets"
+   ]
+  },
+  {
+   "name": "Design a Regimen",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "CREATE",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "plans",
+   "hints": [
+    "create a fitness plan",
+    "design a wellness routine",
+    "build a new habit",
+    "craft a recovery protocol",
+    "invent a program",
+    "compose a meal plan"
+   ]
+  },
+  {
+   "name": "Body Knowledge",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "LEARN",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "lessons",
+   "hints": [
+    "learn proper form",
+    "study nutrition",
+    "understand the body",
+    "practice technique",
+    "master the movement",
+    "physiology basics"
+   ]
+  },
+  {
+   "name": "Heavy Build Push",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "LIFT",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "loads",
+   "hints": [
+    "demolition",
+    "heavy hauling",
+    "raise the structure",
+    "max load",
+    "big lift day",
+    "intense build",
+    "tear down the wall",
+    "move heavy material"
+   ]
+  },
+  {
+   "name": "Site Standby",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "REST",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "cycles",
+   "hints": [
+    "site idle",
+    "tools away",
+    "construction downtime",
+    "rest the project",
+    "quiet site",
+    "pause the build",
+    "let the concrete cure"
+   ]
+  },
+  {
+   "name": "Steady Upkeep",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "WALK",
+   "axis_kind": "human",
+   "axis_name": "caretaker",
+   "unit": "rounds",
+   "hints": [
+    "routine upkeep",
+    "ongoing maintenance",
+    "steady repairs",
+    "keep it running",
+    "regular care",
+    "patrol and fix",
+    "maintain the building"
+   ]
+  },
+  {
+   "name": "Build Execution",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "WORK",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "tasks",
+   "hints": [
+    "pour concrete",
+    "frame the wall",
+    "lay bricks",
+    "do the build",
+    "execute the job",
+    "labor on site",
+    "get it built",
+    "install the fixture",
+    "assemble"
+   ]
+  },
+  {
+   "name": "Design & Blueprint",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "CREATE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "designs",
+   "hints": [
+    "design the layout",
+    "draft the blueprint",
+    "create the plan",
+    "invent a fixture",
+    "new construction concept",
+    "architect the space"
+   ]
+  },
+  {
+   "name": "Trade Study",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "LEARN",
+   "axis_kind": "human",
+   "axis_name": "apprentice",
+   "unit": "lessons",
+   "hints": [
+    "learn carpentry",
+    "study the trade",
+    "apprentice on site",
+    "practice the technique",
+    "master the craft",
+    "read the building code"
+   ]
+  },
+  {
+   "name": "Production Sprint",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "LIFT",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "runs",
+   "hints": [
+    "crunch time",
+    "max output",
+    "push the batch",
+    "intense production",
+    "peak run",
+    "scale up hard",
+    "overdrive the line",
+    "ship under pressure"
+   ]
+  },
+  {
+   "name": "Line Downtime",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "REST",
+   "axis_kind": "human",
+   "axis_name": "operator",
+   "unit": "shifts",
+   "hints": [
+    "machine idle",
+    "production pause",
+    "let it cure",
+    "material rest",
+    "factory quiet",
+    "tooling rest",
+    "no output",
+    "between batches"
+   ]
+  },
+  {
+   "name": "Steady Production",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "WALK",
+   "axis_kind": "human",
+   "axis_name": "operator",
+   "unit": "batches",
+   "hints": [
+    "steady output",
+    "routine run",
+    "ongoing production",
+    "maintain the line",
+    "regular batches",
+    "keep the throughput",
+    "even cadence"
+   ]
+  },
+  {
+   "name": "Ship & Deploy",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "WORK",
+   "axis_kind": "human",
+   "axis_name": "operator",
+   "unit": "units",
+   "hints": [
+    "deploy the build",
+    "ship the code",
+    "run the pipeline",
+    "produce the unit",
+    "operate the machine",
+    "get it out the door",
+    "execute the run",
+    "manufacture"
+   ]
+  },
+  {
+   "name": "Make & Compose",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "CREATE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "pieces",
+   "hints": [
+    "create from scratch",
+    "make a new dish",
+    "compose a piece",
+    "design the product",
+    "write new code",
+    "invent",
+    "prototype",
+    "craft something new"
+   ]
+  },
+  {
+   "name": "Maker Practice",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "LEARN",
+   "axis_kind": "human",
+   "axis_name": "apprentice",
+   "unit": "drills",
+   "hints": [
+    "learn the tool",
+    "study the recipe",
+    "practice the technique",
+    "apprentice maker",
+    "master the craft",
+    "follow a tutorial",
+    "skill drill"
+   ]
+  },
+  {
+   "name": "Deepen Bonds",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "LIFT",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "moments",
+   "hints": [
+    "strengthen the relationship",
+    "heart to heart",
+    "big commitment",
+    "deepen trust",
+    "intense connection",
+    "vulnerable conversation",
+    "raise the bond"
+   ]
+  },
+  {
+   "name": "Quiet Together",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "REST",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "hours",
+   "hints": [
+    "calm time together",
+    "restful company",
+    "quiet evening",
+    "just be present",
+    "relaxed connection",
+    "comfortable silence",
+    "unwind with family"
+   ]
+  },
+  {
+   "name": "Stay in Touch",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "WALK",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "calls",
+   "hints": [
+    "regular check-in",
+    "keep in touch",
+    "steady friendship",
+    "ongoing connection",
+    "routine call",
+    "weekly catch-up",
+    "stay connected"
+   ]
+  },
+  {
+   "name": "Relationship Work",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "WORK",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "talks",
+   "hints": [
+    "resolve conflict",
+    "do the emotional work",
+    "mediate",
+    "repair the bond",
+    "work it out",
+    "show up for them",
+    "apologize and rebuild"
+   ]
+  },
+  {
+   "name": "Plan Together",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "CREATE",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "events",
+   "hints": [
+    "plan a gathering",
+    "create a tradition",
+    "organize an event",
+    "design a date",
+    "make new memories",
+    "host a dinner",
+    "throw a party"
+   ]
+  },
+  {
+   "name": "Understand Others",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "LEARN",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "lessons",
+   "hints": [
+    "learn empathy",
+    "study communication",
+    "understand them",
+    "practice listening",
+    "learn to connect",
+    "read the room",
+    "emotional intelligence"
+   ]
+  },
+  {
+   "name": "Intensive Cram",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "LIFT",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "sessions",
+   "hints": [
+    "cram for the exam",
+    "deep focus",
+    "intense study session",
+    "push through the material",
+    "max concentration",
+    "grind the syllabus",
+    "marathon study"
+   ]
+  },
+  {
+   "name": "Reflective Pause",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "REST",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "breaks",
+   "hints": [
+    "reflect quietly",
+    "let ideas settle",
+    "mental rest",
+    "ponder",
+    "incubate the idea",
+    "think it over",
+    "study break",
+    "sleep on it"
+   ]
+  },
+  {
+   "name": "Steady Review",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "WALK",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "days",
+   "hints": [
+    "daily reading",
+    "steady review",
+    "ongoing study",
+    "routine practice",
+    "keep learning",
+    "regular revision",
+    "spaced repetition",
+    "chip away"
+   ]
+  },
+  {
+   "name": "Research Execution",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "WORK",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "runs",
+   "hints": [
+    "run the experiment",
+    "analyze the data",
+    "do the research",
+    "execute the study",
+    "crunch the numbers",
+    "collect results",
+    "process the findings"
+   ]
+  },
+  {
+   "name": "Theorize & Write",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "CREATE",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "papers",
+   "hints": [
+    "write the paper",
+    "form a hypothesis",
+    "create a theory",
+    "compose an essay",
+    "design a study",
+    "originate an idea",
+    "draft the thesis"
+   ]
+  },
+  {
+   "name": "Deep Learning",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "LEARN",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "topics",
+   "hints": [
+    "learn the subject",
+    "study linear algebra",
+    "master the topic",
+    "understand deeply",
+    "acquire knowledge",
+    "practice problems",
+    "absorb the material",
+    "take a course"
+   ]
+  },
+  {
+   "name": "Overtrain Breakdown",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "DESTROY",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "events",
+   "hints": [
+    "tear muscle",
+    "overtraining",
+    "injury",
+    "break down tissue",
+    "strain",
+    "push past failure",
+    "wear and tear",
+    "damage the body"
+   ]
+  },
+  {
+   "name": "Body Awareness",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "SENSE",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "checks",
+   "hints": [
+    "feel the body",
+    "monitor heart rate",
+    "listen to symptoms",
+    "notice fatigue",
+    "proprioception",
+    "body scan",
+    "track vitals",
+    "check posture"
+   ]
+  },
+  {
+   "name": "Coach the Body",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "GUIDE",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "sessions",
+   "hints": [
+    "coach a workout",
+    "guide training",
+    "lead a class",
+    "instruct form",
+    "mentor athlete",
+    "program the plan",
+    "demonstrate exercise"
+   ]
+  },
+  {
+   "name": "Active Play",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "PLAY",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "minutes",
+   "hints": [
+    "play sport",
+    "pick-up game",
+    "fun movement",
+    "dance freely",
+    "recreational play",
+    "romp",
+    "playful exercise",
+    "frolic"
+   ]
+  },
+  {
+   "name": "Plan the Regimen",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "BRAINSTORM",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "ideas",
+   "hints": [
+    "brainstorm a routine",
+    "sketch a training plan",
+    "ideate workouts",
+    "draft a diet",
+    "imagine goals",
+    "plan the program"
+   ]
+  },
+  {
+   "name": "Demolition",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "DESTROY",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "jobs",
+   "hints": [
+    "demolish",
+    "tear down",
+    "knock down wall",
+    "raze",
+    "wreck",
+    "dismantle structure",
+    "bulldoze",
+    "clear the site"
+   ]
+  },
+  {
+   "name": "Site Survey",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "SENSE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "surveys",
+   "hints": [
+    "survey the site",
+    "measure dimensions",
+    "inspect structure",
+    "check level",
+    "monitor load",
+    "scan blueprint",
+    "assess foundation"
+   ]
+  },
+  {
+   "name": "Site Supervision",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "GUIDE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "shifts",
+   "hints": [
+    "supervise crew",
+    "coordinate trades",
+    "direct the build",
+    "foreman",
+    "manage site",
+    "lead construction",
+    "oversee work"
+   ]
+  },
+  {
+   "name": "Prototype Build",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "PLAY",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "builds",
+   "hints": [
+    "tinker with build",
+    "mock up",
+    "experiment with structure",
+    "playful build",
+    "sandbox construction",
+    "try a layout"
+   ]
+  },
+  {
+   "name": "Design the Build",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "BRAINSTORM",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "concepts",
+   "hints": [
+    "brainstorm layout",
+    "sketch blueprint",
+    "ideate structure",
+    "draft plans",
+    "imagine the building",
+    "concept design"
+   ]
+  },
+  {
+   "name": "Scrap and Recycle",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "DESTROY",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "items",
+   "hints": [
+    "scrap the part",
+    "melt down",
+    "recycle material",
+    "discard reject",
+    "break down product",
+    "disassemble",
+    "tear apart"
+   ]
+  },
+  {
+   "name": "Quality Inspection",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "SENSE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "checks",
+   "hints": [
+    "inspect part",
+    "measure tolerance",
+    "gauge dimension",
+    "monitor machine",
+    "check quality",
+    "scan defect",
+    "sensor reading"
+   ]
+  },
+  {
+   "name": "Shop Floor Lead",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "GUIDE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "shifts",
+   "hints": [
+    "lead the shop",
+    "coordinate production",
+    "train operators",
+    "direct fabrication",
+    "supervise line",
+    "mentor machinist"
+   ]
+  },
+  {
+   "name": "Tinker and Prototype",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "PLAY",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "prototypes",
+   "hints": [
+    "tinker",
+    "prototype freely",
+    "experiment with material",
+    "playful making",
+    "hack a part",
+    "try a jig"
+   ]
+  },
+  {
+   "name": "Design the Part",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "BRAINSTORM",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "designs",
+   "hints": [
+    "brainstorm a design",
+    "sketch the part",
+    "ideate product",
+    "draft CAD",
+    "imagine the build",
+    "concept the tool"
+   ]
+  },
+  {
+   "name": "Cut Ties",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "DESTROY",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "events",
+   "hints": [
+    "cut ties",
+    "end relationship",
+    "break up",
+    "sever connection",
+    "conflict",
+    "fall out",
+    "burn bridge",
+    "dissolve bond"
+   ]
+  },
+  {
+   "name": "Read the Room",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "SENSE",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "moments",
+   "hints": [
+    "read emotions",
+    "sense mood",
+    "listen actively",
+    "empathize",
+    "notice cues",
+    "perceive feelings",
+    "gauge the room",
+    "attune"
+   ]
+  },
+  {
+   "name": "Mentor and Lead",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "GUIDE",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "sessions",
+   "hints": [
+    "mentor someone",
+    "lead the group",
+    "guide others",
+    "counsel",
+    "coach",
+    "facilitate",
+    "direct the team",
+    "advise"
+   ]
+  },
+  {
+   "name": "Socialize and Play",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "PLAY",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "hours",
+   "hints": [
+    "hang out",
+    "play together",
+    "joke around",
+    "socialize",
+    "have fun",
+    "banter",
+    "party",
+    "playful connection"
+   ]
+  },
+  {
+   "name": "Plan Together",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "BRAINSTORM",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "sessions",
+   "hints": [
+    "brainstorm together",
+    "ideate as group",
+    "sketch ideas jointly",
+    "plan the event",
+    "imagine together",
+    "collaborate on ideas"
+   ]
+  },
+  {
+   "name": "Refute and Debunk",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "DESTROY",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "arguments",
+   "hints": [
+    "refute",
+    "debunk",
+    "dismantle argument",
+    "falsify",
+    "critique",
+    "tear down theory",
+    "disprove",
+    "deconstruct"
+   ]
+  },
+  {
+   "name": "Observe and Measure",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "SENSE",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "observations",
+   "hints": [
+    "observe",
+    "measure data",
+    "collect evidence",
+    "monitor variable",
+    "perceive pattern",
+    "record observation",
+    "gather data"
+   ]
+  },
+  {
+   "name": "Teach and Explain",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "GUIDE",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "lessons",
+   "hints": [
+    "teach",
+    "explain concept",
+    "lecture",
+    "tutor",
+    "mentor learner",
+    "guide study",
+    "walk through",
+    "clarify"
+   ]
+  },
+  {
+   "name": "Thought Experiment",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "PLAY",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "experiments",
+   "hints": [
+    "thought experiment",
+    "play with ideas",
+    "explore what-if",
+    "puzzle",
+    "intellectual play",
+    "toy with theory",
+    "speculate"
+   ]
+  },
+  {
+   "name": "Ideate and Hypothesize",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "BRAINSTORM",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "ideas",
+   "hints": [
+    "brainstorm",
+    "hypothesize",
+    "ideate",
+    "sketch theory",
+    "imagine possibilities",
+    "generate ideas",
+    "free associate",
+    "diverge"
+   ]
+  },
+  {
+   "name": "Body Upkeep",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "MAINTAIN",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "sessions",
+   "hints": [
+    "stay in shape",
+    "maintain fitness",
+    "mobility work",
+    "stretch routine",
+    "keep healthy",
+    "upkeep the body",
+    "prehab",
+    "sustain condition"
+   ]
+  },
+  {
+   "name": "Commute and Travel",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "MOVE",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "trips",
+   "hints": [
+    "walk to work",
+    "commute",
+    "travel",
+    "get there on foot",
+    "move across town",
+    "relocate",
+    "go somewhere",
+    "transit"
+   ]
+  },
+  {
+   "name": "Schedule the Week",
+   "category": "Body",
+   "domain": "HEAL",
+   "mode": "PLAN",
+   "axis_kind": "human",
+   "axis_name": "physical",
+   "unit": "plans",
+   "hints": [
+    "plan workouts",
+    "schedule training",
+    "organize the week",
+    "meal plan",
+    "set a routine",
+    "arrange sessions",
+    "sequence the program"
+   ]
+  },
+  {
+   "name": "Building Maintenance",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "MAINTAIN",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "jobs",
+   "hints": [
+    "maintain the building",
+    "repair structure",
+    "patch and seal",
+    "service the property",
+    "upkeep",
+    "preventive maintenance",
+    "keep in repair",
+    "fix wear"
+   ]
+  },
+  {
+   "name": "Haul and Transport",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "MOVE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "loads",
+   "hints": [
+    "haul materials",
+    "transport beams",
+    "move equipment",
+    "crane lift to site",
+    "deliver supplies",
+    "relocate gear",
+    "load and carry"
+   ]
+  },
+  {
+   "name": "Project Scheduling",
+   "category": "Build",
+   "domain": "CONSTRUCT",
+   "mode": "PLAN",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "schedules",
+   "hints": [
+    "schedule the build",
+    "plan phases",
+    "sequence trades",
+    "critical path",
+    "organize the site",
+    "gantt the project",
+    "arrange milestones"
+   ]
+  },
+  {
+   "name": "Machine Maintenance",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "MAINTAIN",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "hours",
+   "hints": [
+    "maintain the machine",
+    "lubricate",
+    "replace worn part",
+    "preventive maintenance",
+    "service the tool",
+    "calibrate",
+    "keep machine running",
+    "predictive maintenance"
+   ]
+  },
+  {
+   "name": "Material Handling",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "MOVE",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "batches",
+   "hints": [
+    "move stock",
+    "transport parts",
+    "convey material",
+    "forklift to line",
+    "route work in progress",
+    "logistics",
+    "feed the line",
+    "relocate inventory"
+   ]
+  },
+  {
+   "name": "Production Planning",
+   "category": "Make",
+   "domain": "FABRICATE",
+   "mode": "PLAN",
+   "axis_kind": "human",
+   "axis_name": "maker",
+   "unit": "plans",
+   "hints": [
+    "plan production",
+    "schedule the run",
+    "sequence jobs",
+    "organize the batch",
+    "arrange the line",
+    "MRP",
+    "set the takt",
+    "order materials"
+   ]
+  },
+  {
+   "name": "Keep in Touch",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "MAINTAIN",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "contacts",
+   "hints": [
+    "keep in touch",
+    "maintain friendship",
+    "stay connected",
+    "nurture relationship",
+    "check in regularly",
+    "sustain the bond",
+    "tend the connection"
+   ]
+  },
+  {
+   "name": "Introduce and Connect",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "MOVE",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "intros",
+   "hints": [
+    "introduce people",
+    "bridge contacts",
+    "bring together",
+    "network",
+    "connect parties",
+    "pass along contact",
+    "move the conversation",
+    "transfer the lead"
+   ]
+  },
+  {
+   "name": "Plan the Gathering",
+   "category": "Connect",
+   "domain": "BOND",
+   "mode": "PLAN",
+   "axis_kind": "human",
+   "axis_name": "social",
+   "unit": "events",
+   "hints": [
+    "plan the event",
+    "schedule the meetup",
+    "organize the party",
+    "arrange the trip",
+    "coordinate calendars",
+    "set the date",
+    "sequence the agenda"
+   ]
+  },
+  {
+   "name": "Review and Retain",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "MAINTAIN",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "reviews",
+   "hints": [
+    "review notes",
+    "spaced repetition",
+    "retain knowledge",
+    "keep skills sharp",
+    "refresh memory",
+    "maintain expertise",
+    "revisit material",
+    "sustain practice"
+   ]
+  },
+  {
+   "name": "Transfer Knowledge",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "MOVE",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "transfers",
+   "hints": [
+    "cite source",
+    "transfer findings",
+    "port the method",
+    "apply to new domain",
+    "carry over insight",
+    "move data",
+    "relocate the model",
+    "generalize"
+   ]
+  },
+  {
+   "name": "Research Design",
+   "category": "Mind",
+   "domain": "STUDY",
+   "mode": "PLAN",
+   "axis_kind": "human",
+   "axis_name": "intellectual",
+   "unit": "plans",
+   "hints": [
+    "plan the study",
+    "design the experiment",
+    "outline the paper",
+    "sequence the analysis",
+    "organize the literature",
+    "structure the argument",
+    "set the methodology"
+   ]
+  }
+ ]
+}

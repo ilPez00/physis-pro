@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 
 pub type Score = f32;
 
+/// Orthogonal action-space facets (lifecycle / agency / scale / abstraction /
+/// tree-nesting). Defined in `physis-core`; re-exported so the monolith and the
+/// engine share one Facets type across the classification bridge.
+pub use physis_core::models::{Abstraction, Agency, Facets, LifecyclePhase, Scale};
+
 /// State of a goal in vector space.
 ///
 /// The vector is the state; `label` optionally retains the text it was embedded
@@ -320,6 +325,8 @@ pub struct OntologyEntry {
     pub axis_name: String,
     pub unit: String,
     pub hints: Vec<String>,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -391,6 +398,8 @@ pub struct DomainDef {
     pub axis_name: Option<String>,
     pub unit: String,
     pub hints: Vec<String>,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 // ── Semiotic Types ──────────────────────────────────────────────────
@@ -530,6 +539,8 @@ pub struct GridPosition {
     pub mode: HumanMode,
     pub axis_kind: String,
     pub axis_name: String,
+    #[serde(default)]
+    pub facets: Facets,
 }
 
 impl GridPosition {
@@ -541,6 +552,7 @@ impl GridPosition {
             mode,
             axis_kind: e.axis_kind.clone(),
             axis_name: e.axis_name.clone(),
+            facets: e.facets.clone(),
         })
     }
 
@@ -625,6 +637,7 @@ impl SemioticGrid {
             mode,
             axis_kind: "composite".into(),
             axis_name: format!("{}/{}", d1.as_str(), d2.as_str()),
+            facets: Facets::default(),
         })
     }
 
