@@ -29,6 +29,10 @@ rayon = "1"
 # without the private sibling crate. default-features=false → no fastembed/usearch.
 llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", default-features = false, optional = true }
 
+# The lean core engine — embed/classify/quality/discovery now live here, and
+# physis_pro delegates to it (see src/classify.rs, src/quality.rs).
+physis-core = { path = "physis-core", default-features = false }
+
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
 notify = { version = "7", optional = true }
@@ -122,3 +126,15 @@ path = "src/bin/voice.rs"
 name = "physis-pro-wiki"
 required-features = ["tui"]
 path = "src/bin/wiki.rs"
+
+# physis-core lives as a subdirectory and is also published as its own crate;
+# this workspace lets `cargo` build/test both the monolith and the core together
+# (resolver 2 keeps feature unification per-target, so physis_pro's
+# default-features=false on physis-core keeps its cli/studio out of the monolith).
+[workspace]
+resolver = "2"
+members = ["physis-core"]
+# vendor/llmwiki carries its own [profile.release]; keeping it out of the
+# workspace avoids the "profiles for the non root package will be ignored"
+# warning (it's still reachable as the `llmwiki_physis` path dependency).
+exclude = ["vendor/llmwiki"]

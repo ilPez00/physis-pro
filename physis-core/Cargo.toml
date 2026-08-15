@@ -1,0 +1,46 @@
+[package]
+name = "physis-core"
+version = "0.1.0"
+edition = "2021"
+description = "Physis core engine — embed, classify, cohere, quality-feedback. Lean, dependency-light MVP."
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+anyhow = "1"
+rand = "0.8"
+sha2 = "0.10"
+
+# CLI + embedded studio GUI (axum). Kept optional so the engine core stays
+# dependency-free for embedders that reuse it. Enable with --features cli/studio.
+clap = { version = "4", features = ["derive"], optional = true }
+axum = { version = "0.7", features = ["json", "macros"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"], optional = true }
+
+# Production semantic embeddings (optional — off by default so the package
+# builds anywhere without model files). Enable with --features embed-onnx.
+ort = { version = "=2.0.0-rc.12", optional = true }
+tokenizers = { version = "0.21", optional = true }
+
+[features]
+default = ["cli", "studio"]
+cli = ["dep:clap"]
+studio = ["dep:axum", "dep:tokio"]
+# ONNX MiniLM embedder via the `ort` runtime. Requires model.onnx +
+# tokenizer.json in the model dir at runtime; falls back to random projection.
+embed-onnx = ["dep:ort", "dep:tokenizers"]
+
+[dev-dependencies]
+tempfile = "3"
+
+[lib]
+name = "physis_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "physis-core"
+path = "src/main.rs"
+required-features = ["cli"]

@@ -251,7 +251,7 @@ pub fn discover(
         .iter()
         .zip(embeddings)
         .map(|(text, emb)| {
-            let (best, d, m) = clf.best_entry_sim(&emb).unwrap_or((0.0, "", ""));
+            let (best, d, m) = clf.best_entry_sim(&emb).unwrap_or((0.0, String::new(), String::new()));
             sim_min = sim_min.min(best);
             sim_max = sim_max.max(best);
             sim_sum += best;

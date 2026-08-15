@@ -424,6 +424,7 @@ impl OntologyLoader {
                     axis_name: Some(e.axis_name.clone()),
                     unit: e.unit.clone(),
                     hints: e.hints.clone(),
+                    facets: e.facets.clone(),
                 },
             );
         }

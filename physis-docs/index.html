@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physis — what it does</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --bg: #0a0a0f; --bg-subtle: #12121a; --fg: #e8e8f0; --muted: #6b6b80; --accent: #00d4aa; --accent-dim: #00a080; --card: #1a1a24; --border: #2a2a3a; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Ubuntu, sans-serif; background: var(--bg); color: var(--fg); min-height: 100vh; line-height: 1.7; }
+    .container { max-width: 760px; margin: 2.5rem auto; padding: 0 1.2rem; }
+    h1 { font-size: 2.4rem; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+    h2 { font-size: 1.3rem; font-weight: 400; margin: 2.2rem 0 0.7rem; color: var(--accent); }
+    h3 { font-size: 1.02rem; font-weight: 500; margin: 1.2rem 0 0.4rem; }
+    .subtitle { color: var(--muted); font-size: 1.1rem; margin-bottom: 1.6rem; }
+    p { margin: 0.6rem 0; }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-dim); text-decoration: underline; }
+    code { background: var(--bg-subtle); padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.85em; }
+    .lead { font-size: 1.12rem; color: var(--fg); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.3rem 1.5rem; margin: 1rem 0; }
+    .cta { display: inline-block; background: var(--accent); color: var(--bg); padding: 0.8rem 1.6rem; border-radius: 5px; font-weight: 500; margin: 0.6rem 0.6rem 0.6rem 0; }
+    .cta:hover { background: var(--accent-dim); text-decoration: none; }
+    .pill { display: inline-block; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.78rem; color: var(--muted); margin: 0.15rem 0.2rem 0.15rem 0; }
+    .flow { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+    .flow .step { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.9rem; font-size: 0.9rem; }
+    .flow .arrow { color: var(--muted); }
+    footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.82rem; }
+    .demo { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.3rem 1.5rem; margin: 1rem 0; }
+    textarea#demoText { width: 100%; min-height: 64px; background: var(--bg-subtle); border: 1px solid var(--border); color: var(--fg); border-radius: 8px; padding: 0.6rem 0.8rem; font: inherit; resize: vertical; margin-bottom: 0.7rem; }
+    .demo-result { margin-top: 0.8rem; font-size: 1.05rem; }
+    pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem 1.1rem; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Physis</h1>
+    <div class="subtitle">An ontological engine that understands what an action <em>is</em>.</div>
+
+    <p class="lead">
+      Physis turns any text, image, or signal into a position on a
+      <strong>semiotic grid</strong> — a map of human activity — and then
+      <strong>learns from feedback</strong> about which classifications were right.
+      It is the engine behind the ontological features in
+      <a href="https://praxisweb.xyz/physis">Praxis</a>, and it ships as a small,
+      dependency-light core (<code>physis-core</code>) that larger systems build on.
+    </p>
+
+    <div class="flow">
+      <span class="step">embed</span><span class="arrow">→</span>
+      <span class="step">classify</span><span class="arrow">→</span>
+      <span class="step">cohere</span><span class="arrow">→</span>
+      <span class="step">learn from feedback</span>
+    </div>
+
+    <div style="text-align:center; margin:1.8rem 0;">
+      <a class="cta" href="https://praxisweb.xyz/physis">Open Physis on Praxis →</a>
+    </div>
+
+    <h2>What it actually does</h2>
+    <div class="card">
+      <h3>1 · Embed</h3>
+      <p class="muted">Every input becomes a vector. The default embedder is deterministic and model-free (so it runs anywhere with zero setup); a real ONNX MiniLM embedder can be swapped in behind the same trait when quality matters more than zero-dependency.</p>
+      <h3>2 · Classify</h3>
+      <p class="muted">The vector is scored against the ontology and placed in a cell of a <strong>5 × 14 grid</strong>: the <em>domain</em> (the <strong>what</strong>) against the <em>mode</em> (the <strong>how</strong>). Classification is nearest-entry cosine, so a densely populated cell can't drown out a precise match.</p>
+      <h3>3 · Cohere</h3>
+      <p class="muted">Entries become coherence nodes — goals, notes, observations — that cluster, branch (certified vs. isolated), and surface contradictions. A dream loop tests assertions against the graph before they harden.</p>
+      <h3>4 · Learn from feedback</h3>
+      <p class="muted">When a classification is marked right or wrong, the cell is rewarded or penalized. Future rankings shift accordingly, so the engine improves from use without retraining.</p>
+    </div>
+
+    <h2>The semiotic grid</h2>
+    <p>
+      A classification is a coordinate <code>domain × mode</code>. The vertical axis is the
+      <span class="pill">HEAL</span><span class="pill">CONSTRUCT</span><span class="pill">FABRICATE</span><span class="pill">BOND</span><span class="pill">STUDY</span>
+      and the horizontal axis is the manner of operation —
+      <span class="pill">LIFT</span><span class="pill">REST</span><span class="pill">WALK</span><span class="pill">WORK</span><span class="pill">CREATE</span><span class="pill">LEARN</span><span class="pill">DESTROY</span><span class="pill">SENSE</span><span class="pill">GUIDE</span><span class="pill">PLAY</span><span class="pill">BRAINSTORM</span><span class="pill">MAINTAIN</span><span class="pill">MOVE</span><span class="pill">PLAN</span>.
+      That is 70 base cells; ontology packs fill them with entries.
+    </p>
+
+    <h2>Beyond the grid: facets</h2>
+    <p class="muted">
+      The grid is a 2-D projection of a richer action space. To classify "whatever possible
+      action" without bloating the grid, each entry also carries orthogonal <strong>facets</strong>:
+      process <em>lifecycle</em> (Design/Build/Operate/Retire), <em>agency</em> (Self/Other/Automated/Collective),
+      <em>scale</em> (Personal→Civil), <em>abstraction</em>, and tree-nesting
+      (<code>sub_domain</code> / <code>sub_mode</code>). Facets are optional, so existing
+      ontologies keep working, and classification can be filtered by them.
+    </p>
+
+    <h2>Ontology packs</h2>
+    <p class="muted">
+      The human grid is the base layer. Parallel packs — <code>office</code> (75 domains),
+      <code>machine</code> (23 process domains), <code>agent</code> (21 AI-workflow domains) — share
+      the same grid vocabulary with their own terms, and custom layers can be added on top. Expansion
+      comes from adding packs and facets, not from rewriting the engine.
+    </p>
+
+    <h2>Live Demo</h2>
+    <p>
+      Try the classifier right here — type a phrase and Physis places it on the
+      <strong>domain × mode</strong> grid. (This runs entirely in your browser as a
+      lightweight keyword projection of the engine; the full engine adds embeddings,
+      facets, and the quality loop.)
+    </p>
+    <div class="demo">
+      <textarea id="demoText" placeholder="e.g. welding the chassis bracket during the night shift…"></textarea>
+      <button class="cta" id="demoBtn" style="margin:0">Classify →</button>
+      <div id="demoResult" class="demo-result muted">Result appears here.</div>
+    </div>
+    <p class="muted">
+      For the full interactive grid, heatmaps, and feedback training, run the
+      <a href="#studio">Ontology Studio GUI</a> locally, or open the live experience inside
+      <a href="https://praxisweb.xyz/physis">Praxis</a>.
+    </p>
+
+    <h2>MCP Agent Connection</h2>
+    <p>
+      <strong>Connect agents with Physis</strong> via MCP protocol. This enables AI agents like Claude Desktop, Cursor, or any MCP-compatible client to perform ontology tasks:
+      <ul>
+        <li>Classify text with <code>physis_classify</code></li>
+        <li>Query ontology with <code>physis_ontology</code></li>
+        <li>Train quality models via feedback with <code>physis_feedback</code></li>
+        <li>Discover entries from documents with <code>physis_discover</code></li>
+      </ul>
+    </p>
+    <div class="card">
+      <h3>Quick Setup</h3>
+      <ol>
+        <li>Start server: <code>./physis-pro serve</code></li>
+        <li>Configure agent: <code>127.0.0.1:9876</code></li>
+        <li>Example call: <code>{ name: 'physis_classify', arguments: { text: "your text" } }</code></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Claude Desktop / MCP client config</h3>
+      <pre>{
+  "mcpServers": {
+    "physis": {
+      "command": "/path/to/physis-pro",
+      "args": ["serve"],
+      "env": { "PHYSIS_HOST": "127.0.0.1", "PHYSIS_PORT": "9876" }
+    }
+  }
+}</pre>
+      <p class="muted">Or point any SSE-capable MCP client at <code>http://127.0.0.1:9876</code> after starting the server. Tools exposed: <code>physis_classify</code>, <code>physis_ontology</code>, <code>physis_feedback</code>, <code>physis_discover</code>.</p>
+    </div>
+
+    <h2>Ontology Studio GUI</h2>
+    <p>
+      The full Ontology Studio GUI offers an interactive interface to explore the semiotic grid. Features include:
+      <ul>
+        <li>Live heatmaps of classification coverage</li>
+        <li>Real-time editing of ontology entries</li>
+        <li>Document-guided discovery of new grid cells</li>
+        <li>Classification with quality feedback loops</li>
+      </ul>
+      Run locally with <code>physis-core studio --port 3000</code> to access <code>http://localhost:3000</code>.
+    </p>
+    <div style="text-align:center; margin:1.5rem 0;">
+      <a class="cta" href="https://github.com/ilPez00/physis-pro/releases">↓ Download Studio GUI</a>
+    </div>
+
+    <h2>MCP Server</h2>
+    <p>
+      The Physis MCP server exposes ontology capabilities via the Model Context Protocol. Run with:
+      <pre>./physis-pro serve</pre>
+      to start serving on <code>127.0.0.1:9876</code>.
+    </p>
+    <div class="card">
+      <h3>Agent Capabilities</h3>
+      <ul>
+        <li><strong>Semantic classification:</strong> Place any input on the 5x14 grid</li>
+        <li><strong>Ontology management:</strong> Create/delete entries via natural language</li>
+        <li><strong>Quality feedback:</strong> Train the model with right/wrong markings</li>
+        <li><strong>Discovery:</strong> Find hidden patterns in documents</li>
+      </ul>
+    </div>
+
+    <footer>
+      <p>Physis core engine · <a href="https://github.com/ilPez00/physis-pro">github.com/ilPez00/physis-pro</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // Lightweight browser-side projection of the Physis classifier (keyword → cell).
+    const DOMAIN_KW = {
+      HEAL: ['heal','cure','treat','health','medicine','recover','therapy','nurse','doctor','wellness','rest','sleep','care'],
+      CONSTRUCT: ['build','construct','assemble','architecture','design product','weld','3d print','brick','concrete','structure'],
+      FABRICATE: ['machine','manufacture','cnc','mill','lathe','produce','factory','tool','cut','drill','cast','mold'],
+      BOND: ['bond','connect','relationship','love','friend','team','social','community','marry','trust','support'],
+      STUDY: ['study','learn','read','research','analyze','observe','think','understand','investigate','examine','classify','note']
+    };
+    const MODE_KW = {
+      LIFT:['lift','raise','hoist','carry up','elevate'],
+      REST:['rest','sleep','relax','pause','break','recover'],
+      WALK:['walk','travel','stroll','commute','go to'],
+      WORK:['work','labor','task','job','operate','execute','run machine'],
+      CREATE:['create','write','compose','invent','generate','build'],
+      LEARN:['learn','study','read','train','practice','absorb'],
+      DESTROY:['destroy','break','demolish','delete','remove','tear down'],
+      SENSE:['sense','feel','see','hear','observe','detect','monitor','measure'],
+      GUIDE:['guide','lead','direct','steer','mentor','instruct','navigate'],
+      PLAY:['play','game','fun','sport','recreation','jam'],
+      BRAINSTORM:['brainstorm','ideate','discuss','imagine','sketch','plan loosely'],
+      MAINTAIN:['maintain','service','upkeep','calibrate','tune','inspect','oil'],
+      MOVE:['move','transport','shift','relocate','convey','haul'],
+      PLAN:['plan','schedule','organize','strategize','prepare','forecast']
+    };
+    function classifyDemo(text){
+      text = text.toLowerCase();
+      const dScore={}, mScore={};
+      for (const [d,kws] of Object.entries(DOMAIN_KW)) for (const k of kws) if (text.includes(k)) dScore[d]=(dScore[d]||0)+1;
+      for (const [m,kws] of Object.entries(MODE_KW)) for (const k of kws) if (text.includes(k)) mScore[m]=(mScore[m]||0)+1;
+      const topD = Object.entries(dScore).sort((a,b)=>b[1]-a[1])[0];
+      const topM = Object.entries(mScore).sort((a,b)=>b[1]-a[1])[0];
+      if (!topD || !topM) return null;
+      return topD[0] + ' × ' + topM[0];
+    }
+    document.getElementById('demoBtn').addEventListener('click', () => {
+      const t = document.getElementById('demoText').value.trim();
+      const el = document.getElementById('demoResult');
+      if (!t) { el.textContent = 'Type a phrase first.'; el.className = 'demo-result muted'; return; }
+      const r = classifyDemo(t);
+      if (!r) { el.textContent = 'No strong match — try words like build, heal, study, weld, plan, monitor…'; el.className = 'demo-result muted'; return; }
+      el.innerHTML = '→ <strong>' + r + '</strong>';
+      el.className = 'demo-result';
+    });
+  </script>
+</body>
+</html>
