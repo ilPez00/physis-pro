@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 use physis_pro::vfs::orchestrator::VfsOrchestrator;
 use clap::{Parser, Subcommand};
 
@@ -182,12 +183,50 @@ pub enum Commands {
         #[arg(short, long)]
         input: Option<PathBuf>,
     },
+    /// Compare two data structures (JSON/struct text) node-by-node by vector
+    /// similarity. Prints matched fields, what A is missing in B, and overall
+    /// structural similarity. e.g. `physis-pro structsim a.json b.json`
+    StructSim {
+        /// First structure (JSON file, or indentation-structured text).
+        a: PathBuf,
+        /// Second structure to compare against.
+        b: PathBuf,
+        /// Minimum cosine for a field pair to count as a match (default 0.5).
+        #[arg(long, default_value_t = 0.5)]
+        threshold: f32,
+    },
+    /// Rank structures in a directory by similarity to a query structure.
+    StructSearch {
+        /// Directory of JSON / struct-text files to search.
+        dir: PathBuf,
+        /// Query structure to match against.
+        query: PathBuf,
+        /// Minimum cosine for a field pair to count as a match (default 0.5).
+        #[arg(long, default_value_t = 0.5)]
+        threshold: f32,
+        /// Return at most this many ranked results (default 10).
+        #[arg(long, default_value_t = 10)]
+        max: usize,
+    },
+    /// Token-fixed RAG: retrieve the chunks of a directory whose packed token
+    /// total stays within a fixed budget. Deterministic, overflow-proof context.
+    Rag {
+        /// Directory of documents to retrieve from (.txt/.md/.csv/.log/.json...).
+        dir: PathBuf,
+        /// The retrieval query.
+        query: String,
+        /// Hard token budget for the assembled context (default 1500).
+        #[arg(long, default_value_t = 1500)]
+        tokens: usize,
+        /// Maximum number of chunks to select (default 8).
+        #[arg(long, default_value_t = 8)]
+        top_k: usize,
+    },
     /// Record a study session: watch a directory and log every file you
     /// generate, edit or delete — with date, time, place, file type and order —
     /// into the running engine's Study Log (POST /api/v1/study/log). The
     /// learning/teaching app renders it on /study.
-    Study {
-        /// Directory to watch (default: current directory)
+    Study {        /// Directory to watch (default: current directory)
         dir: PathBuf,
         /// Engine base URL
         #[arg(long, default_value = "http://127.0.0.1:19876")]
@@ -638,6 +677,86 @@ fn main() -> anyhow::Result<()> {
             let result = app.run_studio(&dir, &out_path)?;
             println!("{result}");
         }
+        Commands::StructSim { a, b, threshold } => {
+            let nodes_a = load_structure_nodes(&a)?;
+            let nodes_b = load_structure_nodes(&b)?;
+            let embedder: Box<dyn VectorEmbed> =
+                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+            let g = physis_pro::structsim::compare_node_lists(&nodes_a, &nodes_b, embedder.as_ref(), threshold);
+            println!("=== Structure Similarity: {} vs {} ===", a.display(), b.display());
+            println!("  nodes A: {} · nodes B: {}", g.nodes_a.len(), g.nodes_b.len());
+            println!("  overall similarity: {:.3}", g.similarity);
+            println!("  matched fields (≥ {:.2}): {}", threshold, g.matches.len());
+            for m in &g.matches {
+                println!("    {}  ↔  {}   ({:.3})", m.a_path, m.b_path, m.score);
+            }
+            println!("  missing in B (fields A has, B lacks/renamed): {}", g.missing_in_b.len());
+            for p in &g.missing_in_b {
+                println!("    - {p}");
+            }
+            println!("  extra in B (fields B has, A lacks): {}", g.extra_in_b.len());
+            for p in &g.extra_in_b {
+                println!("    + {p}");
+            }
+        }
+        Commands::StructSearch { dir, query, threshold, max } => {
+            let q_nodes = load_structure_nodes(&query)?;
+            let embedder: Box<dyn VectorEmbed> =
+                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+            let mut ranked: Vec<(String, f32)> = Vec::new();
+            for entry in WalkDir::new(&dir).into_iter().filter_map(|e| e.ok()) {
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+                let path = entry.path();
+                let nodes = match load_structure_nodes(path) {
+                    Ok(n) if !n.is_empty() => n,
+                    _ => continue,
+                };
+                let sim = physis_pro::structsim::compare_node_lists(
+                    &q_nodes,
+                    &nodes,
+                    embedder.as_ref(),
+                    threshold,
+                )
+                .similarity;
+                ranked.push((path.display().to_string(), sim));
+            }
+            ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            println!("=== Structure Search: {} ranked by similarity ===", query.display());
+            for (path, sim) in ranked.iter().take(max) {
+                println!("  {sim:.3}  {path}");
+            }
+            if ranked.is_empty() {
+                println!("  (no parseable structures found under {})", dir.display());
+            }
+        }
+        Commands::Rag { dir, query, tokens, top_k } => {
+            let docs = ingest::ingest_all(&[dir.clone()]);
+            if docs.is_empty() {
+                anyhow::bail!("no documents found under {}", dir.display());
+            }
+            let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+            let embedder: Box<dyn VectorEmbed> =
+                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+            let (result, context) = physis_pro::rag::retrieve_from_texts(
+                &texts,
+                &query,
+                embedder.as_ref(),
+                tokens,
+                top_k,
+            );
+            println!("=== Token-Fixed RAG ===");
+            println!("  query: {query}");
+            println!("  corpus: {} docs · budget: {tokens} tokens · top_k: {top_k}", docs.len());
+            println!("  selected: {} chunks · total {} tokens · truncated: {}",
+                result.chunks.len(), result.total_tokens, result.truncated);
+            for c in &result.chunks {
+                println!("    [{:.3}] ({} tokens) doc#{}", c.score, c.tokens, c.id);
+            }
+            println!("\n--- assembled context (≤ {tokens} tokens) ---\n");
+            println!("{context}");
+        }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
     }
@@ -995,6 +1114,19 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
     }
 
     Ok(())
+}
+
+/// Load a structure file into flattened [`StructNode`]s. Accepts JSON (parsed
+/// and walked recursively) or indentation-structured text (one `key: Type` per
+/// line, 2-space indents = nesting). Returns an error if the file can't be read.
+fn load_structure_nodes(path: &Path) -> anyhow::Result<Vec<physis_pro::structsim::StructNode>> {
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| anyhow::anyhow!("cannot read {}: {}", path.display(), e))?;
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
+        Ok(physis_pro::structsim::flatten_json(&value))
+    } else {
+        Ok(physis_pro::structsim::flatten_struct_text(&text))
+    }
 }
 
 /// Load quality tracker from disk, or create empty if no saved state.
