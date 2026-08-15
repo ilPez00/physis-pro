@@ -122,6 +122,12 @@ pub enum Commands {
         #[arg(long, default_value_t = 50)]
         git: usize,
     },
+    /// Import a personal-history export (browser bookmarks/history, OPML feed
+    /// list, chat JSONL) into the shared store as labeled core nodes
+    History {
+        /// Path to the export file (.html/.htm, .json, .opml/.xml, .jsonl/.txt)
+        file: PathBuf,
+    },
     /// Run a live connector, emitting normalized events as JSON lines
     Connect {
         #[command(subcommand)]
@@ -486,6 +492,9 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Vault { dir, git } => {
             println!("{}", app.run_vault_import(&dir, git)?);
+        }
+        Commands::History { file } => {
+            println!("{}", app.run_history_import(&file)?);
         }
 
         // ── Business commands ──
@@ -1429,5 +1438,32 @@ mod tests {
 
         // Missing dir errors.
         assert!(app.run_vault_import(&dir.path().join("nope"), 0).is_err());
+    }
+
+    #[test]
+    fn test_cli_history_import_registers_nodes() {
+        let dir = tempfile::tempdir().unwrap();
+        let bookmarks = dir.path().join("bookmarks.html");
+        std::fs::write(&bookmarks, r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor</A></DL><p>"#).unwrap();
+        let mut app = cli_app(dir.path());
+
+        let out = app.run_history_import(&bookmarks).unwrap();
+        assert!(out.contains("bookmarks.html"), "file named: {out}");
+        assert!(out.contains("1 items"), "one bookmark: {out}");
+        assert!(out.contains("registered"), "labels registered: {out}");
+
+        // Recallable by content.
+        let search = app.run_node_search("shop floor", 100, 10).unwrap();
+        assert!(search.contains("Shop floor"), "bookmark recallable: {search}");
+
+        // Re-import dedupes.
+        let out2 = app.run_history_import(&bookmarks).unwrap();
+        assert!(out2.contains("deduped"), "re-import dedupes: {out2}");
+
+        // Unsupported extension errors.
+        let csv = dir.path().join("data.csv");
+        std::fs::write(&csv, "a,b\n").unwrap();
+        assert!(app.run_history_import(&csv).is_err());
     }
 }

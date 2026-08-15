@@ -611,8 +611,12 @@ Each connector is thin: `source → embed (shared embedder) → register labeled
   - CLI `physis-pro vault <dir> [--git N]` and web `POST /api/v1/vault/import`
     (scan-root confined) register them with the shared embedder; re-import
     dedupes by label. `parse_git_log` is unit-testable without a git binary.
-- **Personal-history importers** — browser history+bookmarks, email/chat exports,
-  RSS/read-later, photo library (EXIF + CLIP embed).
+- **Personal-history importers** — ✅ done. Browser bookmarks (Netscape HTML),
+  browser history (JSON), OPML feed lists, and chat/message exports (JSONL)
+  reduced to labeled core nodes (`src/history.rs`, pure parsers):
+  - CLI `physis-pro history <file>` and web `POST /api/v1/history/import`
+    (scan-root confined) register each item with the shared embedder; re-import
+    dedupes by label. `importer_for` dispatches by extension.
 - **Praxis backfill** — `notebook_entries` + trackers → `register_behavioural_vector`
   (Success/Inert/Failure) to seed coherence from the real life-log.
 

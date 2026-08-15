@@ -57,6 +57,7 @@ pub mod spanner;
 pub mod structsim;
 pub mod rag;
 pub mod vault;
+pub mod history;
 pub mod license;
 
 #[cfg(feature = "cli")]

@@ -463,6 +463,38 @@ impl PhysisApp {
         ))
     }
 
+    /// Import a personal-history export (browser bookmarks/history, OPML feed
+    /// list, chat JSONL) into the shared store as labeled core nodes. Each item
+    /// is embedded with the shared embedder so the life-log is recallable by
+    /// content in the wiki; re-imports dedupe by label.
+    pub fn run_history_import(&mut self, file: &std::path::Path) -> anyhow::Result<String> {
+        let (docs, name) = crate::history::import_file(file)?;
+        if docs.is_empty() {
+            return Ok(format!("history[{name}]: no items found"));
+        }
+        let pairs = crate::vault::collect_labels(&docs);
+        let labels_total = pairs.len();
+        let texts: Vec<&str> = pairs.iter().map(|(_, body)| body.as_str()).collect();
+        let embeddings = self.embedder.embed_batch(&texts);
+
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let before = core.nodes.len();
+        for ((label, _), emb) in pairs.into_iter().zip(embeddings) {
+            let id = core.register_node_vec_labeled(emb, Some(label));
+            if let Err(e) = core.persist_node(&db, "_default", &id) {
+                eprintln!("[physis] history: node {id} not persisted: {e}");
+            }
+        }
+        let registered = core.nodes.len().saturating_sub(before);
+        let deduped = labels_total.saturating_sub(registered);
+        Ok(format!(
+            "history[{name}]: {} items → {} labels registered ({} deduped)",
+            docs.len(), registered, deduped,
+        ))
+    }
+
     /// Grade a dream by ID. Returns false if no dream with that ID exists.
     pub fn run_evaluate(&mut self, id: &str, grade: Score) -> bool {
         self.dreams.evaluate_dream(id, grade)
