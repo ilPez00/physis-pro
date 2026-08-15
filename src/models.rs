@@ -184,6 +184,14 @@ pub struct CoherenceNode {
     /// comparing vectors from different spaces. `None` for legacy/unstamped nodes.
     #[serde(default)]
     pub embedder: Option<String>,
+    /// Semiotic cell the editor has manually pinned this node to, as
+    /// `(domain, mode)` — the "hybrid" edit semantics. Structure (id, asserted,
+    /// edges) is preserved across a content edit; the cell is re-derived from
+    /// the new content; a pin overrides the auto result and survives restarts.
+    /// `None` for nodes never pinned (and rows written before the field existed,
+    /// hence `serde(default)`).
+    #[serde(default)]
+    pub cell_pin: Option<(String, String)>,
 }
 
 impl CoherenceNode {
@@ -195,6 +203,7 @@ impl CoherenceNode {
             asserted: None,
             label: None,
             embedder: None,
+            cell_pin: None,
         }
     }
 
