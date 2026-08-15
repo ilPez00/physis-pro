@@ -34,6 +34,19 @@ impl IdBridge {
     }
     pub fn len(&self) -> usize { self.coh_to_holon.len() }
     pub fn is_empty(&self) -> bool { self.coh_to_holon.is_empty() }
+
+    /// Drop both directions of a coherence-id ↔ holarchy mapping.
+    pub fn unlink(&mut self, coh_id: &str) {
+        if let Some(data) = self.coh_to_holon.remove(coh_id) {
+            self.holon_to_coh.remove(&data);
+        }
+    }
+    /// Drop the mapping by its raw holarchy key.
+    pub fn unlink_raw(&mut self, raw: RawNodeKey) {
+        if let Some(coh) = self.holon_to_coh.remove(&raw.data) {
+            self.coh_to_holon.remove(&coh);
+        }
+    }
 }
 
 /// Central engine state — coherence graph, certified/isolated branches, dream archive,
@@ -70,6 +83,19 @@ pub struct PhysisCore {
     /// Embedder id stamped onto every node registered here (vector provenance).
     /// Set once at startup via `set_embedder_id`. `None` = unstamped.
     embedder_id: Option<String>,
+}
+
+/// The observable effect of an "exchange-parts" edit.
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeEditOutcome {
+    pub node_id: String,
+    pub label: String,
+    /// The semiotic cell the editor pinned (`(domain, mode)`), when any.
+    pub pinned_cell: Option<(String, String)>,
+    /// The caller's verdict, preserved verbatim across the swap.
+    pub asserted: Option<Score>,
+    /// Derived density after the new content was re-embedded + scored.
+    pub coherence_score: Score,
 }
 
 impl PhysisCore {
@@ -242,6 +268,77 @@ impl PhysisCore {
         }
     }
 
+    /// **Exchange-parts edit** — replace a node's *content* while preserving its
+    /// *structure*. Because the two are independent, swapping `label` + `embedding`
+    /// keeps the node functional everywhere it is referenced: the same `id` is
+    /// used by the dedupe index, holarchy edges (`IdBridge`), dreams, PDCA, and
+    /// persistence — none of which need to change for the swap to take.
+    ///
+    /// The caller supplies the re-embedded vector (and, optionally, the semiotic
+    /// `pin` cell from the editor — the hybrid semantics: auto-classification is
+    /// re-derived from the new content by the caller, but a pin overrides it and
+    /// survives restarts). The asserted verdict and embedder provenance stamp are
+    /// preserved; stale PQ codes for the node are dropped.
+    ///
+    /// Returns `Err` for an unknown id, else the post-edit outcome.
+    pub fn edit_node(
+        &mut self,
+        id: &str,
+        new_label: &str,
+        new_embedding: Vec<f32>,
+        pin: Option<(String, String)>,
+        embedder_id: Option<&str>,
+    ) -> anyhow::Result<NodeEditOutcome> {
+        let node = self.nodes.get_mut(id).ok_or_else(|| anyhow::anyhow!("unknown node {id}"))?;
+        // The dedupe index maps label → id. Swap the alias atomically so the old
+        // label stops resolving (re-scan dedupes on the new label, not the dead
+        // one) and the new label starts resolving.
+        if let Some(old) = node.label.take() {
+            if self.label_index.get(&old).map(String::as_str) == Some(id) {
+                self.label_index.remove(&old);
+            }
+        }
+        node.label = Some(new_label.to_string());
+        node.embedding = new_embedding;
+        node.embedder = embedder_id.map(str::to_string);
+        node.cell_pin = pin;
+        self.label_index.insert(new_label.to_string(), id.to_string());
+        // Drop any stale PQ codes for this node so DBANN never reads the old vector.
+        self.encoded_nodes.retain(|(nid, _)| nid != id);
+        self.update_coherence(id);
+        let node = &self.nodes[id];
+        Ok(NodeEditOutcome {
+            node_id: id.to_string(),
+            label: node.label.clone().unwrap_or_default(),
+            pinned_cell: node.cell_pin.clone(),
+            asserted: node.asserted,
+            coherence_score: node.coherence_score,
+        })
+    }
+
+    /// Remove a node and every structure that references it: the label dedupe
+    /// index, the holarchy bridge, the holarchy node + its edges, and any PQ
+    /// codes. The caller is responsible for removing the persisted sled row.
+    /// Returns false when the id is unknown.
+    pub fn delete_node(&mut self, id: &str) -> bool {
+        let Some(node) = self.nodes.remove(id) else { return false };
+        if let Some(label) = node.label {
+            if self.label_index.get(&label).map(String::as_str) == Some(id) {
+                self.label_index.remove(&label);
+            }
+        }
+        if let Some(raw) = self.bridge.holon_for(id) {
+            self.holarchy.nodes.remove(raw.into());
+            self.holarchy.embeddings.remove(raw.into());
+            self.holarchy.edges.retain(|e| {
+                e.source.data != raw.data && e.target.data != raw.data
+            });
+            self.bridge.unlink_raw(raw);
+        }
+        self.encoded_nodes.retain(|(nid, _)| nid != id);
+        true
+    }
+
     /// Mean of the reported verdicts, or `None` when nothing has been judged.
     ///
     /// Distinct from `coherence_index`, which averages derived density over
@@ -267,7 +364,8 @@ impl PhysisCore {
     }
 
     /// sled key for one coherence node: `coh:<uid>:<node_id>`.
-    fn node_key(uid: &str, id: &str) -> String {
+    /// `pub(crate)` so the web layer can remove the persisted row on delete.
+    pub(crate) fn node_key(uid: &str, id: &str) -> String {
         format!("coh:{uid}:{id}")
     }
 
@@ -723,6 +821,104 @@ mod tests {
         g.register_node_vec(vec![0.1; 32]);
         g.register_node_vec(vec![0.1; 32]);
         assert_eq!(g.nodes.len(), 4);
+    }
+
+    #[test]
+    fn test_edit_node_swaps_content_keeps_structure() {
+        let mut g = PhysisCore::new();
+        g.set_embedder_id("rp32");
+        g.auto_bridge = true;
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("milling spindle bearing", &emb);
+        let b = g.register_node_from_text("furnace temperature profile", &emb);
+        // Verdict + a holarchy relation referencing the node (structure).
+        assert!(g.assert_coherence(&a, -1.0));
+        assert!(g.add_edge_between(&a, &b, 0.7, 1));
+        let bridge_before = g.bridge.holon_for(&a).expect("node bridged").data;
+
+        // Exchange the content: new label + re-embedded vector, no pin.
+        let new_vec = emb.embed("welding robot joint recalibration");
+        let out = g.edit_node(&a, "welding robot joint recalibration", new_vec, None, Some("rp32"))
+            .expect("edit succeeds");
+
+        // Identity + structure survive the swap.
+        assert_eq!(out.node_id, a);
+        assert_eq!(out.label, "welding robot joint recalibration");
+        assert_eq!(out.asserted, Some(-1.0), "verdict preserved across content swap");
+        assert_eq!(g.nodes[&a].embedder.as_deref(), Some("rp32"), "provenance re-stamped");
+        assert_eq!(g.bridge.holon_for(&a).expect("still bridged").data, bridge_before,
+                   "holarchy bridge survives the swap");
+        assert_eq!(g.resolved_edges().len(), 1, "edges survive the swap");
+
+        // Dedupe index moved with the label: old label no longer resolves, new one does.
+        let dup_old = g.register_node_from_text("milling spindle bearing", &emb);
+        assert_ne!(dup_old, a, "old label must not dedupe to the edited node");
+        let dup_new = g.register_node_from_text("welding robot joint recalibration", &emb);
+        assert_eq!(dup_new, a, "new label dedupes to the edited node");
+    }
+
+    #[test]
+    fn test_edit_node_unknown_id_errors() {
+        let mut g = PhysisCore::new();
+        let err = g.edit_node("missing", "x", vec![0.1; 32], None, None);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_edit_node_pin_roundtrips_and_clears() {
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        let id = g.register_node_from_text("autoclave cycle log", &emb);
+        let new_vec = emb.embed("autoclave cycle log (edited)");
+        let out = g.edit_node(&id, "autoclave cycle log (edited)", new_vec,
+                              Some(("FABRICATE".into(), "MAINTAIN".into())), None)
+            .expect("edit succeeds");
+        assert_eq!(out.pinned_cell.as_ref(), Some(&("FABRICATE".to_string(), "MAINTAIN".to_string())));
+        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&("FABRICATE".to_string(), "MAINTAIN".to_string())),
+                   "pin persists on the node");
+        // Clearing: an edit without a pin removes the pin.
+        g.edit_node(&id, "autoclave cycle log (again)", emb.embed("autoclave"), None, None)
+            .expect("edit succeeds");
+        assert_eq!(g.nodes[&id].cell_pin, None, "pin cleared when not re-supplied");
+    }
+
+    #[test]
+    fn test_edit_node_recomputes_coherence_and_drops_pq_codes() {
+        let mut g = PhysisCore::new();
+        g.enable_quantizer(32);
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("alpha", &emb);
+        g.register_node_from_text("beta", &emb);
+        g.register_node_from_text("gamma", &emb);
+        assert_eq!(g.encoded_nodes.len(), 3, "all nodes PQ-encoded");
+
+        g.edit_node(&a, "alpha edited", emb.embed("alpha edited"), None, None).expect("edit");
+        assert_eq!(g.encoded_nodes.iter().filter(|(id, _)| id == &a).count(), 0,
+                   "stale PQ codes for the edited node are dropped");
+        assert!(g.nodes[&a].coherence_score.is_finite());
+    }
+
+    #[test]
+    fn test_delete_node_removes_all_references() {
+        let mut g = PhysisCore::new();
+        g.auto_bridge = true;
+        let emb = fixture_embedder();
+        let a = g.register_node_from_text("alpha", &emb);
+        let b = g.register_node_from_text("beta", &emb);
+        let c = g.register_node_from_text("gamma", &emb);
+        assert!(g.add_edge_between(&a, &b, 0.5, 1));
+        assert!(g.add_edge_between(&b, &c, 0.5, 1));
+
+        assert!(g.delete_node(&b));
+        assert!(!g.nodes.contains_key(&b), "node removed from the store");
+        assert!(!g.delete_node(&b), "second delete is a no-op/false");
+        // Holarchy node + edges are gone, bridge unlinked.
+        assert!(g.bridge.holon_for(&b).is_none(), "bridge unlinked");
+        assert_eq!(g.resolved_edges().len(), 0, "edges touching the removed node are gone");
+        assert_eq!(g.holarchy.nodes.len(), 2, "holarchy node removed");
+        // Label dedupe index no longer resolves the removed label.
+        let dup = g.register_node_from_text("beta", &emb);
+        assert_ne!(dup, b, "deleted label is free to register again");
     }
 
     #[test]
