@@ -118,6 +118,9 @@ pub struct PhysisApp {
     pub goals: Vec<Goal>,
     /// Embedder for classify.
     embedder: Box<dyn VectorEmbed>,
+    /// Embedder provenance kind (mirrors the web server's stamp so CLI edits
+    /// don't get skipped by `load_nodes`'s embedder-mismatch check).
+    pub embedder_kind: &'static str,
     /// Pre-computed centroids per DOMAIN\x00MODE cell.
     pub cell_centroids: HashMap<String, Vec<f32>>,
     /// Nearest-entry classifier, built once (one full-ontology embedding pass).
@@ -132,31 +135,31 @@ impl PhysisApp {
         let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
         let dreams = DreamEngine::new();
 
-        let embedder: Box<dyn VectorEmbed> = {
+        let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = {
             #[cfg(feature = "embed-onnx")]
             {
                 // Self-test gate (same as the web server): a candidate that loads
                 // but emits non-semantic vectors (e.g. Jina fp16 → garbage) is
                 // skipped so the next working candidate wins. Without this gate
                 // the CLI silently classified with noise.
-                let gate = |opt: Option<Box<dyn VectorEmbed>>| {
-                    opt.filter(|e| crate::embed::semantic_self_test(e.as_ref()))
+                let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
+                    opt.filter(|(e, _)| crate::embed::semantic_self_test(e.as_ref()))
                 };
-                let try_primary = || -> Option<Box<dyn VectorEmbed>> {
+                let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                     let ec = config.embedders.primary.as_ref()?;
                     if !ec.enabled { return None; }
                     match ec.kind {
                         EmbedderKindConfig::JinaV2 => {
                             let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                            j.is_available().then(|| Box::new(j) as Box<dyn VectorEmbed>)
+                            j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                         }
                         EmbedderKindConfig::Clip => {
                             let c = ClipEmbedder::with_config(&config.onnx);
-                            c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
+                            c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                         }
                         EmbedderKindConfig::MiniLM => {
                             let m = OnnxEmbedder::with_config(&config.onnx);
-                            m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
+                            m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                         }
                         EmbedderKindConfig::BgeBase => {
                             let cfg = crate::config::OnnxConfig {
@@ -167,7 +170,7 @@ impl PhysisApp {
                                 pooling: crate::config::PoolingStrategy::Mean,
                             };
                             let b = OnnxEmbedder::with_config(&cfg);
-                            b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                            b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
                         }
                         EmbedderKindConfig::BgeM3 => {
                             let cfg = crate::config::OnnxConfig {
@@ -178,10 +181,10 @@ impl PhysisApp {
                                 pooling: crate::config::PoolingStrategy::Cls,
                             };
                             let b = OnnxEmbedder::with_config(&cfg);
-                            b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                            b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
                         }
                         EmbedderKindConfig::RandomProjection => {
-                            Some(Box::new(RandomProjectionEmbedder::new(config.embed_dim)))
+                            Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
                         }
                     }
                 };
@@ -199,7 +202,7 @@ impl PhysisApp {
                 // `if let` (not a `.or_else` chain) so `stc` is borrowed once at a
                 // time. `break 'pick` yields the first embedder that passes.
                 let mut stc = crate::embed::SelfTestCache::load(&config.data_dir);
-                let chosen: Box<dyn VectorEmbed> = 'pick: {
+                let chosen: (Box<dyn VectorEmbed>, &'static str) = 'pick: {
                     if let Some(e) = gate(try_primary()) {
                         break 'pick e;
                     }
@@ -213,7 +216,7 @@ impl PhysisApp {
                         };
                         let b = OnnxEmbedder::with_config(&cfg);
                         b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }) {
+                    }).map(|e| (e, "bge-base")) {
                         break 'pick e;
                     }
                     if let Some(e) = stc.gated("bge-m3", "models/bge-m3", || {
@@ -226,28 +229,28 @@ impl PhysisApp {
                         };
                         let b = OnnxEmbedder::with_config(&cfg);
                         b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }) {
+                    }).map(|e| (e, "bge-m3")) {
                         break 'pick e;
                     }
                     if let Some(e) = gate({
                         let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available().then(|| Box::new(c) as Box<dyn VectorEmbed>)
+                        c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                     }) {
                         break 'pick e;
                     }
                     if let Some(e) = gate({
                         let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available().then(|| Box::new(m) as Box<dyn VectorEmbed>)
+                        m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     }) {
                         break 'pick e;
                     }
-                    Box::new(RandomProjectionEmbedder::new(config.embed_dim))
+                    (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
                 };
                 stc.save();
                 chosen
             }
             #[cfg(not(feature = "embed-onnx"))]
-            Box::new(RandomProjectionEmbedder::new(config.embed_dim))
+            (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
         };
         // Embedder provenance on stderr — the CLI equivalent of the web banner.
         // A silent fall-through to random projection makes every verdict noise
@@ -269,6 +272,7 @@ impl PhysisApp {
             dreams,
             goals: Vec::new(),
             embedder,
+            embedder_kind,
             cell_centroids,
             classifier,
         }
@@ -298,6 +302,106 @@ impl PhysisApp {
             return vec![];
         }
         self.mapper.trie.prefix_search(&tids, 2, max_results)
+    }
+
+    /// Open the shared sled store (same file the web server uses) and rehydrate
+    /// the "_default" tenant's coherence nodes, or `None` when persistence is off.
+    fn open_persisted_core(&self) -> Option<(sled::Db, crate::core::PhysisCore)> {
+        let dir = &self.config.data_dir;
+        if let Err(e) = std::fs::create_dir_all(dir) {
+            eprintln!("[physis] cannot create data dir {} ({e})", dir.display());
+            return None;
+        }
+        let db = sled::open(dir.join("state.sled")).ok()?;
+        let mut core = crate::core::PhysisCore::new();
+        core.set_embedder_id(self.embedder_kind);
+        let (loaded, skipped) = core.load_nodes(&db, "_default");
+        if loaded > 0 || skipped > 0 {
+            eprintln!("[physis] restored {loaded} nodes ({skipped} skipped: embedder mismatch)");
+        }
+        Some((db, core))
+    }
+
+    /// Register a labeled node into the shared store (what /scan and
+    /// /coherence/register do on the web side) and return its id.
+    pub fn register_persisted_node(&mut self, label: &str) -> anyhow::Result<String> {
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let embedding = self.embedder.embed(label);
+        let id = core.register_node_vec_labeled(embedding, Some(label.to_string()));
+        core.persist_node(&db, "_default", &id)?;
+        Ok(id)
+    }
+
+    /// "Exchange parts" edit from the CLI: swap a node's content, preserving its
+    /// structure. Pin a cell with `--domain`/`--mode` to override auto-derivation.
+    pub fn run_node_edit(&mut self, id: &str, label: &str, pin: Option<(String, String)>) -> anyhow::Result<String> {
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        if !core.nodes.contains_key(id) {
+            anyhow::bail!("node {id} not found");
+        }
+        let new_embedding = self.embedder.embed(label);
+        let outcome = core.edit_node(id, label, new_embedding, pin, Some(self.embedder_kind))?;
+        core.persist_node(&db, "_default", &outcome.node_id)?;
+        let mut out = format!(
+            "node {} → '{}' (asserted {:?}, coherence {:.3})",
+            outcome.node_id, outcome.label, outcome.asserted, outcome.coherence_score,
+        );
+        if let Some((domain, mode)) = &outcome.pinned_cell {
+            out.push_str(&format!(", pinned {}×{}", domain, mode));
+        }
+        Ok(out)
+    }
+
+    /// Delete a node and every reference to it from the CLI.
+    pub fn run_node_delete(&mut self, id: &str) -> anyhow::Result<String> {
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        if !core.delete_node(id) {
+            anyhow::bail!("node {id} not found");
+        }
+        db.remove(crate::core::PhysisCore::node_key("_default", id))?;
+        Ok(format!("node {id} deleted"))
+    }
+
+    /// Fixed-token search over the persisted coherence + goal nodes.
+    pub fn run_node_search(&mut self, query: &str, budget: usize, top: usize) -> anyhow::Result<String> {
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let q_emb = self.embedder.embed(query);
+
+        // Coherence nodes (labeled) — goals aren't persisted via this store in
+        // the CLI path, so node search covers the shared coherence register.
+        let candidates: Vec<(String, String, Vec<f32>)> = core.nodes.values()
+            .filter_map(|n| {
+                let label = n.label.as_deref()?;
+                if label.trim().is_empty() { return None; }
+                Some((n.id.clone(), label.to_string(), n.embedding.clone()))
+            })
+            .collect();
+
+        let corpus = crate::rag::RagCorpus {
+            chunks: candidates.iter().enumerate().map(|(i, (_, label, emb))| crate::rag::RagChunk {
+                id: i,
+                text: label.clone(),
+                tokens: crate::rag::count_tokens(label),
+                embedding: emb.clone(),
+            }).collect(),
+        };
+        let result = crate::rag::TokenFixedRetriever::new(budget, top).retrieve(&q_emb, &corpus);
+
+        let mut out = format!("{} result(s), {} tokens (budget {})\n", result.chunks.len(), result.total_tokens, result.budget);
+        for c in &result.chunks {
+            if let Some((id, label, _)) = candidates.get(c.id) {
+                out.push_str(&format!("  {:.3}  [{}] {} ({} tokens)\n", c.score, id, label, c.tokens));
+            }
+        }
+        Ok(out)
     }
 
     /// Generate `count` dreams from the current goal set.
