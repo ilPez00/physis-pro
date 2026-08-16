@@ -3395,6 +3395,7 @@ struct SemioticGridResponse {
 /// were missing for the same reason.
 async fn semiotic_grid_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
 ) -> Json<SemioticGridResponse> {
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
@@ -3406,12 +3407,51 @@ async fn semiotic_grid_handler(
             grid.classify(&def.name, d, m);
         }
     }
-    let cells: Vec<serde_json::Value> = grid.cells.iter().map(|c| serde_json::json!({
-        "domain": c.domain.as_str(),
-        "mode": c.mode.as_str(),
-        "entries": c.entries,
-        "activation": c.activation,
-    })).collect();
+
+    // Mean human verdict per cell. Only nodes carrying an `asserted` verdict
+    // are classified: verdicts are sparse, so this stays far cheaper than a
+    // pass over the whole store, and a node with no verdict has nothing to
+    // contribute to a *condition* reading anyway.
+    let uid = user_key(&headers);
+    let shared = state.shared.clone();
+    let verdicts: HashMap<String, (f32, u32)> = state.with_user(&uid, |st| {
+        let mut acc: HashMap<String, (f32, u32)> = HashMap::new();
+        for node in st.core.nodes.values() {
+            let Some(score) = node.asserted else { continue };
+            let Some((d, m)) = node
+                .cell_pin
+                .clone()
+                .or_else(|| auto_cell(&shared, node))
+            else {
+                continue;
+            };
+            let e = acc.entry(cell_key(&d, &m)).or_insert((0.0, 0));
+            e.0 += score;
+            e.1 += 1;
+        }
+        acc
+    });
+
+    let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+    let cells: Vec<serde_json::Value> = grid.cells.iter().map(|c| {
+        let key = cell_key(c.domain.as_str(), c.mode.as_str());
+        let standing = quality.cell_standing(&key);
+        let mean_asserted = verdicts.get(&key).map(|(sum, n)| sum / *n as f32);
+        serde_json::json!({
+            "domain": c.domain.as_str(),
+            "mode": c.mode.as_str(),
+            "entries": c.entries,
+            "activation": c.activation,
+            "standing": standing,
+            "mean_asserted": mean_asserted,
+            "verdicts": verdicts.get(&key).map(|(_, n)| *n).unwrap_or(0),
+            "condition": physis_core::quality::cell_condition(
+                c.entries.len() as u32,
+                standing,
+                mean_asserted,
+            ),
+        })
+    }).collect();
     Json(SemioticGridResponse { cells })
 }
 

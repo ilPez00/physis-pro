@@ -228,8 +228,11 @@ struct GridJson {
     domains: Vec<String>,
     modes: Vec<String>,
     cells: Vec<GridCellJson>,
-    /// Heatmap matrix [domain][mode].
+    /// Population matrix [domain][mode] — how many entries the cell holds.
     heatmap: Vec<Vec<u32>>,
+    /// Condition matrix [domain][mode] — how the cell is *doing*, not how big
+    /// it is. See `cell_condition`.
+    condition: Vec<Vec<f32>>,
 }
 
 #[derive(serde::Serialize)]
@@ -238,7 +241,14 @@ struct GridCellJson {
     mode: String,
     entries: Vec<String>,
     count: u32,
+    /// The tracker's live multiplier for this cell: 1.0 neutral, <1 demoted,
+    /// >1 promoted. Carried raw so the UI can explain the colour it drew.
+    standing: f32,
+    /// Colour value in 0..1 — what `cell_condition` decided.
+    condition: f32,
 }
+
+use crate::quality::cell_condition;
 
 async fn grid_json(State(state): State<Shared>) -> Response {
     let s = state.read().unwrap();
@@ -254,22 +264,30 @@ async fn grid_json(State(state): State<Shared>) -> Response {
     }
 
     let mut heatmap = vec![vec![0u32; modes.len()]; domains.len()];
+    let mut condition = vec![vec![0f32; modes.len()]; domains.len()];
     let mut cells = Vec::new();
     for (di, d) in domains.iter().enumerate() {
         for (mi, m) in modes.iter().enumerate() {
             let mut entries = cell_map.get(&(d.clone(), m.clone())).cloned().unwrap_or_default();
             entries.sort();
             let count = entries.len() as u32;
+            let standing = s.quality.cell_standing(&format!("{d}\x00{m}"));
+            // The studio holds ontology entries, not coherence nodes, so it has
+            // no verdicts to average — the web grid supplies that third signal.
+            let cond = cell_condition(count, standing, None);
             cells.push(GridCellJson {
                 domain: d.clone(),
                 mode: m.clone(),
                 entries,
                 count,
+                standing,
+                condition: cond,
             });
             heatmap[di][mi] = count;
+            condition[di][mi] = cond;
         }
     }
-    Json(GridJson { domains, modes, cells, heatmap }).into_response()
+    Json(GridJson { domains, modes, cells, heatmap, condition }).into_response()
 }
 
 #[derive(serde::Deserialize)]

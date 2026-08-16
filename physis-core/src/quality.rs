@@ -143,12 +143,22 @@ impl QualityTracker {
         }
     }
 
-    /// Adjust a raw score by learned penalties and boosts.
-    pub fn adjust_score(&self, cell: &str, raw_score: f32) -> f32 {
+    /// How this cell currently stands with the tracker: `1.0` is neutral,
+    /// below is demoted by accumulated penalties, above is promoted by boosts.
+    ///
+    /// This is the multiplier `adjust_score` applies to live classification, so
+    /// any surface that wants to *show* a cell's condition must read it from
+    /// here rather than recombining penalties and boosts on its own — otherwise
+    /// the display can say "healthy" about a cell the engine is demoting.
+    pub fn cell_standing(&self, cell: &str) -> f32 {
         let penalty = self.cell_penalties.get(cell).copied().unwrap_or(0.0);
         let boost = self.cell_boosts.get(cell).copied().unwrap_or(0.0);
-        let net = 1.0 - penalty + boost;
-        (raw_score * net).clamp(0.0, 1.0)
+        1.0 - penalty + boost
+    }
+
+    /// Adjust a raw score by learned penalties and boosts.
+    pub fn adjust_score(&self, cell: &str, raw_score: f32) -> f32 {
+        (raw_score * self.cell_standing(cell)).clamp(0.0, 1.0)
     }
 
     /// Human-readable summary (used by the CLI).
@@ -220,6 +230,38 @@ impl QualityTracker {
         t.failures = failures;
         t
     }
+}
+
+/// Reduce what is known about a cell to one 0..1 value a heatmap can colour.
+///
+/// The grid used to colour by entry `count`, which says how *big* a cell is and
+/// nothing about how it is *doing* — a cell the engine demotes on every single
+/// query rendered identically to a healthy cell of the same size. These are the
+/// three things actually known per cell:
+///
+/// - `count` — entries filed here. `0` means **unknown**, not bad: nothing has
+///   ever landed here, so there is no evidence either way.
+/// - `standing` — [`QualityTracker::cell_standing`], the live multiplier the
+///   classifier applies: `1.0` neutral, toward `0.0` demoted by reported
+///   failures, above `1.0` promoted by confirmations (not bounded above).
+/// - `mean_asserted` — mean human verdict (`-1.0`..`1.0`) over the nodes that
+///   landed here, or `None` where nobody has judged any of them. Distinct from
+///   `standing`: standing is how well the *classifier* is doing at this cell,
+///   `mean_asserted` is how the *work filed under it* turned out. A cell can
+///   classify perfectly and hold nothing but failures.
+///
+/// Returns `0.0` (worst) .. `1.0` (best).
+pub fn cell_condition(count: u32, standing: f32, mean_asserted: Option<f32>) -> f32 {
+    // TODO(contributor): combine the three signals. Trade-offs to weigh:
+    //   * absent evidence (count 0, or mean_asserted None) must not read as
+    //     "bad" — the caller draws count==0 neutral, but a populated cell with
+    //     no verdicts still needs a sane value here;
+    //   * standing is unbounded above 1.0, so it needs squashing, not clamping,
+    //     if a well-boosted cell should still be distinguishable;
+    //   * whether a large demoted cell should read worse than a small one
+    //     (count as confidence weight) or identically (count as mere size).
+    let _ = (count, standing, mean_asserted);
+    0.0
 }
 
 #[cfg(test)]
