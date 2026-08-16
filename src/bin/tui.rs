@@ -114,6 +114,9 @@ struct App {
     /// instead of the result list. A focus toggle avoids fighting j/k, which
     /// already navigate results.
     wiki_map_focus: bool,
+    /// Condition-slider position for the map, 0.0 responsive ..= 1.0 trusting.
+    /// Mirrors the studio's range input; `[` and `]` move it.
+    wiki_confidence: f32,
     wiki_cell_row: usize,
     wiki_cell_col: usize,
 }
@@ -314,6 +317,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_domains: Vec::new(),
         wiki_modes: Vec::new(),
         wiki_map_focus: false,
+        // Matches ConditionLens::Balanced, so the TUI and the studio open on
+        // the same reading of the same grid.
+        wiki_confidence: 0.35,
         wiki_cell_row: 0,
         wiki_cell_col: 0,
     };
@@ -496,11 +502,34 @@ fn condition_color(condition: f32, activation: f32) -> Color {
 
 /// Load the semiotic grid once. It describes the loaded ontologies rather than
 /// tenant state, so it cannot change while the engine runs.
+/// Move the condition slider and redraw the map with the new lens.
+///
+/// Clears the cached grid first: `wiki_load_grid` is a load-once, and the
+/// condition values are computed server-side per lens, so a stale grid would
+/// leave the colours reporting the previous position.
+fn wiki_nudge_confidence(app: &mut App, delta: f32) {
+    app.wiki_confidence = (app.wiki_confidence + delta).clamp(0.0, 1.0);
+    app.wiki_grid.clear();
+    wiki_load_grid(app);
+    app.status_msg = format!(
+        "evidence needed: {:.2} ({})",
+        app.wiki_confidence,
+        if app.wiki_confidence <= 0.02 {
+            "responsive — every cell reacts at full strength"
+        } else if app.wiki_confidence >= 0.98 {
+            "trusting — thin cells hold near neutral"
+        } else {
+            "balanced"
+        }
+    );
+}
+
 fn wiki_load_grid(app: &mut App) {
     if !app.wiki_grid.is_empty() {
         return;
     }
-    match wiki_fetch(app, "/api/v1/semiotic/grid", None) {
+    let path = format!("/api/v1/semiotic/grid?confidence={:.2}", app.wiki_confidence);
+    match wiki_fetch(app, &path, None) {
         Ok(v) => {
             let cells = v.get("cells").and_then(|c| c.as_array()).cloned().unwrap_or_default();
             app.wiki_grid = cells
@@ -801,6 +830,16 @@ fn run<B: ratatui::backend::Backend>(
                 let n = app.wiki_modes.len().max(1);
                 app.wiki_cell_col = (app.wiki_cell_col + 1) % n;
             }
+            // The condition slider, as keys: '[' toward responsive (every cell
+            // reacts at full strength), ']' toward trusting (thin cells hold
+            // near neutral until evidence accumulates). Same knob the studio
+            // exposes as a range input.
+            KeyCode::Char('[') if app.tab == TAB_WIKI && app.wiki_map_focus => {
+                wiki_nudge_confidence(app, -0.1);
+            }
+            KeyCode::Char(']') if app.tab == TAB_WIKI && app.wiki_map_focus => {
+                wiki_nudge_confidence(app, 0.1);
+            }
             KeyCode::Char('/') if app.tab == TAB_WIKI => {
                 app.wiki_typing = true;
                 app.wiki_query.clear();
@@ -862,7 +901,9 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
         TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
-        TAB_WIKI if app.wiki_map_focus => " ←/→ mode · ↑/↓ domain · Enter scope to cell · m unfocus",
+        TAB_WIKI if app.wiki_map_focus => {
+            " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
+        }
         TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };

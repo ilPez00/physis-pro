@@ -3381,6 +3381,15 @@ async fn ontology_list_handler(
 #[derive(Serialize)]
 struct SemioticGridResponse {
     cells: Vec<serde_json::Value>,
+    /// The condition-slider position actually applied, echoed so a client can
+    /// display the effective lens instead of assuming its request was honoured.
+    confidence: f32,
+}
+
+/// `?confidence=` on the semiotic grid — see `physis_core::quality::ConditionLens`.
+#[derive(Deserialize, Default)]
+struct GridParams {
+    confidence: Option<String>,
 }
 
 /// The DOMAIN x MODE grid with the entries that populate each cell.
@@ -3396,7 +3405,14 @@ struct SemioticGridResponse {
 async fn semiotic_grid_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
+    Query(params): Query<GridParams>,
 ) -> Json<SemioticGridResponse> {
+    let confidence = params
+        .confidence
+        .as_deref()
+        .and_then(physis_core::quality::ConditionLens::parse)
+        .unwrap_or_default()
+        .confidence();
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
     for def in s.ontology.all_domains().values() {
@@ -3449,10 +3465,11 @@ async fn semiotic_grid_handler(
                 c.entries.len() as u32,
                 standing,
                 mean_asserted,
+                confidence,
             ),
         })
     }).collect();
-    Json(SemioticGridResponse { cells })
+    Json(SemioticGridResponse { cells, confidence })
 }
 
 #[derive(Serialize)]

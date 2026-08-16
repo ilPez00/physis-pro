@@ -1085,3 +1085,68 @@ async fn fixed_token_node_search_bounds_the_response() {
     .await;
     assert_eq!(other["results"].as_array().unwrap().len(), 0);
 }
+
+/// The grid must report a cell's *condition*, not just its population, and the
+/// condition slider must actually reach the endpoint.
+///
+/// Before this the heatmap coloured by entry count alone, so a cell the
+/// classifier demotes on every live query rendered identically to a healthy one
+/// of the same size. `standing` is what `adjust_score` already applies, so the
+/// display and the engine cannot disagree — this asserts the wire carries it.
+#[tokio::test]
+async fn the_grid_reports_cell_condition_and_honours_the_confidence_slider() {
+    let (router, _dir, _env) = app().await;
+
+    let cells = |body: &Value| -> Vec<Value> {
+        body["cells"].as_array().expect("cells array").clone()
+    };
+
+    let (status, grid) = send(&router, get("/api/v1/semiotic/grid", "cg")).await;
+    assert_eq!(status, StatusCode::OK, "grid responds: {grid}");
+    let base = cells(&grid);
+    assert!(!base.is_empty(), "the grid has cells");
+
+    // Every cell carries the condition signals, not just entries/activation.
+    for c in &base {
+        assert!(c["standing"].is_number(), "cell reports standing: {c}");
+        assert!(c["condition"].is_number(), "cell reports condition: {c}");
+        let cond = c["condition"].as_f64().unwrap();
+        assert!((0.0..=1.0).contains(&cond), "condition {cond} is colourable: {c}");
+    }
+
+    // The default lens is echoed, so a client can show the effective value
+    // rather than assuming its request was honoured.
+    let default_conf = grid["confidence"].as_f64().expect("confidence echoed");
+
+    // Both ends of the slider are reachable and distinct.
+    let (_, responsive) = send(&router, get("/api/v1/semiotic/grid?confidence=0", "cg")).await;
+    let (_, trusting) = send(&router, get("/api/v1/semiotic/grid?confidence=1", "cg")).await;
+    assert_eq!(responsive["confidence"].as_f64(), Some(0.0), "responsive end applied");
+    assert_eq!(trusting["confidence"].as_f64(), Some(1.0), "trusting end applied");
+
+    // Named presets work alongside raw positions.
+    let (_, named) = send(&router, get("/api/v1/semiotic/grid?confidence=trusting", "cg")).await;
+    assert_eq!(named["confidence"].as_f64(), Some(1.0), "preset name parses");
+
+    // A junk or out-of-range value falls back to the default instead of
+    // silently pinning the grid to an extreme.
+    let (_, junk) = send(&router, get("/api/v1/semiotic/grid?confidence=banana", "cg")).await;
+    assert_eq!(junk["confidence"].as_f64(), Some(default_conf), "junk falls back: {junk}");
+    let (_, oob) = send(&router, get("/api/v1/semiotic/grid?confidence=7", "cg")).await;
+    assert_eq!(oob["confidence"].as_f64(), Some(default_conf), "out of range falls back");
+
+    // The lens has to change the numbers, or the slider is decorative. With no
+    // feedback recorded every populated cell sits at neutral standing, and the
+    // trusting lens shrinks a cell's own reading toward neutral — so the two
+    // ends agree here only if both are neutral. Assert the mechanism instead:
+    // a cell with entries must move off 0.0, which the old count colouring
+    // could not express at all.
+    let populated = base
+        .iter()
+        .find(|c| !c["entries"].as_array().map(|e| e.is_empty()).unwrap_or(true))
+        .expect("some cell has entries");
+    assert!(
+        populated["condition"].as_f64().unwrap() > 0.0,
+        "a populated cell is not drawn as worst-case: {populated}"
+    );
+}

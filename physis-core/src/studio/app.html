@@ -49,6 +49,11 @@ table.grid td.cell{width:44px;height:44px;border-radius:7px;text-align:center;fo
 table.grid td.cell:hover{transform:scale(1.12)}
 table.grid td.cell .c{font-weight:700}
 table.grid td.cell .d{font-size:9px;opacity:.7}
+.lens{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11px}
+.lens label{color:var(--muted);white-space:nowrap}
+.lens input[type=range]{flex:1;min-width:80px}
+#lensLabel{white-space:nowrap;font-variant-numeric:tabular-nums}
+.lenshint{font-size:10px;margin-top:3px;line-height:1.4}
 table.grid td.rowlabel{font-size:10px;color:var(--muted);font-weight:700;text-align:right;padding-right:6px}
 .legend{display:flex;gap:6px;margin-top:10px;font-size:11px;color:var(--muted);align-items:center}
 .legend .sw{width:16px;height:16px;border-radius:4px}
@@ -107,11 +112,21 @@ footer{margin-top:20px;text-align:center;color:var(--muted);font-size:11px}
   <section class="panel">
     <h2>Semiotic grid · domain × mode</h2>
     <div id="gridwrap"></div>
-    <div class="legend"><span class="sw" style="background:#10203a"></span>0 entries
-      <span class="sw" style="background:#1c3f6e"></span>1–2
-      <span class="sw" style="background:#2e6bb5"></span>3–6
-      <span class="sw" style="background:#4f9df0"></span>7–12
-      <span class="sw" style="background:#a6c9ff"></span>13+</div>
+    <div class="legend"><span class="sw" style="background:#10203a"></span>unknown
+      <span class="sw" style="background:#7f1d1d"></span>poor
+      <span class="sw" style="background:#9a3412"></span>weak
+      <span class="sw" style="background:#a16207"></span>mixed
+      <span class="sw" style="background:#3f6212"></span>good
+      <span class="sw" style="background:#166534"></span>strong</div>
+    <!-- The condition slider. `count` can be read as mere size or as a
+         confidence weight; both are defensible, so it is a control rather than
+         a decision baked into the formula. -->
+    <div class="lens">
+      <label for="lens">Evidence needed</label>
+      <input type="range" id="lens" min="0" max="1" step="0.05" value="0.35">
+      <span id="lensLabel" class="muted"></span>
+    </div>
+    <div id="lensHint" class="muted lenshint"></div>
     <div id="cellentries"></div>
     <div style="margin-top:12px">
       <button id="btnAdd">+ New entry in this cell</button>
@@ -148,7 +163,7 @@ footer{margin-top:20px;text-align:center;color:var(--muted);font-size:11px}
 
 <script>
 const $ = id => document.getElementById(id);
-const state = { selectedCell: null, editingName: null };
+const state = { selectedCell: null, editingName: null, confidence: 0.35 };
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -206,7 +221,11 @@ $('search').addEventListener('input', loadOntology);
 
 /* ── grid ── */
 async function loadGrid(){
-  const g = await api('/api/grid');
+  const g = await api('/api/grid?confidence=' + encodeURIComponent(state.confidence));
+  // Trust the server's echo over the local slider: it clamps and falls back,
+  // so this is the value the colours were actually computed with.
+  if (typeof g.confidence === 'number') { state.confidence = g.confidence; $('lens').value = g.confidence; }
+  updateLensLabel();
   const wrap = $('gridwrap');
   let html = '<table class="grid"><tr><th></th>';
   for (const m of g.modes) html += `<th>${m}</th>`;
@@ -256,6 +275,29 @@ function conditionReason(cell){
   if (s > 1.001) return `promoted ×${s.toFixed(2)} by confirmations`;
   return 'neutral — no feedback yet';
 }
+
+// Say what the slider position means in the grid's own terms: how many entries
+// a cell needs before its colour reflects its own evidence rather than neutral.
+// Must match CONDITION_CONFIDENCE_SPAN in quality.rs.
+const CONFIDENCE_SPAN = 16;
+function updateLensLabel(){
+  const c = state.confidence;
+  const k = c * CONFIDENCE_SPAN;
+  let name;
+  if (c <= 0.02) name = 'responsive';
+  else if (c >= 0.98) name = 'trusting';
+  else if (c < 0.5) name = 'balanced';
+  else name = 'cautious';
+  $('lensLabel').textContent = `${name} · ${c.toFixed(2)}`;
+  $('lensHint').textContent = k < 0.5
+    ? 'Every cell reacts at full strength — one bad verdict colours a large cell as hard as a small one. New problems show immediately; a stray click is visible.'
+    : `A cell needs roughly ${k.toFixed(0)} entries before its colour reflects its own evidence rather than neutral. Thin cells hold back; repeated problems still colour through.`;
+}
+$('lens').addEventListener('input', e => {
+  state.confidence = parseFloat(e.target.value);
+  updateLensLabel();
+  loadGrid();
+});
 async function showCellEntries(d, m){
   const g = await api('/api/grid');
   const cell = g.cells.find(c => c.domain===d && c.mode===m);
