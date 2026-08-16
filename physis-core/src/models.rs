@@ -289,6 +289,23 @@ impl Facets {
             abstraction: majority(&abstraction),
         }
     }
+
+    /// Compact human-readable summary of the set facets, e.g.
+    /// `OPERATE · OTHER · ORGANIZATIONAL · CONCRETE` (sub-strings appended as
+    /// `sub:VALUE`). Empty (no facets set) → `—`. Used by CLI/table output.
+    pub fn simple(&self) -> String {
+        let mut parts: Vec<String> = Vec::new();
+        if let Some(l) = &self.lifecycle { parts.push(l.as_str().to_string()); }
+        if let Some(a) = &self.agency { parts.push(a.as_str().to_string()); }
+        if let Some(s) = &self.scale { parts.push(s.as_str().to_string()); }
+        if let Some(ab) = &self.abstraction { parts.push(ab.as_str().to_string()); }
+        if let Some(s) = &self.sub_domain { parts.push(format!("sub:{s}")); }
+        if let Some(s) = &self.sub_mode { parts.push(format!("sub:{s}")); }
+        if parts.is_empty() {
+            return "—".to_string();
+        }
+        parts.join(" · ")
+    }
 }
 
 /// Most common element of a slice, or `None` if empty.
@@ -588,6 +605,20 @@ mod tests {
         assert_eq!(n.rating(), None);
         n.asserted = Some(-1.0);
         assert!(n.is_asserted_failure());
+    }
+
+    #[test]
+    fn test_facets_simple_summary() {
+        let f = Facets {
+            sub_domain: None,
+            sub_mode: Some("SELL".to_string()),
+            lifecycle: Some(LifecyclePhase::Operate),
+            agency: Some(Agency::Automated),
+            scale: Some(Scale::Organizational),
+            abstraction: Some(Abstraction::Concrete),
+        };
+        assert_eq!(f.simple(), "OPERATE · AUTOMATED · ORGANIZATIONAL · CONCRETE · sub:SELL");
+        assert_eq!(Facets::default().simple(), "—");
     }
 
     #[test]
