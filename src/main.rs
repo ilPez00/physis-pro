@@ -392,12 +392,6 @@ pub enum SpannerAction {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
-    // `--version` still answer on an unlicensed host: an evaluator has to be
-    // able to see what the tool is before we demand a key, and support needs
-    // `--version` to triage an install that refuses to run.
-    let license = physis_pro::license::enforce();
-
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
     // a faulty mount or a quick offline reduction.
@@ -422,22 +416,6 @@ fn main() -> anyhow::Result<()> {
     // it before building the heavy PhysisApp (ontology + embedder).
     if let Commands::Study { dir, url, place, user, interval, once } = &cli.command {
         return run_study_recorder(dir, url, place, user, *interval, *once);
-    }
-
-    // Per-command entitlement. Kept as a single table rather than scattered
-    // checks so that adding a paid capability means adding one line here, and
-    // so the mapping between commands and SKUs stays auditable at a glance.
-    let required_feature = match &cli.command {
-        #[cfg(feature = "mcp")]
-        Commands::Serve => Some("mcp"),
-        Commands::Ingest => Some("ingest"),
-        _ => None,
-    };
-    if let Some(feature) = required_feature {
-        if let Err(e) = license.require(feature) {
-            eprintln!("physis: {e}");
-            std::process::exit(2);
-        }
     }
 
     let config = PhysisProConfig::default();

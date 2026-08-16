@@ -59,7 +59,6 @@ pub mod rag;
 pub mod vault;
 pub mod history;
 pub mod praxis;
-pub mod license;
 
 #[cfg(feature = "cli")]
 pub mod cli;
