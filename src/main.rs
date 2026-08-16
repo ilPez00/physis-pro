@@ -128,6 +128,13 @@ pub enum Commands {
         /// Path to the export file (.html/.htm, .json, .opml/.xml, .jsonl/.txt)
         file: PathBuf,
     },
+    /// Backfill coherence from a Praxis life-log export (notebook entries +
+    /// trackers): register labeled behavioral nodes and assert success/inert/
+    /// failure verdicts
+    Praxis {
+        /// Path to the Praxis export JSON (notebook + trackers, or a bare array)
+        file: PathBuf,
+    },
     /// Run a live connector, emitting normalized events as JSON lines
     Connect {
         #[command(subcommand)]
@@ -495,6 +502,9 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::History { file } => {
             println!("{}", app.run_history_import(&file)?);
+        }
+        Commands::Praxis { file } => {
+            println!("{}", app.run_praxis_backfill(&file)?);
         }
 
         // ── Business commands ──
@@ -1465,5 +1475,30 @@ mod tests {
         let csv = dir.path().join("data.csv");
         std::fs::write(&csv, "a,b\n").unwrap();
         assert!(app.run_history_import(&csv).is_err());
+    }
+
+    #[test]
+    fn test_cli_praxis_backfill_asserts_verdicts() {
+        let dir = tempfile::tempdir().unwrap();
+        let export = dir.path().join("praxis.json");
+        std::fs::write(&export, r#"{
+            "notebook": [
+              {"content": "shipped the release","mood": 9},
+              {"content": "tired","mood": 2}
+            ],
+            "trackers": [{"name": "reading", "progress": 0.9}]
+        }"#).unwrap();
+        let mut app = cli_app(dir.path());
+
+        let out = app.run_praxis_backfill(&export).unwrap();
+        assert!(out.contains("3 items (2 success, 0 inert, 1 failure)"), "verdicts: {out}");
+        assert!(out.contains("registered"), "nodes registered: {out}");
+
+        // Re-backfill dedupes.
+        let out2 = app.run_praxis_backfill(&export).unwrap();
+        assert!(out2.contains("deduped"), "re-backfill dedupes: {out2}");
+
+        // Missing file errors.
+        assert!(app.run_praxis_backfill(&dir.path().join("nope.json")).is_err());
     }
 }

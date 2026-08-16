@@ -162,6 +162,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files → `{new, changed, deleted, registered, removed, total_nodes}` |
 | POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
 | POST | `/api/v1/history/import` | ✓ | **Personal-history import**: browser bookmarks/history, OPML feeds, chat JSONL → labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{file, items, registered, deduped}` |
+| POST | `/api/v1/praxis/backfill` | ✓ | **Praxis backfill**: notebook entries + trackers → labeled behavioural nodes with asserted success/inert/failure verdicts (confined to `PHYSIS_SCAN_ROOT`) → `{items, successes, inert, failures, registered, deduped}` |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
 | GET  | `/api/v1/holarchy/snapshot` | ✓ | Holarchy node/edge counts for the tenant |
@@ -251,6 +252,9 @@ cargo run --bin physis-pro -- vault <dir> --git 50   # notes + last 50 commits
 cargo run --bin physis-pro -- history bookmarks.html
 cargo run --bin physis-pro -- history history.json
 cargo run --bin physis-pro -- history feeds.opml
+
+# Praxis backfill: seed coherence from the real life-log
+cargo run --bin physis-pro -- praxis export.json   # notebook + trackers → verdicts
 
 # Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
 cargo run --release --example empedocles_criticality

@@ -648,6 +648,58 @@ async fn history_import_registers_recallable_nodes() {
 }
 
 #[tokio::test]
+async fn praxis_backfill_seeds_behavioral_verdicts() {
+    // Praxis backfill (Phase 7B): notebook entries + trackers become labeled
+    // behavioral nodes whose asserted verdict follows the real life-log.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let exports = dir.path().join(".physis").join("exports");
+    std::fs::create_dir_all(&exports).expect("mkdir inside scan root");
+    let export = exports.join("praxis.json");
+    std::fs::write(&export, r#"{
+        "notebook": [
+          {"content": "fixed the nozzle bind","mood": 9},
+          {"content": "meh day","mood": 4},
+          {"content": "gave up on the jig","mood": 2}
+        ],
+        "trackers": [
+          {"name": "reading", "progress": 0.9},
+          {"name": "meditate", "progress": 0.2}
+        ]
+    }"#).expect("write export");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/praxis/backfill", "p", json!({"path": export.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "backfill succeeds: {body}");
+    assert_eq!(body["items"], 5, "3 notes + 2 trackers: {body}");
+    assert_eq!(body["successes"], 2, "high mood + full tracker: {body}");
+    assert_eq!(body["inert"], 1, "neutral mood: {body}");
+    assert_eq!(body["failures"], 2, "low mood + empty tracker: {body}");
+    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "nodes registered: {body}");
+
+    // Re-backfill dedupes (labels praxis:notebook/… are stable).
+    let (_, again) = send(
+        &router,
+        post("/api/v1/praxis/backfill", "p", json!({"path": export.to_string_lossy()})),
+    )
+    .await;
+    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-backfill dedupes: {again}");
+
+    // Confinement.
+    let outside = std::env::temp_dir();
+    let (status, _) = send(
+        &router,
+        post("/api/v1/praxis/backfill", "p", json!({"path": outside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+}
+
+#[tokio::test]
 async fn bearer_token_gates_protected_routes() {
     // Regression (PREMORTEM P6): the API used to bind wide open. With a token
     // configured, protected routes must require it while the ops surface stays

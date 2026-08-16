@@ -502,6 +502,51 @@ impl PhysisApp {
         ))
     }
 
+    /// Backfill coherence from a Praxis life-log export: read notebook entries +
+    /// trackers, register each as a labeled behavioral node, and assert the
+    /// derived verdict (success +1 / inert 0 / failure −1).
+    pub fn run_praxis_backfill(&mut self, file: &std::path::Path) -> anyhow::Result<String> {
+        if !file.is_file() {
+            anyhow::bail!("praxis export not found: {}", file.display());
+        }
+        let text = std::fs::read_to_string(file)
+            .map_err(|e| anyhow::anyhow!("cannot read {}: {e}", file.display()))?;
+        let records = crate::praxis::parse_export(&text);
+        if records.is_empty() {
+            return Ok(format!("praxis[{}]: no items found", file.display()));
+        }
+
+        let texts: Vec<&str> = records.iter().map(|r| r.body.as_str()).collect();
+        let embeddings = self.embedder.embed_batch(&texts);
+
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let before = core.nodes.len();
+        let mut successes = 0usize;
+        let mut inert = 0usize;
+        let mut failures = 0usize;
+        for (record, emb) in records.iter().zip(embeddings) {
+            let label = format!("praxis:{}:{}", record.kind, record.title);
+            let id = core.register_node_vec_labeled(emb, Some(label));
+            core.assert_coherence(&id, record.status.as_score());
+            if let Err(e) = core.persist_node(&db, "_default", &id) {
+                eprintln!("[physis] praxis: node {id} not persisted: {e}");
+            }
+            match record.status {
+                crate::praxis::BehaviourStatus::Success => successes += 1,
+                crate::praxis::BehaviourStatus::Inert => inert += 1,
+                crate::praxis::BehaviourStatus::Failure => failures += 1,
+            }
+        }
+        let registered = core.nodes.len().saturating_sub(before);
+        let deduped = records.len().saturating_sub(registered);
+        Ok(format!(
+            "praxis[{}]: {} items ({} success, {} inert, {} failure) → {} registered ({} deduped)",
+            file.display(), records.len(), successes, inert, failures, registered, deduped,
+        ))
+    }
+
     /// Grade a dream by ID. Returns false if no dream with that ID exists.
     pub fn run_evaluate(&mut self, id: &str, grade: Score) -> bool {
         self.dreams.evaluate_dream(id, grade)

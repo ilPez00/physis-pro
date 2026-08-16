@@ -17,6 +17,7 @@
 - **Watch-mode auto-ingest (Phase 7B)** — background thread (`PHYSIS_WATCH_DIR`), `POST /api/v1/watch` on-demand sweep, and `physis-pro watch <dirs> [--once]` register new/changed files as labeled core nodes and drop nodes for removed files; shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix`
 - **Vault importers (Phase 7B)** — `src/vault.rs` (Obsidian/markdown, plain notes, `git log`) → labeled core nodes; `physis-pro vault <dir> [--git N]` + `POST /api/v1/vault/import` (scan-root confined, dedupe by label)
 - **Personal-history importers (Phase 7B)** — `src/history.rs` (browser bookmarks/history, OPML feeds, chat JSONL) → labeled core nodes; `physis-pro history <file>` + `POST /api/v1/history/import` (scan-root confined, dedupe by label)
+- **Praxis backfill (Phase 7B)** — `src/praxis.rs` (notebook entries + trackers → Success/Inert/Failure verdicts) → labeled behavioural nodes with asserted verdicts; `physis-pro praxis <file>` + `POST /api/v1/praxis/backfill`
 
 ## Pending Hosting Actions (user required)
 1. **DNS TXT** — Contact DNS provider to add TXT record. Once propagated, enable GitHub Pages
