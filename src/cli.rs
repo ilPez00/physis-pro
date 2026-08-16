@@ -125,6 +125,13 @@ pub struct PhysisApp {
     pub cell_centroids: HashMap<String, Vec<f32>>,
     /// Nearest-entry classifier, built once (one full-ontology embedding pass).
     pub classifier: crate::classify::CellClassifier,
+    /// The sled handle, opened at most once per app.
+    ///
+    /// sled takes an exclusive file lock and releases it asynchronously on
+    /// drop, so re-opening the same path once per command raced the previous
+    /// handle's teardown and intermittently failed. `Db` is an `Arc` inside,
+    /// so caching one and cloning it is a refcount bump, not a second open.
+    db: std::sync::OnceLock<Option<sled::Db>>,
 }
 
 impl PhysisApp {
@@ -275,6 +282,7 @@ impl PhysisApp {
             embedder_kind,
             cell_centroids,
             classifier,
+            db: std::sync::OnceLock::new(),
         }
     }
 
@@ -304,15 +312,33 @@ impl PhysisApp {
         self.mapper.trie.prefix_search(&tids, 2, max_results)
     }
 
+    /// Open the shared sled store (same file the web server uses), at most once
+    /// per app. Later calls clone the cached handle instead of re-locking the
+    /// file. `None` means the store is unavailable; the reason is printed once.
+    fn db(&self) -> Option<sled::Db> {
+        self.db
+            .get_or_init(|| {
+                let dir = &self.config.data_dir;
+                if let Err(e) = std::fs::create_dir_all(dir) {
+                    eprintln!("[physis] cannot create data dir {} ({e})", dir.display());
+                    return None;
+                }
+                let path = dir.join("state.sled");
+                match sled::open(&path) {
+                    Ok(db) => Some(db),
+                    Err(e) => {
+                        eprintln!("[physis] cannot open {} ({e})", path.display());
+                        None
+                    }
+                }
+            })
+            .clone()
+    }
+
     /// Open the shared sled store (same file the web server uses) and rehydrate
     /// the "_default" tenant's coherence nodes, or `None` when persistence is off.
     fn open_persisted_core(&self) -> Option<(sled::Db, crate::core::PhysisCore)> {
-        let dir = &self.config.data_dir;
-        if let Err(e) = std::fs::create_dir_all(dir) {
-            eprintln!("[physis] cannot create data dir {} ({e})", dir.display());
-            return None;
-        }
-        let db = sled::open(dir.join("state.sled")).ok()?;
+        let db = self.db()?;
         let mut core = crate::core::PhysisCore::new();
         core.set_embedder_id(self.embedder_kind);
         let (loaded, skipped) = core.load_nodes(&db, "_default");
