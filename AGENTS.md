@@ -73,6 +73,7 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Vault import | `vault.rs` + `web.rs` + `cli.rs` | **Vault importers (Phase 7B)**: Obsidian/markdown, plain notes, `git log` → `VaultDoc` (title from H1/frontmatter, `h1:`…`h3:` headings) → labeled core nodes. CLI `physis-pro vault <dir> [--git N]`, web `POST /api/v1/vault/import` (scan-root confined, dedupe by label); `parse_git_log` tested without a git binary |
 | Personal history | `history.rs` + `web.rs` + `cli.rs` | **Personal-history importers (Phase 7B)**: browser bookmarks (Netscape HTML), browser history (JSON), OPML feeds, chat JSONL → labeled core nodes. CLI `physis-pro history <file>`, web `POST /api/v1/history/import` (scan-root confined, dedupe by label) |
 | Praxis backfill | `praxis.rs` + `web.rs` + `cli.rs` | **Praxis backfill (Phase 7B)**: notebook entries + trackers → `BehaviourRecord`s with Success/Inert/Failure verdicts (mood / value-target thresholds) → labeled behavioural nodes with **asserted** verdicts. CLI `physis-pro praxis <file>`, web `POST /api/v1/praxis/backfill` |
+| Spanner sink | `spanner.rs` + `web.rs` + `cli.rs` | **Spanner Graph sink (Phase 7C)**: durable-memory mirror (`--features spanner`, off the hot path). Web `POST /api/v1/spanner/sync\|hydrate`, CLI `physis-pro spanner sync\|hydrate`; JWT service-account auth + emulator round-trip test |
 
 ## Ontology Extensions
 

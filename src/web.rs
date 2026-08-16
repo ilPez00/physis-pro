@@ -1112,6 +1112,128 @@ async fn praxis_backfill_handler(
     }))
 }
 
+// ── Spanner Graph sink (Phase 7C) ───────────────────────────────────────────
+// Durable-memory mirror: push a tenant's coherence graph up, or pull durable
+// rows back and re-embed them under the live embedder. Off the hot path — call
+// from a cron (or by hand) rather than per mutation. Gated behind `spanner`.
+
+#[cfg(feature = "spanner")]
+#[derive(Deserialize)]
+struct SpannerSyncRequest {
+    /// Durable rows that no longer exist locally are hard-deleted (mirror).
+    /// Default true; set false to only upsert.
+    #[serde(default = "default_spanner_mirror")]
+    mirror: bool,
+}
+
+#[cfg(feature = "spanner")]
+fn default_spanner_mirror() -> bool { true }
+
+#[cfg(feature = "spanner")]
+#[derive(Serialize)]
+struct SpannerSyncResponse {
+    nodes_upserted: usize,
+    edges_upserted: usize,
+    nodes_deleted: usize,
+    edges_deleted: usize,
+}
+
+/// POST /api/v1/spanner/sync — mirror the tenant's coherence graph into Spanner.
+/// Upserts nodes + edges, then (when `mirror`) hard-deletes durable rows that
+/// vanished locally. Returns the mutation counts.
+#[cfg(feature = "spanner")]
+async fn spanner_sync_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<SpannerSyncRequest>,
+) -> Result<Json<SpannerSyncResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let sink = crate::spanner::SpannerSink::from_env()
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("spanner not configured: {e}")))?;
+
+    // Export under the tenant lock, then do IO outside it (Spanner is slow).
+    let (nodes, edges) = state.with_user(&uid, |s| {
+        (crate::spanner::export_nodes(&s.core), crate::spanner::export_edges(&s.core))
+    });
+
+    let (nodes_upserted, edges_upserted) = join_spanner(&sink, &nodes, &edges).await
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+    if !req.mirror {
+        return Ok(Json(SpannerSyncResponse {
+            nodes_upserted, edges_upserted, nodes_deleted: 0, edges_deleted: 0,
+        }));
+    }
+
+    // Orphan sweep: fetch remote, diff vs local, hard-delete.
+    let stale_edges = crate::spanner::orphan_edge_keys(
+        &sink.fetch_edges().await.map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
+        &edges,
+    );
+    let edges_deleted = sink.delete_edges(&stale_edges).await
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+    let stale_nodes = crate::spanner::orphan_node_ids(
+        &sink.fetch_nodes().await.map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
+        &nodes,
+    );
+    let nodes_deleted = sink.delete_nodes(&stale_nodes).await
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+
+    Ok(Json(SpannerSyncResponse {
+        nodes_upserted, edges_upserted, nodes_deleted, edges_deleted,
+    }))
+}
+
+/// Upsert nodes + edges (Spanner IO is slow, but sequential here).
+#[cfg(feature = "spanner")]
+async fn join_spanner(
+    sink: &crate::spanner::SpannerSink,
+    nodes: &[crate::spanner::NodeRow],
+    edges: &[crate::spanner::EdgeRow],
+) -> anyhow::Result<(usize, usize)> {
+    let n = sink.upsert_nodes(nodes).await?;
+    let e = sink.upsert_edges(edges).await?;
+    Ok((n, e))
+}
+
+#[cfg(feature = "spanner")]
+#[derive(Serialize)]
+struct SpannerHydrateResponse {
+    pulled: usize,
+    re_embedded: usize,
+}
+
+/// POST /api/v1/spanner/hydrate — pull durable rows back from Spanner and
+/// re-embed their labels under the live embedder into this tenant's core. This
+/// is the "new device / new deploy" recovery path (and the model-swap migrate).
+#[cfg(feature = "spanner")]
+async fn spanner_hydrate_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Result<Json<SpannerHydrateResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let sink = crate::spanner::SpannerSink::from_env()
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("spanner not configured: {e}")))?;
+    let rows = sink.fetch_nodes().await
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+    let pulled = rows.len();
+
+    let re_embedded = state.with_user(&uid, |s| {
+        let embedder = state.shared.embedder.as_ref();
+        crate::spanner::hydrate_into(&mut s.core, embedder, &rows)
+    });
+    // Persist the re-embedded nodes so the local store agrees with Spanner.
+    state.with_user(&uid, |s| {
+        if let Some(db) = state.db() {
+            let ids: Vec<String> = s.core.nodes.keys().cloned().collect();
+            for id in ids {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+    });
+
+    Ok(Json(SpannerHydrateResponse { pulled, re_embedded }))
+}
+
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
 // fs/graph: scan a sandboxed dir → theme↔file semantic graph (FileThemeGraph),
 // embeddings stripped. fs/file: sandboxed text preview. fs/move: sandboxed
@@ -4200,6 +4322,12 @@ pub async fn build_app() -> (SharedState, Router) {
     let protected = protected
         .route("/mcp/sse", get(mcp_sse_handler))
         .route("/mcp/message", post(mcp_message_handler));
+
+    // Spanner Graph sink (Phase 7C) — durable-memory mirror, off the hot path.
+    #[cfg(feature = "spanner")]
+    let protected = protected
+        .route("/api/v1/spanner/sync", post(spanner_sync_handler))
+        .route("/api/v1/spanner/hydrate", post(spanner_hydrate_handler));
 
     let protected =
         protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));

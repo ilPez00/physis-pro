@@ -135,6 +135,15 @@ pub enum Commands {
         /// Path to the Praxis export JSON (notebook + trackers, or a bare array)
         file: PathBuf,
     },
+    /// Mirror the coherence graph to Spanner (durable memory), or pull durable
+    /// rows back and re-embed them locally (new device / model swap). Needs the
+    /// `spanner` feature and Spanner env (SPANNER_PROJECT/INSTANCE/DATABASE +
+    /// GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_OAUTH_TOKEN).
+    #[cfg(feature = "spanner")]
+    Spanner {
+        #[command(subcommand)]
+        action: SpannerAction,
+    },
     /// Run a live connector, emitting normalized events as JSON lines
     Connect {
         #[command(subcommand)]
@@ -334,6 +343,21 @@ pub enum ConnectSource {
     },
 }
 
+/// Actions for the `spanner` command (Phase 7C durable-memory mirror).
+#[cfg(feature = "spanner")]
+#[derive(Subcommand)]
+pub enum SpannerAction {
+    /// Mirror the tenant's coherence graph up (upsert nodes + edges; with
+    /// --mirror also hard-delete remote rows that vanished locally)
+    Sync {
+        /// Hard-delete remote rows absent locally (default true)
+        #[arg(long, default_value_t = true)]
+        mirror: bool,
+    },
+    /// Pull durable rows back and re-embed them under the live embedder
+    Hydrate,
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
@@ -505,6 +529,16 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Praxis { file } => {
             println!("{}", app.run_praxis_backfill(&file)?);
+        }
+        #[cfg(feature = "spanner")]
+        Commands::Spanner { action } => {
+            let rt = tokio::runtime::Runtime::new()?;
+            let (sync, mirror) = match action {
+                SpannerAction::Sync { mirror } => (true, mirror),
+                SpannerAction::Hydrate => (false, false),
+            };
+            let out = rt.block_on(app.run_spanner(sync, mirror))?;
+            println!("{out}");
         }
 
         // ── Business commands ──

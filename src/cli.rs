@@ -547,6 +547,44 @@ impl PhysisApp {
         ))
     }
 
+    /// Spanner Graph sink (Phase 7C): mirror the persisted coherence graph up to
+    /// Spanner (durable memory), or pull durable rows back and re-embed them
+    /// under the live embedder (new device / model swap). Off the hot path.
+    /// `sync`: true = sync up (with `mirror` hard-deleting remote orphans);
+    /// false = hydrate (pull + re-embed).
+    #[cfg(feature = "spanner")]
+    pub async fn run_spanner(&mut self, sync: bool, mirror: bool) -> anyhow::Result<String> {
+        let sink = crate::spanner::SpannerSink::from_env()?;
+        // Rehydrate the persisted "_default" tenant so we sync real data.
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        if sync {
+            if mirror {
+                let stats = crate::spanner::sync_full(&core, &sink).await?;
+                Ok(format!(
+                    "spanner sync: {} nodes + {} edges upserted, {} nodes + {} edges deleted",
+                    stats.nodes_upserted, stats.edges_upserted,
+                    stats.nodes_deleted, stats.edges_deleted,
+                ))
+            } else {
+                let (n, e) = crate::spanner::sync(&core, &sink).await?;
+                Ok(format!("spanner sync: {n} nodes + {e} edges upserted"))
+            }
+        } else {
+            let Some((db, mut core)) = self.open_persisted_core() else {
+                anyhow::bail!("node store unavailable (persistence off)");
+            };
+            let rows = sink.fetch_nodes().await?;
+            let pulled = rows.len();
+            let re_embedded = crate::spanner::hydrate_into(&mut core, self.embedder.as_ref(), &rows);
+            for id in core.nodes.keys().cloned().collect::<Vec<_>>() {
+                let _ = core.persist_node(&db, "_default", &id);
+            }
+            Ok(format!("spanner hydrate: pulled {pulled} durable rows, re-embedded {re_embedded}"))
+        }
+    }
+
     /// Grade a dream by ID. Returns false if no dream with that ID exists.
     pub fn run_evaluate(&mut self, id: &str, grade: Score) -> bool {
         self.dreams.evaluate_dream(id, grade)

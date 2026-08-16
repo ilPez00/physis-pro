@@ -700,6 +700,30 @@ async fn praxis_backfill_seeds_behavioral_verdicts() {
 }
 
 #[tokio::test]
+#[cfg(feature = "spanner")]
+async fn spanner_routes_are_registered_but_reject_unconfigured() {
+    // Phase 7C wiring: the endpoints exist and are tenant-aware, but without
+    // Spanner env they must answer BAD_GATEWAY (not 404/500) with a clear reason.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/spanner/sync", "s", json!({"mirror": true})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "unconfigured sync → 502: {body}");
+    assert!(body["error"].as_str().unwrap_or("").contains("not configured"), "names the problem: {body}");
+
+    let (status, body) = send(
+        &router,
+        post("/api/v1/spanner/hydrate", "s", json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "unconfigured hydrate → 502: {body}");
+}
+
+#[tokio::test]
 async fn bearer_token_gates_protected_routes() {
     // Regression (PREMORTEM P6): the API used to bind wide open. With a token
     // configured, protected routes must require it while the ops surface stays

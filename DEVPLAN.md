@@ -18,6 +18,7 @@
 - **Vault importers (Phase 7B)** — `src/vault.rs` (Obsidian/markdown, plain notes, `git log`) → labeled core nodes; `physis-pro vault <dir> [--git N]` + `POST /api/v1/vault/import` (scan-root confined, dedupe by label)
 - **Personal-history importers (Phase 7B)** — `src/history.rs` (browser bookmarks/history, OPML feeds, chat JSONL) → labeled core nodes; `physis-pro history <file>` + `POST /api/v1/history/import` (scan-root confined, dedupe by label)
 - **Praxis backfill (Phase 7B)** — `src/praxis.rs` (notebook entries + trackers → Success/Inert/Failure verdicts) → labeled behavioural nodes with asserted verdicts; `physis-pro praxis <file>` + `POST /api/v1/praxis/backfill`
+- **Spanner Graph sink (Phase 7C)** — durable-memory mirror wired into web (`POST /api/v1/spanner/sync|hydrate`) + CLI (`physis-pro spanner sync|hydrate`); off the hot path, `--features spanner`
 
 ## Pending Hosting Actions (user required)
 1. **DNS TXT** — Contact DNS provider to add TXT record. Once propagated, enable GitHub Pages
