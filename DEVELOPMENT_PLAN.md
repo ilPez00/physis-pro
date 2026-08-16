@@ -114,8 +114,30 @@ asserted verdicts of nodes landing there — and `adjust_score` *already applies
 those penalties to live classification. So a cell can be actively demoted on
 every query and still render identical to a healthy cell of the same size.
 
-- [ ] Colour by condition (population × mean asserted × recent penalty)
-- [ ] Same treatment for the TUI heatmap pane
+- [x] Colour by condition (population × mean asserted × recent penalty)
+- [x] Same treatment for the TUI heatmap pane
+
+**Done (2026-08-17).** The engine already had the answer: `adjust_score`
+computes `1.0 - penalty + boost` and applies it to every live classification.
+Writing a second health formula next to it would have recreated exactly the
+state-vs-report split §1 exists to kill, so that expression is now named
+(`cell_standing`) and both grids *select* from it.
+
+The combining rule became a **slider rather than a decision**, because `count`
+can be read two ways and both are defensible:
+
+- *responsive* — count is mere size, every cell reacts at full strength, new
+  problems surface immediately, a stray click is visible;
+- *trusting* — count is a confidence weight, thin cells hold near neutral until
+  evidence accumulates, colours are slower but worth acting on.
+
+`cell_condition(count, standing, mean_asserted, confidence)` shrinks a cell's
+reading toward neutral by `n / (n + k)`, `k = confidence * 16`; `ConditionLens`
+names the positions. Exposed as `?confidence=` on both grid endpoints, a range
+input in the studio, `[`/`]` in the TUI map. Three rules are load-bearing and
+tested: an empty cell reads **neutral, not bad** (absence of evidence is not bad
+news); `standing` is squashed `s/(s+1)` not clamped, so unbounded boosts stay
+ordered; junk input falls back to the default instead of pinning to an extreme.
 
 ### 4. Dreams are a rhythm, not a request
 
