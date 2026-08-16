@@ -56,9 +56,11 @@ pub mod spanner;
 
 pub mod structsim;
 pub mod rag;
+pub mod pack;
 pub mod vault;
 pub mod history;
 pub mod praxis;
+pub mod license;
 
 #[cfg(feature = "cli")]
 pub mod cli;

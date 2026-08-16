@@ -1,0 +1,93 @@
+PHYSIS PRO — END USER LICENCE AGREEMENT
+
+Copyright (c) 2026 Giovanni Antonio Pezzin. All rights reserved.
+
+This software is proprietary and confidential. It is licensed, not sold.
+
+No rights are granted except as expressly set out in a signed licence
+agreement between Giovanni Antonio Pezzin ("Licensor") and you ("Licensee"),
+together with a valid licence key issued by the Licensor. In the absence of
+such an agreement and key, you have no right to use, copy, modify, merge,
+publish, distribute, sublicense, or sell any part of this software.
+
+1. GRANT
+
+   Subject to a signed agreement, payment of the applicable fees, and
+   continued compliance with these terms, the Licensor grants the Licensee a
+   non-exclusive, non-transferable, non-sublicensable licence to install and
+   run the object-code form of Physis Pro on the number of hosts stated in
+   the Licensee's licence key, for the Licensee's own internal business
+   purposes, for the term stated in that key.
+
+2. RESTRICTIONS
+
+   The Licensee shall not:
+
+   (a) distribute, resell, rent, lease, or provide the software to any third
+       party, or operate it as a hosted or managed service for third parties;
+   (b) reverse engineer, decompile, or disassemble the software, except to
+       the extent that such activity is expressly permitted by applicable law
+       notwithstanding this restriction;
+   (c) remove, disable, or circumvent the licence verification mechanism, or
+       use the software without a valid licence key;
+   (d) disclose any benchmark or performance results to third parties without
+       the Licensor's prior written consent.
+
+3. SOURCE CODE
+
+   No source code is licensed under this agreement. Where the Licensee has
+   received source code, it is Confidential Information of the Licensor and
+   is licensed solely for the purpose of verification and internal audit.
+
+4. THIRD-PARTY COMPONENTS
+
+   Physis Pro incorporates third-party open-source components. Those
+   components remain governed by their own licences, which are reproduced in
+   the THIRD_PARTY_LICENSES file distributed with the software. Nothing in
+   this agreement limits the Licensee's rights under those licences.
+
+   Model weights are not licensed under this agreement. Where the software is
+   distributed with, or downloads, machine-learning model weights, those
+   weights are governed by the terms of their respective publishers and the
+   Licensee is responsible for compliance with them.
+
+5. DATA
+
+   The software processes data supplied by the Licensee. The Licensor does
+   not receive, access, or store that data by virtue of this licence. Where
+   the Licensor processes personal data on the Licensee's behalf under a
+   separate hosting or support arrangement, a Data Processing Agreement
+   applies and prevails over this section.
+
+6. WARRANTY DISCLAIMER
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+   The software produces probabilistic classifications and predictions. It is
+   not a diagnostic, medical, or safety-critical system, and must not be used
+   as the sole basis for any decision affecting the health, safety, or legal
+   rights of any person.
+
+7. LIABILITY
+
+   To the maximum extent permitted by applicable law, the Licensor's total
+   aggregate liability arising out of or in connection with this agreement
+   shall not exceed the fees paid by the Licensee in the twelve months
+   preceding the event giving rise to the claim. Nothing in this agreement
+   excludes liability which cannot lawfully be excluded.
+
+8. TERM AND TERMINATION
+
+   This licence terminates automatically on expiry of the licence key, or
+   immediately on breach of section 2. On termination the Licensee shall cease
+   all use and delete all copies of the software.
+
+9. GOVERNING LAW
+
+   This agreement is governed by the laws of Italy, and the courts of Italy
+   shall have exclusive jurisdiction, save that the Licensor may seek
+   injunctive relief in any competent jurisdiction.
+
+Contact: pezzingiovanniantonio@gmail.com

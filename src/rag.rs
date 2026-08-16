@@ -76,13 +76,23 @@ pub struct RagCorpus {
 
 impl RagCorpus {
     /// Build a corpus from raw texts, embedding each and counting its tokens.
+    ///
+    /// Embedding is submitted in fixed-size batches rather than one call per
+    /// corpus. A single ONNX call over a thousand 512-token sequences allocates
+    /// activations for all of them at once and is killed by the OOM reaper on
+    /// an ordinary machine; batching bounds peak memory independently of corpus
+    /// size, at no cost in throughput.
     pub fn build(texts: &[String], embedder: &dyn VectorEmbed) -> Self {
+        /// Sequences per embedder call. Large enough to keep the model busy,
+        /// small enough that peak activation memory stays flat.
+        const EMBED_BATCH: usize = 32;
+
         let tokens: Vec<usize> = texts.iter().map(|t| count_tokens(t)).collect();
-        let embeddings = if texts.is_empty() {
-            Vec::new()
-        } else {
-            embedder.embed_batch(&texts.iter().map(|s| s.as_str()).collect::<Vec<_>>())
-        };
+        let mut embeddings: Vec<Vec<f32>> = Vec::with_capacity(texts.len());
+        for batch in texts.chunks(EMBED_BATCH) {
+            let refs: Vec<&str> = batch.iter().map(|s| s.as_str()).collect();
+            embeddings.extend(embedder.embed_batch(&refs));
+        }
         let chunks = texts
             .iter()
             .enumerate()

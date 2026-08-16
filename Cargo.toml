@@ -2,6 +2,10 @@
 name = "physis_pro"
 version = "0.1.0"
 edition = "2021"
+# Proprietary. No LICENSE grant is given; see LICENSE.txt.
+license-file = "LICENSE.txt"
+# Hard stop against an accidental `cargo publish` of a closed-source crate.
+publish = false
 description = "Industrial backoffice intelligence — process monitoring, inventory, document ingest, quality feedback"
 
 [dev-dependencies]
@@ -36,7 +40,11 @@ physis-core = { path = "physis-core", default-features = false }
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
 notify = { version = "7", optional = true }
-rmcp = { version = "0.1", optional = true }
+# `transport-io` adds the stdio transport. Every mainstream MCP client
+# (Claude Code, Codex, OpenCode, Zed) spawns the server as a child process and
+# frames JSON-RPC over stdin/stdout; the bare TCP listener this crate started
+# with is reachable by none of them.
+rmcp = { version = "0.1", features = ["transport-io"], optional = true }
 reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls", "blocking"] }
 axum = { version = "0.7", features = ["json", "macros"], optional = true }
 tokio-stream = "0.1"
@@ -72,6 +80,12 @@ quick-xml = { version = "0.36", optional = true }
 # Spanner service-account JWT minting (RS256).
 jsonwebtoken = { version = "9", optional = true }
 
+# Offline license verification (Ed25519). Not optional: the binary must never
+# be buildable without the licence gate. `rand_core` is only pulled in by the
+# keygen bin, which is excluded from the shipped package (see [[bin]] below).
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+
 # Optional document-ingestion backends (kept out of default so the core stays
 # light and CI/disk stay sane; enable with --features pdf,email).
 # pdf-extract: pure-Rust text extraction from PDF page streams.
@@ -100,6 +114,10 @@ email = ["dep:mailparse"]
 wiki-embedded = ["dep:llmwiki_physis"]
 # Spanner Graph sink (Phase 7C) — durable wiki mirror. jsonwebtoken for SA auth.
 spanner = ["dep:jsonwebtoken"]
+# Vendor-side licence tooling (keygen + signing). NEVER enable this for a
+# customer build: it builds the tool that mints licences. The shipped package
+# is built without it, so the signing path is not even present in the binary.
+vendor = ["dep:clap"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp"]
 
@@ -138,3 +156,10 @@ members = ["physis-core"]
 # workspace avoids the "profiles for the non root package will be ignored"
 # warning (it's still reachable as the `llmwiki_physis` path dependency).
 exclude = ["vendor/llmwiki"]
+
+# Vendor-only. Excluded from customer packages by `required-features`.
+[[bin]]
+name = "physis-license"
+required-features = ["vendor"]
+path = "src/bin/license_tool.rs"
+

@@ -30,7 +30,47 @@ impl CellClassifier {
     /// embeddings by DOMAIN×MODE cell. Hook: maps physis_pro's ontology over the
     /// core entry-seed builder.
     pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
-        let seeds = ontology.classification_domains().filter_map(|def| {
+        Self(physis_core::classify::CellClassifier::build_seeds(Self::seeds(ontology), |t| {
+            embedder.embed(t)
+        }))
+    }
+
+    /// Same as [`Self::build`], but embeds the ontology seeds in batches and
+    /// serves them from `cache`.
+    ///
+    /// [`Self::build`] calls `embedder.embed` once per entry — roughly 650
+    /// single-item ONNX invocations on the default ontology, which dominated
+    /// MCP server startup (~150 s) and pushed it past the handshake timeout of
+    /// every MCP client. The seed texts are fixed by the ontology, so after the
+    /// first run they are pure cache hits.
+    pub fn build_cached(
+        ontology: &OntologyLoader,
+        embedder: &dyn VectorEmbed,
+        embedder_kind: &str,
+        cache: &mut crate::pack::EmbedCache,
+    ) -> Self {
+        // The seed iterator is single-pass, so materialise it: we need every
+        // text up front to batch, then the seeds again to build the cells.
+        let seeds: Vec<EntrySeed> = Self::seeds(ontology).collect();
+        let texts: Vec<String> = seeds.iter().map(|s| s.text.clone()).collect();
+        let embeddings = cache.embed_texts(&texts, embedder, embedder_kind);
+
+        let by_text: HashMap<&str, &Vec<f32>> = texts
+            .iter()
+            .map(String::as_str)
+            .zip(embeddings.iter())
+            .collect();
+
+        Self(physis_core::classify::CellClassifier::build_seeds(
+            seeds.iter().cloned(),
+            |t| by_text.get(t).map(|e| (*e).clone()).unwrap_or_default(),
+        ))
+    }
+
+    /// The classification seeds this ontology contributes: one per entry that
+    /// declares both a domain and a mode.
+    fn seeds(ontology: &OntologyLoader) -> impl Iterator<Item = EntrySeed> + '_ {
+        ontology.classification_domains().filter_map(|def| {
             let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
                 (Some(d), Some(m)) => (d.to_string(), m.to_string()),
                 _ => return None,
@@ -41,8 +81,7 @@ impl CellClassifier {
                 text.push_str(hint);
             }
             Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
-        });
-        Self(physis_core::classify::CellClassifier::build_seeds(seeds, |t| embedder.embed(t)))
+        })
     }
 
     /// Number of populated cells.
@@ -104,6 +143,41 @@ mod tests {
         let embedder = RandomProjectionEmbedder::new(384);
         let clf = CellClassifier::build(&ontology, &embedder);
         assert!(clf.cell_count() >= 20);
+    }
+
+    /// `build_cached` batches and memoises what `build` computes one call at a
+    /// time. That is only a speed change if the two agree exactly — a mismatch
+    /// would silently reshape every classification the MCP server produces,
+    /// since the server uses the cached path and the CLI does not.
+    #[test]
+    fn cached_build_matches_uncached_build() {
+        let ontology = OntologyLoader::load_all(&crate::config::PhysisConfig::default());
+        let embedder = RandomProjectionEmbedder::new(384);
+        let plain = CellClassifier::build(&ontology, &embedder);
+
+        let mut cache = crate::pack::EmbedCache::default();
+        let cached =
+            CellClassifier::build_cached(&ontology, &embedder, "test-embedder", &mut cache);
+
+        assert_eq!(plain.cell_count(), cached.cell_count());
+
+        let plain_centroids = plain.cell_centroids();
+        let cached_centroids = cached.cell_centroids();
+        assert_eq!(plain_centroids.len(), cached_centroids.len());
+        for (key, expected) in &plain_centroids {
+            let got = cached_centroids.get(key).expect("cell present in both builds");
+            assert_eq!(expected.len(), got.len(), "dimension differs for {key}");
+            for (a, b) in expected.iter().zip(got) {
+                assert!((a - b).abs() < 1e-6, "centroid differs for {key}");
+            }
+        }
+
+        // Second build must be served entirely from the warmed cache.
+        let mut warm = cache;
+        let _ = CellClassifier::build_cached(&ontology, &embedder, "test-embedder", &mut warm);
+        let (hits, misses) = warm.stats();
+        assert!(hits > 0, "warm build should hit the cache");
+        assert_eq!(misses, 0, "warm build should not recompute any seed");
     }
 
     #[test]
