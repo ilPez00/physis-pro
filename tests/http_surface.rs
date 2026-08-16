@@ -780,6 +780,140 @@ async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
     assert_eq!(status, StatusCode::NOT_FOUND, "unknown id: {missing}");
 }
 
+/// The pin has to be visible from a *reader*, not just echoed by the writer.
+/// The test above asserts the edit response contains `pinned_cell`, which the
+/// handler builds from the value it just wrote — it would pass even if nothing
+/// downstream honoured the pin, and for a while nothing did: `cell_pin` was
+/// stored, persisted, and reported by no endpoint at all.
+#[tokio::test]
+async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "pv", json!({"input": "autoclave cycle log"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+
+    let find = |body: &Value, id: &str| -> Value {
+        body["results"]
+            .as_array()
+            .expect("results array")
+            .iter()
+            .find(|n| n["id"] == id)
+            .expect("the node is listed")
+            .clone()
+    };
+
+    // Unpinned: whatever the classifier says, flagged as not pinned.
+    let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
+    let before = find(&all, &id);
+    assert_eq!(before["pinned"], false, "an unedited node is not pinned: {before}");
+
+    // Pin it somewhere the classifier would not have chosen on its own.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pv", json!({
+            "id": id,
+            "label": "autoclave cycle log",
+            "cell": {"domain": "BOND", "mode": "PLAY"},
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
+    let pinned = find(&all, &id);
+    assert_eq!(pinned["pinned"], true, "the listing reports the pin: {pinned}");
+    assert_eq!(pinned["cell"][0], "BOND", "the pin outranks the classifier");
+    assert_eq!(pinned["cell"][1], "PLAY");
+
+    // An edit that says nothing about the cell must not silently unpin it —
+    // changing the text is not a retraction of where someone said it belongs.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pv", json!({
+            "id": id, "label": "autoclave cycle log, revised",
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
+    let still = find(&all, &id);
+    assert_eq!(still["pinned"], true, "a content edit leaves the pin standing: {still}");
+    assert_eq!(still["cell"][0], "BOND");
+
+    // Retraction is explicit: `"cell": null`.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/edit", "pv", json!({
+            "id": id, "label": "autoclave cycle log, revised", "cell": null,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
+    let cleared = find(&all, &id);
+    assert_eq!(cleared["pinned"], false, "an explicit null retracts the pin: {cleared}");
+}
+
+/// A pin that disagrees with the classifier is a labelled correction, so it has
+/// to reach the quality tracker — otherwise editing teaches the system nothing.
+#[tokio::test]
+async fn a_dissenting_pin_penalizes_the_cell_the_classifier_chose() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "qz", json!({"input": "hydraulic press tonnage drift"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+
+    // What the classifier picked on its own, before any human says otherwise.
+    let (_, edited) = send(
+        &router,
+        post("/api/v1/coherence/edit", "qz", json!({
+            "id": id, "label": "hydraulic press tonnage drift",
+        })),
+    )
+    .await;
+    let auto_domain = edited["auto_cell"]["domain"].as_str().unwrap_or("").to_string();
+    let auto_mode = edited["auto_cell"]["mode"].as_str().unwrap_or("").to_string();
+    assert!(!auto_domain.is_empty(), "the classifier picked a cell: {edited}");
+
+    // Disagree with it, repeatedly. One pin is a sample, not a verdict, so the
+    // penalty has to accumulate rather than land in full on the first click.
+    let dissent = if auto_domain == "BOND" { "STUDY" } else { "BOND" };
+    for _ in 0..3 {
+        let (status, _) = send(
+            &router,
+            post("/api/v1/coherence/edit", "qz", json!({
+                "id": id,
+                "label": "hydraulic press tonnage drift",
+                "cell": {"domain": dissent, "mode": "PLAY"},
+            })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let (status, quality) = send(&router, get("/api/v1/quality", "qz")).await;
+    assert_eq!(status, StatusCode::OK, "quality readable: {quality}");
+    let key = format!("{auto_domain}\u{0}{auto_mode}");
+    let penalty = quality["penalties"][&key].as_f64().unwrap_or(0.0);
+    assert!(
+        penalty > 0.0,
+        "three disagreements moved the penalty for {auto_domain}×{auto_mode}: {quality}"
+    );
+    assert!(
+        penalty < 1.0,
+        "a pin must never be able to lock a cell outright — that is reserved for \
+         reported failures: {penalty}"
+    );
+}
+
 #[tokio::test]
 async fn coherence_delete_removes_node_and_index() {
     let (router, _dir, _env) = app().await;

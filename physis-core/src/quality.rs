@@ -117,6 +117,23 @@ impl QualityTracker {
         self.failures.last().unwrap()
     }
 
+    /// Penalize a cell that is already known, by a caller-chosen severity.
+    ///
+    /// The structured counterpart of [`Self::report_success`]. `report_failure`
+    /// exists for free-text complaints: it re-embeds the text to *find* which
+    /// cell was wrong, and lets three of them lock a cell outright. A pin
+    /// disagreement needs neither — the editor already told us both the wrong
+    /// cell and the right one — and must not be able to lock anything, because
+    /// a pin is locally authoritative but only one sample globally.
+    ///
+    /// Same `severity * 0.2` scale as a reported failure, so the two kinds of
+    /// evidence accumulate in comparable units.
+    pub fn penalize_cell(&mut self, cell: &str, severity: f32) {
+        let severity = severity.clamp(0.0, 1.0);
+        let penalty = self.cell_penalties.entry(cell.to_string()).or_insert(0.0);
+        *penalty = (*penalty + severity * 0.2).min(1.0);
+    }
+
     /// Report positive feedback — user confirmed the output is good.
     pub fn report_success(&mut self, cell: &str) {
         let boost = self.cell_boosts.entry(cell.to_string()).or_insert(0.0);
@@ -243,6 +260,34 @@ mod tests {
         let mut t = make_tracker();
         t.cell_boosts.insert("WORK\x00LIFT".to_string(), 0.5);
         assert!(t.adjust_score("WORK\x00LIFT", 0.8) > 0.8);
+    }
+
+    #[test]
+    fn penalize_cell_accumulates_but_never_locks() {
+        let mut t = make_tracker();
+        let cell = "FABRICATE\x00MAINTAIN";
+
+        // One dissenting pin is a sample, not a verdict: it moves the penalty,
+        // but only slightly.
+        t.penalize_cell(cell, 0.25);
+        let first = t.cell_penalties[cell];
+        assert!(first > 0.0 && first < 0.1, "one dissent nudges: {first}");
+
+        // Repetition is what makes it count.
+        t.penalize_cell(cell, 0.25);
+        assert!(t.cell_penalties[cell] > first, "dissent accumulates");
+
+        // Unlike `report_failure`, no number of pins may lock a cell outright —
+        // locking is reserved for typed complaints, which carry an explanation.
+        for _ in 0..200 {
+            t.penalize_cell(cell, 1.0);
+        }
+        assert!(t.cell_penalties[cell] <= 1.0, "penalty stays bounded");
+
+        // Out-of-range severity is clamped rather than trusted.
+        let mut t2 = make_tracker();
+        t2.penalize_cell(cell, -5.0);
+        assert_eq!(t2.cell_penalties[cell], 0.0, "negative severity cannot boost");
     }
 
     #[test]

@@ -85,6 +85,23 @@ pub struct PhysisCore {
     embedder_id: Option<String>,
 }
 
+/// What an edit does to a node's semiotic cell pin.
+///
+/// A pin is the editor's testimony about where a node belongs — the same
+/// species of claim as `asserted` is about whether it worked. Testimony is
+/// retracted explicitly, never erased as a side effect of changing the text,
+/// so `Keep` is what an edit that says nothing about the cell means.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PinEdit {
+    /// Leave any existing pin exactly as it is.
+    Keep,
+    /// Pin (or re-pin) the node to this cell.
+    Set(String, String),
+    /// Retract the pin — the node's cell goes back to whatever the classifier
+    /// derives from its content.
+    Clear,
+}
+
 /// The observable effect of an "exchange-parts" edit.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeEditOutcome {
@@ -274,11 +291,10 @@ impl PhysisCore {
     /// used by the dedupe index, holarchy edges (`IdBridge`), dreams, PDCA, and
     /// persistence — none of which need to change for the swap to take.
     ///
-    /// The caller supplies the re-embedded vector (and, optionally, the semiotic
-    /// `pin` cell from the editor — the hybrid semantics: auto-classification is
-    /// re-derived from the new content by the caller, but a pin overrides it and
-    /// survives restarts). The asserted verdict and embedder provenance stamp are
-    /// preserved; stale PQ codes for the node are dropped.
+    /// The caller supplies the re-embedded vector and says what should happen to
+    /// the cell pin (see [`PinEdit`] — the default is that a pin *survives* the
+    /// edit). The asserted verdict and embedder provenance stamp are preserved;
+    /// stale PQ codes for the node are dropped.
     ///
     /// Returns `Err` for an unknown id, else the post-edit outcome.
     pub fn edit_node(
@@ -286,7 +302,7 @@ impl PhysisCore {
         id: &str,
         new_label: &str,
         new_embedding: Vec<f32>,
-        pin: Option<(String, String)>,
+        pin: PinEdit,
         embedder_id: Option<&str>,
     ) -> anyhow::Result<NodeEditOutcome> {
         let node = self.nodes.get_mut(id).ok_or_else(|| anyhow::anyhow!("unknown node {id}"))?;
@@ -301,7 +317,15 @@ impl PhysisCore {
         node.label = Some(new_label.to_string());
         node.embedding = new_embedding;
         node.embedder = embedder_id.map(str::to_string);
-        node.cell_pin = pin;
+        match pin {
+            // Testimony survives a content change. Someone said "this belongs in
+            // FABRICATE×MAINTAIN"; fixing a typo in the label is not a retraction
+            // of that claim, so silently dropping it would lose a human judgement
+            // to a keystroke.
+            PinEdit::Keep => {}
+            PinEdit::Set(domain, mode) => node.cell_pin = Some((domain, mode)),
+            PinEdit::Clear => node.cell_pin = None,
+        }
         self.label_index.insert(new_label.to_string(), id.to_string());
         // Drop any stale PQ codes for this node so DBANN never reads the old vector.
         self.encoded_nodes.retain(|(nid, _)| nid != id);
@@ -860,7 +884,7 @@ mod tests {
 
         // Exchange the content: new label + re-embedded vector, no pin.
         let new_vec = emb.embed("welding robot joint recalibration");
-        let out = g.edit_node(&a, "welding robot joint recalibration", new_vec, None, Some("rp32"))
+        let out = g.edit_node(&a, "welding robot joint recalibration", new_vec, PinEdit::Keep, Some("rp32"))
             .expect("edit succeeds");
 
         // Identity + structure survive the swap.
@@ -882,7 +906,7 @@ mod tests {
     #[test]
     fn test_edit_node_unknown_id_errors() {
         let mut g = PhysisCore::new();
-        let err = g.edit_node("missing", "x", vec![0.1; 32], None, None);
+        let err = g.edit_node("missing", "x", vec![0.1; 32], PinEdit::Keep, None);
         assert!(err.is_err());
     }
 
@@ -905,21 +929,63 @@ mod tests {
     }
 
     #[test]
-    fn test_edit_node_pin_roundtrips_and_clears() {
+    fn test_edit_node_pin_survives_content_edits_until_retracted() {
         let mut g = PhysisCore::new();
         let emb = fixture_embedder();
         let id = g.register_node_from_text("autoclave cycle log", &emb);
+        let pinned = ("FABRICATE".to_string(), "MAINTAIN".to_string());
+
         let new_vec = emb.embed("autoclave cycle log (edited)");
         let out = g.edit_node(&id, "autoclave cycle log (edited)", new_vec,
-                              Some(("FABRICATE".into(), "MAINTAIN".into())), None)
+                              PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()), None)
             .expect("edit succeeds");
-        assert_eq!(out.pinned_cell.as_ref(), Some(&("FABRICATE".to_string(), "MAINTAIN".to_string())));
-        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&("FABRICATE".to_string(), "MAINTAIN".to_string())),
-                   "pin persists on the node");
-        // Clearing: an edit without a pin removes the pin.
-        g.edit_node(&id, "autoclave cycle log (again)", emb.embed("autoclave"), None, None)
+        assert_eq!(out.pinned_cell.as_ref(), Some(&pinned));
+        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&pinned), "pin persists on the node");
+
+        // A later edit that says nothing about the cell must NOT drop it. A pin
+        // is the editor's testimony about where this belongs; fixing a typo is
+        // not a retraction of that claim.
+        g.edit_node(&id, "autoclave cycle log (again)", emb.embed("autoclave"), PinEdit::Keep, None)
             .expect("edit succeeds");
-        assert_eq!(g.nodes[&id].cell_pin, None, "pin cleared when not re-supplied");
+        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&pinned),
+                   "an edit with no opinion about the cell leaves the pin standing");
+
+        // Re-pinning replaces.
+        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave"),
+                    PinEdit::Set("STUDY".into(), "LEARN".into()), None)
+            .expect("edit succeeds");
+        assert_eq!(g.nodes[&id].cell_pin.as_ref(),
+                   Some(&("STUDY".to_string(), "LEARN".to_string())));
+
+        // Retraction is explicit, and only then does the classifier take over.
+        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave"), PinEdit::Clear, None)
+            .expect("edit succeeds");
+        assert_eq!(g.nodes[&id].cell_pin, None, "an explicit Clear retracts the pin");
+    }
+
+    #[test]
+    fn test_observable_reports_the_pin_over_the_classifier() {
+        let mut g = PhysisCore::new();
+        let emb = fixture_embedder();
+        let id = g.register_node_from_text("autoclave cycle log", &emb);
+        let auto = Some(("STUDY".to_string(), "WORK".to_string()));
+
+        // Unpinned: the caller's auto cell is what shows, and `pinned` says so.
+        let view = g.nodes[&id].observable(auto.clone());
+        assert_eq!(view.cell, auto);
+        assert!(!view.pinned);
+        assert_eq!(view.label, "autoclave cycle log", "the projection carries the text");
+
+        // Pinned: the pin wins over the classifier, and the flag reports which
+        // one the caller is looking at. Before this existed `cell_pin` was
+        // stored, persisted, and visible from no endpoint at all.
+        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave cycle log"),
+                    PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()), None)
+            .expect("edit succeeds");
+        let view = g.nodes[&id].observable(auto);
+        assert_eq!(view.cell, Some(("FABRICATE".to_string(), "MAINTAIN".to_string())),
+                   "the pin outranks the auto-derived cell");
+        assert!(view.pinned);
     }
 
     #[test]
@@ -932,7 +998,7 @@ mod tests {
         g.register_node_from_text("gamma", &emb);
         assert_eq!(g.encoded_nodes.len(), 3, "all nodes PQ-encoded");
 
-        g.edit_node(&a, "alpha edited", emb.embed("alpha edited"), None, None).expect("edit");
+        g.edit_node(&a, "alpha edited", emb.embed("alpha edited"), PinEdit::Keep, None).expect("edit");
         assert_eq!(g.encoded_nodes.iter().filter(|(id, _)| id == &a).count(), 0,
                    "stale PQ codes for the edited node are dropped");
         assert!(g.nodes[&a].coherence_score.is_finite());

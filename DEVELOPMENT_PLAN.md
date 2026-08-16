@@ -30,6 +30,113 @@ Design + API detail: `docs/SEMIOTIC_EDITING.md`. Core primitive +
 `CoherenceNode.cell_pin` in `src/core.rs` / `src/models.rs`, tests in
 `core::tests` + `tests/http_surface.rs`.
 
+> **Correction (2026-08-15).** The last bullet above overstates the result. The
+> spiderweb (`/api/v1/fs/graph` + `graph_fm.html`) operates on **files** — its
+> move button posts to `/api/v1/fs/move`, which moves a file on disk, and
+> `fs_graph` never touches the coherence node store. A scanned file has no node
+> id, so the edit endpoints cannot reach anything the spiderweb shows. The edit
+> half exists; it is not yet joined to that surface. See the plan below.
+
+---
+
+## Interface that mimics nature (2026-08-15)
+
+### The one bug behind five
+
+Every defect found this session has the same shape: physis keeps a **state
+layer** and a **reporting layer**, and they are synchronised by hand.
+
+| Symptom | State | Report |
+|---|---|---|
+| coherence structurally 0.0 | scored | scored before the node was insertable |
+| `/semiotic/grid` showed 27 of 70 cells | 33 ontologies loaded | handler read one map |
+| goals carried no text | embedding present | no label field |
+| `cell_pin` inert | stored + persisted | no reader anywhere |
+| studio facets decorative | `Facets` on `DomainDef` | handler wrote `default()` |
+
+An organism has no reporting layer. Wilting is not a readout of turgor, it *is*
+turgor; there is no second place to forget a field. "Interface mimicking nature"
+is therefore an architectural constraint, not a visual style: **what is shown
+must be derived from state by construction, never assembled alongside it.**
+
+### 1. One projection — make the compiler forbid write-only state
+
+`NodeView`, built by a single `observable()` that destructures `CoherenceNode`
+**exhaustively** (no `..`). Adding a field to the node then fails to compile
+until someone decides whether it is observable — `cell_pin` could not have been
+born unreadable. Every surface (`/coherence/nodes`, `/nodes/all`, TUI heatmap,
+`graph_fm`, console) *selects* from `NodeView` instead of hand-assembling its
+own DTO, so seven partial views stop drifting apart.
+
+- [ ] `NodeView` + `observable()` in `src/core.rs`, exhaustive destructure
+- [ ] Effective cell = `cell_pin` if set, else classifier top hit; classify
+      **after** the truncate in `/nodes/all` so it stays O(limit), not O(store)
+- [ ] `CoherenceNodeMatch` selects from `NodeView`
+- [ ] Test: a pinned node reports its pinned cell, not the auto one (the
+      existing pin test asserts only that the edit *response echoes* the pin —
+      it would pass if nothing downstream honoured it)
+
+### 2. Pins are testimony — they stick, and disagreement is a signal
+
+A scar survives, a posture does not. A pin is a human assertion about where a
+thing belongs, the same species of claim as `asserted` (a human verdict about
+whether it worked). Both are testimony, so a content edit must not silently
+erase one: **pins persist across edits; clearing is explicit (`cell: null`).**
+
+Once pins persist, every pin either agrees or disagrees with the classifier, and
+a disagreement is the system reporting its own misclassification *with the
+correct answer attached*. `QualityTracker` already receives exactly this shape:
+
+```rust
+quality.report_failure(feedback, &centroids, None)  // pin disagrees with auto
+quality.report_success(&cell)                       // pin confirms auto
+```
+
+Sender and receiver both exist; there is no wire between them. Connecting them
+makes the ontology improve as a by-product of use — no labelling task, no review
+queue. `discovery.rs` finds texts the ontology *cannot name* (unlabelled gaps);
+pin disagreements are *labelled corrections*, which are strictly more valuable.
+
+**Weighting decision:** a pin is **locally authoritative, globally advisory** —
+it always wins for its own node, but contributes only one low-severity sample to
+the cell's quality score, so a single stray click cannot reshape classification
+for everyone while repetition still accumulates.
+
+- [ ] Pins survive edits; `cell: null` clears (update `test_edit_node_pin_roundtrips_and_clears`)
+- [ ] Pin↔auto delta → `QualityTracker`, low severity per event
+- [ ] Test: repeated disagreement on one cell moves its penalty; one does not
+
+### 3. The grid shows a headcount; it should show a condition
+
+The studio heatmap colours cells by entry `count`. But per cell the engine
+already knows population, activation, `cell_penalties`, `cell_boosts`, and the
+asserted verdicts of nodes landing there — and `adjust_score` *already applies*
+those penalties to live classification. So a cell can be actively demoted on
+every query and still render identical to a healthy cell of the same size.
+
+- [ ] Colour by condition (population × mean asserted × recent penalty)
+- [ ] Same treatment for the TUI heatmap pane
+
+### 4. Dreams are a rhythm, not a request
+
+`dream()` already replays asserted failures and skips successes, but only when
+someone calls `/dream/generate` — which in practice means never. Run it when
+request rate drops and surface the result as the first thing the console shows.
+
+- [ ] Idle-triggered dream pass
+- [ ] "What it chewed on" panel
+
+### 5. Cross-project nerves carry sensation, not scalars
+
+physis is the sensorium, aion the motor loop, praxis the social body. Messages
+between them must carry *what happened and how it felt*, not identifiers:
+`checkinController.ts:337` embeds `user:<uuid>`, which has no smell — nothing
+downstream can classify it, no cell lights up, no dream can replay it. The aion
+client's `Recalled` dataclass already gets this right by carrying `.outcome`.
+
+- [ ] praxis: embed check-in content, not the user id
+- [ ] Make `.outcome`-style verdict carriage the contract on every edge
+
 ---
 
 ## Recommendation: lift accuracy past the MiniLM ceiling
