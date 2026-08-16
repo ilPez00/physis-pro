@@ -62,6 +62,37 @@ pub enum Commands {
     },
     /// Show stats
     Stats,
+    /// Query the ontology by orthogonal facets (lifecycle/agency/scale/
+    /// abstraction/sub-domain/sub-mode), beyond the DOMAIN×MODE grid
+    Facet {
+        /// Restrict to one ontology kind (office, human, machine, agent, …)
+        #[arg(long)]
+        kind: Option<String>,
+        /// Restrict to a domain (case-insensitive)
+        #[arg(long)]
+        domain: Option<String>,
+        /// Restrict to a mode (case-insensitive)
+        #[arg(long)]
+        mode: Option<String>,
+        /// Lifecycle facet: DESIGN | BUILD | OPERATE | RETIRE
+        #[arg(long)]
+        lifecycle: Option<String>,
+        /// Agency facet: SELF | OTHER | AUTOMATED | COLLECTIVE
+        #[arg(long)]
+        agency: Option<String>,
+        /// Scale facet: PERSONAL | INTERPERSONAL | ORGANIZATIONAL | CIVIL
+        #[arg(long)]
+        scale: Option<String>,
+        /// Abstraction facet: CONCRETE | ABSTRACT
+        #[arg(long)]
+        abstraction: Option<String>,
+        /// Sub-domain facet (string, case-insensitive)
+        #[arg(long)]
+        sub_domain: Option<String>,
+        /// Sub-mode facet (string, case-insensitive)
+        #[arg(long)]
+        sub_mode: Option<String>,
+    },
     /// Print config
     Config,
     /// Translate text through a linguistic lense
@@ -466,6 +497,14 @@ fn main() -> anyhow::Result<()> {
         Commands::Stats => {
             let output = app.run_stats();
             println!("{output}");
+        }
+        Commands::Facet { kind, domain, mode, lifecycle, agency, scale, abstraction, sub_domain, sub_mode } => {
+            let out = app.run_facet_query(
+                kind.as_deref(), domain.as_deref(), mode.as_deref(),
+                lifecycle.as_deref(), agency.as_deref(), scale.as_deref(),
+                abstraction.as_deref(), sub_domain.as_deref(), sub_mode.as_deref(),
+            );
+            print!("{out}");
         }
         Commands::Config => {
             let config_str = serde_json::to_string_pretty(&PhysisProConfig::default())?;
@@ -1535,4 +1574,33 @@ mod tests {
         // Missing file errors.
         assert!(app.run_praxis_backfill(&dir.path().join("nope.json")).is_err());
     }
+
+    #[test]
+    fn test_cli_facet_query_filters_ontology() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = cli_app(dir.path());
+
+        // Full listing returns rows with a table header.
+        let all = app.run_facet_query(None, None, None, None, None, None, None, None, None);
+        assert!(all.contains("entries match"), "listing header: {all}");
+        assert!(all.contains("ENTRY"), "table header present");
+
+        // Unknown facet value is tolerated (no filter) → same listing as no filter.
+        let bogus = app.run_facet_query(None, None, None, Some("NOWHERE"), None, None, None, None, None);
+        assert_eq!(bogus.trim_end(), all.trim_end(), "unknown facet value ignored");
+
+        // A filter that matches nothing returns a zero-count message, not an error.
+        let none = app.run_facet_query(None, None, None, Some("DESIGN"), None, None, None, Some("zzz-no-such-sub"), None);
+        assert!(none.contains("0 entries match"), "empty result is a valid answer: {none}");
+
+        // Case-insensitive facet matching works when entries carry the facet.
+        let operate = app.run_facet_query(None, None, None, Some("operate"), None, None, None, None, None);
+        let also = app.run_facet_query(None, None, None, Some("OPERATE"), None, None, None, None, None);
+        assert_eq!(operate.trim_end(), also.trim_end(), "case-insensitive facet match");
+
+        // Kind restriction narrows the search space.
+        let office = app.run_facet_query(Some("office"), None, None, None, None, None, None, None, None);
+        assert!(office.contains("entries match"), "office kind listed");
+    }
 }
+

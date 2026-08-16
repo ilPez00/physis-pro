@@ -1067,6 +1067,128 @@ No other text."#.into(),
         out.push_str(&format!("Open: file://{}\n", html_out.display()));
         Ok(out)
     }
+
+    /// Query the ontology by orthogonal facets (beyond DOMAIN×MODE): filter the
+    /// loaded domains by lifecycle / agency / scale / abstraction / sub-domain /
+    /// sub-mode, optionally narrowed to one kind and/or domain. Prints a
+    /// table of matching entries. Empty result → a message, not an error (an
+    /// empty facet set is a legitimate answer, e.g. "no OPERATE+SELL entries").
+    pub fn run_facet_query(
+        &self,
+        kind: Option<&str>,
+        domain_filter: Option<&str>,
+        mode_filter: Option<&str>,
+        lifecycle: Option<&str>,
+        agency: Option<&str>,
+        scale: Option<&str>,
+        abstraction: Option<&str>,
+        sub_domain: Option<&str>,
+        sub_mode: Option<&str>,
+    ) -> String {
+        let all_domains: Vec<(&str, &HashMap<String, DomainDef>)> = vec![
+            ("office", &self.ontology.office_domains),
+            ("human", &self.ontology.human_domains),
+            ("machine", &self.ontology.machine_domains),
+            ("agent", &self.ontology.agent_domains),
+            ("engineering", &self.ontology.engineering_domains),
+            ("semiotic", &self.ontology.semiotic_domains),
+            ("category", &self.ontology.category_domains),
+            ("natural", &self.ontology.natural_domains),
+            ("social", &self.ontology.social_domains),
+            ("abstract", &self.ontology.abstract_domains),
+            ("custom", &self.ontology.custom_domains),
+        ];
+
+        // Parse facet filters once, tolerantly: an unknown value is ignored
+        // (never a hard error) — the user asked "what OPERATE entries exist?",
+        // not to prove the spellings.
+        let want_lifecycle = facet_parse(lifecycle, &["DESIGN", "BUILD", "OPERATE", "RETIRE"]);
+        let want_agency = facet_parse(agency, &["SELF", "OTHER", "AUTOMATED", "COLLECTIVE"]);
+        let want_scale = facet_parse(scale, &["PERSONAL", "INTERPERSONAL", "ORGANIZATIONAL", "CIVIL"]);
+        let want_abstraction = facet_parse(abstraction, &["CONCRETE", "ABSTRACT"]);
+        let want_sub = sub_domain.map(|s| s.to_lowercase());
+        let want_sub_mode = sub_mode.map(|s| s.to_lowercase());
+
+        let mut rows: Vec<(String, String, String, String, String, String)> = Vec::new();
+        for (kind_name, domains) in &all_domains {
+            if let Some(k) = kind {
+                if !k.eq_ignore_ascii_case(kind_name) {
+                    continue;
+                }
+            }
+            for def in domains.values() {
+                let name = def.name.clone();
+                let dom = def.domain.clone().unwrap_or_default();
+                let mode = def.mode.clone().unwrap_or_default();
+                if let Some(d) = domain_filter {
+                    if !d.eq_ignore_ascii_case(&dom) {
+                        continue;
+                    }
+                }
+                if let Some(m) = mode_filter {
+                    if !m.eq_ignore_ascii_case(&mode) {
+                        continue;
+                    }
+                }
+
+                let f = &def.facets;
+                if let Some(l) = want_lifecycle {
+                    if f.lifecycle.map(|x| x.as_str()) != Some(l) {
+                        continue;
+                    }
+                }
+                if let Some(a) = want_agency {
+                    if f.agency.map(|x| x.as_str()) != Some(a) {
+                        continue;
+                    }
+                }
+                if let Some(s) = want_scale {
+                    if f.scale.map(|x| x.as_str()) != Some(s) {
+                        continue;
+                    }
+                }
+                if let Some(ab) = want_abstraction {
+                    if f.abstraction.map(|x| x.as_str()) != Some(ab) {
+                        continue;
+                    }
+                }
+                if let Some(sd) = &want_sub {
+                    if f.sub_domain.as_deref().map(|s| s.to_lowercase()).as_ref() != Some(sd) {
+                        continue;
+                    }
+                }
+                if let Some(sm) = &want_sub_mode {
+                    if f.sub_mode.as_deref().map(|s| s.to_lowercase()).as_ref() != Some(sm) {
+                        continue;
+                    }
+                }
+
+                let facet_str = format!("{}", f.simple());
+                rows.push((kind_name.to_string(), dom, mode, name, facet_str, def.axis_kind.clone().unwrap_or_default()));
+            }
+        }
+
+        rows.sort_by(|a, b| (&a.0, &a.1, &a.3).cmp(&(&b.0, &b.1, &b.3)));
+        if rows.is_empty() {
+            return "0 entries match these facets.\n".to_string();
+        }
+        let mut out = format!("{} entries match\n", rows.len());
+        out.push_str(&format!("{:<9} {:<12} {:<10} {:<38} {}\n", "KIND", "DOMAIN", "MODE", "ENTRY", "FACETS"));
+        for (kind, dom, mode, name, facets, axis) in rows {
+            let display = if name.len() > 38 { &name[..35] } else { &name };
+            let axis_suffix = if axis.is_empty() { String::new() } else { format!(" ({axis})") };
+            out.push_str(&format!("{:<9} {:<12} {:<10} {:<38} {}{}\n", kind, dom, mode, display, facets, axis_suffix));
+        }
+        out
+    }
+}
+
+/// Parse an optional facet filter value against the known spellings, matching
+/// case-insensitively. Unknown/absent → `None` (no filter). Known → the
+/// canonical spelling, so "operate" and "OPERATE" both filter correctly.
+fn facet_parse(value: Option<&str>, allowed: &[&'static str]) -> Option<&'static str> {
+    let v = value?;
+    allowed.iter().find(|a| a.eq_ignore_ascii_case(v)).copied()
 }
 
 /// Escape a string for safe inclusion in HTML text/attribute context.
