@@ -215,9 +215,10 @@ async function loadGrid(){
     html += `<tr><td class="rowlabel">${d}</td>`;
     g.modes.forEach((m, mi) => {
       const cell = g.cells[di * g.modes.length + mi];
-      const bg = colorFor(cell.count);
-      html += `<td class="cell" style="background:${bg}" data-domain="${d}" data-mode="${m}" title="${cell.entries.join(', ')}">
-        <div class="c">${cell.count}</div><div class="d">${cell.count ? 'grid' : 'empty'}</div></td>`;
+      const bg = conditionColor(cell.condition, cell.count);
+      const why = conditionReason(cell);
+      html += `<td class="cell" style="background:${bg}" data-domain="${d}" data-mode="${m}" title="${why}${cell.entries.length ? '\n' + cell.entries.join(', ') : ''}">
+        <div class="c">${cell.count}</div><div class="d">${cell.count ? why.split(' ')[0] : 'empty'}</div></td>`;
     });
     html += '</tr>';
   });
@@ -238,6 +239,22 @@ function colorFor(n){
   if (n<=6)  return '#2e6bb5';
   if (n<=12) return '#4f9df0';
   return '#a6c9ff';
+}
+// Condition ramp: 0 = the engine is demoting this cell, 1 = it is doing well.
+// An empty cell is *unknown*, not bad, so it stays neutral grey — colouring it
+// "worst" would claim evidence the tracker does not have.
+function conditionColor(v, count){
+  if (count === 0) return '#10203a';
+  const stops = ['#7f1d1d','#9a3412','#a16207','#3f6212','#166534'];
+  return stops[Math.min(stops.length - 1, Math.max(0, Math.floor(v * stops.length)))];
+}
+// One-line reason for the colour, shown in the cell tooltip.
+function conditionReason(cell){
+  const s = cell.standing;
+  if (cell.count === 0) return 'no entries — condition unknown';
+  if (s < 0.999) return `demoted ×${s.toFixed(2)} by reported failures`;
+  if (s > 1.001) return `promoted ×${s.toFixed(2)} by confirmations`;
+  return 'neutral — no feedback yet';
 }
 async function showCellEntries(d, m){
   const g = await api('/api/grid');

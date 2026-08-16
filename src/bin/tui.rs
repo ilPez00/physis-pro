@@ -125,6 +125,14 @@ struct GridCell {
     mode: String,
     activation: f32,
     entries: Vec<String>,
+    /// 0..1 health from the server's `cell_condition` — how the cell is doing,
+    /// as opposed to `activation`/`entries.len()`, which say how big it is.
+    condition: f32,
+    /// The classifier's live multiplier for the cell (1.0 neutral).
+    standing: f32,
+    /// How many human verdicts fed `condition`; 0 means it is an estimate from
+    /// population and standing alone.
+    verdicts: u32,
 }
 
 /// Should a live re-rank fire?
@@ -465,6 +473,27 @@ fn shade(activation: f32) -> char {
     }
 }
 
+/// Colour for a cell's *condition*, orthogonal to the density `shade` draws.
+///
+/// The glyph says how big the cell is; the colour says how it is doing. Before
+/// this, both channels carried population, so a cell the classifier demotes on
+/// every query was indistinguishable from a healthy one of the same size.
+///
+/// An uncovered cell (`activation == 0.0`) is dark grey: no ontology reaches it,
+/// so there is nothing to be in good or bad condition. That is absence of
+/// evidence, and must not render as the bad end of the ramp.
+fn condition_color(condition: f32, activation: f32) -> Color {
+    if activation <= 0.0 {
+        return Color::DarkGray;
+    }
+    match condition {
+        c if c >= 0.75 => Color::Green,
+        c if c >= 0.5 => Color::Cyan,
+        c if c >= 0.25 => Color::Yellow,
+        _ => Color::Red,
+    }
+}
+
 /// Load the semiotic grid once. It describes the loaded ontologies rather than
 /// tenant state, so it cannot change while the engine runs.
 fn wiki_load_grid(app: &mut App) {
@@ -485,6 +514,11 @@ fn wiki_load_grid(app: &mut App) {
                         .and_then(|e| e.as_array())
                         .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
                         .unwrap_or_default(),
+                    condition: c.get("condition").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                    // Absent `standing` means an older server that does not
+                    // report it; 1.0 (neutral) is the honest reading, not 0.0.
+                    standing: c.get("standing").and_then(|x| x.as_f64()).unwrap_or(1.0) as f32,
+                    verdicts: c.get("verdicts").and_then(|x| x.as_u64()).unwrap_or(0) as u32,
                 })
                 .collect();
             // Axis order follows first appearance, so the map matches the
@@ -960,15 +994,15 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
             },
         )];
         for c in 0..app.wiki_modes.len() {
-            let act = cell_at(app, r, c).map(|x| x.activation).unwrap_or(0.0);
+            let cell = cell_at(app, r, c);
+            let act = cell.map(|x| x.activation).unwrap_or(0.0);
+            let cond = cell.map(|x| x.condition).unwrap_or(0.0);
             let ch = shade(act);
             let on_cursor = app.wiki_map_focus && r == app.wiki_cell_row && c == app.wiki_cell_col;
             let style = if on_cursor {
                 Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
-            } else if act > 0.0 {
-                Style::default().fg(Color::Cyan)
             } else {
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(condition_color(cond, act))
             };
             spans.push(Span::styled(format!("{ch} "), style));
         }
@@ -976,9 +1010,19 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
     }
 
     let title = match cell_at(app, app.wiki_cell_row, app.wiki_cell_col) {
+        // The colour is a claim about the cell, so the title has to say what
+        // the claim rests on — standing, and how many verdicts back it.
         Some(c) if app.wiki_map_focus => format!(
-            " {}×{} · {} entries · Enter scopes the search ",
-            c.domain, c.mode, c.entries.len()
+            " {}×{} · {} entries · standing ×{:.2} · {} · Enter scopes the search ",
+            c.domain,
+            c.mode,
+            c.entries.len(),
+            c.standing,
+            match c.verdicts {
+                0 => "no verdicts yet".to_string(),
+                1 => "1 verdict".to_string(),
+                n => format!("{n} verdicts"),
+            },
         ),
         _ => " semiotic map · m to focus ".to_string(),
     };
