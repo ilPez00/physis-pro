@@ -187,11 +187,56 @@ impl EmbedCache {
         data_dir.join("pack_embed_cache.json")
     }
 
+    /// Write the cache atomically: temp file in the same directory, then
+    /// rename over the target.
+    ///
+    /// A plain `fs::write` truncates before writing, so an interrupted or
+    /// failing write leaves an empty file and destroys the cache. That is not
+    /// hypothetical: a full disk truncated a warmed cache to zero bytes and,
+    /// because the error was discarded, the only symptom was the next run
+    /// silently re-embedding everything — 80 s of work, reported as nothing.
+    /// `rename` within one filesystem is atomic, so a reader sees either the
+    /// previous cache or the new one, never a torn one.
+    ///
+    /// Failures are reported on stderr rather than returned: a cache that
+    /// cannot be written is a performance problem, not a reason to fail the
+    /// pack the caller actually asked for. But it is never silent.
     pub fn save(&self, data_dir: &Path) {
-        let _ = std::fs::create_dir_all(data_dir);
-        if let Ok(bytes) = serde_json::to_vec(self) {
-            let _ = std::fs::write(Self::path(data_dir), bytes);
+        if let Err(e) = self.try_save(data_dir) {
+            eprintln!(
+                "physis: could not write embedding cache to {} — {e}. \
+                 The next run will recompute embeddings.",
+                Self::path(data_dir).display()
+            );
         }
+    }
+
+    fn try_save(&self, data_dir: &Path) -> std::io::Result<()> {
+        use std::io::Write as _;
+
+        std::fs::create_dir_all(data_dir)?;
+        let target = Self::path(data_dir);
+        // Same directory, so the rename stays within one filesystem. The pid
+        // keeps two concurrent writers from colliding on the temp file.
+        let tmp = target.with_extension(format!("tmp{}", std::process::id()));
+
+        let bytes = serde_json::to_vec(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        // Scoped so the file is closed before the rename.
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            // A short write on a full disk must surface here, not be discovered
+            // as a corrupt cache on the next run.
+            if let Err(e) = f.write_all(&bytes).and_then(|_| f.sync_all()) {
+                let _ = std::fs::remove_file(&tmp);
+                return Err(e);
+            }
+        }
+
+        std::fs::rename(&tmp, &target).inspect_err(|_| {
+            let _ = std::fs::remove_file(&tmp);
+        })
     }
 
     /// Cache hits and misses from the last [`Self::embed_texts`] call.
@@ -454,6 +499,68 @@ mod tests {
 
     fn write(dir: &Path, name: &str, body: &str) {
         std::fs::write(dir.join(name), body).unwrap();
+    }
+
+    /// A failed save must leave the previous cache intact.
+    ///
+    /// This exercises the failure that is reachable from a test — the temp
+    /// file cannot be created — not the ENOSPC one that motivated the change
+    /// (a full disk truncated a warmed cache to zero bytes). Both are handled
+    /// by the same structure: nothing touches the target path until a complete
+    /// temp file has been fsynced, so any earlier failure is a no-op. Short
+    /// writes mid-`write_all` take the same path and are covered by
+    /// construction rather than by this test.
+    #[test]
+    fn a_failed_save_leaves_the_previous_cache_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cache = EmbedCache::default();
+        cache.entries.insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
+        cache.save(dir.path());
+
+        let before = std::fs::read(EmbedCache::path(dir.path())).unwrap();
+        assert!(!before.is_empty(), "baseline cache should have been written");
+
+        // Make the directory unwritable so the temp file cannot be created.
+        // The rename never happens, so the existing cache must survive.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let ro = std::fs::Permissions::from_mode(0o500);
+            std::fs::set_permissions(dir.path(), ro).unwrap();
+
+            let mut bigger = EmbedCache::default();
+            bigger.entries.insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
+            bigger.entries.insert("kind:2:def".to_string(), vec![3.0, 4.0]);
+            bigger.save(dir.path()); // reports on stderr, must not panic
+
+            std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+
+        let after = std::fs::read(EmbedCache::path(dir.path())).unwrap();
+        assert_eq!(before, after, "a failed save must not damage the cache");
+
+        let reloaded = EmbedCache::load(dir.path());
+        assert_eq!(reloaded.entries.len(), 1);
+    }
+
+    #[test]
+    fn save_then_load_round_trips_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut cache = EmbedCache::default();
+        cache.entries.insert("kind:3:xyz".to_string(), vec![0.5, 0.25, 0.125]);
+        cache.save(dir.path());
+
+        let reloaded = EmbedCache::load(dir.path());
+        assert_eq!(reloaded.entries.get("kind:3:xyz").unwrap(), &vec![0.5, 0.25, 0.125]);
+
+        // No temp files left behind after a successful save.
+        let strays: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains("tmp"))
+            .collect();
+        assert!(strays.is_empty(), "temp files left behind: {strays:?}");
     }
 
     #[test]
