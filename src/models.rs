@@ -223,6 +223,77 @@ impl CoherenceNode {
     pub fn is_asserted_failure(&self) -> bool {
         matches!(self.rating(), Some(CoherenceRating::Failure))
     }
+
+    /// Everything currently true of this node, in the single form every surface
+    /// renders from.
+    ///
+    /// The destructure below is **exhaustive on purpose** — no `..`. Adding a
+    /// field to `CoherenceNode` stops compiling here until someone decides
+    /// whether it is observable. `cell_pin` shipped stored, persisted, and read
+    /// by nothing precisely because each surface hand-assembled its own DTO,
+    /// and a hand-assembled projection can silently omit state where a derived
+    /// one cannot.
+    ///
+    /// `auto_cell` is passed in rather than computed: classification needs the
+    /// classifier, which lives in the server, not in the model layer.
+    pub fn observable(&self, auto_cell: Option<(String, String)>) -> NodeView {
+        let CoherenceNode {
+            id,
+            embedding,
+            coherence_score,
+            asserted,
+            label,
+            embedder,
+            cell_pin,
+        } = self;
+        NodeView {
+            id: id.clone(),
+            label: label.clone().unwrap_or_default(),
+            score: *coherence_score,
+            asserted: *asserted,
+            rating: asserted.map(CoherenceRating::from_score),
+            // A pin outranks the classifier: it is the editor's testimony about
+            // where this belongs, and testimony is not overruled by a re-embed.
+            cell: cell_pin.clone().or(auto_cell),
+            pinned: cell_pin.is_some(),
+            embedder: embedder.clone(),
+            // The vector itself is never projected — it is not renderable and
+            // callers that want it hold the node. Its width is the useful part.
+            dimension: embedding.len(),
+        }
+    }
+}
+
+/// The projection of a [`CoherenceNode`] — what a client can see.
+///
+/// Every surface (`/coherence/nodes`, `/coherence/nodes/all`, the TUI, the
+/// graph UIs) selects a subset of this instead of building its own shape, so
+/// state added to the engine cannot stay invisible in some of them and not
+/// others. Field names are kept stable (`score`, not `coherence_score`) because
+/// existing clients — the TUI's `parse_hits` among them — read them.
+#[derive(Debug, Clone, Serialize)]
+pub struct NodeView {
+    pub id: String,
+    /// The source text, or empty for a node registered as a bare vector.
+    pub label: String,
+    /// Derived density — mean cosine to nearest neighbours, never negative.
+    pub score: Score,
+    /// Reported outcome in `[-1, 1]`; absent until someone judges it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asserted: Option<Score>,
+    /// The same verdict as a rating, so a client need not re-derive the bands.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating: Option<CoherenceRating>,
+    /// The cell this node actually occupies: the editor's pin when there is
+    /// one, else the classifier's top hit. `pinned` says which it was.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell: Option<(String, String)>,
+    /// True when `cell` came from a human pin rather than the classifier.
+    pub pinned: bool,
+    /// Which embedder produced the vector.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub embedder: Option<String>,
+    pub dimension: usize,
 }
 
 /// An experience is a vector delta — before → after. No action text or rationale.

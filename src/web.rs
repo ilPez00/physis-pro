@@ -30,7 +30,7 @@ use crate::embed::onnx::OnnxEmbedder;
 use crate::embed::RandomProjectionEmbedder;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
 use crate::mapper::OntologyMapper;
-use crate::models::{Goal, Score, HumanDomain, HumanMode, SemioticGrid};
+use crate::models::{CoherenceNode, Goal, NodeView, Score, HumanDomain, HumanMode, SemioticGrid};
 use crate::structsim::{self, StructNode};
 use crate::rag::{self, RagCorpus};
 use crate::CoherenceSnapshot;
@@ -419,20 +419,14 @@ struct CoherenceRegisterResponse {
     asserted: Option<f32>,
 }
 
-#[derive(Serialize)]
-struct CoherenceNodeMatch {
-    id: String,
-    label: String,
-    /// Derived density (never negative).
-    score: Score,
-    /// Asserted outcome, when someone has judged this node.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    asserted: Option<Score>,
-}
+// A node's wire shape is `models::NodeView`, produced by `CoherenceNode::
+// observable()`. This module deliberately no longer defines its own node DTO:
+// a hand-written one is a second place to forget a field, which is how
+// `cell_pin` ended up stored, persisted, and reported by nothing.
 
 #[derive(Serialize)]
 struct CoherenceNodesResponse {
-    results: Vec<CoherenceNodeMatch>,
+    results: Vec<NodeView>,
     count: usize,
 }
 
@@ -1628,18 +1622,71 @@ async fn coherence_nodes_handler(
 ) -> Json<CoherenceNodesResponse> {
     let emb = embed_text(state.shared.clone(), params.q.clone()).await;
     let uid = user_key(&headers);
-    // Resolve the verdict inside the same lock as the search: a recalled node is
-    // far more useful when the caller can see it was reported as blocked.
-    let results: Vec<CoherenceNodeMatch> = state.with_user(&uid, |s| {
+    let shared = state.shared.clone();
+    // Project inside the same lock as the search: a recalled node is far more
+    // useful when the caller can see its verdict and which cell it sits in.
+    let results: Vec<NodeView> = state.with_user(&uid, |s| {
         s.core.search_nodes(&emb, params.max)
             .into_iter()
-            .map(|(id, label, score)| {
-                let asserted = s.core.nodes.get(&id).and_then(|n| n.asserted);
-                CoherenceNodeMatch { id, label, score, asserted }
+            .filter_map(|(id, _label, _score)| {
+                let node = s.core.nodes.get(&id)?;
+                Some(node.observable(auto_cell(&shared, node)))
             })
             .collect()
     });
     Json(CoherenceNodesResponse { count: results.len(), results })
+}
+
+#[derive(Serialize)]
+struct QualityResponse {
+    /// Per-cell learned penalty, keyed `domain\0mode`. `adjust_score` already
+    /// applies these to live classification.
+    penalties: std::collections::HashMap<String, f32>,
+    /// Per-cell learned boost, same keying.
+    boosts: std::collections::HashMap<String, f32>,
+    /// How many failures have been reported, of any kind.
+    failures: usize,
+}
+
+/// GET /api/v1/quality — what the classifier has learned from feedback.
+///
+/// The tracker has always been wired into scoring (`adjust_score` demotes
+/// penalized cells on every classify) but had no reader, so a cell could be
+/// actively suppressed with nothing able to say so. Process-wide, not
+/// per-tenant: the penalties apply to the shared classifier.
+async fn quality_handler(State(state): State<SharedState>) -> Json<QualityResponse> {
+    let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+    Json(QualityResponse {
+        penalties: quality.cell_penalties.clone(),
+        boosts: quality.cell_boosts.clone(),
+        failures: quality.failures.len(),
+    })
+}
+
+/// How hard one pin disagreement pushes against the cell the classifier chose.
+///
+/// A pin is **locally authoritative but globally advisory**: it always wins for
+/// its own node, and counts as a single low-weight sample everywhere else. At
+/// `severity * 0.2` that is +0.05 penalty per dissent, so it takes roughly six
+/// independent disagreements to match one typed complaint — a stray click
+/// cannot reshape classification for everyone, and repetition still lands.
+const PIN_DISSENT_SEVERITY: f32 = 0.25;
+
+/// `QualityTracker` keys a cell as `domain\0mode` (see `cell_centroids`).
+fn cell_key(domain: &str, mode: &str) -> String {
+    format!("{domain}\x00{mode}")
+}
+
+/// The classifier's top cell for a node's vector — the *auto* half of the
+/// effective cell. A pin, when the editor set one, outranks this; the choice
+/// lives in `CoherenceNode::observable` so every surface resolves it the same
+/// way instead of each deciding for itself.
+fn auto_cell(shared: &SharedCtx, node: &CoherenceNode) -> Option<(String, String)> {
+    shared
+        .classifier
+        .classify(&node.embedding)
+        .first()
+        .map(|c| (c.domain.clone(), c.mode.clone()))
 }
 
 /// List ALL coherence nodes for the tenant (id + label + score), capped + sorted
@@ -1652,18 +1699,21 @@ async fn coherence_nodes_all_handler(
     Query(params): Query<AllNodesParams>,
 ) -> Json<CoherenceNodesResponse> {
     let uid = user_key(&headers);
-    let mut results: Vec<CoherenceNodeMatch> = state.with_user(&uid, |s| {
-        s.core.nodes.values()
-            .map(|n| CoherenceNodeMatch {
-                id: n.id.clone(),
-                label: n.label.clone().unwrap_or_default(),
-                score: n.coherence_score,
-                asserted: n.asserted,
-            })
-            .collect()
+    let shared = state.shared.clone();
+    let results: Vec<NodeView> = state.with_user(&uid, |s| {
+        // Rank and cut BEFORE projecting: deriving the auto cell costs a pass
+        // over the grid centroids per node, so classifying the whole store only
+        // to discard all but `limit` would make browsing O(store) instead of
+        // O(limit).
+        let mut ranked: Vec<&CoherenceNode> = s.core.nodes.values().collect();
+        ranked.sort_by(|a, b| {
+            b.coherence_score
+                .partial_cmp(&a.coherence_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        ranked.truncate(params.limit);
+        ranked.into_iter().map(|n| n.observable(auto_cell(&shared, n))).collect()
     });
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-    results.truncate(params.limit);
     Json(CoherenceNodesResponse { count: results.len(), results })
 }
 
@@ -1715,10 +1765,27 @@ struct CoherenceEditRequest {
     id: String,
     /// New content. Re-embedded with the shared embedder; structure preserved.
     label: String,
-    /// Optional semiotic cell pin (`{domain, mode}`). Overrides the auto-derived
-    /// cell — the hybrid semantics. Absent = auto-derive only.
-    #[serde(default)]
-    cell: Option<CellPin>,
+    /// Semiotic cell pin. Three distinguishable states, which is why this is a
+    /// double option: the field **absent** keeps whatever pin the node has
+    /// (`PinEdit::Keep` — editing the text is not a retraction), an explicit
+    /// `"cell": null` retracts it, and an object re-pins.
+    ///
+    /// `default` alone is not enough: serde maps an explicit `null` onto the
+    /// *outer* `None`, making it indistinguishable from an absent field. The
+    /// custom deserializer only runs when the key is present, so it can wrap
+    /// whatever it finds — including `null` — in `Some`.
+    #[serde(default, deserialize_with = "present_or_null")]
+    cell: Option<Option<CellPin>>,
+}
+
+/// Distinguish "key absent" from "key present and null". Called only when the
+/// key exists, so its result is always `Some(..)`; the `default` supplies
+/// `None` for the absent case.
+fn present_or_null<'de, D>(de: D) -> Result<Option<Option<CellPin>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Option::<CellPin>::deserialize(de).map(Some)
 }
 
 #[derive(Serialize)]
@@ -1755,7 +1822,7 @@ async fn coherence_edit_handler(
         return Err(err_response(StatusCode::BAD_REQUEST, "id and label are required"));
     }
     // Validate the pin against the semiotic grid before mutating anything.
-    if let Some(pin) = &req.cell {
+    if let Some(Some(pin)) = &req.cell {
         if HumanDomain::from_str(&pin.domain).is_none() || HumanMode::from_str(&pin.mode).is_none() {
             return Err(err_response(
                 StatusCode::BAD_REQUEST,
@@ -1786,7 +1853,11 @@ async fn coherence_edit_handler(
         mode: c.mode.clone(),
     });
 
-    let pin = req.cell.map(|p| (p.domain, p.mode));
+    let pin = match req.cell {
+        None => crate::core::PinEdit::Keep,
+        Some(None) => crate::core::PinEdit::Clear,
+        Some(Some(p)) => crate::core::PinEdit::Set(p.domain, p.mode),
+    };
     let outcome = state.with_user(&uid, |s| {
         let outcome = s.core.edit_node(
             &req.id,
@@ -1805,6 +1876,29 @@ async fn coherence_edit_handler(
         outcome
     });
     let outcome = outcome.map_err(|e| err_response(StatusCode::NOT_FOUND, &e.to_string()))?;
+
+    // A pin is a labelled correction: the editor has told us both where the
+    // node belongs and, when it differs from `auto_cell`, which cell the
+    // classifier got wrong. `discovery.rs` can only find texts the ontology
+    // cannot name at all; this is strictly better evidence, and it arrives as a
+    // by-product of ordinary editing rather than a labelling task.
+    if let Some((pd, pm)) = &outcome.pinned_cell {
+        let pinned_key = cell_key(pd, pm);
+        let mut quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+        match &auto_cell {
+            Some(auto) if auto.domain == *pd && auto.mode == *pm => {
+                // The human agreed with the classifier — confirmation, not noise.
+                quality.report_success(&pinned_key);
+            }
+            Some(auto) => {
+                quality.penalize_cell(&cell_key(&auto.domain, &auto.mode), PIN_DISSENT_SEVERITY);
+                quality.report_success(&pinned_key);
+            }
+            // Nothing classified: the pin is the only signal, so there is no
+            // cell to penalize — only the pinned one to reinforce.
+            None => quality.report_success(&pinned_key),
+        }
+    }
 
     Ok(Json(CoherenceEditResponse {
         ok: true,
@@ -3914,6 +4008,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
         .route("/api/v1/coherence/nodes/all", get(coherence_nodes_all_handler))
+        .route("/api/v1/quality", get(quality_handler))
         .route("/api/v1/coherence/register", post(coherence_register_handler))
         .route("/api/v1/coherence/edit", post(coherence_edit_handler))
         .route("/api/v1/coherence/delete", post(coherence_delete_handler))

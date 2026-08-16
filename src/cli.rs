@@ -344,6 +344,13 @@ impl PhysisApp {
             anyhow::bail!("node {id} not found");
         }
         let new_embedding = self.embedder.embed(label);
+        // No `--domain/--mode` means "say nothing about the cell", which leaves
+        // an existing pin standing — not "unpin". The CLI has no way to spell a
+        // retraction yet; `PinEdit::Clear` is the seam when it needs one.
+        let pin = match pin {
+            Some((domain, mode)) => crate::core::PinEdit::Set(domain, mode),
+            None => crate::core::PinEdit::Keep,
+        };
         let outcome = core.edit_node(id, label, new_embedding, pin, Some(self.embedder_kind))?;
         core.persist_node(&db, "_default", &outcome.node_id)?;
         let mut out = format!(
