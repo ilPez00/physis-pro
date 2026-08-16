@@ -639,11 +639,12 @@ Full rationale + UX in `PHYSIS_PRO_USECASES.md`.
   `bridge_node(coh_id)` creates+links a holarchy node (idempotent);
   `resolved_edges()` maps holarchy edges back to coherence ids. Unblocks edge
   export, durable shared graph, and a label-walkable TUI graph. Tested.
-- 🟡 7C Spanner Graph sink (`src/spanner.rs`, `--features spanner`, default off).
+- 🟢 7C Spanner Graph sink (`src/spanner.rs`, `--features spanner`, default off).
   Persistence + re-embed: chunked `upsert_nodes` (≤500/commit), `fetch_nodes`
   read-back, `export_nodes`/`export_edges` via the bridge, and re-embed migration
   (`hydrate_into` regenerates vectors from labels under the live embedder,
   `stale_nodes` flags swap targets, `migrate` = fetch→re-embed→write-back).
+  Wired: `POST /api/v1/spanner/sync|hydrate` + `physis-pro spanner sync|hydrate`;
   Vector provenance (`embedder` column). `WikiEdge` upsert/fetch + service-account
   JWT auth (RS256, cached/refreshing). REST round-trip (nodes + edges) **verified
   against the Spanner emulator in CI**; JWT signing unit-tested. Library-only, not
@@ -745,8 +746,23 @@ Spanner SQL). physis = local reasoning; Spanner Graph = durable, GQL-queryable,
 cross-device memory. Optional vector column for server-side ANN. Re-hydrate a
 local tenant from Spanner on a new device.
 
+**Status: ✅ wired.** The sink scaffold (`src/spanner.rs`, `--features spanner`)
+is now reachable from both surfaces (previously library-only):
+
+- **Web** — `POST /api/v1/spanner/sync` (upsert nodes + edges; `mirror:true` also
+  hard-deletes remote orphans) and `POST /api/v1/spanner/hydrate` (pull durable
+  rows → re-embed under the live embedder → persist into the tenant core). Both
+  tenant-aware, error 502 with a clear reason when Spanner env is missing.
+- **CLI** — `physis-pro spanner sync [--mirror]` / `physis-pro spanner hydrate`
+  against the persisted `_default` tenant.
+- Verified: emulator round-trip (`spanner_emulator_roundtrip`, CI) + a routing
+  test asserting the endpoints reject unconfigured env with 502.
+- Off the hot path by design: cycles are explicit (cron / user-invoked), never
+  per-mutation.
+
 **Order:** 7A (browser) → 7B (auto-fill) → Praxis backfill → 7C (durability).
-7A/7B need no engine changes; 7C is a new optional sink module.
+7A/7B need no engine changes; 7C is an optional sink module gated behind
+`--features spanner`.
 
 ---
 
