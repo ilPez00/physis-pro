@@ -7,15 +7,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 use crate::actor::PDCActor;
-use crate::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
+use crate::config::{OntologyLoader, PhysisConfig};
 use crate::dream::DreamEngine;
-#[cfg(feature = "embed-onnx")]
-use crate::embed::clip::ClipEmbedder;
-#[cfg(feature = "embed-onnx")]
-use crate::embed::jina::JinaEmbedder;
-#[cfg(feature = "embed-onnx")]
-use crate::embed::onnx::OnnxEmbedder;
-use crate::embed::RandomProjectionEmbedder;
 use crate::embed::VectorEmbed;
 use crate::graph::FileThemeGraph;
 use crate::ingest;
@@ -135,123 +128,8 @@ impl PhysisApp {
         let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
         let dreams = DreamEngine::new();
 
-        let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = {
-            #[cfg(feature = "embed-onnx")]
-            {
-                // Self-test gate (same as the web server): a candidate that loads
-                // but emits non-semantic vectors (e.g. Jina fp16 → garbage) is
-                // skipped so the next working candidate wins. Without this gate
-                // the CLI silently classified with noise.
-                let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
-                    opt.filter(|(e, _)| crate::embed::semantic_self_test(e.as_ref()))
-                };
-                let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-                    let ec = config.embedders.primary.as_ref()?;
-                    if !ec.enabled { return None; }
-                    match ec.kind {
-                        EmbedderKindConfig::JinaV2 => {
-                            let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                            j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                        }
-                        EmbedderKindConfig::Clip => {
-                            let c = ClipEmbedder::with_config(&config.onnx);
-                            c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                        }
-                        EmbedderKindConfig::MiniLM => {
-                            let m = OnnxEmbedder::with_config(&config.onnx);
-                            m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                        }
-                        EmbedderKindConfig::BgeBase => {
-                            let cfg = crate::config::OnnxConfig {
-                                enabled: true,
-                                model_dir: Some("models/bge-base-en-v1.5".to_string()),
-                                dim: 768,
-                                max_length: 512,
-                                pooling: crate::config::PoolingStrategy::Mean,
-                            };
-                            let b = OnnxEmbedder::with_config(&cfg);
-                            b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
-                        }
-                        EmbedderKindConfig::BgeM3 => {
-                            let cfg = crate::config::OnnxConfig {
-                                enabled: true,
-                                model_dir: Some("models/bge-m3".to_string()),
-                                dim: 1024,
-                                max_length: 512,
-                                pooling: crate::config::PoolingStrategy::Cls,
-                            };
-                            let b = OnnxEmbedder::with_config(&cfg);
-                            b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
-                        }
-                        EmbedderKindConfig::RandomProjection => {
-                            Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
-                        }
-                    }
-                };
-                // Cascade: BGE → BGE-M3 → CLIP → MiniLM → RP, every candidate
-                // self-test-gated. Jina is deliberately NOT in the auto-fallback:
-                // the bundled jina-clip-v2 fp16 export is broken (self-test always
-                // fails, ~0.06 top score on real text) yet mmapping it cost a cold
-                // 1.7 GB disk read on every scan — minutes stuck in state-D before
-                // the gate rejected it. It stays reachable only when explicitly set
-                // as `embedders.primary` (try_primary), so a fixed export can opt in.
-                // Heavy ONNX fallbacks (bge-base 417 MB, bge-m3 2.2 GB) are routed
-                // through a persistent self-test cache: after the first run records
-                // them as failing, later scans skip the multi-GB load entirely
-                // instead of re-reading and re-rejecting them every time. Sequential
-                // `if let` (not a `.or_else` chain) so `stc` is borrowed once at a
-                // time. `break 'pick` yields the first embedder that passes.
-                let mut stc = crate::embed::SelfTestCache::load(&config.data_dir);
-                let chosen: (Box<dyn VectorEmbed>, &'static str) = 'pick: {
-                    if let Some(e) = gate(try_primary()) {
-                        break 'pick e;
-                    }
-                    if let Some(e) = stc.gated("bge-base", "models/bge-base-en-v1.5", || {
-                        let cfg = crate::config::OnnxConfig {
-                            enabled: true,
-                            model_dir: Some("models/bge-base-en-v1.5".to_string()),
-                            dim: 768,
-                            max_length: 512,
-                            pooling: crate::config::PoolingStrategy::Mean,
-                        };
-                        let b = OnnxEmbedder::with_config(&cfg);
-                        b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }).map(|e| (e, "bge-base")) {
-                        break 'pick e;
-                    }
-                    if let Some(e) = stc.gated("bge-m3", "models/bge-m3", || {
-                        let cfg = crate::config::OnnxConfig {
-                            enabled: true,
-                            model_dir: Some("models/bge-m3".to_string()),
-                            dim: 1024,
-                            max_length: 512,
-                            pooling: crate::config::PoolingStrategy::Cls,
-                        };
-                        let b = OnnxEmbedder::with_config(&cfg);
-                        b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                    }).map(|e| (e, "bge-m3")) {
-                        break 'pick e;
-                    }
-                    if let Some(e) = gate({
-                        let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                    }) {
-                        break 'pick e;
-                    }
-                    if let Some(e) = gate({
-                        let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                    }) {
-                        break 'pick e;
-                    }
-                    (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
-                };
-                stc.save();
-                chosen
-            }
-            #[cfg(not(feature = "embed-onnx"))]
-            (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
-        };
+        let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) =
+            crate::embed::select_embedder(&config);
         // Embedder provenance on stderr — the CLI equivalent of the web banner.
         // A silent fall-through to random projection makes every verdict noise
         // (PREMORTEM P0); at least say which embedder is answering.

@@ -48,9 +48,16 @@ pub enum Commands {
         id: String,
         grade: Score,
     },
-    /// Start MCP server
+    /// Start MCP server. Use --stdio for Claude Code, Codex, OpenCode and any
+    /// other client that spawns the server as a child process; the default TCP
+    /// listener exists for the hosted deployment and no mainstream client can
+    /// attach to it.
     #[cfg(feature = "mcp")]
-    Serve,
+    Serve {
+        /// Serve MCP over stdin/stdout instead of binding a TCP port.
+        #[arg(long)]
+        stdio: bool,
+    },
     /// Watch directories for changes; register new/changed files as labeled
     /// core nodes (auto-ingest), drop nodes for removed files
     Watch {
@@ -59,6 +66,38 @@ pub enum Commands {
         /// Single sweep then exit (cron / smoke test) instead of looping
         #[arg(long)]
         once: bool,
+    },
+    /// Pack context for a query from a directory into a hard token budget,
+    /// reporting the path and line range of every chunk selected. The shell
+    /// equivalent of the `physis_pack` MCP tool — use it to benchmark against
+    /// a baseline retriever.
+    Pack {
+        /// Directory to pack from
+        dir: PathBuf,
+        /// What the context is needed for
+        query: String,
+        /// Hard token ceiling — never exceeded
+        #[arg(long, default_value_t = 4000)]
+        budget: usize,
+        /// Maximum chunks to consider
+        #[arg(long, default_value_t = 50)]
+        top_k: usize,
+        /// 0 = pure relevance, 1 = maximum spread
+        #[arg(long, default_value_t = 0.3)]
+        diversity: f32,
+        /// Print the assembled context after the summary
+        #[arg(long)]
+        show_context: bool,
+    },
+    /// Pre-compute the embeddings the engine needs at startup, so the first
+    /// real run is fast. Intended to be run once by the installer: without it
+    /// the first launch spends ~78s embedding ontology seeds, which is longer
+    /// than an MCP client will wait for a handshake.
+    Warm {
+        /// Also pre-embed this directory's chunks, so the first `pack` of it
+        /// is warm too. Omit to warm only the ontology seeds.
+        #[arg(long)]
+        dir: Option<PathBuf>,
     },
     /// Show stats
     Stats,
@@ -392,6 +431,12 @@ pub enum SpannerAction {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
+    // `--version` still answer on an unlicensed host: an evaluator has to be
+    // able to see what the tool is before we demand a key, and support needs
+    // `--version` to triage an install that refuses to run.
+    let license = physis_pro::license::enforce();
+
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
     // a faulty mount or a quick offline reduction.
@@ -416,6 +461,122 @@ fn main() -> anyhow::Result<()> {
     // it before building the heavy PhysisApp (ontology + embedder).
     if let Commands::Study { dir, url, place, user, interval, once } = &cli.command {
         return run_study_recorder(dir, url, place, user, *interval, *once);
+    }
+
+    // `pack` needs an embedder and nothing else. Dispatching it before
+    // `PhysisApp::new` skips the startup ontology pass, which embeds ~650
+    // entries and dominated the runtime: packing 35 chunks took 6m52s with the
+    // pass and seconds without it. Any command that does not read the ontology
+    // belongs here rather than below.
+    if let Commands::Pack { dir, query, budget, top_k, diversity, show_context } = &cli.command {
+        let config = PhysisProConfig::default();
+        let root = physis_pro::pack::resolve_root(dir, None)?;
+        let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+        eprintln!("[physis] pack embedder: {kind}");
+
+        // Cache persists across runs: the first pack of a tree pays for the
+        // whole corpus, later packs pay only for what changed.
+        let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+        let result = physis_pro::pack::pack_cached(
+            &root,
+            query,
+            *budget,
+            *top_k,
+            *diversity,
+            embedder.as_ref(),
+            kind,
+            &mut cache,
+        );
+        cache.save(&config.physis.data_dir);
+        let (hits, misses) = cache.stats();
+        eprintln!("[physis] embed cache: {hits} hits, {misses} misses");
+        print!("{}", physis_pro::pack::summarize(&result));
+        if *show_context {
+            println!("\n--- context ---\n{}", result.context);
+        }
+        return Ok(());
+    }
+
+    // `warm` populates the same on-disk cache the engine reads at startup, so
+    // it must not pay the startup cost it exists to remove — it is dispatched
+    // early for the same reason `pack` is.
+    if let Commands::Warm { dir } = &cli.command {
+        let config = PhysisProConfig::default();
+        let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+        eprintln!("[physis] warm embedder: {kind}");
+
+        let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+        let ontology = physis_pro::config::OntologyLoader::load_all(&config.physis);
+        let started = std::time::Instant::now();
+        let classifier = physis_pro::classify::CellClassifier::build_cached(
+            &ontology,
+            embedder.as_ref(),
+            kind,
+            &mut cache,
+        );
+        let (hits, misses) = cache.stats();
+        println!(
+            "ontology: {} cells, {hits} cached, {misses} computed in {:.1}s",
+            classifier.cell_count(),
+            started.elapsed().as_secs_f32()
+        );
+
+        if let Some(dir) = dir {
+            let root = physis_pro::pack::resolve_root(dir, None)?;
+            let started = std::time::Instant::now();
+            // A pack over the tree is what populates the chunk embeddings; the
+            // result is discarded, the cache it fills is the point.
+            let result = physis_pro::pack::pack_cached(
+                &root, "warm", 1, 1, 0.0, embedder.as_ref(), kind, &mut cache,
+            );
+            let (hits, misses) = cache.stats();
+            println!(
+                "{}: {} files, {} chunks, {hits} cached, {misses} computed in {:.1}s",
+                root.display(),
+                result.files_scanned,
+                result.candidates,
+                started.elapsed().as_secs_f32()
+            );
+        }
+
+        cache.save(&config.physis.data_dir);
+        println!("cache written to {}", config.physis.data_dir.display());
+        return Ok(());
+    }
+
+    // Per-command entitlement. Kept as a single table rather than scattered
+    // checks so that adding a paid capability means adding one line here, and
+    // so the mapping between commands and SKUs stays auditable at a glance.
+    let required_feature = match &cli.command {
+        #[cfg(feature = "mcp")]
+        Commands::Serve { .. } => Some("mcp"),
+        Commands::Ingest => Some("ingest"),
+        _ => None,
+    };
+    if let Some(feature) = required_feature {
+        if let Err(e) = license.require(feature) {
+            eprintln!("physis: {e}");
+            std::process::exit(2);
+        }
+    }
+
+    // `serve` builds its own engine state inside the MCP server and never
+    // touches `app`, so it is dispatched here — after the entitlement check,
+    // before `PhysisApp::new`. Leaving it below cost ~68s of unused startup on
+    // every launch, which is past the handshake timeout of every MCP client:
+    // the server was being killed before it could answer `initialize`.
+    #[cfg(feature = "mcp")]
+    if let Commands::Serve { stdio } = cli.command {
+        let rt = tokio::runtime::Runtime::new()?;
+        rt.block_on(async {
+            let config = PhysisProConfig::default();
+            if stdio {
+                physis_pro::mcp::serve_stdio(config.physis).await
+            } else {
+                physis_pro::mcp::start_mcp_server(config.physis).await
+            }
+        })?;
+        return Ok(());
     }
 
     let config = PhysisProConfig::default();
@@ -461,13 +622,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
         #[cfg(feature = "mcp")]
-        Commands::Serve => {
-            let rt = tokio::runtime::Runtime::new()?;
-            rt.block_on(async {
-                let config = PhysisProConfig::default();
-                physis_pro::mcp::start_mcp_server(config.physis).await
-            })?;
-        }
+        #[cfg(feature = "mcp")]
+        Commands::Serve { .. } => unreachable!("serve is dispatched early"),
         Commands::Watch { dirs, once } => {
             let output = app.run_watch(dirs, once)?;
             println!("{output}");
@@ -892,8 +1048,9 @@ fn main() -> anyhow::Result<()> {
                 anyhow::bail!("no documents found under {}", dir.display());
             }
             let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
-            let embedder: Box<dyn VectorEmbed> =
-                Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
+            // Was hard-coded to RandomProjectionEmbedder, which made this
+            // command — the retrieval demo — rank on random projections.
+            let (embedder, _kind) = physis_pro::embed::select_embedder(&config.physis);
             let (result, context) = physis_pro::rag::retrieve_from_texts(
                 &texts,
                 &query,
@@ -914,6 +1071,8 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
+        Commands::Pack { .. } => unreachable!("pack is dispatched early"),
+        Commands::Warm { .. } => unreachable!("warm is dispatched early"),
     }
 
     Ok(())
@@ -1581,4 +1740,3 @@ mod tests {
         assert!(office.contains("entries match"), "office kind listed");
     }
 }
-
