@@ -26,13 +26,13 @@
 3. **Verify live site** — Visit `praxisweb.xyz` and `praxisweb.xyz/physis`
 
 ## Core Dev Track
-- Facet schema in `physis-core/src/models.rs` — optimize LifecyclePhase, HumanMode, Scale, Abstraction enums
-- Studio GUI facet drilldown integration
-- CLI facet query commands
+- ✅ Facet schema (`Facets` in `physis-core/src/models.rs` — LifecyclePhase, Agency, Scale, Abstraction enums)
+- ✅ Studio GUI facet drilldown (facet editor saves facets, studio toggle)
+- ✅ **CLI facet query** — `physis-pro facet` filters ontology entries by lifecycle/agency/scale/abstraction/sub-domain/sub-mode; `Facets::simple()` compact display
 
 ## Documentation Track
-- Umbrellapedia integration guide (linked from physis-docs)
-- Complete engine pipeline diagrams
+- ✅ **Umbrellapedia integration guide** — `docs/UMBRELLAPEDIA_GUIDE.md` (label contract, feeder table, wiring a feeder, naming + links, freshness)
+- ✅ **Engine pipeline diagrams** — `docs/PIPELINE_DIAGRAMS.md` (ingestion→recall pipeline + live phases 1–7 + key invariants)
 
 ## Collaboration Track
 - Buddy system setup for ontology maintenance (23 machine + 21 agent domains)

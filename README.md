@@ -222,6 +222,13 @@ curl -X POST http://127.0.0.1:19876/api/v1/search/nodes \
 See [docs/SEMIOTIC_EDITING.md](docs/SEMIOTIC_EDITING.md) for the invariant, the
 hybrid pin semantics, and the full API contract.
 
+## Docs
+
+- [`docs/SEMIOTIC_EDITING.md`](docs/SEMIOTIC_EDITING.md) — exchange-parts node editing + fixed-token search
+- [`docs/UMBRELLAPEDIA_GUIDE.md`](docs/UMBRELLAPEDIA_GUIDE.md) — wiring physis to the Umbrellapedia wiki surface
+- [`docs/PIPELINE_DIAGRAMS.md`](docs/PIPELINE_DIAGRAMS.md) — ingestion→recall pipeline + live engine phases
+- [`docs/PUBLIC_ARCHITECTURE.md`](docs/PUBLIC_ARCHITECTURE.md) — cross-repo public deployment
+
 ---
 
 ## Run

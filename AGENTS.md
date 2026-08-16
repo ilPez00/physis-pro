@@ -74,6 +74,8 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Personal history | `history.rs` + `web.rs` + `cli.rs` | **Personal-history importers (Phase 7B)**: browser bookmarks (Netscape HTML), browser history (JSON), OPML feeds, chat JSONL → labeled core nodes. CLI `physis-pro history <file>`, web `POST /api/v1/history/import` (scan-root confined, dedupe by label) |
 | Praxis backfill | `praxis.rs` + `web.rs` + `cli.rs` | **Praxis backfill (Phase 7B)**: notebook entries + trackers → `BehaviourRecord`s with Success/Inert/Failure verdicts (mood / value-target thresholds) → labeled behavioural nodes with **asserted** verdicts. CLI `physis-pro praxis <file>`, web `POST /api/v1/praxis/backfill` |
 | Spanner sink | `spanner.rs` + `web.rs` + `cli.rs` | **Spanner Graph sink (Phase 7C)**: durable-memory mirror (`--features spanner`, off the hot path). Web `POST /api/v1/spanner/sync\|hydrate`, CLI `physis-pro spanner sync\|hydrate`; JWT service-account auth + emulator round-trip test |
+| Facet query | `physis-core/models.rs` + `cli.rs` + `main.rs` | **Ontology facet CLI**: `physis-pro facet [--lifecycle OPERATE] [--agency SELF] [--scale …] [--abstraction …] [--sub-domain X] [--sub-mode X] [--kind X] [--domain X] [--mode X]` — filter ontology entries by orthogonal facets; `Facets::simple()` display |
+| Docs | `docs/` | `SEMIOTIC_EDITING.md`, `UMBRELLAPEDIA_GUIDE.md` (wiki surface wiring), `PIPELINE_DIAGRAMS.md` (ingestion→recall pipeline), `PUBLIC_ARCHITECTURE.md` (cross-repo deploy) |
 
 ## Ontology Extensions
 
