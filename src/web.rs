@@ -312,6 +312,23 @@ struct HistoryImportRequest {
     path: String,
 }
 
+#[derive(Deserialize)]
+struct PraxisBackfillRequest {
+    /// Absolute path to a Praxis export JSON (notebook entries + trackers,
+    /// or a bare array). Confined to scan_root.
+    path: String,
+}
+
+#[derive(Serialize)]
+struct PraxisBackfillResponse {
+    items: usize,
+    successes: usize,
+    inert: usize,
+    failures: usize,
+    registered: usize,
+    deduped: usize,
+}
+
 #[derive(Serialize)]
 struct HistoryImportResponse {
     /// Imported file name.
@@ -1018,6 +1035,81 @@ async fn history_import_handler(
     });
 
     Ok(Json(HistoryImportResponse { file: name, items, registered, deduped }))
+}
+
+/// POST /api/v1/praxis/backfill — seed coherence from the real life-log: read a
+/// Praxis export (notebook entries + habit trackers), register each item as a
+/// labeled behavioral node and assert its verdict (success +1 / inert 0 /
+/// failure −1). Same scan-root confinement as the other importers; the verdict
+/// becomes a real assertion the dream loop and PDCA can reason over.
+async fn praxis_backfill_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<PraxisBackfillRequest>,
+) -> Result<Json<PraxisBackfillResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.path);
+    if !path.exists() {
+        return Err(err_response(StatusCode::BAD_REQUEST, &format!("file not found: {}", req.path)));
+    }
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let uid = user_key(&headers);
+
+    let records = tokio::task::spawn_blocking(move || {
+        let text = std::fs::read_to_string(&canonical)?;
+        Ok::<_, anyhow::Error>(crate::praxis::parse_export(&text))
+    })
+    .await
+    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+    .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    let items = records.len();
+
+    let mut successes = 0usize;
+    let mut inert = 0usize;
+    let mut failures = 0usize;
+    for r in &records {
+        match r.status {
+            crate::praxis::BehaviourStatus::Success => successes += 1,
+            crate::praxis::BehaviourStatus::Inert => inert += 1,
+            crate::praxis::BehaviourStatus::Failure => failures += 1,
+        }
+    }
+
+    if records.is_empty() {
+        return Ok(Json(PraxisBackfillResponse {
+            items: 0, successes, inert, failures, registered: 0, deduped: 0,
+        }));
+    }
+
+    // Embed each record's body, then register labeled + assert the verdict.
+    let bodies: Vec<String> = records.iter().map(|r| r.body.clone()).collect();
+    let embeddings = embed_batch_off_thread(state.shared.clone(), bodies).await;
+
+    let (registered, deduped) = state.with_user(&uid, |s| {
+        let before = s.core.nodes.len();
+        for (record, emb) in records.into_iter().zip(embeddings) {
+            let label = format!("praxis:{}:{}", record.kind, record.title);
+            let id = s.core.register_node_vec_labeled(emb, Some(label));
+            s.core.assert_coherence(&id, record.status.as_score());
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        let registered = s.core.nodes.len().saturating_sub(before);
+        let deduped = items.saturating_sub(registered);
+        (registered, deduped)
+    });
+
+    Ok(Json(PraxisBackfillResponse {
+        items, successes, inert, failures, registered, deduped,
+    }))
 }
 
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
@@ -3997,6 +4089,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/vault/import", post(vault_import_handler))
         .route("/api/v1/history/import", post(history_import_handler))
+        .route("/api/v1/praxis/backfill", post(praxis_backfill_handler))
         .route("/api/v1/fs/graph", get(fs_graph_handler))
         .route("/api/v1/structsim", post(structsim_handler))
         .route("/api/v1/rag/retrieve", post(rag_retrieve_handler))

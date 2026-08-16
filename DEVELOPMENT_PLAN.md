@@ -724,8 +724,14 @@ Each connector is thin: `source → embed (shared embedder) → register labeled
   - CLI `physis-pro history <file>` and web `POST /api/v1/history/import`
     (scan-root confined) register each item with the shared embedder; re-import
     dedupes by label. `importer_for` dispatches by extension.
-- **Praxis backfill** — `notebook_entries` + trackers → `register_behavioural_vector`
-  (Success/Inert/Failure) to seed coherence from the real life-log.
+- **Praxis backfill** — ✅ done. Notebook entries + trackers → labeled
+  behavioural nodes with **asserted** verdicts (`src/praxis.rs`):
+  - Mood ≥ 7 → success, ≤ 3 → failure, else inert; tracker value/target (or
+    `progress`) ≥ 0.7 → success, < 0.3 → failure, none → inert.
+  - CLI `physis-pro praxis <file>` and web `POST /api/v1/praxis/backfill`
+    (scan-root confined) register each record via `register_behavioural_vector`
+    semantics (labeled + `assert_coherence`), seeding the coherence graph from
+    the real life-log. Re-backfill dedupes by `praxis:<kind>:<title>`.
 
 > Embedder consistency rule: nodes must be embedded with the **same** embedder
 > that embeds queries (the shared `SharedCtx.embedder`), or cosine recall is
