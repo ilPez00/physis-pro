@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Response},
     routing::{get, post},
@@ -233,6 +233,9 @@ struct GridJson {
     /// Condition matrix [domain][mode] — how the cell is *doing*, not how big
     /// it is. See `cell_condition`.
     condition: Vec<Vec<f32>>,
+    /// The confidence actually used, echoed back so the slider can show the
+    /// effective value rather than assuming its request was honoured.
+    confidence: f32,
 }
 
 #[derive(serde::Serialize)]
@@ -248,10 +251,29 @@ struct GridCellJson {
     condition: f32,
 }
 
-use crate::quality::cell_condition;
+use crate::quality::{cell_condition, ConditionLens};
 
-async fn grid_json(State(state): State<Shared>) -> Response {
+/// `?confidence=` on the grid endpoint — the heatmap's condition slider.
+///
+/// Absent or unparseable falls back to [`ConditionLens::default`], so a typo
+/// leaves the grid at its balanced reading instead of pinning it to an extreme.
+#[derive(serde::Deserialize, Default)]
+struct GridParams {
+    confidence: Option<String>,
+}
+
+impl GridParams {
+    fn lens(&self) -> ConditionLens {
+        self.confidence
+            .as_deref()
+            .and_then(ConditionLens::parse)
+            .unwrap_or_default()
+    }
+}
+
+async fn grid_json(State(state): State<Shared>, Query(params): Query<GridParams>) -> Response {
     let s = state.read().unwrap();
+    let confidence = params.lens().confidence();
     let domains: Vec<String> = HumanDomain::all().iter().map(|d| d.as_str().to_string()).collect();
     let modes: Vec<String> = HumanMode::all().iter().map(|m| m.as_str().to_string()).collect();
 
@@ -274,7 +296,7 @@ async fn grid_json(State(state): State<Shared>) -> Response {
             let standing = s.quality.cell_standing(&format!("{d}\x00{m}"));
             // The studio holds ontology entries, not coherence nodes, so it has
             // no verdicts to average — the web grid supplies that third signal.
-            let cond = cell_condition(count, standing, None);
+            let cond = cell_condition(count, standing, None, confidence);
             cells.push(GridCellJson {
                 domain: d.clone(),
                 mode: m.clone(),
@@ -287,7 +309,7 @@ async fn grid_json(State(state): State<Shared>) -> Response {
             condition[di][mi] = cond;
         }
     }
-    Json(GridJson { domains, modes, cells, heatmap, condition }).into_response()
+    Json(GridJson { domains, modes, cells, heatmap, condition, confidence }).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -653,5 +675,67 @@ mod tests {
         }))
         .expect("entry without facets deserializes");
         assert_eq!(req.facets, Facets::default());
+    }
+
+    /// Pull one attribute off the `<input id="…">` for the condition slider.
+    fn lens_attr(attr: &str) -> String {
+        let start = APP_HTML.find("id=\"lens\"").expect("lens slider in app.html");
+        // The attribute may sit either side of the id within the same tag.
+        let tag_start = APP_HTML[..start].rfind('<').expect("tag opens");
+        let rest = &APP_HTML[tag_start..];
+        let tag = &rest[..rest.find('>').expect("tag closes")];
+        let at = tag
+            .find(&format!("{attr}=\""))
+            .unwrap_or_else(|| panic!("lens slider has no {attr}"));
+        let v = &tag[at + attr.len() + 2..];
+        v[..v.find('"').expect("attribute is quoted")].to_string()
+    }
+
+    /// The slider's default lives in an HTML string literal, so nothing in Rust
+    /// forces it to agree with `ConditionLens::default`. If they drift, the
+    /// studio opens showing colours for one lens while labelling another.
+    #[test]
+    fn studio_slider_defaults_to_the_same_lens_as_the_server() {
+        let html_default: f32 = lens_attr("value").parse().expect("slider value is a number");
+        assert!(
+            (html_default - ConditionLens::default().confidence()).abs() < 1e-6,
+            "slider opens at {html_default} but the server defaults to {}",
+            ConditionLens::default().confidence()
+        );
+    }
+
+    /// The slider's range must be the range the server accepts, or dragging to
+    /// an end produces a value `ConditionLens::parse` rejects — which silently
+    /// snaps the grid back to the default instead of honouring the drag.
+    #[test]
+    fn studio_slider_range_matches_what_the_server_accepts() {
+        assert_eq!(lens_attr("min"), "0", "slider must start at the responsive end");
+        assert_eq!(lens_attr("max"), "1", "slider must stop at the trusting end");
+        for probe in [lens_attr("min"), lens_attr("max")] {
+            assert!(
+                ConditionLens::parse(&probe).is_some(),
+                "slider endpoint {probe:?} is rejected by ConditionLens::parse"
+            );
+        }
+    }
+
+    /// The page prints "a cell needs ~N entries" from its own copy of the span
+    /// constant. If that copy drifts, the hint describes a grid the server is
+    /// not drawing.
+    #[test]
+    fn studio_hint_uses_the_servers_confidence_span() {
+        let at = APP_HTML
+            .find("const CONFIDENCE_SPAN = ")
+            .expect("app.html declares CONFIDENCE_SPAN");
+        let rest = &APP_HTML[at + "const CONFIDENCE_SPAN = ".len()..];
+        let v: f32 = rest[..rest.find(';').expect("declaration ends")]
+            .trim()
+            .parse()
+            .expect("CONFIDENCE_SPAN is a number");
+        assert!(
+            (v - crate::quality::CONDITION_CONFIDENCE_SPAN).abs() < 1e-6,
+            "app.html says {v}, quality.rs says {}",
+            crate::quality::CONDITION_CONFIDENCE_SPAN
+        );
     }
 }

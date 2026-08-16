@@ -250,19 +250,120 @@ impl QualityTracker {
 ///   `mean_asserted` is how the *work filed under it* turned out. A cell can
 ///   classify perfectly and hold nothing but failures.
 ///
-/// Returns `0.0` (worst) .. `1.0` (best).
-pub fn cell_condition(count: u32, standing: f32, mean_asserted: Option<f32>) -> f32 {
-    // TODO(contributor): combine the three signals. Trade-offs to weigh:
-    //   * absent evidence (count 0, or mean_asserted None) must not read as
-    //     "bad" — the caller draws count==0 neutral, but a populated cell with
-    //     no verdicts still needs a sane value here;
-    //   * standing is unbounded above 1.0, so it needs squashing, not clamping,
-    //     if a well-boosted cell should still be distinguishable;
-    //   * whether a large demoted cell should read worse than a small one
-    //     (count as confidence weight) or identically (count as mere size).
-    let _ = (count, standing, mean_asserted);
-    0.0
+/// The fourth input, `confidence`, decides *how much a cell's own evidence has
+/// to accumulate before the colour believes it* — see [`ConditionLens`].
+///
+/// Returns `0.0` (worst) .. `1.0` (best), with `0.5` meaning "nothing known".
+/// Neutral is the middle of the range rather than the bottom because absent
+/// evidence is not bad news: an unjudged cell has earned no verdict either way.
+pub fn cell_condition(
+    count: u32,
+    standing: f32,
+    mean_asserted: Option<f32>,
+    confidence: f32,
+) -> f32 {
+    // Nothing has ever landed here: unknown, not bad.
+    if count == 0 {
+        return NEUTRAL_CONDITION;
+    }
+
+    // `standing` is unbounded above 1.0, so squash rather than clamp — with
+    // `s / (s + 1)` a neutral cell sits at 0.5, a doubly-boosted one at 0.75,
+    // and a fully-penalised one near 0, all still distinguishable. Clamping
+    // would flatten every boosted cell onto the same top colour.
+    let s = standing.max(0.0);
+    let standing_health = s / (s + 1.0);
+
+    // Two different questions, averaged only when both have an answer:
+    // standing is how well the classifier does *at* this cell, mean_asserted is
+    // how the work filed *under* it turned out.
+    let health = match mean_asserted {
+        Some(v) => 0.5 * standing_health + 0.5 * (v.clamp(-1.0, 1.0) + 1.0) / 2.0,
+        None => standing_health,
+    };
+
+    // Shrink toward neutral by how much evidence the cell carries. `k` is the
+    // number of entries needed before the cell's own reading outweighs the
+    // neutral prior, so `confidence` slides between the two readings of
+    // `count`: at 0.0 it is mere size and every cell reacts at full strength;
+    // at 1.0 it is a confidence weight and thin cells barely move.
+    let n = count as f32;
+    let k = confidence.clamp(0.0, 1.0) * CONDITION_CONFIDENCE_SPAN;
+    let trust = n / (n + k);
+    NEUTRAL_CONDITION + (health - NEUTRAL_CONDITION) * trust
 }
+
+/// What [`cell_condition`] returns when it knows nothing — the middle of the
+/// ramp, so "unjudged" reads as neither good nor bad.
+pub const NEUTRAL_CONDITION: f32 = 0.5;
+
+/// Entries needed to fully trust a cell's own evidence at `confidence == 1.0`.
+///
+/// 16 is chosen so the slider's far end is visibly slow without being inert: a
+/// 2-entry cell then shows about a ninth of its raw reading, a 16-entry cell
+/// half, a 48-entry cell three quarters.
+pub const CONDITION_CONFIDENCE_SPAN: f32 = 16.0;
+
+/// How much a cell's own evidence must accumulate before the heatmap believes
+/// it — the slider behind [`cell_condition`]'s `confidence` argument.
+///
+/// `count` can be read two ways and both are defensible, so this is a knob
+/// rather than a decision baked into the formula:
+///
+/// - [`Responsive`](ConditionLens::Responsive) treats `count` as mere size.
+///   Every cell reacts at full strength, so one bad verdict in a 40-entry cell
+///   moves the colour as hard as one in a 2-entry cell. New problems surface
+///   immediately; the grid is twitchy and a single stray click is visible.
+/// - [`Trusting`](ConditionLens::Trusting) treats `count` as a confidence
+///   weight. Thin cells stay near neutral until they accumulate evidence, so
+///   the grid is slow to alarm and its colours are worth acting on.
+///
+/// The default sits between them: a stray click is damped, a repeated problem
+/// still colours through.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum ConditionLens {
+    /// Count is size. Full reaction at any population.
+    Responsive,
+    /// Balanced default — a few entries are damped, a dozen are believed.
+    #[default]
+    Balanced,
+    /// Count is confidence. Thin cells hold near neutral.
+    Trusting,
+    /// An explicit position on the slider, `0.0` (responsive) ..= `1.0`
+    /// (trusting).
+    Custom(f32),
+}
+
+impl ConditionLens {
+    /// The `confidence` value to hand [`cell_condition`].
+    pub fn confidence(self) -> f32 {
+        match self {
+            ConditionLens::Responsive => 0.0,
+            ConditionLens::Balanced => 0.35,
+            ConditionLens::Trusting => 1.0,
+            ConditionLens::Custom(v) => v.clamp(0.0, 1.0),
+        }
+    }
+
+    /// Parse a slider position or a named preset, for query strings and config.
+    ///
+    /// Accepts `responsive` / `balanced` / `trusting` or a bare number in
+    /// `0.0..=1.0`. Anything else is `None` so a typo falls back to the default
+    /// rather than silently pinning the grid to one extreme.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "responsive" => Some(ConditionLens::Responsive),
+            "balanced" => Some(ConditionLens::Balanced),
+            "trusting" => Some(ConditionLens::Trusting),
+            other => other
+                .parse::<f32>()
+                .ok()
+                .filter(|v| (0.0..=1.0).contains(v))
+                .map(ConditionLens::Custom),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -344,5 +445,110 @@ mod tests {
         let loaded = QualityTracker::load(&path).unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].feedback, "test failure");
+    }
+
+    /// An empty cell has no evidence, so it must not read as "bad" — that would
+    /// paint 40-odd uncovered intersections alarm-red and bury the real ones.
+    #[test]
+    fn an_unpopulated_cell_reads_as_unknown_not_bad() {
+        for lens in [ConditionLens::Responsive, ConditionLens::Balanced, ConditionLens::Trusting] {
+            let c = cell_condition(0, 0.1, Some(-1.0), lens.confidence());
+            assert_eq!(c, NEUTRAL_CONDITION, "{lens:?} must call an empty cell unknown");
+        }
+    }
+
+    /// The point of the whole change: two cells of equal size, one being
+    /// demoted on every live query, must not render alike.
+    #[test]
+    fn a_demoted_cell_reads_worse_than_a_healthy_cell_of_the_same_size() {
+        let conf = ConditionLens::Responsive.confidence();
+        let healthy = cell_condition(10, 1.0, None, conf);
+        let demoted = cell_condition(10, 0.2, None, conf);
+        assert!(demoted < healthy, "demoted {demoted} should read worse than healthy {healthy}");
+    }
+
+    /// Boosts push standing above 1.0 without bound; squashing keeps them
+    /// ordered instead of flattening every boosted cell onto one colour.
+    #[test]
+    fn boosted_standing_stays_distinguishable_above_neutral() {
+        let conf = ConditionLens::Responsive.confidence();
+        let neutral = cell_condition(10, 1.0, None, conf);
+        let boosted = cell_condition(10, 2.0, None, conf);
+        let very_boosted = cell_condition(10, 6.0, None, conf);
+        assert!(neutral < boosted && boosted < very_boosted, "boost must stay ordered");
+        assert!(very_boosted <= 1.0, "condition must stay within the ramp");
+    }
+
+    /// The slider's whole purpose: the same thin, badly-doing cell reads
+    /// alarming at one end and reserved at the other.
+    #[test]
+    fn the_confidence_slider_changes_how_loudly_a_thin_cell_speaks() {
+        let responsive = cell_condition(2, 0.1, Some(-1.0), ConditionLens::Responsive.confidence());
+        let balanced = cell_condition(2, 0.1, Some(-1.0), ConditionLens::Balanced.confidence());
+        let trusting = cell_condition(2, 0.1, Some(-1.0), ConditionLens::Trusting.confidence());
+
+        assert!(responsive < balanced, "responsive must react hardest");
+        assert!(balanced < trusting, "trusting must hold nearest neutral");
+        assert!(
+            trusting > 0.4,
+            "two bad entries must not alarm the trusting lens (got {trusting})"
+        );
+        assert!(
+            responsive < 0.2,
+            "the responsive lens must show the raw reading (got {responsive})"
+        );
+    }
+
+    /// Under the trusting lens the *same* verdict ratio colours through once a
+    /// cell is populated — evidence accumulates rather than being ignored.
+    #[test]
+    fn trusting_lens_believes_a_cell_once_it_has_enough_entries() {
+        let conf = ConditionLens::Trusting.confidence();
+        let thin = cell_condition(2, 0.1, Some(-1.0), conf);
+        let thick = cell_condition(64, 0.1, Some(-1.0), conf);
+        assert!(thick < thin, "more evidence must move the colour further from neutral");
+        assert!(thick < 0.2, "a well-evidenced bad cell must still read bad (got {thick})");
+    }
+
+    /// Population alone is not health: the responsive lens must ignore size
+    /// entirely, or it reintroduces the headcount colouring being replaced.
+    #[test]
+    fn responsive_lens_ignores_population_entirely() {
+        let conf = ConditionLens::Responsive.confidence();
+        let small = cell_condition(1, 0.4, Some(0.2), conf);
+        let large = cell_condition(400, 0.4, Some(0.2), conf);
+        assert!((small - large).abs() < 1e-6, "size must not shift the responsive reading");
+    }
+
+    #[test]
+    fn lens_parses_presets_and_slider_positions_and_rejects_junk() {
+        assert_eq!(ConditionLens::parse("trusting"), Some(ConditionLens::Trusting));
+        assert_eq!(ConditionLens::parse("  Balanced "), Some(ConditionLens::Balanced));
+        assert_eq!(ConditionLens::parse("0.25"), Some(ConditionLens::Custom(0.25)));
+        assert_eq!(ConditionLens::parse("0"), Some(ConditionLens::Custom(0.0)));
+        // Out of range and nonsense both fall back to the default rather than
+        // silently pinning the grid to an extreme.
+        assert_eq!(ConditionLens::parse("1.5"), None);
+        assert_eq!(ConditionLens::parse("-1"), None);
+        assert_eq!(ConditionLens::parse("banana"), None);
+    }
+
+    /// Whatever the inputs, the result has to be a colourable 0..1.
+    #[test]
+    fn condition_stays_within_the_ramp_for_extreme_inputs() {
+        for count in [0u32, 1, 7, 1_000] {
+            for standing in [0.0f32, 0.5, 1.0, 25.0] {
+                for verdict in [None, Some(-1.0), Some(0.0), Some(1.0), Some(-9.0), Some(9.0)] {
+                    for conf in [0.0f32, 0.35, 1.0] {
+                        let c = cell_condition(count, standing, verdict, conf);
+                        assert!(
+                            (0.0..=1.0).contains(&c),
+                            "condition {c} out of range for \
+                             count={count} standing={standing} verdict={verdict:?} conf={conf}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }
