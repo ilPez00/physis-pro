@@ -1073,6 +1073,7 @@ No other text."#.into(),
     /// sub-mode, optionally narrowed to one kind and/or domain. Prints a
     /// table of matching entries. Empty result → a message, not an error (an
     /// empty facet set is a legitimate answer, e.g. "no OPERATE+SELL entries").
+    #[allow(clippy::too_many_arguments)] // 8 optional filters + kind; a builder type would be overkill for a CLI query
     pub fn run_facet_query(
         &self,
         kind: Option<&str>,
@@ -1163,7 +1164,7 @@ No other text."#.into(),
                     }
                 }
 
-                let facet_str = format!("{}", f.simple());
+                let facet_str = f.simple();
                 rows.push((kind_name.to_string(), dom, mode, name, facet_str, def.axis_kind.clone().unwrap_or_default()));
             }
         }
