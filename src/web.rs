@@ -593,6 +593,10 @@ struct SqlScanRequest {
     key_columns: Vec<String>,
     #[serde(default)]
     text_columns: Option<Vec<String>>,
+    #[serde(default)]
+    updated_column: Option<String>,
+    #[serde(default)]
+    reconcile: bool,
 }
 
 #[derive(Serialize)]
@@ -1138,6 +1142,8 @@ async fn sql_scan_handler(
         table: req.table,
         key_columns: req.key_columns,
         text_columns: req.text_columns,
+        updated_column: req.updated_column,
+        reconcile: req.reconcile,
     };
     let diff = tokio::task::spawn_blocking(move || crate::sql::scan(&scan_req, &manifest))
         .await

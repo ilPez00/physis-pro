@@ -36,7 +36,8 @@ supports SQLite in read-only mode:
   "database": "/data/orders.sqlite",
   "table": "orders",
   "key_columns": ["id"],
-  "text_columns": ["status", "customer", "amount"]
+  "text_columns": ["status", "customer", "amount"],
+  "updated_column": "updated_at"
 }
 ```
 
@@ -45,6 +46,11 @@ stable row key, hashes the selected content, and persists a per-user/table
 manifest. It emits only new, changed, and deleted rows to the vector store.
 Row content—not only its label—is the embedding-cache key, so an edited row
 cannot accidentally reuse its previous vector.
+
+When `updated_column` is supplied, the first scan records its maximum value.
+Later scans reconcile only keys for deletion detection and fetch full payloads
+from the watermark window. Set `reconcile: true` for a full payload scan when
+you need to detect edits made without advancing the source timestamp.
 
 ## Database connector boundary
 

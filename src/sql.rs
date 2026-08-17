@@ -26,6 +26,14 @@ pub struct SqlRow {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct Manifest {
     rows: HashMap<String, ManifestRow>,
+    #[serde(default)]
+    watermark: Option<Watermark>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Watermark {
+    value: String,
+    numeric: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +57,8 @@ pub struct SqlRequest {
     pub table: String,
     pub key_columns: Vec<String>,
     pub text_columns: Option<Vec<String>>,
+    pub updated_column: Option<String>,
+    pub reconcile: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,6 +136,12 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
             bail!("key column '{}' is not present in '{}'", col, req.table);
         }
     }
+    if let Some(col) = &req.updated_column {
+        validate_identifier(col)?;
+        if !columns.iter().any(|c| c == col) {
+            bail!("updated column '{}' is not present in '{}'", col, req.table);
+        }
+    }
     let text_columns = req.text_columns.clone().unwrap_or_else(|| columns.clone());
     for col in &text_columns {
         validate_identifier(col)?;
@@ -134,73 +150,68 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         }
     }
 
-    let select = columns
-        .iter()
-        .map(|c| quote(c))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let sql = format!("SELECT {select} FROM {}", quote(&req.table));
-    let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query([])?;
-    let index = columns
-        .iter()
-        .enumerate()
-        .map(|(i, c)| (c.as_str(), i))
-        .collect::<HashMap<_, _>>();
-    let mut current = Vec::new();
-    while let Some(row) = rows.next()? {
-        let values = (0..columns.len())
-            .map(|i| value_string(row.get_ref(i).expect("column index")))
-            .collect::<Vec<_>>();
-        let key = req
-            .key_columns
-            .iter()
-            .map(|c| values[index[c.as_str()]].clone())
-            .collect::<Vec<_>>()
-            .join("|");
-        let text = text_columns
-            .iter()
-            .map(|c| format!("{c}={}", values[index[c.as_str()]]))
-            .collect::<Vec<_>>()
-            .join("; ");
-        let mut hasher = Sha256::new();
-        hasher.update(text.as_bytes());
-        let hash = format!("{:x}", hasher.finalize());
-        let label = format!("sql://{}/{}#{}", req.database.display(), req.table, key);
-        current.push(SqlRow {
-            key,
-            label,
-            text,
-            hash,
-        });
-    }
-    drop(rows);
-    drop(stmt);
-
     let previous: Manifest = std::fs::read(manifest_file)
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or_default();
-    let mut old_keys = previous.rows;
+    let incremental = !req.reconcile
+        && req.updated_column.is_some()
+        && previous.watermark.is_some();
+    let current_keys = if incremental {
+        read_keys(&conn, req)?
+    } else {
+        Vec::new()
+    };
+    let current = read_rows(
+        &conn,
+        req,
+        &columns,
+        &text_columns,
+        if incremental { previous.watermark.as_ref() } else { None },
+    )?;
+    let source_watermark = req
+        .updated_column
+        .as_ref()
+        .map(|column| read_watermark(&conn, &req.table, column))
+        .transpose()?
+        .flatten();
+    let active_keys = if incremental {
+        current_keys
+    } else {
+        current.iter().map(|row| row.key.clone()).collect()
+    };
+    let mut old_keys = previous.rows.clone();
     let mut new_rows = Vec::new();
     let mut changed_rows = Vec::new();
-    let mut unchanged = 0;
-    let mut next = Manifest::default();
+    let mut next = if incremental {
+        previous.rows.clone()
+    } else {
+        HashMap::new()
+    };
+    for key in &active_keys {
+        if !next.contains_key(key) {
+            continue;
+        }
+        old_keys.remove(key);
+    }
     for row in &current {
-        next.rows.insert(
+        let prior = old_keys.remove(&row.key).or_else(|| previous.rows.get(&row.key).cloned());
+        next.insert(
             row.key.clone(),
             ManifestRow {
                 label: row.label.clone(),
                 hash: row.hash.clone(),
             },
         );
-        match old_keys.remove(&row.key) {
+        match prior {
             None => new_rows.push(row.clone()),
             Some(old) if old.hash != row.hash => changed_rows.push(row.clone()),
-            Some(_) => unchanged += 1,
+            Some(_) => {}
         }
     }
-    let deleted_rows = old_keys
+    let deleted_rows = previous.rows
+        .into_iter()
+        .filter(|(key, _)| !active_keys.contains(key))
         .into_iter()
         .map(|(key, old)| SqlRow {
             key,
@@ -214,21 +225,114 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         std::fs::create_dir_all(parent)?;
     }
     let tmp = manifest_file.with_extension(format!("tmp{}", std::process::id()));
+    let next = Manifest { rows: next, watermark: source_watermark };
     std::fs::write(&tmp, serde_json::to_vec_pretty(&next)?)?;
     std::fs::rename(tmp, manifest_file)?;
+    let unchanged = active_keys.len().saturating_sub(new_rows.len() + changed_rows.len());
 
     Ok(SqlDiff {
         new_rows,
         changed_rows,
         deleted_rows,
         unchanged,
-        total: current.len(),
+        total: active_keys.len(),
     })
 }
 
 #[cfg(not(feature = "sql"))]
 pub fn scan(_req: &SqlRequest, _manifest_file: &Path) -> Result<SqlDiff> {
     bail!("SQL ingestion requires the 'sql' feature")
+}
+
+#[cfg(feature = "sql")]
+fn read_keys(conn: &Connection, req: &SqlRequest) -> Result<Vec<String>> {
+    let select = req
+        .key_columns
+        .iter()
+        .map(|column| quote(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!("SELECT {select} FROM {}", quote(&req.table));
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query([])?;
+    let mut keys = Vec::new();
+    while let Some(row) = rows.next()? {
+        let values = (0..req.key_columns.len())
+            .map(|index| value_string(row.get_ref(index).expect("key index")))
+            .collect::<Vec<_>>();
+        keys.push(values.join("|"));
+    }
+    Ok(keys)
+}
+
+#[cfg(feature = "sql")]
+fn read_rows(
+    conn: &Connection,
+    req: &SqlRequest,
+    columns: &[String],
+    text_columns: &[String],
+    watermark: Option<&Watermark>,
+) -> Result<Vec<SqlRow>> {
+    let select = columns
+        .iter()
+        .map(|column| quote(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let filter = match (&req.updated_column, watermark) {
+        (Some(column), Some(watermark)) if watermark.numeric => {
+            format!(" WHERE (CAST({} AS REAL) >= CAST(?1 AS REAL) OR {} IS NULL)", quote(column), quote(column))
+        }
+        (Some(column), Some(_)) => {
+            format!(" WHERE (CAST({} AS TEXT) >= CAST(?1 AS TEXT) OR {} IS NULL)", quote(column), quote(column))
+        }
+        _ => String::new(),
+    };
+    let sql = format!("SELECT {select} FROM {}{filter}", quote(&req.table));
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = match watermark {
+        Some(watermark) if !filter.is_empty() => stmt.query([watermark.value.as_str()])?,
+        _ => stmt.query([])?,
+    };
+    let index = columns
+        .iter()
+        .enumerate()
+        .map(|(i, column)| (column.as_str(), i))
+        .collect::<HashMap<_, _>>();
+    let mut current = Vec::new();
+    while let Some(row) = rows.next()? {
+        let values = (0..columns.len())
+            .map(|i| value_string(row.get_ref(i).expect("column index")))
+            .collect::<Vec<_>>();
+        let key = req
+            .key_columns
+            .iter()
+            .map(|column| values[index[column.as_str()]].clone())
+            .collect::<Vec<_>>()
+            .join("|");
+        let text = text_columns
+            .iter()
+            .map(|column| format!("{column}={}", values[index[column.as_str()]]))
+            .collect::<Vec<_>>()
+            .join("; ");
+        let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
+        let label = format!("sql://{}/{}#{}", req.database.display(), req.table, key);
+        current.push(SqlRow { key, label, text, hash });
+    }
+    Ok(current)
+}
+
+#[cfg(feature = "sql")]
+fn read_watermark(conn: &Connection, table: &str, column: &str) -> Result<Option<Watermark>> {
+    let sql = format!("SELECT MAX({0}), typeof(MAX({0})) FROM {1}", quote(column), quote(table));
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query([])?;
+    let Some(row) = rows.next()? else { return Ok(None) };
+    let value = row.get_ref(0)?;
+    if matches!(value, ValueRef::Null) {
+        return Ok(None);
+    }
+    let numeric = matches!(row.get::<_, String>(1)?.as_str(), "integer" | "real");
+    Ok(Some(Watermark { value: value_string(value), numeric }))
 }
 
 #[cfg(feature = "sql")]
@@ -271,6 +375,7 @@ fn value_string(value: ValueRef<'_>) -> String {
                 .collect::<String>()
         ),
     }
+
 }
 
 fn quote(identifier: &str) -> String {
@@ -305,6 +410,8 @@ mod tests {
             table: "orders".into(),
             key_columns: vec!["id".into()],
             text_columns: None,
+            updated_column: None,
+            reconcile: false,
         };
         let manifest = dir.path().join("manifest.json");
         let first = scan(&req, &manifest).unwrap();
@@ -338,5 +445,29 @@ mod tests {
             ),
             (0, 0, 1)
         );
+    }
+
+    #[test]
+    fn watermark_reads_changed_payloads_but_reconciles_keys() {
+        let dir = tempdir().unwrap();
+        let db = dir.path().join("watermark.sqlite");
+        let conn = Connection::open(&db).unwrap();
+        conn.execute_batch("CREATE TABLE events (id INTEGER PRIMARY KEY, updated_at INTEGER, body TEXT); INSERT INTO events VALUES (1, 1, 'a'), (2, 2, 'b');").unwrap();
+        let req = SqlRequest {
+            database: db.clone(),
+            table: "events".into(),
+            key_columns: vec!["id".into()],
+            text_columns: None,
+            updated_column: Some("updated_at".into()),
+            reconcile: false,
+        };
+        let manifest = dir.path().join("watermark.json");
+        let first = scan(&req, &manifest).unwrap();
+        assert_eq!((first.new_rows.len(), first.unchanged), (2, 0));
+        conn.execute("UPDATE events SET updated_at=3, body='changed' WHERE id=1", []).unwrap();
+        conn.execute("INSERT INTO events VALUES (3, 4, 'new')", []).unwrap();
+        conn.execute("DELETE FROM events WHERE id=2", []).unwrap();
+        let second = scan(&req, &manifest).unwrap();
+        assert_eq!((second.new_rows.len(), second.changed_rows.len(), second.deleted_rows.len(), second.unchanged), (1, 1, 1, 0));
     }
 }
