@@ -283,6 +283,27 @@ impl Overlays {
         })
     }
 
+    /// Definitions contributed by the selected sector/client/project overlays.
+    /// Narrower scopes come first, so callers can apply the same precedence when
+    /// two overlays define the same signifier.
+    pub fn active_definitions(&self, ctx: &Context) -> Vec<(Provenance, DomainDef)> {
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for (scope, id) in ctx.lookup_order() {
+            if let Some(o) = self.get(scope, id) {
+                for (name, def) in &o.domains {
+                    if seen.insert(name.clone()) {
+                        out.push((
+                            Provenance { scope, source: o.id.clone() },
+                            def.clone(),
+                        ));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// The interpretant governing a context: the narrowest overlay that
     /// declares one, else `fallback` (the base ontology's own rule).
     pub fn interpretant(&self, ctx: &Context, fallback: Interpretant) -> Interpretant {

@@ -38,7 +38,7 @@ use crate::CoherenceSnapshot;
 
 use crate::ai::onnx_worker::OnnxHolon;
 use crate::ai::provider::{Message, ProviderCascade, ProviderConfig};
-use crate::classify::{CellClassifier, CellScore};
+use crate::classify::{CellClassifier, CellScore, ClassificationAssessment};
 use crate::gantt::{
     compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput,
 };
@@ -4397,6 +4397,11 @@ struct ClassifyRequest {
 struct ClassifyResponse {
     results: Vec<CellScore>,
     top: CellScore,
+    assessment: ClassificationAssessment,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    discovery: Option<crate::discovery::DiscoverySuggestion>,
+    context: String,
+    overlay_count: usize,
 }
 
 /// Gemma re-ranker (Phase 6G): when the top-2 cells are close (vector classify is
@@ -4486,6 +4491,14 @@ async fn classify_handler(
     let store = crate::salience::SalienceStore::load(&state.shared.config.data_dir);
     let mut results =
         state.shared.classifier.classify_biased(&embedding, &ctx, &store, &interp);
+    let overlay_count = overlays.active_definitions(&ctx).len();
+    results = state.shared.classifier.classify_with_overlays(
+        &embedding,
+        results,
+        &overlays,
+        &ctx,
+        state.shared.embedder.as_ref(),
+    );
 
     // Re-rank ambiguous, text-only cases with the LLM. Activated by the server
     // (PHYSIS_RERANK) OR by a caller-supplied key (BYOK) — the latter lets users
@@ -4540,7 +4553,31 @@ async fn classify_handler(
         entries: vec![],
         facets: crate::models::Facets::default(),
     });
-    Json(ClassifyResponse { results, top })
+    let coverage = state
+        .shared
+        .classifier
+        .best_entry_sim(&embedding)
+        .map(|(score, _, _)| score)
+        .unwrap_or(0.0);
+    let assessment = ClassificationAssessment::from_results(
+        &results,
+        coverage,
+        state.shared.embedder_kind,
+        !state.shared.degraded && state.shared.self_test,
+    );
+    let discovery = if assessment.semantic && assessment.abstained {
+        crate::discovery::suggest_text(&req.text, &embedding, &state.shared.classifier)
+    } else {
+        None
+    };
+    Json(ClassifyResponse {
+        results,
+        top,
+        assessment,
+        discovery,
+        context: ctx.label(),
+        overlay_count,
+    })
 }
 
 // ── Embed Handler ─────────────────────────────────────────────────
