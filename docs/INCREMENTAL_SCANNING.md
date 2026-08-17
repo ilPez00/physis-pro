@@ -25,6 +25,26 @@ The first scan is necessarily full. Later scans are incremental. A restart can
 still rebuild the cheap structural mapper from the current inventory while
 reusing persisted coherence nodes and embeddings.
 
+## Direct SQL connector
+
+POST /api/v1/sql/scan is the first direct database connector. It currently
+supports SQLite in read-only mode:
+
+```json
+{
+  "database": "/data/orders.sqlite",
+  "table": "orders",
+  "key_columns": ["id"],
+  "text_columns": ["status", "customer", "amount"]
+}
+```
+
+The connector validates identifiers, discovers the table schema, derives a
+stable row key, hashes the selected content, and persists a per-user/table
+manifest. It emits only new, changed, and deleted rows to the vector store.
+Row content—not only its label—is the embedding-cache key, so an edited row
+cannot accidentally reuse its previous vector.
+
 ## Database connector boundary
 
 The current public scanner operates on directories, so a database is
