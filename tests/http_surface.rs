@@ -43,7 +43,7 @@ async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>
     std::env::remove_var("PHYSIS_TOKENS");
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("HOME", dir); // config resolves ~/.physis
-    let (_state, router) = physis_pro::web::build_app().await;
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
     (router, env)
 }
 
@@ -838,7 +838,7 @@ async fn bearer_token_gates_protected_routes() {
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
     std::env::set_var("PHYSIS_API_TOKEN", "test-secret");
     std::env::set_var("HOME", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await;
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
 
     // Public ops surface: no token needed.
     let (status, _) = send(&router, get("/health", "_default")).await;
@@ -867,6 +867,46 @@ async fn bearer_token_gates_protected_routes() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "the configured token passes");
+    drop(env);
+}
+
+#[tokio::test]
+async fn dev_mode_without_tokens_skips_auth() {
+    // With PHYSIS_DEV=1 and no tokens configured on a loopback bind, protected
+    // routes must remain accessible (explicit dev opt-in bypass).
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("HOME", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "u", json!({"input": "dev mode step"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "PHYSIS_DEV bypasses auth without tokens");
+    drop(env);
+}
+
+#[tokio::test]
+async fn no_dev_mode_without_tokens_requires_auth() {
+    // Without PHYSIS_DEV and without any token, even on loopback, the server
+    // must refuse to start — a container that accidentally binds wide open can
+    // never expose an unauthenticated API.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::remove_var("PHYSIS_DEV");
+    std::env::set_var("HOME", dir.path());
+
+    let result = physis_pro::web::build_app().await;
+    assert!(result.is_err(), "build_app must fail without PHYSIS_DEV and without tokens");
     drop(env);
 }
 
