@@ -125,6 +125,8 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/embed` | — | Raw embedding vector + dimension (text or image) |
 | POST | `/api/v1/embed/video` | — | ffmpeg-sampled clip vector → `{embedding, dim, frames}` |
 | GET  | `/api/v1/ontology/list` | — | Domain counts per loaded ontology |
+| GET  | `/api/v1/ontology/studio` | — | Every authored entry with its source, cell, hints, facets, and whether classification can reach it |
+| GET  | `/api/v1/ontology/meaning` | — | Loaded overlays, contested names, and ranked salience; `?name=X` returns what `X` means in every context that defines it |
 | GET  | `/api/v1/semiotic/grid` | — | 70-cell DOMAIN×MODE grid with entries |
 | GET  | `/api/v1/semiotic/triangle` | — | Peircean triangle (Mermaid) |
 | GET  | `/api/v1/semiotic/square` | — | Greimas square (Mermaid) |
@@ -159,7 +161,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/translate` | ✓ | Linguistic routing (Wenyan / Pirahã / Sanskrit) |
 | GET  | `/api/v1/query` | ✓ | Query the trie |
 | POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
-| POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files → `{new, changed, deleted, registered, removed, total_nodes}` |
+| POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files, and folds edits/deletions into salience → `{new, changed, deleted, registered, removed, total_nodes, observed}` |
 | POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
 | POST | `/api/v1/history/import` | ✓ | **Personal-history import**: browser bookmarks/history, OPML feeds, chat JSONL → labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{file, items, registered, deduped}` |
 | POST | `/api/v1/praxis/backfill` | ✓ | **Praxis backfill**: notebook entries + trackers → labeled behavioural nodes with asserted success/inert/failure verdicts (confined to `PHYSIS_SCAN_ROOT`) → `{items, successes, inert, failures, registered, deduped}` |
@@ -198,6 +200,46 @@ compared).
   publish an unauthenticated API that also proxies paid LLM providers — an open
   relay). Set the token or bind `127.0.0.1`.
 
+### Contextual meaning — overlays, interpretants, salience
+
+An ontology entry is a sign: `hints` are its signifier, its embedding centroid
+the signified. The third leg, the **interpretant**, is declared per ontology
+file — what counts *in that universe of discourse* as one of its signs having
+meant something:
+
+```json
+{ "kind": "machine",
+  "interpretant": { "confirms": ["success","inert"], "refutes": ["failure"],
+                    "half_life_days": 0, "weight": 1.0,
+                    "note": "an inspection that found nothing still confirms the routine" } }
+```
+
+`machine` and `software_dev` read `inert` in opposite directions, which no
+single global rule can express.
+
+**Overlays** scope what an item *means* to a sector, client, or project.
+Resolution runs `project → client → sector → global`, narrowest wins, and an
+overlay shadows only the names it mentions:
+
+```bash
+# ~/.physis/ontologies/{sector,client,project}/<id>.json
+export PHYSIS_CONTEXT="sector:manufacturing,client:evotec"
+curl "localhost:19876/api/v1/ontology/meaning?name=Release"
+# → manufacturing: FABRICATE×MOVE (release to production)
+#   evotec:        HEAL×GUIDE     (batch release, QP sign-off)
+#   publisher:     CONSTRUCT×CREATE (publication date)
+```
+
+**Salience** records what an entry has been worth. `/watch` folds file events
+into it — editing a classified file confirms its entry, deleting it refutes —
+and the accumulated evidence biases classification within a bounded budget
+(0.05 cosine, `tanh`-saturated), so it reorders close calls but cannot overturn
+a clear semantic win. Salience is keyed by context, so one client's evidence
+never biases another's.
+
+Full detail, including the measurements that motivated all of it:
+[`docs/CONTEXTUAL_MEANING.md`](docs/CONTEXTUAL_MEANING.md).
+
 ### Semiotic node editing ("exchange parts") & fixed-token search
 
 A coherence node is **structure** (id, `asserted` verdict, holarchy edges,
@@ -224,6 +266,7 @@ hybrid pin semantics, and the full API contract.
 
 ## Docs
 
+- [`docs/CONTEXTUAL_MEANING.md`](docs/CONTEXTUAL_MEANING.md) — interpretants, per-client/sector/project ontology overlays, salience feedback
 - [`docs/SEMIOTIC_EDITING.md`](docs/SEMIOTIC_EDITING.md) — exchange-parts node editing + fixed-token search
 - [`docs/UMBRELLAPEDIA_GUIDE.md`](docs/UMBRELLAPEDIA_GUIDE.md) — wiring physis to the Umbrellapedia wiki surface
 - [`docs/PIPELINE_DIAGRAMS.md`](docs/PIPELINE_DIAGRAMS.md) — ingestion→recall pipeline + live engine phases
