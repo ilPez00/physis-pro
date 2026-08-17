@@ -63,6 +63,7 @@ pub mod planner;
 pub mod license;
 pub mod pack;
 pub mod praxis;
+pub mod postgres;
 pub mod rag;
 pub mod sql;
 pub mod structsim;

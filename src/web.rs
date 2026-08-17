@@ -77,11 +77,13 @@ struct SharedCtx {
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     ingest: Arc<IngestRing>,
-    /// Bearer tokens + their roles. `None`-equivalent empty table only when
-    /// bound to loopback (dev) — a non-loopback bind without any token aborts
-    /// at startup. See PREMORTEM.md P6.
-    /// See src/rbac.rs for the role model (viewer/editor/admin) enforced by
-    /// `require_auth`.
+    /// Explicit opt-in for loopback auth bypass. When false, the server refuses
+    /// to start without tokens even on loopback, so an unauthenticated API can
+    /// never be exposed accidentally. See PREMORTEM.md P6.
+    dev_mode: bool,
+    /// Bearer tokens + their roles. Empty table is only allowed when `dev_mode`
+    /// is true and the bind is loopback. See src/rbac.rs for the role model
+    /// (viewer/editor/admin) enforced by `require_auth`.
     tokens: crate::rbac::TokenTable,
 }
 
@@ -134,6 +136,15 @@ pub struct AppCtx {
     /// stays fixed at startup: changing embed_dim live would corrupt every stored
     /// vector, and it's read lock-free on the hot path — see PREMORTEM P1.)
     scan_root: std::sync::RwLock<PathBuf>,
+    /// Accumulated interpretant evidence, owned rather than re-read per request.
+    ///
+    /// It was loaded from disk, mutated and written back inside each handler,
+    /// which lost observations whenever two sweeps overlapped: both read the
+    /// same state and the last writer won. One owned copy behind one mutex
+    /// makes read-modify-write atomic within the process, and also stops
+    /// `/classify` re-reading the whole file on every call. Entries are keyed
+    /// by tenant, so this single store still isolates tenants.
+    salience: Mutex<crate::salience::SalienceStore>,
     /// Plant-wide OEE board. Shop-floor equipment is shared infra, not per-tenant
     /// reasoning state, so it lives here behind one mutex.
     oee: Mutex<OeeBoard>,
@@ -362,6 +373,7 @@ fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBu
 /// Returns how many observations were folded in.
 async fn record_salience(
     state: &SharedState,
+    uid: &str,
     diffs: &[crate::scanner::ScanDiff],
     root: &std::path::Path,
 ) -> usize {
@@ -393,11 +405,13 @@ async fn record_salience(
     let overlays = crate::context::Overlays::load(&state.shared.config.data_dir);
     let interp = overlays.interpretant(&ctx, state.shared.ontology.interpretant("human"));
 
-    let mut store = crate::salience::SalienceStore::load(&state.shared.config.data_dir);
+    // One lock spans read-modify-write, so overlapping sweeps cannot clobber
+    // each other's observations.
+    let mut store = state.salience.lock().unwrap_or_else(|e| e.into_inner());
     let mut n = 0usize;
     for (emb, (_, signal)) in embeddings.iter().zip(pending.iter()) {
         if let Some((entry, _sim)) = state.shared.classifier.best_entry(emb) {
-            store.record(&ctx, &entry, *signal, &interp);
+            store.record(uid, &ctx, &entry, *signal, &interp);
             n += 1;
         }
     }
@@ -624,6 +638,21 @@ struct SqlSchemaResponse {
     tables: Vec<crate::sql::SqlTable>,
 }
 
+#[derive(Deserialize)]
+struct PostgresScanRequest {
+    dsn: String,
+    source: String,
+    table: String,
+    key_columns: Vec<String>,
+    #[serde(default)]
+    text_columns: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+struct PostgresSchemaRequest {
+    dsn: String,
+}
+
 #[derive(Serialize)]
 struct QueryResponse {
     results: Vec<Vec<String>>,
@@ -780,41 +809,46 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /// minimum role for the request's method + path (see `rbac::min_role_for`):
 /// GET/HEAD -> viewer, POST/PUT/DELETE -> editor, config/axis-promote -> admin.
 ///
-/// When no tokens are configured (loopback-only dev), requests pass through.
+/// When no tokens are configured and `dev_mode` is enabled (PHYSIS_DEV),
+/// requests pass through. Otherwise auth is mandatory.
 async fn require_auth(
     State(state): State<SharedState>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     use crate::rbac::min_role_for;
-    if !state.shared.tokens.is_enforced() {
-        return Ok(next.run(req).await);
-    }
-    let presented = req
-        .headers()
-        .get(AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "));
-    match presented {
-        Some(tok) => {
-            let min = min_role_for(req.method().as_str(), req.uri().path());
-            match state.shared.tokens.authenticate(tok) {
-                Some(role) if role >= min => Ok(next.run(req).await),
-                Some(role) => {
-                    log::warn!(
-                        "RBAC: role {:?} insufficient for {} {} (needs {:?})",
-                        role,
-                        req.method(),
-                        req.uri().path(),
-                        min
-                    );
-                    Err(StatusCode::FORBIDDEN)
+    if state.shared.tokens.is_enforced() {
+        let presented = req
+            .headers()
+            .get(AUTHORIZATION)
+            .and_then(|h| h.to_str().ok())
+            .and_then(|h| h.strip_prefix("Bearer "));
+        match presented {
+            Some(tok) => {
+                let min = min_role_for(req.method().as_str(), req.uri().path());
+                match state.shared.tokens.authenticate(tok) {
+                    Some(role) if role >= min => Ok(next.run(req).await),
+                    Some(role) => {
+                        log::warn!(
+                            "RBAC: role {:?} insufficient for {} {} (needs {:?})",
+                            role,
+                            req.method(),
+                            req.uri().path(),
+                            min
+                        );
+                        Err(StatusCode::FORBIDDEN)
+                    }
+                    None if constant_time_eq(tok.as_bytes(), b"") => Err(StatusCode::UNAUTHORIZED),
+                    None => Err(StatusCode::UNAUTHORIZED),
                 }
-                None if constant_time_eq(tok.as_bytes(), b"") => Err(StatusCode::UNAUTHORIZED),
-                None => Err(StatusCode::UNAUTHORIZED),
             }
+            None => Err(StatusCode::UNAUTHORIZED),
         }
-        None => Err(StatusCode::UNAUTHORIZED),
+    } else if state.shared.dev_mode {
+        Ok(next.run(req).await)
+    } else {
+        log::error!("Auth required but no tokens configured and PHYSIS_DEV not set");
+        Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
@@ -1215,6 +1249,83 @@ async fn sql_schema_handler(
     }))
 }
 
+/// POST /api/v1/sql/postgres/schema — discover public PostgreSQL tables.
+/// Takes the DSN in a **body**, not a query string.
+///
+/// A PostgreSQL DSN embeds the password (`postgres://user:pass@host/db`).
+/// As a query parameter it would be written to access logs, proxy logs,
+/// browser history and `Referer` headers — credential disclosure through
+/// plumbing nobody thinks of as part of the application.
+async fn postgres_schema_handler(
+    Json(req): Json<PostgresSchemaRequest>,
+) -> Result<Json<SqlSchemaResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let tables = crate::postgres::schema(&req.dsn)
+        .await
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    Ok(Json(SqlSchemaResponse { database: "postgres".into(), tables }))
+}
+
+/// POST /api/v1/sql/postgres/scan — ingest a PostgreSQL public table.
+async fn postgres_scan_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<PostgresScanRequest>,
+) -> Result<Json<SqlScanResponse>, (StatusCode, Json<ErrorResponse>)> {
+    if req.source.trim().is_empty() {
+        return Err(err_response(StatusCode::BAD_REQUEST, "source is required"));
+    }
+    let uid = user_key(&headers);
+    let table = req.table.clone();
+    let manifest = crate::postgres::manifest_path(&state.shared.config.data_dir, &uid, &req.source, &table);
+    let scan_req = crate::postgres::Request {
+        dsn: req.dsn,
+        source: req.source,
+        table: req.table,
+        key_columns: req.key_columns,
+        text_columns: req.text_columns,
+    };
+    let diff = crate::postgres::scan(&scan_req, &manifest)
+        .await
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    let new_count = diff.new_rows.len();
+    let changed_count = diff.changed_rows.len();
+    let deleted_count = diff.deleted_rows.len();
+    let mut changed = diff.new_rows;
+    changed.extend(diff.changed_rows);
+    let texts = changed.iter().map(|row| row.text.clone()).collect::<Vec<_>>();
+    let (embeddings, hits, misses) = embed_texts_cached(state.shared.clone(), texts).await;
+    state.with_user(&uid, |s| {
+        for row in &changed {
+            let _ = s.core.delete_nodes_by_label_prefix(&row.label);
+        }
+        for row in &diff.deleted_rows {
+            let ids = s.core.delete_nodes_by_label_prefix(&row.label);
+            if let Some(db) = state.db() {
+                for id in ids {
+                    let _ = db.remove(crate::core::PhysisCore::node_key(&uid, &id));
+                }
+            }
+        }
+        for (row, embedding) in changed.into_iter().zip(embeddings) {
+            let id = s.core.register_node_vec_labeled(embedding, Some(row.label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+    });
+    Ok(Json(SqlScanResponse {
+        database: "postgres".into(),
+        table,
+        total: diff.total,
+        new: new_count,
+        changed: changed_count,
+        deleted: deleted_count,
+        unchanged: diff.unchanged,
+        embedding_cache_hits: hits,
+        embedding_cache_misses: misses,
+    }))
+}
+
 /// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
 /// scan_root): diff against the watch hash cache, register new/changed files as
 /// labeled core nodes (shared embedder, persisted), drop nodes for removed
@@ -1306,7 +1417,7 @@ async fn watch_handler(
     //
     // `new` files are deliberately not observed: nothing was classified there
     // yet, so there is no prior frame for the event to confirm or refute.
-    let observed = record_salience(&state, &diffs, &canonical).await;
+    let observed = record_salience(&state, &uid, &diffs, &canonical).await;
 
     scanner.update_cache(&diffs);
 
@@ -4249,6 +4360,7 @@ struct MeaningParams {
 /// worth reading.
 async fn ontology_meaning_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Query(params): Query<MeaningParams>,
 ) -> Json<serde_json::Value> {
     let s = &state.shared;
@@ -4286,14 +4398,15 @@ async fn ontology_meaning_handler(
             .collect::<Vec<_>>()
     });
 
-    // What the interpretant loop has actually learned, in the ambient context.
-    // Reported alongside the overlays because salience is context-scoped: the
-    // same entry carries different evidence for different clients.
+    // What the interpretant loop has learned, for the calling tenant in the
+    // ambient context. Scoped by uid as well as context — reporting another
+    // tenant's accumulated evidence would leak their working habits.
+    let uid = user_key(&headers);
     let ctx = crate::context::Context::from_env();
     let interp = overlays.interpretant(&ctx, s.ontology.interpretant("human"));
-    let store = crate::salience::SalienceStore::load(&s.config.data_dir);
+    let store = state.salience.lock().unwrap_or_else(|e| e.into_inner());
     let ranked: Vec<serde_json::Value> = store
-        .ranked(&ctx, &interp)
+        .ranked(&uid, &ctx, &interp)
         .into_iter()
         .take(40)
         .map(|(name, score, obs)| {
@@ -4308,6 +4421,7 @@ async fn ontology_meaning_handler(
         "meanings": meanings,
         "overlay_dir": s.config.data_dir.join("ontologies"),
         "context": ctx.label(),
+        "tenant": uid,
         "salience": ranked,
         "bias_strength": crate::salience::BIAS_STRENGTH,
     }))
@@ -4712,18 +4826,23 @@ async fn rerank_cell(
 
 async fn classify_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<ClassifyRequest>,
 ) -> Json<ClassifyResponse> {
     let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
     // Accumulated interpretant evidence adjusts the ranking within a bounded
-    // budget — see salience::BIAS_STRENGTH. With no observations recorded this
-    // is byte-identical to the unbiased classify.
+    // budget — see salience::BIAS_STRENGTH. Scoped to the calling tenant: the
+    // context comes from one process-wide env var, so without the uid one
+    // customer's evidence would reorder another's results. With no observations
+    // recorded this is byte-identical to the unbiased classify.
+    let uid = user_key(&headers);
     let ctx = crate::context::Context::from_env();
     let overlays = crate::context::Overlays::load(&state.shared.config.data_dir);
     let interp = overlays.interpretant(&ctx, state.shared.ontology.interpretant("human"));
-    let store = crate::salience::SalienceStore::load(&state.shared.config.data_dir);
-    let mut results =
-        state.shared.classifier.classify_biased(&embedding, &ctx, &store, &interp);
+    let mut results = {
+        let store = state.salience.lock().unwrap_or_else(|e| e.into_inner());
+        state.shared.classifier.classify_biased(&embedding, &uid, &ctx, &store, &interp)
+    };
     let overlay_count = overlays.active_definitions(&ctx).len();
     results = state.shared.classifier.classify_with_overlays(
         &embedding,
@@ -5201,15 +5320,24 @@ pub async fn build_app() -> (SharedState, Router) {
         }
     }
     let is_loopback = matches!(host.as_str(), "127.0.0.1" | "::1" | "localhost");
-    if !is_loopback && !tokens.is_enforced() {
-        log::error!("Refusing to bind {host} without any token — would expose an unauthenticated API + open LLM relay.");
-        eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS. Set one, or bind 127.0.0.1.");
-        std::process::exit(1);
-    }
-    if tokens.is_enforced() {
-        log::info!("API auth enabled (RBAC): Bearer tokens required on protected routes (viewer/editor/admin).");
+    let dev_mode = std::env::var("PHYSIS_DEV")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .is_some();
+    if !tokens.is_enforced() {
+        if !is_loopback {
+            log::error!("Refusing to bind {host} without any token — would expose an unauthenticated API + open LLM relay.");
+            eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS. Set one, or bind 127.0.0.1.");
+            std::process::exit(1);
+        }
+        if !dev_mode {
+            log::error!("Refusing to start on loopback without any token and without PHYSIS_DEV — set a token or set PHYSIS_DEV=1 for local development.");
+            eprintln!("[physis] FATAL: loopback bind without tokens requires PHYSIS_DEV=1 for explicit dev opt-in.");
+            std::process::exit(1);
+        }
+        log::warn!("API auth DISABLED (PHYSIS_DEV + loopback dev bind, no token set).");
     } else {
-        log::warn!("API auth DISABLED (loopback dev bind, no token set).");
+        log::info!("API auth enabled (RBAC): Bearer tokens required on protected routes (viewer/editor/admin).");
     }
 
     // Confine /api/v1/scan to a root (path-traversal guard). Defaults to the
@@ -5240,6 +5368,7 @@ pub async fn build_app() -> (SharedState, Router) {
         degraded,
         self_test: self_test_ok,
         ingest: ingest.clone(),
+        dev_mode,
         tokens,
     });
 
@@ -5270,6 +5399,8 @@ pub async fn build_app() -> (SharedState, Router) {
         }
     };
 
+    let salience_store = crate::salience::SalienceStore::load(&shared.config.data_dir);
+
     let state = Arc::new(AppCtx {
         shared: shared.clone(),
         state: Mutex::new(RuntimeState {
@@ -5291,6 +5422,7 @@ pub async fn build_app() -> (SharedState, Router) {
                 .unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
+        salience: Mutex::new(salience_store),
         scan_root: std::sync::RwLock::new(scan_root),
         oee: Mutex::new(db.as_ref().map(OeeBoard::load).unwrap_or_default()),
         maintenance: Mutex::new(
@@ -5464,6 +5596,8 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/scan", post(scan_handler))
         .route("/api/v1/sql/schema", get(sql_schema_handler))
         .route("/api/v1/sql/scan", post(sql_scan_handler))
+        .route("/api/v1/sql/postgres/schema", post(postgres_schema_handler))
+        .route("/api/v1/sql/postgres/scan", post(postgres_scan_handler))
         .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/vault/import", post(vault_import_handler))
         .route("/api/v1/history/import", post(history_import_handler))

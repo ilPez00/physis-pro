@@ -52,12 +52,24 @@ Later scans reconcile only keys for deletion detection and fetch full payloads
 from the watermark window. Set `reconcile: true` for a full payload scan when
 you need to detect edits made without advancing the source timestamp.
 
+PostgreSQL uses the same delta contract through
+`/api/v1/sql/postgres/schema` and `/api/v1/sql/postgres/scan`. The request uses
+a DSN plus a caller-defined stable `source` name; the DSN is never returned in
+responses or labels. The connector expects TLS to be provided by the
+deployment network or a local tunnel; production should not send credentials
+over an untrusted plaintext path.
+
+**Both endpoints are POST, and the DSN travels in the request body.** A DSN
+embeds the password (`postgres://user:pass@host/db`), so accepting it as a
+query parameter would write credentials into access logs, proxy logs, browser
+history and `Referer` headers — disclosure through plumbing that is not
+usually thought of as part of the application. The schema route was a `GET`
+during development and was changed for this reason.
+
 ## Database connector boundary
 
 The current public scanner operates on directories, so a database is
 incremental when it is presented as an export or mounted data directory. It
-does not yet issue database-specific `updated_at`/CDC queries or track row
-identity. The next connector layer should persist a source cursor plus a
-stable row key, hash only changed rows, and emit the same new/changed/deleted
-contract before embedding. That will avoid re-reading unchanged database
-rows as well as avoiding their inference.
+issues database-specific `updated_at` queries for SQLite and supports
+PostgreSQL table deltas. CDC/logical replication remains the next step for
+near-real-time ingestion.

@@ -212,7 +212,6 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
     let deleted_rows = previous.rows
         .into_iter()
         .filter(|(key, _)| !active_keys.contains(key))
-        .into_iter()
         .map(|(key, old)| SqlRow {
             key,
             label: old.label,
