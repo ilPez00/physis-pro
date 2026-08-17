@@ -49,6 +49,7 @@ reqwest = { version = "0.12", features = ["json", "multipart", "rustls-tls", "bl
 axum = { version = "0.7", features = ["json", "macros"], optional = true }
 tokio-stream = "0.1"
 tower-http = { version = "0.5", features = ["fs"], optional = true }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
 dotenvy = "0.15"
 slotmap = { version = "1.0", features = ["serde"] }
 memmap2 = "0.9"
@@ -95,7 +96,7 @@ mailparse = { version = "0.15", optional = true }
 
 # Enable ONNX feature by default
 [features]
-default = ["cli", "voice", "web", "tui", "embed-onnx"]
+default = ["cli", "voice", "web", "tui", "embed-onnx", "sql"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
 network = ["dep:notify"]
@@ -106,6 +107,7 @@ embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
+sql = ["dep:rusqlite"]
 # Document ingestion: real PDF text extraction + structured email parsing.
 pdf = ["dep:pdf-extract"]
 email = ["dep:mailparse"]
@@ -162,4 +164,3 @@ exclude = ["vendor/llmwiki"]
 name = "physis-license"
 required-features = ["vendor"]
 path = "src/bin/license_tool.rs"
-

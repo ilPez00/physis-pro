@@ -64,6 +64,7 @@ pub mod license;
 pub mod pack;
 pub mod praxis;
 pub mod rag;
+pub mod sql;
 pub mod structsim;
 pub mod vault;
 

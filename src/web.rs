@@ -314,6 +314,23 @@ async fn embed_scan_labels_cached(
     .unwrap_or_default()
 }
 
+/// Embed arbitrary source texts through the same persistent content-addressed
+/// cache. SQL rows use their content here, not merely their display label.
+async fn embed_texts_cached(
+    shared: Arc<SharedCtx>,
+    texts: Vec<String>,
+) -> (Vec<Vec<f32>>, usize, usize) {
+    tokio::task::spawn_blocking(move || {
+        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
+        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
+        let (hits, misses) = cache.stats();
+        cache.save(&shared.config.data_dir);
+        (embeddings, hits, misses)
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// Hash-cache path for one watched directory.
 ///
 /// The cache was a single shared file keyed by *basename*, which made every
@@ -564,6 +581,29 @@ struct ScanResponse {
     deleted: usize,
     unchanged: usize,
     reused_labels: usize,
+    embedding_cache_hits: usize,
+    embedding_cache_misses: usize,
+}
+
+#[derive(Deserialize)]
+struct SqlScanRequest {
+    #[serde(alias = "db")]
+    database: String,
+    table: String,
+    key_columns: Vec<String>,
+    #[serde(default)]
+    text_columns: Option<Vec<String>>,
+}
+
+#[derive(Serialize)]
+struct SqlScanResponse {
+    database: String,
+    table: String,
+    total: usize,
+    new: usize,
+    changed: usize,
+    deleted: usize,
+    unchanged: usize,
     embedding_cache_hits: usize,
     embedding_cache_misses: usize,
 }
@@ -1067,6 +1107,75 @@ async fn scan_handler(
 /// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
 /// thread — call this to catch up immediately or from a cron, then let the
 /// background poller take over.
+/// POST /api/v1/sql/scan — read a SQLite table in read-only mode and ingest
+/// only rows whose stable key is new or whose selected content changed.
+async fn sql_scan_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<SqlScanRequest>,
+) -> Result<Json<SqlScanResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.database);
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve database: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("database outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let uid = user_key(&headers);
+    let table = req.table.clone();
+    let manifest = crate::sql::manifest_path(&state.shared.config.data_dir, &uid, &canonical, &table);
+    let scan_req = crate::sql::SqlRequest {
+        database: canonical.clone(),
+        table: req.table,
+        key_columns: req.key_columns,
+        text_columns: req.text_columns,
+    };
+    let diff = tokio::task::spawn_blocking(move || crate::sql::scan(&scan_req, &manifest))
+        .await
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    let new_count = diff.new_rows.len();
+    let changed_count = diff.changed_rows.len();
+    let deleted_count = diff.deleted_rows.len();
+    let mut changed = diff.new_rows;
+    changed.extend(diff.changed_rows);
+    let texts = changed.iter().map(|row| row.text.clone()).collect::<Vec<_>>();
+    let (embeddings, hits, misses) = embed_texts_cached(state.shared.clone(), texts).await;
+    state.with_user(&uid, |s| {
+        for row in &changed {
+            let _ = s.core.delete_nodes_by_label_prefix(&row.label);
+        }
+        for row in &diff.deleted_rows {
+            let ids = s.core.delete_nodes_by_label_prefix(&row.label);
+            if let Some(db) = state.db() {
+                for id in ids {
+                    let _ = db.remove(crate::core::PhysisCore::node_key(&uid, &id));
+                }
+            }
+        }
+        for (row, embedding) in changed.into_iter().zip(embeddings) {
+            let id = s.core.register_node_vec_labeled(embedding, Some(row.label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+    });
+    Ok(Json(SqlScanResponse {
+        database: canonical.display().to_string(),
+        table,
+        total: diff.total,
+        new: new_count,
+        changed: changed_count,
+        deleted: deleted_count,
+        unchanged: diff.unchanged,
+        embedding_cache_hits: hits,
+        embedding_cache_misses: misses,
+    }))
+}
+
 async fn watch_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -5308,6 +5417,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/stats", get(stats_handler))
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
+        .route("/api/v1/sql/scan", post(sql_scan_handler))
         .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/vault/import", post(vault_import_handler))
         .route("/api/v1/history/import", post(history_import_handler))
