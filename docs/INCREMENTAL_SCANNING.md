@@ -24,3 +24,13 @@ loss, not as a correctness failure: the next scan rebuilds it.
 The first scan is necessarily full. Later scans are incremental. A restart can
 still rebuild the cheap structural mapper from the current inventory while
 reusing persisted coherence nodes and embeddings.
+
+## Database connector boundary
+
+The current public scanner operates on directories, so a database is
+incremental when it is presented as an export or mounted data directory. It
+does not yet issue database-specific `updated_at`/CDC queries or track row
+identity. The next connector layer should persist a source cursor plus a
+stable row key, hash only changed rows, and emit the same new/changed/deleted
+contract before embedding. That will avoid re-reading unchanged database
+rows as well as avoiding their inference.
