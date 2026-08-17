@@ -3957,7 +3957,13 @@ pub async fn build_app() -> (SharedState, Router) {
     // Pre-compute per-cell centroids from the human grid + every extra
     // domain-specific ontology (software, fitness, finance, …). The classify
     // path lives in the library so it is unit-testable (tests/classification.rs).
-    let classifier = CellClassifier::build(&ontology, embedder.as_ref());
+    // Served from the on-disk embedding cache: these seeds are fixed by the
+    // ontology, so recomputing them on every boot cost ~78s of startup for a
+    // result that never changes. `physis-pro warm` populates the same cache.
+    let mut seed_cache = crate::pack::EmbedCache::load(&config.data_dir);
+    let classifier =
+        CellClassifier::build_cached(&ontology, embedder.as_ref(), embedder_kind, &mut seed_cache);
+    seed_cache.save(&config.data_dir);
     log::info!("classifier ready: {} populated cells", classifier.cell_count());
 
     let cascade = Arc::new(ProviderCascade::from_env());

@@ -263,6 +263,43 @@ use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
 
+/// Resolve a bundled model directory by name, searching the places it can
+/// legitimately live.
+///
+/// The cascade used to name these as bare relative paths (`models/bge-base…`),
+/// which resolve against the *working directory*. That works when running from
+/// the repo root and nowhere else: an installed binary invoked from a user's
+/// project directory found no model, fell through the cascade, and landed on
+/// [`RandomProjectionEmbedder`] — plausible-looking scores over pure noise,
+/// with no error. Searching an explicit list makes the installed layout work
+/// without breaking the dev one.
+///
+/// Order, first hit wins:
+/// 1. `PHYSIS_MODELS` — explicit override, for unusual deployments.
+/// 2. `./models/<name>` — running from the repo, which developers expect.
+/// 3. `<data_dir>/models/<name>` — where the installer puts them.
+///
+/// Falls back to the relative path when nothing exists, so the caller's
+/// `is_available()` check reports a missing model exactly as before.
+#[cfg(feature = "embed-onnx")]
+fn model_dir(config: &PhysisConfig, name: &str) -> String {
+    use std::path::PathBuf;
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(root) = std::env::var_os("PHYSIS_MODELS") {
+        candidates.push(PathBuf::from(root).join(name));
+    }
+    candidates.push(PathBuf::from("models").join(name));
+    candidates.push(config.data_dir.join("models").join(name));
+
+    candidates
+        .iter()
+        .find(|p| p.exists())
+        .unwrap_or(&candidates[candidates.len() - 2])
+        .to_string_lossy()
+        .into_owned()
+}
+
 /// Pick the best available embedder, self-test gated.
 ///
 /// Extracted so every entry point resolves the embedder the same way. The MCP
@@ -300,7 +337,7 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                     EmbedderKindConfig::BgeBase => {
                         let cfg = crate::config::OnnxConfig {
                             enabled: true,
-                            model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                            model_dir: Some(model_dir(config, "bge-base-en-v1.5")),
                             dim: 768,
                             max_length: 512,
                             pooling: crate::config::PoolingStrategy::Mean,
@@ -311,7 +348,7 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                     EmbedderKindConfig::BgeM3 => {
                         let cfg = crate::config::OnnxConfig {
                             enabled: true,
-                            model_dir: Some("models/bge-m3".to_string()),
+                            model_dir: Some(model_dir(config, "bge-m3")),
                             dim: 1024,
                             max_length: 512,
                             pooling: crate::config::PoolingStrategy::Cls,
@@ -345,7 +382,7 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                 if let Some(e) = stc.gated("bge-base", "models/bge-base-en-v1.5", || {
                     let cfg = crate::config::OnnxConfig {
                         enabled: true,
-                        model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                        model_dir: Some(model_dir(config, "bge-base-en-v1.5")),
                         dim: 768,
                         max_length: 512,
                         pooling: crate::config::PoolingStrategy::Mean,
@@ -358,7 +395,7 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                 if let Some(e) = stc.gated("bge-m3", "models/bge-m3", || {
                     let cfg = crate::config::OnnxConfig {
                         enabled: true,
-                        model_dir: Some("models/bge-m3".to_string()),
+                        model_dir: Some(model_dir(config, "bge-m3")),
                         dim: 1024,
                         max_length: 512,
                         pooling: crate::config::PoolingStrategy::Cls,
