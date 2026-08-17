@@ -76,3 +76,25 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Authorization: Bearer $EDIT
 - Offline by default; the only outbound calls are the LLM provider cascade in
   `/api/v1/chat`, gated behind the same bearer auth (never an open relay).
 - Reproducible install via one script; tokens are opaque, role-scoped, constant-time compared.
+# Automatic Physis rebuilds on pansa-ts
+
+`scripts/pansa-physis-auto-rebuild.sh` is the safe update path for the pansa
+host. It fetches `main`, builds the remote commit in a detached worktree using
+Docker, smoke-tests the licence-gated binary, swaps it into
+`/home/gio/physis-runtime/physis-pro-web`, restarts `physis-engine`, checks
+health, and only then fast-forwards the checkout.
+
+Failures leave the running binary and git checkout unchanged. The updater also
+uses a lock, refuses dirty or non-`main` checkouts, and rolls back the binary if
+the restarted service does not answer `/health`.
+
+The pansa user service should invoke the script through the Docker group:
+
+```ini
+ExecStart=/usr/bin/sg docker -c "/home/gio/physis_pro/scripts/pansa-physis-auto-rebuild.sh"
+```
+
+The script intentionally fails closed when the candidate binary has no valid
+Physis licence. Set `PHYSIS_LICENSE_FILE` in the service/build environment once
+the production licence is installed; until then the existing binary remains in
+service and the log records the skipped update.
