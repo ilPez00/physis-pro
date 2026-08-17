@@ -148,6 +148,10 @@ pub struct AppCtx {
     quality: Mutex<QualityTracker>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     limiter: RateLimiter,
+    /// Request activity and the last idle-triggered dream pass. Global rather
+    /// than per-tenant, matching the PDCA tick: the rhythm belongs to the
+    /// process, not to a session.
+    rest: RestLog,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
 }
@@ -543,6 +547,11 @@ async fn rate_limit(
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    // Stamp activity before the throttle decision: a rejected request is still
+    // someone asking, so it counts as noise and must postpone the rest pass.
+    ctx.rest
+        .last_request_ms
+        .store(now_ms(), std::sync::atomic::Ordering::Relaxed);
     if ctx.limiter.allow(&addr.ip().to_string()) {
         Ok(next.run(req).await)
     } else {
@@ -1752,7 +1761,7 @@ async fn dream_generate_handler(
     })
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct DreamReplayEntry {
     node_id: String,
     label: String,
@@ -1761,6 +1770,128 @@ struct DreamReplayEntry {
     density: Score,
     outcome: f32,
     prevented_failure: bool,
+}
+
+/// One completed rest pass — what the engine chewed on while nothing was
+/// asking it anything.
+#[derive(Serialize, Clone)]
+struct RestPass {
+    /// When the pass ran, millis since the epoch.
+    at_ms: u64,
+    /// How long the engine had been idle when it started.
+    idle_seconds: u64,
+    /// The nodes revisited, newest pass first.
+    chewed: Vec<DreamReplayEntry>,
+}
+
+/// Request activity, and the last rest it led to.
+///
+/// Dreaming was reachable only through `POST /dream/generate`, which in
+/// practice meant never — the engine replayed its failures exactly when
+/// somebody thought to ask, which is the opposite of how consolidation works
+/// in anything alive. This records when the last request arrived so a
+/// background pass can notice the quiet and use it.
+struct RestLog {
+    /// Seconds of quiet before a pass runs, fixed when the app was built.
+    ///
+    /// Stored rather than re-read per request: the environment can change under
+    /// a running process, and reporting a threshold the rest cycle is not
+    /// actually using would make the panel's explanation of its own wait wrong.
+    threshold_seconds: u64,
+    /// Millis since the epoch of the most recent request, 0 before the first.
+    last_request_ms: std::sync::atomic::AtomicU64,
+    /// The most recent pass that actually found something. A pass over
+    /// already-archived nodes returns nothing and must not blank the panel:
+    /// "it found nothing new" and "it never ran" are different states, and the
+    /// operator needs to tell them apart.
+    last: Mutex<Option<RestPass>>,
+}
+
+/// Millis since the epoch, saturating at 0 if the clock is before it.
+fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Replay whatever this tenant has not yet dreamt over, as a rest pass.
+///
+/// Split out of the tick so the decision ("what counts as worth chewing on")
+/// is testable without waiting on a timer. Returns `None` when the pass found
+/// nothing new — `core.dream()` skips archived nodes, so a quiet engine
+/// naturally stops producing passes instead of looping on the same material.
+fn run_rest_pass(s: &mut RuntimeState, idle_seconds: u64) -> Option<RestPass> {
+    let results = s.core.dream();
+    let chewed: Vec<DreamReplayEntry> = results
+        .iter()
+        .flat_map(|r| {
+            r.nodes_tested
+                .iter()
+                .filter_map(|id| {
+                    let node = s.core.nodes.get(id)?;
+                    Some(DreamReplayEntry {
+                        node_id: id.clone(),
+                        label: node.label.clone().unwrap_or_else(|| "(unlabeled)".to_string()),
+                        asserted: node.asserted,
+                        density: node.coherence_score,
+                        outcome: r.outcome,
+                        prevented_failure: r.prevented_failure,
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
+    if chewed.is_empty() {
+        return None;
+    }
+    Some(RestPass { at_ms: now_ms(), idle_seconds, chewed })
+}
+
+#[derive(Serialize)]
+struct RestResponse {
+    /// True once a pass has produced material. False means the engine has not
+    /// rested yet — not that it rested and found nothing.
+    rested: bool,
+    /// Seconds the engine must be quiet before a pass runs.
+    idle_threshold_seconds: u64,
+    /// How long it has been quiet right now.
+    idle_seconds: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last: Option<RestPass>,
+}
+
+/// GET /api/v1/dream/rest — what the engine chewed on while nobody was asking.
+async fn dream_rest_handler(State(state): State<SharedState>) -> Json<RestResponse> {
+    let last = state.rest.last.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let last_req = state.rest.last_request_ms.load(std::sync::atomic::Ordering::Relaxed);
+    // Before the first request there is no idle period to report, only a
+    // process that has never been asked anything.
+    let idle_seconds = if last_req == 0 { 0 } else { now_ms().saturating_sub(last_req) / 1000 };
+    Json(RestResponse {
+        rested: last.is_some(),
+        idle_threshold_seconds: state.rest.threshold_seconds,
+        idle_seconds,
+        last,
+    })
+}
+
+/// How long the engine must be quiet before a rest pass runs.
+///
+/// `PHYSIS_IDLE_DREAM_SECS=0` makes every tick a rest pass (useful in tests and
+/// demos); anything unparseable falls back to the default rather than
+/// disabling the rhythm silently.
+/// How often the rest cycle checks whether the engine has gone quiet. Cheap
+/// (an atomic load, then a `continue`), so this is about how promptly a rest
+/// pass follows the idle threshold, not about load.
+const REST_TICK_SECS: u64 = 5;
+
+fn idle_dream_secs() -> u64 {
+    std::env::var("PHYSIS_IDLE_DREAM_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(60)
 }
 
 /// Replay the nodes worth revisiting, named.
@@ -4130,6 +4261,11 @@ pub async fn build_app() -> (SharedState, Router) {
         axes: Mutex::new(db.as_ref().map(crate::axes::AxisStore::load).unwrap_or_default()),
         quality: Mutex::new(build_quality_tracker(&shared)),
         limiter: rate_limit_from_env(),
+        rest: RestLog {
+            threshold_seconds: idle_dream_secs(),
+            last_request_ms: std::sync::atomic::AtomicU64::new(0),
+            last: Mutex::new(None),
+        },
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
@@ -4185,6 +4321,60 @@ pub async fn build_app() -> (SharedState, Router) {
                 for prop in scheduler.dream_proposals() {
                     log::info!("Gantt dream: {}", prop.description);
                 }
+            }
+        }
+    });
+
+    // 2b. Rest cycle. `dream()` replays reported failures and skips successes,
+    // but it was reachable only through POST /dream/generate — so in practice
+    // it never ran. Nothing alive consolidates on request; it consolidates when
+    // the demands stop. This watches for the quiet and uses it.
+    //
+    // Only the default tenant, matching the PDCA tick above: the rhythm belongs
+    // to the process. A pass that finds nothing new leaves the previous one
+    // standing, so the panel keeps showing the last real material rather than
+    // blanking every time the archive is exhausted.
+    let state_rest = Arc::downgrade(&state);
+    // Read the threshold HERE, not inside the async block: a spawned block does
+    // not run until it is first polled, which is after `build_app` returns, so
+    // reading the environment in there would pick up whatever the caller had
+    // set by then rather than the configuration this app was built with.
+    let rest_threshold = state.rest.threshold_seconds;
+    tokio::spawn(async move {
+        let threshold = rest_threshold;
+        // Never poll slower than the threshold itself, or a short threshold
+        // (demos, tests) would still wait a full tick to notice the quiet.
+        let tick = REST_TICK_SECS.min(threshold.max(1));
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(tick));
+        loop {
+            interval.tick().await;
+            let Some(strong) = state_rest.upgrade() else { break };
+
+            let last_req = strong
+                .rest
+                .last_request_ms
+                .load(std::sync::atomic::Ordering::Relaxed);
+            // Never asked anything yet: there is no idle period, only a cold
+            // process. Waiting for a first request keeps a freshly-booted
+            // engine from reporting a "rest" it never woke from.
+            if last_req == 0 {
+                continue;
+            }
+            let idle_seconds = now_ms().saturating_sub(last_req) / 1000;
+            if idle_seconds < threshold {
+                continue;
+            }
+
+            let pass = {
+                let mut s = strong.lock();
+                run_rest_pass(&mut s, idle_seconds)
+            };
+            if let Some(pass) = pass {
+                log::info!(
+                    "rest: chewed on {} node(s) after {idle_seconds}s idle",
+                    pass.chewed.len()
+                );
+                *strong.rest.last.lock().unwrap_or_else(|e| e.into_inner()) = Some(pass);
             }
         }
     });
@@ -4277,6 +4467,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/dream/generate", post(dream_generate_handler))
         .route("/api/v1/dream/evaluate", post(dream_evaluate_handler))
         .route("/api/v1/dream/replay", post(dream_replay_handler))
+        .route("/api/v1/dream/rest", get(dream_rest_handler))
         .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
         .route("/api/v1/coherence/nodes/all", get(coherence_nodes_all_handler))
