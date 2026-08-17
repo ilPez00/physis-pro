@@ -20,6 +20,9 @@ use serde_json::{json, Value};
 use tokio::sync::MutexGuard;
 use tower::ServiceExt;
 
+#[cfg(feature = "sql")]
+use rusqlite::Connection;
+
 // `build_app` reads the process environment directly (HOME, PHYSIS_EMBEDDER,
 // PHYSIS_API_TOKEN, PHYSIS_SCAN_ROOT). Cargo runs these tests on parallel
 // threads in ONE process, so two tests building apps concurrently would clobber
@@ -539,6 +542,41 @@ async fn scan_is_confined_to_scan_root() {
         body["error"].as_str().unwrap_or("").contains("scan root"),
         "the refusal must name the confinement: {body}"
     );
+}
+
+#[cfg(feature = "sql")]
+#[tokio::test]
+async fn sql_schema_and_incremental_scan_are_exposed() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let db_path = dir.path().join(".physis").join("orders.sqlite");
+    std::fs::create_dir_all(db_path.parent().unwrap()).expect("mkdir database dir");
+    let conn = Connection::open(&db_path).expect("create sqlite fixture");
+    conn.execute_batch(
+        "CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT, amount INTEGER); \
+         INSERT INTO orders VALUES (1, 'open', 10), (2, 'paid', 20);",
+    )
+    .expect("seed sqlite fixture");
+    drop(conn);
+
+    let (router, _env) = app_on(dir.path()).await;
+    let uri = format!("/api/v1/sql/schema?database={}", urlencoding::encode(&db_path.to_string_lossy()));
+    let (status, schema) = send(&router, get(&uri, "sql-test")).await;
+    assert_eq!(status, StatusCode::OK, "schema discovery succeeds: {schema}");
+    assert_eq!(schema["tables"][0]["name"], "orders");
+    assert_eq!(schema["tables"][0]["columns"][0]["name"], "id");
+
+    let request = json!({
+        "database": db_path.to_string_lossy(),
+        "table": "orders",
+        "key_columns": ["id"]
+    });
+    let (status, first) = send(&router, post("/api/v1/sql/scan", "sql-test", request.clone())).await;
+    assert_eq!(status, StatusCode::OK, "first SQL scan succeeds: {first}");
+    assert_eq!(first["new"], 2);
+    let (status, second) = send(&router, post("/api/v1/sql/scan", "sql-test", request)).await;
+    assert_eq!(status, StatusCode::OK, "repeat SQL scan succeeds: {second}");
+    assert_eq!(second["unchanged"], 2);
+    assert_eq!(second["embedding_cache_misses"], 0);
 }
 
 #[tokio::test]

@@ -27,7 +27,8 @@ reusing persisted coherence nodes and embeddings.
 
 ## Direct SQL connector
 
-POST /api/v1/sql/scan is the first direct database connector. It currently
+GET /api/v1/sql/schema?database=... discovers tables and columns. Then
+POST /api/v1/sql/scan imports a selected table. The connector currently
 supports SQLite in read-only mode:
 
 ```json
