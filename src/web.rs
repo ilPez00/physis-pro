@@ -608,6 +608,18 @@ struct SqlScanResponse {
     embedding_cache_misses: usize,
 }
 
+#[derive(Deserialize)]
+struct SqlSchemaRequest {
+    #[serde(alias = "db")]
+    database: String,
+}
+
+#[derive(Serialize)]
+struct SqlSchemaResponse {
+    database: String,
+    tables: Vec<crate::sql::SqlTable>,
+}
+
 #[derive(Serialize)]
 struct QueryResponse {
     results: Vec<Vec<String>>,
@@ -1101,12 +1113,6 @@ async fn scan_handler(
     }))
 }
 
-/// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
-/// scan_root): diff against the watch hash cache, register new/changed files as
-/// labeled core nodes (shared embedder, persisted), drop nodes for removed
-/// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
-/// thread — call this to catch up immediately or from a cron, then let the
-/// background poller take over.
 /// POST /api/v1/sql/scan — read a SQLite table in read-only mode and ingest
 /// only rows whose stable key is new or whose selected content changed.
 async fn sql_scan_handler(
@@ -1176,6 +1182,39 @@ async fn sql_scan_handler(
     }))
 }
 
+/// GET /api/v1/sql/schema?database=... — discover SQLite tables and columns
+/// without opening the database for writes.
+async fn sql_schema_handler(
+    State(state): State<SharedState>,
+    Query(req): Query<SqlSchemaRequest>,
+) -> Result<Json<SqlSchemaResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.database);
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve database: {e}"))
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("database outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    let database = canonical.clone();
+    let tables = tokio::task::spawn_blocking(move || crate::sql::schema(&database))
+        .await
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    Ok(Json(SqlSchemaResponse {
+        database: canonical.display().to_string(),
+        tables,
+    }))
+}
+
+/// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
+/// scan_root): diff against the watch hash cache, register new/changed files as
+/// labeled core nodes (shared embedder, persisted), drop nodes for removed
+/// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
+/// thread — call this to catch up immediately or from a cron, then let the
+/// background poller take over.
 async fn watch_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -5417,6 +5456,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/stats", get(stats_handler))
         .route("/api/v1/query", get(query_handler))
         .route("/api/v1/scan", post(scan_handler))
+        .route("/api/v1/sql/schema", get(sql_schema_handler))
         .route("/api/v1/sql/scan", post(sql_scan_handler))
         .route("/api/v1/watch", post(watch_handler))
         .route("/api/v1/vault/import", post(vault_import_handler))

@@ -51,6 +51,20 @@ pub struct SqlRequest {
     pub text_columns: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlColumn {
+    pub name: String,
+    pub declared_type: String,
+    pub primary_key: bool,
+    pub not_null: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqlTable {
+    pub name: String,
+    pub columns: Vec<SqlColumn>,
+}
+
 pub fn manifest_path(data_dir: &Path, user: &str, database: &Path, table: &str) -> PathBuf {
     let mut h = Sha256::new();
     h.update(user.as_bytes());
@@ -59,6 +73,33 @@ pub fn manifest_path(data_dir: &Path, user: &str, database: &Path, table: &str) 
     h.update([0]);
     h.update(table.as_bytes());
     data_dir.join(format!("sql_scan_{:x}.json", h.finalize()))
+}
+
+#[cfg(feature = "sql")]
+pub fn schema(database: &Path) -> Result<Vec<SqlTable>> {
+    let conn = Connection::open_with_flags(
+        database,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .with_context(|| format!("open SQLite database read-only: {}", database.display()))?;
+    let mut tables_stmt = conn.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )?;
+    let tables = tables_stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    tables
+        .into_iter()
+        .map(|name| {
+            let columns = table_info(&conn, &name)?;
+            Ok(SqlTable { name, columns })
+        })
+        .collect()
+}
+
+#[cfg(not(feature = "sql"))]
+pub fn schema(_database: &Path) -> Result<Vec<SqlTable>> {
+    bail!("SQL ingestion requires the 'sql' feature")
 }
 
 #[cfg(feature = "sql")]
@@ -192,11 +233,25 @@ pub fn scan(_req: &SqlRequest, _manifest_file: &Path) -> Result<SqlDiff> {
 
 #[cfg(feature = "sql")]
 fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
+    Ok(table_info(conn, table)?
+        .into_iter()
+        .map(|column| column.name)
+        .collect())
+}
+
+#[cfg(feature = "sql")]
+fn table_info(conn: &Connection, table: &str) -> Result<Vec<SqlColumn>> {
+    validate_identifier(table)?;
     let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", quote(table)))?;
     let mut rows = stmt.query([])?;
     let mut columns = Vec::new();
     while let Some(row) = rows.next()? {
-        columns.push(row.get::<_, String>(1)?);
+        columns.push(SqlColumn {
+            name: row.get(1)?,
+            declared_type: row.get(2)?,
+            not_null: row.get::<_, i64>(3)? != 0,
+            primary_key: row.get::<_, i64>(5)? != 0,
+        });
     }
     Ok(columns)
 }
