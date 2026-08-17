@@ -41,6 +41,7 @@ async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>
     // inherit it (a stale token would 401 every request in the next test).
     std::env::remove_var("PHYSIS_API_TOKEN");
     std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("HOME", dir); // config resolves ~/.physis
     let (_state, router) = physis_pro::web::build_app().await;
     (router, env)

@@ -163,6 +163,8 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/scan` | ✓ | Incremental scan of a dir; response reports changed/reused work (confined to `PHYSIS_SCAN_ROOT`) |
 | GET  | `/api/v1/sql/schema` | ✓ | Discover SQLite tables and columns (read-only, confined to `PHYSIS_SCAN_ROOT`) |
 | POST | `/api/v1/sql/scan` | ✓ | Read-only SQLite table ingestion with stable keys, row-level diffs, and incremental embeddings |
+| POST | `/api/v1/sql/postgres/schema` | postgres | Discover PostgreSQL public tables and columns. DSN goes in the body, never a query string — it embeds the password |
+| POST | `/api/v1/sql/postgres/scan` | postgres | Incremental PostgreSQL table ingestion using the shared row-delta contract |
 | POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files, and folds edits/deletions into salience → `{new, changed, deleted, registered, removed, total_nodes, observed}` |
 | POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
 | POST | `/api/v1/history/import` | ✓ | **Personal-history import**: browser bookmarks/history, OPML feeds, chat JSONL → labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{file, items, registered, deduped}` |
