@@ -3379,6 +3379,103 @@ async fn ontology_list_handler(
 }
 
 #[derive(Serialize)]
+struct StudioEntry {
+    name: String,
+    kind: String,
+    domain: Option<String>,
+    mode: Option<String>,
+    category: Option<String>,
+    hints: Vec<String>,
+    facets: crate::models::Facets,
+    /// Whether the classifier can ever return this entry.
+    ///
+    /// `classification_domains()` covers only `human` + `custom`, while the
+    /// grid renders `all_domains()`. Everything else is authored, loaded, and
+    /// displayed, but unreachable by classification. Surfacing the flag per
+    /// entry is the point of the studio: the gap is invisible otherwise.
+    classified: bool,
+    /// True when any facet is set. Facets are the designed expansion beyond
+    /// the DOMAIN×MODE grid, and are currently unpopulated everywhere.
+    faceted: bool,
+}
+
+#[derive(Serialize)]
+struct StudioResponse {
+    entries: Vec<StudioEntry>,
+    /// Per-kind totals, split by whether the classifier can reach them.
+    kinds: Vec<serde_json::Value>,
+    total: usize,
+    classified: usize,
+    faceted: usize,
+}
+
+/// Everything the ontology studio needs in one call: every authored entry,
+/// which ontology it came from, whether classification can reach it, and
+/// whether it carries any facet.
+async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<StudioResponse> {
+    let s = &state.shared;
+    let o = &s.ontology;
+
+    // Names the classifier actually scores against, so each entry can be
+    // marked reachable or not.
+    let reachable: std::collections::HashSet<&str> =
+        o.classification_domains().map(|d| d.name.as_str()).collect();
+
+    let sources: [(&str, &std::collections::HashMap<String, crate::models::DomainDef>); 11] = [
+        ("human", &o.human_domains),
+        ("custom", &o.custom_domains),
+        ("machine", &o.machine_domains),
+        ("semiotic", &o.semiotic_domains),
+        ("category", &o.category_domains),
+        ("agent", &o.agent_domains),
+        ("natural", &o.natural_domains),
+        ("social", &o.social_domains),
+        ("abstract", &o.abstract_domains),
+        ("engineering", &o.engineering_domains),
+        ("office", &o.office_domains),
+    ];
+
+    let mut entries = Vec::new();
+    let mut kinds = Vec::new();
+    for (kind, map) in sources {
+        let mut reach = 0usize;
+        for def in map.values() {
+            let classified = reachable.contains(def.name.as_str());
+            if classified {
+                reach += 1;
+            }
+            let f = &def.facets;
+            let faceted = f.sub_domain.is_some()
+                || f.sub_mode.is_some()
+                || f.lifecycle.is_some()
+                || f.agency.is_some()
+                || f.scale.is_some()
+                || f.abstraction.is_some();
+            entries.push(StudioEntry {
+                name: def.name.clone(),
+                kind: kind.to_string(),
+                domain: def.domain.clone(),
+                mode: def.mode.clone(),
+                category: def.category.clone(),
+                hints: def.hints.clone(),
+                facets: def.facets.clone(),
+                classified,
+                faceted,
+            });
+        }
+        kinds.push(serde_json::json!({
+            "kind": kind, "count": map.len(), "classified": reach,
+        }));
+    }
+
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    let total = entries.len();
+    let classified = entries.iter().filter(|e| e.classified).count();
+    let faceted = entries.iter().filter(|e| e.faceted).count();
+    Json(StudioResponse { entries, kinds, total, classified, faceted })
+}
+
+#[derive(Serialize)]
 struct SemioticGridResponse {
     cells: Vec<serde_json::Value>,
 }
@@ -4281,6 +4378,7 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/lifeos/today", get(lifeos_today_handler))
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
+        .route("/api/v1/ontology/studio", get(ontology_studio_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))
         .route("/api/v1/semiotic/triangle", get(semiotic_triangle_handler))
         .route("/api/v1/semiotic/square", get(greimas_square_handler))

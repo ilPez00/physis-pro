@@ -250,6 +250,7 @@
     <button data-tab="classify">Classify</button>
     <button data-tab="timeline">Timeline</button>
     <button data-tab="grid">Grid</button>
+    <button data-tab="ontology">Ontology Studio</button>
     <button data-tab="graph">File Graph</button>
     <button data-tab="oee">OEE</button>
   </nav>
@@ -323,6 +324,39 @@
     <h3>Semiotic grid — 5 domains × 14 modes (70 cells)</h3>
     <div id="heat"></div>
     <p class="muted" id="gridNote" style="margin-top:8px"></p>
+  </section>
+
+  <!-- ONTOLOGY STUDIO -->
+  <section class="tab" id="tab-ontology">
+    <div class="row">
+      <h3 style="margin:0">Ontology Studio</h3>
+      <button id="onLoad">Load</button>
+      <input id="onSearch" placeholder="filter by name, hint, category…" style="min-width:240px"/>
+      <select id="onKind"><option value="">all sources</option></select>
+      <label class="sm"><input type="checkbox" id="onUnreach"/> only unreachable</label>
+    </div>
+
+    <div id="onStats" class="muted" style="margin-top:8px">Not loaded.</div>
+
+    <div class="row" style="align-items:flex-start;gap:12px;margin-top:10px">
+      <div class="pane" style="flex:0 0 auto">
+        <h3>Coverage by source</h3>
+        <div id="onKinds" class="muted">—</div>
+      </div>
+      <div class="pane" style="flex:1">
+        <h3>DOMAIN × MODE density</h3>
+        <p class="sm muted" style="margin:2px 0 6px">
+          Cell shade = entry count. A dark cell is not a strong cell: the largest
+          cells measured lowest internal coherence.
+        </p>
+        <div id="onGrid" style="overflow-x:auto"></div>
+      </div>
+    </div>
+
+    <div class="pane" style="margin-top:10px">
+      <h3>Entries <span class="sm muted" id="onCount"></span></h3>
+      <div id="onList" style="max-height:420px;overflow:auto"></div>
+    </div>
   </section>
 
   <!-- FILE GRAPH -->
@@ -737,6 +771,103 @@ async function move(){const n=cy.$('node:selected').first();if(!n||n.data('kind'
 
 $('scan').onclick=scan;$('move').onclick=move;$('view').onchange=()=>render(lastG);$('hubs').onchange=scan;$('search').oninput=applySearch;
 ['base','token'].forEach(k=>$(k).onchange=save);
+
+// ── Ontology Studio ────────────────────────────────────────────────────────
+// Shows what is authored versus what the engine can actually reach. The grid
+// renders every loaded ontology, but classification only scores against
+// human+custom, so most entries are visible here and unreachable at runtime.
+// The studio exists to make that difference impossible to miss.
+let ONT=null;
+
+function ontStats(d){
+  const unreach=d.total-d.classified;
+  const pct=d.total?Math.round(100*d.classified/d.total):0;
+  const warn=unreach>0?`<span style="color:#f85149">${unreach} unreachable</span>`:'none unreachable';
+  const fw=d.faceted===0
+    ? `<span style="color:#f85149">0 entries carry any facet</span> — the orthogonal axes (lifecycle/agency/scale/abstraction) are defined but unpopulated, so every facet query returns nothing`
+    : `${d.faceted} faceted`;
+  $('onStats').innerHTML=
+    `<b>${d.total}</b> entries authored · <b>${d.classified}</b> reachable by the classifier (${pct}%) · ${warn}<br>${fw}`;
+}
+
+function ontKinds(d){
+  const rows=d.kinds.filter(k=>k.count>0).map(k=>{
+    const ok=k.classified===k.count;
+    const col=ok?'#3fb950':(k.classified===0?'#f85149':'#d29922');
+    return `<tr><td style="padding:1px 8px 1px 0">${esc(k.kind)}</td>`
+      +`<td style="text-align:right;padding-right:8px">${k.count}</td>`
+      +`<td style="color:${col}">${k.classified===0?'unreachable':k.classified+' reachable'}</td></tr>`;
+  }).join('');
+  $('onKinds').innerHTML=`<table class="sm">${rows}</table>`;
+}
+
+function ontGrid(entries){
+  const count={};
+  for(const e of entries){ if(e.domain&&e.mode){const k=e.domain+'|'+e.mode; count[k]=(count[k]||0)+1;} }
+  const max=Math.max(1,...Object.values(count));
+  let h='<table class="sm" style="border-collapse:collapse"><tr><th></th>'
+    +MODES.map(m=>`<th style="font-weight:400;padding:0 3px;font-size:10px">${esc(m.slice(0,4))}</th>`).join('')+'</tr>';
+  for(const d of DOMAINS){
+    h+=`<tr><td style="padding-right:6px;color:${DCOL[d]}">${esc(d)}</td>`;
+    for(const m of MODES){
+      const n=count[d+'|'+m]||0;
+      // Shade by share of the largest cell. Large is not good here — it is the
+      // signature of a cell that has stopped discriminating.
+      const a=n?0.12+0.88*(n/max):0;
+      const title=`${d} x ${m}: ${n} entries`;
+      h+=`<td title="${esc(title)}" style="width:22px;height:20px;text-align:center;`
+        +`background:rgba(88,166,255,${a.toFixed(3)});border:1px solid #21262d;font-size:10px">${n||''}</td>`;
+    }
+    h+='</tr>';
+  }
+  $('onGrid').innerHTML=h+'</table>';
+}
+
+function ontList(){
+  if(!ONT)return;
+  const q=($('onSearch').value||'').toLowerCase().trim();
+  const kind=$('onKind').value;
+  const onlyUnreach=$('onUnreach').checked;
+  const hit=ONT.entries.filter(e=>{
+    if(kind&&e.kind!==kind)return false;
+    if(onlyUnreach&&e.classified)return false;
+    if(!q)return true;
+    return e.name.toLowerCase().includes(q)
+      ||(e.category||'').toLowerCase().includes(q)
+      ||e.hints.some(x=>x.toLowerCase().includes(q));
+  });
+  $('onCount').textContent=`— showing ${hit.length} of ${ONT.entries.length}`;
+  $('onList').innerHTML=hit.slice(0,600).map(e=>{
+    const cell=e.domain&&e.mode
+      ? `<span style="color:${DCOL[e.domain]||'#8b949e'}">${esc(e.domain)}</span> × ${esc(e.mode)}`
+      : '<span class="muted">no cell</span>';
+    const reach=e.classified
+      ? '<span style="color:#3fb950" title="classification can return this">reachable</span>'
+      : '<span style="color:#f85149" title="loaded and displayed, but classification never scores it">unreachable</span>';
+    const fac=e.faceted?'<span style="color:#3fb950">faceted</span>':'<span class="muted">no facets</span>';
+    return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
+      +`<b>${esc(e.name)}</b> <span class="sm muted">${esc(e.kind)}</span> — ${cell} · ${reach} · ${fac}`
+      +`<div class="sm muted">${esc(e.hints.slice(0,10).join(', '))}</div></div>`;
+  }).join('')||'<span class="muted">nothing matches.</span>';
+}
+
+async function loadOntology(){
+  $('onStats').textContent='loading…';
+  try{
+    ONT=await getJSON('/api/v1/ontology/studio');
+    ontStats(ONT); ontKinds(ONT); ontGrid(ONT.entries);
+    const kinds=[...new Set(ONT.entries.map(e=>e.kind))].sort();
+    $('onKind').innerHTML='<option value="">all sources</option>'
+      +kinds.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    ontList();
+  }catch(e){ $('onStats').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
+}
+
+$('onLoad').onclick=loadOntology;
+$('onSearch').oninput=ontList;
+$('onKind').onchange=ontList;
+$('onUnreach').onchange=ontList;
+document.querySelector('[data-tab="ontology"]').addEventListener('click',()=>{ if(!ONT)loadOntology(); });
 
 loadOverview();
 </script>
