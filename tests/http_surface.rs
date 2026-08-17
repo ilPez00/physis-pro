@@ -514,6 +514,19 @@ async fn scan_is_confined_to_scan_root() {
     .await;
     assert_eq!(status, StatusCode::OK, "a path inside scan root is scannable");
 
+    // A second scan reuses the directory hash diff and content-addressed
+    // embeddings instead of forwarding the same label through the embedder.
+    let (status, second) = send(
+        &router,
+        post("/api/v1/scan", "_default", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "repeat scan succeeds: {second}");
+    assert_eq!(second["unchanged"], 1, "unchanged file is recognized: {second}");
+    assert!(second["reused_labels"].as_u64().unwrap_or(0) > 0, "repeat scan reuses labels: {second}");
+    assert_eq!(second["embedding_cache_hits"], 0, "unchanged labels bypass embedding: {second}");
+    assert_eq!(second["embedding_cache_misses"], 0, "no re-embedding on repeat: {second}");
+
     // An existing directory OUTSIDE the root must be refused, not scanned.
     let outside = std::env::temp_dir();
     let (status, body) = send(
