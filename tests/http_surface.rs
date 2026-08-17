@@ -142,6 +142,59 @@ async fn demo_and_console_ui_are_served() {
 }
 
 #[tokio::test]
+async fn planner_simulates_without_mutating_live_state_and_admin_groups_duplicates() {
+    let (router, _dir, _env) = app().await;
+    let candidate = serde_json::json!({
+        "kind": "office",
+        "domains": [{
+            "name": "Invoice Review",
+            "category": "Finance",
+            "domain": "STUDY",
+            "mode": "WORK",
+            "axis_kind": "office",
+            "axis_name": "finance",
+            "hints": ["invoice", "supplier", "review"]
+        }]
+    });
+    let (status, simulation) = send(
+        &router,
+        post(
+            "/api/v1/planner/simulate",
+            "planner-user",
+            json!({
+                "scenario_id": "procurement-v2",
+                "candidate_ontology": candidate.to_string(),
+                "texts": [{"id": "invoice-1", "source": "supplier invoice review"}]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "planner succeeds: {simulation}");
+    assert_eq!(simulation["scenario_id"], "procurement-v2");
+    assert_eq!(simulation["records_scanned"], 1);
+    assert!(simulation["items"][0]["before"]["domain"].is_string());
+    assert!(simulation["items"][0]["after"]["domain"].is_string());
+
+    let (status, queue) = send(
+        &router,
+        post(
+            "/api/v1/admin/review",
+            "admin-user",
+            json!([
+                {"id":"a","path":"a.pdf","kind":"invoice","fingerprint":"dup-1"},
+                {"id":"b","path":"b.pdf","kind":"invoice","fingerprint":"dup-1"},
+                {"id":"c","path":"c.pdf","kind":"invoice"}
+            ]),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(queue["documents"], 3);
+    assert_eq!(queue["duplicate_documents"], 2);
+    assert_eq!(queue["duplicate_groups"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
 async fn study_log_sessions_are_served_and_isolated_per_tenant() {
     // The learning/teaching layer: /study page serves, events persist with
     // their context metadata, a session aggregates them (timeline in order,

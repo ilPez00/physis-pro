@@ -7,91 +7,105 @@
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <style>
   :root{
-    --bg:#0b1020;
-    --bg2:#0f1730;
-    --panel:#121a30;
-    --panel2:#0f1628;
-    --line:#24324f;
-    --fg:#edf2ff;
-    --muted:#97a7c3;
-    --accent:#7aa2ff;
-    --accent2:#7ee7d8;
-    --green:#4cd080;
-    --amber:#f4bf75;
-    --red:#ff6b6b;
-    --shadow:0 14px 40px rgba(0,0,0,.28);
+    --bg:#070a18;
+    --bg2:#0b1025;
+    --panel:rgba(16,22,49,.78);
+    --panel2:rgba(11,16,35,.88);
+    --line:rgba(135,157,219,.18);
+    --line-strong:rgba(104,231,255,.42);
+    --fg:#f1f5ff;
+    --muted:#8997b8;
+    --accent:#68e7ff;
+    --accent2:#b49cff;
+    --green:#72f0b2;
+    --amber:#ffc66d;
+    --red:#ff718d;
+    --shadow:0 20px 70px rgba(0,0,0,.34);
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
     margin:0;
-    font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     color:var(--fg);
     background:
-      radial-gradient(1200px 800px at 10% 0%, rgba(122,162,255,.18), transparent 55%),
-      radial-gradient(900px 600px at 90% 10%, rgba(126,231,216,.12), transparent 50%),
+      radial-gradient(900px 600px at 8% -12%, rgba(75,110,255,.28), transparent 58%),
+      radial-gradient(760px 520px at 96% 4%, rgba(104,231,255,.13), transparent 58%),
       linear-gradient(180deg, var(--bg), var(--bg2));
     display:flex;
     flex-direction:column;
+    overflow:hidden;
+  }
+  body:before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.28;
+    background-image:linear-gradient(rgba(111,135,204,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(111,135,204,.055) 1px,transparent 1px);
+    background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 76%);
   }
   header{
-    padding:12px 16px;
-    background:rgba(18,26,48,.88);
+    padding:14px 22px;
+    background:rgba(7,10,24,.7);
     backdrop-filter: blur(12px);
-    border-bottom:1px solid rgba(36,50,79,.85);
+    border-bottom:1px solid var(--line);
     display:flex;
-    gap:10px;
+    gap:14px;
     align-items:center;
     flex-wrap:wrap;
     box-shadow:var(--shadow);
   }
   header h1{
-    font-size:15px;
+    font-size:16px;
     margin:0 12px 0 0;
     font-weight:700;
-    letter-spacing:.02em;
+    letter-spacing:.08em;
+    text-transform:uppercase;
   }
-  header h1 span{color:var(--accent2)}
-  header .sub{font-size:12px;color:var(--muted)}
+  header h1:before{content:"◈";color:var(--accent);margin-right:9px;text-shadow:0 0 18px var(--accent)}
+  header h1 span{color:var(--accent);font-weight:500}
+  header .sub{font:10px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
   input,button,select,textarea{
-    background:rgba(13,19,35,.9);
+    background:rgba(5,9,22,.72);
     color:var(--fg);
     border:1px solid var(--line);
-    border-radius:10px;
-    padding:8px 10px;
+    border-radius:8px;
+    padding:9px 11px;
     font-size:13px;
     font-family:inherit;
   }
   textarea{width:100%;min-height:110px;resize:vertical}
   button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
-  button:hover{border-color:var(--accent);background:#15203b}
+  button:hover{border-color:var(--accent);background:rgba(104,231,255,.1);box-shadow:0 0 20px rgba(104,231,255,.08)}
   button:active{transform:translateY(1px)}
-  #status{margin-left:auto;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
+  #status{margin-left:auto;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
   .muted{color:var(--muted)}
   .err{color:var(--red)}
   main{flex:1;display:flex;min-height:0}
   nav{
-    width:178px;
-    background:rgba(18,26,48,.92);
-    border-right:1px solid rgba(36,50,79,.85);
+    width:206px;
+    background:rgba(8,12,29,.76);
+    border-right:1px solid var(--line);
     display:flex;
     flex-direction:column;
-    padding:12px 8px;
-    gap:4px;
+    padding:22px 12px;
+    gap:6px;
+    position:relative;z-index:1;
   }
+  nav:after{content:"PHYSIS / 01";margin:auto 10px 4px;color:#4e5a7a;font:9px var(--mono);letter-spacing:.18em}
   nav button{
     background:none;
     border:none;
-    border-radius:10px;
+    border-radius:9px;
     text-align:left;
-    padding:10px 12px;
+    padding:11px 13px;
     color:var(--muted);
-    font-size:13px;
+    font-size:12px;
+    letter-spacing:.02em;
   }
   nav button.active{
     color:var(--fg);
-    background:rgba(122,162,255,.12);
-    border:1px solid rgba(122,162,255,.32);
+    background:linear-gradient(90deg,rgba(104,231,255,.16),rgba(180,156,255,.06));
+    border:1px solid var(--line-strong);
+    box-shadow:inset 3px 0 0 var(--accent),0 8px 28px rgba(41,112,160,.12);
   }
   nav button:hover{color:var(--fg)}
   .tab{
@@ -99,26 +113,29 @@
     min-width:0;
     display:none;
     overflow:auto;
-    padding:18px;
+    padding:26px clamp(18px,3vw,42px);
+    position:relative;z-index:1;
   }
   .tab.active{display:flex;flex-direction:column;gap:16px}
   .hero{
     display:flex;
     justify-content:space-between;
-    gap:16px;
+    gap:20px;
     align-items:flex-start;
-    padding:16px 18px;
+    padding:25px 26px;
     border:1px solid var(--line);
-    border-radius:16px;
-    background:rgba(14,20,39,.72);
+    border-radius:18px;
+    background:linear-gradient(120deg,rgba(19,28,61,.86),rgba(9,14,33,.76));
     box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
   }
-  .hero h2{margin:0 0 6px;font-size:20px}
+  .hero:after{content:"";position:absolute;right:-90px;top:-140px;width:360px;height:360px;border:1px solid rgba(104,231,255,.25);border-radius:50%;box-shadow:0 0 0 22px rgba(104,231,255,.025),0 0 0 46px rgba(180,156,255,.025);pointer-events:none}
+  .hero h2{margin:0 0 8px;font-size:clamp(22px,3vw,34px);line-height:1.04;letter-spacing:-.045em;max-width:620px}
   .hero p{margin:0;color:var(--muted)}
   .hero .actions{display:flex;gap:8px;flex-wrap:wrap}
   .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
   .card{
-    background:rgba(18,26,48,.82);
+    background:var(--panel);
     border:1px solid var(--line);
     border-radius:16px;
     padding:14px 16px;
@@ -198,6 +215,15 @@
   .pill.good{color:var(--green);border-color:rgba(76,208,128,.28)}
   .pill.warn{color:var(--amber);border-color:rgba(244,191,117,.28)}
   .pill.bad{color:var(--red);border-color:rgba(255,107,107,.28)}
+  .signal{display:flex;align-items:center;gap:8px;margin-top:18px;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .signal i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.42;transform:scale(.72)}}
+  .orbit{position:absolute;right:34px;top:30px;width:190px;height:140px;pointer-events:none;opacity:.86}
+  .orbit:before,.orbit:after{content:"";position:absolute;inset:8px 0;border:1px solid rgba(104,231,255,.35);border-radius:50%;transform:rotate(-23deg)}
+  .orbit:after{inset:0 24px;transform:rotate(48deg);border-color:rgba(180,156,255,.34)}
+  .orbit b{position:absolute;left:88px;top:62px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 7px rgba(104,231,255,.12),0 0 30px var(--accent)}
+  .orbit span{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber)}
+  .orbit span:nth-child(2){left:20px;top:33px}.orbit span:nth-child(3){right:14px;top:78px;background:var(--accent2);box-shadow:0 0 12px var(--accent2)}
   .timeline{
     display:grid;
     gap:10px;
@@ -234,7 +260,9 @@
     #graphWrap,.split{grid-template-columns:1fr;display:grid}
     #gAside{width:auto;border-left:none;padding-left:0}
     .hero{flex-direction:column}
+    .orbit{display:none}
   }
+  @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -246,11 +274,13 @@
 </header>
 <main>
   <nav>
-    <button data-tab="overview" class="active">Overview</button>
-    <button data-tab="classify">Classify</button>
-    <button data-tab="timeline">Timeline</button>
-    <button data-tab="grid">Grid</button>
-    <button data-tab="ontology">Ontology Studio</button>
+    <button data-tab="overview" class="active">◈ Overview</button>
+    <button data-tab="classify">⌁ Classify</button>
+    <button data-tab="timeline">◷ Timeline</button>
+    <button data-tab="grid">▦ Grid</button>
+    <button data-tab="ontology">◎ Ontology Studio</button>
+    <button data-tab="planner">⟲ Decision Planner</button>
+    <button data-tab="admin">▤ Admin Review</button>
     <button data-tab="graph">File Graph</button>
     <button data-tab="oee">OEE</button>
   </nav>
@@ -259,9 +289,11 @@
   <section class="tab active" id="tab-overview">
     <div class="hero">
       <div>
-        <h2>Operational intelligence dashboard</h2>
-        <p>Demo-first view over printer telemetry, workflow notes, email threads, and machine health.</p>
+        <div class="signal"><i></i> semantic operating layer · live workspace</div>
+        <h2>See the system beneath the signals.</h2>
+        <p>Physis turns operational traces into a reviewable field of meaning—then shows what changes before you change the system.</p>
       </div>
+      <div class="orbit" aria-hidden="true"><b></b><span></span><span></span></div>
       <div class="actions">
         <button id="ovLoad">Refresh overview</button>
         <button id="ovDemo">Load demo timeline</button>
@@ -354,9 +386,68 @@
     </div>
 
     <div class="pane" style="margin-top:10px">
+      <h3>Meaning in context</h3>
+      <p class="sm muted" style="margin:2px 0 6px">
+        Overlays in <code id="onDir">~/.physis/ontologies</code> —
+        <code>sector/</code>, <code>client/</code>, <code>project/</code>.
+        Resolution runs project → client → sector → global; the narrowest wins,
+        and an overlay shadows only the names it mentions.
+      </p>
+      <div class="row">
+        <select id="onContested"><option value="">— contested names —</option></select>
+        <span class="sm muted" id="onOverlays"></span>
+      </div>
+      <div id="onMeaning" class="muted" style="margin-top:6px">
+        Pick a name defined in more than one place.
+      </div>
+    </div>
+
+    <div class="pane" style="margin-top:10px">
       <h3>Entries <span class="sm muted" id="onCount"></span></h3>
       <div id="onList" style="max-height:420px;overflow:auto"></div>
     </div>
+  </section>
+
+  <!-- DECISION PLANNER -->
+  <section class="tab" id="tab-planner">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> counterfactual workspace</div>
+        <h2>Change the meaning. Preview the blast radius.</h2>
+        <p>Test a candidate ontology against a corpus before it reaches live state.</p>
+      </div>
+      <div class="actions"><button id="plannerRun">Simulate scenario →</button></div>
+    </div>
+    <div class="split">
+      <section class="surface">
+        <h3>Candidate ontology</h3>
+        <textarea id="plannerOntology" spellcheck="false">{"interpretant":"procurement review","domains":[{"name":"SUPPLIER","modes":["DELAY","QUALITY"]},{"name":"ORDER","modes":["OPEN","CLOSED"]}]}</textarea>
+        <label class="sm">Scenario ID <input id="plannerScenario" value="supplier-language-v1" /></label>
+      </section>
+      <section class="surface">
+        <h3>Corpus to replay</h3>
+        <textarea id="plannerTexts" spellcheck="false">[{"id":"note-01","source":"Supplier delay: replacement nozzle ships tomorrow."},{"id":"note-02","source":"Purchase order closed after delivery confirmation."},{"id":"note-03","source":"Quality hold remains unresolved."}]</textarea>
+        <label class="sm">Low-confidence threshold <input id="plannerThreshold" type="number" min="0" max="1" step="0.05" value="0.6" /></label>
+      </section>
+    </div>
+    <section class="surface"><h3>Impact report</h3><div id="plannerOut" class="muted">Run a scenario to see changed cells, confidence movement, and transition pressure.</div></section>
+  </section>
+
+  <!-- ADMIN REVIEW -->
+  <section class="tab" id="tab-admin">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> human review desk</div>
+        <h2>Find the work hiding in the pile.</h2>
+        <p>Group duplicate evidence and surface the documents that need a decision.</p>
+      </div>
+      <div class="actions"><button id="adminRun">Build review queue →</button></div>
+    </div>
+    <section class="surface">
+      <h3>Normalized document metadata</h3>
+      <textarea id="adminDocs" spellcheck="false">[{"id":"invoice-1042","path":"/inbox/invoice-1042.pdf","kind":"invoice","fingerprint":"fp-a1","vendor":"Acme Parts","document_number":"1042"},{"id":"invoice-1042-copy","path":"/archive/invoice-1042.pdf","kind":"invoice","fingerprint":"fp-a1","vendor":"Acme Parts","document_number":"1042"},{"id":"delivery-88","path":"/inbox/delivery-88.pdf","kind":"delivery_note","fingerprint":"fp-b2","vendor":"Acme Parts","document_number":"88"}]</textarea>
+    </section>
+    <section class="surface"><h3>Review queue</h3><div id="adminOut" class="muted">Build a queue to group duplicate evidence.</div></section>
   </section>
 
   <!-- FILE GRAPH -->
@@ -872,11 +963,75 @@ async function loadOntology(){
   }catch(e){ $('onStats').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
 }
 
-$('onLoad').onclick=loadOntology;
+// The same name resolved in every context that defines it. A name meaning one
+// thing globally and another for a client is not a conflict to reconcile — it
+// is the fact the overlays exist to record.
+const SCOPE_COL={global:'#8b949e',sector:'#58a6ff',client:'#bc8cff',project:'#3fb950'};
+
+async function loadMeanings(){
+  try{
+    const d=await getJSON('/api/v1/ontology/meaning');
+    if(d.overlay_dir)$('onDir').textContent=d.overlay_dir;
+    $('onOverlays').textContent=d.overlays.length
+      ? d.overlays.map(o=>`${o.scope}:${o.id} (${o.entries})`).join(' · ')
+      : 'no overlays found — create ontologies/client/<name>.json to add one';
+    $('onContested').innerHTML='<option value="">— contested names —</option>'
+      +d.contested.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(!d.contested.length){
+      $('onMeaning').innerHTML='<span class="muted">No name is defined in more than one context yet.</span>';
+    }
+  }catch(e){ $('onOverlays').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
+}
+
+async function showMeaning(){
+  const name=$('onContested').value;
+  if(!name){ $('onMeaning').innerHTML='<span class="muted">Pick a name defined in more than one place.</span>'; return; }
+  try{
+    const d=await getJSON('/api/v1/ontology/meaning?name='+encodeURIComponent(name));
+    $('onMeaning').innerHTML=(d.meanings||[]).map(m=>{
+      const col=SCOPE_COL[m.scope]||'#8b949e';
+      return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
+        +`<span style="color:${col}">${esc(m.scope)}:${esc(m.source)}</span> — `
+        +`<b>${esc(m.domain||'?')} × ${esc(m.mode||'?')}</b>`
+        +` <span class="sm muted">${esc(m.category||'')}</span>`
+        +`<div class="sm muted">${esc((m.hints||[]).slice(0,6).join(', '))}</div></div>`;
+    }).join('')||'<span class="muted">no meanings found.</span>';
+  }catch(e){ $('onMeaning').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
+}
+
+$('onContested').onchange=showMeaning;
+
+$('onLoad').onclick=()=>{loadOntology();loadMeanings();};
 $('onSearch').oninput=ontList;
 $('onKind').onchange=ontList;
 $('onUnreach').onchange=ontList;
-document.querySelector('[data-tab="ontology"]').addEventListener('click',()=>{ if(!ONT)loadOntology(); });
+document.querySelector('[data-tab="ontology"]').addEventListener('click',()=>{ if(!ONT){loadOntology();loadMeanings();} });
+
+// ── Productized pilot surfaces ─────────────────────────────────────────────
+function plannerCard(label,value,hint,kind=''){
+  return `<div class="card"><div class="label">${esc(label)}</div><div class="value ${kind}">${esc(value)}</div><div class="hint">${esc(hint)}</div></div>`;
+}
+async function runPlanner(){
+  const out=$('plannerOut'); out.innerHTML='<span class="muted">replaying corpus against candidate ontology…</span>';setS('simulating…');
+  try{
+    const candidate_ontology=JSON.stringify(JSON.parse($('plannerOntology').value));
+    const texts=JSON.parse($('plannerTexts').value);
+    const d=await postJSON('/api/v1/planner/simulate',{scenario_id:$('plannerScenario').value.trim()||'console-scenario',candidate_ontology,texts,confidence_threshold:Number($('plannerThreshold').value)||.6});
+    out.innerHTML=`<div class="kpi">${plannerCard('Changed',d.changed,'classification moved','warn')}${plannerCard('Unchanged',d.unchanged,'classification held','good')}${plannerCard('Low confidence',d.low_confidence,'needs human review','bad')}${plannerCard('Transitions',(d.transitions||[]).reduce((a,b)=>a+(b.count||0),0),'observed state shifts')}</div>`
+      +`<table><tr><th>Source</th><th>Before</th><th>After</th><th>Score</th></tr>${(d.items||[]).map(i=>`<tr><td>${esc(i.source)}</td><td>${esc(i.before?.domain||'—')} × ${esc(i.before?.mode||'—')}</td><td>${esc(i.after?.domain||'—')} × ${esc(i.after?.mode||'—')}</td><td>${typeof i.after?.score==='number'?i.after.score.toFixed(3):'—'}</td></tr>`).join('')}</table>`;
+    setS('scenario ready');
+  }catch(e){out.innerHTML=`<span class="err">${esc(String(e))}</span>`;setS('simulation failed',1);}
+}
+async function runAdmin(){
+  const out=$('adminOut');out.innerHTML='<span class="muted">grouping evidence…</span>';setS('building queue…');
+  try{
+    const docs=JSON.parse($('adminDocs').value);const d=await postJSON('/api/v1/admin/review',docs);
+    out.innerHTML=`<div class="kpi">${plannerCard('Documents',d.documents||0,'normalized records')}${plannerCard('Duplicate groups',d.duplicate_groups?.length||0,'clusters to resolve','warn')}${plannerCard('Duplicate records',d.duplicate_documents||0,'held from downstream action','bad')}</div>`
+      +((d.duplicate_groups||[]).map(g=>`<div class="event"><div class="time">DUPLICATE</div><div><div class="title">${esc(g.fingerprint)}</div><div class="meta">${(g.document_ids||[]).map(esc).join(' · ')}</div></div></div>`).join('')||'<p class="muted">No duplicate fingerprints found.</p>');
+    setS('queue ready');
+  }catch(e){out.innerHTML=`<span class="err">${esc(String(e))}</span>`;setS('queue failed',1);}
+}
+$('plannerRun').onclick=runPlanner;$('adminRun').onclick=runAdmin;
 
 loadOverview();
 </script>

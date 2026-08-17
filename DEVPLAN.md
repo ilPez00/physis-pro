@@ -41,7 +41,7 @@
 
 ### Administration/datawork track
 - [ ] Build the fixed demo corpus and `Admin Review Desk` flow
-- [ ] Add typed document metadata, duplicate detection, and exception queue
+- [x] Add typed document metadata, duplicate detection, and stateless exception queue primitive
 - [ ] Add CSV/XLSX batch import with validation and reviewed export
 - [ ] Add invoice/PO/delivery-note reconciliation without payment automation
 - [ ] Add weekly management-pack templates with source provenance
@@ -50,9 +50,9 @@
 
 ### Decision Planner track
 - [ ] Version ontology/overlay scenarios without mutating live state
-- [ ] Add sandbox classification and deterministic corpus impact diffs
-- [ ] Report old→new cells, confidence deltas, coverage gaps, and affected
-      reports/workflows with provenance
+- [x] Add sandbox classification and deterministic corpus impact diffs
+- [x] Report old→new cells, confidence deltas, and transition counts
+- [ ] Add coverage gaps and affected reports/workflows with provenance
 - [ ] Infer dated signifier shifts as reviewable hypotheses, never silent facts
 - [ ] Add scenario review, promotion, rejection, and reversible version history
 - [ ] Build the procurement ontology-replacement demo for praxisweb.xyz
