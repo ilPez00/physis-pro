@@ -276,8 +276,9 @@ use crate::embed::onnx::OnnxEmbedder;
 ///
 /// Order, first hit wins:
 /// 1. `PHYSIS_MODELS` — explicit override, for unusual deployments.
-/// 2. `./models/<name>` — running from the repo, which developers expect.
-/// 3. `<data_dir>/models/<name>` — where the installer puts them.
+/// 2. `MODEL_DIR` — conventional service-unit override (the model root).
+/// 3. `./models/<name>` — running from the repo, which developers expect.
+/// 4. `<data_dir>/models/<name>` — where the installer puts them.
 ///
 /// Falls back to the relative path when nothing exists, so the caller's
 /// `is_available()` check reports a missing model exactly as before.
@@ -287,6 +288,9 @@ fn model_dir(config: &PhysisConfig, name: &str) -> String {
 
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Some(root) = std::env::var_os("PHYSIS_MODELS") {
+        candidates.push(PathBuf::from(root).join(name));
+    }
+    if let Some(root) = std::env::var_os("MODEL_DIR") {
         candidates.push(PathBuf::from(root).join(name));
     }
     candidates.push(PathBuf::from("models").join(name));
