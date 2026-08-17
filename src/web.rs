@@ -17,10 +17,10 @@ use serde::{Deserialize, Serialize};
 use base64::Engine;
 
 use crate::actor::PDCActor;
+use crate::admin::{review_queue, ReviewDocument, ReviewQueue};
 use crate::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
 use crate::core::PhysisCore;
 use crate::dream::DreamEngine;
-use crate::embed::VectorEmbed;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::clip::ClipEmbedder;
 #[cfg(feature = "embed-onnx")]
@@ -28,29 +28,33 @@ use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
 use crate::embed::RandomProjectionEmbedder;
+use crate::embed::VectorEmbed;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
 use crate::mapper::OntologyMapper;
-use crate::models::{CoherenceNode, Goal, NodeView, Score, HumanDomain, HumanMode, SemioticGrid};
-use crate::structsim::{self, StructNode};
+use crate::models::{CoherenceNode, Goal, HumanDomain, HumanMode, NodeView, Score, SemioticGrid};
 use crate::rag::{self, RagCorpus};
+use crate::structsim::{self, StructNode};
 use crate::CoherenceSnapshot;
 
-use crate::oee::{plant_oee, OeeBoard, OeeReport, OeeShift, PlantOee, StopReason};
+use crate::ai::onnx_worker::OnnxHolon;
+use crate::ai::provider::{Message, ProviderCascade, ProviderConfig};
+use crate::classify::{CellClassifier, CellScore};
+use crate::gantt::{
+    compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput,
+};
+use crate::graph::IngestRing;
+use crate::industrial::{MachineReading, MachineStatus};
+use crate::life_os::tracker::{Charge, DriftReport, LifeOSGoal, LifeOSTracker, TodayPlan};
 use crate::maintenance::{
     project_time_to_limit, AnomalyScore, HealthBaseline, MaintenanceMonitor, RulEstimate, Sample,
     DEFAULT_SIGMA_THRESHOLD,
 };
-use crate::industrial::{MachineReading, MachineStatus};
+use crate::oee::{plant_oee, OeeBoard, OeeReport, OeeShift, PlantOee, StopReason};
 use crate::operational::OperationalEvent;
 use crate::operational_report::OperationalTimeline;
+use crate::planner::{self, CellOutcome, PlannerItem, PlannerSimulation};
 use crate::quality::QualityTracker;
-use crate::classify::{CellClassifier, CellScore};
-use crate::graph::{IngestRing};
-use crate::ai::onnx_worker::OnnxHolon;
-use crate::ai::provider::{ProviderCascade, ProviderConfig, Message};
-use crate::gantt::{compute_schedule, compute_trajectory, AbstractDomain, GanttScheduler, ScheduleResult, TaskInput};
 use crate::rachmaninov::RachmaninovHolon;
-use crate::life_os::tracker::{Charge, DriftReport, LifeOSGoal, LifeOSTracker, TodayPlan};
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -149,13 +153,23 @@ pub struct AppCtx {
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     limiter: RateLimiter,
     #[cfg(feature = "mcp")]
-    mcp_sessions: std::sync::Arc<tokio::sync::Mutex<std::collections::HashMap<String, futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>>>>,
+    mcp_sessions: std::sync::Arc<
+        tokio::sync::Mutex<
+            std::collections::HashMap<
+                String,
+                futures::channel::mpsc::Sender<rmcp::model::ClientJsonRpcMessage>,
+            >,
+        >,
+    >,
 }
 
 impl AppCtx {
     /// Current scan root (clone out of the lock; callers compare/canonicalize).
     fn scan_root(&self) -> PathBuf {
-        self.scan_root.read().unwrap_or_else(|e| e.into_inner()).clone()
+        self.scan_root
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 }
 
@@ -185,8 +199,10 @@ impl AppCtx {
                     rt.goals = load_goals(db, uid);
                     let (loaded, skipped) = rt.core.load_nodes(db, uid);
                     if loaded > 0 || skipped > 0 {
-                        log::info!("tenant {uid}: {loaded} coherence nodes restored, \
-                                    {skipped} skipped (embedder mismatch)");
+                        log::info!(
+                            "tenant {uid}: {loaded} coherence nodes restored, \
+                                    {skipped} skipped (embedder mismatch)"
+                        );
                     }
                 }
                 rt
@@ -234,7 +250,10 @@ fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
     if path.exists() {
         if let Ok(failures) = QualityTracker::load(&path) {
             for f in &failures {
-                let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
+                let penalty = tracker
+                    .cell_penalties
+                    .entry(f.top_cell.clone())
+                    .or_insert(0.0);
                 *penalty = (*penalty + f.severity * 0.2).min(1.0);
                 if let Some(ref _correct) = f.correct_domain {
                     let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
@@ -283,7 +302,9 @@ struct QueryParams {
     #[serde(default = "default_max")]
     max: usize,
 }
-fn default_max() -> usize { 10 }
+fn default_max() -> usize {
+    10
+}
 
 #[derive(Deserialize)]
 struct ScanRequest {
@@ -303,7 +324,9 @@ struct VaultImportRequest {
     git: usize,
 }
 
-fn default_vault_git() -> usize { 50 }
+fn default_vault_git() -> usize {
+    50
+}
 
 #[derive(Deserialize)]
 struct HistoryImportRequest {
@@ -318,6 +341,26 @@ struct PraxisBackfillRequest {
     /// or a bare array). Confined to scan_root.
     path: String,
 }
+
+#[derive(Deserialize)]
+struct PlannerTextInput {
+    id: String,
+    source: String,
+}
+
+#[derive(Deserialize)]
+struct PlannerSimulationRequest {
+    /// Stable scenario name supplied by the caller.
+    scenario_id: String,
+    /// JSON ontology document in the same `{interpretant?, domains: [...]}`
+    /// shape accepted by `OntologyLoader::load_str`.
+    candidate_ontology: String,
+    texts: Vec<PlannerTextInput>,
+    #[serde(default = "default_planner_confidence")]
+    confidence_threshold: f32,
+}
+
+fn default_planner_confidence() -> f32 { 0.60 }
 
 #[derive(Serialize)]
 struct PraxisBackfillResponse {
@@ -375,7 +418,9 @@ struct DreamGenerateRequest {
     #[serde(default)]
     embeddings: bool,
 }
-fn default_dream_count() -> usize { 5 }
+fn default_dream_count() -> usize {
+    5
+}
 
 #[derive(Deserialize)]
 struct DreamEvaluateRequest {
@@ -452,7 +497,9 @@ struct AllNodesParams {
     #[serde(default = "default_all_limit")]
     limit: usize,
 }
-fn default_all_limit() -> usize { 500 }
+fn default_all_limit() -> usize {
+    500
+}
 
 #[derive(Serialize)]
 struct FilterResponse {
@@ -491,7 +538,12 @@ struct ErrorResponse {
 }
 
 fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<ErrorResponse>) {
-    (status, Json(ErrorResponse { error: msg.to_string() }))
+    (
+        status,
+        Json(ErrorResponse {
+            error: msg.to_string(),
+        }),
+    )
 }
 
 // ── Embedder self-test ──────────────────────────────────────────────────
@@ -515,7 +567,11 @@ struct RateLimiter {
 
 impl RateLimiter {
     fn new(max: usize, window: Duration) -> Self {
-        RateLimiter { max, window, buckets: Mutex::new(HashMap::new()) }
+        RateLimiter {
+            max,
+            window,
+            buckets: Mutex::new(HashMap::new()),
+        }
     }
     /// Returns true if `key` is still within its quota; false if throttled.
     /// Rejected requests are not counted, so a burst of 429s can't extend the block.
@@ -682,30 +738,34 @@ async fn chat_handler(
             };
             let shared = state.shared.clone();
             let query = last_user_text(&req.messages);
-            let (context, total) = match tokio::task::spawn_blocking(move || -> anyhow::Result<(String, usize)> {
-                let docs = crate::ingest::ingest_all(&[path]);
-                if docs.is_empty() {
-                    anyhow::bail!("no documents found under scan dir");
-                }
-                let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
-                let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
-                let q_emb = shared.embedder.embed(&query);
-                let retriever = rag::TokenFixedRetriever::new(req.rag_budget, req.rag_top_k);
-                let result = retriever.retrieve(&q_emb, &corpus);
-                Ok((rag::assemble_context(&result, "\n\n---\n\n"), result.total_tokens))
-            })
-            .await
-            {
-                Ok(Ok(v)) => v,
-                Ok(Err(e)) => {
-                    log::warn!("[chat] rag failed: {}", e);
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
-                Err(e) => {
-                    log::warn!("[chat] rag task failed: {}", e);
-                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
-                }
-            };
+            let (context, total) =
+                match tokio::task::spawn_blocking(move || -> anyhow::Result<(String, usize)> {
+                    let docs = crate::ingest::ingest_all(&[path]);
+                    if docs.is_empty() {
+                        anyhow::bail!("no documents found under scan dir");
+                    }
+                    let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+                    let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+                    let q_emb = shared.embedder.embed(&query);
+                    let retriever = rag::TokenFixedRetriever::new(req.rag_budget, req.rag_top_k);
+                    let result = retriever.retrieve(&q_emb, &corpus);
+                    Ok((
+                        rag::assemble_context(&result, "\n\n---\n\n"),
+                        result.total_tokens,
+                    ))
+                })
+                .await
+                {
+                    Ok(Ok(v)) => v,
+                    Ok(Err(e)) => {
+                        log::warn!("[chat] rag failed: {}", e);
+                        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                    }
+                    Err(e) => {
+                        log::warn!("[chat] rag task failed: {}", e);
+                        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                    }
+                };
             let sys = crate::ai::provider::Message {
                 role: "system".into(),
                 content: crate::ai::provider::Content::Text(format!(
@@ -725,11 +785,17 @@ async fn chat_handler(
         None => (req.messages.clone(), None),
     };
 
-    match cascade.complete(&messages, None, &hint, req.max_tokens).await {
+    match cascade
+        .complete(&messages, None, &hint, req.max_tokens)
+        .await
+    {
         Ok((msg, provider)) => Ok(Json(ChatApiResponse {
             content: msg.content.unwrap_or_default(),
             provider,
-            tool_calls: msg.tool_calls.as_ref().map(|tc| serde_json::to_value(tc).unwrap_or_default()),
+            tool_calls: msg
+                .tool_calls
+                .as_ref()
+                .map(|tc| serde_json::to_value(tc).unwrap_or_default()),
             rag_tokens,
         })),
         Err(e) => {
@@ -758,7 +824,10 @@ async fn providers_handler(State(state): State<SharedState>) -> Json<serde_json:
     Json(serde_json::json!({ "providers": cascade.providers_list() }))
 }
 
-async fn stats_handler(State(state): State<SharedState>, headers: HeaderMap) -> Json<StatsResponse> {
+async fn stats_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<StatsResponse> {
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
         Json(StatsResponse {
@@ -777,7 +846,10 @@ async fn query_handler(
     state.with_user(&uid, |s| {
         let results = s.mapper.query(&params.q);
         let limited: Vec<Vec<String>> = results.into_iter().take(params.max).collect();
-        Json(QueryResponse { count: limited.len(), results: limited })
+        Json(QueryResponse {
+            count: limited.len(),
+            results: limited,
+        })
     })
 }
 
@@ -788,12 +860,18 @@ async fn scan_handler(
 ) -> Result<Json<ScanResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.dir);
     if !path.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("directory not found: {}", req.dir),
+        ));
     }
     // Path-traversal guard: resolve symlinks/`..` and confine the scan to
     // scan_root. Without this, `{"dir":"/etc"}` would expose the host fs.
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
@@ -822,7 +900,10 @@ async fn scan_handler(
         }
     });
 
-    Ok(Json(ScanResponse { count: goals.len(), goals }))
+    Ok(Json(ScanResponse {
+        count: goals.len(),
+        goals,
+    }))
 }
 
 /// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
@@ -838,11 +919,17 @@ async fn watch_handler(
 ) -> Result<Json<WatchResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.dir);
     if !path.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("directory not found: {}", req.dir),
+        ));
     }
     // Same confinement as /scan: resolve symlinks/`..` and refuse outside root.
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
@@ -862,7 +949,9 @@ async fn watch_handler(
     let mut registered = 0usize;
     let mut removed = 0usize;
 
-    let any_change = diffs.iter().any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
+    let any_change = diffs
+        .iter()
+        .any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
     if any_change {
         let mut labels: Vec<String> = Vec::new();
         for diff in &diffs {
@@ -903,7 +992,12 @@ async fn watch_handler(
 
     let total_nodes = state.with_user(&uid, |s| s.core.nodes.len());
     Ok(Json(WatchResponse {
-        new, changed, deleted, registered, removed, total_nodes,
+        new,
+        changed,
+        deleted,
+        registered,
+        removed,
+        total_nodes,
     }))
 }
 
@@ -918,10 +1012,16 @@ async fn vault_import_handler(
 ) -> Result<Json<VaultImportResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.dir);
     if !path.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("directory not found: {}", req.dir)));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("directory not found: {}", req.dir),
+        ));
     }
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
@@ -949,7 +1049,11 @@ async fn vault_import_handler(
 
     if docs.is_empty() {
         return Ok(Json(VaultImportResponse {
-            docs: 0, notes: 0, commits: 0, registered: 0, deduped: 0,
+            docs: 0,
+            notes: 0,
+            commits: 0,
+            registered: 0,
+            deduped: 0,
         }));
     }
 
@@ -993,10 +1097,16 @@ async fn history_import_handler(
 ) -> Result<Json<HistoryImportResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.path);
     if !path.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("file not found: {}", req.path)));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("file not found: {}", req.path),
+        ));
     }
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
@@ -1013,7 +1123,12 @@ async fn history_import_handler(
     let items = docs.len();
 
     if docs.is_empty() {
-        return Ok(Json(HistoryImportResponse { file: name, items: 0, registered: 0, deduped: 0 }));
+        return Ok(Json(HistoryImportResponse {
+            file: name,
+            items: 0,
+            registered: 0,
+            deduped: 0,
+        }));
     }
 
     let pairs = crate::vault::collect_labels(&docs);
@@ -1034,7 +1149,12 @@ async fn history_import_handler(
         (registered, deduped)
     });
 
-    Ok(Json(HistoryImportResponse { file: name, items, registered, deduped }))
+    Ok(Json(HistoryImportResponse {
+        file: name,
+        items,
+        registered,
+        deduped,
+    }))
 }
 
 /// POST /api/v1/praxis/backfill — seed coherence from the real life-log: read a
@@ -1049,10 +1169,16 @@ async fn praxis_backfill_handler(
 ) -> Result<Json<PraxisBackfillResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.path);
     if !path.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("file not found: {}", req.path)));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("file not found: {}", req.path),
+        ));
     }
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
@@ -1084,7 +1210,12 @@ async fn praxis_backfill_handler(
 
     if records.is_empty() {
         return Ok(Json(PraxisBackfillResponse {
-            items: 0, successes, inert, failures, registered: 0, deduped: 0,
+            items: 0,
+            successes,
+            inert,
+            failures,
+            registered: 0,
+            deduped: 0,
         }));
     }
 
@@ -1108,7 +1239,12 @@ async fn praxis_backfill_handler(
     });
 
     Ok(Json(PraxisBackfillResponse {
-        items, successes, inert, failures, registered, deduped,
+        items,
+        successes,
+        inert,
+        failures,
+        registered,
+        deduped,
     }))
 }
 
@@ -1127,7 +1263,9 @@ struct SpannerSyncRequest {
 }
 
 #[cfg(feature = "spanner")]
-fn default_spanner_mirror() -> bool { true }
+fn default_spanner_mirror() -> bool {
+    true
+}
 
 #[cfg(feature = "spanner")]
 #[derive(Serialize)]
@@ -1148,38 +1286,62 @@ async fn spanner_sync_handler(
     Json(req): Json<SpannerSyncRequest>,
 ) -> Result<Json<SpannerSyncResponse>, (StatusCode, Json<ErrorResponse>)> {
     let uid = user_key(&headers);
-    let sink = crate::spanner::SpannerSink::from_env()
-        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("spanner not configured: {e}")))?;
+    let sink = crate::spanner::SpannerSink::from_env().map_err(|e| {
+        err_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("spanner not configured: {e}"),
+        )
+    })?;
 
     // Export under the tenant lock, then do IO outside it (Spanner is slow).
     let (nodes, edges) = state.with_user(&uid, |s| {
-        (crate::spanner::export_nodes(&s.core), crate::spanner::export_edges(&s.core))
+        (
+            crate::spanner::export_nodes(&s.core),
+            crate::spanner::export_edges(&s.core),
+        )
     });
 
-    let (nodes_upserted, edges_upserted) = join_spanner(&sink, &nodes, &edges).await
+    let (nodes_upserted, edges_upserted) = join_spanner(&sink, &nodes, &edges)
+        .await
         .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     if !req.mirror {
         return Ok(Json(SpannerSyncResponse {
-            nodes_upserted, edges_upserted, nodes_deleted: 0, edges_deleted: 0,
+            nodes_upserted,
+            edges_upserted,
+            nodes_deleted: 0,
+            edges_deleted: 0,
         }));
     }
 
     // Orphan sweep: fetch remote, diff vs local, hard-delete.
     let stale_edges = crate::spanner::orphan_edge_keys(
-        &sink.fetch_edges().await.map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
+        &sink
+            .fetch_edges()
+            .await
+            .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
         &edges,
     );
-    let edges_deleted = sink.delete_edges(&stale_edges).await
+    let edges_deleted = sink
+        .delete_edges(&stale_edges)
+        .await
         .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     let stale_nodes = crate::spanner::orphan_node_ids(
-        &sink.fetch_nodes().await.map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
+        &sink
+            .fetch_nodes()
+            .await
+            .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
         &nodes,
     );
-    let nodes_deleted = sink.delete_nodes(&stale_nodes).await
+    let nodes_deleted = sink
+        .delete_nodes(&stale_nodes)
+        .await
         .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
 
     Ok(Json(SpannerSyncResponse {
-        nodes_upserted, edges_upserted, nodes_deleted, edges_deleted,
+        nodes_upserted,
+        edges_upserted,
+        nodes_deleted,
+        edges_deleted,
     }))
 }
 
@@ -1211,9 +1373,15 @@ async fn spanner_hydrate_handler(
     headers: HeaderMap,
 ) -> Result<Json<SpannerHydrateResponse>, (StatusCode, Json<ErrorResponse>)> {
     let uid = user_key(&headers);
-    let sink = crate::spanner::SpannerSink::from_env()
-        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("spanner not configured: {e}")))?;
-    let rows = sink.fetch_nodes().await
+    let sink = crate::spanner::SpannerSink::from_env().map_err(|e| {
+        err_response(
+            StatusCode::BAD_GATEWAY,
+            &format!("spanner not configured: {e}"),
+        )
+    })?;
+    let rows = sink
+        .fetch_nodes()
+        .await
         .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
     let pulled = rows.len();
 
@@ -1231,7 +1399,10 @@ async fn spanner_hydrate_handler(
         }
     });
 
-    Ok(Json(SpannerHydrateResponse { pulled, re_embedded }))
+    Ok(Json(SpannerHydrateResponse {
+        pulled,
+        re_embedded,
+    }))
 }
 
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
@@ -1240,14 +1411,23 @@ async fn spanner_hydrate_handler(
 // rename within scan_root. Every path is confined to scan_root (PREMORTEM P6).
 
 /// Resolve an existing user-supplied path and confine it to scan_root.
-fn sandbox_existing(state: &SharedState, raw: &str) -> Result<PathBuf, (StatusCode, Json<ErrorResponse>)> {
+fn sandbox_existing(
+    state: &SharedState,
+    raw: &str,
+) -> Result<PathBuf, (StatusCode, Json<ErrorResponse>)> {
     let p = PathBuf::from(raw);
     if !p.exists() {
-        return Err(err_response(StatusCode::BAD_REQUEST, &format!("path not found: {raw}")));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("path not found: {raw}"),
+        ));
     }
-    let canon = p
-        .canonicalize()
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}")))?;
+    let canon = p.canonicalize().map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
+    })?;
     if !canon.starts_with(state.scan_root()) {
         return Err(err_response(
             StatusCode::FORBIDDEN,
@@ -1365,7 +1545,8 @@ async fn fs_graph_handler(
             // Hubs are the corpus's OWN emergent clusters, labelled by top terms.
             // Clusters below DISCOVER_MIN are lumped into one "Uncategorized" hub so
             // every file appears on the content map.
-            let k = want_k.unwrap_or_else(|| ((files.len() as f64).sqrt().round() as usize).clamp(2, 16));
+            let k = want_k
+                .unwrap_or_else(|| ((files.len() as f64).sqrt().round() as usize).clamp(2, 16));
             let clusters = crate::axes::cluster_corpus_kmeans(&texts, &embs, k, 8);
             let mut uncategorized: Vec<usize> = Vec::new();
             for c in &clusters {
@@ -1383,7 +1564,11 @@ async fn fs_graph_handler(
                 });
                 for &fid in &c.members {
                     let score = crate::models::cosine_sim(&embs[fid], &c.centroid);
-                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score });
+                    edges.push(FsEdgeDto {
+                        theme_id: tid,
+                        file_id: fid,
+                        score,
+                    });
                 }
             }
             if !uncategorized.is_empty() {
@@ -1396,14 +1581,25 @@ async fn fs_graph_handler(
                     mode: "uncategorized".into(),
                 });
                 for fid in uncategorized {
-                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: 0.5 });
+                    edges.push(FsEdgeDto {
+                        theme_id: tid,
+                        file_id: fid,
+                        score: 0.5,
+                    });
                 }
             }
         } else {
             // Fixed 70-cell semiotic grid via precomputed centroids.
-            let mut theme_ids: std::collections::HashMap<(String, String), usize> = std::collections::HashMap::new();
+            let mut theme_ids: std::collections::HashMap<(String, String), usize> =
+                std::collections::HashMap::new();
             for (fid, emb) in embs.iter().enumerate() {
-                for cs in shared.classifier.classify(emb).iter().take(TOP_K).filter(|c| c.score > MIN_SCORE) {
+                for cs in shared
+                    .classifier
+                    .classify(emb)
+                    .iter()
+                    .take(TOP_K)
+                    .filter(|c| c.score > MIN_SCORE)
+                {
                     let key = (cs.domain.clone(), cs.mode.clone());
                     let tid = *theme_ids.entry(key).or_insert_with(|| {
                         let id = themes.len();
@@ -1416,7 +1612,11 @@ async fn fs_graph_handler(
                         });
                         id
                     });
-                    edges.push(FsEdgeDto { theme_id: tid, file_id: fid, score: cs.score });
+                    edges.push(FsEdgeDto {
+                        theme_id: tid,
+                        file_id: fid,
+                        score: cs.score,
+                    });
                 }
             }
         }
@@ -1435,14 +1635,23 @@ async fn fs_graph_handler(
             for (j, s) in sims.into_iter().take(SIM_TOP_K) {
                 let key = if i < j { (i, j) } else { (j, i) };
                 if seen.insert(key) {
-                    file_edges.push(FsSimEdge { source: key.0, target: key.1, score: s });
+                    file_edges.push(FsSimEdge {
+                        source: key.0,
+                        target: key.1,
+                        score: s,
+                    });
                 }
             }
         }
         (themes, files, edges, file_edges)
     })
     .await
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("graph build failed: {e}")))?;
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("graph build failed: {e}"),
+        )
+    })?;
 
     // Domains present among the cells that attracted a file.
     let mut categories: Vec<String> = themes
@@ -1491,21 +1700,32 @@ async fn structsim_handler(
     let pb = sandbox_existing(&state, &req.b)?;
     let shared = state.shared.clone();
     let threshold = req.threshold;
-    let graph = tokio::task::spawn_blocking(move || -> anyhow::Result<structsim::StructureGraph> {
-        let ta = std::fs::read_to_string(&pa)?;
-        let tb = std::fs::read_to_string(&pb)?;
-        let na = flatten_any(&ta);
-        let nb = flatten_any(&tb);
-        Ok(structsim::compare_node_lists(
-            &na,
-            &nb,
-            shared.embedder.as_ref(),
-            threshold,
-        ))
-    })
-    .await
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("structsim failed: {e}")))?
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("structsim failed: {e}")))?;
+    let graph =
+        tokio::task::spawn_blocking(move || -> anyhow::Result<structsim::StructureGraph> {
+            let ta = std::fs::read_to_string(&pa)?;
+            let tb = std::fs::read_to_string(&pb)?;
+            let na = flatten_any(&ta);
+            let nb = flatten_any(&tb);
+            Ok(structsim::compare_node_lists(
+                &na,
+                &nb,
+                shared.embedder.as_ref(),
+                threshold,
+            ))
+        })
+        .await
+        .map_err(|e| {
+            err_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("structsim failed: {e}"),
+            )
+        })?
+        .map_err(|e| {
+            err_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("structsim failed: {e}"),
+            )
+        })?;
     Ok(Json(graph))
 }
 
@@ -1553,22 +1773,33 @@ async fn rag_retrieve_handler(
     let query = req.query.clone();
     let budget = req.tokens;
     let top_k = req.top_k;
-    let (result, context) = tokio::task::spawn_blocking(move || -> anyhow::Result<(rag::RetrievalResult, String)> {
-        let docs = crate::ingest::ingest_all(&[canonical]);
-        if docs.is_empty() {
-            anyhow::bail!("no documents found under scan dir");
-        }
-        let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
-        let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
-        let q_emb = shared.embedder.embed(&query);
-        let retriever = rag::TokenFixedRetriever::new(budget, top_k);
-        let result = retriever.retrieve(&q_emb, &corpus);
-        let context = rag::assemble_context(&result, "\n\n---\n\n");
-        Ok((result, context))
-    })
-    .await
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("rag failed: {e}")))?
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("rag failed: {e}")))?;
+    let (result, context) =
+        tokio::task::spawn_blocking(move || -> anyhow::Result<(rag::RetrievalResult, String)> {
+            let docs = crate::ingest::ingest_all(&[canonical]);
+            if docs.is_empty() {
+                anyhow::bail!("no documents found under scan dir");
+            }
+            let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+            let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+            let q_emb = shared.embedder.embed(&query);
+            let retriever = rag::TokenFixedRetriever::new(budget, top_k);
+            let result = retriever.retrieve(&q_emb, &corpus);
+            let context = rag::assemble_context(&result, "\n\n---\n\n");
+            Ok((result, context))
+        })
+        .await
+        .map_err(|e| {
+            err_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("rag failed: {e}"),
+            )
+        })?
+        .map_err(|e| {
+            err_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                &format!("rag failed: {e}"),
+            )
+        })?;
 
     Ok(Json(serde_json::json!({
         "total_tokens": result.total_tokens,
@@ -1602,8 +1833,12 @@ async fn fs_file_handler(
         return Err(err_response(StatusCode::BAD_REQUEST, "path is a directory"));
     }
     const CAP: usize = 16 * 1024;
-    let bytes = std::fs::read(&canonical)
-        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("read failed: {e}")))?;
+    let bytes = std::fs::read(&canonical).map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("read failed: {e}"),
+        )
+    })?;
     let size = bytes.len() as u64;
     let truncated = bytes.len() > CAP;
     let slice = &bytes[..bytes.len().min(CAP)];
@@ -1637,28 +1872,44 @@ async fn fs_move_handler(
 ) -> Result<Json<FsMoveResponse>, (StatusCode, Json<ErrorResponse>)> {
     let from = sandbox_existing(&state, &req.from)?;
     if from.is_dir() {
-        return Err(err_response(StatusCode::BAD_REQUEST, "moving directories is not allowed"));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "moving directories is not allowed",
+        ));
     }
     // The destination does not exist yet, so confine its *parent* to scan_root.
     let to = PathBuf::from(&req.to);
     let parent = to
         .parent()
         .ok_or_else(|| err_response(StatusCode::BAD_REQUEST, "destination has no parent"))?;
-    let parent_canon = parent
-        .canonicalize()
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve destination dir: {e}")))?;
+    let parent_canon = parent.canonicalize().map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve destination dir: {e}"),
+        )
+    })?;
     if !parent_canon.starts_with(state.scan_root()) {
-        return Err(err_response(StatusCode::FORBIDDEN, "destination outside scan root"));
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            "destination outside scan root",
+        ));
     }
     let file_name = to
         .file_name()
         .ok_or_else(|| err_response(StatusCode::BAD_REQUEST, "destination has no file name"))?;
     let dest = parent_canon.join(file_name);
     if dest.exists() {
-        return Err(err_response(StatusCode::CONFLICT, "destination already exists"));
+        return Err(err_response(
+            StatusCode::CONFLICT,
+            "destination already exists",
+        ));
     }
-    std::fs::rename(&from, &dest)
-        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("move failed: {e}")))?;
+    std::fs::rename(&from, &dest).map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("move failed: {e}"),
+        )
+    })?;
     Ok(Json(FsMoveResponse {
         from: from.display().to_string(),
         to: dest.display().to_string(),
@@ -1784,20 +2035,25 @@ async fn dream_replay_handler(
         results
             .iter()
             .flat_map(|r| {
-                r.nodes_tested.iter().filter_map(|id| {
-                    let node = s.core.nodes.get(id)?;
-                    Some(DreamReplayEntry {
-                        node_id: id.clone(),
-                        // An unlabeled node has no readable handle; say so
-                        // rather than emitting a blank row.
-                        label: node.label.clone().unwrap_or_else(|| "(unlabeled)".to_string()),
-                        asserted: node.asserted,
-                        density: node.coherence_score,
-                        outcome: r.outcome,
-                        prevented_failure: r.prevented_failure,
+                r.nodes_tested
+                    .iter()
+                    .filter_map(|id| {
+                        let node = s.core.nodes.get(id)?;
+                        Some(DreamReplayEntry {
+                            node_id: id.clone(),
+                            // An unlabeled node has no readable handle; say so
+                            // rather than emitting a blank row.
+                            label: node
+                                .label
+                                .clone()
+                                .unwrap_or_else(|| "(unlabeled)".to_string()),
+                            asserted: node.asserted,
+                            density: node.coherence_score,
+                            outcome: r.outcome,
+                            prevented_failure: r.prevented_failure,
+                        })
                     })
-                })
-                .collect::<Vec<_>>()
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>()
     });
@@ -1840,7 +2096,8 @@ async fn coherence_nodes_handler(
     // Project inside the same lock as the search: a recalled node is far more
     // useful when the caller can see its verdict and which cell it sits in.
     let results: Vec<NodeView> = state.with_user(&uid, |s| {
-        s.core.search_nodes(&emb, params.max)
+        s.core
+            .search_nodes(&emb, params.max)
             .into_iter()
             .filter_map(|(id, _label, _score)| {
                 let node = s.core.nodes.get(&id)?;
@@ -1848,7 +2105,10 @@ async fn coherence_nodes_handler(
             })
             .collect()
     });
-    Json(CoherenceNodesResponse { count: results.len(), results })
+    Json(CoherenceNodesResponse {
+        count: results.len(),
+        results,
+    })
 }
 
 #[derive(Serialize)]
@@ -1926,9 +2186,15 @@ async fn coherence_nodes_all_handler(
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         ranked.truncate(params.limit);
-        ranked.into_iter().map(|n| n.observable(auto_cell(&shared, n))).collect()
+        ranked
+            .into_iter()
+            .map(|n| n.observable(auto_cell(&shared, n)))
+            .collect()
     });
-    Json(CoherenceNodesResponse { count: results.len(), results })
+    Json(CoherenceNodesResponse {
+        count: results.len(),
+        results,
+    })
 }
 
 async fn coherence_register_handler(
@@ -2033,15 +2299,21 @@ async fn coherence_edit_handler(
     Json(req): Json<CoherenceEditRequest>,
 ) -> Result<Json<CoherenceEditResponse>, (StatusCode, Json<ErrorResponse>)> {
     if req.id.trim().is_empty() || req.label.trim().is_empty() {
-        return Err(err_response(StatusCode::BAD_REQUEST, "id and label are required"));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "id and label are required",
+        ));
     }
     // Validate the pin against the semiotic grid before mutating anything.
     if let Some(Some(pin)) = &req.cell {
-        if HumanDomain::from_str(&pin.domain).is_none() || HumanMode::from_str(&pin.mode).is_none() {
+        if HumanDomain::from_str(&pin.domain).is_none() || HumanMode::from_str(&pin.mode).is_none()
+        {
             return Err(err_response(
                 StatusCode::BAD_REQUEST,
-                &format!("invalid cell pin {}×{} — expected a HUMAN domain × mode",
-                         pin.domain, pin.mode),
+                &format!(
+                    "invalid cell pin {}×{} — expected a HUMAN domain × mode",
+                    pin.domain, pin.mode
+                ),
             ));
         }
     }
@@ -2052,20 +2324,31 @@ async fn coherence_edit_handler(
         s.core.nodes.get(&req.id).map(|n| n.embedding.clone())
     });
     let Some(before_embedding) = before_embedding else {
-        return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", req.id)));
+        return Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("node {} not found", req.id),
+        ));
     };
 
     let shared = state.shared.clone();
     let new_embedding = embed_text(shared.clone(), req.label.clone()).await;
 
-    let auto_cell = shared.classifier.classify(&new_embedding).first().map(|c| CellPin {
-        domain: c.domain.clone(),
-        mode: c.mode.clone(),
-    });
-    let before_cell = shared.classifier.classify(&before_embedding).first().map(|c| CellPin {
-        domain: c.domain.clone(),
-        mode: c.mode.clone(),
-    });
+    let auto_cell = shared
+        .classifier
+        .classify(&new_embedding)
+        .first()
+        .map(|c| CellPin {
+            domain: c.domain.clone(),
+            mode: c.mode.clone(),
+        });
+    let before_cell = shared
+        .classifier
+        .classify(&before_embedding)
+        .first()
+        .map(|c| CellPin {
+            domain: c.domain.clone(),
+            mode: c.mode.clone(),
+        });
 
     let pin = match req.cell {
         None => crate::core::PinEdit::Keep,
@@ -2119,7 +2402,9 @@ async fn coherence_edit_handler(
         node_id: outcome.node_id,
         label: outcome.label,
         auto_cell,
-        pinned_cell: outcome.pinned_cell.map(|(domain, mode)| CellPin { domain, mode }),
+        pinned_cell: outcome
+            .pinned_cell
+            .map(|(domain, mode)| CellPin { domain, mode }),
         before_cell,
         asserted: outcome.asserted,
         coherence_score: outcome.coherence_score,
@@ -2150,7 +2435,10 @@ async fn coherence_delete_handler(
         ok
     });
     if !removed {
-        return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", req.id)));
+        return Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("node {} not found", req.id),
+        ));
     }
     Ok(Json(serde_json::json!({ "ok": true, "node_id": req.id })))
 }
@@ -2173,8 +2461,12 @@ struct SearchNodesRequest {
     top_k: usize,
 }
 
-fn default_search_budget() -> usize { 600 }
-fn default_search_topk() -> usize { 12 }
+fn default_search_budget() -> usize {
+    600
+}
+fn default_search_topk() -> usize {
+    12
+}
 
 #[derive(Serialize)]
 struct SearchNodeHit {
@@ -2216,7 +2508,12 @@ async fn search_nodes_handler(
         for n in s.core.nodes.values() {
             if let Some(label) = n.label.as_deref() {
                 if !label.trim().is_empty() {
-                    out.push(("node".to_string(), n.id.clone(), label.to_string(), n.embedding.clone()));
+                    out.push((
+                        "node".to_string(),
+                        n.id.clone(),
+                        label.to_string(),
+                        n.embedding.clone(),
+                    ));
                 }
             }
         }
@@ -2271,7 +2568,6 @@ async fn search_nodes_handler(
     })
 }
 
-
 #[derive(Deserialize)]
 struct OeeMachineRequest {
     machine_id: String,
@@ -2292,10 +2588,19 @@ async fn oee_machine_handler(
 ) -> Json<OkResponse> {
     {
         let mut board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
-        board.upsert_machine(&req.machine_id, req.shift_length_secs, req.ideal_cycle_time_secs);
-        if let Some(db) = state.db() { let _ = board.save(db); }
+        board.upsert_machine(
+            &req.machine_id,
+            req.shift_length_secs,
+            req.ideal_cycle_time_secs,
+        );
+        if let Some(db) = state.db() {
+            let _ = board.save(db);
+        }
     }
-    Json(OkResponse { ok: true, detail: format!("machine {} registered", req.machine_id) })
+    Json(OkResponse {
+        ok: true,
+        detail: format!("machine {} registered", req.machine_id),
+    })
 }
 
 #[derive(Deserialize)]
@@ -2328,11 +2633,20 @@ async fn oee_event_handler(
 ) -> (StatusCode, Json<OkResponse>) {
     let mut board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
     let (ok, detail) = match ev {
-        OeeEvent::Stop { machine_id, reason, duration_secs, note } => {
+        OeeEvent::Stop {
+            machine_id,
+            reason,
+            duration_secs,
+            note,
+        } => {
             let ok = board.record_stop(&machine_id, reason, duration_secs, note);
             (ok, format!("stop on {machine_id}"))
         }
-        OeeEvent::Production { machine_id, good, scrap } => {
+        OeeEvent::Production {
+            machine_id,
+            good,
+            scrap,
+        } => {
             let ok = board.record_production(&machine_id, good, scrap);
             (ok, format!("+{good} good, +{scrap} scrap on {machine_id}"))
         }
@@ -2342,10 +2656,20 @@ async fn oee_event_handler(
         }
     };
     if ok {
-        if let Some(db) = state.db() { let _ = board.save(db); }
+        if let Some(db) = state.db() {
+            let _ = board.save(db);
+        }
     }
-    let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
-    let detail = if ok { detail } else { format!("unknown machine ({detail})") };
+    let code = if ok {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    };
+    let detail = if ok {
+        detail
+    } else {
+        format!("unknown machine ({detail})")
+    };
     (code, Json(OkResponse { ok, detail }))
 }
 
@@ -2399,7 +2723,12 @@ struct ReadingRequest {
 
 impl ReadingRequest {
     fn to_reading(&self) -> MachineReading {
-        let status = match self.status.as_deref().map(str::to_ascii_lowercase).as_deref() {
+        let status = match self
+            .status
+            .as_deref()
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
             Some("offline") => MachineStatus::Offline,
             Some("warning") => MachineStatus::Warning,
             Some("critical") => MachineStatus::Critical,
@@ -2427,10 +2756,17 @@ async fn maintenance_observe_handler(
     let n = {
         let mut mon = state.maintenance.lock().unwrap_or_else(|e| e.into_inner());
         mon.observe_healthy(&reading);
-        if let Some(db) = state.db() { let _ = mon.save(db); }
-        mon.baseline(&req.machine_id).map(|b| b.min_count()).unwrap_or(0)
+        if let Some(db) = state.db() {
+            let _ = mon.save(db);
+        }
+        mon.baseline(&req.machine_id)
+            .map(|b| b.min_count())
+            .unwrap_or(0)
     };
-    Json(OkResponse { ok: true, detail: format!("baseline {} now {} samples", req.machine_id, n) })
+    Json(OkResponse {
+        ok: true,
+        detail: format!("baseline {} now {} samples", req.machine_id, n),
+    })
 }
 
 #[derive(Serialize)]
@@ -2454,12 +2790,16 @@ async fn maintenance_check_handler(
 
     let (score, rul) = {
         let mut mon = state.maintenance.lock().unwrap_or_else(|e| e.into_inner());
-        let score = mon.check(&reading, threshold).ok_or(StatusCode::NOT_FOUND)?;
+        let score = mon
+            .check(&reading, threshold)
+            .ok_or(StatusCode::NOT_FOUND)?;
         let rul = match (&req.rul_metric, req.rul_limit) {
             (Some(m), Some(limit)) => mon.rul(&req.machine_id, m, limit),
             _ => None,
         };
-        if let Some(db) = state.db() { let _ = mon.save(db); } // check() appended history
+        if let Some(db) = state.db() {
+            let _ = mon.save(db);
+        } // check() appended history
         (score, rul)
     };
 
@@ -2478,7 +2818,11 @@ async fn maintenance_check_handler(
         None
     };
 
-    Ok(Json(MaintenanceCheckResponse { score, rul, coherence_node_id }))
+    Ok(Json(MaintenanceCheckResponse {
+        score,
+        rul,
+        coherence_node_id,
+    }))
 }
 
 /// Health baseline summary for one machine.
@@ -2565,6 +2909,66 @@ async fn discover_handler(
     Json(serde_json::json!({ "report": report, "ontology_draft": draft }))
 }
 
+/// POST /api/v1/planner/simulate — classify a bounded corpus with the live
+/// ontology and a candidate ontology, then return the counterfactual impact.
+/// The candidate classifier is built inside the request and discarded; live
+/// state, quality feedback, and tenant graphs are never mutated.
+async fn planner_simulate_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<PlannerSimulationRequest>,
+) -> Result<Json<PlannerSimulation>, (StatusCode, Json<ErrorResponse>)> {
+    if req.texts.is_empty() || req.texts.len() > 10_000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse { error: "texts must contain 1..10000 records".into() }),
+        ));
+    }
+    let shared = state.shared.clone();
+    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<PlannerSimulation> {
+        let (_, candidate_domains) = OntologyLoader::load_str(
+            &req.candidate_ontology,
+            &format!("planner:{}", req.scenario_id),
+        )?;
+        if candidate_domains.is_empty() {
+            anyhow::bail!("candidate ontology contains no domains");
+        }
+        let mut candidate = OntologyLoader::new();
+        candidate.custom_domains = candidate_domains;
+        let candidate_classifier = CellClassifier::build(&candidate, shared.embedder.as_ref());
+        let mut items = Vec::with_capacity(req.texts.len());
+
+        for text in req.texts {
+            let embedding = shared.embedder.embed(&text.source);
+            let before = shared
+                .classifier
+                .classify(&embedding)
+                .into_iter()
+                .next()
+                .map(|c| CellOutcome { domain: c.domain, mode: c.mode, score: c.score })
+                .unwrap_or_else(|| CellOutcome { domain: "unknown".into(), mode: "unknown".into(), score: 0.0 });
+            let after = candidate_classifier
+                .classify(&embedding)
+                .into_iter()
+                .next()
+                .map(|c| CellOutcome { domain: c.domain, mode: c.mode, score: c.score })
+                .unwrap_or_else(|| CellOutcome { domain: "unknown".into(), mode: "unknown".into(), score: 0.0 });
+            items.push(PlannerItem { id: text.id, source: text.source, before, after });
+        }
+        Ok(planner::simulate(req.scenario_id, items, req.confidence_threshold))
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: format!("planner task failed: {e}") })))?
+    .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e.to_string() })))?;
+
+    Ok(Json(result))
+}
+
+/// POST /api/v1/admin/review — group supplied documents into duplicate review
+/// clusters. This is a stateless first step for the administration pilot.
+async fn admin_review_handler(Json(documents): Json<Vec<ReviewDocument>>) -> Json<ReviewQueue> {
+    Json(review_queue(&documents))
+}
+
 /// Stateless shift report: caller supplies all data (`ShiftReportInput`),
 /// gets Italian Markdown (default) or HTML (`?format=html`) back.
 /// Replica-safe like the other compute routes.
@@ -2614,7 +3018,8 @@ struct OperationalTimelineRequest {
     events: Vec<OperationalEvent>,
 }
 
-const OPERATIONAL_TIMELINE_DEMO: &str = include_str!("../tests/fixtures/operational_timeline_demo.json");
+const OPERATIONAL_TIMELINE_DEMO: &str =
+    include_str!("../tests/fixtures/operational_timeline_demo.json");
 
 async fn operational_timeline_demo_handler() -> Json<OperationalTimeline> {
     let events: Vec<OperationalEvent> = serde_json::from_str(OPERATIONAL_TIMELINE_DEMO)
@@ -2653,7 +3058,10 @@ async fn study_log_handler(
                 .collect()
         })
         .unwrap_or_default();
-    let mut all = state.db().map(|db| load_study(db, &uid)).unwrap_or_default();
+    let mut all = state
+        .db()
+        .map(|db| load_study(db, &uid))
+        .unwrap_or_default();
     let accepted = events.len();
     all.extend(events);
     if all.len() > 5000 {
@@ -2674,9 +3082,15 @@ async fn study_session_handler(
     headers: HeaderMap,
 ) -> Json<serde_json::Value> {
     let uid = user_key(&headers);
-    let events = state.db().map(|db| load_study(db, &uid)).unwrap_or_default();
+    let events = state
+        .db()
+        .map(|db| load_study(db, &uid))
+        .unwrap_or_default();
     let s = crate::study::session(&events);
-    Json(serde_json::to_value(s).unwrap_or_else(|_| serde_json::json!({ "error": "session encode" })))
+    Json(
+        serde_json::to_value(s)
+            .unwrap_or_else(|_| serde_json::json!({ "error": "session encode" })),
+    )
 }
 
 /// POST /api/v1/study/clear — wipe the tenant's Study Log (demo reset).
@@ -2784,7 +3198,10 @@ async fn translate_handler(
                 "piraha" => LinguisticLense::Piraha,
                 "sanskrit" => LinguisticLense::Sanskrit,
                 _ => {
-                    results.insert("error".to_string(), format!("Unknown lense: {l}. Use: wenyan, piraha, sanskrit"));
+                    results.insert(
+                        "error".to_string(),
+                        format!("Unknown lense: {l}. Use: wenyan, piraha, sanskrit"),
+                    );
                     return Json(TranslateResponse { results });
                 }
             };
@@ -2843,7 +3260,11 @@ async fn ingest_prompt_handler(
     headers: HeaderMap,
     Json(req): Json<serde_json::Value>,
 ) -> Json<IngestResponse> {
-    let prompt = req.get("prompt").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let prompt = req
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let embedding = embed_text(state.shared.clone(), prompt.clone()).await;
     // Retain the prompt: the vector is the state, but without the text every
     // dream proposal over this goal can only say "unknown".
@@ -2872,13 +3293,16 @@ async fn pdca_plan_handler(
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
         let planned = s.actor.plan(&s.goals);
-        let goals: Vec<serde_json::Value> = planned.iter().map(|g| {
-            serde_json::json!({
-                "id": g.id,
-                "embedding": g.embedding,
-                "progress": g.progress,
+        let goals: Vec<serde_json::Value> = planned
+            .iter()
+            .map(|g| {
+                serde_json::json!({
+                    "id": g.id,
+                    "embedding": g.embedding,
+                    "progress": g.progress,
+                })
             })
-        }).collect();
+            .collect();
         Json(serde_json::json!({ "planned": goals, "count": goals.len() }))
     })
 }
@@ -2927,24 +3351,38 @@ async fn schedule_status_handler(
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
         let health = s.scheduler.schedule_health();
-        let tasks: Vec<serde_json::Value> = s.scheduler.tasks.iter().map(|t| {
-            serde_json::json!({
-                "id": t.id,
-                "name": t.name,
-                "duration": t.planned_duration_secs,
-                "early_start": t.early_start,
-                "early_finish": t.early_finish,
-                "late_start": t.late_start,
-                "late_finish": t.late_finish,
-                "float": t.float,
-                "critical": t.on_critical_path,
-                "progress": t.progress,
+        let tasks: Vec<serde_json::Value> = s
+            .scheduler
+            .tasks
+            .iter()
+            .map(|t| {
+                serde_json::json!({
+                    "id": t.id,
+                    "name": t.name,
+                    "duration": t.planned_duration_secs,
+                    "early_start": t.early_start,
+                    "early_finish": t.early_finish,
+                    "late_start": t.late_start,
+                    "late_finish": t.late_finish,
+                    "float": t.float,
+                    "critical": t.on_critical_path,
+                    "progress": t.progress,
+                })
             })
-        }).collect();
-        let critical_path: Vec<&str> = s.scheduler.tasks.iter()
-            .filter(|t| t.on_critical_path).map(|t| t.id.as_str()).collect();
-        let at_risk: Vec<&str> = s.scheduler.tasks_approaching_late_finish(3600)
-            .iter().map(|t| t.id.as_str()).collect();
+            .collect();
+        let critical_path: Vec<&str> = s
+            .scheduler
+            .tasks
+            .iter()
+            .filter(|t| t.on_critical_path)
+            .map(|t| t.id.as_str())
+            .collect();
+        let at_risk: Vec<&str> = s
+            .scheduler
+            .tasks_approaching_late_finish(3600)
+            .iter()
+            .map(|t| t.id.as_str())
+            .collect();
         Json(serde_json::json!({
             "schedule_health": health,
             "task_count": tasks.len(),
@@ -2961,8 +3399,8 @@ async fn schedule_cross_correlate_handler(
 ) -> Json<serde_json::Value> {
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
-        let progress_pairs: Vec<(String, f32)> = s.goals.iter()
-            .map(|g| (g.id.clone(), g.progress)).collect();
+        let progress_pairs: Vec<(String, f32)> =
+            s.goals.iter().map(|g| (g.id.clone(), g.progress)).collect();
         let r = s.scheduler.cross_correlate(&progress_pairs);
         Json(serde_json::json!({
             "pearson_r": r,
@@ -2988,13 +3426,25 @@ async fn schedule_add_task_handler(
         use std::hash::{Hash, Hasher};
         let mut hasher = DefaultHasher::new();
         req.task_id.hash(&mut hasher);
-        let node_key = crate::graph::RawNodeKey { data: hasher.finish() };
-        let deps: Vec<crate::graph::RawNodeKey> = req.dependencies.iter().map(|d| {
-            let mut h = DefaultHasher::new();
-            d.hash(&mut h);
-            crate::graph::RawNodeKey { data: h.finish() }
-        }).collect();
-        s.scheduler.add_task_with_duration(node_key, req.task_id.clone(), req.duration_secs.max(0.0) as u64, 0, deps);
+        let node_key = crate::graph::RawNodeKey {
+            data: hasher.finish(),
+        };
+        let deps: Vec<crate::graph::RawNodeKey> = req
+            .dependencies
+            .iter()
+            .map(|d| {
+                let mut h = DefaultHasher::new();
+                d.hash(&mut h);
+                crate::graph::RawNodeKey { data: h.finish() }
+            })
+            .collect();
+        s.scheduler.add_task_with_duration(
+            node_key,
+            req.task_id.clone(),
+            req.duration_secs.max(0.0) as u64,
+            0,
+            deps,
+        );
         Json(serde_json::json!({ "status": "ok", "task_id": req.task_id }))
     })
 }
@@ -3024,7 +3474,11 @@ struct ScheduleComputeRequest {
 /// a redeploy (unlike the in-memory `/schedule/*` routes above, which are
 /// single-instance/local only).
 async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -> Json<ScheduleResult> {
-    Json(compute_schedule(&req.tasks, &req.goal_progress, req.domain.as_deref().unwrap_or("abstract")))
+    Json(compute_schedule(
+        &req.tasks,
+        &req.goal_progress,
+        req.domain.as_deref().unwrap_or("abstract"),
+    ))
 }
 
 // ── LifeOS (native goal/habit tracking) ──────────────────────────────────────
@@ -3042,7 +3496,9 @@ async fn lifeos_goal_handler(
     let db = state.db.clone();
     let replaced = state.with_user(&uid, |s| {
         let r = s.lifeos.upsert_goal(goal);
-        if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+        if let Some(db) = &db {
+            let _ = s.lifeos.save(db, &uid);
+        }
         r
     });
     Json(serde_json::json!({ "status": "ok", "id": id, "replaced": replaced }))
@@ -3065,11 +3521,17 @@ async fn lifeos_progress_handler(
     let ok = state.with_user(&uid, |s| {
         let r = s.lifeos.update_progress(&req.id, req.progress);
         if r {
-            if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+            if let Some(db) = &db {
+                let _ = s.lifeos.save(db, &uid);
+            }
         }
         r
     });
-    let code = if ok { StatusCode::OK } else { StatusCode::NOT_FOUND };
+    let code = if ok {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    };
     (code, Json(serde_json::json!({ "ok": ok, "id": req.id })))
 }
 
@@ -3087,7 +3549,9 @@ async fn lifeos_status_handler(
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
         // Reflect current goals in the schedule before reporting drift.
-        let RuntimeState { lifeos, scheduler, .. } = s;
+        let RuntimeState {
+            lifeos, scheduler, ..
+        } = s;
         lifeos.apply_to_scheduler(scheduler);
         scheduler.recompute();
         Json(LifeOsStatus {
@@ -3112,7 +3576,9 @@ async fn lifeos_charge_handler(
     let db = state.db.clone();
     state.with_user(&uid, |s| {
         s.lifeos.set_charge(req.charge);
-        if let Some(db) = &db { let _ = s.lifeos.save(db, &uid); }
+        if let Some(db) = &db {
+            let _ = s.lifeos.save(db, &uid);
+        }
     });
     Json(serde_json::json!({ "ok": true }))
 }
@@ -3126,7 +3592,9 @@ async fn lifeos_today_handler(
 ) -> Json<TodayPlan> {
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
-        let RuntimeState { lifeos, scheduler, .. } = s;
+        let RuntimeState {
+            lifeos, scheduler, ..
+        } = s;
         lifeos.apply_to_scheduler(scheduler);
         scheduler.recompute();
         Json(lifeos.today(scheduler))
@@ -3222,7 +3690,9 @@ struct EdgeWriteRequest {
     #[serde(default)]
     semantic_type: u32,
 }
-fn default_edge_weight() -> f32 { 1.0 }
+fn default_edge_weight() -> f32 {
+    1.0
+}
 
 /// Assert a relation between two coherence nodes (machines compose graphs, not
 /// just nodes). Bridges both endpoints, then adds a holarchy edge. 404 if either
@@ -3234,12 +3704,16 @@ async fn holarchy_edge_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let uid = user_key(&headers);
     let ok = state.with_user(&uid, |s| {
-        s.core.add_edge_between(&req.source, &req.target, req.weight, req.semantic_type)
+        s.core
+            .add_edge_between(&req.source, &req.target, req.weight, req.semantic_type)
     });
     if ok {
         Ok(Json(serde_json::json!({ "status": "edge_added" })))
     } else {
-        Err(err_response(StatusCode::NOT_FOUND, "source or target node id not found"))
+        Err(err_response(
+            StatusCode::NOT_FOUND,
+            "source or target node id not found",
+        ))
     }
 }
 
@@ -3270,9 +3744,8 @@ async fn holarchy_trajectory_handler(
 ) -> Json<crate::gantt::Trajectory> {
     let uid = user_key(&headers);
     state.with_user(&uid, |s| {
-        let goals_progress: Vec<(String, f32)> = s.goals.iter()
-            .map(|g| (g.id.clone(), g.progress))
-            .collect();
+        let goals_progress: Vec<(String, f32)> =
+            s.goals.iter().map(|g| (g.id.clone(), g.progress)).collect();
         Json(compute_trajectory(&s.scheduler, &goals_progress))
     })
 }
@@ -3345,7 +3818,11 @@ async fn holarchy_graph_handler(
 ) -> Json<GraphResponse> {
     let uid = user_key(&headers);
     let (nodes, edges) = state.with_user(&uid, |s| {
-        let nodes: Vec<_> = s.core.holarchy.nodes.iter()
+        let nodes: Vec<_> = s
+            .core
+            .holarchy
+            .nodes
+            .iter()
             .map(|(k, p)| (crate::graph::RawNodeKey::from(k), *p))
             .collect();
         (nodes, s.core.holarchy.edges.clone())
@@ -3361,20 +3838,45 @@ struct OntologyListing {
     count: usize,
 }
 
-async fn ontology_list_handler(
-    State(state): State<SharedState>,
-) -> Json<Vec<OntologyListing>> {
+async fn ontology_list_handler(State(state): State<SharedState>) -> Json<Vec<OntologyListing>> {
     let s = &state.shared;
     Json(vec![
-        OntologyListing { kind: "human".into(), count: s.ontology.human_domains.len() },
-        OntologyListing { kind: "machine".into(), count: s.ontology.machine_domains.len() },
-        OntologyListing { kind: "semiotic".into(), count: s.ontology.semiotic_domains.len() },
-        OntologyListing { kind: "category".into(), count: s.ontology.category_domains.len() },
-        OntologyListing { kind: "agent".into(), count: s.ontology.agent_domains.len() },
-        OntologyListing { kind: "natural".into(), count: s.ontology.natural_domains.len() },
-        OntologyListing { kind: "social".into(), count: s.ontology.social_domains.len() },
-        OntologyListing { kind: "abstract".into(), count: s.ontology.abstract_domains.len() },
-        OntologyListing { kind: "engineering".into(), count: s.ontology.engineering_domains.len() },
+        OntologyListing {
+            kind: "human".into(),
+            count: s.ontology.human_domains.len(),
+        },
+        OntologyListing {
+            kind: "machine".into(),
+            count: s.ontology.machine_domains.len(),
+        },
+        OntologyListing {
+            kind: "semiotic".into(),
+            count: s.ontology.semiotic_domains.len(),
+        },
+        OntologyListing {
+            kind: "category".into(),
+            count: s.ontology.category_domains.len(),
+        },
+        OntologyListing {
+            kind: "agent".into(),
+            count: s.ontology.agent_domains.len(),
+        },
+        OntologyListing {
+            kind: "natural".into(),
+            count: s.ontology.natural_domains.len(),
+        },
+        OntologyListing {
+            kind: "social".into(),
+            count: s.ontology.social_domains.len(),
+        },
+        OntologyListing {
+            kind: "abstract".into(),
+            count: s.ontology.abstract_domains.len(),
+        },
+        OntologyListing {
+            kind: "engineering".into(),
+            count: s.ontology.engineering_domains.len(),
+        },
     ])
 }
 
@@ -3409,6 +3911,69 @@ struct StudioResponse {
     faceted: usize,
 }
 
+#[derive(Deserialize)]
+struct MeaningParams {
+    /// Entry name to look up. Omitted, the response lists contested names only.
+    #[serde(default)]
+    name: Option<String>,
+}
+
+/// What an item means in each context that defines it.
+///
+/// The point of overlays is that a name is not one thing: "Margin" is a
+/// machining allowance to one client and a profit line to another. This
+/// endpoint answers "what does this mean where?" rather than "what does this
+/// mean", and lists the contested names — those defined in more than one
+/// place — because those are the only ones where the question has an answer
+/// worth reading.
+async fn ontology_meaning_handler(
+    State(state): State<SharedState>,
+    Query(params): Query<MeaningParams>,
+) -> Json<serde_json::Value> {
+    let s = &state.shared;
+    let overlays = crate::context::Overlays::load(&s.config.data_dir);
+
+    let available: Vec<serde_json::Value> = overlays
+        .overlays
+        .iter()
+        .map(|o| {
+            serde_json::json!({
+                "scope": o.scope.as_str(),
+                "id": o.id,
+                "entries": o.domains.len(),
+                "declares_interpretant": o.interpretant.is_some(),
+            })
+        })
+        .collect();
+
+    let contested = overlays.contested_names(&s.ontology);
+
+    let meanings = params.name.as_deref().map(|name| {
+        overlays
+            .meanings(name, &s.ontology)
+            .into_iter()
+            .map(|(prov, def)| {
+                serde_json::json!({
+                    "scope": prov.scope.as_str(),
+                    "source": prov.source,
+                    "domain": def.domain,
+                    "mode": def.mode,
+                    "category": def.category,
+                    "hints": def.hints,
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+
+    Json(serde_json::json!({
+        "overlays": available,
+        "contested": contested,
+        "name": params.name,
+        "meanings": meanings,
+        "overlay_dir": s.config.data_dir.join("ontologies"),
+    }))
+}
+
 /// Everything the ontology studio needs in one call: every authored entry,
 /// which ontology it came from, whether classification can reach it, and
 /// whether it carries any facet.
@@ -3418,10 +3983,15 @@ async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<Studi
 
     // Names the classifier actually scores against, so each entry can be
     // marked reachable or not.
-    let reachable: std::collections::HashSet<&str> =
-        o.classification_domains().map(|d| d.name.as_str()).collect();
+    let reachable: std::collections::HashSet<&str> = o
+        .classification_domains()
+        .map(|d| d.name.as_str())
+        .collect();
 
-    let sources: [(&str, &std::collections::HashMap<String, crate::models::DomainDef>); 11] = [
+    let sources: [(
+        &str,
+        &std::collections::HashMap<String, crate::models::DomainDef>,
+    ); 11] = [
         ("human", &o.human_domains),
         ("custom", &o.custom_domains),
         ("machine", &o.machine_domains),
@@ -3515,7 +4085,13 @@ async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<Studi
     let total = entries.len();
     let classified = entries.iter().filter(|e| e.classified).count();
     let faceted = entries.iter().filter(|e| e.faceted).count();
-    Json(StudioResponse { entries, kinds, total, classified, faceted })
+    Json(StudioResponse {
+        entries,
+        kinds,
+        total,
+        classified,
+        faceted,
+    })
 }
 
 #[derive(Serialize)]
@@ -3533,9 +4109,7 @@ struct SemioticGridResponse {
 /// in the other 43 — e.g. FABRICATE x MAINTAIN ("Machine Maintenance") read as
 /// empty here yet matched real input. `office_domains` and `machine_domains`
 /// were missing for the same reason.
-async fn semiotic_grid_handler(
-    State(state): State<SharedState>,
-) -> Json<SemioticGridResponse> {
+async fn semiotic_grid_handler(State(state): State<SharedState>) -> Json<SemioticGridResponse> {
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
     for def in s.ontology.all_domains().values() {
@@ -3546,12 +4120,18 @@ async fn semiotic_grid_handler(
             grid.classify(&def.name, d, m);
         }
     }
-    let cells: Vec<serde_json::Value> = grid.cells.iter().map(|c| serde_json::json!({
-        "domain": c.domain.as_str(),
-        "mode": c.mode.as_str(),
-        "entries": c.entries,
-        "activation": c.activation,
-    })).collect();
+    let cells: Vec<serde_json::Value> = grid
+        .cells
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "domain": c.domain.as_str(),
+                "mode": c.mode.as_str(),
+                "entries": c.entries,
+                "activation": c.activation,
+            })
+        })
+        .collect();
     Json(SemioticGridResponse { cells })
 }
 
@@ -3576,9 +4156,8 @@ struct GreimasSquareResponse {
 }
 
 async fn greimas_square_handler() -> Json<GreimasSquareResponse> {
-    let mermaid = crate::output::format_greimas_square(
-        "Physis", "HEAL", "FABRICATE", "CONSTRUCT", "STUDY",
-    );
+    let mermaid =
+        crate::output::format_greimas_square("Physis", "HEAL", "FABRICATE", "CONSTRUCT", "STUDY");
     Json(GreimasSquareResponse { mermaid })
 }
 
@@ -3609,8 +4188,16 @@ struct CategoryDiagramResponse {
 async fn category_diagram_handler(
     Json(req): Json<CategoryDiagramRequest>,
 ) -> Json<CategoryDiagramResponse> {
-    let objects: Vec<(&str, &str)> = req.objects.iter().map(|o| (o.id.as_str(), o.label.as_str())).collect();
-    let morphisms: Vec<(&str, &str, &str)> = req.morphisms.iter().map(|m| (m.from.as_str(), m.to.as_str(), m.label.as_str())).collect();
+    let objects: Vec<(&str, &str)> = req
+        .objects
+        .iter()
+        .map(|o| (o.id.as_str(), o.label.as_str()))
+        .collect();
+    let morphisms: Vec<(&str, &str, &str)> = req
+        .morphisms
+        .iter()
+        .map(|m| (m.from.as_str(), m.to.as_str(), m.label.as_str()))
+        .collect();
     let mermaid = crate::output::format_category_diagram(&objects, &morphisms);
     Json(CategoryDiagramResponse { mermaid })
 }
@@ -3664,14 +4251,14 @@ struct HeatmapResponse {
     matrix: Vec<Vec<f32>>,
 }
 
-async fn heatmap_handler(
-    State(state): State<SharedState>,
-) -> Json<HeatmapResponse> {
+async fn heatmap_handler(State(state): State<SharedState>) -> Json<HeatmapResponse> {
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
     for def in s.ontology.human_domains.values() {
-        if let (Some(d), Some(m)) = (def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
-                                       def.mode.as_ref().and_then(|m| HumanMode::from_str(m))) {
+        if let (Some(d), Some(m)) = (
+            def.domain.as_ref().and_then(|d| HumanDomain::from_str(d)),
+            def.mode.as_ref().and_then(|m| HumanMode::from_str(m)),
+        ) {
             grid.classify(&def.name, d, m);
         }
     }
@@ -3722,7 +4309,13 @@ async fn rerank_cell(
         .iter()
         .enumerate()
         .map(|(i, c)| {
-            let ex = c.entries.iter().take(4).cloned().collect::<Vec<_>>().join(", ");
+            let ex = c
+                .entries
+                .iter()
+                .take(4)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
             format!("{}. {}×{} (e.g. {ex})", i + 1, c.domain, c.mode)
         })
         .collect::<Vec<_>>()
@@ -3737,17 +4330,40 @@ async fn rerank_cell(
                 "You classify a human activity into one DOMAIN×MODE cell. \
                  DOMAIN = what (HEAL/CONSTRUCT/FABRICATE/BOND/STUDY); \
                  MODE = how (LIFT=intense, REST=recover, WALK=steady, WORK=execute, \
-                 CREATE=make, LEARN=study). Reply with ONLY a number.".into(),
+                 CREATE=make, LEARN=study). Reply with ONLY a number."
+                    .into(),
             ),
-            tool_calls: None, tool_call_id: None, name: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
         },
-        Message { role: "user".into(), content: Content::Text(user), tool_calls: None, tool_call_id: None, name: None },
+        Message {
+            role: "user".into(),
+            content: Content::Text(user),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
     ];
-    let hint = RouteHint { task_type: task_hint.into(), has_image: false };
-    let (msg, _provider) = cascade.complete(&messages, None, &hint, Some(8)).await.ok()?;
+    let hint = RouteHint {
+        task_type: task_hint.into(),
+        has_image: false,
+    };
+    let (msg, _provider) = cascade
+        .complete(&messages, None, &hint, Some(8))
+        .await
+        .ok()?;
     let txt = msg.content.unwrap_or_default();
-    let n: usize = txt.trim().chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().ok()?;
-    candidates.get(n.checked_sub(1)?).map(|c| (c.domain.clone(), c.mode.clone()))
+    let n: usize = txt
+        .trim()
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>()
+        .parse()
+        .ok()?;
+    candidates
+        .get(n.checked_sub(1)?)
+        .map(|c| (c.domain.clone(), c.mode.clone()))
 }
 
 async fn classify_handler(
@@ -3764,9 +4380,13 @@ async fn classify_handler(
         let mut c = ProviderCascade::new();
         c.add(ProviderConfig {
             name: "byok".into(),
-            base_url: req.llm_base_url.clone()
-                .unwrap_or_else(|| "https://generativelanguage.googleapis.com/v1beta/openai".into()),
-            model: req.llm_model.clone().unwrap_or_else(|| "gemini-2.5-flash".into()),
+            base_url: req.llm_base_url.clone().unwrap_or_else(|| {
+                "https://generativelanguage.googleapis.com/v1beta/openai".into()
+            }),
+            model: req
+                .llm_model
+                .clone()
+                .unwrap_or_else(|| "gemini-2.5-flash".into()),
             api_key: key.clone(),
             supports_vision: false,
             supports_tools: false,
@@ -3778,7 +4398,9 @@ async fn classify_handler(
     let rerank_on = byok.is_some() || std::env::var("PHYSIS_RERANK").is_ok();
     if rerank_on && req.image.is_none() && results.len() >= 2 {
         let margin_thresh: f32 = std::env::var("PHYSIS_RERANK_MARGIN")
-            .ok().and_then(|s| s.parse().ok()).unwrap_or(0.05);
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.05);
         if results[0].score - results[1].score < margin_thresh {
             let topk = results[..results.len().min(4)].to_vec();
             // BYOK uses the caller's provider with the "smart" hint (so their chosen
@@ -3879,9 +4501,12 @@ async fn embed_video_handler(
 
     let src = if let Some(p) = req.path {
         // Same path-traversal guard as /scan: confine to scan_root.
-        let canonical = PathBuf::from(&p)
-            .canonicalize()
-            .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve path: {e}")))?;
+        let canonical = PathBuf::from(&p).canonicalize().map_err(|e| {
+            err_response(
+                StatusCode::BAD_REQUEST,
+                &format!("cannot resolve path: {e}"),
+            )
+        })?;
         if !canonical.starts_with(state.scan_root()) {
             return Err(err_response(
                 StatusCode::FORBIDDEN,
@@ -3892,10 +4517,18 @@ async fn embed_video_handler(
     } else if let Some(b64) = req.video_base64 {
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(b64)
-            .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("base64 decode failed: {e}")))?;
+            .map_err(|e| {
+                err_response(
+                    StatusCode::BAD_REQUEST,
+                    &format!("base64 decode failed: {e}"),
+                )
+            })?;
         Src::Bytes(bytes, req.ext.unwrap_or_else(|| "mp4".to_string()))
     } else {
-        return Err(err_response(StatusCode::BAD_REQUEST, "provide `path` or `video_base64`"));
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "provide `path` or `video_base64`",
+        ));
     };
 
     let shared = state.shared.clone();
@@ -3907,7 +4540,12 @@ async fn embed_video_handler(
         }
     })
     .await
-    .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &format!("video task failed: {e}")))?;
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("video task failed: {e}"),
+        )
+    })?;
 
     match result {
         Some(r) => Ok(Json(VideoEmbedResponse {
@@ -3968,14 +4606,19 @@ pub async fn build_app() -> (SharedState, Router) {
     // real provenance of every vector this process produces — surfaced at startup
     // and on /api/v1/embedder so a silent fall-through to random projection
     // (P0 in PREMORTEM.md) can never masquerade as a working model.
-    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) =
-    if matches!(std::env::var("PHYSIS_EMBEDDER").as_deref(), Ok("random-projection") | Ok("rp")) {
+    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = if matches!(
+        std::env::var("PHYSIS_EMBEDDER").as_deref(),
+        Ok("random-projection") | Ok("rp")
+    ) {
         // Fast-start override: skip the ONNX embedder cascade entirely. Comparable
         // vectors are enough for coherence/machine recall, and loading ONNX models
         // off slow storage stalls cold starts. Default path (below) is unchanged:
         // the real embedder cascade with random-projection only as last resort.
         log::info!("PHYSIS_EMBEDDER=random-projection: fast-start, ONNX cascade skipped.");
-        (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
+        (
+            Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+            "random-projection",
+        )
     } else {
         #[cfg(feature = "embed-onnx")]
         {
@@ -3991,7 +4634,8 @@ pub async fn build_app() -> (SharedState, Router) {
                     pooling: crate::config::PoolingStrategy::Mean,
                 };
                 let b = OnnxEmbedder::with_config(&cfg);
-                b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
+                b.is_available()
+                    .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
             };
             // BGE-M3 (1024-d, XLM-R, 100+ languages). Preferred over BGE-base when
             // its weights are present: Italian/multilingual industrial input is why.
@@ -4004,7 +4648,8 @@ pub async fn build_app() -> (SharedState, Router) {
                     pooling: crate::config::PoolingStrategy::Cls,
                 };
                 let b = OnnxEmbedder::with_config(&cfg);
-                b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
+                b.is_available()
+                    .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
             };
             // Self-test gate: accept a candidate only if it loads AND produces
             // semantic vectors. A model that loads but emits garbage (e.g. Jina
@@ -4024,49 +4669,74 @@ pub async fn build_app() -> (SharedState, Router) {
             // Try the configured primary embedder, then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
             let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
-                if !ec.enabled { return None; }
+                if !ec.enabled {
+                    return None;
+                }
                 match ec.kind {
                     EmbedderKindConfig::JinaV2 => {
                         let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                        j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                        j.is_available()
+                            .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                     }
                     EmbedderKindConfig::Clip => {
                         let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                        c.is_available()
+                            .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                     }
                     EmbedderKindConfig::MiniLM => {
                         let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                        m.is_available()
+                            .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     }
                     EmbedderKindConfig::BgeBase => make_bge(),
                     EmbedderKindConfig::BgeM3 => make_bge_m3(),
-                    EmbedderKindConfig::RandomProjection => {
-                        Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
-                    }
+                    EmbedderKindConfig::RandomProjection => Some((
+                        Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                        "random-projection",
+                    )),
                 }
             };
             gate(try_primary())
-                .or_else(|| gate({
-                    let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-                    j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                }))
+                .or_else(|| {
+                    gate({
+                        let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
+                        j.is_available()
+                            .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                    })
+                })
                 .or_else(|| gate(make_bge()))
                 // BGE-M3 sits BELOW bge-base: measured 2026-06-12, M3 CORE
                 // 0.923/0.769 vs bge-base 1.000/0.949; Italian only ties (0.733
                 // domain). Explicit `embedders.primary = bge-m3` still selects it.
                 .or_else(|| gate(make_bge_m3()))
-                .or_else(|| gate({
-                    let c = ClipEmbedder::with_config(&config.onnx);
-                    c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                }))
-                .or_else(|| gate({
-                    let m = OnnxEmbedder::with_config(&config.onnx);
-                    m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                }))
-                .unwrap_or_else(|| (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
+                .or_else(|| {
+                    gate({
+                        let c = ClipEmbedder::with_config(&config.onnx);
+                        c.is_available()
+                            .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                    })
+                })
+                .or_else(|| {
+                    gate({
+                        let m = OnnxEmbedder::with_config(&config.onnx);
+                        m.is_available()
+                            .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                    })
+                })
+                .unwrap_or_else(|| {
+                    (
+                        Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                        "random-projection",
+                    )
+                })
         }
         #[cfg(not(feature = "embed-onnx"))]
-        { (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection") }
+        {
+            (
+                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                "random-projection",
+            )
+        }
     };
     let embed_dim = embedder.dimension();
 
@@ -4104,10 +4774,16 @@ pub async fn build_app() -> (SharedState, Router) {
     let classifier =
         CellClassifier::build_cached(&ontology, embedder.as_ref(), embedder_kind, &mut seed_cache);
     seed_cache.save(&config.data_dir);
-    log::info!("classifier ready: {} populated cells", classifier.cell_count());
+    log::info!(
+        "classifier ready: {} populated cells",
+        classifier.cell_count()
+    );
 
     let cascade = Arc::new(ProviderCascade::from_env());
-    log::info!("AI cascade: {} providers loaded", cascade.provider_names().len());
+    log::info!(
+        "AI cascade: {} providers loaded",
+        cascade.provider_names().len()
+    );
 
     // `host` gates the open-relay check below; the bind address itself is
     // serve()'s business, so PHYSIS_PORT is read there.
@@ -4124,13 +4800,19 @@ pub async fn build_app() -> (SharedState, Router) {
     //                      -> viewer/editor/admin tokens for least-privilege use
     // See src/rbac.rs for the role model enforced by require_auth.
     let mut tokens = crate::rbac::TokenTable::new();
-    if let Some(legacy) = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty()) {
+    if let Some(legacy) = std::env::var("PHYSIS_API_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty())
+    {
         tokens.register(&format!("editor:{}", legacy));
     }
     if let Ok(list) = std::env::var("PHYSIS_TOKENS") {
         for tok in list.split([',', ' ', '\n']).filter(|s| !s.is_empty()) {
             if !tokens.register(tok) {
-                log::warn!("PHYSIS_TOKENS: skipping malformed entry {:?} (want role:secret)", tok);
+                log::warn!(
+                    "PHYSIS_TOKENS: skipping malformed entry {:?} (want role:secret)",
+                    tok
+                );
             }
         }
     }
@@ -4186,12 +4868,21 @@ pub async fn build_app() -> (SharedState, Router) {
         // persistence (goals, nodes, OEE, maintenance) until something else
         // happened to create the directory. Make it exist.
         if let Err(e) = std::fs::create_dir_all(dir) {
-            log::warn!("cannot create data dir {} ({e}); in-memory only", dir.display());
+            log::warn!(
+                "cannot create data dir {} ({e}); in-memory only",
+                dir.display()
+            );
         }
         let path = dir.join("state.sled");
         match sled::open(&path) {
-            Ok(d) => { log::info!("state persistence: sled at {}", path.display()); Some(d) }
-            Err(e) => { log::warn!("state persistence disabled ({e}); in-memory only"); None }
+            Ok(d) => {
+                log::info!("state persistence: sled at {}", path.display());
+                Some(d)
+            }
+            Err(e) => {
+                log::warn!("state persistence disabled ({e}); in-memory only");
+                None
+            }
         }
     };
 
@@ -4204,19 +4895,31 @@ pub async fn build_app() -> (SharedState, Router) {
             dreams,
             // Rehydrate the default tenant's goals (other tenants load lazily
             // in `with_user`).
-            goals: db.as_ref().map(|d| load_goals(d, "_default")).unwrap_or_default(),
+            goals: db
+                .as_ref()
+                .map(|d| load_goals(d, "_default"))
+                .unwrap_or_default(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
             // Rehydrate the default tenant's persisted goals.
-            lifeos: db.as_ref().map(|d| LifeOSTracker::load(d, "_default")).unwrap_or_default(),
+            lifeos: db
+                .as_ref()
+                .map(|d| LifeOSTracker::load(d, "_default"))
+                .unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
         scan_root: std::sync::RwLock::new(scan_root),
         oee: Mutex::new(db.as_ref().map(OeeBoard::load).unwrap_or_default()),
         maintenance: Mutex::new(
-            db.as_ref().map(|d| MaintenanceMonitor::load(d, 256)).unwrap_or_else(|| MaintenanceMonitor::new(256)),
+            db.as_ref()
+                .map(|d| MaintenanceMonitor::load(d, 256))
+                .unwrap_or_else(|| MaintenanceMonitor::new(256)),
         ),
         db: db.clone(),
-        axes: Mutex::new(db.as_ref().map(crate::axes::AxisStore::load).unwrap_or_default()),
+        axes: Mutex::new(
+            db.as_ref()
+                .map(crate::axes::AxisStore::load)
+                .unwrap_or_default(),
+        ),
         quality: Mutex::new(build_quality_tracker(&shared)),
         limiter: rate_limit_from_env(),
         #[cfg(feature = "mcp")]
@@ -4229,8 +4932,10 @@ pub async fn build_app() -> (SharedState, Router) {
     if let Some(db) = state.db().cloned() {
         let (loaded, skipped) = state.lock().core.load_nodes(&db, "_default");
         if loaded > 0 || skipped > 0 {
-            log::info!("tenant _default: {loaded} coherence nodes restored, \
-                        {skipped} skipped (embedder mismatch)");
+            log::info!(
+                "tenant _default: {loaded} coherence nodes restored, \
+                        {skipped} skipped (embedder mismatch)"
+            );
         }
     }
 
@@ -4242,7 +4947,9 @@ pub async fn build_app() -> (SharedState, Router) {
     // dir in-process.
     std::thread::spawn(move || {
         while let Ok((payload, embedding)) = graph_rx.recv() {
-            let Some(strong) = state_clone.upgrade() else { break };
+            let Some(strong) = state_clone.upgrade() else {
+                break;
+            };
             let mut s = strong.lock();
             s.core.holarchy.add_node(payload, embedding);
         }
@@ -4260,14 +4967,18 @@ pub async fn build_app() -> (SharedState, Router) {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
         loop {
             interval.tick().await;
-            let Some(strong) = state_clone_2.upgrade() else { break };
+            let Some(strong) = state_clone_2.upgrade() else {
+                break;
+            };
 
             let mut s = strong.lock();
             let mut rach = rachmaninov_clone.lock().unwrap_or_else(|e| e.into_inner());
             s.core.tick_holarchy(&onnx_clone, &mut rach);
             // Mirror native LifeOS goals into the schedule, then recompute.
             // (split borrow: take lifeos out by ref, scheduler by mut)
-            let RuntimeState { lifeos, scheduler, .. } = &mut *s;
+            let RuntimeState {
+                lifeos, scheduler, ..
+            } = &mut *s;
             lifeos.apply_to_scheduler(scheduler);
             scheduler.recompute();
             if scheduler.schedule_health() < 0.7 {
@@ -4282,7 +4993,9 @@ pub async fn build_app() -> (SharedState, Router) {
     // 3. Sensory Server
     tokio::spawn(async move {
         let socket_path = "/tmp/physis_sensory.sock";
-        if let Err(e) = crate::sensory::listener::start_sensory_server(socket_path, ingest_sensory).await {
+        if let Err(e) =
+            crate::sensory::listener::start_sensory_server(socket_path, ingest_sensory).await
+        {
             log::error!("Sensory server error: {}", e);
         }
     });
@@ -4295,12 +5008,21 @@ pub async fn build_app() -> (SharedState, Router) {
         match PathBuf::from(&watch_dir).canonicalize() {
             Ok(canon) if canon.starts_with(state.scan_root()) => {
                 let interval_secs: u64 = std::env::var("PHYSIS_WATCH_INTERVAL_SECS")
-                    .ok().and_then(|s| s.parse().ok()).unwrap_or(30);
+                    .ok()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(30);
                 let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
                 let scanner = crate::network::NetworkScanner::new(
-                    vec![canon.clone()], cache_path, interval_secs);
+                    vec![canon.clone()],
+                    cache_path,
+                    interval_secs,
+                );
                 let watch_state = state.clone();
-                log::info!("Watch-mode: polling {} every {}s", canon.display(), interval_secs);
+                log::info!(
+                    "Watch-mode: polling {} every {}s",
+                    canon.display(),
+                    interval_secs
+                );
                 std::thread::spawn(move || loop {
                     let diffs = scanner.scan_all();
                     let mut labels: Vec<String> = Vec::new();
@@ -4328,7 +5050,9 @@ pub async fn build_app() -> (SharedState, Router) {
             }
             Ok(canon) => log::error!(
                 "PHYSIS_WATCH_DIR {} outside scan root {} — watch disabled",
-                canon.display(), state.scan_root().display()),
+                canon.display(),
+                state.scan_root().display()
+            ),
             Err(e) => log::error!("PHYSIS_WATCH_DIR invalid ({watch_dir}): {e} — watch disabled"),
         }
     }
@@ -4366,11 +5090,20 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/dream/generate", post(dream_generate_handler))
         .route("/api/v1/dream/evaluate", post(dream_evaluate_handler))
         .route("/api/v1/dream/replay", post(dream_replay_handler))
-        .route("/api/v1/coherence/snapshot", get(coherence_snapshot_handler))
+        .route(
+            "/api/v1/coherence/snapshot",
+            get(coherence_snapshot_handler),
+        )
         .route("/api/v1/coherence/nodes", get(coherence_nodes_handler))
-        .route("/api/v1/coherence/nodes/all", get(coherence_nodes_all_handler))
+        .route(
+            "/api/v1/coherence/nodes/all",
+            get(coherence_nodes_all_handler),
+        )
         .route("/api/v1/quality", get(quality_handler))
-        .route("/api/v1/coherence/register", post(coherence_register_handler))
+        .route(
+            "/api/v1/coherence/register",
+            post(coherence_register_handler),
+        )
         .route("/api/v1/coherence/edit", post(coherence_edit_handler))
         .route("/api/v1/coherence/delete", post(coherence_delete_handler))
         .route("/api/v1/search/nodes", post(search_nodes_handler))
@@ -4378,22 +5111,42 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/oee/event", post(oee_event_handler))
         .route("/api/v1/oee/plant", get(oee_plant_handler))
         .route("/api/v1/oee/:machine", get(oee_machine_report_handler))
-        .route("/api/v1/maintenance/observe", post(maintenance_observe_handler))
+        .route(
+            "/api/v1/maintenance/observe",
+            post(maintenance_observe_handler),
+        )
         .route("/api/v1/maintenance/check", post(maintenance_check_handler))
         .route("/api/v1/oee/compute", post(oee_compute_handler))
         .route("/api/v1/oee/rollup", post(oee_rollup_handler))
-        .route("/api/v1/report/shift", get(report_shift_live_handler).post(report_shift_compute_handler))
-        .route("/api/v1/operational/timeline", post(operational_timeline_handler))
-        .route("/api/v1/operational/timeline/demo", get(operational_timeline_demo_handler))
-        .route("/api/v1/operational/timeline/demo/events", get(operational_timeline_demo_events_handler))
+        .route(
+            "/api/v1/report/shift",
+            get(report_shift_live_handler).post(report_shift_compute_handler),
+        )
+        .route(
+            "/api/v1/operational/timeline",
+            post(operational_timeline_handler),
+        )
+        .route(
+            "/api/v1/operational/timeline/demo",
+            get(operational_timeline_demo_handler),
+        )
+        .route(
+            "/api/v1/operational/timeline/demo/events",
+            get(operational_timeline_demo_events_handler),
+        )
         .route("/api/v1/study/log", post(study_log_handler))
         .route("/api/v1/study/session", get(study_session_handler))
         .route("/api/v1/study/clear", post(study_clear_handler))
         .route("/api/v1/discover", post(discover_handler))
+        .route("/api/v1/planner/simulate", post(planner_simulate_handler))
+        .route("/api/v1/admin/review", post(admin_review_handler))
         .route("/api/v1/maintenance/fold", post(maintenance_fold_handler))
         .route("/api/v1/maintenance/score", post(maintenance_score_handler))
         .route("/api/v1/maintenance/rul", post(maintenance_rul_handler))
-        .route("/api/v1/maintenance/:machine", get(maintenance_baseline_handler))
+        .route(
+            "/api/v1/maintenance/:machine",
+            get(maintenance_baseline_handler),
+        )
         .route("/api/v1/context/filter", post(context_filter_handler))
         .route("/api/v1/compress/logs", post(compress_logs_handler))
         .route("/api/v1/goals", post(ingest_prompt_handler))
@@ -4406,13 +5159,25 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/holarchy/ingest", post(holarchy_ingest_handler))
         .route("/api/v1/holarchy/edge", post(holarchy_edge_handler))
         .route("/api/v1/holarchy/snapshot", get(holarchy_snapshot_handler))
-        .route("/api/v1/holarchy/trajectory", get(holarchy_trajectory_handler))
+        .route(
+            "/api/v1/holarchy/trajectory",
+            get(holarchy_trajectory_handler),
+        )
         .route("/api/v1/holarchy/graph", get(holarchy_graph_handler))
-        .route("/api/v1/holarchy/neighbors", get(holarchy_neighbors_handler))
+        .route(
+            "/api/v1/holarchy/neighbors",
+            get(holarchy_neighbors_handler),
+        )
         .route("/api/v1/schedule/status", get(schedule_status_handler))
-        .route("/api/v1/schedule/cross-correlate", get(schedule_cross_correlate_handler))
+        .route(
+            "/api/v1/schedule/cross-correlate",
+            get(schedule_cross_correlate_handler),
+        )
         .route("/api/v1/schedule/add-task", post(schedule_add_task_handler))
-        .route("/api/v1/schedule/recompute", post(schedule_recompute_handler))
+        .route(
+            "/api/v1/schedule/recompute",
+            post(schedule_recompute_handler),
+        )
         .route("/api/v1/schedule/compute", post(schedule_compute_handler))
         .route("/api/v1/lifeos/goal", post(lifeos_goal_handler))
         .route("/api/v1/lifeos/progress", post(lifeos_progress_handler))
@@ -4422,6 +5187,7 @@ pub async fn build_app() -> (SharedState, Router) {
         // Semiotic / Ontology endpoints
         .route("/api/v1/ontology/list", get(ontology_list_handler))
         .route("/api/v1/ontology/studio", get(ontology_studio_handler))
+        .route("/api/v1/ontology/meaning", get(ontology_meaning_handler))
         .route("/api/v1/semiotic/grid", get(semiotic_grid_handler))
         .route("/api/v1/semiotic/triangle", get(semiotic_triangle_handler))
         .route("/api/v1/semiotic/square", get(greimas_square_handler))
@@ -4439,7 +5205,10 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/machines/soma", post(machines_soma_handler))
         .route("/api/v1/machines/elenchus", post(machines_elenchus_handler))
         .route("/api/v1/machines/lex", post(machines_lex_handler))
-        .route("/api/v1/machines/empedocles", post(machines_empedocles_handler))
+        .route(
+            "/api/v1/machines/empedocles",
+            post(machines_empedocles_handler),
+        )
         .route("/api/v1/machines/erosp", post(machines_erosp_handler))
         .route("/api/v1/machines/erosa", post(machines_erosa_handler))
         .route("/api/v1/machines/techne", post(machines_techne_handler))
@@ -4449,7 +5218,10 @@ pub async fn build_app() -> (SharedState, Router) {
         .route("/api/v1/machines/pathos", post(machines_pathos_handler))
         .route("/api/v1/machines/chroma", post(machines_chroma_handler))
         .route("/api/v1/machines/kinesis", post(machines_kinesis_handler))
-        .route("/api/v1/machines/apodeixis", post(machines_apodeixis_handler))
+        .route(
+            "/api/v1/machines/apodeixis",
+            post(machines_apodeixis_handler),
+        )
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes_list_handler))
         .route("/api/v1/axes/discover", post(axes_discover_handler))
@@ -4507,9 +5279,12 @@ pub async fn serve() {
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     // ConnectInfo is what gives `rate_limit` the peer IP; without this the
     // middleware's extractor fails and every request 500s.
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-        .await
-        .unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }
 
 // ── MCP SSE transport ──────────────────────────────────────────────────────
@@ -4523,12 +5298,14 @@ pub async fn serve() {
 async fn mcp_sse_handler(
     state: axum::extract::State<Arc<AppCtx>>,
 ) -> Result<
-    axum::response::sse::Sse<impl futures::Stream<Item = Result<axum::response::sse::Event, std::io::Error>>>,
+    axum::response::sse::Sse<
+        impl futures::Stream<Item = Result<axum::response::sse::Event, std::io::Error>>,
+    >,
     axum::response::Response<String>,
 > {
     use futures::channel::mpsc;
     use futures::{SinkExt, StreamExt};
-    use rmcp::{ServiceExt, model::*};
+    use rmcp::{model::*, ServiceExt};
 
     let session_id = format!("{:016x}", rand::random::<u128>());
 
@@ -4538,14 +5315,21 @@ async fn mcp_sse_handler(
     let (client_tx, client_rx) = mpsc::channel::<ClientJsonRpcMessage>(64);
 
     // Register client_tx so the POST handler can deliver messages
-    state.mcp_sessions.lock().await.insert(session_id.clone(), client_tx);
+    state
+        .mcp_sessions
+        .lock()
+        .await
+        .insert(session_id.clone(), client_tx);
 
     // Create fresh PhysisMcpServer using the shared config
     let handler = crate::mcp::PhysisMcpServer::new(state.shared.config.clone());
 
     // Build the transport with error mapping (mpsc::SendError → io::Error)
     use std::io;
-    let transport = (server_tx.sink_map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "mcp session closed")), client_rx);
+    let transport = (
+        server_tx.sink_map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "mcp session closed")),
+        client_rx,
+    );
 
     // rmcp's serve_inner spawns an internal task — it returns RunningService
     // immediately while the message loop runs in the background. Do NOT clean
@@ -4569,7 +5353,11 @@ async fn mcp_sse_handler(
 
     let message_stream = server_rx.map(|msg| {
         serde_json::to_string(&msg)
-            .map(|json| axum::response::sse::Event::default().event("message").data(json))
+            .map(|json| {
+                axum::response::sse::Event::default()
+                    .event("message")
+                    .data(json)
+            })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     });
 
@@ -4578,7 +5366,9 @@ async fn mcp_sse_handler(
     let cleanup = futures::stream::once(async move {
         mcp.lock().await.remove(&sid);
         // The SSE connection is closing; this event will not reach the client.
-        Ok(axum::response::sse::Event::default().event("close").data(""))
+        Ok(axum::response::sse::Event::default()
+            .event("close")
+            .data(""))
     });
 
     let stream = futures::stream::once(futures::future::ok(endpoint_event))
@@ -4636,24 +5426,114 @@ struct MachineInfo {
 /// GET /api/v1/machines — registry of the philosophical machines.
 async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
-        MachineInfo { name: "chronos",    modality: "timed events",        primitive: "rhythm (recurrence)",            status: "live" },
-        MachineInfo { name: "topos",      modality: "geotagged waypoints",  primitive: "place / region (recurring)",     status: "live" },
-        MachineInfo { name: "harmony",    modality: "notes (pitches)",     primitive: "interval / motif",               status: "live" },
-        MachineInfo { name: "elenchus",   modality: "dialogue statements", primitive: "claim / warrant / rebuttal",     status: "live" },
-        MachineInfo { name: "lex",        modality: "contract clauses",    primitive: "obligation / right / condition", status: "live" },
-        MachineInfo { name: "soma",       modality: "training sessions",   primitive: "effort / recovery / drift",      status: "live" },
-        MachineInfo { name: "polis",      modality: "social interactions", primitive: "affinity / reciprocity tie",     status: "live" },
-        MachineInfo { name: "empedocles", modality: "physical readings",   primitive: "element (earth/air/fire/water)", status: "live" },
-        MachineInfo { name: "erosp",      modality: "directed reaches",    primitive: "longing (Penia/Poros)",          status: "live" },
-        MachineInfo { name: "erosa",      modality: "directed reaches",    primitive: "conquest (Ares/Aphrodite)",      status: "live" },
-        MachineInfo { name: "techne",     modality: "source files",        primitive: "capability / dependency",        status: "live" },
-        MachineInfo { name: "euclid",     modality: "visual primitives",   primitive: "polygon (vertices)",             status: "live" },
-        MachineInfo { name: "plutos",     modality: "transactions",        primitive: "value flow (recurring)",         status: "live" },
-        MachineInfo { name: "krisis",     modality: "pairwise choices",    primitive: "preference (A > B)",             status: "live" },
-        MachineInfo { name: "pathos",     modality: "affect episodes",     primitive: "affect (valence x arousal)",     status: "live" },
-        MachineInfo { name: "chroma",     modality: "colors",              primitive: "color relation (wheel)",         status: "live" },
-        MachineInfo { name: "kinesis",    modality: "trajectories",        primitive: "motion gestalt (reach/gait)",    status: "live" },
-        MachineInfo { name: "apodeixis",  modality: "lean proof obligations", primitive: "verdict (certified / refuted)",  status: "live" },
+        MachineInfo {
+            name: "chronos",
+            modality: "timed events",
+            primitive: "rhythm (recurrence)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "topos",
+            modality: "geotagged waypoints",
+            primitive: "place / region (recurring)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "harmony",
+            modality: "notes (pitches)",
+            primitive: "interval / motif",
+            status: "live",
+        },
+        MachineInfo {
+            name: "elenchus",
+            modality: "dialogue statements",
+            primitive: "claim / warrant / rebuttal",
+            status: "live",
+        },
+        MachineInfo {
+            name: "lex",
+            modality: "contract clauses",
+            primitive: "obligation / right / condition",
+            status: "live",
+        },
+        MachineInfo {
+            name: "soma",
+            modality: "training sessions",
+            primitive: "effort / recovery / drift",
+            status: "live",
+        },
+        MachineInfo {
+            name: "polis",
+            modality: "social interactions",
+            primitive: "affinity / reciprocity tie",
+            status: "live",
+        },
+        MachineInfo {
+            name: "empedocles",
+            modality: "physical readings",
+            primitive: "element (earth/air/fire/water)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "erosp",
+            modality: "directed reaches",
+            primitive: "longing (Penia/Poros)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "erosa",
+            modality: "directed reaches",
+            primitive: "conquest (Ares/Aphrodite)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "techne",
+            modality: "source files",
+            primitive: "capability / dependency",
+            status: "live",
+        },
+        MachineInfo {
+            name: "euclid",
+            modality: "visual primitives",
+            primitive: "polygon (vertices)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "plutos",
+            modality: "transactions",
+            primitive: "value flow (recurring)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "krisis",
+            modality: "pairwise choices",
+            primitive: "preference (A > B)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "pathos",
+            modality: "affect episodes",
+            primitive: "affect (valence x arousal)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "chroma",
+            modality: "colors",
+            primitive: "color relation (wheel)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "kinesis",
+            modality: "trajectories",
+            primitive: "motion gestalt (reach/gait)",
+            status: "live",
+        },
+        MachineInfo {
+            name: "apodeixis",
+            modality: "lean proof obligations",
+            primitive: "verdict (certified / refuted)",
+            status: "live",
+        },
     ];
     Json(serde_json::json!({ "machines": machines }))
 }
@@ -4684,10 +5564,12 @@ async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde
         .events
         .iter()
         .filter_map(|e| {
-            chrono::DateTime::parse_from_rfc3339(&e.at).ok().map(|dt| chronos::TimedEvent {
-                label: e.label.clone(),
-                at: dt.with_timezone(&chrono::Utc),
-            })
+            chrono::DateTime::parse_from_rfc3339(&e.at)
+                .ok()
+                .map(|dt| chronos::TimedEvent {
+                    label: e.label.clone(),
+                    at: dt.with_timezone(&chrono::Utc),
+                })
         })
         .collect();
 
@@ -4696,10 +5578,14 @@ async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde
     let horizon = req.horizon_days.unwrap_or(7);
     let tol = req.tolerance.unwrap_or(0.5);
 
-    let upcoming: Vec<String> =
-        chronos::upcoming(&rhythms, now, horizon).iter().map(|r| r.label.clone()).collect();
-    let slipping: Vec<String> =
-        chronos::slipping(&rhythms, now, tol).iter().map(|r| r.label.clone()).collect();
+    let upcoming: Vec<String> = chronos::upcoming(&rhythms, now, horizon)
+        .iter()
+        .map(|r| r.label.clone())
+        .collect();
+    let slipping: Vec<String> = chronos::slipping(&rhythms, now, tol)
+        .iter()
+        .map(|r| r.label.clone())
+        .collect();
 
     let rhythms_json: Vec<serde_json::Value> = rhythms
         .iter()
@@ -4721,7 +5607,6 @@ async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde
         "slipping": slipping,
     }))
 }
-
 
 #[derive(Deserialize)]
 struct HarmonyRequest {
@@ -4768,20 +5653,26 @@ async fn machines_polis_handler(Json(req): Json<PolisRequest>) -> Json<serde_jso
     let interactions: Vec<polis::Interaction> = req
         .interactions
         .iter()
-        .map(|i| polis::Interaction { from: i.from.clone(), to: i.to.clone(), weight: i.weight })
+        .map(|i| polis::Interaction {
+            from: i.from.clone(),
+            to: i.to.clone(),
+            weight: i.weight,
+        })
         .collect();
     let ties = polis::ties(&interactions);
     let min_s = req.min_strength.unwrap_or(0.0);
     let min_r = req.min_reciprocity.unwrap_or(0.5);
     let max_r = req.max_reciprocity.unwrap_or(0.5);
-    let tie_json = |t: &polis::Tie| {
-        serde_json::json!({ "a": t.a, "b": t.b, "strength": t.strength, "reciprocity": t.reciprocity })
-    };
+    let tie_json = |t: &polis::Tie| serde_json::json!({ "a": t.a, "b": t.b, "strength": t.strength, "reciprocity": t.reciprocity });
     let all: Vec<serde_json::Value> = ties.iter().map(tie_json).collect();
-    let strengthening: Vec<serde_json::Value> =
-        polis::strengthening(&ties, min_s, min_r).into_iter().map(tie_json).collect();
-    let fading: Vec<serde_json::Value> =
-        polis::fading(&ties, max_r).into_iter().map(tie_json).collect();
+    let strengthening: Vec<serde_json::Value> = polis::strengthening(&ties, min_s, min_r)
+        .into_iter()
+        .map(tie_json)
+        .collect();
+    let fading: Vec<serde_json::Value> = polis::fading(&ties, max_r)
+        .into_iter()
+        .map(tie_json)
+        .collect();
     Json(serde_json::json!({ "ties": all, "strengthening": strengthening, "fading": fading }))
 }
 
@@ -4840,10 +5731,14 @@ async fn machines_erosp_handler(Json(req): Json<ErospRequest>) -> Json<serde_jso
         })
     };
     let all: Vec<serde_json::Value> = longings.iter().map(lj).collect();
-    let ascending: Vec<serde_json::Value> =
-        erosp::ascending(&longings, min_i, min_a).into_iter().map(lj).collect();
-    let hopeless: Vec<serde_json::Value> =
-        erosp::hopeless(&longings, max_a).into_iter().map(lj).collect();
+    let ascending: Vec<serde_json::Value> = erosp::ascending(&longings, min_i, min_a)
+        .into_iter()
+        .map(lj)
+        .collect();
+    let hopeless: Vec<serde_json::Value> = erosp::hopeless(&longings, max_a)
+        .into_iter()
+        .map(lj)
+        .collect();
     Json(serde_json::json!({ "longings": all, "ascending": ascending, "hopeless": hopeless }))
 }
 
@@ -4863,10 +5758,11 @@ async fn machines_erosa_handler(Json(req): Json<ErosaRequest>) -> Json<serde_jso
         })
     };
     let all: Vec<serde_json::Value> = conquests.iter().map(cj).collect();
-    let passionate: Vec<serde_json::Value> =
-        erosa::passionate(&conquests, min_b).into_iter().map(cj).collect();
-    let jealous: Vec<serde_json::Value> =
-        erosa::jealous(&conquests).into_iter().map(cj).collect();
+    let passionate: Vec<serde_json::Value> = erosa::passionate(&conquests, min_b)
+        .into_iter()
+        .map(cj)
+        .collect();
+    let jealous: Vec<serde_json::Value> = erosa::jealous(&conquests).into_iter().map(cj).collect();
     Json(serde_json::json!({ "conquests": all, "passionate": passionate, "jealous": jealous }))
 }
 
@@ -4893,16 +5789,24 @@ async fn machines_techne_handler(Json(req): Json<TechneRequest>) -> Json<serde_j
     let files: Vec<techne::SourceFile> = req
         .files
         .iter()
-        .map(|f| techne::SourceFile { path: f.path.clone(), lines: f.lines.clone() })
+        .map(|f| techne::SourceFile {
+            path: f.path.clone(),
+            lines: f.lines.clone(),
+        })
         .collect();
     let caps: Vec<serde_json::Value> = techne::classify_capabilities(&files)
         .iter()
         .map(|c| serde_json::json!({ "name": c.name, "files": c.files }))
         .collect();
     let edges = techne::dependency_edges(&files);
-    let deps: Vec<serde_json::Value> =
-        edges.iter().map(|(a, b)| serde_json::json!([a, b])).collect();
-    let impact = req.impact_target.as_ref().map(|t| techne::impact_of(&edges, t));
+    let deps: Vec<serde_json::Value> = edges
+        .iter()
+        .map(|(a, b)| serde_json::json!([a, b]))
+        .collect();
+    let impact = req
+        .impact_target
+        .as_ref()
+        .map(|t| techne::impact_of(&edges, t));
     Json(serde_json::json!({ "capabilities": caps, "dependencies": deps, "impact": impact }))
 }
 
@@ -4999,7 +5903,11 @@ async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<serde_j
     let txns: Vec<plutos::Transaction> = req
         .transactions
         .iter()
-        .map(|t| plutos::Transaction { from: t.from.clone(), to: t.to.clone(), amount: t.amount })
+        .map(|t| plutos::Transaction {
+            from: t.from.clone(),
+            to: t.to.clone(),
+            amount: t.amount,
+        })
         .collect();
     let flows = plutos::detect_flows(&txns, req.min_count.unwrap_or(2));
     let bals = plutos::balances(&flows);
@@ -5014,11 +5922,12 @@ async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<serde_j
         })
     };
     let flows_json: Vec<serde_json::Value> = flows.iter().map(fj).collect();
-    let drains: Vec<serde_json::Value> =
-        plutos::drains(&flows, req.min_total.unwrap_or(0.0)).into_iter().map(fj).collect();
+    let drains: Vec<serde_json::Value> = plutos::drains(&flows, req.min_total.unwrap_or(0.0))
+        .into_iter()
+        .map(fj)
+        .collect();
     let balances_json: Vec<serde_json::Value> = bals.iter().map(bj).collect();
-    let breaches: Vec<serde_json::Value> =
-        plutos::breaches(&bals).into_iter().map(bj).collect();
+    let breaches: Vec<serde_json::Value> = plutos::breaches(&bals).into_iter().map(bj).collect();
     Json(serde_json::json!({
         "flows": flows_json,
         "drains": drains,
@@ -5046,7 +5955,10 @@ async fn machines_krisis_handler(Json(req): Json<KrisisRequest>) -> Json<serde_j
     let choices: Vec<krisis::Choice> = req
         .choices
         .iter()
-        .map(|c| krisis::Choice { over: c.over.clone(), under: c.under.clone() })
+        .map(|c| krisis::Choice {
+            over: c.over.clone(),
+            under: c.under.clone(),
+        })
         .collect();
     let prefs = krisis::detect_preferences(&choices);
     let prefs_json: Vec<serde_json::Value> = prefs
@@ -5057,8 +5969,10 @@ async fn machines_krisis_handler(Json(req): Json<KrisisRequest>) -> Json<serde_j
         .iter()
         .map(|r| serde_json::json!({ "option": r.option, "score": r.score }))
         .collect();
-    let cycles: Vec<serde_json::Value> =
-        krisis::cycles(&prefs).into_iter().map(|c| serde_json::json!(c)).collect();
+    let cycles: Vec<serde_json::Value> = krisis::cycles(&prefs)
+        .into_iter()
+        .map(|c| serde_json::json!(c))
+        .collect();
     Json(serde_json::json!({ "preferences": prefs_json, "ranking": ranking, "cycles": cycles }))
 }
 
@@ -5085,17 +5999,27 @@ async fn machines_pathos_handler(Json(req): Json<PathosRequest>) -> Json<serde_j
     let episodes: Vec<pathos::Episode> = req
         .episodes
         .iter()
-        .map(|e| pathos::Episode { trigger: e.trigger.clone(), valence: e.valence, arousal: e.arousal })
+        .map(|e| pathos::Episode {
+            trigger: e.trigger.clone(),
+            valence: e.valence,
+            arousal: e.arousal,
+        })
         .collect();
-    let affects = pathos::detect_affects(&episodes, req.min_count.unwrap_or(2), req.flat.unwrap_or(0.1));
-    let aj = |a: &pathos::Affect| {
-        serde_json::json!({ "trigger": a.trigger, "valence": a.valence, "arousal": a.arousal, "count": a.count })
-    };
+    let affects = pathos::detect_affects(
+        &episodes,
+        req.min_count.unwrap_or(2),
+        req.flat.unwrap_or(0.1),
+    );
+    let aj = |a: &pathos::Affect| serde_json::json!({ "trigger": a.trigger, "valence": a.valence, "arousal": a.arousal, "count": a.count });
     let all: Vec<serde_json::Value> = affects.iter().map(aj).collect();
-    let amplifiers: Vec<serde_json::Value> =
-        pathos::amplifiers(&affects, 0.5).into_iter().map(aj).collect();
-    let soothers: Vec<serde_json::Value> =
-        pathos::soothers(&affects, 0.5).into_iter().map(aj).collect();
+    let amplifiers: Vec<serde_json::Value> = pathos::amplifiers(&affects, 0.5)
+        .into_iter()
+        .map(aj)
+        .collect();
+    let soothers: Vec<serde_json::Value> = pathos::soothers(&affects, 0.5)
+        .into_iter()
+        .map(aj)
+        .collect();
     Json(serde_json::json!({ "affects": all, "amplifiers": amplifiers, "soothers": soothers }))
 }
 
@@ -5120,8 +6044,15 @@ struct ChromaRequest {
 /// Stateless.
 async fn machines_chroma_handler(Json(req): Json<ChromaRequest>) -> Json<serde_json::Value> {
     use crate::machines::chroma;
-    let colors: Vec<chroma::Color> =
-        req.colors.iter().map(|c| chroma::Color { r: c.r, g: c.g, b: c.b }).collect();
+    let colors: Vec<chroma::Color> = req
+        .colors
+        .iter()
+        .map(|c| chroma::Color {
+            r: c.r,
+            g: c.g,
+            b: c.b,
+        })
+        .collect();
     let min_chroma = req.min_chroma.unwrap_or(0.2);
     let tol = req.tol.unwrap_or(20.0);
     let rels = chroma::detect_relations(&colors, min_chroma, tol);
@@ -5172,7 +6103,11 @@ async fn machines_kinesis_handler(Json(req): Json<KinesisRequest>) -> Json<serde
         .iter()
         .map(|g| kinesis::Gesture {
             label: g.label.clone(),
-            points: g.points.iter().map(|p| kinesis::Point { x: p.x, y: p.y }).collect(),
+            points: g
+                .points
+                .iter()
+                .map(|p| kinesis::Point { x: p.x, y: p.y })
+                .collect(),
         })
         .collect();
     let motions = kinesis::detect_motions(&gestures, req.min_move.unwrap_or(0.5));
@@ -5183,8 +6118,10 @@ async fn machines_kinesis_handler(Json(req): Json<KinesisRequest>) -> Json<serde
         })
     };
     let all: Vec<serde_json::Value> = motions.iter().map(mj).collect();
-    let reaches: Vec<serde_json::Value> =
-        kinesis::reaches(&motions, req.min_net.unwrap_or(1.0)).into_iter().map(mj).collect();
+    let reaches: Vec<serde_json::Value> = kinesis::reaches(&motions, req.min_net.unwrap_or(1.0))
+        .into_iter()
+        .map(mj)
+        .collect();
     let degrading = kinesis::degrading(&motions, req.drop.unwrap_or(0.2));
     Json(serde_json::json!({ "motions": all, "reaches": reaches, "degrading": degrading }))
 }
@@ -5211,7 +6148,12 @@ async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_json:
     let sessions: Vec<soma::Session> = req
         .sessions
         .iter()
-        .map(|s| soma::Session { day: s.day, activity: s.activity.clone(), load: s.load, recovery: s.recovery })
+        .map(|s| soma::Session {
+            day: s.day,
+            activity: s.activity.clone(),
+            load: s.load,
+            recovery: s.recovery,
+        })
         .collect();
     let classified: Vec<serde_json::Value> = sessions
         .iter()
@@ -5228,7 +6170,6 @@ async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_json:
     let drift = soma::drift(&sessions, window);
     Json(serde_json::json!({ "sessions": classified, "drift": drift }))
 }
-
 
 #[derive(Deserialize)]
 struct ElenchusStatement {
@@ -5261,7 +6202,12 @@ async fn machines_elenchus_handler(Json(req): Json<ElenchusRequest>) -> Json<ser
                 "rebuttal" => elenchus::Kind::Rebuttal,
                 _ => return None,
             };
-            Some(elenchus::Statement { id: s.id.clone(), kind, text: s.text.clone(), target: s.target.clone() })
+            Some(elenchus::Statement {
+                id: s.id.clone(),
+                kind,
+                text: s.text.clone(),
+                target: s.target.clone(),
+            })
         })
         .collect();
     let standings: Vec<serde_json::Value> = elenchus::evaluate(&statements)
@@ -5316,7 +6262,12 @@ async fn machines_lex_handler(Json(req): Json<LexRequest>) -> Json<serde_json::V
                 "condition" => lex::Kind::Condition,
                 _ => return None,
             };
-            Some(lex::Clause { id: c.id.clone(), kind, text: c.text.clone(), requires: c.requires.clone() })
+            Some(lex::Clause {
+                id: c.id.clone(),
+                kind,
+                text: c.text.clone(),
+                requires: c.requires.clone(),
+            })
         })
         .collect();
     Json(serde_json::json!({
@@ -5357,7 +6308,11 @@ async fn machines_apodeixis_handler(
     let obligations: Vec<apodeixis::Obligation> = req
         .obligations
         .iter()
-        .map(|o| apodeixis::Obligation { id: o.id.clone(), claim: o.claim.clone(), snippet: o.snippet.clone() })
+        .map(|o| apodeixis::Obligation {
+            id: o.id.clone(),
+            claim: o.claim.clone(),
+            snippet: o.snippet.clone(),
+        })
         .collect();
     let checks = apodeixis::reduce(&obligations, req.timeout_secs.unwrap_or(30));
     let cj: Vec<serde_json::Value> = checks
@@ -5376,7 +6331,10 @@ async fn machines_apodeixis_handler(
     let uid = user_key(&headers);
     let mut coherence_ids = Vec::new();
     let centroids = state.shared.classifier.cell_centroids();
-    for c in checks.iter().filter(|c| c.verdict != apodeixis::Verdict::Untestable) {
+    for c in checks
+        .iter()
+        .filter(|c| c.verdict != apodeixis::Verdict::Untestable)
+    {
         let label = format!("apodeixis {}: {}", c.verdict.as_str(), c.claim);
         let embedding = embed_text(state.shared.clone(), label.clone()).await;
         let id = state.with_user(&uid, |s| {
@@ -5386,7 +6344,10 @@ async fn machines_apodeixis_handler(
         });
         coherence_ids.push(id);
         if c.verdict == apodeixis::Verdict::Refuted {
-            let _ = state.quality.lock().unwrap_or_else(|e| e.into_inner())
+            let _ = state
+                .quality
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
                 .report_failure(&c.claim, &centroids, None);
         }
     }
@@ -5420,7 +6381,9 @@ struct EmpedoclesRequest {
 /// POST /api/v1/machines/empedocles — classify telemetry readings into the four
 /// elements (earth/air/fire/water) and flag stable vs anomaly past threshold;
 /// optional trend slope over a series. Stateless.
-async fn machines_empedocles_handler(Json(req): Json<EmpedoclesRequest>) -> Json<serde_json::Value> {
+async fn machines_empedocles_handler(
+    Json(req): Json<EmpedoclesRequest>,
+) -> Json<serde_json::Value> {
     use crate::machines::empedocles;
     let threshold = req.threshold.unwrap_or(1.0);
     let readings: Vec<serde_json::Value> = req
@@ -5444,7 +6407,6 @@ async fn machines_empedocles_handler(Json(req): Json<EmpedoclesRequest>) -> Json
     let trend = req.series.as_ref().map(|s| empedocles::trend(s));
     Json(serde_json::json!({ "readings": readings, "trend": trend }))
 }
-
 
 #[derive(Deserialize)]
 struct ToposWaypoint {
@@ -5481,7 +6443,9 @@ async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_jso
             lng: w.lng,
             label: w.label.clone(),
             at: w.at.as_ref().and_then(|s| {
-                chrono::DateTime::parse_from_rfc3339(s).ok().map(|dt| dt.with_timezone(&chrono::Utc))
+                chrono::DateTime::parse_from_rfc3339(s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
             }),
         })
         .collect();
@@ -5503,11 +6467,13 @@ async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_jso
         })
     };
     let all: Vec<serde_json::Value> = places.iter().map(place_json).collect();
-    let fading: Vec<serde_json::Value> = topos::fading(&places, now, stale).into_iter().map(place_json).collect();
+    let fading: Vec<serde_json::Value> = topos::fading(&places, now, stale)
+        .into_iter()
+        .map(place_json)
+        .collect();
 
     Json(serde_json::json!({ "places": all, "fading": fading }))
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dynamic axis expansion (Phase 6). Read + propose + promote/demote/lineage.
@@ -5587,7 +6553,8 @@ async fn axes_discover_handler(
         let centroids = shared.classifier.cell_centroids();
         let mut anchors = crate::axes::axis_anchors(&centroids, role);
         anchors.extend(crate::axes::installed_anchors(&installed, role));
-        let embeddings: Vec<Vec<f32>> = req.texts.iter().map(|t| shared.embedder.embed(t)).collect();
+        let embeddings: Vec<Vec<f32>> =
+            req.texts.iter().map(|t| shared.embedder.embed(t)).collect();
         crate::axes::propose_axes(role, &req.texts, &embeddings, &anchors, tau, 0.70, 2, 8)
     })
     .await
@@ -5620,7 +6587,9 @@ async fn axes_promote_handler(
     if req.samples.is_empty() || req.operator.trim().is_empty() || req.name.trim().is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "promotion requires name, operator, and samples — an axis must carry its cause" })),
+            Json(
+                serde_json::json!({ "error": "promotion requires name, operator, and samples — an axis must carry its cause" }),
+            ),
         );
     }
     let role = parse_axis_role(&req.role);
@@ -5649,7 +6618,14 @@ async fn axes_promote_handler(
     .expect("anchor embed completes");
 
     let now = chrono::Utc::now();
-    let id = format!("axis-{}-{}", now.timestamp_millis(), req.name.trim().to_lowercase().replace(|c: char| !c.is_alphanumeric(), "-"));
+    let id = format!(
+        "axis-{}-{}",
+        now.timestamp_millis(),
+        req.name
+            .trim()
+            .to_lowercase()
+            .replace(|c: char| !c.is_alphanumeric(), "-")
+    );
     let av = crate::axes::AxisValue {
         id: id.clone(),
         role,
@@ -5671,8 +6647,17 @@ async fn axes_promote_handler(
             store.save(db);
         }
     }
-    log::info!("[axes] promoted {:?} axis '{}' by {} (id={})", role, av.name, av.operator, id);
-    (StatusCode::CREATED, Json(serde_json::json!({ "installed": av })))
+    log::info!(
+        "[axes] promoted {:?} axis '{}' by {} (id={})",
+        role,
+        av.name,
+        av.operator,
+        id
+    );
+    (
+        StatusCode::CREATED,
+        Json(serde_json::json!({ "installed": av })),
+    )
 }
 
 #[derive(Deserialize)]
@@ -5693,9 +6678,15 @@ async fn axes_demote_handler(
             if let Some(db) = &state.db {
                 store.save(db);
             }
-            (StatusCode::OK, Json(serde_json::json!({ "archived": req.id })))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({ "archived": req.id })),
+            )
         }
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "axis id not found" }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "axis id not found" })),
+        ),
     }
 }
 
@@ -5722,6 +6713,9 @@ async fn axes_lineage_handler(
                 "archived": a.archived,
             })),
         ),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "axis id not found" }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "axis id not found" })),
+        ),
     }
 }

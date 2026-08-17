@@ -6,9 +6,35 @@ signed order form.
 
 ## Revenue model
 
+## 2026 monetary re-evaluation
+
+Physis is worth more as a workflow product than as a generic AI API. Current
+market references put OEE software broadly around $99–$800+ per machine/month,
+with dedicated platforms often priced at $500–$5,000 per production line/year
+before integration and hardware. Document-automation deployments can require
+five-figure setup work even when ongoing software costs are hundreds per month.
+See [Fabrico's 2026 OEE pricing guide](https://www.fabrico.io/blog/oee-software-pricing-guide-2026/),
+[TeepTrak's OEE pricing/ROI guide](https://teeptrak.com/en/oee-software-price-roi/),
+and [USmartTec's SMB document-automation guide](https://www.usmarttec.com/guides/ai-document-automation).
+
+These are comparison points, not a claim that Physis has equivalent market
+coverage today. The revised value model is:
+
+| Product lane | First paid engagement | Recurring target | Value proof |
+|---|---:|---:|---|
+| Shift Loss Pilot | €2,500–€5,000 | €750–€2,000/plant/month | avoided loss, faster shift review, quantified scrap/downtime |
+| Admin Review Pilot | €2,000–€6,000 | €500–€2,000/team/month | backlog hours removed, exceptions found, evidence delivered |
+| Decision Planner | €5,000–€15,000 discovery | €1,000–€4,000/month add-on | avoided bad taxonomy/process change, controlled rollout |
+| Private Edge / integrator | €10,000–€40,000 setup | €8,000–€30,000/year maintenance | data control, integration, SLA, multi-site reuse |
+
+Use the lower end for the first reference customer and the upper end only when
+Physis owns a recurring review process, has data coverage, and carries support
+responsibility. The economic ceiling is the cost of recurring operational
+mistakes and the staff time spent finding them—not the cost of an embedding.
+
 ### 1. Shift Loss Pilot
 
-- €1,500–€3,000 one-time
+- €2,500–€5,000 one-time
 - one plant, one week of data, up to two machines for the initial scope
 - Italian HTML shift reports, loss review, and baseline/anomaly demonstration
 - no promise of safety, guaranteed savings, or predictive accuracy without
@@ -16,7 +42,7 @@ signed order form.
 
 ### 2. Plant Monitor
 
-- €500–€1,500 per plant/month, priced by machine count and support level
+- €750–€2,000 per plant/month, priced by machine count and support level
 - recurring reports, persisted history, anomaly/RUL monitoring, and operator
   support
 - CSV/JSON ingestion first; MQTT/Modbus/OPC-UA are paid integration work until
@@ -70,3 +96,5 @@ assumptions, and the customer remains responsible for operational decisions.
 - [ ] Durable shift history before multi-replica hosted deployment.
 - [ ] Invoice/checkout process outside the engine first; automate only after
       three paying customers establish the pricing and tax workflow.
+- [ ] Track pilot-to-recurring conversion, time-to-first-report, exception
+      precision, and customer decision changes; these become pricing evidence.

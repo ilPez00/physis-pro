@@ -41,6 +41,11 @@ flags, ontology mapping, graph edges, semantic search, and watch/import paths.
 Still needed: a stable `AdminDocument` schema, batch import endpoint, duplicate
 fingerprint, confidence/exception queue, and CSV/JSON export.
 
+Productized first slice: `src/admin.rs` defines the review queue and duplicate
+grouping primitive, exposed at `POST /api/v1/admin/review`. It currently accepts
+normalized document metadata; ingestion, field extraction, persistence, and
+operator actions are intentionally separate follow-up work.
+
 ### 2. Invoice and purchase-order reconciliation
 
 Input: invoice, purchase order, delivery note, and optionally a spreadsheet
@@ -151,10 +156,12 @@ or document-management system.
 
 ## Commercial hypothesis
 
-Sell a fixed-price **Admin Backlog Review** first: €750–€2,500 for one week of
-documents and a delivered exception report. Convert to €250–€1,000/month per
-team for scheduled ingestion and review, with setup/integration billed
-separately. Price by workflow volume and review responsibility, not tokens.
+Sell a fixed-price **Admin Backlog Review** first: €2,000–€6,000 for a scoped
+pilot with one week's documents, a configured review queue, and a delivered
+exception report. Convert to €500–€2,000/month per team for scheduled
+ingestion and review, with setup/integration billed separately. Price by
+workflow volume and review responsibility, not tokens. Discount only after the
+customer has supplied a measured baseline and the pilot has a named owner.
 
 Use the same licence family as the industrial product: evaluation, team/plant,
 private edge, and integrator. Administration customers may need stronger data

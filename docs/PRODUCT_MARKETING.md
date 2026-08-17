@@ -48,6 +48,34 @@ machine/line and keep implementation/support in the commercial package; this
 range is a starting hypothesis to validate in customer conversations, not a
 promise.
 
+## Product ladder
+
+Physis should be sold in three steps, each with a concrete economic event:
+
+1. **Review** — a paid Shift Loss or Admin Backlog Review produces a report and
+   an exception queue from existing exports.
+2. **Monitor** — recurring ingestion, baselines, reports, and human review keep
+   the decision loop alive.
+3. **Plan** — Decision Planner simulates ontology/process changes and shows the
+   blast radius before a customer changes routing, metrics, or policy.
+
+The third step is the defensible expansion. A competitor can copy a dashboard;
+it is harder to copy a customer's history of meanings, corrections, evidence,
+and counterfactual decisions.
+
+## Value qualification
+
+Before quoting, ask:
+
+- Which recurring decision is currently made from a spreadsheet or meeting?
+- How many hours or euros disappear when the decision is late or wrong?
+- Can the customer provide one week of representative data?
+- Who owns the decision and can approve a report or review queue?
+- What evidence would make the customer continue for another month?
+
+Do not quote based on document count or model usage alone. Quote against a
+named workflow and the responsibility Physis is expected to carry.
+
 ## Sales sequence
 
 - Build a list of 20 local manufacturers, lean consultants, and automation/MES
