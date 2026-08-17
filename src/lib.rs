@@ -7,6 +7,7 @@ pub mod classify;
 pub mod config;
 pub mod context;
 pub mod salience;
+pub mod semiotic_grid;
 pub mod core;
 pub mod demo_corpus;
 pub mod discovery;

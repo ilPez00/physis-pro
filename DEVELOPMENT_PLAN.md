@@ -800,3 +800,9 @@ Phase 7 depends only on the existing classify/reconstruct/holarchy endpoints
 | Ontology density | Entries per cell (mean) | >25 |
 | Content recall (TUI) | Forgotten-item found in top-5 by content query | >0.85 |
 | Recall latency | Keystroke → re-ranked results (local engine) | <150ms |
+# Classifier productization (2026-08-17)
+
+The classifier work is now organized around a stable 70-cell grid plus evidence
+layers. See [docs/CLASSIFIER_PLAN.md](docs/CLASSIFIER_PLAN.md). The MVP work is
+implemented in `src/semiotic_grid.rs`, `src/classify.rs`, `src/context.rs`,
+`src/discovery.rs`, and the `/api/v1/classify` response.

@@ -15,11 +15,67 @@
 use std::collections::HashMap;
 
 use physis_core::classify::EntrySeed;
+use serde::Serialize;
 
 use crate::config::OntologyLoader;
 use crate::embed::VectorEmbed;
 
 pub use physis_core::classify::CellScore;
+
+/// Interpretable quality assessment for a classification result.
+#[derive(Debug, Clone, Serialize)]
+pub struct ClassificationAssessment {
+    pub model: String,
+    pub semantic: bool,
+    pub top_score: f32,
+    pub margin: f32,
+    pub coverage: f32,
+    pub confidence: f32,
+    pub verdict: String,
+    pub abstained: bool,
+    pub reason: String,
+}
+
+impl ClassificationAssessment {
+    pub fn from_results(
+        results: &[CellScore],
+        coverage: f32,
+        model: &str,
+        semantic: bool,
+    ) -> Self {
+        let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
+        let margin = results
+            .get(1)
+            .map(|r| top_score - r.score)
+            .unwrap_or(top_score.max(0.0));
+        let score_signal = ((top_score - 0.35) / 0.35).clamp(0.0, 1.0);
+        let coverage_signal = ((coverage - 0.35) / 0.35).clamp(0.0, 1.0);
+        let margin_signal = (margin / 0.12).clamp(0.0, 1.0);
+        let confidence = (0.35 * score_signal + 0.45 * coverage_signal + 0.20 * margin_signal)
+            .clamp(0.0, 1.0);
+        let abstained = !semantic || coverage < 0.48 || top_score < 0.45;
+        let (verdict, reason) = if !semantic {
+            ("degraded", "The active embedder is non-semantic; no cell is trustworthy.".into())
+        } else if coverage < 0.48 {
+            ("unmapped", "No ontology entry is close enough; review the discovery suggestion.".into())
+        } else if abstained || confidence < 0.70 || margin < 0.04 {
+            ("review", "A candidate exists, but the evidence is not decisive.".into())
+        } else {
+            ("strong", "The top cell has strong coverage and separation.".into())
+        };
+        Self {
+            model: model.to_string(),
+            semantic,
+            top_score,
+            margin,
+            coverage,
+            confidence,
+            verdict: verdict.to_string(),
+            abstained,
+            reason,
+        }
+    }
+}
 
 /// Pre-computed cell member embeddings ready for classification. Facade over
 /// `physis_core::classify::CellClassifier`.
@@ -70,7 +126,7 @@ impl CellClassifier {
     /// The classification seeds this ontology contributes: one per entry that
     /// declares both a domain and a mode.
     fn seeds(ontology: &OntologyLoader) -> impl Iterator<Item = EntrySeed> + '_ {
-        ontology.classification_domains().filter_map(|def| {
+        let mut seeds: Vec<EntrySeed> = ontology.classification_domains().filter_map(|def| {
             let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
                 (Some(d), Some(m)) => (d.to_string(), m.to_string()),
                 _ => return None,
@@ -81,7 +137,10 @@ impl CellClassifier {
                 text.push_str(hint);
             }
             Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
-        })
+        }).collect();
+        let existing: Vec<(String, String)> = seeds.iter().map(|s| (s.domain.clone(), s.mode.clone())).collect();
+        seeds.extend(crate::semiotic_grid::fallback_anchors(&existing));
+        seeds.into_iter()
     }
 
     /// Number of populated cells.
@@ -122,6 +181,35 @@ impl CellClassifier {
         }
         for c in &mut scores {
             c.score += store.cell_bias(ctx, &c.entries, interp);
+        }
+        scores.sort_by(|a, b| b.score.total_cmp(&a.score));
+        scores
+    }
+
+    /// Apply a small, auditable ranking lift for definitions supplied by the
+    /// active sector/client/project overlay. The canonical grid remains the
+    /// coordinate system; overlays change what a signifier means *here*.
+    pub fn classify_with_overlays(
+        &self,
+        embedding: &[f32],
+        mut scores: Vec<CellScore>,
+        overlays: &crate::context::Overlays,
+        ctx: &crate::context::Context,
+        embedder: &dyn VectorEmbed,
+    ) -> Vec<CellScore> {
+        for (_provenance, def) in overlays.active_definitions(ctx) {
+            let (Some(domain), Some(mode)) = (def.domain.as_deref(), def.mode.as_deref()) else {
+                continue;
+            };
+            let mut text = def.name.clone();
+            for hint in &def.hints {
+                text.push(' ');
+                text.push_str(hint);
+            }
+            let similarity = physis_core::models::cosine_sim(embedding, &embedder.embed(&text));
+            if let Some(cell) = scores.iter_mut().find(|c| c.domain == domain && c.mode == mode) {
+                cell.score += (similarity.max(0.0) * 0.08).min(0.08);
+            }
         }
         scores.sort_by(|a, b| b.score.total_cmp(&a.score));
         scores
