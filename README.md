@@ -264,6 +264,25 @@ curl -X POST http://127.0.0.1:19876/api/v1/search/nodes \
 See [docs/SEMIOTIC_EDITING.md](docs/SEMIOTIC_EDITING.md) for the invariant, the
 hybrid pin semantics, and the full API contract.
 
+### Vendor license generator
+
+The vendor-only Ed25519 key and license generator is available through the
+wrapper below. It requires the `vendor` feature and must run on an offline
+vendor machine; never copy `signing.key` to pansa or a customer host.
+
+```bash
+scripts/generate-physis-license.sh keygen ~/.physis-vendor
+scripts/generate-physis-license.sh issue \
+  --key ~/.physis-vendor/signing.key \
+  --org "Customer Name" --seats 5 --features web,rag \
+  --exp 2027-12-31 --out customer.license.key
+```
+
+The customer host receives only `customer.license.key`, normally at
+`~/.physis/license.key` with mode `600`. See
+[`docs/business/DEPLOY.md`](docs/business/DEPLOY.md) for the pansa deployment
+and renewal procedure.
+
 ## Docs
 
 - [`docs/CONTEXTUAL_MEANING.md`](docs/CONTEXTUAL_MEANING.md) — interpretants, per-client/sector/project ontology overlays, salience feedback
