@@ -5089,7 +5089,7 @@ fn rate_limit_from_env() -> RateLimiter {
 ///
 /// Set `PHYSIS_EMBEDDER=random-projection` for a fast start when the vectors'
 /// semantics do not matter (tests, cold-start smoke checks).
-pub async fn build_app() -> (SharedState, Router) {
+pub async fn build_app() -> Result<(SharedState, Router), String> {
     dotenvy::dotenv().ok();
 
     let config = PhysisConfig::default();
@@ -5328,12 +5328,12 @@ pub async fn build_app() -> (SharedState, Router) {
         if !is_loopback {
             log::error!("Refusing to bind {host} without any token — would expose an unauthenticated API + open LLM relay.");
             eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS. Set one, or bind 127.0.0.1.");
-            std::process::exit(1);
+            return Err(format!("non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS"));
         }
         if !dev_mode {
             log::error!("Refusing to start on loopback without any token and without PHYSIS_DEV — set a token or set PHYSIS_DEV=1 for local development.");
             eprintln!("[physis] FATAL: loopback bind without tokens requires PHYSIS_DEV=1 for explicit dev opt-in.");
-            std::process::exit(1);
+            return Err("loopback bind without tokens requires PHYSIS_DEV=1".into());
         }
         log::warn!("API auth DISABLED (PHYSIS_DEV + loopback dev bind, no token set).");
     } else {
@@ -5783,7 +5783,7 @@ pub async fn build_app() -> (SharedState, Router) {
 
     // Hand the state back too: tests assert on engine state after driving the
     // HTTP surface (e.g. that a registration actually reached the tenant).
-    (state, app)
+    Ok((state, app))
 }
 
 /// Bind and serve. This is all `main` does.
@@ -5791,7 +5791,9 @@ pub async fn serve() {
     env_logger::init();
     let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".into());
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".into());
-    let (_state, app) = build_app().await;
+    let Ok((_state, app)) = build_app().await else {
+        std::process::exit(1);
+    };
 
     let addr = format!("{host}:{port}");
     println!("Physis Web API listening on http://{addr}");
