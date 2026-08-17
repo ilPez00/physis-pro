@@ -6,6 +6,7 @@ pub mod axes;
 pub mod classify;
 pub mod config;
 pub mod context;
+pub mod salience;
 pub mod core;
 pub mod demo_corpus;
 pub mod discovery;
