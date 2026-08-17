@@ -104,8 +104,16 @@ pub struct SalienceStore {
 }
 
 impl SalienceStore {
-    fn key(ctx: &Context, entry: &str) -> String {
-        format!("{}\u{0}{}", ctx.label(), entry)
+    /// Key by tenant **and** context.
+    ///
+    /// The context alone is not enough. The server is multi-tenant via
+    /// `X-Physis-User`, while the ambient context comes from `PHYSIS_CONTEXT` —
+    /// one process-wide value. Keying on context only would let one customer's
+    /// editing habits bias another customer's classification, and the effect is
+    /// observable to them as a changed ranking. Evidence is only evidence about
+    /// the tenant who produced it.
+    fn key(tenant: &str, ctx: &Context, entry: &str) -> String {
+        format!("{tenant}\u{0}{}\u{0}{entry}", ctx.label())
     }
 
     pub fn path(data_dir: &Path) -> PathBuf {
@@ -163,10 +171,17 @@ impl SalienceStore {
     /// Decaying before adding is what makes the accumulator order-independent
     /// in time: adding today's `+1` to a year-old `+10` undecayed would treat
     /// stale evidence as current.
-    pub fn record(&mut self, ctx: &Context, entry: &str, signal: Signal, interp: &Interpretant) {
+    pub fn record(
+        &mut self,
+        tenant: &str,
+        ctx: &Context,
+        entry: &str,
+        signal: Signal,
+        interp: &Interpretant,
+    ) {
         let delta = interp.delta(signal.outcome());
         let now = Self::now();
-        let e = self.entries.entry(Self::key(ctx, entry)).or_insert(Accrued {
+        let e = self.entries.entry(Self::key(tenant, ctx, entry)).or_insert(Accrued {
             score: 0.0,
             updated_at: now,
             observations: 0,
@@ -178,16 +193,16 @@ impl SalienceStore {
     }
 
     /// Decayed salience for one entry, as of now. `0.0` when never observed.
-    pub fn score(&self, ctx: &Context, entry: &str, interp: &Interpretant) -> f32 {
-        let Some(e) = self.entries.get(&Self::key(ctx, entry)) else {
+    pub fn score(&self, tenant: &str, ctx: &Context, entry: &str, interp: &Interpretant) -> f32 {
+        let Some(e) = self.entries.get(&Self::key(tenant, ctx, entry)) else {
             return 0.0;
         };
         let days = ((Self::now() - e.updated_at).max(0) as f32) / DAY;
         e.score * interp.decay(days)
     }
 
-    pub fn observations(&self, ctx: &Context, entry: &str) -> u32 {
-        self.entries.get(&Self::key(ctx, entry)).map(|e| e.observations).unwrap_or(0)
+    pub fn observations(&self, tenant: &str, ctx: &Context, entry: &str) -> u32 {
+        self.entries.get(&Self::key(tenant, ctx, entry)).map(|e| e.observations).unwrap_or(0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -198,11 +213,11 @@ impl SalienceStore {
     ///
     /// `weight` comes from the interpretant, so an ontology can record outcomes
     /// without letting them influence ranking by declaring `weight: 0`.
-    pub fn bias(&self, ctx: &Context, entry: &str, interp: &Interpretant) -> f32 {
+    pub fn bias(&self, tenant: &str, ctx: &Context, entry: &str, interp: &Interpretant) -> f32 {
         if interp.weight <= 0.0 {
             return 0.0;
         }
-        let s = self.score(ctx, entry, interp);
+        let s = self.score(tenant, ctx, entry, interp);
         BIAS_STRENGTH * interp.weight * (s / SATURATION).tanh()
     }
 
@@ -212,10 +227,16 @@ impl SalienceStore {
     /// members that actually carry evidence rather than over all of them.
     /// Averaging across every member would let a large cell dilute a strong
     /// signal to nothing — and the large cells are already the incoherent ones.
-    pub fn cell_bias(&self, ctx: &Context, entries: &[String], interp: &Interpretant) -> f32 {
+    pub fn cell_bias(
+        &self,
+        tenant: &str,
+        ctx: &Context,
+        entries: &[String],
+        interp: &Interpretant,
+    ) -> f32 {
         let biases: Vec<f32> = entries
             .iter()
-            .map(|e| self.bias(ctx, e, interp))
+            .map(|e| self.bias(tenant, ctx, e, interp))
             .filter(|b| *b != 0.0)
             .collect();
         if biases.is_empty() {
@@ -225,8 +246,13 @@ impl SalienceStore {
     }
 
     /// Every observed entry in a context, strongest first, for the studio.
-    pub fn ranked(&self, ctx: &Context, interp: &Interpretant) -> Vec<(String, f32, u32)> {
-        let prefix = format!("{}\u{0}", ctx.label());
+    pub fn ranked(
+        &self,
+        tenant: &str,
+        ctx: &Context,
+        interp: &Interpretant,
+    ) -> Vec<(String, f32, u32)> {
+        let prefix = format!("{tenant}\u{0}{}\u{0}", ctx.label());
         let mut out: Vec<(String, f32, u32)> = self
             .entries
             .iter()
@@ -245,6 +271,9 @@ impl SalienceStore {
 mod tests {
     use super::*;
 
+    /// Tenant used by every test that is not about tenant isolation.
+    const T: &str = "tenant-a";
+
     fn ctx() -> Context {
         Context::parse("client:evotec")
     }
@@ -253,11 +282,11 @@ mod tests {
     fn editing_confirms_and_deleting_refutes() {
         let mut s = SalienceStore::default();
         let i = Interpretant::default();
-        s.record(&ctx(), "Debugging", Signal::Edited, &i);
-        assert!(s.score(&ctx(), "Debugging", &i) > 0.0);
+        s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
+        assert!(s.score(T, &ctx(), "Debugging", &i) > 0.0);
 
-        s.record(&ctx(), "Refactoring", Signal::Deleted, &i);
-        assert!(s.score(&ctx(), "Refactoring", &i) < 0.0);
+        s.record(T, &ctx(), "Refactoring", Signal::Deleted, &i);
+        assert!(s.score(T, &ctx(), "Refactoring", &i) < 0.0);
     }
 
     #[test]
@@ -273,15 +302,15 @@ mod tests {
         let code = Interpretant::default(); // inert is neither
 
         let mut a = SalienceStore::default();
-        a.record(&ctx(), "Inspection", Signal::Retained, &plant);
-        assert!(a.score(&ctx(), "Inspection", &plant) > 0.0);
+        a.record(T, &ctx(), "Inspection", Signal::Retained, &plant);
+        assert!(a.score(T, &ctx(), "Inspection", &plant) > 0.0);
 
         let mut b = SalienceStore::default();
-        b.record(&ctx(), "Refactoring", Signal::Retained, &code);
-        assert_eq!(b.score(&ctx(), "Refactoring", &code), 0.0);
+        b.record(T, &ctx(), "Refactoring", Signal::Retained, &code);
+        assert_eq!(b.score(T, &ctx(), "Refactoring", &code), 0.0);
         // Still counted as an observation — it happened, it just did not move
         // the score.
-        assert_eq!(b.observations(&ctx(), "Refactoring"), 1);
+        assert_eq!(b.observations(T, &ctx(), "Refactoring"), 1);
     }
 
     #[test]
@@ -293,9 +322,41 @@ mod tests {
         let evotec = Context::parse("client:evotec");
         let publisher = Context::parse("client:publisher");
 
-        s.record(&evotec, "Margin", Signal::Edited, &i);
-        assert!(s.score(&evotec, "Margin", &i) > 0.0);
-        assert_eq!(s.score(&publisher, "Margin", &i), 0.0);
+        s.record(T, &evotec, "Margin", Signal::Edited, &i);
+        assert!(s.score(T, &evotec, "Margin", &i) > 0.0);
+        assert_eq!(s.score(T, &publisher, "Margin", &i), 0.0);
+    }
+
+    #[test]
+    fn one_tenants_evidence_never_reaches_another() {
+        // The server is multi-tenant via X-Physis-User while the context comes
+        // from one process-wide env var, so context alone would let a
+        // customer's editing habits move another customer's ranking — visible
+        // to them as a changed result.
+        let mut s = SalienceStore::default();
+        let i = Interpretant::default();
+        let c = ctx();
+
+        for _ in 0..30 {
+            s.record("tenant-a", &c, "Debugging", Signal::Edited, &i);
+        }
+        assert!(s.score("tenant-a", &c, "Debugging", &i) > 0.0);
+        assert_eq!(s.score("tenant-b", &c, "Debugging", &i), 0.0);
+        assert_eq!(s.bias("tenant-b", &c, "Debugging", &i), 0.0);
+        assert_eq!(s.observations("tenant-b", &c, "Debugging"), 0);
+        assert!(s.ranked("tenant-b", &c, &i).is_empty());
+    }
+
+    #[test]
+    fn the_default_tenant_is_not_a_wildcard() {
+        // "_default" is the shared global tenant. It must be an ordinary key,
+        // not one that sees or is seen by named tenants.
+        let mut s = SalienceStore::default();
+        let i = Interpretant::default();
+        let c = ctx();
+        s.record("_default", &c, "Debugging", Signal::Edited, &i);
+        assert!(s.score("_default", &c, "Debugging", &i) > 0.0);
+        assert_eq!(s.score("tenant-a", &c, "Debugging", &i), 0.0);
     }
 
     #[test]
@@ -303,9 +364,9 @@ mod tests {
         let mut s = SalienceStore::default();
         let i = Interpretant::default();
         for _ in 0..500 {
-            s.record(&ctx(), "Debugging", Signal::Edited, &i);
+            s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
         }
-        let b = s.bias(&ctx(), "Debugging", &i);
+        let b = s.bias(T, &ctx(), "Debugging", &i);
         assert!(b > 0.0);
         assert!(
             b <= BIAS_STRENGTH + 1e-6,
@@ -317,22 +378,22 @@ mod tests {
     fn a_zero_weight_interpretant_records_but_never_biases() {
         let mut s = SalienceStore::default();
         let i = Interpretant { weight: 0.0, ..Default::default() };
-        s.record(&ctx(), "Debugging", Signal::Edited, &i);
-        assert!(s.score(&ctx(), "Debugging", &i) > 0.0, "still recorded");
-        assert_eq!(s.bias(&ctx(), "Debugging", &i), 0.0, "but cannot influence ranking");
+        s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
+        assert!(s.score(T, &ctx(), "Debugging", &i) > 0.0, "still recorded");
+        assert_eq!(s.bias(T, &ctx(), "Debugging", &i), 0.0, "but cannot influence ranking");
     }
 
     #[test]
     fn stale_evidence_decays_toward_zero() {
         let mut s = SalienceStore::default();
         let i = Interpretant { half_life_days: 30.0, ..Default::default() };
-        s.record(&ctx(), "Debugging", Signal::Edited, &i);
+        s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
 
         // Backdate the observation by two half-lives.
-        let k = SalienceStore::key(&ctx(), "Debugging");
+        let k = SalienceStore::key(T, &ctx(), "Debugging");
         s.entries.get_mut(&k).unwrap().updated_at -= (60.0 * DAY) as i64;
 
-        let decayed = s.score(&ctx(), "Debugging", &i);
+        let decayed = s.score(T, &ctx(), "Debugging", &i);
         assert!((decayed - 0.25).abs() < 1e-3, "expected ~0.25, got {decayed}");
     }
 
@@ -340,10 +401,10 @@ mod tests {
     fn an_ontology_that_never_decays_keeps_its_evidence() {
         let mut s = SalienceStore::default();
         let i = Interpretant { half_life_days: 0.0, ..Default::default() };
-        s.record(&ctx(), "Inspection", Signal::Edited, &i);
-        let k = SalienceStore::key(&ctx(), "Inspection");
+        s.record(T, &ctx(), "Inspection", Signal::Edited, &i);
+        let k = SalienceStore::key(T, &ctx(), "Inspection");
         s.entries.get_mut(&k).unwrap().updated_at -= (3650.0 * DAY) as i64;
-        assert_eq!(s.score(&ctx(), "Inspection", &i), 1.0, "ten years, no decay");
+        assert_eq!(s.score(T, &ctx(), "Inspection", &i), 1.0, "ten years, no decay");
     }
 
     #[test]
@@ -353,14 +414,14 @@ mod tests {
         let mut s = SalienceStore::default();
         let i = Interpretant::default();
         for _ in 0..20 {
-            s.record(&ctx(), "Debugging", Signal::Edited, &i);
+            s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
         }
         let members: Vec<String> = std::iter::once("Debugging".to_string())
             .chain((0..40).map(|n| format!("Unobserved{n}")))
             .collect();
 
-        let solo = s.cell_bias(&ctx(), &["Debugging".to_string()], &i);
-        let diluted = s.cell_bias(&ctx(), &members, &i);
+        let solo = s.cell_bias(T, &ctx(), &["Debugging".to_string()], &i);
+        let diluted = s.cell_bias(T, &ctx(), &members, &i);
         assert!((solo - diluted).abs() < 1e-6, "40 silent members must not dilute");
     }
 
@@ -369,7 +430,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut s = SalienceStore::default();
         let i = Interpretant::default();
-        s.record(&ctx(), "Debugging", Signal::Edited, &i);
+        s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
         s.save(dir.path());
         let before = std::fs::read(SalienceStore::path(dir.path())).unwrap();
         assert!(!before.is_empty());
@@ -379,13 +440,13 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o500)).unwrap();
             let mut more = s.clone();
-            more.record(&ctx(), "Refactoring", Signal::Edited, &i);
+            more.record(T, &ctx(), "Refactoring", Signal::Edited, &i);
             more.save(dir.path()); // reports on stderr, must not panic
             std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
         }
 
         assert_eq!(std::fs::read(SalienceStore::path(dir.path())).unwrap(), before);
-        assert_eq!(SalienceStore::load(dir.path()).observations(&ctx(), "Debugging"), 1);
+        assert_eq!(SalienceStore::load(dir.path()).observations(T, &ctx(), "Debugging"), 1);
     }
 
     #[test]
@@ -393,13 +454,13 @@ mod tests {
         let mut s = SalienceStore::default();
         let i = Interpretant::default();
         for _ in 0..3 {
-            s.record(&ctx(), "Debugging", Signal::Edited, &i);
+            s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
         }
-        s.record(&ctx(), "Profiling", Signal::Edited, &i);
-        s.record(&ctx(), "Vendoring", Signal::Deleted, &i);
-        s.record(&Context::parse("client:other"), "Elsewhere", Signal::Edited, &i);
+        s.record(T, &ctx(), "Profiling", Signal::Edited, &i);
+        s.record(T, &ctx(), "Vendoring", Signal::Deleted, &i);
+        s.record(T, &Context::parse("client:other"), "Elsewhere", Signal::Edited, &i);
 
-        let r = s.ranked(&ctx(), &i);
+        let r = s.ranked(T, &ctx(), &i);
         assert_eq!(r.len(), 3, "only this context's entries");
         assert_eq!(r[0].0, "Debugging");
         assert_eq!(r[0].2, 3, "observation count survives");
