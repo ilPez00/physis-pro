@@ -3437,13 +3437,29 @@ async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<Studi
 
     let mut entries = Vec::new();
     let mut kinds = Vec::new();
+    // `custom` holds all 20 extra ontologies keyed `"<ontology>:<name>"`.
+    // Reporting them as one bucket hides 20 different interpretants, so they
+    // are split back out by that prefix.
+    let mut custom_counts: std::collections::BTreeMap<String, (usize, usize)> = Default::default();
     for (kind, map) in sources {
         let mut reach = 0usize;
-        for def in map.values() {
+        for (key, def) in map.iter() {
             let classified = reachable.contains(def.name.as_str());
             if classified {
                 reach += 1;
             }
+            // Entries from the extra ontologies report their own source rather
+            // than the shared `custom` bucket, so the studio can attribute each
+            // one to the interpretant that actually governs it.
+            let source = match (kind, key.split_once(':')) {
+                ("custom", Some((src, _))) => {
+                    let e = custom_counts.entry(src.to_string()).or_insert((0, 0));
+                    e.0 += 1;
+                    e.1 += usize::from(classified);
+                    src.to_string()
+                }
+                _ => kind.to_string(),
+            };
             let f = &def.facets;
             let faceted = f.sub_domain.is_some()
                 || f.sub_mode.is_some()
@@ -3453,7 +3469,7 @@ async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<Studi
                 || f.abstraction.is_some();
             entries.push(StudioEntry {
                 name: def.name.clone(),
-                kind: kind.to_string(),
+                kind: source,
                 domain: def.domain.clone(),
                 mode: def.mode.clone(),
                 category: def.category.clone(),
@@ -3463,8 +3479,35 @@ async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<Studi
                 faceted,
             });
         }
+        // The `custom` bucket is reported as its constituent ontologies below.
+        if kind == "custom" {
+            continue;
+        }
+        let i = o.interpretant(kind);
         kinds.push(serde_json::json!({
             "kind": kind, "count": map.len(), "classified": reach,
+            "interpretant": {
+                "confirms": i.confirms, "refutes": i.refutes,
+                "half_life_days": i.half_life_days, "weight": i.weight,
+                "note": i.note,
+                // Distinguishes "declared this explicitly" from "inherited the
+                // default", which the studio shows differently: an inherited
+                // rule is an unanswered question, not a decision.
+                "declared": o.interpretants.contains_key(kind),
+            },
+        }));
+    }
+
+    for (src, (count, reach)) in custom_counts {
+        let i = o.interpretant(&src);
+        kinds.push(serde_json::json!({
+            "kind": src, "count": count, "classified": reach,
+            "interpretant": {
+                "confirms": i.confirms, "refutes": i.refutes,
+                "half_life_days": i.half_life_days, "weight": i.weight,
+                "note": i.note,
+                "declared": o.interpretants.contains_key(&src),
+            },
         }));
     }
 

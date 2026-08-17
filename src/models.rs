@@ -400,9 +400,130 @@ pub struct OntologyEntry {
     pub facets: Facets,
 }
 
+/// What counts, *in this ontology*, as one of its signs having meant something.
+///
+/// Peirce's third leg. An entry pairs a signifier (its hints) with a signified
+/// (its embedding centroid); the interpretant is the effect the sign has on
+/// whoever used it — and it is not universal. "This worked" means a passing
+/// test in a software ontology, a completed session in a fitness one, and a
+/// machine that kept running in an industrial one. Declaring it per ontology
+/// makes the universe of discourse explicit instead of assuming one global
+/// rule fits all of them.
+///
+/// Deliberately declarative rather than learned: the outcomes are the existing
+/// [`CoherenceRating`] vocabulary, so the feedback loop stays deterministic and
+/// auditable — the same reason the engine avoids an LLM in the scoring path.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Interpretant {
+    /// Outcomes that reinforce an entry's salience. Default: `["success"]`.
+    #[serde(default = "Interpretant::default_confirms")]
+    pub confirms: Vec<String>,
+    /// Outcomes that weaken it. Default: `["failure"]`.
+    #[serde(default = "Interpretant::default_refutes")]
+    pub refutes: Vec<String>,
+    /// Days for accumulated salience to halve. `0` disables decay.
+    ///
+    /// Decay is what keeps the ontology a record of what is currently true
+    /// rather than an ever-growing tally: an entry that stops being confirmed
+    /// should fade, not hold its rank forever.
+    #[serde(default = "Interpretant::default_half_life")]
+    pub half_life_days: f32,
+    /// How strongly this ontology's salience biases classification. `0` records
+    /// outcomes without letting them influence scoring — useful for observing a
+    /// signal before trusting it.
+    #[serde(default = "Interpretant::default_weight")]
+    pub weight: f32,
+    /// Free-text statement of what confirmation means here, for the studio.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+impl Interpretant {
+    fn default_confirms() -> Vec<String> {
+        vec!["success".to_string()]
+    }
+    fn default_refutes() -> Vec<String> {
+        vec!["failure".to_string()]
+    }
+    fn default_half_life() -> f32 {
+        90.0
+    }
+    fn default_weight() -> f32 {
+        1.0
+    }
+
+    /// The outcome names an interpretant may reference.
+    pub const OUTCOMES: [&'static str; 3] = ["success", "inert", "failure"];
+
+    /// Reject outcome names that will never fire, and weights that would make
+    /// salience meaningless. A typo like `"succeeded"` would otherwise sit in
+    /// the config silently matching nothing — the failure mode this codebase
+    /// keeps hitting, so it is checked at load rather than discovered later.
+    pub fn validate(&self) -> Result<(), String> {
+        for name in self.confirms.iter().chain(self.refutes.iter()) {
+            if !Self::OUTCOMES.contains(&name.as_str()) {
+                return Err(format!(
+                    "unknown outcome {name:?}; expected one of {:?}",
+                    Self::OUTCOMES
+                ));
+            }
+        }
+        if let Some(both) = self.confirms.iter().find(|c| self.refutes.contains(c)) {
+            return Err(format!("outcome {both:?} is listed as both confirming and refuting"));
+        }
+        if !self.half_life_days.is_finite() || self.half_life_days < 0.0 {
+            return Err("half_life_days must be finite and >= 0".to_string());
+        }
+        if !self.weight.is_finite() || self.weight < 0.0 {
+            return Err("weight must be finite and >= 0".to_string());
+        }
+        Ok(())
+    }
+
+    /// Salience delta for one observed outcome: `+1` confirming, `-1` refuting,
+    /// `0` for anything this ontology does not care about.
+    pub fn delta(&self, outcome: &str) -> f32 {
+        if self.confirms.iter().any(|c| c == outcome) {
+            1.0
+        } else if self.refutes.iter().any(|r| r == outcome) {
+            -1.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Multiplier applied to salience accumulated `days` ago.
+    pub fn decay(&self, days: f32) -> f32 {
+        if self.half_life_days <= 0.0 {
+            return 1.0;
+        }
+        0.5f32.powf(days / self.half_life_days)
+    }
+}
+
+impl Default for Interpretant {
+    fn default() -> Self {
+        Self {
+            confirms: Self::default_confirms(),
+            refutes: Self::default_refutes(),
+            half_life_days: Self::default_half_life(),
+            weight: Self::default_weight(),
+            note: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OntologyConfig {
     pub kind: String,
+    /// How this ontology judges its own signs.
+    ///
+    /// `None` when the file declares nothing, which is deliberately kept
+    /// distinct from an explicit copy of the defaults: the studio reports an
+    /// absent interpretant as an open question rather than a decision, and
+    /// that only works if absence survives deserialisation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interpretant: Option<Interpretant>,
     pub domains: Vec<OntologyEntry>,
 }
 
@@ -928,5 +1049,82 @@ mod tests {
         let d = cosine_dist(&a, &b);
         assert!((d - 1.0).abs() < 1e-6);
         assert_eq!(cosine_dist(&a, &a), 0.0);
+    }
+
+    // ── Interpretants ──────────────────────────────────────────────────────
+
+    #[test]
+    fn an_ontology_without_an_interpretant_gets_the_default() {
+        let json = r#"{"kind":"software_dev","domains":[]}"#;
+        let cfg: OntologyConfig = serde_json::from_str(json).unwrap();
+        // Absence must survive deserialisation: the studio distinguishes an
+        // unanswered question from an explicit choice of the defaults.
+        assert!(cfg.interpretant.is_none());
+        let d = Interpretant::default();
+        assert_eq!(d.delta("success"), 1.0);
+        assert_eq!(d.delta("failure"), -1.0);
+        assert_eq!(d.delta("inert"), 0.0);
+    }
+
+    #[test]
+    fn an_ontology_can_declare_its_own_interpretant() {
+        // A maintenance ontology where merely running the check is the point:
+        // an inert outcome still confirms, and only an outright failure refutes.
+        let json = r#"{
+            "kind":"machine",
+            "interpretant":{
+                "confirms":["success","inert"],
+                "refutes":["failure"],
+                "half_life_days":30,
+                "weight":0.5,
+                "note":"a check that ran and found nothing still confirms the routine"
+            },
+            "domains":[]
+        }"#;
+        let cfg: OntologyConfig = serde_json::from_str(json).unwrap();
+        let i = cfg.interpretant.as_ref().expect("declared interpretant is preserved");
+        i.validate().unwrap();
+        assert_eq!(i.delta("inert"), 1.0, "inert confirms in this ontology");
+        assert_eq!(i.delta("failure"), -1.0);
+        assert_eq!(i.weight, 0.5);
+        assert!(i.note.is_some());
+    }
+
+    #[test]
+    fn a_misspelled_outcome_is_rejected_rather_than_silently_matching_nothing() {
+        let i = Interpretant { confirms: vec!["succeeded".into()], ..Default::default() };
+        let err = i.validate().unwrap_err();
+        assert!(err.contains("succeeded"), "error should name the bad outcome: {err}");
+    }
+
+    #[test]
+    fn an_outcome_cannot_both_confirm_and_refute() {
+        let i = Interpretant {
+            confirms: vec!["success".into()],
+            refutes: vec!["success".into()],
+            ..Default::default()
+        };
+        assert!(i.validate().is_err());
+    }
+
+    #[test]
+    fn salience_halves_over_one_half_life_and_can_be_disabled() {
+        let i = Interpretant { half_life_days: 30.0, ..Default::default() };
+        assert!((i.decay(0.0) - 1.0).abs() < 1e-6);
+        assert!((i.decay(30.0) - 0.5).abs() < 1e-6);
+        assert!((i.decay(60.0) - 0.25).abs() < 1e-6);
+
+        let forever = Interpretant { half_life_days: 0.0, ..Default::default() };
+        assert_eq!(forever.decay(3650.0), 1.0, "half_life 0 means no decay");
+    }
+
+    #[test]
+    fn a_zero_weight_interpretant_still_records_but_cannot_bias() {
+        // Observing a signal before trusting it: deltas are unchanged, weight
+        // is what gates the influence on scoring.
+        let i = Interpretant { weight: 0.0, ..Default::default() };
+        i.validate().unwrap();
+        assert_eq!(i.delta("success"), 1.0);
+        assert_eq!(i.weight, 0.0);
     }
 }
