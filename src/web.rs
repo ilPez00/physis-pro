@@ -296,6 +296,80 @@ async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> V
     .unwrap_or_default()
 }
 
+/// Hash-cache path for one watched directory.
+///
+/// The cache was a single shared file keyed by *basename*, which made every
+/// sweep interfere with every other: watching directory B reported all of
+/// directory A's files as deleted (they are simply absent from this sweep),
+/// which already dropped their coherence nodes and — once the interpretant
+/// loop landed — would have recorded a refutation against every entry those
+/// files ever matched. Two files sharing a basename across directories
+/// collided outright. One cache per directory scopes the diff to what the
+/// sweep actually looked at.
+fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBuf {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    dir.hash(&mut h);
+    data_dir.join(format!("watch_hash_cache_{:016x}.json", h.finish()))
+}
+
+/// Fold file events into per-entry salience.
+///
+/// Attribution is to the single nearest ontology entry, not to the whole cell:
+/// salience accrues to a sign, and spreading one file's evidence across a
+/// cell's members — up to 87 of them — would record nothing about anything.
+///
+/// `unchanged` files are deliberately **not** recorded as `Retained`. Doing so
+/// would make an entry's salience a function of how often the operator happens
+/// to poll `/watch` rather than of anything that happened in the world. Files
+/// surviving is already captured by the absence of a `Deleted` observation.
+///
+/// Returns how many observations were folded in.
+async fn record_salience(
+    state: &SharedState,
+    diffs: &[crate::scanner::ScanDiff],
+    root: &std::path::Path,
+) -> usize {
+    use crate::salience::Signal;
+
+    // Deletions are scoped by `watch_cache_path` giving each directory its own
+    // cache; without that, absence from this sweep is indistinguishable from
+    // deletion and every other directory's files would read as refuted.
+    let mut pending: Vec<(String, Signal)> = Vec::new();
+    for d in diffs {
+        for f in &d.changed {
+            pending.push((f.structural_path(), Signal::Edited));
+        }
+        for p in &d.deleted {
+            // Cache keys are basenames, so resolve against the swept root to
+            // get the label the classifier was given at registration time.
+            let full = root.join(p);
+            pending.push((full.to_string_lossy().replace('/', " → "), Signal::Deleted));
+        }
+    }
+    if pending.is_empty() {
+        return 0;
+    }
+
+    let texts: Vec<String> = pending.iter().map(|(t, _)| t.clone()).collect();
+    let embeddings = embed_batch_off_thread(state.shared.clone(), texts).await;
+
+    let ctx = crate::context::Context::from_env();
+    let overlays = crate::context::Overlays::load(&state.shared.config.data_dir);
+    let interp = overlays.interpretant(&ctx, state.shared.ontology.interpretant("human"));
+
+    let mut store = crate::salience::SalienceStore::load(&state.shared.config.data_dir);
+    let mut n = 0usize;
+    for (emb, (_, signal)) in embeddings.iter().zip(pending.iter()) {
+        if let Some((entry, _sim)) = state.shared.classifier.best_entry(emb) {
+            store.record(&ctx, &entry, *signal, &interp);
+            n += 1;
+        }
+    }
+    store.save(&state.shared.config.data_dir);
+    n
+}
+
 #[derive(Deserialize)]
 struct QueryParams {
     q: String,
@@ -404,6 +478,9 @@ struct WatchResponse {
     removed: usize,
     /// Total labeled nodes persisted for this dir after the sweep.
     total_nodes: usize,
+    /// Interpretant observations folded into salience by this sweep.
+    /// Edited files confirm the entry they classify to; deleted ones refute it.
+    observed: usize,
 }
 
 #[derive(Deserialize)]
@@ -939,7 +1016,7 @@ async fn watch_handler(
     }
     let uid = user_key(&headers);
 
-    let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
+    let cache_path = watch_cache_path(&state.shared.config.data_dir, &canonical);
     let scanner = crate::network::NetworkScanner::new(vec![canonical.clone()], cache_path, 0);
     let diffs = scanner.scan_all();
 
@@ -988,6 +1065,16 @@ async fn watch_handler(
         });
     }
 
+    // Interpretant feedback. A file edited after being classified is evidence
+    // the frame was useful; a deleted one is evidence it was not. Both come
+    // from work the user was doing anyway, which is the point — asking them to
+    // grade classifications would yield a trickle of judgements biased toward
+    // the moments they felt like grading.
+    //
+    // `new` files are deliberately not observed: nothing was classified there
+    // yet, so there is no prior frame for the event to confirm or refute.
+    let observed = record_salience(&state, &diffs, &canonical).await;
+
     scanner.update_cache(&diffs);
 
     let total_nodes = state.with_user(&uid, |s| s.core.nodes.len());
@@ -998,6 +1085,7 @@ async fn watch_handler(
         registered,
         removed,
         total_nodes,
+        observed,
     }))
 }
 
@@ -3965,12 +4053,30 @@ async fn ontology_meaning_handler(
             .collect::<Vec<_>>()
     });
 
+    // What the interpretant loop has actually learned, in the ambient context.
+    // Reported alongside the overlays because salience is context-scoped: the
+    // same entry carries different evidence for different clients.
+    let ctx = crate::context::Context::from_env();
+    let interp = overlays.interpretant(&ctx, s.ontology.interpretant("human"));
+    let store = crate::salience::SalienceStore::load(&s.config.data_dir);
+    let ranked: Vec<serde_json::Value> = store
+        .ranked(&ctx, &interp)
+        .into_iter()
+        .take(40)
+        .map(|(name, score, obs)| {
+            serde_json::json!({ "entry": name, "salience": score, "observations": obs })
+        })
+        .collect();
+
     Json(serde_json::json!({
         "overlays": available,
         "contested": contested,
         "name": params.name,
         "meanings": meanings,
         "overlay_dir": s.config.data_dir.join("ontologies"),
+        "context": ctx.label(),
+        "salience": ranked,
+        "bias_strength": crate::salience::BIAS_STRENGTH,
     }))
 }
 
@@ -4371,7 +4477,15 @@ async fn classify_handler(
     Json(req): Json<ClassifyRequest>,
 ) -> Json<ClassifyResponse> {
     let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
-    let mut results = state.shared.classifier.classify(&embedding);
+    // Accumulated interpretant evidence adjusts the ranking within a bounded
+    // budget — see salience::BIAS_STRENGTH. With no observations recorded this
+    // is byte-identical to the unbiased classify.
+    let ctx = crate::context::Context::from_env();
+    let overlays = crate::context::Overlays::load(&state.shared.config.data_dir);
+    let interp = overlays.interpretant(&ctx, state.shared.ontology.interpretant("human"));
+    let store = crate::salience::SalienceStore::load(&state.shared.config.data_dir);
+    let mut results =
+        state.shared.classifier.classify_biased(&embedding, &ctx, &store, &interp);
 
     // Re-rank ambiguous, text-only cases with the LLM. Activated by the server
     // (PHYSIS_RERANK) OR by a caller-supplied key (BYOK) — the latter lets users
@@ -5011,7 +5125,7 @@ pub async fn build_app() -> (SharedState, Router) {
                     .ok()
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(30);
-                let cache_path = state.shared.config.data_dir.join("watch_hash_cache.json");
+                let cache_path = watch_cache_path(&state.shared.config.data_dir, &canon);
                 let scanner = crate::network::NetworkScanner::new(
                     vec![canon.clone()],
                     cache_path,

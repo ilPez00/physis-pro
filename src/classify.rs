@@ -99,6 +99,34 @@ impl CellClassifier {
         self.classify(&embedder.embed(text))
     }
 
+    /// Classify, then let accumulated interpretant evidence adjust the ranking.
+    ///
+    /// The bias is bounded (see [`crate::salience::BIAS_STRENGTH`]) so a
+    /// well-confirmed cell can win a close call but cannot overturn a clear
+    /// semantic one. Ordering is recomputed because reordering is the entire
+    /// observable effect — a bias that never changes rank is a bias that does
+    /// nothing.
+    ///
+    /// Cells with no recorded evidence are untouched, so an empty store makes
+    /// this identical to [`classify`](Self::classify).
+    pub fn classify_biased(
+        &self,
+        embedding: &[f32],
+        ctx: &crate::context::Context,
+        store: &crate::salience::SalienceStore,
+        interp: &crate::models::Interpretant,
+    ) -> Vec<CellScore> {
+        let mut scores = self.classify(embedding);
+        if store.is_empty() {
+            return scores;
+        }
+        for c in &mut scores {
+            c.score += store.cell_bias(ctx, &c.entries, interp);
+        }
+        scores.sort_by(|a, b| b.score.total_cmp(&a.score));
+        scores
+    }
+
     /// Mean-of-entries centroid per cell, keyed `"DOMAIN\x00MODE"`.
     pub fn cell_centroids(&self) -> HashMap<String, Vec<f32>> {
         self.0.cell_centroids()
@@ -108,6 +136,30 @@ impl CellClassifier {
     /// of an embedding, undiluted by blended scoring.
     pub fn best_entry_sim(&self, embedding: &[f32]) -> Option<(f32, String, String)> {
         self.0.best_entry_sim(embedding)
+    }
+
+    /// The single closest ontology entry by name, with its cosine.
+    ///
+    /// `best_entry_sim` walks the same entries but returns only the owning
+    /// cell, discarding which entry actually matched. Salience accrues per
+    /// entry — a sign, not a cell — so attributing an observation needs the
+    /// name. Attributing to the whole cell instead would spread one file's
+    /// evidence across up to 87 members and mean nothing.
+    pub fn best_entry(&self, embedding: &[f32]) -> Option<(String, f32)> {
+        let mut best: Option<(String, f32)> = None;
+        for cell in &self.0.cells {
+            for (i, e) in cell.embeddings.iter().enumerate() {
+                let s = physis_core::models::cosine_sim(embedding, e);
+                if best.as_ref().map(|(_, b)| s > *b).unwrap_or(true) {
+                    // `entries` and `embeddings` are built in lockstep; guard
+                    // anyway rather than panic on a malformed cell.
+                    if let Some(name) = cell.entries.get(i) {
+                        best = Some((name.clone(), s));
+                    }
+                }
+            }
+        }
+        best
     }
 }
 
@@ -203,6 +255,113 @@ mod tests {
         let clf = from_cells(vec![dense, sparse]);
         let results = clf.classify(&basis(4, 0));
         assert_eq!(results[0].domain, "A");
+    }
+
+    // ── Salience bias ──────────────────────────────────────────────────────
+
+    use crate::context::Context;
+    use crate::models::Interpretant;
+    use crate::salience::{SalienceStore, Signal};
+
+    /// Unit vector a small angle away from axis 0, for building near-ties.
+    fn near(dim: usize, off: f32) -> Vec<f32> {
+        let mut v = vec![0.0f32; dim];
+        v[0] = (1.0 - off * off).sqrt();
+        v[1] = off;
+        v
+    }
+
+    fn confirmed(entry: &str, n: usize) -> (SalienceStore, Context, Interpretant) {
+        let ctx = Context::parse("client:evotec");
+        let interp = Interpretant::default();
+        let mut store = SalienceStore::default();
+        for _ in 0..n {
+            store.record(&ctx, entry, Signal::Edited, &interp);
+        }
+        (store, ctx, interp)
+    }
+
+    #[test]
+    fn an_empty_store_changes_nothing() {
+        let clf = from_cells(vec![
+            cell("A", "X", vec![basis(4, 0)]),
+            cell("A", "Y", vec![basis(4, 1)]),
+        ]);
+        let ctx = Context::parse("client:evotec");
+        let plain = clf.classify(&basis(4, 0));
+        let biased = clf.classify_biased(
+            &basis(4, 0),
+            &ctx,
+            &SalienceStore::default(),
+            &Interpretant::default(),
+        );
+        assert_eq!(plain.len(), biased.len());
+        for (p, b) in plain.iter().zip(biased.iter()) {
+            assert_eq!((&p.domain, &p.mode), (&b.domain, &b.mode));
+            assert_eq!(p.score, b.score);
+        }
+    }
+
+    #[test]
+    fn confirmed_evidence_wins_a_close_call() {
+        // Two cells within the bias budget of each other. Y is marginally
+        // closer semantically; X is what the user's work keeps confirming.
+        let clf = from_cells(vec![
+            cell("A", "X", vec![near(4, 0.10)]),
+            cell("A", "Y", vec![near(4, 0.08)]),
+        ]);
+        let query = basis(4, 0);
+        assert_eq!(clf.classify(&query)[0].mode, "Y", "Y is closer unbiased");
+
+        let (store, ctx, interp) = confirmed("A/X#0", 30);
+        let biased = clf.classify_biased(&query, &ctx, &store, &interp);
+        assert_eq!(biased[0].mode, "X", "accumulated evidence reorders a close call");
+    }
+
+    #[test]
+    fn evidence_cannot_overturn_a_clear_semantic_win() {
+        // The guard against a system entrenching its own past: no amount of
+        // confirmation should beat a decisively better match.
+        let clf = from_cells(vec![
+            cell("A", "X", vec![basis(4, 1)]),
+            cell("A", "Y", vec![basis(4, 0)]),
+        ]);
+        let query = basis(4, 0);
+        let (store, ctx, interp) = confirmed("A/X#0", 5000);
+        let biased = clf.classify_biased(&query, &ctx, &store, &interp);
+        assert_eq!(biased[0].mode, "Y", "semantics still wins by a mile");
+    }
+
+    #[test]
+    fn evidence_from_another_context_does_not_leak() {
+        let clf = from_cells(vec![
+            cell("A", "X", vec![near(4, 0.10)]),
+            cell("A", "Y", vec![near(4, 0.08)]),
+        ]);
+        let query = basis(4, 0);
+        let (store, _evotec, interp) = confirmed("A/X#0", 30);
+
+        // Same store, different client: the bias must not apply.
+        let other = Context::parse("client:publisher");
+        let biased = clf.classify_biased(&query, &other, &store, &interp);
+        assert_eq!(biased[0].mode, "Y", "another client's evidence is not evidence here");
+    }
+
+    #[test]
+    fn a_zero_weight_ontology_records_without_reordering() {
+        let clf = from_cells(vec![
+            cell("A", "X", vec![near(4, 0.10)]),
+            cell("A", "Y", vec![near(4, 0.08)]),
+        ]);
+        let query = basis(4, 0);
+        let ctx = Context::parse("client:evotec");
+        let interp = Interpretant { weight: 0.0, ..Default::default() };
+        let mut store = SalienceStore::default();
+        for _ in 0..30 {
+            store.record(&ctx, "A/X#0", Signal::Edited, &interp);
+        }
+        assert!(store.score(&ctx, "A/X#0", &interp) > 0.0, "recorded");
+        assert_eq!(clf.classify_biased(&query, &ctx, &store, &interp)[0].mode, "Y");
     }
 
     #[test]
