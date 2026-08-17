@@ -139,7 +139,16 @@ impl PhysisApp {
         // then derive the legacy mean centroids from its entry embeddings.
         // (Previously this constructor embedded all ~650 entries for centroids
         // AND each command rebuilt the classifier — a second identical pass.)
-        let classifier = crate::classify::CellClassifier::build(&ontology, embedder.as_ref());
+        // Served from the shared on-disk cache — see `physis-pro warm`. This
+        // constructor is what made every subcommand pay ~78s of startup.
+        let mut seed_cache = crate::pack::EmbedCache::load(&config.data_dir);
+        let classifier = crate::classify::CellClassifier::build_cached(
+            &ontology,
+            embedder.as_ref(),
+            embedder_kind,
+            &mut seed_cache,
+        );
+        seed_cache.save(&config.data_dir);
         let cell_centroids = classifier.cell_centroids();
 
         Self {

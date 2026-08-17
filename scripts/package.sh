@@ -74,6 +74,23 @@ cp LICENSE.txt "$STAGE/$NAME/"
 mkdir -p "$STAGE/$NAME/config"
 cp config/*.json "$STAGE/$NAME/config/"
 
+# The embedding model ships with the package. It has to: the product is sold on
+# running air-gapped, so "download it on first run" is not available, and
+# without a model the embedder cascade falls through to random projections and
+# answers every query with plausible-looking noise. A package that big is
+# better than a package that quietly lies.
+MODEL="models/bge-base-en-v1.5"
+if [ -d "$MODEL" ]; then
+  echo "==> staging $MODEL ($(du -sh "$MODEL" | cut -f1))"
+  mkdir -p "$STAGE/$NAME/models"
+  cp -r "$MODEL" "$STAGE/$NAME/models/"
+else
+  echo "ERROR: $MODEL not found — refusing to build a package that would" >&2
+  echo "       silently fall back to RandomProjectionEmbedder and return" >&2
+  echo "       meaningless scores for every query." >&2
+  exit 1
+fi
+
 cat > "$STAGE/$NAME/install.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 # Install Physis Pro into ~/.local/bin and ~/.physis.
@@ -85,12 +102,42 @@ mkdir -p "$PREFIX/bin" "$HOME/.physis/config"
 cp "$HERE"/bin/* "$PREFIX/bin/"
 cp "$HERE"/config/*.json "$HOME/.physis/config/"
 
+# Models live under ~/.physis so the binaries find them from any working
+# directory. Resolving them relative to the current directory would work only
+# when run from the install folder, and fall back to meaningless random
+# projections everywhere else.
+if [ -d "$HERE/models" ]; then
+  echo "Installing models (this copies ~500MB)..."
+  mkdir -p "$HOME/.physis/models"
+  cp -r "$HERE"/models/* "$HOME/.physis/models/"
+fi
+
 echo "Installed to $PREFIX/bin"
+
 if [ ! -f "$HOME/.physis/license.key" ]; then
   echo
   echo "No licence found. Physis will not run without one."
   echo "Place the licence file supplied by your vendor at:"
   echo "  $HOME/.physis/license.key"
+  echo
+  echo "Then run this once, to pre-compute what startup needs:"
+  echo "  $PREFIX/bin/physis-pro warm"
+  echo "Skipping it makes the first launch take ~80s, which is longer than"
+  echo "an MCP client waits before giving up on the handshake."
+  exit 0
+fi
+
+# A licence is present, so warm now rather than telling the user to. `warm`
+# is licence-gated like every other subcommand, which is why this cannot run
+# before the check above.
+echo
+echo "Pre-computing startup embeddings (~80s, once)..."
+if "$PREFIX/bin/physis-pro" warm; then
+  echo "Done. Physis is ready."
+else
+  echo
+  echo "WARNING: warm-up failed. Physis still works, but the first launch" >&2
+  echo "         will take ~80s. Re-run: $PREFIX/bin/physis-pro warm" >&2
 fi
 INSTALLER
 chmod +x "$STAGE/$NAME/install.sh"
