@@ -98,3 +98,22 @@ The script intentionally fails closed when the candidate binary has no valid
 Physis licence. Set `PHYSIS_LICENSE_FILE` in the service/build environment once
 the production licence is installed; until then the existing binary remains in
 service and the log records the skipped update.
+
+## License generation
+
+The existing vendor tool is wrapped by
+`scripts/generate-physis-license.sh`:
+
+```bash
+scripts/generate-physis-license.sh keygen ~/.physis-vendor
+scripts/generate-physis-license.sh issue \
+  --key ~/.physis-vendor/signing.key \
+  --org "Customer Name" --seats 5 --features web,rag \
+  --exp 2027-12-31 --out customer.license.key
+```
+
+Only `customer.license.key` is copied to pansa as
+`/home/gio/.physis/license.key` with mode `600`. The signing key stays offline.
+For a new vendor key, compile the binary with the matching public key using
+`PHYSIS_LICENSE_PUBKEY`; never place the private key in Git, Docker, pansa, or a
+customer package.
