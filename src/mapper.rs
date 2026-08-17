@@ -47,11 +47,19 @@ impl OntologyMapper {
         extra_exclude: Option<&HashSet<String>>,
     ) -> (Vec<Goal>, Vec<String>) {
         let files = scanner::scan_project(root_dir, extra_exclude);
+        self.map_file_infos_labeled(&files)
+    }
+
+    /// Map an already-diffed file inventory without walking or reading the
+    /// filesystem again. Callers can use this with the scanner hash cache so
+    /// structural indexing stays complete while expensive shared embeddings are
+    /// restricted to new/changed labels.
+    pub fn map_file_infos_labeled(&mut self, files: &[FileInfo]) -> (Vec<Goal>, Vec<String>) {
         let mut goals = Vec::new();
         let mut labels = Vec::new();
         let embedder = RandomProjectionEmbedder::new(self.embed_dim);
 
-        for file in &files {
+        for file in files {
             let path_str = file.structural_path();
             let tids = self.trie.tokenize_path_mut(&file.path);
             self.trie.insert(&tids);

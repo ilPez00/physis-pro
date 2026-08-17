@@ -296,6 +296,24 @@ async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> V
     .unwrap_or_default()
 }
 
+/// Embed scan labels through the persistent content-addressed cache. The
+/// cache key includes the active embedder and dimension, so a model change
+/// invalidates old vectors automatically.
+async fn embed_scan_labels_cached(
+    shared: Arc<SharedCtx>,
+    texts: Vec<String>,
+) -> (Vec<Vec<f32>>, usize, usize) {
+    tokio::task::spawn_blocking(move || {
+        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
+        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
+        let (hits, misses) = cache.stats();
+        cache.save(&shared.config.data_dir);
+        (embeddings, hits, misses)
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// Hash-cache path for one watched directory.
 ///
 /// The cache was a single shared file keyed by *basename*, which made every
@@ -541,6 +559,13 @@ struct StatsResponse {
 struct ScanResponse {
     goals: Vec<Goal>,
     count: usize,
+    new: usize,
+    changed: usize,
+    deleted: usize,
+    unchanged: usize,
+    reused_labels: usize,
+    embedding_cache_hits: usize,
+    embedding_cache_misses: usize,
 }
 
 #[derive(Serialize)]
@@ -957,29 +982,82 @@ async fn scan_handler(
         ));
     }
     let uid = user_key(&headers);
-    let (goals, labels) = state.with_user(&uid, |s| {
-        let (goals, labels) = s.mapper.map_filesystem_labeled(&canonical, None);
+    let scanner = crate::network::NetworkScanner::new(
+        vec![canonical.clone()],
+        watch_cache_path(&state.shared.config.data_dir, &canonical),
+        0,
+    );
+    let diffs = scanner.scan_all();
+    let files: Vec<crate::scanner::FileInfo> = diffs
+        .iter()
+        .flat_map(|d| d.new.iter().chain(d.changed.iter()).chain(d.unchanged.iter()))
+        .cloned()
+        .collect();
+    let changed_files: Vec<crate::scanner::FileInfo> = diffs
+        .iter()
+        .flat_map(|d| d.new.iter().chain(d.changed.iter()))
+        .cloned()
+        .collect();
+    let (goals, changed_labels, removed_paths) = state.with_user(&uid, |s| {
+        let (goals, _all_labels) = s.mapper.map_file_infos_labeled(&files);
+        // Labels are cheap to derive from the already-scanned FileInfo; only
+        // their embeddings are expensive.
+        let changed_labels: Vec<String> = changed_files.iter().flat_map(|f| f.labels()).collect();
         s.goals = goals.clone();
-        (goals, labels)
+        (
+            goals,
+            changed_labels,
+            diffs.iter().flat_map(|d| d.deleted.clone()).collect::<Vec<_>>(),
+        )
     });
 
     // Register each scanned file as a labeled core node so it's recallable by
     // content in the wiki. Embed with the SHARED embedder (not mapper's internal
     // RandomProjection one) so these vectors are comparable to query vectors.
-    // Batched + off-thread: one spawn_blocking hop, never blocks a tokio worker.
-    let embeddings = embed_batch_off_thread(state.shared.clone(), labels.clone()).await;
+    // Only new/changed labels reach the shared embedder; unchanged labels are
+    // served by the persistent content-addressed cache.
+    let (embeddings, embedding_cache_hits, embedding_cache_misses) =
+        embed_scan_labels_cached(state.shared.clone(), changed_labels.clone()).await;
     state.with_user(&uid, |s| {
-        for (emb, label) in embeddings.into_iter().zip(labels) {
+        for file in &changed_files {
+            for label in file.labels() {
+                let _ = s.core.delete_nodes_by_label_prefix(&label);
+            }
+        }
+        for path in &removed_paths {
+            let prefix = path.replace('/', " → ");
+            for id in s.core.delete_nodes_by_label_prefix(&prefix) {
+                if let Some(db) = state.db() {
+                    let _ = db.remove(crate::core::PhysisCore::node_key(&uid, &id));
+                }
+            }
+        }
+        for (emb, label) in embeddings.into_iter().zip(changed_labels) {
             let id = s.core.register_node_vec_labeled(emb, Some(label));
             if let Some(db) = state.db() {
                 let _ = s.core.persist_node(db, &uid, &id);
             }
         }
     });
+    scanner.update_cache(&diffs);
+
+    let summary = diffs.first().map(|d| &d.summary);
+    let reused_labels = diffs
+        .iter()
+        .flat_map(|d| d.unchanged.iter())
+        .map(|f| f.labels().len())
+        .sum();
 
     Ok(Json(ScanResponse {
         count: goals.len(),
         goals,
+        new: summary.map(|s| s.new).unwrap_or(0),
+        changed: summary.map(|s| s.changed).unwrap_or(0),
+        deleted: summary.map(|s| s.deleted).unwrap_or(0),
+        unchanged: summary.map(|s| s.unchanged).unwrap_or(0),
+        reused_labels,
+        embedding_cache_hits,
+        embedding_cache_misses,
     }))
 }
 
@@ -1041,7 +1119,8 @@ async fn watch_handler(
         }
 
         // Embed off-thread (CPU-heavy) then register under the lock, same as /scan.
-        let embeddings = embed_batch_off_thread(state.shared.clone(), labels.clone()).await;
+        let (embeddings, _, _) =
+            embed_scan_labels_cached(state.shared.clone(), labels.clone()).await;
         state.with_user(&uid, |s| {
             for (emb, label) in embeddings.into_iter().zip(labels) {
                 let id = s.core.register_node_vec_labeled(emb, Some(label));
