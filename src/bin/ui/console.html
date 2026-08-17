@@ -794,11 +794,20 @@ function ontKinds(d){
   const rows=d.kinds.filter(k=>k.count>0).map(k=>{
     const ok=k.classified===k.count;
     const col=ok?'#3fb950':(k.classified===0?'#f85149':'#d29922');
+    const i=k.interpretant||{};
+    // An inherited interpretant is an unanswered question, not a decision —
+    // shown muted so declared rules stand out.
+    const dec=i.declared
+      ? `<span style="color:#3fb950" title="${esc(i.note||'')}">${esc((i.confirms||[]).join('+'))} ↑ / ${esc((i.refutes||[]).join('+'))} ↓`
+        +`, ${i.half_life_days===0?'no decay':i.half_life_days+'d half-life'}, w=${i.weight}</span>`
+      : '<span class="muted">inherits default</span>';
     return `<tr><td style="padding:1px 8px 1px 0">${esc(k.kind)}</td>`
       +`<td style="text-align:right;padding-right:8px">${k.count}</td>`
-      +`<td style="color:${col}">${k.classified===0?'unreachable':k.classified+' reachable'}</td></tr>`;
+      +`<td style="color:${col};padding-right:10px">${k.classified===0?'unreachable':k.classified+' reachable'}</td>`
+      +`<td class="sm">${dec}</td></tr>`;
   }).join('');
-  $('onKinds').innerHTML=`<table class="sm">${rows}</table>`;
+  $('onKinds').innerHTML='<table class="sm"><tr><th align="left">source</th><th>n</th>'
+    +'<th align="left">reach</th><th align="left">interpretant</th></tr>'+rows+'</table>';
 }
 
 function ontGrid(entries){

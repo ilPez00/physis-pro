@@ -367,6 +367,13 @@ pub struct OntologyLoader {
     pub office_domains: HashMap<String, DomainDef>,
     /// Custom domain definitions loaded from file paths.
     pub custom_domains: HashMap<String, DomainDef>,
+    /// Per-ontology interpretant, keyed by the source's `kind`.
+    ///
+    /// Kept beside the domain maps rather than copied onto every entry: the
+    /// interpretant is a property of the universe of discourse, not of the
+    /// individual sign. Sources with no declaration are absent here and fall
+    /// back to [`Interpretant::default`].
+    pub interpretants: HashMap<String, crate::models::Interpretant>,
 }
 
 impl OntologyLoader {
@@ -385,7 +392,14 @@ impl OntologyLoader {
             engineering_domains: HashMap::new(),
             office_domains: HashMap::new(),
             custom_domains: HashMap::new(),
+            interpretants: HashMap::new(),
         }
+    }
+
+    /// The interpretant governing an ontology kind, or the default when the
+    /// source declares none.
+    pub fn interpretant(&self, kind: &str) -> crate::models::Interpretant {
+        self.interpretants.get(kind).cloned().unwrap_or_default()
     }
 
     /// Load a built-in ontology by its registered name (see `BUILTIN_ONTOLOGIES`).
@@ -399,15 +413,50 @@ impl OntologyLoader {
 
     /// Load domain definitions from a JSON file on disk.
     pub fn load_from_path(path: &Path) -> anyhow::Result<HashMap<String, DomainDef>> {
+        Ok(Self::load_file(path)?.1)
+    }
+
+    /// Load an ontology file, returning its declared interpretant alongside its
+    /// entries. An invalid interpretant is reported and replaced with the
+    /// default rather than failing the load: a bad feedback rule should not
+    /// cost the user the 900 entries in the same file.
+    pub fn load_file(
+        path: &Path,
+    ) -> anyhow::Result<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
         let contents = std::fs::read_to_string(path)?;
-        let config: OntologyConfig = serde_json::from_str(&contents)?;
-        Ok(Self::entries_to_map(&config.domains))
+        Self::load_str(&contents, &path.display().to_string())
     }
 
     /// Parse domain definitions from a raw JSON string.
     pub fn load_from_str(json: &str) -> anyhow::Result<HashMap<String, DomainDef>> {
+        Ok(Self::load_str(json, "<embedded>")?.1)
+    }
+
+    /// Parse an ontology from JSON, returning its interpretant with its
+    /// entries. `label` only names the source in warnings.
+    pub fn load_str(
+        json: &str,
+        label: &str,
+    ) -> anyhow::Result<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
         let config: OntologyConfig = serde_json::from_str(json)?;
-        Ok(Self::entries_to_map(&config.domains))
+        let interpretant = config.interpretant.and_then(|i| match i.validate() {
+            Ok(()) => Some(i),
+            Err(e) => {
+                eprintln!(
+                    "Warning: ontology '{label}' declares an invalid interpretant ({e}); falling back to the default"
+                );
+                None
+            }
+        });
+        Ok((interpretant, Self::entries_to_map(&config.domains)))
+    }
+
+    /// Load a built-in ontology with its interpretant.
+    pub fn load_builtin_full(
+        name: &str,
+    ) -> Option<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
+        let (_, json) = BUILTIN_ONTOLOGIES.iter().find(|(n, _)| *n == name)?;
+        Self::load_str(json, name).ok()
     }
 
     fn entries_to_map(entries: &[OntologyEntry]) -> HashMap<String, DomainDef> {
@@ -442,16 +491,35 @@ impl OntologyLoader {
             }
             let map = if let Some(ref path) = source.path {
                 if path.exists() {
-                    Self::load_from_path(path).unwrap_or_else(|e| {
-                        eprintln!("Warning: failed to load ontology '{}' from {}: {}", source.name, path.display(), e);
-                        HashMap::new()
-                    })
+                    match Self::load_file(path) {
+                        Ok((interpretant, map)) => {
+                            // Keyed by kind, so several files sharing a kind
+                            // agree on how their signs are judged. Last one
+                            // wins, matching how the domain maps merge.
+                            if let Some(i) = interpretant {
+                                loader.interpretants.insert(source.kind.clone(), i);
+                            }
+                            map
+                        }
+                        Err(e) => {
+                            eprintln!("Warning: failed to load ontology '{}' from {}: {}", source.name, path.display(), e);
+                            HashMap::new()
+                        }
+                    }
                 } else {
                     eprintln!("Warning: ontology path {} not found", path.display());
                     HashMap::new()
                 }
             } else {
-                Self::load_builtin(&source.name).unwrap_or_default()
+                match Self::load_builtin_full(&source.name) {
+                    Some((interpretant, map)) => {
+                        if let Some(i) = interpretant {
+                            loader.interpretants.insert(source.kind.clone(), i);
+                        }
+                        map
+                    }
+                    None => HashMap::new(),
+                }
             };
 
             for (name, def) in map {
@@ -474,8 +542,15 @@ impl OntologyLoader {
         // Always-on extra domain-specific ontologies → custom_domains.
         // Keyed by "kind:name" so identical entry names across files don't collide.
         for (kind, json) in EXTRA_ONTOLOGIES {
-            match Self::load_from_str(json) {
-                Ok(map) => {
+            match Self::load_str(json, kind) {
+                Ok((interpretant, map)) => {
+                    // Keyed by the extra ontology's own name, not by the
+                    // `custom` bucket it lands in: all 20 share that bucket,
+                    // but each judges its signs differently — that difference
+                    // is the whole point of a per-ontology interpretant.
+                    if let Some(i) = interpretant {
+                        loader.interpretants.insert(kind.to_string(), i);
+                    }
                     for (name, def) in map {
                         loader.custom_domains.insert(format!("{kind}:{name}"), def);
                     }
