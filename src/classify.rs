@@ -171,6 +171,7 @@ impl CellClassifier {
     pub fn classify_biased(
         &self,
         embedding: &[f32],
+        tenant: &str,
         ctx: &crate::context::Context,
         store: &crate::salience::SalienceStore,
         interp: &crate::models::Interpretant,
@@ -180,7 +181,7 @@ impl CellClassifier {
             return scores;
         }
         for c in &mut scores {
-            c.score += store.cell_bias(ctx, &c.entries, interp);
+            c.score += store.cell_bias(tenant, ctx, &c.entries, interp);
         }
         scores.sort_by(|a, b| b.score.total_cmp(&a.score));
         scores
@@ -351,6 +352,8 @@ mod tests {
     use crate::models::Interpretant;
     use crate::salience::{SalienceStore, Signal};
 
+    const T: &str = "tenant-a";
+
     /// Unit vector a small angle away from axis 0, for building near-ties.
     fn near(dim: usize, off: f32) -> Vec<f32> {
         let mut v = vec![0.0f32; dim];
@@ -364,7 +367,7 @@ mod tests {
         let interp = Interpretant::default();
         let mut store = SalienceStore::default();
         for _ in 0..n {
-            store.record(&ctx, entry, Signal::Edited, &interp);
+            store.record(T, &ctx, entry, Signal::Edited, &interp);
         }
         (store, ctx, interp)
     }
@@ -379,6 +382,7 @@ mod tests {
         let plain = clf.classify(&basis(4, 0));
         let biased = clf.classify_biased(
             &basis(4, 0),
+            T,
             &ctx,
             &SalienceStore::default(),
             &Interpretant::default(),
@@ -402,7 +406,7 @@ mod tests {
         assert_eq!(clf.classify(&query)[0].mode, "Y", "Y is closer unbiased");
 
         let (store, ctx, interp) = confirmed("A/X#0", 30);
-        let biased = clf.classify_biased(&query, &ctx, &store, &interp);
+        let biased = clf.classify_biased(&query, T, &ctx, &store, &interp);
         assert_eq!(biased[0].mode, "X", "accumulated evidence reorders a close call");
     }
 
@@ -416,7 +420,7 @@ mod tests {
         ]);
         let query = basis(4, 0);
         let (store, ctx, interp) = confirmed("A/X#0", 5000);
-        let biased = clf.classify_biased(&query, &ctx, &store, &interp);
+        let biased = clf.classify_biased(&query, T, &ctx, &store, &interp);
         assert_eq!(biased[0].mode, "Y", "semantics still wins by a mile");
     }
 
@@ -431,7 +435,7 @@ mod tests {
 
         // Same store, different client: the bias must not apply.
         let other = Context::parse("client:publisher");
-        let biased = clf.classify_biased(&query, &other, &store, &interp);
+        let biased = clf.classify_biased(&query, T, &other, &store, &interp);
         assert_eq!(biased[0].mode, "Y", "another client's evidence is not evidence here");
     }
 
@@ -446,10 +450,10 @@ mod tests {
         let interp = Interpretant { weight: 0.0, ..Default::default() };
         let mut store = SalienceStore::default();
         for _ in 0..30 {
-            store.record(&ctx, "A/X#0", Signal::Edited, &interp);
+            store.record(T, &ctx, "A/X#0", Signal::Edited, &interp);
         }
-        assert!(store.score(&ctx, "A/X#0", &interp) > 0.0, "recorded");
-        assert_eq!(clf.classify_biased(&query, &ctx, &store, &interp)[0].mode, "Y");
+        assert!(store.score(T, &ctx, "A/X#0", &interp) > 0.0, "recorded");
+        assert_eq!(clf.classify_biased(&query, T, &ctx, &store, &interp)[0].mode, "Y");
     }
 
     #[test]
