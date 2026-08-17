@@ -145,8 +145,26 @@ ordered; junk input falls back to the default instead of pinning to an extreme.
 someone calls `/dream/generate` — which in practice means never. Run it when
 request rate drops and surface the result as the first thing the console shows.
 
-- [ ] Idle-triggered dream pass
-- [ ] "What it chewed on" panel
+- [x] Idle-triggered dream pass
+- [x] "What it chewed on" panel
+
+**Done (2026-08-17).** The rate-limit layer was already universal, so it now
+stamps the time of every request — including throttled ones, since a rejected
+request is still someone asking and must postpone the pass. A background tick
+notices when the gap exceeds `PHYSIS_IDLE_DREAM_SECS` (default 60) and replays
+whatever has not been dreamt over yet. Surfaced at `GET /api/v1/dream/rest` and
+as the first panel on the console overview.
+
+Two states are deliberately kept apart: a pass that finds nothing new leaves the
+previous one standing, and `rested: false` means *no pass has ever produced
+material* — collapsing "found nothing new" into "never ran" would make an idle
+engine look like a broken one.
+
+One trap worth recording: the threshold must be read at build time, not inside
+the spawned block. A `tokio::spawn`ed future does not run until first polled, so
+reading the environment in there picks up whatever the caller set afterwards
+rather than the configuration the app was built with. The first version did
+exactly that and silently used the default.
 
 ### 5. Cross-project nerves carry sensation, not scalars
 
@@ -156,8 +174,29 @@ between them must carry *what happened and how it felt*, not identifiers:
 downstream can classify it, no cell lights up, no dream can replay it. The aion
 client's `Recalled` dataclass already gets this right by carrying `.outcome`.
 
-- [ ] praxis: embed check-in content, not the user id
+- [x] praxis: embed check-in content, not the user id
 - [ ] Make `.outcome`-style verdict carriage the contract on every edge
+
+**Check-in edge fixed (2026-08-17)**, on praxis branch
+`fix/checkin-carries-sensation` — *not pushed*: praxis deploys on push to main,
+so landing it is a deliberate act, not a side effect of this work.
+
+`checkinNarrative` renders the check-in as a sentence — the user's own words
+first, then mood, energy, recovery, streak. The user id is gone entirely:
+tenancy already travels in the `X-Physis-User` header, so it bought no isolation
+and only polluted the embedding.
+
+The sharper half of the bug was dedupe. physis keys nodes by this text, so
+`user:<uuid>` collapsed every check-in a person ever made onto **one** node
+whose verdict was overwritten daily — the history was not lost in transit, it
+was never distinct. Including the date turns dedupe into the feature it should
+be: one node per day, and a same-day re-check-in updates rather than duplicates.
+
+Audit result: the notebook (`data.content`) and goal (`newNode.name`) edges
+already sent real content. The check-in was the last one sending an identifier.
+
+The second bullet stays open on purpose — it is a standing contract for future
+edges, not a discrete task, and nothing enforces it mechanically yet.
 
 ---
 
