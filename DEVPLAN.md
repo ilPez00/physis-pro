@@ -1,6 +1,10 @@
 # Physis Pro Dev Plan
 
 ## In Progress
+- Industrial MVP commercialization: ship the tested shift-loss demo, sell
+  paid pilots, then build only the import/adapter and persistence features
+  demanded by the first customer. See `INDUSTRIAL_VERTICAL_PLAN.md`,
+  `docs/PRODUCT_MARKETING.md`, and `docs/COMMERCIAL_MODEL.md`.
 - DNS TXT verification for `praxisweb.xyz` — add TXT record `_github-pages-challenge-ilPez00.praxisweb.xyz` = `b2452977bcac84567aa7f09bf743e2` at DNS provider
 - Enable GitHub Pages on `ilPez00/physis-pro`: Settings → Pages → Source: gh-pages / root
 
@@ -26,6 +30,32 @@
 3. **Verify live site** — Visit `praxisweb.xyz` and `praxisweb.xyz/physis`
 
 ## Core Dev Track
+
+### Industrial MVP next
+- [x] Deterministic OEE → anomaly/RUL → Italian report demo contract
+      (`tests/industrial_demo.rs`)
+- [ ] CSV/JSON shift importer with validation/error output
+- [ ] Customer-ready report metadata and evidence export
+- [ ] Durable, tenant/plant-scoped shift history
+- [ ] First paid pilot and protocol decision before adding machine adapters
+
+### Administration/datawork track
+- [ ] Build the fixed demo corpus and `Admin Review Desk` flow
+- [ ] Add typed document metadata, duplicate detection, and exception queue
+- [ ] Add CSV/XLSX batch import with validation and reviewed export
+- [ ] Add invoice/PO/delivery-note reconciliation without payment automation
+- [ ] Add weekly management-pack templates with source provenance
+- [ ] Validate one paid administration pilot before adding ERP/mailbox
+      connectors
+
+### Decision Planner track
+- [ ] Version ontology/overlay scenarios without mutating live state
+- [ ] Add sandbox classification and deterministic corpus impact diffs
+- [ ] Report old→new cells, confidence deltas, coverage gaps, and affected
+      reports/workflows with provenance
+- [ ] Infer dated signifier shifts as reviewable hypotheses, never silent facts
+- [ ] Add scenario review, promotion, rejection, and reversible version history
+- [ ] Build the procurement ontology-replacement demo for praxisweb.xyz
 - ✅ Facet schema (`Facets` in `physis-core/src/models.rs` — LifecyclePhase, Agency, Scale, Abstraction enums)
 - ✅ Studio GUI facet drilldown (facet editor saves facets, studio toggle)
 - ✅ **CLI facet query** — `physis-pro facet` filters ontology entries by lifecycle/agency/scale/abstraction/sub-domain/sub-mode; `Facets::simple()` compact display
