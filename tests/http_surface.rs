@@ -38,9 +38,29 @@ async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>
     // inherit it (a stale token would 401 every request in the next test).
     std::env::remove_var("PHYSIS_API_TOKEN");
     std::env::remove_var("PHYSIS_TOKENS");
+    // The rest-cycle test lowers this; no other build may inherit it, or their
+    // idle threshold silently becomes zero.
+    std::env::remove_var("PHYSIS_IDLE_DREAM_SECS");
     std::env::set_var("HOME", dir); // config resolves ~/.physis
     let (_state, router) = physis_pro::web::build_app().await;
     (router, env)
+}
+
+/// An app whose rest cycle fires as soon as the engine is quiet, so the rhythm
+/// can be observed without waiting out the real 60-second threshold.
+async fn app_resting() -> (axum::Router, tempfile::TempDir, MutexGuard<'static, ()>) {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("HOME", dir.path());
+    std::env::set_var("PHYSIS_IDLE_DREAM_SECS", "0");
+    let (_state, router) = physis_pro::web::build_app().await;
+    // Read once at spawn, so clearing it now keeps the variable from leaking
+    // into any later build that shares this process.
+    std::env::remove_var("PHYSIS_IDLE_DREAM_SECS");
+    (router, dir, env)
 }
 
 /// Build the app once per test with an isolated data dir, so tests never share
@@ -1149,4 +1169,68 @@ async fn the_grid_reports_cell_condition_and_honours_the_confidence_slider() {
         populated["condition"].as_f64().unwrap() > 0.0,
         "a populated cell is not drawn as worst-case: {populated}"
     );
+}
+
+/// Before a rest pass has run, the panel must be able to say *why* it is empty.
+///
+/// "Found nothing new" and "never ran" are different states, and an engine that
+/// has simply not gone quiet yet must not look like one whose dream pass is
+/// broken. The default threshold is 60s, so nothing rests during this test.
+#[tokio::test]
+async fn the_rest_endpoint_distinguishes_never_rested_from_found_nothing() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, rest) = send(&router, get("/api/v1/dream/rest", "rs")).await;
+    assert_eq!(status, StatusCode::OK, "rest responds: {rest}");
+    assert_eq!(rest["rested"], false, "nothing has rested yet: {rest}");
+    assert!(rest["last"].is_null(), "no pass to report: {rest}");
+    // The threshold has to be visible, or the panel cannot explain the wait.
+    assert_eq!(rest["idle_threshold_seconds"], 60, "default threshold reported");
+    assert!(rest["idle_seconds"].is_number(), "current quiet reported: {rest}");
+}
+
+/// Dreaming used to be reachable only through `POST /dream/generate`, which in
+/// practice meant it never ran. It must now happen on its own when request
+/// traffic stops — that is the whole of §4, and nothing else asserts it.
+#[tokio::test]
+async fn the_engine_dreams_on_its_own_once_requests_stop() {
+    let (router, _dir, _env) = app_resting().await;
+
+    // A node with a reported failure is exactly what `dream()` selects for.
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "", json!({
+            "input": "vacuum pump seized during overnight run",
+            "coherence_score": -0.8,
+        })),
+    )
+    .await;
+    let id = reg["node_id"].as_str().expect("registered").to_string();
+
+    // Go quiet. The tick polls at least once a second when the threshold is 0,
+    // so this is a rhythm the test can wait out rather than a race.
+    let mut rest = Value::Null;
+    for _ in 0..40 {
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        // Polling stamps activity through the rate-limit layer, which with a
+        // real threshold would keep postponing the pass. At threshold 0 any
+        // amount of quiet qualifies, so the poll cannot starve what it waits on.
+        let (_, r) = send(&router, get("/api/v1/dream/rest", "")).await;
+        if r["rested"] == true {
+            rest = r;
+            break;
+        }
+    }
+
+    assert_eq!(rest["rested"], true, "the engine rested unprompted: {rest}");
+    let chewed = rest["last"]["chewed"].as_array().expect("chewed list").clone();
+    assert!(!chewed.is_empty(), "it chewed on something: {rest}");
+    let found = chewed.iter().find(|c| c["node_id"] == id).expect("the failed node was replayed");
+    // The panel needs a readable handle, not a uuid — the whole point of
+    // replaying nodes rather than goals.
+    assert_eq!(
+        found["label"], "vacuum pump seized during overnight run",
+        "the replayed node is named: {found}"
+    );
+    assert!(found["density"].is_number(), "density reported: {found}");
 }

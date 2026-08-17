@@ -227,6 +227,23 @@
     grid-template-columns:1.4fr .9fr;
     gap:12px;
   }
+  /* rest panel — what the engine worked through unprompted */
+  .rest{border-color:rgba(126,231,216,.30);background:linear-gradient(180deg,rgba(126,231,216,.07),rgba(18,26,48,.82))}
+  .rest h3{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;text-transform:none;letter-spacing:.02em;font-size:13px;color:var(--fg)}
+  .rest h3 .muted{text-transform:none;letter-spacing:0;font-size:12px;font-weight:400}
+  .restrow{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:8px 10px;
+    margin-top:6px;
+    border-radius:10px;
+    border:1px solid rgba(36,50,79,.85);
+    background:rgba(7,11,22,.72);
+  }
+  .restrow .lbl{font-weight:600;word-break:break-word;min-width:0}
+  .restrow .meta{font-size:12px;color:var(--muted);white-space:nowrap}
   @media (max-width: 1100px){
     main{flex-direction:column}
     nav{width:auto;flex-direction:row;overflow:auto;border-right:none;border-bottom:1px solid rgba(36,50,79,.85)}
@@ -267,6 +284,12 @@
         <button id="ovOee">Refresh OEE</button>
       </div>
     </div>
+    <!-- First thing on screen: what the engine worked through on its own while
+         nobody was asking it anything. -->
+    <section class="surface rest" id="ovRest">
+      <h3>What it chewed on <span class="muted" id="restWhen"></span></h3>
+      <div id="restBody" class="muted">Loading…</div>
+    </section>
     <div class="card-grid" id="ovCards"></div>
     <div class="split">
       <section class="surface">
@@ -382,7 +405,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   b.classList.add('active'); $('tab-'+b.dataset.tab).classList.add('active');
-  if(b.dataset.tab==='overview') loadOverview();
+  if(b.dataset.tab==='overview'){ loadOverview(); loadRest(); }
   if(b.dataset.tab==='timeline') loadTimelineDemo();
   if(b.dataset.tab==='grid') loadHeat();
   if(b.dataset.tab==='oee') loadOee();
@@ -694,7 +717,49 @@ async function loadOee(){
   }catch(e){$('oeeOut').innerHTML='<span class="err">'+e+'</span>';}
 }
 
-$('ovLoad').onclick=loadOverview;
+// ── rest panel: what the engine worked through on its own ──
+// `dream()` replays reported failures; it now runs when request traffic stops
+// rather than when someone remembers to POST /dream/generate. This reports the
+// last pass, and is careful to distinguish "found nothing new" from "never ran"
+// — collapsing those two would make an idle engine look like a broken one.
+function restAgo(ms){
+  const s=Math.max(0,Math.round((Date.now()-ms)/1000));
+  if(s<60)return s+'s ago';
+  if(s<3600)return Math.round(s/60)+'m ago';
+  return Math.round(s/3600)+'h ago';
+}
+function renderRest(r){
+  const when=$('restWhen'), body=$('restBody');
+  if(!r.rested){
+    when.textContent='';
+    body.innerHTML='<p class="muted">Nothing yet — the engine rests after '
+      +esc(r.idle_threshold_seconds)+'s without requests (quiet for '
+      +esc(r.idle_seconds)+'s so far).</p>';
+    return;
+  }
+  const p=r.last;
+  when.textContent='· '+restAgo(p.at_ms)+', after '+p.idle_seconds+'s idle';
+  const rows=p.chewed.map(c=>{
+    // `prevented_failure` is the engine's own verdict on the replay, so show it
+    // as the reason rather than re-deriving one from the numbers here.
+    const flag=c.prevented_failure
+      ? '<span class="err">caught a failure</span>'
+      : '<span class="muted">held up</span>';
+    const verdict=(c.asserted===undefined||c.asserted===null)
+      ? '<span class="muted">unjudged</span>'
+      : 'verdict '+Number(c.asserted).toFixed(2);
+    return '<div class="restrow"><span class="lbl">'+esc(c.label)+'</span>'
+      +'<span class="meta">'+verdict+' · density '+Number(c.density).toFixed(2)+' · '+flag+'</span></div>';
+  }).join('');
+  body.innerHTML='<p class="muted">Replayed '+p.chewed.length
+    +' node'+(p.chewed.length===1?'':'s')+' nobody had resolved.</p>'+rows;
+}
+async function loadRest(){
+  try{ renderRest(await getJSON('/api/v1/dream/rest')); }
+  catch(e){ $('restBody').innerHTML='<p class="err">'+esc(String(e))+'</p>'; }
+}
+
+$('ovLoad').onclick=()=>{loadOverview();loadRest();};
 $('ovDemo').onclick=loadTimelineDemo;
 $('ovOee').onclick=loadOee;
 $('tlDemo').onclick=loadTimelineDemo;
@@ -739,6 +804,7 @@ $('scan').onclick=scan;$('move').onclick=move;$('view').onchange=()=>render(last
 ['base','token'].forEach(k=>$(k).onchange=save);
 
 loadOverview();
+loadRest();
 </script>
 </body>
 </html>
