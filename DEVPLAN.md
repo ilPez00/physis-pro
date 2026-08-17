@@ -5,8 +5,11 @@
   paid pilots, then build only the import/adapter and persistence features
   demanded by the first customer. See `INDUSTRIAL_VERTICAL_PLAN.md`,
   `docs/PRODUCT_MARKETING.md`, and `docs/COMMERCIAL_MODEL.md`.
-- DNS TXT verification for `praxisweb.xyz` — add TXT record `_github-pages-challenge-ilPez00.praxisweb.xyz` = `b2452977bcac84567aa7f09bf743e2` at DNS provider
-- Enable GitHub Pages on `ilPez00/physis-pro`: Settings → Pages → Source: gh-pages / root
+- Verify `praxisweb.xyz` points to the pansa-ts web service; deployment host is
+  `pansa-ts` (`gio@100.65.59.18`, configured in `/home/gio/.zshrc`)
+- Document the pansa-ts deploy/restart command and reverse-proxy/TLS setup
+- Set up `gio@praxisweb.xyz` and publish the free sample/upload funnel under
+  `praxisweb.xyz/physis`; see `docs/GO_TO_MARKET_AND_EMAIL.md`
 
 ## Completed (Roadmap Reference)
 - ROADMAP.md created with hosting setup, core, docs, and collaboration milestones
@@ -24,10 +27,12 @@
 - **Praxis backfill (Phase 7B)** — `src/praxis.rs` (notebook entries + trackers → Success/Inert/Failure verdicts) → labeled behavioural nodes with asserted verdicts; `physis-pro praxis <file>` + `POST /api/v1/praxis/backfill`
 - **Spanner Graph sink (Phase 7C)** — durable-memory mirror wired into web (`POST /api/v1/spanner/sync|hydrate`) + CLI (`physis-pro spanner sync|hydrate`); off the hot path, `--features spanner`
 
-## Pending Hosting Actions (user required)
-1. **DNS TXT** — Contact DNS provider to add TXT record. Once propagated, enable GitHub Pages
-2. **GitHub Pages enable** — After DNS verified, go to repo Settings → Pages → Build and deployment → Source: Deploy from a branch → gh-pages / root → Save
-3. **Verify live site** — Visit `praxisweb.xyz` and `praxisweb.xyz/physis`
+## Pending Hosting Actions
+1. **DNS** — Confirm the apex and `www` records resolve to the pansa-ts public
+   entrypoint; do not add GitHub Pages challenge records.
+2. **Mail** — Add the email provider's verification, MX, SPF, DKIM, and DMARC
+   records without replacing the web records.
+3. **Verify live site** — Visit `praxisweb.xyz` and `praxisweb.xyz/physis`.
 
 ## Core Dev Track
 
@@ -62,6 +67,7 @@
 
 ## Documentation Track
 - ✅ **Umbrellapedia integration guide** — `docs/UMBRELLAPEDIA_GUIDE.md` (label contract, feeder table, wiring a feeder, naming + links, freshness)
+- ✅ **First-customer funnel and email setup** — `docs/GO_TO_MARKET_AND_EMAIL.md` (sample package, upload safeguards, value measurement, prospects, outreach, DNS/mail options)
 - ✅ **Engine pipeline diagrams** — `docs/PIPELINE_DIAGRAMS.md` (ingestion→recall pipeline + live phases 1–7 + key invariants)
 
 ## Collaboration Track

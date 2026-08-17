@@ -1,8 +1,10 @@
 # Physis Pro Roadmap
 
 ## Hosting Setup
-- Finalize DNS TXT record verification (`_github-pages-challenge-ilPez00.praxisweb.xyz` = `b2452977bcac84567aa7f09bf743e2`)
-- Enable GitHub Pages on `ilPez00/physis-pro` (Settings → Pages → Source: gh-pages branch)
+- Keep `praxisweb.xyz` served from pansa-ts (`gio@100.65.59.18`, alias
+  `pansa-ts` in `/home/gio/.zshrc`)
+- Document and test the pansa-ts reverse proxy, TLS termination, and deploy
+  restart path
 
 ## Core Development
 - Optimize facet schema performance in `src/models.rs`
