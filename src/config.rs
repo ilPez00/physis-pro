@@ -110,17 +110,17 @@ pub struct PhysisProConfig {
 
 impl Default for PhysisProConfig {
     fn default() -> Self {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let data_dir = PhysisConfig::default().data_dir;
         let mut physis = PhysisConfig::default();
         // Disable Sanskrit dreaming and Wenyan compression by default for business use
         physis.linguistic.wenyan_enabled = false;
         physis.linguistic.sanskrit_enabled = false;
         Self {
             physis,
-            ingest_dirs: vec![PathBuf::from(&home).join("inbox")],
-            wiki_path: Some(PathBuf::from(&home).join(".physis").join("wiki")),
+            ingest_dirs: vec![],
+            wiki_path: Some(data_dir.join("wiki")),
             industrial_endpoints: vec![],
-            inventory_db: PathBuf::from(&home).join(".physis").join("inventory"),
+            inventory_db: data_dir.join("inventory"),
             order_mode: "manual".to_string(),
             order_cooldown_hours: 24,
         }
@@ -261,9 +261,16 @@ pub struct OntologySource {
 
 impl Default for PhysisConfig {
     fn default() -> Self {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let data_dir = std::env::var("PHYSIS_DATA_DIR")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| {
+                let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                cwd.join(DEFAULT_PHYSIS_DIR)
+            });
         Self {
-            data_dir: PathBuf::from(home).join(DEFAULT_PHYSIS_DIR),
+            data_dir,
             ontologies: vec![
                 OntologySource {
                     name: HUMAN_ONTOLOGY_NAME.to_string(),

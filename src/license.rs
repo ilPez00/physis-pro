@@ -239,13 +239,15 @@ pub fn verify_blob(blob: &str) -> Result<License, LicenseError> {
     Ok(license)
 }
 
-/// Default licence location: `~/.physis/license.key`, or `./.physis/license.key`
-/// when the home directory is unavailable (containers running as nobody).
+/// Default licence location: `PHYSIS_DATA_DIR/license.key`, or `./.physis/license.key`
+/// when the data dir is not explicitly set.
 pub fn default_license_path() -> PathBuf {
-    match std::env::var_os("HOME") {
-        Some(home) if !home.is_empty() => Path::new(&home).join(".physis").join("license.key"),
-        _ => PathBuf::from(".physis").join("license.key"),
-    }
+    std::env::var("PHYSIS_DATA_DIR")
+        .ok()
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| PathBuf::from(".physis"))
+        .join("license.key")
 }
 
 /// Load and verify the licence from, in order: `PHYSIS_LICENSE` (inline),
