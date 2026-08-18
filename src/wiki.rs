@@ -147,15 +147,15 @@ Design specs, CAD files, BOM, test protocols, validation reports.
 "#),
         ("physis/configuration.md", "Configuration Guide",
          "Environment variables, data paths, feature flags, and deployment configuration for physis-pro.", vec!["config", "environment", "setup"],
-         r#"Physis configuration is loaded from `~/.physis/config.json` and environment variables.
+         r#"Physis configuration is loaded from `<data_dir>/config.json` and environment variables.
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PHYSIS_API_TOKEN` | Bearer token for API auth | (none, no auth) |
-| `PHYSIS_LOG_DIR` | Log output directory | `~/.physis/logs` |
-| `PHYSIS_DATA_DIR` | Data storage directory | `~/.physis` |
+| `PHYSIS_LOG_DIR` | Log output directory | `<data_dir>/logs` |
+| `PHYSIS_DATA_DIR` | Data storage directory | `./.physis` (current working directory) |
 | `OPENAI_API_KEY` | OpenAI API key | (none) |
 | `ANTHROPIC_API_KEY` | Anthropic API key | (none) |
 | `SUPABASE_URL` | Supabase project URL | (none) |

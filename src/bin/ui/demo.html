@@ -57,6 +57,8 @@
     border-color:rgba(110,168,255,.55);
   }
   button.primary:hover{background:linear-gradient(135deg,rgba(110,168,255,.34),rgba(98,230,212,.22))}
+  button.ghost{background:none;color:var(--muted)}
+  button.ghost:hover{color:var(--fg)}
   .pill{
     display:inline-flex;align-items:center;gap:7px;
     padding:6px 12px;border:1px solid var(--line);border-radius:999px;
@@ -136,6 +138,17 @@
 
   .two-col{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
   @media(max-width:1100px){.two-col{grid-template-columns:1fr}}
+  @media(max-width:768px){
+    header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+    h1{font-size:18px}
+    nav{width:100%;border-bottom:none;border-top:1px solid rgba(36,50,79,.85);padding-top:6px}
+    .grid-kpis{grid-template-columns:1fr}
+    .hero .actions{flex-direction:column;align-items:stretch}
+    .hero .actions button{width:100%}
+    .coach{flex-direction:column;align-items:stretch;text-align:center}
+    .coach .later{margin-left:0;margin-top:8px}
+    main{padding-bottom:60px}
+  }
 
   .panel{
     background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,16,32,.9));
@@ -221,38 +234,113 @@
   footer{text-align:center;color:var(--muted);font-size:11px;padding:14px}
   .loading{color:var(--muted);font-size:12.5px;padding:8px 2px}
   .empty{color:#5c6f92;font-size:13px;padding:14px 2px}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px
+  }
+  .kbd{font:10px ui-monospace,monospace;border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--accent);background:rgba(110,168,255,.08)}
+  .err{color:var(--red)}
+  .coach{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:10px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,rgba(110,168,255,.12),transparent 70%);
+    font-size:13px
+  }
+  .coach[hidden]{display:none}
+  .coach b{color:var(--accent)}
+  .coach .later{margin-left:auto;background:none;border:none;color:var(--muted);padding:4px 8px}
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,18,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(16,24,48,.98),rgba(10,16,32,.96));
+    border:1px solid rgba(110,168,255,.22);border-radius:20px;padding:28px 32px;
+    max-width:540px;width:100%;box-shadow:0 30px 90px rgba(0,0,0,.55)
+  }
+  .overlay-card h2{margin:0 0 8px;font-size:22px;letter-spacing:-.02em}
+  .steps{display:grid;gap:10px;text-align:left;margin:18px 0}
+  .step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+  .step i{
+    width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(110,168,255,.12);border:1px solid rgba(110,168,255,.28);color:var(--accent);font-weight:700;font-size:12px
+  }
+  .pulse-hint{box-shadow:0 0 0 0 rgba(110,168,255,.55);animation:hintpulse 1.8s ease-out infinite}
+  @keyframes hintpulse{70%{box-shadow:0 0 0 10px rgba(110,168,255,0)}}
+  .tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted)}
+  .tip:hover::after,.tip:focus::after{
+    content:attr(data-tip);position:absolute;bottom:130%;left:0;
+    background:rgba(10,16,32,.96);border:1px solid var(--line);color:var(--fg);
+    padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.45;
+    white-space:normal;max-width:240px;width:max-content;z-index:50;
+    pointer-events:none;box-shadow:var(--shadow)
+  }
 </style>
 </head>
 <body>
+<div id="welcome" class="overlay" role="dialog" aria-labelledby="welcomeTitle">
+  <div class="overlay-card" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">⚙</div>
+    <h2 id="welcomeTitle">Shop floor in one click</h2>
+    <p class="muted" style="margin:0;line-height:1.6">This demo loads machines, events, and notes into the live engine on this page. Nothing leaves the process.</p>
+    <div class="steps">
+      <div class="step"><i>1</i><div><b>Seed</b><div class="muted">Load four machines, a shift of stops, and today’s notes.</div></div></div>
+      <div class="step"><i>2</i><div><b>Watch</b><div class="muted">Plant health, the incident, and how notes connect.</div></div></div>
+      <div class="step"><i>3</i><div><b>Ask</b><div class="muted">Classify a shop-floor sentence. See the cell it lands in.</div></div></div>
+    </div>
+    <button id="welcomeDismiss" class="primary" style="font-size:14px;padding:10px 28px;border-radius:10px">Show me Seed</button>
+    <p class="muted" style="margin:12px 0 0;font-size:12px">Press <span class="kbd">?</span> for shortcuts</p>
+  </div>
+</div>
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">How to move around</h2>
+    <div class="steps" style="font-size:13px">
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> <span class="muted">classify the text in the box</span></div>
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">K</span> <span class="muted">jump to the classify box</span></div>
+      <div><span class="kbd">S</span> <span class="muted">seed demo data (when you are not typing)</span></div>
+      <div><span class="kbd">?</span> <span class="muted">open or close this help</span></div>
+      <div><span class="kbd">Esc</span> <span class="muted">close help or welcome</span></div>
+    </div>
+    <button id="helpClose" class="primary" style="width:100%">Close</button>
+  </div>
+</div>
 
 <header>
   <div class="brand">
     <div class="logo">P</div>
     <div>
       <h1>PHYSIS</h1>
-      <div class="sub">Industrial Backoffice Intelligence · Live Demo</div>
+      <div class="sub">Shop floor demo · seed, watch, classify</div>
     </div>
   </div>
   <nav>
-    <a href="#plant">Plant</a>
+    <a href="#plant">Plant health</a>
     <a href="#machines">Machines</a>
-    <a href="#report">Shift Report</a>
+    <a href="#report">Shift report</a>
     <a href="#timeline">Timeline</a>
-    <a href="#grid">Semiotic Grid</a>
-    <a href="#holarchy">Holarchy</a>
+    <a href="#grid">Meaning grid</a>
+    <a href="#holarchy">How notes connect</a>
     <a href="#probes">Classify</a>
   </nav>
   <div class="spacer"></div>
   <span id="health" class="pill"><span class="dot"></span><span id="healthTxt">checking…</span></span>
-  <button id="btnSeed" class="primary">Seed demo data</button>
+  <button id="btnSeed" class="primary pulse-hint">Seed demo data</button>
   <button id="btnRefresh">Refresh</button>
+  <span id="status" class="pill" style="margin-left:8px"><span class="muted">ready</span></span>
+  <button id="btnHelp" class="ghost" style="padding:6px 10px;font-size:11px" title="Help (?)">?</button>
 </header>
+<div class="coach" id="coach">
+  <span id="coachText"><b>One click.</b> Seed loads machines, a shift of stops, and today’s notes. Then the page fills in.</span>
+  <button id="coachAct" class="primary" type="button">Seed demo data</button>
+  <button class="later" id="coachDismiss" type="button">Hide tips</button>
+</div>
 
 <main>
 
   <!-- Plant KPIs -->
   <section class="section" id="plant">
-    <h2>Plant OEE</h2>
+    <h2>Plant health (OEE) <span class="tip" data-tip="Still running × running at speed × making good parts. World-class is roughly 85%.">(?)</span></h2>
     <div class="grid-kpis" id="kpis"><div class="loading">loading plant OEE…</div></div>
   </section>
 
@@ -284,16 +372,16 @@
   <div class="two-col">
     <!-- Semiotic grid -->
     <section class="section" id="grid" style="margin-bottom:0">
-      <h2>Semiotic Grid</h2>
+      <h2>Meaning grid <span class="tip" data-tip="5 kinds of work × 14 ways of working. Brightness is dictionary coverage, not a score.">(?)</span></h2>
       <div class="panel">
-        <div class="heatmap" id="heat"><div class="loading">loading ontology activation grid…</div></div>
-        <p class="graph-note">cell intensity = activation from ontology entries (domain × mode)</p>
+        <div class="heatmap" id="heat"><div class="loading">loading meaning grid…</div></div>
+        <p class="graph-note">Hover a cell for domain (what) × mode (how)</p>
       </div>
     </section>
 
     <!-- Holarchy -->
     <section class="section" id="holarchy" style="margin-bottom:0">
-      <h2>Holarchy Graph</h2>
+      <h2>How today’s notes connect <span class="tip" data-tip="Each note is a node. Edges mean they belong together in the same judgment.">(?)</span></h2>
       <div class="panel">
         <div id="holarchy"></div>
         <div class="graph-note" id="holNote"></div>
@@ -303,19 +391,19 @@
 
   <!-- Intelligence probes -->
   <section class="section" id="probes">
-    <h2>Classify — the shop speaks in its own grammar</h2>
+    <h2>Classify — paste a shop-floor sentence</h2>
     <div class="two-col">
       <div class="panel">
-        <h3>Semiotic probe <span class="hint">paste any observation, log line, or note</span></h3>
+        <h3>What does this mean? <span class="hint">or click a named example</span></h3>
         <div class="clsrow">
           <textarea id="clText" placeholder="e.g.  Spindle 3 vibration up 45%, press line stopped 40 min for tool change…"></textarea>
           <button id="clRun" style="align-self:stretch">Classify →</button>
         </div>
         <div class="probes" id="probeBtns"></div>
-        <div id="clOut" class="muted">Mapping onto the 5 × 14 semiotic grid. Try a probe.</div>
+        <div id="clOut" class="muted">Try a named example, or paste a log line. The answer is a cell: what kind of work × how it is happening.</div>
       </div>
       <div class="panel">
-        <h3>Coherence core <span class="hint">the engine's shared judgment memory</span></h3>
+        <h3>Judgment memory <span class="hint">how many notes the engine is holding, and how typical they are</span></h3>
         <div class="corechips" id="coreChips"><div class="loading">loading core snapshot…</div></div>
       </div>
     </div>
@@ -326,6 +414,7 @@
 <footer>Physis demo · all data is generated in-process by the live engine — no external service required</footer>
 <div class="toast" id="toast"></div>
 
+<script src="ui-shell.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -340,6 +429,10 @@ function toast(msg,err){
   const t=$('toast'); t.textContent=msg; t.className='toast show '+(err?'err':'ok');
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast',4200);
 }
+function apiError(e){ return '<span class="err">'+esc(String(e))+'</span>'; }
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function typing(el){ const t=el&&el.tagName; return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'; }
+function setStatus(m,e){ const s=$('status'); if(!s)return; const now=new Date(); const ts=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); s.innerHTML='<span class="muted">'+(e?'⚠ ':'')+m+' · '+ts+'</span>'; }
 
 const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
 const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
@@ -524,15 +617,15 @@ async function loadCore(){
 
 // ── Classify ──
 const PROBES=[
-  "Spindle 3 vibration rose 45% in the last shift; tool holder checked, nothing loose.",
-  "Press line stopped 40 minutes for tool change; 320 parts scrapped after restart.",
-  "PO-2048 from Valbruna is 12 days past due and we haven't invoiced it yet.",
-  "Shift produced 1,480 good parts on tornio-1, zero defects, OEE 92%.",
+  {label:'vibration',text:"Spindle 3 vibration rose 45% in the last shift; tool holder checked, nothing loose."},
+  {label:'scrap after stop',text:"Press line stopped 40 minutes for tool change; 320 parts scrapped after restart."},
+  {label:'late PO',text:"PO-2048 from Valbruna is 12 days past due and we haven't invoiced it yet."},
+  {label:'good shift',text:"Shift produced 1,480 good parts on tornio-1, zero defects, OEE 92%."},
 ];
 async function renderProbes(){
-  $('probeBtns').innerHTML=PROBES.map((p,i)=>`<button data-i="${i}">probe ${i+1}</button>`).join('');
+  $('probeBtns').innerHTML=PROBES.map((p,i)=>`<button data-i="${i}">${p.label}</button>`).join('');
   document.querySelectorAll('#probeBtns button').forEach(b=>b.onclick=()=>{
-    $('clText').value=PROBES[+b.dataset.i]; classify(PROBES[+b.dataset.i]);
+    $('clText').value=PROBES[+b.dataset.i].text; classify(PROBES[+b.dataset.i].text);
   });
 }
 async function classify(text){
@@ -559,6 +652,7 @@ async function postAll(urls,label){
 }
 async function seed(){
   toast('Seeding demo data…');
+  setStatus('seeding…');
   const btn=$('btnSeed'); btn.disabled=true;
   try{
     // OEE board: machines + one live shift each.
@@ -622,9 +716,14 @@ async function seed(){
       await postJSON('/api/v1/holarchy/edge',{source:nodeIds[1],target:lastAnomaly.coherence_node_id,weight:0.95});
 
     await refreshAll();
-    toast('Demo data seeded — shop floor, goals, anomaly and holarchy are live.');
+    toast('Shop floor is live — read plant health, then classify a sentence.');
+    setStatus('seeded');
+    $('btnSeed').classList.remove('pulse-hint');
+    if($('coachText')) $('coachText').innerHTML='<b>Now watch.</b> Plant health is at the top. Scroll to Classify and try <em>scrap after stop</em>.';
+    if($('coachAct')){ $('coachAct').textContent='Go to Classify'; $('coachAct').onclick=()=>$('clText').scrollIntoView({behavior:'smooth',block:'center'}); }
   }catch(err){
     toast('seed failed: '+err,true);
+    setStatus('seed failed', true);
   }
   btn.disabled=false;
 }
@@ -645,25 +744,57 @@ function renderMaintNote(){
 async function refreshAll(){
   const jobs=[
     loadHealth().catch(()=>{}),
-    loadKpis().catch(e=>{$('kpis').innerHTML='<span class="err">plant OEE: '+e+'</span>';}),
-    loadMachines().catch(e=>{$('machinesGrid').innerHTML='<span class="err">machines: '+e+'</span>';}),
+    loadKpis().catch(e=>{$('kpis').innerHTML=apiError('plant OEE: '+e);}),
+    loadMachines().catch(e=>{$('machinesGrid').innerHTML=apiError('machines: '+e);}),
     loadReport().catch(e=>{$('reportBody').textContent='shift report: '+e;}),
-    loadTimeline().catch(e=>{$('tl').innerHTML='<span class="err">'+e+'</span>';}),
-    loadHeat().catch(e=>{$('heat').innerHTML='<span class="err">'+e+'</span>';}),
-    loadHolarchy().catch(e=>{$('holarchy').innerHTML='<span class="err">'+e+'</span>';}),
-    loadCore().catch(e=>{$('coreChips').innerHTML='<span class="err">'+e+'</span>';}),
+    loadTimeline().catch(e=>{$('tl').innerHTML=apiError(e);}),
+    loadHeat().catch(e=>{$('heat').innerHTML=apiError(e);}),
+    loadHolarchy().catch(e=>{$('holarchy').innerHTML=apiError(e);}),
+    loadCore().catch(e=>{$('coreChips').innerHTML=apiError(e);}),
   ];
   await Promise.all(jobs);
   clearInterval(refreshTimer);
   refreshTimer=setInterval(()=>{ loadKpis().catch(()=>{}); loadReport().catch(()=>{}); },12000);
+  setStatus('refreshed');
 }
 
 // ── Init ──
 $('btnRefresh').onclick=()=>refreshAll().then(()=>toast('refreshed'));
 $('btnSeed').onclick=seed;
+$('coachAct').onclick=seed;
 $('clRun').onclick=()=>classify($('clText').value);
 renderProbes();
 refreshAll();
+
+$('welcomeDismiss').onclick=()=>{
+  localStorage.setItem('physis_welcome_demo','1');
+  $('welcome').classList.remove('show');
+  $('btnSeed').scrollIntoView({behavior:'smooth',block:'center'});
+  $('btnSeed').focus();
+};
+if(!localStorage.getItem('physis_welcome_demo')) $('welcome').classList.add('show');
+$('coachDismiss').onclick=()=>{ localStorage.setItem('physis_coach_hide_demo','1'); $('coach').hidden=true; };
+if(localStorage.getItem('physis_coach_hide_demo')) $('coach').hidden=true;
+
+function toggleHelp(){ $('help').classList.toggle('show'); $('welcome').classList.remove('show'); }
+$('btnHelp').onclick=toggleHelp;
+$('helpClose').onclick=()=>$('help').classList.remove('show');
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ $('welcome').classList.remove('show'); $('help').classList.remove('show'); return; }
+  if(e.key==='?' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e.target)){
+    e.preventDefault(); toggleHelp(); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault(); $('clText').focus(); $('clText').scrollIntoView({behavior:'smooth',block:'center'}); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){
+    e.preventDefault(); classify($('clText').value); return;
+  }
+  if(!typing(e.target) && (e.key==='s'||e.key==='S') && !e.ctrlKey && !e.metaKey){
+    e.preventDefault(); seed();
+  }
+});
 </script>
 </body>
 </html>

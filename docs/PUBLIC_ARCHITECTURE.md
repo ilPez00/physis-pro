@@ -1,5 +1,30 @@
 # Physis Public Architecture (cross-repo)
 
+> Deployment correction: `praxisweb.xyz` is currently served from the
+> pansa-ts host (`gio@100.65.59.18`, SSH alias `pansa-ts` in `/home/gio/.zshrc`),
+> not GitHub Pages. The hosting diagram below describes the older
+> Vercel/Railway architecture and must not be used as the current deployment
+> runbook until it is reconciled with pansa-ts.
+
+## Current hosting record
+
+| Component | Current host | Evidence / owner |
+|---|---|---|
+| Public website | `pansa-ts` | `/home/gio/.zshrc`: `pansa-ts='ssh gio@100.65.59.18'` |
+| Domain DNS | DNS provider for `praxisweb.xyz` | Must be confirmed before changing records |
+| Mailbox | Separate provider | Add MX/SPF/DKIM/DMARC; do not replace web records |
+
+The exact pansa-ts service name, web root, reverse-proxy configuration, TLS
+certificate path, and restart command still need to be recorded after a
+read-only inspection of that host. Until then, deployment instructions must
+not claim GitHub Pages or Vercel.
+
+Current product routes:
+
+- `https://praxisweb.xyz/` — Praxis homepage/login;
+- `https://praxisweb.xyz/physis` — Physis sales landing;
+- `https://praxisweb.xyz/physis/workbench` — interactive Physis workbench.
+
 How the physis engine becomes reachable on the public internet, across three
 repositories and two hosts. Kept identical in both `physis-pro` and
 `praxis_webapp` (`docs/PHYSIS_PUBLIC_ARCHITECTURE.md`) — update both when this

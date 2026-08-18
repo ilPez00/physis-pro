@@ -16,7 +16,8 @@ use crate::models::Facets;
 use crate::ontology::OntologyLoader;
 
 /// How many top member-entry similarities to average per cell.
-const TOP_K: usize = 2;
+/// Adaptive: small cells use TOP_K=1 (specificity), medium use 2, large use 3.
+const TOP_K: usize = 2; // base value; adaptive logic applies at call site
 
 /// Nested-classification blend weight: final = ALPHA·domain + (1-ALPHA)·cell.
 const ALPHA: f32 = 0.4;
@@ -193,44 +194,77 @@ impl CellClassifier {
         self.cells.len()
     }
 
-    /// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
-    pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
-        let mut domain_cell_scores: HashMap<&str, Vec<f32>> = HashMap::new();
-        let mut cell_scores: Vec<f32> = Vec::with_capacity(self.cells.len());
-        for cell in &self.cells {
-            let mut sims: Vec<f32> = cell.embeddings.iter().map(|e| cosine_sim(embedding, e)).collect();
-            sims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-            let cs = topk_mean(&sims, TOP_K);
-            cell_scores.push(cs);
-            domain_cell_scores.entry(cell.domain.as_str()).or_default().push(cs);
+    /// Adaptive TOP_K based on cell entry count for optimal precision.
+/// Uses `TOP_K` as the medium/default value (4-10 entries → TOP_K=2).
+/// - 1-3 entries: TOP_K=1 (maximize specificity, no averaging noise)
+/// - 4-10 entries: TOP_K=2 (current balanced behavior, via TOP_K constant)
+/// - 11-30 entries: TOP_K=3 (smooth noise while keeping top entries)
+/// - 31+ entries: TOP_K=4 (significant smoothing)
+///
+    /// Used by [`CellClassifier::classify`](Self::classify) to select the number of
+    /// top similarities to average per cell.
+    pub fn adaptive_top_k(num_entries: usize) -> usize {
+        let base = TOP_K; // = 2, the medium default
+        match num_entries {
+            1..=3 => 1,
+            4..=10 => base, // = 2
+            11..=30 => base + 1, // = 3
+            _ => base + 2, // = 4
         }
-
-        let domain_score: HashMap<&str, f32> = domain_cell_scores
-            .into_iter()
-            .map(|(d, mut cs)| {
-                cs.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-                (d, topk_mean(&cs, 2))
-            })
-            .collect();
-
-        let mut results: Vec<CellScore> = self
-            .cells
-            .iter()
-            .zip(cell_scores)
-            .map(|(cell, cell_score)| {
-                let ds = *domain_score.get(cell.domain.as_str()).unwrap_or(&0.0);
-                CellScore {
-                    domain: cell.domain.clone(),
-                    mode: cell.mode.clone(),
-                    score: ALPHA * ds + (1.0 - ALPHA) * cell_score,
-                    entries: cell.entries.clone(),
-                    facets: Facets::aggregate(&cell.facets),
-                }
-            })
-            .collect();
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        results
     }
+
+/// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
+/// Uses adaptive TOP_K per cell size for improved precision:
+/// Small cells preserve specificity, large cells get noise smoothing.
+pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
+    let mut domain_cell_scores: HashMap<&str, Vec<f32>> = HashMap::new();
+    let mut cell_scores: Vec<f32> = Vec::with_capacity(self.cells.len());
+    for cell in &self.cells {
+        let k = Self::adaptive_top_k(cell.embeddings.len());
+        let mut sims: Vec<f32> = cell.embeddings.iter().map(|e| cosine_sim(embedding, e)).collect();
+        sims.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+        let cs = topk_mean(&sims, k);
+        cell_scores.push(cs);
+        domain_cell_scores.entry(cell.domain.as_str()).or_default().push(cs);
+    }
+
+    let domain_score: HashMap<&str, f32> = domain_cell_scores
+        .into_iter()
+        .map(|(d, mut cs)| {
+            cs.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+            (d, topk_mean(&cs, 2))
+        })
+        .collect();
+
+    let mut results: Vec<CellScore> = self
+        .cells
+        .iter()
+        .zip(cell_scores)
+        .map(|(cell, cell_score)| {
+            let ds = *domain_score.get(cell.domain.as_str()).unwrap_or(&0.0);
+            // Population weight: larger cells have more reliable top entries,
+            // so their scores get a modest boost; small cells get a small boost
+            // to prevent them from being drowned out by big cells.
+            let pop_weight = if cell.embeddings.len() >= 10 {
+                1.0 + (cell.embeddings.len() as f32 / 100.0).min(0.2)
+            } else if cell.embeddings.len() <= 3 {
+                1.0 + (3.0 - cell.embeddings.len() as f32) / 10.0
+            } else {
+                1.0
+            };
+            let score = (ALPHA * ds + (1.0 - ALPHA) * cell_score) * pop_weight;
+            CellScore {
+                domain: cell.domain.clone(),
+                mode: cell.mode.clone(),
+                score,
+                entries: cell.entries.clone(),
+                facets: Facets::aggregate(&cell.facets),
+            }
+        })
+        .collect();
+    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results
+}
 
     /// Classify with an optional facet constraint. Cells whose aggregated facets
     /// match the filter are up-weighted; the more dimensions match, the higher

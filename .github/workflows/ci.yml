@@ -22,6 +22,8 @@ jobs:
         run: cargo check --features wiki-embedded
       - name: cargo check (mcp — model context protocol)
         run: cargo check --features mcp
+      - name: cargo check (voice + tui feature interactions)
+        run: cargo check --features voice,tui
       - name: cargo build (examples — machine demos)
         run: cargo build --examples
       - name: clippy

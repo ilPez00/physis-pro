@@ -12,6 +12,19 @@ actual HTTP API.
 PHYSIS_HOST=0.0.0.0 ./scripts/demo.sh   # demo on a second screen / tablet
 ```
 
+### Verify the sales story without starting a server
+
+The deterministic, model-free contract test covers the first paid pilot:
+
+```bash
+cargo test --test industrial_demo
+```
+
+It proves that the real engine can turn one shift into OEE and loss data,
+detect a degrading bearing after a healthy baseline, project a remaining-useful
+life estimate, and render an Italian report with a countermeasure. The browser
+dashboard then adds the live API, graph, ontology, and classify surfaces.
+
 First run builds the web binary (the ONNX warm-up takes ~90s before it binds —
 that's normal, it's loading the real model).
 
@@ -58,6 +71,14 @@ that's normal, it's loading the real model).
 - **The demo is honest:** every number is live-computed from the API — there is
   no pre-baked chart. If a panel shows "429", the operator exceeded the rate
   budget in that window (raise the env value on the next launch).
+
+## MVP sales demo
+
+Lead with the first four panels only: plant OEE, six-big-loss Pareto, anomaly /
+RUL warning, and the Italian shift report. The remaining ontology and holarchy
+panels are proof of extensibility, not the headline. A prospect should be able
+to answer three questions in five minutes: where did we lose time, what may
+fail next, and what should the next shift do?
 
 ## Learning & teaching — `/study`
 

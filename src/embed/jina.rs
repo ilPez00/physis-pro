@@ -216,7 +216,7 @@ fn fallback_embed(text: &str, dim: usize) -> Vec<f32> {
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(h);
     use rand::Rng;
     for x in &mut v {
-        *x = rng.gen_range(-1.0..1.0);
+        *x = rng.random_range(-1.0..1.0);
     }
     let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
     v.iter_mut().for_each(|x| *x /= norm);

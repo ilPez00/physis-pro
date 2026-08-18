@@ -100,7 +100,7 @@ impl NodeField {
         let mut rng = StdRng::seed_from_u64(seed);
         let nodes = (0..n)
             .map(|_| FieldNode {
-                pos: (0..dim).map(|_| rng.gen::<f32>()).collect(),
+                pos: (0..dim).map(|_| rng.random::<f32>()).collect(),
                 charge: 1.0,
                 age: 0,
                 label: None,
@@ -218,12 +218,12 @@ impl NodeField {
                     // to produce a novel synthesis, close enough to be drawn.
                     if d >= self.cfg.nemesis_radius
                         && d < self.cfg.eros_radius
-                        && self.rng.gen::<f32>() < self.cfg.synthesis_prob
+                        && self.rng.random::<f32>() < self.cfg.synthesis_prob
                     {
                         let pos = (0..self.dim)
                             .map(|k| {
                                 let mid = 0.5 * (self.nodes[i].pos[k] + self.nodes[j].pos[k]);
-                                mid + (self.rng.gen::<f32>() - 0.5) * self.cfg.mutation
+                                mid + (self.rng.random::<f32>() - 0.5) * self.cfg.mutation
                             })
                             .collect();
                         let charge = 0.5 * (self.nodes[i].charge + self.nodes[j].charge);

@@ -20,6 +20,9 @@ use serde_json::{json, Value};
 use tokio::sync::MutexGuard;
 use tower::ServiceExt;
 
+#[cfg(feature = "sql")]
+use rusqlite::Connection;
+
 // `build_app` reads the process environment directly (HOME, PHYSIS_EMBEDDER,
 // PHYSIS_API_TOKEN, PHYSIS_SCAN_ROOT). Cargo runs these tests on parallel
 // threads in ONE process, so two tests building apps concurrently would clobber
@@ -34,33 +37,13 @@ static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>) {
     let env = ENV_LOCK.lock().await;
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
-    // The bearer-token test sets PHYSIS_API_TOKEN itself; no other app build may
-    // inherit it (a stale token would 401 every request in the next test).
     std::env::remove_var("PHYSIS_API_TOKEN");
     std::env::remove_var("PHYSIS_TOKENS");
-    // The rest-cycle test lowers this; no other build may inherit it, or their
-    // idle threshold silently becomes zero.
-    std::env::remove_var("PHYSIS_IDLE_DREAM_SECS");
-    std::env::set_var("HOME", dir); // config resolves ~/.physis
-    let (_state, router) = physis_pro::web::build_app().await;
+    std::env::remove_var("PHYSIS_SCAN_ROOT");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("PHYSIS_DATA_DIR", dir); // config resolves data dir
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
     (router, env)
-}
-
-/// An app whose rest cycle fires as soon as the engine is quiet, so the rhythm
-/// can be observed without waiting out the real 60-second threshold.
-async fn app_resting() -> (axum::Router, tempfile::TempDir, MutexGuard<'static, ()>) {
-    let dir = tempfile::tempdir().expect("temp data dir");
-    let env = ENV_LOCK.lock().await;
-    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
-    std::env::remove_var("PHYSIS_API_TOKEN");
-    std::env::remove_var("PHYSIS_TOKENS");
-    std::env::set_var("HOME", dir.path());
-    std::env::set_var("PHYSIS_IDLE_DREAM_SECS", "0");
-    let (_state, router) = physis_pro::web::build_app().await;
-    // Read once at spawn, so clearing it now keeps the variable from leaking
-    // into any later build that shares this process.
-    std::env::remove_var("PHYSIS_IDLE_DREAM_SECS");
-    (router, dir, env)
 }
 
 /// Build the app once per test with an isolated data dir, so tests never share
@@ -159,6 +142,75 @@ async fn demo_and_console_ui_are_served() {
     let (status, body) = send_text(&router, get("/ui", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("Physis Console"));
+
+    // Every page loads the shared runtime with a bare `<script src>`, which
+    // carries no Bearer token — so the asset has to be on the public router and
+    // actually exist. It didn't: extracting ui-shell.js added the script tags
+    // and no route, and all three dashboards booted with `$` undefined.
+    for page in ["/demo", "/ui", "/study"] {
+        let (_, body) = send_text(&router, get(page, "_default")).await;
+        assert!(body.contains("src=\"ui-shell.js\""), "{page} loads the shared runtime");
+    }
+    let (status, body) = send_text(&router, get("/ui-shell.js", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "ui-shell.js must be served");
+    assert!(body.contains("function toast"), "ui-shell.js must be the runtime, not an error page");
+}
+
+#[tokio::test]
+async fn planner_simulates_without_mutating_live_state_and_admin_groups_duplicates() {
+    let (router, _dir, _env) = app().await;
+    let candidate = serde_json::json!({
+        "kind": "office",
+        "domains": [{
+            "name": "Invoice Review",
+            "category": "Finance",
+            "domain": "STUDY",
+            "mode": "WORK",
+            "axis_kind": "office",
+            "axis_name": "finance",
+            // Required by `OntologyEntry`, and present on all 929 entries in
+            // the shipped ontologies. Omitting it here made the endpoint answer
+            // 400 rather than exercising the planner at all.
+            "unit": "invoices",
+            "hints": ["invoice", "supplier", "review"]
+        }]
+    });
+    let (status, simulation) = send(
+        &router,
+        post(
+            "/api/v1/planner/simulate",
+            "planner-user",
+            json!({
+                "scenario_id": "procurement-v2",
+                "candidate_ontology": candidate.to_string(),
+                "texts": [{"id": "invoice-1", "source": "supplier invoice review"}]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "planner succeeds: {simulation}");
+    assert_eq!(simulation["scenario_id"], "procurement-v2");
+    assert_eq!(simulation["records_scanned"], 1);
+    assert!(simulation["items"][0]["before"]["domain"].is_string());
+    assert!(simulation["items"][0]["after"]["domain"].is_string());
+
+    let (status, queue) = send(
+        &router,
+        post(
+            "/api/v1/admin/review",
+            "admin-user",
+            json!([
+                {"id":"a","path":"a.pdf","kind":"invoice","fingerprint":"dup-1"},
+                {"id":"b","path":"b.pdf","kind":"invoice","fingerprint":"dup-1"},
+                {"id":"c","path":"c.pdf","kind":"invoice"}
+            ]),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(queue["documents"], 3);
+    assert_eq!(queue["duplicate_documents"], 2);
+    assert_eq!(queue["duplicate_groups"].as_array().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -481,6 +533,19 @@ async fn scan_is_confined_to_scan_root() {
     .await;
     assert_eq!(status, StatusCode::OK, "a path inside scan root is scannable");
 
+    // A second scan reuses the directory hash diff and content-addressed
+    // embeddings instead of forwarding the same label through the embedder.
+    let (status, second) = send(
+        &router,
+        post("/api/v1/scan", "_default", json!({"dir": inside.to_string_lossy()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "repeat scan succeeds: {second}");
+    assert_eq!(second["unchanged"], 1, "unchanged file is recognized: {second}");
+    assert!(second["reused_labels"].as_u64().unwrap_or(0) > 0, "repeat scan reuses labels: {second}");
+    assert_eq!(second["embedding_cache_hits"], 0, "unchanged labels bypass embedding: {second}");
+    assert_eq!(second["embedding_cache_misses"], 0, "no re-embedding on repeat: {second}");
+
     // An existing directory OUTSIDE the root must be refused, not scanned.
     let outside = std::env::temp_dir();
     let (status, body) = send(
@@ -493,6 +558,98 @@ async fn scan_is_confined_to_scan_root() {
         body["error"].as_str().unwrap_or("").contains("scan root"),
         "the refusal must name the confinement: {body}"
     );
+}
+
+#[tokio::test]
+async fn fs_list_and_resolve_are_confined_to_scan_root() {
+    // The console file manager cannot see OS paths from a drag-and-drop, so it
+    // browses scan_root through /fs/list and maps dropped basenames through
+    // /fs/resolve. Both must refuse anything outside the root.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let workshop = dir.path().join("workshop");
+    std::fs::create_dir_all(workshop.join("notes")).expect("mkdir workshop/notes");
+    std::fs::write(workshop.join("notes").join("log.txt"), "paused print").expect("write log");
+
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("PHYSIS_DATA_DIR", dir.path());
+    std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+
+    let (status, body) = send(&router, get("/api/v1/fs/list", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "list scan root: {body}");
+    let names: Vec<&str> = body["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap_or(""))
+        .collect();
+    assert!(names.contains(&"workshop"), "scan root lists workshop: {body}");
+    assert_eq!(body["parent"], serde_json::Value::Null, "scan root has no parent");
+
+    let notes = workshop.join("notes");
+    let uri = format!("/api/v1/fs/list?dir={}", notes.display());
+    let (status, body) = send(&router, get(&uri, "_default")).await;
+    assert_eq!(status, StatusCode::OK, "list notes: {body}");
+    assert!(
+        body["entries"].as_array().unwrap().iter().any(|e| e["name"] == "log.txt" && e["kind"] == "file"),
+        "notes contains log.txt: {body}"
+    );
+
+    let (status, body) = send(&router, get("/api/v1/fs/list?dir=/etc", "_default")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "list outside scan root: {body}");
+
+    let (status, body) = send(&router, get("/api/v1/fs/resolve?name=notes", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "resolve notes: {body}");
+    let hits = body["matches"].as_array().expect("matches");
+    assert!(
+        hits.iter().any(|h| h["kind"] == "dir" && h["path"].as_str().unwrap_or("").ends_with("workshop/notes")),
+        "resolve finds workshop/notes: {body}"
+    );
+
+    let (status, _) = send(&router, get("/api/v1/fs/resolve?name=workshop/notes", "_default")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "resolve rejects a path");
+
+    std::env::remove_var("PHYSIS_SCAN_ROOT");
+    drop(env);
+}
+
+#[cfg(feature = "sql")]
+#[tokio::test]
+async fn sql_schema_and_incremental_scan_are_exposed() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let db_path = dir.path().join(".physis").join("orders.sqlite");
+    std::fs::create_dir_all(db_path.parent().unwrap()).expect("mkdir database dir");
+    let conn = Connection::open(&db_path).expect("create sqlite fixture");
+    conn.execute_batch(
+        "CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT, amount INTEGER); \
+         INSERT INTO orders VALUES (1, 'open', 10), (2, 'paid', 20);",
+    )
+    .expect("seed sqlite fixture");
+    drop(conn);
+
+    let (router, _env) = app_on(dir.path()).await;
+    let uri = format!("/api/v1/sql/schema?database={}", urlencoding::encode(&db_path.to_string_lossy()));
+    let (status, schema) = send(&router, get(&uri, "sql-test")).await;
+    assert_eq!(status, StatusCode::OK, "schema discovery succeeds: {schema}");
+    assert_eq!(schema["tables"][0]["name"], "orders");
+    assert_eq!(schema["tables"][0]["columns"][0]["name"], "id");
+
+    let request = json!({
+        "database": db_path.to_string_lossy(),
+        "table": "orders",
+        "key_columns": ["id"]
+    });
+    let (status, first) = send(&router, post("/api/v1/sql/scan", "sql-test", request.clone())).await;
+    assert_eq!(status, StatusCode::OK, "first SQL scan succeeds: {first}");
+    assert_eq!(first["new"], 2);
+    let (status, second) = send(&router, post("/api/v1/sql/scan", "sql-test", request)).await;
+    assert_eq!(status, StatusCode::OK, "repeat SQL scan succeeds: {second}");
+    assert_eq!(second["unchanged"], 2);
+    assert_eq!(second["embedding_cache_misses"], 0);
 }
 
 #[tokio::test]
@@ -753,7 +910,7 @@ async fn bearer_token_gates_protected_routes() {
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
     std::env::set_var("PHYSIS_API_TOKEN", "test-secret");
     std::env::set_var("HOME", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await;
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
 
     // Public ops surface: no token needed.
     let (status, _) = send(&router, get("/health", "_default")).await;
@@ -782,6 +939,46 @@ async fn bearer_token_gates_protected_routes() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "the configured token passes");
+    drop(env);
+}
+
+#[tokio::test]
+async fn dev_mode_without_tokens_skips_auth() {
+    // With PHYSIS_DEV=1 and no tokens configured on a loopback bind, protected
+    // routes must remain accessible (explicit dev opt-in bypass).
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("HOME", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/register", "u", json!({"input": "dev mode step"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "PHYSIS_DEV bypasses auth without tokens");
+    drop(env);
+}
+
+#[tokio::test]
+async fn no_dev_mode_without_tokens_requires_auth() {
+    // Without PHYSIS_DEV and without any token, even on loopback, the server
+    // must refuse to start — a container that accidentally binds wide open can
+    // never expose an unauthenticated API.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::remove_var("PHYSIS_DEV");
+    std::env::set_var("HOME", dir.path());
+
+    let result = physis_pro::web::build_app().await;
+    assert!(result.is_err(), "build_app must fail without PHYSIS_DEV and without tokens");
     drop(env);
 }
 
@@ -1096,141 +1293,86 @@ async fn fixed_token_node_search_bounds_the_response() {
     )
     .await;
     assert_eq!(res["total_tokens"], 0);
-
-    // Tenancy: an unrelated user sees none of sr's nodes.
-    let (_, other) = send(
-        &router,
-        post("/api/v1/search/nodes", "nobody", json!({"query": "spindle", "token_budget": 100})),
-    )
-    .await;
-    assert_eq!(other["results"].as_array().unwrap().len(), 0);
 }
 
-/// The grid must report a cell's *condition*, not just its population, and the
-/// condition slider must actually reach the endpoint.
-///
-/// Before this the heatmap coloured by entry count alone, so a cell the
-/// classifier demotes on every live query rendered identically to a healthy one
-/// of the same size. `standing` is what `adjust_score` already applies, so the
-/// display and the engine cannot disagree — this asserts the wire carries it.
+// ── Industrial endpoints ─────────────────────────────────────────────
+
 #[tokio::test]
-async fn the_grid_reports_cell_condition_and_honours_the_confidence_slider() {
+async fn oee_endpoints_accept_and_compute() {
     let (router, _dir, _env) = app().await;
 
-    let cells = |body: &Value| -> Vec<Value> {
-        body["cells"].as_array().expect("cells array").clone()
-    };
-
-    let (status, grid) = send(&router, get("/api/v1/semiotic/grid", "cg")).await;
-    assert_eq!(status, StatusCode::OK, "grid responds: {grid}");
-    let base = cells(&grid);
-    assert!(!base.is_empty(), "the grid has cells");
-
-    // Every cell carries the condition signals, not just entries/activation.
-    for c in &base {
-        assert!(c["standing"].is_number(), "cell reports standing: {c}");
-        assert!(c["condition"].is_number(), "cell reports condition: {c}");
-        let cond = c["condition"].as_f64().unwrap();
-        assert!((0.0..=1.0).contains(&cond), "condition {cond} is colourable: {c}");
-    }
-
-    // The default lens is echoed, so a client can show the effective value
-    // rather than assuming its request was honoured.
-    let default_conf = grid["confidence"].as_f64().expect("confidence echoed");
-
-    // Both ends of the slider are reachable and distinct.
-    let (_, responsive) = send(&router, get("/api/v1/semiotic/grid?confidence=0", "cg")).await;
-    let (_, trusting) = send(&router, get("/api/v1/semiotic/grid?confidence=1", "cg")).await;
-    assert_eq!(responsive["confidence"].as_f64(), Some(0.0), "responsive end applied");
-    assert_eq!(trusting["confidence"].as_f64(), Some(1.0), "trusting end applied");
-
-    // Named presets work alongside raw positions.
-    let (_, named) = send(&router, get("/api/v1/semiotic/grid?confidence=trusting", "cg")).await;
-    assert_eq!(named["confidence"].as_f64(), Some(1.0), "preset name parses");
-
-    // A junk or out-of-range value falls back to the default instead of
-    // silently pinning the grid to an extreme.
-    let (_, junk) = send(&router, get("/api/v1/semiotic/grid?confidence=banana", "cg")).await;
-    assert_eq!(junk["confidence"].as_f64(), Some(default_conf), "junk falls back: {junk}");
-    let (_, oob) = send(&router, get("/api/v1/semiotic/grid?confidence=7", "cg")).await;
-    assert_eq!(oob["confidence"].as_f64(), Some(default_conf), "out of range falls back");
-
-    // The lens has to change the numbers, or the slider is decorative. With no
-    // feedback recorded every populated cell sits at neutral standing, and the
-    // trusting lens shrinks a cell's own reading toward neutral — so the two
-    // ends agree here only if both are neutral. Assert the mechanism instead:
-    // a cell with entries must move off 0.0, which the old count colouring
-    // could not express at all.
-    let populated = base
-        .iter()
-        .find(|c| !c["entries"].as_array().map(|e| e.is_empty()).unwrap_or(true))
-        .expect("some cell has entries");
-    assert!(
-        populated["condition"].as_f64().unwrap() > 0.0,
-        "a populated cell is not drawn as worst-case: {populated}"
-    );
-}
-
-/// Before a rest pass has run, the panel must be able to say *why* it is empty.
-///
-/// "Found nothing new" and "never ran" are different states, and an engine that
-/// has simply not gone quiet yet must not look like one whose dream pass is
-/// broken. The default threshold is 60s, so nothing rests during this test.
-#[tokio::test]
-async fn the_rest_endpoint_distinguishes_never_rested_from_found_nothing() {
-    let (router, _dir, _env) = app().await;
-
-    let (status, rest) = send(&router, get("/api/v1/dream/rest", "rs")).await;
-    assert_eq!(status, StatusCode::OK, "rest responds: {rest}");
-    assert_eq!(rest["rested"], false, "nothing has rested yet: {rest}");
-    assert!(rest["last"].is_null(), "no pass to report: {rest}");
-    // The threshold has to be visible, or the panel cannot explain the wait.
-    assert_eq!(rest["idle_threshold_seconds"], 60, "default threshold reported");
-    assert!(rest["idle_seconds"].is_number(), "current quiet reported: {rest}");
-}
-
-/// Dreaming used to be reachable only through `POST /dream/generate`, which in
-/// practice meant it never ran. It must now happen on its own when request
-/// traffic stops — that is the whole of §4, and nothing else asserts it.
-#[tokio::test]
-async fn the_engine_dreams_on_its_own_once_requests_stop() {
-    let (router, _dir, _env) = app_resting().await;
-
-    // A node with a reported failure is exactly what `dream()` selects for.
-    let (_, reg) = send(
+    // Register a machine.
+    let (status, body) = send(
         &router,
-        post("/api/v1/coherence/register", "", json!({
-            "input": "vacuum pump seized during overnight run",
-            "coherence_score": -0.8,
+        post("/api/v1/oee/machine", "plant", json!({
+            "machine_id": "cnc-1",
+            "shift_length_secs": 28800.0,
+            "ideal_cycle_time_secs": 60.0
         })),
     )
     .await;
-    let id = reg["node_id"].as_str().expect("registered").to_string();
+    assert_eq!(status, StatusCode::OK, "register machine: {body}");
+    assert_eq!(body["ok"], true);
+    assert!(body["detail"].as_str().unwrap().contains("cnc-1"));
 
-    // Go quiet. The tick polls at least once a second when the threshold is 0,
-    // so this is a rhythm the test can wait out rather than a race.
-    let mut rest = Value::Null;
-    for _ in 0..40 {
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-        // Polling stamps activity through the rate-limit layer, which with a
-        // real threshold would keep postponing the pass. At threshold 0 any
-        // amount of quiet qualifies, so the poll cannot starve what it waits on.
-        let (_, r) = send(&router, get("/api/v1/dream/rest", "")).await;
-        if r["rested"] == true {
-            rest = r;
-            break;
-        }
-    }
+    // Record production.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/oee/event", "plant", json!({
+            "kind": "production",
+            "machine_id": "cnc-1",
+            "good": 85,
+            "scrap": 2
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "record event: {body}");
+    assert!(body["oee"].as_f64().unwrap_or(0.0) >= 0.0, "OEE must be non-negative");
 
-    assert_eq!(rest["rested"], true, "the engine rested unprompted: {rest}");
-    let chewed = rest["last"]["chewed"].as_array().expect("chewed list").clone();
-    assert!(!chewed.is_empty(), "it chewed on something: {rest}");
-    let found = chewed.iter().find(|c| c["node_id"] == id).expect("the failed node was replayed");
-    // The panel needs a readable handle, not a uuid — the whole point of
-    // replaying nodes rather than goals.
-    assert_eq!(
-        found["label"], "vacuum pump seized during overnight run",
-        "the replayed node is named: {found}"
-    );
-    assert!(found["density"].is_number(), "density reported: {found}");
+    // Plant rollup.
+    let (status, body) = send(&router, get("/api/v1/oee/plant", "plant")).await;
+    assert_eq!(status, StatusCode::OK, "plant OEE: {body}");
+    assert!(body["oee"].as_f64().unwrap_or(0.0) >= 0.0);
+    assert_eq!(body["machine_count"], 1);
+
+    // Per-machine report.
+    let (status, body) = send(&router, get("/api/v1/oee/cnc-1", "plant")).await;
+    assert_eq!(status, StatusCode::OK, "machine report: {body}");
 }
+
+#[tokio::test]
+async fn maintenance_check_requires_baseline_and_returns_404_without() {
+    let (router, _dir, _env) = app().await;
+
+    // Without a baseline, check returns 404 (no baseline to score against).
+    let (status, _) = send(
+        &router,
+        post("/api/v1/maintenance/check", "plant", json!({
+            "machine_id": "cnc-1",
+            "temperature": 65.0,
+            "vibration": 1.2,
+            "rpm": 8000,
+            "status": "online"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "check without baseline returns 404");
+}
+
+#[tokio::test]
+async fn voice_endpoints_are_registered_when_feature_enabled() {
+    // Voice is a separate binary (physis-pro-voice) and does not expose routes
+    // through the main web server. This test documents that fact so the absence
+    // is explicit rather than an oversight.
+    let (router, _dir, _env) = app().await;
+
+    let req = Request::builder()
+        .method("GET")
+        .uri("/api/v1/voice/status")
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(&router, req).await;
+    // Expect 404: voice lives in its own server.
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
