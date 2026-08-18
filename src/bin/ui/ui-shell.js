@@ -2,6 +2,17 @@
 // Include before page-specific scripts:
 //   <script src="ui-shell.js"></script>
 //   <script>/* page-specific code */</script>
+//
+// Everything lives inside this IIFE and is published on `window` at the end.
+// Top level would be fatal: Console, Demo and Study still declare their own
+// `const $`, `const S`, `let toastTimer`, `const save`… and two top-level
+// lexical declarations of one name in the same realm is a SyntaxError that
+// kills the ENTIRE page script — which is exactly what shipped when the
+// extraction added the script tags without removing the page-local copies.
+// A page's own declarations simply shadow these; pages that declare nothing
+// get the shared implementation.
+(function () {
+'use strict';
 
 const $ = id => document.getElementById(id);
 const S = window.location.pathname.replace(/\/\w+.*$/, '/');
@@ -179,3 +190,12 @@ function initShortcuts(bindings) {
     }
   });
 }
+
+// ── Exports ───────────────────────────────────────────────────────
+// Published as globals so a page can use whichever helpers it doesn't
+// define itself. Assigned, never declared — see the note at the top.
+Object.assign(window, {
+  $, S, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
+  syncConnect, loadHealth, initWelcome, initHelp, initCoach, initShortcuts,
+});
+})();

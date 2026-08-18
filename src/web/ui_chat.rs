@@ -146,6 +146,18 @@ pub async fn graph_fm_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/console.html"))
 }
 
+/// GET /ui-shell.js — the runtime every dashboard page loads with a plain
+/// `<script src="ui-shell.js">`. It must stay on the PUBLIC router: a script
+/// tag cannot send the Bearer header the protected routes demand, so gating it
+/// would 401 the file and leave Console, Demo and Study with no `$`, `toast`
+/// or `getJSON` at all. It ships no data — only functions.
+pub async fn ui_shell_js_handler() -> impl axum::response::IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        include_str!("../bin/ui/ui-shell.js"),
+    )
+}
+
 /// The product demo dashboard — a single self-contained page wired to the live
 /// engine: plant OEE, machines, shift report, operational timeline, semiotic
 /// heatmap, holarchy graph, and the classify probes. "Seed demo data" drives

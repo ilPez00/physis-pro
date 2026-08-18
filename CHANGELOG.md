@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- physis-core studio rebuilt as a six-tab app (Classify / Semiotic grid / Ontology / Corpus / Discover / Quality) sharing the Physis Console design language: header chips, nav tabs, status pill, toasts, `?` overlay, `1`–`6`, `Ctrl+K`, `Ctrl+Enter`
+- Studio API for the coherence graph, previously CLI-only: `/api/core/snapshot`, `/api/core/nodes`, `/api/core/scan`, `/api/core/search`, `/api/core/assert`, `/api/core/dream`, plus `/api/health`
+- Studio classification now returns the nearest ontology entry, per-cell facets, and the corpus passages closest to the same text
+- Studio assets split out of the HTML into `app.css` / `app.js`, served from the same binary
+- `PHYSIS_STUDIO_HOST` to opt the studio out of loopback-only binding
 - `physis-pro doctor` command — validates config, data dir, scan root, embedder, and license
 - `--version` flag on all binaries
 - `ui-shell.js` — shared runtime for Console, Demo, and Study dashboards
@@ -32,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `trace_tenant` middleware to attach `X-Physis-User` to tracing spans
 
 ### Fixed
+- `ui-shell.js` is now actually served (`GET /ui-shell.js`, public — a `<script src>` sends no Bearer token) and no longer collides with the page-local `$`, `S`, `save` and `toastTimer` declarations it was loaded alongside; that collision was a SyntaxError that killed the entire inline script on Console, Demo and Study
+- Studio grid axes are derived from the loaded ontology instead of the `HumanDomain`/`HumanMode` enums, so entries on any other domain or mode are visible and editable rather than scoring invisibly
+- Studio directory scan splits files into passages (whole files over 5000 characters were silently dropped), skips build/VCS directories, embeds outside the write lock, and caps one scan at 2000 passages
 - Removed stray `#[cfg(feature = "spanner")]` and `#[cfg(feature = "mcp")]` attributes that were incorrectly gating non-feature code
 - Fixed `classify_handler` brace balance corrupted during module extraction
 - Fixed `heatmap_handler` placement and brace balance in wiki_semiotic module
