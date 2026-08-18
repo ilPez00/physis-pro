@@ -24,7 +24,7 @@ mod mcp_impl {
     use crate::classify::CellClassifier;
     use crate::config::{OntologyLoader, PhysisConfig};
     use crate::dream::DreamEngine;
-    use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
+    use crate::embed::VectorEmbed;
     use crate::gantt::{GanttScheduler, AbstractDomain};
     use crate::mapper::OntologyMapper;
     use crate::models::{Goal, Experience};
@@ -38,6 +38,11 @@ mod mcp_impl {
         pub goals: Vec<Goal>,
         pub embedder: Box<dyn VectorEmbed>,
         pub classifier: CellClassifier,
+        /// Provenance label of the active embedder, used to namespace the
+        /// embedding cache so vectors from two models never mix.
+        pub embedder_kind: &'static str,
+        /// Persistent chunk-embedding cache shared by every `physis_pack` call.
+        pub pack_cache: crate::pack::EmbedCache,
         pub scheduler: GanttScheduler,
         pub experiences: Vec<Experience>,
     }
@@ -53,12 +58,41 @@ mod mcp_impl {
 
     impl PhysisMcpServer {
         pub fn new(config: PhysisConfig) -> Self {
+            // Startup has to fit inside an MCP client's handshake timeout, so
+            // every phase is timed on stderr rather than guessed at.
+            let t0 = std::time::Instant::now();
+            let lap = |t: &mut std::time::Instant, what: &str| {
+                eprintln!("physis: startup {what} {:.2}s", t.elapsed().as_secs_f32());
+                *t = std::time::Instant::now();
+            };
+            let mut t = t0;
+
             let ontology = OntologyLoader::load_all(&config);
+            lap(&mut t, "ontology-load");
             let mapper = OntologyMapper::new(ontology.clone(), config.embed_dim);
             let actor = PDCActor::new(config.pdca_stagnant_threshold, config.pdca_stagnant_window);
             let dreams = DreamEngine::new();
-            let embedder: Box<dyn VectorEmbed> = Box::new(RandomProjectionEmbedder::new(config.embed_dim));
-            let classifier = CellClassifier::build(&ontology, embedder.as_ref());
+            lap(&mut t, "mapper+actor+dreams");
+            // Same selection cascade the CLI and web server use. Hard-coding
+            // RandomProjectionEmbedder here made every tool answer from random
+            // projections instead of semantics — silently, since a random
+            // projection returns plausible-looking scores for any query.
+            let (embedder, embedder_kind) = crate::embed::select_embedder(&config);
+            eprintln!(
+                "physis: MCP embedder = {embedder_kind} (dim {})",
+                embedder.dimension()
+            );
+            lap(&mut t, "select-embedder");
+            // Load the cache first: the classifier is the expensive part of
+            // startup, and it is exactly what the cache is for.
+            let mut pack_cache = crate::pack::EmbedCache::load(&config.data_dir);
+            let classifier =
+                CellClassifier::build_cached(&ontology, embedder.as_ref(), embedder_kind, &mut pack_cache);
+            let (hits, misses) = pack_cache.stats();
+            eprintln!("physis: ontology seeds embedded — {hits} cached, {misses} computed");
+            pack_cache.save(&config.data_dir);
+            lap(&mut t, "classifier");
+            eprintln!("physis: startup TOTAL {:.2}s", t0.elapsed().as_secs_f32());
             let ctx = Arc::new(Mutex::new(PhysisContext {
                 config,
                 mapper,
@@ -67,6 +101,8 @@ mod mcp_impl {
                 goals: Vec::new(),
                 embedder,
                 classifier,
+                embedder_kind,
+                pack_cache,
                 scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
                 experiences: Vec::new(),
             }));
@@ -233,6 +269,15 @@ mod mcp_impl {
                             "context": {"type": "string", "enum": ["schedule", "countermeasure", "interpolation", "mixed"], "description": "Dream context type", "default": "mixed"}
                         }, "required": []
                     })),
+                    tool("physis_pack", "Pack the highest-value context for a query from a local directory into a hard token budget. Runs entirely locally — no model API is called. Returns the assembled context plus per-chunk provenance (path and line range) and the number of candidates that did not fit.", json!({
+                        "type": "object", "properties": {
+                            "query": {"type": "string", "description": "What the context is needed for"},
+                            "root": {"type": "string", "description": "Directory to pack from", "default": "."},
+                            "budget": {"type": "integer", "description": "Hard token ceiling — never exceeded", "default": 4000},
+                            "top_k": {"type": "integer", "description": "Maximum chunks to consider", "default": 50},
+                            "diversity": {"type": "number", "description": "0 = pure relevance, 1 = maximum spread", "default": 0.3}
+                        }, "required": ["query"]
+                    })),
                 ],
             })
         }
@@ -252,6 +297,57 @@ mod mcp_impl {
                         "classifier_cells": ctx.classifier.cell_count(),
                     });
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                "physis_pack" => {
+                    let query = get_str(&request, "query")?;
+                    let root = get_str(&request, "root").unwrap_or_else(|_| ".".to_string());
+                    let budget = get_i64(&request, "budget").unwrap_or(4000).max(1) as usize;
+                    let top_k = get_i64(&request, "top_k").unwrap_or(50).max(1) as usize;
+                    let diversity = get_f64(&request, "diversity").unwrap_or(0.3) as f32;
+
+                    // The root arrives from the agent, and an agent acting on a
+                    // poisoned instruction will ask for `/etc` or `../../..`.
+                    // Confine to PHYSIS_SCAN_ROOT when the operator set one.
+                    let confine = std::env::var_os("PHYSIS_SCAN_ROOT").map(PathBuf::from);
+                    let root = match crate::pack::resolve_root(
+                        std::path::Path::new(&root),
+                        confine.as_deref(),
+                    ) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            return Ok(CallToolResult::error(vec![json_content(
+                                &json!({"error": e.to_string()}),
+                            )?]))
+                        }
+                    };
+
+                    let mut ctx = self.ctx.lock().await;
+                    // Split the borrow: `pack_cached` needs `&mut` on the cache
+                    // and `&` on the embedder, which the borrow checker will not
+                    // grant through a single `ctx` reference.
+                    let PhysisContext {
+                        embedder,
+                        embedder_kind,
+                        pack_cache,
+                        config,
+                        ..
+                    } = &mut *ctx;
+
+                    let result = crate::pack::pack_cached(
+                        &root,
+                        &query,
+                        budget,
+                        top_k,
+                        diversity,
+                        embedder.as_ref(),
+                        embedder_kind,
+                        pack_cache,
+                    );
+                    // Persist so a later session starts warm. Cheap next to the
+                    // embedding it avoids.
+                    pack_cache.save(&config.data_dir);
+                    Ok(CallToolResult::success(vec![json_content(&json!(result))?]))
                 }
 
                 "physis_classify" => {
@@ -548,7 +644,31 @@ mod mcp_impl {
         }
     }
 
+    /// Serve MCP over stdin/stdout — the transport every mainstream client uses.
+    ///
+    /// The client spawns this process and frames JSON-RPC over the pipe, so
+    /// **stdout belongs to the protocol**. A single stray `println!` anywhere on
+    /// this path corrupts the stream and the client reports the server as
+    /// broken with no useful diagnostic. Every message here goes to stderr,
+    /// which clients surface as server logs.
+    pub async fn serve_stdio(config: PhysisConfig) -> anyhow::Result<()> {
+        use rmcp::transport::stdio;
+
+        // Built before the transport is attached: constructing the context loads
+        // the ontology and embedder, and any diagnostics that emits are safer
+        // before the pipe is live.
+        let server = PhysisMcpServer::new(config);
+        eprintln!("physis: MCP server ready on stdio");
+
+        let service = server.serve(stdio()).await?;
+        service.waiting().await?;
+        Ok(())
+    }
+
     /// Start the Physis MCP server on `127.0.0.1:9876`.
+    ///
+    /// Retained for the hosted deployment. No mainstream MCP client can attach
+    /// to a bare TCP socket — prefer [`serve_stdio`] for local integrations.
     pub async fn start_mcp_server(config: PhysisConfig) -> anyhow::Result<()> {
         use tokio::net::TcpListener;
 

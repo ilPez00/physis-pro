@@ -7,91 +7,115 @@
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <style>
   :root{
-    --bg:#0b1020;
-    --bg2:#0f1730;
-    --panel:#121a30;
-    --panel2:#0f1628;
-    --line:#24324f;
-    --fg:#edf2ff;
-    --muted:#97a7c3;
-    --accent:#7aa2ff;
-    --accent2:#7ee7d8;
-    --green:#4cd080;
-    --amber:#f4bf75;
-    --red:#ff6b6b;
-    --shadow:0 14px 40px rgba(0,0,0,.28);
+    --bg:#070a18;
+    --bg2:#0b1025;
+    --panel:rgba(16,22,49,.78);
+    --panel2:rgba(11,16,35,.88);
+    --line:rgba(135,157,219,.18);
+    --line-strong:rgba(104,231,255,.42);
+    --fg:#f1f5ff;
+    --muted:#8997b8;
+    --accent:#68e7ff;
+    --accent2:#b49cff;
+    --green:#72f0b2;
+    --amber:#ffc66d;
+    --red:#ff718d;
+    --shadow:0 20px 70px rgba(0,0,0,.34);
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
     margin:0;
-    font:14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     color:var(--fg);
     background:
-      radial-gradient(1200px 800px at 10% 0%, rgba(122,162,255,.18), transparent 55%),
-      radial-gradient(900px 600px at 90% 10%, rgba(126,231,216,.12), transparent 50%),
+      radial-gradient(900px 600px at 8% -12%, rgba(75,110,255,.28), transparent 58%),
+      radial-gradient(760px 520px at 96% 4%, rgba(104,231,255,.13), transparent 58%),
       linear-gradient(180deg, var(--bg), var(--bg2));
     display:flex;
     flex-direction:column;
+    overflow:hidden;
+  }
+  body:before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.28;
+    background-image:linear-gradient(rgba(111,135,204,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(111,135,204,.055) 1px,transparent 1px);
+    background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 76%);
   }
   header{
-    padding:12px 16px;
-    background:rgba(18,26,48,.88);
+    padding:14px 22px;
+    background:rgba(7,10,24,.7);
     backdrop-filter: blur(12px);
-    border-bottom:1px solid rgba(36,50,79,.85);
+    border-bottom:1px solid var(--line);
     display:flex;
-    gap:10px;
+    gap:14px;
     align-items:center;
     flex-wrap:wrap;
     box-shadow:var(--shadow);
   }
   header h1{
-    font-size:15px;
+    font-size:16px;
     margin:0 12px 0 0;
     font-weight:700;
-    letter-spacing:.02em;
+    letter-spacing:.08em;
+    text-transform:uppercase;
   }
-  header h1 span{color:var(--accent2)}
-  header .sub{font-size:12px;color:var(--muted)}
+  header h1:before{content:"◈";color:var(--accent);margin-right:9px;text-shadow:0 0 18px var(--accent)}
+  header h1 span{color:var(--accent);font-weight:500}
+  header .sub{font:10px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
   input,button,select,textarea{
-    background:rgba(13,19,35,.9);
+    background:rgba(5,9,22,.72);
     color:var(--fg);
     border:1px solid var(--line);
-    border-radius:10px;
-    padding:8px 10px;
+    border-radius:8px;
+    padding:9px 11px;
     font-size:13px;
     font-family:inherit;
   }
   textarea{width:100%;min-height:110px;resize:vertical}
   button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
-  button:hover{border-color:var(--accent);background:#15203b}
+  button:hover{border-color:var(--accent);background:rgba(104,231,255,.1);box-shadow:0 0 20px rgba(104,231,255,.08)}
   button:active{transform:translateY(1px)}
-  #status{margin-left:auto;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
+  button.primary{
+    background:linear-gradient(135deg,rgba(104,231,255,.22),rgba(180,156,255,.14));
+    border-color:rgba(104,231,255,.5);
+  }
+  button.ghost{background:none;color:var(--muted)}
+  button.ghost:hover{color:var(--fg)}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px
+  }
+  #status{margin-left:auto;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
+  .kbd{font:10px var(--mono);border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--accent);background:rgba(104,231,255,.08)}
   .muted{color:var(--muted)}
   .err{color:var(--red)}
   main{flex:1;display:flex;min-height:0}
   nav{
-    width:178px;
-    background:rgba(18,26,48,.92);
-    border-right:1px solid rgba(36,50,79,.85);
+    width:206px;
+    background:rgba(8,12,29,.76);
+    border-right:1px solid var(--line);
     display:flex;
     flex-direction:column;
-    padding:12px 8px;
-    gap:4px;
+    padding:22px 12px;
+    gap:6px;
+    position:relative;z-index:1;
   }
+  nav:after{content:"PHYSIS / 01";margin:auto 10px 4px;color:#4e5a7a;font:9px var(--mono);letter-spacing:.18em}
   nav button{
     background:none;
     border:none;
-    border-radius:10px;
+    border-radius:9px;
     text-align:left;
-    padding:10px 12px;
+    padding:11px 13px;
     color:var(--muted);
-    font-size:13px;
+    font-size:12px;
+    letter-spacing:.02em;
   }
   nav button.active{
     color:var(--fg);
-    background:rgba(122,162,255,.12);
-    border:1px solid rgba(122,162,255,.32);
+    background:linear-gradient(90deg,rgba(104,231,255,.16),rgba(180,156,255,.06));
+    border:1px solid var(--line-strong);
+    box-shadow:inset 3px 0 0 var(--accent),0 8px 28px rgba(41,112,160,.12);
   }
   nav button:hover{color:var(--fg)}
   .tab{
@@ -99,26 +123,29 @@
     min-width:0;
     display:none;
     overflow:auto;
-    padding:18px;
+    padding:26px clamp(18px,3vw,42px);
+    position:relative;z-index:1;
   }
   .tab.active{display:flex;flex-direction:column;gap:16px}
   .hero{
     display:flex;
     justify-content:space-between;
-    gap:16px;
+    gap:20px;
     align-items:flex-start;
-    padding:16px 18px;
+    padding:25px 26px;
     border:1px solid var(--line);
-    border-radius:16px;
-    background:rgba(14,20,39,.72);
+    border-radius:18px;
+    background:linear-gradient(120deg,rgba(19,28,61,.86),rgba(9,14,33,.76));
     box-shadow:var(--shadow);
+    position:relative;overflow:hidden;
   }
-  .hero h2{margin:0 0 6px;font-size:20px}
+  .hero:after{content:"";position:absolute;right:-90px;top:-140px;width:360px;height:360px;border:1px solid rgba(104,231,255,.25);border-radius:50%;box-shadow:0 0 0 22px rgba(104,231,255,.025),0 0 0 46px rgba(180,156,255,.025);pointer-events:none}
+  .hero h2{margin:0 0 8px;font-size:clamp(22px,3vw,34px);line-height:1.04;letter-spacing:-.045em;max-width:620px}
   .hero p{margin:0;color:var(--muted)}
   .hero .actions{display:flex;gap:8px;flex-wrap:wrap}
   .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
   .card{
-    background:rgba(18,26,48,.82);
+    background:var(--panel);
     border:1px solid var(--line);
     border-radius:16px;
     padding:14px 16px;
@@ -198,6 +225,15 @@
   .pill.good{color:var(--green);border-color:rgba(76,208,128,.28)}
   .pill.warn{color:var(--amber);border-color:rgba(244,191,117,.28)}
   .pill.bad{color:var(--red);border-color:rgba(255,107,107,.28)}
+  .signal{display:flex;align-items:center;gap:8px;margin-top:18px;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .signal i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.42;transform:scale(.72)}}
+  .orbit{position:absolute;right:34px;top:30px;width:190px;height:140px;pointer-events:none;opacity:.86}
+  .orbit:before,.orbit:after{content:"";position:absolute;inset:8px 0;border:1px solid rgba(104,231,255,.35);border-radius:50%;transform:rotate(-23deg)}
+  .orbit:after{inset:0 24px;transform:rotate(48deg);border-color:rgba(180,156,255,.34)}
+  .orbit b{position:absolute;left:88px;top:62px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 7px rgba(104,231,255,.12),0 0 30px var(--accent)}
+  .orbit span{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber)}
+  .orbit span:nth-child(2){left:20px;top:33px}.orbit span:nth-child(3){right:14px;top:78px;background:var(--accent2);box-shadow:0 0 12px var(--accent2)}
   .timeline{
     display:grid;
     gap:10px;
@@ -227,23 +263,6 @@
     grid-template-columns:1.4fr .9fr;
     gap:12px;
   }
-  /* rest panel — what the engine worked through unprompted */
-  .rest{border-color:rgba(126,231,216,.30);background:linear-gradient(180deg,rgba(126,231,216,.07),rgba(18,26,48,.82))}
-  .rest h3{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;text-transform:none;letter-spacing:.02em;font-size:13px;color:var(--fg)}
-  .rest h3 .muted{text-transform:none;letter-spacing:0;font-size:12px;font-weight:400}
-  .restrow{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    flex-wrap:wrap;
-    padding:8px 10px;
-    margin-top:6px;
-    border-radius:10px;
-    border:1px solid rgba(36,50,79,.85);
-    background:rgba(7,11,22,.72);
-  }
-  .restrow .lbl{font-weight:600;word-break:break-word;min-width:0}
-  .restrow .meta{font-size:12px;color:var(--muted);white-space:nowrap}
   @media (max-width: 1100px){
     main{flex-direction:column}
     nav{width:auto;flex-direction:row;overflow:auto;border-right:none;border-bottom:1px solid rgba(36,50,79,.85)}
@@ -251,53 +270,174 @@
     #graphWrap,.split{grid-template-columns:1fr;display:grid}
     #gAside{width:auto;border-left:none;padding-left:0}
     .hero{flex-direction:column}
+    .orbit{display:none}
   }
+  @media (max-width: 768px){
+    header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+    h1{font-size:18px}
+    nav{order:10;width:100%;border-bottom:none;border-top:1px solid rgba(36,50,79,.85);padding-top:6px}
+    .card-grid{grid-template-columns:1fr}
+    .hero .actions{flex-direction:column;align-items:stretch}
+    .hero .actions button{width:100%}
+    .coach{flex-direction:column;align-items:stretch;text-align:center}
+    .coach .later{margin-left:0;margin-top:8px}
+    main{padding-bottom:60px}
+  }
+  @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+  .tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted)}
+  .tip:hover::after,.tip:focus::after{
+    content:attr(data-tip);position:absolute;bottom:130%;left:0;transform:none;
+    background:rgba(10,16,32,.96);border:1px solid var(--line);color:var(--fg);
+    padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.45;
+    white-space:normal;max-width:240px;width:max-content;z-index:50;
+    pointer-events:none;box-shadow:var(--shadow)
+  }
+  .nav-sep{height:1px;background:var(--line);margin:8px 8px 4px;opacity:.6}
+  .nav-group{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;padding:8px 10px 2px;opacity:.7}
+  .nav-why{display:block;font-size:10px;color:#5a6a8a;font-weight:400;letter-spacing:0;margin-top:2px;text-transform:none}
+  nav button{line-height:1.25}
+  .coach{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:10px 22px;border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,rgba(104,231,255,.10),transparent 70%);
+    font-size:13px;position:relative;z-index:2
+  }
+  .coach[hidden]{display:none}
+  .coach b{color:var(--accent)}
+  .coach .later{margin-left:auto;background:none;border:none;color:var(--muted);padding:4px 8px}
+  .connect{position:relative}
+  .connect-panel{
+    display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:40;
+    min-width:min(380px,90vw);padding:14px;background:rgba(10,16,32,.98);
+    border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)
+  }
+  .connect.open .connect-panel{display:block}
+  .connect-panel label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px}
+  .connect-panel input{width:100%}
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,18,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(16,24,48,.98),rgba(10,16,32,.96));
+    border:1px solid rgba(104,231,255,.22);border-radius:20px;padding:28px 32px;
+    max-width:540px;width:100%;box-shadow:0 30px 90px rgba(0,0,0,.55)
+  }
+  .overlay-card h2{margin:0 0 8px;font-size:22px;letter-spacing:-.02em}
+  .steps{display:grid;gap:10px;text-align:left;margin:18px 0}
+  .step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+  .step i{
+    width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(104,231,255,.12);border:1px solid rgba(104,231,255,.28);color:var(--accent);font:700 12px var(--mono)
+  }
+  .empty{
+    padding:28px 18px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted)
+  }
+  .exchips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+  .exchips button{font-size:11px;padding:6px 10px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
+  .legend span{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .pulse-hint{box-shadow:0 0 0 0 rgba(104,231,255,.55);animation:hintpulse 1.8s ease-out infinite}
+  @keyframes hintpulse{70%{box-shadow:0 0 0 10px rgba(104,231,255,0)}}
 </style>
 </head>
 <body>
+<div id="welcome" class="overlay" role="dialog" aria-labelledby="welcomeTitle">
+  <div class="overlay-card" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">◈</div>
+    <h2 id="welcomeTitle">Three jobs. One console.</h2>
+    <p class="muted" style="margin:0;line-height:1.6">Physis reads events, notes, and machine data — then shows what they mean and what to do next.</p>
+    <div class="steps">
+      <div class="step"><i>1</i><div><b>See what happened</b><div class="muted">Overview, timeline, and plant health.</div></div></div>
+      <div class="step"><i>2</i><div><b>Ask what it means</b><div class="muted">Paste any sentence. Classify places it on the meaning grid.</div></div></div>
+      <div class="step"><i>3</i><div><b>Decide before you change</b><div class="muted">Preview an ontology change, or review duplicate documents.</div></div></div>
+    </div>
+    <button id="welcomeDismiss" class="primary" style="font-size:14px;padding:10px 28px;border-radius:10px">Start on Overview</button>
+    <p class="muted" style="margin:12px 0 0;font-size:12px">Press <span class="kbd">?</span> anytime · no token needed for the workshop demo</p>
+  </div>
+</div>
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">How to move around</h2>
+    <div class="steps" style="font-size:13px">
+      <div><span class="kbd">1</span>–<span class="kbd">9</span> <span class="muted">switch pages (when you are not typing)</span></div>
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> <span class="muted">run the main action on this page</span></div>
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">K</span> <span class="muted">jump to Classify and focus the box</span></div>
+      <div><span class="kbd">?</span> <span class="muted">open or close this help</span></div>
+      <div><span class="kbd">Esc</span> <span class="muted">close help, welcome, or the connect panel</span></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0 0 14px">The yellow bar under the header is the next useful step for the page you are on.</p>
+    <button id="helpClose" class="primary" style="width:100%">Close</button>
+  </div>
+</div>
 <header>
   <h1>Physis <span>Console</span></h1>
-  <input id="base" placeholder="API base (blank=same origin)" style="min-width:200px"/>
-  <input id="token" type="password" placeholder="Bearer token" style="min-width:160px"/>
-  <span id="status" class="muted">ready</span>
+  <div class="connect" id="connectWrap">
+    <button id="connectBtn" type="button" title="Engine URL and access token">Offline demo ▾</button>
+    <div class="connect-panel" id="connectPanel">
+      <strong>Talk to a live engine</strong>
+      <p class="muted" style="margin:6px 0 0;font-size:12px">Leave these blank to keep using the built-in workshop demo.</p>
+      <label for="base">Engine URL</label>
+      <input id="base" placeholder="blank = this page's origin"/>
+      <label for="token">Access token</label>
+      <input id="token" type="password" placeholder="paste the bearer token"/>
+      <div class="row" style="margin-top:12px;margin-bottom:0">
+        <button id="connectSave" class="primary">Use these settings</button>
+        <button id="connectClear" class="ghost" type="button">Stay offline</button>
+      </div>
+    </div>
+  </div>
+  <button id="helpBtn" class="ghost" type="button" title="Help (?)">?</button>
+  <span id="status" class="muted">ready · —</span>
 </header>
+<div class="coach" id="coach">
+  <span id="coachText"><b>Start here.</b> Overview is a live picture of the plant.</span>
+  <button id="coachAct" class="primary" type="button">Load demo timeline</button>
+  <button class="later" id="coachDismiss" type="button">Hide tips</button>
+</div>
 <main>
-  <nav>
-    <button data-tab="overview" class="active">Overview</button>
-    <button data-tab="classify">Classify</button>
-    <button data-tab="timeline">Timeline</button>
-    <button data-tab="grid">Grid</button>
-    <button data-tab="graph">File Graph</button>
-    <button data-tab="oee">OEE</button>
+  <nav aria-label="Console pages">
+    <div class="nav-group">See</div>
+    <button data-tab="overview" class="active" title="Incidents and the last few events">Overview<span class="nav-why">plant at a glance</span></button>
+    <button data-tab="timeline" title="Events in time order">Timeline<span class="nav-why">what happened when</span></button>
+    <button data-tab="oee" title="Availability × performance × quality">Plant health<span class="nav-why">OEE</span></button>
+    <div class="nav-sep"></div>
+    <div class="nav-group">Mean</div>
+    <button data-tab="classify" title="Paste text, get a domain × mode cell">Classify<span class="nav-why">what does this mean?</span></button>
+    <button data-tab="grid" title="5 kinds of work × 14 ways of working">Meaning grid<span class="nav-why">70 cells</span></button>
+    <button data-tab="ontology" title="The dictionary classification uses">Dictionary<span class="nav-why">ontology studio</span></button>
+    <div class="nav-sep"></div>
+    <div class="nav-group">Decide</div>
+    <button data-tab="planner" title="Replay documents against a candidate dictionary">What-if<span class="nav-why">preview a change</span></button>
+    <button data-tab="admin" title="Group duplicate documents">Review pile<span class="nav-why">catch duplicates</span></button>
+    <button data-tab="graph" title="Cluster files by meaning">File map<span class="nav-why">scan a folder</span></button>
   </nav>
 
   <!-- OVERVIEW -->
   <section class="tab active" id="tab-overview">
     <div class="hero">
       <div>
-        <h2>Operational intelligence dashboard</h2>
-        <p>Demo-first view over printer telemetry, workflow notes, email threads, and machine health.</p>
+        <div class="signal"><i></i> live workspace · <span class="tip" data-tip="Events, documents, and machine readings land here as one timeline">what is going on</span></div>
+        <h2>See the plant. Then the next action.</h2>
+        <p>Cards show health. The incident block tells you what to do. Live pointers are the last few events.</p>
       </div>
+      <div class="orbit" aria-hidden="true"><b></b><span></span><span></span></div>
       <div class="actions">
         <button id="ovLoad">Refresh overview</button>
         <button id="ovDemo">Load demo timeline</button>
         <button id="ovOee">Refresh OEE</button>
       </div>
     </div>
-    <!-- First thing on screen: what the engine worked through on its own while
-         nobody was asking it anything. -->
-    <section class="surface rest" id="ovRest">
-      <h3>What it chewed on <span class="muted" id="restWhen"></span></h3>
-      <div id="restBody" class="muted">Loading…</div>
-    </section>
     <div class="card-grid" id="ovCards"></div>
     <div class="split">
       <section class="surface">
-        <h3>Incident summary</h3>
+        <h3>What needs attention <span class="tip" data-tip="Built from warning or failure events in a 30-minute window, plus anything on the same machine or email thread">(?)</span></h3>
         <div id="ovIncident" class="muted">Loading…</div>
       </section>
       <section class="surface">
-        <h3>Live pointers</h3>
+        <h3>Just now <span class="tip" data-tip="The five most recent events">(?)</span></h3>
         <div class="timeline" id="ovPointers"></div>
       </section>
     </div>
@@ -305,18 +445,20 @@
 
   <!-- CLASSIFY -->
   <section class="tab" id="tab-classify">
-    <h3>Classify text → semiotic cell</h3>
-    <textarea id="clText" placeholder="paste any observation, log line, note…"></textarea>
-    <div class="row" style="margin-top:8px"><button id="clRun">Classify →</button></div>
-    <div id="clOut"></div>
+    <h3>What does this mean?</h3>
+    <p class="muted" style="margin:0 0 8px">Paste a log line, a note, or an email. Physis answers with a cell: <b>what kind of work</b> × <b>how it is happening</b>.</p>
+    <textarea id="clText" placeholder="e.g. Nozzle temp oscillating, print paused on voron-01…"></textarea>
+    <div class="exchips" id="clExamples"></div>
+    <div class="row" style="margin-top:8px"><button id="clRun" class="primary">Classify this</button><span class="muted" style="font-size:12px"><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span></span></div>
+    <div id="clOut"><div class="empty">Nothing classified yet. Try an example chip, or paste your own text.</div></div>
   </section>
 
   <!-- TIMELINE -->
   <section class="tab" id="tab-timeline">
     <div class="hero">
       <div>
-        <h2>Operational timeline</h2>
-        <p>Paste an array of <code>OperationalEvent</code> records or load the bundled workshop demo.</p>
+        <h2>What happened, in order</h2>
+        <p>Load the workshop demo, or paste a JSON list of events. Warnings become an incident with a next action.</p>
       </div>
       <div class="actions">
         <button id="tlDemo">Load demo events</button>
@@ -325,9 +467,9 @@
     </div>
     <div class="split">
       <section class="surface">
-        <h3>Event input</h3>
-        <textarea id="tlInput" placeholder="Paste JSON array of OperationalEvent records here…"></textarea>
-        <p class="muted" style="margin:8px 0 0">The demo fixture is editable. You can replace event fields, add more events, or paste a live export.</p>
+        <h3>Events (JSON)</h3>
+        <textarea id="tlInput" placeholder="Paste a JSON array of events, or click Load demo events…"></textarea>
+        <p class="muted" style="margin:8px 0 0">The demo is editable. Change a status to <code>failure</code> and render again to see the incident change.</p>
       </section>
       <section class="surface">
         <h3>Timeline report</h3>
@@ -343,20 +485,153 @@
 
   <!-- GRID -->
   <section class="tab" id="tab-grid">
-    <h3>Semiotic grid — 5 domains × 14 modes (70 cells)</h3>
+    <h3>Meaning grid — 5 kinds of work × 14 ways of working</h3>
+    <p class="muted" style="margin:0 0 8px">Rows are <b>what</b>. Columns are <b>how</b>. Brightness is dictionary coverage, not a score. Hover a cell for the full name.</p>
+    <div class="legend" id="gridLegend"></div>
     <div id="heat"></div>
     <p class="muted" id="gridNote" style="margin-top:8px"></p>
   </section>
 
+  <!-- ONTOLOGY STUDIO -->
+  <section class="tab" id="tab-ontology">
+    <div class="row">
+      <h3 style="margin:0">Dictionary <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500">· ontology studio</span></h3>
+      <button id="onLoad">Load dictionary</button>
+      <input id="onSearch" placeholder="search names, hints, categories…" style="min-width:240px"/>
+      <select id="onKind"><option value="">all sources</option></select>
+      <label class="sm"><input type="checkbox" id="onUnreach"/> only unreachable</label>
+    </div>
+
+    <div id="onStats" class="muted" style="margin-top:8px">Not loaded.</div>
+
+    <div class="row" style="align-items:flex-start;gap:12px;margin-top:10px">
+      <div class="pane" style="flex:0 0 auto">
+        <h3>Coverage by source</h3>
+        <div id="onKinds" class="muted">—</div>
+      </div>
+      <div class="pane" style="flex:1">
+        <h3>DOMAIN × MODE density</h3>
+        <p class="sm muted" style="margin:2px 0 6px">
+          Cell shade = entry count. A dark cell is not a strong cell: the largest
+          cells measured lowest internal coherence.
+        </p>
+        <div id="onGrid" style="overflow-x:auto"></div>
+      </div>
+    </div>
+
+    <div class="pane" style="margin-top:10px">
+      <h3>Meaning in context</h3>
+      <p class="sm muted" style="margin:2px 0 6px">
+        Overlays in <code id="onDir">~/.physis/ontologies</code> —
+        <code>sector/</code>, <code>client/</code>, <code>project/</code>.
+        Resolution runs project → client → sector → global; the narrowest wins,
+        and an overlay shadows only the names it mentions.
+      </p>
+      <div class="row">
+        <select id="onContested"><option value="">— contested names —</option></select>
+        <span class="sm muted" id="onOverlays"></span>
+      </div>
+      <div id="onMeaning" class="muted" style="margin-top:6px">
+        Pick a name defined in more than one place.
+      </div>
+    </div>
+
+    <div class="pane" style="margin-top:10px">
+      <h3>Entries <span class="sm muted" id="onCount"></span></h3>
+      <div id="onList" style="max-height:420px;overflow:auto"></div>
+    </div>
+  </section>
+
+  <!-- DECISION PLANNER -->
+  <section class="tab" id="tab-planner">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> counterfactual workspace</div>
+        <h2>Change the dictionary. See who moves.</h2>
+        <p>Replay real notes against a candidate set of domains. Nothing is saved until you take this live.</p>
+      </div>
+      <div class="actions"><button id="plannerRun">Simulate scenario →</button></div>
+    </div>
+    <div class="split">
+      <section class="surface">
+        <h3>Candidate ontology</h3>
+        <div id="plannerDomains"></div>
+        <div class="row" style="margin-top:8px">
+          <input id="plannerNewDomain" placeholder="New domain name" style="flex:1"/>
+          <input id="plannerNewModes" placeholder="Modes (comma-separated)" style="flex:2"/>
+          <button id="plannerAddDomain">+ Domain</button>
+        </div>
+        <label class="sm" style="margin-top:8px">Scenario ID <input id="plannerScenario" value="supplier-language-v1" /></label>
+      </section>
+      <section class="surface">
+        <h3>Corpus to replay</h3>
+        <div id="plannerCorpus"></div>
+        <div class="row" style="margin-top:8px">
+          <input id="plannerNewText" placeholder="Paste a document or observation…" style="flex:1"/>
+          <button id="plannerAddText">+ Text</button>
+        </div>
+        <label class="sm" style="margin-top:8px">Low-confidence threshold <input id="plannerThreshold" type="number" min="0" max="1" step="0.05" value="0.6" /></label>
+      </section>
+    </div>
+    <section class="surface"><h3>Impact report</h3><div id="plannerOut" class="muted">Run a scenario to see changed cells, confidence movement, and transition pressure.</div></section>
+  </section>
+
+  <!-- ADMIN REVIEW -->
+  <section class="tab" id="tab-admin">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> human review desk</div>
+        <h2>Same document, twice?</h2>
+        <p>Group copies by fingerprint before they hit the workflow. The queue is the work.</p>
+      </div>
+      <div class="actions"><button id="adminRun">Build review queue →</button></div>
+    </div>
+    <section class="surface">
+      <h3>Normalized document metadata</h3>
+      <div id="adminDocsList"></div>
+      <div class="row" style="margin-top:8px">
+        <input id="adminDocId" placeholder="Document ID" style="flex:1"/>
+        <input id="adminDocPath" placeholder="Path (e.g. /inbox/invoice-1042.pdf)" style="flex:2"/>
+        <select id="adminDocKind"><option value="invoice">invoice</option><option value="delivery_note">delivery_note</option><option value="report">report</option><option value="contract">contract</option></select>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input id="adminDocFingerprint" placeholder="Fingerprint (e.g. fp-a1)" style="flex:1"/>
+        <input id="adminDocVendor" placeholder="Vendor" style="flex:1"/>
+        <input id="adminDocNumber" placeholder="Document number" style="flex:1"/>
+        <button id="adminAddDoc">+ Add</button>
+      </div>
+    </section>
+    <section class="surface"><h3>Review queue</h3><div id="adminOut" class="muted">Build a queue to group duplicate evidence.</div></section>
+  </section>
+
   <!-- FILE GRAPH -->
   <section class="tab" id="tab-graph">
-    <div class="row">
-      <input id="dir" placeholder="/abs/dir (inside scan root)" style="min-width:300px"/>
-      <select id="hubs"><option value="cells">semiotic cells</option><option value="discovered">discovered modes</option></select>
-      <select id="view"><option value="cells">hub edges</option><option value="both">hubs+similarity</option><option value="sim">similarity only</option></select>
-      <input id="search" placeholder="filter files…" style="min-width:120px"/>
-      <button id="scan">Scan →</button>
+    <div class="row" style="align-items:center">
+      <input id="dir" placeholder="Folder to map, e.g. /home/gio/workshop" style="flex:1;min-width:200px"/>
+      <button id="scan" class="primary">Map this folder</button>
+      <button id="graphAdvanced" class="ghost" style="padding:6px 10px;font-size:11px">Advanced ▸</button>
     </div>
+    <p class="muted" style="margin:8px 0 0">Files cluster by meaning, not by folder name. The path must sit inside the engine's scan root.</p>
+    <div id="graphAdvancedPanel" style="display:none;margin-top:8px">
+      <div class="row">
+        <select id="hubs"><option value="cells">semiotic cells</option><option value="discovered">discovered modes</option></select>
+        <select id="view"><option value="cells">hub edges</option><option value="both">hubs+similarity</option><option value="sim">similarity only</option></select>
+        <input id="search" placeholder="filter files…" style="min-width:120px"/>
+      </div>
+    </div>
+
+    <!-- Sandboxed file browser & drop zone -->
+    <div id="fileBrowser" style="margin-top:8px;display:none">
+      <div class="row" style="align-items:center;gap:8px;">
+        <span id="browserPath" style="flex:1;color:var(--muted);font-size:12px;"></span>
+        <button id="browserUp" style="min-width:60px;">Up</button>
+      </div>
+      <div id="browserEntries" style="margin-top:4px;max-height:200px;overflow:auto;"></div>
+      <div style="margin-top:4px;">
+        <span style="color:var(--muted);font-size:12px;">Drag a folder here or click to browse</span>
+      </div>
+    </div>
+
     <div id="graphWrap">
       <div id="cy"></div>
       <div id="gAside">
@@ -373,19 +648,38 @@
 
   <!-- OEE -->
   <section class="tab" id="tab-oee">
-    <div class="row"><h3 style="margin:0">Plant OEE</h3><button id="oeeLoad">Refresh</button></div>
+    <div class="row"><h3 style="margin:0">Plant health (OEE)</h3><button id="oeeLoad">Refresh</button></div>
+    <p class="muted" style="margin:0">OEE = still running × running at speed × making good parts. World-class is roughly 85%.</p>
     <div id="oeeOut" class="muted">Loading…</div>
   </section>
 </main>
 
+<script src="ui-shell.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const LS={base:'physis_base',token:'physis_token',dir:'physis_dir'};
+const LS={base:'physis_base',token:'physis_token',dir:'physis_dir',tab:'physis_tab'};
 ['base','token','dir'].forEach(k=>{const v=localStorage.getItem(LS[k]); if(v&&$(k))$(k).value=v;});
 const save=()=>['base','token','dir'].forEach(k=>$(k)&&localStorage.setItem(LS[k],$(k).value));
+const typing=el=>{
+  const t=el&&el.tagName;
+  return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||(el&&el.isContentEditable);
+};
+const live=()=>!!$('token').value.trim();
+function syncConnect(){
+  const btn=$('connectBtn');
+  if(!btn) return;
+  btn.textContent=live()?'Connected ▾':'Offline demo ▾';
+  btn.title=live()?'Engine URL and access token':'No token — workshop demo only';
+}
+function closeOverlays(){
+  $('welcome').classList.remove('show');
+  $('help').classList.remove('show');
+  $('connectWrap').classList.remove('open');
+}
 const api=p=>{const b=$('base').value.trim().replace(/\/$/,'');return (b||'')+p;};
 const hdr=()=>{const t=$('token').value.trim();return t?{Authorization:'Bearer '+t}:{};};
-const setS=(m,e)=>{const s=$('status');s.textContent=m;s.className=e?'err':'muted';};
+const setS=(m,e)=>{const s=$('status');const now=new Date();const ts=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});s.textContent=(e?'⚠ ':'')+m+' · '+ts;s.className=e?'err':'muted';};
+const apiError=(e)=>'<span class="err">'+esc(String(e))+'</span>';
 const esc=s=>String(s??'')
   .replace(/&/g,'&amp;')
   .replace(/</g,'&lt;')
@@ -398,19 +692,72 @@ async function postJSON(p,body){const r=await fetch(api(p),{method:'POST',header
 const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
 const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
 const DCOL={HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+// Customer-facing one-liners for the five domains. These are the words a
+// first-time operator should read under HEAL / CONSTRUCT / … — not the
+// ontology paper. Tune them to the plant you are showing.
+const DOMAIN_GLOSS={
+  HEAL:"restore / keep a system well",
+  CONSTRUCT:"assemble / put together",
+  FABRICATE:"make parts on the floor",
+  BOND:"relate people, vendors, contracts",
+  STUDY:"learn, measure, write"
+};
+const MODE_GLOSS={
+  LIFT:"start / raise",REST:"idle",WALK:"in transit",WORK:"execute",CREATE:"make new",
+  LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
+  BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
+};
+const TABS=["overview","timeline","oee","classify","grid","ontology","planner","admin","graph"];
+function currentTab(){
+  const a=document.querySelector('nav button.active');
+  return a?a.dataset.tab:'overview';
+}
+function goTab(name){
+  const b=document.querySelector(`nav button[data-tab="${name}"]`);
+  if(b) b.click();
+}
+
+const COACH={
+  overview:{text:'<b>Start here.</b> This is the plant at a glance — health, what needs attention, and the last events.',act:'Load demo timeline',run:()=>loadTimelineDemo()},
+  timeline:{text:'<b>Timeline.</b> Load the workshop demo, or paste events. A warning becomes an incident with a next action.',act:'Load demo events',run:()=>loadTimelineDemo()},
+  oee:{text:'<b>Plant health.</b> OEE is still-running × at-speed × good-parts. Connect a token for live machines.',act:null,run:null},
+  classify:{text:'<b>Classify.</b> Paste any sentence. The engine answers with a cell: what kind of work × how it is happening.',act:'Try an example',run:()=>{const first=document.querySelector('#clExamples button'); if(first) first.click();}},
+  grid:{text:'<b>Meaning grid.</b> Rows are what. Columns are how. Bright is coverage, not a grade.',act:null,run:null},
+  ontology:{text:'<b>Dictionary.</b> Everything authored vs what classification can actually reach. Unreachable names are loaded but never scored.',act:'Load dictionary',run:()=>{loadOntology();loadMeanings();}},
+  planner:{text:'<b>What-if.</b> Add a domain or a note, then simulate. Nothing is saved to the live dictionary.',act:'Simulate scenario',run:()=>runPlanner()},
+  admin:{text:'<b>Review pile.</b> Same fingerprint twice = a duplicate group to resolve before it hits the workflow.',act:'Build review queue',run:()=>runAdmin()},
+  graph:{text:'<b>File map.</b> Point at a folder the engine may read. Files cluster by meaning, not by directory name.',act:null,run:null}
+};
+function showCoach(tab){
+  const bar=$('coach');
+  if(localStorage.getItem('physis_coach_hide')){ bar.hidden=true; return; }
+  bar.hidden=false;
+  const c=COACH[tab]||COACH.overview;
+  $('coachText').innerHTML=c.text;
+  const btn=$('coachAct');
+  if(c.act){ btn.hidden=false; btn.textContent=c.act; btn.onclick=c.run; }
+  else btn.hidden=true;
+}
 
 // ── tabs ──
 let cyReady=false;
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  b.classList.add('active'); $('tab-'+b.dataset.tab).classList.add('active');
-  if(b.dataset.tab==='overview'){ loadOverview(); loadRest(); }
-  if(b.dataset.tab==='timeline') loadTimelineDemo();
-  if(b.dataset.tab==='grid') loadHeat();
-  if(b.dataset.tab==='oee') loadOee();
-  if(b.dataset.tab==='graph'){ if(!cyReady){initCy();cyReady=true;} setTimeout(()=>{cy.resize();cy.fit();},50); }
-});
+function activateTab(name){
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active', x.dataset.tab===name));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.id==='tab-'+name));
+  localStorage.setItem(LS.tab, name);
+  showCoach(name);
+  if(name==='overview') loadOverview();
+  if(name==='timeline') loadTimelineDemo();
+  if(name==='grid') loadHeat();
+  if(name==='oee') loadOee();
+  if(name==='graph'){ if(!cyReady){initCy();cyReady=true;} setTimeout(()=>{if(window.cy){cy.resize();cy.fit();}},50); }
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
+const savedTab=localStorage.getItem(LS.tab);
+if(savedTab && TABS.includes(savedTab)){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===savedTab));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+savedTab));
+}
 
 function fmtTime(iso){
   try{
@@ -610,8 +957,7 @@ async function loadOverview(){
   if(!$('token').value.trim()){
     const timeline = buildTimelineReport(cloneDemoEvents());
     renderOverviewCards(timeline, null);
-    $('ovIncident').innerHTML = '<p class="muted">This is the offline demo view. Paste a bearer token to swap in live plant data.</p>';
-    setS('ready');
+    setS('offline demo');
     return;
   }
   setS('loading overview…');
@@ -624,7 +970,7 @@ async function loadOverview(){
     setS('overview ready');
   }catch(e){
     $('ovCards').innerHTML='<div class="card"><div class="label">Error</div><div class="value">!</div><div class="hint">'+esc(String(e))+'</div></div>';
-    $('ovIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    $('ovIncident').innerHTML=apiError(e);
     setS(String(e),1);
   }
 }
@@ -645,7 +991,7 @@ async function loadTimelineDemo(){
     renderTimelineReport(t);
     if($('tab-timeline').classList.contains('active')) setS('timeline demo loaded');
   }catch(e){
-    $('tlIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    $('tlIncident').innerHTML=apiError(e);
     setS(String(e),1);
   }
 }
@@ -657,23 +1003,35 @@ async function runTimeline(){
     renderTimelineReport(t);
     setS('timeline rendered');
   }catch(e){
-    $('tlIncident').innerHTML='<p class="err">'+esc(String(e))+'</p>';
+    $('tlIncident').innerHTML=apiError(e);
     setS(String(e),1);
   }
 }
 
 // ── classify ──
 $('clRun').onclick=async()=>{
-  const text=$('clText').value.trim(); if(!text){setS('enter text',1);return;}
+  const text=$('clText').value.trim(); if(!text){setS('paste some text first',1);return;}
   setS('classifying…');
   try{
     const j=await postJSON('/api/v1/classify',{text});
     const max=Math.max(...j.results.map(r=>r.score),0.0001);
-    $('clOut').innerHTML='<table><tr><th>#</th><th>domain × mode</th><th>score</th><th></th></tr>'+
-      j.results.slice(0,12).map((r,i)=>`<tr><td>${i+1}</td><td style="color:${DCOL[r.domain]||DCOL['']}">${r.domain} × ${r.mode}</td><td>${r.score.toFixed(3)}</td><td style="width:120px"><div class="bar" style="width:${Math.round(100*r.score/max)}%"></div></td></tr>`).join('')+'</table>';
+    $('clOut').innerHTML='<table><tr><th>#</th><th>what × how</th><th>score</th><th></th></tr>'+
+      j.results.slice(0,12).map((r,i)=>`<tr><td>${i+1}</td><td style="color:${DCOL[r.domain]||DCOL['']}">${r.domain} × ${r.mode}<div class="muted" style="font-size:11px">${esc(DOMAIN_GLOSS[r.domain]||'')} · ${esc(MODE_GLOSS[r.mode]||'')}</div></td><td>${r.score.toFixed(3)}</td><td style="width:120px"><div class="bar" style="width:${Math.round(100*r.score/max)}%"></div></td></tr>`).join('')+'</table>';
     setS('top: '+j.top.domain+'×'+j.top.mode+' '+j.top.score.toFixed(3));
-  }catch(e){setS(String(e),1);}
+  }catch(e){ $('clOut').innerHTML=apiError(e); setS(String(e),1);}
 };
+const CL_EXAMPLES=[
+  {label:'paused print',text:'Nozzle temp oscillating, print paused on voron-01'},
+  {label:'supplier delay',text:'Supplier delay: replacement nozzle ships tomorrow.'},
+  {label:'invoice closed',text:'Purchase order 1042 closed after delivery confirmation.'},
+];
+if($('clExamples')){
+  $('clExamples').innerHTML=CL_EXAMPLES.map((x,i)=>`<button type="button" data-i="${i}">${esc(x.label)}</button>`).join('');
+  $('clExamples').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    $('clText').value=CL_EXAMPLES[+b.dataset.i].text;
+    $('clRun').click();
+  });
+}
 
 // ── grid / heatmap ──
 async function loadHeat(){
@@ -681,20 +1039,29 @@ async function loadHeat(){
     const j=await getJSON('/api/v1/semiotic/heatmap'); const m=j.matrix||[];
     const heat=$('heat'); heat.style.gridTemplateColumns=`60px repeat(${MODES.length},1fr)`;
     let max=0; m.forEach(r=>r.forEach(v=>{if(v>max)max=v;}));
-    let html=`<div></div>`+MODES.map(x=>`<div class="collab" title="${x}">${x.slice(0,4)}</div>`).join('');
+    let html=`<div></div>`+MODES.map(x=>`<div class="collab" title="${x}: ${MODE_GLOSS[x]||''}">${x.slice(0,4)}</div>`).join('');
     for(let i=0;i<m.length;i++){
       html+=`<div class="rowlab">${DOMAINS[i]||''}</div>`;
       for(let k=0;k<m[i].length;k++){const v=m[i][k],a=max>0?v/max:0;
-        html+=`<div class="hc" title="${DOMAINS[i]}×${MODES[k]} = ${v.toFixed(3)}" style="background:rgba(88,166,255,${0.10+0.9*a})"></div>`;}
+        html+=`<div class="hc" title="${DOMAINS[i]} (${DOMAIN_GLOSS[DOMAINS[i]]||''}) × ${MODES[k]} (${MODE_GLOSS[MODES[k]]||''}) = ${v.toFixed(3)}" style="background:rgba(88,166,255,${0.10+0.9*a})"></div>`;}
     }
-    heat.innerHTML=html; $('gridNote').textContent='cell intensity = activation from ontology entries.';
-  }catch(e){$('gridNote').innerHTML='<span class="err">'+e+'</span>';}
+    heat.innerHTML=html;
+    if($('gridLegend')){
+      $('gridLegend').innerHTML=DOMAINS.map(d=>`<span><i style="background:${DCOL[d]}"></i><b>${esc(d)}</b> ${esc(DOMAIN_GLOSS[d]||'')}</span>`).join('');
+    }
+    $('gridNote').textContent='Hover a cell: domain (what) × mode (how). Bright = more dictionary entries live here.';
+  }catch(e){
+    if($('gridLegend')){
+      $('gridLegend').innerHTML=DOMAINS.map(d=>`<span><i style="background:${DCOL[d]}"></i><b>${esc(d)}</b> ${esc(DOMAIN_GLOSS[d]||'')}</span>`).join('');
+    }
+    $('gridNote').innerHTML=apiError(e)+' <span class="muted">The legend still names the rows.</span>';
+  }
 }
 
 // ── OEE ──
 async function loadOee(){
   if(!$('token').value.trim()){
-    $('oeeOut').innerHTML='<p class="muted">Paste a bearer token to load live OEE data.</p>';
+    $('oeeOut').innerHTML='<div class="empty">No live machines yet.<br>Open <b>Connect</b> and paste a token, or stay on Overview for the workshop demo.</div>';
     setS('ready');
     return;
   }
@@ -714,52 +1081,10 @@ async function loadOee(){
         p.losses.map(l=>`<tr><td>${l.label}</td><td class="muted">${l.factor}</td><td>${(l.lost_secs/60).toFixed(1)}</td><td>${l.lost_parts}</td></tr>`).join('')+'</table>';
     } else { html+='<p class="muted">No machines registered. Feed data via POST /api/v1/oee/machine + /oee/event.</p>'; }
     $('oeeOut').innerHTML=html; setS('OEE loaded');
-  }catch(e){$('oeeOut').innerHTML='<span class="err">'+e+'</span>';}
+  }catch(e){ $('oeeOut').innerHTML=apiError(e); }
 }
 
-// ── rest panel: what the engine worked through on its own ──
-// `dream()` replays reported failures; it now runs when request traffic stops
-// rather than when someone remembers to POST /dream/generate. This reports the
-// last pass, and is careful to distinguish "found nothing new" from "never ran"
-// — collapsing those two would make an idle engine look like a broken one.
-function restAgo(ms){
-  const s=Math.max(0,Math.round((Date.now()-ms)/1000));
-  if(s<60)return s+'s ago';
-  if(s<3600)return Math.round(s/60)+'m ago';
-  return Math.round(s/3600)+'h ago';
-}
-function renderRest(r){
-  const when=$('restWhen'), body=$('restBody');
-  if(!r.rested){
-    when.textContent='';
-    body.innerHTML='<p class="muted">Nothing yet — the engine rests after '
-      +esc(r.idle_threshold_seconds)+'s without requests (quiet for '
-      +esc(r.idle_seconds)+'s so far).</p>';
-    return;
-  }
-  const p=r.last;
-  when.textContent='· '+restAgo(p.at_ms)+', after '+p.idle_seconds+'s idle';
-  const rows=p.chewed.map(c=>{
-    // `prevented_failure` is the engine's own verdict on the replay, so show it
-    // as the reason rather than re-deriving one from the numbers here.
-    const flag=c.prevented_failure
-      ? '<span class="err">caught a failure</span>'
-      : '<span class="muted">held up</span>';
-    const verdict=(c.asserted===undefined||c.asserted===null)
-      ? '<span class="muted">unjudged</span>'
-      : 'verdict '+Number(c.asserted).toFixed(2);
-    return '<div class="restrow"><span class="lbl">'+esc(c.label)+'</span>'
-      +'<span class="meta">'+verdict+' · density '+Number(c.density).toFixed(2)+' · '+flag+'</span></div>';
-  }).join('');
-  body.innerHTML='<p class="muted">Replayed '+p.chewed.length
-    +' node'+(p.chewed.length===1?'':'s')+' nobody had resolved.</p>'+rows;
-}
-async function loadRest(){
-  try{ renderRest(await getJSON('/api/v1/dream/rest')); }
-  catch(e){ $('restBody').innerHTML='<p class="err">'+esc(String(e))+'</p>'; }
-}
-
-$('ovLoad').onclick=()=>{loadOverview();loadRest();};
+$('ovLoad').onclick=loadOverview;
 $('ovDemo').onclick=loadTimelineDemo;
 $('ovOee').onclick=loadOee;
 $('tlDemo').onclick=loadTimelineDemo;
@@ -782,7 +1107,7 @@ function onNode(n){const d=n.data();$('moveBox').style.display=d.kind==='file'?'
   if(d.kind==='file'){$('sel').innerHTML=`<b>${d.label}</b><br><span class="muted">${d.path}</span><br>kind: ${d.fkind}`;$('dest').value=d.path;preview(d.path);}
   else{$('sel').innerHTML=`<b>${d.label}</b><br><span class="muted">${d.domain}×${d.mode}</span>`;$('content').textContent='—';}}
 async function preview(path){$('content').textContent='loading…';try{const j=await getJSON('/api/v1/fs/file?path='+encodeURIComponent(path));$('content').textContent=j.content+(j.truncated?'\n\n… [truncated, '+j.size+' bytes]':'');$('content').className='';}catch(e){$('content').textContent=String(e);$('content').className='err';}}
-async function scan(){save();const dir=$('dir').value.trim();if(!dir){setS('enter a dir',1);return;}setS('scanning…');
+async function scan(){save();const dir=$('dir').value.trim();if(!dir){setS('enter a folder path first',1);return;}setS('scanning…');
   try{const hubs=$('hubs').value;const g=await getJSON('/api/v1/fs/graph?dir='+encodeURIComponent(dir)+'&grid='+hubs);lastG=g;render(g);
     setS(`${g.themes.length} ${hubs==='discovered'?'modes':'cells'} · ${g.files.length} files · ${g.edges.length} edges · ${(g.file_edges||[]).length} sim`);}catch(e){setS(String(e),1);}}
 function render(g){if(!g)return;const view=$('view').value,showC=view!=='sim',showS=view!=='cells';
@@ -801,10 +1126,411 @@ async function move(){const n=cy.$('node:selected').first();if(!n||n.data('kind'
   try{const j=await postJSON('/api/v1/fs/move',{from:n.data('path'),to:dest});n.data('path',j.to);n.data('label',j.to.split('/').pop());setS('moved → '+j.to);}catch(e){setS(String(e),1);}}
 
 $('scan').onclick=scan;$('move').onclick=move;$('view').onchange=()=>render(lastG);$('hubs').onchange=scan;$('search').oninput=applySearch;
+$('graphAdvanced').onclick=()=>{ const p=$('graphAdvancedPanel'); p.style.display=p.style.display==='none'?'block':'none'; $('graphAdvanced').textContent=p.style.display==='none'?'Advanced ▸':'Advanced ▾'; };
 ['base','token'].forEach(k=>$(k).onchange=save);
 
+// ── Ontology Studio ────────────────────────────────────────────────────────
+// Shows what is authored versus what the engine can actually reach. The grid
+// renders every loaded ontology, but classification only scores against
+// human+custom, so most entries are visible here and unreachable at runtime.
+// The studio exists to make that difference impossible to miss.
+let ONT=null;
+
+function ontStats(d){
+  const unreach=d.total-d.classified;
+  const pct=d.total?Math.round(100*d.classified/d.total):0;
+  const warn=unreach>0?`<span style="color:#f85149">${unreach} unreachable</span>`:'none unreachable';
+  const fw=d.faceted===0
+    ? `<span style="color:#f85149">0 entries carry any facet</span> — the orthogonal axes (lifecycle/agency/scale/abstraction) are defined but unpopulated, so every facet query returns nothing`
+    : `${d.faceted} faceted`;
+  $('onStats').innerHTML=
+    `<b>${d.total}</b> entries authored · <b>${d.classified}</b> reachable by the classifier (${pct}%) · ${warn}<br>${fw}`;
+}
+
+function ontKinds(d){
+  const rows=d.kinds.filter(k=>k.count>0).map(k=>{
+    const ok=k.classified===k.count;
+    const col=ok?'#3fb950':(k.classified===0?'#f85149':'#d29922');
+    const i=k.interpretant||{};
+    // An inherited interpretant is an unanswered question, not a decision —
+    // shown muted so declared rules stand out.
+    const dec=i.declared
+      ? `<span style="color:#3fb950" title="${esc(i.note||'')}">${esc((i.confirms||[]).join('+'))} ↑ / ${esc((i.refutes||[]).join('+'))} ↓`
+        +`, ${i.half_life_days===0?'no decay':i.half_life_days+'d half-life'}, w=${i.weight}</span>`
+      : '<span class="muted">inherits default</span>';
+    return `<tr><td style="padding:1px 8px 1px 0">${esc(k.kind)}</td>`
+      +`<td style="text-align:right;padding-right:8px">${k.count}</td>`
+      +`<td style="color:${col};padding-right:10px">${k.classified===0?'unreachable':k.classified+' reachable'}</td>`
+      +`<td class="sm">${dec}</td></tr>`;
+  }).join('');
+  $('onKinds').innerHTML='<table class="sm"><tr><th align="left">source</th><th>n</th>'
+    +'<th align="left">reach</th><th align="left">interpretant</th></tr>'+rows+'</table>';
+}
+
+function ontGrid(entries){
+  const count={};
+  for(const e of entries){ if(e.domain&&e.mode){const k=e.domain+'|'+e.mode; count[k]=(count[k]||0)+1;} }
+  const max=Math.max(1,...Object.values(count));
+  let h='<table class="sm" style="border-collapse:collapse"><tr><th></th>'
+    +MODES.map(m=>`<th style="font-weight:400;padding:0 3px;font-size:10px">${esc(m.slice(0,4))}</th>`).join('')+'</tr>';
+  for(const d of DOMAINS){
+    h+=`<tr><td style="padding-right:6px;color:${DCOL[d]}">${esc(d)}</td>`;
+    for(const m of MODES){
+      const n=count[d+'|'+m]||0;
+      // Shade by share of the largest cell. Large is not good here — it is the
+      // signature of a cell that has stopped discriminating.
+      const a=n?0.12+0.88*(n/max):0;
+      const title=`${d} x ${m}: ${n} entries`;
+      h+=`<td title="${esc(title)}" style="width:22px;height:20px;text-align:center;`
+        +`background:rgba(88,166,255,${a.toFixed(3)});border:1px solid #21262d;font-size:10px">${n||''}</td>`;
+    }
+    h+='</tr>';
+  }
+  $('onGrid').innerHTML=h+'</table>';
+}
+
+function ontList(){
+  if(!ONT)return;
+  const q=($('onSearch').value||'').toLowerCase().trim();
+  const kind=$('onKind').value;
+  const onlyUnreach=$('onUnreach').checked;
+  const hit=ONT.entries.filter(e=>{
+    if(kind&&e.kind!==kind)return false;
+    if(onlyUnreach&&e.classified)return false;
+    if(!q)return true;
+    return e.name.toLowerCase().includes(q)
+      ||(e.category||'').toLowerCase().includes(q)
+      ||e.hints.some(x=>x.toLowerCase().includes(q));
+  });
+  $('onCount').textContent=`— showing ${hit.length} of ${ONT.entries.length}`;
+  $('onList').innerHTML=hit.slice(0,600).map(e=>{
+    const cell=e.domain&&e.mode
+      ? `<span style="color:${DCOL[e.domain]||'#8b949e'}">${esc(e.domain)}</span> × ${esc(e.mode)}`
+      : '<span class="muted">no cell</span>';
+    const reach=e.classified
+      ? '<span style="color:#3fb950" title="classification can return this">reachable</span>'
+      : '<span style="color:#f85149" title="loaded and displayed, but classification never scores it">unreachable</span>';
+    const fac=e.faceted?'<span style="color:#3fb950">faceted</span>':'<span class="muted">no facets</span>';
+    return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
+      +`<b>${esc(e.name)}</b> <span class="sm muted">${esc(e.kind)}</span> — ${cell} · ${reach} · ${fac}`
+      +`<div class="sm muted">${esc(e.hints.slice(0,10).join(', '))}</div></div>`;
+  }).join('')||'<span class="muted">nothing matches.</span>';
+}
+
+async function loadOntology(){
+  $('onStats').textContent='loading…';
+  try{
+    ONT=await getJSON('/api/v1/ontology/studio');
+    ontStats(ONT); ontKinds(ONT); ontGrid(ONT.entries);
+    const kinds=[...new Set(ONT.entries.map(e=>e.kind))].sort();
+    $('onKind').innerHTML='<option value="">all sources</option>'
+      +kinds.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    ontList();
+  }catch(e){ $('onStats').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
+}
+
+// The same name resolved in every context that defines it. A name meaning one
+// thing globally and another for a client is not a conflict to reconcile — it
+// is the fact the overlays exist to record.
+const SCOPE_COL={global:'#8b949e',sector:'#58a6ff',client:'#bc8cff',project:'#3fb950'};
+
+async function loadMeanings(){
+  try{
+    const d=await getJSON('/api/v1/ontology/meaning');
+    if(d.overlay_dir)$('onDir').textContent=d.overlay_dir;
+    $('onOverlays').textContent=d.overlays.length
+      ? d.overlays.map(o=>`${o.scope}:${o.id} (${o.entries})`).join(' · ')
+      : 'no overlays found — create ontologies/client/<name>.json to add one';
+    $('onContested').innerHTML='<option value="">— contested names —</option>'
+      +d.contested.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(!d.contested.length){
+      $('onMeaning').innerHTML='<span class="muted">No name is defined in more than one context yet.</span>';
+    }
+  }catch(e){ $('onOverlays').innerHTML=apiError(e); }
+}
+
+async function showMeaning(){
+  const name=$('onContested').value;
+  if(!name){ $('onMeaning').innerHTML='<span class="muted">Pick a name defined in more than one place.</span>'; return; }
+  try{
+    const d=await getJSON('/api/v1/ontology/meaning?name='+encodeURIComponent(name));
+    $('onMeaning').innerHTML=(d.meanings||[]).map(m=>{
+      const col=SCOPE_COL[m.scope]||'#8b949e';
+      return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
+        +`<span style="color:${col}">${esc(m.scope)}:${esc(m.source)}</span> — `
+        +`<b>${esc(m.domain||'?')} × ${esc(m.mode||'?')}</b>`
+        +` <span class="sm muted">${esc(m.category||'')}</span>`
+        +`<div class="sm muted">${esc((m.hints||[]).slice(0,6).join(', '))}</div></div>`;
+    }).join('')||'<span class="muted">no meanings found.</span>';
+  }catch(e){ $('onMeaning').innerHTML=apiError(e); }
+}
+
+$('onContested').onchange=showMeaning;
+
+$('onLoad').onclick=()=>{loadOntology();loadMeanings();};
+$('onSearch').oninput=ontList;
+$('onKind').onchange=ontList;
+$('onUnreach').onchange=ontList;
+document.querySelector('[data-tab="ontology"]').addEventListener('click',()=>{ if(!ONT){loadOntology();loadMeanings();} });
+
+// ── Productized pilot surfaces ─────────────────────────────────────────────
+let plannerState={interpretant:'procurement review',domains:[{name:'SUPPLIER',modes:['DELAY','QUALITY']},{name:'ORDER',modes:['OPEN','CLOSED']}]};
+let plannerTexts=[{id:'note-01',source:'Supplier delay: replacement nozzle ships tomorrow.'},{id:'note-02',source:'Purchase order closed after delivery confirmation.'},{id:'note-03',source:'Quality hold remains unresolved.'}];
+
+function renderPlannerDomains(){
+  const el=$('plannerDomains'); if(!el)return;
+  el.innerHTML=plannerState.domains.map((d,i)=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input value="${esc(d.name)}" disabled style="flex:1;opacity:.7"/><input value="${esc(d.modes.join(', '))}" disabled style="flex:2;opacity:.7"/><button data-i="${i}" class="ghost" style="padding:4px 8px;font-size:11px">×</button></div>`).join('');
+  el.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{ plannerState.domains.splice(+b.dataset.i,1); renderPlannerDomains(); });
+}
+function renderPlannerCorpus(){
+  const el=$('plannerCorpus'); if(!el)return;
+  el.innerHTML=plannerTexts.map((t,i)=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input value="${esc(t.source)}" disabled style="flex:1;opacity:.7"/><button data-i="${i}" class="ghost" style="padding:4px 8px;font-size:11px">×</button></div>`).join('');
+  el.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{ plannerTexts.splice(+b.dataset.i,1); renderPlannerCorpus(); });
+}
+$('plannerAddDomain').onclick=()=>{
+  const name=$('plannerNewDomain').value.trim(); const modes=$('plannerNewModes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!name||!modes.length){ setS('enter domain name and at least one mode',1); return; }
+  plannerState.domains.push({name,modes}); $('plannerNewDomain').value=''; $('plannerNewModes').value=''; renderPlannerDomains(); setS('domain added');
+};
+$('plannerAddText').onclick=()=>{
+  const text=$('plannerNewText').value.trim(); if(!text){ setS('enter some text',1); return; }
+  plannerTexts.push({id:'text-'+(plannerTexts.length+1),source:text}); $('plannerNewText').value=''; renderPlannerCorpus(); setS('text added');
+};
+renderPlannerDomains(); renderPlannerCorpus();
+
+function plannerCard(label,value,hint,kind=''){
+  return `<div class="card"><div class="label">${esc(label)}</div><div class="value ${kind}">${esc(value)}</div><div class="hint">${esc(hint)}</div></div>`;
+}
+async function runPlanner(){
+  const out=$('plannerOut'); out.innerHTML='<span class="muted">replaying corpus against candidate ontology…</span>';setS('simulating…');
+  try{
+    const candidate_ontology=JSON.stringify(plannerState);
+    const texts=plannerTexts.map(t=>({id:t.id,source:t.source}));
+    const d=await postJSON('/api/v1/planner/simulate',{scenario_id:$('plannerScenario').value.trim()||'console-scenario',candidate_ontology,texts,confidence_threshold:Number($('plannerThreshold').value)||.6});
+    out.innerHTML=`<div class="kpi">${plannerCard('Changed',d.changed,'classification moved','warn')}${plannerCard('Unchanged',d.unchanged,'classification held','good')}${plannerCard('Low confidence',d.low_confidence,'needs human review','bad')}${plannerCard('Transitions',(d.transitions||[]).reduce((a,b)=>a+(b.count||0),0),'observed state shifts')}</div>`
+      +`<table><tr><th>Source</th><th>Before</th><th>After</th><th>Score</th></tr>${(d.items||[]).map(i=>`<tr><td>${esc(i.source)}</td><td>${esc(i.before?.domain||'—')} × ${esc(i.before?.mode||'—')}</td><td>${esc(i.after?.domain||'—')} × ${esc(i.after?.mode||'—')}</td><td>${typeof i.after?.score==='number'?i.after.score.toFixed(3):'—'}</td></tr>`).join('')}</table>`;
+    setS('scenario ready');
+  }catch(e){out.innerHTML=apiError(e);setS('simulation failed',1);}
+}
+let adminDocs=[
+  {id:'invoice-1042',path:'/inbox/invoice-1042.pdf',kind:'invoice',fingerprint:'fp-a1',vendor:'Acme Parts',document_number:'1042'},
+  {id:'invoice-1042-copy',path:'/archive/invoice-1042.pdf',kind:'invoice',fingerprint:'fp-a1',vendor:'Acme Parts',document_number:'1042'},
+  {id:'delivery-88',path:'/inbox/delivery-88.pdf',kind:'delivery_note',fingerprint:'fp-b2',vendor:'Acme Parts',document_number:'88'}
+];
+function renderAdminDocs(){
+  const el=$('adminDocsList'); if(!el)return;
+  el.innerHTML=adminDocs.map((d,i)=>`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input value="${esc(d.id)}" disabled style="flex:1;opacity:.7"/><input value="${esc(d.path)}" disabled style="flex:2;opacity:.7"/><span class="muted" style="font-size:11px">${esc(d.kind)}</span><button data-i="${i}" class="ghost" style="padding:4px 8px;font-size:11px">×</button></div>`).join('');
+  el.querySelectorAll('button[data-i]').forEach(b=>b.onclick=()=>{ adminDocs.splice(+b.dataset.i,1); renderAdminDocs(); });
+}
+$('adminAddDoc').onclick=()=>{
+  const id=$('adminDocId').value.trim(); const path=$('adminDocPath').value.trim(); const kind=$('adminDocKind').value;
+  const fingerprint=$('adminDocFingerprint').value.trim(); const vendor=$('adminDocVendor').value.trim(); const document_number=$('adminDocNumber').value.trim();
+  if(!id||!path){ setS('document ID and path are required',1); return; }
+  adminDocs.push({id,path,kind,fingerprint,vendor,document_number});
+  $('adminDocId').value=''; $('adminDocPath').value=''; $('adminDocFingerprint').value=''; $('adminDocVendor').value=''; $('adminDocNumber').value='';
+  renderAdminDocs(); setS('document added');
+};
+renderAdminDocs();
+
+async function runAdmin(){
+  const out=$('adminOut');out.innerHTML='<span class="muted">grouping evidence…</span>';setS('building queue…');
+  try{
+    const docs=adminDocs;const d=await postJSON('/api/v1/admin/review',docs);
+    out.innerHTML=`<div class="kpi">${plannerCard('Documents',d.documents||0,'normalized records')}${plannerCard('Duplicate groups',d.duplicate_groups?.length||0,'clusters to resolve','warn')}${plannerCard('Duplicate records',d.duplicate_documents||0,'held from downstream action','bad')}</div>`
+      +((d.duplicate_groups||[]).map(g=>`<div class="event"><div class="time">DUPLICATE</div><div><div class="title">${esc(g.fingerprint)}</div><div class="meta">${(g.document_ids||[]).map(esc).join(' · ')}</div></div></div>`).join('')||'<p class="muted">No duplicate fingerprints found.</p>');
+    setS('queue ready');
+  }catch(e){out.innerHTML=apiError(e);setS('queue failed',1);}
+}
+$('plannerRun').onclick=runPlanner;$('adminRun').onclick=runAdmin;
+
+syncConnect();
+$('connectBtn').onclick=e=>{ e.stopPropagation(); $('connectWrap').classList.toggle('open'); };
+$('connectSave').onclick=()=>{ save(); syncConnect(); $('connectWrap').classList.remove('open'); setS(live()?'connected':'offline demo'); if(currentTab()==='overview') loadOverview(); };
+$('connectClear').onclick=()=>{ $('token').value=''; save(); syncConnect(); $('connectWrap').classList.remove('open'); setS('offline demo'); loadOverview(); };
+document.addEventListener('click',e=>{ if(!$('connectWrap').contains(e.target)) $('connectWrap').classList.remove('open'); });
+
+function toggleHelp(){ $('help').classList.toggle('show'); $('welcome').classList.remove('show'); }
+$('helpBtn').onclick=toggleHelp;
+$('helpClose').onclick=()=>$('help').classList.remove('show');
+$('coachDismiss').onclick=()=>{ localStorage.setItem('physis_coach_hide','1'); $('coach').hidden=true; };
+$('welcomeDismiss').onclick=()=>{
+  localStorage.setItem('physis_welcome_console','1');
+  $('welcome').classList.remove('show');
+  goTab('overview');
+};
+if(!localStorage.getItem('physis_welcome_console')) $('welcome').classList.add('show');
+showCoach(currentTab());
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ closeOverlays(); return; }
+  if(e.key==='?' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e.target)){
+    e.preventDefault(); toggleHelp(); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault(); goTab('classify'); setTimeout(()=>$('clText').focus(),0); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){
+    const tab=currentTab();
+    if(tab==='classify') $('clRun').click();
+    else if(tab==='planner') runPlanner();
+    else if(tab==='admin') runAdmin();
+    else if(tab==='timeline') runTimeline();
+    else if(tab==='graph') scan();
+    e.preventDefault(); return;
+  }
+  if(!typing(e.target) && e.key>='1' && e.key<='9'){
+    const name=TABS[+e.key-1];
+    if(name){ e.preventDefault(); goTab(name); }
+  }
+});
+
 loadOverview();
-loadRest();
 </script>
 </body>
 </html>
+async function loadBrowser(path){
+  const base = '${window.location.origin}/api/v1/fs/list';
+  const url = path ? base + '?dir=' + encodeURIComponent(path) : base;
+  try{
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const entries = data.entries;
+    const browserPath = $('#browserPath');
+    const browserEntries = $('#browserEntries');
+    const browserUp = $('#browserUp');
+    
+    // Update path display
+    browserPath.textContent = 'Path: ' + data.root;
+    
+    // Show up button if not at root
+    browserUp.style.display = data.parent ? 'inline-block' : 'none';
+    browserUp.onclick = () => loadBrowser(data.parent || '');
+    
+    // Render entries
+    const html = entries.map(ent => {
+      const isDir = ent.kind === 'dir';
+      const icon = isDir ? '📁' : '📄';
+      const cls = isDir ? 'folder' : 'file';
+      return `<div class="browser-entry" data-path="${ent.path}" data-kind="${cls}" style="display:flex;align-items:center;padding:4px 8px;margin:2px 0;border-radius:4px;cursor:${isDir?'pointer':'default'};background:rgba(255,255,255,.03);">
+                <span style="width:20px;">${icon}</span>
+                <span style="flex:1;margin-left:4px;">${ent.name}</span>
+                <span style="color:var(--muted);font-size:11px;">${ent.size !== undefined ? ent.size + ' bytes' : ''}</span>
+              </div>`;
+    }).join('');
+    browserEntries.innerHTML = html || '<div style="color:var(--muted);">No items found</div>';
+    
+    // Click handler for entries
+    browserEntries.querySelectorAll('.browser-entry').forEach(el => {
+      el.onclick = () => {
+        if(el.dataset.kind === 'dir'){
+          loadBrowser(el.dataset.path);
+        } else {
+          $('dir').value = el.dataset.path;
+          $('fileBrowser').style.display = 'none';
+          setS('selected: ' + el.dataset.path, 1);
+        }
+      };
+    });
+  }catch(e){
+    console.error('Browser load failed:', e);
+    setS('Failed to load browser', 1);
+  }
+}
+
+// Initialize drag-and-drop for file browser
+(function(){
+  const fb = $('#fileBrowser');
+  const dirInput = $('dir');
+  const dropZone = fb;
+  
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+  
+  dropZone.addEventListener('dragenter', () => dropZone.style.borderColor = 'var(--accent)');
+  dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '');
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = '';
+    const files = e.dataTransfer.files;
+    if(files.length === 0) return;
+    
+    const file = files[0];
+    if(file.kind !== 'directory') {
+      setS('Drop a folder (directory), not a file', 1);
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const rawPath = text.trim();
+      if(!rawPath) return;
+      
+      const resp = await fetch('${window.location.origin}/api/v1/fs/resolve?name=' + encodeURIComponent(rawPath.split('/').pop()));
+      const data = await resp.json();
+      if(data.matches && data.matches.length > 0){
+        const hit = data.matches[0];
+        $('dir').value = hit.path;
+        $('fileBrowser').style.display = 'none';
+        setS('selected: ' + hit.path, 1);
+      }
+    };
+    reader.readAsText(file);
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = '';
+  });
+})();
+
+// File browser controls
+$('browserUp').onclick = () => {
+  const path = $('#browserPath').textContent.replace('Path: ', '');
+  const parts = path.split('/').filter(p=>p);
+  if(parts.length > 1){
+    const up = parts.slice(0, -1).join('/');
+    loadBrowser(up);
+  }
+};
+
+// Toggle file browser visibility when graph tab activates
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  const tab = b.dataset.tab;
+  if(tab === 'graph'){
+    $('fileBrowser').style.display = 'block';
+    loadBrowser('');
+  } else {
+    $('fileBrowser').style.display = 'none';
+  }
+});
+
+// Select a folder from browser and populate the dir input
+function selectBrowserFolder(path){
+  $('dir').value = path;
+  $('fileBrowser').style.display = 'none';
+  setS('selected: ' + path, 1);
+}
+
+// Handle esc to close browser
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    $('fileBrowser').style.display = 'none';
+  }
+});
+
+// Initial load when page loads - try to restore last selected dir from localStorage
+document.addEventListener('DOMContentLoaded', () => {
+  const savedDir = localStorage.getItem('physis_dir');
+  if(savedDir && $('dir'))$('dir').value = savedDir;
+  if(currentTab() === 'graph'){
+    $('fileBrowser').style.display = 'block';
+    loadBrowser('');
+  }
+});
+
+</script>

@@ -89,6 +89,52 @@ pub struct DiscoveryReport {
     pub auto_retuned: bool,
 }
 
+/// A lightweight, single-text discovery result for interactive classification.
+/// It deliberately proposes a name and hints, but never silently mutates the
+/// ontology; a user must review and install the suggestion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoverySuggestion {
+    pub proposed_name: String,
+    pub hints: Vec<String>,
+    pub nearest_domain: String,
+    pub nearest_mode: String,
+    pub coverage: f32,
+    pub review_required: bool,
+}
+
+pub fn suggest_text(
+    text: &str,
+    embedding: &[f32],
+    clf: &CellClassifier,
+) -> Option<DiscoverySuggestion> {
+    let (coverage, domain, mode) = clf.best_entry_sim(embedding)?;
+    let hints = top_terms(&[text], 6);
+    let proposed_name = if hints.is_empty() {
+        "Unmapped observation".to_string()
+    } else {
+        hints
+            .iter()
+            .take(3)
+            .map(|h| {
+                let mut chars = h.chars();
+                chars
+                    .next()
+                    .map(|c| c.to_uppercase().collect::<String>() + chars.as_str())
+                    .unwrap_or_else(|| h.clone())
+            })
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
+    Some(DiscoverySuggestion {
+        proposed_name,
+        hints,
+        nearest_domain: domain,
+        nearest_mode: mode,
+        coverage,
+        review_required: true,
+    })
+}
+
 /// Tiny stopword list — just enough to keep hints meaningful. Bilingual
 /// because the corpora this runs on are Italian shop floors and English logs.
 const STOPWORDS: &[&str] = &[

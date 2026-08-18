@@ -312,7 +312,7 @@ pub fn compare_node_lists(
     for (i, na) in nodes_a.iter().enumerate() {
         let mut best = 0.0f32;
         let mut best_j = None;
-        for (j, eb) in emb_b.iter().enumerate() {
+        for (j, eb) in emb_b.iter().enumerate().take(nodes_b.len()) {
             let s = cosine_sim(&emb_a[i], eb);
             if s > best {
                 best = s;

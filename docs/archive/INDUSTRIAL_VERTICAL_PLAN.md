@@ -5,7 +5,8 @@
 > prospect (`docs/business/proposta-generalmecannica.md`). LifeOS and
 > agent-memory continue as background arcs; they ride the same engine.
 
-Sequence: **1. multilingual embedder → 2. shift report → 3. proposal/meeting.**
+Sequence: **1. paid shift-report pilot → 2. telemetry/maintenance upsell → 3.
+repeatable plant license.**
 Edge adapters (MQTT/Modbus) deliberately wait for a customer to name their
 machines — no adapter guessing.
 
@@ -73,6 +74,124 @@ sigma scores, RUL warnings, and dream-proposed countermeasures.
 - [x] Demo dataset end-to-end: `examples/shift_report_demo.rs` →
       `docs/business/demo-shift.json` + `docs/business/sample-shift-report.md`
       (real engine output: OEE 67.8%/90.0%, 4.4σ bearing anomaly, RUL ~2h).
+
+## MVP enhancement proposal — close the first customer
+
+The MVP is not a general MES. It is a **shift-loss review service** for one
+plant and one or two machines. The customer can start with a CSV/JSON export or
+manual shift events; live machine integration is an upgrade, not a prerequisite.
+
+### Must ship before selling repeatedly
+
+- [x] Deterministic demo contract: `tests/industrial_demo.rs` validates OEE,
+      anomaly, RUL, and the Italian report together.
+- [x] Browser demo: `/demo` seeds a live shop-floor scenario and refreshes the
+      report from the real engine.
+- [ ] One import shape for the pilot: CSV columns for machine, timestamp,
+      stop reason, stop seconds, good, and scrap, with a downloadable error
+      report.
+- [ ] Customer-ready report identity: plant name, shift/date, author, data
+      coverage, assumptions, and an explicit “decision support, not safety
+      control” notice.
+- [ ] Export and delivery: stable HTML attachment plus a signed JSON evidence
+      payload; email delivery can remain operator-triggered for MVP.
+- [ ] Tenant-safe persisted shift history: the current live OEE board is
+      stateful; the pilot needs a durable shift/plant key before multi-plant
+      deployment.
+
+### Deliberately defer
+
+OPC-UA/PLC adapters, automatic work orders, native PDF generation, dashboards
+for every role, self-serve billing, and broad ontology customization. Ask the
+first customer which protocol and ERP export they actually use before building
+those paths.
+
+### Acceptance test for a paid pilot
+
+Given one week of a customer's shift data, Physis produces a report for every
+shift, identifies the top three loss buckets, flags only baselined anomalies,
+and leaves an auditable input/output record. The buyer signs off when the
+report changes a daily production or maintenance decision—not when a model
+achieves an abstract benchmark.
+
+## Decision Planner — counterfactual semantics
+
+The next differentiating capability is a **Decision Planner**. It lets a user
+test a semantic change before applying it to live operations:
+
+- replace one ontology or ontology overlay with another;
+- compare how a corpus is classified under both versions;
+- show old-cell → new-cell transitions, confidence changes, newly covered and
+  uncovered records, affected reports, and the human review queue;
+- infer possible signifier/interpretant shifts from dated usage, embedding
+  neighborhoods, co-occurrence, and human corrections;
+- keep every scenario isolated until a user explicitly promotes or rejects it.
+
+### Why this matters
+
+Most software treats taxonomy as configuration. In Physis, an ontology changes
+what the organization can see and therefore changes counts, routing, reports,
+and decisions. The planner makes that blast radius visible and auditable.
+
+Example output:
+
+```text
+COUNTERFACTUAL / PROCUREMENT-V2
+1,250 records scanned · 184 meaning transitions · 31 reviews required
+
+“supplier delay” is moving from monitoring to corrective action
+Evidence: 47 records · 8 human corrections · confidence 0.84
+```
+
+### Implementation plan
+
+1. **Scenario model** — immutable base ontology, replacement ontology or
+   overlay, corpus selector, embedder provenance, timestamp, owner, and status
+   (`draft`, `simulated`, `promoted`, `rejected`).
+2. **Sandbox classifier** — build a classifier from the candidate ontology
+   without mutating the live classifier, quality tracker, or tenant graph.
+3. **Impact diff** — reclassify a bounded corpus and return transitions,
+   confidence deltas, coverage gaps, changed aggregates, and representative
+   evidence items.
+4. **Signifier-shift detector** — group dated usages of a term, compare their
+   cells/neighborhoods, and propose an old meaning → emerging meaning change
+   with evidence and confidence. It must remain a hypothesis until reviewed.
+5. **Review and promotion** — accept/reject individual transitions, pin an
+   interpretant, or promote the whole ontology version with a reversible
+   version record.
+6. **Product surface** — a visual before/after planner with a transition table,
+   impact graph, evidence drawer, and explicit Promote / Keep current actions.
+
+### Proposed API
+
+```text
+POST /api/v1/planner/scenario
+POST /api/v1/planner/simulate
+GET  /api/v1/planner/:id
+POST /api/v1/planner/:id/promote
+POST /api/v1/planner/:id/reject
+POST /api/v1/planner/signifier-shifts
+```
+
+### Acceptance criteria
+
+- A replacement ontology never changes live results during simulation.
+- The same corpus and candidate produce a deterministic diff under the same
+  embedder and configuration.
+- Every changed record has old result, new result, confidence delta, and source
+  provenance where available.
+- Signifier-shift proposals include date range, sample count, evidence links,
+  old/new interpretations, and confidence; unsupported shifts are not shown as
+  facts.
+- Promotion is versioned, reversible, and records the approving user.
+
+### Sales demo
+
+Use procurement administration as the demo: invoices, purchase orders,
+delivery notes, and supplier emails are classified under `Procurement v1`, then
+simulated under `Procurement v2`. The prospect sees changed routing, changed
+weekly totals, and the phrase “supplier delay” shifting from monitoring to
+corrective action. This sells Physis as a decision system, not a classifier.
 
 ## Step 3 — Proposal out
 
