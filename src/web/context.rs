@@ -1,8 +1,11 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
 
+/// Ontology discovery (PLAN 1D): which of the supplied texts does the current
+/// grid cover poorly, and what draft entries would cover them? Stateless —
+/// embeds off-thread against the shared classifier; returns the report plus a
+/// ready-to-edit ontology JSON draft.
 pub async fn discover_handler(
     State(state): State<SharedState>,
     Json(req): Json<DiscoverRequest>,
@@ -24,6 +27,10 @@ pub async fn discover_handler(
     Json(serde_json::json!({ "report": report, "ontology_draft": draft }))
 }
 
+/// POST /api/v1/planner/simulate — classify a bounded corpus with the live
+/// ontology and a candidate ontology, then return the counterfactual impact.
+/// The candidate classifier is built inside the request and discarded; live
+/// state, quality feedback, and tenant graphs are never mutated.
 pub async fn planner_simulate_handler(
     State(state): State<SharedState>,
     Json(req): Json<PlannerSimulationRequest>,
@@ -157,6 +164,9 @@ pub async fn translate_handler(
     Json(TranslateResponse { results })
 }
 
+/// Re-read `<data_dir>/config.json` and apply the live-tunable knobs to the
+/// tenant's PDCA actor (stagnation threshold + window). Structural params
+/// (embedder, dim, scan_root) are fixed at startup and need a restart — say so.
 pub async fn config_reload_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -194,6 +204,10 @@ pub async fn config_reload_handler(
     }
 }
 
+/// Nearest nodes to `input` within the caller's tenant. This read the default
+/// tenant's core regardless of `X-Physis-User`, so a client that wrote its nodes
+/// under its own id (aion, praxis) always got an empty reconstruction back —
+/// the write half of the loop worked and the read half silently returned nothing.
 pub async fn reconstruct_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

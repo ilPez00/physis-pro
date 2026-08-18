@@ -1,7 +1,6 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
 
 pub async fn coherence_snapshot_handler(
     State(state): State<SharedState>,
@@ -11,6 +10,9 @@ pub async fn coherence_snapshot_handler(
     Json(state.with_user(&uid, |s| s.core.snapshot()))
 }
 
+/// Recall registered coherence nodes by content similarity — across every
+/// machine that wrote into the shared graph. Unlike `/query` (mapper/ontology
+/// surface), this reads the coherence nodes that `/coherence/register` creates.
 pub async fn coherence_nodes_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -37,6 +39,10 @@ pub async fn coherence_nodes_handler(
     })
 }
 
+/// List ALL coherence nodes for the tenant (id + label + score), capped + sorted
+/// by score desc. Unlike `/coherence/nodes` (similarity search, needs a query),
+/// this enumerates the graph so a client can render/browse it without a query.
+/// Per-tenant — NOT exposed via the public proxy.
 pub async fn coherence_nodes_all_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -98,6 +104,10 @@ pub async fn coherence_register_handler(
     Json(CoherenceRegisterResponse { node_id, asserted })
 }
 
+/// POST /api/v1/coherence/edit — exchange a node's content while keeping its
+/// function (identity + structure). Re-embeds the new label, preserves id /
+/// asserted / edges / provenance, re-derives the cell (auto), applies an
+/// optional pin, and writes the node through to sled.
 pub async fn coherence_edit_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -216,6 +226,12 @@ pub async fn coherence_edit_handler(
     }))
 }
 
+/// GET /api/v1/quality — what the classifier has learned from feedback.
+///
+/// The tracker has always been wired into scoring (`adjust_score` demotes
+/// penalized cells on every classify) but had no reader, so a cell could be
+/// actively suppressed with nothing able to say so. Process-wide, not
+/// per-tenant: the penalties apply to the shared classifier.
 pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityResponse> {
     let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
     Json(QualityResponse {
@@ -225,6 +241,8 @@ pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityRe
     })
 }
 
+/// POST /api/v1/coherence/delete — remove a node and every structure referencing
+/// it (dedupe index, holarchy node + edges, persisted sled row).
 pub async fn coherence_delete_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

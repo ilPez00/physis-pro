@@ -3,6 +3,9 @@ use crate::web::SharedState;
 use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
 use serde::{Deserialize, Serialize};
 
+/// POST /api/v1/spanner/sync — mirror the tenant's coherence graph into Spanner.
+/// Upserts nodes + edges, then (when `mirror`) hard-deletes durable rows that
+/// vanished locally. Returns the mutation counts.
 pub async fn spanner_sync_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -68,6 +71,7 @@ pub async fn spanner_sync_handler(
     }))
 }
 
+/// Upsert nodes + edges (Spanner IO is slow, but sequential here).
 pub async fn join_spanner(
     sink: &crate::spanner::SpannerSink,
     nodes: &[crate::spanner::NodeRow],
@@ -78,6 +82,9 @@ pub async fn join_spanner(
     Ok((n, e))
 }
 
+/// POST /api/v1/spanner/hydrate — pull durable rows back from Spanner and
+/// re-embed their labels under the live embedder into this tenant's core. This
+/// is the "new device / new deploy" recovery path (and the model-swap migrate).
 pub async fn spanner_hydrate_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

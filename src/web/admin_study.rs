@@ -1,16 +1,16 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, response::Response, http::HeaderMap};
 
-pub async fn study_ui_handler() -> Html<&'static str> {
-    Html(include_str!("../bin/ui/study.html"))
-}
-
+/// POST /api/v1/admin/review — group supplied documents into duplicate review
+/// clusters. This is a stateless first step for the administration pilot.
 pub async fn admin_review_handler(Json(documents): Json<Vec<ReviewDocument>>) -> Json<ReviewQueue> {
     Json(review_queue(&documents))
 }
 
+/// Stateless shift report: caller supplies all data (`ShiftReportInput`),
+/// gets Italian Markdown (default) or HTML (`?format=html`) back.
+/// Replica-safe like the other compute routes.
 pub async fn report_shift_compute_handler(
     Query(q): Query<ReportFormatQuery>,
     Json(input): Json<crate::report::ShiftReportInput>,
@@ -18,6 +18,10 @@ pub async fn report_shift_compute_handler(
     report_response(&input, q.format.as_deref())
 }
 
+/// Stateful shift report from the live engine: every machine on the OEE board,
+/// plus accepted/ungraded dream descriptions from the default tenant as
+/// proposed countermeasures. Anomaly/RUL sections come via the stateless POST
+/// (the monitor scores readings as they arrive; it doesn't keep a shift log).
 pub async fn report_shift_live_handler(
     State(state): State<SharedState>,
     Query(q): Query<ReportFormatQuery>,
@@ -48,6 +52,9 @@ pub async fn report_shift_live_handler(
     report_response(&input, q.format.as_deref())
 }
 
+/// POST /api/v1/study/log — persist study events for the caller's tenant. Each
+/// event carries date/time, action (generated/edited/opened/deleted), path,
+/// directory and place. Persisted to sled, capped at the newest 5000.
 pub async fn study_log_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -81,6 +88,8 @@ pub async fn study_log_handler(
     Json(serde_json::json!({ "stored": all.len(), "accepted": accepted }))
 }
 
+/// GET /api/v1/study/session — aggregate the tenant's Study Log into a
+/// `StudySession` (timeline, file-type/dir/action tallies, rhythms).
 pub async fn study_session_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -97,6 +106,7 @@ pub async fn study_session_handler(
     )
 }
 
+/// POST /api/v1/study/clear — wipe the tenant's Study Log (demo reset).
 pub async fn study_clear_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -108,6 +118,8 @@ pub async fn study_clear_handler(
     Json(serde_json::json!({ "cleared": true, "uid": uid }))
 }
 
+/// sled key for a tenant's Study Log. One blob per tenant (newest-capped), so a
+/// student's session history survives restarts and never bleeds across users.
 pub fn study_key(uid: &str) -> String {
     format!("study:log:{uid}")
 }

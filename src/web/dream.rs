@@ -1,7 +1,6 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::HeaderMap};
 
 pub async fn dream_generate_handler(
     State(state): State<SharedState>,
@@ -67,6 +66,17 @@ pub async fn dream_generate_handler(
     })
 }
 
+/// Replay the nodes worth revisiting, named.
+///
+/// `/dream/generate` works over goals, which are pure vectors with no text —
+/// its proposals can only ever say "mutate unknown". `core.dream()` runs over
+/// *coherence nodes*, which carry labels and verdicts, so this is the view that
+/// can actually tell an operator which piece of work is failing. It selects
+/// reported failures first and falls back to sparse neighbourhoods for nodes
+/// nobody has judged (see `PhysisCore::dream`).
+///
+/// A node already in the dream archive is skipped by the engine, so calling
+/// this twice returns the new material rather than repeating itself.
 pub async fn dream_replay_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

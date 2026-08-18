@@ -1,15 +1,9 @@
 use super::*;
 use crate::web::SharedState;
 use crate::web::{WikiIndexRequest, WikiSearchRequest};
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
 
-pub async fn embed_text(shared: Arc<SharedCtx>, text: String) -> Vec<f32> {
-    tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
-        .await
-        .unwrap_or_default()
-}
-
+/// Image (base64) → `embed_image`, else text — off-thread.
 pub async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<String>) -> Vec<f32> {
     tokio::task::spawn_blocking(move || {
         if let Some(b64) = image {
@@ -23,45 +17,6 @@ pub async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<Str
             }
         }
         shared.embedder.embed(&text)
-    })
-    .await
-    .unwrap_or_default()
-}
-
-pub async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> Vec<Vec<f32>> {
-    tokio::task::spawn_blocking(move || {
-        let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
-        shared.embedder.embed_batch(&refs)
-    })
-    .await
-    .unwrap_or_default()
-}
-
-pub async fn embed_scan_labels_cached(
-    shared: Arc<SharedCtx>,
-    texts: Vec<String>,
-) -> (Vec<Vec<f32>>, usize, usize) {
-    tokio::task::spawn_blocking(move || {
-        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
-        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
-        let (hits, misses) = cache.stats();
-        cache.save(&shared.config.data_dir);
-        (embeddings, hits, misses)
-    })
-    .await
-    .unwrap_or_default()
-}
-
-pub async fn embed_texts_cached(
-    shared: Arc<SharedCtx>,
-    texts: Vec<String>,
-) -> (Vec<Vec<f32>>, usize, usize) {
-    tokio::task::spawn_blocking(move || {
-        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
-        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
-        let (hits, misses) = cache.stats();
-        cache.save(&shared.config.data_dir);
-        (embeddings, hits, misses)
     })
     .await
     .unwrap_or_default()
@@ -109,6 +64,14 @@ pub async fn ontology_list_handler(State(state): State<SharedState>) -> Json<Vec
     ])
 }
 
+/// What an item means in each context that defines it.
+///
+/// The point of overlays is that a name is not one thing: "Margin" is a
+/// machining allowance to one client and a profit line to another. This
+/// endpoint answers "what does this mean where?" rather than "what does this
+/// mean", and lists the contested names — those defined in more than one
+/// place — because those are the only ones where the question has an answer
+/// worth reading.
 pub async fn ontology_meaning_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -178,6 +141,9 @@ pub async fn ontology_meaning_handler(
     }))
 }
 
+/// Everything the ontology studio needs in one call: every authored entry,
+/// which ontology it came from, whether classification can reach it, and
+/// whether it carries any facet.
 pub async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<StudioResponse> {
     let s = &state.shared;
     let o = &s.ontology;
@@ -295,6 +261,16 @@ pub async fn ontology_studio_handler(State(state): State<SharedState>) -> Json<S
     })
 }
 
+/// The DOMAIN x MODE grid with the entries that populate each cell.
+///
+/// Built from `all_domains()` — every loaded ontology — rather than a hand-kept
+/// list of collections. The previous version enumerated eight maps by hand and
+/// omitted `custom_domains`, which is where the 20 always-on EXTRA_ONTOLOGIES
+/// land and what `classification_domains()` scores against. The grid therefore
+/// reported 27 of 70 cells populated while `classify` was happily placing text
+/// in the other 43 — e.g. FABRICATE x MAINTAIN ("Machine Maintenance") read as
+/// empty here yet matched real input. `office_domains` and `machine_domains`
+/// were missing for the same reason.
 pub async fn semiotic_grid_handler(State(state): State<SharedState>) -> Json<SemioticGridResponse> {
     let s = &state.shared;
     let mut grid = SemioticGrid::new();
@@ -354,7 +330,13 @@ pub async fn category_diagram_handler(
     Json(CategoryDiagramResponse { mermaid })
 }
 
+/// POST /api/v1/wiki/search — BM25 over an on-disk wiki.
+///
+/// Always mounted. Without `wiki-embedded` it answers with an explicit
+/// "not enabled" body rather than a 404, so a caller can tell a build that
+/// lacks the feature apart from a URL it got wrong.
 pub async fn wiki_search_handler(Json(req): Json<WikiSearchRequest>) -> Json<serde_json::Value> {
+    #[cfg_attr(not(feature = "wiki-embedded"), allow(unused_variables))]
     let root = PathBuf::from(&req.wiki_root);
     #[cfg(feature = "wiki-embedded")]
     match llmwiki_physis::search_bm25(&root, &req.query, req.top_k.unwrap_or(10)) {
@@ -368,7 +350,12 @@ pub async fn wiki_search_handler(Json(req): Json<WikiSearchRequest>) -> Json<ser
     Json(serde_json::json!({ "error": "wiki-embedded feature not enabled", "results": [] }))
 }
 
+/// POST /api/v1/wiki/index — build or refresh the wiki index.
+///
+/// Mounted and answering unconditionally, for the reason given on
+/// [`wiki_search_handler`].
 pub async fn wiki_index_handler(Json(req): Json<WikiIndexRequest>) -> Json<serde_json::Value> {
+    #[cfg_attr(not(feature = "wiki-embedded"), allow(unused_variables))]
     let root = PathBuf::from(&req.wiki_root);
     #[cfg(feature = "wiki-embedded")]
     match llmwiki_physis::index(&root, req.incremental) {
@@ -500,6 +487,8 @@ pub async fn embed_handler(
     Json(EmbedResponse { embedding, dim })
 }
 
+/// Embed a video into the shared space: ffmpeg frame-sample → image-embed each →
+/// temporal mean-pool. Runs on a blocking thread (ffmpeg + N inferences).
 pub async fn embed_video_handler(
     State(state): State<SharedState>,
     Json(req): Json<VideoEmbedRequest>,

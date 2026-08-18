@@ -1,8 +1,8 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::StatusCode};
 
+/// Register a machine / set its shift parameters.
 pub async fn oee_machine_handler(
     State(state): State<SharedState>,
     Json(req): Json<OeeMachineRequest>,
@@ -24,6 +24,7 @@ pub async fn oee_machine_handler(
     })
 }
 
+/// Record a shop-floor event (stop / production / shift start).
 pub async fn oee_event_handler(
     State(state): State<SharedState>,
     Json(ev): Json<OeeEvent>,
@@ -70,6 +71,7 @@ pub async fn oee_event_handler(
     (code, Json(OkResponse { ok, detail }))
 }
 
+/// OEE report for one machine.
 pub async fn oee_machine_report_handler(
     State(state): State<SharedState>,
     Path(machine_id): Path<String>,
@@ -83,10 +85,12 @@ pub async fn oee_machine_report_handler(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
+/// Plant-wide OEE rollup + merged six-big-losses Pareto.
 pub async fn oee_plant_handler(State(state): State<SharedState>) -> Json<PlantOee> {
     Json(state.oee.lock().unwrap_or_else(|e| e.into_inner()).plant())
 }
 
+/// Fold a healthy reading into the machine's baseline (training).
 pub async fn maintenance_observe_handler(
     State(state): State<SharedState>,
     Json(req): Json<ReadingRequest>,
@@ -108,6 +112,7 @@ pub async fn maintenance_observe_handler(
     })
 }
 
+/// Score a live reading; on anomaly, register it as a coherence node.
 pub async fn maintenance_check_handler(
     State(state): State<SharedState>,
     Json(req): Json<ReadingRequest>,
@@ -152,6 +157,7 @@ pub async fn maintenance_check_handler(
     }))
 }
 
+/// Health baseline summary for one machine.
 pub async fn maintenance_baseline_handler(
     State(state): State<SharedState>,
     Path(machine_id): Path<String>,
@@ -166,14 +172,20 @@ pub async fn maintenance_baseline_handler(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
+/// Compute one machine's OEE from a full shift supplied in the body.
+/// Body = an `OeeShift` (`machine_id`, `shift_length_secs`, `ideal_cycle_time_secs`,
+/// `stops[]`, `total_count`, `good_count`).
 pub async fn oee_compute_handler(Json(shift): Json<OeeShift>) -> Json<OeeReport> {
     Json(shift.compute())
 }
 
+/// Roll up a plant OEE from a list of per-machine reports supplied in the body.
 pub async fn oee_rollup_handler(Json(reports): Json<Vec<OeeReport>>) -> Json<PlantOee> {
     Json(plant_oee(&reports))
 }
 
+/// Fold a healthy reading into a baseline and return the updated baseline. The
+/// caller stores the result (replica-safe training).
 pub async fn maintenance_fold_handler(Json(req): Json<FoldRequest>) -> Json<HealthBaseline> {
     let mut baseline = req
         .baseline
@@ -182,11 +194,13 @@ pub async fn maintenance_fold_handler(Json(req): Json<FoldRequest>) -> Json<Heal
     Json(baseline)
 }
 
+/// Score a reading against a caller-supplied baseline (no server state).
 pub async fn maintenance_score_handler(Json(req): Json<ScoreRequest>) -> Json<AnomalyScore> {
     let threshold = req.sigma_threshold.unwrap_or(DEFAULT_SIGMA_THRESHOLD);
     Json(req.baseline.score(&req.reading.to_reading(), threshold))
 }
 
+/// Project time-to-limit from a caller-supplied metric history.
 pub async fn maintenance_rul_handler(Json(req): Json<RulRequest>) -> Json<Option<RulEstimate>> {
     Json(project_time_to_limit(&req.samples, req.limit))
 }

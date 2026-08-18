@@ -1,12 +1,9 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
 
-pub async fn health() -> Json<&'static str> {
-    Json("ok")
-}
-
+/// Reports the live embedder provenance so degraded (random-projection) mode is
+/// observable instead of silent. See PREMORTEM.md P0.
 pub async fn embedder_info_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     let s = &state.shared;
     Json(serde_json::json!({
@@ -143,14 +140,24 @@ pub async fn query_handler(
     })
 }
 
+/// GET /ui — the graph file-manager single-page app (public; calls the
+/// authenticated fs/* endpoints with a token the user pastes in the page).
 pub async fn graph_fm_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/console.html"))
 }
 
+/// The product demo dashboard — a single self-contained page wired to the live
+/// engine: plant OEE, machines, shift report, operational timeline, semiotic
+/// heatmap, holarchy graph, and the classify probes. "Seed demo data" drives
+/// the real endpoints, so everything on screen is computed live in-process.
 pub async fn demo_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/demo.html"))
 }
 
+/// GET /study — the learning / teaching dashboard. A student's Study Log
+/// (timeline in order, files by type/directory, generated-vs-edited split,
+/// chronos study rhythms, place/date context) plus the elenchus argument
+/// trainer where you tag claims/warrants/rebuttals and see the standings.
 pub async fn study_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/study.html"))
 }

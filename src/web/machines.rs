@@ -1,8 +1,8 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::HeaderMap};
 
+/// GET /api/v1/machines — registry of the philosophical machines.
 pub async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
         MachineInfo {
@@ -117,6 +117,9 @@ pub async fn machines_list_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "machines": machines }))
 }
 
+/// POST /api/v1/machines/chronos — reduce timed events to recurrence rhythms,
+/// and partition them into upcoming (due within horizon) and slipping (overdue).
+/// Stateless: nothing is written to the core.
 pub async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<serde_json::Value> {
     use crate::machines::chronos;
 
@@ -168,6 +171,8 @@ pub async fn machines_chronos_handler(Json(req): Json<ChronosRequest>) -> Json<s
     }))
 }
 
+/// POST /api/v1/machines/harmony — reduce a melody to key-invariant intervals
+/// and recurring motifs. Stateless.
 pub async fn machines_harmony_handler(Json(req): Json<HarmonyRequest>) -> Json<serde_json::Value> {
     use crate::machines::harmony;
     let len = req.motif_len.unwrap_or(3);
@@ -179,6 +184,8 @@ pub async fn machines_harmony_handler(Json(req): Json<HarmonyRequest>) -> Json<s
     Json(serde_json::json!({ "intervals": intervals, "motifs": motifs }))
 }
 
+/// POST /api/v1/machines/polis — reduce directed social interactions to
+/// reciprocity-weighted ties; flag strengthening vs fading. Stateless.
 pub async fn machines_polis_handler(Json(req): Json<PolisRequest>) -> Json<serde_json::Value> {
     use crate::machines::polis;
     let interactions: Vec<polis::Interaction> = req
@@ -207,6 +214,9 @@ pub async fn machines_polis_handler(Json(req): Json<PolisRequest>) -> Json<serde
     Json(serde_json::json!({ "ties": all, "strengthening": strengthening, "fading": fading }))
 }
 
+/// POST /api/v1/machines/erosp — Platonic eros (Penia × Poros): reduce directed
+/// reaches to ascending longings; flag ascending (drive + resource) vs hopeless
+/// (drive, no resource). Stateless.
 pub async fn machines_erosp_handler(Json(req): Json<ErospRequest>) -> Json<serde_json::Value> {
     use crate::machines::erosp;
     let reaches = to_eros_reaches(&req.reaches);
@@ -233,6 +243,9 @@ pub async fn machines_erosp_handler(Json(req): Json<ErospRequest>) -> Json<serde
     Json(serde_json::json!({ "longings": all, "ascending": ascending, "hopeless": hopeless }))
 }
 
+/// POST /api/v1/machines/erosa — mythic eros (Ares × Aphrodite): reduce directed
+/// reaches to conquests (valid only as child of love AND strife); flag passionate
+/// (balanced) vs jealous (strife overruns love). Stateless.
 pub async fn machines_erosa_handler(Json(req): Json<ErosaRequest>) -> Json<serde_json::Value> {
     use crate::machines::erosa;
     let reaches = to_eros_reaches(&req.reaches);
@@ -254,6 +267,9 @@ pub async fn machines_erosa_handler(Json(req): Json<ErosaRequest>) -> Json<serde
     Json(serde_json::json!({ "conquests": all, "passionate": passionate, "jealous": jealous }))
 }
 
+/// POST /api/v1/machines/techne — reduce a set of source files to capabilities
+/// and module dependency edges; optionally compute the blast radius of a module.
+/// Stateless.
 pub async fn machines_techne_handler(Json(req): Json<TechneRequest>) -> Json<serde_json::Value> {
     use crate::machines::techne;
     let files: Vec<techne::SourceFile> = req
@@ -280,6 +296,8 @@ pub async fn machines_techne_handler(Json(req): Json<TechneRequest>) -> Json<ser
     Json(serde_json::json!({ "capabilities": caps, "dependencies": deps, "impact": impact }))
 }
 
+/// POST /api/v1/machines/euclid — reduce closed forms to geometric primitives
+/// (Form vs Noise by circularity), and relate them (contained / near). Stateless.
 pub async fn machines_euclid_handler(Json(req): Json<EuclidRequest>) -> Json<serde_json::Value> {
     use crate::machines::euclid;
     let limit = req.circularity_limit.unwrap_or(0.85);
@@ -323,6 +341,9 @@ pub async fn machines_euclid_handler(Json(req): Json<EuclidRequest>) -> Json<ser
     Json(serde_json::json!({ "primitives": reduced, "relations": relations }))
 }
 
+/// POST /api/v1/machines/plutos — reduce transactions to recurring value flows;
+/// compose per-party balances; surface the largest drains and the breaching
+/// (net-negative) parties. Stateless.
 pub async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<serde_json::Value> {
     use crate::machines::plutos;
     let txns: Vec<plutos::Transaction> = req
@@ -361,6 +382,9 @@ pub async fn machines_plutos_handler(Json(req): Json<PlutosRequest>) -> Json<ser
     }))
 }
 
+/// POST /api/v1/machines/krisis — reduce pairwise choices to net preferences,
+/// rank them (Copeland), and flag intransitive cycles (the incoherent taste).
+/// Stateless.
 pub async fn machines_krisis_handler(Json(req): Json<KrisisRequest>) -> Json<serde_json::Value> {
     use crate::machines::krisis;
     let choices: Vec<krisis::Choice> = req
@@ -387,6 +411,8 @@ pub async fn machines_krisis_handler(Json(req): Json<KrisisRequest>) -> Json<ser
     Json(serde_json::json!({ "preferences": prefs_json, "ranking": ranking, "cycles": cycles }))
 }
 
+/// POST /api/v1/machines/pathos — reduce affect episodes to recurring patterns
+/// (flat episodes rejected); mark amplifiers and soothers. Stateless.
 pub async fn machines_pathos_handler(Json(req): Json<PathosRequest>) -> Json<serde_json::Value> {
     use crate::machines::pathos;
     let episodes: Vec<pathos::Episode> = req
@@ -416,6 +442,9 @@ pub async fn machines_pathos_handler(Json(req): Json<PathosRequest>) -> Json<ser
     Json(serde_json::json!({ "affects": all, "amplifiers": amplifiers, "soothers": soothers }))
 }
 
+/// POST /api/v1/machines/chroma — reduce colors to saturated hues (muddy grey
+/// rejected) and relate them on the wheel (complement/analogous/triad/clash).
+/// Stateless.
 pub async fn machines_chroma_handler(Json(req): Json<ChromaRequest>) -> Json<serde_json::Value> {
     use crate::machines::chroma;
     let colors: Vec<chroma::Color> = req
@@ -445,6 +474,8 @@ pub async fn machines_chroma_handler(Json(req): Json<ChromaRequest>) -> Json<ser
     Json(serde_json::json!({ "relations": all, "harmonies": harmonies, "clashes": clashes }))
 }
 
+/// POST /api/v1/machines/kinesis — reduce gesture trajectories to motion gestalts
+/// (sub-threshold jitter rejected); mark reaches and degrading gaits. Stateless.
 pub async fn machines_kinesis_handler(Json(req): Json<KinesisRequest>) -> Json<serde_json::Value> {
     use crate::machines::kinesis;
     let gestures: Vec<kinesis::Gesture> = req
@@ -475,6 +506,8 @@ pub async fn machines_kinesis_handler(Json(req): Json<KinesisRequest>) -> Json<s
     Json(serde_json::json!({ "motions": all, "reaches": reaches, "degrading": degrading }))
 }
 
+/// POST /api/v1/machines/soma — classify training sessions as effort/recovery/
+/// overreaching and compute load drift over a window. Stateless.
 pub async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_json::Value> {
     use crate::machines::soma;
     let sessions: Vec<soma::Session> = req
@@ -503,6 +536,9 @@ pub async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_j
     Json(serde_json::json!({ "sessions": classified, "drift": drift }))
 }
 
+/// POST /api/v1/machines/elenchus — reduce a dialogue to Toulmin claim/warrant/
+/// rebuttal primitives; return each claim's standing + the unsupported/contested
+/// claims to press. Statements with an unknown kind are ignored. Stateless.
 pub async fn machines_elenchus_handler(Json(req): Json<ElenchusRequest>) -> Json<serde_json::Value> {
     use crate::machines::elenchus;
     let statements: Vec<elenchus::Statement> = req
@@ -541,6 +577,9 @@ pub async fn machines_elenchus_handler(Json(req): Json<ElenchusRequest>) -> Json
     }))
 }
 
+/// POST /api/v1/machines/lex — reduce contract clauses to obligation/right/
+/// condition primitives; return unconditional obligations, breach paths for the
+/// given failed conditions, and dangling (undefined) conditions. Stateless.
 pub async fn machines_lex_handler(Json(req): Json<LexRequest>) -> Json<serde_json::Value> {
     use crate::machines::lex;
     let clauses: Vec<lex::Clause> = req
@@ -568,6 +607,13 @@ pub async fn machines_lex_handler(Json(req): Json<LexRequest>) -> Json<serde_jso
     }))
 }
 
+/// POST /api/v1/machines/apodeixis — check Lean proof obligations against the
+/// kernel. Each obligation carries a natural-language `claim` plus a `.lean`
+/// `snippet` (theorem + proof) seeded by a proof-engine model; apodeixis runs
+/// it through the Lean kernel and returns `certified` / `refuted` / `untestable`
+/// verdicts with the kernel's witness. Refuted obligations feed back into the
+/// quality loop as embedded failures — claims beaten by the kernel are recorded,
+/// not just reported.
 pub async fn machines_apodeixis_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -630,6 +676,9 @@ pub async fn machines_apodeixis_handler(
     }))
 }
 
+/// POST /api/v1/machines/empedocles — classify telemetry readings into the four
+/// elements (earth/air/fire/water) and flag stable vs anomaly past threshold;
+/// optional trend slope over a series. Stateless.
 pub async fn machines_empedocles_handler(
     Json(req): Json<EmpedoclesRequest>,
 ) -> Json<serde_json::Value> {
@@ -657,6 +706,9 @@ pub async fn machines_empedocles_handler(
     Json(serde_json::json!({ "readings": readings, "trend": trend }))
 }
 
+/// POST /api/v1/machines/topos — reduce geotagged waypoints to recurring places
+/// (clustered, visited >= min_visits) and flag fading ones (not seen within
+/// stale_days). Stateless.
 pub async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde_json::Value> {
     use crate::machines::topos;
     let waypoints: Vec<topos::Waypoint> = req
