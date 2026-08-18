@@ -103,3 +103,35 @@ physis-core = { version = "0.1", default-features = false } # engine only
 - `cargo publish -p physis-core` (run from the repo root) publishes only the core
   package; the monolith's path dependency means a published `physis-core` will be
   picked up by downstream crates automatically.
+## Free sample & 7‑day trial
+
+A **ready‑to‑run binary** and a **quick‑start guide** are available for download at:
+
+<https://praxisweb.xyz/physis/free-sample>
+
+The download includes:
+
+- `physis-core` compiled binary (`physis-core`) for Linux x86_64 (static,
+  no external dependencies when `default-features = false`).
+- `GETTING_STARTED.md` (the guide you are reading now).
+- A **7‑day trial licence key** (`trial-key.json`) that unlocks all features
+  for 7 days, after which the binary continues to work in “core‑only” mode
+  (deterministic embeddings, classification, ontology loading) but the
+  quality‑feedback and ONNX features are disabled.
+
+**How to use the trial**
+
+```sh
+# 1. Download and extract the zip (or tar.gz) from the link above.
+# 2. Put the binary on your PATH, e.g.
+mv physis-core /usr/local/bin/
+# 3. Run the classification demo
+physis-core classify "first layer adhesion failed on the nozzle"
+# 4. Open the embedded studio
+physis-core studio --port 3000
+# 5. The trial key is automatically accepted; after 7 days the binary will
+#    gracefully downgrade to the free core mode.
+```
+
+If you wish to continue after the trial, purchase a commercial licence via the
+Stripe flow described in `STRIPE_LICENSE_GUIDE.md`.
