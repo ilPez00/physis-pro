@@ -46,7 +46,7 @@ impl DreamEngine {
         Self {
             dreams: Vec::new(),
             dream_contexts: Vec::new(),
-            rng: StdRng::from_entropy(),
+            rng: StdRng::from_os_rng(),
         }
     }
 
@@ -71,7 +71,7 @@ impl DreamEngine {
         let schedule_proposals = scheduler.map(|s| s.dream_proposals()).unwrap_or_default();
 
         for i in 0..batch_size {
-            let roll: f64 = self.rng.gen();
+            let roll: f64 = self.rng.random();
 
             let (dream, context) = if !schedule_proposals.is_empty() && roll < 0.3 {
                 let prop = &schedule_proposals[i % schedule_proposals.len()];
@@ -127,7 +127,7 @@ impl DreamEngine {
         if goals.is_empty() {
             return vec![];
         }
-        let g = &goals[self.rng.gen_range(0..goals.len())];
+        let g = &goals[self.rng.random_range(0..goals.len())];
         let boost = proposal.expected_impact;
         g.embedding.iter().map(|x| x * (1.0 + boost * 0.1)).collect()
     }
@@ -147,9 +147,9 @@ impl DreamEngine {
             .collect();
 
         if stagnant_goals.is_empty() {
-            let g = &goals[self.rng.gen_range(0..goals.len())];
+        let g = &goals[self.rng.random_range(0..goals.len())];
             let embedding: Vec<f32> = g.embedding.iter()
-                .map(|x| x + self.rng.gen::<f32>() * 0.2 - 0.1)
+                .map(|x| x + self.rng.random::<f32>() * 0.2 - 0.1)
                 .collect();
             let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
             let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
@@ -172,7 +172,7 @@ impl DreamEngine {
             (vec, steps)
         } else {
             let vec: Vec<f32> = source.embedding.iter()
-                .map(|x| x + self.rng.gen::<f32>() * 0.3 - 0.15)
+                .map(|x| x + self.rng.random::<f32>() * 0.3 - 0.15)
                 .collect();
             let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
             let vec: Vec<f32> = vec.iter().map(|x| x / norm).collect();
@@ -197,9 +197,9 @@ impl DreamEngine {
         if goals.len() < 2 {
             return self.generate_mutation_dream(goals);
         }
-        let g1 = &goals[self.rng.gen_range(0..goals.len())];
-        let g2 = &goals[self.rng.gen_range(0..goals.len())];
-        let t: f32 = self.rng.gen();
+        let g1 = &goals[self.rng.random_range(0..goals.len())];
+        let g2 = &goals[self.rng.random_range(0..goals.len())];
+        let t: f32 = self.rng.random();
         let embedding: Vec<f32> = g1.embedding.iter()
             .zip(g2.embedding.iter())
             .map(|(a, b)| a * (1.0 - t) + b * t)
@@ -216,10 +216,10 @@ impl DreamEngine {
     }
 
     fn generate_mutation_dream(&mut self, goals: &[Goal]) -> (Dream, DreamContext) {
-        let g = &goals[self.rng.gen_range(0..goals.len())];
-        let noise_std: f32 = 0.1 + self.rng.gen::<f32>() * 0.3;
+        let g = &goals[self.rng.random_range(0..goals.len())];
+        let noise_std: f32 = 0.1 + self.rng.random::<f32>() * 0.3;
         let embedding: Vec<f32> = g.embedding.iter()
-            .map(|x| x + self.rng.gen::<f32>() * noise_std - noise_std * 0.5)
+            .map(|x| x + self.rng.random::<f32>() * noise_std - noise_std * 0.5)
             .collect();
         let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
@@ -230,14 +230,14 @@ impl DreamEngine {
     }
 
     fn extrapolate(&mut self, goals: &[Goal]) -> Dream {
-        let g = &goals[self.rng.gen_range(0..goals.len())];
+        let g = &goals[self.rng.random_range(0..goals.len())];
 
         let dim = g.embedding.len();
         let centroid: Vec<f32> = (0..dim)
             .map(|i| goals.iter().map(|g| g.embedding[i]).sum::<f32>() / goals.len() as f32)
             .collect();
 
-        let factor: f32 = 0.3 + self.rng.gen::<f32>() * 0.5;
+        let factor: f32 = 0.3 + self.rng.random::<f32>() * 0.5;
         let embedding: Vec<f32> = g.embedding.iter()
             .zip(centroid.iter())
             .map(|(a, c)| a + (a - c) * factor)
