@@ -1,7 +1,4 @@
 use super::*;
-use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
 
 pub async fn mcp_sse_handler(
     state: axum::extract::State<Arc<AppCtx>>,

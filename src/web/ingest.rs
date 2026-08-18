@@ -1,8 +1,17 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
 
+/// Hash-cache path for one watched directory.
+///
+/// The cache was a single shared file keyed by *basename*, which made every
+/// sweep interfere with every other: watching directory B reported all of
+/// directory A's files as deleted (they are simply absent from this sweep),
+/// which already dropped their coherence nodes and — once the interpretant
+/// loop landed — would have recorded a refutation against every entry those
+/// files ever matched. Two files sharing a basename across directories
+/// collided outright. One cache per directory scopes the diff to what the
+/// sweep actually looked at.
 pub fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBuf {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -116,6 +125,8 @@ pub async fn scan_handler(
     }))
 }
 
+/// POST /api/v1/sql/scan — read a SQLite table in read-only mode and ingest
+/// only rows whose stable key is new or whose selected content changed.
 pub async fn sql_scan_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -185,6 +196,8 @@ pub async fn sql_scan_handler(
     }))
 }
 
+/// GET /api/v1/sql/schema?database=... — discover SQLite tables and columns
+/// without opening the database for writes.
 pub async fn sql_schema_handler(
     State(state): State<SharedState>,
     Query(req): Query<SqlSchemaRequest>,
@@ -210,6 +223,13 @@ pub async fn sql_schema_handler(
     }))
 }
 
+/// POST /api/v1/sql/postgres/schema — discover public PostgreSQL tables.
+/// Takes the DSN in a **body**, not a query string.
+///
+/// A PostgreSQL DSN embeds the password (`postgres://user:pass@host/db`).
+/// As a query parameter it would be written to access logs, proxy logs,
+/// browser history and `Referer` headers — credential disclosure through
+/// plumbing nobody thinks of as part of the application.
 pub async fn postgres_schema_handler(
     Json(req): Json<PostgresSchemaRequest>,
 ) -> Result<Json<SqlSchemaResponse>, (StatusCode, Json<ErrorResponse>)> {
@@ -219,6 +239,7 @@ pub async fn postgres_schema_handler(
     Ok(Json(SqlSchemaResponse { database: "postgres".into(), tables }))
 }
 
+/// POST /api/v1/sql/postgres/scan — ingest a PostgreSQL public table.
 pub async fn postgres_scan_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -279,6 +300,12 @@ pub async fn postgres_scan_handler(
     }))
 }
 
+/// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
+/// scan_root): diff against the watch hash cache, register new/changed files as
+/// labeled core nodes (shared embedder, persisted), drop nodes for removed
+/// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
+/// thread — call this to catch up immediately or from a cron, then let the
+/// background poller take over.
 pub async fn watch_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -380,6 +407,10 @@ pub async fn watch_handler(
     }))
 }
 
+/// POST /api/v1/vault/import — import a knowledge vault (Obsidian/markdown,
+/// plain text, git log) as labeled core nodes. Same scan-root confinement as
+/// /scan; embedding runs off-thread with the shared embedder so the vault is
+/// recallable by content in the wiki.
 pub async fn vault_import_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -461,6 +492,10 @@ pub async fn vault_import_handler(
     }))
 }
 
+/// POST /api/v1/history/import — import a personal-history export (browser
+/// bookmarks/history, OPML feeds, chat JSONL) as labeled core nodes. Same
+/// scan-root confinement as /scan; each item is embedded off-thread with the
+/// shared embedder so the life-log is recallable by content in the wiki.
 pub async fn history_import_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -528,6 +563,11 @@ pub async fn history_import_handler(
     }))
 }
 
+/// POST /api/v1/praxis/backfill — seed coherence from the real life-log: read a
+/// Praxis export (notebook entries + habit trackers), register each item as a
+/// labeled behavioral node and assert its verdict (success +1 / inert 0 /
+/// failure −1). Same scan-root confinement as the other importers; the verdict
+/// becomes a real assertion the dream loop and PDCA can reason over.
 pub async fn praxis_backfill_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -614,6 +654,7 @@ pub async fn praxis_backfill_handler(
     }))
 }
 
+/// GET /api/v1/fs/graph?dir=… — scan a directory into a theme↔file graph.
 pub async fn fs_graph_handler(
     State(state): State<SharedState>,
     Query(q): Query<FsGraphQuery>,
@@ -793,6 +834,9 @@ pub async fn fs_graph_handler(
     }))
 }
 
+/// POST /api/v1/structsim — flatten two structures into node lists, embed each
+/// node, and match them by cosine. Returns matched pairs + missing/extra fields
+/// + overall similarity. Both paths are sandboxed to scan_root.
 pub async fn structsim_handler(
     State(state): State<SharedState>,
     Json(req): Json<StructSimRequest>,
@@ -830,6 +874,7 @@ pub async fn structsim_handler(
     Ok(Json(graph))
 }
 
+/// GET /api/v1/fs/file?path=… — sandboxed text preview (first 16 KB).
 pub async fn fs_file_handler(
     State(state): State<SharedState>,
     Query(q): Query<FsFileQuery>,
@@ -857,6 +902,8 @@ pub async fn fs_file_handler(
     }))
 }
 
+/// POST /api/v1/fs/move {from,to} — sandboxed rename within scan_root. Refuses
+/// to escape the root, overwrite an existing target, or move a directory.
 pub async fn fs_move_handler(
     State(state): State<SharedState>,
     Json(req): Json<FsMoveRequest>,

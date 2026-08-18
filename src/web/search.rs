@@ -1,8 +1,10 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
 
+/// POST /api/v1/rag/retrieve — scan a sandboxed dir, embed each doc, and return
+/// the chunks whose packed token total stays within `tokens`. Deterministic and
+/// overflow-proof.
 pub async fn rag_retrieve_handler(
     State(state): State<SharedState>,
     Json(req): Json<RagRequest>,
@@ -49,6 +51,10 @@ pub async fn rag_retrieve_handler(
     })))
 }
 
+/// POST /api/v1/search/nodes — budget-bounded similarity search over coherence +
+/// goal nodes. The query is embedded once; node/goal labels are ranked by cosine
+/// to it, then greedily packed until the running token total would exceed the
+/// budget (or `top_k` is reached). The response is therefore token-fixed.
 pub async fn search_nodes_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

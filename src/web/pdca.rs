@@ -1,7 +1,6 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
 
 pub async fn ingest_prompt_handler(
     State(state): State<SharedState>,
@@ -200,6 +199,10 @@ pub async fn schedule_recompute_handler(
     })
 }
 
+/// Stateless CPM: caller supplies the full task list, gets the computed schedule
+/// back. Holds no server state, so it behaves identically across replicas and on
+/// a redeploy (unlike the in-memory `/schedule/*` routes above, which are
+/// single-instance/local only).
 pub async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -> Json<ScheduleResult> {
     Json(compute_schedule(
         &req.tasks,
@@ -208,6 +211,7 @@ pub async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -
     ))
 }
 
+/// Insert or replace a LifeOS goal in the caller's tenant.
 pub async fn lifeos_goal_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -226,6 +230,7 @@ pub async fn lifeos_goal_handler(
     Json(serde_json::json!({ "status": "ok", "id": id, "replaced": replaced }))
 }
 
+/// Update a goal's progress.
 pub async fn lifeos_progress_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -250,6 +255,7 @@ pub async fn lifeos_progress_handler(
     (code, Json(serde_json::json!({ "ok": ok, "id": req.id })))
 }
 
+/// Current goals + schedule-drift snapshot (replaces the old outbound push).
 pub async fn lifeos_status_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -269,6 +275,7 @@ pub async fn lifeos_status_handler(
     })
 }
 
+/// Set the current bioenergetic charge (Praxis derives it from check-ins).
 pub async fn lifeos_charge_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -285,6 +292,9 @@ pub async fn lifeos_charge_handler(
     Json(serde_json::json!({ "ok": true }))
 }
 
+/// Charge-governed "today": goals matched to current charge + a bioenergetic
+/// countermeasure when depleted/drifting. The keystone of the bioenergetics↔
+/// lifeos merge.
 pub async fn lifeos_today_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

@@ -1,4 +1,11 @@
 use physis_core::embed::VectorEmbed as _;
+use crate::config::{EmbedderKindConfig, PhysisConfig};
+#[cfg(feature = "embed-onnx")]
+use crate::embed::clip::ClipEmbedder;
+#[cfg(feature = "embed-onnx")]
+use crate::embed::jina::JinaEmbedder;
+#[cfg(feature = "embed-onnx")]
+use crate::embed::onnx::OnnxEmbedder;
 
 /// Load an ONNX session, logging the actual `ort` error on failure instead of
 /// swallowing it. A returned `None` plus a `warn!` line tells the operator
@@ -198,111 +205,6 @@ pub mod jina;
 #[cfg(feature = "embed-onnx")]
 pub mod registry;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_embed_deterministic() {
-        let embedder = RandomProjectionEmbedder::new(64);
-        let v1 = embedder.embed("hello world");
-        let v2 = embedder.embed("hello world");
-        assert_eq!(v1, v2, "same input must produce same vector");
-    }
-
-    #[test]
-    fn test_embed_different_inputs_differ() {
-        let embedder = RandomProjectionEmbedder::new(64);
-        let v1 = embedder.embed("hello");
-        let v2 = embedder.embed("world");
-        assert_ne!(v1, v2, "different inputs must produce different vectors");
-    }
-
-    #[test]
-    fn test_embed_normalized() {
-        let embedder = RandomProjectionEmbedder::new(64);
-        let v = embedder.embed("test string");
-        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "vector must be unit normalized, got {norm}");
-    }
-
-    #[test]
-    fn test_embed_dimension() {
-        let embedder = RandomProjectionEmbedder::new(128);
-        let v = embedder.embed("dim test");
-        assert_eq!(v.len(), 128, "embedding dimension must match constructor");
-    }
-
-    #[test]
-    fn test_embed_empty_string() {
-        let embedder = RandomProjectionEmbedder::new(64);
-        let v = embedder.embed("");
-        assert_eq!(v.len(), 64);
-        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "empty string must produce normalized vector");
-    }
-
-    #[test]
-    fn test_embed_batch() {
-        let embedder = RandomProjectionEmbedder::new(64);
-        let texts = &["first", "second", "third"];
-        let batch = embedder.embed_batch(texts);
-        assert_eq!(batch.len(), 3);
-        for (i, text) in texts.iter().enumerate() {
-            let single = embedder.embed(text);
-            assert_eq!(batch[i], single, "batch[{i}] must match single embed");
-        }
-    }
-}
-
-use crate::config::{EmbedderKindConfig, PhysisConfig};
-#[cfg(feature = "embed-onnx")]
-use crate::embed::clip::ClipEmbedder;
-#[cfg(feature = "embed-onnx")]
-use crate::embed::jina::JinaEmbedder;
-#[cfg(feature = "embed-onnx")]
-use crate::embed::onnx::OnnxEmbedder;
-
-/// Resolve a bundled model directory by name, searching the places it can
-/// legitimately live.
-///
-/// The cascade used to name these as bare relative paths (`models/bge-base…`),
-/// which resolve against the *working directory*. That works when running from
-/// the repo root and nowhere else: an installed binary invoked from a user's
-/// project directory found no model, fell through the cascade, and landed on
-/// [`RandomProjectionEmbedder`] — plausible-looking scores over pure noise,
-/// with no error. Searching an explicit list makes the installed layout work
-/// without breaking the dev one.
-///
-/// Order, first hit wins:
-/// 1. `PHYSIS_MODELS` — explicit override, for unusual deployments.
-/// 2. `MODEL_DIR` — conventional service-unit override (the model root).
-/// 3. `./models/<name>` — running from the repo, which developers expect.
-/// 4. `<data_dir>/models/<name>` — where the installer puts them.
-///
-/// Falls back to the relative path when nothing exists, so the caller's
-/// `is_available()` check reports a missing model exactly as before.
-#[cfg(feature = "embed-onnx")]
-fn model_dir(config: &PhysisConfig, name: &str) -> String {
-    use std::path::PathBuf;
-
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Some(root) = std::env::var_os("PHYSIS_MODELS") {
-        candidates.push(PathBuf::from(root).join(name));
-    }
-    if let Some(root) = std::env::var_os("MODEL_DIR") {
-        candidates.push(PathBuf::from(root).join(name));
-    }
-    candidates.push(PathBuf::from("models").join(name));
-    candidates.push(config.data_dir.join("models").join(name));
-
-    candidates
-        .iter()
-        .find(|p| p.exists())
-        .unwrap_or(&candidates[candidates.len() - 2])
-        .to_string_lossy()
-        .into_owned()
-}
 
 /// Pick the best available embedder, self-test gated.
 ///
@@ -428,4 +330,104 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
         }
         #[cfg(not(feature = "embed-onnx"))]
         (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
+}
+
+
+
+/// Resolve a bundled model directory by name, searching the places it can
+/// legitimately live.
+///
+/// The cascade used to name these as bare relative paths (`models/bge-base…`),
+/// which resolve against the *working directory*. That works when running from
+/// the repo root and nowhere else: an installed binary invoked from a user's
+/// project directory found no model, fell through the cascade, and landed on
+/// [`RandomProjectionEmbedder`] — plausible-looking scores over pure noise,
+/// with no error. Searching an explicit list makes the installed layout work
+/// without breaking the dev one.
+///
+/// Order, first hit wins:
+/// 1. `PHYSIS_MODELS` — explicit override, for unusual deployments.
+/// 2. `MODEL_DIR` — conventional service-unit override (the model root).
+/// 3. `./models/<name>` — running from the repo, which developers expect.
+/// 4. `<data_dir>/models/<name>` — where the installer puts them.
+///
+/// Falls back to the relative path when nothing exists, so the caller's
+/// `is_available()` check reports a missing model exactly as before.
+#[cfg(feature = "embed-onnx")]
+fn model_dir(config: &PhysisConfig, name: &str) -> String {
+    use std::path::PathBuf;
+
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(root) = std::env::var_os("PHYSIS_MODELS") {
+        candidates.push(PathBuf::from(root).join(name));
+    }
+    if let Some(root) = std::env::var_os("MODEL_DIR") {
+        candidates.push(PathBuf::from(root).join(name));
+    }
+    candidates.push(PathBuf::from("models").join(name));
+    candidates.push(config.data_dir.join("models").join(name));
+
+    candidates
+        .iter()
+        .find(|p| p.exists())
+        .unwrap_or(&candidates[candidates.len() - 2])
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_embed_deterministic() {
+        let embedder = RandomProjectionEmbedder::new(64);
+        let v1 = embedder.embed("hello world");
+        let v2 = embedder.embed("hello world");
+        assert_eq!(v1, v2, "same input must produce same vector");
+    }
+
+    #[test]
+    fn test_embed_different_inputs_differ() {
+        let embedder = RandomProjectionEmbedder::new(64);
+        let v1 = embedder.embed("hello");
+        let v2 = embedder.embed("world");
+        assert_ne!(v1, v2, "different inputs must produce different vectors");
+    }
+
+    #[test]
+    fn test_embed_normalized() {
+        let embedder = RandomProjectionEmbedder::new(64);
+        let v = embedder.embed("test string");
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-5, "vector must be unit normalized, got {norm}");
+    }
+
+    #[test]
+    fn test_embed_dimension() {
+        let embedder = RandomProjectionEmbedder::new(128);
+        let v = embedder.embed("dim test");
+        assert_eq!(v.len(), 128, "embedding dimension must match constructor");
+    }
+
+    #[test]
+    fn test_embed_empty_string() {
+        let embedder = RandomProjectionEmbedder::new(64);
+        let v = embedder.embed("");
+        assert_eq!(v.len(), 64);
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 1e-5, "empty string must produce normalized vector");
+    }
+
+    #[test]
+    fn test_embed_batch() {
+        let embedder = RandomProjectionEmbedder::new(64);
+        let texts = &["first", "second", "third"];
+        let batch = embedder.embed_batch(texts);
+        assert_eq!(batch.len(), 3);
+        for (i, text) in texts.iter().enumerate() {
+            let single = embedder.embed(text);
+            assert_eq!(batch[i], single, "batch[{i}] must match single embed");
+        }
+    }
 }

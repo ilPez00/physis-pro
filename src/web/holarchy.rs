@@ -1,7 +1,6 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
 
 pub async fn holarchy_ingest_handler(
     State(state): State<SharedState>,
@@ -11,6 +10,9 @@ pub async fn holarchy_ingest_handler(
     Json(serde_json::json!({ "status": "pushed_to_ring" }))
 }
 
+/// Assert a relation between two coherence nodes (machines compose graphs, not
+/// just nodes). Bridges both endpoints, then adds a holarchy edge. 404 if either
+/// id is unknown in the tenant.
 pub async fn holarchy_edge_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -31,6 +33,13 @@ pub async fn holarchy_edge_handler(
     }
 }
 
+/// Node/edge counts for the caller's tenant.
+///
+/// This read the default tenant unconditionally while `/holarchy/edge` writes
+/// through `with_user`, so an edge asserted by aion or praxis returned
+/// `edge_added` and then showed up in nobody's snapshot — the write landed in
+/// the tenant's graph and every reader looked at `_default`. Callers that send
+/// no header still get `_default`, so the previous behaviour is unchanged.
 pub async fn holarchy_snapshot_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -57,6 +66,13 @@ pub async fn holarchy_trajectory_handler(
     })
 }
 
+/// Labelled neighbours of a coherence node — the walkable view of the holarchy.
+///
+/// `/holarchy/graph` exports `RawNodeKey`s, which are packed slotmap handles: a
+/// client can see that an edge exists but not what it joins, so a graph *walk*
+/// was impossible without this. Edges are treated as undirected here because
+/// browsing asks "what is this connected to", not "which way did the assertion
+/// point".
 pub async fn holarchy_neighbors_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -89,6 +105,8 @@ pub async fn holarchy_neighbors_handler(
     Json(out)
 }
 
+/// Full graph export for the caller's tenant (same tenancy fix as the snapshot
+/// above: writes were per-tenant, this read was not).
 pub async fn holarchy_graph_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

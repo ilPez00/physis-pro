@@ -1,8 +1,10 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State, Request}, response::{IntoResponse, Response}, http::{StatusCode, HeaderMap}, routing::{get, post}};
-use serde::{Deserialize, Serialize};
+use axum::{extract::{Json, Query, State}, http::StatusCode};
 
+/// GET /api/v1/axes — current axes: the builtin values derived from the live
+/// ontology entries, plus any installed (promoted) axes with their time-decayed
+/// activation and lineage.
 pub async fn axes_list_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     let shared = state.shared.clone();
     let derived = tokio::task::spawn_blocking(move || {
@@ -32,6 +34,10 @@ pub async fn axes_list_handler(State(state): State<SharedState>) -> Json<serde_j
     Json(serde_json::json!({ "builtin": derived, "installed": installed }))
 }
 
+/// POST /api/v1/axes/discover — propose NEW axis values (a new domain or mode)
+/// from texts that no existing axis can name (axis-orphans), clustered. Anchors
+/// include both the builtin derived axes AND installed ones, so a promoted axis's
+/// region is no longer orphaned. Each proposal carries its lineage. No grid mutation.
 pub async fn axes_discover_handler(
     State(state): State<SharedState>,
     Json(req): Json<AxesDiscoverRequest>,
@@ -59,6 +65,9 @@ pub async fn axes_discover_handler(
     Json(serde_json::json!({ "role": role, "proposals": proposals }))
 }
 
+/// POST /api/v1/axes/promote — install a proposed axis. The anchor is the centroid
+/// of the (re-embedded) sample texts. Refuses any axis without its cause: samples
+/// AND operator are required (the Phase 6 lineage invariant). Persisted to sled.
 pub async fn axes_promote_handler(
     State(state): State<SharedState>,
     Json(req): Json<AxesPromoteRequest>,
@@ -139,6 +148,8 @@ pub async fn axes_promote_handler(
     )
 }
 
+/// POST /api/v1/axes/demote — archive an installed axis (kept for provenance, not
+/// deleted — exactly as failure nodes are kept). Persisted.
 pub async fn axes_demote_handler(
     State(state): State<SharedState>,
     Json(req): Json<AxesDemoteRequest>,
@@ -162,6 +173,9 @@ pub async fn axes_demote_handler(
     }
 }
 
+/// GET /api/v1/axes/lineage?id=… — the cause of an installed axis: who installed
+/// it, the source texts that earned it, and when. An axis with no lineage is
+/// inadmissible — this is how you audit one.
 pub async fn axes_lineage_handler(
     State(state): State<SharedState>,
     Query(q): Query<AxesLineageQuery>,

@@ -157,6 +157,10 @@ async fn planner_simulates_without_mutating_live_state_and_admin_groups_duplicat
             "mode": "WORK",
             "axis_kind": "office",
             "axis_name": "finance",
+            // Required by `OntologyEntry`, and present on all 929 entries in
+            // the shipped ontologies. Omitting it here made the endpoint answer
+            // 400 rather than exercising the planner at all.
+            "unit": "invoices",
             "hints": ["invoice", "supplier", "review"]
         }]
     });

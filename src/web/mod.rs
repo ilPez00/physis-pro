@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use axum::{
-    extract::{ConnectInfo, Path, Query, Request, State},
+    extract::{ConnectInfo, Path, Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
@@ -78,6 +78,10 @@ mod wiki_semiotic;
 mod context;
 mod ui_chat;
 
+/// Read-only context built once at startup, shared by every request WITHOUT
+/// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
+/// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
+/// or the healthcheck. See PREMORTEM.md P1.
 pub struct SharedCtx {
     config: PhysisConfig,
     cascade: Arc<ProviderCascade>,
@@ -291,39 +295,6 @@ pub(crate) fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
     }
     tracker
 }
-
-/// Image (base64) → `embed_image`, else text — off-thread.
-
-
-
-/// Batch-embed off-thread via `embed_batch` (one hop; embedders that truly batch
-/// — e.g. a single ONNX run — get the throughput).
-
-
-
-/// Embed scan labels through the persistent content-addressed cache. The
-/// cache key includes the active embedder and dimension, so a model change
-/// invalidates old vectors automatically.
-
-
-
-/// Embed arbitrary source texts through the same persistent content-addressed
-/// cache. SQL rows use their content here, not merely their display label.
-
-
-
-/// Hash-cache path for one watched directory.
-///
-/// The cache was a single shared file keyed by *basename*, which made every
-/// sweep interfere with every other: watching directory B reported all of
-/// directory A's files as deleted (they are simply absent from this sweep),
-/// which already dropped their coherence nodes and — once the interpretant
-/// loop landed — would have recorded a refutation against every entry those
-/// files ever matched. Two files sharing a basename across directories
-/// collided outright. One cache per directory scopes the diff to what the
-/// sweep actually looked at.
-
-
 
 /// Fold file events into per-entry salience.
 ///
@@ -719,6 +690,8 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
+    /// Fresh per-tenant session state. Shares nothing mutable with other users;
+    /// the embedder/classifier/cascade/ontology live in SharedCtx and stay global.
     fn new(max: usize, window: Duration) -> Self {
         RateLimiter {
             max,
@@ -824,11 +797,6 @@ async fn health() -> Json<&'static str> {
     Json("ok")
 }
 
-/// Reports the live embedder provenance so degraded (random-projection) mode is
-/// observable instead of silent. See PREMORTEM.md P0.
-
-
-
 // ── /api/v1/chat ─────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -893,61 +861,6 @@ pub(crate) fn last_user_text(messages: &[Message]) -> String {
 
 
 
-/// POST /api/v1/sql/scan — read a SQLite table in read-only mode and ingest
-/// only rows whose stable key is new or whose selected content changed.
-
-
-
-/// GET /api/v1/sql/schema?database=... — discover SQLite tables and columns
-/// without opening the database for writes.
-
-
-
-/// POST /api/v1/sql/postgres/schema — discover public PostgreSQL tables.
-/// Takes the DSN in a **body**, not a query string.
-///
-/// A PostgreSQL DSN embeds the password (`postgres://user:pass@host/db`).
-/// As a query parameter it would be written to access logs, proxy logs,
-/// browser history and `Referer` headers — credential disclosure through
-/// plumbing nobody thinks of as part of the application.
-
-
-
-/// POST /api/v1/sql/postgres/scan — ingest a PostgreSQL public table.
-
-
-
-/// POST /api/v1/watch — one incremental ingest sweep over `dir` (confined to
-/// scan_root): diff against the watch hash cache, register new/changed files as
-/// labeled core nodes (shared embedder, persisted), drop nodes for removed
-/// files, advance the cache. On-demand twin of the PHYSIS_WATCH_DIR background
-/// thread — call this to catch up immediately or from a cron, then let the
-/// background poller take over.
-
-
-
-/// POST /api/v1/vault/import — import a knowledge vault (Obsidian/markdown,
-/// plain text, git log) as labeled core nodes. Same scan-root confinement as
-/// /scan; embedding runs off-thread with the shared embedder so the vault is
-/// recallable by content in the wiki.
-
-
-
-/// POST /api/v1/history/import — import a personal-history export (browser
-/// bookmarks/history, OPML feeds, chat JSONL) as labeled core nodes. Same
-/// scan-root confinement as /scan; each item is embedded off-thread with the
-/// shared embedder so the life-log is recallable by content in the wiki.
-
-
-
-/// POST /api/v1/praxis/backfill — seed coherence from the real life-log: read a
-/// Praxis export (notebook entries + habit trackers), register each item as a
-/// labeled behavioral node and assert its verdict (success +1 / inert 0 /
-/// failure −1). Same scan-root confinement as the other importers; the verdict
-/// becomes a real assertion the dream loop and PDCA can reason over.
-
-
-
 // ── Spanner Graph sink (Phase 7C) ───────────────────────────────────────────
 // Durable-memory mirror: push a tenant's coherence graph up, or pull durable
 // rows back and re-embed them under the live embedder. Off the hot path — call
@@ -1002,9 +915,6 @@ pub struct SpannerHydrateResponse {
     re_embedded: usize,
 }
 
-/// POST /api/v1/spanner/hydrate — pull durable rows back from Spanner and
-/// re-embed their labels under the live embedder into this tenant's core. This
-/// is the "new device / new deploy" recovery path (and the model-swap migrate).
 // ── Graph file manager (backs the /ui page) ─────────────────────────────────
 // fs/graph: scan a sandboxed dir → theme↔file semantic graph (FileThemeGraph),
 // embeddings stripped. fs/file: sandboxed text preview. fs/move: sandboxed
@@ -1092,10 +1002,6 @@ pub struct FsGraphResponse {
     file_edges: Vec<FsSimEdge>,
 }
 
-/// GET /api/v1/fs/graph?dir=… — scan a directory into a theme↔file graph.
-
-
-
 // ── structsim: compare two data structures node-by-node by vector similarity ──
 
 #[derive(Deserialize)]
@@ -1112,12 +1018,6 @@ pub struct StructSimRequest {
 pub(crate) fn default_struct_threshold() -> f32 {
     0.5
 }
-
-/// POST /api/v1/structsim — flatten two structures into node lists, embed each
-/// node, and match them by cosine. Returns matched pairs + missing/extra fields
-/// + overall similarity. Both paths are sandboxed to scan_root.
-
-
 
 /// Flatten arbitrary text into nodes: JSON if it parses, else struct text.
 pub(crate) fn flatten_any(text: &str) -> Vec<StructNode> {
@@ -1151,12 +1051,6 @@ pub(crate) fn default_rag_topk() -> usize {
     8
 }
 
-/// POST /api/v1/rag/retrieve — scan a sandboxed dir, embed each doc, and return
-/// the chunks whose packed token total stays within `tokens`. Deterministic and
-/// overflow-proof.
-
-
-
 #[derive(Deserialize)]
 pub struct FsFileQuery {
     path: String,
@@ -1169,10 +1063,6 @@ pub struct FsFileResponse {
     truncated: bool,
     content: String,
 }
-
-/// GET /api/v1/fs/file?path=… — sandboxed text preview (first 16 KB).
-
-
 
 #[derive(Deserialize)]
 pub struct FsMoveRequest {
@@ -1187,33 +1077,6 @@ pub struct FsMoveResponse {
     moved: bool,
 }
 
-/// POST /api/v1/fs/move {from,to} — sandboxed rename within scan_root. Refuses
-/// to escape the root, overwrite an existing target, or move a directory.
-
-
-
-/// GET /ui — the graph file-manager single-page app (public; calls the
-/// authenticated fs/* endpoints with a token the user pastes in the page).
-
-
-
-/// The product demo dashboard — a single self-contained page wired to the live
-/// engine: plant OEE, machines, shift report, operational timeline, semiotic
-/// heatmap, holarchy graph, and the classify probes. "Seed demo data" drives
-/// the real endpoints, so everything on screen is computed live in-process.
-
-
-
-/// GET /study — the learning / teaching dashboard. A student's Study Log
-/// (timeline in order, files by type/directory, generated-vs-edited split,
-/// chronos study rhythms, place/date context) plus the elenchus argument
-/// trainer where you tag claims/warrants/rebuttals and see the standings.
-
-
-
-
-
-
 #[derive(Serialize)]
 pub struct DreamReplayEntry {
     node_id: String,
@@ -1225,32 +1088,6 @@ pub struct DreamReplayEntry {
     prevented_failure: bool,
 }
 
-/// Replay the nodes worth revisiting, named.
-///
-/// `/dream/generate` works over goals, which are pure vectors with no text —
-/// its proposals can only ever say "mutate unknown". `core.dream()` runs over
-/// *coherence nodes*, which carry labels and verdicts, so this is the view that
-/// can actually tell an operator which piece of work is failing. It selects
-/// reported failures first and falls back to sparse neighbourhoods for nodes
-/// nobody has judged (see `PhysisCore::dream`).
-///
-/// A node already in the dream archive is skipped by the engine, so calling
-/// this twice returns the new material rather than repeating itself.
-
-
-
-
-
-
-
-
-
-/// Recall registered coherence nodes by content similarity — across every
-/// machine that wrote into the shared graph. Unlike `/query` (mapper/ontology
-/// surface), this reads the coherence nodes that `/coherence/register` creates.
-
-
-
 #[derive(Serialize)]
 pub struct QualityResponse {
     /// Per-cell learned penalty, keyed `domain\0mode`. `adjust_score` already
@@ -1260,21 +1097,6 @@ pub struct QualityResponse {
     boosts: std::collections::HashMap<String, f32>,
     /// How many failures have been reported, of any kind.
     failures: usize,
-}
-
-/// GET /api/v1/quality — what the classifier has learned from feedback.
-///
-/// The tracker has always been wired into scoring (`adjust_score` demotes
-/// penalized cells on every classify) but had no reader, so a cell could be
-/// actively suppressed with nothing able to say so. Process-wide, not
-/// per-tenant: the penalties apply to the shared classifier.
-async fn quality_handler(State(state): State<SharedState>) -> Json<QualityResponse> {
-    let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
-    Json(QualityResponse {
-        penalties: quality.cell_penalties.clone(),
-        boosts: quality.cell_boosts.clone(),
-        failures: quality.failures.len(),
-    })
 }
 
 /// How hard one pin disagreement pushes against the cell the classifier chose.
@@ -1302,16 +1124,6 @@ pub(crate) fn auto_cell(shared: &SharedCtx, node: &CoherenceNode) -> Option<(Str
         .first()
         .map(|c| (c.domain.clone(), c.mode.clone()))
 }
-
-/// List ALL coherence nodes for the tenant (id + label + score), capped + sorted
-/// by score desc. Unlike `/coherence/nodes` (similarity search, needs a query),
-/// this enumerates the graph so a client can render/browse it without a query.
-/// Per-tenant — NOT exposed via the public proxy.
-
-
-
-
-
 
 // ── Coherence node editing ("exchange parts") ───────────────────────────────
 // Semiotic editing of a *single* data node: swap the content (label → re-embed)
@@ -1374,22 +1186,10 @@ pub struct CoherenceEditResponse {
     coherence_score: Score,
 }
 
-/// POST /api/v1/coherence/edit — exchange a node's content while keeping its
-/// function (identity + structure). Re-embeds the new label, preserves id /
-/// asserted / edges / provenance, re-derives the cell (auto), applies an
-/// optional pin, and writes the node through to sled.
-
-
-
 #[derive(Deserialize)]
 pub struct CoherenceDeleteRequest {
     id: String,
 }
-
-/// POST /api/v1/coherence/delete — remove a node and every structure referencing
-/// it (dedupe index, holarchy node + edges, persisted sled row).
-
-
 
 // ── Fixed-token node search ──────────────────────────────────────────────────
 // Search the tenant's coherence + goal nodes under a hard token budget: results
@@ -1435,13 +1235,6 @@ pub struct SearchNodesResponse {
     results: Vec<SearchNodeHit>,
 }
 
-/// POST /api/v1/search/nodes — budget-bounded similarity search over coherence +
-/// goal nodes. The query is embedded once; node/goal labels are ranked by cosine
-/// to it, then greedily packed until the running token total would exceed the
-/// budget (or `top_k` is reached). The response is therefore token-fixed.
-
-
-
 #[derive(Deserialize)]
 pub struct OeeMachineRequest {
     machine_id: String,
@@ -1454,10 +1247,6 @@ pub struct OkResponse {
     ok: bool,
     detail: String,
 }
-
-/// Register a machine / set its shift parameters.
-
-
 
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -1481,18 +1270,6 @@ pub enum OeeEvent {
     /// Start a fresh shift (zero counts + stops, keep config).
     StartShift { machine_id: String },
 }
-
-/// Record a shop-floor event (stop / production / shift start).
-
-
-
-/// OEE report for one machine.
-
-
-
-/// Plant-wide OEE rollup + merged six-big-losses Pareto.
-
-
 
 // ── Predictive maintenance ───────────────────────────────────────────────────
 // Learn a per-machine health baseline from readings the operator marks healthy,
@@ -1549,10 +1326,6 @@ impl ReadingRequest {
     }
 }
 
-/// Fold a healthy reading into the machine's baseline (training).
-
-
-
 #[derive(Serialize)]
 pub struct MaintenanceCheckResponse {
     score: AnomalyScore,
@@ -1564,14 +1337,6 @@ pub struct MaintenanceCheckResponse {
     coherence_node_id: Option<String>,
 }
 
-/// Score a live reading; on anomaly, register it as a coherence node.
-
-
-
-/// Health baseline summary for one machine.
-
-
-
 // ── Stateless compute (replica-safe; works online + locally identically) ─────────
 // The in-memory board/monitor above holds state in ONE process — fine locally, but
 // in a multi-replica cloud deploy each request may hit a different replica, so the
@@ -1579,12 +1344,6 @@ pub struct MaintenanceCheckResponse {
 // the caller (e.g. Praxis/Postgres) persists the shift / baseline / history and
 // passes it in. Same compute as the stateful path (shared `oee`/`maintenance`
 // modules), just no server state.
-
-/// Compute one machine's OEE from a full shift supplied in the body.
-/// Body = an `OeeShift` (`machine_id`, `shift_length_secs`, `ideal_cycle_time_secs`,
-/// `stops[]`, `total_count`, `good_count`).
-
-
 
 #[derive(Deserialize)]
 pub struct ReportFormatQuery {
@@ -1615,38 +1374,6 @@ pub struct DiscoverRequest {
     kind: Option<String>,
 }
 
-/// Ontology discovery (PLAN 1D): which of the supplied texts does the current
-/// grid cover poorly, and what draft entries would cover them? Stateless —
-/// embeds off-thread against the shared classifier; returns the report plus a
-/// ready-to-edit ontology JSON draft.
-
-
-
-/// POST /api/v1/planner/simulate — classify a bounded corpus with the live
-/// ontology and a candidate ontology, then return the counterfactual impact.
-/// The candidate classifier is built inside the request and discarded; live
-/// state, quality feedback, and tenant graphs are never mutated.
-
-
-
-/// POST /api/v1/admin/review — group supplied documents into duplicate review
-/// clusters. This is a stateless first step for the administration pilot.
-
-
-
-/// Stateless shift report: caller supplies all data (`ShiftReportInput`),
-/// gets Italian Markdown (default) or HTML (`?format=html`) back.
-/// Replica-safe like the other compute routes.
-
-
-
-/// Stateful shift report from the live engine: every machine on the OEE board,
-/// plus accepted/ungraded dream descriptions from the default tenant as
-/// proposed countermeasures. Anomaly/RUL sections come via the stateless POST
-/// (the monitor scores readings as they arrive; it doesn't keep a shift log).
-
-
-
 #[derive(Deserialize)]
 pub struct OperationalTimelineRequest {
     events: Vec<OperationalEvent>,
@@ -1664,36 +1391,12 @@ const OPERATIONAL_TIMELINE_DEMO: &str =
 
 
 
-/// POST /api/v1/study/log — persist study events for the caller's tenant. Each
-/// event carries date/time, action (generated/edited/opened/deleted), path,
-/// directory and place. Persisted to sled, capped at the newest 5000.
-
-
-
-/// GET /api/v1/study/session — aggregate the tenant's Study Log into a
-/// `StudySession` (timeline, file-type/dir/action tallies, rhythms).
-
-
-
-/// POST /api/v1/study/clear — wipe the tenant's Study Log (demo reset).
-
-
-
-/// Roll up a plant OEE from a list of per-machine reports supplied in the body.
-
-
-
 #[derive(Deserialize)]
 pub struct FoldRequest {
     /// Prior baseline (omit/null to start fresh). Persist the returned one.
     baseline: Option<HealthBaseline>,
     reading: ReadingRequest,
 }
-
-/// Fold a healthy reading into a baseline and return the updated baseline. The
-/// caller stores the result (replica-safe training).
-
-
 
 #[derive(Deserialize)]
 pub struct ScoreRequest {
@@ -1702,28 +1405,11 @@ pub struct ScoreRequest {
     sigma_threshold: Option<f32>,
 }
 
-/// Score a reading against a caller-supplied baseline (no server state).
-
-
-
 #[derive(Deserialize)]
 pub struct RulRequest {
     samples: Vec<Sample>,
     limit: f64,
 }
-
-/// Project time-to-limit from a caller-supplied metric history.
-
-
-
-
-
-
-
-
-
-
-
 
 /// sled key for a tenant's goals. One blob per tenant rather than one key per
 /// goal: goals are a bounded working set (the PDCA plan), not an unbounded
@@ -1744,25 +1430,6 @@ pub(crate) fn load_goals(db: &sled::Db, uid: &str) -> Vec<Goal> {
         .and_then(|v| serde_json::from_slice::<Vec<Goal>>(&v).ok())
         .unwrap_or_default()
 }
-
-/// sled key for a tenant's Study Log. One blob per tenant (newest-capped), so a
-/// student's session history survives restarts and never bleeds across users.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #[derive(Deserialize)]
 pub struct AddTaskRequest {
@@ -1793,20 +1460,9 @@ pub struct ScheduleComputeRequest {
     domain: Option<String>,
 }
 
-/// Stateless CPM: caller supplies the full task list, gets the computed schedule
-/// back. Holds no server state, so it behaves identically across replicas and on
-/// a redeploy (unlike the in-memory `/schedule/*` routes above, which are
-/// single-instance/local only).
-
-
-
 // ── LifeOS (native goal/habit tracking) ──────────────────────────────────────
 // Goals live in-engine (per tenant) — physis owns them rather than pulling from
 // an external Praxis/Agora service. Push goals in, poll status/drift out.
-
-/// Insert or replace a LifeOS goal in the caller's tenant.
-
-
 
 #[derive(Deserialize)]
 pub struct LifeOsProgressRequest {
@@ -1814,34 +1470,16 @@ pub struct LifeOsProgressRequest {
     progress: f32,
 }
 
-/// Update a goal's progress.
-
-
-
 #[derive(Serialize)]
 pub struct LifeOsStatus {
     goals: Vec<LifeOSGoal>,
     drift: DriftReport,
 }
 
-/// Current goals + schedule-drift snapshot (replaces the old outbound push).
-
-
-
 #[derive(Deserialize)]
 pub struct ChargeRequest {
     charge: Charge,
 }
-
-/// Set the current bioenergetic charge (Praxis derives it from check-ins).
-
-
-
-/// Charge-governed "today": goals matched to current charge + a bioenergetic
-/// countermeasure when depleted/drifting. The keystone of the bioenergetics↔
-/// lifeos merge.
-
-
 
 #[derive(Serialize)]
 pub struct ConfigReloadResponse {
@@ -1850,19 +1488,6 @@ pub struct ConfigReloadResponse {
     pdca_window: usize,
     note: String,
 }
-
-/// Re-read `<data_dir>/config.json` and apply the live-tunable knobs to the
-/// tenant's PDCA actor (stagnation threshold + window). Structural params
-/// (embedder, dim, scan_root) are fixed at startup and need a restart — say so.
-
-
-
-/// Nearest nodes to `input` within the caller's tenant. This read the default
-/// tenant's core regardless of `X-Physis-User`, so a client that wrote its nodes
-/// under its own id (aion, praxis) always got an empty reconstruction back —
-/// the write half of the loop worked and the read half silently returned nothing.
-
-
 
 // ── Holarchy Handlers ───────────────────────────────────────────────
 
@@ -1888,25 +1513,6 @@ pub(crate) fn default_edge_weight() -> f32 {
     1.0
 }
 
-/// Assert a relation between two coherence nodes (machines compose graphs, not
-/// just nodes). Bridges both endpoints, then adds a holarchy edge. 404 if either
-/// id is unknown in the tenant.
-
-
-
-/// Node/edge counts for the caller's tenant.
-///
-/// This read the default tenant unconditionally while `/holarchy/edge` writes
-/// through `with_user`, so an edge asserted by aion or praxis returned
-/// `edge_added` and then showed up in nobody's snapshot — the write landed in
-/// the tenant's graph and every reader looked at `_default`. Callers that send
-/// no header still get `_default`, so the previous behaviour is unchanged.
-
-
-
-
-
-
 #[derive(Serialize)]
 pub struct GraphResponse {
     nodes: Vec<(crate::graph::RawNodeKey, crate::graph::NodePayload)>,
@@ -1927,21 +1533,6 @@ pub struct NeighborEdge {
     #[serde(skip_serializing_if = "Option::is_none")]
     asserted: Option<Score>,
 }
-
-/// Labelled neighbours of a coherence node — the walkable view of the holarchy.
-///
-/// `/holarchy/graph` exports `RawNodeKey`s, which are packed slotmap handles: a
-/// client can see that an edge exists but not what it joins, so a graph *walk*
-/// was impossible without this. Edges are treated as undirected here because
-/// browsing asks "what is this connected to", not "which way did the assertion
-/// point".
-
-
-
-/// Full graph export for the caller's tenant (same tenancy fix as the snapshot
-/// above: writes were per-tenant, this read was not).
-
-
 
 // ── Semiotic / Ontology Handlers ──────────────────────────────────
 
@@ -1992,40 +1583,10 @@ pub struct MeaningParams {
     name: Option<String>,
 }
 
-/// What an item means in each context that defines it.
-///
-/// The point of overlays is that a name is not one thing: "Margin" is a
-/// machining allowance to one client and a profit line to another. This
-/// endpoint answers "what does this mean where?" rather than "what does this
-/// mean", and lists the contested names — those defined in more than one
-/// place — because those are the only ones where the question has an answer
-/// worth reading.
-
-
-
-/// Everything the ontology studio needs in one call: every authored entry,
-/// which ontology it came from, whether classification can reach it, and
-/// whether it carries any facet.
-
-
-
 #[derive(Serialize)]
 pub struct SemioticGridResponse {
     cells: Vec<serde_json::Value>,
 }
-
-/// The DOMAIN x MODE grid with the entries that populate each cell.
-///
-/// Built from `all_domains()` — every loaded ontology — rather than a hand-kept
-/// list of collections. The previous version enumerated eight maps by hand and
-/// omitted `custom_domains`, which is where the 20 always-on EXTRA_ONTOLOGIES
-/// land and what `classification_domains()` scores against. The grid therefore
-/// reported 27 of 70 cells populated while `classify` was happily placing text
-/// in the other 43 — e.g. FABRICATE x MAINTAIN ("Machine Maintenance") read as
-/// empty here yet matched real input. `office_domains` and `machine_domains`
-/// were missing for the same reason.
-
-
 
 #[derive(Serialize)]
 pub struct SemioticTriangleResponse {
@@ -2071,20 +1632,26 @@ pub struct CategoryDiagramResponse {
 
 
 // ── Wiki (in-process Tantivy BM25; replaces the llmwiki subprocess) ──────────
+//
+// Only `wiki_root` is read without the `wiki-embedded` feature, but the bodies
+// are still parsed so a request is rejected on its shape rather than on the
+// build, and the response can say which of the two went wrong.
 
 #[derive(Deserialize)]
 pub struct WikiSearchRequest {
+    #[cfg_attr(not(feature = "wiki-embedded"), allow(dead_code))]
     query: String,
     wiki_root: String,
     #[serde(default)]
+    #[cfg_attr(not(feature = "wiki-embedded"), allow(dead_code))]
     top_k: Option<usize>,
 }
-
 
 #[derive(Deserialize)]
 pub struct WikiIndexRequest {
     wiki_root: String,
     #[serde(default)]
+    #[cfg_attr(not(feature = "wiki-embedded"), allow(dead_code))]
     incremental: bool,
 }
 
@@ -2250,11 +1817,6 @@ pub struct VideoEmbedResponse {
 
 
 
-/// Embed a video into the shared space: ffmpeg frame-sample → image-embed each →
-/// temporal mean-pool. Runs on a blocking thread (ffmpeg + N inferences).
-
-
-
 // ── Main ──────────────────────────────────────────────────────────────
 
 /// Parse `PHYSIS_RATE_LIMIT` ("N/WINDOW_SECONDS", e.g. "60/60" = 60 req/min).
@@ -2287,24 +1849,9 @@ async fn embed_text(shared: Arc<SharedCtx>, text: String) -> Vec<f32> {
         .unwrap_or_default()
 }
 
-async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<String>) -> Vec<f32> {
-    tokio::task::spawn_blocking(move || {
-        if let Some(b64) = image {
-            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b64) {
-                if let Some(v) = shared.embedder.embed_image(&bytes) {
-                    return v;
-                }
-                log::warn!("image embedding unavailable; falling back to text");
-            } else {
-                log::warn!("base64 decode failed; falling back to text");
-            }
-        }
-        shared.embedder.embed(&text)
-    })
-    .await
-    .unwrap_or_default()
-}
-
+/// Embed scan labels through the persistent content-addressed cache. The
+/// cache key includes the active embedder and dimension, so a model change
+/// invalidates old vectors automatically.
 async fn embed_scan_labels_cached(
     shared: Arc<SharedCtx>,
     texts: Vec<String>,
@@ -2320,6 +1867,8 @@ async fn embed_scan_labels_cached(
     .unwrap_or_default()
 }
 
+/// Embed arbitrary source texts through the same persistent content-addressed
+/// cache. SQL rows use their content here, not merely their display label.
 async fn embed_texts_cached(
     shared: Arc<SharedCtx>,
     texts: Vec<String>,
@@ -2335,6 +1884,8 @@ async fn embed_texts_cached(
     .unwrap_or_default()
 }
 
+/// Batch-embed off-thread via `embed_batch` (one hop; embedders that truly batch
+/// — e.g. a single ONNX run — get the throughput).
 async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> Vec<Vec<f32>> {
     tokio::task::spawn_blocking(move || {
         let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
@@ -2344,6 +1895,16 @@ async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> V
     .unwrap_or_default()
 }
 
+/// Hash-cache path for one watched directory.
+///
+/// The cache was a single shared file keyed by *basename*, which made every
+/// sweep interfere with every other: watching directory B reported all of
+/// directory A's files as deleted (they are simply absent from this sweep),
+/// which already dropped their coherence nodes and — once the interpretant
+/// loop landed — would have recorded a refutation against every entry those
+/// files ever matched. Two files sharing a basename across directories
+/// collided outright. One cache per directory scopes the diff to what the
+/// sweep actually looked at.
 fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBuf {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -2351,6 +1912,15 @@ fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBu
     data_dir.join(format!("watch_hash_cache_{:016x}.json", h.finish()))
 }
 
+/// Build the fully wired application: shared state plus the router.
+///
+/// Split out of `main` so `tests/` can exercise the HTTP surface without
+/// binding a port. Every wiring bug found in this codebase — the rate limiter
+/// never layered in, handlers reading the wrong tenant, a missing persistence
+/// call site — lived here and was invisible to the engine tests.
+///
+/// Set `PHYSIS_EMBEDDER=random-projection` for a fast start when the vectors'
+/// semantics do not matter (tests, cold-start smoke checks).
 pub async fn build_app() -> Result<(SharedState, Router), String> {
     dotenvy::dotenv().ok();
 
@@ -3011,8 +2581,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/axes/demote", post(axes::axes_demote_handler))
         .route("/api/v1/axes/lineage", get(axes::axes_lineage_handler));
 
-    // In-process wiki routes (Tantivy BM25) — only when compiled with the feature.
-    #[cfg(feature = "wiki-embedded")]
+    // In-process wiki routes (Tantivy BM25). Mounted unconditionally: the
+    // handlers answer "wiki-embedded feature not enabled" when the feature is
+    // off, which tells a caller more than a 404 would.
     let protected = protected
         .route("/api/v1/wiki/search", post(wiki_semiotic::wiki_search_handler))
         .route("/api/v1/wiki/index", post(wiki_semiotic::wiki_index_handler));
@@ -3100,10 +2671,6 @@ pub struct MachineInfo {
     status: &'static str,
 }
 
-/// GET /api/v1/machines — registry of the philosophical machines.
-
-
-
 #[derive(Deserialize)]
 pub struct ChronosEvent {
     label: String,
@@ -3120,23 +2687,12 @@ pub struct ChronosRequest {
     tolerance: Option<f64>,
 }
 
-/// POST /api/v1/machines/chronos — reduce timed events to recurrence rhythms,
-/// and partition them into upcoming (due within horizon) and slipping (overdue).
-/// Stateless: nothing is written to the core.
-
-
-
 #[derive(Deserialize)]
 pub struct HarmonyRequest {
     notes: Vec<i32>,
     #[serde(default)]
     motif_len: Option<usize>,
 }
-
-/// POST /api/v1/machines/harmony — reduce a melody to key-invariant intervals
-/// and recurring motifs. Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct PolisInteraction {
@@ -3155,11 +2711,6 @@ pub struct PolisRequest {
     #[serde(default)]
     max_reciprocity: Option<f32>,
 }
-
-/// POST /api/v1/machines/polis — reduce directed social interactions to
-/// reciprocity-weighted ties; flag strengthening vs fading. Stateless.
-
-
 
 /// A directed reaching — the shared perception of both eros machines.
 #[derive(Deserialize)]
@@ -3198,18 +2749,6 @@ pub(crate) fn to_eros_reaches(reaches: &[ErosReach]) -> Vec<crate::machines::ero
         .collect()
 }
 
-/// POST /api/v1/machines/erosp — Platonic eros (Penia × Poros): reduce directed
-/// reaches to ascending longings; flag ascending (drive + resource) vs hopeless
-/// (drive, no resource). Stateless.
-
-
-
-/// POST /api/v1/machines/erosa — mythic eros (Ares × Aphrodite): reduce directed
-/// reaches to conquests (valid only as child of love AND strife); flag passionate
-/// (balanced) vs jealous (strife overruns love). Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct TechneFile {
     path: String,
@@ -3224,12 +2763,6 @@ pub struct TechneRequest {
     #[serde(default)]
     impact_target: Option<String>,
 }
-
-/// POST /api/v1/machines/techne — reduce a set of source files to capabilities
-/// and module dependency edges; optionally compute the blast radius of a module.
-/// Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct EuclidPrimitive {
@@ -3255,11 +2788,6 @@ pub struct EuclidRequest {
     near: Option<f32>,
 }
 
-/// POST /api/v1/machines/euclid — reduce closed forms to geometric primitives
-/// (Form vs Noise by circularity), and relate them (contained / near). Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct PlutosTransaction {
     from: String,
@@ -3276,12 +2804,6 @@ pub struct PlutosRequest {
     min_total: Option<f32>,
 }
 
-/// POST /api/v1/machines/plutos — reduce transactions to recurring value flows;
-/// compose per-party balances; surface the largest drains and the breaching
-/// (net-negative) parties. Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct KrisisChoice {
     over: String,
@@ -3292,12 +2814,6 @@ pub struct KrisisChoice {
 pub struct KrisisRequest {
     choices: Vec<KrisisChoice>,
 }
-
-/// POST /api/v1/machines/krisis — reduce pairwise choices to net preferences,
-/// rank them (Copeland), and flag intransitive cycles (the incoherent taste).
-/// Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct PathosEpisode {
@@ -3315,11 +2831,6 @@ pub struct PathosRequest {
     flat: Option<f32>,
 }
 
-/// POST /api/v1/machines/pathos — reduce affect episodes to recurring patterns
-/// (flat episodes rejected); mark amplifiers and soothers. Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct ChromaColor {
     r: u8,
@@ -3335,12 +2846,6 @@ pub struct ChromaRequest {
     #[serde(default)]
     tol: Option<f32>,
 }
-
-/// POST /api/v1/machines/chroma — reduce colors to saturated hues (muddy grey
-/// rejected) and relate them on the wheel (complement/analogous/triad/clash).
-/// Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct KinesisPoint {
@@ -3365,11 +2870,6 @@ pub struct KinesisRequest {
     drop: Option<f32>,
 }
 
-/// POST /api/v1/machines/kinesis — reduce gesture trajectories to motion gestalts
-/// (sub-threshold jitter rejected); mark reaches and degrading gaits. Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct SomaSession {
     day: u32,
@@ -3384,11 +2884,6 @@ pub struct SomaRequest {
     #[serde(default)]
     window: Option<usize>,
 }
-
-/// POST /api/v1/machines/soma — classify training sessions as effort/recovery/
-/// overreaching and compute load drift over a window. Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct ElenchusStatement {
@@ -3405,12 +2900,6 @@ pub struct ElenchusStatement {
 pub struct ElenchusRequest {
     statements: Vec<ElenchusStatement>,
 }
-
-/// POST /api/v1/machines/elenchus — reduce a dialogue to Toulmin claim/warrant/
-/// rebuttal primitives; return each claim's standing + the unsupported/contested
-/// claims to press. Statements with an unknown kind are ignored. Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct LexClause {
@@ -3431,12 +2920,6 @@ pub struct LexRequest {
     failed: Vec<String>,
 }
 
-/// POST /api/v1/machines/lex — reduce contract clauses to obligation/right/
-/// condition primitives; return unconditional obligations, breach paths for the
-/// given failed conditions, and dangling (undefined) conditions. Stateless.
-
-
-
 #[derive(Deserialize)]
 pub struct ApodeixisOb {
     id: String,
@@ -3451,16 +2934,6 @@ pub struct ApodeixisRequest {
     #[serde(default)]
     timeout_secs: Option<u64>,
 }
-
-/// POST /api/v1/machines/apodeixis — check Lean proof obligations against the
-/// kernel. Each obligation carries a natural-language `claim` plus a `.lean`
-/// `snippet` (theorem + proof) seeded by a proof-engine model; apodeixis runs
-/// it through the Lean kernel and returns `certified` / `refuted` / `untestable`
-/// verdicts with the kernel's witness. Refuted obligations feed back into the
-/// quality loop as embedded failures — claims beaten by the kernel are recorded,
-/// not just reported.
-
-
 
 #[derive(Deserialize)]
 pub struct EmpedoclesReading {
@@ -3478,12 +2951,6 @@ pub struct EmpedoclesRequest {
     #[serde(default)]
     series: Option<Vec<f32>>,
 }
-
-/// POST /api/v1/machines/empedocles — classify telemetry readings into the four
-/// elements (earth/air/fire/water) and flag stable vs anomaly past threshold;
-/// optional trend slope over a series. Stateless.
-
-
 
 #[derive(Deserialize)]
 pub struct ToposWaypoint {
@@ -3507,12 +2974,6 @@ pub struct ToposRequest {
     stale_days: Option<i64>,
 }
 
-/// POST /api/v1/machines/topos — reduce geotagged waypoints to recurring places
-/// (clustered, visited >= min_visits) and flag fading ones (not seen within
-/// stale_days). Stateless.
-
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Dynamic axis expansion (Phase 6). Read + propose + promote/demote/lineage.
 // Installed axes are persisted (sled) and merged as anchors for the axis layer;
@@ -3526,12 +2987,6 @@ pub(crate) fn parse_axis_role(role: &Option<String>) -> crate::axes::AxisRole {
     }
 }
 
-/// GET /api/v1/axes — current axes: the builtin values derived from the live
-/// ontology entries, plus any installed (promoted) axes with their time-decayed
-/// activation and lineage.
-
-
-
 #[derive(Deserialize)]
 pub struct AxesDiscoverRequest {
     texts: Vec<String>,
@@ -3542,13 +2997,6 @@ pub struct AxesDiscoverRequest {
     #[serde(default)]
     tau: Option<f32>,
 }
-
-/// POST /api/v1/axes/discover — propose NEW axis values (a new domain or mode)
-/// from texts that no existing axis can name (axis-orphans), clustered. Anchors
-/// include both the builtin derived axes AND installed ones, so a promoted axis's
-/// region is no longer orphaned. Each proposal carries its lineage. No grid mutation.
-
-
 
 #[derive(Deserialize)]
 pub struct AxesPromoteRequest {
@@ -3565,21 +3013,10 @@ pub struct AxesPromoteRequest {
     world_scope: Option<String>,
 }
 
-/// POST /api/v1/axes/promote — install a proposed axis. The anchor is the centroid
-/// of the (re-embedded) sample texts. Refuses any axis without its cause: samples
-/// AND operator are required (the Phase 6 lineage invariant). Persisted to sled.
-
-
-
 #[derive(Deserialize)]
 pub struct AxesDemoteRequest {
     id: String,
 }
-
-/// POST /api/v1/axes/demote — archive an installed axis (kept for provenance, not
-/// deleted — exactly as failure nodes are kept). Persisted.
-
-
 
 #[derive(Deserialize)]
 pub struct AxesLineageQuery {
