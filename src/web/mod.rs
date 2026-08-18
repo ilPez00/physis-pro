@@ -86,42 +86,42 @@ mod ui_chat;
 /// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
 /// or the healthcheck. See PREMORTEM.md P1.
 pub struct SharedCtx {
-    config: PhysisConfig,
-    cascade: Arc<ProviderCascade>,
-    ontology: OntologyLoader,
-    embedder: Box<dyn VectorEmbed>,
+    pub(crate) config: PhysisConfig,
+    pub(crate) cascade: Arc<ProviderCascade>,
+    pub(crate) ontology: OntologyLoader,
+    pub(crate) embedder: Box<dyn VectorEmbed>,
     /// Pre-computed per-cell centroids + classification logic.
-    classifier: CellClassifier,
-    embed_dim: usize,
+    pub(crate) classifier: CellClassifier,
+    pub(crate) embed_dim: usize,
     /// Which embedder kind actually loaded (provenance of every vector).
-    embedder_kind: &'static str,
+    pub(crate) embedder_kind: &'static str,
     /// True when no real ONNX model loaded and vectors are random-projection noise.
-    degraded: bool,
+    pub(crate) degraded: bool,
     /// Whether the embedder passed the semantic self-test at startup (P4).
-    self_test: bool,
+    pub(crate) self_test: bool,
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
-    ingest: Arc<IngestRing>,
+    pub(crate) ingest: Arc<IngestRing>,
     /// Explicit opt-in for loopback auth bypass. When false, the server refuses
     /// to start without tokens even on loopback, so an unauthenticated API can
     /// never be exposed accidentally. See PREMORTEM.md P6.
-    dev_mode: bool,
+    pub(crate) dev_mode: bool,
     /// Bearer tokens + their roles. Empty table is only allowed when `dev_mode`
     /// is true and the bind is loopback. See src/rbac.rs for the role model
     /// (viewer/editor/admin) enforced by `require_auth`.
-    tokens: crate::rbac::TokenTable,
+    pub(crate) tokens: crate::rbac::TokenTable,
 }
 
 /// Mutable runtime state behind a single mutex. Kept small and cheap to mutate so
 /// the lock is never held across embedding/inference — only across state writes.
 pub struct RuntimeState {
-    core: PhysisCore,
-    mapper: OntologyMapper,
-    actor: PDCActor,
-    dreams: DreamEngine,
-    goals: Vec<Goal>,
-    scheduler: GanttScheduler,
-    lifeos: LifeOSTracker,
+    pub(crate) core: PhysisCore,
+    pub(crate) mapper: OntologyMapper,
+    pub(crate) actor: PDCActor,
+    pub(crate) dreams: DreamEngine,
+    pub(crate) goals: Vec<Goal>,
+    pub(crate) scheduler: GanttScheduler,
+    pub(crate) lifeos: LifeOSTracker,
 }
 
 impl RuntimeState {
@@ -146,21 +146,21 @@ impl RuntimeState {
 }
 
 pub struct AppCtx {
-    shared: Arc<SharedCtx>,
+    pub(crate) shared: Arc<SharedCtx>,
     /// The "_default" tenant. Holarchy background threads drive this one, and
     /// any request without an X-Physis-User header falls here (back-compat).
-    state: Mutex<RuntimeState>,
+    pub(crate) state: Mutex<RuntimeState>,
     /// Per-user session state (goals / PDCA / dreams / coherence), created on
     /// first use and keyed by the X-Physis-User header. The holarchy stays
     /// global (single ingest/sensory pipeline), so a tenant is an isolated
     /// reasoning session, not a separate knowledge graph.
-    tenants: Mutex<HashMap<String, RuntimeState>>,
+    pub(crate) tenants: Mutex<HashMap<String, RuntimeState>>,
     /// Live-reloadable scan-root guard (the only `/scan` path confinement).
     /// Behind an RwLock so `/config/reload` can repoint it without a restart —
     /// reads are a cheap shared lock and `/scan` isn't a hot path. (The embedder
     /// stays fixed at startup: changing embed_dim live would corrupt every stored
     /// vector, and it's read lock-free on the hot path — see PREMORTEM P1.)
-    scan_root: std::sync::RwLock<PathBuf>,
+    pub(crate) scan_root: std::sync::RwLock<PathBuf>,
     /// Accumulated interpretant evidence, owned rather than re-read per request.
     ///
     /// It was loaded from disk, mutated and written back inside each handler,
@@ -169,29 +169,29 @@ pub struct AppCtx {
     /// makes read-modify-write atomic within the process, and also stops
     /// `/classify` re-reading the whole file on every call. Entries are keyed
     /// by tenant, so this single store still isolates tenants.
-    salience: Mutex<crate::salience::SalienceStore>,
+    pub(crate) salience: Mutex<crate::salience::SalienceStore>,
     /// Plant-wide OEE board. Shop-floor equipment is shared infra, not per-tenant
     /// reasoning state, so it lives here behind one mutex.
-    oee: Mutex<OeeBoard>,
+    pub(crate) oee: Mutex<OeeBoard>,
     /// Plant-wide predictive-maintenance monitor (health baselines + trends).
-    maintenance: Mutex<MaintenanceMonitor>,
+    pub(crate) maintenance: Mutex<MaintenanceMonitor>,
     /// Durable state store (sled on the data-dir volume). `None` when it can't be
     /// opened (e.g. no writable volume in local dev) → state is in-memory only.
     /// Cheap to clone (sled::Db is an Arc internally).
-    db: Option<sled::Db>,
+    pub(crate) db: Option<sled::Db>,
     /// Dynamically-promoted ontology axes (Phase 6). Persisted in `db`; global
     /// across tenants (operator-installed). Merged as anchors for the axis layer.
-    axes: Mutex<crate::axes::AxisStore>,
+    pub(crate) axes: Mutex<crate::axes::AxisStore>,
     /// Quality feedback tracker — auto-loaded from `quality_failures.json` if
     /// it exists on the data dir. Mutex because `report_failure` mutates
     /// penalties and appends a failure record.
-    quality: Mutex<QualityTracker>,
+    pub(crate) quality: Mutex<QualityTracker>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
-    limiter: RateLimiter,
+    pub(crate) limiter: RateLimiter,
     /// Server start time for uptime reporting.
-    started_at: std::time::Instant,
+    pub(crate) started_at: std::time::Instant,
     #[cfg(feature = "mcp")]
-    mcp_sessions: std::sync::Arc<
+    pub(crate) mcp_sessions: std::sync::Arc<
         tokio::sync::Mutex<
             std::collections::HashMap<
                 String,
@@ -203,7 +203,7 @@ pub struct AppCtx {
 
 impl AppCtx {
     /// Current scan root (clone out of the lock; callers compare/canonicalize).
-    fn scan_root(&self) -> PathBuf {
+    pub(crate) fn scan_root(&self) -> PathBuf {
         self.scan_root
             .read()
             .unwrap_or_else(|e| e.into_inner())
@@ -214,7 +214,7 @@ impl AppCtx {
 impl AppCtx {
     /// Poison-tolerant lock: a panic while the lock is held no longer permanently
     /// 500s every subsequent request — we recover the inner guard. PREMORTEM.md P1.
-    fn lock(&self) -> std::sync::MutexGuard<'_, RuntimeState> {
+    pub(crate) fn lock(&self) -> std::sync::MutexGuard<'_, RuntimeState> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
@@ -222,7 +222,7 @@ impl AppCtx {
     /// the global default tenant (holarchy-connected); any other id gets its own
     /// isolated session, created on demand. The lock is held across `f`, matching
     /// the single-tenant behavior.
-    fn with_user<R>(&self, uid: &str, f: impl FnOnce(&mut RuntimeState) -> R) -> R {
+    pub(crate) fn with_user<R>(&self, uid: &str, f: impl FnOnce(&mut RuntimeState) -> R) -> R {
         if uid.is_empty() || uid == "_default" {
             let mut g = self.lock();
             f(&mut g)
@@ -968,25 +968,6 @@ pub struct SpannerSyncResponse {
     edges_upserted: usize,
     nodes_deleted: usize,
     edges_deleted: usize,
-}
-
-/// POST /api/v1/spanner/sync — mirror the tenant's coherence graph into Spanner.
-/// Upserts nodes + edges, then (when `mirror`) hard-deletes durable rows that
-/// vanished locally. Returns the mutation counts.
-#[cfg(feature = "spanner")]
-
-
-
-/// Upsert nodes + edges (Spanner IO is slow, but sequential here).
-#[cfg(feature = "spanner")]
-async fn join_spanner(
-    sink: &crate::spanner::SpannerSink,
-    nodes: &[crate::spanner::NodeRow],
-    edges: &[crate::spanner::EdgeRow],
-) -> anyhow::Result<(usize, usize)> {
-    let n = sink.upsert_nodes(nodes).await?;
-    let e = sink.upsert_edges(edges).await?;
-    Ok((n, e))
 }
 
 #[cfg(feature = "spanner")]
@@ -2601,6 +2582,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/epistemic/replay", get(coherence::epistemic_replay_handler))
         .route("/api/v1/processes", get(coherence::processes_list_handler))
         .route("/api/v1/ontology/discover", post(coherence::ontology_discover_handler))
+        .route("/api/v1/fitness/feedback", post(coherence::fitness_feedback_handler))
+        .route("/api/v1/harness/config", get(coherence::harness_config_handler))
+        .route("/api/v1/harness/evaluate", post(coherence::harness_evaluate_handler))
+        .route("/api/v1/harness/generate", post(coherence::harness_generate_handler))
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))

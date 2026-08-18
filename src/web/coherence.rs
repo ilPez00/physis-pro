@@ -381,7 +381,7 @@ pub async fn hypothesis_create_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(req): Json<CreateHypothesisRequest>,
-) -> Json<Hypothesis> {
+) -> (StatusCode, Json<Hypothesis>) {
     let embedding = embed_text(state.shared.clone(), req.statement.clone()).await;
     let uid = user_key(&headers);
     let created = state.with_user(&uid, |s| {
@@ -395,7 +395,7 @@ pub async fn hypothesis_create_handler(
         let id = s.core.register_hypothesis(hyp.clone());
         s.core.hypothesis(&id).cloned().unwrap_or(hyp)
     });
-    Json(created)
+    (StatusCode::CREATED, Json(created))
 }
 
 /// GET /api/v1/hypotheses/:id — retrieve a single hypothesis with all evidence.
@@ -439,7 +439,6 @@ pub async fn hypothesis_evidence_handler(
         match pol {
             EvidencePolarity::Supports => hyp.add_supporting_evidence(ev),
             EvidencePolarity::Contradicts => hyp.add_contradicting_evidence(ev),
-            _ => {}
         }
         Some(hyp.clone())
     });
@@ -548,7 +547,7 @@ pub async fn contradiction_create_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(req): Json<CreateContradictionRequest>,
-) -> Json<Contradiction> {
+) -> (StatusCode, Json<Contradiction>) {
     let uid = user_key(&headers);
     let created = state.with_user(&uid, |s| {
         let mut contra = Contradiction::new(req.claim_a, req.claim_b);
@@ -561,7 +560,7 @@ pub async fn contradiction_create_handler(
         let id = s.core.record_contradiction(contra.clone());
         s.core.contradictions.iter().find(|c| c.id == id).cloned().unwrap_or(contra)
     });
-    Json(created)
+    (StatusCode::CREATED, Json(created))
 }
 
 /// POST /api/v1/contradictions/:id/resolve — resolve a contradiction.
@@ -634,7 +633,7 @@ pub async fn processes_list_handler(
 
 /// POST /api/v1/ontology/discover — unsupervised discovery of candidate ontology domains.
 pub async fn ontology_discover_handler(
-    State(state): State<SharedState>,
+    State(_state): State<SharedState>,
     Json(req): Json<DiscoverOntologyRequest>,
 ) -> Json<physis_core::discovery::DiscoveryReport> {
     let loader = physis_core::ontology::OntologyLoader::load_all();
@@ -652,5 +651,114 @@ pub async fn ontology_discover_handler(
     let report = physis_core::discovery::discover(&req.texts, &classifier, &emb, &config);
     Json(report)
 }
+
+/// POST /api/v1/fitness/feedback — record contextual feedback for an interpretation.
+pub async fn fitness_feedback_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<FitnessFeedbackRequest>,
+) -> Json<serde_json::Value> {
+    let mut quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+    let cell_key = if let Some(dom) = &req.context.domain {
+        dom.clone()
+    } else {
+        req.context.key()
+    };
+    log::info!(
+        "Fitness feedback for interpretation '{}' (success={}, note={:?}): target cell={}",
+        req.interpretation,
+        req.is_success,
+        req.feedback,
+        cell_key
+    );
+    if req.is_success {
+        quality.report_success(&cell_key);
+    } else {
+        quality.penalize_cell(&cell_key, 0.8);
+    }
+    let standing = quality.cell_standing(&cell_key);
+
+    Json(serde_json::json!({
+        "status": "ok",
+        "cell_key": cell_key,
+        "cell_standing": standing,
+    }))
+}
+
+// ── LLM Coherence Harness Endpoints ─────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct HarnessEvaluateRequest {
+    pub text: String,
+    pub context: Option<String>,
+    #[serde(default)]
+    pub config: Option<crate::ai::harness::HarnessConfig>,
+}
+
+#[derive(Deserialize)]
+pub struct HarnessGenerateRequest {
+    pub prompt: String,
+    pub context: Option<String>,
+    #[serde(default)]
+    pub config: Option<crate::ai::harness::HarnessConfig>,
+}
+
+/// GET /api/v1/harness/config — retrieve available providers and default harness rules.
+pub async fn harness_config_handler(
+    State(state): State<SharedState>,
+) -> Json<serde_json::Value> {
+    let providers = state.shared.cascade.providers_list();
+    Json(serde_json::json!({
+        "default_config": crate::ai::harness::HarnessConfig::default(),
+        "available_providers": providers,
+    }))
+}
+
+/// POST /api/v1/harness/evaluate — evaluate candidate output against semiotic grid, coherence, and contradictions.
+pub async fn harness_evaluate_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<HarnessEvaluateRequest>,
+) -> Result<Json<crate::ai::harness::CoherenceEvaluation>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let cfg = req.config.unwrap_or_default();
+    let res = state.with_user(&uid, |s| {
+        let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+        crate::ai::harness::CoherenceHarness::evaluate(
+            &req.text,
+            req.context.as_deref(),
+            &cfg,
+            &mut s.core,
+            &state.shared.classifier,
+            state.shared.embedder.as_ref(),
+            &quality,
+        )
+    });
+    Ok(Json(res))
+}
+
+/// POST /api/v1/harness/generate — execute LLM generation through the Physis Coherence Harness.
+pub async fn harness_generate_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<HarnessGenerateRequest>,
+) -> Result<Json<crate::ai::harness::HarnessResult>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let cfg = req.config.unwrap_or_default();
+    let cascade = state.shared.cascade.clone();
+
+    let result = crate::ai::harness::CoherenceHarness::generate_with_harness(
+        &req.prompt,
+        req.context.as_deref(),
+        &cfg,
+        &state,
+        &uid,
+        &cascade,
+    )
+    .await
+    .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e))?;
+
+    Ok(Json(result))
+}
+
 
 
