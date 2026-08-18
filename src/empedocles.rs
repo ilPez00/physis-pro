@@ -491,8 +491,8 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(99);
         let mut jitter = |c: &[f32; 2]| {
             vec![
-                c[0] + (rng.gen::<f32>() - 0.5) * 0.06,
-                c[1] + (rng.gen::<f32>() - 0.5) * 0.06,
+                c[0] + (rng.random::<f32>() - 0.5) * 0.06,
+                c[1] + (rng.random::<f32>() - 0.5) * 0.06,
             ]
         };
         let mut train: Vec<(Vec<f32>, u32)> = Vec::new();

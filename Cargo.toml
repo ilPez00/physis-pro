@@ -92,7 +92,7 @@ jsonwebtoken = { version = "9", optional = true }
 # be buildable without the licence gate. `rand_core` is only pulled in by the
 # keygen bin, which is excluded from the shipped package (see [[bin]] below).
 ed25519-dalek = { version = "2", features = ["rand_core"] }
-rand_core = "0.9"
+rand_core = "0.6"
 
 # Optional document-ingestion backends (kept out of default so the core stays
 # light and CI/disk stay sane; enable with --features pdf,email).

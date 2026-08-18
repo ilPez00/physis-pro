@@ -268,3 +268,389 @@ pub async fn coherence_delete_handler(
     Ok(Json(serde_json::json!({ "ok": true, "node_id": req.id })))
 }
 
+// ── Epistemic Evolution & GUI Web Handlers ───────────────────────────
+
+use physis_core::coherence_query::{EpistemicQuery, EpistemicQueryResult};
+use physis_core::contradiction::{Contradiction, ContradictionParty, ResolutionStatus};
+use physis_core::epistemic::EpistemicEvent;
+use physis_core::explanation::ExplanationReport;
+use physis_core::hypothesis::{Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction};
+use physis_core::quality::FitnessContext;
+
+#[derive(Debug, Deserialize)]
+pub struct HypothesesQueryParams {
+    pub status: Option<String>,
+    pub limit: Option<usize>,
+    pub min_fitness: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateHypothesisRequest {
+    pub statement: String,
+    pub assumptions: Option<Vec<String>>,
+    pub confidence: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddEvidenceRequest {
+    pub source: String,
+    pub polarity: String, // "Supports" or "Contradicts"
+    pub confidence: f32,
+    pub claim: String,
+    pub context: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecordPredictionRequest {
+    pub statement: String,
+    pub expected_outcome: Option<String>,
+    pub actual_outcome: Option<String>,
+    pub correct: Option<bool>,
+    pub confidence: Option<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TransitionHypothesisRequest {
+    pub status: String,
+    pub reason: String,
+    pub trigger_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateContradictionRequest {
+    pub claim_a: ContradictionParty,
+    pub claim_b: ContradictionParty,
+    pub resolution: Option<ResolutionStatus>,
+    pub explanation: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResolveContradictionRequest {
+    pub resolution: ResolutionStatus,
+    pub explanation: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReplayQueryParams {
+    pub subject_id: String,
+    pub at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FitnessFeedbackRequest {
+    pub interpretation: String,
+    pub is_success: bool,
+    pub feedback: Option<String>,
+    pub context: FitnessContext,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DiscoverOntologyRequest {
+    pub texts: Vec<String>,
+    pub coverage_threshold: Option<f32>,
+    pub cluster_sim: Option<f32>,
+    pub min_cluster: Option<usize>,
+}
+
+/// GET /api/v1/hypotheses — list competing hypotheses ranked by fitness.
+pub async fn hypotheses_list_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<HypothesesQueryParams>,
+) -> Json<Vec<Hypothesis>> {
+    let uid = user_key(&headers);
+    let results = state.with_user(&uid, |s| {
+        let mut list: Vec<Hypothesis> = s.core.hypotheses.values().cloned().collect();
+        if let Some(ref status_str) = params.status {
+            list.retain(|h| format!("{:?}", h.status).eq_ignore_ascii_case(status_str));
+        }
+        if let Some(min_fit) = params.min_fitness {
+            list.retain(|h| h.fitness >= min_fit);
+        }
+        list.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+        if let Some(lim) = params.limit {
+            list.truncate(lim);
+        }
+        list
+    });
+    Json(results)
+}
+
+/// POST /api/v1/hypotheses — register a new hypothesis.
+pub async fn hypothesis_create_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<CreateHypothesisRequest>,
+) -> Json<Hypothesis> {
+    let embedding = embed_text(state.shared.clone(), req.statement.clone()).await;
+    let uid = user_key(&headers);
+    let created = state.with_user(&uid, |s| {
+        let mut hyp = Hypothesis::new(req.statement, embedding);
+        if let Some(assumptions) = req.assumptions {
+            hyp.assumptions = assumptions;
+        }
+        if let Some(conf) = req.confidence {
+            hyp.confidence = conf;
+        }
+        let id = s.core.register_hypothesis(hyp.clone());
+        s.core.hypothesis(&id).cloned().unwrap_or(hyp)
+    });
+    Json(created)
+}
+
+/// GET /api/v1/hypotheses/:id — retrieve a single hypothesis with all evidence.
+pub async fn hypothesis_get_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<Hypothesis>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let hyp = state.with_user(&uid, |s| s.core.hypothesis(&id).cloned());
+    match hyp {
+        Some(h) => Ok(Json(h)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+    }
+}
+
+/// POST /api/v1/hypotheses/:id/evidence — add supporting or contradicting evidence.
+pub async fn hypothesis_evidence_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(req): Json<AddEvidenceRequest>,
+) -> Result<Json<Hypothesis>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let updated = state.with_user(&uid, |s| {
+        let hyp = s.core.hypothesis_mut(&id)?;
+        let pol = if req.polarity.eq_ignore_ascii_case("Contradicts") {
+            EvidencePolarity::Contradicts
+        } else {
+            EvidencePolarity::Supports
+        };
+        let ev = Evidence {
+            source: req.source,
+            polarity: pol,
+            confidence: req.confidence,
+            claim: req.claim,
+            observed_at: Some(chrono::Utc::now()),
+            embedding: Vec::new(),
+            context: req.context.unwrap_or_default(),
+        };
+        match pol {
+            EvidencePolarity::Supports => hyp.add_supporting_evidence(ev),
+            EvidencePolarity::Contradicts => hyp.add_contradicting_evidence(ev),
+            _ => {}
+        }
+        Some(hyp.clone())
+    });
+    match updated {
+        Some(h) => Ok(Json(h)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+    }
+}
+
+/// POST /api/v1/hypotheses/:id/prediction — record a testable prediction outcome.
+pub async fn hypothesis_prediction_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(req): Json<RecordPredictionRequest>,
+) -> Result<Json<Hypothesis>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let updated = state.with_user(&uid, |s| {
+        let hyp = s.core.hypothesis_mut(&id)?;
+        let pred = Prediction {
+            statement: req.statement,
+            expected_outcome: req.expected_outcome,
+            made_at: chrono::Utc::now(),
+            observed_at: if req.actual_outcome.is_some() { Some(chrono::Utc::now()) } else { None },
+            actual_outcome: req.actual_outcome,
+            correct: req.correct,
+            confidence: req.confidence.unwrap_or(0.8),
+        };
+        hyp.record_prediction(pred);
+        Some(hyp.clone())
+    });
+    match updated {
+        Some(h) => Ok(Json(h)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+    }
+}
+
+/// POST /api/v1/hypotheses/:id/transition — explicitly update status with trigger logging.
+pub async fn hypothesis_transition_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(req): Json<TransitionHypothesisRequest>,
+) -> Result<Json<Hypothesis>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let new_status = match req.status.to_lowercase().as_str() {
+        "candidate" => HypothesisStatus::Candidate,
+        "supported" => HypothesisStatus::Supported,
+        "contradicted" => HypothesisStatus::Contradicted,
+        "confirmed" => HypothesisStatus::Confirmed,
+        "inert" => HypothesisStatus::Inert,
+        "failed" => HypothesisStatus::Failed,
+        "superseded" => HypothesisStatus::Superseded,
+        "isolated" => HypothesisStatus::Isolated,
+        "certified" => HypothesisStatus::Certified,
+        _ => return Err(err_response(StatusCode::BAD_REQUEST, &format!("Invalid status: {}", req.status))),
+    };
+
+    let updated = state.with_user(&uid, |s| {
+        s.core.transition_hypothesis(&id, new_status, &req.reason, req.trigger_id);
+        s.core.hypothesis(&id).cloned()
+    });
+    match updated {
+        Some(h) => Ok(Json(h)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+    }
+}
+
+/// GET /api/v1/explanation/:id — get structured explanation report for hypothesis.
+pub async fn explanation_get_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> Result<Json<ExplanationReport>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let report = state.with_user(&uid, |s| s.core.full_explanation_report(&id));
+    match report {
+        Some(r) => Ok(Json(r)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("No explanation available for {}", id))),
+    }
+}
+
+/// POST /api/v1/coherence/query — epistemic queries (contradictions, gaps, precedents).
+pub async fn coherence_query_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(query): Json<EpistemicQuery>,
+) -> Json<EpistemicQueryResult> {
+    let uid = user_key(&headers);
+    let res = state.with_user(&uid, |s| s.core.query_coherence(&query));
+    Json(res)
+}
+
+/// GET /api/v1/contradictions — list all recorded contradictions.
+pub async fn contradictions_list_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<Vec<Contradiction>> {
+    let uid = user_key(&headers);
+    let list = state.with_user(&uid, |s| s.core.contradictions.clone());
+    Json(list)
+}
+
+/// POST /api/v1/contradictions — record a new conflicting claim pair.
+pub async fn contradiction_create_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<CreateContradictionRequest>,
+) -> Json<Contradiction> {
+    let uid = user_key(&headers);
+    let created = state.with_user(&uid, |s| {
+        let mut contra = Contradiction::new(req.claim_a, req.claim_b);
+        if let Some(res) = req.resolution {
+            contra.resolution = res;
+        }
+        if let Some(exp) = req.explanation {
+            contra.explanation = Some(exp);
+        }
+        let id = s.core.record_contradiction(contra.clone());
+        s.core.contradictions.iter().find(|c| c.id == id).cloned().unwrap_or(contra)
+    });
+    Json(created)
+}
+
+/// POST /api/v1/contradictions/:id/resolve — resolve a contradiction.
+pub async fn contradiction_resolve_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(id): axum::extract::Path<String>,
+    Json(req): Json<ResolveContradictionRequest>,
+) -> Result<Json<Contradiction>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let updated = state.with_user(&uid, |s| {
+        let c = s.core.contradictions.iter_mut().find(|c| c.id == id)?;
+        c.resolution = req.resolution;
+        if let Some(exp) = req.explanation {
+            c.explanation = Some(exp);
+        }
+        Some(c.clone())
+    });
+    match updated {
+        Some(c) => Ok(Json(c)),
+        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Contradiction {} not found", id))),
+    }
+}
+
+/// GET /api/v1/epistemic/audit — get epistemic audit timeline.
+pub async fn epistemic_audit_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<Vec<EpistemicEvent>> {
+    let uid = user_key(&headers);
+    let events = state.with_user(&uid, |s| s.core.epistemic_audit.events.clone());
+    Json(events)
+}
+
+/// GET /api/v1/epistemic/replay — reconstruct belief at past timestamp.
+pub async fn epistemic_replay_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<ReplayQueryParams>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let target_time = match chrono::DateTime::parse_from_rfc3339(&params.at) {
+        Ok(dt) => dt.with_timezone(&chrono::Utc),
+        Err(e) => return Err(err_response(StatusCode::BAD_REQUEST, &format!("Invalid timestamp {}: {}", params.at, e))),
+    };
+
+    let belief = state.with_user(&uid, |s| {
+        s.core.reconstruct_belief_at(&params.subject_id, target_time)
+    });
+
+    Ok(Json(serde_json::json!({
+        "subject_id": params.subject_id,
+        "at": target_time,
+        "reconstructed_status": belief,
+    })))
+}
+
+/// GET /api/v1/processes — list operational cycles and process task graph.
+pub async fn processes_list_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let cycles = state.with_user(&uid, |s| s.core.process_cycles.clone());
+    Json(serde_json::json!({
+        "cycles_count": cycles.len(),
+        "cycles": cycles,
+    }))
+}
+
+/// POST /api/v1/ontology/discover — unsupervised discovery of candidate ontology domains.
+pub async fn ontology_discover_handler(
+    State(state): State<SharedState>,
+    Json(req): Json<DiscoverOntologyRequest>,
+) -> Json<physis_core::discovery::DiscoveryReport> {
+    let loader = physis_core::ontology::OntologyLoader::load_all();
+    let emb = physis_core::embed::RandomProjectionEmbedder::new(64);
+    let classifier = physis_core::classify::CellClassifier::build(&loader, &emb);
+
+    let config = physis_core::discovery::DiscoveryConfig {
+        coverage_threshold: req.coverage_threshold.unwrap_or(0.85),
+        cluster_sim: req.cluster_sim.unwrap_or(0.70),
+        min_cluster: req.min_cluster.unwrap_or(2),
+        max_hints: 6,
+        auto_retune: true,
+    };
+
+    let report = physis_core::discovery::discover(&req.texts, &classifier, &emb, &config);
+    Json(report)
+}
+
+
