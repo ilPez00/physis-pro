@@ -220,13 +220,9 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         })
         .collect::<Vec<_>>();
 
-    if let Some(parent) = manifest_file.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let tmp = manifest_file.with_extension(format!("tmp{}", std::process::id()));
     let next = Manifest { rows: next, watermark: source_watermark };
-    std::fs::write(&tmp, serde_json::to_vec_pretty(&next)?)?;
-    std::fs::rename(tmp, manifest_file)?;
+    crate::atomic::write_json_durable(manifest_file, &next)
+        .with_context(|| format!("write scan manifest {}", manifest_file.display()))?;
     let unchanged = active_keys.len().saturating_sub(new_rows.len() + changed_rows.len());
 
     Ok(SqlDiff {

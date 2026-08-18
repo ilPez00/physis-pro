@@ -141,22 +141,11 @@ impl SalienceStore {
     }
 
     fn try_save(&self, data_dir: &Path) -> std::io::Result<()> {
-        use std::io::Write as _;
-        std::fs::create_dir_all(data_dir)?;
-        let target = Self::path(data_dir);
-        let tmp = target.with_extension(format!("tmp{}", std::process::id()));
         let bytes = serde_json::to_vec(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        {
-            let mut f = std::fs::File::create(&tmp)?;
-            if let Err(e) = f.write_all(&bytes).and_then(|_| f.sync_all()) {
-                let _ = std::fs::remove_file(&tmp);
-                return Err(e);
-            }
-        }
-        std::fs::rename(&tmp, &target).inspect_err(|_| {
-            let _ = std::fs::remove_file(&tmp);
-        })
+        // Accumulated observations cannot be recomputed from anything, so this
+        // one pays for the directory sync.
+        crate::atomic::write_durable(&Self::path(data_dir), &bytes)
     }
 
     fn now() -> i64 {
