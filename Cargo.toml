@@ -2,11 +2,15 @@
 name = "physis_pro"
 version = "0.1.0"
 edition = "2021"
-# Proprietary. No LICENSE grant is given; see LICENSE.txt.
+license = "MIT"
 license-file = "LICENSE.txt"
-# Hard stop against an accidental `cargo publish` of a closed-source crate.
-publish = false
+readme = "README.md"
+repository = "https://github.com/ilPez00/physis-pro"
 description = "Industrial backoffice intelligence — process monitoring, inventory, document ingest, quality feedback"
+publish = true
+
+keywords = ["ontology", "semantic", "classification", "industrial", "monitoring", "coherence"]
+categories = ["science", "text-processing", "embedded"]
 
 [dev-dependencies]
 tempfile = "3"
@@ -31,11 +35,11 @@ rayon = "1"
 # In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
 # Vendored in-repo (vendor/llmwiki) so prod/CI builds resolve + can compile it
 # without the private sibling crate. default-features=false → no fastembed/usearch.
-llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", default-features = false, optional = true }
+llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2", default-features = false, optional = true }
 
 # The lean core engine — embed/classify/quality/discovery now live here, and
 # physis_pro delegates to it (see src/classify.rs, src/quality.rs).
-physis-core = { path = "physis-core", default-features = false }
+physis-core = { path = "physis-core", version = "0.1", default-features = false }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }

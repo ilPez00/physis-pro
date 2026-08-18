@@ -18,6 +18,19 @@ It runs as:
 > Crate: `physis_pro` v0.1.0 · edition 2021 · the Praxis backend talks to it through
 > `src/lib/physisProClient.ts`.
 
+## License
+
+`physis-core` is released under the [MIT License](LICENSE).
+
+`physis_pro` (this crate) is dual-licensed:
+- **MIT** — for the open-source crate published on [crates.io](https://crates.io/crates/physis_pro).
+- **Proprietary EULA** — for commercial deployments. See `LICENSE.txt` for the full
+  commercial terms, including the licence-key requirement.
+
+The `physis-core` sub-crate remains MIT-only. When using `physis_pro` from crates.io,
+the MIT licence applies to the crate API; the runtime still enforces the commercial
+licence gate when `PHYSIS_LICENSE` is not set.
+
 ---
 
 ## Core model — three functions over one state

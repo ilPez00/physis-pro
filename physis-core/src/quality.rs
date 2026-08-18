@@ -8,7 +8,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 
 use crate::embed::VectorEmbed;
-use crate::models::cosine_sim;
+use crate::models::{cosine_sim, Score};
 
 /// A recorded quality failure — what was wrong, where in the grid it landed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -550,5 +550,253 @@ mod tests {
                 }
             }
         }
+    }
+}
+
+// ── Context-dependent fitness ───────────────────────────────────────
+//
+// Global penalties destroy an interpretation everywhere. Physis must learn
+// that an interpretation can work in context A and fail in context B.
+//
+// Contexts include: domain, machine, process, time, environment, operator,
+// material, state, task.
+
+/// Context tags for a fitness record.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FitnessContext {
+    pub domain: Option<String>,
+    pub machine: Option<String>,
+    pub process: Option<String>,
+    pub environment: Option<String>,
+    pub operator: Option<String>,
+    pub material: Option<String>,
+    pub state: Option<String>,
+    pub task: Option<String>,
+}
+
+impl FitnessContext {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Compact key for maps: sorted `key=value` pairs joined by `;`.
+    pub fn key(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(v) = &self.domain { parts.push(format!("domain={v}")); }
+        if let Some(v) = &self.machine { parts.push(format!("machine={v}")); }
+        if let Some(v) = &self.process { parts.push(format!("process={v}")); }
+        if let Some(v) = &self.environment { parts.push(format!("env={v}")); }
+        if let Some(v) = &self.operator { parts.push(format!("operator={v}")); }
+        if let Some(v) = &self.material { parts.push(format!("material={v}")); }
+        if let Some(v) = &self.state { parts.push(format!("state={v}")); }
+        if let Some(v) = &self.task { parts.push(format!("task={v}")); }
+        parts.sort();
+        parts.join(";")
+    }
+}
+
+/// A fitness record scoped to a context.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FitnessRecord {
+    pub interpretation: String,
+    pub context: FitnessContext,
+    pub successes: usize,
+    pub failures: usize,
+    pub fitness: Score,
+}
+
+impl FitnessRecord {
+    pub fn new(interpretation: impl Into<String>, context: FitnessContext) -> Self {
+        let mut rec = Self {
+            interpretation: interpretation.into(),
+            context,
+            successes: 0,
+            failures: 0,
+            fitness: 0.5,
+        };
+        rec.recompute();
+        rec
+    }
+
+    pub fn record_success(&mut self) {
+        self.successes += 1;
+        self.recompute();
+    }
+
+    pub fn record_failure(&mut self) {
+        self.failures += 1;
+        self.recompute();
+    }
+
+    fn recompute(&mut self) {
+        let total = self.successes + self.failures;
+        if total == 0 {
+            self.fitness = 0.5;
+            return;
+        }
+        self.fitness = self.successes as Score / total as Score;
+    }
+}
+
+/// Context-dependent quality tracker.
+///
+/// Extends `QualityTracker` with per-context fitness. Instead of:
+///
+///   fitness(interpretation) = bad everywhere
+///
+/// we track:
+///
+///   fitness(interpretation, context) = good in A, bad in B
+///
+/// This prevents simplistic global rules from destroying valid interpretations.
+pub struct ContextualQualityTracker {
+    pub global_failures: Vec<QualityFailure>,
+    pub global_penalties: HashMap<String, f32>,
+    pub global_boosts: HashMap<String, f32>,
+    pub fitness_records: HashMap<String, FitnessRecord>,
+    embedder: Box<dyn VectorEmbed>,
+}
+
+impl ContextualQualityTracker {
+    pub fn new(embedder: Box<dyn VectorEmbed>) -> Self {
+        Self {
+            global_failures: Vec::new(),
+            global_penalties: HashMap::new(),
+            global_boosts: HashMap::new(),
+            fitness_records: HashMap::new(),
+            embedder,
+        }
+    }
+
+    /// Report a failure with context.
+    pub fn report_failure_context(
+        &mut self,
+        feedback: &str,
+        cell_centroids: &HashMap<String, Vec<f32>>,
+        correct_domain: Option<&str>,
+        context: FitnessContext,
+    ) -> &QualityFailure {
+        let embedding = self.embedder.embed(feedback);
+
+        let mut scored: Vec<(&str, f32)> = cell_centroids
+            .iter()
+            .map(|(key, centroid)| (key.as_str(), cosine_sim(&embedding, centroid)))
+            .collect();
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let (top_cell, top_score) = scored.first().map(|(k, s)| (*k, *s)).unwrap_or(("UNKNOWN", 0.0));
+        let severity = if top_score < 0.3 { 0.8 } else if top_score < 0.6 { 0.5 } else { 0.3 };
+
+        let mut failure = QualityFailure::new(feedback, embedding, top_cell, top_score);
+        failure.severity = severity;
+
+        if let Some(correct) = correct_domain {
+            failure.correct_domain = Some(correct.to_string());
+            let correct_emb = self.embedder.embed(correct);
+            for (key, centroid) in cell_centroids {
+                if cosine_sim(&correct_emb, centroid) > 0.6 {
+                    let boost = self.global_boosts.entry(key.clone()).or_insert(0.0);
+                    *boost = (*boost + 0.1).min(1.0);
+                }
+            }
+        }
+
+        self.global_failures.push(failure);
+
+        let penalty = self.global_penalties.entry(top_cell.to_string()).or_insert(0.0);
+        *penalty = (*penalty + severity * 0.2).min(1.0);
+
+        // Context-dependent fitness update
+        let ctx_key = format!("{top_cell}:{}", context.key());
+        let rec = self.fitness_records.entry(ctx_key).or_insert_with(|| {
+            FitnessRecord::new(top_cell.to_string(), context)
+        });
+        rec.record_failure();
+
+        self.global_failures.last().unwrap()
+    }
+
+    /// Report a failure for an explicit interpretation/cell with context.
+    pub fn report_failure_for_cell_context(
+        &mut self,
+        cell: &str,
+        _feedback: &str,
+        context: FitnessContext,
+    ) {
+        let penalty = self.global_penalties.entry(cell.to_string()).or_insert(0.0);
+        *penalty = (*penalty + 0.15).min(1.0);
+        if let Some(b) = self.global_boosts.get_mut(cell) {
+            *b = (*b - 0.1).max(0.0);
+        }
+
+        let ctx_key = format!("{cell}:{}", context.key());
+        let rec = self.fitness_records.entry(ctx_key).or_insert_with(|| {
+            FitnessRecord::new(cell.to_string(), context)
+        });
+        rec.record_failure();
+    }
+
+    /// Report a success with context.
+    pub fn report_success_context(&mut self, cell: &str, context: FitnessContext) {
+        let boost = self.global_boosts.entry(cell.to_string()).or_insert(0.0);
+        *boost = (*boost + 0.15).min(1.0);
+        if let Some(p) = self.global_penalties.get_mut(cell) {
+            *p = (*p - 0.1).max(0.0);
+        }
+
+        let ctx_key = format!("{cell}:{}", context.key());
+        let rec = self.fitness_records.entry(ctx_key).or_insert_with(|| {
+            FitnessRecord::new(cell.to_string(), context)
+        });
+        rec.record_success();
+    }
+
+    /// Get fitness for a specific interpretation and context. Returns None if no data.
+    pub fn fitness_for(&self, interpretation: &str, context: &FitnessContext) -> Option<Score> {
+        let key = format!("{interpretation}:{}", context.key());
+        self.fitness_records.get(&key).map(|r| r.fitness)
+    }
+
+    /// Get fitness for an interpretation across all contexts.
+    pub fn fitness_for_interpretation(&self, interpretation: &str) -> Vec<&FitnessRecord> {
+        self.fitness_records
+            .values()
+            .filter(|r| r.interpretation == interpretation)
+            .collect()
+    }
+
+    /// Adjust a raw score, blending global and contextual fitness.
+    pub fn adjust_score_contextual(
+        &self,
+        cell: &str,
+        raw_score: Score,
+        context: &FitnessContext,
+    ) -> Score {
+        let global_standing = {
+            let penalty = self.global_penalties.get(cell).copied().unwrap_or(0.0);
+            let boost = self.global_boosts.get(cell).copied().unwrap_or(0.0);
+            1.0 - penalty + boost
+        };
+
+        let contextual = self.fitness_for(cell, context).unwrap_or(0.5);
+        let blended = 0.7 * global_standing + 0.3 * contextual;
+        (raw_score * blended).clamp(0.0, 1.0)
+    }
+
+    /// Human-readable summary.
+    pub fn summary(&self) -> String {
+        let mut out = String::new();
+        out.push_str("=== Contextual Quality Tracker ===\n");
+        out.push_str(&format!("Global failures: {}\n", self.global_failures.len()));
+        out.push_str(&format!("Context records: {}\n", self.fitness_records.len()));
+        out.push('\n');
+
+        for (key, rec) in self.fitness_records.iter().take(10) {
+            out.push_str(&format!(
+                "  {} : fitness={:.2} ({} success / {} failure)\n",
+                key, rec.fitness, rec.successes, rec.failures
+            ));
+        }
+        out
     }
 }
