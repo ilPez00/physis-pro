@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tracing::{error, info, warn, info_span, Instrument};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use axum::{
     extract::{ConnectInfo, Path, Request, State},
@@ -12,6 +14,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use tower_http::trace::TraceLayer;
 use serde::{Deserialize, Serialize};
 
 use base64::Engine;
@@ -730,6 +733,22 @@ async fn rate_limit(
     } else {
         Err(StatusCode::TOO_MANY_REQUESTS)
     }
+}
+
+/// Attach tenant (`X-Physis-User`) to the tracing span for every request.
+async fn trace_tenant(
+    headers: HeaderMap,
+    req: Request,
+    next: Next,
+) -> Response {
+    let uid = headers
+        .get("X-Physis-User")
+        .and_then(|h| h.to_str().ok())
+        .unwrap_or("_default");
+    let span = info_span!("http.request", tenant = %uid, method = %req.method(), uri = %req.uri());
+    async move { next.run(req).await }
+        .instrument(span)
+        .await
 }
 
 /// Constant-time byte comparison — avoids leaking the token via timing.
@@ -2611,6 +2630,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // route was unthrottled.
     let app = public
         .merge(protected)
+        .layer(middleware::from_fn(trace_tenant))
+        .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
         .with_state(state.clone());
 
@@ -2621,7 +2642,15 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
 
 /// Bind and serve. This is all `main` does.
 pub async fn serve() {
-    env_logger::init();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            std::env::var("PHYSIS_LOG").unwrap_or_else(|_| "info,physis=info,tower_http=info".into()),
+        )
+        .with_target(false)
+        .with_thread_ids(true)
+        .with_file(true)
+        .with_line_number(true)
+        .init();
     let host = std::env::var("PHYSIS_HOST").unwrap_or_else(|_| "127.0.0.1".into());
     let port = std::env::var("PHYSIS_PORT").unwrap_or_else(|_| "19876".into());
     let Ok((_state, app)) = build_app().await else {
