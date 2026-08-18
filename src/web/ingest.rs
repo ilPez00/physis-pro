@@ -970,7 +970,7 @@ const FS_RESOLVE_DEPTH: usize = 5;
 const FS_RESOLVE_VISIT: usize = 800;
 
 fn skip_fs_name(name: &str) -> bool {
-    name.is_empty() || name == "." || name == ".." || FS_SKIP.iter().any(|s| *s == name)
+    name.is_empty() || name == "." || name == ".." || FS_SKIP.contains(&name)
 }
 
 fn entry_kind_size(path: &std::path::Path) -> Option<(&'static str, Option<u64>)> {

@@ -3,8 +3,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tracing::{error, info, warn, info_span, Instrument};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::{info_span, Instrument};
 
 use axum::{
     extract::{ConnectInfo, Path, Request, State},
@@ -853,6 +852,7 @@ struct HealthResponse {
     db: bool,
 }
 
+#[allow(clippy::vec_init_then_push)]
 async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
     let tenant_count = state.tenants.lock().unwrap().len();
     let db_ok = state.db.is_some();
@@ -2588,6 +2588,19 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/coherence/edit", post(coherence::coherence_edit_handler))
         .route("/api/v1/coherence/delete", post(coherence::coherence_delete_handler))
+        .route("/api/v1/hypotheses", get(coherence::hypotheses_list_handler).post(coherence::hypothesis_create_handler))
+        .route("/api/v1/hypotheses/:id", get(coherence::hypothesis_get_handler))
+        .route("/api/v1/hypotheses/:id/evidence", post(coherence::hypothesis_evidence_handler))
+        .route("/api/v1/hypotheses/:id/prediction", post(coherence::hypothesis_prediction_handler))
+        .route("/api/v1/hypotheses/:id/transition", post(coherence::hypothesis_transition_handler))
+        .route("/api/v1/explanation/:id", get(coherence::explanation_get_handler))
+        .route("/api/v1/coherence/query", post(coherence::coherence_query_handler))
+        .route("/api/v1/contradictions", get(coherence::contradictions_list_handler).post(coherence::contradiction_create_handler))
+        .route("/api/v1/contradictions/:id/resolve", post(coherence::contradiction_resolve_handler))
+        .route("/api/v1/epistemic/audit", get(coherence::epistemic_audit_handler))
+        .route("/api/v1/epistemic/replay", get(coherence::epistemic_replay_handler))
+        .route("/api/v1/processes", get(coherence::processes_list_handler))
+        .route("/api/v1/ontology/discover", post(coherence::ontology_discover_handler))
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))

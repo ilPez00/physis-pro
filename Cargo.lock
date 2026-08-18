@@ -3083,7 +3083,7 @@ dependencies = [
  "physis-core",
  "quick-xml 0.36.2",
  "rand 0.9.4",
- "rand_core 0.9.5",
+ "rand_core 0.6.4",
  "ratatui",
  "rayon",
  "regex",

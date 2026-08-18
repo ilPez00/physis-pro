@@ -1,0 +1,3 @@
+[submodule "physis-core"]
+	path = physis-core
+	url = https://github.com/ilPez00/physis-core.git

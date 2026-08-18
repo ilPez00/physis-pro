@@ -287,7 +287,7 @@ mod tests {
     fn test_goals(dim: usize) -> Vec<Goal> {
         let mut rng = StdRng::seed_from_u64(42);
         (0..5).map(|_| {
-            let v: Vec<f32> = (0..dim).map(|_| rng.gen::<f32>() * 2.0 - 1.0).collect();
+            let v: Vec<f32> = (0..dim).map(|_| rng.random::<f32>() * 2.0 - 1.0).collect();
             let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
             let embedding: Vec<f32> = v.iter().map(|x| x / norm).collect();
             Goal::new(embedding, "test".to_string())
