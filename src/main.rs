@@ -10,6 +10,7 @@ use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_pro::graph::FileThemeGraph;
 use physis_pro::ingest;
 use physis_pro::models::{cosine_sim, DomainDef, Score};
+use physis_pro::industrial_benchmark::secom::{self, BenchmarkConfig};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
 
@@ -383,6 +384,38 @@ pub enum Commands {
         #[arg(long)]
         once: bool,
     },
+    /// Run the SECOM industrial benchmark: classify semiconductor manufacturing
+    /// observations, apply quality feedback from ground truth, and measure
+    /// before/after accuracy.
+    Benchmark {
+        #[command(subcommand)]
+        dataset: BenchmarkDataset,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum BenchmarkDataset {
+    /// Run the SECOM semiconductor manufacturing benchmark
+    Secom {
+        /// Maximum number of observations to load (default: all)
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Random seed for train/test split (default: 42)
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+        /// Fraction of data used for training (default: 0.5)
+        #[arg(long, default_value_t = 0.5)]
+        train_ratio: f32,
+        /// Output directory for reports (default: benchmark-results/secom)
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Skip the quality feedback loop (baseline only)
+        #[arg(long)]
+        no_feedback: bool,
+        /// Embedder kind: random (default) or onnx (requires --features embed-onnx)
+        #[arg(long, default_value = "random")]
+        embedder: String,
+    },
 }
 
 /// Sources a `connect` run can poll.
@@ -437,8 +470,8 @@ fn main() -> anyhow::Result<()> {
     // `--version` still answer on an unlicensed host: an evaluator has to be
     // able to see what the tool is before we demand a key, and support needs
     // `--version` to triage an install that refuses to run.
-    // `doctor` bypasses the gate so it can report licence issues.
-    if !matches!(cli.command, Commands::Doctor) {
+    // `doctor` and `benchmark` bypass the gate so they can run without a licence.
+    if !matches!(cli.command, Commands::Doctor | Commands::Benchmark { .. }) {
         let _license = physis_pro::license::enforce();
     }
 
@@ -1079,6 +1112,24 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
+        Commands::Benchmark { dataset } => match dataset {
+            BenchmarkDataset::Secom { limit, seed, train_ratio, output, no_feedback, embedder } => {
+                let cfg = BenchmarkConfig {
+                    seed,
+                    train_ratio,
+                    max_observations: limit,
+                    embed_dim: config.physis.embed_dim,
+                    output_dir: output.unwrap_or_else(|| PathBuf::from("benchmark-results/secom")),
+                    no_feedback,
+                    embedder,
+                };
+                let run = secom::run_benchmark(cfg)?;
+                println!("{}", serde_json::to_string_pretty(&run)?);
+                if !no_feedback {
+                    println!("\nReport written to {}/latest.md", run.config.output_dir.display());
+                }
+            }
+        },
         Commands::Pack { .. } => unreachable!("pack is dispatched early"),
         Commands::Warm { .. } => unreachable!("warm is dispatched early"),
         Commands::Doctor => {
@@ -1158,6 +1209,42 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
     println!("  ✅ Loaded: {kind}");
     let _ = embedder.embed("doctor test");
     println!("  ✅ Embed test passed");
+
+    // 4b. ONNX models
+    println!("\n🤖 ONNX Models:");
+    let model_dir = PathBuf::from("./models");
+    let mut model_ok = true;
+    let mut model_warn = String::new();
+
+    let check_model = |name: &str, path: PathBuf| -> bool {
+        if path.exists() {
+            let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            println!("  ✅ {} ({} bytes)", name, size);
+            true
+        } else {
+            println!("  ❌ {} — missing", name);
+            false
+        }
+    };
+
+    let generic_model = check_model("model.onnx", model_dir.join("model.onnx"));
+    let generic_tok = check_model("tokenizer.json", model_dir.join("tokenizer.json"));
+    let bge_model = check_model("bge-base/model.onnx", model_dir.join("bge-base-en-v1.5/onnx/model.onnx"));
+    let bge_tok = check_model("bge-base/tokenizer.json", model_dir.join("bge-base-en-v1.5/tokenizer.json"));
+
+    if !generic_model && !bge_model {
+        model_ok = false;
+        model_warn.push_str("No ONNX embedding model found. Run: ./scripts/download_models.sh\n");
+    }
+    if !generic_tok && !bge_tok {
+        model_ok = false;
+        model_warn.push_str("No tokenizer found. Run: ./scripts/download_models.sh\n");
+    }
+
+    if !model_ok {
+        println!("  ⚠️  {}", model_warn.trim());
+        issues += 1;
+    }
 
     // 5. Ontology
     println!("\n📚 Ontology:");

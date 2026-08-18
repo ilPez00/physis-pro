@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::embed::VectorEmbed;
 use crate::models::cosine_sim;
@@ -32,7 +32,7 @@ fn topk_mean(sorted_desc: &[f32], k: usize) -> f32 {
 }
 
 /// Score for a single DOMAIN×MODE cell.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CellScore {
     pub domain: String,
     pub mode: String,
@@ -85,7 +85,7 @@ pub struct EntrySeed {
     pub facets: Facets,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Default)]
 pub struct ClassificationMetadata {
     /// Speaker who said/wrote the text
     pub speaker: Option<String>,
@@ -97,18 +97,6 @@ pub struct ClassificationMetadata {
     pub tags: Vec<String>,
     /// Any additional key-value metadata
     pub extra: std::collections::HashMap<String, String>,
-}
-
-impl Default for ClassificationMetadata {
-    fn default() -> Self {
-        Self {
-            speaker: None,
-            context: None,
-            source_document: None,
-            tags: vec![],
-            extra: std::collections::HashMap::new(),
-        }
-    }
 }
 
 /// A sentence classified into a semiotic cell (domain x mode) with metadata

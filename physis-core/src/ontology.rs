@@ -44,6 +44,7 @@ pub static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
     ("travel", include_str!("../config/travel_ontology.json")),
     ("home_maintenance", include_str!("../config/home_maintenance_ontology.json")),
     ("science_research", include_str!("../config/science_research_ontology.json")),
+    ("industrial_semiconductor", include_str!("../config/industrial_semiconductor_ontology.json")),
     ("business_entrepreneurship", include_str!("../config/business_entrepreneurship_ontology.json")),
     ("language_learning", include_str!("../config/language_learning_ontology.json")),
     ("outdoors_sports", include_str!("../config/outdoors_sports_ontology.json")),
