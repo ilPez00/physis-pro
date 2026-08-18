@@ -18,6 +18,7 @@ use tower_http::trace::TraceLayer;
 use serde::{Deserialize, Serialize};
 
 use base64::Engine;
+use uuid::Uuid;
 
 use crate::actor::PDCActor;
 use crate::admin::{review_queue, ReviewDocument, ReviewQueue};
@@ -733,6 +734,30 @@ async fn rate_limit(
     } else {
         Err(StatusCode::TOO_MANY_REQUESTS)
     }
+}
+
+/// Generate or reuse a request ID, attach it to the tracing span, and echo it
+/// back as `X-Request-ID` so clients can correlate logs.
+async fn request_id(
+    mut headers: HeaderMap,
+    req: Request,
+    next: Next,
+) -> Response {
+    let id = headers
+        .get("X-Request-ID")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    headers.insert("X-Request-ID", id.parse().unwrap());
+    let span = info_span!("http.request", request_id = %id, method = %req.method(), uri = %req.uri());
+    async move {
+        let mut res = next.run(req).await;
+        res.headers_mut()
+            .insert("X-Request-ID", id.parse().unwrap());
+        res
+    }
+    .instrument(span)
+    .await
 }
 
 /// Attach tenant (`X-Physis-User`) to the tracing span for every request.
@@ -2679,6 +2704,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // route was unthrottled.
     let app = public
         .merge(protected)
+        .layer(middleware::from_fn(request_id))
         .layer(middleware::from_fn(trace_tenant))
         .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
