@@ -608,6 +608,19 @@
         <input id="search" placeholder="filter files…" style="min-width:120px"/>
       </div>
     </div>
+
+    <!-- Sandboxed file browser & drop zone -->
+    <div id="fileBrowser" style="margin-top:8px;display:none">
+      <div class="row" style="align-items:center;gap:8px;">
+        <span id="browserPath" style="flex:1;color:var(--muted);font-size:12px;"></span>
+        <button id="browserUp" style="min-width:60px;">Up</button>
+      </div>
+      <div id="browserEntries" style="margin-top:4px;max-height:200px;overflow:auto;"></div>
+      <div style="margin-top:4px;">
+        <span style="color:var(--muted);font-size:12px;">Drag a folder here or click to browse</span>
+      </div>
+    </div>
+
     <div id="graphWrap">
       <div id="cy"></div>
       <div id="gAside">
@@ -1509,3 +1522,4 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+</script>
