@@ -1371,8 +1371,8 @@ pub struct OeeMachineRequest {
 
 #[derive(Serialize)]
 pub struct OkResponse {
-    ok: bool,
-    detail: String,
+    pub ok: bool,
+    pub detail: String,
 }
 
 #[derive(Deserialize)]
@@ -1455,13 +1455,9 @@ impl ReadingRequest {
 
 #[derive(Serialize)]
 pub struct MaintenanceCheckResponse {
-    score: AnomalyScore,
-    /// RUL projection, present only when `rul_metric` + `rul_limit` were supplied
-    /// and the metric is trending toward the limit.
-    rul: Option<RulEstimate>,
-    /// Coherence node id, present when an anomaly was registered for the dream
-    /// loop to reason over (the auto-kaizen seam).
-    coherence_node_id: Option<String>,
+    pub score: AnomalyScore,
+    pub rul: Option<RulEstimate>,
+    pub coherence_node_id: Option<String>,
 }
 
 // ── Stateless compute (replica-safe; works online + locally identically) ─────────
@@ -2540,7 +2536,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // MCP SSE transport — is gated by the Bearer-token middleware below.
     let public = Router::new()
         .route("/health", get(health))
-        .route("/api/v1/embedder", get(ui_chat::embedder_info_handler));
+        .route("/api/v1/embedder", get(ui_chat::embedder_info_handler))
+        // Shared UI runtime. Public because a <script src> carries no Bearer
+        // token; see ui_chat::ui_shell_js_handler.
+        .route("/ui-shell.js", get(ui_chat::ui_shell_js_handler));
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
