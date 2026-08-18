@@ -272,6 +272,17 @@
     .hero{flex-direction:column}
     .orbit{display:none}
   }
+  @media (max-width: 768px){
+    header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+    h1{font-size:18px}
+    nav{order:10;width:100%;border-bottom:none;border-top:1px solid rgba(36,50,79,.85);padding-top:6px}
+    .card-grid{grid-template-columns:1fr}
+    .hero .actions{flex-direction:column;align-items:stretch}
+    .hero .actions button{width:100%}
+    .coach{flex-direction:column;align-items:stretch;text-align:center}
+    .coach .later{margin-left:0;margin-top:8px}
+    main{padding-bottom:60px}
+  }
   @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
   .tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted)}
   .tip:hover::after,.tip:focus::after{
