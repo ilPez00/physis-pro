@@ -85,7 +85,106 @@ pub struct EntrySeed {
     pub facets: Facets,
 }
 
-/// A caller-supplied facet constraint. Cells whose member facets don't match the
+#[derive(Clone, Debug, Serialize)]
+pub struct ClassificationMetadata {
+    /// Speaker who said/wrote the text
+    pub speaker: Option<String>,
+    /// Context or situation
+    pub context: Option<String>,
+    /// Source document or folder
+    pub source_document: Option<String>,
+    /// Custom tags for categorization
+    pub tags: Vec<String>,
+    /// Any additional key-value metadata
+    pub extra: std::collections::HashMap<String, String>,
+}
+
+impl Default for ClassificationMetadata {
+    fn default() -> Self {
+        Self {
+            speaker: None,
+            context: None,
+            source_document: None,
+            tags: vec![],
+            extra: std::collections::HashMap::new(),
+        }
+    }
+}
+
+/// A sentence classified into a semiotic cell (domain x mode) with metadata
+#[derive(Clone, Debug, Serialize)]
+pub struct ClassifiedSentence {
+    /// The original text
+    pub text: String,
+    /// The (domain, mode) cell it maps to
+    pub cell: (String, String), // (domain, mode) pair
+    /// Metadata enabling grid slicing and filtering
+    pub metadata: ClassificationMetadata,
+    /// Confidence score of the classification
+    pub confidence: f32,
+    /// When this was classified (ISO timestamp)
+    pub classified_at: Option<String>,
+}
+
+impl Default for ClassifiedSentence {
+    fn default() -> Self {
+        Self {
+            text: String::new(),
+            cell: (String::new(), String::new()),
+            metadata: ClassificationMetadata::default(),
+            confidence: 0.0,
+            classified_at: None,
+        }
+    }
+}
+
+/// Metadata filter for classifying with speaker/context awareness
+#[derive(Debug, Clone, Default)]
+pub struct MetadataFilter {
+    /// Only classify texts from these speakers
+    pub speakers: Vec<String>,
+    /// Only classify texts with these contexts
+    pub contexts: Vec<String>,
+    /// Only classify texts with these tags
+    pub tags: Vec<String>,
+}
+
+impl MetadataFilter {
+    /// Check if this filter allows a given metadata
+    pub fn allows(&self, metadata: &ClassificationMetadata) -> bool {
+        // Speaker filter
+        if let Some(ref want) = self.speakers.first() {
+            if let Some(ref have) = metadata.speaker.as_ref() {
+                if want != have {
+                    return false;
+                }
+            } else {
+                return false; // wants speaker but text has none
+            }
+        }
+        // Context filter
+        if let Some(ref want) = self.contexts.first() {
+            if let Some(ref have) = metadata.context.as_ref() {
+                if want != have {
+                    return false;
+                }
+            } else {
+                return false; // wants context but text has none
+            }
+        }
+        // Tags filter (all specified tags must be present)
+        for tag in &self.tags {
+            if !metadata.tags.iter().any(|t| t == tag) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+
+
+// A caller-supplied facet constraint. Cells whose member facets don't match the
 /// specified dimensions are down-weighted so facet-known queries rank better.
 #[derive(Debug, Clone, Default)]
 pub struct FacetFilter {
@@ -265,6 +364,42 @@ pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
     results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
     results
 }
+
+/// Classify with metadata tracking, returning a `ClassifiedSentence` for the top result.
+/// Uses the top-scoring cell and incorporates metadata for grid slicing.
+/// The `filter` can restrict which texts/metadata are considered; pass `Default::default()`
+/// for no filtering.
+pub fn classify_with_metadata(
+    &self,
+    embedding: &[f32],
+    metadata: &ClassificationMetadata,
+    filter: &MetadataFilter,
+) -> Option<ClassifiedSentence> {
+    let results = self.classify(embedding);
+    if results.is_empty() {
+        return None;
+    }
+    let top = &results[0];
+
+    // Apply metadata filter - if filter is set, ensure the top result's cell matches
+    // In the future, this could weight cells by metadata relevance
+    if !filter.allows(metadata) {
+        // Filter doesn't match; return None
+        return None;
+    }
+
+    Some(ClassifiedSentence {
+        text: "classified text".to_string(), // TODO: pass text in future
+        cell: (top.domain.clone(), top.mode.clone()),
+        metadata: metadata.clone(),
+        confidence: top.score,
+        classified_at: Some(
+            chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3f").to_string(),
+        ),
+    })
+}
+
+
 
     /// Classify with an optional facet constraint. Cells whose aggregated facets
     /// match the filter are up-weighted; the more dimensions match, the higher

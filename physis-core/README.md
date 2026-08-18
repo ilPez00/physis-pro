@@ -13,7 +13,7 @@ web server in the lib, no heavy ONNX deps in the default build.
 | `classify` | `CellClassifier` — nearest-entry cosine scoring over DOMAIN×MODE cells with a domain prior. |
 | `core` | `PhysisCore` — coherence nodes, asserted-failure dream loop, certified/isolated branches, snapshot. JSON-persisted. |
 | `quality` | `QualityTracker` — the feedback loop: report failures/successes → cell penalties/boosts → adjusted scores. |
-| `studio` | Embedded web GUI (axum) for browsing/editing the ontology, the semiotic-grid heatmap, live classification, and quality feedback. |
+| `studio` | Embedded web GUI (axum) for the ontology, the semiotic-grid heatmap, live classification, corpus scan/recall/judge/dream, gap discovery, and quality feedback. |
 
 State persists under `~/.physis-core/` (nodes, quality, custom ontology edits).
 
@@ -41,19 +41,32 @@ physis-core studio --port 3000        # the ontology studio GUI
 
 ## Studio GUI
 
-`physis-core studio` serves an interactive single-page app:
+`physis-core studio` serves a single-page app over six tabs — every capability
+the CLI has, plus the feedback loops, in one place. It shares the visual
+language and shell conventions (header chips, nav tabs, status pill, `?`
+overlay, `Ctrl+K` / `Ctrl+Enter`) of the physis-pro dashboards.
 
-- **Left** — ontology browser: search, categories, click any entry to edit (rename,
-  move to another grid cell, adjust hints). Custom edits persist and are layered
-  over the built-ins at load.
-- **Center** — the 5×14 semiotic grid as a heatmap; click a cell to see and add
-  entries, or open the "New entry in this cell" form prefilled.
-- **Right** — live classification (results adjusted by learned quality penalties),
-  and the quality feedback loop: mark a result wrong → the cell gets penalized
-  for future classifications.
+| Tab | What it does |
+|-----|--------------|
+| **Classify** | Score text against every populated cell. Shows the raw score next to the quality-adjusted one, the entries and facets behind each cell, the nearest single ontology entry, and the corpus passages closest to the same text. `✓` / `✕` on a result feed the quality tracker directly. |
+| **Semiotic grid** | The grid as a heatmap, with axes derived from the loaded ontology — not from a fixed 5×14 block. Rows/columns marked ✦ came from a config, an edited entry, or a promoted proposal. Click a cell to see its entries or add one. |
+| **Ontology** | Search across names, cells and hints; edit any entry (cell, axes, unit, hints, facets). Domain and mode are free text with suggestions, so a new axis can be introduced from the editor. Edits persist to `custom_ontology.json` and rebuild the classifier immediately. |
+| **Corpus** | Scan a directory into coherence nodes, recall them by meaning, judge them (`worked` / `inert` / `failed`), and dream over the failures. Density and verdict stay separate axes, as in the engine. |
+| **Discover** | Gap analysis over a corpus: coverage, unmapped count, tuned threshold, and proposed new domains — promote one and it becomes a real entry. |
+| **Quality** | Every penalized and boosted cell with its weight, plus the failure log. Boosting a cell here undoes a penalty. |
 
-Everything rebuilds the classifier in-process on edit, so the grid and rankings
-update immediately.
+The studio and the CLI share one state directory, so `physis-core scan` and the
+Corpus tab operate on the same graph.
+
+Scanning notes: files are split into ~1200-character passages (a whole-file
+vector averages away everything specific), build and dependency directories
+(`target`, `.git`, `node_modules`, …) are skipped, and one scan registers at
+most 2000 passages — registering a node re-scores it against every existing
+node, so ingestion is quadratic and an unbounded scan would wedge the process.
+
+The studio binds `127.0.0.1` by default: its scan and ingest routes read
+arbitrary local paths, so it must not be reachable off-box unless you opt in
+with `PHYSIS_STUDIO_HOST=0.0.0.0` (e.g. inside a container).
 
 ## Design notes
 

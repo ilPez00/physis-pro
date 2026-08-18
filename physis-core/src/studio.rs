@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use axum::{
-    extract::{Query, State},
+    extract::State,
     http::StatusCode,
     response::{Html, IntoResponse, Response},
     routing::{get, post},
@@ -15,13 +15,17 @@ use axum::{
 };
 
 use crate::classify::CellClassifier;
+use crate::core::PhysisCore;
 use crate::discovery::{self, DiscoveryConfig, DiscoveryReport};
-use crate::embed::{RandomProjectionEmbedder, VectorEmbed};use crate::models::*;
+use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
+use crate::models::*;
 use crate::ontology::OntologyLoader;
 use crate::quality::QualityTracker;
 use crate::store;
 
 const APP_HTML: &str = include_str!("studio/app.html");
+const APP_CSS: &str = include_str!("studio/app.css");
+const APP_JS: &str = include_str!("studio/app.js");
 
 /// Shared, mutable studio state.
 pub struct StudioState {
@@ -35,6 +39,9 @@ pub struct StudioState {
     pub custom_entries: HashMap<String, DomainDef>,
     pub classifier: CellClassifier,
     pub quality: QualityTracker,
+    /// The coherence-node graph — the same one the CLI's scan/search/dream
+    /// commands read, so the studio and the CLI share one corpus.
+    pub core: PhysisCore,
     pub data_dir: PathBuf,
 }
 
@@ -58,7 +65,9 @@ impl StudioState {
 
         let classifier = CellClassifier::build(&ontology, embedder.as_ref());
         let quality = QualityTracker::load_or_new(&quality_path(&data_dir));
-        Self { embedder, embedder_kind, semantic, ontology, classifier, custom_entries, quality, data_dir }
+        let mut core = load_core(&data_dir);
+        core.set_embedder_id(embedder_kind.clone());
+        Self { embedder, embedder_kind, semantic, ontology, classifier, custom_entries, quality, core, data_dir }
     }
 
     /// Rebuild the classifier (call after ontology edits) and save custom entries.
@@ -72,6 +81,10 @@ impl StudioState {
 
     fn save_quality(&self) {
         let _ = self.quality.save(&quality_path(&self.data_dir));
+    }
+
+    fn save_core(&self) {
+        let _ = save_core(&self.data_dir, &self.core);
     }
 }
 
@@ -103,6 +116,9 @@ pub async fn run_with_model(port: u16, model_dir: Option<String>) -> anyhow::Res
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/app.css", get(app_css))
+        .route("/app.js", get(app_js))
+        .route("/api/health", get(health_json))
         .route("/api/ontology", get(ontology_json))
         .route("/api/grid", get(grid_json))
         .route("/api/classify", post(classify))
@@ -114,17 +130,59 @@ pub async fn run_with_model(port: u16, model_dir: Option<String>) -> anyhow::Res
         .route("/api/quality", get(quality_json))
         .route("/api/quality/fail", post(quality_fail))
         .route("/api/quality/pass", post(quality_pass))
+        .route("/api/core/snapshot", get(core_snapshot))
+        .route("/api/core/nodes", get(core_nodes))
+        .route("/api/core/scan", post(core_scan))
+        .route("/api/core/search", post(core_search))
+        .route("/api/core/assert", post(core_assert))
+        .route("/api/core/dream", post(core_dream))
         .with_state(state);
 
-    let addr = format!("0.0.0.0:{port}");
+    // Loopback by default: every ingest/scan route reads arbitrary local paths,
+    // so the studio must not be reachable off-box unless someone opts in with
+    // PHYSIS_STUDIO_HOST (e.g. 0.0.0.0 inside a container).
+    let host = std::env::var("PHYSIS_STUDIO_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let addr = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    eprintln!("Ontology Studio → http://{addr}");
+    eprintln!("Physis Studio → http://{addr}");
     axum::serve(listener, app).await?;
     Ok(())
 }
 
 async fn index() -> Html<&'static str> {
     Html(APP_HTML)
+}
+
+async fn app_css() -> Response {
+    ([(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")], APP_CSS).into_response()
+}
+
+async fn app_js() -> Response {
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        APP_JS,
+    )
+        .into_response()
+}
+
+/// One call the header polls: everything the status bar shows.
+async fn health_json(State(state): State<Shared>) -> Response {
+    let s = state.read().unwrap();
+    Json(serde_json::json!({
+        "ok": true,
+        "embedder": s.embedder_kind,
+        "semantic": s.semantic,
+        "dimension": s.embedder.dimension(),
+        "entries": s.ontology.all_domains().len(),
+        "custom": s.custom_entries.len(),
+        "cells": s.classifier.cell_count(),
+        "nodes": s.core.nodes.len(),
+        "coherence_index": s.core.coherence_index(),
+        "failures": s.quality.failures.len(),
+        "penalties": s.quality.cell_penalties.len(),
+        "data_dir": s.data_dir.display().to_string(),
+    }))
+    .into_response()
 }
 
 #[derive(serde::Serialize)]
@@ -225,17 +283,24 @@ async fn ontology_json(State(state): State<Shared>) -> Response {
 
 #[derive(serde::Serialize)]
 struct GridJson {
-    domains: Vec<String>,
-    modes: Vec<String>,
+    domains: Vec<AxisJson>,
+    modes: Vec<AxisJson>,
     cells: Vec<GridCellJson>,
-    /// Population matrix [domain][mode] — how many entries the cell holds.
+    /// Heatmap matrix [domain][mode].
     heatmap: Vec<Vec<u32>>,
-    /// Condition matrix [domain][mode] — how the cell is *doing*, not how big
-    /// it is. See `cell_condition`.
-    condition: Vec<Vec<f32>>,
-    /// The confidence actually used, echoed back so the slider can show the
-    /// effective value rather than assuming its request was honoured.
-    confidence: f32,
+}
+
+/// One row or column of the grid.
+#[derive(serde::Serialize)]
+struct AxisJson {
+    name: String,
+    /// False for the built-in HumanDomain/HumanMode variants, true for an axis
+    /// the loaded ontology introduced — an edited entry, a promoted discovery
+    /// proposal, or a config using vocabulary outside the 5×14 block (see
+    /// config/ontology_facets.example.json: EXCHANGE×PERSUADE, DEFEND×TEACH).
+    extra: bool,
+    /// Entries anywhere on this row/column — how much of the grid it carries.
+    total: u32,
 }
 
 #[derive(serde::Serialize)]
@@ -244,72 +309,74 @@ struct GridCellJson {
     mode: String,
     entries: Vec<String>,
     count: u32,
-    /// The tracker's live multiplier for this cell: 1.0 neutral, <1 demoted,
-    /// >1 promoted. Carried raw so the UI can explain the colour it drew.
-    standing: f32,
-    /// Colour value in 0..1 — what `cell_condition` decided.
-    condition: f32,
 }
 
-use crate::quality::{cell_condition, ConditionLens};
-
-/// `?confidence=` on the grid endpoint — the heatmap's condition slider.
+/// Build one axis: the canonical variants in their declared order, then every
+/// value the ontology actually uses that isn't one of them, sorted.
 ///
-/// Absent or unparseable falls back to [`ConditionLens::default`], so a typo
-/// leaves the grid at its balanced reading instead of pinning it to an extreme.
-#[derive(serde::Deserialize, Default)]
-struct GridParams {
-    confidence: Option<String>,
+/// The grid is a view of the loaded ontology, not of the enums. Deriving the
+/// axes from `HumanDomain::all()` alone silently hid every entry outside the
+/// 5×14 block: `classify` keys cells on whatever strings an entry carries, so
+/// a promoted discovery proposal or an edited entry could score on a cell the
+/// UI had no row for — invisible, uneditable, unauditable.
+fn build_axis(canonical: &[&str], used: &HashMap<String, u32>) -> Vec<AxisJson> {
+    let mut axis: Vec<AxisJson> = canonical
+        .iter()
+        .map(|name| AxisJson {
+            name: (*name).to_string(),
+            extra: false,
+            total: used.get(*name).copied().unwrap_or(0),
+        })
+        .collect();
+    let mut extras: Vec<(&String, &u32)> =
+        used.iter().filter(|(name, _)| !canonical.contains(&name.as_str())).collect();
+    extras.sort_by(|a, b| a.0.cmp(b.0));
+    axis.extend(extras.into_iter().map(|(name, total)| AxisJson {
+        name: name.clone(),
+        extra: true,
+        total: *total,
+    }));
+    axis
 }
 
-impl GridParams {
-    fn lens(&self) -> ConditionLens {
-        self.confidence
-            .as_deref()
-            .and_then(ConditionLens::parse)
-            .unwrap_or_default()
-    }
-}
-
-async fn grid_json(State(state): State<Shared>, Query(params): Query<GridParams>) -> Response {
+async fn grid_json(State(state): State<Shared>) -> Response {
     let s = state.read().unwrap();
-    let confidence = params.lens().confidence();
-    let domains: Vec<String> = HumanDomain::all().iter().map(|d| d.as_str().to_string()).collect();
-    let modes: Vec<String> = HumanMode::all().iter().map(|m| m.as_str().to_string()).collect();
 
-    // Build a HashMap<(domain, mode), Vec<name>> from classification ontology.
+    // Build a HashMap<(domain, mode), Vec<name>> from classification ontology,
+    // counting per-axis totals as we go.
     let mut cell_map: HashMap<(String, String), Vec<String>> = HashMap::new();
+    let mut domain_totals: HashMap<String, u32> = HashMap::new();
+    let mut mode_totals: HashMap<String, u32> = HashMap::new();
     for def in s.ontology.classification_domains() {
         if let (Some(d), Some(m)) = (def.domain.as_deref(), def.mode.as_deref()) {
             cell_map.entry((d.to_string(), m.to_string())).or_default().push(def.name.clone());
+            *domain_totals.entry(d.to_string()).or_default() += 1;
+            *mode_totals.entry(m.to_string()).or_default() += 1;
         }
     }
 
+    let canonical_domains: Vec<&str> = HumanDomain::all().iter().map(|d| d.as_str()).collect();
+    let canonical_modes: Vec<&str> = HumanMode::all().iter().map(|m| m.as_str()).collect();
+    let domains = build_axis(&canonical_domains, &domain_totals);
+    let modes = build_axis(&canonical_modes, &mode_totals);
+
     let mut heatmap = vec![vec![0u32; modes.len()]; domains.len()];
-    let mut condition = vec![vec![0f32; modes.len()]; domains.len()];
     let mut cells = Vec::new();
     for (di, d) in domains.iter().enumerate() {
         for (mi, m) in modes.iter().enumerate() {
-            let mut entries = cell_map.get(&(d.clone(), m.clone())).cloned().unwrap_or_default();
+            let mut entries = cell_map.get(&(d.name.clone(), m.name.clone())).cloned().unwrap_or_default();
             entries.sort();
             let count = entries.len() as u32;
-            let standing = s.quality.cell_standing(&format!("{d}\x00{m}"));
-            // The studio holds ontology entries, not coherence nodes, so it has
-            // no verdicts to average — the web grid supplies that third signal.
-            let cond = cell_condition(count, standing, None, confidence);
             cells.push(GridCellJson {
-                domain: d.clone(),
-                mode: m.clone(),
+                domain: d.name.clone(),
+                mode: m.name.clone(),
                 entries,
                 count,
-                standing,
-                condition: cond,
             });
             heatmap[di][mi] = count;
-            condition[di][mi] = cond;
         }
     }
-    Json(GridJson { domains, modes, cells, heatmap, condition, confidence }).into_response()
+    Json(GridJson { domains, modes, cells, heatmap }).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -322,6 +389,19 @@ struct ClassifyResp {
     query_embedding_dim: usize,
     results: Vec<CellScoreJson>,
     quality_penalties: HashMap<String, f32>,
+    /// Nearest single ontology entry — the sanity check on whether the top cell
+    /// won on real similarity or on an empty grid.
+    best_entry: Option<BestEntryJson>,
+    /// Recalled corpus nodes closest to the same text, so a classification can
+    /// be read next to the documents that back it.
+    recall: Vec<RecallJson>,
+}
+
+#[derive(serde::Serialize)]
+struct BestEntryJson {
+    similarity: f32,
+    domain: String,
+    mode: String,
 }
 
 #[derive(serde::Serialize)]
@@ -331,11 +411,39 @@ struct CellScoreJson {
     raw_score: f32,
     adjusted_score: f32,
     entries: Vec<String>,
+    /// Facets carried by the entries in this cell (the dimensions the 2-D grid
+    /// cannot hold) — deduped for display.
+    facets: Vec<String>,
+}
+
+/// Facet values on a cell, flattened to `kind:value` strings for the UI.
+fn facet_labels(f: &Facets) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(v) = &f.lifecycle {
+        out.push(format!("lifecycle:{v:?}"));
+    }
+    if let Some(v) = &f.agency {
+        out.push(format!("agency:{v:?}"));
+    }
+    if let Some(v) = &f.scale {
+        out.push(format!("scale:{v:?}"));
+    }
+    if let Some(v) = &f.abstraction {
+        out.push(format!("abstraction:{v:?}"));
+    }
+    if let Some(v) = &f.sub_domain {
+        out.push(format!("sub-domain:{v}"));
+    }
+    if let Some(v) = &f.sub_mode {
+        out.push(format!("sub-mode:{v}"));
+    }
+    out
 }
 
 async fn classify(State(state): State<Shared>, Json(req): Json<ClassifyReq>) -> Response {
     let s = state.read().unwrap();
-    let results = s.classifier.classify_text(&req.text, s.embedder.as_ref());
+    let embedding = s.embedder.embed(&req.text);
+    let results = s.classifier.classify(&embedding);
     let resp = ClassifyResp {
         query_embedding_dim: s.embedder.dimension(),
         results: results
@@ -349,10 +457,20 @@ async fn classify(State(state): State<Shared>, Json(req): Json<ClassifyReq>) -> 
                     raw_score: r.score,
                     adjusted_score: s.quality.adjust_score(&key, r.score),
                     entries: r.entries.iter().take(12).cloned().collect(),
+                    facets: facet_labels(&r.facets),
                 }
             })
             .collect(),
         quality_penalties: s.quality.cell_penalties.clone(),
+        best_entry: s.classifier.best_entry_sim(&embedding).map(|(similarity, domain, mode)| {
+            BestEntryJson { similarity, domain, mode }
+        }),
+        recall: s
+            .core
+            .search_nodes(&embedding, 5)
+            .into_iter()
+            .map(|(id, label, score)| RecallJson::new(&s.core, id, label, score))
+            .collect(),
     };
     Json(resp).into_response()
 }
@@ -440,27 +558,13 @@ async fn ingest_dir(State(state): State<Shared>, Json(req): Json<IngestReq>) -> 
     // Walk the dir, read text files, split into corpus lines.
     let mut lines: Vec<String> = Vec::new();
     let mut files = 0usize;
-    let mut stack = vec![dir.clone()];
-    while let Some(d) = stack.pop() {
-        let Ok(rd) = std::fs::read_dir(&d) else { continue };
-        for entry in rd {
-            let Ok(entry) = entry else { continue };
-            let path = entry.path();
-            if path.is_dir() {
-                stack.push(path);
-                continue;
-            }
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if !TEXT_EXTS.contains(&ext) {
-                continue;
-            }
-            let Ok(text) = std::fs::read_to_string(&path) else { continue };
-            files += 1;
-            for line in text.lines() {
-                let line = line.trim();
-                if line.len() > 12 && line.chars().count() < 300 {
-                    lines.push(line.to_string());
-                }
+    for path in collect_text_files(&dir) {
+        let Ok(text) = std::fs::read_to_string(&path) else { continue };
+        files += 1;
+        for line in text.lines() {
+            let line = line.trim();
+            if line.len() > 12 && line.chars().count() < 300 {
+                lines.push(line.to_string());
             }
         }
     }
@@ -570,6 +674,297 @@ async fn quality_pass(State(state): State<Shared>, Json(req): Json<PassReq>) -> 
     Json(serde_json::json!({ "ok": true, "boosted": req.cell })).into_response()
 }
 
+// ── Coherence graph (corpus) ─────────────────────────────────────────
+//
+// The CLI could already scan a directory into coherence nodes, search them,
+// judge them, and dream over the failures — but none of it was reachable from
+// the studio, so the GUI could only ever talk about the ontology in the
+// abstract. These routes put the corpus and the grid on the same screen.
+
+/// One recalled node, with the two axes the engine keeps separate: derived
+/// density (`coherence`) and the human verdict (`asserted`).
+#[derive(serde::Serialize)]
+struct RecallJson {
+    id: String,
+    label: String,
+    score: f32,
+    coherence: f32,
+    asserted: Option<f32>,
+}
+
+impl RecallJson {
+    fn new(core: &PhysisCore, id: String, label: String, score: f32) -> Self {
+        let node = core.nodes.get(&id);
+        Self {
+            coherence: node.map(|n| n.coherence_score).unwrap_or_default(),
+            asserted: node.and_then(|n| n.asserted),
+            // Labels are whole file excerpts; the UI only ever renders a line.
+            label: label.chars().take(240).collect(),
+            id,
+            score,
+        }
+    }
+}
+
+async fn core_snapshot(State(state): State<Shared>) -> Response {
+    let s = state.read().unwrap();
+    Json(s.core.snapshot()).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct NodesQuery {
+    #[serde(default = "default_max")]
+    max: usize,
+    /// "all" | "unjudged" | "failure" — the assert queue defaults to unjudged.
+    #[serde(default)]
+    filter: String,
+}
+
+fn default_max() -> usize {
+    30
+}
+
+async fn core_nodes(
+    State(state): State<Shared>,
+    axum::extract::Query(q): axum::extract::Query<NodesQuery>,
+) -> Response {
+    let s = state.read().unwrap();
+    let mut nodes: Vec<&CoherenceNode> = s
+        .core
+        .nodes
+        .values()
+        .filter(|n| n.label.is_some())
+        .filter(|n| match q.filter.as_str() {
+            "unjudged" => n.asserted.is_none(),
+            "failure" => n.is_asserted_failure(),
+            _ => true,
+        })
+        .collect();
+    // Weakest first: the nodes that most need a human verdict lead the queue.
+    nodes.sort_by(|a, b| {
+        a.coherence_score.partial_cmp(&b.coherence_score).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let out: Vec<RecallJson> = nodes
+        .into_iter()
+        .take(q.max.min(200))
+        .map(|n| {
+            RecallJson::new(
+                &s.core,
+                n.id.clone(),
+                n.label.clone().unwrap_or_default(),
+                n.coherence_score,
+            )
+        })
+        .collect();
+    Json(serde_json::json!({ "nodes": out })).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct ScanReq {
+    dir: String,
+}
+
+async fn core_scan(State(state): State<Shared>, Json(req): Json<ScanReq>) -> Response {
+    let dir = std::path::PathBuf::from(&req.dir);
+    if !dir.is_dir() {
+        return (StatusCode::BAD_REQUEST, format!("not a directory: {}", dir.display())).into_response();
+    }
+    let files = collect_text_files(&dir);
+    let scanned = files.len();
+    let mut skipped = 0usize;
+    let mut labels: Vec<String> = Vec::new();
+    for path in &files {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            skipped += 1;
+            continue;
+        };
+        let chunks = chunk_text(&text);
+        if chunks.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        for (i, chunk) in chunks.iter().enumerate() {
+            // The label is both the display text and the dedupe key, so it
+            // carries the passage index — re-scanning a file updates nothing
+            // and duplicates nothing.
+            labels.push(format!("{}#{i}: {chunk}", path.display()));
+        }
+    }
+    let capped = labels.len() > MAX_SCAN_NODES;
+    labels.truncate(MAX_SCAN_NODES);
+
+    // Embed under a READ lock: this is the slow half, and holding the write
+    // lock across it would freeze every other request — including the health
+    // poll the header runs — for the whole scan.
+    let embeddings: Vec<Vec<f32>> = {
+        let s = state.read().unwrap();
+        labels.iter().map(|l| s.embedder.embed(l)).collect()
+    };
+
+    let mut s = state.write().unwrap();
+    // Labels dedupe, so the honest count is how much the graph actually grew —
+    // a second scan of the same folder reports 0 new, not "registered" again.
+    let before = s.core.nodes.len();
+    let seen = labels.len();
+    for (label, embedding) in labels.into_iter().zip(embeddings) {
+        s.core.register_node_vec_labeled(embedding, Some(label));
+    }
+    let registered = s.core.nodes.len() - before;
+    s.save_core();
+    let snapshot = s.core.snapshot();
+    Json(serde_json::json!({
+        "files": scanned,
+        "passages": seen,
+        "registered": registered,
+        "skipped": skipped,
+        "capped": capped,
+        "max_nodes": MAX_SCAN_NODES,
+        "snapshot": snapshot,
+    }))
+    .into_response()
+}
+
+/// Ceiling on passages registered by one scan. Registering a node re-scores it
+/// against every existing node, so ingestion is quadratic: an unbounded scan of
+/// a source tree wedges the studio for minutes. Point it at a folder that
+/// matters, not at a repository root.
+const MAX_SCAN_NODES: usize = 2000;
+
+/// Longest passage kept as one node. The CLI's whole-file scan dropped
+/// anything over 5000 chars outright, which meant a docs folder of real
+/// documents ingested as nothing; splitting keeps long files searchable and
+/// keeps each vector about one topic instead of a whole file's average.
+const CHUNK_CHARS: usize = 1200;
+/// Below this a passage is a heading or a stray line — no recall value.
+const MIN_CHUNK_CHARS: usize = 40;
+
+/// Split text into passages on blank lines, packing paragraphs up to
+/// `CHUNK_CHARS` and hard-splitting any single paragraph longer than that.
+fn chunk_text(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut buf = String::new();
+    for para in text.split("\n\n") {
+        let para = para.trim();
+        if para.is_empty() {
+            continue;
+        }
+        for piece in hard_split(para) {
+            if !buf.is_empty() && buf.chars().count() + piece.chars().count() > CHUNK_CHARS {
+                out.push(std::mem::take(&mut buf));
+            }
+            if !buf.is_empty() {
+                buf.push(' ');
+            }
+            buf.push_str(&piece);
+        }
+    }
+    if !buf.is_empty() {
+        out.push(buf);
+    }
+    out.retain(|c| c.chars().count() >= MIN_CHUNK_CHARS);
+    out
+}
+
+/// Break one oversized paragraph on char boundaries (never byte offsets —
+/// slicing a multi-byte char would panic).
+fn hard_split(para: &str) -> Vec<String> {
+    if para.chars().count() <= CHUNK_CHARS {
+        return vec![para.to_string()];
+    }
+    para.chars()
+        .collect::<Vec<char>>()
+        .chunks(CHUNK_CHARS)
+        .map(|c| c.iter().collect())
+        .collect()
+}
+
+#[derive(serde::Deserialize)]
+struct SearchReq {
+    query: String,
+    #[serde(default = "default_search_max")]
+    max: usize,
+}
+
+fn default_search_max() -> usize {
+    10
+}
+
+async fn core_search(State(state): State<Shared>, Json(req): Json<SearchReq>) -> Response {
+    let s = state.read().unwrap();
+    let hits: Vec<RecallJson> = s
+        .core
+        .search_text(&req.query, s.embedder.as_ref(), req.max.min(100))
+        .into_iter()
+        .map(|(id, label, score)| RecallJson::new(&s.core, id, label, score))
+        .collect();
+    Json(serde_json::json!({ "hits": hits, "nodes": s.core.nodes.len() })).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct AssertReq {
+    id: String,
+    verdict: String,
+}
+
+/// success/inert/failure → the score the engine stores on the asserted axis.
+fn verdict_score(verdict: &str) -> Option<f32> {
+    match verdict.to_lowercase().as_str() {
+        "success" => Some(1.0),
+        "inert" => Some(0.0),
+        "failure" => Some(-1.0),
+        _ => None,
+    }
+}
+
+async fn core_assert(State(state): State<Shared>, Json(req): Json<AssertReq>) -> Response {
+    let Some(score) = verdict_score(&req.verdict) else {
+        return (StatusCode::BAD_REQUEST, "verdict must be success|inert|failure").into_response();
+    };
+    let mut s = state.write().unwrap();
+    if !s.core.assert_coherence(&req.id, score) {
+        return (StatusCode::NOT_FOUND, format!("no node {}", req.id)).into_response();
+    }
+    s.save_core();
+    Json(serde_json::json!({ "ok": true, "asserted": score, "snapshot": s.core.snapshot() }))
+        .into_response()
+}
+
+async fn core_dream(State(state): State<Shared>) -> Response {
+    let mut s = state.write().unwrap();
+    let dreams = s.core.dream();
+    s.save_core();
+    Json(serde_json::json!({ "dreams": dreams, "snapshot": s.core.snapshot() })).into_response()
+}
+
+/// Directories a scan must never descend into: build output and dependency
+/// trees are megabytes of machine-written text that bury whatever the user
+/// actually pointed at.
+const SKIP_DIRS: &[&str] = &[
+    ".git", "target", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "vendor",
+];
+
+/// Recursive walk returning every readable text file under `dir`.
+fn collect_text_files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        for entry in rd.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if SKIP_DIRS.contains(&name) {
+                    continue;
+                }
+                stack.push(path);
+            } else if TEXT_EXTS.contains(&path.extension().and_then(|e| e.to_str()).unwrap_or("")) {
+                out.push(path);
+            }
+        }
+    }
+    out
+}
+
 // ── Persistence helpers ──────────────────────────────────────────────
 
 fn quality_path(data_dir: &std::path::Path) -> std::path::PathBuf {
@@ -578,6 +973,26 @@ fn quality_path(data_dir: &std::path::Path) -> std::path::PathBuf {
 
 fn custom_ontology_file(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("custom_ontology.json")
+}
+
+/// Same file the CLI persists to, so `physis-core scan` and the studio's
+/// Corpus tab operate on one graph rather than two divergent ones.
+fn nodes_file(data_dir: &std::path::Path) -> std::path::PathBuf {
+    data_dir.join("nodes.json")
+}
+
+fn load_core(data_dir: &std::path::Path) -> PhysisCore {
+    let json = std::fs::read_to_string(nodes_file(data_dir)).unwrap_or_default();
+    if json.trim().is_empty() {
+        return PhysisCore::new();
+    }
+    PhysisCore::from_json(&json).unwrap_or_else(|_| PhysisCore::new())
+}
+
+fn save_core(data_dir: &std::path::Path, core: &PhysisCore) -> anyhow::Result<()> {
+    let _ = std::fs::create_dir_all(data_dir);
+    std::fs::write(nodes_file(data_dir), core.to_json()?)?;
+    Ok(())
 }
 
 fn load_custom_entries(data_dir: &std::path::Path) -> HashMap<String, DomainDef> {
@@ -600,12 +1015,13 @@ fn save_custom_entries(data_dir: &std::path::Path, entries: &HashMap<String, Dom
 mod tests {
     use super::*;
 
-    /// Pull the `value="…"` list out of one `<select id="…">` in the embedded app.
+    /// Pull the `value="…"` list out of one `<select id="…">` in the embedded
+    /// app. The entry editor is built in JS, so the markup lives in app.js.
     fn option_values(select_id: &str) -> Vec<String> {
-        let start = APP_HTML
+        let start = APP_JS
             .find(&format!("id=\"{select_id}\""))
-            .unwrap_or_else(|| panic!("{select_id} not found in app.html"));
-        let rest = &APP_HTML[start..];
+            .unwrap_or_else(|| panic!("{select_id} not found in app.js"));
+        let rest = &APP_JS[start..];
         let end = rest.find("</select>").expect("select is closed");
         rest[..end]
             .match_indices("value=\"")
@@ -665,6 +1081,139 @@ mod tests {
         assert_eq!(req.facets.scale, None);
     }
 
+    /// The shell only works if it actually pulls in the split assets; a rename
+    /// on either side would otherwise ship a blank, silent page.
+    #[test]
+    fn app_html_loads_the_split_assets() {
+        assert!(APP_HTML.contains("href=\"app.css\""), "app.html must link app.css");
+        assert!(APP_HTML.contains("src=\"app.js\""), "app.html must load app.js");
+        // Every nav target must have a matching section, or the tab is dead.
+        for tab in ["classify", "grid", "ontology", "corpus", "discover", "quality"] {
+            assert!(APP_HTML.contains(&format!("data-tab=\"{tab}\"")), "nav button for {tab}");
+            assert!(APP_HTML.contains(&format!("id=\"tab-{tab}\"")), "section for {tab}");
+        }
+    }
+
+    /// The quality tracker keys cells on `DOMAIN\0MODE`, so the UI has to send
+    /// that separator back verbatim. Writing a literal NUL into a source file
+    /// is a trap (greps go binary, editors mangle it) — it must stay escaped.
+    #[test]
+    fn app_js_uses_the_nul_cell_separator_escaped() {
+        assert!(!APP_JS.contains('\0'), "app.js must not carry a raw NUL byte");
+        assert!(APP_JS.contains(r"'\u0000'"), "app.js must build cell keys with an escaped NUL");
+    }
+
+    /// Real docs blow past any whole-file limit, so a scan has to split them —
+    /// and the split has to stay char-safe and drop noise-sized fragments.
+    #[test]
+    fn chunk_text_packs_paragraphs_and_splits_long_ones() {
+        let short = chunk_text("tiny\n\nalso tiny");
+        assert!(short.is_empty(), "sub-threshold text yields no nodes: {short:?}");
+
+        let para = "the pump seal was replaced during the planned shutdown window. ".repeat(4);
+        let packed = chunk_text(&format!("{para}\n\n{para}"));
+        assert_eq!(packed.len(), 1, "small paragraphs pack into one passage");
+
+        // Multi-byte chars: a byte-offset split here would panic.
+        let long = "é".repeat(CHUNK_CHARS * 2 + 10);
+        let split = chunk_text(&long);
+        assert_eq!(split.len(), 2, "two full passages; the 10-char tail is noise");
+        assert!(split.iter().all(|c| c.chars().count() == CHUNK_CHARS));
+    }
+
+    /// The grid must be a view of the ontology, not of the enums: an edited
+    /// entry or a promoted discovery proposal can introduce any axis string.
+    /// A fixed 5×14 block hides those entries from the UI while `classify`
+    /// still returns them.
+    #[test]
+    fn grid_axes_extend_past_the_builtin_variants() {
+        let canonical: Vec<&str> = HumanDomain::all().iter().map(|d| d.as_str()).collect();
+        let used: HashMap<String, u32> =
+            [("STUDY".to_string(), 3), ("EXCHANGE".to_string(), 1), ("DEFEND".to_string(), 2)]
+                .into_iter()
+                .collect();
+
+        let axis = build_axis(&canonical, &used);
+        let names: Vec<&str> = axis.iter().map(|a| a.name.as_str()).collect();
+        // Canonical order first, then the extras alphabetically.
+        assert_eq!(names, ["HEAL", "CONSTRUCT", "FABRICATE", "BOND", "STUDY", "DEFEND", "EXCHANGE"]);
+        assert!(axis.iter().take(5).all(|a| !a.extra), "built-in axes are not flagged extra");
+        assert!(axis[5].extra && axis[6].extra, "ontology-introduced axes are flagged");
+        // Totals come from the ontology, so an unused canonical axis reads 0.
+        assert_eq!(axis[0].total, 0);
+        assert_eq!(axis[4].total, 3);
+        assert_eq!(axis[5].total, 2);
+    }
+
+    /// The editor writes axes as free text, so the row an entry lands on must
+    /// be whatever it says — including a mode nobody has used before.
+    #[test]
+    fn a_new_axis_gets_its_own_row() {
+        let canonical: Vec<&str> = HumanMode::all().iter().map(|m| m.as_str()).collect();
+        let used: HashMap<String, u32> = [("NEGOTIATE".to_string(), 1)].into_iter().collect();
+        let axis = build_axis(&canonical, &used);
+        assert_eq!(axis.len(), canonical.len() + 1);
+        assert_eq!(axis.last().unwrap().name, "NEGOTIATE");
+        assert!(axis.last().unwrap().extra);
+    }
+
+    #[test]
+    fn verdicts_map_to_the_asserted_axis() {
+        assert_eq!(verdict_score("success"), Some(1.0));
+        assert_eq!(verdict_score("Inert"), Some(0.0));
+        assert_eq!(verdict_score("FAILURE"), Some(-1.0));
+        assert_eq!(verdict_score("maybe"), None);
+    }
+
+    /// Scan and gap-discovery walk the same tree, so they must agree on what
+    /// counts as text — and neither may follow a directory into oblivion.
+    #[test]
+    fn collect_text_files_recurses_and_filters_by_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let skipped = dir.path().join("target");
+        std::fs::create_dir(&skipped).unwrap();
+        std::fs::write(dir.path().join("a.md"), "top level").unwrap();
+        std::fs::write(nested.join("b.rs"), "fn main() {}").unwrap();
+        std::fs::write(nested.join("c.bin"), [0u8, 1, 2]).unwrap();
+        // Build output is machine-written noise; a scan must not ingest it.
+        std::fs::write(skipped.join("d.rs"), "generated").unwrap();
+
+        let mut names: Vec<String> = collect_text_files(dir.path())
+            .iter()
+            .filter_map(|p| p.file_name()?.to_str().map(str::to_string))
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["a.md", "b.rs"]);
+    }
+
+    /// The studio and the CLI must share one graph file — a studio scan has to
+    /// be visible to `physis-core search`, and vice versa.
+    #[test]
+    fn core_round_trips_through_the_cli_nodes_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let embedder = RandomProjectionEmbedder::new(64);
+        let mut core = PhysisCore::new();
+        let id = core.register_node_from_text("pump seal replaced", &embedder);
+        core.assert_coherence(&id, -1.0);
+        save_core(dir.path(), &core).unwrap();
+
+        assert_eq!(nodes_file(dir.path()).file_name(), crate::store::nodes_path().file_name());
+        let reloaded = load_core(dir.path());
+        assert_eq!(reloaded.nodes.len(), 1);
+        assert_eq!(reloaded.nodes[&id].asserted, Some(-1.0));
+    }
+
+    /// A missing or corrupt nodes file must not take the studio down with it.
+    #[test]
+    fn load_core_tolerates_a_missing_or_broken_file() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(load_core(dir.path()).nodes.len(), 0);
+        std::fs::write(nodes_file(dir.path()), "{not json").unwrap();
+        assert_eq!(load_core(dir.path()).nodes.len(), 0);
+    }
+
     /// A request with no `facets` key at all still parses — the studio's older
     /// clients (and the promote-proposal path) send none.
     #[test]
@@ -675,67 +1224,5 @@ mod tests {
         }))
         .expect("entry without facets deserializes");
         assert_eq!(req.facets, Facets::default());
-    }
-
-    /// Pull one attribute off the `<input id="…">` for the condition slider.
-    fn lens_attr(attr: &str) -> String {
-        let start = APP_HTML.find("id=\"lens\"").expect("lens slider in app.html");
-        // The attribute may sit either side of the id within the same tag.
-        let tag_start = APP_HTML[..start].rfind('<').expect("tag opens");
-        let rest = &APP_HTML[tag_start..];
-        let tag = &rest[..rest.find('>').expect("tag closes")];
-        let at = tag
-            .find(&format!("{attr}=\""))
-            .unwrap_or_else(|| panic!("lens slider has no {attr}"));
-        let v = &tag[at + attr.len() + 2..];
-        v[..v.find('"').expect("attribute is quoted")].to_string()
-    }
-
-    /// The slider's default lives in an HTML string literal, so nothing in Rust
-    /// forces it to agree with `ConditionLens::default`. If they drift, the
-    /// studio opens showing colours for one lens while labelling another.
-    #[test]
-    fn studio_slider_defaults_to_the_same_lens_as_the_server() {
-        let html_default: f32 = lens_attr("value").parse().expect("slider value is a number");
-        assert!(
-            (html_default - ConditionLens::default().confidence()).abs() < 1e-6,
-            "slider opens at {html_default} but the server defaults to {}",
-            ConditionLens::default().confidence()
-        );
-    }
-
-    /// The slider's range must be the range the server accepts, or dragging to
-    /// an end produces a value `ConditionLens::parse` rejects — which silently
-    /// snaps the grid back to the default instead of honouring the drag.
-    #[test]
-    fn studio_slider_range_matches_what_the_server_accepts() {
-        assert_eq!(lens_attr("min"), "0", "slider must start at the responsive end");
-        assert_eq!(lens_attr("max"), "1", "slider must stop at the trusting end");
-        for probe in [lens_attr("min"), lens_attr("max")] {
-            assert!(
-                ConditionLens::parse(&probe).is_some(),
-                "slider endpoint {probe:?} is rejected by ConditionLens::parse"
-            );
-        }
-    }
-
-    /// The page prints "a cell needs ~N entries" from its own copy of the span
-    /// constant. If that copy drifts, the hint describes a grid the server is
-    /// not drawing.
-    #[test]
-    fn studio_hint_uses_the_servers_confidence_span() {
-        let at = APP_HTML
-            .find("const CONFIDENCE_SPAN = ")
-            .expect("app.html declares CONFIDENCE_SPAN");
-        let rest = &APP_HTML[at + "const CONFIDENCE_SPAN = ".len()..];
-        let v: f32 = rest[..rest.find(';').expect("declaration ends")]
-            .trim()
-            .parse()
-            .expect("CONFIDENCE_SPAN is a number");
-        assert!(
-            (v - crate::quality::CONDITION_CONFIDENCE_SPAN).abs() < 1e-6,
-            "app.html says {v}, quality.rs says {}",
-            crate::quality::CONDITION_CONFIDENCE_SPAN
-        );
     }
 }
