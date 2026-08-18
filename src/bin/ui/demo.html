@@ -138,6 +138,17 @@
 
   .two-col{display:grid;grid-template-columns:1.2fr 1fr;gap:14px}
   @media(max-width:1100px){.two-col{grid-template-columns:1fr}}
+  @media(max-width:768px){
+    header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+    h1{font-size:18px}
+    nav{width:100%;border-bottom:none;border-top:1px solid rgba(36,50,79,.85);padding-top:6px}
+    .grid-kpis{grid-template-columns:1fr}
+    .hero .actions{flex-direction:column;align-items:stretch}
+    .hero .actions button{width:100%}
+    .coach{flex-direction:column;align-items:stretch;text-align:center}
+    .coach .later{margin-left:0;margin-top:8px}
+    main{padding-bottom:60px}
+  }
 
   .panel{
     background:linear-gradient(180deg,rgba(13,21,38,.92),rgba(10,16,32,.9));
