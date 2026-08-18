@@ -189,6 +189,8 @@ pub struct AppCtx {
     quality: Mutex<QualityTracker>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     limiter: RateLimiter,
+    /// Server start time for uptime reporting.
+    started_at: std::time::Instant,
     #[cfg(feature = "mcp")]
     mcp_sessions: std::sync::Arc<
         tokio::sync::Mutex<
@@ -837,8 +839,43 @@ async fn require_auth(
 
 // ── Handlers ──────────────────────────────────────────────────────────
 
-async fn health() -> Json<&'static str> {
-    Json("ok")
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    version: &'static str,
+    uptime_secs: u64,
+    features: Vec<&'static str>,
+    embedder: &'static str,
+    embed_dim: usize,
+    degraded: bool,
+    self_test: bool,
+    tenants: usize,
+    db: bool,
+}
+
+async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
+    let tenant_count = state.tenants.lock().unwrap().len();
+    let db_ok = state.db.is_some();
+    let mut features = vec![];
+    #[cfg(feature = "web")] features.push("web");
+    #[cfg(feature = "industrial")] features.push("industrial");
+    #[cfg(feature = "voice")] features.push("voice");
+    #[cfg(feature = "mcp")] features.push("mcp");
+    #[cfg(feature = "spanner")] features.push("spanner");
+    #[cfg(feature = "wiki-embedded")] features.push("wiki-embedded");
+
+    Json(HealthResponse {
+        status: "ok",
+        version: env!("CARGO_PKG_VERSION"),
+        uptime_secs: state.started_at.elapsed().as_secs(),
+        features,
+        embedder: state.shared.embedder_kind,
+        embed_dim: state.shared.embed_dim,
+        degraded: state.shared.degraded,
+        self_test: state.shared.self_test,
+        tenants: tenant_count,
+        db: db_ok,
+    })
 }
 
 // ── /api/v1/chat ─────────────────────────────────────────────────────────────
@@ -2361,6 +2398,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         ),
         quality: Mutex::new(build_quality_tracker(&shared)),
         limiter: rate_limit_from_env(),
+        started_at: std::time::Instant::now(),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
     });
