@@ -1,0 +1,81 @@
+# justfile — Physis Pro common commands
+# Requires: just (https://github.com/casey/just)
+
+set shell := ["bash", "-c"]
+
+# Default: show available recipes
+default:
+    @just --list
+
+# Build the main binary (default features)
+build:
+    cargo build --bin physis-pro
+
+# Build with all features
+build-all:
+    cargo build --all-features
+
+# Run tests (default features)
+test:
+    cargo test
+
+# Run tests with web feature
+test-web:
+    cargo test --features web
+
+# Run tests with web + industrial features
+test-industrial:
+    cargo test --features "web industrial"
+
+# Run tests with all features
+test-all:
+    cargo test --all-features
+
+# Run the HTTP surface test suite
+test-http:
+    cargo test --test http_surface --features "web industrial"
+
+# Run clippy (deny warnings)
+lint:
+    cargo clippy --all-features -- -D warnings
+
+# Format code
+fmt:
+    cargo fmt
+
+# Check formatting without changing files
+fmt-check:
+    cargo fmt -- --check
+
+# Run the web server
+web:
+    cargo run --bin physis-pro-web --features web
+
+# Run the TUI
+tui:
+    cargo run --bin physis-pro-tui --features tui
+
+# Run the voice binary
+voice:
+    cargo run --bin physis-pro-voice --features "voice web"
+
+# Seed demo data (requires web server running)
+demo-seed:
+    @echo "Seed demo data via: curl -X POST http://localhost:19876/api/v1/industrial/seed-demo"
+    @echo "Or open http://localhost:19876/demo and click 'Seed demo data'"
+
+# Doctor: validate config, data dir, embedder, license
+doctor:
+    cargo run --bin physis-pro -- doctor
+
+# Show version
+version:
+    cargo run --bin physis-pro -- --version
+
+# Clean build artifacts
+clean:
+    cargo clean
+
+# Full CI check: fmt + clippy + tests
+ci: fmt-check lint test
+    @echo "CI passed"
