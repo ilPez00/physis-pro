@@ -204,14 +204,14 @@ impl CellClassifier {
     /// Used by [`CellClassifier::classify`](Self::classify) to select the number of
     /// top similarities to average per cell.
     pub fn adaptive_top_k(num_entries: usize) -> usize {
-    let base = TOP_K; // = 2, the medium default
-    match num_entries {
-        1..=3 => 1,
-        4..=10 => base, // = 2
-        11..=30 => base + 1, // = 3
-        _ => base + 2, // = 4
+        let base = TOP_K; // = 2, the medium default
+        match num_entries {
+            1..=3 => 1,
+            4..=10 => base, // = 2
+            11..=30 => base + 1, // = 3
+            _ => base + 2, // = 4
+        }
     }
-}
 
 /// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
 /// Uses adaptive TOP_K per cell size for improved precision:
