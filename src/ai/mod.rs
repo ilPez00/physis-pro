@@ -8,11 +8,12 @@
 //! - [`session::Session`] manages a conversational context
 
 pub mod agent;
+pub mod harness;
 pub mod memory;
+pub mod onnx_worker;
 pub mod provider;
 pub mod session;
 pub mod tools;
-pub mod onnx_worker;
 
 /// Result type for all AI operations.
 pub type AiResult<T> = Result<T, AiError>;

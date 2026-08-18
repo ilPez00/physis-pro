@@ -1376,3 +1376,205 @@ async fn voice_endpoints_are_registered_when_feature_enabled() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+#[tokio::test]
+async fn epistemic_hypotheses_crud_and_lifecycle() {
+    let (router, _dir, _env) = app().await;
+
+    // 1. Create hypothesis
+    let (status, body) = send(
+        &router,
+        post("/api/v1/hypotheses", "tester", json!({
+            "statement": "Bearing overheating due to lube starvation",
+            "assumptions": ["spindle running > 5000 RPM", "NLGI-2 grease"],
+            "confidence": 0.85
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "create hypothesis: {body}");
+    let hyp_id = body["id"].as_str().expect("hyp id");
+
+    // 2. Add supporting evidence
+    let (status, ev_body) = send(
+        &router,
+        post(&format!("/api/v1/hypotheses/{}/evidence", hyp_id), "tester", json!({
+            "source": "vibration_sensor_v1",
+            "polarity": "Supports",
+            "confidence": 0.92,
+            "claim": "High frequency acceleration peaks at 3.2 kHz"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "add evidence: {ev_body}");
+    assert_eq!(ev_body["supporting_evidence"].as_array().map(|a| a.len()), Some(1));
+
+    // 3. Record prediction
+    let (status, pred_body) = send(
+        &router,
+        post(&format!("/api/v1/hypotheses/{}/prediction", hyp_id), "tester", json!({
+            "statement": "Purging lube channel will drop temp by 15C",
+            "expected_outcome": "Temp < 70C",
+            "actual_outcome": "Temp reached 64C",
+            "correct": true,
+            "confidence": 0.9
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "record prediction: {pred_body}");
+    assert_eq!(pred_body["predictions"].as_array().map(|a| a.len()), Some(1));
+
+    // 4. Transition state
+    let (status, trans_body) = send(
+        &router,
+        post(&format!("/api/v1/hypotheses/{}/transition", hyp_id), "tester", json!({
+            "status": "Confirmed",
+            "reason": "Purge test verified prediction"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "transition state: {trans_body}");
+    assert_eq!(trans_body["status"].as_str(), Some("Confirmed"));
+
+    // 5. Query explanation report
+    let (status, exp_body) = send(
+        &router,
+        get(&format!("/api/v1/explanation/{}", hyp_id), "tester"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "explanation report: {exp_body}");
+    assert_eq!(exp_body["status"].as_str(), Some("Confirmed"));
+    assert!(!exp_body["human_readable_summary"].as_str().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn epistemic_contradictions_and_resolution() {
+    let (router, _dir, _env) = app().await;
+
+    // 1. Create contradiction
+    let (status, body) = send(
+        &router,
+        post("/api/v1/contradictions", "operator_u1", json!({
+            "claim_a": {
+                "claim": "Telemetry sensor S1 reads 98C",
+                "source": "sensor_s1",
+                "confidence": 0.95,
+                "authority": 0.95
+            },
+            "claim_b": {
+                "claim": "Operator thermal gun reads 45C",
+                "source": "operator_shift_1",
+                "confidence": 0.85,
+                "authority": 0.80
+            },
+            "resolution": "Open"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "record contradiction: {body}");
+    let contra_id = body["id"].as_str().expect("contra id");
+
+    // 2. Resolve contradiction
+    let (status, res_body) = send(
+        &router,
+        post(&format!("/api/v1/contradictions/{}/resolve", contra_id), "operator_u1", json!({
+            "resolution": "BPreferred",
+            "explanation": "Sensor S1 thermocouple wire had loose ground contact"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "resolve contradiction: {res_body}");
+    assert_eq!(res_body["resolution"].as_str(), Some("BPreferred"));
+}
+
+#[tokio::test]
+async fn epistemic_audit_stream_and_historical_replay() {
+    let (router, _dir, _env) = app().await;
+
+    // 1. Create hypothesis to seed audit events
+    let (_, h_body) = send(
+        &router,
+        post("/api/v1/hypotheses", "user_audit", json!({
+            "statement": "Nozzle pressure anomaly",
+            "confidence": 0.7
+        })),
+    )
+    .await;
+    let hyp_id = h_body["id"].as_str().unwrap();
+
+    // 2. Query audit log
+    let (status, audit_body) = send(
+        &router,
+        get("/api/v1/epistemic/audit", "user_audit"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!audit_body.as_array().unwrap().is_empty());
+
+    // 3. Historical replay
+    let target_time = chrono::Utc::now().to_rfc3339();
+    let (status, replay_body) = send(
+        &router,
+        get(&format!("/api/v1/epistemic/replay?subject_id={}&at={}", hyp_id, urlencoding::encode(&target_time)), "user_audit"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(replay_body["subject_id"].as_str(), Some(hyp_id));
+    assert_eq!(replay_body["reconstructed_status"].as_str(), Some("Candidate"));
+}
+
+#[tokio::test]
+async fn unsupervised_ontology_discovery_endpoint() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, disc_body) = send(
+        &router,
+        post("/api/v1/ontology/discover", "anyone", json!({
+            "texts": [
+                "quantum qubit decoherence gate fidelity",
+                "superconducting qubit dilution refrigerator microwave control",
+                "quantum error correction lattice surgery surface code"
+            ],
+            "coverage_threshold": 0.85,
+            "min_cluster": 2
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(disc_body["total"].as_u64().unwrap_or(0) >= 3);
+}
+
+#[tokio::test]
+async fn llm_coherence_harness_config_and_evaluate_endpoint() {
+    let (router, _dir, _env) = app().await;
+
+    // 1. Check Harness Config
+    let (status, cfg_body) = send(
+        &router,
+        get("/api/v1/harness/config", "test_user"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cfg_body["default_config"].is_object());
+    assert!(cfg_body["available_providers"].is_array());
+
+    // 2. Run Evaluate on coherent technical statement
+    let (status, eval_body) = send(
+        &router,
+        post("/api/v1/harness/evaluate", "test_user", json!({
+            "text": "Replace worn spindle bearings to eliminate thermal runaway",
+            "context": "Bearing temperature measured at 92C under continuous load",
+            "config": {
+                "coherence_threshold": 0.50,
+                "reject_contradictions": true
+            }
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let verdict = eval_body["verdict"].as_str().unwrap();
+    assert!(verdict == "APPROVED" || verdict == "WARNING" || verdict == "REVISED");
+    assert!(eval_body["composite_fitness"].as_f64().is_some());
+    assert!(eval_body["explanation_report"].is_object());
+}
+
+
+

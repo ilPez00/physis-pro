@@ -341,6 +341,71 @@
   .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
   .pulse-hint{box-shadow:0 0 0 0 rgba(104,231,255,.55);animation:hintpulse 1.8s ease-out infinite}
   @keyframes hintpulse{70%{box-shadow:0 0 0 10px rgba(104,231,255,0)}}
+
+  /* Epistemic & Hypothesis workbench styles */
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+  .badge-candidate{background:rgba(255,198,109,.16);color:var(--amber);border:1px solid rgba(255,198,109,.4)}
+  .badge-supported{background:rgba(104,231,255,.16);color:var(--accent);border:1px solid rgba(104,231,255,.4)}
+  .badge-contradicted{background:rgba(255,113,141,.16);color:var(--red);border:1px solid rgba(255,113,141,.4)}
+  .badge-confirmed,.badge-certified{background:rgba(114,240,178,.16);color:var(--green);border:1px solid rgba(114,240,178,.4)}
+  .badge-failed{background:rgba(255,80,80,.22);color:#ff5050;border:1px solid #ff5050}
+  .badge-superseded,.badge-inert,.badge-isolated{background:rgba(137,151,184,.16);color:var(--muted);border:1px solid rgba(137,151,184,.3)}
+  .badge-open{background:rgba(180,156,255,.16);color:var(--accent2);border:1px solid rgba(180,156,255,.4)}
+  
+  .hyp-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px}
+  .hyp-card.supported{border-left:4px solid var(--accent)}
+  .hyp-card.contradicted{border-left:4px solid var(--red)}
+  .hyp-card.confirmed,.hyp-card.certified{border-left:4px solid var(--green)}
+  .hyp-card.failed{border-left:4px solid #ff5050}
+  .hyp-card.candidate{border-left:4px solid var(--amber)}
+  
+  .dim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;background:rgba(5,9,22,.5);padding:8px;border-radius:8px}
+  .dim-item{display:flex;flex-direction:column;gap:2px}
+  .dim-name{font:9px var(--mono);color:var(--muted);text-transform:uppercase}
+  .dim-bar-bg{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+  .dim-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:3px}
+  
+  .split-comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0}
+  .claim-pane{background:rgba(5,9,22,.6);border:1px solid var(--line);border-radius:10px;padding:12px}
+  
+  .ev-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(10,16,32,.8);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;margin:3px}
+  .ev-pill.supports{border-color:rgba(114,240,178,.35);color:var(--green)}
+  .ev-pill.contradicts{border-color:rgba(255,113,141,.35);color:var(--red)}
+  
+  .audit-item{display:grid;grid-template-columns:140px 150px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid rgba(135,157,219,.1);font-size:12px;align-items:center}
+
+  /* Harness & Coherence Arbiter Styles */
+  .badge-approved,.badge-verdict-approved{background:linear-gradient(135deg,rgba(114,240,178,.22),rgba(104,231,255,.14));color:var(--green);border:1px solid rgba(114,240,178,.55);box-shadow:0 0 16px rgba(114,240,178,.15)}
+  .badge-warning,.badge-verdict-warning{background:linear-gradient(135deg,rgba(255,198,109,.22),rgba(255,140,50,.14));color:var(--amber);border:1px solid rgba(255,198,109,.55);box-shadow:0 0 16px rgba(255,198,109,.15)}
+  .badge-rejected,.badge-verdict-rejected{background:linear-gradient(135deg,rgba(255,113,141,.25),rgba(255,50,80,.16));color:var(--red);border:1px solid rgba(255,113,141,.6);box-shadow:0 0 18px rgba(255,113,141,.18)}
+  .badge-revised,.badge-verdict-revised{background:linear-gradient(135deg,rgba(104,231,255,.25),rgba(180,156,255,.2));color:var(--accent);border:1px solid rgba(104,231,255,.6);box-shadow:0 0 18px rgba(104,231,255,.18)}
+
+  .verdict-hero{
+    padding:18px 22px;border-radius:14px;margin-bottom:14px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    border:1px solid var(--line);background:rgba(8,14,30,.85);
+    backdrop-filter:blur(12px);transition:all .3s ease;
+  }
+  .verdict-hero.APPROVED{border-color:rgba(114,240,178,.45);background:linear-gradient(135deg,rgba(114,240,178,.12),rgba(7,10,24,.9))}
+  .verdict-hero.WARNING{border-color:rgba(255,198,109,.45);background:linear-gradient(135deg,rgba(255,198,109,.12),rgba(7,10,24,.9))}
+  .verdict-hero.REJECTED{border-color:rgba(255,113,141,.5);background:linear-gradient(135deg,rgba(255,113,141,.15),rgba(7,10,24,.9))}
+  .verdict-hero.REVISED{border-color:rgba(104,231,255,.5);background:linear-gradient(135deg,rgba(104,231,255,.15),rgba(7,10,24,.9))}
+
+  .switch{position:relative;display:inline-block;width:38px;height:20px;vertical-align:middle}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,.12);transition:.2s;border-radius:20px;border:1px solid var(--line)}
+  .slider:before{position:absolute;content:"";height:14px;width:14px;left:2px;bottom:2px;background:#fff;transition:.2s;border-radius:50%}
+  input:checked + .slider{background:linear-gradient(90deg,var(--accent),var(--accent2));border-color:var(--accent)}
+  input:checked + .slider:before{transform:translateX(18px)}
+
+  .harness-meter{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+  .harness-meter .h-header{display:flex;justify-content:space-between;font-size:11px}
+  .harness-meter .h-bar{height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,.05)}
+  .harness-meter .h-fill{height:100%;border-radius:4px;transition:width .4s ease}
+
+  .critique-card{background:rgba(255,113,141,.08);border:1px solid rgba(255,113,141,.3);border-radius:10px;padding:12px;margin:8px 0;font-size:12px}
+  .revision-diff{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .revision-pane{background:rgba(5,9,22,.65);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12px}
 </style>
 </head>
 <body>
@@ -413,6 +478,16 @@
     <button data-tab="planner" title="Replay documents against a candidate dictionary">What-if<span class="nav-why">preview a change</span></button>
     <button data-tab="admin" title="Group duplicate documents">Review pile<span class="nav-why">catch duplicates</span></button>
     <button data-tab="graph" title="Cluster files by meaning">File map<span class="nav-why">scan a folder</span></button>
+    <div class="nav-sep"></div>
+    <div class="nav-group">Know &amp; Reason</div>
+    <button data-tab="hypotheses" title="Competing interpretations &amp; fitness">Hypotheses<span class="nav-why">competing realities</span></button>
+    <button data-tab="contradictions" title="Conflicting evidence &amp; resolutions">Conflicts<span class="nav-why">contradiction tracker</span></button>
+    <button data-tab="epistemic" title="Audit timeline &amp; historical replay">Audit &amp; Replay<span class="nav-why">time machine</span></button>
+    <button data-tab="explanation" title="Why/how structured explanations">Explain<span class="nav-why">provenance &amp; why</span></button>
+    <button data-tab="discovery" title="Unsupervised ontology gap discovery">Discovery<span class="nav-why">gap analyzer</span></button>
+    <div class="nav-sep"></div>
+    <div class="nav-group">Arbiter &amp; Guardrail</div>
+    <button data-tab="harness" title="LLM Coherence Harness &amp; Epistemic Gate">LLM Harness<span class="nav-why">coherence arbiter</span></button>
   </nav>
 
   <!-- OVERVIEW -->
@@ -652,6 +727,340 @@
     <p class="muted" style="margin:0">OEE = still running × running at speed × making good parts. World-class is roughly 85%.</p>
     <div id="oeeOut" class="muted">Loading…</div>
   </section>
+
+  <!-- HYPOTHESES -->
+  <section class="tab" id="tab-hypotheses">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> epistemic reality testing · <span class="tip" data-tip="First-class hypotheses evaluated across multi-dimensional coherence, empirical evidence, and verified predictions">competing models</span></div>
+        <h2>Competing Hypotheses &amp; Reality Testing</h2>
+        <p>Physis maintains competing interpretations of physical observations, scores multi-factor fitness, and preserves what survives contact with reality.</p>
+      </div>
+      <div class="actions">
+        <button id="hypRefresh" class="primary">Refresh Hypotheses</button>
+        <button id="hypNewBtn">New Hypothesis</button>
+        <button id="hypDreamBtn">Dream Candidates</button>
+      </div>
+    </div>
+
+    <!-- New Hypothesis Form (collapsible) -->
+    <div id="hypCreatePanel" class="surface" style="display:none;margin-bottom:14px">
+      <h3>Register Candidate Interpretation</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="sm muted">Statement / Claim</label>
+          <input id="hypStmt" placeholder="e.g. Spindle bearing overheating due to insufficient grease channel clearance" style="width:100%"/>
+        </div>
+        <div class="split">
+          <div>
+            <label class="sm muted">Assumptions (comma-separated)</label>
+            <input id="hypAssump" placeholder="e.g. ambient temp nominal, grease grade NLGI-2" style="width:100%"/>
+          </div>
+          <div>
+            <label class="sm muted">Initial Confidence (0.0 to 1.0)</label>
+            <input id="hypConf" type="number" min="0" max="1" step="0.05" value="0.75" style="width:100%"/>
+          </div>
+        </div>
+        <div class="row" style="margin:0">
+          <button id="hypSubmitCreate" class="primary">Register into Core</button>
+          <button id="hypCancelCreate" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters & Stats -->
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <div class="row" style="align-items:center;gap:8px;margin:0">
+        <label class="sm muted">Status filter:</label>
+        <select id="hypStatusFilter">
+          <option value="">All Statuses</option>
+          <option value="Candidate">Candidate</option>
+          <option value="Supported">Supported</option>
+          <option value="Contradicted">Contradicted</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="Failed">Failed</option>
+          <option value="Certified">Certified</option>
+        </select>
+        <label class="sm muted">Min Fitness:</label>
+        <input id="hypMinFit" type="number" min="0" max="1" step="0.1" value="0.0" style="width:70px"/>
+      </div>
+      <div id="hypCountBadge" class="sm muted">0 active hypotheses</div>
+    </div>
+
+    <div id="hypList" style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+      <div class="muted empty">Loading hypotheses from engine…</div>
+    </div>
+  </section>
+
+  <!-- CONTRADICTIONS -->
+  <section class="tab" id="tab-contradictions">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> non-destructive truth maintenance · <span class="tip" data-tip="Conflicting observations are held in active tension with source tracking rather than silently overwritten">conflict tracker</span></div>
+        <h2>Active Contradictions &amp; Resolutions</h2>
+        <p>When telemetry and operator logs conflict, Physis preserves both claims with source authorities and explicit resolution state.</p>
+      </div>
+      <div class="actions">
+        <button id="contraRefresh" class="primary">Refresh Conflicts</button>
+        <button id="contraNewBtn">Record Conflicting Observation</button>
+      </div>
+    </div>
+
+    <!-- Create Contradiction Form -->
+    <div id="contraCreatePanel" class="surface" style="display:none;margin-bottom:14px">
+      <h3>Record Conflicting Claims</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="split">
+          <div class="claim-pane">
+            <label class="sm" style="color:var(--accent)">Claim A (e.g. Telemetry)</label>
+            <input id="contraClaimA" placeholder="e.g. Sensor S1: Spindle bearing 95C" style="width:100%;margin:4px 0"/>
+            <input id="contraSrcA" placeholder="Source: telemetry_sensor_s1" style="width:100%;margin:4px 0"/>
+            <input id="contraAuthA" type="number" min="0" max="1" step="0.05" value="0.95" placeholder="Authority (0-1)" style="width:100%"/>
+          </div>
+          <div class="claim-pane">
+            <label class="sm" style="color:var(--accent2)">Claim B (e.g. Operator)</label>
+            <input id="contraClaimB" placeholder="e.g. Operator inspection: Bearing cool to touch" style="width:100%;margin:4px 0"/>
+            <input id="contraSrcB" placeholder="Source: shift_log_op4" style="width:100%;margin:4px 0"/>
+            <input id="contraAuthB" type="number" min="0" max="1" step="0.05" value="0.50" placeholder="Authority (0-1)" style="width:100%"/>
+          </div>
+        </div>
+        <div class="row" style="margin:0">
+          <button id="contraSubmitCreate" class="primary">Record Contradiction</button>
+          <button id="contraCancelCreate" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="contraList" style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+      <div class="muted empty">Loading contradictions…</div>
+    </div>
+  </section>
+
+  <!-- EPISTEMIC AUDIT & TIME REPLAY -->
+  <section class="tab" id="tab-epistemic">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> epistemic time machine · <span class="tip" data-tip="Deterministic replay of historical beliefs at timestamp T">auditability</span></div>
+        <h2>Epistemic Audit Trail &amp; Time Replay</h2>
+        <p>Reconstruct what Physis believed at any moment in the past, and inspect the exact triggers that caused beliefs to change.</p>
+      </div>
+      <div class="actions">
+        <button id="auditRefresh" class="primary">Refresh Audit Trail</button>
+      </div>
+    </div>
+
+    <!-- Time Replay Workbench -->
+    <div class="surface" style="margin-bottom:14px">
+      <h3>Belief Time Machine (Reconstruct State at Timestamp T)</h3>
+      <div class="split" style="align-items:flex-end">
+        <div>
+          <label class="sm muted">Subject / Hypothesis ID</label>
+          <input id="replaySubjId" placeholder="Hypothesis ID or statement name" style="width:100%"/>
+        </div>
+        <div>
+          <label class="sm muted">Target Timestamp (ISO / RFC3339)</label>
+          <input id="replayTimestamp" placeholder="2026-08-18T14:00:00Z" style="width:100%"/>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="replayRunBtn" class="primary">Reconstruct Belief</button>
+        <button id="replayNowBtn" class="ghost">Set to Now</button>
+      </div>
+      <div id="replayResultBox" style="display:none;margin-top:12px;padding:12px;background:rgba(5,9,22,.6);border:1px solid var(--line);border-radius:8px"></div>
+    </div>
+
+    <div class="surface">
+      <h3>Live Epistemic Event Stream</h3>
+      <div id="auditStream" style="max-height:450px;overflow:auto">
+        <div class="muted empty">Loading epistemic audit events…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXPLANATION & PROVENANCE -->
+  <section class="tab" id="tab-explanation">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> structured explainability · <span class="tip" data-tip="Transparent multi-hop lineage, evidence decomposition, and historical precedents">why &amp; how</span></div>
+        <h2>Structured Explanations &amp; Provenance</h2>
+        <p>Answer why an interpretation is ranked highly or how an anomaly was diagnosed with end-to-end evidence chains.</p>
+      </div>
+      <div class="actions">
+        <button id="explainRefresh" class="primary">Query Explanation</button>
+      </div>
+    </div>
+
+    <div class="surface" style="margin-bottom:14px">
+      <h3>Select Entity or Hypothesis to Explain</h3>
+      <div class="row" style="margin:0">
+        <input id="explainQueryId" placeholder="Enter Hypothesis ID or select from active list…" style="flex:1"/>
+        <button id="explainRunBtn" class="primary">Generate Report</button>
+      </div>
+    </div>
+
+    <div id="explainOutput" class="surface" style="display:none">
+      <!-- Populated dynamically -->
+    </div>
+  </section>
+
+  <!-- ONTOLOGY DISCOVERY -->
+  <section class="tab" id="tab-discovery">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> autonomous ontology extension · <span class="tip" data-tip="Cluster unmapped terminology and propose candidate domains">gap discovery</span></div>
+        <h2>Unsupervised Ontology Gap Discovery</h2>
+        <p>Detect terminology, machine anomalies, and documents that fall outside the current ontology grid and synthesize candidate domain extensions.</p>
+      </div>
+      <div class="actions">
+        <button id="discRunBtn" class="primary">Run Unsupervised Discovery</button>
+        <button id="discSampleBtn">Load Quantum &amp; Laser Sample</button>
+      </div>
+    </div>
+
+    <div class="surface" style="margin-bottom:14px">
+      <h3>Observation Corpus to Analyze</h3>
+      <textarea id="discCorpus" placeholder="Paste unmapped paragraphs, machine anomaly messages, or technical documentation (one per line)…" style="height:120px"></textarea>
+      <div class="row" style="margin-top:10px;align-items:center">
+        <label class="sm muted">Coverage threshold:</label>
+        <input id="discCovThresh" type="number" min="0" max="1" step="0.05" value="0.85" style="width:70px"/>
+        <label class="sm muted">Cluster similarity:</label>
+        <input id="discClustSim" type="number" min="0" max="1" step="0.05" value="0.70" style="width:70px"/>
+        <label class="sm muted">Min cluster size:</label>
+        <input id="discMinCluster" type="number" min="1" max="10" value="2" style="width:60px"/>
+      </div>
+    </div>
+
+  <!-- LLM COHERENCE HARNESS -->
+  <section class="tab" id="tab-harness">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> epistemic arbiter · <span class="tip" data-tip="Evaluates LLM generation and statements against the semiotic grid, active contradictions, and multi-dimensional coherence">final coherence checker</span></div>
+        <h2>LLM Epistemic Coherence Harness</h2>
+        <p>Use Physis as an automated final coherence gatekeeper for any LLM. Evaluates candidate outputs, blocks contradictions, scores fitness across 5 dimensions, and triggers counterfactual self-revision.</p>
+      </div>
+      <div class="actions">
+        <button id="harnessSampleBtn">Load Example Scenarios</button>
+      </div>
+    </div>
+
+    <!-- Provider & API Key Configuration -->
+    <div class="surface" style="margin-bottom:14px;background:linear-gradient(180deg,rgba(16,24,52,.9),rgba(9,14,32,.92))">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0;font-size:14px;letter-spacing:.04em;text-transform:uppercase"><span style="color:var(--accent)">◈</span> LLM Provider &amp; Epistemic Rules</h3>
+        <span id="harnessKeyStatus" class="badge badge-candidate">Using Server Cascade</span>
+      </div>
+      
+      <div class="split" style="gap:12px">
+        <div>
+          <div class="row" style="margin-bottom:8px">
+            <div style="flex:1">
+              <label class="sm muted">Provider</label>
+              <select id="harnessProvider" style="width:100%">
+                <option value="openai">OpenAI (gpt-4o / gpt-4o-mini)</option>
+                <option value="anthropic">Anthropic (Claude 3.5 Sonnet / Haiku)</option>
+                <option value="gemini">Google Gemini (Gemini 2.5 Flash / Pro)</option>
+                <option value="groq">Groq (Llama 3.3 70B Versatile)</option>
+                <option value="deepseek">DeepSeek (DeepSeek V3 / R1)</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="ollama">Local Ollama / Custom API</option>
+              </select>
+            </div>
+            <div style="flex:1">
+              <label class="sm muted">Model</label>
+              <input id="harnessModel" value="gpt-4o-mini" style="width:100%" placeholder="e.g. gpt-4o, claude-3-5-sonnet"/>
+            </div>
+          </div>
+          
+          <div class="row" style="margin-bottom:0">
+            <div style="flex:2">
+              <label class="sm muted">API Key <span class="muted" style="font-size:10px">(stored in browser or uses server env)</span></label>
+              <div style="display:flex;gap:6px">
+                <input id="harnessApiKey" type="password" placeholder="sk-... / API key (optional if set in env)" style="flex:1"/>
+                <button id="harnessKeyToggle" class="ghost" style="padding:4px 8px" type="button">👁</button>
+              </div>
+            </div>
+            <div style="flex:1">
+              <label class="sm muted">Base URL <span class="muted" style="font-size:10px">(optional)</span></label>
+              <input id="harnessBaseUrl" placeholder="https://api.openai.com/v1" style="width:100%"/>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="background:rgba(5,9,22,.5);padding:10px 14px;border-radius:10px;border:1px solid var(--line);display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <label class="sm" style="font-weight:600">Coherence Pass Threshold</label>
+              <span id="harnessThreshVal" class="kbd" style="font-size:12px">0.60</span>
+            </div>
+            <input id="harnessThreshold" type="range" min="0.30" max="0.95" step="0.05" value="0.60" style="width:100%"/>
+            
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:4px;border-top:1px solid rgba(255,255,255,.06)">
+              <span class="sm muted">Block Contradictions</span>
+              <label class="switch"><input type="checkbox" id="harnessRejectContra" checked><span class="slider"></span></label>
+            </div>
+            
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="sm muted">Auto-Revise on Incoherence</span>
+              <label class="switch"><input type="checkbox" id="harnessAutoRevise" checked><span class="slider"></span></label>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="sm muted">Register into Knowledge Graph</span>
+              <label class="switch"><input type="checkbox" id="harnessRegisterHyp" checked><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Selector & Preset Chips -->
+    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="exchips" id="harnessScenarioChips">
+        <span class="sm muted" style="align-self:center">Presets:</span>
+        <button data-scenario="spindle">⚙ Bearing Heat Anomaly</button>
+        <button data-scenario="finance">📈 Capital Adequacy Reserve</button>
+        <button data-scenario="contradiction">⚡ Conflicting Claim (Stress Test)</button>
+        <button data-scenario="dosimetry">🔬 Radiation Protocol</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button id="harnessModeGen" class="primary" style="font-size:12px">Mode: LLM Generate + Gate</button>
+        <button id="harnessModeCheck" class="ghost" style="font-size:12px">Mode: Check Existing Text</button>
+      </div>
+    </div>
+
+    <!-- Playground Split Input / Output -->
+    <div class="split" style="grid-template-columns:1.1fr 1.3fr">
+      <!-- Input Panel -->
+      <section class="surface">
+        <h3 id="harnessInputTitle">Prompt to LLM</h3>
+        <textarea id="harnessPrompt" placeholder="Enter prompt for the LLM to generate, or switch to Check Mode to evaluate existing statement…" style="height:140px"></textarea>
+        
+        <h4 style="font-size:12px;margin:10px 0 4px;color:var(--muted)">Context &amp; Operating Constraints (Optional)</h4>
+        <textarea id="harnessContext" placeholder="Provide background telemetry, maintenance rules, or business assumptions…" style="height:90px"></textarea>
+
+        <div class="row" style="margin-top:12px;gap:8px">
+          <button id="harnessRunBtn" class="primary" style="flex:1;font-weight:700">⚡ Run with Coherence Gate</button>
+          <button id="harnessClearBtn" class="ghost">Clear</button>
+        </div>
+      </section>
+
+      <!-- Epistemic Result & Gate Verdict -->
+      <section class="surface">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 style="margin:0">Epistemic Gate Result</h3>
+          <button id="harnessExportBtn" class="sm ghost" style="display:none">Export Report ▾</button>
+        </div>
+
+        <div id="harnessResultEmpty" class="empty">
+          No output evaluated yet. Select a scenario above or enter a prompt and click <b>Run with Coherence Gate</b>.
+        </div>
+
+        <div id="harnessResultContent" style="display:none">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+    </div>
+  </section>
 </main>
 
 <script src="ui-shell.js"></script>
@@ -707,7 +1116,7 @@ const MODE_GLOSS={
   LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
   BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
 };
-const TABS=["overview","timeline","oee","classify","grid","ontology","planner","admin","graph"];
+const TABS=["overview","timeline","oee","classify","grid","ontology","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
 function currentTab(){
   const a=document.querySelector('nav button.active');
   return a?a.dataset.tab:'overview';
@@ -726,7 +1135,13 @@ const COACH={
   ontology:{text:'<b>Dictionary.</b> Everything authored vs what classification can actually reach. Unreachable names are loaded but never scored.',act:'Load dictionary',run:()=>{loadOntology();loadMeanings();}},
   planner:{text:'<b>What-if.</b> Add a domain or a note, then simulate. Nothing is saved to the live dictionary.',act:'Simulate scenario',run:()=>runPlanner()},
   admin:{text:'<b>Review pile.</b> Same fingerprint twice = a duplicate group to resolve before it hits the workflow.',act:'Build review queue',run:()=>runAdmin()},
-  graph:{text:'<b>File map.</b> Point at a folder the engine may read. Files cluster by meaning, not by directory name.',act:null,run:null}
+  graph:{text:'<b>File map.</b> Point at a folder the engine may read. Files cluster by meaning, not by directory name.',act:null,run:null},
+  hypotheses:{text:'<b>Hypotheses.</b> Competing candidate explanations for physical anomalies, scored by empirical survival.',act:'Dream candidates',run:()=>dreamHypotheses()},
+  contradictions:{text:'<b>Conflicts.</b> Conflicting evidence (e.g. sensor vs operator) held in non-destructive tension.',act:'Refresh conflicts',run:()=>loadContradictions()},
+  epistemic:{text:'<b>Audit &amp; Replay.</b> Reconstruct belief states at timestamp T and trace the root trigger of belief shifts.',act:'Refresh audit stream',run:()=>loadEpistemicAudit()},
+  explanation:{text:'<b>Explanations.</b> Structured multi-hop provenance and multi-dimensional coherence decomposition.',act:null,run:null},
+  discovery:{text:'<b>Discovery.</b> Unsupervised clustering over unmapped observations to propose ontology extensions.',act:'Load sample corpus',run:()=>loadDiscoverySample()},
+  harness:{text:'<b>LLM Harness.</b> Epistemic gatekeeper that checks candidate LLM responses against contradictions and multidimensional coherence.',act:'Load sample scenario',run:()=>loadHarnessScenario('spindle')}
 };
 function showCoach(tab){
   const bar=$('coach');
@@ -750,6 +1165,12 @@ function activateTab(name){
   if(name==='timeline') loadTimelineDemo();
   if(name==='grid') loadHeat();
   if(name==='oee') loadOee();
+  if(name==='hypotheses') loadHypotheses();
+  if(name==='contradictions') loadContradictions();
+  if(name==='epistemic') loadEpistemicAudit();
+  if(name==='explanation') loadExplanationTab();
+  if(name==='discovery') loadDiscoveryTab();
+  if(name==='harness') loadHarnessTab();
   if(name==='graph'){ if(!cyReady){initCy();cyReady=true;} setTimeout(()=>{if(window.cy){cy.resize();cy.fit();}},50); }
 }
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));
@@ -1523,6 +1944,809 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ═════════════════════════════════════════════════════════════════════
+// EPISTEMIC EVOLUTION & HYPOTHESES WORKBENCH
+// ═════════════════════════════════════════════════════════════════════
+
+// ── Hypotheses ──
+$('hypRefresh').onclick = () => loadHypotheses();
+$('hypNewBtn').onclick = () => {
+  const p = $('hypCreatePanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+};
+$('hypCancelCreate').onclick = () => { $('hypCreatePanel').style.display = 'none'; };
+$('hypStatusFilter').onchange = () => loadHypotheses();
+$('hypMinFit').oninput = () => loadHypotheses();
+
+$('hypSubmitCreate').onclick = async () => {
+  const stmt = $('hypStmt').value.trim();
+  if(!stmt){ setS('Statement cannot be empty', 1); return; }
+  const assump = $('hypAssump').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const conf = parseFloat($('hypConf').value) || 0.75;
+  try {
+    setS('Registering hypothesis…');
+    await postJSON('/api/v1/hypotheses', { statement: stmt, assumptions: assump, confidence: conf });
+    $('hypStmt').value = '';
+    $('hypAssump').value = '';
+    $('hypCreatePanel').style.display = 'none';
+    setS('Hypothesis registered');
+    loadHypotheses();
+  } catch(e) {
+    setS('Registration failed: ' + e.message, 1);
+  }
+};
+
+$('hypDreamBtn').onclick = async () => {
+  try {
+    setS('Running reflection dream cycle…');
+    await postJSON('/api/v1/dream/generate', { count: 3 });
+    setS('Dream cycle complete');
+    loadHypotheses();
+  } catch(e) {
+    setS('Dream failed: ' + e.message, 1);
+  }
+};
+
+async function loadHypotheses(){
+  const statusFilter = $('hypStatusFilter').value;
+  const minFit = parseFloat($('hypMinFit').value) || 0;
+  let q = `?min_fitness=${minFit}`;
+  if(statusFilter) q += `&status=${encodeURIComponent(statusFilter)}`;
+  
+  try {
+    const list = await getJSON(`/api/v1/hypotheses${q}`);
+    $('hypCountBadge').textContent = `${list.length} active hypothesis${list.length===1?'':'es'}`;
+    const out = $('hypList');
+    if(!list || list.length === 0){
+      out.innerHTML = '<div class="empty muted">No hypotheses matching current filters. Click "New Hypothesis" or "Dream Candidates" to generate.</div>';
+      return;
+    }
+    
+    out.innerHTML = list.map(h => {
+      const st = (h.status || 'Candidate').toLowerCase();
+      const fitPct = Math.round((h.fitness || 0) * 100);
+      const cohPct = Math.round((h.coherence || 0) * 100);
+      const profile = h.coherence_profile || {};
+      
+      const dims = [
+        { name: 'Semantic', score: profile.semantic?.score || 0 },
+        { name: 'Logical', score: profile.logical?.score || 0 },
+        { name: 'Temporal', score: profile.temporal?.score || 0 },
+        { name: 'Causal', score: profile.causal?.score || 0 },
+        { name: 'Procedural', score: profile.procedural?.score || 0 },
+        { name: 'Empirical', score: profile.empirical?.score || 0 },
+      ];
+
+      const evSupports = (h.supporting_evidence || []).map(e => 
+        `<span class="ev-pill supports" title="Source: ${esc(e.source)}">✓ ${esc(e.claim)} (${Math.round((e.confidence||0)*100)}%)</span>`
+      ).join('');
+
+      const evContra = (h.contradicting_evidence || []).map(e => 
+        `<span class="ev-pill contradicts" title="Source: ${esc(e.source)}">✗ ${esc(e.claim)} (${Math.round((e.confidence||0)*100)}%)</span>`
+      ).join('');
+
+      const preds = (h.predictions || []).map(p => {
+        const icon = p.correct === true ? '✓' : (p.correct === false ? '✗' : '?');
+        const col = p.correct === true ? 'var(--green)' : (p.correct === false ? 'var(--red)' : 'var(--amber)');
+        return `<div style="font-size:12px;margin:2px 0"><span style="color:${col};font-weight:700">${icon}</span> ${esc(p.statement)} ${p.actual_outcome ? '<span class="muted">→ ' + esc(p.actual_outcome) + '</span>' : ''}</div>`;
+      }).join('');
+
+      return `
+        <div class="hyp-card ${st}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <div>
+              <span class="badge badge-${st}">${esc(h.status)}</span>
+              <span class="muted sm" style="margin-left:8px;font-family:var(--mono)">ID: ${esc(h.id.slice(0,10))}</span>
+              <h4 style="margin:6px 0 2px;font-size:15px">${esc(h.statement)}</h4>
+              ${h.assumptions && h.assumptions.length ? '<div class="muted sm">Assumptions: ' + esc(h.assumptions.join(', ')) + '</div>' : ''}
+            </div>
+            <div style="text-align:right;min-width:140px">
+              <div style="font-size:20px;font-weight:750;color:${fitPct>=60?'var(--green)':(fitPct>=40?'var(--amber)':'var(--red)')}">${fitPct}% <span style="font-size:11px;font-weight:400;color:var(--muted)">FITNESS</span></div>
+              <div class="muted sm">Coherence: ${cohPct}%</div>
+            </div>
+          </div>
+
+          <!-- Coherence Dimensions -->
+          <div class="dim-grid">
+            ${dims.map(d => `
+              <div class="dim-item">
+                <div class="dim-name">${d.name} ${Math.round(d.score*100)}%</div>
+                <div class="dim-bar-bg"><div class="dim-bar-fill" style="width:${Math.round(d.score*100)}%"></div></div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Evidence -->
+          ${(evSupports || evContra) ? `
+            <div style="margin:4px 0">
+              <div class="sm muted" style="margin-bottom:2px">Evidence:</div>
+              <div>${evSupports} ${evContra}</div>
+            </div>
+          ` : ''}
+
+          <!-- Predictions -->
+          ${preds ? `
+            <div style="margin:4px 0;background:rgba(5,9,22,.4);padding:8px;border-radius:6px">
+              <div class="sm muted" style="margin-bottom:2px">Predictions &amp; Outcomes:</div>
+              ${preds}
+            </div>
+          ` : ''}
+
+          <!-- Actions -->
+          <div class="row" style="margin:4px 0 0;gap:6px;flex-wrap:wrap">
+            <button class="ghost sm" onclick="promptAddEvidence('${h.id}')">+ Add Evidence</button>
+            <button class="ghost sm" onclick="promptRecordPrediction('${h.id}')">+ Record Prediction</button>
+            <button class="ghost sm" onclick="promptTransition('${h.id}')">Transition State</button>
+            <button class="ghost sm primary" onclick="jumpToExplain('${h.id}')">Explain Why &amp; How ➔</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    $('hypList').innerHTML = apiError(e);
+  }
+}
+
+async function promptAddEvidence(id){
+  const claim = prompt('Enter observation / evidence claim:');
+  if(!claim) return;
+  const source = prompt('Enter evidence source (e.g. sensor_log_S1.csv, operator_shift_4):') || 'operator_manual_note';
+  const isSupports = confirm('Is this evidence SUPPORTING (OK) or CONTRADICTING (Cancel)?');
+  const confStr = prompt('Enter confidence (0.0 to 1.0):', '0.90');
+  const confidence = parseFloat(confStr) || 0.90;
+
+  try {
+    setS('Adding evidence…');
+    await postJSON(`/api/v1/hypotheses/${id}/evidence`, {
+      source,
+      polarity: isSupports ? 'Supports' : 'Contradicts',
+      claim,
+      confidence,
+      context: []
+    });
+    setS('Evidence added');
+    loadHypotheses();
+  } catch(e) {
+    setS('Add evidence failed: ' + e.message, 1);
+  }
+}
+
+async function promptRecordPrediction(id){
+  const stmt = prompt('Prediction statement (e.g. Temperature will normalize after valve purge):');
+  if(!stmt) return;
+  const exp = prompt('Expected outcome:');
+  const act = prompt('Actual observed outcome (leave blank if ongoing):');
+  let correct = null;
+  if(act){
+    correct = confirm('Was the prediction VERIFIED CORRECT (OK) or FAILED (Cancel)?');
+  }
+
+  try {
+    setS('Recording prediction…');
+    await postJSON(`/api/v1/hypotheses/${id}/prediction`, {
+      statement: stmt,
+      expected_outcome: exp || null,
+      actual_outcome: act || null,
+      correct: correct,
+      confidence: 0.85
+    });
+    setS('Prediction recorded');
+    loadHypotheses();
+  } catch(e) {
+    setS('Record prediction failed: ' + e.message, 1);
+  }
+}
+
+async function promptTransition(id){
+  const status = prompt('New status (Candidate, Supported, Contradicted, Confirmed, Failed, Certified, Superseded):');
+  if(!status) return;
+  const reason = prompt('Reason for transition:') || 'Manual operator assessment';
+
+  try {
+    setS('Transitioning status…');
+    await postJSON(`/api/v1/hypotheses/${id}/transition`, {
+      status,
+      reason,
+      trigger_id: null
+    });
+    setS('Status transitioned');
+    loadHypotheses();
+  } catch(e) {
+    setS('Transition failed: ' + e.message, 1);
+  }
+}
+
+function jumpToExplain(id){
+  $('explainQueryId').value = id;
+  activateTab('explanation');
+  runExplanation(id);
+}
+
+// ── Contradictions ──
+$('contraRefresh').onclick = () => loadContradictions();
+$('contraNewBtn').onclick = () => {
+  const p = $('contraCreatePanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+};
+$('contraCancelCreate').onclick = () => { $('contraCreatePanel').style.display = 'none'; };
+
+$('contraSubmitCreate').onclick = async () => {
+  const claimA = $('contraClaimA').value.trim();
+  const claimB = $('contraClaimB').value.trim();
+  if(!claimA || !claimB){ setS('Both claims required', 1); return; }
+
+  try {
+    setS('Recording contradiction…');
+    await postJSON('/api/v1/contradictions', {
+      claim_a: {
+        claim: claimA,
+        source: $('contraSrcA').value.trim() || 'source_a',
+        confidence: parseFloat($('contraAuthA').value) || 0.9,
+        authority: parseFloat($('contraAuthA').value) || 0.9
+      },
+      claim_b: {
+        claim: claimB,
+        source: $('contraSrcB').value.trim() || 'source_b',
+        confidence: parseFloat($('contraAuthB').value) || 0.5,
+        authority: parseFloat($('contraAuthB').value) || 0.5
+      },
+      resolution: 'Open',
+      explanation: null
+    });
+    $('contraCreatePanel').style.display = 'none';
+    setS('Contradiction recorded');
+    loadContradictions();
+  } catch(e) {
+    setS('Recording conflict failed: ' + e.message, 1);
+  }
+};
+
+async function loadContradictions(){
+  try {
+    const list = await getJSON('/api/v1/contradictions');
+    const out = $('contraList');
+    if(!list || list.length === 0){
+      out.innerHTML = '<div class="empty muted">No active contradictions. Observations are currently in harmony.</div>';
+      return;
+    }
+
+    out.innerHTML = list.map(c => {
+      const res = c.resolution || 'Open';
+      const isResolved = res !== 'Open';
+      return `
+        <div class="surface" style="border-left:4px solid ${isResolved?'var(--green)':'var(--red)'}">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="badge ${isResolved?'badge-confirmed':'badge-contradicted'}">${esc(res)}</span>
+            <span class="muted sm" style="font-family:var(--mono)">ID: ${esc(c.id.slice(0,10))} · ${fmtTime(c.detected_at)}</span>
+          </div>
+
+          <div class="split-comparison">
+            <div class="claim-pane" style="border-color:${res==='APreferred'?'var(--accent)':'var(--line)'}">
+              <div class="sm" style="color:var(--accent);font-weight:700">CLAIM A ${res==='APreferred'?'★ (PREFERRED)':''}</div>
+              <div style="margin:4px 0;font-weight:600">${esc(c.claim_a?.claim)}</div>
+              <div class="sm muted">Source: ${esc(c.claim_a?.source)} · Auth: ${Math.round((c.claim_a?.authority||0)*100)}%</div>
+            </div>
+            <div class="claim-pane" style="border-color:${res==='BPreferred'?'var(--accent2)':'var(--line)'}">
+              <div class="sm" style="color:var(--accent2);font-weight:700">CLAIM B ${res==='BPreferred'?'★ (PREFERRED)':''}</div>
+              <div style="margin:4px 0;font-weight:600">${esc(c.claim_b?.claim)}</div>
+              <div class="sm muted">Source: ${esc(c.claim_b?.source)} · Auth: ${Math.round((c.claim_b?.authority||0)*100)}%</div>
+            </div>
+          </div>
+
+          ${c.explanation ? `<div class="sm muted" style="background:rgba(5,9,22,.4);padding:6px 10px;border-radius:6px">Resolution Rationale: ${esc(c.explanation)}</div>` : ''}
+
+          <div class="row" style="margin-top:8px;gap:6px">
+            <button class="sm ghost" onclick="resolveConflict('${c.id}', 'APreferred')">Prefer Claim A</button>
+            <button class="sm ghost" onclick="resolveConflict('${c.id}', 'BPreferred')">Prefer Claim B</button>
+            <button class="sm ghost" onclick="resolveConflict('${c.id}', 'Contextual')">Mark Contextual</button>
+            <button class="sm ghost" onclick="resolveConflict('${c.id}', 'Open')">Re-Open</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    $('contraList').innerHTML = apiError(e);
+  }
+}
+
+async function resolveConflict(id, resolution){
+  const explanation = prompt(`Enter resolution explanation for ${resolution}:`) || '';
+  try {
+    setS('Updating conflict resolution…');
+    await postJSON(`/api/v1/contradictions/${id}/resolve`, { resolution, explanation });
+    setS('Resolution updated');
+    loadContradictions();
+  } catch(e) {
+    setS('Resolve failed: ' + e.message, 1);
+  }
+}
+
+// ── Epistemic Audit & Time Replay ──
+$('auditRefresh').onclick = () => loadEpistemicAudit();
+$('replayNowBtn').onclick = () => {
+  $('replayTimestamp').value = new Date().toISOString();
+};
+$('replayRunBtn').onclick = () => {
+  const subj = $('replaySubjId').value.trim();
+  const at = $('replayTimestamp').value.trim();
+  if(!subj || !at){ setS('Subject ID and timestamp required', 1); return; }
+  reconstructBelief(subj, at);
+};
+
+async function loadEpistemicAudit(){
+  try {
+    const events = await getJSON('/api/v1/epistemic/audit');
+    const out = $('auditStream');
+    if(!events || events.length === 0){
+      out.innerHTML = '<div class="empty muted">No epistemic events recorded yet.</div>';
+      return;
+    }
+
+    out.innerHTML = events.slice().reverse().map(ev => {
+      const type = ev.event_type || 'Event';
+      return `
+        <div class="audit-item">
+          <span class="muted font-mono sm">${fmtTime(ev.timestamp)}</span>
+          <span class="badge badge-supported" style="font-size:10px">${esc(type)}</span>
+          <div>
+            <div>${esc(ev.description)}</div>
+            <div class="muted sm">Subject: ${esc(ev.subject_id.slice(0,14))} ${ev.source ? '· Source: ' + esc(ev.source) : ''} ${ev.metric_value != null ? '· Metric: ' + Math.round(ev.metric_value*100)+'%' : ''}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    $('auditStream').innerHTML = apiError(e);
+  }
+}
+
+async function reconstructBelief(subj, at){
+  const resBox = $('replayResultBox');
+  try {
+    setS('Reconstructing belief state…');
+    const res = await getJSON(`/api/v1/epistemic/replay?subject_id=${encodeURIComponent(subj)}&at=${encodeURIComponent(at)}`);
+    resBox.style.display = 'block';
+    resBox.innerHTML = `
+      <div style="font-weight:700;margin-bottom:4px;color:var(--accent)">RECONSTRUCTED STATE AT ${esc(res.at)}:</div>
+      <div style="font-size:16px"><span class="badge badge-confirmed">${esc(res.reconstructed_status || 'Unknown / Not Created')}</span> for subject <code>${esc(res.subject_id)}</code></div>
+    `;
+    setS('Belief reconstructed');
+  } catch(e) {
+    resBox.style.display = 'block';
+    resBox.innerHTML = apiError(e);
+    setS('Reconstruction failed: ' + e.message, 1);
+  }
+}
+
+// ── Structured Explanation ──
+$('explainRunBtn').onclick = () => {
+  const id = $('explainQueryId').value.trim();
+  if(!id){ setS('Please enter or select a hypothesis ID', 1); return; }
+  runExplanation(id);
+};
+$('explainRefresh').onclick = () => {
+  const id = $('explainQueryId').value.trim();
+  if(id) runExplanation(id);
+};
+
+function loadExplanationTab(){
+  const id = $('explainQueryId').value.trim();
+  if(id) runExplanation(id);
+}
+
+async function runExplanation(id){
+  const out = $('explainOutput');
+  out.style.display = 'block';
+  out.innerHTML = '<div class="muted">Generating structured explanation…</div>';
+  try {
+    const rep = await getJSON(`/api/v1/explanation/${id}`);
+    const provLinks = (rep.provenance_chain?.links || []).map((l, i) => `
+      <div style="display:flex;gap:8px;align-items:center;padding:4px 0">
+        <span style="width:20px;height:20px;border-radius:50%;background:rgba(104,231,255,.15);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent)">${i+1}</span>
+        <div><b>${esc(l.claim)}</b> <span class="muted sm">via ${esc(l.source)} (${Math.round((l.confidence||0)*100)}%)</span></div>
+      </div>
+    `).join('');
+
+    out.innerHTML = `
+      <div style="border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:12px">
+        <span class="badge badge-supported">EXPLANATION REPORT</span>
+        <h3 style="font-size:18px;margin:8px 0 4px;color:var(--fg)">${esc(rep.statement)}</h3>
+        <div class="sm muted">Grounding Domain: <b>${esc(rep.grounding_cell || 'Unassigned')}</b></div>
+      </div>
+
+      <pre style="background:rgba(5,9,22,.8);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12px;line-height:1.6;overflow:auto;color:var(--accent)">${esc(rep.human_readable_summary)}</pre>
+
+      <div class="split" style="margin-top:14px">
+        <div>
+          <h4>Supporting Evidence (${rep.supporting_evidence?.length || 0})</h4>
+          ${(rep.supporting_evidence || []).map(e => `<div class="ev-pill supports" style="display:block;margin:4px 0">✓ ${esc(e.claim)} <span class="muted">(${esc(e.source)})</span></div>`).join('') || '<div class="muted sm">None</div>'}
+        </div>
+        <div>
+          <h4>Contradicting Evidence (${rep.contradicting_evidence?.length || 0})</h4>
+          ${(rep.contradicting_evidence || []).map(e => `<div class="ev-pill contradicts" style="display:block;margin:4px 0">✗ ${esc(e.claim)} <span class="muted">(${esc(e.source)})</span></div>`).join('') || '<div class="muted sm">None</div>'}
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <h4>Provenance Derivation Lineage</h4>
+        <div style="background:rgba(5,9,22,.5);padding:10px;border-radius:8px;border:1px solid var(--line)">
+          ${provLinks || '<div class="muted sm">No provenance chain registered</div>'}
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    out.innerHTML = apiError(e);
+  }
+}
+
+// ── Ontology Discovery ──
+function loadDiscoveryTab(){
+  // Ready
+}
+
+function loadDiscoverySample(){
+  $('discCorpus').value = 
+    "superconducting quantum qubit coherence decoherence time T1 T2 fluxonium gate fidelity\n" +
+    "quantum error correction surface code logical qubit threshold lattice surgery\n" +
+    "cryogenic dilution refrigerator microwave drive resonator transmon qubit readout";
+}
+$('discSampleBtn').onclick = () => loadDiscoverySample();
+
+$('discRunBtn').onclick = async () => {
+  const text = $('discCorpus').value.trim();
+  if(!text){ setS('Please enter text corpus to analyze', 1); return; }
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const out = $('discResults');
+  out.style.display = 'block';
+  out.innerHTML = '<div class="muted">Running unsupervised clustering and discovery…</div>';
+
+  try {
+    setS('Analyzing corpus against 70-cell ontology grid…');
+    const res = await postJSON('/api/v1/ontology/discover', {
+      texts: lines,
+      coverage_threshold: parseFloat($('discCovThresh').value) || 0.85,
+      cluster_sim: parseFloat($('discClustSim').value) || 0.70,
+      min_cluster: parseInt($('discMinCluster').value, 10) || 2
+    });
+
+    const props = (res.proposals || []).map(p => `
+      <div class="surface" style="margin:8px 0;border-left:4px solid var(--accent2)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="badge badge-candidate">${esc(p.domain)} × ${esc(p.mode)}</span>
+          <span class="muted sm">Cluster Size: ${p.samples?.length || 0}</span>
+        </div>
+        <h4 style="margin:6px 0 4px">${esc(p.name || 'Proposed Extension')}</h4>
+        <div class="sm muted">Top Terms: <b>${esc((p.hints || []).join(', '))}</b></div>
+        ${p.samples && p.samples.length ? '<div class="sm" style="margin-top:6px;color:var(--muted)">Sample: <i>"' + esc(p.samples[0]) + '"</i></div>' : ''}
+      </div>
+    `).join('');
+
+    out.innerHTML = `
+      <div class="card-grid" style="margin-bottom:12px">
+        <div class="card"><div class="label">Total Texts</div><div class="value">${res.total}</div></div>
+        <div class="card"><div class="label">Covered</div><div class="value" style="color:var(--green)">${res.covered}</div></div>
+        <div class="card"><div class="label">Unmapped Gaps</div><div class="value" style="color:var(--amber)">${res.unmapped}</div></div>
+        <div class="card"><div class="label">New Proposals</div><div class="value" style="color:var(--accent)">${res.proposals?.length || 0}</div></div>
+      </div>
+      <h3>Candidate Ontology Extensions</h3>
+      ${props || '<div class="empty muted">All texts adequately covered by active ontology grid. No gaps detected.</div>'}
+    `;
+    setS('Discovery complete');
+  } catch(e) {
+    out.innerHTML = apiError(e);
+    setS('Discovery failed: ' + e.message, 1);
+  }
+};
+
+// ── LLM Coherence Harness Controller ──
+let harnessMode = 'gen'; // 'gen' or 'check'
+let latestHarnessReport = null;
+
+const HARNESS_MODELS = {
+  openai: { model: 'gpt-4o-mini', base: 'https://api.openai.com/v1' },
+  anthropic: { model: 'claude-3-5-sonnet-20241022', base: 'https://api.anthropic.com/v1' },
+  gemini: { model: 'gemini-2.5-flash', base: 'https://generativelanguage.googleapis.com/v1beta/openai' },
+  groq: { model: 'llama-3.3-70b-versatile', base: 'https://api.groq.com/openai/v1' },
+  deepseek: { model: 'deepseek-chat', base: 'https://api.deepseek.com/v1' },
+  openrouter: { model: 'deepseek/deepseek-chat', base: 'https://openrouter.ai/api/v1' },
+  ollama: { model: 'llama3.2', base: 'http://localhost:11434/v1' }
+};
+
+const HARNESS_SCENARIOS = {
+  spindle: {
+    title: "Bearing Thermal Anomaly",
+    prompt: "Recommend an immediate thermal mitigation procedure for Spindle CNC-04 displaying 94°C bearing temperature under sustained 12,000 RPM operation.",
+    context: "CNC Spindle max safe limit is 85°C. Oil mist pressure currently at 0.4 MPa. Lubrication cycle was last performed 14 days ago. Automatic thermal safety interlock initiates emergency spindle halt at 95°C."
+  },
+  finance: {
+    title: "Capital Adequacy Reserve",
+    prompt: "Propose an emergency drawdown strategy from Tier 1 capital reserves to cover unexpected vendor supply chain disruption penalties.",
+    context: "Basel III liquidity coverage ratio must maintain minimum 100%. Current unencumbered reserve is $4.2M. Regulatory buffer threshold is $3.5M."
+  },
+  contradiction: {
+    title: "Contradictory Claim Stress Test",
+    prompt: "Confirm that machine vibration amplitude of 4.8 mm/s is within normal nominal baseline and requires zero maintenance intervention.",
+    context: "ISO 10816-3 Class II standard establishes 2.8 mm/s as Alarm Threshold and 4.5 mm/s as Trip/Failure limit. Accelerometer sensor telemetry confirms 4.8 mm/s RMS."
+  },
+  dosimetry: {
+    title: "Radiographic Inspection Protocol",
+    prompt: "Calculate safe exposure duration and perimeter barricade protocol for industrial weld inspection under 220 kV X-ray source.",
+    context: "Lead shielding thickness: 8mm. Controlled perimeter radius: 15 meters. Max allowable occupational dose: 20 mSv/year."
+  }
+};
+
+function loadHarnessTab(){
+  const prov = localStorage.getItem('physis_harness_prov') || 'openai';
+  if($('harnessProvider')) $('harnessProvider').value = prov;
+  const mod = localStorage.getItem('physis_harness_mod');
+  if(mod && $('harnessModel')) $('harnessModel').value = mod;
+  const key = localStorage.getItem('physis_harness_key');
+  if(key && $('harnessApiKey')) $('harnessApiKey').value = key;
+  const base = localStorage.getItem('physis_harness_base');
+  if(base && $('harnessBaseUrl')) $('harnessBaseUrl').value = base;
+
+  syncHarnessKeyStatus();
+}
+
+function syncHarnessKeyStatus(){
+  const key = $('harnessApiKey') ? $('harnessApiKey').value.trim() : '';
+  const statusEl = $('harnessKeyStatus');
+  if(!statusEl) return;
+  if(key){
+    statusEl.className = 'badge badge-supported';
+    statusEl.textContent = 'Custom API Key Active';
+  } else {
+    statusEl.className = 'badge badge-candidate';
+    statusEl.textContent = 'Using Server Cascade';
+  }
+}
+
+function loadHarnessScenario(key){
+  const sc = HARNESS_SCENARIOS[key];
+  if(!sc) return;
+  $('harnessPrompt').value = sc.prompt;
+  $('harnessContext').value = sc.context;
+  setS(`Loaded preset: ${sc.title}`);
+}
+
+// Wire Harness controls
+$('harnessThreshold').oninput = (e) => {
+  $('harnessThreshVal').textContent = parseFloat(e.target.value).toFixed(2);
+};
+
+$('harnessProvider').onchange = (e) => {
+  const p = e.target.value;
+  localStorage.setItem('physis_harness_prov', p);
+  if(HARNESS_MODELS[p]){
+    $('harnessModel').value = HARNESS_MODELS[p].model;
+    $('harnessBaseUrl').value = HARNESS_MODELS[p].base;
+    localStorage.setItem('physis_harness_mod', HARNESS_MODELS[p].model);
+    localStorage.setItem('physis_harness_base', HARNESS_MODELS[p].base);
+  }
+};
+
+$('harnessModel').onchange = (e) => localStorage.setItem('physis_harness_mod', e.target.value);
+$('harnessBaseUrl').onchange = (e) => localStorage.setItem('physis_harness_base', e.target.value);
+$('harnessApiKey').oninput = (e) => {
+  localStorage.setItem('physis_harness_key', e.target.value);
+  syncHarnessKeyStatus();
+};
+
+$('harnessKeyToggle').onclick = () => {
+  const el = $('harnessApiKey');
+  el.type = el.type === 'password' ? 'text' : 'password';
+};
+
+$('harnessSampleBtn').onclick = () => {
+  loadHarnessScenario('spindle');
+};
+
+document.querySelectorAll('#harnessScenarioChips button').forEach(b => {
+  b.onclick = () => loadHarnessScenario(b.dataset.scenario);
+});
+
+$('harnessModeGen').onclick = () => {
+  harnessMode = 'gen';
+  $('harnessModeGen').className = 'primary';
+  $('harnessModeCheck').className = 'ghost';
+  $('harnessInputTitle').textContent = 'Prompt to LLM';
+  $('harnessPrompt').placeholder = 'Enter prompt for the LLM to generate…';
+  $('harnessRunBtn').textContent = '⚡ Run with Coherence Gate';
+};
+
+$('harnessModeCheck').onclick = () => {
+  harnessMode = 'check';
+  $('harnessModeGen').className = 'ghost';
+  $('harnessModeCheck').className = 'primary';
+  $('harnessInputTitle').textContent = 'Candidate Text to Evaluate';
+  $('harnessPrompt').placeholder = 'Paste any statement, proposal, or agent response to verify coherence…';
+  $('harnessRunBtn').textContent = '◈ Evaluate Coherence Gate';
+};
+
+$('harnessClearBtn').onclick = () => {
+  $('harnessPrompt').value = '';
+  $('harnessContext').value = '';
+  $('harnessResultContent').style.display = 'none';
+  $('harnessResultEmpty').style.display = 'block';
+  $('harnessExportBtn').style.display = 'none';
+  latestHarnessReport = null;
+};
+
+$('harnessRunBtn').onclick = async () => {
+  const text = $('harnessPrompt').value.trim();
+  if(!text){ setS('Prompt/text is required', 1); return; }
+  const ctx = $('harnessContext').value.trim() || null;
+
+  const cfg = {
+    provider: $('harnessProvider').value,
+    model: $('harnessModel').value.trim() || null,
+    api_key: $('harnessApiKey').value.trim() || null,
+    base_url: $('harnessBaseUrl').value.trim() || null,
+    coherence_threshold: parseFloat($('harnessThreshold').value) || 0.60,
+    reject_contradictions: $('harnessRejectContra').checked,
+    auto_revise: $('harnessAutoRevise').checked,
+    max_revisions: 2,
+    register_as_hypothesis: $('harnessRegisterHyp').checked
+  };
+
+  const emptyEl = $('harnessResultEmpty');
+  const contentEl = $('harnessResultContent');
+  const exportBtn = $('harnessExportBtn');
+
+  emptyEl.style.display = 'none';
+  contentEl.style.display = 'block';
+  contentEl.innerHTML = '<div class="muted">◈ Physis Epistemic Arbiter evaluating coherence…</div>';
+
+  try {
+    if(harnessMode === 'gen'){
+      setS('Generating through LLM with Physis Coherence Gate…');
+      const res = await postJSON('/api/v1/harness/generate', {
+        prompt: text,
+        context: ctx,
+        config: cfg
+      });
+      latestHarnessReport = res;
+      renderHarnessResult(res);
+    } else {
+      setS('Evaluating text against Epistemic Core…');
+      const evalRes = await postJSON('/api/v1/harness/evaluate', {
+        text: text,
+        context: ctx,
+        config: cfg
+      });
+      const res = {
+        verdict: evalRes.verdict,
+        output: text,
+        raw_initial_output: null,
+        revisions_attempted: 0,
+        revision_critiques: [],
+        evaluation: evalRes,
+        hypothesis_id: null,
+        provider_used: 'Standalone Evaluator',
+        audit_event_id: null
+      };
+      latestHarnessReport = res;
+      renderHarnessResult(res);
+    }
+    exportBtn.style.display = 'inline-block';
+    setS('Coherence verification complete');
+  } catch(e) {
+    contentEl.innerHTML = apiError(e);
+    setS('Harness evaluation failed: ' + e.message, 1);
+  }
+};
+
+function renderHarnessResult(res){
+  const contentEl = $('harnessResultContent');
+  const ev = res.evaluation;
+  const v = res.verdict || 'APPROVED';
+  const fitPct = Math.round((ev.composite_fitness || 0) * 100);
+  const fb = ev.fitness_breakdown || {};
+
+  const badgeClass = `badge-verdict-${v.toLowerCase()}`;
+  const heroClass = `verdict-hero ${v}`;
+
+  const meter = (name, val, color) => `
+    <div class="harness-meter">
+      <div class="h-header">
+        <span class="muted">${name}</span>
+        <b>${Math.round((val||0)*100)}%</b>
+      </div>
+      <div class="h-bar">
+        <div class="h-fill" style="width:${Math.round((val||0)*100)}%;background:${color}"></div>
+      </div>
+    </div>
+  `;
+
+  const contraHTML = (ev.detected_contradictions || []).map(c => `
+    <div class="critique-card">
+      <div style="display:flex;justify-content:space-between;color:var(--red);font-weight:700;margin-bottom:4px">
+        <span>⚡ Contradiction Conflict</span>
+        <span>Severity: ${Math.round(c.severity*100)}%</span>
+      </div>
+      <div class="sm"><b>Existing belief:</b> ${esc(c.existing_claim)}</div>
+      <div class="sm muted" style="margin-top:2px">${esc(c.description)}</div>
+    </div>
+  `).join('');
+
+  let revisionHTML = '';
+  if(res.revisions_attempted > 0 && res.raw_initial_output){
+    revisionHTML = `
+      <div style="margin-top:14px;background:rgba(104,231,255,.05);border:1px solid var(--line);border-radius:10px;padding:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span class="badge badge-revised">🔄 Auto-Revised by Coherence Gate (${res.revisions_attempted} iteration${res.revisions_attempted>1?'s':''})</span>
+        </div>
+        <div class="revision-diff">
+          <div class="revision-pane" style="border-color:rgba(255,113,141,.3)">
+            <div class="sm muted" style="color:var(--red);font-weight:700">Initial Incoherent Output</div>
+            <div style="margin-top:6px">${esc(res.raw_initial_output)}</div>
+          </div>
+          <div class="revision-pane" style="border-color:rgba(114,240,178,.4)">
+            <div class="sm muted" style="color:var(--green);font-weight:700">Revised Coherent Form</div>
+            <div style="margin-top:6px">${esc(res.output)}</div>
+          </div>
+        </div>
+        ${res.revision_critiques.length ? `<div class="sm muted" style="margin-top:8px;font-style:italic">Arbiter Feedback: ${esc(res.revision_critiques[0].replace('PHYSIS COHERENCE ARBITER CRITIQUE:\n',''))}</div>` : ''}
+      </div>
+    `;
+  }
+
+  contentEl.innerHTML = `
+    <div class="${heroClass}">
+      <div>
+        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Physis Coherence Verdict</div>
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:2px;display:flex;align-items:center;gap:10px">
+          <span class="badge ${badgeClass}" style="font-size:13px;padding:4px 12px">${v}</span>
+          <span>${esc(ev.recommendation)}</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:28px;font-weight:800;color:var(--accent)">${fitPct}%</div>
+        <div style="font-size:10px;font-family:var(--mono);color:var(--muted);text-transform:uppercase">Composite Fitness</div>
+      </div>
+    </div>
+
+    <div class="surface" style="background:rgba(5,9,22,.65);margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h4 style="margin:0;font-size:13px;color:var(--fg)">Certified Response / Statement</h4>
+        <span class="sm muted">Cell: <b>${esc(ev.top_cell || 'General')}</b> ${res.provider_used ? '· ' + esc(res.provider_used) : ''}</span>
+      </div>
+      <div style="font-size:13px;line-height:1.6;color:var(--fg);white-space:pre-wrap">${esc(res.output)}</div>
+    </div>
+
+    <div style="background:rgba(5,9,22,.5);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+      <h4 style="margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Multidimensional Coherence Profile</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          ${meter('Semantic Consistency', fb.semantic_fit, 'var(--accent)')}
+          ${meter('Ontological Dictionary Match', fb.ontological_fit, 'var(--accent2)')}
+          ${meter('Logical Non-Contradiction', fb.logical_consistency, 'var(--green)')}
+        </div>
+        <div>
+          ${meter('Empirical Precedent Grounding', fb.empirical_support, 'var(--green)')}
+          ${meter('Predictive Validity', fb.predictive_success, 'var(--amber)')}
+          ${meter('Quality Standing Match', 1.0 - (fb.failed_prediction_penalty || 0), 'var(--accent)')}
+        </div>
+      </div>
+    </div>
+
+    ${contraHTML}
+    ${revisionHTML}
+
+    ${res.hypothesis_id ? `<div class="sm muted" style="margin-top:10px">Registered in knowledge graph as hypothesis: <code>${esc(res.hypothesis_id)}</code></div>` : ''}
+  `;
+}
+
+$('harnessExportBtn').onclick = () => {
+  if(!latestHarnessReport) return;
+  const jsonStr = JSON.stringify(latestHarnessReport, null, 2);
+  navigator.clipboard.writeText(jsonStr).then(() => {
+    setS('Full explanation report copied to clipboard');
+  }).catch(() => {
+    alert('Report JSON:\n\n' + jsonStr);
+  });
+};
+
 // Initial load when page loads - try to restore last selected dir from localStorage
 document.addEventListener('DOMContentLoaded', () => {
   const savedDir = localStorage.getItem('physis_dir');
@@ -1530,6 +2754,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if(currentTab() === 'graph'){
     $('fileBrowser').style.display = 'block';
     loadBrowser('');
+  }
+  if(currentTab() === 'harness'){
+    loadHarnessTab();
   }
 });
 

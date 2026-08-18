@@ -5,6 +5,17 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use physis_core::coherence_query::{
+    EpistemicQuery, EpistemicQueryResult, FailedPredictionSummary, HypothesisSummary,
+};
+use physis_core::contradiction::Contradiction;
+use physis_core::epistemic::{EpistemicAuditTrail, EpistemicEvent, EpistemicEventType};
+use physis_core::explanation::ExplanationReport;
+use physis_core::hypothesis::{Hypothesis, HypothesisStatus};
+use physis_core::process::ProcessCycle;
+use physis_core::provenance::ProvenanceChain;
+use physis_core::relation::{RelationType, TypedEdge};
+
 use crate::models::*;
 use crate::trie::DynamicVectorTrie;
 use crate::quantize::ProductQuantizer;
@@ -82,7 +93,19 @@ pub struct PhysisCore {
     pub auto_bridge: bool,
     /// Embedder id stamped onto every node registered here (vector provenance).
     /// Set once at startup via `set_embedder_id`. `None` = unstamped.
-    embedder_id: Option<String>,
+    pub embedder_id: Option<String>,
+    /// First-class competing hypotheses.
+    pub hypotheses: HashMap<String, Hypothesis>,
+    /// Active contradictions held in non-destructive tension.
+    pub contradictions: Vec<Contradiction>,
+    /// Append-only epistemic audit trail of belief shifts.
+    pub epistemic_audit: EpistemicAuditTrail,
+    /// Provenance chains keyed by entity ID.
+    pub provenance_chains: HashMap<String, ProvenanceChain>,
+    /// Typed epistemic, causal, and procedural graph edges.
+    pub edges: Vec<TypedEdge>,
+    /// Industrial and operational process execution cycles.
+    pub process_cycles: Vec<ProcessCycle>,
 }
 
 /// What an edit does to a node's semiotic cell pin.
@@ -132,6 +155,330 @@ impl PhysisCore {
             bridge: IdBridge::default(),
             auto_bridge: false,
             embedder_id: None,
+            hypotheses: HashMap::new(),
+            contradictions: Vec::new(),
+            epistemic_audit: EpistemicAuditTrail::new(),
+            provenance_chains: HashMap::new(),
+            edges: Vec::new(),
+            process_cycles: Vec::new(),
+        }
+    }
+
+    // ── Epistemic & Hypothesis Methods ─────────────────────────────────
+
+    /// Register a hypothesis into the core.
+    pub fn register_hypothesis(&mut self, hypothesis: Hypothesis) -> String {
+        let id = hypothesis.id.clone();
+        self.epistemic_audit.record(
+            EpistemicEvent::new(
+                EpistemicEventType::HypothesisGenerated,
+                &id,
+                format!("Hypothesis registered: {}", hypothesis.statement),
+            )
+            .with_metric(hypothesis.fitness),
+        );
+        self.hypotheses.insert(id.clone(), hypothesis);
+        id
+    }
+
+    /// Lookup hypothesis by ID.
+    pub fn hypothesis(&self, id: &str) -> Option<&Hypothesis> {
+        self.hypotheses.get(id)
+    }
+
+    /// Lookup mutable hypothesis by ID.
+    pub fn hypothesis_mut(&mut self, id: &str) -> Option<&mut Hypothesis> {
+        self.hypotheses.get_mut(id)
+    }
+
+    /// Explicitly transition hypothesis status with audit logging.
+    pub fn transition_hypothesis(
+        &mut self,
+        id: &str,
+        new_status: HypothesisStatus,
+        reason: &str,
+        trigger_id: Option<String>,
+    ) -> bool {
+        if let Some(h) = self.hypotheses.get_mut(id) {
+            let prior = format!("{:?}", h.status);
+            let posterior = format!("{:?}", new_status);
+            h.status = new_status;
+
+            let mut event = EpistemicEvent::new(
+                EpistemicEventType::StatusTransition,
+                id,
+                format!("Transitioned {} -> {}: {}", prior, posterior, reason),
+            )
+            .with_transition(prior, posterior);
+            if let Some(trig) = trigger_id {
+                event = event.with_source(trig);
+            }
+            self.epistemic_audit.record(event);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Record a contradiction.
+    pub fn record_contradiction(&mut self, contradiction: Contradiction) -> String {
+        let id = contradiction.id.clone();
+        self.epistemic_audit.record(EpistemicEvent::new(
+            EpistemicEventType::ContradictionDetected,
+            &id,
+            format!(
+                "Contradiction detected between '{}' ({}) and '{}' ({})",
+                contradiction.claim_a.claim,
+                contradiction.claim_a.source,
+                contradiction.claim_b.claim,
+                contradiction.claim_b.source
+            ),
+        ));
+        self.contradictions.push(contradiction);
+        id
+    }
+
+    /// Query or initialize provenance chain for an entity.
+    pub fn provenance_chain(&mut self, entity_id: &str) -> &mut ProvenanceChain {
+        self.provenance_chains
+            .entry(entity_id.to_string())
+            .or_default()
+    }
+
+    /// Add a typed graph edge.
+    pub fn add_edge(&mut self, edge: TypedEdge) {
+        self.edges.push(edge);
+    }
+
+    /// Reconstruct belief status at timestamp T.
+    pub fn reconstruct_belief_at(
+        &self,
+        subject_id: &str,
+        target_time: chrono::DateTime<chrono::Utc>,
+    ) -> Option<HypothesisStatus> {
+        self.epistemic_audit.reconstruct_status_at(subject_id, target_time)
+    }
+
+    /// Generate full structured explanation report.
+    pub fn full_explanation_report(&self, hypothesis_id: &str) -> Option<ExplanationReport> {
+        let hyp = self.hypotheses.get(hypothesis_id)?;
+        let prov = self
+            .provenance_chains
+            .get(hypothesis_id)
+            .cloned()
+            .unwrap_or_default();
+
+        let mut precedents = Vec::new();
+        for node in self.nodes.values() {
+            if let Some(verdict) = node.asserted {
+                let sim = cosine_sim(&hyp.embedding, &node.embedding);
+                if sim > 0.6 {
+                    precedents.push(physis_core::explanation::HistoricalPrecedent {
+                        case_id: node.id.clone(),
+                        description: node.label.clone().unwrap_or_else(|| "unlabeled case".to_string()),
+                        outcome_worked: verdict > 0.0,
+                        similarity: sim,
+                        context_match: None,
+                    });
+                }
+            }
+        }
+
+        let mut report = ExplanationReport {
+            subject_id: hyp.id.clone(),
+            statement: hyp.statement.clone(),
+            status: hyp.status,
+            supporting_evidence: hyp.supporting_evidence.clone(),
+            contradicting_evidence: hyp.contradicting_evidence.clone(),
+            historical_precedents: precedents,
+            expected_consequences: hyp.predictions.clone(),
+            observed_consequences: hyp.predictions.iter().filter(|p| p.actual_outcome.is_some()).cloned().collect(),
+            coherence_profile: hyp.coherence_profile.clone(),
+            coherence_score: hyp.coherence,
+            fitness_breakdown: hyp.fitness_breakdown.clone(),
+            fitness_score: hyp.fitness,
+            confidence: hyp.confidence,
+            provenance_chain: prov,
+            human_readable_summary: String::new(),
+        };
+
+        report.human_readable_summary = report.render_ascii();
+        Some(report)
+    }
+
+    /// Query the coherence and hypothesis state.
+    pub fn query_coherence(&self, query: &EpistemicQuery) -> EpistemicQueryResult {
+        match query {
+            EpistemicQuery::WhyIsBelieved { id } => {
+                if let Some(rep) = self.full_explanation_report(id) {
+                    EpistemicQueryResult::Explanation(Box::new(rep))
+                } else {
+                    EpistemicQueryResult::Explanation(Box::new(ExplanationReport {
+                        subject_id: id.clone(),
+                        statement: "Subject not found".to_string(),
+                        status: HypothesisStatus::Isolated,
+                        supporting_evidence: Vec::new(),
+                        contradicting_evidence: Vec::new(),
+                        historical_precedents: Vec::new(),
+                        expected_consequences: Vec::new(),
+                        observed_consequences: Vec::new(),
+                        coherence_profile: physis_core::coherence_dimensions::CoherenceProfile::new(),
+                        coherence_score: 0.0,
+                        fitness_breakdown: Default::default(),
+                        fitness_score: 0.0,
+                        confidence: 0.0,
+                        provenance_chain: Default::default(),
+                        human_readable_summary: "Subject not found".to_string(),
+                    }))
+                }
+            }
+            EpistemicQuery::WhatContradicts { id } => {
+                let contradicting_claims: Vec<String> = self
+                    .contradictions
+                    .iter()
+                    .filter(|c| c.claim_a.claim.contains(id) || c.claim_b.claim.contains(id))
+                    .map(|c| format!("A: {} vs B: {}", c.claim_a.claim, c.claim_b.claim))
+                    .collect();
+                let conflicting_edges: Vec<TypedEdge> = self
+                    .edges
+                    .iter()
+                    .filter(|e| (e.source_id == *id || e.target_id == *id) && e.relation_type == RelationType::Contradicts)
+                    .cloned()
+                    .collect();
+                EpistemicQueryResult::Contradictions {
+                    subject_id: id.clone(),
+                    contradicting_claims,
+                    conflicting_edges,
+                }
+            }
+            EpistemicQuery::WhatHappenedAfterPrediction { id } => {
+                let preds = self
+                    .hypotheses
+                    .get(id)
+                    .map(|h| h.predictions.clone())
+                    .unwrap_or_default();
+                EpistemicQueryResult::PredictionsOutcome {
+                    subject_id: id.clone(),
+                    predictions: preds,
+                }
+            }
+            EpistemicQuery::SimilarCasesSucceeded { embedding, limit } => {
+                let mut matches: Vec<(String, Score, bool)> = self
+                    .nodes
+                    .values()
+                    .filter_map(|n| {
+                        if let Some(v) = n.asserted {
+                            if v > 0.0 {
+                                let sim = cosine_sim(embedding, &n.embedding);
+                                return Some((n.label.clone().unwrap_or_else(|| n.id.clone()), sim, true));
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+                matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                matches.truncate(*limit);
+                EpistemicQueryResult::SimilarCases { cases: matches }
+            }
+            EpistemicQuery::SimilarCasesFailed { embedding, limit } => {
+                let mut matches: Vec<(String, Score, bool)> = self
+                    .nodes
+                    .values()
+                    .filter_map(|n| {
+                        if let Some(v) = n.asserted {
+                            if v < 0.0 {
+                                let sim = cosine_sim(embedding, &n.embedding);
+                                return Some((n.label.clone().unwrap_or_else(|| n.id.clone()), sim, false));
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+                matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                matches.truncate(*limit);
+                EpistemicQueryResult::SimilarCases { cases: matches }
+            }
+            EpistemicQuery::WhyChangedInterpretation { id } => {
+                let (status, revs) = self
+                    .hypotheses
+                    .get(id)
+                    .map(|h| (h.status, h.revision_history.clone()))
+                    .unwrap_or((HypothesisStatus::Isolated, Vec::new()));
+                EpistemicQueryResult::RevisionHistory {
+                    subject_id: id.clone(),
+                    current_status: status,
+                    revisions: revs,
+                }
+            }
+            EpistemicQuery::InsufficientOntologyConcepts => {
+                let gaps: Vec<String> = self
+                    .isolated_branches
+                    .iter()
+                    .flat_map(|b| b.node_ids.clone())
+                    .collect();
+                EpistemicQueryResult::OntologyGaps {
+                    uncovered_cells: gaps,
+                    candidate_domains: Vec::new(),
+                }
+            }
+            EpistemicQuery::StrongestHypotheses { limit } => {
+                let mut hyps: Vec<HypothesisSummary> = self
+                    .hypotheses
+                    .values()
+                    .map(|h| HypothesisSummary {
+                        id: h.id.clone(),
+                        statement: h.statement.clone(),
+                        status: h.status,
+                        fitness: h.fitness,
+                        coherence: h.coherence,
+                        confidence: h.confidence,
+                        evidence_count: h.evidence_count(),
+                        predictions_count: h.predictions.len(),
+                    })
+                    .collect();
+                hyps.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+                hyps.truncate(*limit);
+                EpistemicQueryResult::RankedHypotheses { hypotheses: hyps }
+            }
+            EpistemicQuery::FailedPredictions { limit } => {
+                let mut failed_preds = Vec::new();
+                for h in self.hypotheses.values() {
+                    for p in &h.predictions {
+                        if p.correct == Some(false) {
+                            failed_preds.push(FailedPredictionSummary {
+                                hypothesis_id: h.id.clone(),
+                                hypothesis_statement: h.statement.clone(),
+                                prediction_statement: p.statement.clone(),
+                                expected_outcome: p.expected_outcome.clone(),
+                                actual_outcome: p.actual_outcome.clone(),
+                                made_at: p.made_at,
+                                observed_at: p.observed_at,
+                            });
+                        }
+                    }
+                }
+                failed_preds.truncate(*limit);
+                EpistemicQueryResult::FailedPredictionsList { failures: failed_preds }
+            }
+            EpistemicQuery::HighestEmpiricalFitness { limit } => {
+                let mut hyps: Vec<HypothesisSummary> = self
+                    .hypotheses
+                    .values()
+                    .map(|h| HypothesisSummary {
+                        id: h.id.clone(),
+                        statement: h.statement.clone(),
+                        status: h.status,
+                        fitness: h.fitness_breakdown.empirical_support,
+                        coherence: h.coherence,
+                        confidence: h.confidence,
+                        evidence_count: h.evidence_count(),
+                        predictions_count: h.predictions.len(),
+                    })
+                    .collect();
+                hyps.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+                hyps.truncate(*limit);
+                EpistemicQueryResult::RankedHypotheses { hypotheses: hyps }
+            }
         }
     }
 
