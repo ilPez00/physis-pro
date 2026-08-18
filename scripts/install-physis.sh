@@ -3,9 +3,10 @@
 #
 # What it does (idempotent, no root required — uses systemd --user):
 #   1. Builds the physis web server (release, with the `web` + ontology features).
-#   2. Writes a systemd --user unit that binds the server on the LAN
+#   2. Downloads ONNX embedding models if missing.
+#   3. Writes a systemd --user unit that binds the server on the LAN
 #      (0.0.0.0) behind a generated role-aware bearer token table.
-#   3. (Optional) if `caddy` is installed, writes a Caddyfile that terminates
+#   4. (Optional) if `caddy` is installed, writes a Caddyfile that terminates
 #      TLS on a local mDNS name (e.g. physis.local) — LAN-only, no public DNS.
 #
 # The server refuses to bind non-loopback without tokens (PREMORTEM P6), so the
@@ -20,11 +21,32 @@ PORT="${PORT:-19876}"
 HOST="${HOST:-0.0.0.0}"
 CARGO="${CARGO:-cargo}"
 FEATURES="${FEATURES:-web,pdf,email}"
+MODELS_DIR="${MODELS_DIR:-$(pwd)/models}"
 
 echo "== Physis on-prem installer =="
 
+# 0. Ensure ONNX embedding models are present
+echo "[0/4] Checking ONNX embedding models..."
+if [ -f "$MODELS_DIR/bge-base-en-v1.5/onnx/model.onnx" ] && [ -f "$MODELS_DIR/bge-base-en-v1.5/tokenizer.json" ]; then
+  echo "  ✅ Models present at $MODELS_DIR/bge-base-en-v1.5/"
+else
+  echo "  ⬇️  Downloading BGE-base-en-v1.5 ONNX model..."
+  mkdir -p "$MODELS_DIR/bge-base-en-v1.5/onnx"
+  HF_URL="https://huggingface.co/BAAI/bge-base-en-v1.5/resolve/main/onnx/model.onnx"
+  TOK_URL="https://huggingface.co/BAAI/bge-base-en-v1.5/resolve/main/tokenizer.json"
+  curl -fL --retry 5 --retry-delay 5 "$HF_URL" -o "$MODELS_DIR/bge-base-en-v1.5/onnx/model.onnx" || {
+    echo "  ⚠️  HF download failed; set MODEL_BASE_URL or download manually"
+  }
+  curl -fL --retry 5 --retry-delay 5 "$TOK_URL" -o "$MODELS_DIR/bge-base-en-v1.5/tokenizer.json" || true
+  if [ -f "$MODELS_DIR/bge-base-en-v1.5/onnx/model.onnx" ]; then
+    echo "  ✅ Model downloaded"
+  else
+    echo "  ⚠️  Model not downloaded — semantic embedder will fall back to random projection"
+  fi
+fi
+
 # 1. Build
-echo "[1/3] Building physis web server (features: $FEATURES) ..."
+echo "[1/4] Building physis web server (features: $FEATURES) ..."
 "$CARGO" build --release --features "$FEATURES" --bin web_server
 BIN="$(pwd)/target/release/web_server"
 test -x "$BIN"
@@ -42,7 +64,7 @@ UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 mkdir -p "$UNIT_DIR"
 UNIT="$UNIT_DIR/physis.service"
 
-echo "[2/3] Writing systemd --user unit: $UNIT"
+echo "[2/4] Writing systemd --user unit: $UNIT"
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Physis Ontology Studio server
@@ -67,7 +89,7 @@ EOF
 # 3. Caddy (optional, LAN TLS via mDNS — no public exposure)
 if command -v caddy >/dev/null 2>&1; then
   CADDYFILE="$DATA_DIR/Caddyfile"
-  echo "[3/3] caddy found — writing $CADDYFILE (LAN-only physis.local)"
+  echo "[3/4] caddy found — writing $CADDYFILE (LAN-only physis.local)"
   cat > "$CADDYFILE" <<EOF
 # LAN-only reverse proxy. Resolve physis.local via mDNS (avahi) on the client.
 physis.local {
@@ -78,10 +100,10 @@ physis.local {
 EOF
   echo "      Start with: caddy run --config $CADDYFILE"
 else
-  echo "[3/3] caddy not installed — skipping TLS reverse proxy (server still runs on $HOST:$PORT)."
+  echo "[3/4] caddy not installed — skipping TLS reverse proxy (server still runs on $HOST:$PORT)."
 fi
 
-# Enable + start
+echo "[4/4] Enabling systemd --user service..."
 systemctl --user daemon-reload
 systemctl --user enable --now physis.service || {
   echo "systemd --user unavailable in this environment. Start manually:"

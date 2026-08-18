@@ -18,6 +18,7 @@ pub mod empedocles;
 pub mod gantt;
 pub mod graph;
 pub mod industrial;
+pub mod industrial_benchmark;
 pub mod admin;
 pub mod ingest;
 pub mod inventory;
