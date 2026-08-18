@@ -37,12 +37,11 @@ static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>) {
     let env = ENV_LOCK.lock().await;
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
-    // The bearer-token test sets PHYSIS_API_TOKEN itself; no other app build may
-    // inherit it (a stale token would 401 every request in the next test).
     std::env::remove_var("PHYSIS_API_TOKEN");
     std::env::remove_var("PHYSIS_TOKENS");
+    std::env::remove_var("PHYSIS_SCAN_ROOT");
     std::env::set_var("PHYSIS_DEV", "1");
-    std::env::set_var("HOME", dir); // config resolves ~/.physis
+    std::env::set_var("PHYSIS_DATA_DIR", dir); // config resolves data dir
     let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
     (router, env)
 }
@@ -547,6 +546,63 @@ async fn scan_is_confined_to_scan_root() {
         body["error"].as_str().unwrap_or("").contains("scan root"),
         "the refusal must name the confinement: {body}"
     );
+}
+
+#[tokio::test]
+async fn fs_list_and_resolve_are_confined_to_scan_root() {
+    // The console file manager cannot see OS paths from a drag-and-drop, so it
+    // browses scan_root through /fs/list and maps dropped basenames through
+    // /fs/resolve. Both must refuse anything outside the root.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let workshop = dir.path().join("workshop");
+    std::fs::create_dir_all(workshop.join("notes")).expect("mkdir workshop/notes");
+    std::fs::write(workshop.join("notes").join("log.txt"), "paused print").expect("write log");
+
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("PHYSIS_DATA_DIR", dir.path());
+    std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+
+    let (status, body) = send(&router, get("/api/v1/fs/list", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "list scan root: {body}");
+    let names: Vec<&str> = body["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap_or(""))
+        .collect();
+    assert!(names.contains(&"workshop"), "scan root lists workshop: {body}");
+    assert_eq!(body["parent"], serde_json::Value::Null, "scan root has no parent");
+
+    let notes = workshop.join("notes");
+    let uri = format!("/api/v1/fs/list?dir={}", notes.display());
+    let (status, body) = send(&router, get(&uri, "_default")).await;
+    assert_eq!(status, StatusCode::OK, "list notes: {body}");
+    assert!(
+        body["entries"].as_array().unwrap().iter().any(|e| e["name"] == "log.txt" && e["kind"] == "file"),
+        "notes contains log.txt: {body}"
+    );
+
+    let (status, body) = send(&router, get("/api/v1/fs/list?dir=/etc", "_default")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "list outside scan root: {body}");
+
+    let (status, body) = send(&router, get("/api/v1/fs/resolve?name=notes", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "resolve notes: {body}");
+    let hits = body["matches"].as_array().expect("matches");
+    assert!(
+        hits.iter().any(|h| h["kind"] == "dir" && h["path"].as_str().unwrap_or("").ends_with("workshop/notes")),
+        "resolve finds workshop/notes: {body}"
+    );
+
+    let (status, _) = send(&router, get("/api/v1/fs/resolve?name=workshop/notes", "_default")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "resolve rejects a path");
+
+    std::env::remove_var("PHYSIS_SCAN_ROOT");
+    drop(env);
 }
 
 #[cfg(feature = "sql")]

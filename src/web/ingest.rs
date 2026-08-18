@@ -955,3 +955,208 @@ pub async fn fs_move_handler(
     }))
 }
 
+const FS_SKIP: &[&str] = &[
+    ".git",
+    "node_modules",
+    "target",
+    "__pycache__",
+    ".cache",
+    "dist",
+    ".venv",
+    "venv",
+];
+const FS_LIST_CAP: usize = 400;
+const FS_RESOLVE_DEPTH: usize = 5;
+const FS_RESOLVE_VISIT: usize = 800;
+
+fn skip_fs_name(name: &str) -> bool {
+    name.is_empty() || name == "." || name == ".." || FS_SKIP.iter().any(|s| *s == name)
+}
+
+fn entry_kind_size(path: &std::path::Path) -> Option<(&'static str, Option<u64>)> {
+    let meta = std::fs::symlink_metadata(path).ok()?;
+    if meta.file_type().is_symlink() {
+        let canon = path.canonicalize().ok()?;
+        if canon.is_dir() {
+            return Some(("dir", None));
+        }
+        return Some(("file", Some(meta.len())));
+    }
+    if meta.is_dir() {
+        Some(("dir", None))
+    } else if meta.is_file() {
+        Some(("file", Some(meta.len())))
+    } else {
+        None
+    }
+}
+
+fn confined_parent(state: &SharedState, dir: &std::path::Path) -> Option<String> {
+    let root = state.scan_root();
+    let parent = dir.parent()?;
+    if parent.starts_with(&root) {
+        Some(parent.display().to_string())
+    } else {
+        None
+    }
+}
+
+/// GET /api/v1/fs/list?dir=… — browse one sandboxed directory. No dir → scan root.
+/// Hidden names (leading `.`) and bulky build dirs are skipped so the picker
+/// stays readable. Paths that canonicalize outside scan_root are omitted.
+pub async fn fs_list_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<FsListQuery>,
+) -> Result<Json<FsListResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let root = state.scan_root();
+    let canonical = match q.dir.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(raw) => sandbox_existing(&state, raw)?,
+        None => root.clone(),
+    };
+    if canonical.is_file() {
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "path is a file — open its parent folder",
+        ));
+    }
+    let listed = canonical.clone();
+    let listed_root = root.clone();
+    let (mut entries, truncated) = tokio::task::spawn_blocking(move || {
+        let mut entries: Vec<FsEntryDto> = Vec::new();
+        let mut truncated = false;
+        let rd = match std::fs::read_dir(&listed) {
+            Ok(rd) => rd,
+            Err(_) => return (entries, truncated),
+        };
+        for ent in rd.flatten() {
+            let name = ent.file_name().to_string_lossy().into_owned();
+            if skip_fs_name(&name) || name.starts_with('.') {
+                continue;
+            }
+            let path = ent.path();
+            let Ok(canon) = path.canonicalize() else { continue };
+            if !canon.starts_with(&listed_root) {
+                continue;
+            }
+            let Some((kind, size)) = entry_kind_size(&path) else { continue };
+            if entries.len() >= FS_LIST_CAP {
+                truncated = true;
+                break;
+            }
+            entries.push(FsEntryDto {
+                name,
+                path: canon.display().to_string(),
+                kind: kind.into(),
+                size,
+            });
+        }
+        entries.sort_by(|a, b| {
+            a.kind.cmp(&b.kind).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
+        // dirs first: "dir" < "file"
+        (entries, truncated)
+    })
+    .await
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("list failed: {e}"),
+        )
+    })?;
+    // "dir" sorts before "file" as strings. Keep dirs first even if the
+    // blocking sort ran — re-assert here so the UI can rely on it.
+    entries.sort_by(|a, b| {
+        match (a.kind.as_str(), b.kind.as_str()) {
+            ("dir", "file") => std::cmp::Ordering::Less,
+            ("file", "dir") => std::cmp::Ordering::Greater,
+            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        }
+    });
+    Ok(Json(FsListResponse {
+        root: root.display().to_string(),
+        dir: canonical.display().to_string(),
+        parent: confined_parent(&state, &canonical),
+        entries,
+        truncated,
+    }))
+}
+
+/// GET /api/v1/fs/resolve?name=… — map an OS drop / folder-picker basename onto
+/// paths inside scan_root. Depth-limited BFS; exact name, then case-insensitive.
+pub async fn fs_resolve_handler(
+    State(state): State<SharedState>,
+    Query(q): Query<FsResolveQuery>,
+) -> Result<Json<FsResolveResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let name = q.name.trim().trim_end_matches('/').to_string();
+    if name.is_empty() || name.contains('/') || name.contains('\\') || skip_fs_name(&name) {
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "name must be a single basename inside the scan root",
+        ));
+    }
+    let root = state.scan_root();
+    let needle = name.clone();
+    let walk_root = root.clone();
+    let matches = tokio::task::spawn_blocking(move || {
+        use std::collections::VecDeque;
+        let mut q = VecDeque::from([(walk_root.clone(), 0usize)]);
+        let mut exact: Vec<FsResolveHit> = Vec::new();
+        let mut fuzzy: Vec<FsResolveHit> = Vec::new();
+        let mut visits = 0usize;
+        let lower = needle.to_lowercase();
+        while let Some((dir, depth)) = q.pop_front() {
+            if visits >= FS_RESOLVE_VISIT || depth > FS_RESOLVE_DEPTH {
+                continue;
+            }
+            visits += 1;
+            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            for ent in rd.flatten() {
+                let n = ent.file_name().to_string_lossy().into_owned();
+                if skip_fs_name(&n) {
+                    continue;
+                }
+                let path = ent.path();
+                let Ok(canon) = path.canonicalize() else { continue };
+                if !canon.starts_with(&walk_root) {
+                    continue;
+                }
+                let Some((kind, _)) = entry_kind_size(&path) else { continue };
+                if n == needle {
+                    exact.push(FsResolveHit {
+                        path: canon.display().to_string(),
+                        kind: kind.into(),
+                    });
+                } else if n.to_lowercase() == lower {
+                    fuzzy.push(FsResolveHit {
+                        path: canon.display().to_string(),
+                        kind: kind.into(),
+                    });
+                }
+                if kind == "dir" && depth < FS_RESOLVE_DEPTH {
+                    q.push_back((canon, depth + 1));
+                }
+            }
+        }
+        let mut hits = if exact.is_empty() { fuzzy } else { exact };
+        hits.sort_by(|a, b| match (a.kind.as_str(), b.kind.as_str()) {
+            ("dir", "file") => std::cmp::Ordering::Less,
+            ("file", "dir") => std::cmp::Ordering::Greater,
+            _ => a.path.cmp(&b.path),
+        });
+        hits.truncate(8);
+        hits
+    })
+    .await
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("resolve failed: {e}"),
+        )
+    })?;
+    Ok(Json(FsResolveResponse {
+        name,
+        root: root.display().to_string(),
+        matches,
+    }))
+}
+

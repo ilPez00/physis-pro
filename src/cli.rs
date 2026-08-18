@@ -29,7 +29,8 @@ pub struct Cli {
 pub enum Commands {
     /// Scan a directory and build ontological map
     Scan {
-        /// Directory to scan
+        /// Directory to scan (default: current directory)
+        #[arg(default_value = ".")]
         dir: PathBuf,
         /// Output format (wiki, json, mermaid)
         #[arg(short, long, default_value = "wiki")]
@@ -37,7 +38,8 @@ pub enum Commands {
     },
     /// Deep AI-powered scan of files and images
     DeepScan {
-        /// Directory to scan
+        /// Directory to scan (default: current directory)
+        #[arg(default_value = ".")]
         dir: PathBuf,
     },
     /// Query the ontology trie
@@ -1333,7 +1335,7 @@ mod tests {
 
     #[test]
     fn test_cli_parser_missing_arg_fails() {
-        let cli = Cli::try_parse_from(["physis", "scan"]);
+        let cli = Cli::try_parse_from(["physis", "query"]);
         assert!(cli.is_err());
     }
 

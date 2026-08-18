@@ -208,9 +208,80 @@
   .toast.err{border-color:rgba(255,107,122,.6)}
   .toast.ok{border-color:rgba(61,220,132,.5)}
   footer{text-align:center;color:var(--muted);font-size:11px;padding:14px}
+  .kbd{font:10px ui-monospace,monospace;border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--purple);background:rgba(183,155,255,.08)}
+  .err{color:var(--red)}
+  .coach{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:10px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(90deg,rgba(183,155,255,.12),transparent 70%);
+    font-size:13px
+  }
+  .coach[hidden]{display:none}
+  .coach b{color:var(--purple)}
+  .coach .later{margin-left:auto;background:none;border:none;color:var(--muted);padding:4px 8px}
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,18,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(16,24,48,.98),rgba(10,16,32,.96));
+    border:1px solid rgba(183,155,255,.22);border-radius:20px;padding:28px 32px;
+    max-width:540px;width:100%;box-shadow:0 30px 90px rgba(0,0,0,.55)
+  }
+  .overlay-card h2{margin:0 0 8px;font-size:22px;letter-spacing:-.02em}
+  .steps{display:grid;gap:10px;text-align:left;margin:18px 0}
+  .step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+  .step i{
+    width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:rgba(183,155,255,.12);border:1px solid rgba(183,155,255,.28);color:var(--purple);font-weight:700;font-size:12px
+  }
+  .flow{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  .flow span{
+    font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line-soft);color:var(--muted)
+  }
+  .flow span.on{color:var(--fg);border-color:rgba(183,155,255,.45);background:rgba(183,155,255,.12)}
+  .tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted)}
+  .tip:hover::after,.tip:focus::after{
+    content:attr(data-tip);position:absolute;bottom:130%;left:0;
+    background:rgba(10,16,32,.96);border:1px solid var(--line);color:var(--fg);
+    padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.45;
+    white-space:normal;max-width:240px;width:max-content;z-index:50;
+    pointer-events:none;box-shadow:var(--shadow)
+  }
+  button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{
+    outline:2px solid var(--purple);outline-offset:2px
+  }
 </style>
 </head>
 <body>
+<div id="welcome" class="overlay" role="dialog" aria-labelledby="welcomeTitle">
+  <div class="overlay-card" style="text-align:center">
+    <div style="font-size:40px;margin-bottom:12px">📖</div>
+    <h2 id="welcomeTitle">Log the week. Test the argument.</h2>
+    <p class="muted" style="margin:0;line-height:1.6">Seed a study week to see rhythms, then paste an essay and find which claims actually stand.</p>
+    <div class="steps">
+      <div class="step"><i>1</i><div><b>Log</b><div class="muted">A week of file actions — open, edit, generate, delete.</div></div></div>
+      <div class="step"><i>2</i><div><b>Rhythms</b><div class="muted">Habits that repeat (same file, same time of day).</div></div></div>
+      <div class="step"><i>3</i><div><b>Train</b><div class="muted">Split → tag → evaluate. A claim stands only if warranted and unanswered.</div></div></div>
+    </div>
+    <button id="welcomeDismiss" class="primary" style="font-size:14px;padding:10px 28px;border-radius:10px">Show me Seed</button>
+    <p class="muted" style="margin:12px 0 0;font-size:12px">Press <span class="kbd">?</span> for shortcuts</p>
+  </div>
+</div>
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">How to move around</h2>
+    <div class="steps" style="font-size:13px">
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> <span class="muted">evaluate the tagged essay</span></div>
+      <div><span class="kbd">Ctrl</span>+<span class="kbd">K</span> <span class="muted">focus the essay box</span></div>
+      <div><span class="kbd">S</span> <span class="muted">seed a study week (when you are not typing)</span></div>
+      <div><span class="kbd">?</span> <span class="muted">open or close this help</span></div>
+      <div><span class="kbd">Esc</span> <span class="muted">close help or welcome</span></div>
+    </div>
+    <button id="helpClose" class="primary" style="width:100%">Close</button>
+  </div>
+</div>
 
 <header>
   <div class="brand">
@@ -221,21 +292,28 @@
     </div>
   </div>
   <nav>
-    <a href="#log">Study Log</a>
+    <a href="#log">Study log</a>
     <a href="#rhythms">Rhythms</a>
-    <a href="#trainer">Elenchus Trainer</a>
+    <a href="#trainer">Argument trainer</a>
   </nav>
   <div class="spacer"></div>
   <span id="health" class="pill"><span class="dot"></span><span id="healthTxt">checking…</span></span>
-  <button id="btnSeed" class="primary">Seed study session</button>
+  <button id="btnSeed" class="primary">Seed study week</button>
   <button id="btnRefresh">Refresh</button>
+  <span id="status" class="pill" style="margin-left:8px"><span class="muted">ready</span></span>
+  <button id="btnHelp" class="ghost" style="padding:6px 10px;font-size:11px" title="Help (?)">?</button>
 </header>
+<div class="coach" id="coach">
+  <span id="coachText"><b>Start with a week.</b> Seed loads six days of notes and exercises so rhythms have something to find.</span>
+  <button id="coachAct" class="primary" type="button">Seed study week</button>
+  <button class="later" id="coachDismiss" type="button">Hide tips</button>
+</div>
 
 <main>
 
   <!-- Study Log KPIs -->
   <section class="section" id="log">
-    <h2>Study Log — what you worked on, when, where</h2>
+    <h2>Study log <span class="tip" data-tip="Every file action the engine saw — open, edit, generate, delete">(?)</span> — what you worked on, when, where</h2>
     <div class="grid-kpis" id="kpis"><div class="loading">loading study log…</div></div>
 
     <div class="two-col" style="margin-top:14px">
@@ -246,23 +324,29 @@
       </div>
       <div class="panel">
         <h3>Context tallies <span class="hint">files by type · directory · action · place</span></h3>
-        <div id="tallies"><div class="emptynote">no study events yet — click <b>Seed study session</b> to watch a week of work unfold.</div></div>
+        <div id="tallies"><div class="emptynote">no study events yet — click <button id="emptySeed" class="primary" style="font-size:11px;padding:4px 10px;border-radius:6px;margin-left:6px">Seed study week</button> to watch a week of work unfold.</div></div>
       </div>
     </div>
   </section>
 
   <!-- Rhythms -->
   <section class="section" id="rhythms">
-    <h2>Study rhythms — chronos</h2>
+    <h2>Study rhythms <span class="tip" data-tip="A rhythm appears when the same file shows up at least three times on a regular interval — for example notes/topology.md every morning">(?)</span></h2>
     <div class="rhythms" id="rhythms"><div class="loading">loading…</div></div>
   </section>
 
   <!-- Elenchus trainer -->
   <section class="section" id="trainer">
-    <h2>Elenchus — is your argument coherent?</h2>
+    <h2>Argument trainer <span class="tip" data-tip="A claim stands only if it has a warrant and no unanswered rebuttal. Elenchus is the name of that test.">(?)</span></h2>
     <div class="two-col">
       <div class="panel">
-        <h3>Your essay <span class="hint">paste text → split into statements → tag each as claim / warrant / rebuttal</span></h3>
+        <h3>Your essay <span class="hint">four steps, then a standing for each claim</span></h3>
+        <div class="flow" id="flow">
+          <span class="on">1. Paste</span>
+          <span>2. Split</span>
+          <span>3. Tag</span>
+          <span>4. Evaluate</span>
+        </div>
         <div class="clsrow">
           <textarea id="essay" placeholder="Paste your essay or argument here. Try the example below for a running start."></textarea>
         </div>
@@ -275,8 +359,8 @@
         <div id="sents"><div class="emptynote">The trainer breaks your essay into statements. You decide the role each one plays — claim (what you assert), warrant (why it holds), rebuttal (what argues against it). A claim is coherent only if warranted and unrefuted.</div></div>
       </div>
       <div class="panel">
-        <h3>Standings <span class="hint">what survives Socratic cross-examination</span></h3>
-        <div id="standOut"><div class="emptynote">Split your essay and evaluate to see each claim's standing.</div></div>
+        <h3>Do the claims stand? <span class="hint">supported / unsupported / contested</span></h3>
+        <div id="standOut"><div class="emptynote">Split the essay, tag roles, then evaluate. Supported = warranted and unanswered.</div></div>
       </div>
     </div>
   </section>
@@ -300,6 +384,14 @@ function toast(msg,err){
   const t=$('toast'); t.textContent=msg; t.className='toast show '+(err?'err':'ok');
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast',4200);
 }
+function apiError(e){ return '<span class="err">'+esc(String(e))+'</span>'; }
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function typing(el){ const t=el&&el.tagName; return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'; }
+function setFlow(n){
+  const el=$('flow'); if(!el) return;
+  el.querySelectorAll('span').forEach((s,i)=>s.classList.toggle('on', i<n));
+}
+function setStatus(m,e){ const s=$('status'); if(!s)return; const now=new Date(); const ts=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}); s.innerHTML='<span class="muted">'+(e?'⚠ ':'')+m+' · '+ts+'</span>'; }
 
 const ACTION_COLOR={generated:"var(--green)",edited:"var(--accent)",opened:"#8fa3c4",deleted:"var(--red)"};
 function ts(iso){ const d=new Date(iso); return isNaN(d)?iso:d.toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
@@ -422,7 +514,7 @@ $('btnSplit').onclick=()=>{
   const t=$('essay').value.trim();
   if(!t){ toast('paste some text first',true); return; }
   statements=splitSentences(t).map((s,i)=>({id:'s'+(i+1),kind:'claim',text:s,target:null}));
-  rerenderSents(); toast('split into '+statements.length+' statements — now tag each role');
+  rerenderSents(); setFlow(2); toast('split into '+statements.length+' statements — tag each role, or Auto-tag');
 };
 $('btnAuto').onclick=()=>{
   if(!statements.length){ toast('split the essay first',true); return; }
@@ -433,9 +525,9 @@ $('btnAuto').onclick=()=>{
     s.target=(r!=='claim'&&lastClaim)?lastClaim:null;
     if(r==='claim') lastClaim=s.id;
   });
-  rerenderSents(); toast('draft roles assigned — check the targets, then evaluate');
+  rerenderSents(); setFlow(3); toast('draft roles assigned — check the targets, then Evaluate');
 };
-$('btnExample').onclick=()=>{ $('essay').value=ESSAY; toast('example loaded — split it and evaluate'); };
+$('btnExample').onclick=()=>{ $('essay').value=ESSAY; setFlow(1); toast('example loaded — Split sentences, then Evaluate'); };
 async function evaluate(){
   if(!statements.length){ toast('split the essay first',true); return; }
   const out=$('standOut'); out.innerHTML='<div class="loading">evaluating…</div>';
@@ -445,17 +537,20 @@ async function evaluate(){
     const badge={supported:'<span class="badge supported">SUPPORTED</span>',contested:'<span class="badge contested">CONTESTED</span>',unsupported:'<span class="badge unsupported">UNSUPPORTED</span>'};
     const stand=(j.standings||[]).map(r=>`<div class="stand">${badge[r.standing]||r.standing}<div class="grow">${textOf(r.claim)}</div></div>`).join('');
     const list=(ids,verb)=>ids&&ids.length?`<ul>${ids.map(id=>`<li>${textOf(id)}</li>`).join('')}</ul>`:`<div class="small muted">none — ${verb}.</div>`;
-    out.innerHTML=stand||'<div class="emptynote">no claims found.</div>'+
-      `<div class="note-box"><h4>Press here — unsupported claims</h4>${list(j.unsupported,'every claim is warranted')}</div>`+
-      `<div class="note-box"><h4>Recalibrate here — contested claims</h4>${list(j.contested,'nothing is under attack')}</div>`+
-      `<div class="small muted" style="margin-top:10px">A claim is coherent only if warranted and unrefuted. Unsupported → find your warrant. Contested → answer the rebuttal.</div>`;
-  }catch(err){ out.innerHTML='<span class="err">'+err+'</span>'; }
+    out.innerHTML=(stand||'<div class="emptynote">no claims found.</div>')
+      +`<div class="note-box"><h4>Needs a because — unsupported</h4>${list(j.unsupported,'every claim has a warrant')}</div>`
+      +`<div class="note-box"><h4>Needs an answer — contested</h4>${list(j.contested,'nothing is under attack')}</div>`
+      +`<div class="small muted" style="margin-top:10px">Supported = has a warrant and no unanswered rebuttal. Unsupported → add a because. Contested → answer the rebuttal.</div>`;
+    setFlow(4);
+    if($('coachText')) $('coachText').innerHTML='<b>Read the standings.</b> Unsupported needs a because. Contested needs an answer.';
+  }catch(err){ out.innerHTML=apiError(err); }
 }
 $('btnEval').onclick=evaluate;
 
 // ── Seed a study session ──
 async function seed(){
   toast('Seeding a study week…');
+  setStatus('seeding…');
   const btn=$('btnSeed'); btn.disabled=true;
   try{
     await postJSON('/api/v1/study/clear',{});
@@ -476,8 +571,9 @@ async function seed(){
     events.push({observed_at:day(0,11),action:'edited',path:'notes/topology.md',place:'Lab'});
     await postJSON('/api/v1/study/log',{events});
     await refreshAll();
-    toast('Study week seeded — timeline, tallies and rhythms are live.');
-  }catch(err){ toast('seed failed: '+err,true); }
+    toast('Study week seeded — timeline, tallies and rhythms are live. Scroll to the argument trainer when you want.');
+    setStatus('seeded');
+  }catch(err){ toast('seed failed: '+err,true); setStatus('seed failed', true); }
   btn.disabled=false;
 }
 
@@ -486,19 +582,53 @@ let refreshTimer=null;
 async function refreshAll(){
   const jobs=[
     loadHealth().catch(()=>{}),
-    loadSession().catch(e=>{ $('tl').innerHTML='<span class="err">'+e+'</span>'; }),
-    loadRhythms().catch(e=>{ $('rhythms').innerHTML='<span class="err">'+e+'</span>'; }),
+    loadSession().catch(e=>{ $('tl').innerHTML=apiError(e); }),
+    loadRhythms().catch(e=>{ $('rhythms').innerHTML=apiError(e); }),
   ];
   await Promise.all(jobs);
   clearInterval(refreshTimer);
   refreshTimer=setInterval(()=>{ loadSession().catch(()=>{}); loadRhythms().catch(()=>{}); },15000);
+  setStatus('refreshed');
 }
 
 // ── Init ──
 $('btnRefresh').onclick=()=>refreshAll().then(()=>toast('refreshed'));
 $('btnSeed').onclick=seed;
+$('coachAct').onclick=seed;
 $('essay').value=ESSAY;
+setFlow(1);
+if($('emptySeed')){ $('emptySeed').onclick=seed; }
 refreshAll();
+
+$('welcomeDismiss').onclick=()=>{
+  localStorage.setItem('physis_welcome_study','1');
+  $('welcome').classList.remove('show');
+  $('btnSeed').scrollIntoView({behavior:'smooth',block:'center'});
+  $('btnSeed').focus();
+};
+if(!localStorage.getItem('physis_welcome_study')) $('welcome').classList.add('show');
+$('coachDismiss').onclick=()=>{ localStorage.setItem('physis_coach_hide_study','1'); $('coach').hidden=true; };
+if(localStorage.getItem('physis_coach_hide_study')) $('coach').hidden=true;
+
+function toggleHelp(){ $('help').classList.toggle('show'); $('welcome').classList.remove('show'); }
+$('btnHelp').onclick=toggleHelp;
+$('helpClose').onclick=()=>$('help').classList.remove('show');
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ $('welcome').classList.remove('show'); $('help').classList.remove('show'); return; }
+  if(e.key==='?' && !e.ctrlKey && !e.metaKey && !e.altKey && !typing(e.target)){
+    e.preventDefault(); toggleHelp(); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='k'){
+    e.preventDefault(); $('essay').focus(); $('essay').scrollIntoView({behavior:'smooth',block:'center'}); return;
+  }
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){
+    e.preventDefault(); evaluate(); return;
+  }
+  if(!typing(e.target) && (e.key==='s'||e.key==='S') && !e.ctrlKey && !e.metaKey){
+    e.preventDefault(); seed();
+  }
+});
 </script>
 </body>
 </html>

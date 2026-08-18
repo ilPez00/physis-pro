@@ -1089,11 +1089,50 @@ pub struct FsMoveRequest {
     to: String,
 }
 
+#[derive(Deserialize)]
+pub struct FsListQuery {
+    /// Directory to list. Omitted or empty → the scan root.
+    #[serde(default)]
+    dir: Option<String>,
+}
+
 #[derive(Serialize)]
-pub struct FsMoveResponse {
-    from: String,
-    to: String,
-    moved: bool,
+pub struct FsEntryDto {
+    name: String,
+    path: String,
+    kind: String, // "dir" | "file"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<u64>,
+}
+
+#[derive(Serialize)]
+pub struct FsListResponse {
+    /// Engine confinement root — every path the UI can browse lives here.
+    root: String,
+    dir: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent: Option<String>,
+    entries: Vec<FsEntryDto>,
+    truncated: bool,
+}
+
+#[derive(Deserialize)]
+pub struct FsResolveQuery {
+    /// Basename to look for under the scan root (from an OS drop or folder picker).
+    name: String,
+}
+
+#[derive(Serialize)]
+pub struct FsResolveHit {
+    path: String,
+    kind: String,
+}
+
+#[derive(Serialize)]
+pub struct FsResolveResponse {
+    name: String,
+    root: String,
+    matches: Vec<FsResolveHit>,
 }
 
 #[derive(Serialize)]
@@ -2192,10 +2231,11 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     }
 
     // Confine /api/v1/scan to a root (path-traversal guard). Defaults to the
-    // data dir; override with PHYSIS_SCAN_ROOT. Canonicalized for real-path compare.
+    // parent of the data dir (the project root when data_dir is ./.physis);
+    // override with PHYSIS_SCAN_ROOT. Canonicalized for real-path compare.
     let scan_root = std::env::var("PHYSIS_SCAN_ROOT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| config.data_dir.clone());
+        .unwrap_or_else(|_| config.data_dir.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))));
     let scan_root = scan_root.canonicalize().unwrap_or(scan_root);
     log::info!("scan root: {}", scan_root.display());
 
@@ -2454,6 +2494,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/history/import", post(ingest::history_import_handler))
         .route("/api/v1/praxis/backfill", post(ingest::praxis_backfill_handler))
         .route("/api/v1/fs/graph", get(ingest::fs_graph_handler))
+        .route("/api/v1/fs/list", get(ingest::fs_list_handler))
+        .route("/api/v1/fs/resolve", get(ingest::fs_resolve_handler))
         .route("/api/v1/structsim", post(ingest::structsim_handler))
         .route("/api/v1/rag/retrieve", post(search::rag_retrieve_handler))
         .route("/api/v1/fs/file", get(ingest::fs_file_handler))
