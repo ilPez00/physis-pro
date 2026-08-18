@@ -630,6 +630,7 @@
   </section>
 </main>
 
+<script src="ui-shell.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const LS={base:'physis_base',token:'physis_token',dir:'physis_dir',tab:'physis_tab'};
@@ -1363,3 +1364,148 @@ loadOverview();
 </script>
 </body>
 </html>
+async function loadBrowser(path){
+  const base = '${window.location.origin}/api/v1/fs/list';
+  const url = path ? base + '?dir=' + encodeURIComponent(path) : base;
+  try{
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const entries = data.entries;
+    const browserPath = $('#browserPath');
+    const browserEntries = $('#browserEntries');
+    const browserUp = $('#browserUp');
+    
+    // Update path display
+    browserPath.textContent = 'Path: ' + data.root;
+    
+    // Show up button if not at root
+    browserUp.style.display = data.parent ? 'inline-block' : 'none';
+    browserUp.onclick = () => loadBrowser(data.parent || '');
+    
+    // Render entries
+    const html = entries.map(ent => {
+      const isDir = ent.kind === 'dir';
+      const icon = isDir ? '📁' : '📄';
+      const cls = isDir ? 'folder' : 'file';
+      return `<div class="browser-entry" data-path="${ent.path}" data-kind="${cls}" style="display:flex;align-items:center;padding:4px 8px;margin:2px 0;border-radius:4px;cursor:${isDir?'pointer':'default'};background:rgba(255,255,255,.03);">
+                <span style="width:20px;">${icon}</span>
+                <span style="flex:1;margin-left:4px;">${ent.name}</span>
+                <span style="color:var(--muted);font-size:11px;">${ent.size !== undefined ? ent.size + ' bytes' : ''}</span>
+              </div>`;
+    }).join('');
+    browserEntries.innerHTML = html || '<div style="color:var(--muted);">No items found</div>';
+    
+    // Click handler for entries
+    browserEntries.querySelectorAll('.browser-entry').forEach(el => {
+      el.onclick = () => {
+        if(el.dataset.kind === 'dir'){
+          loadBrowser(el.dataset.path);
+        } else {
+          $('dir').value = el.dataset.path;
+          $('fileBrowser').style.display = 'none';
+          setS('selected: ' + el.dataset.path, 1);
+        }
+      };
+    });
+  }catch(e){
+    console.error('Browser load failed:', e);
+    setS('Failed to load browser', 1);
+  }
+}
+
+// Initialize drag-and-drop for file browser
+(function(){
+  const fb = $('#fileBrowser');
+  const dirInput = $('dir');
+  const dropZone = fb;
+  
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+  
+  dropZone.addEventListener('dragenter', () => dropZone.style.borderColor = 'var(--accent)');
+  dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '');
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.style.borderColor = '';
+    const files = e.dataTransfer.files;
+    if(files.length === 0) return;
+    
+    const file = files[0];
+    if(file.kind !== 'directory') {
+      setS('Drop a folder (directory), not a file', 1);
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const text = evt.target.result;
+      const rawPath = text.trim();
+      if(!rawPath) return;
+      
+      const resp = await fetch('${window.location.origin}/api/v1/fs/resolve?name=' + encodeURIComponent(rawPath.split('/').pop()));
+      const data = await resp.json();
+      if(data.matches && data.matches.length > 0){
+        const hit = data.matches[0];
+        $('dir').value = hit.path;
+        $('fileBrowser').style.display = 'none';
+        setS('selected: ' + hit.path, 1);
+      }
+    };
+    reader.readAsText(file);
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = '';
+  });
+})();
+
+// File browser controls
+$('browserUp').onclick = () => {
+  const path = $('#browserPath').textContent.replace('Path: ', '');
+  const parts = path.split('/').filter(p=>p);
+  if(parts.length > 1){
+    const up = parts.slice(0, -1).join('/');
+    loadBrowser(up);
+  }
+};
+
+// Toggle file browser visibility when graph tab activates
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  const tab = b.dataset.tab;
+  if(tab === 'graph'){
+    $('fileBrowser').style.display = 'block';
+    loadBrowser('');
+  } else {
+    $('fileBrowser').style.display = 'none';
+  }
+});
+
+// Select a folder from browser and populate the dir input
+function selectBrowserFolder(path){
+  $('dir').value = path;
+  $('fileBrowser').style.display = 'none';
+  setS('selected: ' + path, 1);
+}
+
+// Handle esc to close browser
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    $('fileBrowser').style.display = 'none';
+  }
+});
+
+// Initial load when page loads - try to restore last selected dir from localStorage
+document.addEventListener('DOMContentLoaded', () => {
+  const savedDir = localStorage.getItem('physis_dir');
+  if(savedDir && $('dir'))$('dir').value = savedDir;
+  if(currentTab() === 'graph'){
+    $('fileBrowser').style.display = 'block';
+    loadBrowser('');
+  }
+});
+
