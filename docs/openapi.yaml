@@ -1,0 +1,395 @@
+openapi: 3.0.3
+info:
+  title: Physis Pro API
+  description: |
+    Industrial backoffice intelligence engine — ontology-driven classification,
+    PDCA dream loops, OEE tracking, maintenance monitoring, and document ingest.
+
+    Base URL: `http://localhost:19876`
+
+    Authentication: bearer token on protected routes (`Authorization: Bearer <token>`).
+    Public routes: `/health`, `/api/v1/embedder`.
+  version: 0.9.0
+  contact:
+    name: Physis Pro
+
+servers:
+  - url: http://localhost:19876
+    description: Default local server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: token
+
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        detail:
+          type: string
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        uptime_secs:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+        embedder:
+          type: string
+        embed_dim:
+          type: integer
+        degraded:
+          type: boolean
+        self_test:
+          type: boolean
+        tenants:
+          type: integer
+        db:
+          type: boolean
+    EmbedderInfo:
+      type: object
+      properties:
+        kind:
+          type: string
+        dim:
+          type: integer
+        degraded:
+          type: boolean
+    ClassifyRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    ClassifyResult:
+      type: object
+      properties:
+        domain:
+          type: string
+        mode:
+          type: string
+        score:
+          type: number
+    ClassifyResponse:
+      type: object
+      properties:
+        top:
+          $ref: '#/components/schemas/ClassifyResult'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClassifyResult'
+    OeeMachineRequest:
+      type: object
+      required:
+        - machine_id
+        - shift_length_secs
+        - ideal_cycle_time_secs
+      properties:
+        machine_id:
+          type: string
+        shift_length_secs:
+          type: number
+        ideal_cycle_time_secs:
+          type: number
+    OeeEvent:
+      oneOf:
+        - type: object
+          required: [kind, machine_id, good, scrap]
+          properties:
+            kind:
+              type: string
+              enum: [production]
+            machine_id:
+              type: string
+            good:
+              type: integer
+            scrap:
+              type: integer
+        - type: object
+          required: [kind, machine_id, duration_secs, reason]
+          properties:
+            kind:
+              type: string
+              enum: [stop]
+            machine_id:
+              type: string
+            duration_secs:
+              type: number
+            reason:
+              type: string
+              enum: [breakdown, setup_adjustment, minor_stop, reduced_speed, planned_stop]
+            note:
+              type: string
+    ReadingRequest:
+      type: object
+      required:
+        - machine_id
+      properties:
+        machine_id:
+          type: string
+        temperature:
+          type: number
+        vibration:
+          type: number
+        rpm:
+          type: number
+        status:
+          type: string
+          enum: [online, offline, warning, critical]
+        timestamp:
+          type: string
+          format: date-time
+        rul_metric:
+          type: string
+        rul_limit:
+          type: number
+    MaintenanceCheckResponse:
+      type: object
+      properties:
+        score:
+          type: object
+        rul:
+          type: object
+          nullable: true
+        coherence_node_id:
+          type: string
+          nullable: true
+    SearchNodesRequest:
+      type: object
+      required:
+        - query
+        - token_budget
+      properties:
+        query:
+          type: string
+        token_budget:
+          type: integer
+    StudyEvent:
+      type: object
+      required:
+        - observed_at
+        - action
+        - path
+      properties:
+        observed_at:
+          type: string
+          format: date-time
+        action:
+          type: string
+          enum: [opened, edited, generated, deleted]
+        path:
+          type: string
+        place:
+          type: string
+    ChatRequest:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            type: object
+        task_type:
+          type: string
+        max_tokens:
+          type: integer
+        has_image:
+          type: boolean
+        rag_dir:
+          type: string
+        rag_budget:
+          type: integer
+        rag_top_k:
+          type: integer
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/embedder:
+    get:
+      summary: Embedder info
+      security: []
+      responses:
+        '200':
+          description: Current embedder configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbedderInfo'
+
+  /api/v1/classify:
+    post:
+      summary: Classify text against the semiotic grid
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassifyRequest'
+      responses:
+        '200':
+          description: Classification results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassifyResponse'
+
+  /api/v1/oee/machine:
+    post:
+      summary: Register a machine for OEE tracking
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OeeMachineRequest'
+      responses:
+        '200':
+          description: Machine registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/oee/event:
+    post:
+      summary: Record an OEE event (production or stop)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OeeEvent'
+      responses:
+        '200':
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/oee/plant:
+    get:
+      summary: Plant-wide OEE rollup
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plant OEE report
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/maintenance/check:
+    post:
+      summary: Score a machine reading against its baseline
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadingRequest'
+      responses:
+        '200':
+          description: Anomaly score + optional RUL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceCheckResponse'
+        '404':
+          description: No baseline for this machine
+
+  /api/v1/search/nodes:
+    post:
+      summary: Fixed-token-budget search over coherence + goal nodes
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchNodesRequest'
+      responses:
+        '200':
+          description: Search results within token budget
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/v1/study/log:
+    post:
+      summary: Log study events
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/StudyEvent'
+      responses:
+        '200':
+          description: Events logged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+
+  /api/v1/chat:
+    post:
+      summary: LLM chat with optional RAG grounding
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                type: object
