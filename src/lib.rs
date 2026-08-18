@@ -1,6 +1,7 @@
 //! Physis — an ontological mapper and PDCA dream engine.
 
 pub mod actor;
+pub mod atomic;
 pub mod ai;
 pub mod axes;
 pub mod classify;
