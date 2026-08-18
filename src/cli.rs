@@ -95,6 +95,8 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Run diagnostics: config, data dir, scan root, embedder, license
+    Doctor,
 }
 
 /// Top-level application state: config, ontology, mapper, PDCA actor, dream engine, goals.

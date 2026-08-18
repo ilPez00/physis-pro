@@ -152,6 +152,8 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Run diagnostics: config, data dir, scan root, embedder, license
+    Doctor,
     /// Edit a coherence node's content ("exchange parts"): new label is
     /// re-embedded, structure (id / verdict / edges) preserved. Optional cell
     /// pin overrides the auto-derived semiotic cell.
@@ -1073,6 +1075,111 @@ fn main() -> anyhow::Result<()> {
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
         Commands::Pack { .. } => unreachable!("pack is dispatched early"),
         Commands::Warm { .. } => unreachable!("warm is dispatched early"),
+        Commands::Doctor => {
+            run_doctor(&config)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
+    println!("🔍 Physis Doctor\n");
+    let mut issues = 0;
+
+    // 1. Data directory
+    let data_dir = &config.physis.data_dir;
+    println!("📁 Data directory: {}", data_dir.display());
+    if !data_dir.exists() {
+        println!("  ❌ Does not exist (will be created on first use)");
+        issues += 1;
+    } else if let Err(e) = std::fs::read_dir(data_dir) {
+        println!("  ❌ Not readable: {e}");
+        issues += 1;
+    } else {
+        println!("  ✅ Exists and readable");
+    }
+
+    // 2. Scan root
+    let scan_root = std::env::var("PHYSIS_SCAN_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| data_dir.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))));
+    println!("\n🔎 Scan root: {}", scan_root.display());
+    if !scan_root.exists() {
+        println!("  ❌ Does not exist");
+        issues += 1;
+    } else {
+        println!("  ✅ Exists");
+        if let Ok(canon) = scan_root.canonicalize() {
+            if let Ok(data_canon) = data_dir.canonicalize() {
+                if canon == data_canon {
+                    println!("  ⚠️  Scan root equals data dir — set PHYSIS_SCAN_ROOT to parent for project scanning");
+                    issues += 1;
+                } else if canon.starts_with(&data_canon) {
+                    println!("  ⚠️  Scan root is inside data dir — scanning will be limited");
+                    issues += 1;
+                } else {
+                    println!("  ✅ Outside data dir");
+                }
+            }
+        }
+    }
+
+    // 3. Config file
+    let config_path = data_dir.join("config.json");
+    println!("\n⚙️  Config: {}", config_path.display());
+    if config_path.exists() {
+        match std::fs::read_to_string(&config_path) {
+            Ok(raw) => match serde_json::from_str::<serde_json::Value>(&raw) {
+                Ok(_) => println!("  ✅ Valid JSON"),
+                Err(e) => {
+                    println!("  ❌ Invalid JSON: {e}");
+                    issues += 1;
+                }
+            },
+            Err(e) => {
+                println!("  ❌ Not readable: {e}");
+                issues += 1;
+            }
+        }
+    } else {
+        println!("  ℹ️  No config file (defaults will be used)");
+    }
+
+    // 4. Embedder
+    println!("\n🧠 Embedder: {}", config.physis.embed_dim);
+    let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+    println!("  ✅ Loaded: {kind}");
+    let _ = embedder.embed("doctor test");
+    println!("  ✅ Embed test passed");
+
+    // 5. Ontology
+    println!("\n📚 Ontology:");
+    let ont = OntologyLoader::load_all(&config.physis);
+    let total = ont.human_domains.len() + ont.machine_domains.len() + ont.custom_domains.len();
+    println!("  ✅ Loaded: {} domains ({} human + {} machine + {} custom)",
+        total,
+        ont.human_domains.len(),
+        ont.machine_domains.len(),
+        ont.custom_domains.len());
+
+    // 6. License
+    println!("\n🎫 License:");
+    match physis_pro::license::load() {
+        Ok(lic) => {
+            println!("  ✅ Valid: {} → {} (seats: {})", lic.org, lic.exp, lic.seats);
+        }
+        Err(e) => {
+            println!("  ⚠️  {e}");
+        }
+    }
+
+    // Summary
+    println!("\n{}", "─".repeat(40));
+    if issues == 0 {
+        println!("✅ All checks passed");
+    } else {
+        println!("⚠️  {issues} issue(s) found — see above");
     }
 
     Ok(())

@@ -1089,6 +1089,13 @@ pub struct FsMoveRequest {
     to: String,
 }
 
+#[derive(Serialize)]
+pub struct FsMoveResponse {
+    from: String,
+    to: String,
+    moved: bool,
+}
+
 #[derive(Deserialize)]
 pub struct FsListQuery {
     /// Directory to list. Omitted or empty → the scan root.
