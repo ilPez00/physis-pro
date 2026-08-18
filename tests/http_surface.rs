@@ -39,7 +39,7 @@ async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
     std::env::remove_var("PHYSIS_API_TOKEN");
     std::env::remove_var("PHYSIS_TOKENS");
-    std::env::remove_var("PHYSIS_SCAN_ROOT");
+    std::env::set_var("PHYSIS_SCAN_ROOT", dir);
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("PHYSIS_DATA_DIR", dir); // config resolves data dir
     let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
