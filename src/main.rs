@@ -437,7 +437,10 @@ fn main() -> anyhow::Result<()> {
     // `--version` still answer on an unlicensed host: an evaluator has to be
     // able to see what the tool is before we demand a key, and support needs
     // `--version` to triage an install that refuses to run.
-    let license = physis_pro::license::enforce();
+    // `doctor` bypasses the gate so it can report licence issues.
+    if !matches!(cli.command, Commands::Doctor) {
+        let _license = physis_pro::license::enforce();
+    }
 
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
@@ -556,9 +559,12 @@ fn main() -> anyhow::Result<()> {
         _ => None,
     };
     if let Some(feature) = required_feature {
-        if let Err(e) = license.require(feature) {
-            eprintln!("physis: {e}");
-            std::process::exit(2);
+        if !matches!(cli.command, Commands::Doctor) {
+            let license = physis_pro::license::enforce();
+            if let Err(e) = license.require(feature) {
+                eprintln!("physis: {e}");
+                std::process::exit(2);
+            }
         }
     }
 
