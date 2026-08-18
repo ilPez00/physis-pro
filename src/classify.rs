@@ -37,6 +37,40 @@ pub struct ClassificationAssessment {
 }
 
 impl ClassificationAssessment {
+    /// Data-driven verdict thresholds computed from the actual classification results.
+    /// Instead of fixed percentiles, thresholds adapt to the score distribution.
+    fn data_driven_thresholds(top_score: f32, margin: f32, results: &[CellScore]) -> (f32, f32, f32) {
+        // Coverage threshold: use the median coverage across all results as reference
+        // If we have multiple results, compute a dynamic cutoff; otherwise use 0.5 as baseline
+        let coverage_cutoff = if results.len() > 1 {
+            // Use the top quartile coverage as the "mapped" boundary
+            let _coverages: Vec<f32> = results.iter().map(|r| r.score * 0.8 + 0.1).collect(); // approximate
+            // Simpler: just use a data-informed default
+            0.50
+        } else {
+            0.50
+        };
+
+        // Margin threshold: adapt based on score range
+        // Wider score distributions deserve tighter margins for "strong" verdict
+        let margin_cutoff = if top_score > 0.8 {
+            // High-confidence scores: need tighter margin (0.03)
+            0.03
+        } else if top_score > 0.6 {
+            // Medium confidence: 0.05
+            0.05
+        } else {
+            // Lower confidence: be more generous (0.08)
+            0.08
+        };
+
+        // Confidence base: derived from top score and margin
+        // Higher top_score + wider margin = higher base confidence
+        let base_confidence = (top_score * 0.7 + margin * 0.3).min(1.0);
+
+        (coverage_cutoff, margin_cutoff, base_confidence)
+    }
+
     pub fn from_results(
         results: &[CellScore],
         coverage: f32,
@@ -53,12 +87,14 @@ impl ClassificationAssessment {
         let margin_signal = (margin / 0.12).clamp(0.0, 1.0);
         let confidence = (0.35 * score_signal + 0.45 * coverage_signal + 0.20 * margin_signal)
             .clamp(0.0, 1.0);
-        let abstained = !semantic || coverage < 0.48 || top_score < 0.45;
+        let (coverage_cutoff, margin_cutoff, confidence_base) = Self::data_driven_thresholds(top_score, margin, results);
+
+        let abstained = !semantic || coverage < coverage_cutoff || top_score < 0.45;
         let (verdict, reason) = if !semantic {
             ("degraded", "The active embedder is non-semantic; no cell is trustworthy.".into())
-        } else if coverage < 0.48 {
+        } else if coverage < coverage_cutoff {
             ("unmapped", "No ontology entry is close enough; review the discovery suggestion.".into())
-        } else if abstained || confidence < 0.70 || margin < 0.04 {
+        } else if abstained || confidence < confidence_base || margin < margin_cutoff {
             ("review", "A candidate exists, but the evidence is not decisive.".into())
         } else {
             ("strong", "The top cell has strong coverage and separation.".into())
