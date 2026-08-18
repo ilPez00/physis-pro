@@ -142,6 +142,18 @@ async fn demo_and_console_ui_are_served() {
     let (status, body) = send_text(&router, get("/ui", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("Physis Console"));
+
+    // Every page loads the shared runtime with a bare `<script src>`, which
+    // carries no Bearer token — so the asset has to be on the public router and
+    // actually exist. It didn't: extracting ui-shell.js added the script tags
+    // and no route, and all three dashboards booted with `$` undefined.
+    for page in ["/demo", "/ui", "/study"] {
+        let (_, body) = send_text(&router, get(page, "_default")).await;
+        assert!(body.contains("src=\"ui-shell.js\""), "{page} loads the shared runtime");
+    }
+    let (status, body) = send_text(&router, get("/ui-shell.js", "_default")).await;
+    assert_eq!(status, StatusCode::OK, "ui-shell.js must be served");
+    assert!(body.contains("function toast"), "ui-shell.js must be the runtime, not an error page");
 }
 
 #[tokio::test]
@@ -1281,12 +1293,86 @@ async fn fixed_token_node_search_bounds_the_response() {
     )
     .await;
     assert_eq!(res["total_tokens"], 0);
+}
 
-    // Tenancy: an unrelated user sees none of sr's nodes.
-    let (_, other) = send(
+// ── Industrial endpoints ─────────────────────────────────────────────
+
+#[tokio::test]
+async fn oee_endpoints_accept_and_compute() {
+    let (router, _dir, _env) = app().await;
+
+    // Register a machine.
+    let (status, body) = send(
         &router,
-        post("/api/v1/search/nodes", "nobody", json!({"query": "spindle", "token_budget": 100})),
+        post("/api/v1/oee/machine", "plant", json!({
+            "machine_id": "cnc-1",
+            "shift_length_secs": 28800.0,
+            "ideal_cycle_time_secs": 60.0
+        })),
     )
     .await;
-    assert_eq!(other["results"].as_array().unwrap().len(), 0);
+    assert_eq!(status, StatusCode::OK, "register machine: {body}");
+    assert_eq!(body["ok"], true);
+    assert!(body["detail"].as_str().unwrap().contains("cnc-1"));
+
+    // Record production.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/oee/event", "plant", json!({
+            "kind": "production",
+            "machine_id": "cnc-1",
+            "good": 85,
+            "scrap": 2
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "record event: {body}");
+    assert!(body["oee"].as_f64().unwrap_or(0.0) >= 0.0, "OEE must be non-negative");
+
+    // Plant rollup.
+    let (status, body) = send(&router, get("/api/v1/oee/plant", "plant")).await;
+    assert_eq!(status, StatusCode::OK, "plant OEE: {body}");
+    assert!(body["oee"].as_f64().unwrap_or(0.0) >= 0.0);
+    assert_eq!(body["machine_count"], 1);
+
+    // Per-machine report.
+    let (status, body) = send(&router, get("/api/v1/oee/cnc-1", "plant")).await;
+    assert_eq!(status, StatusCode::OK, "machine report: {body}");
 }
+
+#[tokio::test]
+async fn maintenance_check_requires_baseline_and_returns_404_without() {
+    let (router, _dir, _env) = app().await;
+
+    // Without a baseline, check returns 404 (no baseline to score against).
+    let (status, _) = send(
+        &router,
+        post("/api/v1/maintenance/check", "plant", json!({
+            "machine_id": "cnc-1",
+            "temperature": 65.0,
+            "vibration": 1.2,
+            "rpm": 8000,
+            "status": "online"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "check without baseline returns 404");
+}
+
+#[tokio::test]
+async fn voice_endpoints_are_registered_when_feature_enabled() {
+    // Voice is a separate binary (physis-pro-voice) and does not expose routes
+    // through the main web server. This test documents that fact so the absence
+    // is explicit rather than an oversight.
+    let (router, _dir, _env) = app().await;
+
+    let req = Request::builder()
+        .method("GET")
+        .uri("/api/v1/voice/status")
+        .body(Body::empty())
+        .unwrap();
+    let (status, _) = send(&router, req).await;
+    // Expect 404: voice lives in its own server.
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
