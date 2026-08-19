@@ -101,16 +101,20 @@ pdf-extract = { version = "0.7", optional = true }
 # mailparse: RFC-822 (.eml) parsing — From/Subject/body, quoted-reply stripping.
 mailparse = { version = "0.15", optional = true }
 
-# Enable ONNX feature by default
+# ONNX embedder opt-in (default excludes ONNX to avoid accidental deployment
+# without model weights; enable with --features embed-onnx when model is available)
 [features]
-default = ["cli", "voice", "web", "tui", "embed-onnx", "sql", "postgres"]
+default = ["cli", "voice", "web", "tui", "sql", "postgres"]
+embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
 network = ["dep:notify"]
 voice = []
+life-os = []
+empedocles = []
+rachmaninov = []
 web = ["dep:axum", "dep:tower-http"]
 tui = ["dep:ratatui", "dep:crossterm"]
-embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]

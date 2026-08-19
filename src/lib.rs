@@ -14,7 +14,12 @@ pub mod demo_corpus;
 pub mod discovery;
 pub mod dream;
 pub mod embed;
+#[cfg(feature = "empedocles")]
 pub mod empedocles;
+#[cfg(feature = "life-os")]
+pub mod life_os;
+#[cfg(feature = "rachmaninov")]
+pub mod rachmaninov;
 pub mod gantt;
 pub mod graph;
 pub mod industrial;

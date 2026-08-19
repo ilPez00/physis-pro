@@ -37,6 +37,10 @@ for f in "" "--features full" "--features industrial,cli" "--features spanner" \
   cargo check --quiet $f || fail "cargo check $f"
 done
 
+# 2b. Check the exact default feature set to catch silent ONNX fallback
+step "cargo check default features"
+cargo check --quiet --features "cli,voice,web,tui,embed-onnx,sql,postgres" || fail "cargo check default features: ONNX enabled but model check failed"
+
 step "cargo build --examples"
 cargo build --quiet --examples || fail "examples build"
 
@@ -55,9 +59,9 @@ if [ "${SKIP_ACCURACY:-0}" = "1" ]; then
 elif [ -f models/bge-base-en-v1.5/onnx/model.onnx ] || [ -f models/model.onnx ]; then
   step "accuracy floor (real model present; ~10 min)"
   cargo test --quiet --features full --test classification -- --ignored accuracy_floor \
-    || fail "accuracy floor regressed (CORE or ITALIAN below gate)"
+    || fail "accuracy floor cannot run - no model on disk. Set SKIP_ACCURACY=1 to skip, or ensure a model is available."
 else
-  echo "  (no model on disk — accuracy floor skipped; CI/prod will run on the bucket model)"
+  fail "accuracy floor cannot run - no model on disk. Set SKIP_ACCURACY=1 to skip, or ensure a model is available."
 fi
 
 echo
