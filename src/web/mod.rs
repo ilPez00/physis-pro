@@ -854,7 +854,7 @@ struct HealthResponse {
 
 #[allow(clippy::vec_init_then_push)]
 async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
-    let tenant_count = state.tenants.lock().unwrap().len();
+    let tenant_count = state.tenants.lock().unwrap_or_else(|e| e.into_inner()).len();
     let db_ok = state.db.is_some();
     let mut features = vec![];
     #[cfg(feature = "web")] features.push("web");
@@ -2198,6 +2198,16 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         log::error!("  Set MODEL_DIR / MODEL_BASE_URL so real weights load. See PREMORTEM.md P0.");
         log::error!("════════════════════════════════════════════════════════════════");
         eprintln!("[physis] WARNING: DEGRADED random-projection embedder active — classification is non-semantic.");
+        
+        // Startup abort: refuse to serve degraded embedder without a model download path.
+        // This prevents customers from seeing random-noise classification while the
+        // system claims everything is "ok". The operator must either:
+        // 1. Provide real ONNX models via MODEL_DIR or MODEL_BASE_URL, or
+        // 2. Set PHYSIS_EMBEDDER=random-projection for fast-start override (acceptable for dev)
+        if std::env::var("MODEL_BASE_URL").is_err() {
+            return Err("DEGRADED: no ONNX model loaded and no MODEL_BASE_URL configured — will not serve. Set MODEL_BASE_URL to download weights, or see PREMORTEM.md P0.".into());
+        }
+        log::warn!("  MODEL_BASE_URL not set but continuing anyway (for environments with pre-mounted models).");
     } else {
         log::info!("Embedder loaded: kind={embedder_kind} dim={embed_dim}");
     }
