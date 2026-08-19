@@ -9,7 +9,7 @@ repository = "https://github.com/ilPez00/physis-pro"
 description = "Industrial backoffice intelligence — process monitoring, inventory, document ingest, quality feedback"
 publish = true
 
-keywords = ["ontology", "semantic", "classification", "industrial", "monitoring", "coherence"]
+keywords = ["ontology", "semantic", "classification", "industrial", "monitoring"]
 categories = ["science", "text-processing", "embedded"]
 
 [dev-dependencies]
