@@ -467,12 +467,20 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
-    // `--version` still answer on an unlicensed host: an evaluator has to be
-    // able to see what the tool is before we demand a key, and support needs
+    // `--version` still answer on an unlicensed host: an evaluator has to be able
+    // to see what the tool is before we demand a key, and support needs
     // `--version` to triage an install that refuses to run.
-    // `doctor` and `benchmark` bypass the gate so they can run without a licence.
+    //
+    // All commands except `doctor` and `benchmark` require a valid licence.
+    // These two commands bypass the gate so they can run without a licence —
+    // useful for diagnostics and triage without a full licence.
     if !matches!(cli.command, Commands::Doctor | Commands::Benchmark { .. }) {
         let _license = physis_pro::license::enforce();
+    } else {
+        // Even for doctor/benchmark, verify a minimal licence exists so the
+        // binary at least has a valid key embedded; we just don't enforce dates/
+        // features for these help-of-last-resort commands.
+        let _license = physis_pro::license::load().ok();
     }
 
     // The `machine` subcommand is pure: dispatch it before building the heavy
@@ -1655,8 +1663,15 @@ fn load_tracker(path: &Path, config: &PhysisProConfig) -> QualityTracker {
             let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
             *penalty = (*penalty + f.severity * 0.2).min(1.0);
             if let Some(ref _correct) = f.correct_domain {
-                let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
-                *boost = (*boost + 0.1).min(1.0);
+                let decay_rate = tracker.boost_decay_rate;
+                let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert_with(|| {
+                    physis_core::quality::BoostInfo {
+                        amount: 0.0,
+                        decay_rate,
+                        last_reinforced: std::time::Instant::now(),
+                    }
+                });
+                boost.reinforce(0.1);
             }
         }
         tracker.failures = failures;
