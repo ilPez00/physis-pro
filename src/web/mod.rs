@@ -97,6 +97,9 @@ pub struct SharedCtx {
     pub(crate) embedder_kind: &'static str,
     /// True when no real ONNX model loaded and vectors are random-projection noise.
     pub(crate) degraded: bool,
+    /// Whether the embedder is a real semantic model (passed self-test and is not
+    /// the deterministic offline projection). False for explicit random-projection.
+    pub(crate) semantic: bool,
     /// Whether the embedder passed the semantic self-test at startup (P4).
     pub(crate) self_test: bool,
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
@@ -854,6 +857,10 @@ struct HealthResponse {
     embedder: &'static str,
     embed_dim: usize,
     degraded: bool,
+    /// True when the active embedder is a real semantic model (passed self-test
+    /// and is not the deterministic offline projection). False for the explicit
+    /// random-projection offline mode (reproducible but non-semantic).
+    semantic: bool,
     self_test: bool,
     tenants: usize,
     db: bool,
@@ -879,6 +886,7 @@ async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
         embedder: state.shared.embedder_kind,
         embed_dim: state.shared.embed_dim,
         degraded: state.shared.degraded,
+        semantic: state.shared.semantic,
         self_test: state.shared.self_test,
         tenants: tenant_count,
         db: db_ok,
@@ -2191,35 +2199,48 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // Verify dog≈puppy lands clearly closer than dog≈tax-spreadsheet; if not,
     // the embedder is non-semantic regardless of which kind "loaded".
     let self_test_ok = embedder_self_test(embedder.as_ref());
-    let mut degraded = embedder_kind == "random-projection";
     // Explicit operator override (PHYSIS_EMBEDDER=random-projection / rp): the
-    // fast-start path at the top of this function. Accepted for dev; it must not
-    // trip the startup abort below, which only guards *implicit* degraded state.
+    // fast-start path at the top of this function. This selects the deterministic,
+    // model-free feature-hashing embedder on purpose — it is a supported OFFLINE
+    // mode (same input → same vector; cosine between related texts is meaningful,
+    // just coarser than a trained model). It is NOT "noise" and must not be
+    // flagged DEGRADED.
     let explicit_rp_override = matches!(
         std::env::var("PHYSIS_EMBEDDER").as_deref(),
         Ok("random-projection") | Ok("rp")
     );
-    if !degraded && !self_test_ok {
+    // `degraded` is reserved for the *implicit* failure case: a trained model was
+    // expected/attempted but silently emitted garbage (self-test failed) and we
+    // fell through to random-projection without the operator asking for it.
+    let mut degraded = !explicit_rp_override && embedder_kind == "random-projection" && !self_test_ok;
+    if !explicit_rp_override && !self_test_ok && embedder_kind != "random-projection" {
         log::error!("embedder '{embedder_kind}' loaded but FAILED the semantic self-test — output is non-semantic (PREMORTEM.md P4).");
         eprintln!("[physis] WARNING: embedder '{embedder_kind}' failed semantic self-test — treating as DEGRADED.");
         degraded = true;
     }
 
-    if degraded {
+    if explicit_rp_override {
+        // Supported offline mode: deterministic feature-hashing embedder.
+        log::warn!(
+            "OFFLINE mode: deterministic random-projection embedder active (dim={embed_dim}). \
+             Classification is coarse (not a trained semantic model) but reproducible; \
+             set MODEL_DIR/MODEL_BASE_URL for full semantic classification."
+        );
+        eprintln!("[physis] offline mode: random-projection embedder (deterministic, non-semantic but reproducible).");
+    } else if degraded {
         log::error!("════════════════════════════════════════════════════════════════");
-        log::error!("  DEGRADED: no ONNX model loaded — using RANDOM-PROJECTION embedder.");
+        log::error!("  DEGRADED: trained embedder failed self-test — fell back to RANDOM-PROJECTION.");
         log::error!("  Classification output is NOT semantic; cosine scores are noise.");
         log::error!("  Set MODEL_DIR / MODEL_BASE_URL so real weights load. See PREMORTEM.md P0.");
         log::error!("════════════════════════════════════════════════════════════════");
         eprintln!("[physis] WARNING: DEGRADED random-projection embedder active — classification is non-semantic.");
-        
         // Startup abort: refuse to serve degraded embedder without a model download path.
         // This prevents customers from seeing random-noise classification while the
         // system claims everything is "ok". The operator must either:
         // 1. Provide real ONNX models via MODEL_DIR or MODEL_BASE_URL, or
-        // 2. Set PHYSIS_EMBEDDER=random-projection for fast-start override (acceptable for dev)
-        if !explicit_rp_override && std::env::var("MODEL_BASE_URL").is_err() {
-            return Err("DEGRADED: no ONNX model loaded and no MODEL_BASE_URL configured — will not serve. Set MODEL_BASE_URL to download weights, or see PREMORTEM.md P0.".into());
+        // 2. Set PHYSIS_EMBEDDER=random-projection for the explicit offline mode.
+        if std::env::var("MODEL_BASE_URL").is_err() {
+            return Err("DEGRADED: trained embedder failed self-test and no MODEL_BASE_URL configured — will not serve. Set MODEL_BASE_URL to download weights, or PHYSIS_EMBEDDER=random-projection for offline mode. See PREMORTEM.md P0.".into());
         }
         log::warn!("  MODEL_BASE_URL not set but continuing anyway (for environments with pre-mounted models).");
     } else {
@@ -2327,6 +2348,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         embed_dim,
         embedder_kind,
         degraded,
+        semantic: !explicit_rp_override && self_test_ok && !degraded,
         self_test: self_test_ok,
         ingest: ingest.clone(),
         dev_mode,
