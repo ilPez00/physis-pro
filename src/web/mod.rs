@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::actor::PDCActor;
 use crate::admin::{review_queue, ReviewDocument, ReviewQueue};
-use crate::config::{OntologyLoader, PhysisConfig};
+use crate::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
 use crate::core::PhysisCore;
 use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]

@@ -1,0 +1,31 @@
+company,region,tier,vertical,email,email_confidence,status,owner,notes
+BMech,Italy (NE),A,CNC precision machining,info@bmech.it,confirmed,not_contacted,,existing shortlist (GO_TO_MARKET)
+Officine Cioetto,Italy (NE),A,CNC 33 machines double-shift,info@officinecioetto.it,confirmed,not_contacted,,existing shortlist; 33 CNC, double shift
+DFM,Italy (NE),B,CNC aerospace/defence MES,info@dfm.srl,confirmed,not_contacted,,existing shortlist; MES-integrated
+FILA Srl,Italy (NE),A,CNC/casting prod+quality+admin,commerciale@filasrl.it,confirmed,not_contacted,,existing shortlist
+OLMA,Italy (NE),E,CNC Industry4.0/OEE reseller,contact form,form,not_contacted,,existing shortlist; channel partner
+Generalmeccanica,Italy,?,Process facilitator (proposal sent),,proposal,proposal_in_progress,,own proposal doc exists
+Moro Srl,Padova (Veneto),A,Torneria CNC conto terzi,info@morosrltornerie.com,confirmed,not_contacted,,snippet-confirmed email+phone
+MG Tecno Meccanica,Veneto,A,Officine meccaniche precisione,info@mgtecnomeccanica.com,confirmed,not_contacted,,snippet-confirmed
+Mic-Mec Srl,Treviso,A,Officina meccanica conto terzi,info@micmecsrl.it,domain-guess,not_contacted,,verify on site
+Meccanica Marcato,Padova,A,Tornitura/fresatura,info@meccanicamarcato.it,confirmed,not_contacted,,snippet-confirmed
+CMS Meccanica,Treviso/PD/VE,A,CNC progettazione,info@cmsmeccanica.it,domain-guess,not_contacted,,verify on site
+Mec-Point Srl,Italy,A,Lavorazioni meccaniche precisione,info@mec-point.srl,domain-guess,not_contacted,,verify on site
+Unispecial (C.to Terzi),Padova,A,Torneria automatica conto terzi,info@unispecial.it,domain-guess,not_contacted,,30+ yr, verify
+CB Meccanica,Italy,B,Aeronautics & defence parts,info@cbmeccanica.it,confirmed,not_contacted,,snippet-confirmed; defence fit
+Steel Lavorazioni Meccaniche,Italy,B,Aerospace precision machining,info@steel-lm.it,domain-guess,not_contacted,,verify on site
+Aerosystems,Italy,B,CNC machining + assembly aerospace,info@aerosystems.it,domain-guess,not_contacted,,verify on site
+SOPHIA High Tech,Italy,B,Aerospace/defence prototypes,info@sophiahightech.com,domain-guess,not_contacted,,verify on site
+OFI (Officina Farmaceutica Italiana),Italy,C,Contract mfg medical devices,info@ofi.it,domain-guess,not_contacted,,regulated/quality-controlled
+Euleria S.r.l.,Italy,C,Medical/health manufacturing,info@euleria.health,domain-guess,not_contacted,,verify on site
+FarmaImpresa Group,Italy,C,Medical devices/integrators,info@farmaimpresa.com,domain-guess,not_contacted,,verify on site
+Italpres,Brescia (Lombardia),D,Alluminio pressofuso + officina,italpres@italpres.com,confirmed,not_contacted,,snippet-confirmed; scrap/yield angle
+Almeco Group,Bergamo,D,Lavorazione alluminio conto terzi,info@almecogroup.com,domain-guess,not_contacted,,verify on site
+Fonderia SL,Lombardia,D,Pressofusione alluminio,info@fonderiasl.it,domain-guess,not_contacted,,verify on site
+Fonderia FAR,Italy,D,Pressofuso multi-settore,info@fonderia-far.com,domain-guess,not_contacted,,verify on site
+Fonderie Pandolfo,Italy,D,Billette alluminio quality sys,info@fonderiepandolfo.com,domain-guess,not_contacted,,verify on site
+rsAutomazione (rsMES),Italy,E,MES reseller CNC data,info@rsautomazione.com,domain-guest,not_contacted,,channel partner candidate
+ISIPC,Italy,E,MES software manufacturing,info@isipc.it,confirmed,not_contacted,,snippet-confirmed
+Campi SRL,Italy (Piemonte),E,CNC-MES interconnection SI,campi@campisrl.net,confirmed,not_contacted,,snippet-confirmed
+AEC Soluzioni (jpiano MES),Italy,E,MES vendor,info@aecsoluzioni.it,domain-guess,not_contacted,,verify on site
+Meccanica DP / Mecmatica,Italy,E,MES-adopting machine shop,info@mecs-meccanicadp.it,domain-guess,not_contacted,,verify on site
