@@ -10,7 +10,12 @@ pub async fn embedder_info_handler(State(state): State<SharedState>) -> Json<ser
         "kind": s.embedder_kind,
         "dim": s.embed_dim,
         "degraded": s.degraded,
-        "semantic": !s.degraded,
+        // Read the stored flag rather than re-deriving it from `degraded`. Since
+        // the two were decoupled, `!degraded` is no longer the same fact:
+        // explicitly requested random-projection offline mode is non-semantic
+        // yet NOT degraded, so `!degraded` reported it as a real semantic model
+        // — the exact silent-degradation blindness this endpoint exists to stop.
+        "semantic": s.semantic,
         "self_test": s.self_test,
     }))
 }

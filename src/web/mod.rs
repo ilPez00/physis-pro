@@ -21,7 +21,11 @@ use uuid::Uuid;
 
 use crate::actor::PDCActor;
 use crate::admin::{review_queue, ReviewDocument, ReviewQueue};
-use crate::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
+// EmbedderKindConfig is only matched on inside the `embed-onnx` builder block
+// below; importing it unconditionally warns on the default (ONNX-less) build.
+#[cfg(feature = "embed-onnx")]
+use crate::config::EmbedderKindConfig;
+use crate::config::{OntologyLoader, PhysisConfig};
 use crate::core::PhysisCore;
 use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]

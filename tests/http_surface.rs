@@ -116,7 +116,7 @@ fn post_auth(path: &str, user: &str, body: Value, token: &str) -> Request<Body> 
 #[tokio::test]
 async fn health_and_embedder_are_public() {
     // These two are the ops surface: they must answer without a token, and the
-    // embedder must admit when it is degraded rather than look healthy.
+    // embedder must admit when it is not semantic rather than look healthy.
     let (router, _dir, _env) = app().await;
 
     let (status, _) = send(&router, get("/health", "_default")).await;
@@ -125,7 +125,18 @@ async fn health_and_embedder_are_public() {
     let (status, body) = send(&router, get("/api/v1/embedder", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["kind"], "random-projection");
-    assert_eq!(body["degraded"], true, "a non-semantic embedder must say so");
+    // `semantic` and `degraded` are two different facts and must not collapse:
+    // `semantic` is the capability (is this a trained model?), `degraded` is the
+    // alarm (did a model we expected to work silently emit garbage?). This
+    // harness sets PHYSIS_EMBEDDER=random-projection, i.e. the operator *asked*
+    // for offline mode — so it is non-semantic on purpose and must NOT raise the
+    // alarm, or an intentional offline run is indistinguishable from a real
+    // model failure.
+    assert_eq!(body["semantic"], false, "a non-semantic embedder must say so");
+    assert_eq!(
+        body["degraded"], false,
+        "explicitly requested offline mode is supported, not a silent failure"
+    );
 }
 
 #[tokio::test]
