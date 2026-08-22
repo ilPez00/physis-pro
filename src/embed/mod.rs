@@ -1,6 +1,8 @@
 use physis_core::embed::VectorEmbed as _;
 use crate::config::PhysisConfig;
 #[cfg(feature = "embed-onnx")]
+use crate::config::EmbedderKindConfig;
+#[cfg(feature = "embed-onnx")]
 use crate::embed::clip::ClipEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::jina::JinaEmbedder;
