@@ -35,11 +35,11 @@ rayon = "1"
 # In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
 # Vendored in-repo (vendor/llmwiki) so prod/CI builds resolve + can compile it
 # without the private sibling crate. default-features=false → no fastembed/usearch.
-llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2", default-features = true, optional = true }
+llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2", default-features = false, optional = true }
 
 # The lean core engine — embed/classify/quality/discovery now live here, and
 # physis_pro delegates to it (see src/classify.rs, src/quality.rs).
-physis-core = { path = "physis-core", version = "0.1.0", default-features = true }
+physis-core = { path = "physis-core", version = "0.1", default-features = false }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
