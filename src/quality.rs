@@ -116,7 +116,12 @@ mod tests {
     #[test]
     fn test_adjust_score_with_boost() {
         let mut t = make_tracker();
-        t.cell_boosts.insert("WORK\x00DO".to_string(), 0.5);
+        let decay_rate = t.boost_decay_rate;
+        t.cell_boosts.insert("WORK\x00DO".to_string(), physis_core::quality::BoostInfo {
+            amount: 0.5,
+            decay_rate,
+            last_reinforced: std::time::Instant::now(),
+        });
         let adjusted = t.adjust_score("WORK\x00DO", 0.8);
         assert!(adjusted > 0.8, "boost should increase score");
     }

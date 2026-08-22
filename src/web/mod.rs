@@ -21,7 +21,7 @@ use uuid::Uuid;
 
 use crate::actor::PDCActor;
 use crate::admin::{review_queue, ReviewDocument, ReviewQueue};
-use crate::config::{EmbedderKindConfig, OntologyLoader, PhysisConfig};
+use crate::config::{OntologyLoader, PhysisConfig};
 use crate::core::PhysisCore;
 use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]
@@ -291,8 +291,15 @@ pub(crate) fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
                     .or_insert(0.0);
                 *penalty = (*penalty + f.severity * 0.2).min(1.0);
                 if let Some(ref _correct) = f.correct_domain {
-                    let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
-                    *boost = (*boost + 0.1).min(1.0);
+                    let decay_rate = tracker.boost_decay_rate;
+                    let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert_with(|| {
+                        physis_core::quality::BoostInfo {
+                            amount: 0.0,
+                            decay_rate,
+                            last_reinforced: std::time::Instant::now(),
+                        }
+                    });
+                    boost.reinforce(0.1);
                 }
             }
             tracker.failures = failures;
