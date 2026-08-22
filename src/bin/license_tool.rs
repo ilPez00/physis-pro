@@ -157,6 +157,7 @@ fn main() -> anyhow::Result<()> {
                 "iat": chrono::Utc::now().date_naive().to_string(),
                 "exp": exp,
                 "maint_exp": maint_exp,
+                "revoked": false,
             });
 
             // Sign the exact bytes we will ship; never re-serialise downstream.
@@ -190,6 +191,12 @@ fn main() -> anyhow::Result<()> {
                 bytes.len(),
                 hex(&signing.verifying_key().to_bytes())
             );
+        }
+
+        Command::Revoke { .. } => {
+            // Revocation list wiring is not present in this build; the gate
+            // only validates signature + dates. Stub so the tool compiles.
+            eprintln!("revoke: revocation list not wired in this build — no-op");
         }
 
         Command::Inspect { path } => {

@@ -2544,7 +2544,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/embedder", get(ui_chat::embedder_info_handler))
         // Shared UI runtime. Public because a <script src> carries no Bearer
         // token; see ui_chat::ui_shell_js_handler.
-        .route("/ui-shell.js", get(ui_chat::ui_shell_js_handler));
+        .route("/ui-shell.js", get(ui_chat::ui_shell_js_handler))
+        // Sunflower branding (self-contained, no external asset).
+        .route("/sunflower.js", get(ui_chat::sunflower_js_handler));
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.

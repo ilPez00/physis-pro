@@ -158,6 +158,16 @@ pub async fn ui_shell_js_handler() -> impl axum::response::IntoResponse {
     )
 }
 
+/// GET /sunflower.js — self-contained sunflower branding (base64 PNG, no
+/// external asset). Injects the logo as favicon and replaces any `.logo`
+/// box (letter mark) in the served dashboards with the sunflower image.
+pub async fn sunflower_js_handler() -> impl axum::response::IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        include_str!("../bin/ui/sunflower.js"),
+    )
+}
+
 /// The product demo dashboard — a single self-contained page wired to the live
 /// engine: plant OEE, machines, shift report, operational timeline, semiotic
 /// heatmap, holarchy graph, and the classify probes. "Seed demo data" drives
