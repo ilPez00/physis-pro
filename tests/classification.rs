@@ -19,10 +19,12 @@ fn load_ontology() -> OntologyLoader {
 }
 
 #[derive(serde::Deserialize)]
+// `text`, `mode` and `tier` are only read by `accuracy_floor`, which is gated on
+// `embed-onnx`; on the default build they deserialize but are never touched.
+#[allow(dead_code)]
 struct Fixture {
     text: String,
     domain: String,
-    #[allow(dead_code)]
     mode: String,
     /// "core" = unambiguous case (gated). "hard" = abstract/empty-cell concept
     /// where a weak embedder is expected to struggle (reported, not gated).

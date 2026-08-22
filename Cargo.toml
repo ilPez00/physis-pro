@@ -2,7 +2,10 @@
 name = "physis_pro"
 version = "0.1.2"
 edition = "2021"
-license = "MIT"
+# LICENSE.txt is a proprietary EULA ("licensed, not sold", enforced by the
+# Ed25519 gate in src/license.rs), so there is no SPDX id to declare — only
+# `license-file`. Carrying `license = "MIT"` alongside it made cargo warn and
+# would have published this crate under a licence it is not offered under.
 license-file = "LICENSE.txt"
 readme = "README.md"
 repository = "https://github.com/ilPez00/physis-pro"
@@ -184,3 +187,17 @@ exclude = ["vendor/llmwiki"]
 name = "physis-license"
 required-features = ["vendor"]
 path = "src/bin/license_tool.rs"
+
+# These two examples import `physis_pro::empedocles`, which is behind the
+# off-by-default `empedocles` feature. Without `required-features` here,
+# `cargo check --all-targets` builds them anyway and fails on the unresolved
+# import; declaring the requirement makes cargo skip them instead.
+[[example]]
+name = "empedocles_criticality"
+required-features = ["empedocles"]
+path = "examples/empedocles_criticality.rs"
+
+[[example]]
+name = "empedocles_no_regression"
+required-features = ["empedocles"]
+path = "examples/empedocles_no_regression.rs"
