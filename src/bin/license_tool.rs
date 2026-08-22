@@ -71,6 +71,12 @@ enum Command {
         /// Path to a licence file.
         path: PathBuf,
     },
+    /// Revoke a licence by ID, making it immediately invalid.
+    Revoke {
+        /// Licence ID to revoke (format: PX-ORG-YYYYMMDD).
+        #[arg(long)]
+        id: String,
+    },
     /// Sign a release artifact, emitting a detached signature on stdout.
     /// Air-gapped customers verify the tarball with this before unpacking.
     SignArtifact {

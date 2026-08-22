@@ -82,6 +82,9 @@ pub struct License {
     /// Expiry of the **right to install newer builds**. A build dated after
     /// this refuses to start even when `exp` is still in the future.
     pub maint_exp: String,
+    /// Whether this licence has been revoked. Revoked licences are immediately
+    /// invalid regardless of other fields.
+    pub revoked: bool,
 }
 
 /// Signed envelope as stored on disk.
@@ -358,6 +361,7 @@ mod tests {
             "iat": "2026-01-01",
             "exp": exp,
             "maint_exp": maint_exp,
+            "revoked": false,
         })
     }
 
