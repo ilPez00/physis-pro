@@ -2192,6 +2192,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // the embedder is non-semantic regardless of which kind "loaded".
     let self_test_ok = embedder_self_test(embedder.as_ref());
     let mut degraded = embedder_kind == "random-projection";
+    // Explicit operator override (PHYSIS_EMBEDDER=random-projection / rp): the
+    // fast-start path at the top of this function. Accepted for dev; it must not
+    // trip the startup abort below, which only guards *implicit* degraded state.
+    let explicit_rp_override = matches!(
+        std::env::var("PHYSIS_EMBEDDER").as_deref(),
+        Ok("random-projection") | Ok("rp")
+    );
     if !degraded && !self_test_ok {
         log::error!("embedder '{embedder_kind}' loaded but FAILED the semantic self-test — output is non-semantic (PREMORTEM.md P4).");
         eprintln!("[physis] WARNING: embedder '{embedder_kind}' failed semantic self-test — treating as DEGRADED.");
@@ -2211,7 +2218,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // system claims everything is "ok". The operator must either:
         // 1. Provide real ONNX models via MODEL_DIR or MODEL_BASE_URL, or
         // 2. Set PHYSIS_EMBEDDER=random-projection for fast-start override (acceptable for dev)
-        if std::env::var("MODEL_BASE_URL").is_err() {
+        if !explicit_rp_override && std::env::var("MODEL_BASE_URL").is_err() {
             return Err("DEGRADED: no ONNX model loaded and no MODEL_BASE_URL configured — will not serve. Set MODEL_BASE_URL to download weights, or see PREMORTEM.md P0.".into());
         }
         log::warn!("  MODEL_BASE_URL not set but continuing anyway (for environments with pre-mounted models).");
