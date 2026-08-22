@@ -1,6 +1,6 @@
 [package]
 name = "physis_pro"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 license-file = "LICENSE.txt"
@@ -134,6 +134,14 @@ spanner = ["dep:jsonwebtoken"]
 vendor = ["dep:clap"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp", "sql", "postgres"]
+
+
+
+# SKU feature tiers
+base = ["cli", "voice", "web", "tui"]
+# ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]  # already defined in features
+rag = []
+# full = ["cli", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp", "sql", "postgres"]  # already defined in features
 
 [[bin]]
 name = "physis-pro"
