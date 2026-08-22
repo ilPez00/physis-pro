@@ -885,7 +885,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     // Tab bar
     let tabs = Tabs::new(TABS.iter().map(|t| Line::from(*t)).collect::<Vec<_>>())
         .select(app.tab)
-        .block(Block::default().title(" PHYSIS CONTROL ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
+        .block(Block::default().title(" PHYSIS PRO 🌻 ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
         .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
     f.render_widget(tabs, rows[0]);
 
