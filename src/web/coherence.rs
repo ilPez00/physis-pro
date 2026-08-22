@@ -235,7 +235,7 @@ pub async fn coherence_edit_handler(
 pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityResponse> {
     let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
     let boosts: HashMap<String, f32> = quality.cell_boosts.iter()
-        .map(|(k, b)| (k.clone(), *b))
+        .map(|(k, b)| (k.clone(), b.current_value()))
         .collect();
     Json(QualityResponse {
         penalties: quality.cell_penalties.clone(),

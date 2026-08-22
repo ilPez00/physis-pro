@@ -622,7 +622,7 @@ fn snapshot_quality(quality: &QualityTracker) -> QualitySnapshot {
     }
     let mut boosts = HashMap::new();
     for (k, v) in &quality.cell_boosts {
-        boosts.insert(k.clone(), *v);
+        boosts.insert(k.clone(), v.current_value());
     }
 
     QualitySnapshot {
