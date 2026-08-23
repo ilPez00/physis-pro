@@ -244,6 +244,92 @@ pub struct PhysisConfig {
     pub embed_dim: usize,
     /// Multi-embedder configuration (optional, overrides onnx fallback).
     pub embedders: EmbeddersConfig,
+    /// Agent-orchestration configuration (ReAct loop, OpenCode coding sub-agent,
+    /// tool palette). Drives the /api/v1/agent/run endpoint + /agent dashboard.
+    #[serde(default)]
+    pub agent: AgentRuntimeConfig,
+}
+
+/// Configuration for the in-process agent orchestration surface.
+///
+/// Physis is the host/orchestrator; the LLM brain is the provider cascade and
+/// the "hands" are tools. One of those tools is OpenCode running as a sandboxed
+/// subprocess — a coding sub-agent — so Physis can plan, then delegate actual
+/// file edits/builds to a real coding engine. See `src/web/agent.rs`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentRuntimeConfig {
+    /// Absolute path to the OpenCode binary. Not on PATH by default in many
+    /// setups, so it is configured explicitly. Empty/`None` disables the
+    /// `opencode` tool (the agent still runs with the other native tools).
+    #[serde(default)]
+    pub opencode_bin: Option<PathBuf>,
+    /// Model passed to `opencode run` (e.g. "llm7/codestral-latest").
+    #[serde(default = "default_opencode_model")]
+    pub opencode_model: String,
+    /// Maximum tool-call rounds per agent run (safety rail).
+    #[serde(default = "default_agent_max_rounds")]
+    pub max_rounds: u32,
+    /// Per-response token cap for the orchestrating LLM.
+    #[serde(default = "default_agent_max_tokens")]
+    pub max_tokens: u32,
+    /// System prompt for the orchestrator agent.
+    #[serde(default = "default_agent_system_prompt")]
+    pub system_prompt: String,
+    /// Run every agent answer through the coherence harness before it is
+    /// presented, so the arbiter that judges every other claim in Physis also
+    /// judges the agent's. Defaults on: an agent that emits ungated claims into
+    /// a system built to retain only interpretations that keep working is the
+    /// one component exempt from the thesis.
+    ///
+    /// The gate never rewrites or withholds the answer — it attaches a verdict.
+    /// Suppressing output would make a coherence miss indistinguishable from a
+    /// crashed run, and the arbiter is a judgement, not an oracle.
+    #[serde(default = "default_true")]
+    pub harness_gate: bool,
+    /// Composite-fitness floor for an agent answer to be reported APPROVED.
+    /// Separate from the standalone harness default because an agent answer is
+    /// synthesised from tool output already grounded in the graph, so it is
+    /// held to the same bar rather than a looser one.
+    #[serde(default = "default_agent_gate_threshold")]
+    pub harness_threshold: f32,
+}
+
+fn default_opencode_model() -> String {
+    "llm7/codestral-latest".into()
+}
+fn default_agent_max_rounds() -> u32 {
+    12
+}
+fn default_agent_max_tokens() -> u32 {
+    1536
+}
+fn default_true() -> bool {
+    true
+}
+fn default_agent_gate_threshold() -> f32 {
+    0.60
+}
+fn default_agent_system_prompt() -> String {
+    "You are Physis, an industrial backoffice intelligence agent. You have tools to \
+search and edit the knowledge graph, classify text onto the semiotic grid, run a \
+coherence/dream cycle, and delegate coding tasks to OpenCode. Use the knowledge \
+graph and retrieval tools to ground your reasoning, and use OpenCode only when a \
+task requires writing or modifying real files. Think step by step, then act."
+        .into()
+}
+
+impl Default for AgentRuntimeConfig {
+    fn default() -> Self {
+        Self {
+            opencode_bin: None,
+            opencode_model: default_opencode_model(),
+            max_rounds: default_agent_max_rounds(),
+            max_tokens: default_agent_max_tokens(),
+            system_prompt: default_agent_system_prompt(),
+            harness_gate: default_true(),
+            harness_threshold: default_agent_gate_threshold(),
+        }
+    }
 }
 
 /// Describes a single ontology source: built-in (no path) or file-based.
@@ -342,6 +428,7 @@ impl Default for PhysisConfig {
             onnx: OnnxConfig::default(),
             embed_dim: 384,
             embedders: EmbeddersConfig::default(),
+            agent: AgentRuntimeConfig::default(),
         }
     }
 }

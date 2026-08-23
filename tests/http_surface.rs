@@ -180,7 +180,7 @@ async fn dashboard_pages_end_at_the_closing_html_tag() {
     // instead: markup after the document ends is silently dead code.
     let (router, _dir, _env) = app().await;
 
-    for page in ["/demo", "/ui", "/study"] {
+    for page in ["/demo", "/ui", "/study", "/agent"] {
         let (status, body) = send_text(&router, get(page, "_default")).await;
         assert_eq!(status, StatusCode::OK, "{page} must be served");
 
@@ -1628,3 +1628,48 @@ async fn llm_coherence_harness_config_and_evaluate_endpoint() {
 
 
 
+
+#[tokio::test]
+async fn the_agent_dashboard_renders_the_harness_verdict() {
+    // Every agent answer is judged by the coherence harness and the verdict
+    // arrives as its own SSE event carrying a CoherenceEvaluation as JSON.
+    // `addEvent` escapes text into a single line, so routing a verdict there
+    // would print raw JSON at the user — the page needs a structured renderer
+    // and needs to reach it.
+    let (router, _dir, _env) = app().await;
+    let (status, body) = send_text(&router, get("/agent", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+
+    assert!(body.contains("function renderVerdict"), "verdict renderer must exist");
+    assert!(
+        body.contains("ev.kind === 'verdict'"),
+        "the event loop must route verdicts to it, or the card never renders",
+    );
+    // The four verdicts the arbiter can return must each be styleable, or an
+    // unstyled one silently renders as an unmarked card.
+    for verdict in ["APPROVED", "WARNING", "REJECTED", "REVISED"] {
+        assert!(body.contains(&format!(".verdict.{verdict}")), "no style for {verdict}");
+    }
+    // Contradictions are the whole point of the gate: a conflicting answer is
+    // exactly what a fitness percentage alone hides.
+    assert!(
+        body.contains("detected_contradictions"),
+        "the card must surface contradictions, not only the score",
+    );
+    // "gate off" and "gate on but quiet" are indistinguishable in the trace,
+    // so the capabilities line has to state which one it is.
+    assert!(body.contains("harness_gate"), "caps must report whether the gate is on");
+}
+
+#[tokio::test]
+async fn agent_capabilities_report_the_coherence_gate() {
+    let (router, _dir, _env) = app().await;
+    let (status, body) = send(&router, get("/api/v1/agent/caps", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    // Defaults on: an agent emitting unjudged claims into a system built to
+    // keep only interpretations that go on working would be the one component
+    // exempt from that rule.
+    assert_eq!(body["harness_gate"], true, "the gate must default on");
+    let floor = body["harness_threshold"].as_f64().expect("threshold must be numeric");
+    assert!((0.0..=1.0).contains(&floor), "threshold is a fitness fraction, got {floor}");
+}
