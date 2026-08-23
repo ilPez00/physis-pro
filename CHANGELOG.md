@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `physis` — a single front door over both editions, installed by `physis-core` alongside `physis-core`. `physis -h` is one help screen covering Core and Pro, marking which side is installed; every other argument is forwarded unchanged to the executable that owns it (`exec`, so subcommand `--help`, exit codes and stdio are identical to invoking it directly). Names present on both sides resolve to Core, so they mean the same thing whether or not Pro is installed.
+- `physis upgrade`, and a **Pro / Upgrade** tab in the studio backed by `GET /api/edition`: what Pro adds, whether it is installed, and where its executables are. Core links nothing from Pro — the two are joined at runtime by locating the Pro executable on disk — so Core keeps working, and keeps its licence, without it. The CLI banner and the studio panel read from the same detection and cannot drift.
+- `physis_core::edition` — side-effect-free detection of the installed executables, preferring a build sitting next to the running one so the front door works from a plain `cargo build` tree.
+
+### Fixed
+- Studio links were rendered in the user-agent default blue, near-unreadable on the dark background; the studio had never had a link before the upgrade panel.
+
 ## [0.9.1] — 2026-08-23
 
 Published as `physis_pro` 0.1.3 and `physis-core` 0.1.4. (This file numbers the
