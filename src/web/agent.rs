@@ -357,10 +357,9 @@ pub async fn agent_run_handler(
 
     // Adapt the unbounded receiver into an SSE stream.
     let stream = stream::unfold(rx, |mut rx| async move {
-        match rx.recv().await {
-            Some(ev) => Some((Ok::<_, axum::Error>(sse_event(&ev)), rx)),
-            None => None,
-        }
+        rx.recv()
+            .await
+            .map(|ev| (Ok::<_, axum::Error>(sse_event(&ev)), rx))
     });
 
     Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
@@ -575,7 +574,6 @@ fn build_tool_registry(
                 let uid = uid.clone();
                 Box::pin(async move {
                     let count = args.get("count").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-                    let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
                     state.with_user(&uid, |s| {
                         if s.goals.is_empty() {
                             return Ok("no goals; nothing to dream about".to_string());

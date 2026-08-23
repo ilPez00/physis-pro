@@ -1086,18 +1086,12 @@ function closeOverlays(){
   $('help').classList.remove('show');
   $('connectWrap').classList.remove('open');
 }
-const api=p=>{const b=$('base').value.trim().replace(/\/$/,'');return (b||'')+p;};
-const hdr=()=>{const t=$('token').value.trim();return t?{Authorization:'Bearer '+t}:{};};
+// getJSON/postJSON/apiUrl/esc/apiError come from ui-shell.js. The local
+// copies joined URLs as (base||'')+path through an input field; with the field
+// unset that was S-less but still duplicated the shell's job, and any caller
+// passing a rooted path after a root base produced "//api/...". setS stays:
+// it is Console's own status writer and the shell does not export it.
 const setS=(m,e)=>{const s=$('status');const now=new Date();const ts=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});s.textContent=(e?'⚠ ':'')+m+' · '+ts;s.className=e?'err':'muted';};
-const apiError=(e)=>'<span class="err">'+esc(String(e))+'</span>';
-const esc=s=>String(s??'')
-  .replace(/&/g,'&amp;')
-  .replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;')
-  .replace(/"/g,'&quot;')
-  .replace(/'/g,'&#39;');
-async function getJSON(p){const r=await fetch(api(p),{headers:hdr()});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
-async function postJSON(p,body){const r=await fetch(api(p),{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));return r.json();}
 
 const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
 const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
@@ -1815,7 +1809,7 @@ loadOverview();
    panel below stayed inert. Same script element now, so they bind as intended.
    Keep them here: moving code past the document end silently disables it.  */
 async function loadBrowser(path){
-  const base = api('/api/v1/fs/list');
+  const base = apiUrl('/api/v1/fs/list');
   const url = path ? base + '?dir=' + encodeURIComponent(path) : base;
   try{
     const resp = await fetch(url, { headers: hdr() });
@@ -1897,7 +1891,7 @@ async function loadBrowser(path){
       const rawPath = text.trim();
       if(!rawPath) return;
       
-      const resp = await fetch(api('/api/v1/fs/resolve?name=') + encodeURIComponent(rawPath.split('/').pop()));
+      const resp = await fetch(apiUrl('/api/v1/fs/resolve?name=') + encodeURIComponent(rawPath.split('/').pop()));
       const data = await resp.json();
       if(data.matches && data.matches.length > 0){
         const hit = data.matches[0];

@@ -267,8 +267,12 @@
           if (dataMatch) {
             try {
               const ev = JSON.parse(dataMatch[1].trim());
-              if (ev.kind === 'done') { runId = ev.text; finish('done'); }
-              else if (ev.kind === 'error') { finish('error'); }
+              // Render before finishing. `error` used to go straight to
+              // finish(), throwing the message away — and since a run with no
+              // configured provider ends in exactly one error event, the whole
+              // trace rendered blank with no clue why.
+              if (ev.kind === 'done') { runId = ev.text; addEvent(ev); finish('done'); }
+              else if (ev.kind === 'error') { addEvent(ev); finish('error'); }
               else if (ev.kind === 'verdict') renderVerdict(ev.text);
               else addEvent(ev);
             } catch (_) {}
@@ -284,6 +288,13 @@
     setStatus(state, false);
     $('#run').disabled = false;
     $('#abort').disabled = true;
+    // A stream that closes having produced nothing must say so. Silence is
+    // otherwise indistinguishable from "still working" once the spinner stops.
+    if (!traceEl.querySelector('.ev') && !traceEl.querySelector('.verdict')) {
+      traceEl.innerHTML = '<div class="meta">Run ended with no events. ' +
+        'If this is a fresh install, no LLM provider is configured — ' +
+        'the agent needs one to think.</div>';
+    }
   }
 
   function abort() {
