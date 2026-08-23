@@ -171,6 +171,67 @@ function initCoach(storageKey) {
   }
 }
 
+// ── Product switcher ──────────────────────────────────────────────
+// The four dashboards are one product served by one binary, but each was an
+// island: no page linked to any other, so Agent in particular was reachable
+// only by typing the URL. The switcher lives here rather than in four headers
+// because those headers share no structure (Console has an <h1> + connect
+// panel, Demo/Study a .brand block, Agent an <h1> + .sub), so four hand-written
+// copies would drift apart on the first edit. Any page that loads this shell
+// gets the nav, including ones not written yet.
+const PRODUCT_PAGES = [
+  { href: '/ui',     label: 'Console', hint: 'operations — plant, timeline, meaning' },
+  { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
+  { href: '/study',  label: 'Study',   hint: 'learning — sessions and the study log' },
+  { href: '/demo',   label: 'Demo',    hint: 'the guided walkthrough' },
+];
+
+function initProductNav() {
+  const header = document.querySelector('header');
+  if (!header || document.getElementById('productNav')) return;
+
+  // Compare on pathname only: a query string or trailing slash still means the
+  // same page, and marking nothing as current is worse than marking one.
+  const here = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  const nav = document.createElement('nav');
+  nav.id = 'productNav';
+  nav.setAttribute('aria-label', 'Physis apps');
+  nav.innerHTML = PRODUCT_PAGES.map(pg => {
+    const current = here === pg.href;
+    return '<a href="' + pg.href + '"' +
+      (current ? ' aria-current="page"' : '') +
+      ' title="' + esc(pg.hint) + '">' + esc(pg.label) + '</a>';
+  }).join('');
+  header.appendChild(nav);
+
+  // Styles ship with the switcher so a page needs no CSS of its own. Scoped to
+  // #productNav so nothing here can reach a page's own header or nav rules.
+  if (document.getElementById('productNavCss')) return;
+  const css = document.createElement('style');
+  css.id = 'productNavCss';
+  css.textContent =
+    // Console and Studio both carry a bare `nav {}` rule for their sidebar
+    // (fixed width, column direction). Restate the properties that rule
+    // could otherwise impose, so the switcher cannot inherit a sidebar's
+    // shape on any page that styles `nav` generically.
+    '#productNav{display:flex;flex-direction:row;width:auto;gap:2px;' +
+      'margin-left:auto;align-items:center;position:relative;' +
+      'padding:3px;border-radius:999px;border:1px solid rgba(135,157,219,.22);' +
+      'background:rgba(10,14,30,.55)}' +
+    '#productNav a{font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;' +
+      'letter-spacing:.1em;text-transform:uppercase;text-decoration:none;' +
+      'color:#8997b8;padding:6px 11px;border-radius:999px;white-space:nowrap}' +
+    '#productNav a:hover{color:#f1f5ff;background:rgba(255,255,255,.06)}' +
+    '#productNav a[aria-current="page"]{color:#04121c;background:#68e7ff;font-weight:700}' +
+    // Console/Agent already push a status pill to the right with margin-left:auto;
+    // two auto margins would split the gap and unbalance the row, so the pill
+    // keeps its position and the switcher sits beside it.
+    '#productNav ~ #status,#productNav ~ .status{margin-left:10px}' +
+    '@media(max-width:720px){#productNav{margin-left:0;flex-wrap:wrap}}';
+  document.head.appendChild(css);
+}
+
 // ── Keyboard shortcuts ────────────────────────────────────────────
 function initShortcuts(bindings) {
   document.addEventListener('keydown', e => {
@@ -211,5 +272,16 @@ function initShortcuts(bindings) {
 Object.assign(window, {
   $, S, apiUrl, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
   syncConnect, loadHealth, initWelcome, initHelp, initCoach, initShortcuts,
+  initProductNav,
 });
+
+// Mount the switcher without each page opting in — an opt-in is exactly what
+// leaves the next page an island again. Agent loads this shell from <head> and
+// the others from the end of <body>, so both readiness states must be handled:
+// waiting unconditionally would never fire for the pages already parsed.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initProductNav);
+} else {
+  initProductNav();
+}
 })();

@@ -1894,3 +1894,86 @@ async fn agent_demo_outside_harness_direct_call() {
     let fin_pos = kinds.iter().position(|k| k == "final").unwrap();
     assert!(call_pos < res_pos && res_pos < fin_pos, "trace must be ordered: {kinds:?}");
 }
+
+#[tokio::test]
+async fn agent_run_rejects_unknown_tool_whitelist_instead_of_running_empty() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    std::fs::create_dir_all(dir.path()).expect("mkdir");
+
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("PHYSIS_DATA_DIR", dir.path());
+    std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+
+    // A whitelist naming tools that don't exist used to run the agent with an
+    // empty registry — the model was told to use tools it never received and
+    // improvised a textual call nothing dispatched. Must be a loud 400.
+    let body = serde_json::json!({
+        "prompt": "What time is it? Use the get_time tool.",
+        "tools": ["get_time"],
+        "mode": "ANALYZE"
+    });
+    let (status, err) = send(&router, post("/api/v1/agent/run", "_default", body)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "unknown tool must 400: {err}");
+    let msg = err["error"].as_str().unwrap_or_default();
+    assert!(msg.contains("get_time"), "error must name the missing tool: {msg}");
+    assert!(
+        msg.contains("classify"),
+        "error should list available tools for discoverability: {msg}"
+    );
+
+    // A whitelist of real tools still opens the stream normally.
+    let body = serde_json::json!({
+        "prompt": "probe",
+        "tools": ["classify"],
+        "mode": "ANALYZE"
+    });
+    let (status, _) = send(&router, post("/api/v1/agent/run", "_default", body)).await;
+    assert_eq!(status, StatusCode::OK, "known tool must open the SSE stream");
+
+    std::env::remove_var("PHYSIS_SCAN_ROOT");
+    drop(env);
+}
+
+#[tokio::test]
+async fn every_dashboard_carries_the_shared_product_switcher() {
+    // The four dashboards are one product served by one binary, but each was an
+    // island: no page linked to any other, so /agent was reachable only by
+    // typing the URL. The switcher is injected by ui-shell.js on any page that
+    // loads it — so the invariant worth guarding is that every page loads the
+    // shell, and that the shell still lists exactly the routes that exist.
+    let (router, _dir, _env) = app().await;
+
+    for page in ["/ui", "/demo", "/study", "/agent"] {
+        let (status, body) = send_text(&router, get(page, "_default")).await;
+        assert_eq!(status, StatusCode::OK, "{page} must be served");
+        assert!(
+            body.contains("ui-shell.js"),
+            "{page} must load the shared shell, or it loses the product nav",
+        );
+    }
+
+    let (status, shell) = send_text(&router, get("/ui-shell.js", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(shell.contains("initProductNav"), "the shell must define the switcher");
+    assert!(
+        shell.contains("DOMContentLoaded"),
+        "the shell loads from <head> on /agent and end-of-body elsewhere, so it \
+         must handle both readiness states or the nav never mounts",
+    );
+
+    // A switcher entry pointing at a route that does not exist is a 404 the
+    // user finds by clicking, so every listed href must actually serve.
+    for href in ["/ui", "/agent", "/study", "/demo"] {
+        assert!(
+            shell.contains(&format!("href: '{href}'")),
+            "the switcher must list {href}",
+        );
+        let (status, _) = send_text(&router, get(href, "_default")).await;
+        assert_eq!(status, StatusCode::OK, "switcher links to {href}, which must serve");
+    }
+}
