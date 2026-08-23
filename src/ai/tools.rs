@@ -89,6 +89,13 @@ impl ToolRegistry {
         self.handlers.contains_key(name)
     }
 
+    /// Remove every registered tool + definition. Used to start from a blank
+    /// registry (e.g. when only a curated subset should be exposed to an agent).
+    pub fn clear(&mut self) {
+        self.handlers.clear();
+        self.definitions.clear();
+    }
+
     /// Get all registered tool names.
     pub fn names(&self) -> Vec<String> {
         self.handlers.keys().cloned().collect()

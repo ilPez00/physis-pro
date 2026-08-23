@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Agent Orchestration</title>
+<script src="/ui-shell.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #11161d; --ink: #e6edf3;
+    --muted: #8b949e; --line: #21262d; --accent: #f5b301; --accent2: #3fb950;
+    --danger: #f85149; --plan: #58a6ff; --tool: #d2a8ff; --note: #e3b341;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding: 14px 18px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 16px; margin: 0; color: var(--accent); }
+  header .sub { color: var(--muted); font-size: 12px; }
+  .wrap { display: grid; grid-template-columns: 360px 1fr; gap: 14px; padding: 14px; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+              color: var(--muted); margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .panel .body { padding: 12px; }
+  textarea { width: 100%; min-height: 120px; resize: vertical; background: var(--panel2);
+             color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+             font: inherit; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tool { border: 1px solid var(--line); background: var(--panel2); color: var(--muted);
+          border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; user-select: none; }
+  .tool.on { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 700; }
+  .tool.disabled { opacity: .4; cursor: not-allowed; text-decoration: line-through; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  button { background: var(--accent); color: #1a1206; border: 0; border-radius: 8px;
+           padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.danger { background: var(--danger); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .meta { color: var(--muted); font-size: 12px; }
+  #trace { max-height: 62vh; overflow: auto; }
+  .ev { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
+  .ev .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px;
+           border-radius: 4px; margin-right: 8px; }
+  .k-plan { background: rgba(88,166,255,.15); color: var(--plan); }
+  .k-tool_call { background: rgba(210,168,255,.15); color: var(--tool); }
+  .k-tool_result { background: rgba(63,185,80,.12); color: var(--accent2); }
+  .k-note { background: rgba(227,179,65,.15); color: var(--note); }
+  .k-opencode { background: rgba(248,81,73,.12); color: var(--danger); }
+  .k-final { background: rgba(245,179,1,.18); color: var(--accent); font-weight: 700; }
+  .k-done { background: var(--accent2); color: #04210f; }
+  .k-error { background: var(--danger); color: #fff; }
+  .rnd { color: var(--muted); font-size: 11px; }
+
+  /* Harness verdict. Rendered as a card, not an event line: the payload is
+     structured, and the arbiter's judgement must not read as just another
+     tool result that happened to succeed. */
+  .verdict { border: 1px solid var(--line); border-left-width: 3px; border-radius: 10px;
+             padding: 10px 12px; margin: 10px 0; background: var(--panel2); }
+  .verdict.APPROVED { border-left-color: var(--accent2); }
+  .verdict.WARNING  { border-left-color: var(--note); }
+  .verdict.REJECTED { border-left-color: var(--danger); }
+  .verdict.REVISED  { border-left-color: var(--plan); }
+  .verdict .vhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .verdict .vb { font-size: 11px; font-weight: 700; letter-spacing: .06em;
+                 padding: 2px 8px; border-radius: 999px; }
+  .verdict.APPROVED .vb { background: rgba(63,185,80,.15); color: var(--accent2); }
+  .verdict.WARNING  .vb { background: rgba(227,179,65,.18); color: var(--note); }
+  .verdict.REJECTED .vb { background: rgba(248,81,73,.15); color: var(--danger); }
+  .verdict.REVISED  .vb { background: rgba(88,166,255,.15); color: var(--plan); }
+  .verdict .vnum { font-size: 12px; color: var(--muted); }
+  .verdict .vnum b { color: var(--ink); }
+  .verdict .vrec { margin-top: 7px; font-size: 13px; }
+  .verdict .vlist { margin-top: 7px; font-size: 12px; color: var(--muted); }
+  .verdict .vlist div { padding: 3px 0; border-top: 1px solid var(--line); }
+  /* Under a non-semantic embedder the scores are coarse; say so on the card
+     rather than letting a number imply precision it does not have. */
+  .verdict .vcaveat { margin-top: 7px; font-size: 11px; color: var(--note); }
+  .status { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .status.live { color: var(--accent2); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>◈ Physis Agent</h1>
+  <span class="sub">orchestration harness — LLM brain + Physis tools + OpenCode sub-agent</span>
+  <span class="status" id="status">idle</span>
+</header>
+
+<div class="wrap">
+  <!-- Left: controls -->
+  <div class="panel">
+    <h2>Prompt &amp; Tools</h2>
+    <div class="body">
+      <textarea id="prompt" placeholder="What should the agent do? e.g. 'Search the graph for OEE anomalies, register a finding, then ask OpenCode to add a Rust test for it.'"></textarea>
+      <div class="hint">Ctrl+Enter to run</div>
+      <div class="tools" id="tools"></div>
+      <div class="row">
+        <button id="run">▶ Run</button>
+        <button id="abort" class="danger" disabled>■ Abort</button>
+        <button id="clear" class="ghost">Clear</button>
+      </div>
+      <div class="meta" id="caps" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- Right: live loop trace -->
+  <div class="panel">
+    <h2>Live Loop Trace</h2>
+    <div class="body" id="trace"><div class="meta">No run yet. Configure tools and hit Run.</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const toolsEl = $('#tools');
+  const traceEl = $('#trace');
+  const statusEl = $('#status');
+  const capsEl = $('#caps');
+  let selected = new Set();
+  let runId = null;
+  let es = null;
+  // Read from /caps: the verdict card qualifies its own numbers when the
+  // embedder is not semantic, and the caps line has to distinguish "gate off"
+  // from "gate ran and stayed quiet" — which look identical in the trace.
+  let semanticEmbedder = false;
+  let harnessGate = false;
+
+  function setStatus(t, live) {
+    statusEl.textContent = t;
+    statusEl.classList.toggle('live', !!live);
+  }
+
+  function loadCaps() {
+    // ui-shell's getJSON/postJSON return promises and take no callbacks; the
+    // extra arguments used to be accepted and silently dropped, so the page
+    // rendered nothing and reported nothing.
+    getJSON('/api/v1/agent/caps').then((caps) => {
+      semanticEmbedder = !!caps.semantic;
+      harnessGate = !!caps.harness_gate;
+      capsEl.innerHTML =
+        'OpenCode: <b>' + (caps.opencode_bin || 'not configured') + '</b> (' + caps.opencode_model + ')<br>' +
+        'Providers: ' + caps.provider_count + ' · max rounds: ' + caps.max_rounds +
+        (caps.semantic ? ' · semantic embedder ✓' : ' · (offline embedder)') + '<br>' +
+        'Coherence gate: <b>' + (harnessGate
+          ? 'on — every answer is judged, floor ' + (caps.harness_threshold * 100).toFixed(0) + '%'
+          : 'off — answers are shown unjudged') + '</b>';
+      toolsEl.innerHTML = '';
+      caps.tools.forEach((t) => {
+        const el = document.createElement('span');
+        el.className = 'tool' + (t.enabled ? '' : ' disabled');
+        el.textContent = t.name;
+        el.title = t.description;
+        if (t.enabled) {
+          el.classList.add('on');
+          selected.add(t.name);
+          el.onclick = () => {
+            if (selected.has(t.name)) { selected.delete(t.name); el.classList.remove('on'); }
+            else { selected.add(t.name); el.classList.add('on'); }
+          };
+        }
+        toolsEl.appendChild(el);
+      });
+    }).catch((e) => { capsEl.textContent = 'caps error: ' + e; });
+  }
+
+  function addEvent(ev) {
+    if (traceEl.querySelector('.meta')) traceEl.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'ev';
+    const kind = (ev.kind || 'plan');
+    div.innerHTML = '<span class="k k-' + kind + '">' + kind + '</span>' +
+      (ev.round ? '<span class="rnd">r' + ev.round + '</span> ' : ' ') +
+      escapeHtml(ev.text || '');
+    traceEl.appendChild(div);
+    traceEl.scrollTop = traceEl.scrollHeight;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  }
+
+  // The harness verdict on the agent's answer. `ev.text` carries the whole
+  // CoherenceEvaluation as JSON, because AgentEvent.text is a plain string
+  // shared with the core loop.
+  function renderVerdict(raw) {
+    let v;
+    try { v = JSON.parse(raw); } catch (_) {
+      addEvent({ kind: 'note', round: 0, text: 'harness verdict unreadable' });
+      return;
+    }
+    const kind = String(v.verdict || 'WARNING');
+    const pct = (x) => (typeof x === 'number' ? (x * 100).toFixed(0) + '%' : '—');
+
+    const div = document.createElement('div');
+    div.className = 'verdict ' + kind;
+
+    let html =
+      '<div class="vhead">' +
+        '<span class="vb">' + escapeHtml(kind) + '</span>' +
+        '<span class="vnum">fitness <b>' + pct(v.composite_fitness) + '</b></span>' +
+        '<span class="vnum">coherence <b>' + pct(v.coherence_score) + '</b></span>' +
+        '<span class="vnum">confidence <b>' + pct(v.confidence) + '</b></span>' +
+        (v.top_cell ? '<span class="vnum">cell <b>' + escapeHtml(v.top_cell) + '</b></span>' : '') +
+      '</div>';
+
+    if (v.recommendation) html += '<div class="vrec">' + escapeHtml(v.recommendation) + '</div>';
+
+    // Contradictions are the point of the gate: an answer that conflicts with
+    // something already believed is the case a fitness number alone hides.
+    const cons = v.detected_contradictions || [];
+    if (cons.length) {
+      html += '<div class="vlist"><b>' + cons.length + ' contradiction(s) with existing beliefs</b>' +
+        cons.map((c) =>
+          '<div>' + escapeHtml(c.description || '') +
+          (c.existing_claim ? ' — existing: “' + escapeHtml(c.existing_claim) + '”' : '') +
+          '</div>').join('') +
+        '</div>';
+    }
+    const warns = v.warnings || [];
+    if (warns.length) {
+      html += '<div class="vlist">' + warns.map((w) => '<div>' + escapeHtml(w) + '</div>').join('') + '</div>';
+    }
+    if (!semanticEmbedder) {
+      html += '<div class="vcaveat">Scored with a non-semantic embedder — ' +
+              'treat these as coarse and reproducible, not as meaning.</div>';
+    }
+    div.innerHTML = html;
+    traceEl.appendChild(div);
+    traceEl.scrollTop = traceEl.scrollHeight;
+  }
+
+  function run() {
+    const prompt = $('#prompt').value.trim();
+    if (!prompt) { toast('Enter a prompt first'); return; }
+    if (es) es.close();
+    traceEl.innerHTML = '';
+    setStatus('running…', true);
+    $('#run').disabled = true;
+    $('#abort').disabled = false;
+
+    const body = JSON.stringify({
+      prompt: prompt,
+      tools: Array.from(selected),
+      mode: 'ANALYZE',
+    });
+    // POST SSE is not EventSource-compatible; read the stream manually via fetch.
+    fetch('/api/v1/agent/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': authHeader() },
+      body: body,
+    }).then((r) => {
+      if (!r.ok) { setStatus('error ' + r.status, false); $('#run').disabled = false; return; }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      const pump = () => reader.read().then(({ done, value }) => {
+        if (done) { return; }
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+          const dataMatch = /data:(.*)/.exec(chunk);
+          if (dataMatch) {
+            try {
+              const ev = JSON.parse(dataMatch[1].trim());
+              if (ev.kind === 'done') { runId = ev.text; finish('done'); }
+              else if (ev.kind === 'error') { finish('error'); }
+              else if (ev.kind === 'verdict') renderVerdict(ev.text);
+              else addEvent(ev);
+            } catch (_) {}
+          }
+        }
+        return pump();
+      });
+      return pump();
+    }).catch((e) => { setStatus('stream error', false); $('#run').disabled = false; });
+  }
+
+  function finish(state) {
+    setStatus(state, false);
+    $('#run').disabled = false;
+    $('#abort').disabled = true;
+  }
+
+  function abort() {
+    if (!runId) return;
+    // postJSON serializes its body itself — passing a pre-stringified body
+    // would double-encode it into a JSON string and fail to deserialize.
+    postJSON('/api/v1/agent/abort', { run_id: runId })
+      .then((r) => addEvent({
+        kind: 'note',
+        round: 0,
+        text: r && r.ok ? 'abort requested' : 'abort refused: ' + ((r && r.reason) || 'unknown'),
+      }))
+      .catch((e) => addEvent({ kind: 'error', round: 0, text: 'abort failed: ' + e }));
+  }
+
+  function authHeader() {
+    // Reuse any token the user pasted for the SPA (shared store in ui-shell.js if present).
+    return (window.PHY_TOKEN ? 'Bearer ' + window.PHY_TOKEN : '');
+  }
+
+  $('#run').onclick = run;
+  $('#abort').onclick = abort;
+  $('#clear').onclick = () => { traceEl.innerHTML = '<div class="meta">cleared</div>'; };
+  $('#prompt').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+  });
+
+  loadCaps();
+})();
+</script>
+</body>
+</html>

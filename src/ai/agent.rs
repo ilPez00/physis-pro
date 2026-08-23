@@ -5,6 +5,7 @@
 //! number of tool rounds is reached.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::ai::provider::{Content, ContentPart, ImageUrl, Message};
 use crate::ai::tools::{ToolRegistry, call_tool};
@@ -70,14 +71,32 @@ impl Default for AgentConfig {
     }
 }
 
-/// Run the agent loop: build messages, call provider cascade, handle tool calls.
+/// A single observable step emitted while the agent runs. Streamed to clients
+/// (e.g. the `/agent` dashboard over SSE) so the loop is visible, not a black
+/// box. `kind` is one of: `plan` (assistant text), `tool_call`, `tool_result`,
+/// `note` (PDCA rail guidance), `opencode` (a line of OpenCode subprocess
+/// output), `final`, `error`, `done`.
+#[derive(Debug, Clone)]
+pub struct AgentEvent {
+    pub round: u32,
+    pub kind: String,
+    pub text: String,
+}
+
+/// Sink for agent events. `Err(_)` from the sink (e.g. a dropped SSE channel)
+/// is ignored by the loop so a disconnected client never kills the run.
+pub type EventSink = Arc<dyn Fn(AgentEvent) + Send + Sync>;
+
+/// Run the agent loop, streaming each step through `sink`.
 ///
-/// The agent sends `query` (optionally with a base64 image `frame_b64`) to the
-/// provider cascade. If the model returns tool calls, they are executed via
-/// `ToolRegistry` and the results are fed back. The loop terminates when the
-/// model returns a plain text response or `MAX_TOOL_ROUNDS` is exceeded.
+/// This is the streaming twin of [`run_agent`]: same logic, same PDCA rails,
+/// but every plan/tool-call/result is reported via `sink` as it happens. The
+/// agent sends `query` (optionally with a base64 image `frame_b64`) to the
+/// provider cascade; tool calls are executed via `ToolRegistry` and fed back;
+/// the loop terminates when the model returns a plain text response or
+/// `MAX_TOOL_ROUNDS` is exceeded.
 #[allow(clippy::too_many_arguments)]
-pub async fn run_agent(
+pub async fn run_agent_stream(
     provider_cascade: &ProviderCascade,
     tools: &ToolRegistry,
     config: &AgentConfig,
@@ -86,7 +105,15 @@ pub async fn run_agent(
     frame_b64: Option<&str>,
     mode: &str,
     model_override: Option<&str>,
+    sink: &EventSink,
 ) -> AiResult<AgentOutput> {
+    let emit = |round: u32, kind: &str, text: &str| {
+        sink(AgentEvent {
+            round,
+            kind: kind.to_string(),
+            text: text.to_string(),
+        });
+    };
     let mut messages: Vec<Message> = Vec::new();
 
     messages.push(Message {
@@ -162,6 +189,7 @@ pub async fn run_agent(
 
         if let Some(u) = &resp.content {
             total_tokens += u.len() as u32;
+            emit(tool_rounds, "plan", u);
         }
 
         messages.push(Message {
@@ -176,6 +204,7 @@ pub async fn run_agent(
             Some(c) if !c.is_empty() => c,
             _ => {
                 let text = resp.content.unwrap_or_default();
+                emit(tool_rounds, "final", &text);
                 return Ok(AgentOutput {
                     text,
                     provider: provider_name,
@@ -188,6 +217,7 @@ pub async fn run_agent(
 
         tool_rounds += 1;
         if tool_rounds > MAX_TOOL_ROUNDS {
+            emit(tool_rounds, "error", &format!("max tool rounds ({MAX_TOOL_ROUNDS}) reached"));
             return Err(AiError::MaxToolRounds);
         }
 
@@ -197,7 +227,17 @@ pub async fn run_agent(
         for call in &calls {
             let args: serde_json::Value =
                 serde_json::from_str(&call.function.arguments).unwrap_or(serde_json::json!({}));
+            emit(
+                tool_rounds,
+                "tool_call",
+                &format!(
+                    "{} → {}",
+                    call.function.name,
+                    serde_json::to_string(&args).unwrap_or_default()
+                ),
+            );
             let result = call_tool(tools, &call.function.name, args).await;
+            emit(tool_rounds, "tool_result", &result);
 
             // PDCA rail: on a failing tool result, escalate guidance — a light
             // CHECK note on the first failure, a hard recalibration directive
@@ -233,6 +273,9 @@ pub async fn run_agent(
         }
 
         if !pdca_notes.is_empty() {
+            for note in &pdca_notes {
+                emit(tool_rounds, "note", note);
+            }
             messages.push(Message {
                 role: "user".into(),
                 content: Content::Text(pdca_notes.join("\n\n")),
@@ -242,6 +285,34 @@ pub async fn run_agent(
             });
         }
     }
+}
+
+/// Non-streaming wrapper around [`run_agent_stream`] — identical behaviour,
+/// just discards the per-step events. Kept for callers that don't need a live
+/// trace (tests, embedded API consumers).
+pub async fn run_agent(
+    provider_cascade: &ProviderCascade,
+    tools: &ToolRegistry,
+    config: &AgentConfig,
+    history: &[Message],
+    query: &str,
+    frame_b64: Option<&str>,
+    mode: &str,
+    model_override: Option<&str>,
+) -> AiResult<AgentOutput> {
+    let sink: EventSink = Arc::new(|_| {});
+    run_agent_stream(
+        provider_cascade,
+        tools,
+        config,
+        history,
+        query,
+        frame_b64,
+        mode,
+        model_override,
+        &sink,
+    )
+    .await
 }
 
 #[cfg(test)]

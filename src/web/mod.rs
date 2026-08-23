@@ -84,6 +84,7 @@ mod mcp;
 mod wiki_semiotic;
 mod context;
 mod ui_chat;
+mod agent;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -193,6 +194,8 @@ pub struct AppCtx {
     /// it exists on the data dir. Mutex because `report_failure` mutates
     /// penalties and appends a failure record.
     pub(crate) quality: Mutex<QualityTracker>,
+    /// Live agent runs (for `/agent/abort`): cancels a run + kills its OpenCode child.
+    pub(crate) agent_runs: crate::web::agent::AgentRunRegistry,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     pub(crate) limiter: RateLimiter,
     /// Server start time for uptime reporting.
@@ -2424,6 +2427,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 .unwrap_or_default(),
         ),
         quality: Mutex::new(build_quality_tracker(&shared)),
+        agent_runs: crate::web::agent::AgentRunRegistry::new(),
         limiter: rate_limit_from_env(),
         started_at: std::time::Instant::now(),
         #[cfg(feature = "mcp")]
@@ -2669,6 +2673,11 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/study/log", post(admin_study::study_log_handler))
         .route("/api/v1/study/session", get(admin_study::study_session_handler))
         .route("/api/v1/study/clear", post(admin_study::study_clear_handler))
+        // Agent orchestration surface (Physis as the host/harness).
+        .route("/agent", get(agent::agent_ui_handler))
+        .route("/api/v1/agent/caps", get(agent::agent_capabilities_handler))
+        .route("/api/v1/agent/run", post(agent::agent_run_handler))
+        .route("/api/v1/agent/abort", post(agent::agent_abort_handler))
         .route("/api/v1/discover", post(context::discover_handler))
         .route("/api/v1/planner/simulate", post(context::planner_simulate_handler))
         .route("/api/v1/admin/review", post(admin_study::admin_review_handler))

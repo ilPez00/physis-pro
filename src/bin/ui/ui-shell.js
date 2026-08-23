@@ -53,14 +53,28 @@ function typing(el) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 }
 
+// Join the mount prefix to an API path with exactly one slash between them.
+//
+// `S + p` looked right and was not: `S` is "/" at the site root and every
+// caller passes a path starting with "/", so it produced "//api/v1/..." — a
+// protocol-relative URL, which the browser resolves as the HOST "api". Requests
+// left for a machine that does not exist (ERR_NAME_NOT_RESOLVED) instead of
+// hitting this server. Console, Demo and Study each define their own getJSON
+// and so never reached this; /agent uses the shared one and broke outright.
+function apiUrl(p) {
+  const base = S.replace(/\/+$/, '');
+  const path = p.startsWith('/') ? p : '/' + p;
+  return base + path;
+}
+
 async function getJSON(p) {
-  const r = await fetch(S + p, { headers: hdr() });
+  const r = await fetch(apiUrl(p), { headers: hdr() });
   if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 180));
   return r.json();
 }
 
 async function postJSON(p, body) {
-  const r = await fetch(S + p, {
+  const r = await fetch(apiUrl(p), {
     method: 'POST',
     headers: { ...hdr(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -195,7 +209,7 @@ function initShortcuts(bindings) {
 // Published as globals so a page can use whichever helpers it doesn't
 // define itself. Assigned, never declared — see the note at the top.
 Object.assign(window, {
-  $, S, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
+  $, S, apiUrl, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
   syncConnect, loadHealth, initWelcome, initHelp, initCoach, initShortcuts,
 });
 })();
