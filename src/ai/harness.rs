@@ -16,6 +16,10 @@ use crate::classify::CellClassifier;
 use crate::core::PhysisCore;
 use crate::embed::VectorEmbed;
 use crate::quality::QualityTracker;
+// SharedState only exists in the web build; the harness entrypoint that takes
+// it is gated below so `--no-default-features` builds (the license generator)
+// still compile.
+#[cfg(feature = "web")]
 use crate::web::SharedState;
 
 use physis_core::coherence_dimensions::CoherenceProfile;
@@ -378,6 +382,7 @@ impl CoherenceHarness {
     }
 
     /// Execute a generation request through the LLM with the Physis Coherence Harness.
+    #[cfg(feature = "web")]
     pub async fn generate_with_harness(
         prompt: &str,
         context: Option<&str>,

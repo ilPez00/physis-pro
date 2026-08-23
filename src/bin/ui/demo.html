@@ -419,11 +419,10 @@
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-const S = window.location.pathname.replace(/\/demo.*$/,'');
-
-async function getJSON(p){ const r = await fetch(S+p,{headers:hdr()}); if(!r.ok) throw new Error(r.status+' '+(await r.text()).slice(0,180)); return r.json(); }
-async function postJSON(p,body){ const r=await fetch(S+p,{method:'POST',headers:{...hdr(),'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok) throw new Error(r.status+' '+(await r.text()).slice(0,180)); return r.json(); }
-function hdr(){ return {}; }
+// getJSON/postJSON come from ui-shell.js, whose apiUrl() joins the mount
+// prefix and path with exactly one slash. The local copies used S+p, which at
+// the site root produced "//api/v1/..." — a protocol-relative URL resolving to
+// the host "api", i.e. requests that never reached this server.
 
 let toastTimer=null;
 function toast(msg,err){

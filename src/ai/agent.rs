@@ -290,6 +290,7 @@ pub async fn run_agent_stream(
 /// Non-streaming wrapper around [`run_agent_stream`] — identical behaviour,
 /// just discards the per-step events. Kept for callers that don't need a live
 /// trace (tests, embedded API consumers).
+#[allow(clippy::too_many_arguments)]
 pub async fn run_agent(
     provider_cascade: &ProviderCascade,
     tools: &ToolRegistry,
