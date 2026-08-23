@@ -323,6 +323,18 @@
   });
 
   loadCaps();
+
+  // The ask bar on every other dashboard hands its question over as ?q=, so it
+  // survives the hop instead of having to be retyped. Prefill only — the run is
+  // left to the user, because arriving on a page that has already spent tokens
+  // and started editing files is not a decision a link should make for them.
+  const handoff = new URLSearchParams(window.location.search).get('q');
+  if (handoff) {
+    const box = $('#prompt');
+    box.value = handoff;
+    box.focus();
+    box.setSelectionRange(box.value.length, box.value.length);
+  }
 })();
 </script>
 </body>

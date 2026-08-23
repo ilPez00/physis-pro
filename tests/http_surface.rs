@@ -1977,3 +1977,43 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
         assert_eq!(status, StatusCode::OK, "switcher links to {href}, which must serve");
     }
 }
+
+#[tokio::test]
+async fn the_ask_bar_is_on_every_dashboard_and_queries_the_vector_graph() {
+    // One query box on every page, backed by the vector search rather than by
+    // an LLM: /api/v1/search/nodes embeds the query and ranks node labels by
+    // cosine with no provider involved, so the box still works on an install
+    // with no API key — which is the default state.
+    let (router, _dir, _env) = app().await;
+
+    let (status, shell) = send_text(&router, get("/ui-shell.js", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(shell.contains("initAskBar"), "the shell must define the ask bar");
+    assert!(
+        shell.contains("/api/v1/search/nodes"),
+        "the box must query the vector graph, not an LLM endpoint",
+    );
+    // Portalled to <body> and fixed: nested in the header it landed inside
+    // whatever stacking context an ancestor created, and dashboards raise their
+    // own panels, so page content painted straight over the results.
+    assert!(
+        shell.contains("document.body.appendChild(panel)"),
+        "the results panel must be portalled out of the header",
+    );
+    assert!(shell.contains("position:fixed"), "the panel must escape ancestor clipping");
+
+    // The endpoint it calls must exist and answer.
+    let body = serde_json::json!({ "query": "nozzle temperature", "top_k": 3 });
+    let (status, out) = send(&router, post("/api/v1/search/nodes", "_default", body)).await;
+    assert_eq!(status, StatusCode::OK, "the ask bar's endpoint must serve");
+    assert!(out["results"].is_array(), "results must be a list: {out}");
+    assert!(out["budget"].is_number(), "the response is token-packed and says so");
+
+    // The handoff target must accept the question the box hands over.
+    let (status, agent) = send_text(&router, get("/agent", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        agent.contains("URLSearchParams(window.location.search).get('q')"),
+        "/agent must read the ?q= handoff, or the question is retyped",
+    );
+}
