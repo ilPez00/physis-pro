@@ -147,9 +147,12 @@ pub fn reduce(obligations: &[Obligation], timeout_secs: u64) -> Vec<Check> {
 fn lean_exe() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("LEAN_BIN") {
         let p = PathBuf::from(p);
-        if p.is_file() {
-            return Some(p);
-        }
+        // An explicit override is authoritative in BOTH directions: a valid
+        // path selects that binary, and an invalid one means "the verifier I
+        // asked for is not here" — falling back to whatever `lean` happens to
+        // sit on PATH would silently verify obligations against a different
+        // toolchain than the operator pinned.
+        return p.is_file().then_some(p);
     }
     for dir in std::env::split_paths(&std::env::var_os("PATH")?) {
         let cand = dir.join("lean");
