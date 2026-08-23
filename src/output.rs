@@ -227,25 +227,59 @@ pub fn format_category_diagram(objects: &[(&str, &str)], morphisms: &[(&str, &st
 
 /// Renders the semiotic grid activation heatmap as text table.
 pub fn format_heatmap_table(grid: &SemioticGrid) -> String {
+    // `{:<W}` sets a MINIMUM width, so anything longer than the column simply
+    // overflowed and pushed the rest of the line right: "BRAINSTORM" (10) ran
+    // into "MAINTAIN" as "BRAINSTORMMAINTAIN", and a full-length bar did the
+    // same to the data rows, leaving the header and the grid misaligned.
+    // Every cell is now clipped to the column as well as padded to it.
+    const LABEL_W: usize = 14;
+    // 9 leaves 8 usable characters, which fits every mode name except
+    // BRAINSTORM (10). That one clips to "BRAINSTO", still unique among the
+    // fourteen — the header only has to identify its column, not spell it.
+    const COL_W: usize = 9;
+    // Every cell reserves one trailing space, so neither a maximal bar nor a
+    // clipped header can touch its neighbour — "BRAINSTORM" truncated to the
+    // full 8 sat flush against "MAINTAIN" and read as one word.
+    const BAR_W: usize = COL_W - 1;
+
+    fn fit(s: &str, w: usize) -> String {
+        let mut t: String = s.chars().take(w.saturating_sub(1)).collect();
+        let pad = w.saturating_sub(t.chars().count());
+        t.extend(std::iter::repeat_n(' ', pad));
+        t
+    }
+
+    // Trailing padding on the right edge is invisible noise in a terminal and
+    // shows up as whitespace churn in any file this gets written to.
+    fn trim_end(out: &mut String) {
+        while out.ends_with(' ') {
+            out.pop();
+        }
+    }
+
     let mut out = String::new();
     out.push_str("## Semiotic Grid Activation\n\n");
     out.push_str("```\n");
-    out.push_str(&format!("{:<14}", ""));
+    out.push_str(&fit("", LABEL_W));
     for m in HumanMode::all() {
-        out.push_str(&format!("{:<8}", m.as_str()));
+        out.push_str(&fit(m.as_str(), COL_W));
     }
+    trim_end(&mut out);
     out.push('\n');
     for d in HumanDomain::all() {
-        out.push_str(&format!("{:<14}", d.as_str()));
+        out.push_str(&fit(d.as_str(), LABEL_W));
         for m in HumanMode::all() {
-            if let Some(cell) = grid.get_cell(d, m) {
-                let bar_len = (cell.activation * 20.0) as usize;
-                let bar = "█".repeat(bar_len.min(20));
-                out.push_str(&format!("{:<8}", bar));
-            } else {
-                out.push_str(&format!("{:<8}", ""));
-            }
+            let bar = match grid.get_cell(d, m) {
+                // Scale to the column that draws it: the old constant of 20 was
+                // unrelated to the 8-wide column and guaranteed overflow.
+                Some(cell) => "█".repeat(
+                    ((cell.activation.clamp(0.0, 1.0) * BAR_W as f32).round() as usize).min(BAR_W),
+                ),
+                None => String::new(),
+            };
+            out.push_str(&fit(&bar, COL_W));
         }
+        trim_end(&mut out);
         out.push('\n');
     }
     out.push_str("```\n");
@@ -304,6 +338,59 @@ mod tests {
     use super::*;
     use crate::config::PhysisConfig;
     use crate::config::OntologyLoader;
+
+    /// `{:<8}` is a minimum width, not a maximum, so any value wider than the
+    /// column overflowed and shifted the rest of the line: the header read
+    /// "BRAINSTORMMAINTAINMOVE" and a full-length activation bar knocked its
+    /// row out of alignment with the header above it.
+    #[test]
+    fn heatmap_columns_stay_aligned_for_long_headers_and_full_bars() {
+        let mut grid = SemioticGrid::new();
+        // Drive one cell to full activation; `classify` adds 0.1 each call.
+        for _ in 0..15 {
+            grid.classify("x", HumanDomain::Fabricate, HumanMode::Brainstorm);
+        }
+        let table = format_heatmap_table(&grid);
+        let body: Vec<&str> = table
+            .lines()
+            .skip_while(|l| !l.starts_with("```"))
+            .skip(1)
+            .take_while(|l| !l.starts_with("```"))
+            .collect();
+        let header = body[0];
+
+        // The widest mode name is 10 chars in an 8-wide column, so it must be
+        // clipped rather than allowed to run into its neighbour.
+        assert!(
+            !header.contains("BRAINSTORMMAINTAIN"),
+            "headers must not collide: {header:?}",
+        );
+        assert!(header.contains(" MAINTAIN"), "later headers survive: {header:?}");
+
+        // A header only has to identify its column, so clipping is fine as long
+        // as no two columns end up spelled the same.
+        let names: Vec<&str> = header.split_whitespace().collect();
+        assert_eq!(names.len(), HumanMode::all().len(), "one header per mode: {names:?}");
+        let mut uniq = names.clone();
+        uniq.sort_unstable();
+        uniq.dedup();
+        assert_eq!(uniq.len(), names.len(), "clipped headers collide: {names:?}");
+
+        // Every row occupies the same grid, so a column index means one thing.
+        let expected = 14 + 9 * HumanMode::all().len();
+        assert!(header.chars().count() <= expected, "header width");
+        for row in &body[1..] {
+            assert!(
+                row.chars().count() <= expected,
+                "row overflows the grid ({} > {expected}): {row:?}",
+                row.chars().count(),
+            );
+            assert!(!row.ends_with(' '), "rows must not carry trailing padding");
+        }
+
+        // And the saturated bar is still drawn, just inside its column.
+        assert!(body[1..].iter().any(|r| r.contains('\u{2588}')), "no bar drawn");
+    }
 
     #[test]
     fn test_format_wiki() {

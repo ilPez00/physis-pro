@@ -2820,9 +2820,23 @@ pub async fn serve() {
     };
 
     let addr = format!("{host}:{port}");
+    // Bind BEFORE announcing. Printing the ready line first meant a port clash
+    // announced "listening on …" and only then panicked, so a crash-looping
+    // server emitted a ready line on every attempt — and anything watching
+    // stdout for readiness believed it.
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            let hint = if e.kind() == std::io::ErrorKind::AddrInUse {
+                " — something is already listening there; set PHYSIS_PORT to use another port"
+            } else {
+                ""
+            };
+            eprintln!("[physis] cannot bind {addr}: {e}{hint}");
+            std::process::exit(1);
+        }
+    };
     println!("Physis Web API listening on http://{addr}");
-
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     // ConnectInfo is what gives `rate_limit` the peer IP; without this the
     // middleware's extractor fails and every request 500s.
     axum::serve(
