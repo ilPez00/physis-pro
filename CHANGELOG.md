@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3] — 2026-08-23
+
+Published as `physis_pro` 0.1.5.
+
+**Agent surface hardening.** The OpenCode sandbox's containment check relied on
+`Path::starts_with`, which compares whole components without normalizing —
+`scan_root.join("../../etc")` passed it and escaped at the OS level. `..` is
+now rejected outright and both paths canonicalized; caller flags precede `--`
+so an untrusted task cannot arrive as an argument; abort requires the owning
+tenant, and unknown ids are indistinguishable from foreign ones.
+
+**Agent answers judged.** When `agent.harness_gate` is on, every final answer
+runs through `CoherenceHarness::evaluate` and the verdict streams as its own
+SSE event beside the answer. Reports only — no suppression, no auto-revision,
+no self-grading hypothesis registration.
+
+**Dashboard fetches unified.** Console, Demo and Study carried local
+`getJSON` copies that built `//api/v1/...` protocol-relative URLs at the site
+root; all pages now share `ui-shell.js`'s `apiUrl()`. The agent trace renders
+error events instead of discarding them and explains an empty stream rather
+than failing silently.
+
+**Build repair.** Duplicate `life_os`/`rachmaninov` module declarations broke
+`--all-features`; `ai::harness` imported `crate::web` unconditionally,
+breaking the licence-generator build. Both fixed; clippy is clean under
+`-D warnings`.
+
 ## [0.9.2] — 2026-08-23
 
 Published as `physis_pro` 0.1.4 and `physis-core` 0.1.5.
