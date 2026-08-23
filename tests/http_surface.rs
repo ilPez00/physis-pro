@@ -1673,3 +1673,224 @@ async fn agent_capabilities_report_the_coherence_gate() {
     let floor = body["harness_threshold"].as_f64().expect("threshold must be numeric");
     assert!((0.0..=1.0).contains(&floor), "threshold is a fitness fraction, got {floor}");
 }
+
+// ── Agent demo: the same loop, inside and outside the harness ─────────────────
+//
+// Two demonstrations of the agent surface, kept as tests so the traces they
+// print are reproducible (`cargo test --test http_surface agent_demo --
+// --nocapture`):
+//
+//   1. INSIDE  — POST /api/v1/agent/run returns an SSE stream of the live
+//      ReAct trace (plan → tool_call → tool_result → … → final → verdict),
+//      judged by the coherence gate before display.
+//   2. OUTSIDE — the identical loop called as a library function
+//      (`run_agent`) with a hand-built registry, no HTTP involved.
+//
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+/// Scripted OpenAI-compatible chat server on 127.0.0.1:0. Returns the base URL.
+async fn spawn_mock_orchestrator(
+    tool_name: &'static str,
+    arguments: &'static str,
+    final_text: &'static str,
+) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut sock, _)) = listener.accept().await else {
+                break;
+            };
+            tokio::spawn(async move {
+                let mut buf = vec![0u8; 256 * 1024];
+                let n = sock.read(&mut buf).await.unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]);
+
+                // Round detection: a tool-role message means the results are
+                // back, so the model must produce its answer now.
+                let body = if req.contains("\"role\":\"tool\"") {
+                    serde_json::json!({
+                        "choices": [{"message": {
+                            "role": "assistant",
+                            "content": final_text,
+                        }, "finish_reason": "stop"}],
+                        "usage": {"prompt_tokens": 12, "completion_tokens": 9, "total_tokens": 21}
+                    })
+                } else {
+                    serde_json::json!({
+                        "choices": [{"message": {
+                            "role": "assistant",
+                            "content": serde_json::Value::Null,
+                            "tool_calls": [{"id": "call-demo-1", "type": "function",
+                                "function": {"name": tool_name, "arguments": arguments}}],
+                        }, "finish_reason": "tool_calls"}],
+                        "usage": {"prompt_tokens": 24, "completion_tokens": 14, "total_tokens": 38}
+                    })
+                };
+
+                let payload = serde_json::to_string(&body).unwrap();
+                let http = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    payload.len(),
+                    payload
+                );
+                let _ = sock.write_all(http.as_bytes()).await;
+                let _ = sock.shutdown().await;
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// DEMO (inside): the dashboard path. One POST, one streamed trace.
+#[tokio::test]
+async fn agent_demo_inside_harness_sse_stream() {
+    let dir = tempfile::tempdir().unwrap();
+    let base = spawn_mock_orchestrator(
+        "classify",
+        "{\"text\":\"Classify this very prompt against the semiotic grid.\"}",
+        "The prompt lands in the HUMAN × OPERATE cell: it directs an agent to \
+         act on the semiotic grid, which is precisely what the classify result \
+         above recorded.",
+    )
+    .await;
+
+    // Same env ritual as every test here; EP_ORCHESTRATOR must be visible only
+    // while build_app snapshots the provider cascade.
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+    std::env::remove_var("PHYSIS_API_TOKEN");
+    std::env::remove_var("PHYSIS_TOKENS");
+    std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
+    std::env::set_var("PHYSIS_DEV", "1");
+    std::env::set_var("PHYSIS_DATA_DIR", dir.path());
+    std::env::set_var("EP_ORCHESTRATOR", &base);
+    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    std::env::remove_var("EP_ORCHESTRATOR");
+    drop(env);
+
+    let mut req = post(
+        "/api/v1/agent/run",
+        "demo-tenant",
+        serde_json::json!({
+            "prompt": "Classify this very prompt against the semiotic grid.",
+            "tools": ["classify"],
+            "mode": "ANALYZE"
+        }),
+    );
+    req.extensions_mut().insert(axum::extract::ConnectInfo(
+        std::net::SocketAddr::from(([127, 0, 0, 1], 40000)),
+    ));
+
+    let resp = router.oneshot(req).await.expect("router responds");
+    assert_eq!(resp.status(), StatusCode::OK, "POST /api/v1/agent/run must be accepted");
+
+    let bytes = resp.into_body().collect().await.expect("sse body").to_bytes();
+    let raw = String::from_utf8_lossy(&bytes);
+
+    // Parse the SSE frames: `event: <kind>` + `data: {json}`.
+    let mut frames: Vec<(String, serde_json::Value)> = Vec::new();
+    for block in raw.split("\n\n") {
+        let kind = block.lines().find_map(|l| l.strip_prefix("event: "));
+        let data = block.lines().find_map(|l| l.strip_prefix("data: "));
+        if let (Some(k), Some(d)) = (kind, data) {
+            frames.push((k.trim().to_string(), serde_json::from_str(d.trim()).unwrap_or_default()));
+        }
+    }
+    for (k, d) in &frames {
+        println!("[inside] event={k:<11} {}", d["text"].as_str().unwrap_or(""));
+    }
+
+    let kinds: Vec<&str> = frames.iter().map(|(k, _)| k.as_str()).collect();
+    let pos = |name: &str| kinds.iter().position(|k| *k == name).unwrap_or_else(|| panic!("missing `{name}` frame; got {kinds:?}"));
+    assert!(pos("tool_call") < pos("tool_result"), "result must follow its call");
+    assert!(pos("tool_result") < pos("final"), "final answer comes after tools");
+    assert!(pos("final") < pos("done"), "done terminates the stream");
+    assert!(kinds.contains(&"verdict"), "the coherence gate must judge the final answer");
+
+    // The verdict frame carries the arbiter's structured evaluation.
+    let verdict_text = frames
+        .iter()
+        .find(|(k, _)| k == "verdict")
+        .and_then(|(_, d)| d["text"].as_str())
+        .expect("verdict frame carries its payload as text");
+    let evaluation: serde_json::Value = serde_json::from_str(verdict_text).expect("verdict is JSON");
+    println!(
+        "[inside] gate verdict={} fitness={:.3}",
+        evaluation["verdict"].as_str().unwrap_or("?"),
+        evaluation["composite_fitness"].as_f64().unwrap_or(f64::NAN)
+    );
+}
+
+/// DEMO (outside): the same loop as a library call — no router, no SSE.
+#[tokio::test]
+async fn agent_demo_outside_harness_direct_call() {
+    let base = spawn_mock_orchestrator(
+        "get_time",
+        "{}",
+        "The current UTC timestamp is the one the get_time tool returned.",
+    )
+    .await;
+
+    let env = ENV_LOCK.lock().await;
+    std::env::set_var("EP_ORCHESTRATOR", &base);
+    let cascade = physis_pro::ai::provider::ProviderCascade::from_env();
+    std::env::remove_var("EP_ORCHESTRATOR");
+    drop(env);
+
+    assert!(
+        cascade.provider_names().contains(&"orchestrator".to_string()),
+        "mock must be registered, got {:?}",
+        cascade.provider_names()
+    );
+
+    // Curated registry: clear the network/fs builtins, add one trivial tool.
+    let mut tools = physis_pro::ai::tools::ToolRegistry::new();
+    tools.clear();
+    tools.register(
+        "get_time",
+        "Returns the current UTC timestamp.",
+        serde_json::json!({"type": "object", "properties": {}}),
+        Box::new(|_args| {
+            Box::pin(async move { Ok(chrono::Utc::now().to_rfc3339()) })
+        }),
+    );
+
+    let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink_events = events.clone();
+    let sink: physis_pro::ai::agent::EventSink = std::sync::Arc::new(move |ev| {
+        println!("[outside] r{} {:<11} {}", ev.round, ev.kind, ev.text.replace('\n', " "));
+        sink_events.lock().unwrap().push(ev.kind);
+    });
+
+    let out = physis_pro::ai::agent::run_agent_stream(
+        &cascade,
+        &tools,
+        &physis_pro::ai::agent::AgentConfig::default(),
+        &[],
+        "What time is it right now? Use the get_time tool.",
+        None,
+        "",
+        None,
+        &sink,
+    )
+    .await
+    .expect("direct agent run must succeed");
+
+    println!(
+        "[outside] summary: provider={} rounds={} tokens={}",
+        out.provider, out.tool_rounds, out.tokens_used
+    );
+    assert_eq!(out.provider, "orchestrator");
+    assert_eq!(out.tool_rounds, 1, "exactly one scripted tool round");
+
+    let kinds = events.lock().unwrap().clone();
+    assert!(kinds.contains(&"tool_call".to_string()), "trace: {kinds:?}");
+    assert!(kinds.contains(&"tool_result".to_string()), "trace: {kinds:?}");
+    assert!(kinds.contains(&"final".to_string()), "trace: {kinds:?}");
+    let call_pos = kinds.iter().position(|k| k == "tool_call").unwrap();
+    let res_pos = kinds.iter().position(|k| k == "tool_result").unwrap();
+    let fin_pos = kinds.iter().position(|k| k == "final").unwrap();
+    assert!(call_pos < res_pos && res_pos < fin_pos, "trace must be ordered: {kinds:?}");
+}
