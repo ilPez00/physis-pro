@@ -1807,19 +1807,23 @@ document.addEventListener('keydown',e=>{
 });
 
 loadOverview();
-</script>
-</body>
-</html>
+
+/* ── Workbenches: hypotheses, contradictions, epistemic audit, explanation,
+   discovery, coherence harness, file browser ──────────────────────────────
+   These were appended after the closing html tag, so the browser ended the
+   document and painted ~950 lines of source as visible page text while every
+   panel below stayed inert. Same script element now, so they bind as intended.
+   Keep them here: moving code past the document end silently disables it.  */
 async function loadBrowser(path){
-  const base = '${window.location.origin}/api/v1/fs/list';
+  const base = api('/api/v1/fs/list');
   const url = path ? base + '?dir=' + encodeURIComponent(path) : base;
   try{
-    const resp = await fetch(url);
+    const resp = await fetch(url, { headers: hdr() });
     const data = await resp.json();
     const entries = data.entries;
-    const browserPath = $('#browserPath');
-    const browserEntries = $('#browserEntries');
-    const browserUp = $('#browserUp');
+    const browserPath = $('browserPath');
+    const browserEntries = $('browserEntries');
+    const browserUp = $('browserUp');
     
     // Update path display
     browserPath.textContent = 'Path: ' + data.root;
@@ -1861,7 +1865,7 @@ async function loadBrowser(path){
 
 // Initialize drag-and-drop for file browser
 (function(){
-  const fb = $('#fileBrowser');
+  const fb = $('fileBrowser');
   const dirInput = $('dir');
   const dropZone = fb;
   
@@ -1893,7 +1897,7 @@ async function loadBrowser(path){
       const rawPath = text.trim();
       if(!rawPath) return;
       
-      const resp = await fetch('${window.location.origin}/api/v1/fs/resolve?name=' + encodeURIComponent(rawPath.split('/').pop()));
+      const resp = await fetch(api('/api/v1/fs/resolve?name=') + encodeURIComponent(rawPath.split('/').pop()));
       const data = await resp.json();
       if(data.matches && data.matches.length > 0){
         const hit = data.matches[0];
@@ -1912,7 +1916,7 @@ async function loadBrowser(path){
 
 // File browser controls
 $('browserUp').onclick = () => {
-  const path = $('#browserPath').textContent.replace('Path: ', '');
+  const path = $('browserPath').textContent.replace('Path: ', '');
   const parts = path.split('/').filter(p=>p);
   if(parts.length > 1){
     const up = parts.slice(0, -1).join('/');
@@ -1996,7 +2000,8 @@ async function loadHypotheses(){
   
   try {
     const list = await getJSON(`/api/v1/hypotheses${q}`);
-    $('hypCountBadge').textContent = `${list.length} active hypothesis${list.length===1?'':'es'}`;
+    // "hypothesis" + "es" spells "hypothesises"; the plural replaces the stem.
+    $('hypCountBadge').textContent = `${list.length} active ${list.length===1?'hypothesis':'hypotheses'}`;
     const out = $('hypList');
     if(!list || list.length === 0){
       out.innerHTML = '<div class="empty muted">No hypotheses matching current filters. Click "New Hypothesis" or "Dream Candidates" to generate.</div>';
@@ -2760,5 +2765,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadHarnessTab();
   }
 });
-
 </script>
+</body>
+</html>

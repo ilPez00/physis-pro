@@ -168,6 +168,45 @@ async fn demo_and_console_ui_are_served() {
 }
 
 #[tokio::test]
+async fn dashboard_pages_end_at_the_closing_html_tag() {
+    // Console shipped with ~950 lines of JavaScript appended AFTER `</html>`:
+    // 19 functions (hypotheses, contradictions, epistemic audit, explanation,
+    // discovery, coherence harness, file browser) whose panels were all present
+    // in the markup. The browser ended the document at the tag and painted the
+    // source as visible page text, so those panels rendered but did nothing.
+    //
+    // Nothing about that is loud — the page still returns 200 with the right
+    // title, so every assertion above kept passing. Anchor on the structure
+    // instead: markup after the document ends is silently dead code.
+    let (router, _dir, _env) = app().await;
+
+    for page in ["/demo", "/ui", "/study"] {
+        let (status, body) = send_text(&router, get(page, "_default")).await;
+        assert_eq!(status, StatusCode::OK, "{page} must be served");
+
+        let end = body
+            .rfind("</html>")
+            .unwrap_or_else(|| panic!("{page} must close its html element"));
+        let trailing = body[end + "</html>".len()..].trim();
+        assert!(
+            trailing.is_empty(),
+            "{page} has {} characters after </html> — anything there is outside \
+             the document and never runs. Starts: {:?}",
+            trailing.len(),
+            &trailing[..trailing.len().min(120)],
+        );
+
+        // An unbalanced pair is the other way source leaks into the page.
+        let opens = body.matches("<script").count();
+        let closes = body.matches("</script>").count();
+        assert_eq!(
+            opens, closes,
+            "{page} has {opens} <script> opens against {closes} closes",
+        );
+    }
+}
+
+#[tokio::test]
 async fn planner_simulates_without_mutating_live_state_and_admin_groups_duplicates() {
     let (router, _dir, _env) = app().await;
     let candidate = serde_json::json!({
