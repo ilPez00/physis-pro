@@ -194,6 +194,10 @@ pub enum Commands {
         /// Pin mode (e.g. MAINTAIN). Requires --domain.
         #[arg(long)]
         mode: Option<String>,
+        /// Retract an existing pin: the classifier decides the cell again.
+        /// Excludes --domain/--mode.
+        #[arg(long)]
+        clear_pin: bool,
     },
     /// Delete a coherence node and every reference to it.
     NodeDelete {
@@ -848,11 +852,15 @@ fn main() -> anyhow::Result<()> {
             label,
             domain,
             mode,
+            clear_pin,
         } => {
-            let pin = match (domain, mode) {
-                (Some(d), Some(m)) => Some((d, m)),
-                (None, None) => None,
-                _ => anyhow::bail!("--domain and --mode must be supplied together"),
+            let pin = match (domain, mode, clear_pin) {
+                (Some(d), Some(m), false) => physis_pro::core::PinEdit::Set(d, m),
+                (None, None, false) => physis_pro::core::PinEdit::Keep,
+                (None, None, true) => physis_pro::core::PinEdit::Clear,
+                _ => anyhow::bail!(
+                    "--clear-pin excludes --domain/--mode; supply one pin intent only"
+                ),
             };
             println!("{}", app.run_node_edit(&id, &label, pin)?);
         }
@@ -2205,9 +2213,11 @@ mod tests {
             .register_persisted_node("milling spindle bearing")
             .unwrap();
 
-        // Edit without a pin.
+        use physis_pro::core::PinEdit;
+
+        // Edit without a pin: says nothing about the cell — a pin would survive.
         let out = app
-            .run_node_edit(&id, "welding robot joint recalibration", None)
+            .run_node_edit(&id, "welding robot joint recalibration", PinEdit::Keep)
             .unwrap();
         assert!(out.contains(&id), "identity survives the swap: {out}");
 
@@ -2216,7 +2226,7 @@ mod tests {
             .run_node_edit(
                 &id,
                 "welding robot joint recalibration (edited)",
-                Some(("FABRICATE".into(), "MAINTAIN".into())),
+                PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()),
             )
             .unwrap();
         assert!(
@@ -2224,8 +2234,17 @@ mod tests {
             "pin echoed: {pinned}"
         );
 
+        // Retract the pin explicitly: the classifier decides again.
+        let cleared = app
+            .run_node_edit(&id, "welding robot joint recalibration", PinEdit::Clear)
+            .unwrap();
+        assert!(
+            !cleared.contains("FABRICATE×MAINTAIN"),
+            "pin must be gone after Clear: {cleared}"
+        );
+
         // Unknown id errors.
-        assert!(app.run_node_edit("missing", "x", None).is_err());
+        assert!(app.run_node_edit("missing", "x", PinEdit::Keep).is_err());
 
         // Delete, then the id is gone.
         app.run_node_delete(&id).unwrap();
