@@ -46,6 +46,7 @@ pub mod quantize;
 pub mod rachmaninov;
 pub mod rbac;
 pub mod reconstruct;
+pub mod review_desk;
 pub mod report;
 pub mod salience;
 pub mod scanner;
