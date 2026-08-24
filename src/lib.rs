@@ -50,6 +50,7 @@ pub mod salience;
 pub mod scanner;
 pub mod sensory;
 pub mod semiotic_grid;
+pub mod sessions;
 pub mod shifts;
 pub mod social;
 pub mod storage;

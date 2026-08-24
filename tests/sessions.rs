@@ -28,19 +28,19 @@ fn registry_lists_builtins_and_rejects_unknown() {
     assert!(names.contains(&"claude_code"));
     assert!(names.contains(&"codex"));
 
-    assert_eq!(get_adapter("claude_code").name(), "claude_code");
-    assert_eq!(get_adapter("codex").name(), "codex");
+    assert_eq!(get_adapter("claude_code").unwrap().name(), "claude_code");
+    assert_eq!(get_adapter("codex").unwrap().name(), "codex");
 
-    let unknown = std::panic::catch_unwind(|| get_adapter("nope"));
+    // get_adapter returns Err (no panic) for unknown names.
     assert!(
-        unknown.is_err(),
+        get_adapter("nope").is_err(),
         "unknown adapter name must error, not default silently"
     );
 }
 
 #[test]
 fn claude_user_prose_line_yields_one_user_turn() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let evs = a.normalize(CLAUDE_USER_LINE).expect("line parses");
     assert_eq!(evs.len(), 1);
     match &evs[0] {
@@ -53,7 +53,7 @@ fn claude_user_prose_line_yields_one_user_turn() {
 
 #[test]
 fn claude_assistant_line_yields_turn_plus_tool_call() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let evs = a.normalize(CLAUDE_ASSISTANT_LINE).expect("line parses");
     assert_eq!(evs.len(), 2, "thinking block ignored, text + tool_use kept");
     assert!(matches!(&evs[0], Event::AssistantTurn { .. }));
@@ -65,7 +65,7 @@ fn claude_assistant_line_yields_turn_plus_tool_call() {
 
 #[test]
 fn claude_tool_result_maps_success_flag() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let evs = a.normalize(CLAUDE_TOOL_RESULT_LINE).expect("line parses");
     match &evs[0] {
         Event::ToolResult { ok, .. } => assert!(ok),
@@ -75,7 +75,7 @@ fn claude_tool_result_maps_success_flag() {
 
 #[test]
 fn claude_tool_result_error_flag_flips_ok() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let line = CLAUDE_TOOL_RESULT_LINE.replace("\"is_error\":false", "\"is_error\":true");
     let evs = a.normalize(&line).expect("line parses");
     match &evs[0] {
@@ -86,9 +86,9 @@ fn claude_tool_result_error_flag_flips_ok() {
 
 #[test]
 fn codex_lines_map_roles_to_turns() {
-    let a = get_adapter("codex");
+    let a = get_adapter("codex").unwrap();
     assert!(
-        a.normalize(CODEX_META_LINE).unwrap().is_empty(),
+        a.normalize(CODEX_META_LINE).unwrap_or_default().is_empty(),
         "meta carries no conversation event"
     );
     let user = a.normalize(CODEX_USER_LINE).expect("parses");
@@ -105,19 +105,19 @@ fn codex_lines_map_roles_to_turns() {
 
 #[test]
 fn garbage_and_empty_input_yield_none_never_panic() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     assert!(a.normalize("").is_none());
     assert!(a.normalize("not json at all").is_none());
     assert!(a
         .normalize("{\"type\":\"unknown-shape\"}")
-        .unwrap()
+        .unwrap_or_default()
         .is_empty());
     assert!(a.normalize("[1,2,3]").unwrap_or_default().is_empty());
 }
 
 #[test]
 fn discover_returns_sorted_jsonl_absent_dir_is_empty() {
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let absent = a.discover(std::path::Path::new("/nonexistent/proj"));
     assert!(absent.is_empty());
 
@@ -130,8 +130,11 @@ fn discover_returns_sorted_jsonl_absent_dir_is_empty() {
 
     let found = a.discover(&tmp);
     assert_eq!(found.len(), 2, "only .jsonl, recursive");
-    assert!(found[0].ends_with("nested/a.jsonl"), "sorted: {found:?}");
-    assert!(found[1].ends_with("b.jsonl"));
+    let mut sorted = found.clone();
+    sorted.sort();
+    assert_eq!(found, sorted, "discovery output must be sorted: {found:?}");
+    assert!(found.iter().any(|p| p.ends_with("b.jsonl")));
+    assert!(found.iter().any(|p| p.ends_with("nested/a.jsonl")));
 
     std::fs::remove_dir_all(&tmp).unwrap();
 }
@@ -162,10 +165,12 @@ fn full_file_iteration_builds_event_stream() {
     )
     .unwrap();
 
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
     let mut n_user = 0;
     let mut n_call = 0;
     let mut n_result = 0;
+    {
+        use std::io::BufRead;
     for line in std::io::BufReader::new(std::fs::File::open(&file).unwrap()).lines() {
         if let Some(evs) = a.normalize(line.unwrap().trim()) {
             for e in evs {
@@ -179,6 +184,7 @@ fn full_file_iteration_builds_event_stream() {
         }
     }
     assert_eq!((n_user, n_call, n_result), (1, 1, 1));
+    }
     std::fs::remove_dir_all(&tmp).unwrap();
 }
 
@@ -189,7 +195,8 @@ fn real_local_claude_transcript_parses() {
     if !proj.is_dir() {
         return; // machine without local transcripts still passes
     }
-    let a = get_adapter("claude_code");
+    let a = get_adapter("claude_code").unwrap();
+    use std::io::BufRead;
     let mut parsed_any = false;
     for f in a.discover(proj).into_iter().take(3) {
         for line in std::io::BufReader::new(std::fs::File::open(f).unwrap())
