@@ -8,6 +8,11 @@
 //! regardless of the query; scoring by the single closest entry removes that
 //! class-imbalance bias. A small top-k average smooths single-entry noise.
 //!
+//! Known limit: cosine against short queries compresses — on a one-sentence
+//! input the leading cells typically land within 0.98–1.00 of each other, so
+//! the ranking is meaningful but the absolute scores are not discriminative.
+//! Read the *order*, not the magnitudes.
+//!
 //! The engine now lives in `physis-core`; this module is a thin facade that
 //! hooks physis_pro's own `OntologyLoader`/`VectorEmbed` types onto it, keeping
 //! physis_pro's public API unchanged.
