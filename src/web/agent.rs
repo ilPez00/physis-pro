@@ -240,7 +240,8 @@ pub async fn agent_run_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(req): Json<AgentRunRequest>,
-) -> Sse<impl Stream<Item = Result<Event, axum::Error>>> {
+) -> Result<Sse<impl Stream<Item = Result<Event, axum::Error>>>, (axum::http::StatusCode, Json<serde_json::Value>)>
+{
     let uid = user_key(&headers);
     let run_id = format!("run-{}", uuid::Uuid::new_v4());
     let handle = state.agent_runs.insert(&run_id, &uid);
@@ -255,7 +256,43 @@ pub async fn agent_run_handler(
     };
 
     // Build the tool registry (native Physis tools + OpenCode subprocess tool).
-    let tools = build_tool_registry(state.clone(), child_for_run, cancelled.clone(), &uid, &allowed);
+    // Built unfiltered first so the whitelist can be validated against what
+    // actually exists — the filtered build of a bogus whitelist is empty, which
+    // is exactly the silent failure this check exists to prevent.
+    let unfiltered =
+        build_tool_registry(state.clone(), child_for_run.clone(), cancelled.clone(), &uid, &None);
+
+    // A whitelist naming tools that don't exist would silently run the agent
+    // with an empty registry: the prompt tells the model to use tools it was
+    // never given, so it improvises a textual call that nothing dispatches.
+    // Fail loudly instead of letting the loop publish the improvisation.
+    let tools = match &allowed {
+        Some(want) => {
+            let missing: Vec<String> =
+                want.iter().filter(|n| !unfiltered.has(n)).cloned().collect();
+            if !missing.is_empty() {
+                state.agent_runs.remove(&run_id);
+                return Err((
+                    axum::http::StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": format!(
+                            "unknown tool(s): {}. available: {}",
+                            missing.join(", "),
+                            unfiltered.names().join(", ")
+                        )
+                    })),
+                ));
+            }
+            build_tool_registry(
+                state.clone(),
+                child_for_run.clone(),
+                cancelled.clone(),
+                &uid,
+                &allowed,
+            )
+        }
+        None => unfiltered,
+    };
 
     let cfg = state.shared.config.agent.clone();
     let agent_config = AgentConfig {
@@ -362,7 +399,7 @@ pub async fn agent_run_handler(
             .map(|ev| (Ok::<_, axum::Error>(sse_event(&ev)), rx))
     });
 
-    Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default())
+    Ok(Sse::new(stream).keep_alive(axum::response::sse::KeepAlive::default()))
 }
 
 // ── Tool registry construction ────────────────────────────────────────────────
