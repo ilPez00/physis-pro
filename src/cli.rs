@@ -207,6 +207,21 @@ impl PhysisApp {
         self.mapper.trie.prefix_search(&tids, 2, max_results)
     }
 
+    /// Semantic fallback for `query`: search the persisted coherence nodes of
+    /// the "_default" tenant — the same store /scan, watch mode, vault and
+    /// history imports register into. The trie only holds what an in-process
+    /// scan inserted, so a fresh `physis-pro query` used to answer "No results"
+    /// even with a full graph on disk (QA 8.2). Empty when persistence is off.
+    pub fn run_query_nodes(&self, query: &str, max_results: usize) -> Vec<(String, String, Score)> {
+        let Some((_, core)) = self.open_persisted_core() else {
+            return vec![];
+        };
+        if core.nodes.is_empty() {
+            return vec![];
+        }
+        core.search_nodes(&self.embedder.embed(query), max_results)
+    }
+
     /// Open the shared sled store (same file the web server uses), at most once
     /// per app. Later calls clone the cached handle instead of re-locking the
     /// file. `None` means the store is unavailable; the reason is printed once.
@@ -1551,6 +1566,45 @@ mod tests {
         let app = PhysisApp::new(config);
         let results = app.run_query("nonexistent", 5);
         assert!(results.is_empty());
+    }
+
+    /// Regression (QA 8.2): the trie is built by an in-process scan, so a
+    /// fresh `query` process found nothing even with a full node store on
+    /// disk. `run_query_nodes` must recall labels from sled instead.
+    #[test]
+    fn test_run_query_nodes_recalls_persisted_labels() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = PhysisConfig::default();
+        config.data_dir = dir.path().to_path_buf();
+
+        // "First process": register labeled nodes (what /scan and watch do).
+        {
+            let mut app = PhysisApp::new(config.clone());
+            app.register_persisted_node("quarterly budget planning").unwrap();
+            app.register_persisted_node("espresso machine descaling").unwrap();
+        }
+
+        // "Second process": empty trie, yet the store answers.
+        let app = PhysisApp::new(config);
+        assert!(app.run_query("budget", 5).is_empty(), "trie is process-local");
+        let hits = app.run_query_nodes("budget", 5);
+        assert!(!hits.is_empty(), "persisted nodes must answer after restart");
+        assert!(
+            hits.iter().any(|(_, label, _)| label == "quarterly budget planning"),
+            "the registered label should come back, got {hits:?}"
+        );
+        let unrelated = app.run_query_nodes("descaling", 5);
+        assert!(unrelated.iter().any(|(_, l, _)| l == "espresso machine descaling"));
+    }
+
+    /// With no store on disk the fallback degrades to empty, not an error.
+    #[test]
+    fn test_run_query_nodes_without_store_is_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = PhysisConfig::default();
+        config.data_dir = dir.path().to_path_buf();
+        let app = PhysisApp::new(config);
+        assert!(app.run_query_nodes("anything", 5).is_empty());
     }
 
     #[test]
