@@ -36,7 +36,7 @@ anomaly detection to corrective action.
 |---|-------------|--------|-------|-------|
 | 1.1 | Scanner overhaul: parallel WalkDir + streaming SHA256 | ✅ Done | — | rayon + 64KB buffer |
 | 1.2 | Pipeline dedup: `run_ingest_pipeline()` | ✅ Done | — | 160 lines extracted |
-| 1.3 | Disk indexer (`physis-pro index`) | 🔜 Next | — | Fast-path catalog, `--watch` mode |
+| 1.3 | Disk indexer (`physis-pro index`) | ✅ Done | `src/indexer.rs`: stat fast path (re-hash only changed), sled catalog, `--watch`/`--interval`; e2e verified |
 | 1.4 | Critical unwrap elimination | ✅ Done | — | `unwrap_or_default()` in VFS |
 | 1.5 | CI/CD: cargo check + clippy + test | ✅ Done | — | 3 feature sets |
 | 1.6 | Inventory command (sled DB) | ✅ Done | — | + SMA-30 forecast |
