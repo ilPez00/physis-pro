@@ -7,10 +7,73 @@
 //! Italian. No state, no I/O: callers (web handler, CLI) gather the inputs, so
 //! the renderer is replica-safe and works identically online and locally.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::maintenance::{AnomalyScore, RulEstimate};
 use crate::oee::{OeeReport, PlantOee};
+
+/// Provenance of a report's numbers: what generated them, from how much data,
+/// over which window. A customer-ready artifact must be able to answer "where
+/// do these figures come from?" without a phone call.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportMetadata {
+    /// When this document was produced.
+    pub generated_at: DateTime<Utc>,
+    /// Where the inputs came from: "shift-history" (durable per-tenant
+    /// records), "live-board" (in-memory accumulators), or "caller-supplied".
+    pub source: String,
+    /// How many underlying shift records fed the numbers (0 = unknown).
+    #[serde(default)]
+    pub shift_count: usize,
+    /// Distinct machines covered.
+    #[serde(default)]
+    pub machine_count: usize,
+    /// Observed window of the underlying data (RFC 3339), when dated records exist.
+    #[serde(default)]
+    pub span: Option<ReportSpan>,
+}
+
+/// Inclusive data window behind a report.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportSpan {
+    pub from: DateTime<Utc>,
+    pub to: DateTime<Utc>,
+}
+
+impl ReportMetadata {
+    pub fn new(source: impl Into<String>) -> Self {
+        Self {
+            generated_at: Utc::now(),
+            source: source.into(),
+            shift_count: 0,
+            machine_count: 0,
+            span: None,
+        }
+    }
+
+    /// One-line human summary (Italian), e.g.
+    /// "42 turni su 3 macchine · dati 2026-08-01 → 2026-08-20 · origine: shift-history".
+    pub fn summarize_it(&self) -> String {
+        let mut parts = Vec::new();
+        if self.shift_count > 0 {
+            let mach = match self.machine_count {
+                1 => "1 macchina".to_string(),
+                n => format!("{n} macchine"),
+            };
+            parts.push(format!("{} turni su {mach}", self.shift_count));
+        }
+        if let Some(span) = &self.span {
+            parts.push(format!(
+                "dati {} → {}",
+                span.from.format("%Y-%m-%d"),
+                span.to.format("%Y-%m-%d")
+            ));
+        }
+        parts.push(format!("origine: {}", self.source));
+        parts.join(" · ")
+    }
+}
 
 /// Everything a shift report can include. Only `oee` is required; empty
 /// sections are omitted from the output rather than rendered hollow.
@@ -33,6 +96,9 @@ pub struct ShiftReportInput {
     /// Free-form shift label, e.g. "Turno 1 — 2026-06-12". Optional.
     #[serde(default)]
     pub shift_label: Option<String>,
+    /// Provenance block; rendered under the title when present.
+    #[serde(default)]
+    pub metadata: Option<ReportMetadata>,
 }
 
 /// A remaining-useful-life projection bound to a machine and metric.
@@ -65,6 +131,9 @@ pub fn render_shift_report_it(input: &ShiftReportInput) -> String {
     let mut md = String::new();
     let title = input.shift_label.as_deref().unwrap_or("Rapporto di turno");
     md.push_str(&format!("# {title}\n\n"));
+    if let Some(meta) = &input.metadata {
+        md.push_str(&format!("*{}*\n\n", esc(&meta.summarize_it())));
+    }
 
     // ── Plant rollup (when more than one machine) ───────────────────────────
     let computed_plant;
@@ -101,7 +170,11 @@ pub fn render_shift_report_it(input: &ShiftReportInput) -> String {
         md.push_str(&format!(
             "| **OEE** | **{}**{} |\n",
             pct(r.oee),
-            if r.world_class { " (world-class ≥85%)" } else { "" }
+            if r.world_class {
+                " (world-class ≥85%)"
+            } else {
+                ""
+            }
         ));
         md.push_str(&format!(
             "| Produzione | {} pezzi buoni / {} totali |\n",
@@ -185,7 +258,9 @@ pub fn render_shift_report_it(input: &ShiftReportInput) -> String {
 
 /// Minimal HTML escaping for text we interpolate into the document.
 fn esc(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 /// Render the Italian shift report as a self-contained HTML document —
@@ -196,6 +271,14 @@ fn esc(s: &str) -> String {
 pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
     let title = input.shift_label.as_deref().unwrap_or("Rapporto di turno");
     let mut b = String::new();
+    if let Some(meta) = &input.metadata {
+        b.push_str(&format!(
+            "<p class=\"meta\">{}</p>",
+            esc(&meta.summarize_it())
+        ));
+    }
+    // The metadata line needs a style hook alongside the existing CSS.
+    let meta_css = ".meta{color:#555;font-size:.85rem;margin:.2rem 0 1rem}";
 
     let computed_plant;
     let plant = match (&input.plant, input.oee.len()) {
@@ -216,8 +299,15 @@ pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
     }
 
     for r in &input.oee {
-        b.push_str(&format!("<section><h2>Macchina {}</h2>", esc(&r.machine_id)));
-        let wc = if r.world_class { " <span class=\"badge\">world-class ≥85%</span>" } else { "" };
+        b.push_str(&format!(
+            "<section><h2>Macchina {}</h2>",
+            esc(&r.machine_id)
+        ));
+        let wc = if r.world_class {
+            " <span class=\"badge\">world-class ≥85%</span>"
+        } else {
+            ""
+        };
         b.push_str(&format!(
             "<table><tbody>\
              <tr><th>Disponibilità</th><td>{}</td></tr>\
@@ -227,16 +317,24 @@ pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
              <tr><th>Produzione</th><td>{} pezzi buoni / {} totali</td></tr>\
              <tr><th>Tempo di marcia</th><td>{} su {} pianificati</td></tr>\
              </tbody></table>",
-            pct(r.availability), pct(r.performance), pct(r.quality), pct(r.oee), wc,
-            r.good_count, r.total_count,
-            dur(r.run_time_secs as f64), dur(r.planned_production_time_secs as f64),
+            pct(r.availability),
+            pct(r.performance),
+            pct(r.quality),
+            pct(r.oee),
+            wc,
+            r.good_count,
+            r.total_count,
+            dur(r.run_time_secs as f64),
+            dur(r.planned_production_time_secs as f64),
         ));
         if !r.losses.is_empty() {
             b.push_str("<h3>Perdite principali</h3><table><thead><tr><th>Causa</th><th>Tempo perso</th><th>Pezzi persi</th></tr></thead><tbody>");
             for l in &r.losses {
                 b.push_str(&format!(
                     "<tr><td>{}</td><td>{}</td><td>{}</td></tr>",
-                    esc(&l.label), dur(l.lost_secs as f64), l.lost_parts
+                    esc(&l.label),
+                    dur(l.lost_secs as f64),
+                    l.lost_parts
                 ));
             }
             b.push_str("</tbody></table>");
@@ -281,12 +379,13 @@ pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
 
     format!(
         "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"utf-8\">\
-         <title>{t}</title><style>{css}</style></head><body>\
+         <title>{t}</title><style>{css}{meta_css}</style></head><body>\
          <h1>{t}</h1>{body}\
          <footer>Generato da Physis — classificazione ontologica e coerenza di processo.</footer>\
          </body></html>",
         t = esc(title),
         css = REPORT_CSS,
+        meta_css = meta_css,
         body = b,
     )
 }
@@ -331,7 +430,10 @@ mod tests {
         assert!(md.contains("Macchina tornio-1"));
         assert!(md.contains("Disponibilità"));
         assert!(md.contains("OEE"));
-        assert!(md.contains("813 totali"), "total parts in production row:\n{md}");
+        assert!(
+            md.contains("813 totali"),
+            "total parts in production row:\n{md}"
+        );
         assert!(md.contains("Perdite principali"));
         assert!(md.contains("Contromisure proposte"));
         assert!(md.contains("Ispezione cuscinetto"));
@@ -358,7 +460,10 @@ mod tests {
 
     #[test]
     fn test_empty_sections_omitted() {
-        let input = ShiftReportInput { oee: vec![shift_report()], ..Default::default() };
+        let input = ShiftReportInput {
+            oee: vec![shift_report()],
+            ..Default::default()
+        };
         let md = render_shift_report_it(&input);
         assert!(!md.contains("Anomalie rilevate"));
         assert!(!md.contains("Vita utile residua"));
@@ -378,9 +483,15 @@ mod tests {
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("<style>"), "CSS must be inline");
         assert!(html.contains("tornio &lt;1&gt;"), "machine id escaped");
-        assert!(html.contains("Stringere &amp; verificare"), "countermeasure escaped");
+        assert!(
+            html.contains("Stringere &amp; verificare"),
+            "countermeasure escaped"
+        );
         assert!(html.contains("Disponibilità"));
-        assert!(!html.contains("<script"), "no scripts in an email-able document");
+        assert!(
+            !html.contains("<script"),
+            "no scripts in an email-able document"
+        );
     }
 
     #[test]
@@ -388,5 +499,52 @@ mod tests {
         assert_eq!(dur(30.0), "30s");
         assert_eq!(dur(300.0), "5m");
         assert_eq!(dur(5400.0), "1h 30m");
+    }
+
+    #[test]
+    fn test_metadata_renders_in_both_formats() {
+        let meta = ReportMetadata {
+            generated_at: Utc::now(),
+            source: "shift-history".into(),
+            shift_count: 42,
+            machine_count: 3,
+            span: Some(ReportSpan {
+                from: Utc::now(),
+                to: Utc::now(),
+            }),
+        };
+        let summary = meta.summarize_it();
+        assert!(summary.contains("42 turni su 3 macchine"), "{summary}");
+        assert!(summary.contains("origine: shift-history"));
+
+        let input = ShiftReportInput {
+            oee: vec![shift_report()],
+            metadata: Some(meta),
+            ..Default::default()
+        };
+        let md = render_shift_report_it(&input);
+        assert!(
+            md.contains("42 turni su 3 macchine"),
+            "markdown carries provenance:\n{md}"
+        );
+
+        let html = render_shift_report_html(&input);
+        assert!(
+            html.contains("class=\"meta\""),
+            "html provenance block present"
+        );
+        assert!(html.contains("42 turni"));
+    }
+
+    #[test]
+    fn test_metadata_absent_leaves_reports_unchanged() {
+        // Back-compat: a caller that never heard of metadata gets byte-identical
+        // output (modulo timestamps) — no empty placeholder line.
+        let input = ShiftReportInput {
+            oee: vec![shift_report()],
+            ..Default::default()
+        };
+        assert!(!render_shift_report_it(&input).contains("origine:"));
+        assert!(!render_shift_report_html(&input).contains("class=\"meta\""));
     }
 }

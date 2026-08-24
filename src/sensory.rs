@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use bytemuck::{Pod, Zeroable};
+use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
 #[repr(u8)]
@@ -15,7 +15,7 @@ pub enum SignalType {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct AuraFrameHeader {
-    pub magic: [u8; 4], // 'AURA'
+    pub magic: [u8; 4],     // 'AURA'
     pub _padding1: [u8; 4], // Align timestamp to 8
     pub timestamp: u64,
     pub signal_type: u8,
@@ -102,15 +102,15 @@ mod tests {
 }
 
 pub mod listener {
-    use tokio::net::UnixListener;
-    use tokio::io::AsyncReadExt;
     use crate::graph::IngestRing;
     use std::sync::Arc;
+    use tokio::io::AsyncReadExt;
+    use tokio::net::UnixListener;
 
     pub async fn start_sensory_server(path: &str, ingest: Arc<IngestRing>) -> anyhow::Result<()> {
         let _ = std::fs::remove_file(path);
         let listener = UnixListener::bind(path)?;
-        
+
         loop {
             match listener.accept().await {
                 Ok((mut socket, _)) => {

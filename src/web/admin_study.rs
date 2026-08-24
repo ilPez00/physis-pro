@@ -1,6 +1,10 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State}, response::Response, http::HeaderMap};
+use axum::{
+    extract::{Json, Query, State},
+    http::HeaderMap,
+    response::Response,
+};
 
 /// POST /api/v1/admin/review — group supplied documents into duplicate review
 /// clusters. This is a stateless first step for the administration pilot.
@@ -47,6 +51,15 @@ pub async fn report_shift_live_handler(
     let input = crate::report::ShiftReportInput {
         oee,
         countermeasures,
+        metadata: Some(crate::report::ReportMetadata {
+            source: "live-board".into(),
+            shift_count: 0,
+            machine_count: {
+                let board = state.oee.lock().unwrap_or_else(|e| e.into_inner());
+                board.machine_ids().len()
+            },
+            ..crate::report::ReportMetadata::new("live-board")
+        }),
         ..Default::default()
     };
     report_response(&input, q.format.as_deref())
@@ -124,7 +137,11 @@ pub fn study_key(uid: &str) -> String {
     format!("study:log:{uid}")
 }
 
-pub(crate) fn save_study(db: &sled::Db, uid: &str, events: &[crate::study::StudyEvent]) -> anyhow::Result<()> {
+pub(crate) fn save_study(
+    db: &sled::Db,
+    uid: &str,
+    events: &[crate::study::StudyEvent],
+) -> anyhow::Result<()> {
     db.insert(study_key(uid), serde_json::to_vec(events)?)?;
     Ok(())
 }
@@ -136,4 +153,3 @@ pub(crate) fn load_study(db: &sled::Db, uid: &str) -> Vec<crate::study::StudyEve
         .and_then(|v| serde_json::from_slice::<Vec<crate::study::StudyEvent>>(&v).ok())
         .unwrap_or_default()
 }
-

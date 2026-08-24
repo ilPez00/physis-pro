@@ -34,7 +34,11 @@ impl Element {
         // Hydraulic/cooling wins over thermal: a coolant temp is Water, not Fire.
         if m.contains("coolant") || m.contains("fluid") || m.contains("hydraul") {
             Element::Water
-        } else if m.contains("temp") || m.contains("thermal") || m.contains("heat") || m.contains("flame") {
+        } else if m.contains("temp")
+            || m.contains("thermal")
+            || m.contains("heat")
+            || m.contains("flame")
+        {
             Element::Fire
         } else if m.contains("valve")
             || m.contains("pneum")
@@ -146,8 +150,14 @@ pub fn reduce(
     let mut score: f32 = 0.0;
     for r in readings {
         let status = classify(r, threshold);
-        let text = format!("{:?}/{} value {:.2} baseline {:.2} dev {:+.2}",
-            r.element(), r.metric, r.value, r.baseline, r.deviation());
+        let text = format!(
+            "{:?}/{} value {:.2} baseline {:.2} dev {:+.2}",
+            r.element(),
+            r.metric,
+            r.value,
+            r.baseline,
+            r.deviation()
+        );
         core.register_node_from_text(&text, embedder);
         core.bridge_node(&text);
         score += status.coherence();
@@ -178,10 +188,18 @@ mod tests {
 
     #[test]
     fn classify_flags_deviation_past_threshold() {
-        let r = Reading { metric: "cpu_percent".into(), value: 95.0, baseline: 40.0 };
+        let r = Reading {
+            metric: "cpu_percent".into(),
+            value: 95.0,
+            baseline: 40.0,
+        };
         assert_eq!(classify(&r, 2.0), Status::Anomaly);
         assert_eq!(classify(&r, 2.0).coherence(), -1.0);
-        let steady = Reading { metric: "cpu_percent".into(), value: 41.0, baseline: 40.0 };
+        let steady = Reading {
+            metric: "cpu_percent".into(),
+            value: 41.0,
+            baseline: 40.0,
+        };
         assert_eq!(classify(&steady, 2.0), Status::Stable);
     }
 
@@ -189,7 +207,11 @@ mod tests {
     fn reduce_scores_stable_readings_positive() {
         let mut core = PhysisCore::new();
         let embedder = RandomProjectionEmbedder::new(64);
-        let steady = Reading { metric: "cpu_percent".into(), value: 41.0, baseline: 40.0 };
+        let steady = Reading {
+            metric: "cpu_percent".into(),
+            value: 41.0,
+            baseline: 40.0,
+        };
         let s = reduce(&mut core, &embedder, &[steady], 2.0);
         assert_eq!(s, 1.0); // one stable reading -> +1
     }
@@ -198,14 +220,30 @@ mod tests {
     fn reduce_penalises_anomaly_and_trend() {
         let mut core = PhysisCore::new();
         let embedder = RandomProjectionEmbedder::new(64);
-        let hot = Reading { metric: "temp_core".into(), value: 95.0, baseline: 40.0 };
+        let hot = Reading {
+            metric: "temp_core".into(),
+            value: 95.0,
+            baseline: 40.0,
+        };
         let s = reduce(&mut core, &embedder, &[hot], 2.0);
         assert_eq!(s, -1.0); // anomalous -> -1
-        // trend past 0.5 penalises further
+                             // trend past 0.5 penalises further
         let rising = [
-            Reading { metric: "temp_core".into(), value: 10.0, baseline: 10.0 },
-            Reading { metric: "temp_core".into(), value: 40.0, baseline: 10.0 },
-            Reading { metric: "temp_core".into(), value: 90.0, baseline: 10.0 },
+            Reading {
+                metric: "temp_core".into(),
+                value: 10.0,
+                baseline: 10.0,
+            },
+            Reading {
+                metric: "temp_core".into(),
+                value: 40.0,
+                baseline: 10.0,
+            },
+            Reading {
+                metric: "temp_core".into(),
+                value: 90.0,
+                baseline: 10.0,
+            },
         ];
         let s2 = reduce(&mut core, &embedder, &rising, 2.0);
         assert!(s2 < -0.5, "rising trend should penalise below mean");

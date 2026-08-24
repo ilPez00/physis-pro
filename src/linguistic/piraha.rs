@@ -5,47 +5,70 @@ static FUNCTION_WORDS: once_cell::sync::Lazy<HashSet<&'static str>> =
         let mut s = HashSet::new();
         s.extend(["a", "an", "the"]);
         s.extend([
-            "in", "on", "at", "to", "for", "of", "with", "by", "from", "up",
-            "about", "into", "over", "after", "before", "between", "under",
-            "through", "during", "without", "within", "along", "across",
-            "behind", "below", "beneath", "beside", "beyond", "around",
-            "toward", "upon", "via",
+            "in", "on", "at", "to", "for", "of", "with", "by", "from", "up", "about", "into",
+            "over", "after", "before", "between", "under", "through", "during", "without",
+            "within", "along", "across", "behind", "below", "beneath", "beside", "beyond",
+            "around", "toward", "upon", "via",
         ]);
         s.extend([
-            "is", "are", "was", "were", "be", "been", "being",
-            "have", "has", "had", "having",
-            "do", "does", "did", "doing",
-            "will", "would", "shall", "should",
-            "can", "could", "may", "might", "must",
-            "am",
+            "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having",
+            "do", "does", "did", "doing", "will", "would", "shall", "should", "can", "could",
+            "may", "might", "must", "am",
         ]);
         s.extend([
-            "i", "you", "he", "she", "it", "we", "they",
-            "me", "him", "her", "us", "them",
-            "my", "your", "his", "its", "our", "their",
-            "mine", "yours", "hers", "ours", "theirs",
-            "this", "that", "these", "those",
-            "who", "whom", "what", "which",
-            "myself", "yourself", "himself", "herself", "itself",
-            "ourselves", "themselves",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "me",
+            "him",
+            "her",
+            "us",
+            "them",
+            "my",
+            "your",
+            "his",
+            "its",
+            "our",
+            "their",
+            "mine",
+            "yours",
+            "hers",
+            "ours",
+            "theirs",
+            "this",
+            "that",
+            "these",
+            "those",
+            "who",
+            "whom",
+            "what",
+            "which",
+            "myself",
+            "yourself",
+            "himself",
+            "herself",
+            "itself",
+            "ourselves",
+            "themselves",
         ]);
         s.extend([
-            "and", "or", "but", "nor", "yet", "so",
-            "because", "although", "while", "if", "unless",
+            "and", "or", "but", "nor", "yet", "so", "because", "although", "while", "if", "unless",
             "since", "as", "when", "where", "whether",
         ]);
         s.extend([
-            "some", "any", "each", "every", "all", "both", "few", "many",
-            "much", "several", "no", "not", "neither", "either",
+            "some", "any", "each", "every", "all", "both", "few", "many", "much", "several", "no",
+            "not", "neither", "either",
         ]);
         s.extend([
-            "then", "just", "very", "also", "too", "only", "quite",
-            "here", "there", "now", "then", "still", "already",
-            "yet", "again", "ever", "never", "always",
+            "then", "just", "very", "also", "too", "only", "quite", "here", "there", "now", "then",
+            "still", "already", "yet", "again", "ever", "never", "always",
         ]);
         s.extend([
-            "that", "which", "who", "whom", "whose",
-            "where", "when", "why", "how",
+            "that", "which", "who", "whom", "whose", "where", "when", "why", "how",
         ]);
         s
     });
@@ -58,10 +81,7 @@ pub struct PirahaFilter {
 impl PirahaFilter {
     pub fn new() -> Self {
         Self {
-            stop_words: FUNCTION_WORDS
-                .iter()
-                .map(|w| w.to_string())
-                .collect(),
+            stop_words: FUNCTION_WORDS.iter().map(|w| w.to_string()).collect(),
         }
     }
 

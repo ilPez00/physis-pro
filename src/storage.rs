@@ -1,7 +1,7 @@
-use std::fs::{OpenOptions, File};
-use std::path::Path;
-use memmap2::MmapMut;
 use bytemuck::{Pod, Zeroable};
+use memmap2::MmapMut;
+use std::fs::{File, OpenOptions};
+use std::path::Path;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
@@ -96,7 +96,9 @@ mod tests {
         let mut storage = MmappedStorage::open(&path, 4096).unwrap();
         // Write f32s after the header region, read them back through as_slice.
         let written: Vec<f32> = vec![1.5, -2.25, 0.0, 42.0];
-        storage.as_slice_mut::<f32>(HEADER_SIZE, 4).copy_from_slice(&written);
+        storage
+            .as_slice_mut::<f32>(HEADER_SIZE, 4)
+            .copy_from_slice(&written);
         assert_eq!(storage.as_slice::<f32>(HEADER_SIZE, 4), written.as_slice());
     }
 }

@@ -111,8 +111,10 @@ pub enum LicenseError {
          reinstall a build released on or before {maint_exp}, or renew maintenance"
     )]
     BuildNotCovered { build: String, maint_exp: String },
-    #[error("system clock reads {now}, earlier than this install's last run ({last_seen}) — \
-             refusing to run on a rolled-back clock")]
+    #[error(
+        "system clock reads {now}, earlier than this install's last run ({last_seen}) — \
+             refusing to run on a rolled-back clock"
+    )]
     ClockRolledBack { now: String, last_seen: String },
     #[error("feature '{0}' is not included in this licence")]
     FeatureNotLicensed(String),
@@ -401,16 +403,12 @@ mod tests {
         // A customer pasting the raw payload without the envelope must fail
         // closed rather than being treated as a licence.
         let raw = serde_json::to_string(&sample("2099-01-01", "2099-01-01")).unwrap();
-        assert!(matches!(
-            verify_blob(&raw),
-            Err(LicenseError::Malformed(_))
-        ));
+        assert!(matches!(verify_blob(&raw), Err(LicenseError::Malformed(_))));
     }
 
     #[test]
     fn expired_licence_reports_the_date() {
-        let lic: License =
-            serde_json::from_value(sample("2020-01-01", "2099-01-01")).unwrap();
+        let lic: License = serde_json::from_value(sample("2020-01-01", "2099-01-01")).unwrap();
         match lic.check_dates() {
             Err(LicenseError::Expired { exp, days_ago }) => {
                 assert_eq!(exp, "2020-01-01");
@@ -422,8 +420,7 @@ mod tests {
 
     #[test]
     fn wildcard_feature_enables_everything() {
-        let mut lic: License =
-            serde_json::from_value(sample("2099-01-01", "2099-01-01")).unwrap();
+        let mut lic: License = serde_json::from_value(sample("2099-01-01", "2099-01-01")).unwrap();
         assert!(!lic.allows("industrial"));
         lic.features = vec!["*".to_string()];
         assert!(lic.allows("industrial"));

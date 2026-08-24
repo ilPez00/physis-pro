@@ -124,7 +124,10 @@ pub fn register_motions(
     let mut ids = Vec::new();
     for m in motions {
         let id = core.register_node_from_text(
-            &format!("motion: {} (reach {:.1}, straight {:.2})", m.label, m.net, m.straightness),
+            &format!(
+                "motion: {} (reach {:.1}, straight {:.2})",
+                m.label, m.net, m.straightness
+            ),
             embedder,
         );
         core.bridge_node(&id);
@@ -145,7 +148,10 @@ mod tests {
     fn reach_detected_jitter_rejected() {
         let gestures = vec![
             // a straight reach
-            Gesture { label: "reach".into(), points: vec![p(0.0, 0.0), p(5.0, 0.0), p(10.0, 0.0)] },
+            Gesture {
+                label: "reach".into(),
+                points: vec![p(0.0, 0.0), p(5.0, 0.0), p(10.0, 0.0)],
+            },
             // pure tremor: all segments below min_move
             Gesture {
                 label: "tremor".into(),
@@ -165,10 +171,22 @@ mod tests {
     #[test]
     fn degrading_gait_flagged() {
         let gestures = vec![
-            Gesture { label: "step".into(), points: vec![p(0.0, 0.0), p(10.0, 0.0)] }, // path 10
-            Gesture { label: "step".into(), points: vec![p(0.0, 0.0), p(6.0, 0.0)] },  // path 6 (−40%)
-            Gesture { label: "wave".into(), points: vec![p(0.0, 0.0), p(4.0, 0.0)] },
-            Gesture { label: "wave".into(), points: vec![p(0.0, 0.0), p(4.0, 0.0)] },  // steady
+            Gesture {
+                label: "step".into(),
+                points: vec![p(0.0, 0.0), p(10.0, 0.0)],
+            }, // path 10
+            Gesture {
+                label: "step".into(),
+                points: vec![p(0.0, 0.0), p(6.0, 0.0)],
+            }, // path 6 (−40%)
+            Gesture {
+                label: "wave".into(),
+                points: vec![p(0.0, 0.0), p(4.0, 0.0)],
+            },
+            Gesture {
+                label: "wave".into(),
+                points: vec![p(0.0, 0.0), p(4.0, 0.0)],
+            }, // steady
         ];
         let motions = detect_motions(&gestures, 0.5);
         let deg = degrading(&motions, 0.2);

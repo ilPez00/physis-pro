@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Interest daemon (new `daemon` feature + binary).**
+`physis-interest-daemon` observes local work and distills it into an interest
+profile over the ontological grid. Three feeds: clipboard polling deduped by
+content hash (only a 280-char preview + SHA-256 persist, never the full
+text), notify watchers on configured directories, and document analysis —
+`.pptx`/`.docx` unzip to text runs plus OOXML core properties (title,
+creator, dates, slide count), plain text family read directly. Observations
+land in a per-tenant sled store; the profile classifies each item through the
+shared CellClassifier and applies a 14-day half-life decay, so it answers
+"what has this user been into lately". Read API on loopback:
+`GET /api/v1/interest/profile`, `/api/v1/interest/events`, `/health`.
+The feature stays out of `full` — arboard wants a display server at runtime.
+Verified end-to-end: file drop → analyze → store → profile query.
+
+**Semantic interests.** The daemon now runs the same embedder cascade as the
+web server: BGE-base via ONNX when `--features embed-onnx` is on and the
+model passes the semantic self-test, deterministic random-projection
+otherwise (`PHYSIS_EMBEDDER=rp` forces offline). Ontology seeds come from the
+shared embedding cache, so restart after the first boot skips ~650
+re-embeddings; classifier ready drops from minutes to seconds. Provenance is
+logged at startup — every interest score knows which embedder produced it.
+
+**Durable shift history (PLAN 5.1 + 5.3).** Shift records now persist per
+tenant in sled (`shifts:history:{uid}`, newest-capped at 5000) instead of
+living only inside the stateless report call. `POST /api/v1/shifts/import`
+accepts CSV or JSON with partial acceptance: valid rows land, rejected rows
+come back with line numbers and the reason (bad numbers, good > total, unknown
+stop reasons, non-RFC-3339 timestamps). `GET /api/v1/shifts` lists history
+(`?machine=` filter), `GET /api/v1/shifts/report` aggregates every stored shift
+into one cumulative OEE report per machine plus the plant rollup, and
+`POST /api/v1/shifts/clear` resets a tenant. Zero-valued downtime cells are
+treated as "no stoppage" — machine exports use them constantly.
+
+**Report provenance + evidence export (PLAN 5.2).** Reports can now answer
+"where do these numbers come from?". `ReportMetadata` (source, generated-at,
+shift/machine counts, data window) renders as a line under the title of both
+the Markdown and HTML shift reports and rides on the JSON responses;
+the live-board handler stamps "live-board", history reports stamp
+"shift-history". `GET /api/v1/shifts/export` returns a self-contained JSON
+evidence bundle — raw records plus per-record OEE recomputed at export time,
+aligned index-for-index — so a customer can re-derive every headline figure
+without trusting our aggregation. The history report endpoint also gained
+`?format=md|html` for customer-ready rendered documents straight from stored
+history.
+
 ## [0.9.3] — 2026-08-23
 
 Published as `physis_pro` 0.1.5.

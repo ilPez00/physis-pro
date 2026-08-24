@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::path::Path;
 use std::io::Read;
+use std::path::Path;
 
 const MAGIC: &[u8; 10] = b"AURA_TRIE\x00";
 const VERSION: u32 = 1;
@@ -167,10 +167,7 @@ impl DynamicVectorTrie {
         depth: u32,
         max_results: usize,
     ) -> Vec<Vec<String>> {
-        let tids: Vec<u32> = words
-            .iter()
-            .filter_map(|w| self.token_id(w))
-            .collect();
+        let tids: Vec<u32> = words.iter().filter_map(|w| self.token_id(w)).collect();
         if tids.is_empty() {
             return vec![];
         }
@@ -567,7 +564,13 @@ impl DynamicVectorTrie {
         let mut added = Vec::new();
         let mut removed = Vec::new();
 
-        fn enumerate_paths(pool: &[Node], dict: &[String], idx: usize, prefix: &mut Vec<String>, results: &mut Vec<Vec<String>>) {
+        fn enumerate_paths(
+            pool: &[Node],
+            dict: &[String],
+            idx: usize,
+            prefix: &mut Vec<String>,
+            results: &mut Vec<Vec<String>>,
+        ) {
             let node = &pool[idx];
             if node.token_id != 0 || idx != 0 {
                 let ts = dict[node.token_id as usize].clone();
@@ -589,9 +592,21 @@ impl DynamicVectorTrie {
         let mut self_paths = Vec::new();
         let mut other_paths = Vec::new();
         let mut prefix = Vec::new();
-        enumerate_paths(&self.pool, &self.dictionary, 0, &mut prefix, &mut self_paths);
+        enumerate_paths(
+            &self.pool,
+            &self.dictionary,
+            0,
+            &mut prefix,
+            &mut self_paths,
+        );
         prefix.clear();
-        enumerate_paths(&other.pool, &other.dictionary, 0, &mut prefix, &mut other_paths);
+        enumerate_paths(
+            &other.pool,
+            &other.dictionary,
+            0,
+            &mut prefix,
+            &mut other_paths,
+        );
 
         for path in &other_paths {
             if !self_paths.contains(path) {
@@ -677,7 +692,10 @@ mod tests {
             t.insert_path(&format!("otherbranch/sub-{i}/leaf"));
         }
         let cost_2 = t.prefix_search_str(&["project"], 2, 8).len();
-        assert_eq!(cost_1, cost_2, "query cost should not grow with unrelated trie size");
+        assert_eq!(
+            cost_1, cost_2,
+            "query cost should not grow with unrelated trie size"
+        );
     }
 
     #[test]

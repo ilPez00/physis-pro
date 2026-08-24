@@ -117,7 +117,12 @@ impl TelemetryPayload {
     }
 
     fn into_reading(self, machine_id: &str) -> MachineReading {
-        let status = match self.status.as_deref().map(str::to_ascii_lowercase).as_deref() {
+        let status = match self
+            .status
+            .as_deref()
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
             Some("offline") => MachineStatus::Offline,
             Some("warning") => MachineStatus::Warning,
             Some("critical") => MachineStatus::Critical,
@@ -146,7 +151,7 @@ impl TelemetryPayload {
 #[cfg(feature = "industrial")]
 pub mod mqtt {
     use super::*;
-    use rumqttc::{AsyncClient, MqttOptions, QoS, EventLoop, Event, Packet};
+    use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS};
 
     pub struct MqttAdapter {
         client: Option<AsyncClient>,
@@ -183,7 +188,8 @@ pub mod mqtt {
                 Some((h, p)) => (h.to_string(), p.parse().unwrap_or(1883)),
                 None => (endpoint.to_string(), 1883),
             };
-            let mut mqttoptions = MqttOptions::new(format!("physis-{}", self.machine_id), host, port);
+            let mut mqttoptions =
+                MqttOptions::new(format!("physis-{}", self.machine_id), host, port);
             mqttoptions.set_keep_alive(Duration::from_secs(5));
             let (client, eventloop) = AsyncClient::new(mqttoptions, 10);
             self.client = Some(client);
@@ -193,7 +199,10 @@ pub mod mqtt {
         }
 
         async fn poll(&mut self) -> anyhow::Result<MachineReading> {
-            let client = self.client.clone().ok_or_else(|| anyhow::anyhow!("not connected"))?;
+            let client = self
+                .client
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("not connected"))?;
             let eventloop = self
                 .eventloop
                 .as_mut()

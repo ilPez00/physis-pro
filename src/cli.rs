@@ -19,7 +19,11 @@ use crate::network::NetworkScanner;
 use crate::output;
 
 #[derive(Parser)]
-#[command(name = "physis", version, about = "Ontological mapper and PDCA dream engine")]
+#[command(
+    name = "physis",
+    version,
+    about = "Ontological mapper and PDCA dream engine"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -253,7 +257,12 @@ impl PhysisApp {
 
     /// "Exchange parts" edit from the CLI: swap a node's content, preserving its
     /// structure. Pin a cell with `--domain`/`--mode` to override auto-derivation.
-    pub fn run_node_edit(&mut self, id: &str, label: &str, pin: Option<(String, String)>) -> anyhow::Result<String> {
+    pub fn run_node_edit(
+        &mut self,
+        id: &str,
+        label: &str,
+        pin: Option<(String, String)>,
+    ) -> anyhow::Result<String> {
         let Some((db, mut core)) = self.open_persisted_core() else {
             anyhow::bail!("node store unavailable (persistence off)");
         };
@@ -293,7 +302,12 @@ impl PhysisApp {
     }
 
     /// Fixed-token search over the persisted coherence + goal nodes.
-    pub fn run_node_search(&mut self, query: &str, budget: usize, top: usize) -> anyhow::Result<String> {
+    pub fn run_node_search(
+        &mut self,
+        query: &str,
+        budget: usize,
+        top: usize,
+    ) -> anyhow::Result<String> {
         let Some((_db, core)) = self.open_persisted_core() else {
             anyhow::bail!("node store unavailable (persistence off)");
         };
@@ -301,28 +315,44 @@ impl PhysisApp {
 
         // Coherence nodes (labeled) — goals aren't persisted via this store in
         // the CLI path, so node search covers the shared coherence register.
-        let candidates: Vec<(String, String, Vec<f32>)> = core.nodes.values()
+        let candidates: Vec<(String, String, Vec<f32>)> = core
+            .nodes
+            .values()
             .filter_map(|n| {
                 let label = n.label.as_deref()?;
-                if label.trim().is_empty() { return None; }
+                if label.trim().is_empty() {
+                    return None;
+                }
                 Some((n.id.clone(), label.to_string(), n.embedding.clone()))
             })
             .collect();
 
         let corpus = crate::rag::RagCorpus {
-            chunks: candidates.iter().enumerate().map(|(i, (_, label, emb))| crate::rag::RagChunk {
-                id: i,
-                text: label.clone(),
-                tokens: crate::rag::count_tokens(label),
-                embedding: emb.clone(),
-            }).collect(),
+            chunks: candidates
+                .iter()
+                .enumerate()
+                .map(|(i, (_, label, emb))| crate::rag::RagChunk {
+                    id: i,
+                    text: label.clone(),
+                    tokens: crate::rag::count_tokens(label),
+                    embedding: emb.clone(),
+                })
+                .collect(),
         };
         let result = crate::rag::TokenFixedRetriever::new(budget, top).retrieve(&q_emb, &corpus);
 
-        let mut out = format!("{} result(s), {} tokens (budget {})\n", result.chunks.len(), result.total_tokens, result.budget);
+        let mut out = format!(
+            "{} result(s), {} tokens (budget {})\n",
+            result.chunks.len(),
+            result.total_tokens,
+            result.budget
+        );
         for c in &result.chunks {
             if let Some((id, label, _)) = candidates.get(c.id) {
-                out.push_str(&format!("  {:.3}  [{}] {} ({} tokens)\n", c.score, id, label, c.tokens));
+                out.push_str(&format!(
+                    "  {:.3}  [{}] {} ({} tokens)\n",
+                    c.score, id, label, c.tokens
+                ));
             }
         }
         Ok(out)
@@ -337,7 +367,11 @@ impl PhysisApp {
     /// Reads markdown/plain-text notes (title + headings → labels) and — when
     /// `git_max > 0` — the recent commit history, embedding each label with the
     /// shared embedder so the vault is recallable by content in the wiki.
-    pub fn run_vault_import(&mut self, dir: &std::path::Path, git_max: usize) -> anyhow::Result<String> {
+    pub fn run_vault_import(
+        &mut self,
+        dir: &std::path::Path,
+        git_max: usize,
+    ) -> anyhow::Result<String> {
         if !dir.is_dir() {
             anyhow::bail!("vault directory not found: {}", dir.display());
         }
@@ -415,7 +449,9 @@ impl PhysisApp {
         let deduped = labels_total.saturating_sub(registered);
         Ok(format!(
             "history[{name}]: {} items → {} labels registered ({} deduped)",
-            docs.len(), registered, deduped,
+            docs.len(),
+            registered,
+            deduped,
         ))
     }
 
@@ -460,7 +496,13 @@ impl PhysisApp {
         let deduped = records.len().saturating_sub(registered);
         Ok(format!(
             "praxis[{}]: {} items ({} success, {} inert, {} failure) → {} registered ({} deduped)",
-            file.display(), records.len(), successes, inert, failures, registered, deduped,
+            file.display(),
+            records.len(),
+            successes,
+            inert,
+            failures,
+            registered,
+            deduped,
         ))
     }
 
@@ -481,8 +523,10 @@ impl PhysisApp {
                 let stats = crate::spanner::sync_full(&core, &sink).await?;
                 Ok(format!(
                     "spanner sync: {} nodes + {} edges upserted, {} nodes + {} edges deleted",
-                    stats.nodes_upserted, stats.edges_upserted,
-                    stats.nodes_deleted, stats.edges_deleted,
+                    stats.nodes_upserted,
+                    stats.edges_upserted,
+                    stats.nodes_deleted,
+                    stats.edges_deleted,
                 ))
             } else {
                 let (n, e) = crate::spanner::sync(&core, &sink).await?;
@@ -494,11 +538,14 @@ impl PhysisApp {
             };
             let rows = sink.fetch_nodes().await?;
             let pulled = rows.len();
-            let re_embedded = crate::spanner::hydrate_into(&mut core, self.embedder.as_ref(), &rows);
+            let re_embedded =
+                crate::spanner::hydrate_into(&mut core, self.embedder.as_ref(), &rows);
             for id in core.nodes.keys().cloned().collect::<Vec<_>>() {
                 let _ = core.persist_node(&db, "_default", &id);
             }
-            Ok(format!("spanner hydrate: pulled {pulled} durable rows, re-embedded {re_embedded}"))
+            Ok(format!(
+                "spanner hydrate: pulled {pulled} durable rows, re-embedded {re_embedded}"
+            ))
         }
     }
 
@@ -509,8 +556,8 @@ impl PhysisApp {
 
     /// Deep AI-powered scan — sends file content to LLM for ontological map extraction.
     pub async fn run_deep_scan(&mut self, dir: &std::path::Path) -> anyhow::Result<String> {
-        use crate::ai::provider::ProviderCascade;
         use crate::ai::agent::{run_agent, AgentConfig};
+        use crate::ai::provider::ProviderCascade;
         use crate::ai::tools::ToolRegistry;
         use crate::scanner::scan_project;
         use base64::prelude::*;
@@ -526,7 +573,7 @@ impl PhysisApp {
         for file in files {
             println!("Processing {}...", file.path);
             let ext = file.ext.to_lowercase();
-            
+
             let result = if [".png", ".jpg", ".jpeg"].contains(&ext.as_str()) {
                 // Image Deep Scan
                 let bytes = std::fs::read(&file.abs_path)?;
@@ -545,7 +592,17 @@ Output ONLY a JSON object with this EXACT structure:
 No other text."#.into(),
                     ..Default::default()
                 };
-                run_agent(&cascade, &tools, &config, &[], &format!("Analyze image: {}", file.path), Some(&b64), "DATA", None).await
+                run_agent(
+                    &cascade,
+                    &tools,
+                    &config,
+                    &[],
+                    &format!("Analyze image: {}", file.path),
+                    Some(&b64),
+                    "DATA",
+                    None,
+                )
+                .await
             } else {
                 // Text Deep Scan
                 let text = std::fs::read_to_string(&file.abs_path)?;
@@ -563,12 +620,24 @@ Output ONLY a JSON object with this EXACT structure:
 No other text."#.into(),
                     ..Default::default()
                 };
-                run_agent(&cascade, &tools, &config, &[], &format!("Analyze text ({}): \n{}", file.path, text), None, "DATA", None).await
+                run_agent(
+                    &cascade,
+                    &tools,
+                    &config,
+                    &[],
+                    &format!("Analyze text ({}): \n{}", file.path, text),
+                    None,
+                    "DATA",
+                    None,
+                )
+                .await
             };
 
             if let Ok(output) = result {
                 if let (Some(s), Some(e)) = (output.text.find('{'), output.text.rfind('}')) {
-                    if let Ok(new_map) = serde_json::from_str::<crate::models::OntologicalMap>(&output.text[s..=e]) {
+                    if let Ok(new_map) =
+                        serde_json::from_str::<crate::models::OntologicalMap>(&output.text[s..=e])
+                    {
                         global_map.merge(new_map);
                         println!("Merged ontology for {}.", file.path);
                     }
@@ -594,7 +663,9 @@ No other text."#.into(),
                 return Ok(sweep);
             }
             println!("{sweep}");
-            std::thread::sleep(std::time::Duration::from_secs(self.config.network_scan_interval_secs));
+            std::thread::sleep(std::time::Duration::from_secs(
+                self.config.network_scan_interval_secs,
+            ));
         }
     }
 
@@ -603,7 +674,11 @@ No other text."#.into(),
     /// for removed files, advance the cache. Returns a summary string.
     fn watch_sweep(&mut self, dirs: Vec<PathBuf>) -> anyhow::Result<String> {
         let cache_path = self.config.data_dir.join("hash_cache.json");
-        let scanner = NetworkScanner::new(dirs.clone(), cache_path, self.config.network_scan_interval_secs);
+        let scanner = NetworkScanner::new(
+            dirs.clone(),
+            cache_path,
+            self.config.network_scan_interval_secs,
+        );
         let diffs = scanner.scan_all();
 
         let mut new = 0usize;
@@ -613,7 +688,9 @@ No other text."#.into(),
         let mut removed = 0usize;
 
         // Only touch the store when there is something to do.
-        let any_change = diffs.iter().any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
+        let any_change = diffs
+            .iter()
+            .any(|d| d.summary.new + d.summary.changed + d.summary.deleted > 0);
         if any_change {
             let Some((db, mut core)) = self.open_persisted_core() else {
                 anyhow::bail!("node store unavailable (persistence off)");
@@ -662,7 +739,12 @@ No other text."#.into(),
         let watched: Vec<String> = dirs.iter().map(|d| d.display().to_string()).collect();
         Ok(format!(
             "watch[{}]: {} new, {} changed, {} deleted — registered {} labeled nodes, removed {}",
-            watched.join(", "), new, changed, deleted, ingested, removed,
+            watched.join(", "),
+            new,
+            changed,
+            deleted,
+            ingested,
+            removed,
         ))
     }
 
@@ -680,7 +762,10 @@ No other text."#.into(),
         out.push_str(&format!("  total_actions: {}\n", actor_stats.total_actions));
         out.push_str(&format!("  avg_grade: {:.3}\n", actor_stats.avg_grade));
         if actor_stats.stagnant_count > 0 {
-            out.push_str(&format!("  stagnant_goals: {}\n", actor_stats.stagnant_count));
+            out.push_str(&format!(
+                "  stagnant_goals: {}\n",
+                actor_stats.stagnant_count
+            ));
         }
         out
     }
@@ -726,7 +811,10 @@ No other text."#.into(),
     ) -> anyhow::Result<String> {
         const MAX_TEXTS: usize = 5000;
         let mut texts: Vec<String> = Vec::new();
-        for entry in walkdir::WalkDir::new(dir).into_iter().filter_map(|e| e.ok()) {
+        for entry in walkdir::WalkDir::new(dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             let ok_ext = matches!(
                 entry.path().extension().and_then(|e| e.to_str()),
                 Some("txt" | "md" | "log" | "csv")
@@ -750,7 +838,10 @@ No other text."#.into(),
             }
         }
         if texts.is_empty() {
-            anyhow::bail!("no corpus lines found under {} (.txt/.md/.log/.csv)", dir.display());
+            anyhow::bail!(
+                "no corpus lines found under {} (.txt/.md/.log/.csv)",
+                dir.display()
+            );
         }
 
         let mut cfg = crate::discovery::DiscoveryConfig::default();
@@ -794,7 +885,10 @@ No other text."#.into(),
             out.push_str("No proposals — the current ontology covers this corpus.\n");
         }
         if let Some(path) = json_out {
-            std::fs::write(path, crate::discovery::to_ontology_json(&report, "discovered"))?;
+            std::fs::write(
+                path,
+                crate::discovery::to_ontology_json(&report, "discovered"),
+            )?;
             out.push_str(&format!("\nDraft ontology written to {}\n", path.display()));
         }
         Ok(out)
@@ -810,9 +904,12 @@ No other text."#.into(),
         let embedding = if is_image {
             let bytes = std::fs::read(file)
                 .map_err(|e| anyhow::anyhow!("Cannot read {}: {}", file.display(), e))?;
-            self.embedder.embed_image(&bytes)
+            self.embedder
+                .embed_image(&bytes)
                 .ok_or_else(|| anyhow::anyhow!("Image embedding not available for this embedder"))
-                .map_err(|e| anyhow::anyhow!("Failed to classify image {}: {}", file.display(), e))?
+                .map_err(|e| {
+                    anyhow::anyhow!("Failed to classify image {}: {}", file.display(), e)
+                })?
         } else {
             let text = std::fs::read_to_string(file)
                 .map_err(|e| anyhow::anyhow!("Cannot read {}: {}", file.display(), e))?;
@@ -829,10 +926,18 @@ No other text."#.into(),
         out.push_str(&format!("File: {}\n\n", file.display()));
         for (i, r) in results.iter().enumerate() {
             if i == 0 {
-                out.push_str(&format!("★ TOP: {}×{} — {:.3}\n", r.domain, r.mode, r.score));
+                out.push_str(&format!(
+                    "★ TOP: {}×{} — {:.3}\n",
+                    r.domain, r.mode, r.score
+                ));
                 out.push_str(&format!(
                     "   Reasoning: nearest entries: {}\n",
-                    r.entries.iter().take(5).cloned().collect::<Vec<_>>().join(", ")
+                    r.entries
+                        .iter()
+                        .take(5)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ));
                 out.push('\n');
             } else if i < 5 {
@@ -861,7 +966,10 @@ No other text."#.into(),
     ) -> anyhow::Result<String> {
         let docs = ingest::ingest_all(&[dir.to_path_buf()]);
         if docs.is_empty() {
-            anyhow::bail!("no documents found under {} (.txt/.md/.csv/.log/.xlsx/.eml)", dir.display());
+            anyhow::bail!(
+                "no documents found under {} (.txt/.md/.csv/.log/.xlsx/.eml)",
+                dir.display()
+            );
         }
 
         // Build the file-theme graph from the live ontology + the prospect's docs.
@@ -928,7 +1036,8 @@ No other text."#.into(),
             auto_retune: true,
             ..Default::default()
         };
-        let report = crate::discovery::discover(&file_texts, &self.classifier, self.embedder.as_ref(), &cfg);
+        let report =
+            crate::discovery::discover(&file_texts, &self.classifier, self.embedder.as_ref(), &cfg);
 
         let html = render_studio_html(&graph, &report, dir, &docs);
         std::fs::write(html_out, &html)?;
@@ -1022,7 +1131,10 @@ No other text."#.into(),
         // not to prove the spellings.
         let want_lifecycle = facet_parse(lifecycle, &["DESIGN", "BUILD", "OPERATE", "RETIRE"]);
         let want_agency = facet_parse(agency, &["SELF", "OTHER", "AUTOMATED", "COLLECTIVE"]);
-        let want_scale = facet_parse(scale, &["PERSONAL", "INTERPERSONAL", "ORGANIZATIONAL", "CIVIL"]);
+        let want_scale = facet_parse(
+            scale,
+            &["PERSONAL", "INTERPERSONAL", "ORGANIZATIONAL", "CIVIL"],
+        );
         let want_abstraction = facet_parse(abstraction, &["CONCRETE", "ABSTRACT"]);
         let want_sub = sub_domain.map(|s| s.to_lowercase());
         let want_sub_mode = sub_mode.map(|s| s.to_lowercase());
@@ -1082,7 +1194,14 @@ No other text."#.into(),
                 }
 
                 let facet_str = f.simple();
-                rows.push((kind_name.to_string(), dom, mode, name, facet_str, def.axis_kind.clone().unwrap_or_default()));
+                rows.push((
+                    kind_name.to_string(),
+                    dom,
+                    mode,
+                    name,
+                    facet_str,
+                    def.axis_kind.clone().unwrap_or_default(),
+                ));
             }
         }
 
@@ -1091,11 +1210,21 @@ No other text."#.into(),
             return "0 entries match these facets.\n".to_string();
         }
         let mut out = format!("{} entries match\n", rows.len());
-        out.push_str(&format!("{:<9} {:<12} {:<10} {:<38} {}\n", "KIND", "DOMAIN", "MODE", "ENTRY", "FACETS"));
+        out.push_str(&format!(
+            "{:<9} {:<12} {:<10} {:<38} {}\n",
+            "KIND", "DOMAIN", "MODE", "ENTRY", "FACETS"
+        ));
         for (kind, dom, mode, name, facets, axis) in rows {
             let display = if name.len() > 38 { &name[..35] } else { &name };
-            let axis_suffix = if axis.is_empty() { String::new() } else { format!(" ({axis})") };
-            out.push_str(&format!("{:<9} {:<12} {:<10} {:<38} {}{}\n", kind, dom, mode, display, facets, axis_suffix));
+            let axis_suffix = if axis.is_empty() {
+                String::new()
+            } else {
+                format!(" ({axis})")
+            };
+            out.push_str(&format!(
+                "{:<9} {:<12} {:<10} {:<38} {}{}\n",
+                kind, dom, mode, display, facets, axis_suffix
+            ));
         }
         out
     }
@@ -1132,7 +1261,8 @@ fn render_studio_html(
     dir: &std::path::Path,
     docs: &[ingest::IngestedDoc],
 ) -> String {
-    let mut h = String::from("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
+    let mut h =
+        String::from("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n");
     h.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
     h.push_str("<title>Physis Ontology Studio</title>\n<style>\n");
     h.push_str(
@@ -1205,7 +1335,11 @@ fn render_studio_html(
         .flatten()
         .collect();
         let meta_str = if meta_bits.is_empty() {
-            if d.body.trim().is_empty() { "no text extracted".to_string() } else { format!("{} chars", d.body.trim().len()) }
+            if d.body.trim().is_empty() {
+                "no text extracted".to_string()
+            } else {
+                format!("{} chars", d.body.trim().len())
+            }
         } else {
             meta_bits.join(" · ")
         };
@@ -1237,18 +1371,31 @@ fn render_studio_html(
     h.push_str("</section>\n");
 
     h.push_str("<section><h2>Where your ontology is thin</h2>\n");
-    h.push_str("<p class=\"muted\">Clusters of your text the current grid can't name — \
-    these are the domains Physis would propose to add, grown from your own data.</p>\n");
+    h.push_str(
+        "<p class=\"muted\">Clusters of your text the current grid can't name — \
+    these are the domains Physis would propose to add, grown from your own data.</p>\n",
+    );
     if report.proposals.is_empty() {
-        h.push_str("<p>The current ontology already covers this corpus well — no gaps found.</p>\n");
+        h.push_str(
+            "<p>The current ontology already covers this corpus well — no gaps found.</p>\n",
+        );
     } else {
         for p in &report.proposals {
-            h.push_str(&format!("<div class=\"gap\"><div class=\"name\">{}</div>\n", html_escape(&p.name)));
+            h.push_str(&format!(
+                "<div class=\"gap\"><div class=\"name\">{}</div>\n",
+                html_escape(&p.name)
+            ));
             h.push_str(&format!(
                 "<div class=\"meta\">{} texts · nearest cell {}×{} · coverage {:.2}</div>\n",
-                p.count, html_escape(&p.domain), html_escape(&p.mode), p.coverage,
+                p.count,
+                html_escape(&p.domain),
+                html_escape(&p.mode),
+                p.coverage,
             ));
-            h.push_str(&format!("<div class=\"meta\">hints: {}</div>\n", html_escape(&p.hints.join(", "))));
+            h.push_str(&format!(
+                "<div class=\"meta\">hints: {}</div>\n",
+                html_escape(&p.hints.join(", "))
+            ));
             for s in &p.samples {
                 h.push_str(&format!("<div class=\"samp\">· {}</div>\n", html_escape(s)));
             }
@@ -1260,8 +1407,15 @@ fn render_studio_html(
     h.push_str(&format!(
         "<div class=\"footer\">Generated by physis-pro studio · best-entry cosine \
         min {:.2} / mean {:.2} / max {:.2} · threshold used {:.2}{}</div>\n",
-        report.sim_min, report.sim_mean, report.sim_max, report.threshold_used,
-        if report.auto_retuned { " (auto-raised)" } else { "" },
+        report.sim_min,
+        report.sim_mean,
+        report.sim_max,
+        report.threshold_used,
+        if report.auto_retuned {
+            " (auto-raised)"
+        } else {
+            ""
+        },
     ));
     h.push_str("</div>\n</body>\n</html>\n");
     h

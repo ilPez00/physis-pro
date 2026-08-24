@@ -101,11 +101,7 @@ pub fn detect_places(waypoints: &[Waypoint], radius_km: f64, min_visits: usize) 
         .into_iter()
         .filter(|c| c.visits >= min_visits)
         .map(|c| {
-            let label = c
-                .labels
-                .into_iter()
-                .max_by_key(|(_, n)| *n)
-                .map(|(l, _)| l);
+            let label = c.labels.into_iter().max_by_key(|(_, n)| *n).map(|(l, _)| l);
             Place {
                 lat: c.lat,
                 lng: c.lng,
@@ -138,7 +134,10 @@ pub fn register_places(
 ) -> Vec<String> {
     let mut ids = Vec::with_capacity(places.len());
     for p in places {
-        let name = p.label.clone().unwrap_or_else(|| format!("{:.4},{:.4}", p.lat, p.lng));
+        let name = p
+            .label
+            .clone()
+            .unwrap_or_else(|| format!("{:.4},{:.4}", p.lat, p.lng));
         let text = format!("place: {} ({} visits)", name, p.visits);
         let id = core.register_node_from_text(&text, embedder);
         core.bridge_node(&id);
@@ -152,7 +151,12 @@ mod tests {
     use super::*;
 
     fn wp(lat: f64, lng: f64) -> Waypoint {
-        Waypoint { lat, lng, label: None, at: None }
+        Waypoint {
+            lat,
+            lng,
+            label: None,
+            at: None,
+        }
     }
 
     #[test]
@@ -174,7 +178,12 @@ mod tests {
         let now = Utc::now();
         let old = now - Duration::days(40);
         let wps: Vec<Waypoint> = (0..3)
-            .map(|_| Waypoint { lat: 45.0, lng: 9.0, label: Some("gym".into()), at: Some(old) })
+            .map(|_| Waypoint {
+                lat: 45.0,
+                lng: 9.0,
+                label: Some("gym".into()),
+                at: Some(old),
+            })
             .collect();
         let places = detect_places(&wps, 0.5, 2);
         assert_eq!(places.len(), 1);

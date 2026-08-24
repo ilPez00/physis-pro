@@ -74,7 +74,8 @@ impl InventoryTracker {
     /// Compute forecast using simple moving average of last N days.
     pub fn forecast_daily_usage(&self, sku: &str, window_days: i64) -> f32 {
         let cutoff = chrono::Utc::now().date_naive() - chrono::Duration::days(window_days);
-        let relevant: Vec<&ConsumptionRecord> = self.consumption
+        let relevant: Vec<&ConsumptionRecord> = self
+            .consumption
             .iter()
             .filter(|r| r.sku == sku && r.date >= cutoff)
             .collect();
@@ -101,7 +102,10 @@ impl InventoryTracker {
             sku: sku.to_string(),
             name: item.name.clone(),
             suggested_qty: item.reorder_qty,
-            reason: format!("qty {} below reorder point {}", item.quantity, item.reorder_point),
+            reason: format!(
+                "qty {} below reorder point {}",
+                item.quantity, item.reorder_point
+            ),
             forecast_daily_usage: daily,
             days_until_stockout,
             created_at: chrono::Utc::now(),
@@ -127,7 +131,8 @@ impl InventoryTracker {
 
     /// Mark that an order was placed for a SKU.
     pub fn record_order(&mut self, sku: &str) {
-        self.last_order_at.insert(sku.to_string(), chrono::Utc::now());
+        self.last_order_at
+            .insert(sku.to_string(), chrono::Utc::now());
         if let Some(item) = self.items.get_mut(sku) {
             item.quantity += item.reorder_qty;
         }
@@ -206,7 +211,10 @@ mod tests {
     fn test_check_reorder_triggers_below_point() {
         let t = setup_tracker();
         let suggestion = t.check_reorder("BOLT-M10");
-        assert!(suggestion.is_some(), "50 qty < 100 reorder point should trigger");
+        assert!(
+            suggestion.is_some(),
+            "50 qty < 100 reorder point should trigger"
+        );
         let s = suggestion.unwrap();
         assert_eq!(s.suggested_qty, 500);
     }
@@ -215,7 +223,10 @@ mod tests {
     fn test_check_reorder_does_not_trigger_above_point() {
         let t = setup_tracker();
         let suggestion = t.check_reorder("NUT-M10");
-        assert!(suggestion.is_none(), "500 qty >= 100 reorder point should not trigger");
+        assert!(
+            suggestion.is_none(),
+            "500 qty >= 100 reorder point should not trigger"
+        );
     }
 
     #[test]

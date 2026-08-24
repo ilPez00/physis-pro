@@ -34,8 +34,7 @@ pub fn motifs(notes: &[i32], len: usize) -> Vec<(Vec<i32>, usize)> {
     for w in iv.windows(len) {
         *counts.entry(w.to_vec()).or_default() += 1;
     }
-    let mut found: Vec<(Vec<i32>, usize)> =
-        counts.into_iter().filter(|(_, c)| *c >= 2).collect();
+    let mut found: Vec<(Vec<i32>, usize)> = counts.into_iter().filter(|(_, c)| *c >= 2).collect();
     found.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     found
 }
@@ -89,9 +88,13 @@ mod tests {
     #[test]
     fn finds_repeated_motif() {
         // "up2 up2 down1" appears twice
-        let melody = vec![60, 62, 64, 63,  /* repeat */ 65, 67, 69, 68];
+        let melody = vec![60, 62, 64, 63, /* repeat */ 65, 67, 69, 68];
         let m = motifs(&melody, 3);
-        assert!(m.iter().any(|(seq, c)| *seq == vec![2, 2, -1] && *c == 2), "motifs: {:?}", m);
+        assert!(
+            m.iter().any(|(seq, c)| *seq == vec![2, 2, -1] && *c == 2),
+            "motifs: {:?}",
+            m
+        );
     }
 
     #[test]

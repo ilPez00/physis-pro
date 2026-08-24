@@ -5,8 +5,8 @@
 //! (`POST /api/v1/lifeos/goal`) and poll status/drift out
 //! (`GET /api/v1/lifeos/status`). No outbound HTTP, no service URLs to configure.
 
-use std::collections::BTreeMap;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 
 use chrono::Timelike;
@@ -126,29 +126,77 @@ pub struct TodayPlan {
 }
 
 fn practice(tool: &str, title: &str, why: &str) -> SuggestedPractice {
-    SuggestedPractice { tool: tool.into(), title: title.into(), why: why.into() }
+    SuggestedPractice {
+        tool: tool.into(),
+        title: title.into(),
+        why: why.into(),
+    }
 }
 
 /// Peat-metabolic / parasympathetic restoration methods for a depleted charge.
 fn depleted_pool() -> Vec<SuggestedPractice> {
     vec![
-        practice("5r", "5R regenerative breathing", "Rebuild metabolic charge (Peat) with regenerative breathing before pushing."),
-        practice("coldheat", "Warmth protocol", "Raise metabolic rate with heat/light (Peat) — cold drains, warmth restores."),
-        practice("hydration", "Rehydrate + salt", "Cellular energy needs water + sodium (Peat) — depletion often hides as thirst."),
-        practice("circadian", "Get bright light", "Light restores rhythm + thyroid (Peat) — the cheapest charge."),
-        practice("gratitude", "Gratitude pause", "Shift to parasympathetic; lower the stress load so energy returns."),
-        practice("color", "Color meditation", "Calm the nervous system before re-engaging."),
+        practice(
+            "5r",
+            "5R regenerative breathing",
+            "Rebuild metabolic charge (Peat) with regenerative breathing before pushing.",
+        ),
+        practice(
+            "coldheat",
+            "Warmth protocol",
+            "Raise metabolic rate with heat/light (Peat) — cold drains, warmth restores.",
+        ),
+        practice(
+            "hydration",
+            "Rehydrate + salt",
+            "Cellular energy needs water + sodium (Peat) — depletion often hides as thirst.",
+        ),
+        practice(
+            "circadian",
+            "Get bright light",
+            "Light restores rhythm + thyroid (Peat) — the cheapest charge.",
+        ),
+        practice(
+            "gratitude",
+            "Gratitude pause",
+            "Shift to parasympathetic; lower the stress load so energy returns.",
+        ),
+        practice(
+            "color",
+            "Color meditation",
+            "Calm the nervous system before re-engaging.",
+        ),
     ]
 }
 
 /// Reich-release / focus-reset methods for a steady-but-drifting state.
 fn drifting_pool() -> Vec<SuggestedPractice> {
     vec![
-        practice("posture", "Release the armor", "Release held tension (Reich: jaw / chest / diaphragm) to clear the block."),
-        practice("5r", "Emotional-control breath", "5R controllo emozionale — steady the system, then one focused block."),
-        practice("guided", "Focused reset", "A short guided session to re-center on the critical path."),
-        practice("cbt", "Reframe the block", "Defuse the stuck thought (CBT) so the schedule can move."),
-        practice("bolt", "Breath-hold reset", "CO2-tolerance breathing calms arousal and sharpens focus."),
+        practice(
+            "posture",
+            "Release the armor",
+            "Release held tension (Reich: jaw / chest / diaphragm) to clear the block.",
+        ),
+        practice(
+            "5r",
+            "Emotional-control breath",
+            "5R controllo emozionale — steady the system, then one focused block.",
+        ),
+        practice(
+            "guided",
+            "Focused reset",
+            "A short guided session to re-center on the critical path.",
+        ),
+        practice(
+            "cbt",
+            "Reframe the block",
+            "Defuse the stuck thought (CBT) so the schedule can move.",
+        ),
+        practice(
+            "bolt",
+            "Breath-hold reset",
+            "CO2-tolerance breathing calms arousal and sharpens focus.",
+        ),
     ]
 }
 
@@ -226,7 +274,11 @@ impl LifeOSTracker {
             sxx += dt * dt;
             sxy += dt * (*p as f64 - mean_p);
         }
-        let slope_per_day = if sxx > 0.0 { (sxy / sxx) * 86_400.0 } else { 0.0 };
+        let slope_per_day = if sxx > 0.0 {
+            (sxy / sxx) * 86_400.0
+        } else {
+            0.0
+        };
         let last = h.last().map(|(_, p)| *p).unwrap_or(0.0);
         let span_days = (h.last().unwrap().0 - h.first().unwrap().0) as f64 / 86_400.0;
 
@@ -273,7 +325,11 @@ impl LifeOSTracker {
                 deferred.push(g.clone());
             }
         }
-        doable.sort_by(|a, b| a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal));
+        doable.sort_by(|a, b| {
+            a.progress
+                .partial_cmp(&b.progress)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let drift = self.drift_report(scheduler);
         let (countermeasure, pool) = match self.charge {
@@ -318,7 +374,16 @@ impl LifeOSTracker {
             .map(|g| (g.id.clone(), self.phase_of(&g.id)))
             .collect();
 
-        TodayPlan { charge: self.charge, doable, deferred, countermeasure, suggested_practice, alternatives, phases, drift }
+        TodayPlan {
+            charge: self.charge,
+            doable,
+            deferred,
+            countermeasure,
+            suggested_practice,
+            alternatives,
+            phases,
+            drift,
+        }
     }
 
     /// Persist this tenant's goals + charge + trajectory to sled under `lifeos:<uid>`.
@@ -335,11 +400,24 @@ impl LifeOSTracker {
         let Some(v) = raw else { return Self::default() };
         type Full = (Vec<LifeOSGoal>, Charge, BTreeMap<String, Vec<(i64, f32)>>);
         if let Ok((goals, charge, history)) = serde_json::from_slice::<Full>(&v) {
-            Self { goals, charge, history }
-        } else if let Ok((goals, charge)) = serde_json::from_slice::<(Vec<LifeOSGoal>, Charge)>(&v) {
-            Self { goals, charge, history: BTreeMap::new() }
+            Self {
+                goals,
+                charge,
+                history,
+            }
+        } else if let Ok((goals, charge)) = serde_json::from_slice::<(Vec<LifeOSGoal>, Charge)>(&v)
+        {
+            Self {
+                goals,
+                charge,
+                history: BTreeMap::new(),
+            }
         } else if let Ok(goals) = serde_json::from_slice::<Vec<LifeOSGoal>>(&v) {
-            Self { goals, charge: Charge::default(), history: BTreeMap::new() }
+            Self {
+                goals,
+                charge: Charge::default(),
+                history: BTreeMap::new(),
+            }
         } else {
             Self::default()
         }
@@ -348,7 +426,9 @@ impl LifeOSTracker {
     fn task_id_for(goal_id: &str) -> (RawNodeKey, String) {
         let mut hasher = DefaultHasher::new();
         goal_id.hash(&mut hasher);
-        let node = RawNodeKey { data: hasher.finish() };
+        let node = RawNodeKey {
+            data: hasher.finish(),
+        };
         let task_id = format!("task_{}", node.data);
         (node, task_id)
     }
@@ -390,14 +470,20 @@ mod tests {
     use crate::gantt::AbstractDomain;
 
     fn goal(id: &str, progress: f32) -> LifeOSGoal {
-        LifeOSGoal { id: id.into(), title: format!("Goal {id}"), coherence_target: 1.0, progress, charge_cost: Charge::Steady }
+        LifeOSGoal {
+            id: id.into(),
+            title: format!("Goal {id}"),
+            coherence_target: 1.0,
+            progress,
+            charge_cost: Charge::Steady,
+        }
     }
 
     #[test]
     fn test_upsert_and_update() {
         let mut t = LifeOSTracker::new();
         assert!(!t.upsert_goal(goal("a", 0.0))); // new
-        assert!(t.upsert_goal(goal("a", 0.5)));   // replaced
+        assert!(t.upsert_goal(goal("a", 0.5))); // replaced
         assert_eq!(t.goals.len(), 1);
         assert!(t.update_progress("a", 0.8));
         assert!(!t.update_progress("ghost", 0.1));
@@ -442,15 +528,39 @@ mod tests {
     #[test]
     fn test_charge_gates_today() {
         let mut t = LifeOSTracker::new();
-        t.upsert_goal(LifeOSGoal { id: "deep".into(), title: "deep work".into(), coherence_target: 1.0, progress: 0.2, charge_cost: Charge::Charged });
-        t.upsert_goal(LifeOSGoal { id: "admin".into(), title: "admin".into(), coherence_target: 1.0, progress: 0.1, charge_cost: Charge::Steady });
-        t.upsert_goal(LifeOSGoal { id: "rest".into(), title: "stretch".into(), coherence_target: 1.0, progress: 0.0, charge_cost: Charge::Depleted });
+        t.upsert_goal(LifeOSGoal {
+            id: "deep".into(),
+            title: "deep work".into(),
+            coherence_target: 1.0,
+            progress: 0.2,
+            charge_cost: Charge::Charged,
+        });
+        t.upsert_goal(LifeOSGoal {
+            id: "admin".into(),
+            title: "admin".into(),
+            coherence_target: 1.0,
+            progress: 0.1,
+            charge_cost: Charge::Steady,
+        });
+        t.upsert_goal(LifeOSGoal {
+            id: "rest".into(),
+            title: "stretch".into(),
+            coherence_target: 1.0,
+            progress: 0.0,
+            charge_cost: Charge::Depleted,
+        });
         let s = GanttScheduler::new(Box::new(AbstractDomain));
 
         // Depleted: only the depleted-ok goal is doable; a countermeasure appears.
         t.set_charge(Charge::Depleted);
         let plan = t.today(&s);
-        assert_eq!(plan.doable.iter().map(|g| g.id.as_str()).collect::<Vec<_>>(), ["rest"]);
+        assert_eq!(
+            plan.doable
+                .iter()
+                .map(|g| g.id.as_str())
+                .collect::<Vec<_>>(),
+            ["rest"]
+        );
         assert_eq!(plan.deferred.len(), 2);
         assert!(plan.countermeasure.is_some());
         // A practice is proposed (rotated through the depleted pool) + alternatives.
@@ -482,13 +592,35 @@ mod tests {
         let mut t = LifeOSTracker::new();
         let day = 86_400i64;
         let now = chrono::Utc::now().timestamp();
-        t.history.insert("rise".into(), vec![(now - 3 * day, 0.1), (now - 2 * day, 0.3), (now - day, 0.5), (now, 0.7)]);
+        t.history.insert(
+            "rise".into(),
+            vec![
+                (now - 3 * day, 0.1),
+                (now - 2 * day, 0.3),
+                (now - day, 0.5),
+                (now, 0.7),
+            ],
+        );
         assert_eq!(t.phase_of("rise"), AlchemicalPhase::Coagulating);
-        t.history.insert("fall".into(), vec![(now - 3 * day, 0.7), (now - 2 * day, 0.5), (now - day, 0.4), (now, 0.2)]);
+        t.history.insert(
+            "fall".into(),
+            vec![
+                (now - 3 * day, 0.7),
+                (now - 2 * day, 0.5),
+                (now - day, 0.4),
+                (now, 0.2),
+            ],
+        );
         assert_eq!(t.phase_of("fall"), AlchemicalPhase::Solutio);
-        t.history.insert("stuck".into(), vec![(now - 10 * day, 0.15), (now - 5 * day, 0.16), (now, 0.15)]);
+        t.history.insert(
+            "stuck".into(),
+            vec![(now - 10 * day, 0.15), (now - 5 * day, 0.16), (now, 0.15)],
+        );
         assert_eq!(t.phase_of("stuck"), AlchemicalPhase::Solutio);
-        t.history.insert("work".into(), vec![(now - 2 * day, 0.50), (now - day, 0.52), (now, 0.50)]);
+        t.history.insert(
+            "work".into(),
+            vec![(now - 2 * day, 0.50), (now - day, 0.52), (now, 0.50)],
+        );
         assert_eq!(t.phase_of("work"), AlchemicalPhase::Working);
         assert_eq!(t.phase_of("new"), AlchemicalPhase::Nascent);
     }

@@ -192,15 +192,13 @@ impl Session {
     }
 
     fn trim_history(&mut self) {
-        let sys_count = self
-            .history
-            .iter()
-            .filter(|m| m.role == "system")
-            .count();
+        let sys_count = self.history.iter().filter(|m| m.role == "system").count();
         if self.history.len() > MAX_HISTORY + sys_count {
             let all: Vec<Message> = self.history.drain(..).collect();
-            let systems: Vec<Message> = all.iter().filter(|m| m.role == "system").cloned().collect();
-            let non_systems: Vec<Message> = all.into_iter().filter(|m| m.role != "system").collect();
+            let systems: Vec<Message> =
+                all.iter().filter(|m| m.role == "system").cloned().collect();
+            let non_systems: Vec<Message> =
+                all.into_iter().filter(|m| m.role != "system").collect();
             let skip = non_systems.len().saturating_sub(MAX_HISTORY);
             let keep: Vec<Message> = non_systems.into_iter().skip(skip).collect();
             let mut combined = systems;
@@ -232,7 +230,11 @@ mod tests {
             Content::Parts(parts) => {
                 assert_eq!(parts.len(), 1);
                 assert_eq!(parts[0].type_, "text");
-                assert!(parts[0].text.as_ref().unwrap().contains("some context here"));
+                assert!(parts[0]
+                    .text
+                    .as_ref()
+                    .unwrap()
+                    .contains("some context here"));
             }
             _ => panic!("expected Content::Parts"),
         }
@@ -247,7 +249,12 @@ mod tests {
             Content::Parts(parts) => {
                 assert_eq!(parts.len(), 2);
                 assert_eq!(parts[1].type_, "image_url");
-                assert!(parts[1].image_url.as_ref().unwrap().url.contains("base64data=="));
+                assert!(parts[1]
+                    .image_url
+                    .as_ref()
+                    .unwrap()
+                    .url
+                    .contains("base64data=="));
             }
             _ => panic!("expected Content::Parts"),
         }
@@ -262,7 +269,10 @@ mod tests {
     #[test]
     fn test_tool_names_has_builtins() {
         let s = Session::new("test");
-        assert!(!s.tool_names().is_empty(), "ToolRegistry has built-in tools");
+        assert!(
+            !s.tool_names().is_empty(),
+            "ToolRegistry has built-in tools"
+        );
     }
 
     #[test]
@@ -281,7 +291,11 @@ mod tests {
         for i in 0..overflow {
             s.push_context(&format!("ctx {i}"), None, "COHERENCE");
         }
-        assert_eq!(s.history.len(), MAX_HISTORY, "history must be trimmed to MAX_HISTORY");
+        assert_eq!(
+            s.history.len(),
+            MAX_HISTORY,
+            "history must be trimmed to MAX_HISTORY"
+        );
     }
 
     #[test]
@@ -297,7 +311,10 @@ mod tests {
         for i in 0..MAX_HISTORY + 5 {
             s.push_context(&format!("ctx {i}"), None, "COHERENCE");
         }
-        assert!(s.history.iter().any(|m| m.role == "system"), "system messages must survive trim");
+        assert!(
+            s.history.iter().any(|m| m.role == "system"),
+            "system messages must survive trim"
+        );
     }
 
     #[test]
@@ -313,11 +330,21 @@ mod tests {
         for i in 0..MAX_HISTORY + 10 {
             s.push_context(&format!("ctx {i}"), None, "COHERENCE");
         }
-        let texts: Vec<&str> = s.history.iter().filter_map(|m| match &m.content {
-            Content::Parts(parts) => parts.first().and_then(|p| p.text.as_deref()),
-            Content::Text(t) => Some(t.as_str()),
-        }).collect();
-        assert!(texts.iter().any(|t| t.contains("ctx 30")), "should contain latest entries");
-        assert!(!texts.iter().any(|t| t.contains("ctx 0")), "oldest entries should be trimmed");
+        let texts: Vec<&str> = s
+            .history
+            .iter()
+            .filter_map(|m| match &m.content {
+                Content::Parts(parts) => parts.first().and_then(|p| p.text.as_deref()),
+                Content::Text(t) => Some(t.as_str()),
+            })
+            .collect();
+        assert!(
+            texts.iter().any(|t| t.contains("ctx 30")),
+            "should contain latest entries"
+        );
+        assert!(
+            !texts.iter().any(|t| t.contains("ctx 0")),
+            "oldest entries should be trimmed"
+        );
     }
 }

@@ -110,13 +110,20 @@ fn save_fingerprint(path: &Path, fp: &StateFingerprint) -> anyhow::Result<()> {
 }
 
 /// Register an event into a physis engine as a coherence node with a verdict.
-async fn register(opts: &ConnectOptions, base: &str, event: &OperationalEvent) -> anyhow::Result<()> {
+async fn register(
+    opts: &ConnectOptions,
+    base: &str,
+    event: &OperationalEvent,
+) -> anyhow::Result<()> {
     let mut body = serde_json::json!({ "input": summarize(event) });
     if let Some(score) = asserted_for(event.status) {
         body["coherence_score"] = serde_json::json!(score);
     }
     let mut rb = reqwest::Client::new()
-        .post(format!("{}/api/v1/coherence/register", base.trim_end_matches('/')))
+        .post(format!(
+            "{}/api/v1/coherence/register",
+            base.trim_end_matches('/')
+        ))
         .header("X-Physis-User", &opts.user)
         .json(&body);
     if let Some(t) = &opts.token {
@@ -179,8 +186,7 @@ mod tests {
     fn demo_event() -> OperationalEvent {
         let raw = include_bytes!("../tests/fixtures/moonraker_snapshot.json");
         let snapshot = MoonrakerSnapshot::from_json(raw).expect("fixture parses");
-        MoonrakerAdapter::new("http://printer.local:7125", "voron-01")
-            .event_from_snapshot(snapshot)
+        MoonrakerAdapter::new("http://printer.local:7125", "voron-01").event_from_snapshot(snapshot)
     }
 
     #[test]
@@ -198,7 +204,10 @@ mod tests {
         b.observed_at = a.observed_at + chrono::Duration::seconds(10);
         b.rekey();
 
-        assert_ne!(a.event_key, b.event_key, "the key moved with the poll clock");
+        assert_ne!(
+            a.event_key, b.event_key,
+            "the key moved with the poll clock"
+        );
         assert_eq!(
             StateFingerprint::of(&a),
             StateFingerprint::of(&b),
@@ -210,9 +219,14 @@ mod tests {
     fn a_real_state_change_is_reported() {
         // The fixture is a paused print; resuming it is a real event.
         let base = demo_event();
-        assert_eq!(base.properties.get("print_state").map(String::as_str), Some("paused"));
+        assert_eq!(
+            base.properties.get("print_state").map(String::as_str),
+            Some("paused")
+        );
         let mut changed = demo_event();
-        changed.properties.insert("print_state".into(), "printing".into());
+        changed
+            .properties
+            .insert("print_state".into(), "printing".into());
         assert_ne!(StateFingerprint::of(&base), StateFingerprint::of(&changed));
 
         // Progress moving is NOT an event — otherwise every poll of a running

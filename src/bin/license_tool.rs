@@ -26,7 +26,10 @@ use clap::{Parser, Subcommand};
 use ed25519_dalek::{Signer, SigningKey};
 
 #[derive(Parser)]
-#[command(name = "physis-license", about = "Vendor licence tooling (not for distribution)")]
+#[command(
+    name = "physis-license",
+    about = "Vendor licence tooling (not for distribution)"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -115,11 +118,17 @@ fn main() -> anyhow::Result<()> {
                 std::fs::set_permissions(&priv_path, std::fs::Permissions::from_mode(0o600))?;
             }
 
-            println!("private key : {}  (KEEP OFFLINE — never commit, never on CI)", priv_path.display());
+            println!(
+                "private key : {}  (KEEP OFFLINE — never commit, never on CI)",
+                priv_path.display()
+            );
             println!("public key  : {}", pub_path.display());
             println!();
             println!("Stamp this into release builds:");
-            println!("  PHYSIS_LICENSE_PUBKEY={} cargo build --release", hex(&verifying.to_bytes()));
+            println!(
+                "  PHYSIS_LICENSE_PUBKEY={} cargo build --release",
+                hex(&verifying.to_bytes())
+            );
         }
 
         Command::Sign {
@@ -136,8 +145,11 @@ fn main() -> anyhow::Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("signing key is not 32 hex-encoded bytes"))?;
             let signing = SigningKey::from_bytes(&key_bytes);
 
-            let features: Vec<String> =
-                features.split(',').map(|f| f.trim().to_string()).filter(|f| !f.is_empty()).collect();
+            let features: Vec<String> = features
+                .split(',')
+                .map(|f| f.trim().to_string())
+                .filter(|f| !f.is_empty())
+                .collect();
             let maint_exp = maint_exp.unwrap_or_else(|| exp.clone());
             let license_id = id.unwrap_or_else(|| {
                 let slug: String = org
@@ -169,7 +181,9 @@ fn main() -> anyhow::Result<()> {
                 "sig": B64.encode(sig.to_bytes()),
             });
             println!("{}", serde_json::to_string_pretty(&envelope)?);
-            eprintln!("signed {license_id} for {org} — runs until {exp}, updates until {maint_exp}");
+            eprintln!(
+                "signed {license_id} for {org} — runs until {exp}, updates until {maint_exp}"
+            );
         }
 
         Command::SignArtifact { key, file } => {

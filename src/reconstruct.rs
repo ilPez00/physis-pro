@@ -41,11 +41,7 @@ impl Reconstruction {
 }
 
 /// Finds the k nearest neighbors to a query vector using PQ-accelerated or brute-force search.
-pub fn find_neighbors(
-    query: &[f32],
-    core: &PhysisCore,
-    k: usize,
-) -> Vec<Neighbor> {
+pub fn find_neighbors(query: &[f32], core: &PhysisCore, k: usize) -> Vec<Neighbor> {
     // Try PQ-accelerated search first
     let pq_results = core.pq_find_neighbors(query, k);
     if !pq_results.is_empty() {
@@ -89,11 +85,7 @@ pub fn find_neighbors(
 }
 
 /// Returns the k closest goals to a query vector, sorted by cosine similarity.
-pub fn find_nearest_goals(
-    query: &[f32],
-    goals: &[Goal],
-    k: usize,
-) -> Vec<Neighbor> {
+pub fn find_nearest_goals(query: &[f32], goals: &[Goal], k: usize) -> Vec<Neighbor> {
     let mut scored: Vec<Neighbor> = goals
         .iter()
         .map(|g| Neighbor {
@@ -188,7 +180,18 @@ pub async fn reconstruct_with_llm(
         },
     ];
 
-    match cascade.complete(&messages, None, &RouteHint { task_type: "fast".into(), has_image: false }, Some(256)).await {
+    match cascade
+        .complete(
+            &messages,
+            None,
+            &RouteHint {
+                task_type: "fast".into(),
+                has_image: false,
+            },
+            Some(256),
+        )
+        .await
+    {
         Ok((resp, _provider)) => (rec, resp.content),
         Err(_) => (rec, None),
     }

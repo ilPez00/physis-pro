@@ -12,7 +12,9 @@ use physis_core::contradiction::{Contradiction, ContradictionParty, ResolutionSt
 use physis_core::core::PhysisCore;
 use physis_core::discovery::{discover, DiscoveryConfig};
 use physis_core::embed::{RandomProjectionEmbedder, VectorEmbed};
-use physis_core::hypothesis::{Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction};
+use physis_core::hypothesis::{
+    Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction,
+};
 use physis_core::ontology::OntologyLoader;
 use physis_core::provenance::ProvenanceLink;
 use physis_core::quality::{ContextualQualityTracker, FitnessContext};
@@ -55,23 +57,22 @@ fn test_1_contradiction_preservation() {
     ));
 
     // Create contradiction
-    let party_a = ContradictionParty::new(
-        "Spindle bearing overheating at 95C",
-        "telemetry_sensor_S1",
-    )
-    .with_confidence(0.95)
-    .with_authority(0.90);
+    let party_a =
+        ContradictionParty::new("Spindle bearing overheating at 95C", "telemetry_sensor_S1")
+            .with_confidence(0.95)
+            .with_authority(0.90);
 
-    let party_b = ContradictionParty::new(
-        "Spindle bearing running cool to touch",
-        "operator_log_OP4",
-    )
-    .with_confidence(0.50)
-    .with_authority(0.40);
+    let party_b =
+        ContradictionParty::new("Spindle bearing running cool to touch", "operator_log_OP4")
+            .with_confidence(0.50)
+            .with_authority(0.40);
 
     let mut contradiction = Contradiction::new(party_a, party_b);
     contradiction.resolution = ResolutionStatus::APreferred;
-    contradiction.explanation = Some("Sensor S1 calibrated yesterday; operator inspection subject to heat dissipation delay".to_string());
+    contradiction.explanation = Some(
+        "Sensor S1 calibrated yesterday; operator inspection subject to heat dissipation delay"
+            .to_string(),
+    );
 
     let contra_id = core.record_contradiction(contradiction);
 
@@ -83,18 +84,28 @@ fn test_1_contradiction_preservation() {
     // 2. Contradiction is recorded and inspectable
     assert_eq!(core.contradictions.len(), 1);
     assert_eq!(core.contradictions[0].id, contra_id);
-    assert_eq!(core.contradictions[0].resolution, ResolutionStatus::APreferred);
+    assert_eq!(
+        core.contradictions[0].resolution,
+        ResolutionStatus::APreferred
+    );
 
     // 3. Provenance chains for both sources remain intact
-    assert!(core.provenance_chains[&hyp_a_id].summary().contains("maintenance_telemetry_sensor_S1"));
-    assert!(core.provenance_chains[&hyp_b_id].summary().contains("operator_shift_log_OP4"));
+    assert!(core.provenance_chains[&hyp_a_id]
+        .summary()
+        .contains("maintenance_telemetry_sensor_S1"));
+    assert!(core.provenance_chains[&hyp_b_id]
+        .summary()
+        .contains("operator_shift_log_OP4"));
 
     // 4. Contradiction query retrieves the conflicting claims
     let query_res = core.query_coherence(&EpistemicQuery::WhatContradicts {
         id: "Spindle bearing".to_string(),
     });
     match query_res {
-        EpistemicQueryResult::Contradictions { contradicting_claims, .. } => {
+        EpistemicQueryResult::Contradictions {
+            contradicting_claims,
+            ..
+        } => {
             assert_eq!(contradicting_claims.len(), 1);
             assert!(contradicting_claims[0].contains("95C"));
             assert!(contradicting_claims[0].contains("cool"));
@@ -167,8 +178,16 @@ fn test_2_feedback_loop_and_ranking() {
     let h1_final = core.hypothesis(&h1_id).unwrap();
     let h2_final = core.hypothesis(&h2_id).unwrap();
 
-    assert!(h1_final.fitness > 0.65, "H1 fitness should rise above baseline: {}", h1_final.fitness);
-    assert!(h2_final.fitness < 0.40, "H2 fitness should drop below baseline: {}", h2_final.fitness);
+    assert!(
+        h1_final.fitness > 0.65,
+        "H1 fitness should rise above baseline: {}",
+        h1_final.fitness
+    );
+    assert!(
+        h2_final.fitness < 0.40,
+        "H2 fitness should drop below baseline: {}",
+        h2_final.fitness
+    );
     assert_eq!(h1_final.status, HypothesisStatus::Supported);
     assert_eq!(h2_final.status, HypothesisStatus::Contradicted);
 
@@ -234,19 +253,34 @@ fn test_3_context_dependent_fitness() {
     );
 
     // Verify context-specific fitness
-    let fit_heavy = tracker.fitness_for(interpretation, &context_heavy_cnc).unwrap();
-    let fit_micro = tracker.fitness_for(interpretation, &context_micro_mill).unwrap();
+    let fit_heavy = tracker
+        .fitness_for(interpretation, &context_heavy_cnc)
+        .unwrap();
+    let fit_micro = tracker
+        .fitness_for(interpretation, &context_micro_mill)
+        .unwrap();
 
-    assert_eq!(fit_heavy, 1.0, "Heavy CNC roughing should maintain 100% success fitness");
+    assert_eq!(
+        fit_heavy, 1.0,
+        "Heavy CNC roughing should maintain 100% success fitness"
+    );
     assert_eq!(fit_micro, 0.0, "Micro mill acrylic should have 0% fitness");
 
     // Adjusting score in Context A remains high
     let raw_score = 0.90;
-    let adjusted_heavy = tracker.adjust_score_contextual(interpretation, raw_score, &context_heavy_cnc);
-    let adjusted_micro = tracker.adjust_score_contextual(interpretation, raw_score, &context_micro_mill);
+    let adjusted_heavy =
+        tracker.adjust_score_contextual(interpretation, raw_score, &context_heavy_cnc);
+    let adjusted_micro =
+        tracker.adjust_score_contextual(interpretation, raw_score, &context_micro_mill);
 
-    assert!(adjusted_heavy > 0.80, "Score in Context A must remain viable: {adjusted_heavy}");
-    assert!(adjusted_micro < 0.60, "Score in Context B must be heavily penalized: {adjusted_micro}");
+    assert!(
+        adjusted_heavy > 0.80,
+        "Score in Context A must remain viable: {adjusted_heavy}"
+    );
+    assert!(
+        adjusted_micro < 0.60,
+        "Score in Context B must be heavily penalized: {adjusted_micro}"
+    );
     assert!(adjusted_heavy > adjusted_micro);
 }
 
@@ -287,16 +321,27 @@ fn test_4_temporal_revision_and_reconstruction() {
 
     // Reconstruct state at past moments:
     // At t0: Was Candidate
-    assert_eq!(core.reconstruct_belief_at(&hyp_id, t0), Some(HypothesisStatus::Candidate));
+    assert_eq!(
+        core.reconstruct_belief_at(&hyp_id, t0),
+        Some(HypothesisStatus::Candidate)
+    );
     // At t1: Was Supported
-    assert_eq!(core.reconstruct_belief_at(&hyp_id, t1), Some(HypothesisStatus::Supported));
+    assert_eq!(
+        core.reconstruct_belief_at(&hyp_id, t1),
+        Some(HypothesisStatus::Supported)
+    );
     // At t2: Was Contradicted
-    assert_eq!(core.reconstruct_belief_at(&hyp_id, t2), Some(HypothesisStatus::Contradicted));
+    assert_eq!(
+        core.reconstruct_belief_at(&hyp_id, t2),
+        Some(HypothesisStatus::Contradicted)
+    );
 
     // Audit trail preserves all events with triggers
     let history = core.epistemic_audit.history_for(&hyp_id);
     assert_eq!(history.len(), 3); // Created + Transition 1 + Transition 2
-    assert!(history.iter().any(|e| e.description.contains("Exothermic spike")));
+    assert!(history
+        .iter()
+        .any(|e| e.description.contains("Exothermic spike")));
 }
 
 // ── Test 5 — Structured Explanation System ───────────────────────────
@@ -356,13 +401,22 @@ fn test_5_structured_explanation() {
     assert!(explanation_opt.is_some());
     let report = explanation_opt.unwrap();
 
-    assert_eq!(report.statement, "Preventative maintenance required on coolant pump P2");
+    assert_eq!(
+        report.statement,
+        "Preventative maintenance required on coolant pump P2"
+    );
     assert_eq!(report.supporting_evidence.len(), 1);
-    assert!(report.supporting_evidence[0].claim.contains("cavitation peak"));
+    assert!(report.supporting_evidence[0]
+        .claim
+        .contains("cavitation peak"));
     assert_eq!(report.expected_consequences.len(), 1);
     assert!(report.provenance_chain.links.len() >= 2);
-    assert!(report.human_readable_summary.contains("PHYSIS EXPLANATION REPORT"));
-    assert!(report.human_readable_summary.contains("vibration_sensor_P2.log"));
+    assert!(report
+        .human_readable_summary
+        .contains("PHYSIS EXPLANATION REPORT"));
+    assert!(report
+        .human_readable_summary
+        .contains("vibration_sensor_P2.log"));
 }
 
 // ── Test 6 — Failed Prediction Penalization ──────────────────────────
@@ -387,11 +441,14 @@ fn test_6_failed_prediction_penalization() {
     // Record a failed prediction
     let hyp_mut = core.hypothesis_mut(&hyp_id).unwrap();
     hyp_mut.record_prediction(Prediction {
-        statement: "Hardened steel tip will operate > 100 hours without thermal creep clogs".to_string(),
+        statement: "Hardened steel tip will operate > 100 hours without thermal creep clogs"
+            .to_string(),
         expected_outcome: Some("0 clogs in 100 hours".to_string()),
         made_at: chrono::Utc::now(),
         observed_at: Some(chrono::Utc::now()),
-        actual_outcome: Some("Severe clog occurred at hour 14 due to reduced thermal conductivity".to_string()),
+        actual_outcome: Some(
+            "Severe clog occurred at hour 14 due to reduced thermal conductivity".to_string(),
+        ),
         correct: Some(false),
         confidence: 0.90,
     });
@@ -414,7 +471,11 @@ fn test_6_failed_prediction_penalization() {
         EpistemicQueryResult::FailedPredictionsList { failures } => {
             assert_eq!(failures.len(), 1);
             assert_eq!(failures[0].hypothesis_id, hyp_id);
-            assert!(failures[0].actual_outcome.as_ref().unwrap().contains("Severe clog"));
+            assert!(failures[0]
+                .actual_outcome
+                .as_ref()
+                .unwrap()
+                .contains("Severe clog"));
         }
         _ => panic!("Expected FailedPredictionsList result"),
     }
@@ -430,9 +491,11 @@ fn test_7_ontology_gap_discovery() {
     let classifier = CellClassifier::build(&loader, &emb);
 
     let unmapped_corpus = vec![
-        "superconducting quantum qubit coherence decoherence time T1 T2 fluxonium gate fidelity".to_string(),
+        "superconducting quantum qubit coherence decoherence time T1 T2 fluxonium gate fidelity"
+            .to_string(),
         "quantum error correction surface code logical qubit threshold lattice surgery".to_string(),
-        "cryogenic dilution refrigerator microwave drive resonator transmon qubit readout".to_string(),
+        "cryogenic dilution refrigerator microwave drive resonator transmon qubit readout"
+            .to_string(),
     ];
 
     let config = DiscoveryConfig {
@@ -454,7 +517,10 @@ fn test_7_ontology_gap_discovery() {
     let top_prop = &report.proposals[0];
     assert!(!top_prop.hints.is_empty());
     assert!(
-        top_prop.hints.iter().any(|t| t == "qubit" || t == "quantum" || t == "coherence" || t == "fidelity"),
+        top_prop
+            .hints
+            .iter()
+            .any(|t| t == "qubit" || t == "quantum" || t == "coherence" || t == "fidelity"),
         "Extracted proposal hints: {:?}",
         top_prop.hints
     );
@@ -478,7 +544,8 @@ fn test_peculiarity_benchmark_comparison() {
     let text_emb = emb.embed(text);
 
     // 1. Embedding similarity only: picks arbitrary highest dot product
-    let pure_sim_score = physis_core::models::cosine_sim(&text_emb, &emb.embed("thermal overload shutdown"));
+    let pure_sim_score =
+        physis_core::models::cosine_sim(&text_emb, &emb.embed("thermal overload shutdown"));
     assert!(pure_sim_score > 0.0);
 
     // 2. Embedding + Ontology: classifies into a domain cell

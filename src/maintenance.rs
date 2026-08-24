@@ -92,7 +92,10 @@ pub struct HealthBaseline {
 
 impl HealthBaseline {
     pub fn new(machine_id: impl Into<String>) -> Self {
-        Self { machine_id: machine_id.into(), feature_stats: BTreeMap::new() }
+        Self {
+            machine_id: machine_id.into(),
+            feature_stats: BTreeMap::new(),
+        }
     }
 
     /// Fold a reading the operator considers healthy into the baseline.
@@ -104,13 +107,20 @@ impl HealthBaseline {
 
     /// How many samples the least-observed feature has seen.
     pub fn min_count(&self) -> u64 {
-        self.feature_stats.values().map(|s| s.count).min().unwrap_or(0)
+        self.feature_stats
+            .values()
+            .map(|s| s.count)
+            .min()
+            .unwrap_or(0)
     }
 
     /// True once every tracked feature has enough samples to judge.
     pub fn is_ready(&self) -> bool {
         !self.feature_stats.is_empty()
-            && self.feature_stats.values().all(|s| s.count >= MIN_BASELINE_N)
+            && self
+                .feature_stats
+                .values()
+                .all(|s| s.count >= MIN_BASELINE_N)
     }
 
     /// Score a reading against the baseline. `None` for a feature with no
@@ -125,9 +135,7 @@ impl HealthBaseline {
 
         for (name, value) in features(reading) {
             let z = match self.feature_stats.get(&name) {
-                Some(s) if s.count >= 2 && s.std() > 1e-9 => {
-                    ((value - s.mean) / s.std()) as f32
-                }
+                Some(s) if s.count >= 2 && s.std() > 1e-9 => ((value - s.mean) / s.std()) as f32,
                 _ => continue, // no baseline / no variance → skip
             };
             if z.abs() > max_abs_z {
@@ -136,10 +144,18 @@ impl HealthBaseline {
             }
             sum_sq += z * z;
             judged += 1;
-            per_feature.push(FeatureDeviation { feature: name, value: value as f32, z });
+            per_feature.push(FeatureDeviation {
+                feature: name,
+                value: value as f32,
+                z,
+            });
         }
 
-        let rms_z = if judged > 0 { (sum_sq / judged as f32).sqrt() } else { 0.0 };
+        let rms_z = if judged > 0 {
+            (sum_sq / judged as f32).sqrt()
+        } else {
+            0.0
+        };
         let trustworthy = self.min_count() >= MIN_BASELINE_N && judged > 0;
 
         AnomalyScore {
@@ -275,7 +291,11 @@ pub struct MaintenanceMonitor {
 
 impl MaintenanceMonitor {
     pub fn new(history_cap: usize) -> Self {
-        Self { baselines: BTreeMap::new(), history: BTreeMap::new(), history_cap: history_cap.max(3) }
+        Self {
+            baselines: BTreeMap::new(),
+            history: BTreeMap::new(),
+            history_cap: history_cap.max(3),
+        }
     }
 
     /// Fold a healthy reading into the machine's baseline (training).
@@ -288,7 +308,11 @@ impl MaintenanceMonitor {
 
     /// Score a live reading and append it to the trend history. Returns `None`
     /// if the machine has no baseline yet.
-    pub fn check(&mut self, reading: &MachineReading, sigma_threshold: f32) -> Option<AnomalyScore> {
+    pub fn check(
+        &mut self,
+        reading: &MachineReading,
+        sigma_threshold: f32,
+    ) -> Option<AnomalyScore> {
         self.push_history(reading);
         let baseline = self.baselines.get(&reading.machine_id)?;
         Some(baseline.score(reading, sigma_threshold))
@@ -337,7 +361,11 @@ impl MaintenanceMonitor {
         );
         if let Some(v) = db.get("maintenance").ok().flatten() {
             if let Ok((baselines, history, history_cap)) = serde_json::from_slice::<Snapshot>(&v) {
-                return Self { baselines, history, history_cap };
+                return Self {
+                    baselines,
+                    history,
+                    history_cap,
+                };
             }
         }
         Self::new(default_cap)
@@ -427,20 +455,37 @@ mod tests {
         // vibration rising 0.1/sec from 2.0; limit 5.0 → ~30s out.
         let mut hist = Vec::new();
         for i in 0..10 {
-            hist.push(Sample { t: i as f64, value: 2.0 + 0.1 * i as f64 });
+            hist.push(Sample {
+                t: i as f64,
+                value: 2.0 + 0.1 * i as f64,
+            });
         }
         let est = project_time_to_limit(&hist, 5.0).unwrap();
         assert!((est.slope_per_sec - 0.1).abs() < 1e-6);
         // latest t=9 value=2.9; (5.0-2.9)/0.1 = 21s
-        assert!((est.seconds_to_limit - 21.0).abs() < 0.5, "secs={}", est.seconds_to_limit);
+        assert!(
+            (est.seconds_to_limit - 21.0).abs() < 0.5,
+            "secs={}",
+            est.seconds_to_limit
+        );
     }
 
     #[test]
     fn test_rul_none_when_flat_or_away() {
-        let flat: Vec<Sample> = (0..5).map(|i| Sample { t: i as f64, value: 3.0 }).collect();
+        let flat: Vec<Sample> = (0..5)
+            .map(|i| Sample {
+                t: i as f64,
+                value: 3.0,
+            })
+            .collect();
         assert!(project_time_to_limit(&flat, 5.0).is_none());
         // Falling away from an upper limit.
-        let falling: Vec<Sample> = (0..5).map(|i| Sample { t: i as f64, value: 5.0 - i as f64 }).collect();
+        let falling: Vec<Sample> = (0..5)
+            .map(|i| Sample {
+                t: i as f64,
+                value: 5.0 - i as f64,
+            })
+            .collect();
         assert!(project_time_to_limit(&falling, 10.0).is_none());
     }
 
@@ -451,17 +496,24 @@ mod tests {
             let j = (i % 4) as f32 * 0.1;
             mon.observe_healthy(&reading("m1", 50.0 + j, 2.0 + j * 0.05));
         }
-        let score = mon.check(&reading("m1", 50.0, 5.0), DEFAULT_SIGMA_THRESHOLD).unwrap();
+        let score = mon
+            .check(&reading("m1", 50.0, 5.0), DEFAULT_SIGMA_THRESHOLD)
+            .unwrap();
         assert!(score.is_anomaly);
         // No baseline for unknown machine.
-        assert!(mon.check(&reading("ghost", 1.0, 1.0), DEFAULT_SIGMA_THRESHOLD).is_none());
+        assert!(mon
+            .check(&reading("ghost", 1.0, 1.0), DEFAULT_SIGMA_THRESHOLD)
+            .is_none());
     }
 
     #[test]
     fn test_monitor_rul_from_history() {
         let mut mon = MaintenanceMonitor::new(64);
         for i in 0..12 {
-            mon.check(&reading_at("m1", i, 2.0 + 0.1 * i as f32), DEFAULT_SIGMA_THRESHOLD);
+            mon.check(
+                &reading_at("m1", i, 2.0 + 0.1 * i as f32),
+                DEFAULT_SIGMA_THRESHOLD,
+            );
         }
         let est = mon.rul("m1", "vibration", 5.0).unwrap();
         assert!(est.slope_per_sec > 0.0);

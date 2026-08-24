@@ -126,7 +126,11 @@ fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
         if !entry.file_type().is_file() {
             continue;
         }
-        if entry.metadata().map(|m| m.len() > MAX_FILE_BYTES).unwrap_or(true) {
+        if entry
+            .metadata()
+            .map(|m| m.len() > MAX_FILE_BYTES)
+            .unwrap_or(true)
+        {
             continue;
         }
         if !is_text_file(entry.path()) {
@@ -253,10 +257,8 @@ impl EmbedCache {
             .map(|t| Self::key(embedder_kind, dim, t))
             .collect();
 
-        let mut out: Vec<Option<Vec<f32>>> = keys
-            .iter()
-            .map(|k| self.entries.get(k).cloned())
-            .collect();
+        let mut out: Vec<Option<Vec<f32>>> =
+            keys.iter().map(|k| self.entries.get(k).cloned()).collect();
 
         let missing: Vec<usize> = out
             .iter()
@@ -275,7 +277,9 @@ impl EmbedCache {
             }
         }
 
-        out.into_iter().map(|slot| slot.unwrap_or_default()).collect()
+        out.into_iter()
+            .map(|slot| slot.unwrap_or_default())
+            .collect()
     }
 }
 
@@ -311,7 +315,15 @@ pub fn pack(
     let corpus = RagCorpus::build(&texts, embedder);
     let query_embedding = embedder.embed(query);
 
-    finish_pack(candidates, files_scanned, corpus, &query_embedding, budget, top_k, diversity)
+    finish_pack(
+        candidates,
+        files_scanned,
+        corpus,
+        &query_embedding,
+        budget,
+        top_k,
+        diversity,
+    )
 }
 
 /// Cached counterpart to [`pack`]: identical output, but chunk embeddings are
@@ -364,7 +376,15 @@ pub fn pack_cached(
     // usually novel, and caching it would grow the file without bound.
     let query_embedding = embedder.embed(query);
 
-    finish_pack(candidates, files_scanned, corpus, &query_embedding, budget, top_k, diversity)
+    finish_pack(
+        candidates,
+        files_scanned,
+        corpus,
+        &query_embedding,
+        budget,
+        top_k,
+        diversity,
+    )
 }
 
 /// Shared tail of [`pack`] and [`pack_cached`]: retrieve, then reattach the
@@ -379,7 +399,6 @@ fn finish_pack(
     top_k: usize,
     diversity: f32,
 ) -> PackResult {
-
     let retriever = TokenFixedRetriever::new(budget, top_k).with_diversity(diversity);
     let result = retriever.retrieve(query_embedding, &corpus);
 
@@ -494,11 +513,16 @@ mod tests {
     fn a_failed_save_leaves_the_previous_cache_intact() {
         let dir = tempfile::tempdir().unwrap();
         let mut cache = EmbedCache::default();
-        cache.entries.insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
+        cache
+            .entries
+            .insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
         cache.save(dir.path());
 
         let before = std::fs::read(EmbedCache::path(dir.path())).unwrap();
-        assert!(!before.is_empty(), "baseline cache should have been written");
+        assert!(
+            !before.is_empty(),
+            "baseline cache should have been written"
+        );
 
         // Make the directory unwritable so the temp file cannot be created.
         // The rename never happens, so the existing cache must survive.
@@ -509,8 +533,12 @@ mod tests {
             std::fs::set_permissions(dir.path(), ro).unwrap();
 
             let mut bigger = EmbedCache::default();
-            bigger.entries.insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
-            bigger.entries.insert("kind:2:def".to_string(), vec![3.0, 4.0]);
+            bigger
+                .entries
+                .insert("kind:2:abc".to_string(), vec![1.0, 2.0]);
+            bigger
+                .entries
+                .insert("kind:2:def".to_string(), vec![3.0, 4.0]);
             bigger.save(dir.path()); // reports on stderr, must not panic
 
             std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -527,11 +555,16 @@ mod tests {
     fn save_then_load_round_trips_entries() {
         let dir = tempfile::tempdir().unwrap();
         let mut cache = EmbedCache::default();
-        cache.entries.insert("kind:3:xyz".to_string(), vec![0.5, 0.25, 0.125]);
+        cache
+            .entries
+            .insert("kind:3:xyz".to_string(), vec![0.5, 0.25, 0.125]);
         cache.save(dir.path());
 
         let reloaded = EmbedCache::load(dir.path());
-        assert_eq!(reloaded.entries.get("kind:3:xyz").unwrap(), &vec![0.5, 0.25, 0.125]);
+        assert_eq!(
+            reloaded.entries.get("kind:3:xyz").unwrap(),
+            &vec![0.5, 0.25, 0.125]
+        );
 
         // No temp files left behind after a successful save.
         let strays: Vec<_> = std::fs::read_dir(dir.path())
@@ -596,7 +629,11 @@ mod tests {
     fn dropped_counts_what_did_not_fit() {
         let dir = tempfile::tempdir().unwrap();
         for i in 0..10 {
-            write(dir.path(), &format!("f{i}.txt"), &format!("subject {i}\n").repeat(50));
+            write(
+                dir.path(),
+                &format!("f{i}.txt"),
+                &format!("subject {i}\n").repeat(50),
+            );
         }
 
         // A budget far below the corpus must drop most candidates.

@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State}, http::StatusCode};
+use axum::{
+    extract::{Json, Query, State},
+    http::StatusCode,
+};
 
 /// GET /api/v1/axes — current axes: the builtin values derived from the live
 /// ontology entries, plus any installed (promoted) axes with their time-decayed
@@ -197,4 +200,3 @@ pub async fn axes_lineage_handler(
         ),
     }
 }
-

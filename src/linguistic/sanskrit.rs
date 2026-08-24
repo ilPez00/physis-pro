@@ -5,47 +5,94 @@ static SEMANTIC_NET: once_cell::sync::Lazy<HashMap<&'static str, Vec<&'static st
         let mut m: HashMap<&str, Vec<&str>> = HashMap::new();
         m.insert("run", vec!["sprint", "jog", "move", "flow", "circulate"]);
         m.insert("walk", vec!["stroll", "wander", "journey", "pace"]);
-        m.insert("exercise", vec!["train", "strengthen", "endure", "discipline"]);
+        m.insert(
+            "exercise",
+            vec!["train", "strengthen", "endure", "discipline"],
+        );
         m.insert("fitness", vec!["vitality", "stamina", "vigor", "capacity"]);
         m.insert("body", vec!["form", "vessel", "temple", "physique"]);
-        m.insert("health", vec!["wholeness", "balance", "harmony", "wellbeing"]);
+        m.insert(
+            "health",
+            vec!["wholeness", "balance", "harmony", "wellbeing"],
+        );
         m.insert("eat", vec!["nourish", "consume", "sustain", "fuel"]);
         m.insert("sleep", vec!["restore", "recharge", "dream", "deep_rest"]);
         m.insert("rest", vec!["pause", "recover", "stillness", "restoration"]);
         m.insert("work", vec!["labor", "create", "produce", "contribute"]);
         m.insert("create", vec!["manifest", "generate", "originate", "craft"]);
         m.insert("build", vec!["construct", "assemble", "erect", "forge"]);
-        m.insert("code", vec!["logic", "structure", "language", "instruction"]);
-        m.insert("write", vec!["express", "compose", "inscribe", "articulate"]);
+        m.insert(
+            "code",
+            vec!["logic", "structure", "language", "instruction"],
+        );
+        m.insert(
+            "write",
+            vec!["express", "compose", "inscribe", "articulate"],
+        );
         m.insert("read", vec!["absorb", "interpret", "comprehend", "study"]);
-        m.insert("learn", vec!["acquire", "understand", "master", "integrate"]);
+        m.insert(
+            "learn",
+            vec!["acquire", "understand", "master", "integrate"],
+        );
         m.insert("think", vec!["contemplate", "reflect", "ponder", "reason"]);
-        m.insert("meditate", vec!["stillness", "awareness", "presence", "contemplation"]);
-        m.insert("mind", vec!["consciousness", "awareness", "intellect", "psyche"]);
+        m.insert(
+            "meditate",
+            vec!["stillness", "awareness", "presence", "contemplation"],
+        );
+        m.insert(
+            "mind",
+            vec!["consciousness", "awareness", "intellect", "psyche"],
+        );
         m.insert("energy", vec!["force", "vitality", "power", "dynamism"]);
         m.insert("money", vec!["resource", "capital", "value", "exchange"]);
         m.insert("friend", vec!["ally", "companion", "connection", "bond"]);
         m.insert("family", vec!["lineage", "kin", "ancestry", "heritage"]);
         m.insert("love", vec!["devotion", "affection", "connection", "care"]);
-        m.insert("art", vec!["expression", "beauty", "creation", "aesthetics"]);
+        m.insert(
+            "art",
+            vec!["expression", "beauty", "creation", "aesthetics"],
+        );
         m.insert("music", vec!["rhythm", "harmony", "melody", "sound"]);
-        m.insert("project", vec!["endeavor", "initiative", "undertaking", "quest"]);
+        m.insert(
+            "project",
+            vec!["endeavor", "initiative", "undertaking", "quest"],
+        );
         m.insert("goal", vec!["aim", "objective", "aspiration", "milestone"]);
-        m.insert("progress", vec!["advance", "growth", "development", "evolution"]);
-        m.insert("dream", vec!["vision", "aspiration", "imagination", "possibility"]);
-        m.insert("change", vec!["transform", "evolve", "shift", "metamorphosis"]);
+        m.insert(
+            "progress",
+            vec!["advance", "growth", "development", "evolution"],
+        );
+        m.insert(
+            "dream",
+            vec!["vision", "aspiration", "imagination", "possibility"],
+        );
+        m.insert(
+            "change",
+            vec!["transform", "evolve", "shift", "metamorphosis"],
+        );
         m.insert("grow", vec!["expand", "develop", "bloom", "flourish"]);
         m.insert("system", vec!["framework", "structure", "order", "pattern"]);
         m.insert("time", vec!["duration", "cycle", "moment", "eternity"]);
-        m.insert("morning", vec!["dawn", "beginning", "awakening", "freshness"]);
+        m.insert(
+            "morning",
+            vec!["dawn", "beginning", "awakening", "freshness"],
+        );
         m.insert("night", vec!["darkness", "stillness", "mystery", "rest"]);
         m
     });
 
 #[allow(dead_code)]
 static ASSOCIATION_WORDS: &[&str] = &[
-    "thus", "therefore", "moreover", "likewise", "furthermore",
-    "indeed", "surely", "verily", "hence", "thereby",
+    "thus",
+    "therefore",
+    "moreover",
+    "likewise",
+    "furthermore",
+    "indeed",
+    "surely",
+    "verily",
+    "hence",
+    "thereby",
 ];
 
 #[derive(Debug, Clone)]
@@ -81,11 +128,7 @@ impl SanskritEngine {
                 if !seen_core.contains(&lower) {
                     seen_core.push(lower.clone());
                     let assoc_str = associations.join(", ");
-                    expansions.push(format!(
-                        "{} blossoms into {}",
-                        word,
-                        assoc_str
-                    ));
+                    expansions.push(format!("{} blossoms into {}", word, assoc_str));
                 }
             }
         }

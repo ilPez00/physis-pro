@@ -88,7 +88,10 @@ impl NetworkScanner {
     }
 
     /// Perform a VFS health check by verifying all symlinks in the orchestrator's virtual structure.
-    pub fn vfs_health_check(&self, orchestrator: &mut crate::vfs::orchestrator::VfsOrchestrator) -> anyhow::Result<()> {
+    pub fn vfs_health_check(
+        &self,
+        orchestrator: &mut crate::vfs::orchestrator::VfsOrchestrator,
+    ) -> anyhow::Result<()> {
         let mut to_remove = Vec::new();
         for reference in &orchestrator.reference_map {
             if !reference.physical_path.exists() {
@@ -103,19 +106,20 @@ impl NetworkScanner {
                 std::os::unix::fs::symlink(&reference.physical_path, &reference.virtual_path)?;
             }
         }
-        orchestrator.reference_map.retain(|r| !to_remove.contains(&r.virtual_path));
+        orchestrator
+            .reference_map
+            .retain(|r| !to_remove.contains(&r.virtual_path));
         Ok(())
     }
 }
 
-
 #[cfg(feature = "network")]
 pub mod watcher {
+    use super::NetworkEvent;
+    use notify::{Config, EventKind, RecursiveMode, Watcher};
     use std::path::PathBuf;
     use std::sync::mpsc;
     use std::time::Duration;
-    use notify::{Config, EventKind, RecursiveMode, Watcher};
-    use super::NetworkEvent;
 
     /// Starts a filesystem watcher that polls directories for create/modify/remove events.
     pub fn start_watcher(
@@ -123,16 +127,17 @@ pub mod watcher {
         _tx: mpsc::Sender<NetworkEvent>,
     ) -> anyhow::Result<notify::RecommendedWatcher> {
         let (event_tx, _event_rx) = mpsc::channel();
-        let mut watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-            if let Ok(event) = res {
-                match event.kind {
-                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
-                        let _ = event_tx.send(());
+        let mut watcher =
+            notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
+                if let Ok(event) = res {
+                    match event.kind {
+                        EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
+                            let _ = event_tx.send(());
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
-            }
-        })?;
+            })?;
 
         watcher.configure(Config::default().with_poll_interval(Duration::from_secs(2)))?;
         for dir in watch_dirs {
@@ -153,11 +158,7 @@ mod tests {
 
     #[test]
     fn test_scan_all_no_dirs() {
-        let scanner = NetworkScanner::new(
-            vec![],
-            PathBuf::from("/tmp/physis_test_cache.json"),
-            60,
-        );
+        let scanner = NetworkScanner::new(vec![], PathBuf::from("/tmp/physis_test_cache.json"), 60);
         let diffs = scanner.scan_all();
         assert!(diffs.is_empty());
     }
@@ -165,11 +166,7 @@ mod tests {
     #[test]
     fn test_apply_to_trie() {
         let mut trie = DynamicVectorTrie::new();
-        let scanner = NetworkScanner::new(
-            vec![],
-            PathBuf::from("/tmp/physis_test_cache.json"),
-            60,
-        );
+        let scanner = NetworkScanner::new(vec![], PathBuf::from("/tmp/physis_test_cache.json"), 60);
 
         let file = FileInfo {
             path: "test/file.rs".to_string(),
@@ -209,11 +206,7 @@ mod tests {
         let mut trie = DynamicVectorTrie::new();
         trie.insert_path("old/file.rs");
 
-        let scanner = NetworkScanner::new(
-            vec![],
-            PathBuf::from("/tmp/physis_test_cache.json"),
-            60,
-        );
+        let scanner = NetworkScanner::new(vec![], PathBuf::from("/tmp/physis_test_cache.json"), 60);
 
         let diff = ScanDiff {
             new: vec![],

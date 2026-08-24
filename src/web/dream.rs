@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::HeaderMap};
+use axum::{
+    extract::{Json, State},
+    http::HeaderMap,
+};
 
 pub async fn dream_generate_handler(
     State(state): State<SharedState>,
@@ -125,4 +128,3 @@ pub async fn dream_evaluate_handler(
         "grade": req.grade,
     }))
 }
-

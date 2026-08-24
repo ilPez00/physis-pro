@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// Reports the live embedder provenance so degraded (random-projection) mode is
 /// observable instead of silent. See PREMORTEM.md P0.
@@ -158,7 +161,10 @@ pub async fn graph_fm_ui_handler() -> Html<&'static str> {
 /// or `getJSON` at all. It ships no data — only functions.
 pub async fn ui_shell_js_handler() -> impl axum::response::IntoResponse {
     (
-        [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
         include_str!("../bin/ui/ui-shell.js"),
     )
 }
@@ -168,7 +174,10 @@ pub async fn ui_shell_js_handler() -> impl axum::response::IntoResponse {
 /// box (letter mark) in the served dashboards with the sunflower image.
 pub async fn sunflower_js_handler() -> impl axum::response::IntoResponse {
     (
-        [(axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
         include_str!("../bin/ui/sunflower.js"),
     )
 }
@@ -188,4 +197,3 @@ pub async fn demo_ui_handler() -> Html<&'static str> {
 pub async fn study_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/study.html"))
 }
-

@@ -110,4 +110,3 @@ pub async fn mcp_message_handler(
     }
     axum::http::StatusCode::ACCEPTED
 }
-

@@ -34,6 +34,10 @@ regex = "1"
 once_cell = "1"
 walkdir = "2"
 rayon = "1"
+# Interest daemon: clipboard access + OOXML (pptx/docx) unzip. Kept OUT of
+# `full` — arboard wants a display server at runtime and CI has none.
+arboard = { version = "3.6", optional = true }
+zip = { version = "2.2", default-features = false, features = ["deflate"], optional = true }
 
 # In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
 # Vendored in-repo (vendor/llmwiki) so prod/CI builds resolve + can compile it
@@ -135,6 +139,8 @@ spanner = ["dep:jsonwebtoken"]
 # customer build: it builds the tool that mints licences. The shipped package
 # is built without it, so the signing path is not even present in the binary.
 vendor = ["dep:clap"]
+# Local interest daemon: clipboard + watched-dir observation → interest profile.
+daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp", "sql", "postgres"]
 
@@ -181,6 +187,12 @@ members = ["physis-core"]
 # workspace avoids the "profiles for the non root package will be ignored"
 # warning (it's still reachable as the `llmwiki_physis` path dependency).
 exclude = ["vendor/llmwiki"]
+
+# Local interest daemon (clipboard + watched dirs → profile). Feature-gated:
+# needs a display server for arboard at runtime, so never in CI/full.
+[[bin]]
+name = "physis-interest-daemon"
+required-features = ["daemon"]
 
 # Vendor-only. Excluded from customer packages by `required-features`.
 [[bin]]

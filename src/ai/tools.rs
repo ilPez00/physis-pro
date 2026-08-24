@@ -9,7 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Signature for a tool handler: takes JSON args, returns a string result.
-pub type ToolHandler = Box<dyn Fn(serde_json::Value) -> futures::future::BoxFuture<'static, AiResult<String>> + Send + Sync>;
+pub type ToolHandler = Box<
+    dyn Fn(serde_json::Value) -> futures::future::BoxFuture<'static, AiResult<String>>
+        + Send
+        + Sync,
+>;
 
 /// OpenAI-compatible tool definition for LLM function-calling.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,7 +126,8 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let query = args.get("query")
+                    let query = args
+                        .get("query")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -143,7 +148,8 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let url = args.get("url")
+                    let url = args
+                        .get("url")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -164,7 +170,8 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let path = args.get("path")
+                    let path = args
+                        .get("path")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -186,11 +193,13 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let path = args.get("path")
+                    let path = args
+                        .get("path")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
-                    let content = args.get("content")
+                    let content = args
+                        .get("content")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -211,7 +220,8 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let path = args.get("path")
+                    let path = args
+                        .get("path")
                         .and_then(|v| v.as_str())
                         .unwrap_or(".")
                         .to_string();
@@ -258,7 +268,8 @@ impl ToolRegistry {
             }),
             Box::new(|args| {
                 Box::pin(async move {
-                    let query = args.get("query")
+                    let query = args
+                        .get("query")
                         .and_then(|v| v.as_str())
                         .unwrap_or("")
                         .to_string();
@@ -287,7 +298,10 @@ impl ToolRegistry {
 
 async fn tools_web_search(query: &str) -> AiResult<String> {
     let client = reqwest::Client::new();
-    let url = format!("https://api.duckduckgo.com/?q={q}&format=json&no_html=1", q = urlencoding(query));
+    let url = format!(
+        "https://api.duckduckgo.com/?q={q}&format=json&no_html=1",
+        q = urlencoding(query)
+    );
     let resp = client.get(&url).send().await?;
     let text = resp.text().await?;
     let truncated: String = text.chars().take(3000).collect();
@@ -299,7 +313,8 @@ async fn tools_read_url(url: &str) -> AiResult<String> {
         .timeout(std::time::Duration::from_secs(15))
         .build()
         .unwrap_or_default();
-    let resp = client.get(url)
+    let resp = client
+        .get(url)
         .header("User-Agent", "Mozilla/5.0 Aura/0.1")
         .send()
         .await?;

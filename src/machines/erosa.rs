@@ -15,9 +15,9 @@
 
 use std::collections::HashMap;
 
+use super::erosp::Reach;
 use crate::core::PhysisCore;
 use crate::embed::VectorEmbed;
-use super::erosp::Reach;
 
 /// A mythic erotic vector: conquest born of love and strife.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,7 +40,9 @@ pub struct Conquest {
 fn directed_flow(reaches: &[Reach]) -> HashMap<(String, String), f32> {
     let mut flow: HashMap<(String, String), f32> = HashMap::new();
     for r in reaches {
-        *flow.entry((r.subject.clone(), r.object.clone())).or_insert(0.0) += r.weight;
+        *flow
+            .entry((r.subject.clone(), r.object.clone()))
+            .or_insert(0.0) += r.weight;
     }
     flow
 }
@@ -77,7 +79,15 @@ pub fn detect_conquests(reaches: &[Reach]) -> Vec<Conquest> {
         }
         let balance = aphrodite.min(ares) / aphrodite.max(ares);
         let hash = format!("erosa_{subject}_{object}");
-        out.push(Conquest { subject, object, aphrodite, ares, rivals, balance, hash });
+        out.push(Conquest {
+            subject,
+            object,
+            aphrodite,
+            ares,
+            rivals,
+            balance,
+            hash,
+        });
     }
     out.sort_by(|a, b| {
         (b.aphrodite + b.ares)
@@ -90,7 +100,10 @@ pub fn detect_conquests(reaches: &[Reach]) -> Vec<Conquest> {
 /// Passionate conquests: love and strife in balance — the coherent erosa, the
 /// bond made vivid by contest rather than consumed by it.
 pub fn passionate(conquests: &[Conquest], min_balance: f32) -> Vec<&Conquest> {
-    conquests.iter().filter(|c| c.balance >= min_balance).collect()
+    conquests
+        .iter()
+        .filter(|c| c.balance >= min_balance)
+        .collect()
 }
 
 /// Jealous conquests: strife overruns love (Ares > Aphrodite) — the possessive,
@@ -110,7 +123,10 @@ pub fn register_conquests(
     for c in conquests {
         let subject = core.register_node_from_text(&format!("person: {}", c.subject), embedder);
         let conquest = core.register_node_from_text(
-            &format!("conquest: {} -> {} ({} rivals)", c.subject, c.object, c.rivals),
+            &format!(
+                "conquest: {} -> {} ({} rivals)",
+                c.subject, c.object, c.rivals
+            ),
             embedder,
         );
         core.bridge_node(&conquest);
@@ -125,21 +141,29 @@ mod tests {
     use super::*;
 
     fn r(subject: &str, object: &str, weight: f32) -> Reach {
-        Reach { subject: subject.into(), object: object.into(), weight }
+        Reach {
+            subject: subject.into(),
+            object: object.into(),
+            weight,
+        }
     }
 
     #[test]
     fn conquest_is_child_of_love_and_strife() {
         let reaches = vec![
-            r("ann", "bob", 6.0), r("bob", "ann", 6.0), // ann & bob: love both ways
-            r("cy", "bob", 4.0),                         // cy is a rival for bob
+            r("ann", "bob", 6.0),
+            r("bob", "ann", 6.0), // ann & bob: love both ways
+            r("cy", "bob", 4.0),  // cy is a rival for bob
         ];
         let conquests = detect_conquests(&reaches);
-        let ab = conquests.iter().find(|x| x.subject == "ann" && x.object == "bob").unwrap();
+        let ab = conquests
+            .iter()
+            .find(|x| x.subject == "ann" && x.object == "bob")
+            .unwrap();
         assert_eq!(ab.aphrodite, 6.0); // min(6,6)
-        assert_eq!(ab.rivals, 1);      // cy
-        assert!(ab.ares >= 4.0);       // rival pressure from cy
-        // cy → bob is loveless (bob does not reach cy) → not eros at all
+        assert_eq!(ab.rivals, 1); // cy
+        assert!(ab.ares >= 4.0); // rival pressure from cy
+                                 // cy → bob is loveless (bob does not reach cy) → not eros at all
         assert!(!conquests.iter().any(|x| x.subject == "cy"));
     }
 
@@ -153,8 +177,10 @@ mod tests {
     #[test]
     fn jealous_when_strife_dominates_love() {
         let reaches = vec![
-            r("ann", "bob", 1.0), r("bob", "ann", 1.0), // a thin love
-            r("cy", "bob", 5.0), r("dee", "bob", 5.0),  // crowded with rivals
+            r("ann", "bob", 1.0),
+            r("bob", "ann", 1.0), // a thin love
+            r("cy", "bob", 5.0),
+            r("dee", "bob", 5.0), // crowded with rivals
         ];
         let conquests = detect_conquests(&reaches);
         let ab = conquests.iter().find(|x| x.subject == "ann").unwrap();

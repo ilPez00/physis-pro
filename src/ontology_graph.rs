@@ -161,7 +161,13 @@ impl OntologyGraph {
         Self::default()
     }
 
-    fn add_node(&mut self, kind: NodeKind, label: &str, props: HashMap<String, String>, embedding: Vec<f32>) -> usize {
+    fn add_node(
+        &mut self,
+        kind: NodeKind,
+        label: &str,
+        props: HashMap<String, String>,
+        embedding: Vec<f32>,
+    ) -> usize {
         // De-dupe by label so themes/files/concepts collapse to one node.
         if let Some(&id) = self.label_index.get(label) {
             return id;
@@ -188,9 +194,20 @@ impl OntologyGraph {
         }
     }
 
-    pub fn add_link(&mut self, source: usize, target: usize, link: LinkType, weight: f32, props: HashMap<String, String>) {
+    pub fn add_link(
+        &mut self,
+        source: usize,
+        target: usize,
+        link: LinkType,
+        weight: f32,
+        props: HashMap<String, String>,
+    ) {
         // Avoid duplicate identical links (keep the stronger weight).
-        if let Some(e) = self.edges.iter_mut().find(|e| e.source == source && e.target == target && e.link == link) {
+        if let Some(e) = self
+            .edges
+            .iter_mut()
+            .find(|e| e.source == source && e.target == target && e.link == link)
+        {
             if weight > e.weight {
                 e.weight = weight;
                 e.props = props;
@@ -222,7 +239,10 @@ impl OntologyGraph {
             .filter(|e| e.source == id || e.target == id)
             .filter_map(|e| {
                 let other = if e.source == id { e.target } else { e.source };
-                self.nodes.iter().find(|n| n.id == other).map(|n| (n, e.link, e.weight))
+                self.nodes
+                    .iter()
+                    .find(|n| n.id == other)
+                    .map(|n| (n, e.link, e.weight))
             })
             .collect()
     }
@@ -276,7 +296,10 @@ impl OntologyGraph {
 
     /// Events affecting a particular node label (in insertion order).
     pub fn events_for(&self, label: &str) -> Vec<&GraphEvent> {
-        self.events.iter().filter(|e| e.node.as_deref() == Some(label)).collect()
+        self.events
+            .iter()
+            .filter(|e| e.node.as_deref() == Some(label))
+            .collect()
     }
 
     // ---- Adapters (the "reuse, don't rewrite" bridge) ----
@@ -307,7 +330,8 @@ impl OntologyGraph {
             file_ids.insert(f.id, id);
         }
         for e in &g.edges {
-            let (Some(&tid), Some(&fid)) = (theme_ids.get(&e.theme_id), file_ids.get(&e.file_id)) else {
+            let (Some(&tid), Some(&fid)) = (theme_ids.get(&e.theme_id), file_ids.get(&e.file_id))
+            else {
                 continue;
             };
             let mut props = HashMap::new();
@@ -372,7 +396,10 @@ impl OntologyGraph {
             self.log_event(
                 EventKind::Merge,
                 Some(hub_label),
-                &format!("merged {} discovered domain(s) into the grid", report.proposals.len()),
+                &format!(
+                    "merged {} discovered domain(s) into the grid",
+                    report.proposals.len()
+                ),
             );
         }
     }
@@ -384,10 +411,34 @@ mod tests {
 
     fn sample_ftg() -> crate::graph::FileThemeGraph {
         let mut g = crate::graph::FileThemeGraph::new();
-        g.add_theme("Email", Some("Communication"), "BOND", "WORK", "office", vec![0.9, 0.1]);
-        g.add_theme("Budget", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
-        g.add_file(std::path::PathBuf::from("inbox/msg.eml"), "Q4 report", "Email", vec![0.85, 0.15]);
-        g.add_file(std::path::PathBuf::from("finance/budget.xlsx"), "Budget 2025", "Spreadsheet", vec![0.15, 0.85]);
+        g.add_theme(
+            "Email",
+            Some("Communication"),
+            "BOND",
+            "WORK",
+            "office",
+            vec![0.9, 0.1],
+        );
+        g.add_theme(
+            "Budget",
+            Some("Finance"),
+            "CONSTRUCT",
+            "CREATE",
+            "office",
+            vec![0.1, 0.9],
+        );
+        g.add_file(
+            std::path::PathBuf::from("inbox/msg.eml"),
+            "Q4 report",
+            "Email",
+            vec![0.85, 0.15],
+        );
+        g.add_file(
+            std::path::PathBuf::from("finance/budget.xlsx"),
+            "Budget 2025",
+            "Spreadsheet",
+            vec![0.15, 0.85],
+        );
         g.add_edge(0, 0, 0.95);
         g.add_edge(1, 1, 0.90);
         g

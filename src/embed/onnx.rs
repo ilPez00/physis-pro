@@ -101,15 +101,22 @@ impl VectorEmbed for OnnxEmbedder {
 
         let actual_len = encoding.len().min(self.max_length);
         let mut ids: Vec<i64> = encoding
-            .get_ids().iter().take(self.max_length)
-            .map(|&v| v as i64).collect();
+            .get_ids()
+            .iter()
+            .take(self.max_length)
+            .map(|&v| v as i64)
+            .collect();
         ids.resize(self.max_length, 0i64);
         let mut type_ids: Vec<i64> = encoding
-            .get_type_ids().iter().take(self.max_length)
-            .map(|&v| v as i64).collect();
+            .get_type_ids()
+            .iter()
+            .take(self.max_length)
+            .map(|&v| v as i64)
+            .collect();
         type_ids.resize(self.max_length, 0i64);
         let mask: Vec<i64> = (0..self.max_length)
-            .map(|i| if i < actual_len { 1i64 } else { 0i64 }).collect();
+            .map(|i| if i < actual_len { 1i64 } else { 0i64 })
+            .collect();
 
         let shape = vec![1i64, self.max_length as i64];
         let input_ids = Tensor::<i64>::from_array((shape.clone(), ids)).ok();
@@ -140,11 +147,11 @@ impl VectorEmbed for OnnxEmbedder {
             Err(_) => return fallback_embed(text, self.dim),
         };
 
-        let hidden = match outputs.get("last_hidden_state").or_else(|| {
-            outputs.get("sentence_embedding")
-        }).or_else(|| {
-            (outputs.len() > 0).then(|| &outputs[0])
-        }) {
+        let hidden = match outputs
+            .get("last_hidden_state")
+            .or_else(|| outputs.get("sentence_embedding"))
+            .or_else(|| (outputs.len() > 0).then(|| &outputs[0]))
+        {
             Some(v) => v,
             None => return fallback_embed(text, self.dim),
         };
@@ -160,7 +167,11 @@ impl VectorEmbed for OnnxEmbedder {
         };
 
         let shape = view.shape();
-        let tokens = if shape.len() >= 2 { shape[1] } else { return fallback_embed(text, self.dim); };
+        let tokens = if shape.len() >= 2 {
+            shape[1]
+        } else {
+            return fallback_embed(text, self.dim);
+        };
         let features = if shape.len() >= 3 { shape[2] } else { self.dim };
         let limit = tokens.min(actual_len);
 
@@ -220,11 +231,23 @@ impl VectorEmbed for OnnxEmbedder {
             };
             let actual_len = encoding.len().min(self.max_length);
             lens.push(actual_len);
-            let mut ids: Vec<i64> = encoding.get_ids().iter().take(self.max_length).map(|&v| v as i64).collect();
+            let mut ids: Vec<i64> = encoding
+                .get_ids()
+                .iter()
+                .take(self.max_length)
+                .map(|&v| v as i64)
+                .collect();
             ids.resize(self.max_length, 0);
-            let mut type_ids: Vec<i64> = encoding.get_type_ids().iter().take(self.max_length).map(|&v| v as i64).collect();
+            let mut type_ids: Vec<i64> = encoding
+                .get_type_ids()
+                .iter()
+                .take(self.max_length)
+                .map(|&v| v as i64)
+                .collect();
             type_ids.resize(self.max_length, 0);
-            let mask: Vec<i64> = (0..self.max_length).map(|i| if i < actual_len { 1i64 } else { 0i64 }).collect();
+            let mask: Vec<i64> = (0..self.max_length)
+                .map(|i| if i < actual_len { 1i64 } else { 0i64 })
+                .collect();
             ids_flat.extend(ids);
             mask_flat.extend(mask);
             types_flat.extend(type_ids);
@@ -276,8 +299,16 @@ impl VectorEmbed for OnnxEmbedder {
             };
 
             let vshape = view.shape();
-            let tokens = if vshape.len() >= 2 { vshape[1] } else { break 'run None };
-            let features = if vshape.len() >= 3 { vshape[2] } else { self.dim };
+            let tokens = if vshape.len() >= 2 {
+                vshape[1]
+            } else {
+                break 'run None;
+            };
+            let features = if vshape.len() >= 3 {
+                vshape[2]
+            } else {
+                self.dim
+            };
 
             let mut out = Vec::with_capacity(n);
             for (r, &actual_len) in lens.iter().enumerate() {
@@ -417,13 +448,21 @@ mod tests {
             eprintln!("skipping: no ONNX model at models/");
             return;
         }
-        let texts = ["a serene lake", "compile the rust crate", "weekly standup meeting"];
+        let texts = [
+            "a serene lake",
+            "compile the rust crate",
+            "weekly standup meeting",
+        ];
         let batch = e.embed_batch(&texts);
         assert_eq!(batch.len(), texts.len());
         for (i, t) in texts.iter().enumerate() {
             let single = e.embed(t);
             assert_eq!(batch[i].len(), single.len());
-            let max_diff = batch[i].iter().zip(&single).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
+            let max_diff = batch[i]
+                .iter()
+                .zip(&single)
+                .map(|(a, b)| (a - b).abs())
+                .fold(0.0f32, f32::max);
             assert!(max_diff < 1e-4, "row {i} diverged: max |Δ| = {max_diff}");
         }
     }

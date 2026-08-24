@@ -8,54 +8,176 @@ use std::path::Path;
 use walkdir::WalkDir;
 
 pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
-    ".git", ".hg", ".svn", "__pycache__", "node_modules",
-    ".venv", "venv", ".tox", ".eggs", "eggs",
-    "build", "dist", "target", ".gradle", "out",
-    ".index", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    ".opencode", ".claude", ".cursor", ".agents",
-    "aura_venv", ".terraform", ".serverless",
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    ".tox",
+    ".eggs",
+    "eggs",
+    "build",
+    "dist",
+    "target",
+    ".gradle",
+    "out",
+    ".index",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".opencode",
+    ".claude",
+    ".cursor",
+    ".agents",
+    "aura_venv",
+    ".terraform",
+    ".serverless",
 ];
 
 pub const BINARY_EXTENSIONS: &[&str] = &[
-    ".apk", ".aab", ".jar", ".aar", ".dex", ".class",
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".ico", ".svg",
-    ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg", ".m4a",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-    ".so", ".dylib", ".dll", ".o", ".a", ".lib",
-    ".woff", ".woff2", ".ttf", ".eot",
-    ".pyc", ".pyo", ".pyd",
-    ".whl", ".egg", ".deb", ".rpm",
-    ".keystore", ".jks", ".p12", ".pfx",
-    ".min.js", ".min.css",
+    ".apk",
+    ".aab",
+    ".jar",
+    ".aar",
+    ".dex",
+    ".class",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".webp",
+    ".ico",
+    ".svg",
+    ".mp3",
+    ".mp4",
+    ".avi",
+    ".mov",
+    ".wav",
+    ".flac",
+    ".ogg",
+    ".m4a",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".7z",
+    ".rar",
+    ".so",
+    ".dylib",
+    ".dll",
+    ".o",
+    ".a",
+    ".lib",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".pyc",
+    ".pyo",
+    ".pyd",
+    ".whl",
+    ".egg",
+    ".deb",
+    ".rpm",
+    ".keystore",
+    ".jks",
+    ".p12",
+    ".pfx",
+    ".min.js",
+    ".min.css",
 ];
 
 pub const TEXT_EXTENSIONS: &[&str] = &[
-    ".md", ".mdx", ".txt", ".rst", ".adoc", ".asciidoc", ".org",
-    ".py", ".pyi", ".pyx",
-    ".kt", ".kts", ".java",
+    ".md",
+    ".mdx",
+    ".txt",
+    ".rst",
+    ".adoc",
+    ".asciidoc",
+    ".org",
+    ".py",
+    ".pyi",
+    ".pyx",
+    ".kt",
+    ".kts",
+    ".java",
     ".rs",
-    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte",
-    ".html", ".htm", ".xhtml", ".xml",
-    ".css", ".scss", ".sass", ".less", ".stylus",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".vue",
+    ".svelte",
+    ".html",
+    ".htm",
+    ".xhtml",
+    ".xml",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".stylus",
     ".go",
-    ".rb", ".erb",
-    ".c", ".h", ".cpp", ".hpp", ".cc", ".hh", ".cxx", ".hxx",
+    ".rb",
+    ".erb",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cc",
+    ".hh",
+    ".cxx",
+    ".hxx",
     ".swift",
-    ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf",
-    ".env", ".properties", ".gradle", ".gradle.kts",
-    ".sh", ".bash", ".zsh", ".fish",
-    ".sql", ".graphql", ".prisma",
-    ".csv", ".tsv",
-    ".log", ".lock", ".patch",
-    ".proto", ".thrift",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".env",
+    ".properties",
+    ".gradle",
+    ".gradle.kts",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",
+    ".sql",
+    ".graphql",
+    ".prisma",
+    ".csv",
+    ".tsv",
+    ".log",
+    ".lock",
+    ".patch",
+    ".proto",
+    ".thrift",
     ".hcl",
 ];
 
 pub const NAMED_FILES: &[&str] = &[
-    "Dockerfile", "Makefile", "CMakeLists.txt",
-    ".gitignore", ".dockerignore",
-    "docker-compose.yml", "docker-compose.yaml",
+    "Dockerfile",
+    "Makefile",
+    "CMakeLists.txt",
+    ".gitignore",
+    ".dockerignore",
+    "docker-compose.yml",
+    "docker-compose.yaml",
 ];
 
 #[derive(Debug, Clone)]
@@ -93,71 +215,101 @@ impl FileInfo {
 #[allow(clippy::type_complexity)]
 static EXTRACTORS: Lazy<Vec<(String, Vec<(Regex, String)>)>> = Lazy::new(build_extractors);
 
-static HEADING_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^(#{1,6})\s+(.+)").unwrap()
-});
+static HEADING_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(#{1,6})\s+(.+)").unwrap());
 
-static EQ_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^([A-Za-z_][A-Za-z0-9_.]*)\s*=").unwrap()
-});
+static EQ_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^([A-Za-z_][A-Za-z0-9_.]*)\s*=").unwrap());
 
-static BLOCK_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(\w+)\s*\{").unwrap()
-});
+static BLOCK_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\w+)\s*\{").unwrap());
 
 fn build_extractors() -> Vec<(String, Vec<(Regex, String)>)> {
     let raw: Vec<(&str, Vec<(&str, &str)>)> = vec![
-        (".py", vec![
-            (r"^class\s+(\w+)", "class {name}"),
-            (r"^(?:async\s+)?def\s+(\w+)", "fn {name}"),
-        ]),
-        (".kt", vec![
-            (r"^(?:class|object|interface|enum class|data class|sealed class|abstract class)\s+(\w+)", "class {name}"),
-            (r"^fun\s+(\w+)", "fun {name}"),
-            (r"^val\s+(\w+)", "val {name}"),
-            (r"^var\s+(\w+)", "var {name}"),
-        ]),
-        (".java", vec![
-            (r"^(?:public|private|protected)?\s*(?:class|interface|enum|@interface|record)\s+(\w+)", "class {name}"),
-        ]),
-        (".rs", vec![
-            (r"^fn\s+(\w+)", "fn {name}"),
-            (r"^struct\s+(\w+)", "struct {name}"),
-            (r"^enum\s+(\w+)", "enum {name}"),
-            (r"^trait\s+(\w+)", "trait {name}"),
-            (r"^impl(?:\s*<[^>]*>)?\s+(\w+)", "impl {name}"),
-            (r"^mod\s+(\w+)", "mod {name}"),
-            (r"^type\s+(\w+)", "type {name}"),
-            (r"^const\s+(\w+)", "const {name}"),
-        ]),
-        (".ts", vec![
-            (r"^(?:export\s+)?(?:class|interface|type|enum)\s+(\w+)", "class {name}"),
-            (r"^(?:export\s+)?function\s+(\w+)", "fn {name}"),
-        ]),
-        (".js", vec![
-            (r"^(?:class|function)\s+(\w+)", "class {name}"),
-            (r"^(?:const|let|var)\s+(\w+)\s*=", "const {name}"),
-            (r"^(?:export\s+)?(?:default\s+)?(?:function|class)\s+(\w+)", "fn {name}"),
-        ]),
-        (".go", vec![
-            (r"^func\s+(\w+)", "fn {name}"),
-            (r"^type\s+(\w+)\s+(?:struct|interface)", "type {name}"),
-        ]),
-        (".rb", vec![
-            (r"^(?:class|module)\s+(\w+)", "class {name}"),
-            (r"^def\s+(\w+)", "fn {name}"),
-        ]),
-        (".swift", vec![
-            (r"^(?:class|struct|enum|protocol|extension)\s+(\w+)", "class {name}"),
-            (r"^func\s+(\w+)", "fn {name}"),
-            (r"^var\s+(\w+)", "var {name}"),
-        ]),
-        (".c", vec![
-            (r"^struct\s+(\w+)", "struct {name}"),
-        ]),
-        (".h", vec![
-            (r"^#define\s+(\w+)", "define {name}"),
-        ]),
+        (
+            ".py",
+            vec![
+                (r"^class\s+(\w+)", "class {name}"),
+                (r"^(?:async\s+)?def\s+(\w+)", "fn {name}"),
+            ],
+        ),
+        (
+            ".kt",
+            vec![
+                (
+                    r"^(?:class|object|interface|enum class|data class|sealed class|abstract class)\s+(\w+)",
+                    "class {name}",
+                ),
+                (r"^fun\s+(\w+)", "fun {name}"),
+                (r"^val\s+(\w+)", "val {name}"),
+                (r"^var\s+(\w+)", "var {name}"),
+            ],
+        ),
+        (
+            ".java",
+            vec![(
+                r"^(?:public|private|protected)?\s*(?:class|interface|enum|@interface|record)\s+(\w+)",
+                "class {name}",
+            )],
+        ),
+        (
+            ".rs",
+            vec![
+                (r"^fn\s+(\w+)", "fn {name}"),
+                (r"^struct\s+(\w+)", "struct {name}"),
+                (r"^enum\s+(\w+)", "enum {name}"),
+                (r"^trait\s+(\w+)", "trait {name}"),
+                (r"^impl(?:\s*<[^>]*>)?\s+(\w+)", "impl {name}"),
+                (r"^mod\s+(\w+)", "mod {name}"),
+                (r"^type\s+(\w+)", "type {name}"),
+                (r"^const\s+(\w+)", "const {name}"),
+            ],
+        ),
+        (
+            ".ts",
+            vec![
+                (
+                    r"^(?:export\s+)?(?:class|interface|type|enum)\s+(\w+)",
+                    "class {name}",
+                ),
+                (r"^(?:export\s+)?function\s+(\w+)", "fn {name}"),
+            ],
+        ),
+        (
+            ".js",
+            vec![
+                (r"^(?:class|function)\s+(\w+)", "class {name}"),
+                (r"^(?:const|let|var)\s+(\w+)\s*=", "const {name}"),
+                (
+                    r"^(?:export\s+)?(?:default\s+)?(?:function|class)\s+(\w+)",
+                    "fn {name}",
+                ),
+            ],
+        ),
+        (
+            ".go",
+            vec![
+                (r"^func\s+(\w+)", "fn {name}"),
+                (r"^type\s+(\w+)\s+(?:struct|interface)", "type {name}"),
+            ],
+        ),
+        (
+            ".rb",
+            vec![
+                (r"^(?:class|module)\s+(\w+)", "class {name}"),
+                (r"^def\s+(\w+)", "fn {name}"),
+            ],
+        ),
+        (
+            ".swift",
+            vec![
+                (
+                    r"^(?:class|struct|enum|protocol|extension)\s+(\w+)",
+                    "class {name}",
+                ),
+                (r"^func\s+(\w+)", "fn {name}"),
+                (r"^var\s+(\w+)", "var {name}"),
+            ],
+        ),
+        (".c", vec![(r"^struct\s+(\w+)", "struct {name}")]),
+        (".h", vec![(r"^#define\s+(\w+)", "define {name}")]),
     ];
 
     raw.into_iter()
@@ -194,10 +346,14 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
                 if para.len() > 20 && para.len() < 200 {
                     if let Some(first_line) = para.lines().next() {
                         let fl = first_line.trim();
-                        if !fl.starts_with('#') && !fl.starts_with('-') && !fl.starts_with('*') && !fl.starts_with('>')
-                            && fl.split_whitespace().count() <= 15 {
-                                lines.push(fl.to_string());
-                            }
+                        if !fl.starts_with('#')
+                            && !fl.starts_with('-')
+                            && !fl.starts_with('*')
+                            && !fl.starts_with('>')
+                            && fl.split_whitespace().count() <= 15
+                        {
+                            lines.push(fl.to_string());
+                        }
                     }
                 }
             }
@@ -226,8 +382,16 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
             }
         }
         ".gradle" | ".gradle.kts" => {
-            let blocks: HashSet<&str> = ["plugins", "android", "dependencies", "defaultConfig",
-                "buildTypes", "repositories", "signingConfigs"].into();
+            let blocks: HashSet<&str> = [
+                "plugins",
+                "android",
+                "dependencies",
+                "defaultConfig",
+                "buildTypes",
+                "repositories",
+                "signingConfigs",
+            ]
+            .into();
             for line in text.lines() {
                 let line = line.trim();
                 if let Some(caps) = BLOCK_RE.captures(line) {
@@ -255,7 +419,8 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
         _ => {}
     }
 
-    let all_extractors: Vec<(Regex, String)> = EXTRACTORS.iter()
+    let all_extractors: Vec<(Regex, String)> = EXTRACTORS
+        .iter()
         .find(|(e, _)| e == ext)
         .map(|(_, v)| v.clone())
         .unwrap_or_default();
@@ -289,7 +454,11 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
 }
 
 pub fn is_text_file(file_path: &Path) -> bool {
-    let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_lowercase();
+    let ext = file_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_lowercase();
     if ["png", "jpg", "jpeg"].contains(&ext.as_str()) {
         return true; // We handle these specifically in deep scan
     }
@@ -302,11 +471,7 @@ pub fn is_text_file(file_path: &Path) -> bool {
     }
 }
 
-pub fn should_include_file(
-    file_path: &Path,
-    exclude_dirs: &HashSet<String>,
-    root: &Path,
-) -> bool {
+pub fn should_include_file(file_path: &Path, exclude_dirs: &HashSet<String>, root: &Path) -> bool {
     let rel = file_path.strip_prefix(root).unwrap_or(file_path);
     for parent in rel.parent().into_iter().flat_map(|p| p.ancestors()) {
         if let Some(name) = parent.file_name() {
@@ -323,7 +488,8 @@ pub fn should_include_file(
         }
     }
 
-    let ext = file_path.extension()
+    let ext = file_path
+        .extension()
         .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
         .unwrap_or_default();
 
@@ -337,10 +503,9 @@ pub fn should_include_file(
     if ext.is_empty() {
         if let Ok(mut f) = std::fs::File::open(file_path) {
             let mut buf = [0u8; 128];
-            if std::io::Read::read_exact(&mut f, &mut buf).is_ok()
-                && buf.starts_with(b"#!") {
-                    return true;
-                }
+            if std::io::Read::read_exact(&mut f, &mut buf).is_ok() && buf.starts_with(b"#!") {
+                return true;
+            }
         }
     }
 
@@ -363,7 +528,8 @@ fn compute_file_hash(path: &Path) -> Option<String> {
 
 fn process_file(path: &Path, root: &Path) -> Option<FileInfo> {
     let rel_path = path.strip_prefix(root).unwrap_or(path);
-    let ext = path.extension()
+    let ext = path
+        .extension()
         .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
         .unwrap_or_default();
 
@@ -376,7 +542,8 @@ fn process_file(path: &Path, root: &Path) -> Option<FileInfo> {
         abs_path: path.to_string_lossy().to_string(),
         ext,
         size: meta.len(),
-        mtime: meta.modified()
+        mtime: meta
+            .modified()
             .ok()
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs_f64())
@@ -390,7 +557,9 @@ pub fn scan_project(
     root_dir: &Path,
     extra_exclude_dirs: Option<&HashSet<String>>,
 ) -> Vec<FileInfo> {
-    let root = root_dir.canonicalize().unwrap_or_else(|_| root_dir.to_path_buf());
+    let root = root_dir
+        .canonicalize()
+        .unwrap_or_else(|_| root_dir.to_path_buf());
     let exclude: HashSet<String> = {
         let mut s: HashSet<String> = DEFAULT_EXCLUDE_DIRS.iter().map(|d| d.to_string()).collect();
         if let Some(extra) = extra_exclude_dirs {
@@ -496,11 +665,7 @@ pub fn compute_diff(
 
     let changed: Vec<FileInfo> = current_files
         .iter()
-        .filter(|f| {
-            cached_hashes
-                .get(&f.path)
-                .is_some_and(|h| h != &f.hash)
-        })
+        .filter(|f| cached_hashes.get(&f.path).is_some_and(|h| h != &f.hash))
         .cloned()
         .collect();
 
@@ -512,10 +677,7 @@ pub fn compute_diff(
 
     let unchanged: Vec<FileInfo> = current_files
         .iter()
-        .filter(|f| {
-            cached_hashes
-                .get(&f.path) == Some(&f.hash)
-        })
+        .filter(|f| cached_hashes.get(&f.path) == Some(&f.hash))
         .cloned()
         .collect();
 
@@ -545,7 +707,11 @@ mod tests {
         let dir = std::env::temp_dir().join("physis_test_scan");
         let _ = std::fs::create_dir_all(&dir);
         let file_path = dir.join("test.rs");
-        std::fs::write(&file_path, "fn hello() {}\nstruct World {}\nfn another() {}").unwrap();
+        std::fs::write(
+            &file_path,
+            "fn hello() {}\nstruct World {}\nfn another() {}",
+        )
+        .unwrap();
         let lines = extract_structural_lines(&file_path, ".rs");
         assert!(lines.contains(&"fn hello".to_string()));
         assert!(lines.contains(&"struct World".to_string()));
@@ -565,9 +731,18 @@ mod tests {
             structural_lines: vec!["fn main".to_string(), "struct Foo".to_string()],
         };
         let labels = f.labels();
-        assert!(labels.contains(&"src → main.rs".to_string()), "structural path is a label");
-        assert!(labels.contains(&"src → main.rs → fn main".to_string()), "per-line label");
-        assert!(labels.contains(&"src → main.rs → struct Foo".to_string()), "per-line label 2");
+        assert!(
+            labels.contains(&"src → main.rs".to_string()),
+            "structural path is a label"
+        );
+        assert!(
+            labels.contains(&"src → main.rs → fn main".to_string()),
+            "per-line label"
+        );
+        assert!(
+            labels.contains(&"src → main.rs → struct Foo".to_string()),
+            "per-line label 2"
+        );
         assert_eq!(labels.len(), 3);
     }
 

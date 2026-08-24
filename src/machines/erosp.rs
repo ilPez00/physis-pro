@@ -48,7 +48,9 @@ pub struct Longing {
 fn directed_flow(reaches: &[Reach]) -> HashMap<(String, String), f32> {
     let mut flow: HashMap<(String, String), f32> = HashMap::new();
     for r in reaches {
-        *flow.entry((r.subject.clone(), r.object.clone())).or_insert(0.0) += r.weight;
+        *flow
+            .entry((r.subject.clone(), r.object.clone()))
+            .or_insert(0.0) += r.weight;
     }
     flow
 }
@@ -72,9 +74,21 @@ pub fn detect_longings(reaches: &[Reach]) -> Vec<Longing> {
         // Child of BOTH parents: drive (Penia) tempered by some resource (Poros).
         let ascent = (poros / penia).clamp(0.0, 1.0);
         let hash = format!("erosp_{subject}_{object}");
-        out.push(Longing { subject, object, penia, poros, intensity, ascent, hash });
+        out.push(Longing {
+            subject,
+            object,
+            penia,
+            poros,
+            intensity,
+            ascent,
+            hash,
+        });
     }
-    out.sort_by(|a, b| b.intensity.partial_cmp(&a.intensity).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        b.intensity
+            .partial_cmp(&a.intensity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
@@ -102,10 +116,8 @@ pub fn register_longings(
     let mut ids = Vec::new();
     for l in longings {
         let subject = core.register_node_from_text(&format!("person: {}", l.subject), embedder);
-        let longing = core.register_node_from_text(
-            &format!("longing: {} -> {}", l.subject, l.object),
-            embedder,
-        );
+        let longing = core
+            .register_node_from_text(&format!("longing: {} -> {}", l.subject, l.object), embedder);
         core.bridge_node(&longing);
         core.add_edge_between(&subject, &longing, l.intensity, 1);
         ids.push(longing);
@@ -118,23 +130,34 @@ mod tests {
     use super::*;
 
     fn r(subject: &str, object: &str, weight: f32) -> Reach {
-        Reach { subject: subject.into(), object: object.into(), weight }
+        Reach {
+            subject: subject.into(),
+            object: object.into(),
+            weight,
+        }
     }
 
     #[test]
     fn longing_persists_while_lack_exceeds_return() {
         let reaches = vec![
-            r("ann", "bob", 10.0), r("bob", "ann", 2.0), // ann longs (reaches more)
-            r("cy", "dee", 5.0), r("dee", "cy", 5.0),    // sated, balanced
+            r("ann", "bob", 10.0),
+            r("bob", "ann", 2.0), // ann longs (reaches more)
+            r("cy", "dee", 5.0),
+            r("dee", "cy", 5.0), // sated, balanced
         ];
         let longings = detect_longings(&reaches);
-        let ab = longings.iter().find(|x| x.subject == "ann" && x.object == "bob").unwrap();
+        let ab = longings
+            .iter()
+            .find(|x| x.subject == "ann" && x.object == "bob")
+            .unwrap();
         assert_eq!(ab.penia, 10.0);
         assert_eq!(ab.poros, 2.0);
         assert_eq!(ab.intensity, 8.0);
         assert!((ab.ascent - 0.2).abs() < 1e-6);
         // the sated pair is not eros (handed to polis)
-        assert!(!longings.iter().any(|x| x.subject == "cy" || x.subject == "dee"));
+        assert!(!longings
+            .iter()
+            .any(|x| x.subject == "cy" || x.subject == "dee"));
         // bob → ann is over-returned, also rejected
         assert!(!longings.iter().any(|x| x.subject == "bob"));
         assert_eq!(ascending(&longings, 5.0, 0.1).len(), 1);

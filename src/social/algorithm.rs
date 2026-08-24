@@ -15,7 +15,7 @@ impl SocialAlgorithm {
         } else {
             0.0
         };
-        
+
         // Coherence weights quality of engagement vs reach
         engagement_rate * (1.0 + coherence)
     }

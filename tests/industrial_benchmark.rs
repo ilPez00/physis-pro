@@ -58,10 +58,38 @@ fn observation_to_text_is_deterministic() {
 #[test]
 fn train_test_split_is_reproducible_with_seed() {
     let obs = vec![
-        SecomObservation { id: 1, features: vec![], feature_names: vec![], outcome: Some(true), missing_count: 0, textual: String::new() },
-        SecomObservation { id: 2, features: vec![], feature_names: vec![], outcome: Some(false), missing_count: 0, textual: String::new() },
-        SecomObservation { id: 3, features: vec![], feature_names: vec![], outcome: Some(true), missing_count: 0, textual: String::new() },
-        SecomObservation { id: 4, features: vec![], feature_names: vec![], outcome: Some(false), missing_count: 0, textual: String::new() },
+        SecomObservation {
+            id: 1,
+            features: vec![],
+            feature_names: vec![],
+            outcome: Some(true),
+            missing_count: 0,
+            textual: String::new(),
+        },
+        SecomObservation {
+            id: 2,
+            features: vec![],
+            feature_names: vec![],
+            outcome: Some(false),
+            missing_count: 0,
+            textual: String::new(),
+        },
+        SecomObservation {
+            id: 3,
+            features: vec![],
+            feature_names: vec![],
+            outcome: Some(true),
+            missing_count: 0,
+            textual: String::new(),
+        },
+        SecomObservation {
+            id: 4,
+            features: vec![],
+            feature_names: vec![],
+            outcome: Some(false),
+            missing_count: 0,
+            textual: String::new(),
+        },
     ];
     let (a1, b1) = train_test_split(&obs, 0.5, 42);
     let (a2, b2) = train_test_split(&obs, 0.5, 42);
@@ -106,8 +134,14 @@ fn observation_to_text_rich_includes_deviations() {
         maxs: vec![10.0, 2.0, 5.0],
     };
     let t = observation_to_text_rich(&obs, Some(&stats));
-    assert!(t.contains("elevated"), "should describe elevated params: {t}");
-    assert!(t.contains("Process anomalies detected"), "should have anomalies section: {t}");
+    assert!(
+        t.contains("elevated"),
+        "should describe elevated params: {t}"
+    );
+    assert!(
+        t.contains("Process anomalies detected"),
+        "should have anomalies section: {t}"
+    );
 }
 
 #[test]

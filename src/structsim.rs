@@ -117,10 +117,7 @@ fn flatten_json_impl(value: &Value, path: String, out: &mut Vec<StructNode>, dep
         }
         Value::Array(arr) => {
             let key = leaf_key(&path);
-            let elem_hint = arr
-                .first()
-                .map(type_name)
-                .unwrap_or_else(|| "empty".into());
+            let elem_hint = arr.first().map(type_name).unwrap_or_else(|| "empty".into());
             out.push(StructNode {
                 path: path.clone(),
                 key,
@@ -210,7 +207,12 @@ fn parse_field_line(line: &str) -> (String, String) {
             // type, use "Type key"; else "key Type".
             let first = parts[0];
             let last = parts[parts.len() - 1];
-            if last.chars().next().map(|c| c.is_lowercase()).unwrap_or(false) {
+            if last
+                .chars()
+                .next()
+                .map(|c| c.is_lowercase())
+                .unwrap_or(false)
+            {
                 (last.to_string(), first.to_string())
             } else {
                 (first.to_string(), parts[1..].join(" "))
@@ -387,7 +389,11 @@ pub fn search_structures(
             sim_sum += best;
             sim_n += 1;
         }
-        let sim = if sim_n == 0 { 0.0 } else { sim_sum / sim_n as f32 };
+        let sim = if sim_n == 0 {
+            0.0
+        } else {
+            sim_sum / sim_n as f32
+        };
         // Unused but kept for callers that want the threshold semantics.
         let _ = threshold;
         out.push((name.clone(), sim));
@@ -413,8 +419,12 @@ mod tests {
         let v = serde_json::json!({"name": "x", "age": 3});
         let nodes = flatten_json(&v);
         assert_eq!(nodes.len(), 2);
-        assert!(nodes.iter().any(|n| n.path == "name" && n.type_hint == "string"));
-        assert!(nodes.iter().any(|n| n.path == "age" && n.type_hint == "number"));
+        assert!(nodes
+            .iter()
+            .any(|n| n.path == "name" && n.type_hint == "string"));
+        assert!(nodes
+            .iter()
+            .any(|n| n.path == "age" && n.type_hint == "number"));
     }
 
     #[test]
@@ -441,7 +451,10 @@ mod tests {
         let a = serde_json::json!({"id": 1, "name": "x", "tags": ["a"]});
         let b = a.clone();
         let g = compare_structures(&a, &b, &emb(), 0.0);
-        assert!((g.similarity - 1.0).abs() < 1e-5, "identical → similarity 1");
+        assert!(
+            (g.similarity - 1.0).abs() < 1e-5,
+            "identical → similarity 1"
+        );
         assert_eq!(g.missing_in_b.len(), 0);
         assert_eq!(g.extra_in_b.len(), 0);
     }
@@ -463,10 +476,7 @@ mod tests {
         let target = serde_json::json!({"user": {"name": "a", "email": "b"}});
         let close = serde_json::json!({"user": {"name": "c", "email": "d"}});
         let far = serde_json::json!({"temperature": 99, "rpm": 12});
-        let corpus = vec![
-            ("far".into(), far),
-            ("close".into(), close),
-        ];
+        let corpus = vec![("far".into(), far), ("close".into(), close)];
         let ranked = search_structures(&corpus, &target, &emb(), 0.0);
         assert_eq!(ranked[0].0, "close");
         assert!(ranked[0].1 > ranked[1].1);
@@ -476,8 +486,12 @@ mod tests {
     fn struct_text_flatten() {
         let txt = "id: number\nname: string\naddress: object\n  street: string\n  city: string";
         let nodes = flatten_struct_text(txt);
-        assert!(nodes.iter().any(|n| n.path == "address.street" && n.type_hint == "string"));
-        assert!(nodes.iter().any(|n| n.path == "name" && n.type_hint == "string"));
+        assert!(nodes
+            .iter()
+            .any(|n| n.path == "address.street" && n.type_hint == "string"));
+        assert!(nodes
+            .iter()
+            .any(|n| n.path == "name" && n.type_hint == "string"));
     }
 
     #[test]

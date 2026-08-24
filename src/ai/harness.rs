@@ -26,7 +26,9 @@ use physis_core::coherence_dimensions::CoherenceProfile;
 use physis_core::contradiction::ResolutionStatus;
 use physis_core::epistemic::{EpistemicEvent, EpistemicEventType};
 use physis_core::explanation::ExplanationReport;
-use physis_core::hypothesis::{Evidence, EvidencePolarity, FitnessBreakdown, Hypothesis, HypothesisStatus};
+use physis_core::hypothesis::{
+    Evidence, EvidencePolarity, FitnessBreakdown, Hypothesis, HypothesisStatus,
+};
 use physis_core::models::cosine_sim;
 use physis_core::provenance::ProvenanceChain;
 
@@ -222,7 +224,8 @@ impl CoherenceHarness {
                         existing_source: "unresolved_contradiction".to_string(),
                         candidate_claim: text_trimmed.chars().take(120).collect(),
                         severity: 0.8,
-                        description: "Candidate touches an active, unresolved contradiction".to_string(),
+                        description: "Candidate touches an active, unresolved contradiction"
+                            .to_string(),
                     });
                 }
             }
@@ -276,13 +279,11 @@ impl CoherenceHarness {
         profile.set("empirical", empirical_score, 1.0);
 
         // Quality feedback penalty
-        let quality_penalty = quality
-            .cell_penalties
-            .get(&key)
-            .copied()
-            .unwrap_or(0.0);
+        let quality_penalty = quality.cell_penalties.get(&key).copied().unwrap_or(0.0);
 
-        let composite_fitness = (profile.composite() * 0.7 + adjusted_cell_score * 0.3 - quality_penalty * 0.2).clamp(0.0, 1.0);
+        let composite_fitness = (profile.composite() * 0.7 + adjusted_cell_score * 0.3
+            - quality_penalty * 0.2)
+            .clamp(0.0, 1.0);
         let coherence_score = profile.composite();
         let confidence = (ontological_score * 0.4 + semantic_score * 0.6).clamp(0.0, 1.0);
 
@@ -300,17 +301,28 @@ impl CoherenceHarness {
 
         let mut warnings = Vec::new();
         if !contradictions.is_empty() {
-            warnings.push(format!("Detected {} conflicting precedent(s)", contradictions.len()));
+            warnings.push(format!(
+                "Detected {} conflicting precedent(s)",
+                contradictions.len()
+            ));
         }
         if quality_penalty > 0.1 {
-            warnings.push(format!("Cell '{}' carries quality failure penalty ({:.2})", top_cell, quality_penalty));
+            warnings.push(format!(
+                "Cell '{}' carries quality failure penalty ({:.2})",
+                top_cell, quality_penalty
+            ));
         }
         if ontological_score < 0.45 {
-            warnings.push("Low ontological fit: output terminology is outside the known ontology dictionary".to_string());
+            warnings.push(
+                "Low ontological fit: output terminology is outside the known ontology dictionary"
+                    .to_string(),
+            );
         }
 
         // Determine verdict
-        let verdict = if (!contradictions.is_empty() && config.reject_contradictions) || composite_fitness < (config.coherence_threshold - 0.20) {
+        let verdict = if (!contradictions.is_empty() && config.reject_contradictions)
+            || composite_fitness < (config.coherence_threshold - 0.20)
+        {
             HarnessVerdict::Rejected
         } else if composite_fitness >= config.coherence_threshold && contradictions.is_empty() {
             HarnessVerdict::Approved
@@ -401,15 +413,22 @@ impl CoherenceHarness {
     ) -> Result<HarnessResult, String> {
         // Build dynamic provider if custom API key or base URL is supplied
         let custom_provider = if let Some(ref key) = config.api_key {
-            let base_url = config.base_url.clone().unwrap_or_else(|| match config.provider.to_lowercase().as_str() {
-                "anthropic" => "https://api.anthropic.com/v1".to_string(),
-                "gemini" => "https://generativelanguage.googleapis.com/v1beta/openai".to_string(),
-                "groq" => "https://api.groq.com/openai/v1".to_string(),
-                "deepseek" => "https://api.deepseek.com/v1".to_string(),
-                "openrouter" => "https://openrouter.ai/api/v1".to_string(),
-                _ => "https://api.openai.com/v1".to_string(),
+            let base_url = config.base_url.clone().unwrap_or_else(|| {
+                match config.provider.to_lowercase().as_str() {
+                    "anthropic" => "https://api.anthropic.com/v1".to_string(),
+                    "gemini" => {
+                        "https://generativelanguage.googleapis.com/v1beta/openai".to_string()
+                    }
+                    "groq" => "https://api.groq.com/openai/v1".to_string(),
+                    "deepseek" => "https://api.deepseek.com/v1".to_string(),
+                    "openrouter" => "https://openrouter.ai/api/v1".to_string(),
+                    _ => "https://api.openai.com/v1".to_string(),
+                }
             });
-            let model = config.model.clone().unwrap_or_else(|| "gpt-4o-mini".to_string());
+            let model = config
+                .model
+                .clone()
+                .unwrap_or_else(|| "gpt-4o-mini".to_string());
             Some(Provider::new(ProviderConfig {
                 name: format!("dynamic-{}", config.provider),
                 base_url,
@@ -484,11 +503,22 @@ impl CoherenceHarness {
         // 2. Initial Evaluation
         let mut eval = state.with_user(uid, |s| {
             let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
-            Self::evaluate(&current_output, context, config, &mut s.core, &state.shared.classifier, state.shared.embedder.as_ref(), &quality)
+            Self::evaluate(
+                &current_output,
+                context,
+                config,
+                &mut s.core,
+                &state.shared.classifier,
+                state.shared.embedder.as_ref(),
+                &quality,
+            )
         });
 
         // 3. Auto-Revision Loop if Incoherent or Contradicted
-        if config.auto_revise && eval.verdict != HarnessVerdict::Approved && config.max_revisions > 0 {
+        if config.auto_revise
+            && eval.verdict != HarnessVerdict::Approved
+            && config.max_revisions > 0
+        {
             for attempt in 1..=config.max_revisions {
                 revisions_done = attempt;
                 let critique = format!(
@@ -545,7 +575,15 @@ impl CoherenceHarness {
                     current_output = revised_text;
                     eval = state.with_user(uid, |s| {
                         let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
-                        Self::evaluate(&current_output, context, config, &mut s.core, &state.shared.classifier, state.shared.embedder.as_ref(), &quality)
+                        Self::evaluate(
+                            &current_output,
+                            context,
+                            config,
+                            &mut s.core,
+                            &state.shared.classifier,
+                            state.shared.embedder.as_ref(),
+                            &quality,
+                        )
                     });
                     if eval.verdict == HarnessVerdict::Approved {
                         eval.verdict = HarnessVerdict::Revised;
@@ -556,42 +594,49 @@ impl CoherenceHarness {
         }
 
         // 4. Register Hypothesis into Graph & Epistemic Audit Trail if requested
-        let (hypothesis_id, audit_event_id) = if config.register_as_hypothesis && !current_output.trim().is_empty() {
-            state.with_user(uid, |s| {
-                let emb = state.shared.embedder.embed(&current_output);
-                let mut hyp = Hypothesis::new(&current_output, emb);
-                hyp.fitness = eval.composite_fitness;
-                hyp.fitness_breakdown = eval.fitness_breakdown.clone();
-                hyp.coherence_profile = eval.coherence_profile.clone();
-                hyp.status = match eval.verdict {
-                    HarnessVerdict::Approved | HarnessVerdict::Revised => HypothesisStatus::Supported,
-                    HarnessVerdict::Warning => HypothesisStatus::Candidate,
-                    HarnessVerdict::Rejected => HypothesisStatus::Contradicted,
-                };
-                if let Some(ctx) = context {
-                    hyp.assumptions.push(ctx.to_string());
-                }
-                let hid = s.core.register_hypothesis(hyp);
+        let (hypothesis_id, audit_event_id) =
+            if config.register_as_hypothesis && !current_output.trim().is_empty() {
+                state.with_user(uid, |s| {
+                    let emb = state.shared.embedder.embed(&current_output);
+                    let mut hyp = Hypothesis::new(&current_output, emb);
+                    hyp.fitness = eval.composite_fitness;
+                    hyp.fitness_breakdown = eval.fitness_breakdown.clone();
+                    hyp.coherence_profile = eval.coherence_profile.clone();
+                    hyp.status = match eval.verdict {
+                        HarnessVerdict::Approved | HarnessVerdict::Revised => {
+                            HypothesisStatus::Supported
+                        }
+                        HarnessVerdict::Warning => HypothesisStatus::Candidate,
+                        HarnessVerdict::Rejected => HypothesisStatus::Contradicted,
+                    };
+                    if let Some(ctx) = context {
+                        hyp.assumptions.push(ctx.to_string());
+                    }
+                    let hid = s.core.register_hypothesis(hyp);
 
-                let evt = EpistemicEvent::new(
-                    EpistemicEventType::HypothesisGenerated,
-                    &hid,
-                    format!("Harness evaluated output → {:?}", eval.verdict),
-                )
-                .with_source("coherence_harness")
-                .with_metric(eval.composite_fitness);
-                let eid = evt.id.clone();
-                s.core.epistemic_audit.record(evt);
-                (Some(hid), Some(eid))
-            })
-        } else {
-            (None, None)
-        };
+                    let evt = EpistemicEvent::new(
+                        EpistemicEventType::HypothesisGenerated,
+                        &hid,
+                        format!("Harness evaluated output → {:?}", eval.verdict),
+                    )
+                    .with_source("coherence_harness")
+                    .with_metric(eval.composite_fitness);
+                    let eid = evt.id.clone();
+                    s.core.epistemic_audit.record(evt);
+                    (Some(hid), Some(eid))
+                })
+            } else {
+                (None, None)
+            };
 
         Ok(HarnessResult {
             verdict: eval.verdict,
             output: current_output,
-            raw_initial_output: if revisions_done > 0 { Some(raw_initial) } else { None },
+            raw_initial_output: if revisions_done > 0 {
+                Some(raw_initial)
+            } else {
+                None
+            },
             revisions_attempted: revisions_done,
             revision_critiques: critiques,
             evaluation: eval,

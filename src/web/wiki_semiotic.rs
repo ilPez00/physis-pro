@@ -1,7 +1,10 @@
 use super::*;
 use crate::web::SharedState;
 use crate::web::{WikiIndexRequest, WikiSearchRequest};
-use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// Image (base64) → `embed_image`, else text — off-thread.
 pub async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<String>) -> Vec<f32> {
@@ -386,7 +389,10 @@ pub async fn classify_handler(
     let interp = overlays.interpretant(&ctx, state.shared.ontology.interpretant("human"));
     let mut results = {
         let store = state.salience.lock().unwrap_or_else(|e| e.into_inner());
-        state.shared.classifier.classify_biased(&embedding, &uid, &ctx, &store, &interp)
+        state
+            .shared
+            .classifier
+            .classify_biased(&embedding, &uid, &ctx, &store, &interp)
     };
     let overlay_count = overlays.active_definitions(&ctx).len();
     results = state.shared.classifier.classify_with_overlays(
@@ -438,10 +444,9 @@ pub async fn classify_handler(
                 if let Some(pos) = results.iter().position(|c| c.domain == d && c.mode == m) {
                     let chosen = results.remove(pos);
                     results.insert(0, chosen);
+                }
+            }
         }
-    }
-}
-
     }
 
     let top = results.first().cloned().unwrap_or(CellScore {
@@ -579,4 +584,3 @@ pub async fn heatmap_handler(State(state): State<SharedState>) -> Json<HeatmapRe
     let matrix = grid.heatmap_matrix();
     Json(HeatmapResponse { table, matrix })
 }
-

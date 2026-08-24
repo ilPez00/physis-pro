@@ -52,7 +52,13 @@ fn main() {
         "decay", "synthesis", "alive", "dyad acc", "vs base"
     );
 
-    for &(decay, synth) in &[(0.0, 0.0), (0.01, 0.02), (0.02, 0.05), (0.05, 0.05), (0.10, 0.05)] {
+    for &(decay, synth) in &[
+        (0.0, 0.0),
+        (0.01, 0.02),
+        (0.02, 0.05),
+        (0.05, 0.05),
+        (0.10, 0.05),
+    ] {
         let cfg = DyadConfig {
             eros_radius: 0.30,
             eros_strength: 0.05,
@@ -74,7 +80,11 @@ fn main() {
             field.step();
         }
         let acc = accuracy(&field);
-        let verdict = if acc + 1e-6 >= base_acc { "OK (no regression)" } else { "REGRESSION" };
+        let verdict = if acc + 1e-6 >= base_acc {
+            "OK (no regression)"
+        } else {
+            "REGRESSION"
+        };
         println!(
             "{decay:>6.2} {synth:>10.2} {:>7} {acc:>9.3} {:>+9.3}  {verdict}",
             field.len(),

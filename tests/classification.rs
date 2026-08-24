@@ -65,8 +65,17 @@ fn pipeline_invariants() {
         assert!(w[0].score >= w[1].score, "results not sorted by score desc");
     }
     for r in &results {
-        assert!(r.score.is_finite(), "non-finite score for {}/{}", r.domain, r.mode);
-        assert!(r.score >= -1.01 && r.score <= 1.01, "score {} out of range", r.score);
+        assert!(
+            r.score.is_finite(),
+            "non-finite score for {}/{}",
+            r.domain,
+            r.mode
+        );
+        assert!(
+            r.score >= -1.01 && r.score <= 1.01,
+            "score {} out of range",
+            r.score
+        );
         assert!(!r.domain.is_empty() && !r.mode.is_empty());
     }
 
@@ -86,8 +95,16 @@ fn fixtures_use_valid_vocabulary() {
     let fx = fixtures();
     assert!(fx.len() >= 20, "expected a non-trivial fixture set");
     for f in &fx {
-        assert!(HumanDomain::from_str(&f.domain).is_some(), "bad domain {}", f.domain);
-        assert!(HumanMode::from_str(&f.mode).is_some(), "bad mode {}", f.mode);
+        assert!(
+            HumanDomain::from_str(&f.domain).is_some(),
+            "bad domain {}",
+            f.domain
+        );
+        assert!(
+            HumanMode::from_str(&f.mode).is_some(),
+            "bad mode {}",
+            f.mode
+        );
     }
 }
 
@@ -172,21 +189,34 @@ fn accuracy_floor() {
         match f.tier.as_str() {
             "hard" => {
                 hard_n += 1;
-                if dom_ok { hard_dom += 1; }
+                if dom_ok {
+                    hard_dom += 1;
+                }
             }
             "italian" => {
                 it_n += 1;
-                if dom_ok { it_dom += 1; }
-                if cell_ok { it_cell += 1; }
+                if dom_ok {
+                    it_dom += 1;
+                }
+                if cell_ok {
+                    it_cell += 1;
+                }
             }
             _ => {
                 core_n += 1;
-                if dom_ok { core_dom += 1; }
-                if cell_ok { core_cell += 1; }
+                if dom_ok {
+                    core_dom += 1;
+                }
+                if cell_ok {
+                    core_cell += 1;
+                }
             }
         }
         if !cell_ok {
-            eprintln!("[{}] miss: {:?} → got {}/{} want {}/{}", f.tier, f.text, top.domain, top.mode, f.domain, f.mode);
+            eprintln!(
+                "[{}] miss: {:?} → got {}/{} want {}/{}",
+                f.tier, f.text, top.domain, top.mode, f.domain, f.mode
+            );
         }
     }
     let core_dom_acc = core_dom as f32 / core_n.max(1) as f32;

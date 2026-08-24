@@ -12,8 +12,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use rand::{SeedableRng, rngs::StdRng, seq::SliceRandom};
-use serde::{Serialize, Deserialize};
+use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 use physis_core::classify::{CellClassifier, CellScore, EntrySeed};
 use physis_core::embed::{RandomProjectionEmbedder, VectorEmbed};
@@ -137,7 +137,12 @@ const SECOM_SAMPLE: &str = include_str!("secom_data.csv");
 
 pub fn compute_feature_stats(observations: &[SecomObservation]) -> FeatureStats {
     if observations.is_empty() {
-        return FeatureStats { means: vec![], stds: vec![], mins: vec![], maxs: vec![] };
+        return FeatureStats {
+            means: vec![],
+            stds: vec![],
+            mins: vec![],
+            maxs: vec![],
+        };
     }
 
     let n = observations[0].features.len();
@@ -183,7 +188,12 @@ pub fn compute_feature_stats(observations: &[SecomObservation]) -> FeatureStats 
         }
     }
 
-    FeatureStats { means, stds, mins, maxs }
+    FeatureStats {
+        means,
+        stds,
+        mins,
+        maxs,
+    }
 }
 
 // ── Text representations ───────────────────────────────────────────
@@ -209,7 +219,20 @@ pub fn observation_to_text_rich(obs: &SecomObservation, stats: Option<&FeatureSt
         match value {
             Some(v) => {
                 if let Some(s) = stats {
-                    if let (Some(mean), Some(std)) = (s.means.get(obs.feature_names.iter().position(|n| n == name).unwrap_or(0)), s.stds.get(obs.feature_names.iter().position(|n| n == name).unwrap_or(0))) {
+                    if let (Some(mean), Some(std)) = (
+                        s.means.get(
+                            obs.feature_names
+                                .iter()
+                                .position(|n| n == name)
+                                .unwrap_or(0),
+                        ),
+                        s.stds.get(
+                            obs.feature_names
+                                .iter()
+                                .position(|n| n == name)
+                                .unwrap_or(0),
+                        ),
+                    ) {
                         if *std > 1e-6 {
                             let z = (*v - mean) / *std;
                             if z.abs() > 2.0 {
@@ -292,10 +315,7 @@ pub fn parse_secom_csv(text: &str, max_rows: Option<usize>) -> Vec<SecomObservat
         None => return Vec::new(),
     };
 
-    let feature_names: Vec<String> = header
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .collect();
+    let feature_names: Vec<String> = header.split(',').map(|s| s.trim().to_string()).collect();
 
     let total_features = feature_names.len().saturating_sub(1);
 
@@ -344,7 +364,9 @@ pub fn parse_secom_csv(text: &str, max_rows: Option<usize>) -> Vec<SecomObservat
         let names: Vec<String> = if feature_names.len() > 1 {
             feature_names[1..].to_vec()
         } else {
-            (0..total_features).map(|i| format!("feature_{:03}", i + 1)).collect()
+            (0..total_features)
+                .map(|i| format!("feature_{:03}", i + 1))
+                .collect()
         };
 
         let obs = SecomObservation {
@@ -396,8 +418,8 @@ pub fn build_embedder(config: &BenchmarkConfig) -> EmbedFn {
     if config.embedder == "onnx" {
         #[cfg(feature = "embed-onnx")]
         {
-            use crate::embed::{VectorEmbed, onnx::OnnxEmbedder};
             use crate::config::{OnnxConfig, PoolingStrategy};
+            use crate::embed::{onnx::OnnxEmbedder, VectorEmbed};
             let onnx = OnnxEmbedder::with_config(&OnnxConfig {
                 enabled: true,
                 model_dir: Some("./models".to_string()),
@@ -409,7 +431,9 @@ pub fn build_embedder(config: &BenchmarkConfig) -> EmbedFn {
                 eprintln!("[benchmark] using ONNX embedder (MiniLM)");
                 return Box::new(move |text: &str| onnx.embed(text));
             } else {
-                eprintln!("[benchmark] ONNX model not available, falling back to random projection");
+                eprintln!(
+                    "[benchmark] ONNX model not available, falling back to random projection"
+                );
             }
         }
         #[cfg(not(feature = "embed-onnx"))]
@@ -455,7 +479,11 @@ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
         missing_value_stats: MissingValueStats {
             total_cells,
             missing_cells,
-            missing_pct: if total_cells > 0 { missing_cells as f32 / total_cells as f32 } else { 0.0 },
+            missing_pct: if total_cells > 0 {
+                missing_cells as f32 / total_cells as f32
+            } else {
+                0.0
+            },
             features_with_missing,
         },
     };
@@ -465,22 +493,32 @@ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
     let ontology = OntologyLoader::load_all();
     let embed_fn = build_embedder(&config);
 
-    let seeds: Vec<EntrySeed> = ontology.classification_domains().filter_map(|def| {
-        let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
-            (Some(d), Some(m)) => (d.to_string(), m.to_string()),
-            _ => return None,
-        };
-        let mut text = def.name.clone();
-        for hint in &def.hints {
-            text.push(' ');
-            text.push_str(hint);
-        }
-        Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
-    }).collect();
+    let seeds: Vec<EntrySeed> = ontology
+        .classification_domains()
+        .filter_map(|def| {
+            let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
+                (Some(d), Some(m)) => (d.to_string(), m.to_string()),
+                _ => return None,
+            };
+            let mut text = def.name.clone();
+            for hint in &def.hints {
+                text.push(' ');
+                text.push_str(hint);
+            }
+            Some(EntrySeed {
+                name: def.name.clone(),
+                domain,
+                mode,
+                text,
+                facets: def.facets.clone(),
+            })
+        })
+        .collect();
 
     let classifier = CellClassifier::build_seeds(seeds, &embed_fn);
 
-    let mut quality = QualityTracker::new(Box::new(RandomProjectionEmbedder::new(config.embed_dim)));
+    let mut quality =
+        QualityTracker::new(Box::new(RandomProjectionEmbedder::new(config.embed_dim)));
 
     // Stage A: baseline classification on test set
     let mut baseline_results = Vec::new();
@@ -577,13 +615,9 @@ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
                 raw_score: top.score,
                 adjusted_score: adjusted,
                 ground_truth: obs.outcome,
-                correct: obs.outcome.map(|gt| {
-                    if gt {
-                        adjusted > 0.5
-                    } else {
-                        adjusted <= 0.5
-                    }
-                }),
+                correct: obs
+                    .outcome
+                    .map(|gt| if gt { adjusted > 0.5 } else { adjusted <= 0.5 }),
                 top_cells: scores,
                 inference_time_ms: inference_time,
             });
@@ -655,7 +689,11 @@ fn compute_metrics(results: &[ClassificationResult]) -> Metrics {
         total,
         correct,
         incorrect,
-        accuracy: if total > 0 { correct as f32 / total as f32 } else { 0.0 },
+        accuracy: if total > 0 {
+            correct as f32 / total as f32
+        } else {
+            0.0
+        },
         mean_raw_score: mean_raw,
         mean_adjusted_score: mean_adjusted,
         mean_score_change: 0.0,
@@ -664,14 +702,19 @@ fn compute_metrics(results: &[ClassificationResult]) -> Metrics {
     }
 }
 
-fn compute_diff_metrics(baseline: &[ClassificationResult], post: &[ClassificationResult]) -> Metrics {
+fn compute_diff_metrics(
+    baseline: &[ClassificationResult],
+    post: &[ClassificationResult],
+) -> Metrics {
     let total = baseline.len();
     let mut correct_after = 0usize;
     let mut top1_changed = 0usize;
     let mut score_changes = Vec::new();
 
     for (b, a) in baseline.iter().zip(post.iter()) {
-        if a.correct == Some(true) { correct_after += 1; }
+        if a.correct == Some(true) {
+            correct_after += 1;
+        }
         if b.predicted_cell != a.predicted_cell {
             top1_changed += 1;
         }
@@ -688,9 +731,14 @@ fn compute_diff_metrics(baseline: &[ClassificationResult], post: &[Classificatio
         total,
         correct: correct_after,
         incorrect: total - correct_after,
-        accuracy: if total > 0 { correct_after as f32 / total as f32 } else { 0.0 },
+        accuracy: if total > 0 {
+            correct_after as f32 / total as f32
+        } else {
+            0.0
+        },
         mean_raw_score: post.iter().map(|r| r.raw_score).sum::<f32>() / total.max(1) as f32,
-        mean_adjusted_score: post.iter().map(|r| r.adjusted_score).sum::<f32>() / total.max(1) as f32,
+        mean_adjusted_score: post.iter().map(|r| r.adjusted_score).sum::<f32>()
+            / total.max(1) as f32,
         mean_score_change,
         top1_changed,
         topk_changed: 0,
@@ -707,46 +755,76 @@ fn render_report(run: &BenchmarkRun) -> String {
 
     md.push_str("## Dataset\n\n");
     md.push_str(&format!("- **Source**: {}\n", run.dataset_info.source));
-    md.push_str(&format!("- **Observations**: {}\n", run.dataset_info.total_observations));
-    md.push_str(&format!("- **Features**: {}\n", run.dataset_info.total_features));
-    md.push_str(&format!("- **PASS**: {}  **FAIL**: {}\n", run.dataset_info.pass_count, run.dataset_info.fail_count));
-    md.push_str(&format!("- **Missing values**: {:.2}% ({}/{})\n",
+    md.push_str(&format!(
+        "- **Observations**: {}\n",
+        run.dataset_info.total_observations
+    ));
+    md.push_str(&format!(
+        "- **Features**: {}\n",
+        run.dataset_info.total_features
+    ));
+    md.push_str(&format!(
+        "- **PASS**: {}  **FAIL**: {}\n",
+        run.dataset_info.pass_count, run.dataset_info.fail_count
+    ));
+    md.push_str(&format!(
+        "- **Missing values**: {:.2}% ({}/{})\n",
         run.dataset_info.missing_value_stats.missing_pct * 100.0,
         run.dataset_info.missing_value_stats.missing_cells,
-        run.dataset_info.missing_value_stats.total_cells));
+        run.dataset_info.missing_value_stats.total_cells
+    ));
     md.push('\n');
 
     md.push_str("## Physis Configuration\n\n");
-    md.push_str(&format!("- **Embedder**: {} (dim={})\n", run.config.embedder, run.config.embed_dim));
+    md.push_str(&format!(
+        "- **Embedder**: {} (dim={})\n",
+        run.config.embedder, run.config.embed_dim
+    ));
     md.push_str("- **Ontology**: industrial_semiconductor + built-in grids\n");
     md.push_str(&format!("- **Seed**: {}\n", run.config.seed));
-    md.push_str(&format!("- **Train ratio**: {:.0}%\n", run.config.train_ratio * 100.0));
+    md.push_str(&format!(
+        "- **Train ratio**: {:.0}%\n",
+        run.config.train_ratio * 100.0
+    ));
     md.push('\n');
 
     md.push_str("## Before / After Feedback\n\n");
     md.push_str("```\n");
     md.push_str("                    BEFORE       AFTER\n");
-    md.push_str(&format!("Correct            {:5.1}%       {:5.1}%\n",
+    md.push_str(&format!(
+        "Correct            {:5.1}%       {:5.1}%\n",
         run.metrics_before.accuracy * 100.0,
-        diff.accuracy * 100.0));
-    md.push_str(&format!("Incorrect          {:5.1}%       {:5.1}%\n",
+        diff.accuracy * 100.0
+    ));
+    md.push_str(&format!(
+        "Incorrect          {:5.1}%       {:5.1}%\n",
         (1.0 - run.metrics_before.accuracy) * 100.0,
-        (1.0 - diff.accuracy) * 100.0));
-    md.push_str(&format!("Top-1 changed               {:3}        \n", diff.top1_changed));
-    md.push_str(&format!("Mean score change           {:+.4}\n", diff.mean_score_change));
+        (1.0 - diff.accuracy) * 100.0
+    ));
+    md.push_str(&format!(
+        "Top-1 changed               {:3}        \n",
+        diff.top1_changed
+    ));
+    md.push_str(&format!(
+        "Mean score change           {:+.4}\n",
+        diff.mean_score_change
+    ));
     md.push_str("```\n");
     md.push('\n');
 
     md.push_str("## Feedback Details\n\n");
-    md.push_str(&format!("- **Failures recorded**: {} (before) → {} (after)\n",
-        run.quality_before.total_failures,
-        run.quality_after.total_failures));
-    md.push_str(&format!("- **Cells penalized**: {} → {}\n",
-        run.quality_before.penalized_cells,
-        run.quality_after.penalized_cells));
-    md.push_str(&format!("- **Cells boosted**: {} → {}\n",
-        run.quality_before.boosted_cells,
-        run.quality_after.boosted_cells));
+    md.push_str(&format!(
+        "- **Failures recorded**: {} (before) → {} (after)\n",
+        run.quality_before.total_failures, run.quality_after.total_failures
+    ));
+    md.push_str(&format!(
+        "- **Cells penalized**: {} → {}\n",
+        run.quality_before.penalized_cells, run.quality_after.penalized_cells
+    ));
+    md.push_str(&format!(
+        "- **Cells boosted**: {} → {}\n",
+        run.quality_before.boosted_cells, run.quality_after.boosted_cells
+    ));
     md.push('\n');
 
     if !run.quality_after.penalties.is_empty() {
@@ -754,7 +832,11 @@ fn render_report(run: &BenchmarkRun) -> String {
         let mut sorted: Vec<_> = run.quality_after.penalties.iter().collect();
         sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
         for (cell, penalty) in sorted.iter().take(10) {
-            md.push_str(&format!("- {}: {:.3}\n", cell.replace('\x00', " × "), penalty));
+            md.push_str(&format!(
+                "- {}: {:.3}\n",
+                cell.replace('\x00', " × "),
+                penalty
+            ));
         }
         md.push('\n');
     }
@@ -764,7 +846,11 @@ fn render_report(run: &BenchmarkRun) -> String {
         let mut sorted: Vec<_> = run.quality_after.boosts.iter().collect();
         sorted.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap());
         for (cell, boost) in sorted.iter().take(10) {
-            md.push_str(&format!("- {}: {:.3}\n", cell.replace('\x00', " × "), boost));
+            md.push_str(&format!(
+                "- {}: {:.3}\n",
+                cell.replace('\x00', " × "),
+                boost
+            ));
         }
         md.push('\n');
     }
@@ -773,21 +859,25 @@ fn render_report(run: &BenchmarkRun) -> String {
     if diff.accuracy > run.metrics_before.accuracy {
         md.push_str("Feedback **improved** classification accuracy on the held-out test set.\n");
     } else if diff.accuracy < run.metrics_before.accuracy {
-        md.push_str("Feedback **reduced** classification accuracy. This is a legitimate outcome —\n");
+        md.push_str(
+            "Feedback **reduced** classification accuracy. This is a legitimate outcome —\n",
+        );
         md.push_str("the initial ontology is intentionally imperfect, and penalties may have\n");
         md.push_str("over-corrected for the small training sample.\n");
     } else {
         md.push_str("Feedback had **no measurable effect** on top-1 accuracy. This is expected\n");
-        md.push_str("with a small embedded sample. Try `--embedder onnx` with a real MiniLM model\n");
+        md.push_str(
+            "with a small embedded sample. Try `--embedder onnx` with a real MiniLM model\n",
+        );
         md.push_str("for semantic embeddings, or increase `--limit` for a larger sample.\n");
     }
     md.push('\n');
 
     md.push_str("## Reproducibility\n\n");
-    md.push_str(&format!("```bash\nphysis-pro benchmark secom --seed {} --limit {} --embedder {}\n```\n",
-        run.config.seed,
-        run.dataset_info.total_observations,
-        run.config.embedder));
+    md.push_str(&format!(
+        "```bash\nphysis-pro benchmark secom --seed {} --limit {} --embedder {}\n```\n",
+        run.config.seed, run.dataset_info.total_observations, run.config.embedder
+    ));
 
     md
 }

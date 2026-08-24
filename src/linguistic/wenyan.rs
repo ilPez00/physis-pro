@@ -100,7 +100,9 @@ impl WenyanFilter {
         dp.insert("structural".to_string(), "構");
         dp.insert("informational".to_string(), "訊");
         dp.insert("energetic".to_string(), "能");
-        Self { domain_prefixes: dp }
+        Self {
+            domain_prefixes: dp,
+        }
     }
 
     pub fn compress(&self, text: &str) -> String {

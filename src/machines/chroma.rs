@@ -62,13 +62,20 @@ pub fn to_hue(c: Color) -> Hue {
     } else {
         60.0 * (((r - g) / d) + 4.0)
     };
-    Hue { deg: (deg + 360.0) % 360.0, chroma }
+    Hue {
+        deg: (deg + 360.0) % 360.0,
+        chroma,
+    }
 }
 
 /// Smallest angular distance between two hues (0–180°).
 fn arc(a: f32, b: f32) -> f32 {
     let d = (a - b).abs() % 360.0;
-    if d > 180.0 { 360.0 - d } else { d }
+    if d > 180.0 {
+        360.0 - d
+    } else {
+        d
+    }
 }
 
 /// Reduce colors to saturated hues, dropping the muddy near-grey below `min_chroma`.
@@ -104,7 +111,12 @@ pub fn detect_relations(colors: &[Color], min_chroma: f32, tol: f32) -> Vec<Rela
             let (ia, ha) = hues[i];
             let (ib, hb) = hues[j];
             let kind = relation_kind(ha, hb, tol);
-            out.push(Relation { a: ia, b: ib, kind, hash: format!("chroma_{ia}_{ib}") });
+            out.push(Relation {
+                a: ia,
+                b: ib,
+                kind,
+                hash: format!("chroma_{ia}_{ib}"),
+            });
         }
     }
     out
@@ -134,8 +146,10 @@ pub fn register_relations(
             Kind::Triad => "triad",
             Kind::Clash => "clash",
         };
-        let id = core
-            .register_node_from_text(&format!("color relation: {} <{kind}> {}", r.a, r.b), embedder);
+        let id = core.register_node_from_text(
+            &format!("color relation: {} <{kind}> {}", r.a, r.b),
+            embedder,
+        );
         core.bridge_node(&id);
         ids.push(id);
     }
@@ -146,10 +160,26 @@ pub fn register_relations(
 mod tests {
     use super::*;
 
-    const RED: Color = Color { r: 230, g: 20, b: 20 };
-    const CYAN: Color = Color { r: 20, g: 230, b: 230 }; // ~complement of red
-    const ORANGE: Color = Color { r: 230, g: 140, b: 20 }; // analogous to red
-    const GREY: Color = Color { r: 128, g: 128, b: 128 }; // muddy — rejected
+    const RED: Color = Color {
+        r: 230,
+        g: 20,
+        b: 20,
+    };
+    const CYAN: Color = Color {
+        r: 20,
+        g: 230,
+        b: 230,
+    }; // ~complement of red
+    const ORANGE: Color = Color {
+        r: 230,
+        g: 140,
+        b: 20,
+    }; // analogous to red
+    const GREY: Color = Color {
+        r: 128,
+        g: 128,
+        b: 128,
+    }; // muddy — rejected
 
     #[test]
     fn grey_rejected_complement_detected() {

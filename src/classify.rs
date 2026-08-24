@@ -44,13 +44,17 @@ pub struct ClassificationAssessment {
 impl ClassificationAssessment {
     /// Data-driven verdict thresholds computed from the actual classification results.
     /// Instead of fixed percentiles, thresholds adapt to the score distribution.
-    fn data_driven_thresholds(top_score: f32, margin: f32, results: &[CellScore]) -> (f32, f32, f32) {
+    fn data_driven_thresholds(
+        top_score: f32,
+        margin: f32,
+        results: &[CellScore],
+    ) -> (f32, f32, f32) {
         // Coverage threshold: use the median coverage across all results as reference
         // If we have multiple results, compute a dynamic cutoff; otherwise use 0.5 as baseline
         let coverage_cutoff = if results.len() > 1 {
             // Use the top quartile coverage as the "mapped" boundary
             let _coverages: Vec<f32> = results.iter().map(|r| r.score * 0.8 + 0.1).collect(); // approximate
-            // Simpler: just use a data-informed default
+                                                                                              // Simpler: just use a data-informed default
             0.50
         } else {
             0.50
@@ -76,12 +80,7 @@ impl ClassificationAssessment {
         (coverage_cutoff, margin_cutoff, base_confidence)
     }
 
-    pub fn from_results(
-        results: &[CellScore],
-        coverage: f32,
-        model: &str,
-        semantic: bool,
-    ) -> Self {
+    pub fn from_results(results: &[CellScore], coverage: f32, model: &str, semantic: bool) -> Self {
         let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
         let margin = results
             .get(1)
@@ -90,19 +89,32 @@ impl ClassificationAssessment {
         let score_signal = ((top_score - 0.35) / 0.35).clamp(0.0, 1.0);
         let coverage_signal = ((coverage - 0.35) / 0.35).clamp(0.0, 1.0);
         let margin_signal = (margin / 0.12).clamp(0.0, 1.0);
-        let confidence = (0.35 * score_signal + 0.45 * coverage_signal + 0.20 * margin_signal)
-            .clamp(0.0, 1.0);
-        let (coverage_cutoff, margin_cutoff, confidence_base) = Self::data_driven_thresholds(top_score, margin, results);
+        let confidence =
+            (0.35 * score_signal + 0.45 * coverage_signal + 0.20 * margin_signal).clamp(0.0, 1.0);
+        let (coverage_cutoff, margin_cutoff, confidence_base) =
+            Self::data_driven_thresholds(top_score, margin, results);
 
         let abstained = !semantic || coverage < coverage_cutoff || top_score < 0.45;
         let (verdict, reason) = if !semantic {
-            ("degraded", "The active embedder is non-semantic; no cell is trustworthy.".into())
+            (
+                "degraded",
+                "The active embedder is non-semantic; no cell is trustworthy.".into(),
+            )
         } else if coverage < coverage_cutoff {
-            ("unmapped", "No ontology entry is close enough; review the discovery suggestion.".into())
+            (
+                "unmapped",
+                "No ontology entry is close enough; review the discovery suggestion.".into(),
+            )
         } else if abstained || confidence < confidence_base || margin < margin_cutoff {
-            ("review", "A candidate exists, but the evidence is not decisive.".into())
+            (
+                "review",
+                "A candidate exists, but the evidence is not decisive.".into(),
+            )
         } else {
-            ("strong", "The top cell has strong coverage and separation.".into())
+            (
+                "strong",
+                "The top cell has strong coverage and separation.".into(),
+            )
         };
         Self {
             model: model.to_string(),
@@ -127,9 +139,10 @@ impl CellClassifier {
     /// embeddings by DOMAIN×MODE cell. Hook: maps physis_pro's ontology over the
     /// core entry-seed builder.
     pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
-        Self(physis_core::classify::CellClassifier::build_seeds(Self::seeds(ontology), |t| {
-            embedder.embed(t)
-        }))
+        Self(physis_core::classify::CellClassifier::build_seeds(
+            Self::seeds(ontology),
+            |t| embedder.embed(t),
+        ))
     }
 
     /// Same as [`Self::build`], but embeds the ontology seeds in batches and
@@ -167,19 +180,31 @@ impl CellClassifier {
     /// The classification seeds this ontology contributes: one per entry that
     /// declares both a domain and a mode.
     fn seeds(ontology: &OntologyLoader) -> impl Iterator<Item = EntrySeed> + '_ {
-        let mut seeds: Vec<EntrySeed> = ontology.classification_domains().filter_map(|def| {
-            let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
-                (Some(d), Some(m)) => (d.to_string(), m.to_string()),
-                _ => return None,
-            };
-            let mut text = def.name.clone();
-            for hint in &def.hints {
-                text.push(' ');
-                text.push_str(hint);
-            }
-            Some(EntrySeed { name: def.name.clone(), domain, mode, text, facets: def.facets.clone() })
-        }).collect();
-        let existing: Vec<(String, String)> = seeds.iter().map(|s| (s.domain.clone(), s.mode.clone())).collect();
+        let mut seeds: Vec<EntrySeed> = ontology
+            .classification_domains()
+            .filter_map(|def| {
+                let (domain, mode) = match (def.domain.as_deref(), def.mode.as_deref()) {
+                    (Some(d), Some(m)) => (d.to_string(), m.to_string()),
+                    _ => return None,
+                };
+                let mut text = def.name.clone();
+                for hint in &def.hints {
+                    text.push(' ');
+                    text.push_str(hint);
+                }
+                Some(EntrySeed {
+                    name: def.name.clone(),
+                    domain,
+                    mode,
+                    text,
+                    facets: def.facets.clone(),
+                })
+            })
+            .collect();
+        let existing: Vec<(String, String)> = seeds
+            .iter()
+            .map(|s| (s.domain.clone(), s.mode.clone()))
+            .collect();
         seeds.extend(crate::semiotic_grid::fallback_anchors(&existing));
         seeds.into_iter()
     }
@@ -249,7 +274,10 @@ impl CellClassifier {
                 text.push_str(hint);
             }
             let similarity = physis_core::models::cosine_sim(embedding, &embedder.embed(&text));
-            if let Some(cell) = scores.iter_mut().find(|c| c.domain == domain && c.mode == mode) {
+            if let Some(cell) = scores
+                .iter_mut()
+                .find(|c| c.domain == domain && c.mode == mode)
+            {
                 cell.score += (similarity.max(0.0) * 0.08).min(0.08);
             }
         }
@@ -308,9 +336,17 @@ mod tests {
     use crate::embed::RandomProjectionEmbedder;
 
     fn cell(domain: &str, mode: &str, embeddings: Vec<Vec<f32>>) -> CoreCell {
-        let entries = (0..embeddings.len()).map(|i| format!("{domain}/{mode}#{i}")).collect();
+        let entries = (0..embeddings.len())
+            .map(|i| format!("{domain}/{mode}#{i}"))
+            .collect();
         let facets = vec![physis_core::models::Facets::default(); embeddings.len()];
-        CoreCell::new(domain.to_string(), mode.to_string(), embeddings, entries, facets)
+        CoreCell::new(
+            domain.to_string(),
+            mode.to_string(),
+            embeddings,
+            entries,
+            facets,
+        )
     }
 
     fn basis(dim: usize, axis: usize) -> Vec<f32> {
@@ -347,7 +383,9 @@ mod tests {
         let cached_centroids = cached.cell_centroids();
         assert_eq!(plain_centroids.len(), cached_centroids.len());
         for (key, expected) in &plain_centroids {
-            let got = cached_centroids.get(key).expect("cell present in both builds");
+            let got = cached_centroids
+                .get(key)
+                .expect("cell present in both builds");
             assert_eq!(expected.len(), got.len(), "dimension differs for {key}");
             for (a, b) in expected.iter().zip(got) {
                 assert!((a - b).abs() < 1e-6, "centroid differs for {key}");
@@ -371,7 +409,10 @@ mod tests {
         ]);
         let results = clf.classify(&basis(4, 0));
         assert_eq!(results.len(), 3);
-        assert_eq!((results[0].domain.as_str(), results[0].mode.as_str()), ("A", "X"));
+        assert_eq!(
+            (results[0].domain.as_str(), results[0].mode.as_str()),
+            ("A", "X")
+        );
         for w in results.windows(2) {
             assert!(w[0].score >= w[1].score);
         }
@@ -448,7 +489,10 @@ mod tests {
 
         let (store, ctx, interp) = confirmed("A/X#0", 30);
         let biased = clf.classify_biased(&query, T, &ctx, &store, &interp);
-        assert_eq!(biased[0].mode, "X", "accumulated evidence reorders a close call");
+        assert_eq!(
+            biased[0].mode, "X",
+            "accumulated evidence reorders a close call"
+        );
     }
 
     #[test]
@@ -477,7 +521,10 @@ mod tests {
         // Same store, different client: the bias must not apply.
         let other = Context::parse("client:publisher");
         let biased = clf.classify_biased(&query, T, &other, &store, &interp);
-        assert_eq!(biased[0].mode, "Y", "another client's evidence is not evidence here");
+        assert_eq!(
+            biased[0].mode, "Y",
+            "another client's evidence is not evidence here"
+        );
     }
 
     #[test]
@@ -488,13 +535,19 @@ mod tests {
         ]);
         let query = basis(4, 0);
         let ctx = Context::parse("client:evotec");
-        let interp = Interpretant { weight: 0.0, ..Default::default() };
+        let interp = Interpretant {
+            weight: 0.0,
+            ..Default::default()
+        };
         let mut store = SalienceStore::default();
         for _ in 0..30 {
             store.record(T, &ctx, "A/X#0", Signal::Edited, &interp);
         }
         assert!(store.score(T, &ctx, "A/X#0", &interp) > 0.0, "recorded");
-        assert_eq!(clf.classify_biased(&query, T, &ctx, &store, &interp)[0].mode, "Y");
+        assert_eq!(
+            clf.classify_biased(&query, T, &ctx, &store, &interp)[0].mode,
+            "Y"
+        );
     }
 
     #[test]
@@ -512,7 +565,9 @@ mod tests {
     fn cell_centroids_mean_and_key_format() {
         let clf = from_cells(vec![cell("A", "X", vec![vec![1.0, 0.0], vec![0.0, 1.0]])]);
         let centroids = clf.cell_centroids();
-        let c = centroids.get("A\x00X").expect("key must be DOMAIN\\x00MODE");
+        let c = centroids
+            .get("A\x00X")
+            .expect("key must be DOMAIN\\x00MODE");
         assert_eq!(c, &vec![0.5, 0.5]);
     }
 }

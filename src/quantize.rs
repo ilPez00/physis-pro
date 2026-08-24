@@ -12,10 +12,10 @@ const DEFAULT_K: usize = 256;
 /// Compresses f32 vectors into compact byte codes via product quantization.
 #[derive(Debug, Clone)]
 pub struct ProductQuantizer {
-    pub m: usize,        // number of sub-vectors
-    pub k: usize,        // centroids per sub-vector
-    pub dim: usize,      // full vector dimension
-    pub sub_dim: usize,  // dimension per sub-vector (dim / m)
+    pub m: usize,       // number of sub-vectors
+    pub k: usize,       // centroids per sub-vector
+    pub dim: usize,     // full vector dimension
+    pub sub_dim: usize, // dimension per sub-vector (dim / m)
     /// Codebooks: M x K x sub_dim
     pub codebooks: Vec<Vec<Vec<f32>>>,
     /// Online training counters
@@ -72,9 +72,13 @@ impl ProductQuantizer {
             sub.resize(self.sub_dim, 0.0);
 
             // Find nearest centroid
-            let (best_idx, _) = self.codebooks[m_idx].iter().enumerate()
+            let (best_idx, _) = self.codebooks[m_idx]
+                .iter()
+                .enumerate()
                 .map(|(i, c)| {
-                    let dist: f32 = sub.iter().zip(c.iter())
+                    let dist: f32 = sub
+                        .iter()
+                        .zip(c.iter())
                         .map(|(a, b)| (a - b) * (a - b))
                         .sum();
                     (i, dist)
@@ -107,9 +111,13 @@ impl ProductQuantizer {
             }
             sub.resize(self.sub_dim, 0.0);
 
-            let best_idx = self.codebooks[m_idx].iter().enumerate()
+            let best_idx = self.codebooks[m_idx]
+                .iter()
+                .enumerate()
                 .map(|(i, c)| {
-                    let dist: f32 = sub.iter().zip(c.iter())
+                    let dist: f32 = sub
+                        .iter()
+                        .zip(c.iter())
                         .map(|(a, b)| (a - b) * (a - b))
                         .sum();
                     (i, dist)
@@ -143,22 +151,24 @@ impl ProductQuantizer {
     /// Coarse search: compare query against all centroids, return scores per sub-vector.
     /// Returns a Vec of (code, distance_squared) for each sub-vector.
     pub fn coarse_search(&self, query_sub: &[f32], m_idx: usize) -> Vec<(u8, f32)> {
-        self.codebooks[m_idx].iter().enumerate().map(|(i, c)| {
-            let dist: f32 = query_sub.iter().zip(c.iter())
-                .map(|(a, b)| (a - b) * (a - b))
-                .sum();
-            (i as u8, dist)
-        }).collect()
+        self.codebooks[m_idx]
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let dist: f32 = query_sub
+                    .iter()
+                    .zip(c.iter())
+                    .map(|(a, b)| (a - b) * (a - b))
+                    .sum();
+                (i as u8, dist)
+            })
+            .collect()
     }
 
     /// Asymmetric Distance Computation (ADC).
     /// Given a query vector and encoded (id, codes) entries, compute approximate
     /// squared L2 distances without dequantizing. Returns (id, distance_squared) sorted ascending.
-    pub fn adc_search(
-        &self,
-        query: &[f32],
-        encoded: &[(String, Vec<u8>)],
-    ) -> Vec<(String, f32)> {
+    pub fn adc_search(&self, query: &[f32], encoded: &[(String, Vec<u8>)]) -> Vec<(String, f32)> {
         // Pre-compute per-sub-vector distances from query to each centroid
         let mut centroid_dists: Vec<Vec<(u8, f32)>> = Vec::with_capacity(self.m);
         for m_idx in 0..self.m {

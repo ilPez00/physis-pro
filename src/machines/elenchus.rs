@@ -131,7 +131,12 @@ mod tests {
     use super::*;
 
     fn st(id: &str, kind: Kind, target: Option<&str>) -> Statement {
-        Statement { id: id.into(), kind, text: id.into(), target: target.map(|s| s.into()) }
+        Statement {
+            id: id.into(),
+            kind,
+            text: id.into(),
+            target: target.map(|s| s.into()),
+        }
     }
 
     #[test]

@@ -74,7 +74,11 @@ pub struct OperationalTimeline {
 impl OperationalTimeline {
     pub fn from_events(events: &[OperationalEvent]) -> Self {
         let mut entries: Vec<TimelineEntry> = events.iter().map(TimelineEntry::from).collect();
-        entries.sort_by(|a, b| a.observed_at.cmp(&b.observed_at).then_with(|| a.subject.cmp(&b.subject)));
+        entries.sort_by(|a, b| {
+            a.observed_at
+                .cmp(&b.observed_at)
+                .then_with(|| a.subject.cmp(&b.subject))
+        });
 
         let mut counts_by_kind = HashMap::new();
         let mut counts_by_status = HashMap::new();
@@ -85,7 +89,12 @@ impl OperationalTimeline {
 
         let incident = entries
             .iter()
-            .find(|e| matches!(e.status, OperationalStatus::Warning | OperationalStatus::Failure))
+            .find(|e| {
+                matches!(
+                    e.status,
+                    OperationalStatus::Warning | OperationalStatus::Failure
+                )
+            })
             .map(|trigger| build_incident(trigger, &entries));
 
         Self {
@@ -107,11 +116,41 @@ impl OperationalTimeline {
 
         out.push_str("## Summary\n\n");
         out.push_str(&format!("- Events: {}\n", self.entries.len()));
-        out.push_str(&format!("- Machine: {}\n", self.counts_by_kind.get(&OperationalKind::Machine).copied().unwrap_or(0)));
-        out.push_str(&format!("- Document: {}\n", self.counts_by_kind.get(&OperationalKind::Document).copied().unwrap_or(0)));
-        out.push_str(&format!("- Email: {}\n", self.counts_by_kind.get(&OperationalKind::Email).copied().unwrap_or(0)));
-        out.push_str(&format!("- Warning: {}\n", self.counts_by_status.get(&OperationalStatus::Warning).copied().unwrap_or(0)));
-        out.push_str(&format!("- Failure: {}\n", self.counts_by_status.get(&OperationalStatus::Failure).copied().unwrap_or(0)));
+        out.push_str(&format!(
+            "- Machine: {}\n",
+            self.counts_by_kind
+                .get(&OperationalKind::Machine)
+                .copied()
+                .unwrap_or(0)
+        ));
+        out.push_str(&format!(
+            "- Document: {}\n",
+            self.counts_by_kind
+                .get(&OperationalKind::Document)
+                .copied()
+                .unwrap_or(0)
+        ));
+        out.push_str(&format!(
+            "- Email: {}\n",
+            self.counts_by_kind
+                .get(&OperationalKind::Email)
+                .copied()
+                .unwrap_or(0)
+        ));
+        out.push_str(&format!(
+            "- Warning: {}\n",
+            self.counts_by_status
+                .get(&OperationalStatus::Warning)
+                .copied()
+                .unwrap_or(0)
+        ));
+        out.push_str(&format!(
+            "- Failure: {}\n",
+            self.counts_by_status
+                .get(&OperationalStatus::Failure)
+                .copied()
+                .unwrap_or(0)
+        ));
 
         if let Some(incident) = &self.incident {
             out.push_str("\n## Incident\n\n");
@@ -158,8 +197,10 @@ fn build_incident(trigger: &TimelineEntry, entries: &[TimelineEntry]) -> Operati
     let related: Vec<TimelineEntry> = entries
         .iter()
         .filter(|entry| {
-            let within_window = entry.observed_at >= window_start && entry.observed_at <= window_end;
-            let same_machine = trigger.machine_id.is_some() && trigger.machine_id == entry.machine_id;
+            let within_window =
+                entry.observed_at >= window_start && entry.observed_at <= window_end;
+            let same_machine =
+                trigger.machine_id.is_some() && trigger.machine_id == entry.machine_id;
             let same_thread = trigger.thread_id.is_some() && trigger.thread_id == entry.thread_id;
             within_window || same_machine || same_thread
         })
@@ -208,7 +249,9 @@ mod tests {
     fn machine_event() -> OperationalEvent {
         let reading = MachineReading {
             machine_id: "voron-01".to_string(),
-            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:12:00Z").unwrap().with_timezone(&Utc),
+            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:12:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             temperature: Some(78.5),
             pressure: None,
             vibration: Some(0.12),
@@ -225,7 +268,9 @@ mod tests {
             kind: DocKind::Email,
             title: "Supplier delay".to_string(),
             body: "Replacement nozzle ships tomorrow.".to_string(),
-            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z").unwrap().with_timezone(&Utc),
+            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             ontology_tags: vec!["workshop".to_string()],
             meta: DocMeta {
                 vendor: None,
@@ -245,7 +290,9 @@ mod tests {
             kind: DocKind::Report,
             title: "Resumed after nozzle clean".to_string(),
             body: "cleaned nozzle, resumed".to_string(),
-            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:16:00Z").unwrap().with_timezone(&Utc),
+            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:16:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             ontology_tags: vec!["workshop".to_string()],
             meta: DocMeta {
                 vendor: None,
@@ -276,7 +323,8 @@ mod tests {
 
     #[test]
     fn renders_markdown() {
-        let timeline = OperationalTimeline::from_events(&[machine_event(), document_event(), email_event()]);
+        let timeline =
+            OperationalTimeline::from_events(&[machine_event(), document_event(), email_event()]);
         let md = timeline.render_markdown();
         assert!(md.contains("# Operational Timeline"));
         assert!(md.contains("Incident"));

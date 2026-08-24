@@ -10,7 +10,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::operational::{OperationalEvent, OperationalKind, OperationalProvenance, OperationalStatus};
+use crate::operational::{
+    OperationalEvent, OperationalKind, OperationalProvenance, OperationalStatus,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 struct JsonRpcResponse<T> {
@@ -111,12 +113,21 @@ impl MoonrakerAdapter {
             .and_then(|v| v.get("message"))
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
-            .or_else(|| webhooks.and_then(|v| v.get("state_message")).and_then(Value::as_str))
+            .or_else(|| {
+                webhooks
+                    .and_then(|v| v.get("state_message"))
+                    .and_then(Value::as_str)
+            })
             .unwrap_or("");
         let progress = virtual_sdcard
             .and_then(|v| v.get("progress"))
             .and_then(Value::as_f64)
-            .or_else(|| print_stats.and_then(|v| v.get("info")).and_then(|v| v.get("current_layer")).and_then(Value::as_f64));
+            .or_else(|| {
+                print_stats
+                    .and_then(|v| v.get("info"))
+                    .and_then(|v| v.get("current_layer"))
+                    .and_then(Value::as_f64)
+            });
 
         let (status, severity) = classify_status(printer_state, print_state);
         let subject = if filename == self.machine_id {
@@ -144,20 +155,34 @@ impl MoonrakerAdapter {
             .and_then(Value::as_f64)
             .map(|secs| secs.max(0.0).round() as i64);
         event.actor = Some("moonraker".to_string());
-        event.evidence.push(format!("webhooks.state={printer_state}"));
-        event.evidence.push(format!("print_stats.state={print_state}"));
+        event
+            .evidence
+            .push(format!("webhooks.state={printer_state}"));
+        event
+            .evidence
+            .push(format!("print_stats.state={print_state}"));
         if !message.is_empty() {
             event.evidence.push(message.to_string());
         }
         if let Some(progress) = progress {
-            event.properties.insert("progress".to_string(), progress.to_string());
+            event
+                .properties
+                .insert("progress".to_string(), progress.to_string());
         }
-        event.properties.insert("printer_state".to_string(), printer_state.to_string());
-        event.properties.insert("print_state".to_string(), print_state.to_string());
-        event.properties.insert("severity".to_string(), severity.to_string());
+        event
+            .properties
+            .insert("printer_state".to_string(), printer_state.to_string());
+        event
+            .properties
+            .insert("print_state".to_string(), print_state.to_string());
+        event
+            .properties
+            .insert("severity".to_string(), severity.to_string());
         if let Some(message) = message.strip_prefix("") {
             if !message.is_empty() {
-                event.properties.insert("message".to_string(), message.to_string());
+                event
+                    .properties
+                    .insert("message".to_string(), message.to_string());
             }
         }
         if let Some(file_path) = virtual_sdcard
@@ -165,25 +190,33 @@ impl MoonrakerAdapter {
             .and_then(Value::as_str)
             .filter(|s| !s.is_empty())
         {
-            event.properties.insert("file_path".to_string(), file_path.to_string());
+            event
+                .properties
+                .insert("file_path".to_string(), file_path.to_string());
         }
         if let Some(total_duration) = print_stats
             .and_then(|v| v.get("total_duration"))
             .and_then(Value::as_f64)
         {
-            event.properties.insert("total_duration".to_string(), total_duration.to_string());
+            event
+                .properties
+                .insert("total_duration".to_string(), total_duration.to_string());
         }
         if let Some(print_duration) = print_stats
             .and_then(|v| v.get("print_duration"))
             .and_then(Value::as_f64)
         {
-            event.properties.insert("print_duration".to_string(), print_duration.to_string());
+            event
+                .properties
+                .insert("print_duration".to_string(), print_duration.to_string());
         }
         if let Some(filament_used) = print_stats
             .and_then(|v| v.get("filament_used"))
             .and_then(Value::as_f64)
         {
-            event.properties.insert("filament_used".to_string(), filament_used.to_string());
+            event
+                .properties
+                .insert("filament_used".to_string(), filament_used.to_string());
         }
         event.raw = serde_json::json!({
             "observed_at": observed_at,
@@ -204,7 +237,13 @@ impl MoonrakerAdapter {
         });
 
         let url = format!("{}/server/jsonrpc", self.base_url);
-        let response = self.client.post(url).json(&payload).send().await?.error_for_status()?;
+        let response = self
+            .client
+            .post(url)
+            .json(&payload)
+            .send()
+            .await?
+            .error_for_status()?;
         let parsed: JsonRpcResponse<MoonrakerQueryResult> = response.json().await?;
         Ok(parsed.result)
     }
@@ -246,16 +285,34 @@ mod tests {
         assert_eq!(event.kind, OperationalKind::Machine);
         assert_eq!(event.machine_id.as_deref(), Some("voron-01"));
         assert_eq!(event.status, OperationalStatus::Warning);
-        assert_eq!(event.properties.get("print_state").map(String::as_str), Some("paused"));
-        assert_eq!(event.properties.get("progress").map(String::as_str), Some("0.42"));
-        assert!(event.evidence.iter().any(|e| e.contains("webhooks.state=ready")));
+        assert_eq!(
+            event.properties.get("print_state").map(String::as_str),
+            Some("paused")
+        );
+        assert_eq!(
+            event.properties.get("progress").map(String::as_str),
+            Some("0.42")
+        );
+        assert!(event
+            .evidence
+            .iter()
+            .any(|e| e.contains("webhooks.state=ready")));
         assert!(!event.event_key.is_empty());
     }
 
     #[test]
     fn classifies_printer_states() {
-        assert_eq!(classify_status("ready", "complete").0, OperationalStatus::Success);
-        assert_eq!(classify_status("ready", "paused").0, OperationalStatus::Warning);
-        assert_eq!(classify_status("error", "standby").0, OperationalStatus::Failure);
+        assert_eq!(
+            classify_status("ready", "complete").0,
+            OperationalStatus::Success
+        );
+        assert_eq!(
+            classify_status("ready", "paused").0,
+            OperationalStatus::Warning
+        );
+        assert_eq!(
+            classify_status("error", "standby").0,
+            OperationalStatus::Failure
+        );
     }
 }

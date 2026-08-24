@@ -136,7 +136,10 @@ mod tests {
         let result = write_atomic(&target, b"replacement");
         std::fs::set_permissions(&sub, std::fs::Permissions::from_mode(0o700)).unwrap();
 
-        assert!(result.is_err(), "write into a read-only directory must fail");
+        assert!(
+            result.is_err(),
+            "write into a read-only directory must fail"
+        );
         assert_eq!(std::fs::read(&target).unwrap(), b"original");
     }
 
@@ -150,7 +153,10 @@ mod tests {
             .map(|entry| entry.file_name().to_string_lossy().into_owned())
             .filter(|name| name.contains("tmp"))
             .collect::<Vec<_>>();
-        assert!(leftovers.is_empty(), "temp files left behind: {leftovers:?}");
+        assert!(
+            leftovers.is_empty(),
+            "temp files left behind: {leftovers:?}"
+        );
     }
 
     #[test]
@@ -158,8 +164,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let target = dir.path().join("value.json");
         write_json_durable(&target, &vec!["a", "b"]).unwrap();
-        let back: Vec<String> =
-            serde_json::from_slice(&std::fs::read(&target).unwrap()).unwrap();
+        let back: Vec<String> = serde_json::from_slice(&std::fs::read(&target).unwrap()).unwrap();
         assert_eq!(back, vec!["a".to_string(), "b".to_string()]);
     }
 }

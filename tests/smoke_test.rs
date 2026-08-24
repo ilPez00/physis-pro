@@ -1,10 +1,10 @@
-use physis_pro::config::{OntologyLoader, PhysisConfig};
-use physis_pro::mapper::OntologyMapper;
 use physis_pro::actor::PDCActor;
+use physis_pro::config::{OntologyLoader, PhysisConfig};
 use physis_pro::dream::DreamEngine;
-use physis_pro::scanner;
 use physis_pro::embed::RandomProjectionEmbedder;
 use physis_pro::embed::VectorEmbed;
+use physis_pro::mapper::OntologyMapper;
+use physis_pro::scanner;
 
 #[test]
 fn test_mediation_pipeline() {
@@ -17,8 +17,14 @@ fn test_mediation_pipeline() {
     // Step 1: scan_project
     let files = scanner::scan_project(&dir, None);
     assert!(!files.is_empty(), "scanner must find files");
-    assert!(files.iter().any(|f| f.path.ends_with("main.rs")), "must find main.rs");
-    assert!(files.iter().any(|f| f.path.ends_with("README.md")), "must find README.md");
+    assert!(
+        files.iter().any(|f| f.path.ends_with("main.rs")),
+        "must find main.rs"
+    );
+    assert!(
+        files.iter().any(|f| f.path.ends_with("README.md")),
+        "must find README.md"
+    );
 
     // Step 2: OntologyMapper
     let config = PhysisConfig::default();
@@ -31,7 +37,10 @@ fn test_mediation_pipeline() {
     let actor = PDCActor::new(10.0, 5);
     let stats = actor.stats(&goals);
     assert_eq!(stats.total_actions, 0, "new actor has no actions");
-    assert!((stats.avg_grade - 0.0).abs() < 0.001, "default avg grade is 0.0");
+    assert!(
+        (stats.avg_grade - 0.0).abs() < 0.001,
+        "default avg grade is 0.0"
+    );
 
     // Step 4: Query the trie
     let _results = mapper.query("main");

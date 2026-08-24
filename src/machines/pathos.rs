@@ -64,18 +64,28 @@ pub fn detect_affects(episodes: &[Episode], min_count: usize, flat: f32) -> Vec<
         })
         .collect();
     // most activated first
-    out.sort_by(|a, b| b.arousal.partial_cmp(&a.arousal).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        b.arousal
+            .partial_cmp(&a.arousal)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
 /// Amplifiers: negative-valence, high-arousal patterns — what activates distress.
 pub fn amplifiers(affects: &[Affect], min_arousal: f32) -> Vec<&Affect> {
-    affects.iter().filter(|a| a.valence < 0.0 && a.arousal >= min_arousal).collect()
+    affects
+        .iter()
+        .filter(|a| a.valence < 0.0 && a.arousal >= min_arousal)
+        .collect()
 }
 
 /// Soothers: positive-valence, low-arousal patterns — what restores calm.
 pub fn soothers(affects: &[Affect], max_arousal: f32) -> Vec<&Affect> {
-    affects.iter().filter(|a| a.valence > 0.0 && a.arousal <= max_arousal).collect()
+    affects
+        .iter()
+        .filter(|a| a.valence > 0.0 && a.arousal <= max_arousal)
+        .collect()
 }
 
 /// Adapter: register each affect pattern as a labeled, bridged node.
@@ -87,7 +97,10 @@ pub fn register_affects(
     let mut ids = Vec::new();
     for a in affects {
         let id = core.register_node_from_text(
-            &format!("affect: {} (v{:+.2} a{:.2})", a.trigger, a.valence, a.arousal),
+            &format!(
+                "affect: {} (v{:+.2} a{:.2})",
+                a.trigger, a.valence, a.arousal
+            ),
             embedder,
         );
         core.bridge_node(&id);
@@ -101,15 +114,22 @@ mod tests {
     use super::*;
 
     fn ep(trigger: &str, valence: f32, arousal: f32) -> Episode {
-        Episode { trigger: trigger.into(), valence, arousal }
+        Episode {
+            trigger: trigger.into(),
+            valence,
+            arousal,
+        }
     }
 
     #[test]
     fn recurring_affect_detected_flat_rejected() {
         let episodes = vec![
-            ep("deadline", -0.8, 0.9), ep("deadline", -0.6, 0.8), // amplifier
-            ep("walk", 0.7, 0.2), ep("walk", 0.6, 0.25),          // soother
-            ep("commute", 0.02, 0.03), ep("commute", -0.01, 0.02), // flat noise
+            ep("deadline", -0.8, 0.9),
+            ep("deadline", -0.6, 0.8), // amplifier
+            ep("walk", 0.7, 0.2),
+            ep("walk", 0.6, 0.25), // soother
+            ep("commute", 0.02, 0.03),
+            ep("commute", -0.01, 0.02), // flat noise
         ];
         let affects = detect_affects(&episodes, 2, 0.1);
         let dl = affects.iter().find(|a| a.trigger == "deadline").unwrap();

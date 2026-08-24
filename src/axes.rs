@@ -58,7 +58,10 @@ pub struct AxisProposal {
 /// Group per-cell centroids (keyed `"DOMAIN\x00MODE"`) into axis anchors for a
 /// role: average the cell centroids that share the role's name. Returns
 /// `(name, anchor, contributing_cell_count)`.
-pub fn axis_anchors(centroids: &HashMap<String, Vec<f32>>, role: AxisRole) -> Vec<(String, Vec<f32>, usize)> {
+pub fn axis_anchors(
+    centroids: &HashMap<String, Vec<f32>>,
+    role: AxisRole,
+) -> Vec<(String, Vec<f32>, usize)> {
     let mut groups: BTreeMap<String, (Vec<f32>, usize)> = BTreeMap::new();
     for (key, c) in centroids {
         let mut parts = key.split('\u{0}');
@@ -71,7 +74,9 @@ pub fn axis_anchors(centroids: &HashMap<String, Vec<f32>>, role: AxisRole) -> Ve
         if name.is_empty() || c.is_empty() {
             continue;
         }
-        let e = groups.entry(name.to_string()).or_insert_with(|| (vec![0.0; c.len()], 0));
+        let e = groups
+            .entry(name.to_string())
+            .or_insert_with(|| (vec![0.0; c.len()], 0));
         if e.0.len() != c.len() {
             continue; // dimension mismatch guard
         }
@@ -114,7 +119,11 @@ fn best_axis_sim(e: &[f32], anchors: &[(String, Vec<f32>, usize)]) -> f32 {
 
 /// Indices of embeddings that are axis-orphans on this role: their best cosine to
 /// any axis value is below `tau` — the existing axes cannot name them.
-pub fn axis_orphans(embeddings: &[Vec<f32>], anchors: &[(String, Vec<f32>, usize)], tau: f32) -> Vec<usize> {
+pub fn axis_orphans(
+    embeddings: &[Vec<f32>],
+    anchors: &[(String, Vec<f32>, usize)],
+    tau: f32,
+) -> Vec<usize> {
     if anchors.is_empty() {
         return (0..embeddings.len()).collect();
     }
@@ -127,18 +136,17 @@ pub fn axis_orphans(embeddings: &[Vec<f32>], anchors: &[(String, Vec<f32>, usize
 }
 
 const STOPWORDS: &[&str] = &[
-    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "is",
-    "are", "was", "be", "this", "that", "it", "at", "by", "from", "as", "we",
-    "il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "di", "del", "della",
-    "e", "o", "che", "per", "con", "su", "da", "non", "si", "ha", "sono",
+    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "is", "are", "was", "be",
+    "this", "that", "it", "at", "by", "from", "as", "we", "il", "lo", "la", "i", "gli", "le", "un",
+    "uno", "una", "di", "del", "della", "e", "o", "che", "per", "con", "su", "da", "non", "si",
+    "ha", "sono",
     // common English filler that leaks into TF-IDF labels (not topical)
-    "already", "also", "very", "more", "most", "some", "such", "than", "then",
-    "them", "they", "will", "would", "can", "could", "should", "into", "about",
-    "over", "only", "just", "like", "what", "when", "which", "while", "your",
-    "you", "our", "have", "has", "had", "been", "being", "but", "not", "all",
-    "any", "each", "its", "their", "there", "these", "those", "use", "used",
-    "using", "via", "per", "out", "off", "one", "two", "new", "get", "set",
-    "may", "must", "now", "see", "how", "who", "why", "may", "does", "done",
+    "already", "also", "very", "more", "most", "some", "such", "than", "then", "them", "they",
+    "will", "would", "can", "could", "should", "into", "about", "over", "only", "just", "like",
+    "what", "when", "which", "while", "your", "you", "our", "have", "has", "had", "been", "being",
+    "but", "not", "all", "any", "each", "its", "their", "there", "these", "those", "use", "used",
+    "using", "via", "per", "out", "off", "one", "two", "new", "get", "set", "may", "must", "now",
+    "see", "how", "who", "why", "may", "does", "done",
 ];
 
 fn top_terms(texts: &[&str], max: usize) -> Vec<String> {
@@ -202,9 +210,15 @@ pub fn propose_axes(
         .map(|c| {
             let member_texts: Vec<&str> = c.iter().map(|&i| texts[i].as_str()).collect();
             let hints = top_terms(&member_texts, max_hints);
-            let name = hints.first().cloned().unwrap_or_else(|| "unnamed-axis".to_string());
-            let coverage =
-                c.iter().map(|&i| best_axis_sim(&embeddings[i], anchors)).sum::<f32>() / c.len() as f32;
+            let name = hints
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "unnamed-axis".to_string());
+            let coverage = c
+                .iter()
+                .map(|&i| best_axis_sim(&embeddings[i], anchors))
+                .sum::<f32>()
+                / c.len() as f32;
             AxisProposal {
                 role,
                 name,
@@ -217,7 +231,11 @@ pub fn propose_axes(
         .collect();
     // Densest, least-covered first.
     proposals.sort_by(|a, b| {
-        b.count.cmp(&a.count).then(a.coverage.partial_cmp(&b.coverage).unwrap_or(std::cmp::Ordering::Equal))
+        b.count.cmp(&a.count).then(
+            a.coverage
+                .partial_cmp(&b.coverage)
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
     });
     proposals
 }
@@ -273,7 +291,12 @@ pub fn cluster_corpus(
             let member_texts: Vec<&str> = members.iter().map(|&i| texts[i].as_str()).collect();
             let hints = top_terms(&member_texts, max_hints);
             let label = hints.first().cloned().unwrap_or_else(|| "misc".to_string());
-            CorpusCluster { members, label, hints, centroid }
+            CorpusCluster {
+                members,
+                label,
+                hints,
+                centroid,
+            }
         })
         .collect();
     out.sort_by_key(|c| std::cmp::Reverse(c.members.len()));
@@ -282,7 +305,11 @@ pub fn cluster_corpus(
 
 fn l2_normalize(v: &[f32]) -> Vec<f32> {
     let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-    if n > 0.0 { v.iter().map(|x| x / n).collect() } else { v.to_vec() }
+    if n > 0.0 {
+        v.iter().map(|x| x / n).collect()
+    } else {
+        v.to_vec()
+    }
 }
 
 /// Unique stopworded terms of a text (the token set used for TF-IDF labels).
@@ -323,7 +350,11 @@ fn tfidf_label(
             (t, coverage * idf)
         })
         .collect();
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(b.0)));
+    scored.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(b.0))
+    });
     // Fallback: if the shared-term filter left nothing, take the most frequent terms.
     if scored.is_empty() {
         let mut alt: Vec<(&str, usize)> = doc_term_sets
@@ -331,13 +362,24 @@ fn tfidf_label(
             .enumerate()
             .filter(|(i, _)| members.contains(i))
             .flat_map(|(_, s)| s.iter().map(|t| t.as_str()))
-            .fold(std::collections::HashMap::new(), |mut acc, t| { *acc.entry(t).or_insert(0) += 1; acc })
+            .fold(std::collections::HashMap::new(), |mut acc, t| {
+                *acc.entry(t).or_insert(0) += 1;
+                acc
+            })
             .into_iter()
             .collect();
         alt.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
-        return alt.into_iter().take(max_hints).map(|(t, _)| t.to_string()).collect();
+        return alt
+            .into_iter()
+            .take(max_hints)
+            .map(|(t, _)| t.to_string())
+            .collect();
     }
-    scored.into_iter().take(max_hints).map(|(t, _)| t.to_string()).collect()
+    scored
+        .into_iter()
+        .take(max_hints)
+        .map(|(t, _)| t.to_string())
+        .collect()
 }
 
 /// Spherical k-means content clustering with TF-IDF labels — the upgrade over
@@ -368,7 +410,10 @@ pub fn cluster_corpus_kmeans(
             if seeds.contains(&i) {
                 continue;
             }
-            let max_sim = seeds.iter().map(|&s| cosine_sim(&units[i], &units[s])).fold(f32::MIN, f32::max);
+            let max_sim = seeds
+                .iter()
+                .map(|&s| cosine_sim(&units[i], &units[s]))
+                .fold(f32::MIN, f32::max);
             if max_sim < best.1 {
                 best = (i, max_sim);
             }
@@ -417,7 +462,8 @@ pub fn cluster_corpus_kmeans(
     }
 
     // TF-IDF prep over the corpus.
-    let doc_term_sets: Vec<std::collections::HashSet<String>> = texts.iter().map(|t| doc_terms(t)).collect();
+    let doc_term_sets: Vec<std::collections::HashSet<String>> =
+        texts.iter().map(|t| doc_terms(t)).collect();
     let mut df: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for set in &doc_term_sets {
         for t in set {
@@ -443,7 +489,12 @@ pub fn cluster_corpus_kmeans(
         }
         let hints = tfidf_label(&members, &doc_term_sets, &df, n, max_hints);
         let label = hints.first().cloned().unwrap_or_else(|| "misc".to_string());
-        out.push(CorpusCluster { members, label, hints, centroid });
+        out.push(CorpusCluster {
+            members,
+            label,
+            hints,
+            centroid,
+        });
     }
     out.sort_by_key(|c| std::cmp::Reverse(c.members.len()));
     out
@@ -500,7 +551,11 @@ pub struct AxisValue {
 /// Time-decayed activation: stored `activation` scaled by half-life decay since
 /// `last_seen` (falls back to `created_at`). An axis that stops being touched fades.
 pub fn decayed_activation(av: &AxisValue, now: DateTime<Utc>) -> f32 {
-    let anchor_ts = if av.last_seen.is_empty() { &av.created_at } else { &av.last_seen };
+    let anchor_ts = if av.last_seen.is_empty() {
+        &av.created_at
+    } else {
+        &av.last_seen
+    };
     let parsed = DateTime::parse_from_rfc3339(anchor_ts).ok();
     let days = parsed
         .map(|t| (now - t.with_timezone(&Utc)).num_seconds() as f64 / 86_400.0)
@@ -512,7 +567,10 @@ pub fn decayed_activation(av: &AxisValue, now: DateTime<Utc>) -> f32 {
 
 /// Installed axes as anchors for a role (active only) — merged with the derived
 /// builtin anchors so a promoted axis's region is no longer orphaned.
-pub fn installed_anchors(installed: &[AxisValue], role: AxisRole) -> Vec<(String, Vec<f32>, usize)> {
+pub fn installed_anchors(
+    installed: &[AxisValue],
+    role: AxisRole,
+) -> Vec<(String, Vec<f32>, usize)> {
     installed
         .iter()
         .filter(|a| !a.archived && a.role == role && !a.anchor.is_empty())
@@ -567,12 +625,30 @@ mod tests {
         c.insert("HEAL\u{0}WORK".to_string(), unit(8, 1));
         c.insert("STUDY\u{0}LEARN".to_string(), unit(8, 2));
         let axes = derive_axes(&c);
-        let domains: Vec<_> = axes.iter().filter(|a| a.role == AxisRole::Domain).map(|a| a.name.clone()).collect();
-        let modes: Vec<_> = axes.iter().filter(|a| a.role == AxisRole::Mode).map(|a| a.name.clone()).collect();
+        let domains: Vec<_> = axes
+            .iter()
+            .filter(|a| a.role == AxisRole::Domain)
+            .map(|a| a.name.clone())
+            .collect();
+        let modes: Vec<_> = axes
+            .iter()
+            .filter(|a| a.role == AxisRole::Mode)
+            .map(|a| a.name.clone())
+            .collect();
         assert!(domains.contains(&"HEAL".to_string()) && domains.contains(&"STUDY".to_string()));
-        assert!(modes.contains(&"REST".to_string()) && modes.contains(&"WORK".to_string()) && modes.contains(&"LEARN".to_string()));
+        assert!(
+            modes.contains(&"REST".to_string())
+                && modes.contains(&"WORK".to_string())
+                && modes.contains(&"LEARN".to_string())
+        );
         // HEAL spans 2 cells.
-        assert_eq!(axes.iter().find(|a| a.role == AxisRole::Domain && a.name == "HEAL").unwrap().cells, 2);
+        assert_eq!(
+            axes.iter()
+                .find(|a| a.role == AxisRole::Domain && a.name == "HEAL")
+                .unwrap()
+                .cells,
+            2
+        );
     }
 
     #[test]
@@ -592,9 +668,28 @@ mod tests {
             "logistics dispatch route".into(),
             "one off weird item".into(),
         ];
-        let embeddings = vec![unit(dim, 5), unit(dim, 5), unit(dim, 5), unit(dim, 5), unit(dim, 6)];
-        let props = propose_axes(AxisRole::Domain, &texts, &embeddings, &anchors, 0.5, 0.9, 2, 5);
-        assert_eq!(props.len(), 1, "one dense cluster proposed, singleton dropped");
+        let embeddings = vec![
+            unit(dim, 5),
+            unit(dim, 5),
+            unit(dim, 5),
+            unit(dim, 5),
+            unit(dim, 6),
+        ];
+        let props = propose_axes(
+            AxisRole::Domain,
+            &texts,
+            &embeddings,
+            &anchors,
+            0.5,
+            0.9,
+            2,
+            5,
+        );
+        assert_eq!(
+            props.len(),
+            1,
+            "one dense cluster proposed, singleton dropped"
+        );
         let p = &props[0];
         assert_eq!(p.count, 4);
         assert_eq!(p.role, AxisRole::Domain);

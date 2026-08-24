@@ -5,14 +5,18 @@
 //! Pass `--json` to print the `ShiftReportInput` JSON instead (the same payload
 //! `POST /api/v1/report/shift` and `physis-pro report --shift <file>` accept).
 
-use physis_pro::maintenance::{HealthBaseline, Sample, project_time_to_limit};
+use physis_pro::maintenance::{project_time_to_limit, HealthBaseline, Sample};
 use physis_pro::oee::{OeeShift, StopReason};
 use physis_pro::report::{render_shift_report_it, RulEntry, ShiftReportInput};
 
 fn main() {
     // ── Tornio CNC: one breakdown, one changeover, some scrap ───────────────
     let mut tornio = OeeShift::new("tornio-cnc-01", 8.0 * 3600.0, 30.0);
-    tornio.record_stop(StopReason::Breakdown, 2700.0, "surriscaldamento cuscinetto mandrino");
+    tornio.record_stop(
+        StopReason::Breakdown,
+        2700.0,
+        "surriscaldamento cuscinetto mandrino",
+    );
     tornio.record_stop(StopReason::SetupAdjustment, 1200.0, "cambio utensile");
     tornio.record_stop(StopReason::PlannedStop, 1800.0, "pausa pranzo");
     tornio.record_production(610, 17);
@@ -32,7 +36,10 @@ fn main() {
 
     // ── RUL: temperature trending toward the 85°C limit ─────────────────────
     let history: Vec<Sample> = (0..12)
-        .map(|i| Sample { t: i as f64 * 1800.0, value: 62.0 + i as f64 * 1.5 })
+        .map(|i| Sample {
+            t: i as f64 * 1800.0,
+            value: 62.0 + i as f64 * 1.5,
+        })
         .collect();
     let rul = project_time_to_limit(&history, 85.0).expect("rising trend projects");
 
@@ -51,10 +58,17 @@ fn main() {
             "Verificare la taratura dell'alimentatore della fresa-02".into(),
         ],
         shift_label: Some("Turno 1 — officina meccanica".into()),
+        metadata: Some(physis_pro::report::ReportMetadata {
+            source: "caller-supplied".into(),
+            ..physis_pro::report::ReportMetadata::new("caller-supplied")
+        }),
     };
 
     if std::env::args().any(|a| a == "--json") {
-        println!("{}", serde_json::to_string_pretty(&input).expect("serializes"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&input).expect("serializes")
+        );
     } else {
         println!("{}", render_shift_report_it(&input));
     }

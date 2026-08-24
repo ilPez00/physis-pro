@@ -7,7 +7,10 @@ fn main() {
     // A little melody (MIDI pitches) with a repeating "up2 up2 down1" shape.
     let melody = vec![60, 62, 64, 63, 65, 67, 69, 68, 67];
 
-    println!("harmony — music machine\nperceived {} notes\n", melody.len());
+    println!(
+        "harmony — music machine\nperceived {} notes\n",
+        melody.len()
+    );
     println!("INTERVALS (key-invariant shape): {:?}", intervals(&melody));
 
     println!("\nMOTIFS (recurring interval runs, len 3):");

@@ -204,20 +204,30 @@ impl From<&MachineReading> for OperationalEvent {
             provenance,
         );
         event.machine_id = Some(reading.machine_id.clone());
-        event.properties.insert("status".to_string(), reading.status.as_str().to_lowercase());
+        event
+            .properties
+            .insert("status".to_string(), reading.status.as_str().to_lowercase());
         if let Some(temp) = reading.temperature {
-            event.properties.insert("temperature".to_string(), temp.to_string());
+            event
+                .properties
+                .insert("temperature".to_string(), temp.to_string());
         }
         if let Some(pressure) = reading.pressure {
-            event.properties.insert("pressure".to_string(), pressure.to_string());
+            event
+                .properties
+                .insert("pressure".to_string(), pressure.to_string());
         }
         if let Some(vibration) = reading.vibration {
-            event.properties.insert("vibration".to_string(), vibration.to_string());
+            event
+                .properties
+                .insert("vibration".to_string(), vibration.to_string());
         }
         if let Some(rpm) = reading.rpm {
             event.properties.insert("rpm".to_string(), rpm.to_string());
         }
-        event.properties.extend(reading.raw.iter().map(|(k, v)| (k.clone(), v.to_string())));
+        event
+            .properties
+            .extend(reading.raw.iter().map(|(k, v)| (k.clone(), v.to_string())));
         event.raw = serde_json::to_value(reading).unwrap_or(serde_json::Value::Null);
         event.rekey();
         event
@@ -228,17 +238,23 @@ impl From<&IngestedDoc> for OperationalEvent {
     fn from(doc: &IngestedDoc) -> Self {
         let (kind, status) = match doc.kind {
             DocKind::Email => (OperationalKind::Email, OperationalStatus::Info),
-            DocKind::VoiceTranscript | DocKind::Spreadsheet | DocKind::Report | DocKind::Invoice | DocKind::Unknown => {
-                (OperationalKind::Document, OperationalStatus::Info)
-            }
+            DocKind::VoiceTranscript
+            | DocKind::Spreadsheet
+            | DocKind::Report
+            | DocKind::Invoice
+            | DocKind::Unknown => (OperationalKind::Document, OperationalStatus::Info),
         };
         let mut provenance = OperationalProvenance::new("ingest", kind.as_str());
         provenance.path = Some(doc.path.clone());
         provenance.source_id = doc.meta.thread_id.clone().or_else(|| {
-            doc.path.file_name().and_then(|s| s.to_str()).map(|s| s.to_string())
+            doc.path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string())
         });
 
-        let mut event = OperationalEvent::new(kind, status, doc.timestamp, doc.title.clone(), provenance);
+        let mut event =
+            OperationalEvent::new(kind, status, doc.timestamp, doc.title.clone(), provenance);
         event.thread_id = doc.meta.thread_id.clone();
         event.actor = doc.meta.from.clone();
         event.target = doc.meta.vendor.clone();
@@ -248,12 +264,18 @@ impl From<&IngestedDoc> for OperationalEvent {
             event.properties.insert("from".to_string(), from.clone());
         }
         if let Some(subject) = &doc.meta.subject {
-            event.properties.insert("subject".to_string(), subject.clone());
+            event
+                .properties
+                .insert("subject".to_string(), subject.clone());
         }
         if let Some(thread_id) = &doc.meta.thread_id {
-            event.properties.insert("thread_id".to_string(), thread_id.clone());
+            event
+                .properties
+                .insert("thread_id".to_string(), thread_id.clone());
         }
-        event.properties.insert("doc_kind".to_string(), format!("{:?}", doc.kind));
+        event
+            .properties
+            .insert("doc_kind".to_string(), format!("{:?}", doc.kind));
         event.raw = serde_json::to_value(doc).unwrap_or(serde_json::Value::Null);
         event.rekey();
         event
@@ -270,7 +292,9 @@ mod tests {
     fn machine_reading_normalizes_to_event() {
         let reading = MachineReading {
             machine_id: "voron-01".to_string(),
-            timestamp: DateTime::parse_from_rfc3339("2026-08-12T08:55:00Z").unwrap().with_timezone(&Utc),
+            timestamp: DateTime::parse_from_rfc3339("2026-08-12T08:55:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             temperature: Some(78.5),
             pressure: None,
             vibration: Some(0.12),
@@ -283,7 +307,10 @@ mod tests {
         assert_eq!(event.kind, OperationalKind::Machine);
         assert_eq!(event.status, OperationalStatus::Warning);
         assert_eq!(event.machine_id.as_deref(), Some("voron-01"));
-        assert_eq!(event.properties.get("bed_target").map(String::as_str), Some("60"));
+        assert_eq!(
+            event.properties.get("bed_target").map(String::as_str),
+            Some("60")
+        );
         assert!(!event.event_key.is_empty());
     }
 
@@ -294,7 +321,9 @@ mod tests {
             kind: DocKind::Email,
             title: "Supplier delay".to_string(),
             body: "Replacement nozzle ships tomorrow.".to_string(),
-            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z").unwrap().with_timezone(&Utc),
+            timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
             ontology_tags: vec!["workshop".to_string()],
             meta: DocMeta {
                 vendor: None,
@@ -311,7 +340,10 @@ mod tests {
         assert_eq!(event.status, OperationalStatus::Info);
         assert_eq!(event.thread_id.as_deref(), Some("msg-123"));
         assert_eq!(event.actor.as_deref(), Some("supplier@example.com"));
-        assert_eq!(event.properties.get("thread_id").map(String::as_str), Some("msg-123"));
+        assert_eq!(
+            event.properties.get("thread_id").map(String::as_str),
+            Some("msg-123")
+        );
         assert!(!event.event_key.is_empty());
     }
 }

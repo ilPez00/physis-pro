@@ -25,7 +25,13 @@ impl EpisodicMemory {
         Self { db }
     }
 
-    pub fn store(&self, text: &str, kind: &str, mode: &str, extra: HashMap<String, String>) -> AiResult<String> {
+    pub fn store(
+        &self,
+        text: &str,
+        kind: &str,
+        mode: &str,
+        extra: HashMap<String, String>,
+    ) -> AiResult<String> {
         let id = Uuid::new_v4().to_string();
         let entry = MemoryEntry {
             id: id.clone(),
@@ -137,7 +143,9 @@ mod tests {
     #[test]
     fn test_store_and_query() {
         let (mem, _dir) = temp_memory();
-        let id = mem.store("hello world", "chat", "COHERENCE", HashMap::new()).unwrap();
+        let id = mem
+            .store("hello world", "chat", "COHERENCE", HashMap::new())
+            .unwrap();
         let results = mem.query(10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, id);
@@ -168,7 +176,8 @@ mod tests {
     fn test_query_limit() {
         let (mem, _dir) = temp_memory();
         for i in 0..5 {
-            mem.store(&format!("item {i}"), "bulk", "CHECK", HashMap::new()).unwrap();
+            mem.store(&format!("item {i}"), "bulk", "CHECK", HashMap::new())
+                .unwrap();
         }
         let results = mem.query(3).unwrap();
         assert_eq!(results.len(), 3);
@@ -177,9 +186,11 @@ mod tests {
     #[test]
     fn test_query_by_kind() {
         let (mem, _dir) = temp_memory();
-        mem.store("a", "alpha", "COHERENCE", HashMap::new()).unwrap();
+        mem.store("a", "alpha", "COHERENCE", HashMap::new())
+            .unwrap();
         mem.store("b", "beta", "COHERENCE", HashMap::new()).unwrap();
-        mem.store("c", "alpha", "COHERENCE", HashMap::new()).unwrap();
+        mem.store("c", "alpha", "COHERENCE", HashMap::new())
+            .unwrap();
         let alphas = mem.query_by_kind("alpha", 10).unwrap();
         assert_eq!(alphas.len(), 2);
         let betas = mem.query_by_kind("beta", 10).unwrap();
@@ -189,8 +200,15 @@ mod tests {
     #[test]
     fn test_search_text() {
         let (mem, _dir) = temp_memory();
-        mem.store("the quick brown fox", "doc", "COHERENCE", HashMap::new()).unwrap();
-        mem.store("jumps over the lazy dog", "doc", "COHERENCE", HashMap::new()).unwrap();
+        mem.store("the quick brown fox", "doc", "COHERENCE", HashMap::new())
+            .unwrap();
+        mem.store(
+            "jumps over the lazy dog",
+            "doc",
+            "COHERENCE",
+            HashMap::new(),
+        )
+        .unwrap();
         let fox = mem.search("fox", 10).unwrap();
         assert_eq!(fox.len(), 1);
         let the = mem.search("the", 10).unwrap();

@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// Ontology discovery (PLAN 1D): which of the supplied texts does the current
 /// grid cover poorly, and what draft entries would cover them? Stateless —
@@ -38,7 +41,9 @@ pub async fn planner_simulate_handler(
     if req.texts.is_empty() || req.texts.len() > 10_000 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(ErrorResponse { error: "texts must contain 1..10000 records".into() }),
+            Json(ErrorResponse {
+                error: "texts must contain 1..10000 records".into(),
+            }),
         ));
     }
     let shared = state.shared.clone();
@@ -62,21 +67,60 @@ pub async fn planner_simulate_handler(
                 .classify(&embedding)
                 .into_iter()
                 .next()
-                .map(|c| CellOutcome { domain: c.domain, mode: c.mode, score: c.score })
-                .unwrap_or_else(|| CellOutcome { domain: "unknown".into(), mode: "unknown".into(), score: 0.0 });
+                .map(|c| CellOutcome {
+                    domain: c.domain,
+                    mode: c.mode,
+                    score: c.score,
+                })
+                .unwrap_or_else(|| CellOutcome {
+                    domain: "unknown".into(),
+                    mode: "unknown".into(),
+                    score: 0.0,
+                });
             let after = candidate_classifier
                 .classify(&embedding)
                 .into_iter()
                 .next()
-                .map(|c| CellOutcome { domain: c.domain, mode: c.mode, score: c.score })
-                .unwrap_or_else(|| CellOutcome { domain: "unknown".into(), mode: "unknown".into(), score: 0.0 });
-            items.push(PlannerItem { id: text.id, source: text.source, before, after });
+                .map(|c| CellOutcome {
+                    domain: c.domain,
+                    mode: c.mode,
+                    score: c.score,
+                })
+                .unwrap_or_else(|| CellOutcome {
+                    domain: "unknown".into(),
+                    mode: "unknown".into(),
+                    score: 0.0,
+                });
+            items.push(PlannerItem {
+                id: text.id,
+                source: text.source,
+                before,
+                after,
+            });
         }
-        Ok(planner::simulate(req.scenario_id, items, req.confidence_threshold))
+        Ok(planner::simulate(
+            req.scenario_id,
+            items,
+            req.confidence_threshold,
+        ))
     })
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: format!("planner task failed: {e}") })))?
-    .map_err(|e| (StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e.to_string() })))?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: format!("planner task failed: {e}"),
+            }),
+        )
+    })?
+    .map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
 
     Ok(Json(result))
 }
@@ -219,4 +263,3 @@ pub async fn reconstruct_handler(
     });
     Json(rec)
 }
-

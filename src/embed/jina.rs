@@ -25,11 +25,15 @@ impl JinaEmbedder {
         // it is tried last). `find_map` falls through to the next candidate when
         // one fails to load, instead of short-circuiting to None on the first
         // file that merely *exists*. See PREMORTEM.md P4.
-        let session = ["onnx/model_fp16.onnx", "onnx/model.onnx", "onnx/model_q4f16.onnx"]
-            .iter()
-            .map(|p| Path::new(model_dir).join(p))
-            .filter(|p| p.exists())
-            .find_map(|p| load_session(&p));
+        let session = [
+            "onnx/model_fp16.onnx",
+            "onnx/model.onnx",
+            "onnx/model_q4f16.onnx",
+        ]
+        .iter()
+        .map(|p| Path::new(model_dir).join(p))
+        .filter(|p| p.exists())
+        .find_map(|p| load_session(&p));
         let tok_path = Path::new(model_dir).join("tokenizer.json");
         let tokenizer = if tok_path.exists() {
             tokenizers::Tokenizer::from_file(&tok_path).ok()
@@ -66,7 +70,14 @@ impl JinaEmbedder {
         let cx = new_w / 2;
         let cy = new_h / 2;
         let crop_sz = image_size.min(new_w).min(new_h);
-        let cropped = image::imageops::crop_imm(&resized, cx - crop_sz / 2, cy - crop_sz / 2, crop_sz, crop_sz).to_image();
+        let cropped = image::imageops::crop_imm(
+            &resized,
+            cx - crop_sz / 2,
+            cy - crop_sz / 2,
+            crop_sz,
+            crop_sz,
+        )
+        .to_image();
         let is = image_size as usize;
         let mut tensor = Vec::with_capacity(3 * is * is);
         for c in 0..3 {
@@ -93,9 +104,16 @@ impl VectorEmbed for JinaEmbedder {
             Err(_) => return fallback_embed(text, self.dim),
         };
         let actual_len = encoding.len().min(self.max_length);
-        let mut ids: Vec<i64> = encoding.get_ids().iter().take(self.max_length).map(|&v| v as i64).collect();
+        let mut ids: Vec<i64> = encoding
+            .get_ids()
+            .iter()
+            .take(self.max_length)
+            .map(|&v| v as i64)
+            .collect();
         ids.resize(self.max_length, 0i64);
-        let mask: Vec<i64> = (0..self.max_length).map(|i| if i < actual_len { 1i64 } else { 0i64 }).collect();
+        let mask: Vec<i64> = (0..self.max_length)
+            .map(|i| if i < actual_len { 1i64 } else { 0i64 })
+            .collect();
         let shape = vec![1i64, self.max_length as i64];
 
         let input_ids = match Tensor::<i64>::from_array((shape.clone(), ids)) {
@@ -106,10 +124,11 @@ impl VectorEmbed for JinaEmbedder {
         // Jina fused model needs dummy pixel_values even for text-only
         let is = self.image_size as usize;
         let dummy_pixels = vec![0.0f32; 3 * is * is];
-        let pixel_tensor = match Tensor::<f32>::from_array((vec![1i64, 3, is as i64, is as i64], dummy_pixels)) {
-            Ok(t) => t,
-            Err(_) => return fallback_embed(text, self.dim),
-        };
+        let pixel_tensor =
+            match Tensor::<f32>::from_array((vec![1i64, 3, is as i64, is as i64], dummy_pixels)) {
+                Ok(t) => t,
+                Err(_) => return fallback_embed(text, self.dim),
+            };
 
         let attention_mask = match Tensor::<i64>::from_array((shape, mask)) {
             Ok(t) => t,
@@ -134,7 +153,8 @@ impl VectorEmbed for JinaEmbedder {
         };
 
         // Use pre-normalized embedding
-        let out = outputs.get("l2norm_text_embeddings")
+        let out = outputs
+            .get("l2norm_text_embeddings")
             .or_else(|| outputs.get("text_embeddings"))
             .or_else(|| (outputs.len() > 0).then(|| &outputs[0]));
 
@@ -175,7 +195,8 @@ impl VectorEmbed for JinaEmbedder {
         let dummy_ids = vec![0i64; self.max_length];
         let input_shape = vec![1i64, self.max_length as i64];
         let input_ids = Tensor::<i64>::from_array((input_shape.clone(), dummy_ids)).ok()?;
-        let attention_mask = Tensor::<i64>::from_array((input_shape, vec![0i64; self.max_length])).ok()?;
+        let attention_mask =
+            Tensor::<i64>::from_array((input_shape, vec![0i64; self.max_length])).ok()?;
 
         let inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
             ("input_ids", input_ids.into()),
@@ -187,7 +208,8 @@ impl VectorEmbed for JinaEmbedder {
         let s = guard.as_mut()?;
         let outputs = s.run(inputs).ok()?;
 
-        let out = outputs.get("l2norm_image_embeddings")
+        let out = outputs
+            .get("l2norm_image_embeddings")
             .or_else(|| outputs.get("image_embeddings"))
             .or_else(|| (outputs.len() > 0).then(|| &outputs[0]))?;
 
@@ -212,7 +234,9 @@ impl VectorEmbed for JinaEmbedder {
 
 fn fallback_embed(text: &str, dim: usize) -> Vec<f32> {
     let mut v = vec![0.0f32; dim];
-    let h: u64 = text.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+    let h: u64 = text
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(h);
     use rand::Rng;
     for x in &mut v {

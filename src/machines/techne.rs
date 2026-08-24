@@ -81,13 +81,19 @@ fn module_of(path: &str) -> String {
 pub fn classify_capabilities(files: &[SourceFile]) -> Vec<Capability> {
     let mut buckets: BTreeMap<&str, Vec<String>> = BTreeMap::new();
     for f in files {
-        buckets.entry(capability_of(&f.path)).or_default().push(f.path.clone());
+        buckets
+            .entry(capability_of(&f.path))
+            .or_default()
+            .push(f.path.clone());
     }
     buckets
         .into_iter()
         .map(|(name, mut files)| {
             files.sort();
-            Capability { name: name.to_string(), files }
+            Capability {
+                name: name.to_string(),
+                files,
+            }
         })
         .collect()
 }
@@ -122,14 +128,22 @@ fn referenced_modules(line: &str) -> Vec<String> {
     if let Some(rest) = l.strip_prefix("use crate::") {
         // use crate::a::b::C  → first segment `a`, and the last type-ish `b`
         for seg in rest.trim_end_matches(';').split("::") {
-            let s = seg.trim().trim_matches(|c| c == '{' || c == '}' || c == ' ');
+            let s = seg
+                .trim()
+                .trim_matches(|c| c == '{' || c == '}' || c == ' ');
             if !s.is_empty() && s.chars().next().unwrap().is_lowercase() {
                 out.push(s.to_string());
             }
         }
     } else if let Some(rest) = l.strip_prefix("from ") {
         if let Some(m) = rest.split_whitespace().next() {
-            out.push(m.trim_start_matches('.').split('.').next().unwrap_or(m).to_string());
+            out.push(
+                m.trim_start_matches('.')
+                    .split('.')
+                    .next()
+                    .unwrap_or(m)
+                    .to_string(),
+            );
         }
     } else if let Some(rest) = l.strip_prefix("import ") {
         if let Some(m) = rest.split_whitespace().next() {
@@ -194,7 +208,10 @@ mod tests {
     use super::*;
 
     fn f(path: &str, lines: &[&str]) -> SourceFile {
-        SourceFile { path: path.to_string(), lines: lines.iter().map(|s| s.to_string()).collect() }
+        SourceFile {
+            path: path.to_string(),
+            lines: lines.iter().map(|s| s.to_string()).collect(),
+        }
     }
 
     #[test]
@@ -225,7 +242,10 @@ mod tests {
     #[test]
     fn builds_dependency_edges_and_impact() {
         let files = vec![
-            f("src/core.rs", &["use crate::trie::Trie;", "use crate::embed::X;"]),
+            f(
+                "src/core.rs",
+                &["use crate::trie::Trie;", "use crate::embed::X;"],
+            ),
             f("src/trie.rs", &[]),
             f("src/embed.rs", &["use crate::trie::Trie;"]),
             f("src/api.rs", &["use crate::core::PhysisCore;"]),
@@ -237,6 +257,9 @@ mod tests {
         assert!(edges.contains(&("api".into(), "core".into())));
         // What breaks if trie changes? core, embed, and (transitively) api.
         let impact = impact_of(&edges, "trie");
-        assert_eq!(impact, vec!["api".to_string(), "core".to_string(), "embed".to_string()]);
+        assert_eq!(
+            impact,
+            vec!["api".to_string(), "core".to_string(), "embed".to_string()]
+        );
     }
 }

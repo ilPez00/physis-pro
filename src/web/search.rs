@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// POST /api/v1/rag/retrieve — scan a sandboxed dir, embed each doc, and return
 /// the chunks whose packed token total stays within `tokens`. Deterministic and
@@ -131,4 +134,3 @@ pub async fn search_nodes_handler(
         results,
     })
 }
-

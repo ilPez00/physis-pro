@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::{sandbox_existing, SharedState};
-use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// Hash-cache path for one watched directory.
 ///
@@ -54,7 +57,12 @@ pub async fn scan_handler(
     let diffs = scanner.scan_all();
     let files: Vec<crate::scanner::FileInfo> = diffs
         .iter()
-        .flat_map(|d| d.new.iter().chain(d.changed.iter()).chain(d.unchanged.iter()))
+        .flat_map(|d| {
+            d.new
+                .iter()
+                .chain(d.changed.iter())
+                .chain(d.unchanged.iter())
+        })
         .cloned()
         .collect();
     let changed_files: Vec<crate::scanner::FileInfo> = diffs
@@ -71,7 +79,10 @@ pub async fn scan_handler(
         (
             goals,
             changed_labels,
-            diffs.iter().flat_map(|d| d.deleted.clone()).collect::<Vec<_>>(),
+            diffs
+                .iter()
+                .flat_map(|d| d.deleted.clone())
+                .collect::<Vec<_>>(),
         )
     });
 
@@ -134,17 +145,24 @@ pub async fn sql_scan_handler(
 ) -> Result<Json<SqlScanResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.database);
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve database: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve database: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
             StatusCode::FORBIDDEN,
-            &format!("database outside scan root ({})", state.scan_root().display()),
+            &format!(
+                "database outside scan root ({})",
+                state.scan_root().display()
+            ),
         ));
     }
     let uid = user_key(&headers);
     let table = req.table.clone();
-    let manifest = crate::sql::manifest_path(&state.shared.config.data_dir, &uid, &canonical, &table);
+    let manifest =
+        crate::sql::manifest_path(&state.shared.config.data_dir, &uid, &canonical, &table);
     let scan_req = crate::sql::SqlRequest {
         database: canonical.clone(),
         table: req.table,
@@ -162,7 +180,10 @@ pub async fn sql_scan_handler(
     let deleted_count = diff.deleted_rows.len();
     let mut changed = diff.new_rows;
     changed.extend(diff.changed_rows);
-    let texts = changed.iter().map(|row| row.text.clone()).collect::<Vec<_>>();
+    let texts = changed
+        .iter()
+        .map(|row| row.text.clone())
+        .collect::<Vec<_>>();
     let (embeddings, hits, misses) = embed_texts_cached(state.shared.clone(), texts).await;
     state.with_user(&uid, |s| {
         for row in &changed {
@@ -204,12 +225,18 @@ pub async fn sql_schema_handler(
 ) -> Result<Json<SqlSchemaResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = PathBuf::from(&req.database);
     let canonical = path.canonicalize().map_err(|e| {
-        err_response(StatusCode::BAD_REQUEST, &format!("cannot resolve database: {e}"))
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve database: {e}"),
+        )
     })?;
     if !canonical.starts_with(state.scan_root()) {
         return Err(err_response(
             StatusCode::FORBIDDEN,
-            &format!("database outside scan root ({})", state.scan_root().display()),
+            &format!(
+                "database outside scan root ({})",
+                state.scan_root().display()
+            ),
         ));
     }
     let database = canonical.clone();
@@ -236,7 +263,10 @@ pub async fn postgres_schema_handler(
     let tables = crate::postgres::schema(&req.dsn)
         .await
         .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
-    Ok(Json(SqlSchemaResponse { database: "postgres".into(), tables }))
+    Ok(Json(SqlSchemaResponse {
+        database: "postgres".into(),
+        tables,
+    }))
 }
 
 /// POST /api/v1/sql/postgres/scan — ingest a PostgreSQL public table.
@@ -250,7 +280,8 @@ pub async fn postgres_scan_handler(
     }
     let uid = user_key(&headers);
     let table = req.table.clone();
-    let manifest = crate::postgres::manifest_path(&state.shared.config.data_dir, &uid, &req.source, &table);
+    let manifest =
+        crate::postgres::manifest_path(&state.shared.config.data_dir, &uid, &req.source, &table);
     let scan_req = crate::postgres::Request {
         dsn: req.dsn,
         source: req.source,
@@ -266,7 +297,10 @@ pub async fn postgres_scan_handler(
     let deleted_count = diff.deleted_rows.len();
     let mut changed = diff.new_rows;
     changed.extend(diff.changed_rows);
-    let texts = changed.iter().map(|row| row.text.clone()).collect::<Vec<_>>();
+    let texts = changed
+        .iter()
+        .map(|row| row.text.clone())
+        .collect::<Vec<_>>();
     let (embeddings, hits, misses) = embed_texts_cached(state.shared.clone(), texts).await;
     state.with_user(&uid, |s| {
         for row in &changed {
@@ -1034,11 +1068,15 @@ pub async fn fs_list_handler(
                 continue;
             }
             let path = ent.path();
-            let Ok(canon) = path.canonicalize() else { continue };
+            let Ok(canon) = path.canonicalize() else {
+                continue;
+            };
             if !canon.starts_with(&listed_root) {
                 continue;
             }
-            let Some((kind, size)) = entry_kind_size(&path) else { continue };
+            let Some((kind, size)) = entry_kind_size(&path) else {
+                continue;
+            };
             if entries.len() >= FS_LIST_CAP {
                 truncated = true;
                 break;
@@ -1051,7 +1089,9 @@ pub async fn fs_list_handler(
             });
         }
         entries.sort_by(|a, b| {
-            a.kind.cmp(&b.kind).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+            a.kind
+                .cmp(&b.kind)
+                .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
         // dirs first: "dir" < "file"
         (entries, truncated)
@@ -1065,12 +1105,10 @@ pub async fn fs_list_handler(
     })?;
     // "dir" sorts before "file" as strings. Keep dirs first even if the
     // blocking sort ran — re-assert here so the UI can rely on it.
-    entries.sort_by(|a, b| {
-        match (a.kind.as_str(), b.kind.as_str()) {
-            ("dir", "file") => std::cmp::Ordering::Less,
-            ("file", "dir") => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    entries.sort_by(|a, b| match (a.kind.as_str(), b.kind.as_str()) {
+        ("dir", "file") => std::cmp::Ordering::Less,
+        ("file", "dir") => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
     Ok(Json(FsListResponse {
         root: root.display().to_string(),
@@ -1109,18 +1147,24 @@ pub async fn fs_resolve_handler(
                 continue;
             }
             visits += 1;
-            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            let Ok(rd) = std::fs::read_dir(&dir) else {
+                continue;
+            };
             for ent in rd.flatten() {
                 let n = ent.file_name().to_string_lossy().into_owned();
                 if skip_fs_name(&n) {
                     continue;
                 }
                 let path = ent.path();
-                let Ok(canon) = path.canonicalize() else { continue };
+                let Ok(canon) = path.canonicalize() else {
+                    continue;
+                };
                 if !canon.starts_with(&walk_root) {
                     continue;
                 }
-                let Some((kind, _)) = entry_kind_size(&path) else { continue };
+                let Some((kind, _)) = entry_kind_size(&path) else {
+                    continue;
+                };
                 if n == needle {
                     exact.push(FsResolveHit {
                         path: canon.display().to_string(),
@@ -1159,4 +1203,3 @@ pub async fn fs_resolve_handler(
         matches,
     }))
 }
-

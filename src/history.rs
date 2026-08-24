@@ -15,7 +15,11 @@ use crate::vault::VaultDoc;
 /// Pick the importer for a file by extension. Returns `None` when the extension
 /// is not a recognised personal-history export.
 pub fn importer_for(path: &Path) -> Option<fn(&str) -> Vec<VaultDoc>> {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_lowercase();
     match ext.as_str() {
         "html" | "htm" => Some(parse_bookmarks_html),
         "json" => Some(parse_history_json),
@@ -35,7 +39,8 @@ pub fn parse_bookmarks_html(html: &str) -> Vec<VaultDoc> {
     let mut stack: Vec<String> = Vec::new();
     for line in html.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("<DT><H3") || trimmed.starts_with("<DT>") && trimmed.contains("<H3") {
+        if trimmed.starts_with("<DT><H3") || trimmed.starts_with("<DT>") && trimmed.contains("<H3")
+        {
             // Folder heading, e.g. <DT><H3 ADD_DATE="…">Name</H3>
             if let Some(open) = trimmed.find('>') {
                 if let Some(close) = trimmed[open..].find("</H3>") {
@@ -59,7 +64,12 @@ pub fn parse_bookmarks_html(html: &str) -> Vec<VaultDoc> {
             }
             // Title is text up to </A> (may span the line).
             let after_url = rest.split_once('>').map(|x| x.1).unwrap_or_default();
-            let title = after_url.split("</A>").next().unwrap_or_default().trim().to_string();
+            let title = after_url
+                .split("</A>")
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string();
             let title = if title.is_empty() { url.clone() } else { title };
             let mut body = url;
             if let Some(folder) = stack.last() {
@@ -94,11 +104,16 @@ pub fn parse_history_json(json: &str) -> Vec<VaultDoc> {
     };
     let mut docs = Vec::new();
     for it in items {
-        let url = it.get("url").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+        let url = it
+            .get("url")
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string();
         if url.is_empty() {
             continue;
         }
-        let title = it.get("title")
+        let title = it
+            .get("title")
             .and_then(|x| x.as_str())
             .filter(|t| !t.is_empty())
             .unwrap_or(&url)
@@ -135,7 +150,9 @@ pub fn parse_opml(xml: &str) -> Vec<VaultDoc> {
         if trimmed.contains("<outline") {
             let self_closing = trimmed.ends_with("/>");
             let is_feed = trimmed.contains("xmlUrl");
-            let title = attr(trimmed, "text").or_else(|| attr(trimmed, "title")).unwrap_or_default();
+            let title = attr(trimmed, "text")
+                .or_else(|| attr(trimmed, "title"))
+                .unwrap_or_default();
 
             if is_feed {
                 let xml_url = attr(trimmed, "xmlUrl").unwrap_or_default();
@@ -176,7 +193,8 @@ pub fn parse_messages_jsonl(input: &str) -> Vec<VaultDoc> {
             Ok(v) => v,
             Err(_) => continue,
         };
-        let text = v.get("text")
+        let text = v
+            .get("text")
             .or_else(|| v.get("message"))
             .and_then(|x| x.as_str())
             .unwrap_or_default()
@@ -184,7 +202,10 @@ pub fn parse_messages_jsonl(input: &str) -> Vec<VaultDoc> {
         if text.is_empty() {
             continue;
         }
-        let sender = v.get("from").or_else(|| v.get("sender")).and_then(|x| x.as_str());
+        let sender = v
+            .get("from")
+            .or_else(|| v.get("sender"))
+            .and_then(|x| x.as_str());
         let title = if text.len() > 60 { &text[..60] } else { text };
         let mut body = text.to_string();
         if let Some(s) = sender {
@@ -217,7 +238,10 @@ pub fn import_file(path: &Path) -> anyhow::Result<(Vec<VaultDoc>, String)> {
         .ok_or_else(|| anyhow::anyhow!("no personal-history importer for {}", path.display()))?;
     let text = std::fs::read_to_string(path)
         .map_err(|e| anyhow::anyhow!("cannot read {}: {e}", path.display()))?;
-    let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
     Ok((importer(&text), name))
 }
 
@@ -254,7 +278,10 @@ mod tests {
         let obj = r#"{"items":[{"title":"","url":"https://e.example/x"}]}"#;
         let docs = parse_history_json(obj);
         assert_eq!(docs.len(), 1);
-        assert_eq!(docs[0].title, "https://e.example/x", "empty title falls back to url");
+        assert_eq!(
+            docs[0].title, "https://e.example/x",
+            "empty title falls back to url"
+        );
 
         assert!(parse_history_json("not json").is_empty());
     }

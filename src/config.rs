@@ -7,24 +7,54 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::models::*;
+use crate::ontology::OFFICE_ONTOLOGY_NAME;
 use crate::ontology::*;
 use crate::ontology_nonhuman::MACHINE_ONTOLOGY_NAME;
-use crate::ontology::OFFICE_ONTOLOGY_NAME;
 
 /// The named built-in ontologies, resolvable by `OntologyLoader::load_builtin`.
 /// To add one: drop a JSON file in `config/`, register its name constant, add a
 /// row here and (if it needs its own domain map) a `kind` arm in `load_all`.
 static BUILTIN_ONTOLOGIES: &[(&str, &str)] = &[
-    (HUMAN_ONTOLOGY_NAME, include_str!("../config/praxis_ontology.json")),
-    (MACHINE_ONTOLOGY_NAME, include_str!("../config/machine_ontology.json")),
-    (SEMIOTIC_ONTOLOGY_NAME, include_str!("../config/semiotic_ontology.json")),
-    (CATEGORY_ONTOLOGY_NAME, include_str!("../config/category_ontology.json")),
-    (AGENT_ONTOLOGY_NAME, include_str!("../config/agent_ontology.json")),
-    (NATURAL_ONTOLOGY_NAME, include_str!("../config/natural_ontology.json")),
-    (SOCIAL_ONTOLOGY_NAME, include_str!("../config/social_ontology.json")),
-    (ABSTRACT_ONTOLOGY_NAME, include_str!("../config/abstract_ontology.json")),
-    (ENGINEERING_ONTOLOGY_NAME, include_str!("../config/engineering_ontology.json")),
-    (OFFICE_ONTOLOGY_NAME, include_str!("../config/office_ontology.json")),
+    (
+        HUMAN_ONTOLOGY_NAME,
+        include_str!("../config/praxis_ontology.json"),
+    ),
+    (
+        MACHINE_ONTOLOGY_NAME,
+        include_str!("../config/machine_ontology.json"),
+    ),
+    (
+        SEMIOTIC_ONTOLOGY_NAME,
+        include_str!("../config/semiotic_ontology.json"),
+    ),
+    (
+        CATEGORY_ONTOLOGY_NAME,
+        include_str!("../config/category_ontology.json"),
+    ),
+    (
+        AGENT_ONTOLOGY_NAME,
+        include_str!("../config/agent_ontology.json"),
+    ),
+    (
+        NATURAL_ONTOLOGY_NAME,
+        include_str!("../config/natural_ontology.json"),
+    ),
+    (
+        SOCIAL_ONTOLOGY_NAME,
+        include_str!("../config/social_ontology.json"),
+    ),
+    (
+        ABSTRACT_ONTOLOGY_NAME,
+        include_str!("../config/abstract_ontology.json"),
+    ),
+    (
+        ENGINEERING_ONTOLOGY_NAME,
+        include_str!("../config/engineering_ontology.json"),
+    ),
+    (
+        OFFICE_ONTOLOGY_NAME,
+        include_str!("../config/office_ontology.json"),
+    ),
 ];
 
 /// Extra domain-specific ontologies, baked in at compile time. Each contributes
@@ -32,37 +62,97 @@ static BUILTIN_ONTOLOGIES: &[(&str, &str)] = &[
 /// new ontology: drop a JSON file in `config/` (using the HEAL/CONSTRUCT/FABRICATE/
 /// BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN vocabulary) and add one line here.
 static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
-    ("software_dev", include_str!("../config/software_dev_ontology.json")),
+    (
+        "software_dev",
+        include_str!("../config/software_dev_ontology.json"),
+    ),
     ("devops", include_str!("../config/devops_ontology.json")),
-    ("data_science", include_str!("../config/data_science_ontology.json")),
-    ("cybersecurity", include_str!("../config/cybersecurity_ontology.json")),
-    ("health_fitness", include_str!("../config/health_fitness_ontology.json")),
-    ("nutrition_cooking", include_str!("../config/nutrition_cooking_ontology.json")),
-    ("personal_finance", include_str!("../config/personal_finance_ontology.json")),
-    ("learning_education", include_str!("../config/learning_education_ontology.json")),
-    ("creative_writing", include_str!("../config/creative_writing_ontology.json")),
+    (
+        "data_science",
+        include_str!("../config/data_science_ontology.json"),
+    ),
+    (
+        "cybersecurity",
+        include_str!("../config/cybersecurity_ontology.json"),
+    ),
+    (
+        "health_fitness",
+        include_str!("../config/health_fitness_ontology.json"),
+    ),
+    (
+        "nutrition_cooking",
+        include_str!("../config/nutrition_cooking_ontology.json"),
+    ),
+    (
+        "personal_finance",
+        include_str!("../config/personal_finance_ontology.json"),
+    ),
+    (
+        "learning_education",
+        include_str!("../config/learning_education_ontology.json"),
+    ),
+    (
+        "creative_writing",
+        include_str!("../config/creative_writing_ontology.json"),
+    ),
     ("music", include_str!("../config/music_ontology.json")),
-    ("visual_arts", include_str!("../config/visual_arts_ontology.json")),
-    ("relationships", include_str!("../config/relationships_ontology.json")),
-    ("productivity", include_str!("../config/productivity_ontology.json")),
+    (
+        "visual_arts",
+        include_str!("../config/visual_arts_ontology.json"),
+    ),
+    (
+        "relationships",
+        include_str!("../config/relationships_ontology.json"),
+    ),
+    (
+        "productivity",
+        include_str!("../config/productivity_ontology.json"),
+    ),
     ("travel", include_str!("../config/travel_ontology.json")),
-    ("home_maintenance", include_str!("../config/home_maintenance_ontology.json")),
-    ("mindfulness_spirituality", include_str!("../config/mindfulness_spirituality_ontology.json")),
-    ("science_research", include_str!("../config/science_research_ontology.json")),
-    ("business_entrepreneurship", include_str!("../config/business_entrepreneurship_ontology.json")),
-    ("language_learning", include_str!("../config/language_learning_ontology.json")),
-    ("outdoors_sports", include_str!("../config/outdoors_sports_ontology.json")),
+    (
+        "home_maintenance",
+        include_str!("../config/home_maintenance_ontology.json"),
+    ),
+    (
+        "mindfulness_spirituality",
+        include_str!("../config/mindfulness_spirituality_ontology.json"),
+    ),
+    (
+        "science_research",
+        include_str!("../config/science_research_ontology.json"),
+    ),
+    (
+        "business_entrepreneurship",
+        include_str!("../config/business_entrepreneurship_ontology.json"),
+    ),
+    (
+        "language_learning",
+        include_str!("../config/language_learning_ontology.json"),
+    ),
+    (
+        "outdoors_sports",
+        include_str!("../config/outdoors_sports_ontology.json"),
+    ),
     // Targeted fill for the empty/thin DOMAIN×MODE cells (Phase 6F) so every
     // grid cell is a reachable classification target.
-    ("grid_fill", include_str!("../config/grid_fill_ontology.json")),
+    (
+        "grid_fill",
+        include_str!("../config/grid_fill_ontology.json"),
+    ),
     // One MODE-pure anchor per cell — sharpens the 6-mode axis (same-domain modes
     // were noisy, e.g. heavy lifting leaking to WALK). Phase 6F.
-    ("mode_anchors", include_str!("../config/mode_anchors_ontology.json")),
+    (
+        "mode_anchors",
+        include_str!("../config/mode_anchors_ontology.json"),
+    ),
     // Italian-language anchors: an Italian query against an Italian entry is
     // same-language matching, which sidesteps the cross-lingual weakness of the
     // English embedder (measured Italian tier 0.733 → see INDUSTRIAL_VERTICAL_PLAN
     // step 4). Vocabulary only — never fixture sentences (held-out test honesty).
-    ("italian", include_str!("../config/italian_industrial_ontology.json")),
+    (
+        "italian",
+        include_str!("../config/italian_industrial_ontology.json"),
+    ),
 ];
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
@@ -191,18 +281,18 @@ pub struct EmbedderConfig {
     pub enabled: bool,
 }
 
-fn return_true() -> bool { true }
+fn return_true() -> bool {
+    true
+}
 
 /// Multi-embedder configuration block.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EmbeddersConfig {
     /// Primary embedder for text (and optionally image).
     pub primary: Option<EmbedderConfig>,
     /// Optional image-only embedder (if primary doesn't handle images).
     pub image: Option<EmbedderConfig>,
 }
-
 
 impl Default for OnnxConfig {
     fn default() -> Self {
@@ -516,7 +606,10 @@ impl OntologyLoader {
     /// cost the user the 900 entries in the same file.
     pub fn load_file(
         path: &Path,
-    ) -> anyhow::Result<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
+    ) -> anyhow::Result<(
+        Option<crate::models::Interpretant>,
+        HashMap<String, DomainDef>,
+    )> {
         let contents = std::fs::read_to_string(path)?;
         Self::load_str(&contents, &path.display().to_string())
     }
@@ -531,7 +624,10 @@ impl OntologyLoader {
     pub fn load_str(
         json: &str,
         label: &str,
-    ) -> anyhow::Result<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
+    ) -> anyhow::Result<(
+        Option<crate::models::Interpretant>,
+        HashMap<String, DomainDef>,
+    )> {
         let config: OntologyConfig = serde_json::from_str(json)?;
         let interpretant = config.interpretant.and_then(|i| match i.validate() {
             Ok(()) => Some(i),
@@ -548,7 +644,10 @@ impl OntologyLoader {
     /// Load a built-in ontology with its interpretant.
     pub fn load_builtin_full(
         name: &str,
-    ) -> Option<(Option<crate::models::Interpretant>, HashMap<String, DomainDef>)> {
+    ) -> Option<(
+        Option<crate::models::Interpretant>,
+        HashMap<String, DomainDef>,
+    )> {
         let (_, json) = BUILTIN_ONTOLOGIES.iter().find(|(n, _)| *n == name)?;
         Self::load_str(json, name).ok()
     }
@@ -596,7 +695,12 @@ impl OntologyLoader {
                             map
                         }
                         Err(e) => {
-                            eprintln!("Warning: failed to load ontology '{}' from {}: {}", source.name, path.display(), e);
+                            eprintln!(
+                                "Warning: failed to load ontology '{}' from {}: {}",
+                                source.name,
+                                path.display(),
+                                e
+                            );
                             HashMap::new()
                         }
                     }
@@ -618,17 +722,39 @@ impl OntologyLoader {
 
             for (name, def) in map {
                 match source.kind.as_str() {
-                    "human" => { loader.human_domains.insert(name, def); }
-                    "machine" => { loader.machine_domains.insert(name, def); }
-                    "semiotic" => { loader.semiotic_domains.insert(name, def); }
-                    "category" => { loader.category_domains.insert(name, def); }
-                    "agent" => { loader.agent_domains.insert(name, def); }
-                    "natural" => { loader.natural_domains.insert(name, def); }
-                    "social" => { loader.social_domains.insert(name, def); }
-                    "abstract" => { loader.abstract_domains.insert(name, def); }
-                    "engineering" => { loader.engineering_domains.insert(name, def); }
-                    "office" => { loader.office_domains.insert(name, def); }
-                    _ => { loader.custom_domains.insert(name, def); }
+                    "human" => {
+                        loader.human_domains.insert(name, def);
+                    }
+                    "machine" => {
+                        loader.machine_domains.insert(name, def);
+                    }
+                    "semiotic" => {
+                        loader.semiotic_domains.insert(name, def);
+                    }
+                    "category" => {
+                        loader.category_domains.insert(name, def);
+                    }
+                    "agent" => {
+                        loader.agent_domains.insert(name, def);
+                    }
+                    "natural" => {
+                        loader.natural_domains.insert(name, def);
+                    }
+                    "social" => {
+                        loader.social_domains.insert(name, def);
+                    }
+                    "abstract" => {
+                        loader.abstract_domains.insert(name, def);
+                    }
+                    "engineering" => {
+                        loader.engineering_domains.insert(name, def);
+                    }
+                    "office" => {
+                        loader.office_domains.insert(name, def);
+                    }
+                    _ => {
+                        loader.custom_domains.insert(name, def);
+                    }
                 }
             }
         }
@@ -661,7 +787,9 @@ impl OntologyLoader {
     /// the HEAL/CONSTRUCT/FABRICATE/BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN
     /// vocabulary, so they enrich the same semiotic grid.
     pub fn classification_domains(&self) -> impl Iterator<Item = &DomainDef> {
-        self.human_domains.values().chain(self.custom_domains.values())
+        self.human_domains
+            .values()
+            .chain(self.custom_domains.values())
     }
 
     /// Every domain definition across all loaded ontologies, merged into one map.
@@ -670,10 +798,17 @@ impl OntologyLoader {
     pub fn all_domains(&self) -> HashMap<String, DomainDef> {
         let mut out = HashMap::new();
         for m in [
-            &self.human_domains, &self.machine_domains, &self.semiotic_domains,
-            &self.category_domains, &self.agent_domains, &self.natural_domains,
-            &self.social_domains, &self.abstract_domains, &self.engineering_domains,
-            &self.office_domains, &self.custom_domains,
+            &self.human_domains,
+            &self.machine_domains,
+            &self.semiotic_domains,
+            &self.category_domains,
+            &self.agent_domains,
+            &self.natural_domains,
+            &self.social_domains,
+            &self.abstract_domains,
+            &self.engineering_domains,
+            &self.office_domains,
+            &self.custom_domains,
         ] {
             for (k, v) in m {
                 out.insert(k.clone(), v.clone());
@@ -705,13 +840,21 @@ mod tests {
     #[test]
     fn test_builtin_human_ontology_count() {
         let map = OntologyLoader::load_builtin(HUMAN_ONTOLOGY_NAME).unwrap();
-        assert!(map.len() >= 14, "expected at least 14 human domains, got {}", map.len());
+        assert!(
+            map.len() >= 14,
+            "expected at least 14 human domains, got {}",
+            map.len()
+        );
     }
 
     #[test]
     fn test_builtin_machine_ontology_count() {
         let map = OntologyLoader::load_builtin(MACHINE_ONTOLOGY_NAME).unwrap();
-        assert!(map.len() >= 50, "expected at least 50 machine domains, got {}", map.len());
+        assert!(
+            map.len() >= 50,
+            "expected at least 50 machine domains, got {}",
+            map.len()
+        );
     }
 
     #[test]
@@ -720,7 +863,10 @@ mod tests {
         let def = map.get("Body & Fitness");
         assert!(def.is_some(), "Body & Fitness should be found");
         if let Some(d) = def {
-            assert!(d.hints.iter().any(|h| h == "exercise"), "expected 'exercise' hint");
+            assert!(
+                d.hints.iter().any(|h| h == "exercise"),
+                "expected 'exercise' hint"
+            );
         }
     }
 
@@ -740,18 +886,37 @@ mod tests {
     #[test]
     fn test_builtin_office_ontology_count() {
         let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
-        assert!(map.len() >= 60, "expected at least 60 office domains, got {}", map.len());
+        assert!(
+            map.len() >= 60,
+            "expected at least 60 office domains, got {}",
+            map.len()
+        );
     }
 
     #[test]
     fn test_all_ontologies_loaded() {
         let config = PhysisConfig::default();
         let loader = OntologyLoader::load_all(&config);
-        assert!(!loader.office_domains.is_empty(), "office domains should be loaded");
-        assert!(!loader.machine_domains.is_empty(), "machine domains should be loaded");
-        assert!(!loader.agent_domains.is_empty(), "agent domains should be loaded");
-        assert!(!loader.human_domains.is_empty(), "human domains should be loaded");
-        assert!(!loader.engineering_domains.is_empty(), "engineering domains should be loaded");
+        assert!(
+            !loader.office_domains.is_empty(),
+            "office domains should be loaded"
+        );
+        assert!(
+            !loader.machine_domains.is_empty(),
+            "machine domains should be loaded"
+        );
+        assert!(
+            !loader.agent_domains.is_empty(),
+            "agent domains should be loaded"
+        );
+        assert!(
+            !loader.human_domains.is_empty(),
+            "human domains should be loaded"
+        );
+        assert!(
+            !loader.engineering_domains.is_empty(),
+            "engineering domains should be loaded"
+        );
     }
 
     #[test]
@@ -759,33 +924,80 @@ mod tests {
         let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
         let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
         let valid_modes = [
-            "WORK", "WALK", "LEARN", "CREATE", "REST", "LIFT",
-            "DESTROY", "SENSE", "GUIDE", "PLAY", "BRAINSTORM",
-            "MAINTAIN", "MOVE", "PLAN",
+            "WORK",
+            "WALK",
+            "LEARN",
+            "CREATE",
+            "REST",
+            "LIFT",
+            "DESTROY",
+            "SENSE",
+            "GUIDE",
+            "PLAY",
+            "BRAINSTORM",
+            "MAINTAIN",
+            "MOVE",
+            "PLAN",
         ];
         for (name, def) in &map {
             let d = def.domain.as_deref().unwrap_or("");
             let m = def.mode.as_deref().unwrap_or("");
-            assert!(valid_domains.contains(&d), "office domain '{}' has invalid domain '{}'", name, d);
-            assert!(valid_modes.contains(&m), "office domain '{}' has invalid mode '{}'", name, m);
+            assert!(
+                valid_domains.contains(&d),
+                "office domain '{}' has invalid domain '{}'",
+                name,
+                d
+            );
+            assert!(
+                valid_modes.contains(&m),
+                "office domain '{}' has invalid mode '{}'",
+                name,
+                m
+            );
         }
     }
 
     #[test]
     fn test_machine_ontology_has_new_process_domains() {
         let map = OntologyLoader::load_builtin(MACHINE_ONTOLOGY_NAME).unwrap();
-        assert!(map.len() >= 100, "expected at least 100 machine domains after extension, got {}", map.len());
-        assert!(map.contains_key("Thermal Zone Monitoring"), "should contain new ProcessMonitoring domains");
-        assert!(map.contains_key("Anomaly Detection"), "should contain new MachineHealth domains");
-        assert!(map.contains_key("OEE Metrics"), "should contain new ProductionMetrics domains");
+        assert!(
+            map.len() >= 100,
+            "expected at least 100 machine domains after extension, got {}",
+            map.len()
+        );
+        assert!(
+            map.contains_key("Thermal Zone Monitoring"),
+            "should contain new ProcessMonitoring domains"
+        );
+        assert!(
+            map.contains_key("Anomaly Detection"),
+            "should contain new MachineHealth domains"
+        );
+        assert!(
+            map.contains_key("OEE Metrics"),
+            "should contain new ProductionMetrics domains"
+        );
     }
 
     #[test]
     fn test_agent_ontology_has_new_workflow_domains() {
         let map = OntologyLoader::load_builtin(AGENT_ONTOLOGY_NAME).unwrap();
-        assert!(map.len() >= 60, "expected at least 60 agent domains after extension, got {}", map.len());
-        assert!(map.contains_key("System Prompt"), "should contain new PromptPipeline domains");
-        assert!(map.contains_key("Working Memory"), "should contain new AgentMemory domains");
-        assert!(map.contains_key("PDCA Cycle"), "should contain new QualityAssurance domains");
+        assert!(
+            map.len() >= 60,
+            "expected at least 60 agent domains after extension, got {}",
+            map.len()
+        );
+        assert!(
+            map.contains_key("System Prompt"),
+            "should contain new PromptPipeline domains"
+        );
+        assert!(
+            map.contains_key("Working Memory"),
+            "should contain new AgentMemory domains"
+        );
+        assert!(
+            map.contains_key("PDCA Cycle"),
+            "should contain new QualityAssurance domains"
+        );
     }
 }

@@ -97,7 +97,12 @@ mod tests {
     use super::*;
 
     fn c(id: &str, kind: Kind, requires: &[&str]) -> Clause {
-        Clause { id: id.into(), kind, text: id.into(), requires: requires.iter().map(|s| s.to_string()).collect() }
+        Clause {
+            id: id.into(),
+            kind,
+            text: id.into(),
+            requires: requires.iter().map(|s| s.to_string()).collect(),
+        }
     }
 
     #[test]
@@ -108,10 +113,19 @@ mod tests {
             c("delivered", Kind::Condition, &[]),
             c("warranty", Kind::Right, &["registered"]), // `registered` never defined
         ];
-        assert_eq!(unconditional_obligations(&clauses), vec!["deliver".to_string()]);
+        assert_eq!(
+            unconditional_obligations(&clauses),
+            vec!["deliver".to_string()]
+        );
         // if `delivered` fails, `pay` can't be satisfied
-        assert_eq!(breach_paths(&clauses, &["delivered".into()]), vec!["pay".to_string()]);
+        assert_eq!(
+            breach_paths(&clauses, &["delivered".into()]),
+            vec!["pay".to_string()]
+        );
         // `registered` is required but undefined → dangling
-        assert_eq!(dangling_conditions(&clauses), vec!["registered".to_string()]);
+        assert_eq!(
+            dangling_conditions(&clauses),
+            vec!["registered".to_string()]
+        );
     }
 }

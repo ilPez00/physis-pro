@@ -32,7 +32,11 @@ pub struct Tie {
 }
 
 fn key(x: &str, y: &str) -> (String, String) {
-    if x <= y { (x.into(), y.into()) } else { (y.into(), x.into()) }
+    if x <= y {
+        (x.into(), y.into())
+    } else {
+        (y.into(), x.into())
+    }
 }
 
 /// Aggregate directed interactions into undirected ties with reciprocity.
@@ -54,22 +58,35 @@ pub fn ties(interactions: &[Interaction]) -> Vec<Tie> {
             let strength = ab + ba;
             let (lo, hi) = if ab <= ba { (ab, ba) } else { (ba, ab) };
             let reciprocity = if hi > 0.0 { lo / hi } else { 0.0 };
-            Tie { a, b, strength, reciprocity }
+            Tie {
+                a,
+                b,
+                strength,
+                reciprocity,
+            }
         })
         .collect();
-    out.sort_by(|x, y| y.strength.partial_cmp(&x.strength).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|x, y| {
+        y.strength
+            .partial_cmp(&x.strength)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
 /// Strengthening ties: strong AND reciprocated.
 pub fn strengthening(ties: &[Tie], min_strength: f32, min_reciprocity: f32) -> Vec<&Tie> {
-    ties.iter().filter(|t| t.strength >= min_strength && t.reciprocity >= min_reciprocity).collect()
+    ties.iter()
+        .filter(|t| t.strength >= min_strength && t.reciprocity >= min_reciprocity)
+        .collect()
 }
 
 /// Fading ties: one-sided (low reciprocity) despite some contact — the
 /// relationship to tend before it lapses.
 pub fn fading(ties: &[Tie], max_reciprocity: f32) -> Vec<&Tie> {
-    ties.iter().filter(|t| t.strength > 0.0 && t.reciprocity < max_reciprocity).collect()
+    ties.iter()
+        .filter(|t| t.strength > 0.0 && t.reciprocity < max_reciprocity)
+        .collect()
 }
 
 /// Adapter: register each tie as a labeled, bridged node + a weighted edge
@@ -95,25 +112,34 @@ mod tests {
     use super::*;
 
     fn i(from: &str, to: &str, w: f32) -> Interaction {
-        Interaction { from: from.into(), to: to.into(), weight: w }
+        Interaction {
+            from: from.into(),
+            to: to.into(),
+            weight: w,
+        }
     }
 
     #[test]
     fn ties_aggregate_with_reciprocity() {
         let interactions = vec![
-            i("ann", "bob", 5.0), i("bob", "ann", 5.0),   // balanced, strong
-            i("ann", "cy", 8.0), i("cy", "ann", 1.0),     // one-sided
+            i("ann", "bob", 5.0),
+            i("bob", "ann", 5.0), // balanced, strong
+            i("ann", "cy", 8.0),
+            i("cy", "ann", 1.0), // one-sided
         ];
         let t = ties(&interactions);
         let ab = t.iter().find(|x| x.a == "ann" && x.b == "bob").unwrap();
         assert_eq!(ab.strength, 10.0);
         assert!((ab.reciprocity - 1.0).abs() < 1e-6);
-        let ac = t.iter().find(|x| (x.a == "ann" && x.b == "cy") || (x.a == "cy" && x.b == "ann")).unwrap();
+        let ac = t
+            .iter()
+            .find(|x| (x.a == "ann" && x.b == "cy") || (x.a == "cy" && x.b == "ann"))
+            .unwrap();
         assert!((ac.reciprocity - 0.125).abs() < 1e-6); // 1/8
 
-        assert_eq!(strengthening(&t, 8.0, 0.8).len(), 1);  // ann–bob only
+        assert_eq!(strengthening(&t, 8.0, 0.8).len(), 1); // ann–bob only
         let fade = fading(&t, 0.5);
-        assert_eq!(fade.len(), 1);                          // ann–cy
+        assert_eq!(fade.len(), 1); // ann–cy
         assert!(fade[0].a == "ann" || fade[0].b == "ann");
     }
 }
