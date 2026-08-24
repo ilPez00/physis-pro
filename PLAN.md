@@ -110,7 +110,7 @@ anomaly detection to corrective action.
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
 | 8.1 | VFS re-ingest crash: dangling-symlink EEXIST (`orchestrator.rs:44` `.exists()` follows links) | ✅ Done | `symlink_metadata()` + stale-link repair/prune; 3 vfs tests incl. rename regression |
-| 8.2 | `query` CLI finds nothing: trie process-local (`cli.rs run_query`) | ⬜ Pending | Persist trie to sled or route query through persisted coherence nodes |
+| 8.2 | `query` CLI finds nothing: trie process-local (`cli.rs run_query`) | ✅ Done | `run_query_nodes` recalls persisted coherence labels from sled; trie hits still shown first |
 | 8.3 | RP-embedder score compression (0.88–1.00 flat, wrong top cells) | ⬜ Pending | Download BGE ONNX weights + validate classify discrimination; document RP limits |
 | 8.4 | `order` command stub — persists nothing (`main.rs:904`) | ⬜ Pending | Wire InventoryTracker suggestion w/ cooldown; show in `inventory` |
 | 8.5 | `\u0000` literal in `quality` output cell names | ⬜ Pending | Replace NUL separator with `/` for display |

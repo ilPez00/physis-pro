@@ -662,12 +662,20 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Query { query, max_results } => {
             let results = app.run_query(&query, max_results);
-            if results.is_empty() {
-                println!("No results found for: {query}");
-            } else {
-                for path in results {
-                    println!("  {}", path.join(" -> "));
+            for path in &results {
+                println!("  {}", path.join(" -> "));
+            }
+            // Trie hits come from an in-process scan; a fresh process has an
+            // empty trie, so also recall from the persisted node store.
+            let nodes = app.run_query_nodes(&query, max_results);
+            if !nodes.is_empty() {
+                println!("Persisted nodes:");
+                for (id, label, score) in &nodes {
+                    println!("  [{score:.3}] {label} ({id})");
                 }
+            }
+            if results.is_empty() && nodes.is_empty() {
+                println!("No results found for: {query}");
             }
         }
         Commands::Dream { count } => {
