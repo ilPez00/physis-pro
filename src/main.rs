@@ -425,6 +425,25 @@ pub enum Commands {
         #[command(subcommand)]
         dataset: BenchmarkDataset,
     },
+    /// Phase 9.3 — mine decisions from agent session transcripts (JSONL):
+    /// episodes → cue-based candidates → grounding gate → title + embedding
+    /// dedup. Prints one grounded decision per line as JSON.
+    DecisionsMine {
+        /// Transcript file(s) to mine (JSONL). Use `-` for stdin.
+        files: Vec<PathBuf>,
+        /// Adapter to parse with (see `--list`)
+        #[arg(long)]
+        adapter: Option<String>,
+        /// List registered transcript adapters and exit
+        #[arg(long)]
+        list: bool,
+        /// Embedding-dedup cosine threshold (raise on semantic embedders)
+        #[arg(long, default_value_t = 0.999)]
+        threshold: f32,
+        /// Also register each surviving decision as a labeled core node (`decision:` prefix)
+        #[arg(long)]
+        register: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -502,7 +521,10 @@ fn main() -> anyhow::Result<()> {
 
     // QA 8.7: schema discovery is documentation, not operation — answer it
     // before the licence gate so an evaluator can learn the input formats.
-    if let Commands::Machine { name, schema: true, .. } = &cli.command {
+    if let Commands::Machine {
+        name, schema: true, ..
+    } = &cli.command
+    {
         match physis_pro::machines::run::schema(name) {
             Some(ex) => println!("{ex}"),
             None => {
@@ -1388,6 +1410,105 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
+        Commands::DecisionsMine {
+            files,
+            adapter,
+            list,
+            threshold,
+            register,
+        } => {
+            if list || files.is_empty() {
+                println!("Registered transcript adapters:");
+                for n in physis_pro::sessions::registered() {
+                    println!("  {n}");
+                }
+                if list {
+                    return Ok(());
+                }
+                println!("\nUsage: physis-pro decisions-mine <files...> [--adapter NAME]");
+                return Ok(());
+            }
+            let adapter_name = adapter.clone().unwrap_or_else(|| {
+                physis_pro::sessions::registered()
+                    .first()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
+            });
+            let adap =
+                physis_pro::sessions::get_adapter(&adapter_name).map_err(|e| anyhow::anyhow!(e))?;
+
+            // Read every transcript line through the adapter → events.
+            use std::io::BufRead;
+            let mut events: Vec<physis_pro::sessions::Event> = Vec::new();
+            for f in &files {
+                let reader: Box<dyn std::io::BufRead> = if f.as_os_str() == "-" {
+                    Box::new(std::io::BufReader::new(std::io::stdin()))
+                } else {
+                    match std::fs::File::open(f) {
+                        Ok(file) => Box::new(std::io::BufReader::new(file)),
+                        Err(e) => {
+                            eprintln!("cannot open transcript {}: {e}", f.display());
+                            continue;
+                        }
+                    }
+                };
+                for line in reader.lines() {
+                    let line = line?;
+                    // Substring prefilter before JSON parse (P2 pattern).
+                    if !line.contains('"') && !line.contains("assistant") && !line.contains("tool")
+                    {
+                        continue;
+                    }
+                    if let Some(mut evs) = adap.normalize(&line) {
+                        events.append(&mut evs);
+                    }
+                }
+            }
+
+            // Mine → gate → title dedup (pure), then embedding dedup.
+            let mut decisions = physis_pro::decisions::extract(&events);
+            let embedder: Box<dyn physis_pro::embed::VectorEmbed> = Box::new(
+                physis_pro::embed::RandomProjectionEmbedder::new(config.physis.embed_dim),
+            );
+            decisions = physis_pro::decisions::dedup_by_embedding(
+                &decisions,
+                &[],
+                embedder.as_ref(),
+                threshold,
+            );
+
+            println!(
+                "mined {} decision(s) from {} event(s) via {adapter_name}",
+                decisions.len(),
+                events.len()
+            );
+            for c in &decisions {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "decision": c.decision,
+                        "quote": c.source_quote,
+                        "verification": c.verification.as_str(),
+                    })
+                );
+            }
+
+            // Optionally register as labeled core nodes under `decision:` prefix.
+            if register && !decisions.is_empty() {
+                for c in &decisions {
+                    let label = format!("decision: {}", c.decision);
+                    match app.register_persisted_node(&label) {
+                        Ok(id) => println!("  registered {id} ← {label}"),
+                        Err(e) => eprintln!("warning: registration failed: {e}"),
+                    }
+                }
+                println!(
+                    "registered {} node(s) with 'decision:' label prefix",
+                    decisions.len()
+                );
+            }
+            return Ok(());
+        }
         Commands::Benchmark { dataset } => match dataset {
             BenchmarkDataset::Secom {
                 limit,
@@ -1594,7 +1715,12 @@ fn run_indexer(dir: &Path, watch: bool, interval_secs: u64) -> anyhow::Result<()
     let db = sled::Config::new()
         .path(data_dir.join("index.sled"))
         .open()
-        .map_err(|e| anyhow::anyhow!("cannot open index store {}index.sled: {e}", data_dir.display()))?;
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "cannot open index store {}index.sled: {e}",
+                data_dir.display()
+            )
+        })?;
 
     let mut idx = physis_pro::indexer::FileIndex::load(&db, dir)?;
     let mut pass = || -> anyhow::Result<physis_pro::indexer::IndexReport> {
@@ -1604,7 +1730,12 @@ fn run_indexer(dir: &Path, watch: bool, interval_secs: u64) -> anyhow::Result<()
     };
 
     let first = pass()?;
-    println!("[index] {}", dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf()).display());
+    println!(
+        "[index] {}",
+        dir.canonicalize()
+            .unwrap_or_else(|_| dir.to_path_buf())
+            .display()
+    );
     println!("[index] {first}");
 
     if !watch {
@@ -1613,7 +1744,10 @@ fn run_indexer(dir: &Path, watch: bool, interval_secs: u64) -> anyhow::Result<()
 
     // Watch: quiet when nothing moved; a line per pass that changed something.
     let interval = std::time::Duration::from_secs(interval_secs.max(1));
-    eprintln!("[index] watching every {}s — Ctrl-C to stop", interval.as_secs());
+    eprintln!(
+        "[index] watching every {}s — Ctrl-C to stop",
+        interval.as_secs()
+    );
     loop {
         std::thread::sleep(interval);
         let report = pass()?;
