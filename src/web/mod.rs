@@ -86,6 +86,7 @@ mod shifts;
 #[cfg(feature = "spanner")]
 mod spanner;
 mod ui_chat;
+mod wiki_generate;
 mod wiki_semiotic;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
@@ -2967,7 +2968,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/wiki/index",
             post(wiki_semiotic::wiki_index_handler),
-        );
+        )
+        // Phase 9.6: wiki-gen over the live holarchy (outline + prose + tour).
+        .route(
+            "/api/v1/wiki/generate",
+            post(wiki_generate::wiki_generate_handler),
+        )
+        .route("/api/v1/wiki/tour", get(wiki_generate::wiki_tour_handler));
 
     // MCP SSE transport — gated like every other route. The URL + port are not a
     // secret; the token is. (Was previously exposed without auth — see PREMORTEM P6.)
