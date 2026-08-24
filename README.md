@@ -207,6 +207,13 @@ At startup every ontology entry (name + hints) is embedded and averaged per
 DOMAIN×MODE cell. At query time the same embedder scores the input against all
 centroids; each cell's score is the **max cosine to any member entry**.
 
+**Embedder matters.** With real weights (BGE-base via
+`scripts/download_models.sh`) top-1 DOMAIN accuracy on the curated core set is
+0.891 and scores discriminate. The deterministic random-projection fallback is
+wiring-plumbing only: it is **non-semantic** — scores compress into a flat
+~0.88–1.00 band and top cells are often wrong. The CLI prints a warning when it
+is active; don't demo or gate on RP output.
+
 ### Auth
 
 Protected routes require `Authorization: Bearer <PHYSIS_API_TOKEN>` (constant-time

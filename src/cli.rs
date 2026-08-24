@@ -149,6 +149,16 @@ impl PhysisApp {
         // A silent fall-through to random projection makes every verdict noise
         // (PREMORTEM P0); at least say which embedder is answering.
         eprintln!("[physis] embedder: dim={}", embedder.dimension());
+        if embedder_kind == "random-projection" {
+            // QA 8.3: RP is deterministic but NON-semantic — measured behavior
+            // is compressed scores (~0.88–1.00 for everything) and top cells
+            // that are often wrong. Say so where it matters.
+            eprintln!(
+                "[physis] WARNING: random-projection embedder is non-semantic — \
+                 classify scores are compressed and top cells unreliable. \
+                 Install real weights: scripts/download_models.sh"
+            );
+        }
 
         // ONE full-ontology embedding pass: build the nearest-entry classifier,
         // then derive the legacy mean centroids from its entry embeddings.
@@ -1574,8 +1584,10 @@ mod tests {
     #[test]
     fn test_run_query_nodes_recalls_persisted_labels() {
         let dir = tempfile::tempdir().unwrap();
-        let mut config = PhysisConfig::default();
-        config.data_dir = dir.path().to_path_buf();
+        let config = PhysisConfig {
+            data_dir: dir.path().to_path_buf(),
+            ..PhysisConfig::default()
+        };
 
         // "First process": register labeled nodes (what /scan and watch do).
         {

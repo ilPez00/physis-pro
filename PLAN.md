@@ -111,11 +111,12 @@ anomaly detection to corrective action.
 |---|-------------|--------|-------|
 | 8.1 | VFS re-ingest crash: dangling-symlink EEXIST (`orchestrator.rs:44` `.exists()` follows links) | ✅ Done | `symlink_metadata()` + stale-link repair/prune; 3 vfs tests incl. rename regression |
 | 8.2 | `query` CLI finds nothing: trie process-local (`cli.rs run_query`) | ✅ Done | `run_query_nodes` recalls persisted coherence labels from sled; trie hits still shown first |
-| 8.3 | RP-embedder score compression (0.88–1.00 flat, wrong top cells) | ⬜ Pending | Download BGE ONNX weights + validate classify discrimination; document RP limits |
+| 8.3 | RP-embedder score compression (0.88–1.00 flat, wrong top cells) | ✅ Done | BGE weights validated: CORE top-1 domain 0.891, HARD 1.000; floors recalibrated (2026-08-24 provenance); RP limits documented in README + CLI warning |
 | 8.4 | `order` command stub — persists nothing (`main.rs:904`) | ✅ Done | `place_manual_order` w/ cooldown + sled order log; `inventory` shows history |
 | 8.5 | `\u0000` literal in `quality` output cell names | ✅ Done | physis-core summary renders `DOMAIN/MODE`; regression test |
 | 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ✅ Done | Zero-signal skip + ≥3-node threshold + existing rate-limit; 2 tests |
 | 8.7 | timeline/machine input schemas undiscoverable | ✅ Done | `machine <name> --schema` (executable example, pre-licence); timeline long_about |
+| 8.8 | Cell-level classify precision regressed: 0.636 vs 0.923 (2026-06-12 calibration) | ⬜ Pending | Ontology expansion (08-14) + adaptive TOP_K (08-18) diluted nearest-entry scoring; rebalance density / re-tune top-k. Italian anchors hit hardest (0.667 under bge-base-en) |
 
 
 ### Phase 9 — Repowise Pattern Adaptation (2026-08-24)
