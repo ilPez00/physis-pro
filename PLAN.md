@@ -88,10 +88,35 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 5.1 | CSV/JSON shift importer | ⬜ Pending | — | Validation + error output |
-| 5.2 | Customer-ready report metadata + evidence export | ⬜ Pending | — | |
-| 5.3 | Durable tenant/plant-scoped shift history | ⬜ Pending | — | |
+| 5.1 | CSV/JSON shift importer | ✅ Done | — | `src/shifts.rs`, partial acceptance w/ line-level errors |
+| 5.2 | Customer-ready report metadata + evidence export | ✅ Done | — | `ReportMetadata` in md/html/json; `/api/v1/shifts/export` evidence bundle |
+| 5.3 | Durable tenant/plant-scoped shift history | ✅ Done | — | sled per tenant, `/api/v1/shifts/*` + aggregated report |
 | 5.4 | First paid pilot + protocol decision | ⬜ Pending | — | Before adding more adapters |
+
+### Phase 5B — Interest Engine (Personal Vertical)
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 5B.1 | Interest core: observations, decayed profile, sled store | ✅ Done | `src/interest.rs`, 7 tests |
+| 5B.2 | Document analyzer: pptx/docx text+metadata, plaintext | ✅ Done | OOXML behind `daemon` feature |
+| 5B.3 | Daemon binary: clipboard + watched dirs → loopback API | ✅ Done | `physis-interest-daemon`, port 19878 |
+| 5B.4 | Semantic embedder in daemon (BGE via ONNX) | ✅ Done | cascade + self-test + seed cache; `--features daemon,embed-onnx` |
+| 5B.5 | Console tab for the interest timeline | ⬜ Pending | |
+
+### Phase 8 — QA-Found Defects (2026-08-24 full-feature audit)
+
+> Source: `docs/QA_VERDICT_2026-08-24.md`. Fix order = severity order.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 8.1 | VFS re-ingest crash: dangling-symlink EEXIST (`orchestrator.rs:44` `.exists()` follows links) | 🔜 In Progress | Use `symlink_metadata()`; add regression test (ingest twice) |
+| 8.2 | `query` CLI finds nothing: trie process-local (`cli.rs run_query`) | ⬜ Pending | Persist trie to sled or route query through persisted coherence nodes |
+| 8.3 | RP-embedder score compression (0.88–1.00 flat, wrong top cells) | ⬜ Pending | Download BGE ONNX weights + validate classify discrimination; document RP limits |
+| 8.4 | `order` command stub — persists nothing (`main.rs:904`) | ⬜ Pending | Wire InventoryTracker suggestion w/ cooldown; show in `inventory` |
+| 8.5 | `\u0000` literal in `quality` output cell names | ⬜ Pending | Replace NUL separator with `/` for display |
+| 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ⬜ Pending | Rate-limit + skip below node-count threshold |
+| 8.7 | timeline/machine input schemas undiscoverable | ⬜ Pending | Add example JSON to --help long_about |
+
 
 ### Phase 6 — Administration / Datawork
 
