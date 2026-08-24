@@ -13,9 +13,9 @@ pub struct RachmaninovHolon {
     pub current_goal_vector: Vec<f32>,
     pub active_directives: Vec<Directive>,
     /// Ticks since the last drift WARN was emitted. The holarchy ticks every
-    ~10s; an empty/quiet graph compares identical zero-vectors at sim=0.0 and
-    used to spam a WARN each tick. Rate-limit to one warning per 90 ticks
-    (~15 min) unless the similarity actually changes.
+    /// ~10s; an empty/quiet graph compares identical zero-vectors at sim=0.0
+    /// and used to spam a WARN each tick. Rate-limit to one warning per 90
+    /// ticks (~15 min) unless the similarity actually changes.
     ticks_since_last_drift_warn: u32,
     /// Similarity value the last drift WARN reported (dedupe key).
     last_warned_sim: Option<f32>,
@@ -32,6 +32,8 @@ impl RachmaninovHolon {
         Self {
             current_goal_vector: vec![],
             active_directives: vec![],
+            ticks_since_last_drift_warn: 0,
+            last_warned_sim: None,
         }
     }
 
@@ -51,10 +53,24 @@ impl RachmaninovHolon {
 
         // 2. Act: Adjust internal state based on coherence drift
         if similarity < 0.7 {
-            log::warn!(
-                "Significant ontological drift detected (sim={:.4})",
-                similarity
-            );
+            // Rate-limit the WARN: only log when the similarity CHANGED
+            // meaningfully since the last warning, or 90 quiet ticks (~15 min)
+            // have passed. A static graph sits at one similarity forever and
+            // used to emit an identical WARN every tick.
+            let changed = match self.last_warned_sim {
+                Some(prev) => (prev - similarity).abs() > 0.05,
+                None => true,
+            };
+            if changed || self.ticks_since_last_drift_warn >= 90 {
+                log::warn!(
+                    "Significant ontological drift detected (sim={:.4})",
+                    similarity
+                );
+                self.last_warned_sim = Some(similarity);
+                self.ticks_since_last_drift_warn = 0;
+            } else {
+                self.ticks_since_last_drift_warn += 1;
+            }
 
             // 3. Plan: Generate new directives
             self.active_directives.push(Directive::Synthesize {
