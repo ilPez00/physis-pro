@@ -127,7 +127,7 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| 9.1 | Session-transcript adapter registry (`src/sessions/`) | ⬜ Pending | `discover` + per-line `normalize` → None contract; Hermes/Claude Code/Codex/OpenCode; intent-keyed consumers; substring prefilter before JSON parse |
+| 9.1 | Session-transcript adapter registry (`src/sessions/`) | ✅ Done | `discover` + per-line `normalize` → None contract; claude_code/codex adapters; substring prefilter; 11 tests incl. real-transcript ground truth (`c7db9f6`) |
 | 9.2 | Anti-hallucination grounding gate (`src/grounding.rs`) | ⬜ Pending | decision/rationale/quote must token-match source span or field is dropped; candidate rejected when no evidence survives; attach verification to node provenance |
 | 9.3 | Decision mining → embedding dedup | ⬜ Pending | mine 9.1 episodes for decisions; dedup via existing embedder cascade cosine search (shared store, label-prefix namespace) — no separate index |
 | 9.4 | Holarchy community detection (`label-propagation`, no new deps) | ⬜ Pending | oversized-cluster split >30%; cohesion score; curation READS graph, WRITES only its result (regression-tested invariant); studio rollup tab |
