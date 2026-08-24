@@ -287,6 +287,18 @@ impl Provider {
         }
         if !status.is_success() {
             let text = resp.text().await.unwrap_or_default();
+            // Permanent configuration failures — a retired model id, a key the
+            // endpoint refuses — return the same body on every retry. Park the
+            // provider so later requests skip straight past the dead one.
+            // Ordinary 400s (bad arguments, tool misuse) stay live.
+            let lower = text.to_lowercase();
+            if lower.contains("model_not_found")
+                || lower.contains("does not exist")
+                || lower.contains("valid api key")
+                || lower.contains("invalid api key")
+            {
+                self.mark_unavailable();
+            }
             return Err(AiError::Provider(format!(
                 "{} returned {}: {}",
                 self.config.name,
@@ -438,7 +450,7 @@ impl ProviderCascade {
         }
 
         // ── Priority 1: Vertex / Gemini ───────────────────────────────────────
-        if let Some(key) = first_env(&["VERTEX_API_KEY", "AI_VERTEX_KEY", "AI_GEMINI_KEY"]) {
+        if let Some(key) = first_env(&["VERTEX_API_KEY", "AI_VERTEX_KEY", "AI_GEMINI_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "gemini".into(),
                 base_url: ep("gemini", "https://generativelanguage.googleapis.com/v1beta/openai"),
@@ -448,11 +460,11 @@ impl ProviderCascade {
         }
 
         // ── Priority 2: Groq ──────────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_GROQ_KEY", "GROQ_KEY"]) {
+        if let Some(key) = first_env(&["AI_GROQ_KEY", "GROQ_KEY", "GROQ_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "groq".into(),
                 base_url: ep("groq", "https://api.groq.com/openai/v1"),
-                model: "llama-3.3-70b-versatile".into(), api_key: key,
+                model: "openai/gpt-oss-120b".into(), api_key: key,
                 supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 15.0,
             });
         }
@@ -478,7 +490,7 @@ impl ProviderCascade {
         }
 
         // ── Priority 5: OpenRouter ────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_OPENROUTER_KEY", "OPENROUTER_KEY"]) {
+        if let Some(key) = first_env(&["AI_OPENROUTER_KEY", "OPENROUTER_KEY", "OPENROUTER_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "openrouter".into(),
                 base_url: ep("hermes", "https://openrouter.ai/api/v1"),
@@ -488,7 +500,7 @@ impl ProviderCascade {
         }
 
         // ── Priority 6: Mistral ───────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_MISTRAL_KEY", "MISTRAL"]) {
+        if let Some(key) = first_env(&["AI_MISTRAL_KEY", "MISTRAL", "MISTRAL_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "mistral".into(),
                 base_url: ep("mistral", "https://api.mistral.ai/v1"),
@@ -498,17 +510,17 @@ impl ProviderCascade {
         }
 
         // ── Priority 7: Cerebras ──────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_CEREBRAS_KEY", "CEREBRAS_KEY"]) {
+        if let Some(key) = first_env(&["AI_CEREBRAS_KEY", "CEREBRAS_KEY", "CEREBRAS_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "cerebras".into(),
                 base_url: ep("cerebras", "https://api.cerebras.ai/v1"),
-                model: "llama3.1-70b".into(), api_key: key,
+                model: "gpt-oss-120b".into(), api_key: key,
                 supports_vision: false, supports_tools: true, max_tokens: 8192, timeout_secs: 15.0,
             });
         }
 
         // ── Priority 8: SambaNova ─────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_SAMBA_NOVA_KEY", "SAMBA_NOVA_KEY"]) {
+        if let Some(key) = first_env(&["AI_SAMBA_NOVA_KEY", "SAMBA_NOVA_KEY", "SAMBANOVA_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "sambanova".into(),
                 base_url: ep("samba_nova", "https://api.sambanova.ai/v1"),
@@ -548,7 +560,7 @@ impl ProviderCascade {
         }
 
         // ── Priority 12: NVIDIA ───────────────────────────────────────────────
-        if let Some(key) = first_env(&["AI_NVIDIA_KEY", "NVIDIA_KEY"]) {
+        if let Some(key) = first_env(&["AI_NVIDIA_KEY", "NVIDIA_KEY", "NVIDIA_API_KEY"]) {
             cascade.add(ProviderConfig {
                 name: "nvidia".into(),
                 base_url: ep("nvidia", "https://integrate.api.nvidia.com/v1"),
@@ -581,8 +593,8 @@ impl ProviderCascade {
         if let Some(key) = first_env(&["AI_GITHUB_TOKEN", "GITHUB_TOKEN"]) {
             cascade.add(ProviderConfig {
                 name: "github".into(),
-                base_url: ep("github", "https://models.inference.ai.azure.com"),
-                model: "gpt-4o-mini".into(), api_key: key,
+                base_url: ep("github", "https://models.github.ai/inference"),
+                model: "openai/gpt-4o-mini".into(), api_key: key,
                 supports_vision: true, supports_tools: true, max_tokens: 4096, timeout_secs: 30.0,
             });
         }
