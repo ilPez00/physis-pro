@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.4] — 2026-08-24
+
+Published as `physis_pro` 0.1.6.
 
 **Interest daemon (new `daemon` feature + binary).**
 `physis-interest-daemon` observes local work and distills it into an interest
@@ -51,6 +53,13 @@ aligned index-for-index — so a customer can re-derive every headline figure
 without trusting our aggregation. The history report endpoint also gained
 `?format=md|html` for customer-ready rendered documents straight from stored
 history.
+
+**VFS re-ingest crash fixed (QA 8.1).** `sync_graph` checked link existence
+with `.exists()`, which follows symlinks — a dangling link (source renamed or
+deleted) reported "absent" and `symlink()` then failed with EEXIST, crashing
+every ingest after the first. Existence is now checked with
+`symlink_metadata`, stale links are re-pointed at current targets, and links
+left over from removed files are pruned so repeated ingests converge.
 
 ## [0.9.3] — 2026-08-23
 
