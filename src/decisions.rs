@@ -148,6 +148,61 @@ pub fn extract(events: &[Event]) -> Vec<Candidate> {
         .collect()
 }
 
+// ── 9.3b: embedding dedup against a prior-decision store ───────────────────
+
+use crate::embed::VectorEmbed;
+use crate::models::cosine_sim;
+
+/// One previously-accepted decision, embedded for similarity search.
+/// Mirrors the repowise P4 shape: decisions live in the SHARED store
+/// (here: an in-process vec the caller persists alongside its nodes) under a
+/// `decision:` label-prefix namespace — no separate index.
+#[derive(Debug, Clone)]
+pub struct PriorDecision {
+    /// Decision text as stored (label of the core node).
+    pub text: String,
+    /// Pre-computed embedding of [`PriorDecision::text`].
+    pub embedding: Vec<f32>,
+}
+
+/// Embedding-dedup pass: drop candidates whose decision is a near-duplicate
+/// (cosine ≥ `threshold`) of any prior decision or of an already-kept
+/// candidate from this batch. Title dedup stays upstream; this catches
+/// paraphrases ("we chose sled" vs "sled was our choice").
+///
+/// `threshold` 0.92+ ≈ same statement reworded; below ~0.85 distinct decisions
+/// start colliding on RP embedders — callers should pass ≥0.9 there.
+pub fn dedup_by_embedding(
+    candidates: &[Candidate],
+    priors: &[PriorDecision],
+    embedder: &dyn VectorEmbed,
+    threshold: f32,
+) -> Vec<Candidate> {
+    // Seed with prior vectors; extend with each kept decision so intra-batch
+    // near-duplicates also collapse (first occurrence wins).
+    let mut seen: Vec<(String, Vec<f32>)> = priors
+        .iter()
+        .map(|p| (p.text.clone(), p.embedding.clone()))
+        .collect();
+
+    let mut out = Vec::with_capacity(candidates.len());
+    for c in candidates {
+        let v = embedder.embed(&c.decision);
+        if !v.iter().all(|x| x.is_finite()) {
+            continue; // broken vector never becomes institutional memory
+        }
+        let dup = seen.iter().any(|(_, pv)| {
+            let s = cosine_sim(&v, pv);
+            s >= threshold
+        });
+        if !dup {
+            seen.push((c.decision.clone(), v));
+            out.push(c.clone());
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,7 +219,9 @@ mod tests {
         let eps = fold_episodes(&[
             u("fix flaky test"),
             a("We chose retry-once semantics."),
-            Event::ToolCall { name: "Bash".into() },
+            Event::ToolCall {
+                name: "Bash".into(),
+            },
             u("now the docs"),
             a("Docs updated."),
         ]);
@@ -184,8 +241,7 @@ mod tests {
     fn cue_sentences_become_candidates() {
         let eps = [Episode {
             prompt: "pick a store".into(),
-            assistant: vec!["We chose sled because it is embeddable. The build is green."
-                .into()],
+            assistant: vec!["We chose sled because it is embeddable. The build is green.".into()],
             tools: vec![],
         }];
         let mined = mine_decisions(&eps);
@@ -195,10 +251,7 @@ mod tests {
 
     #[test]
     fn gate_passes_self_grounded_candidates() {
-        let events = vec![
-            u("pick a store"),
-            a("We chose sled for persistence."),
-        ];
+        let events = vec![u("pick a store"), a("We chose sled for persistence.")];
         let got = extract(&events);
         assert_eq!(got.len(), 1);
         // rationale empty => only 2 of 3 fields grounded => Partial, kept.
@@ -229,5 +282,84 @@ mod tests {
         }];
         assert!(mine_decisions(&eps).is_empty());
         assert!(extract(&[]).is_empty());
+    }
+
+    // ── 9.3b embedding dedup ────────────────────────────────────────────
+
+    use crate::embed::RandomProjectionEmbedder;
+    use crate::embed::VectorEmbed as _;
+
+    fn cand(decision: &str) -> Candidate {
+        Candidate {
+            decision: decision.into(),
+            rationale: String::new(),
+            source_quote: decision.into(),
+            source_text: format!("{decision} — from the session."),
+            verification: Verdict::Grounded,
+        }
+    }
+
+    /// RP embedder is deterministic and order-sensitive, so identical text
+    /// must collide at any threshold; distinct sentences must not (at 0.99).
+    #[test]
+    fn identical_decisions_collapse_distinct_survive() {
+        let e = RandomProjectionEmbedder::new(384);
+        let kept = dedup_by_embedding(
+            &[
+                cand("We chose sled for persistence"),
+                cand("We chose sled for persistence"), // exact dup
+                cand("Switch the report font to Inter"), // unrelated
+            ],
+            &[],
+            &e,
+            0.99,
+        );
+        assert_eq!(kept.len(), 2);
+        assert_eq!(kept[0].decision, "We chose sled for persistence");
+        assert_eq!(kept[1].decision, "Switch the report font to Inter");
+    }
+
+    #[test]
+    fn prior_store_suppresses_known_decisions() {
+        let e = RandomProjectionEmbedder::new(384);
+        let known = "We chose sled for persistence";
+        let priors = vec![PriorDecision {
+            text: known.into(),
+            embedding: e.embed(known),
+        }];
+        let kept = dedup_by_embedding(
+            &[cand(known), cand("We adopted Postgres for storage")],
+            &priors,
+            &e,
+            0.999, // near-exact match required — RP is not semantic
+        );
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].decision, "We adopted Postgres for storage");
+    }
+
+    #[test]
+    fn non_finite_vectors_are_dropped_not_stored() {
+        struct NaNEmbedder;
+        impl crate::embed::VectorEmbed for NaNEmbedder {
+            fn embed(&self, _t: &str) -> Vec<f32> {
+                vec![f32::NAN; 8]
+            }
+            fn dimension(&self) -> usize {
+                8
+            }
+        }
+        let kept = dedup_by_embedding(&[cand("anything")], &[], &NaNEmbedder, 0.9);
+        assert!(kept.is_empty());
+    }
+
+    #[test]
+    fn empty_priors_and_candidates_are_noops() {
+        let e = RandomProjectionEmbedder::new(384);
+        assert!(dedup_by_embedding(&[], &[], &e, 0.9).is_empty());
+        let priors = vec![PriorDecision {
+            text: "x".into(),
+            embedding: e.embed("x"),
+        }];
+        assert!(dedup_by_embedding(&[], &priors, &e, 0.9).is_empty());
     }
 }
