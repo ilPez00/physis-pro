@@ -43,6 +43,14 @@ impl RachmaninovHolon {
             return;
         }
 
+        // QA 8.6: a zero context vector (empty/near-empty holarchy) carries no
+        // signal — calling it "drift" is pure noise. Ignore until real content
+        // produces a non-degenerate vector.
+        let norm: f32 = state_vector.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm < 1e-6 {
+            return;
+        }
+
         // 1. Check: Compare state_vector to current_goal_vector
         if self.current_goal_vector.is_empty() {
             self.current_goal_vector = state_vector.to_vec();
@@ -87,5 +95,33 @@ impl RachmaninovHolon {
         if self.active_directives.len() > 10 {
             self.active_directives.drain(..5);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression (QA 8.6): an empty holarchy feeds zero vectors; those must
+    /// be ignored entirely — no goal adoption, no directives, no drift WARNs.
+    #[test]
+    fn zero_signal_is_ignored_not_drift() {
+        let mut h = RachmaninovHolon::new();
+        for _ in 0..200 {
+            h.tick(&[0.0; 8]);
+        }
+        assert!(
+            h.current_goal_vector.is_empty(),
+            "zero vector is not a goal"
+        );
+        assert!(h.active_directives.is_empty(), "no directives from noise");
+    }
+
+    /// Real signal still works: first non-zero vector becomes the baseline.
+    #[test]
+    fn non_zero_signal_adopts_baseline() {
+        let mut h = RachmaninovHolon::new();
+        h.tick(&[1.0, 0.0, 0.0]);
+        assert_eq!(h.current_goal_vector, vec![1.0, 0.0, 0.0]);
     }
 }

@@ -1580,21 +1580,32 @@ mod tests {
         // "First process": register labeled nodes (what /scan and watch do).
         {
             let mut app = PhysisApp::new(config.clone());
-            app.register_persisted_node("quarterly budget planning").unwrap();
-            app.register_persisted_node("espresso machine descaling").unwrap();
+            app.register_persisted_node("quarterly budget planning")
+                .unwrap();
+            app.register_persisted_node("espresso machine descaling")
+                .unwrap();
         }
 
         // "Second process": empty trie, yet the store answers.
         let app = PhysisApp::new(config);
-        assert!(app.run_query("budget", 5).is_empty(), "trie is process-local");
-        let hits = app.run_query_nodes("budget", 5);
-        assert!(!hits.is_empty(), "persisted nodes must answer after restart");
         assert!(
-            hits.iter().any(|(_, label, _)| label == "quarterly budget planning"),
+            app.run_query("budget", 5).is_empty(),
+            "trie is process-local"
+        );
+        let hits = app.run_query_nodes("budget", 5);
+        assert!(
+            !hits.is_empty(),
+            "persisted nodes must answer after restart"
+        );
+        assert!(
+            hits.iter()
+                .any(|(_, label, _)| label == "quarterly budget planning"),
             "the registered label should come back, got {hits:?}"
         );
         let unrelated = app.run_query_nodes("descaling", 5);
-        assert!(unrelated.iter().any(|(_, l, _)| l == "espresso machine descaling"));
+        assert!(unrelated
+            .iter()
+            .any(|(_, l, _)| l == "espresso machine descaling"));
     }
 
     /// With no store on disk the fallback degrades to empty, not an error.

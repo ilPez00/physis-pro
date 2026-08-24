@@ -946,7 +946,12 @@ fn main() -> anyhow::Result<()> {
                 println!("  Order cooldown: {} hours", config.order_cooldown_hours);
                 if count > 0 {
                     println!("\n  Items (first 20):");
-                    let internal = ["inventory_items", "consumption", "last_order_at", "order_log"];
+                    let internal = [
+                        "inventory_items",
+                        "consumption",
+                        "last_order_at",
+                        "order_log",
+                    ];
                     for result in db.iter().take(20) {
                         match result {
                             Ok((key, value)) => {
@@ -992,11 +997,8 @@ fn main() -> anyhow::Result<()> {
             // InventoryTracker (cooldown + order log) and lands in sled.
             match sled::open(&config.inventory_db) {
                 Ok(db) => {
-                    let mut tracker =
-                        InventoryTracker::load(&db, config.order_cooldown_hours)
-                            .unwrap_or_else(|_| {
-                                InventoryTracker::new(config.order_cooldown_hours)
-                            });
+                    let mut tracker = InventoryTracker::load(&db, config.order_cooldown_hours)
+                        .unwrap_or_else(|_| InventoryTracker::new(config.order_cooldown_hours));
                     match tracker.place_manual_order(&item, qty as i32) {
                         Ok(s) => {
                             tracker.save(&db)?;
@@ -1008,10 +1010,7 @@ fn main() -> anyhow::Result<()> {
                                 config.order_mode
                             );
                             if s.forecast_daily_usage > 0.0 {
-                                println!(
-                                    "  30-day forecast: {:.1}/day",
-                                    s.forecast_daily_usage
-                                );
+                                println!("  30-day forecast: {:.1}/day", s.forecast_daily_usage);
                             }
                             println!("  See 'physis-pro inventory' for the order history.");
                         }
