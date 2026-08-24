@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] — 2026-08-24
+
+Published as `physis_pro` 0.1.7.
+
+**Query recalls persisted nodes (QA 8.2).** The trie is process-local — only
+an in-process `scan` fills it — so `physis-pro query` answered "No results"
+even with a full node store on disk. It now also searches the persisted
+coherence nodes of the `_default` tenant (what /scan, watch mode, vault and
+history imports register), printing `[score] label (id)` lines under any trie
+hits; embedder-mismatched nodes stay excluded via existing provenance checks.
+
+**Orders persist with cooldown (QA 8.4).** `physis-pro order <item> <qty>`
+printed a line and vanished. It now goes through `InventoryTracker::
+place_manual_order`: registers unknown SKUs on first sight, stamps the
+order-cooldown clock (duplicate orders inside the window are suppressed with
+the remaining time), appends to a sled-persisted order log, and never touches
+stock levels — ordering is not receiving. `physis-pro inventory` renders the
+last ten orders and hides internal bookkeeping keys from the item dump.
+
+**Quality cells render readably (QA 8.5, physis-core 0.1.6).**
+NUL-joined cell keys (`DOMAIN\0MODE`) leaked invisible glyphs into
+`physis-pro quality` output; summaries now display `DOMAIN/MODE`.
+
+**No phantom drift on an empty holarchy (QA 8.6).** Below three nodes the GNN
+context vector is degenerate and every drift warning was noise:
+`tick_holarchy` skips PDCA until the graph holds >=3 nodes, and Rachmaninov
+ignores zero-norm vectors outright.
+
+**Machine schemas discoverable (QA 8.7).** `physis-pro machine <name>
+--schema` prints a ready-to-edit example input JSON — valid enough to pipe
+straight back into `machine <name>` (a test runs every example through its
+reducer). Works pre-licence like `--help`. `timeline --help` documents the
+OperationalEvent record shape.
+
+Also: physis-core studio_lab playground + `native_dim()` helper.
+
 ## [0.9.4] — 2026-08-24
 
 Published as `physis_pro` 0.1.6.
