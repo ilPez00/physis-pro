@@ -14,6 +14,9 @@
 ## Documentation
 - Complete physis-docs engine pipeline diagrams
 - Add Umbrellapedia integration guide
+- Adapt repowise patterns clean-room (Phase 9 in `PLAN.md`): wiki generation
+  over the holarchy, session-transcript adapters, grounding gate, decision
+  mining, community detection — see `docs/reference/repowise-adaptation.md`
 
 ## Collaboration
 - Implement buddy system for ontology maintenance
