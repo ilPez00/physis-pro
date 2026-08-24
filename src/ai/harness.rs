@@ -160,6 +160,14 @@ pub struct CoherenceHarness;
 
 impl CoherenceHarness {
     /// Evaluate any candidate text or LLM output against the Physis epistemic core.
+    ///
+    /// What this measures: internal coherence — semantic fit onto the ontological
+    /// grid, logical shape, contradiction against the *supplied* context. What it
+    /// does **not** measure: factual truth. There is no retrieval and no world
+    /// model here; a fluent answer with every entity wrong scores as highly as a
+    /// correct one (verified empirically: fabricated landmark claims pass at
+    /// 0.72 with `contradiction_penalty: 0.0`, even when reference facts are
+    /// given in context). Treat APPROVED as "well-formed", never as "true".
     pub fn evaluate(
         text: &str,
         _context: Option<&str>,
