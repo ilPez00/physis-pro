@@ -115,7 +115,7 @@ anomaly detection to corrective action.
 | 8.4 | `order` command stub — persists nothing (`main.rs:904`) | ✅ Done | `place_manual_order` w/ cooldown + sled order log; `inventory` shows history |
 | 8.5 | `\u0000` literal in `quality` output cell names | ✅ Done | physis-core summary renders `DOMAIN/MODE`; regression test |
 | 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ✅ Done | Zero-signal skip + ≥3-node threshold + existing rate-limit; 2 tests |
-| 8.7 | timeline/machine input schemas undiscoverable | ⬜ Pending | Add example JSON to --help long_about |
+| 8.7 | timeline/machine input schemas undiscoverable | ✅ Done | `machine <name> --schema` (executable example, pre-licence); timeline long_about |
 
 
 ### Phase 9 — Repowise Pattern Adaptation (2026-08-24)
