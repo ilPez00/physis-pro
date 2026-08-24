@@ -2854,3 +2854,88 @@ async fn the_ask_bar_is_on_every_dashboard_and_queries_the_vector_graph() {
         "/agent must read the ?q= handoff, or the question is retyped",
     );
 }
+
+#[tokio::test]
+async fn scenarios_persist_review_and_promote_per_tenant() {
+    // PLAN 7.3 + 7.4: a simulated scenario can be saved as a dated draft with
+    // signifier-shift hypotheses, listed, and promoted — explicitly, reversibly,
+    // and never visible across tenants.
+    let (router, _dir, _env) = app().await;
+
+    let simulation = json!({
+        "scenario_id": "procurement-v3",
+        "records_scanned": 2,
+        "changed": 1,
+        "unchanged": 1,
+        "low_confidence": 0,
+        "transitions": [{"from":"OPERATE×MONITOR","to":"STUDY×WORK","count":1}],
+        "items": [
+            {"id":"a","source":"s/a",
+             "before":{"domain":"OPERATE","mode":"MONITOR","score":0.9},
+             "after":{"domain":"STUDY","mode":"WORK","score":0.8}},
+            {"id":"b","source":"s/b",
+             "before":{"domain":"BOND","mode":"PLAY","score":0.9},
+             "after":{"domain":"BOND","mode":"PLAY","score":0.9}}
+        ]
+    });
+
+    // Save → 201, draft, exactly one dated hypothesis shift.
+    let (status, saved) = send(
+        &router,
+        post(
+            "/api/v1/planner/scenarios/save",
+            "planner-user",
+            json!({ "simulation": simulation }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "save succeeds: {saved}");
+    assert_eq!(saved["version"], 1);
+    assert_eq!(saved["status"], "draft");
+    let shifts = saved["shifts"].as_array().unwrap();
+    assert_eq!(shifts.len(), 1, "only changed items become shifts");
+    assert_eq!(shifts[0]["item_id"], "a");
+    assert_eq!(shifts[0]["hypothesis"], true);
+    assert!(shifts[0]["observed_at"].is_string());
+
+    // The owner lists it; another tenant sees an empty list.
+    let (status, mine) = send(
+        &router,
+        get("/api/v1/planner/scenarios/procurement-v3", "planner-user"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(mine.as_array().unwrap().len(), 1);
+    let (_, theirs) = send(
+        &router,
+        get("/api/v1/planner/scenarios/procurement-v3", "someone-else"),
+    )
+    .await;
+    assert!(theirs.as_array().unwrap().is_empty(), "tenant isolation");
+
+    // Promote v1: status flips, promotion timestamp recorded.
+    let (status, promoted) = send(
+        &router,
+        post(
+            "/api/v1/planner/scenarios/procurement-v3/promote",
+            "planner-user",
+            json!({ "version": 1 }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "promotion succeeds: {promoted}");
+    assert_eq!(promoted["status"], "promoted");
+    assert!(promoted["promoted_at"].is_string());
+
+    // Unknown version answers 404, not a 500.
+    let (status, missing) = send(
+        &router,
+        post(
+            "/api/v1/planner/scenarios/procurement-v3/promote",
+            "planner-user",
+            json!({ "version": 99 }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+}

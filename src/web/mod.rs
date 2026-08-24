@@ -80,6 +80,7 @@ mod machines;
 #[cfg(feature = "mcp")]
 mod mcp;
 mod pdca;
+mod scenarios;
 mod search;
 mod shifts;
 #[cfg(feature = "spanner")]
@@ -2735,6 +2736,18 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/planner/simulate",
             post(context::planner_simulate_handler),
+        )
+        .route(
+            "/api/v1/planner/scenarios/save",
+            post(scenarios::scenario_save_handler),
+        )
+        .route(
+            "/api/v1/planner/scenarios/:scenario_id",
+            get(scenarios::scenario_list_handler),
+        )
+        .route(
+            "/api/v1/planner/scenarios/:scenario_id/promote",
+            post(scenarios::scenario_promote_handler),
         )
         .route(
             "/api/v1/admin/review",
