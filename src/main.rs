@@ -166,6 +166,20 @@ pub enum Commands {
     },
     /// Run diagnostics: config, data dir, scan root, embedder, license
     Doctor,
+    /// Build/refresh the fast-path disk catalog for a directory tree (PLAN
+    /// 1.3). Metadata-only walk; re-hashes just stat-changed files; persists
+    /// to sled so the next run starts warm. No embedder, no ontology.
+    Index {
+        /// Directory to index (default: current directory)
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+        /// Keep running, re-indexing every --interval seconds and printing deltas
+        #[arg(long)]
+        watch: bool,
+        /// Seconds between passes in --watch mode
+        #[arg(long, default_value_t = 10)]
+        interval: u64,
+    },
     /// Edit a coherence node's content ("exchange parts"): new label is
     /// re-embedded, structure (id / verdict / edges) preserved. Optional cell
     /// pin overrides the auto-derived semiotic cell.
@@ -513,6 +527,17 @@ fn main() -> anyhow::Result<()> {
         let _license = physis_pro::license::load().ok();
     }
 
+    // The `index` subcommand needs the filesystem and sled and nothing else:
+    // dispatch it before building the heavy PhysisApp (ontology + embedder).
+    if let Commands::Index {
+        dir,
+        watch,
+        interval,
+    } = &cli.command
+    {
+        return run_indexer(dir, *watch, *interval);
+    }
+
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
     // a faulty mount or a quick offline reduction.
@@ -685,6 +710,7 @@ fn main() -> anyhow::Result<()> {
     let mut app = PhysisApp::new(config.physis.clone());
 
     match cli.command {
+        Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Scan { dir, format } => {
             let output = app.run_scan(&dir, &format);
             println!("{output}");
@@ -1544,6 +1570,52 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Fast-path disk indexer (PLAN 1.3). One incremental pass, or a poll loop
+/// with `--watch` that prints only what moved. Uses its own sled file next to
+/// the engine's so it never contends for the web server's lock.
+fn run_indexer(dir: &Path, watch: bool, interval_secs: u64) -> anyhow::Result<()> {
+    // Anchor the store to the engine data dir (PHYSIS_DATA_DIR aware), not the
+    // indexed tree — otherwise `physis-pro index .` catalogs its own sled file.
+    let data_dir = std::env::var("PHYSIS_DATA_DIR")
+        .ok()
+        .filter(|p| !p.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| Path::new(".physis").to_path_buf());
+    let db = sled::Config::new()
+        .path(data_dir.join("index.sled"))
+        .open()
+        .map_err(|e| anyhow::anyhow!("cannot open index store {}index.sled: {e}", data_dir.display()))?;
+
+    let mut idx = physis_pro::indexer::FileIndex::load(&db, dir)?;
+    let mut pass = || -> anyhow::Result<physis_pro::indexer::IndexReport> {
+        let report = idx.index_once()?;
+        idx.save(&db)?;
+        Ok(report)
+    };
+
+    let first = pass()?;
+    println!("[index] {}", dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf()).display());
+    println!("[index] {first}");
+
+    if !watch {
+        return Ok(());
+    }
+
+    // Watch: quiet when nothing moved; a line per pass that changed something.
+    let interval = std::time::Duration::from_secs(interval_secs.max(1));
+    eprintln!("[index] watching every {}s — Ctrl-C to stop", interval.as_secs());
+    loop {
+        std::thread::sleep(interval);
+        let report = pass()?;
+        if report.new + report.changed + report.deleted > 0 {
+            println!(
+                "[{}] [index] {report}",
+                chrono::Local::now().format("%H:%M:%S")
+            );
+        }
+    }
 }
 
 /// Watch a directory and post study events to the running engine. `prev` holds
