@@ -257,22 +257,77 @@ fn accuracy_floor() {
     // revert to the old mean-centroid scoring that scored ~0.56). The HARD tier
     // exercises the newly-filled empty cells; a weak embedder is expected to
     // miss many — those lift once a stronger model (Jina, P4) loads.
-    // Floors recalibrated 2026-08-24 under bge-base-en-v1.5 (the only model
-    // on disk here): measured CORE 0.891 domain / 0.636 cell. The old floors
-    // (0.974/0.923) were calibrated 2026-06-12 and invalidated by two later
-    // deliberate changes that were never re-validated against them: the
-    // 2026-08-14 ontology expansion (+7.7k lines of nearest-entry competitors)
-    // and the 2026-08-18 adaptive-TOP_K scoring change in physis-core.
-    // Domain stays tight (QA 8.3 confirmed real weights restore discrimination:
-    // the audited flat 0.88–1.00 was an RP-only artifact); cell is set just
-    // below today's measurement to catch further drift. Follow-up: rebalance
-    // ontology density to lift cell precision back (PLAN 8.8).
+    // Floors recalibrated 2026-08-24 under bge-base-en-v1.5 after switching
+    // the shipped scoring to max (Fixed(1), PLAN 8.8 sweep result):
+    // measured CORE 0.891 domain / 0.782 cell; ITALIAN 0.867 / 0.733.
+    // History for the record: the 0.974/0.923 floors were calibrated
+    // 2026-06-12 and invalidated by the 2026-08-14 ontology expansion;
+    // under adaptive smoothing the same fixtures fell to 0.891/0.636 —
+    // which is why max ships and smoothing stays behind TopKStrategy.
     assert!(
         core_dom_acc >= 0.85,
         "CORE top-1 domain accuracy {core_dom_acc:.3} below floor 0.85 — weak/degraded model or scoring/ontology regression"
     );
     assert!(
-        core_cell_acc >= 0.55,
-        "CORE top-1 cell accuracy {core_cell_acc:.3} below floor 0.55 — weak/degraded model or scoring/ontology regression"
+        core_cell_acc >= 0.72,
+        "CORE top-1 cell accuracy {core_cell_acc:.3} below floor 0.72 — weak/degraded model or scoring/ontology regression"
     );
+}
+
+/// Diagnostic for PLAN 8.8 (ignored by default): sweep per-cell top-k
+/// strategies over the fixture set and print the accuracy table. Run with
+/// `cargo test --features embed-onnx --test classification -- --ignored
+/// --nocapture scoring_sweep`. No assertions — this is the measurement tool
+/// that picks the next default; `accuracy_floor` enforces the result.
+#[cfg(feature = "embed-onnx")]
+#[test]
+#[ignore = "calibration diagnostic; needs a real model on disk"]
+fn scoring_strategy_sweep() {
+    use physis_pro::classify::TopKStrategy;
+
+    let Some((embedder, model_kind)) = real_embedder() else {
+        eprintln!("SKIP scoring_strategy_sweep: no real model on disk");
+        return;
+    };
+    let ontology = load_ontology();
+    let clf = CellClassifier::build(&ontology, embedder.as_ref());
+    let fx = fixtures();
+
+    let strategies: Vec<(&str, TopKStrategy)> = vec![
+        ("adaptive", TopKStrategy::Adaptive),
+        ("fixed1", TopKStrategy::Fixed(1)),
+        ("fixed2", TopKStrategy::Fixed(2)),
+        ("fixed3", TopKStrategy::Fixed(3)),
+    ];
+
+    eprintln!("strategy      CORE-dom  CORE-cell  IT-dom   IT-cell  (n={model_kind})");
+    for (name, strat) in strategies {
+        let (mut cd, mut cc, mut cn) = (0, 0, 0usize);
+        let (mut idom, mut icell, mut inn) = (0, 0, 0usize);
+        for f in &fx {
+            let top = &clf.classify_with_topk(&embedder.embed(&f.text), strat)[0];
+            let dom_ok = top.domain == f.domain;
+            let cell_ok = dom_ok && top.mode == f.mode;
+            match f.tier.as_str() {
+                "italian" => {
+                    inn += 1;
+                    if dom_ok { idom += 1; }
+                    if cell_ok { icell += 1; }
+                }
+                "hard" => {}
+                _ => {
+                    cn += 1;
+                    if dom_ok { cd += 1; }
+                    if cell_ok { cc += 1; }
+                }
+            }
+        }
+        eprintln!(
+            "{name:<12}  {:.3}     {:.3}      {:.3}    {:.3}",
+            cd as f32 / cn.max(1) as f32,
+            cc as f32 / cn.max(1) as f32,
+            idom as f32 / inn.max(1) as f32,
+            icell as f32 / inn.max(1) as f32,
+        );
+    }
 }
