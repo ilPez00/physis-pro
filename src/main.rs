@@ -10,6 +10,7 @@ use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_pro::graph::FileThemeGraph;
 use physis_pro::industrial_benchmark::secom::{self, BenchmarkConfig};
 use physis_pro::ingest;
+use physis_pro::inventory::InventoryTracker;
 use physis_pro::models::{cosine_sim, DomainDef, Score};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
@@ -945,10 +946,14 @@ fn main() -> anyhow::Result<()> {
                 println!("  Order cooldown: {} hours", config.order_cooldown_hours);
                 if count > 0 {
                     println!("\n  Items (first 20):");
+                    let internal = ["inventory_items", "consumption", "last_order_at", "order_log"];
                     for result in db.iter().take(20) {
                         match result {
                             Ok((key, value)) => {
                                 let k = String::from_utf8_lossy(&key);
+                                if internal.contains(&k.as_ref()) {
+                                    continue; // bookkeeping, not stock
+                                }
                                 let v = String::from_utf8_lossy(&value);
                                 println!("    {k}: {v}");
                             }
@@ -957,6 +962,21 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
                 println!("\n  Use 'physis-pro order <item> <qty>' to suggest a restock.");
+                // QA 8.4: show the persisted order log, not just the item count.
+                if let Ok(tracker) = InventoryTracker::load(&db, config.order_cooldown_hours) {
+                    if !tracker.order_log.is_empty() {
+                        println!("\n  Order log (last 10):");
+                        for s in tracker.order_log.iter().rev().take(10) {
+                            println!(
+                                "    [{}] {} x {} — {}",
+                                s.created_at.format("%Y-%m-%d %H:%M"),
+                                s.sku,
+                                s.suggested_qty,
+                                s.reason
+                            );
+                        }
+                    }
+                }
             }
             Err(e) => {
                 println!(
@@ -968,10 +988,52 @@ fn main() -> anyhow::Result<()> {
             }
         },
         Commands::Order { item, qty } => {
-            println!(
-                "Order suggestion: {} x {} — requires manual approval (order_mode={})",
-                item, qty, config.order_mode
-            );
+            // QA 8.4: this used to print and vanish. Now it goes through the
+            // InventoryTracker (cooldown + order log) and lands in sled.
+            match sled::open(&config.inventory_db) {
+                Ok(db) => {
+                    let mut tracker =
+                        InventoryTracker::load(&db, config.order_cooldown_hours)
+                            .unwrap_or_else(|_| {
+                                InventoryTracker::new(config.order_cooldown_hours)
+                            });
+                    match tracker.place_manual_order(&item, qty as i32) {
+                        Ok(s) => {
+                            tracker.save(&db)?;
+                            println!(
+                                "Order logged: {} x {} ({}) — requires manual approval (order_mode={})",
+                                s.sku,
+                                s.suggested_qty,
+                                s.reason,
+                                config.order_mode
+                            );
+                            if s.forecast_daily_usage > 0.0 {
+                                println!(
+                                    "  30-day forecast: {:.1}/day",
+                                    s.forecast_daily_usage
+                                );
+                            }
+                            println!("  See 'physis-pro inventory' for the order history.");
+                        }
+                        Err(remaining) => {
+                            let hrs = remaining.num_hours();
+                            let mins = remaining.num_minutes() % 60;
+                            println!(
+                                "Order suppressed: {item} was ordered {hrs}h{mins}m ago \
+                                 (cooldown {}h). Nothing recorded.",
+                                config.order_cooldown_hours
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "Could not open inventory database at {}.",
+                        config.inventory_db.display()
+                    );
+                    println!("  Error: {e}");
+                }
+            }
         }
         Commands::Wiki { query } => {
             let wiki_path = config
