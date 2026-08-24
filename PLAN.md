@@ -131,7 +131,7 @@ anomaly detection to corrective action.
 | 9.2 | Anti-hallucination grounding gate (`src/grounding.rs`) | ✅ Done | apply_gate(): ungrounded fields dropped, zero-evidence candidates rejected, Grounded/Partial verdict; 7 tests (5cf0893) |
 | 9.3 | Decision mining → embedding dedup | ✅ Done | 7dcf91a core + 53d89b0 embedding dedup (dedup_by_embedding, intra-batch collapse, broken-vector guard) + decisions-mine CLI; 10 tests |
 | 9.4 | Holarchy community detection (`label-propagation`, no new deps) | ✅ Done (core) | deterministic label-prop + cohesion + read-only invariant, 6 tests (afc2a29); studio rollup tab = 9.4b |
-| 9.5 | Wiki generation over the holarchy (`wiki-gen` feature) | ⬜ Pending | two-pass outline: deterministic grouping pass + LLM naming-only pass (coverage invariant to LLM failure); pure grouping/layers/tour fns unit-tested, LLM injected via trait |
+| 9.5 | Wiki generation over the holarchy (`wiki-gen` feature) | ✅ Done (outline core) | group_nodes (coverage-guaranteed clustering + oversized split) + name_groups (LLM-injected, invented ids dropped, failure→deterministic fallback), 7 tests (9e86c27); page prose + tour = 9.5b |
 
 ### Phase 6 — Administration / Datawork
 
