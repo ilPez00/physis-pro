@@ -130,7 +130,7 @@ anomaly detection to corrective action.
 | 9.1 | Session-transcript adapter registry (`src/sessions/`) | ✅ Done | `discover` + per-line `normalize` → None contract; claude_code/codex adapters; substring prefilter; 11 tests incl. real-transcript ground truth (`c7db9f6`) |
 | 9.2 | Anti-hallucination grounding gate (`src/grounding.rs`) | ✅ Done | apply_gate(): ungrounded fields dropped, zero-evidence candidates rejected, Grounded/Partial verdict; 7 tests (5cf0893) |
 | 9.3 | Decision mining → embedding dedup | ✅ Done (deterministic core) | fold_episodes + cue mining + title dedup + gate integration, 6 tests (7dcf91a); 9.3b embedding cosine dedup over node store pending embedder wiring |
-| 9.4 | Holarchy community detection (`label-propagation`, no new deps) | ⬜ Pending | oversized-cluster split >30%; cohesion score; curation READS graph, WRITES only its result (regression-tested invariant); studio rollup tab |
+| 9.4 | Holarchy community detection (`label-propagation`, no new deps) | ✅ Done (core) | deterministic label-prop + cohesion + read-only invariant, 6 tests (afc2a29); studio rollup tab = 9.4b |
 | 9.5 | Wiki generation over the holarchy (`wiki-gen` feature) | ⬜ Pending | two-pass outline: deterministic grouping pass + LLM naming-only pass (coverage invariant to LLM failure); pure grouping/layers/tour fns unit-tested, LLM injected via trait |
 
 ### Phase 6 — Administration / Datawork
