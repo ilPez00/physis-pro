@@ -47,6 +47,8 @@ pub mod rachmaninov;
 pub mod rbac;
 pub mod reconstruct;
 pub mod review_desk;
+#[cfg(feature = "ingest")]
+pub mod batch_csv;
 pub mod report;
 pub mod salience;
 pub mod scanner;
