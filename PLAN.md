@@ -101,7 +101,7 @@ anomaly detection to corrective action.
 | 5B.2 | Document analyzer: pptx/docx text+metadata, plaintext | ✅ Done | OOXML behind `daemon` feature |
 | 5B.3 | Daemon binary: clipboard + watched dirs → loopback API | ✅ Done | `physis-interest-daemon`, port 19878 |
 | 5B.4 | Semantic embedder in daemon (BGE via ONNX) | ✅ Done | cascade + self-test + seed cache; `--features daemon,embed-onnx` |
-| 5B.5 | Console tab for the interest timeline | ⬜ Pending | |
+| 5B.5 | Console tab for the interest timeline | ✅ Done | console.html `#tab-interest`: daemon connect, decayed profile, recent events, offline help |
 
 ### Phase 8 — QA-Found Defects (2026-08-24 full-feature audit)
 
