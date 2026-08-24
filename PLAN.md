@@ -114,7 +114,7 @@ anomaly detection to corrective action.
 | 8.3 | RP-embedder score compression (0.88–1.00 flat, wrong top cells) | ⬜ Pending | Download BGE ONNX weights + validate classify discrimination; document RP limits |
 | 8.4 | `order` command stub — persists nothing (`main.rs:904`) | ✅ Done | `place_manual_order` w/ cooldown + sled order log; `inventory` shows history |
 | 8.5 | `\u0000` literal in `quality` output cell names | ✅ Done | physis-core summary renders `DOMAIN/MODE`; regression test |
-| 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ⬜ Pending | Rate-limit + skip below node-count threshold |
+| 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ✅ Done | Zero-signal skip + ≥3-node threshold + existing rate-limit; 2 tests |
 | 8.7 | timeline/machine input schemas undiscoverable | ⬜ Pending | Add example JSON to --help long_about |
 
 

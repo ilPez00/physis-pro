@@ -374,7 +374,10 @@ mod tests {
         let mut t = InventoryTracker::new(24);
         t.place_manual_order("BOLT-M10", 100).unwrap();
         let err = t.place_manual_order("BOLT-M10", 50).unwrap_err();
-        assert!(err > chrono::Duration::zero(), "remaining cooldown reported");
+        assert!(
+            err > chrono::Duration::zero(),
+            "remaining cooldown reported"
+        );
     }
 
     /// After the cooldown window has passed the same SKU can be ordered again.

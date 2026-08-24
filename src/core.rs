@@ -949,8 +949,13 @@ impl PhysisCore {
         if let Ok(crate::ai::onnx_worker::OnnxResponse::GnnResult { context_vector }) =
             reply_rx.recv()
         {
-            // 3. Feed to Rachmaninov
-            rachmaninov.tick(&context_vector);
+            // 3. Feed to Rachmaninov — but only once the holarchy holds enough
+            // nodes for a similarity to mean anything. QA 8.6: below this
+            // threshold the context vector is degenerate and every "drift"
+            // detection was noise.
+            if self.holarchy.nodes.len() >= 3 {
+                rachmaninov.tick(&context_vector);
+            }
         }
     }
 
