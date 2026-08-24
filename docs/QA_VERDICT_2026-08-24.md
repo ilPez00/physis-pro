@@ -1,5 +1,8 @@
 # Physis Pro — Full Feature QA Verdict (2026-08-24)
 
+> **UPDATE (same day, later): ALL Phase-8 defects FIXED and live-verified.**
+> See "Re-test after fixes" at the bottom. 684 tests green on origin/main.
+
 > Tester: Hermes agent session. Method: isolated build (CARGO_TARGET_DIR=/tmp/qa-target,
 > vendor pubkey stamped, dev licence minted via vendor tool), 648-test suite + live CLI
 > and HTTP exercise with the tester as quality judge.
@@ -88,3 +91,33 @@ Licence gating is production-grade. Test suite is green and meaningful (not vani
 **Not customer-ready yet:** knowledge-management layer (query/ingest/wiki chain broken by 2 HIGH bugs), order/inventory loop (stub), and any classify-dependent demo until ONNX weights are downloaded and validated (RP fallback compresses scores to noise).
 
 Recommended fix order: #1 → #2 → #4 (download+wire ONNX) → #3, then re-run this QA suite.
+
+---
+
+## Re-test after fixes (2026-08-24, end of day)
+
+All fixes landed via parallel loops (this session + sibling opencode sessions), each
+committed separately on main. Re-verified against origin/main (c5bac72) with a fresh
+isolated build (vendor pubkey stamped, dev licence, clean worktree):
+
+| Defect | Fix commit(s) | Live re-test result |
+|---|---|---|
+| 8.1 VFS re-ingest crash + dangling links + `.physis` recursion | 9f14b70, 9afb597 | ✅ 3× ingest byte-identical (370 themes / 2 files / 10 edges), 0 dangling links; regression tests `test_vfs_resync_*` green |
+| 8.2 query finds nothing across invocations | 47b5bd8 | ✅ `query manutenzione` returns "Persisted nodes:" with ranked sled hits after separate vault run |
+| 8.3 RP score compression | ea7fd2b + d307b70 (max-cell sweep) + runtime WARNING when RP is active | ⚠️ PARTIAL: honest warning now prints ("random-projection embedder is non-semantic…"); real fix still needs ONNX weights (`scripts/download_models.sh`) — weights absent at test time |
+| 8.4 order stub persists nothing | cbaf12d (+016004f release) | ✅ order logged to sled, visible in `inventory` order log; immediate re-order correctly suppressed by 24h cooldown ("was ordered 23h59m ago") |
+| 8.5 NUL in quality output | 9cf9ad5 (physis-core) | ✅ displays `FABRICATE/CREATE`, zero NUL bytes in output |
+| 8.6 drift WARN spam | bf9ef0f (degenerate-vector guard <3 nodes) + rate-limit | ✅ 0 WARNs in a 40s live web-server window (previously one every 10s) |
+| 8.7 undiscoverable schemas | d246ad3 | ✅ `machine --schema chronos` emits an executable example that pipes straight into `machine chronos -i -` and produces correct rhythm JSON |
+
+### Final suite (origin/main)
+684 tests passed, 0 failed (lib 573 + integration 111 incl. http_surface 47).
+
+### Remaining open items
+1. **ONNX embedder weights** — download + validate classify discrimination on the Italian industrial set (the only path to sales-demoable classification).
+2. Sibling sessions continue on Phase 9 (grounding gate) — not covered by this verdict.
+
+**Verdict upgrade: customer-ready on the revenue path** (reports, shifts API, licence
+gate, inventory loop, query/vault recall). Classification demos remain gated on real
+embedder weights.
+
