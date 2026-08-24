@@ -8,7 +8,7 @@
 //! - the registry hands out adapters by name and rejects unknown names;
 //! - a cheap substring prefilter gates expensive JSON parsing.
 
-use physis_pro::sessions::{get_adapter, registered, Event, TranscriptAdapter};
+use physis_pro::sessions::{get_adapter, registered, Event};
 
 const CLAUDE_USER_LINE: &str = r#"{"type":"user","sessionId":"s1","cwd":"/repo","message":{"role":"user","content":"Review this change for security vulnerabilities."}}"#;
 

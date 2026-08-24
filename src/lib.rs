@@ -65,6 +65,7 @@ pub mod wiki;
 #[cfg(feature = "spanner")]
 pub mod spanner;
 
+pub mod grounding;
 pub mod history;
 pub mod license;
 pub mod pack;
