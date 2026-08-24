@@ -15,6 +15,7 @@
 //! path is testable with canned responses and no network.
 
 use crate::communities::{detect_communities, EdgeList};
+use std::collections::HashMap;
 
 /// One holarchy node to be covered by the outline.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,8 +46,7 @@ pub struct OutlinePage {
 /// path-segment of their labels (`/`-delimited), recursively until small
 /// enough or un-splittable.
 pub fn group_nodes(nodes: &[NodeInput], edges: &EdgeList, max_group: usize) -> Vec<Group> {
-    let known: std::collections::HashSet<&str> =
-        nodes.iter().map(|n| n.label.as_str()).collect();
+    let known: std::collections::HashSet<&str> = nodes.iter().map(|n| n.label.as_str()).collect();
     // Only edges between known nodes participate (holarchy may hold more).
     let filtered: EdgeList = edges
         .iter()
@@ -63,11 +63,8 @@ pub fn group_nodes(nodes: &[NodeInput], edges: &EdgeList, max_group: usize) -> V
         raw[report.assignment[i] as usize].push(label.clone());
     }
     // Isolated nodes never entered the graph — singleton groups.
-    let clustered: std::collections::HashSet<&str> = report
-        .nodes
-        .iter()
-        .map(|s| s.as_str())
-        .collect();
+    let clustered: std::collections::HashSet<&str> =
+        report.nodes.iter().map(|s| s.as_str()).collect();
     for n in nodes {
         if !clustered.contains(n.label.as_str()) {
             raw.push(vec![n.label.clone()]);
@@ -92,12 +89,7 @@ fn split_oversized(cluster: Vec<String>, max_group: usize, out: &mut Vec<Group>)
     }
     // Split by dominant leading segment; fall back to halving when all share
     // one segment (or have none).
-    let seg = |l: &String| {
-        l.split('/')
-            .next()
-            .unwrap_or("")
-            .to_lowercase()
-    };
+    let seg = |l: &String| l.split('/').next().unwrap_or("").to_lowercase();
     let mut buckets: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();
     for l in cluster {
@@ -143,29 +135,30 @@ pub fn name_groups(
         Err(_) => return fallback_all(groups), // total LLM failure still yields full coverage
     };
 
-    let parsed: std::collections::HashMap<String, (String, String)> = serde_json::from_str::<Value>(&raw)
-        .ok()
-        .and_then(|v| v.get("pages").cloned())
-        .and_then(|p| p.as_array().cloned())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|entry| {
-                    let id = entry.get("id")?.as_str()?.to_owned();
-                    let title = entry.get("title")?.as_str()?.trim().to_owned();
-                    let scope = entry
-                        .get("scope")
-                        .and_then(Value::as_str)
-                        .unwrap_or("")
-                        .to_owned();
-                    if title.is_empty() {
-                        None
-                    } else {
-                        Some((id, (title, scope)))
-                    }
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let parsed: std::collections::HashMap<String, (String, String)> =
+        serde_json::from_str::<Value>(&raw)
+            .ok()
+            .and_then(|v| v.get("pages").cloned())
+            .and_then(|p| p.as_array().cloned())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|entry| {
+                        let id = entry.get("id")?.as_str()?.to_owned();
+                        let title = entry.get("title")?.as_str()?.trim().to_owned();
+                        let scope = entry
+                            .get("scope")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_owned();
+                        if title.is_empty() {
+                            None
+                        } else {
+                            Some((id, (title, scope)))
+                        }
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
     groups
         .iter()
@@ -215,6 +208,109 @@ fn deterministic_title(g: &Group) -> String {
     )
 }
 
+// ── 9.5b: page prose ────────────────────────────────────────────────────────
+
+/// Render one wiki page as markdown. The skeleton (title, scope line, member
+/// list) is DETERMINISTIC and always present; the LLM contributes at most one
+/// summary paragraph injected after the scope. Failure of the model degrades
+/// the prose, never the coverage — every member is listed regardless.
+pub fn render_page(
+    page: &OutlinePage,
+    summarizer: &dyn Fn(&str) -> anyhow::Result<String>,
+) -> String {
+    let mut out = String::with_capacity(256 + page.members.len() * 24);
+    out.push_str("# ");
+    out.push_str(&page.title);
+    out.push_str("\n\n");
+    if !page.scope.trim().is_empty() {
+        out.push_str(page.scope.trim());
+        out.push_str("\n\n");
+    }
+    // One bounded LLM call for a summary paragraph; any failure is invisible —
+    // the deterministic member listing below already carries the content.
+    let prompt = serde_json::json!({
+        "title": page.title,
+        "members": page.members.iter().take(10).collect::<Vec<_>>(),
+    });
+    if let Ok(summary) = summarizer(&serde_json::to_string(&prompt).unwrap()) {
+        let s = summary.trim();
+        if !s.is_empty() {
+            out.push_str(s);
+            out.push_str("\n\n");
+        }
+    }
+    out.push_str("## Members\n\n");
+    for m in &page.members {
+        out.push_str("- ");
+        out.push_str(m);
+        out.push('\n');
+    }
+    out
+}
+
+// ── 9.5b: execution-flow tour ───────────────────────────────────────────────
+
+/// Bounded, dependency-ordered tour over node labels.
+///
+/// Order = Kahn's algorithm on the filtered directed edges (a→b means "a
+/// feeds b", so a comes first); nodes with no incoming edge lead, ties broken
+/// alphabetically for determinism. Cycles are broken by falling back to
+/// alphabetical position among remaining nodes, so termination + totality are
+/// guaranteed. Output capped at `cap` entries.
+pub fn execution_tour(nodes: &[NodeInput], edges: &EdgeList, cap: usize) -> Vec<String> {
+    let known: std::collections::HashSet<&str> = nodes.iter().map(|n| n.label.as_str()).collect();
+    let mut indegree: HashMap<&str, usize> = known.iter().map(|&k| (k, 0)).collect();
+    let mut out_edges: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (a, b) in edges {
+        if a == b || !known.contains(a.as_str()) || !known.contains(b.as_str()) {
+            continue;
+        }
+        *indegree.get_mut(b.as_str()).expect("known") += 1;
+        out_edges.entry(a.as_str()).or_default().push(b.as_str());
+    }
+
+    // Ready set: alphabetical min-heap behaviour via sorted scan.
+    let mut remaining: std::collections::BTreeSet<&str> =
+        nodes.iter().map(|n| n.label.as_str()).collect();
+    let mut ready: Vec<&str> = indegree
+        .iter()
+        .filter(|(_, d)| **d == 0)
+        .map(|(k, _)| *k)
+        .collect();
+    ready.sort_unstable();
+
+    let mut tour = Vec::with_capacity(cap.min(nodes.len()));
+    while tour.len() < cap && !remaining.is_empty() {
+        // Next ready node; when cycles starve the ready set, break the tie
+        // with the alphabetically-smallest remaining node.
+        let cur = match ready.first() {
+            Some(&x) if remaining.contains(x) => x,
+            _ => match remaining.iter().next() {
+                Some(&x) => x,
+                None => break,
+            },
+        };
+        remaining.remove(cur);
+        tour.push(cur.to_owned());
+        if let Some(children) = out_edges.get(cur) {
+            for child in children.clone() {
+                if let Some(d) = indegree.get_mut(child) {
+                    *d = d.saturating_sub(1);
+                    if *d == 0 && remaining.contains(child) {
+                        ready.push(child);
+                    }
+                }
+            }
+            ready.sort_unstable();
+        }
+        // Drop `cur` from ready wherever it sits (it may have been re-added).
+        if let Some(pos) = ready.iter().position(|&x| x == cur) {
+            ready.remove(pos);
+        }
+    }
+    tour
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,23 +326,42 @@ mod tests {
 
     #[test]
     fn grouping_covers_every_input_node_exactly_once() {
-        let nodes: Vec<NodeInput> = ["a/x", "b/y", "a/z", "lonely"].iter().map(|s| n(s)).collect();
+        let nodes: Vec<NodeInput> = ["a/x", "b/y", "a/z", "lonely"]
+            .iter()
+            .map(|s| n(s))
+            .collect();
         let edges: EdgeList = vec![e("a/x", "a/z"), e("b/y", "b/y"), e("ghost", "a/x")];
         let groups = group_nodes(&nodes, &edges, 10);
-        let mut covered: Vec<&str> =
-            groups.iter().flat_map(|g| g.members.iter()).map(|s| s.as_str()).collect();
+        let mut covered: Vec<&str> = groups
+            .iter()
+            .flat_map(|g| g.members.iter())
+            .map(|s| s.as_str())
+            .collect();
         covered.sort_unstable();
         assert_eq!(covered, vec!["a/x", "a/z", "b/y", "lonely"], "{groups:?}");
         // no duplicates
-        assert_eq!(covered.len(), covered.iter().collect::<std::collections::HashSet<_>>().len());
+        assert_eq!(
+            covered.len(),
+            covered
+                .iter()
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        );
         // ghost edge ignored
-        assert!(!groups.iter().any(|g| g.members.iter().any(|m| m == "ghost")));
+        assert!(!groups
+            .iter()
+            .any(|g| g.members.iter().any(|m| m == "ghost")));
     }
 
     #[test]
     fn oversized_cluster_splits_by_leading_segment() {
         let labels: Vec<NodeInput> = [
-            "infra/one", "infra/two", "infra/three", "ui/one", "ui/two", "docs/one",
+            "infra/one",
+            "infra/two",
+            "infra/three",
+            "ui/one",
+            "ui/two",
+            "docs/one",
         ]
         .iter()
         .map(|s| n(s))
@@ -288,8 +403,14 @@ mod tests {
     #[test]
     fn naming_drops_invented_ids_keeps_fallback_for_forgotten() {
         let groups = vec![
-            Group { id: "g0".into(), members: vec!["a/1".into()] },
-            Group { id: "g1".into(), members: vec!["b/2".into()] },
+            Group {
+                id: "g0".into(),
+                members: vec!["a/1".into()],
+            },
+            Group {
+                id: "g1".into(),
+                members: vec!["b/2".into()],
+            },
         ];
         let pages = name_groups(&groups, &canned(GOOD_RESPONSE));
         assert_eq!(pages.len(), 2, "coverage invariant");
@@ -301,7 +422,10 @@ mod tests {
 
     #[test]
     fn total_llm_failure_still_yields_full_outline() {
-        let groups = vec![Group { id: "g0".into(), members: vec!["x/1".into(), "x/2".into()] }];
+        let groups = vec![Group {
+            id: "g0".into(),
+            members: vec!["x/1".into(), "x/2".into()],
+        }];
         let fail = |_req: &str| -> anyhow::Result<String> { Err(anyhow::anyhow!("api down")) };
         let pages = name_groups(&groups, &fail);
         assert_eq!(pages.len(), 1);
@@ -311,7 +435,10 @@ mod tests {
 
     #[test]
     fn garbage_response_is_tolerated_like_failure() {
-        let groups = vec![Group { id: "g0".into(), members: vec!["q/1".into()] }];
+        let groups = vec![Group {
+            id: "g0".into(),
+            members: vec!["q/1".into()],
+        }];
         let pages = name_groups(&groups, &canned("this is not json"));
         assert_eq!(pages.len(), 1);
         assert!(pages[0].title.contains("q cluster"));
@@ -320,8 +447,84 @@ mod tests {
     #[test]
     fn empty_titles_in_response_get_fallback_not_empty_page() {
         let resp = r#"{"pages":[{"id":"g0","title":"","scope":""}]}"#;
-        let groups = vec![Group { id: "g0".into(), members: vec!["w/1".into()] }];
+        let groups = vec![Group {
+            id: "g0".into(),
+            members: vec!["w/1".into()],
+        }];
         let pages = name_groups(&groups, &canned(resp));
         assert!(!pages[0].title.is_empty());
+    }
+
+    // ── 9.5b: page prose + execution-flow tour ─────────────────────────
+
+    #[test]
+    fn prose_never_empty_even_when_llm_dies() {
+        let page = OutlinePage {
+            title: "Infrastructure".into(),
+            scope: "Shared plumbing.".into(),
+            members: vec!["a/1".into(), "a/2".into()],
+        };
+        let fail = |_req: &str| -> anyhow::Result<String> { Err(anyhow::anyhow!("down")) };
+        let md = render_page(&page, &fail);
+        assert!(md.contains("# Infrastructure"));
+        // Every member listed → coverage invariant extends to prose.
+        assert!(md.contains("a/1") && md.contains("a/2"));
+        assert!(md.contains("Shared plumbing."));
+    }
+
+    #[test]
+    fn llm_summary_is_injected_but_members_stay_listed() {
+        let page = OutlinePage {
+            title: "Storage".into(),
+            scope: "".into(),
+            members: vec!["sled".into(), "postgres".into()],
+        };
+        let good = |_req: &str| -> anyhow::Result<String> {
+            Ok("Sled for embedded cases, Postgres when a server exists.".into())
+        };
+        let md = render_page(&page, &good);
+        assert!(md.contains("Sled for embedded cases"));
+        assert!(md.contains("- sled"));
+        assert!(md.contains("- postgres"));
+    }
+
+    #[test]
+    fn tour_respects_edge_direction_and_cap() {
+        // Dependency chain a→b→c→d plus a hub e pointing at everyone.
+        let nodes: Vec<NodeInput> = ["a", "b", "c", "d", "e"].iter().map(|s| n(s)).collect();
+        let edges: EdgeList = vec![
+            e("a", "b"),
+            e("b", "c"),
+            e("c", "d"),
+            e("e", "a"),
+            e("e", "d"),
+        ];
+        let tour = execution_tour(&nodes, &edges, 5);
+        assert_eq!(tour.len(), 5, "all nodes under a generous cap");
+        assert_eq!(tour[0], "e", "fan-out hub leads (nothing points at it)");
+        // Follow the chain in dependency order afterwards.
+        let pos = |x: &str| tour.iter().position(|s| s == x).expect("node in tour");
+        assert!(pos("a") < pos("b") && pos("b") < pos("c") && pos("c") < pos("d"));
+        // And the cap trims deterministically.
+        let trimmed = execution_tour(&nodes, &edges, 2);
+        assert_eq!(trimmed.len(), 2);
+        assert_eq!(trimmed[0], "e");
+    }
+
+    #[test]
+    fn tour_is_total_over_nodes_regardless_of_edges() {
+        let nodes: Vec<NodeInput> = ["solo", "pair1", "pair2"].iter().map(|s| n(s)).collect();
+        let edges: EdgeList = vec![e("pair1", "pair2"), e("ghost", "ghost")];
+        let mut tour = execution_tour(&nodes, &edges, 10);
+        tour.sort();
+        assert_eq!(tour, vec!["pair1", "pair2", "solo"]);
+    }
+
+    #[test]
+    fn tour_cycles_terminate() {
+        let nodes: Vec<NodeInput> = ["a", "b", "c"].iter().map(|s| n(s)).collect();
+        let edges: EdgeList = vec![e("a", "b"), e("b", "c"), e("c", "a")];
+        let tour = execution_tour(&nodes, &edges, 10);
+        assert_eq!(tour.len(), 3); // must terminate and cover all
     }
 }
