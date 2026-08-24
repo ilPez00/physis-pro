@@ -143,7 +143,20 @@ pub enum Commands {
     },
     /// Classify a text file against the semiotic grid
     Classify { file: PathBuf },
-    /// Render a timeline/incident view from normalized operational events
+    /// Render a timeline/incident view from normalized operational events.
+    ///
+    /// Input: a JSON file holding an array of OperationalEvent records, e.g.
+    /// [{"event_key":"k1",
+    ///   "observed_at":"2026-08-24T08:00:00Z",
+    ///   "kind":"machine",         <- machine|document|email|workflow|system|verdict
+    ///   "status":"order",         <- order|incident|inert|info
+    ///   "subject":"CNC-04",
+    ///   "machine_id":"CNC-04",
+    ///   "provenance":{"connector":"industrial","source":"machine"}}]
+    ///
+    /// Required per record: event_key, observed_at (RFC 3339), kind, status,
+    /// subject, provenance{connector, source}; everything else is optional.
+    #[command(verbatim_doc_comment)]
     Timeline {
         /// JSON file containing an array of OperationalEvent records
         input: PathBuf,
@@ -310,6 +323,9 @@ pub enum Commands {
     /// Run a philosophical machine reducer over JSON input — no server, no
     /// embedder, no disk state. Reads --input FILE or stdin; prints JSON.
     /// e.g. `physis-pro machine chronos --input events.json`
+    /// Every reducer's request schema is discoverable:
+    /// `physis-pro machine <name> --schema` prints a ready-to-edit example
+    /// that pipes straight back in (QA 8.7).
     Machine {
         /// Machine name (chronos, topos, harmony, polis, soma, elenchus, lex,
         /// empedocles, euclid, techne, erosp, erosa, plutos, krisis, pathos,
@@ -318,6 +334,9 @@ pub enum Commands {
         /// JSON input file; omit or use '-' to read from stdin.
         #[arg(short, long)]
         input: Option<PathBuf>,
+        /// Print a ready-to-edit example input JSON for <name> and exit.
+        #[arg(long)]
+        schema: bool,
     },
     /// Compare two data structures (JSON/struct text) node-by-node by vector
     /// similarity. Prints matched fields, what A is missing in B, and overall
@@ -463,6 +482,20 @@ pub enum SpannerAction {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // QA 8.7: schema discovery is documentation, not operation — answer it
+    // before the licence gate so an evaluator can learn the input formats.
+    if let Commands::Machine { name, schema: true, .. } = &cli.command {
+        match physis_pro::machines::run::schema(name) {
+            Some(ex) => println!("{ex}"),
+            None => {
+                eprintln!("Unknown machine: {name}");
+                eprintln!("Known: {}", physis_pro::machines::run::NAMES.join(", "));
+                std::process::exit(2);
+            }
+        }
+        return Ok(());
+    }
+
     // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
     // `--version` still answer on an unlicensed host: an evaluator has to be able
     // to see what the tool is before we demand a key, and support needs
@@ -483,7 +516,7 @@ fn main() -> anyhow::Result<()> {
     // The `machine` subcommand is pure: dispatch it before building the heavy
     // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
     // a faulty mount or a quick offline reduction.
-    if let Commands::Machine { name, input } = &cli.command {
+    if let Commands::Machine { name, input, .. } = &cli.command {
         let raw = match input.as_deref() {
             Some(p) if p != Path::new("-") => std::fs::read_to_string(p)?,
             _ => {

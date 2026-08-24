@@ -38,9 +38,38 @@ pub const NAMES: &[&str] = &[
     "apodeixis",
 ];
 
+/// A ready-to-edit example input for machine `name` (QA 8.7): the request
+/// schemas were undiscoverable — you had to read this file to know what JSON
+/// to feed `physis-pro machine <name>`. Every returned string is valid input
+/// that actually reduces (enforced by [`tests::every_schema_example_runs`]),
+/// so `physis-pro machine <name> --schema | physis-pro machine <name>` always
+/// works.
+pub fn schema(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "chronos" => r#"{"events":[{"label":"oil check","at":"2026-08-01T08:00:00Z"},{"label":"oil check","at":"2026-08-08T08:05:00Z"},{"label":"oil check","at":"2026-08-15T07:55:00Z"}],"horizon_days":7,"tolerance":0.5}"#,
+        "topos" => r#"{"waypoints":[{"lat":45.4642,"lng":9.1900,"label":"plant","at":"2026-08-20T09:00:00Z"},{"lat":45.4643,"lng":9.1901},{"lat":45.4700,"lng":9.2100}],"radius_km":0.5,"min_visits":2,"stale_days":30}"#,
+        "harmony" => r#"{"notes":[60,64,67],"motif_len":4}"#,
+        "polis" => r#"{"interactions":[{"from":"anna","to":"bruno","weight":1.0}],"min_strength":0.5}"#,
+        "soma" => r#"{"sessions":[{"day":1,"activity":"run","load":5.0,"recovery":2.0}],"window":7}"#,
+        "elenchus" => r#"{"statements":[{"id":"c1","kind":"claim","text":"the line output is stable"}]}"#,
+        "lex" => r#"{"clauses":[{"id":"o1","kind":"obligation","text":"payment net 30","requires":[]}],"failed":[]}"#,
+        "empedocles" => r#"{"readings":[{"metric":"temperature_c","value":61.0,"baseline":60.0}],"threshold":5.0,"series":[59.0,60.0,61.0]}"#,
+        "euclid" => r#"{"primitives":[{"vertices":4,"circularity":0.9,"aspect_ratio":1.0,"color":[200,200,200],"texture":0.1,"bbox":[0.0,0.0,10.0,10.0]}],"circularity_limit":0.95,"near":2.0}"#,
+        "techne" => r#"{"files":[{"path":"src/main.rs","lines":["fn main() {}"]}],"impact_target":"src/main.rs"}"#,
+        "erosp" => r#"{"reaches":[{"subject":"team-a","object":"team-b","weight":0.8}],"min_intensity":0.5,"min_ascent":0.1}"#,
+        "erosa" => r#"{"reaches":[{"subject":"team-a","object":"team-b","weight":0.8}],"min_balance":0.5}"#,
+        "plutos" => r#"{"transactions":[{"from":"supplier","to":"plant","amount":100.0}],"min_count":2,"min_total":50.0}"#,
+        "krisis" => r#"{"choices":[{"over":"ship now","under":"delay for more tests"}]}"#,
+        "pathos" => r#"{"episodes":[{"trigger":"incident","valence":-0.8,"arousal":0.6}],"min_count":2,"flat":0.1}"#,
+        "chroma" => r#"{"colors":[{"r":255,"g":0,"b":0}],"min_chroma":0.3,"tol":0.2}"#,
+        "kinesis" => r#"{"gestures":[{"label":"swipe","points":[{"x":0.0,"y":0.0},{"x":10.0,"y":1.0}]}],"min_move":1.0,"min_net":0.5,"drop":0.8}"#,
+        "apodeixis" => r#"{"obligations":[{"id":"chk-ls","claim":"ls exits cleanly","snippet":"true"}],"timeout_secs":30}"#,
+        _ => return None,
+    })
+}
+
 /// Run machine `name` over `input`, returning the reduced JSON.
-pub fn run(name: &str, input: &Value) -> Result<Value> {
-    let v = input.clone();
+pub fn run(name: &str, input: &Value) -> Result<Value> {    let v = input.clone();
     let out = match name {
         "chronos" => {
             #[derive(Deserialize)]
@@ -708,6 +737,19 @@ pub fn run(name: &str, input: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression (QA 8.7): every machine must publish a schema example, and
+    /// every example must be executable input — not documentation that rots.
+    #[test]
+    fn every_schema_example_runs() {
+        for name in NAMES {
+            let ex = schema(name).unwrap_or_else(|| panic!("{name} has no schema example"));
+            let v: Value = serde_json::from_str(ex)
+                .unwrap_or_else(|e| panic!("{name} schema is not valid JSON: {e}"));
+            run(name, &v).unwrap_or_else(|e| panic!("{name} schema does not reduce: {e}"));
+        }
+        assert!(schema("nope").is_none());
+    }
 
     #[test]
     fn dispatch_runs_a_few_machines() {
