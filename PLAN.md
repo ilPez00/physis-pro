@@ -59,14 +59,14 @@ anomaly detection to corrective action.
 | 1.23 | Praxis backfill | ✅ Done | — | `src/praxis.rs` |
 | 1.24 | Spanner Graph sink | ✅ Done | — | `--features spanner`, off hot path |
 
-### Phase 2 — Interface Mimicking Nature (Next)
+### Phase 2 — Interface Mimicking Nature (Done 2026-08-24)
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 2.1 | `NodeView` + `observable()` exhaustive destructure | ⬜ Pending | — | Compiler-forbids write-only state |
-| 2.2 | Pins persist across edits; clearing is explicit | ⬜ Pending | — | `cell: null` to clear |
-| 2.3 | Pin disagreements feed `QualityTracker` automatically | ⬜ Pending | — | Labelled corrections, no review queue |
-| 2.4 | Single projection for all surfaces | ⬜ Pending | — | 7 partial views → 1 `NodeView` |
+| 2.1 | `NodeView` + `observable()` exhaustive destructure | ✅ Done | — | `models.rs:244`; no `..` in destructure — new fields force a decision |
+| 2.2 | Pins persist across edits; clearing is explicit | ✅ Done | — | Web `"cell": null` → `PinEdit::Clear` (tested); CLI `node-edit --clear-pin` |
+| 2.3 | Pin disagreements feed `QualityTracker` automatically | ✅ Done | — | `web/coherence.rs`: dissent penalizes the auto cell, pins reinforce |
+| 2.4 | Single projection for all surfaces | ✅ Done | — | Web module dropped its own DTO; TUI parses NodeView subsets |
 
 ### Phase 3 — User Experience (Backoffice Polish)
 
