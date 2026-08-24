@@ -147,7 +147,7 @@ anomaly detection to corrective action.
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
 | 7.1 | Version ontology/overlay scenarios | ✅ Done | — | `/planner/simulate` compares candidate ontologies without mutating live state |
-| 7.2 | Coverage gaps + affected reports/workflows | ⬜ Pending | — | Transitions + review load exist; report/workflow linkage missing |
+| 7.2 | Coverage gaps + affected reports/workflows | ✅ Done | `ImpactAnalysis::derive`: newly covered/uncovered, per-cell deltas (affected aggregates), mean confidence delta; stored on every version |
 | 7.3 | Dated signifier shifts as reviewable hypotheses | ✅ Done | — | `web/scenarios.rs`: changed items saved as dated `hypothesis:true` shifts |
 | 7.4 | Scenario review + promotion + version history | ✅ Done | — | save/list/promote per tenant; one live version, reversible; HTTP-tested |
 

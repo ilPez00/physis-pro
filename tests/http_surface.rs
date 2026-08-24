@@ -2898,6 +2898,19 @@ async fn scenarios_persist_review_and_promote_per_tenant() {
     assert_eq!(shifts[0]["hypothesis"], true);
     assert!(shifts[0]["observed_at"].is_string());
 
+    // PLAN 7.2: the saved version carries the coverage + aggregate diff.
+    // Item "a" moves OPERATE×MONITOR → STUDY×WORK confidently; item "b" stays.
+    let impact = &saved["impact"];
+    assert!(impact.is_object(), "impact analysis present: {saved}");
+    assert_eq!(
+        impact["newly_uncovered"].as_array().map(|a| a.len()),
+        Some(0)
+    );
+    let deltas = impact["cell_deltas"].as_array().unwrap();
+    assert_eq!(deltas.len(), 2, "two cells moved by one each");
+    assert_eq!(deltas[0]["delta"], -1, "largest movement first");
+    assert!(impact["mean_confidence_delta"].is_number());
+
     // The owner lists it; another tenant sees an empty list.
     let (status, mine) = send(
         &router,
