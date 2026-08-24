@@ -138,7 +138,7 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 6.1 | Fixed demo corpus + Admin Review Desk flow | ⬜ Pending | — | |
+| 6.1 | Fixed demo corpus + Admin Review Desk flow | ✅ Done (core) | demo corpus existed (studio --demo); review_desk.rs: run_desk() exceptions queue (missing fields, low confidence, fingerprint duplicates) + markdown report, 4 tests (ac62f29); CLI/web surfacing = 6.1b |
 | 6.2 | CSV/XLSX batch import with validation | ⬜ Pending | — | + reviewed export |
 | 6.3 | Invoice/PO/delivery-note reconciliation | ⬜ Pending | — | No payment automation |
 | 6.4 | Weekly management-pack templates | ⬜ Pending | — | Source provenance |
