@@ -116,7 +116,7 @@ anomaly detection to corrective action.
 | 8.5 | `\u0000` literal in `quality` output cell names | ✅ Done | physis-core summary renders `DOMAIN/MODE`; regression test |
 | 8.6 | rachmaninov WARN spam every 10s at sim=0.0000 on empty holarchy | ✅ Done | Zero-signal skip + ≥3-node threshold + existing rate-limit; 2 tests |
 | 8.7 | timeline/machine input schemas undiscoverable | ✅ Done | `machine <name> --schema` (executable example, pre-licence); timeline long_about |
-| 8.8 | Cell-level classify precision regressed: 0.636 vs 0.923 (2026-06-12 calibration) | ⬜ Pending | Ontology expansion (08-14) + adaptive TOP_K (08-18) diluted nearest-entry scoring; rebalance density / re-tune top-k. Italian anchors hit hardest (0.667 under bge-base-en) |
+| 8.8 | Cell-level classify precision regressed: 0.636 vs 0.923 (2026-06-12 calibration) | ✅ Done | Root cause: smoothing diluted anchors post-expansion. Sweep (bge-base) → shipped max scoring: CORE cell 0.636→0.782, Italian 0.667→0.867 dom; `TopKStrategy` seam kept |
 
 
 ### Phase 9 — Repowise Pattern Adaptation (2026-08-24)

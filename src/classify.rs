@@ -25,7 +25,7 @@ use serde::Serialize;
 use crate::config::OntologyLoader;
 use crate::embed::VectorEmbed;
 
-pub use physis_core::classify::CellScore;
+pub use physis_core::classify::{CellScore, TopKStrategy};
 
 /// Interpretable quality assessment for a classification result.
 #[derive(Debug, Clone, Serialize)]
@@ -217,6 +217,15 @@ impl CellClassifier {
     /// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
     pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
         self.0.classify(embedding)
+    }
+
+    /// Classify with an explicit per-cell top-k strategy (PLAN 8.8 tuning seam).
+    pub fn classify_with_topk(
+        &self,
+        embedding: &[f32],
+        strat: physis_core::classify::TopKStrategy,
+    ) -> Vec<CellScore> {
+        self.0.classify_with_topk(embedding, strat)
     }
 
     /// Embed `text` and classify it in one call.
