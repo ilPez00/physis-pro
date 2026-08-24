@@ -67,6 +67,7 @@ pub mod spanner;
 
 pub mod grounding;
 pub mod history;
+pub mod decisions;
 pub mod license;
 pub mod pack;
 pub mod planner;
