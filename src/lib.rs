@@ -6,6 +6,7 @@ pub mod ai;
 pub mod atomic;
 pub mod axes;
 pub mod classify;
+pub mod communities;
 pub mod config;
 pub mod context;
 pub mod core;
