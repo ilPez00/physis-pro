@@ -12,6 +12,10 @@ use crate::planner::PlannerSimulation;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Records below this confidence do not count as covered by PLAN 7.2's
+/// coverage-gap derivation. Matches the review-load default.
+pub const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.6;
+
 /// Lifecycle of one stored scenario version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -46,6 +50,10 @@ pub struct ScenarioVersion {
     /// Human-readable provenance: who saved it (`X-Physis-User`).
     pub created_by: String,
     pub summary: SimulationSummary,
+    /// Coverage + aggregate diff (PLAN 7.2). Absent on versions saved before
+    /// this field shipped — they remain listable, just without the analysis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub impact: Option<crate::planner::ImpactAnalysis>,
     pub shifts: Vec<SignifierShift>,
 }
 
@@ -119,6 +127,10 @@ impl<'a> ScenarioStore<'a> {
             promoted_at: None,
             created_by: created_by.to_string(),
             summary: SimulationSummary::of(sim),
+            impact: Some(crate::planner::ImpactAnalysis::derive(
+                sim,
+                DEFAULT_CONFIDENCE_THRESHOLD,
+            )),
             shifts: sim
                 .transitions
                 .iter()

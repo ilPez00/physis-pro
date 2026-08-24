@@ -85,6 +85,104 @@ pub fn simulate(
     }
 }
 
+/// How one record's coverage moved under the candidate ontology.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CoverageShift {
+    /// Weak/absent before, confident after — the candidate *sees* this record.
+    NewlyCovered,
+    /// Confident before, weak/absent after — the candidate *blinds* us here.
+    NewlyUncovered,
+    /// Confidence verdict unchanged.
+    Stable,
+}
+
+/// Per-cell count deltas: the reports and rollups whose numbers would move.
+/// A cell with a non-zero delta is, transitively, an affected report line.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CellDelta {
+    pub cell: String,
+    pub before_count: usize,
+    pub after_count: usize,
+    pub delta: i64,
+}
+
+/// PLAN 7.2 impact diff: coverage gaps + changed aggregates, every row traced
+/// back to the record ids that produced it (their `source` is their
+/// provenance). Pure derivation from a saved simulation — nothing here
+/// touches live state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImpactAnalysis {
+    /// Records the candidate newly classifies with acceptable confidence.
+    pub newly_covered: Vec<String>,
+    /// Records that lose acceptable-confidence classification — the gaps the
+    /// candidate opens.
+    pub newly_uncovered: Vec<String>,
+    /// Per-cell population deltas, largest absolute movement first.
+    pub cell_deltas: Vec<CellDelta>,
+    /// Mean confidence delta across all records (+gained / −lost).
+    pub mean_confidence_delta: f32,
+}
+
+impl ImpactAnalysis {
+    /// Derive the impact of a simulation. A record counts as "covered" when
+    /// both sides agree it landed somewhere real (`score >= threshold`);
+    /// `unknown×unknown` never counts as covered regardless of score.
+    pub fn derive(sim: &PlannerSimulation, threshold: f32) -> Self {
+        let covered = |o: &CellOutcome| {
+            o.domain != "unknown" && o.mode != "unknown" && o.score >= threshold
+        };
+
+        let mut newly_covered = Vec::new();
+        let mut newly_uncovered = Vec::new();
+        let mut before_counts: BTreeMap<String, usize> = BTreeMap::new();
+        let mut after_counts: BTreeMap<String, usize> = BTreeMap::new();
+        let mut total_delta = 0.0f32;
+
+        for item in &sim.items {
+            let was = covered(&item.before);
+            let now = covered(&item.after);
+            match (was, now) {
+                (false, true) => newly_covered.push(item.id.clone()),
+                (true, false) => newly_uncovered.push(item.id.clone()),
+                _ => {}
+            }
+            *before_counts.entry(item.before.key()).or_default() += 1;
+            *after_counts.entry(item.after.key()).or_default() += 1;
+            total_delta += item.after.score - item.before.score;
+        }
+
+        let cells: std::collections::BTreeSet<&String> =
+            before_counts.keys().chain(after_counts.keys()).collect();
+        let mut cell_deltas: Vec<CellDelta> = cells
+            .into_iter()
+            .map(|cell| {
+                let b = before_counts.get(cell).copied().unwrap_or(0);
+                let a = after_counts.get(cell).copied().unwrap_or(0);
+                CellDelta {
+                    cell: cell.clone(),
+                    before_count: b,
+                    after_count: a,
+                    delta: a as i64 - b as i64,
+                }
+            })
+            .filter(|d| d.delta != 0)
+            .collect();
+        cell_deltas.sort_by_key(|d| std::cmp::Reverse(d.delta.abs()));
+
+        Self {
+            newly_covered,
+            newly_uncovered,
+            cell_deltas,
+            mean_confidence_delta: if sim.items.is_empty() {
+                0.0
+            } else {
+                total_delta / sim.items.len() as f32
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,5 +233,67 @@ mod tests {
         assert_eq!(result.unchanged, 1);
         assert_eq!(result.low_confidence, 1);
         assert_eq!(result.transitions[0].count, 2);
+    }
+
+    #[test]
+    fn impact_derives_coverage_and_changed_aggregates() {
+        let sim = simulate(
+            "procurement-v2",
+            vec![
+                // Confident move: covered both sides, aggregate shifts.
+                item("1", ("OPERATE", "MONITOR", 0.91), ("OPERATE", "CORRECT", 0.84)),
+                // Falls out of coverage: the candidate opens a gap here.
+                item("2", ("OPERATE", "MONITOR", 0.88), ("STUDY", "WORK", 0.20)),
+                // Gains coverage the base did not have.
+                item("3", ("BOND", "PLAY", 0.30), ("BOND", "PLAY", 0.77)),
+                // Unchanged, confident.
+                item("4", ("HEAL", "REST", 0.90), ("HEAL", "REST", 0.91)),
+            ],
+            0.60,
+        );
+
+        let impact = ImpactAnalysis::derive(&sim, 0.60);
+
+        assert_eq!(impact.newly_covered, vec!["3".to_string()]);
+        assert_eq!(impact.newly_uncovered, vec!["2".to_string()]);
+
+        // Both items leave OPERATE×MONITOR (one to CORRECT, one out of
+        // coverage), so the cell empties: that is a report line at zero.
+        let monitor = impact
+            .cell_deltas
+            .iter()
+            .find(|d| d.cell == "OPERATE×MONITOR")
+            .expect("monitor cell delta present");
+        assert_eq!((monitor.before_count, monitor.after_count), (2, 0));
+
+        // Sorted by absolute movement, largest first.
+        assert!(
+            impact
+                .cell_deltas
+                .first()
+                .map(|d| d.delta.abs())
+                .unwrap_or(0)
+                >= impact
+                    .cell_deltas
+                    .last()
+                    .map(|d| d.delta.abs())
+                    .unwrap_or(0)
+        );
+    }
+
+    #[test]
+    fn unknown_never_counts_as_covered() {
+        let sim = simulate(
+            "s",
+            vec![item(
+                "1",
+                ("OPERATE", "WORK", 0.99),
+                ("unknown", "unknown", 0.99),
+            )],
+            0.6,
+        );
+        let impact = ImpactAnalysis::derive(&sim, 0.6);
+        assert_eq!(impact.newly_uncovered, vec!["1".to_string()]);
+        assert!(impact.newly_covered.is_empty());
     }
 }
