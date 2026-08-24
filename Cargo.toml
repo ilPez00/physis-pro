@@ -1,6 +1,6 @@
 [package]
 name = "physis_pro"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 # LICENSE.txt is a proprietary EULA ("licensed, not sold", enforced by the
 # Ed25519 gate in src/license.rs), so there is no SPDX id to declare — only
@@ -46,7 +46,7 @@ llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2"
 
 # The lean core engine — embed/classify/quality/discovery now live here, and
 # physis_pro delegates to it (see src/classify.rs, src/quality.rs).
-physis-core = { path = "physis-core", version = "0.1.6", default-features = false }
+physis-core = { path = "physis-core", version = "0.1.7", default-features = false }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }

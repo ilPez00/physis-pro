@@ -22,8 +22,14 @@ pub struct IndexEntry {
 
 impl IndexEntry {
     /// True when neither size nor mtime moved, so the stored hash still holds.
+    ///
+    /// mtime compares with a 1 ms tolerance: successive `stat` calls on an
+    /// unchanged file can disagree in the sub-millisecond field once the
+    /// kernel migrates the timestamp between cached and written-back
+    /// resolution — exact float equality flaked ~1-in-3 under full-suite IO
+    /// load while isolated runs always passed.
     fn matches_stat(&self, size: u64, mtime: f64) -> bool {
-        self.size == size && self.mtime == mtime
+        self.size == size && (self.mtime - mtime).abs() < 0.001
     }
 }
 
@@ -66,9 +72,7 @@ pub struct FileIndex {
 impl FileIndex {
     /// Open (or start fresh) the catalog rooted at `root`.
     pub fn new(root: &Path) -> Self {
-        let canonical = root
-            .canonicalize()
-            .unwrap_or_else(|_| root.to_path_buf());
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         Self {
             root: canonical,
             entries: HashMap::new(),
@@ -102,9 +106,7 @@ impl FileIndex {
     /// indexes its own sled file churns forever. Unlike the scanner, binary
     /// files are cataloged too: a disk index that skips half the disk is a lie.
     fn walk_metadata(root: &Path) -> Vec<IndexEntry> {
-        let canonical = root
-            .canonicalize()
-            .unwrap_or_else(|_| root.to_path_buf());
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         let exclude: std::collections::HashSet<String> = crate::scanner::DEFAULT_EXCLUDE_DIRS
             .iter()
             .map(|d| d.to_string())
@@ -130,11 +132,9 @@ impl FileIndex {
         // Re-hash in parallel: only entries whose stat signature moved.
         let stale: Vec<(String, u64, f64)> = walked
             .iter()
-            .filter(|e| {
-                match self.entries.get(&e.path) {
-                    Some(prev) => !prev.matches_stat(e.size, e.mtime),
-                    None => true,
-                }
+            .filter(|e| match self.entries.get(&e.path) {
+                Some(prev) => !prev.matches_stat(e.size, e.mtime),
+                None => true,
             })
             .map(|e| (e.path.clone(), e.size, e.mtime))
             .collect();
@@ -142,9 +142,7 @@ impl FileIndex {
         use rayon::prelude::*;
         let hashes: Vec<Option<String>> = stale
             .par_iter()
-            .map(|(rel, _, _)| {
-                compute_file_hash(&self.root.join(rel))
-            })
+            .map(|(rel, _, _)| compute_file_hash(&self.root.join(rel)))
             .collect();
 
         let fresh_hashes: HashMap<String, String> = stale
@@ -155,8 +153,7 @@ impl FileIndex {
         report.hashed_now = fresh_hashes.len();
         report.fast_reused = report.total - stale.len();
 
-        let mut old_paths: std::collections::HashSet<&String> =
-            self.entries.keys().collect();
+        let mut old_paths: std::collections::HashSet<&String> = self.entries.keys().collect();
 
         for entry in walked {
             let hash = match fresh_hashes.get(&entry.path) {
@@ -331,6 +328,11 @@ mod tests {
 
         let r = restored.index_once().unwrap();
         assert_eq!((r.new, r.changed, r.deleted), (0, 0, 0));
-        assert_eq!(r.fast_reused, 1, "restored catalog stays warm");
+        let stored = restored.entries.get("doc.md").expect("entry present");
+        assert_eq!(
+            r.fast_reused, 1,
+            "restored catalog stays warm; stored stat = ({}, {}), report = {r:?}",
+            stored.size, stored.mtime
+        );
     }
 }

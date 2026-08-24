@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] — 2026-08-24
+
+Published as `physis_pro` 0.1.8 (physis-core 0.1.7).
+
+**Classification precision restored — max scoring ships (PLAN 8.8,
+physis-core 0.1.7).** A strategy sweep under bge-base-en-v1.5 showed the
+adaptive top-k smoothing (shipped 2026-08-18) had become a dilution machine
+after the 2026-08-14 ontology expansion: averaging dragged precise anchors
+toward cell means. Cell score is now **max cosine to any member entry**
+(what the docs always claimed): CORE top-1 cell 0.636 → **0.782**, ITALIAN
+top-1 domain 0.667 → **0.867**, domain accuracy unchanged (0.891).
+`TopKStrategy::Adaptive/Fixed` stays reachable for recalibration sweeps, and
+the sweep itself ships as an ignored diagnostic test. Accuracy floors carry
+their full measurement provenance.
+
+**Phase 2 complete — pins fully explicit.** `physis-pro node-edit --clear-pin`
+retracts a pin from the CLI (`PinEdit::Clear`), closing the last seam after
+the web API's `"cell": null`. Verified: identity survives the swap, pin echo
+works, Clear removes it.
+
+**Decision Planner: versioned scenarios with impact analysis (PLAN 7.2–7.4).**
+New `web/scenarios.rs` over the shared tenant sled:
+`POST /api/v1/planner/scenarios/save` persists a finished simulation as an
+immutable draft version; every changed item becomes a dated signifier shift
+(`hypothesis: true`, never a silent fact); `GET /planner/scenarios/:id` lists
+versions newest-first per tenant; `POST …/:id/promote` flips status explicitly
+and reversibly — promoting another version demotes the previous one.
+Each version stores an **impact analysis** (PLAN 7.2): newly covered /
+uncovered records at the confidence threshold, per-cell population deltas
+(the report lines whose numbers would move), and mean confidence drift.
+Coverage gaps are now first-class scenario output.
+
+Also: PLAN.md statuses synced against reality — Phase 2 and Phase 5B verified
+complete; Phase 7 complete except the product surface.
+
 ## [0.9.5] — 2026-08-24
 
 Published as `physis_pro` 0.1.7.

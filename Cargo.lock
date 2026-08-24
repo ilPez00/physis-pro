@@ -3165,7 +3165,7 @@ dependencies = [
 
 [[package]]
 name = "physis-core"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "axum",
@@ -3184,7 +3184,7 @@ dependencies = [
 
 [[package]]
 name = "physis_pro"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "arboard",
