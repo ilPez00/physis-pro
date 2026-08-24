@@ -662,7 +662,7 @@
         <h2>Change the dictionary. See who moves.</h2>
         <p>Replay real notes against a candidate set of domains. Nothing is saved until you take this live.</p>
       </div>
-      <div class="actions"><button id="plannerRun">Simulate scenario →</button></div>
+      <div class="actions"><button id="plannerRun">Simulate scenario →</button><button id="plannerSave" class="ghost" disabled title="Persist this simulation as a dated draft version">Save as draft</button></div>
     </div>
     <div class="split">
       <section class="surface">
@@ -686,6 +686,10 @@
       </section>
     </div>
     <section class="surface"><h3>Impact report</h3><div id="plannerOut" class="muted">Run a scenario to see changed cells, confidence movement, and transition pressure.</div></section>
+    <section class="surface">
+      <h3>Versions <span class="tip" data-tip="Every saved simulation: draft until promoted; promoting one version demotes the previous — always reversible">draft → promoted</span></h3>
+      <div id="plannerVersions" class="muted">No saved versions for this scenario yet.</div>
+    </section>
   </section>
 
   <!-- ADMIN REVIEW -->
@@ -1295,6 +1299,7 @@ function activateTab(name){
   localStorage.setItem(LS.tab, name);
   showCoach(name);
   if(name==='interest') loadInterest();
+  if(name==='planner') loadPlannerVersions();
   if(name==='overview') loadOverview();
   if(name==='timeline') loadTimelineDemo();
   if(name==='grid') loadHeat();
@@ -1864,9 +1869,43 @@ async function runPlanner(){
     const d=await postJSON('/api/v1/planner/simulate',{scenario_id:$('plannerScenario').value.trim()||'console-scenario',candidate_ontology,texts,confidence_threshold:Number($('plannerThreshold').value)||.6});
     out.innerHTML=`<div class="kpi">${plannerCard('Changed',d.changed,'classification moved','warn')}${plannerCard('Unchanged',d.unchanged,'classification held','good')}${plannerCard('Low confidence',d.low_confidence,'needs human review','bad')}${plannerCard('Transitions',(d.transitions||[]).reduce((a,b)=>a+(b.count||0),0),'observed state shifts')}</div>`
       +`<table><tr><th>Source</th><th>Before</th><th>After</th><th>Score</th></tr>${(d.items||[]).map(i=>`<tr><td>${esc(i.source)}</td><td>${esc(i.before?.domain||'—')} × ${esc(i.before?.mode||'—')}</td><td>${esc(i.after?.domain||'—')} × ${esc(i.after?.mode||'—')}</td><td>${typeof i.after?.score==='number'?i.after.score.toFixed(3):'—'}</td></tr>`).join('')}</table>`;
-    setS('scenario ready');
+    lastSimulation=d; $('plannerSave').disabled=false;
+    setS('scenario ready — save it to keep a dated draft');
   }catch(e){out.innerHTML=apiError(e);setS('simulation failed',1);}
 }
+let lastSimulation=null;
+$('plannerSave').onclick=async()=>{
+  if(!lastSimulation)return;
+  try{
+    const saved=await postJSON('/api/v1/planner/scenarios/save',{simulation:lastSimulation});
+    setS(`saved v${saved.version} as draft`);
+    loadPlannerVersions();
+  }catch(e){ setS('save failed: '+e.message,1); }
+};
+async function loadPlannerVersions(){
+  const el=$('plannerVersions'); const id=$('plannerScenario').value.trim()||'console-scenario';
+  let vs;
+  try{ vs=await getJSON(`/api/v1/planner/scenarios/${encodeURIComponent(id)}`); }
+  catch(e){ return; } // offline demo or no store — leave the placeholder
+  if(!Array.isArray(vs)||!vs.length){ el.textContent='No saved versions for this scenario yet.'; return; }
+  el.innerHTML=`<table><tr><th>Ver</th><th>Status</th><th>Saved</th><th>Moved</th><th>Coverage ±</th><th></th></tr>${
+    vs.map(v=>{
+      const cov=(v.impact?`+${(v.impact.newly_covered||[]).length} / −${(v.impact.newly_uncovered||[]).length}`:'—');
+      const btn=v.status==='draft'
+        ?`<button class="ghost" data-v="${v.version}" style="padding:4px 10px;font-size:11px">Promote</button>`
+        :`<span class="muted" style="font-size:11px">live</span>`;
+      return `<tr><td>v${v.version}</td><td>${v.status==='promoted'?'<b>promoted</b>':'draft'}</td><td>${esc((v.created_at||'').slice(0,16).replace('T',' '))}</td><td>${v.summary?`${v.summary.changed}/${v.summary.records_scanned}`:'—'}</td><td>${cov}</td><td>${btn}</td></tr>`;
+    }).join('')
+  }</table>`;
+  el.querySelectorAll('button[data-v]').forEach(b=>b.onclick=async()=>{
+    try{
+      await postJSON(`/api/v1/planner/scenarios/${encodeURIComponent(id)}/promote`,{version:Number(b.dataset.v)});
+      setS(`v${b.dataset.v} promoted`);
+      loadPlannerVersions();
+    }catch(e){ setS('promotion failed: '+e.message,1); }
+  });
+}
+$('plannerScenario').addEventListener('change',loadPlannerVersions);
 let adminDocs=[
   {id:'invoice-1042',path:'/inbox/invoice-1042.pdf',kind:'invoice',fingerprint:'fp-a1',vendor:'Acme Parts',document_number:'1042'},
   {id:'invoice-1042-copy',path:'/archive/invoice-1042.pdf',kind:'invoice',fingerprint:'fp-a1',vendor:'Acme Parts',document_number:'1042'},
