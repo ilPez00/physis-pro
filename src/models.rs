@@ -104,7 +104,12 @@ pub struct Dream {
 }
 
 impl Dream {
-    pub fn new(source: Vec<f32>, embedding: Vec<f32>, dream_type: String, description: String) -> Self {
+    pub fn new(
+        source: Vec<f32>,
+        embedding: Vec<f32>,
+        dream_type: String,
+        description: String,
+    ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             source,
@@ -312,8 +317,19 @@ pub struct Experience {
 }
 
 impl Experience {
-    pub fn new(goal_id: &str, before: Vec<f32>, after: Vec<f32>, action: String, rationale: String, scores: std::collections::HashMap<String, f32>) -> Self {
-        let delta: Vec<f32> = before.iter().zip(after.iter()).map(|(b, a)| a - b).collect();
+    pub fn new(
+        goal_id: &str,
+        before: Vec<f32>,
+        after: Vec<f32>,
+        action: String,
+        rationale: String,
+        scores: std::collections::HashMap<String, f32>,
+    ) -> Self {
+        let delta: Vec<f32> = before
+            .iter()
+            .zip(after.iter())
+            .map(|(b, a)| a - b)
+            .collect();
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             goal_id: goal_id.to_string(),
@@ -348,7 +364,12 @@ pub struct ConstructiveRefutation {
 }
 
 impl ConstructiveRefutation {
-    pub fn new(query_embedding: Vec<f32>, conflicting_ids: Vec<String>, suggestion: &str, gap: Score) -> Self {
+    pub fn new(
+        query_embedding: Vec<f32>,
+        conflicting_ids: Vec<String>,
+        suggestion: &str,
+        gap: Score,
+    ) -> Self {
         Self {
             conflict_id: uuid::Uuid::new_v4().to_string(),
             query_embedding,
@@ -469,7 +490,9 @@ impl Interpretant {
             }
         }
         if let Some(both) = self.confirms.iter().find(|c| self.refutes.contains(c)) {
-            return Err(format!("outcome {both:?} is listed as both confirming and refuting"));
+            return Err(format!(
+                "outcome {both:?} is listed as both confirming and refuting"
+            ));
         }
         if !self.half_life_days.is_finite() || self.half_life_days < 0.0 {
             return Err("half_life_days must be finite and >= 0".to_string());
@@ -608,7 +631,13 @@ pub enum HumanDomain {
 
 impl HumanDomain {
     pub fn all() -> [HumanDomain; 5] {
-        [HumanDomain::Heal, HumanDomain::Construct, HumanDomain::Fabricate, HumanDomain::Bond, HumanDomain::Study]
+        [
+            HumanDomain::Heal,
+            HumanDomain::Construct,
+            HumanDomain::Fabricate,
+            HumanDomain::Bond,
+            HumanDomain::Study,
+        ]
     }
 
     pub fn as_str(&self) -> &'static str {
@@ -676,10 +705,20 @@ pub enum HumanMode {
 impl HumanMode {
     pub fn all() -> [HumanMode; 14] {
         [
-            HumanMode::Lift, HumanMode::Rest, HumanMode::Walk, HumanMode::Work,
-            HumanMode::Create, HumanMode::Learn, HumanMode::Destroy, HumanMode::Sense,
-            HumanMode::Guide, HumanMode::Play, HumanMode::Brainstorm, HumanMode::Maintain,
-            HumanMode::Move, HumanMode::Plan,
+            HumanMode::Lift,
+            HumanMode::Rest,
+            HumanMode::Walk,
+            HumanMode::Work,
+            HumanMode::Create,
+            HumanMode::Learn,
+            HumanMode::Destroy,
+            HumanMode::Sense,
+            HumanMode::Guide,
+            HumanMode::Play,
+            HumanMode::Brainstorm,
+            HumanMode::Maintain,
+            HumanMode::Move,
+            HumanMode::Plan,
         ]
     }
 
@@ -749,8 +788,14 @@ impl GridPosition {
     }
 
     pub fn cell_index(&self) -> usize {
-        let d = HumanDomain::all().iter().position(|x| *x == self.domain).unwrap_or(0);
-        let m = HumanMode::all().iter().position(|x| *x == self.mode).unwrap_or(0);
+        let d = HumanDomain::all()
+            .iter()
+            .position(|x| *x == self.domain)
+            .unwrap_or(0);
+        let m = HumanMode::all()
+            .iter()
+            .position(|x| *x == self.mode)
+            .unwrap_or(0);
         d * HumanMode::all().len() + m
     }
 }
@@ -801,11 +846,19 @@ impl SemioticGrid {
 
     pub fn get_cell(&self, domain: HumanDomain, mode: HumanMode) -> Option<&SemioticCell> {
         let _idx = domain.as_str().len() * mode.as_str().len();
-        self.cells.iter().find(|c| c.domain == domain && c.mode == mode)
+        self.cells
+            .iter()
+            .find(|c| c.domain == domain && c.mode == mode)
     }
 
-    pub fn get_cell_mut(&mut self, domain: HumanDomain, mode: HumanMode) -> Option<&mut SemioticCell> {
-        self.cells.iter_mut().find(|c| c.domain == domain && c.mode == mode)
+    pub fn get_cell_mut(
+        &mut self,
+        domain: HumanDomain,
+        mode: HumanMode,
+    ) -> Option<&mut SemioticCell> {
+        self.cells
+            .iter_mut()
+            .find(|c| c.domain == domain && c.mode == mode)
     }
 
     pub fn classify(&mut self, entry_name: &str, domain: HumanDomain, mode: HumanMode) {
@@ -820,7 +873,13 @@ impl SemioticGrid {
         // Future: use stored centroid embeddings per cell for soft classification
     }
 
-    pub fn compose(&self, d1: HumanDomain, _m1: HumanMode, d2: HumanDomain, m2: HumanMode) -> Option<GridPosition> {
+    pub fn compose(
+        &self,
+        d1: HumanDomain,
+        _m1: HumanMode,
+        d2: HumanDomain,
+        m2: HumanMode,
+    ) -> Option<GridPosition> {
         // Composition: mode of second follows domain of first applied to mode of second
         let domain = d1;
         let mode = m2;
@@ -868,8 +927,14 @@ impl SemioticGrid {
     pub fn heatmap_matrix(&self) -> Vec<Vec<f32>> {
         let mut matrix = vec![vec![0.0_f32; HumanMode::all().len()]; HumanDomain::all().len()];
         for cell in &self.cells {
-            let di = HumanDomain::all().iter().position(|d| *d == cell.domain).unwrap_or(0);
-            let mi = HumanMode::all().iter().position(|m| *m == cell.mode).unwrap_or(0);
+            let di = HumanDomain::all()
+                .iter()
+                .position(|d| *d == cell.domain)
+                .unwrap_or(0);
+            let mi = HumanMode::all()
+                .iter()
+                .position(|m| *m == cell.mode)
+                .unwrap_or(0);
             matrix[di][mi] = cell.activation;
         }
         matrix
@@ -916,7 +981,12 @@ mod tests {
 
     #[test]
     fn test_dream_new() {
-        let d = Dream::new(vec![1.0, 0.0], vec![0.5, 0.5], "test".to_string(), "test dream".to_string());
+        let d = Dream::new(
+            vec![1.0, 0.0],
+            vec![0.5, 0.5],
+            "test".to_string(),
+            "test dream".to_string(),
+        );
         assert!(!d.id.is_empty());
         assert_eq!(d.source, vec![1.0, 0.0]);
         assert_eq!(d.embedding, vec![0.5, 0.5]);
@@ -933,7 +1003,14 @@ mod tests {
 
     #[test]
     fn test_experience_new_computes_delta() {
-        let e = Experience::new("goal-1", vec![1.0, 0.0, 0.0], vec![1.0, 0.5, 0.3], "action".to_string(), "rationale".to_string(), std::collections::HashMap::new());
+        let e = Experience::new(
+            "goal-1",
+            vec![1.0, 0.0, 0.0],
+            vec![1.0, 0.5, 0.3],
+            "action".to_string(),
+            "rationale".to_string(),
+            std::collections::HashMap::new(),
+        );
         assert_eq!(e.goal_id, "goal-1");
         assert_eq!(e.before, vec![1.0, 0.0, 0.0]);
         assert_eq!(e.after, vec![1.0, 0.5, 0.3]);
@@ -1082,7 +1159,10 @@ mod tests {
             "domains":[]
         }"#;
         let cfg: OntologyConfig = serde_json::from_str(json).unwrap();
-        let i = cfg.interpretant.as_ref().expect("declared interpretant is preserved");
+        let i = cfg
+            .interpretant
+            .as_ref()
+            .expect("declared interpretant is preserved");
         i.validate().unwrap();
         assert_eq!(i.delta("inert"), 1.0, "inert confirms in this ontology");
         assert_eq!(i.delta("failure"), -1.0);
@@ -1092,9 +1172,15 @@ mod tests {
 
     #[test]
     fn a_misspelled_outcome_is_rejected_rather_than_silently_matching_nothing() {
-        let i = Interpretant { confirms: vec!["succeeded".into()], ..Default::default() };
+        let i = Interpretant {
+            confirms: vec!["succeeded".into()],
+            ..Default::default()
+        };
         let err = i.validate().unwrap_err();
-        assert!(err.contains("succeeded"), "error should name the bad outcome: {err}");
+        assert!(
+            err.contains("succeeded"),
+            "error should name the bad outcome: {err}"
+        );
     }
 
     #[test]
@@ -1109,12 +1195,18 @@ mod tests {
 
     #[test]
     fn salience_halves_over_one_half_life_and_can_be_disabled() {
-        let i = Interpretant { half_life_days: 30.0, ..Default::default() };
+        let i = Interpretant {
+            half_life_days: 30.0,
+            ..Default::default()
+        };
         assert!((i.decay(0.0) - 1.0).abs() < 1e-6);
         assert!((i.decay(30.0) - 0.5).abs() < 1e-6);
         assert!((i.decay(60.0) - 0.25).abs() < 1e-6);
 
-        let forever = Interpretant { half_life_days: 0.0, ..Default::default() };
+        let forever = Interpretant {
+            half_life_days: 0.0,
+            ..Default::default()
+        };
         assert_eq!(forever.decay(3650.0), 1.0, "half_life 0 means no decay");
     }
 
@@ -1122,7 +1214,10 @@ mod tests {
     fn a_zero_weight_interpretant_still_records_but_cannot_bias() {
         // Observing a signal before trusting it: deltas are unchanged, weight
         // is what gates the influence on scoring.
-        let i = Interpretant { weight: 0.0, ..Default::default() };
+        let i = Interpretant {
+            weight: 0.0,
+            ..Default::default()
+        };
         i.validate().unwrap();
         assert_eq!(i.delta("success"), 1.0);
         assert_eq!(i.weight, 0.0);

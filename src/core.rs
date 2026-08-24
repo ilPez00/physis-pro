@@ -16,10 +16,10 @@ use physis_core::process::ProcessCycle;
 use physis_core::provenance::ProvenanceChain;
 use physis_core::relation::{RelationType, TypedEdge};
 
-use crate::models::*;
-use crate::trie::DynamicVectorTrie;
-use crate::quantize::ProductQuantizer;
 use crate::graph::{HolonicGraph, NodePayload, RawNodeKey};
+use crate::models::*;
+use crate::quantize::ProductQuantizer;
+use crate::trie::DynamicVectorTrie;
 
 /// Bridges the two identity spaces: a coherence node's string id and its
 /// holarchy `RawNodeKey` (a packed slotmap key). Without this, holarchy edges
@@ -38,13 +38,19 @@ impl IdBridge {
         self.holon_to_coh.insert(raw.data, coh_id.to_string());
     }
     pub fn holon_for(&self, coh_id: &str) -> Option<RawNodeKey> {
-        self.coh_to_holon.get(coh_id).map(|&data| RawNodeKey { data })
+        self.coh_to_holon
+            .get(coh_id)
+            .map(|&data| RawNodeKey { data })
     }
     pub fn coh_for(&self, raw: RawNodeKey) -> Option<&str> {
         self.holon_to_coh.get(&raw.data).map(String::as_str)
     }
-    pub fn len(&self) -> usize { self.coh_to_holon.len() }
-    pub fn is_empty(&self) -> bool { self.coh_to_holon.is_empty() }
+    pub fn len(&self) -> usize {
+        self.coh_to_holon.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.coh_to_holon.is_empty()
+    }
 
     /// Drop both directions of a coherence-id ↔ holarchy mapping.
     pub fn unlink(&mut self, coh_id: &str) {
@@ -256,7 +262,8 @@ impl PhysisCore {
         subject_id: &str,
         target_time: chrono::DateTime<chrono::Utc>,
     ) -> Option<HypothesisStatus> {
-        self.epistemic_audit.reconstruct_status_at(subject_id, target_time)
+        self.epistemic_audit
+            .reconstruct_status_at(subject_id, target_time)
     }
 
     /// Generate full structured explanation report.
@@ -275,7 +282,10 @@ impl PhysisCore {
                 if sim > 0.6 {
                     precedents.push(physis_core::explanation::HistoricalPrecedent {
                         case_id: node.id.clone(),
-                        description: node.label.clone().unwrap_or_else(|| "unlabeled case".to_string()),
+                        description: node
+                            .label
+                            .clone()
+                            .unwrap_or_else(|| "unlabeled case".to_string()),
                         outcome_worked: verdict > 0.0,
                         similarity: sim,
                         context_match: None,
@@ -292,7 +302,12 @@ impl PhysisCore {
             contradicting_evidence: hyp.contradicting_evidence.clone(),
             historical_precedents: precedents,
             expected_consequences: hyp.predictions.clone(),
-            observed_consequences: hyp.predictions.iter().filter(|p| p.actual_outcome.is_some()).cloned().collect(),
+            observed_consequences: hyp
+                .predictions
+                .iter()
+                .filter(|p| p.actual_outcome.is_some())
+                .cloned()
+                .collect(),
             coherence_profile: hyp.coherence_profile.clone(),
             coherence_score: hyp.coherence,
             fitness_breakdown: hyp.fitness_breakdown.clone(),
@@ -322,7 +337,8 @@ impl PhysisCore {
                         historical_precedents: Vec::new(),
                         expected_consequences: Vec::new(),
                         observed_consequences: Vec::new(),
-                        coherence_profile: physis_core::coherence_dimensions::CoherenceProfile::new(),
+                        coherence_profile: physis_core::coherence_dimensions::CoherenceProfile::new(
+                        ),
                         coherence_score: 0.0,
                         fitness_breakdown: Default::default(),
                         fitness_score: 0.0,
@@ -342,7 +358,10 @@ impl PhysisCore {
                 let conflicting_edges: Vec<TypedEdge> = self
                     .edges
                     .iter()
-                    .filter(|e| (e.source_id == *id || e.target_id == *id) && e.relation_type == RelationType::Contradicts)
+                    .filter(|e| {
+                        (e.source_id == *id || e.target_id == *id)
+                            && e.relation_type == RelationType::Contradicts
+                    })
                     .cloned()
                     .collect();
                 EpistemicQueryResult::Contradictions {
@@ -370,7 +389,11 @@ impl PhysisCore {
                         if let Some(v) = n.asserted {
                             if v > 0.0 {
                                 let sim = cosine_sim(embedding, &n.embedding);
-                                return Some((n.label.clone().unwrap_or_else(|| n.id.clone()), sim, true));
+                                return Some((
+                                    n.label.clone().unwrap_or_else(|| n.id.clone()),
+                                    sim,
+                                    true,
+                                ));
                             }
                         }
                         None
@@ -388,7 +411,11 @@ impl PhysisCore {
                         if let Some(v) = n.asserted {
                             if v < 0.0 {
                                 let sim = cosine_sim(embedding, &n.embedding);
-                                return Some((n.label.clone().unwrap_or_else(|| n.id.clone()), sim, false));
+                                return Some((
+                                    n.label.clone().unwrap_or_else(|| n.id.clone()),
+                                    sim,
+                                    false,
+                                ));
                             }
                         }
                         None
@@ -436,7 +463,11 @@ impl PhysisCore {
                         predictions_count: h.predictions.len(),
                     })
                     .collect();
-                hyps.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+                hyps.sort_by(|a, b| {
+                    b.fitness
+                        .partial_cmp(&a.fitness)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
                 hyps.truncate(*limit);
                 EpistemicQueryResult::RankedHypotheses { hypotheses: hyps }
             }
@@ -458,7 +489,9 @@ impl PhysisCore {
                     }
                 }
                 failed_preds.truncate(*limit);
-                EpistemicQueryResult::FailedPredictionsList { failures: failed_preds }
+                EpistemicQueryResult::FailedPredictionsList {
+                    failures: failed_preds,
+                }
             }
             EpistemicQuery::HighestEmpiricalFitness { limit } => {
                 let mut hyps: Vec<HypothesisSummary> = self
@@ -475,7 +508,11 @@ impl PhysisCore {
                         predictions_count: h.predictions.len(),
                     })
                     .collect();
-                hyps.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+                hyps.sort_by(|a, b| {
+                    b.fitness
+                        .partial_cmp(&a.fitness)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
                 hyps.truncate(*limit);
                 EpistemicQueryResult::RankedHypotheses { hypotheses: hyps }
             }
@@ -574,7 +611,11 @@ impl PhysisCore {
     /// Labeled registrations are deduped: re-registering the same label returns the
     /// existing node id instead of creating a duplicate (so re-scanning a dir is
     /// idempotent). Unlabeled registrations are always inserted.
-    pub fn register_node_vec_labeled(&mut self, embedding: Vec<f32>, label: Option<String>) -> String {
+    pub fn register_node_vec_labeled(
+        &mut self,
+        embedding: Vec<f32>,
+        label: Option<String>,
+    ) -> String {
         if let Some(ref l) = label {
             if let Some(existing) = self.label_index.get(l) {
                 return existing.clone();
@@ -609,7 +650,11 @@ impl PhysisCore {
 
     /// Register from text (embed first using an embedder). The text is kept as
     /// the node's label so it can be recalled by content later.
-    pub fn register_node_from_text(&mut self, text: &str, embedder: &dyn crate::embed::VectorEmbed) -> String {
+    pub fn register_node_from_text(
+        &mut self,
+        text: &str,
+        embedder: &dyn crate::embed::VectorEmbed,
+    ) -> String {
         let embedding = embedder.embed(text);
         self.register_node_vec_labeled(embedding, Some(text.to_string()))
     }
@@ -652,7 +697,10 @@ impl PhysisCore {
         pin: PinEdit,
         embedder_id: Option<&str>,
     ) -> anyhow::Result<NodeEditOutcome> {
-        let node = self.nodes.get_mut(id).ok_or_else(|| anyhow::anyhow!("unknown node {id}"))?;
+        let node = self
+            .nodes
+            .get_mut(id)
+            .ok_or_else(|| anyhow::anyhow!("unknown node {id}"))?;
         // The dedupe index maps label → id. Swap the alias atomically so the old
         // label stops resolving (re-scan dedupes on the new label, not the dead
         // one) and the new label starts resolving.
@@ -673,7 +721,8 @@ impl PhysisCore {
             PinEdit::Set(domain, mode) => node.cell_pin = Some((domain, mode)),
             PinEdit::Clear => node.cell_pin = None,
         }
-        self.label_index.insert(new_label.to_string(), id.to_string());
+        self.label_index
+            .insert(new_label.to_string(), id.to_string());
         // Drop any stale PQ codes for this node so DBANN never reads the old vector.
         self.encoded_nodes.retain(|(nid, _)| nid != id);
         self.update_coherence(id);
@@ -692,7 +741,9 @@ impl PhysisCore {
     /// codes. The caller is responsible for removing the persisted sled row.
     /// Returns false when the id is unknown.
     pub fn delete_node(&mut self, id: &str) -> bool {
-        let Some(node) = self.nodes.remove(id) else { return false };
+        let Some(node) = self.nodes.remove(id) else {
+            return false;
+        };
         if let Some(label) = node.label {
             if self.label_index.get(&label).map(String::as_str) == Some(id) {
                 self.label_index.remove(&label);
@@ -701,9 +752,9 @@ impl PhysisCore {
         if let Some(raw) = self.bridge.holon_for(id) {
             self.holarchy.nodes.remove(raw.into());
             self.holarchy.embeddings.remove(raw.into());
-            self.holarchy.edges.retain(|e| {
-                e.source.data != raw.data && e.target.data != raw.data
-            });
+            self.holarchy
+                .edges
+                .retain(|e| e.source.data != raw.data && e.target.data != raw.data);
             self.bridge.unlink_raw(raw);
         }
         self.encoded_nodes.retain(|(nid, _)| nid != id);
@@ -722,7 +773,9 @@ impl PhysisCore {
             .nodes
             .iter()
             .filter(|(_, n)| {
-                n.label.as_deref().is_some_and(|l| l == label || l.starts_with(&prefix))
+                n.label
+                    .as_deref()
+                    .is_some_and(|l| l == label || l.starts_with(&prefix))
             })
             .map(|(id, _)| id.clone())
             .collect();
@@ -747,10 +800,15 @@ impl PhysisCore {
 
     /// Nodes someone has reported as not working, worst first.
     pub fn asserted_failures(&self) -> Vec<&CoherenceNode> {
-        let mut out: Vec<&CoherenceNode> =
-            self.nodes.values().filter(|n| n.is_asserted_failure()).collect();
+        let mut out: Vec<&CoherenceNode> = self
+            .nodes
+            .values()
+            .filter(|n| n.is_asserted_failure())
+            .collect();
         out.sort_by(|a, b| {
-            a.asserted.unwrap_or(0.0).partial_cmp(&b.asserted.unwrap_or(0.0))
+            a.asserted
+                .unwrap_or(0.0)
+                .partial_cmp(&b.asserted.unwrap_or(0.0))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         out
@@ -839,14 +897,20 @@ impl PhysisCore {
         };
 
         let k = 5.min(self.nodes.len() - 1);
-        let mut sims: Vec<f32> = self.nodes.values()
+        let mut sims: Vec<f32> = self
+            .nodes
+            .values()
             .filter(|n| n.id != node_id)
             .map(|n| cosine_sim(&query, &n.embedding))
             .collect();
         sims.sort_by(|a, b| b.partial_cmp(a).unwrap());
         sims.truncate(k);
 
-        let avg = if sims.is_empty() { 1.0 } else { sims.iter().sum::<f32>() / sims.len() as f32 };
+        let avg = if sims.is_empty() {
+            1.0
+        } else {
+            sims.iter().sum::<f32>() / sims.len() as f32
+        };
 
         if let Some(node) = self.nodes.get_mut(node_id) {
             node.coherence_score = avg.max(0.0);
@@ -857,28 +921,34 @@ impl PhysisCore {
     pub fn tick_holarchy(
         &mut self,
         onnx: &crate::ai::onnx_worker::OnnxHolon,
-        rachmaninov: &mut crate::rachmaninov::RachmaninovHolon
+        rachmaninov: &mut crate::rachmaninov::RachmaninovHolon,
     ) {
         // 1. Dreaming/Pruning
         self.holarchy.dream_cycle(0.85);
 
         // 2. GNN Context Extraction
         let (reply_tx, reply_rx) = crossbeam_channel::unbounded();
-        
+
         let mut nodes_for_gnn = Vec::new();
         for (key, payload) in self.holarchy.nodes.iter() {
             if let Some(emb) = self.holarchy.embeddings.get(key) {
-                nodes_for_gnn.push((crate::graph::RawNodeKey::from(key).data, emb.clone(), *payload));
+                nodes_for_gnn.push((
+                    crate::graph::RawNodeKey::from(key).data,
+                    emb.clone(),
+                    *payload,
+                ));
             }
         }
-        
+
         onnx.send(crate::ai::onnx_worker::OnnxRequest::GnnContext {
             nodes: nodes_for_gnn,
             edges: self.holarchy.edges.clone(),
             reply_to: reply_tx,
         });
 
-        if let Ok(crate::ai::onnx_worker::OnnxResponse::GnnResult { context_vector }) = reply_rx.recv() {
+        if let Ok(crate::ai::onnx_worker::OnnxResponse::GnnResult { context_vector }) =
+            reply_rx.recv()
+        {
             // 3. Feed to Rachmaninov
             rachmaninov.tick(&context_vector);
         }
@@ -944,13 +1014,17 @@ impl PhysisCore {
         let mut visited = std::collections::HashSet::new();
 
         for (id, node) in &self.nodes {
-            if visited.contains(id) { continue; }
+            if visited.contains(id) {
+                continue;
+            }
 
             let mut cluster = vec![id.clone()];
             visited.insert(id.clone());
 
             for (other_id, other) in &self.nodes {
-                if visited.contains(other_id) { continue; }
+                if visited.contains(other_id) {
+                    continue;
+                }
                 let sim = cosine_sim(&node.embedding, &other.embedding);
                 if sim > 0.7 {
                     cluster.push(other_id.clone());
@@ -960,16 +1034,22 @@ impl PhysisCore {
 
             if cluster.len() >= 2 {
                 let centroid: Vec<f32> = (0..node.embedding.len())
-                    .map(|i| cluster.iter()
-                        .filter_map(|cid| self.nodes.get(cid))
-                        .map(|n| n.embedding[i])
-                        .sum::<f32>() / cluster.len() as f32)
+                    .map(|i| {
+                        cluster
+                            .iter()
+                            .filter_map(|cid| self.nodes.get(cid))
+                            .map(|n| n.embedding[i])
+                            .sum::<f32>()
+                            / cluster.len() as f32
+                    })
                     .collect();
 
-                let stability = cluster.iter()
+                let stability = cluster
+                    .iter()
                     .filter_map(|cid| self.nodes.get(cid))
                     .map(|n| n.coherence_score)
-                    .sum::<f32>() / cluster.len() as f32;
+                    .sum::<f32>()
+                    / cluster.len() as f32;
 
                 let branch = CertifiedBranch {
                     branch_id: uuid::Uuid::new_v4().to_string(),
@@ -1022,9 +1102,7 @@ impl PhysisCore {
     pub fn compress_logs(&self, raw_logs: &[String]) -> String {
         let mut rules = Vec::new();
         for log in raw_logs {
-            let cleaned: Vec<&str> = log.split_whitespace()
-                .filter(|w| w.len() > 2)
-                .collect();
+            let cleaned: Vec<&str> = log.split_whitespace().filter(|w| w.len() > 2).collect();
             if !cleaned.is_empty() {
                 rules.push(cleaned.join(" "));
             }
@@ -1043,7 +1121,9 @@ impl PhysisCore {
     /// as *working* is skipped even if it sits alone in the space, because a
     /// caller's verdict outranks a guess drawn from how typical it looks.
     pub fn dream(&mut self) -> Vec<DreamResult> {
-        let low_coherence: Vec<CoherenceNode> = self.nodes.values()
+        let low_coherence: Vec<CoherenceNode> = self
+            .nodes
+            .values()
             .filter(|n| match n.rating() {
                 Some(CoherenceRating::Failure) | Some(CoherenceRating::Inert) => true,
                 Some(CoherenceRating::Success) => false,
@@ -1054,7 +1134,11 @@ impl PhysisCore {
 
         let mut results = Vec::new();
         for node in &low_coherence {
-            if self.dream_archive.iter().any(|d| d.nodes_tested.contains(&node.id)) {
+            if self
+                .dream_archive
+                .iter()
+                .any(|d| d.nodes_tested.contains(&node.id))
+            {
                 continue;
             }
 
@@ -1074,18 +1158,35 @@ impl PhysisCore {
 
     /// Mean coherence across all nodes.
     pub fn coherence_index(&self) -> Score {
-        if self.nodes.is_empty() { return 1.0; }
+        if self.nodes.is_empty() {
+            return 1.0;
+        }
         let sum: Score = self.nodes.values().map(|n| n.coherence_score).sum();
         sum / self.nodes.len() as Score
     }
 
     pub fn snapshot(&self) -> CoherenceSnapshot {
         let total = self.nodes.len();
-        let high = self.nodes.values().filter(|n| n.coherence_score > 0.7).count();
-        let mid = self.nodes.values().filter(|n| n.coherence_score > 0.3 && n.coherence_score <= 0.7).count();
-        let low = self.nodes.values().filter(|n| n.coherence_score <= 0.3).count();
+        let high = self
+            .nodes
+            .values()
+            .filter(|n| n.coherence_score > 0.7)
+            .count();
+        let mid = self
+            .nodes
+            .values()
+            .filter(|n| n.coherence_score > 0.3 && n.coherence_score <= 0.7)
+            .count();
+        let low = self
+            .nodes
+            .values()
+            .filter(|n| n.coherence_score <= 0.3)
+            .count();
         let rated = |want: CoherenceRating| {
-            self.nodes.values().filter(|n| n.rating() == Some(want)).count()
+            self.nodes
+                .values()
+                .filter(|n| n.rating() == Some(want))
+                .count()
         };
         CoherenceSnapshot {
             total_nodes: total,
@@ -1231,16 +1332,34 @@ mod tests {
 
         // Exchange the content: new label + re-embedded vector, no pin.
         let new_vec = emb.embed("welding robot joint recalibration");
-        let out = g.edit_node(&a, "welding robot joint recalibration", new_vec, PinEdit::Keep, Some("rp32"))
+        let out = g
+            .edit_node(
+                &a,
+                "welding robot joint recalibration",
+                new_vec,
+                PinEdit::Keep,
+                Some("rp32"),
+            )
             .expect("edit succeeds");
 
         // Identity + structure survive the swap.
         assert_eq!(out.node_id, a);
         assert_eq!(out.label, "welding robot joint recalibration");
-        assert_eq!(out.asserted, Some(-1.0), "verdict preserved across content swap");
-        assert_eq!(g.nodes[&a].embedder.as_deref(), Some("rp32"), "provenance re-stamped");
-        assert_eq!(g.bridge.holon_for(&a).expect("still bridged").data, bridge_before,
-                   "holarchy bridge survives the swap");
+        assert_eq!(
+            out.asserted,
+            Some(-1.0),
+            "verdict preserved across content swap"
+        );
+        assert_eq!(
+            g.nodes[&a].embedder.as_deref(),
+            Some("rp32"),
+            "provenance re-stamped"
+        );
+        assert_eq!(
+            g.bridge.holon_for(&a).expect("still bridged").data,
+            bridge_before,
+            "holarchy bridge survives the swap"
+        );
         assert_eq!(g.resolved_edges().len(), 1, "edges survive the swap");
 
         // Dedupe index moved with the label: old label no longer resolves, new one does.
@@ -1266,8 +1385,15 @@ mod tests {
         g.register_node_vec_labeled(emb.embed("c"), Some("src → lib.rs".into()));
 
         let removed = g.delete_nodes_by_label_prefix("src → main.rs");
-        assert_eq!(removed.len(), 2, "structural path + its per-line labels drop together");
-        assert!(g.nodes.values().all(|n| n.label.as_deref() != Some("src → main.rs")));
+        assert_eq!(
+            removed.len(),
+            2,
+            "structural path + its per-line labels drop together"
+        );
+        assert!(g
+            .nodes
+            .values()
+            .all(|n| n.label.as_deref() != Some("src → main.rs")));
         assert!(g.nodes.len() == 1, "unrelated prefix survives");
 
         // The label is free to register again (dedupe index cleaned up).
@@ -1283,31 +1409,66 @@ mod tests {
         let pinned = ("FABRICATE".to_string(), "MAINTAIN".to_string());
 
         let new_vec = emb.embed("autoclave cycle log (edited)");
-        let out = g.edit_node(&id, "autoclave cycle log (edited)", new_vec,
-                              PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()), None)
+        let out = g
+            .edit_node(
+                &id,
+                "autoclave cycle log (edited)",
+                new_vec,
+                PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()),
+                None,
+            )
             .expect("edit succeeds");
         assert_eq!(out.pinned_cell.as_ref(), Some(&pinned));
-        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&pinned), "pin persists on the node");
+        assert_eq!(
+            g.nodes[&id].cell_pin.as_ref(),
+            Some(&pinned),
+            "pin persists on the node"
+        );
 
         // A later edit that says nothing about the cell must NOT drop it. A pin
         // is the editor's testimony about where this belongs; fixing a typo is
         // not a retraction of that claim.
-        g.edit_node(&id, "autoclave cycle log (again)", emb.embed("autoclave"), PinEdit::Keep, None)
-            .expect("edit succeeds");
-        assert_eq!(g.nodes[&id].cell_pin.as_ref(), Some(&pinned),
-                   "an edit with no opinion about the cell leaves the pin standing");
+        g.edit_node(
+            &id,
+            "autoclave cycle log (again)",
+            emb.embed("autoclave"),
+            PinEdit::Keep,
+            None,
+        )
+        .expect("edit succeeds");
+        assert_eq!(
+            g.nodes[&id].cell_pin.as_ref(),
+            Some(&pinned),
+            "an edit with no opinion about the cell leaves the pin standing"
+        );
 
         // Re-pinning replaces.
-        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave"),
-                    PinEdit::Set("STUDY".into(), "LEARN".into()), None)
-            .expect("edit succeeds");
-        assert_eq!(g.nodes[&id].cell_pin.as_ref(),
-                   Some(&("STUDY".to_string(), "LEARN".to_string())));
+        g.edit_node(
+            &id,
+            "autoclave cycle log",
+            emb.embed("autoclave"),
+            PinEdit::Set("STUDY".into(), "LEARN".into()),
+            None,
+        )
+        .expect("edit succeeds");
+        assert_eq!(
+            g.nodes[&id].cell_pin.as_ref(),
+            Some(&("STUDY".to_string(), "LEARN".to_string()))
+        );
 
         // Retraction is explicit, and only then does the classifier take over.
-        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave"), PinEdit::Clear, None)
-            .expect("edit succeeds");
-        assert_eq!(g.nodes[&id].cell_pin, None, "an explicit Clear retracts the pin");
+        g.edit_node(
+            &id,
+            "autoclave cycle log",
+            emb.embed("autoclave"),
+            PinEdit::Clear,
+            None,
+        )
+        .expect("edit succeeds");
+        assert_eq!(
+            g.nodes[&id].cell_pin, None,
+            "an explicit Clear retracts the pin"
+        );
     }
 
     #[test]
@@ -1321,17 +1482,28 @@ mod tests {
         let view = g.nodes[&id].observable(auto.clone());
         assert_eq!(view.cell, auto);
         assert!(!view.pinned);
-        assert_eq!(view.label, "autoclave cycle log", "the projection carries the text");
+        assert_eq!(
+            view.label, "autoclave cycle log",
+            "the projection carries the text"
+        );
 
         // Pinned: the pin wins over the classifier, and the flag reports which
         // one the caller is looking at. Before this existed `cell_pin` was
         // stored, persisted, and visible from no endpoint at all.
-        g.edit_node(&id, "autoclave cycle log", emb.embed("autoclave cycle log"),
-                    PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()), None)
-            .expect("edit succeeds");
+        g.edit_node(
+            &id,
+            "autoclave cycle log",
+            emb.embed("autoclave cycle log"),
+            PinEdit::Set("FABRICATE".into(), "MAINTAIN".into()),
+            None,
+        )
+        .expect("edit succeeds");
         let view = g.nodes[&id].observable(auto);
-        assert_eq!(view.cell, Some(("FABRICATE".to_string(), "MAINTAIN".to_string())),
-                   "the pin outranks the auto-derived cell");
+        assert_eq!(
+            view.cell,
+            Some(("FABRICATE".to_string(), "MAINTAIN".to_string())),
+            "the pin outranks the auto-derived cell"
+        );
         assert!(view.pinned);
     }
 
@@ -1345,9 +1517,19 @@ mod tests {
         g.register_node_from_text("gamma", &emb);
         assert_eq!(g.encoded_nodes.len(), 3, "all nodes PQ-encoded");
 
-        g.edit_node(&a, "alpha edited", emb.embed("alpha edited"), PinEdit::Keep, None).expect("edit");
-        assert_eq!(g.encoded_nodes.iter().filter(|(id, _)| id == &a).count(), 0,
-                   "stale PQ codes for the edited node are dropped");
+        g.edit_node(
+            &a,
+            "alpha edited",
+            emb.embed("alpha edited"),
+            PinEdit::Keep,
+            None,
+        )
+        .expect("edit");
+        assert_eq!(
+            g.encoded_nodes.iter().filter(|(id, _)| id == &a).count(),
+            0,
+            "stale PQ codes for the edited node are dropped"
+        );
         assert!(g.nodes[&a].coherence_score.is_finite());
     }
 
@@ -1367,7 +1549,11 @@ mod tests {
         assert!(!g.delete_node(&b), "second delete is a no-op/false");
         // Holarchy node + edges are gone, bridge unlinked.
         assert!(g.bridge.holon_for(&b).is_none(), "bridge unlinked");
-        assert_eq!(g.resolved_edges().len(), 0, "edges touching the removed node are gone");
+        assert_eq!(
+            g.resolved_edges().len(),
+            0,
+            "edges touching the removed node are gone"
+        );
         assert_eq!(g.holarchy.nodes.len(), 2, "holarchy node removed");
         // Label dedupe index no longer resolves the removed label.
         let dup = g.register_node_from_text("beta", &emb);
@@ -1391,7 +1577,10 @@ mod tests {
 
         // A holarchy edge between two bridged nodes resolves back to coherence ids.
         g.holarchy.edges.push(crate::graph::Edge {
-            source: ka, target: kb, weight: 0.7, semantic_type: 0,
+            source: ka,
+            target: kb,
+            weight: 0.7,
+            semantic_type: 0,
         });
         let resolved = g.resolved_edges();
         assert_eq!(resolved.len(), 1);
@@ -1480,17 +1669,24 @@ mod tests {
         let emb = fixture_embedder();
 
         let lone = g.register_node_from_text("morning yoga completed", &emb);
-        assert_eq!(g.nodes[&lone].coherence_score, 1.0,
-                   "the only node has nothing to disagree with");
+        assert_eq!(
+            g.nodes[&lone].coherence_score, 1.0,
+            "the only node has nothing to disagree with"
+        );
 
         // A near-synonym must land close to it, not at the 0.0 default.
         let near = g.register_node_from_text("completed morning yoga session", &emb);
-        assert!(g.nodes[&near].coherence_score > 0.0,
-                "a scored node must not keep the default 0.0 (got {})",
-                g.nodes[&near].coherence_score);
+        assert!(
+            g.nodes[&near].coherence_score > 0.0,
+            "a scored node must not keep the default 0.0 (got {})",
+            g.nodes[&near].coherence_score
+        );
 
         // The index is the mean over nodes, so it moves off 0.0 too.
-        assert!(g.coherence_index() > 0.0, "coherence_index must not be pinned at 0.0");
+        assert!(
+            g.coherence_index() > 0.0,
+            "coherence_index must not be pinned at 0.0"
+        );
 
         // Score is the mean cosine to the k nearest, so it stays a similarity.
         assert!(g.nodes[&near].coherence_score <= 1.0);
@@ -1559,9 +1755,14 @@ mod tests {
 
         let dreams = g.dream();
         let tested: Vec<&String> = dreams.iter().flat_map(|d| &d.nodes_tested).collect();
-        assert!(tested.contains(&&failed), "a reported failure must be replayed");
-        assert!(!tested.contains(&&worked),
-                "a reported success must not be replayed on density alone");
+        assert!(
+            tested.contains(&&failed),
+            "a reported failure must be replayed"
+        );
+        assert!(
+            !tested.contains(&&worked),
+            "a reported success must not be replayed on density alone"
+        );
     }
 
     #[test]
@@ -1587,10 +1788,20 @@ mod tests {
         restored.set_embedder_id("fixture");
         let (loaded, skipped) = restored.load_nodes(&db, "tenant-a");
         assert_eq!((loaded, skipped), (2, 0));
-        assert_eq!(restored.nodes[&id].coherence_score, score, "scores survive too");
-        assert_eq!(restored.nodes[&id].asserted, Some(-1.0), "the verdict survives too");
+        assert_eq!(
+            restored.nodes[&id].coherence_score, score,
+            "scores survive too"
+        );
+        assert_eq!(
+            restored.nodes[&id].asserted,
+            Some(-1.0),
+            "the verdict survives too"
+        );
         assert_eq!(restored.nodes[&id].rating(), Some(CoherenceRating::Failure));
-        assert_eq!(restored.nodes[&id].label.as_deref(), Some("morning yoga completed"));
+        assert_eq!(
+            restored.nodes[&id].label.as_deref(),
+            Some("morning yoga completed")
+        );
 
         // The label index is rebuilt, so dedupe still holds after a restart --
         // otherwise a restart would silently duplicate every re-registered node.

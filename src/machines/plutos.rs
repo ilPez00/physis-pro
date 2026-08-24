@@ -60,7 +60,9 @@ pub fn detect_flows(txns: &[Transaction], min_count: usize) -> Vec<Flow> {
         if t.amount <= 0.0 {
             continue;
         }
-        let e = agg.entry((t.from.clone(), t.to.clone())).or_insert((0.0, 0));
+        let e = agg
+            .entry((t.from.clone(), t.to.clone()))
+            .or_insert((0.0, 0));
         e.0 += t.amount;
         e.1 += 1;
     }
@@ -70,10 +72,21 @@ pub fn detect_flows(txns: &[Transaction], min_count: usize) -> Vec<Flow> {
         .map(|((from, to), (total, count))| {
             let mean = total / count as f32;
             let hash = format!("plutos_{from}_{to}");
-            Flow { from, to, total, count, mean, hash }
+            Flow {
+                from,
+                to,
+                total,
+                count,
+                mean,
+                hash,
+            }
         })
         .collect();
-    out.sort_by(|a, b| b.total.partial_cmp(&a.total).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        b.total
+            .partial_cmp(&a.total)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
@@ -92,9 +105,18 @@ pub fn balances(flows: &[Flow]) -> Vec<Balance> {
     }
     let mut out: Vec<Balance> = io
         .into_iter()
-        .map(|(party, (inflow, outflow))| Balance { party, inflow, outflow, net: inflow - outflow })
+        .map(|(party, (inflow, outflow))| Balance {
+            party,
+            inflow,
+            outflow,
+            net: inflow - outflow,
+        })
         .collect();
-    out.sort_by(|a, b| a.net.partial_cmp(&b.net).unwrap_or(std::cmp::Ordering::Equal));
+    out.sort_by(|a, b| {
+        a.net
+            .partial_cmp(&b.net)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     out
 }
 
@@ -116,7 +138,10 @@ pub fn register_flows(
         let to = core.register_node_from_text(&format!("party: {}", f.to), embedder);
         core.add_edge_between(&from, &to, f.total, 1);
         let flow = core.register_node_from_text(
-            &format!("flow: {} -> {} ({:.0} over {})", f.from, f.to, f.total, f.count),
+            &format!(
+                "flow: {} -> {} ({:.0} over {})",
+                f.from, f.to, f.total, f.count
+            ),
             embedder,
         );
         core.bridge_node(&flow);
@@ -130,19 +155,30 @@ mod tests {
     use super::*;
 
     fn t(from: &str, to: &str, amount: f32) -> Transaction {
-        Transaction { from: from.into(), to: to.into(), amount }
+        Transaction {
+            from: from.into(),
+            to: to.into(),
+            amount,
+        }
     }
 
     #[test]
     fn recurring_flow_detected_one_off_rejected() {
         let txns = vec![
-            t("me", "rent", 1000.0), t("me", "rent", 1000.0), t("me", "rent", 1000.0), // recurring
-            t("me", "gift", 50.0),                                                      // one-off
-            t("salary", "me", 2500.0), t("salary", "me", 2500.0),                       // recurring inflow
+            t("me", "rent", 1000.0),
+            t("me", "rent", 1000.0),
+            t("me", "rent", 1000.0), // recurring
+            t("me", "gift", 50.0),   // one-off
+            t("salary", "me", 2500.0),
+            t("salary", "me", 2500.0), // recurring inflow
         ];
         let flows = detect_flows(&txns, 2);
-        assert!(flows.iter().any(|f| f.from == "me" && f.to == "rent" && f.count == 3 && f.total == 3000.0));
-        assert!(flows.iter().any(|f| f.from == "salary" && f.to == "me" && f.count == 2));
+        assert!(flows
+            .iter()
+            .any(|f| f.from == "me" && f.to == "rent" && f.count == 3 && f.total == 3000.0));
+        assert!(flows
+            .iter()
+            .any(|f| f.from == "salary" && f.to == "me" && f.count == 2));
         // the one-off gift is noise
         assert!(!flows.iter().any(|f| f.to == "gift"));
         // largest drain
@@ -152,9 +188,12 @@ mod tests {
     #[test]
     fn balances_and_breach() {
         let txns = vec![
-            t("salary", "me", 2000.0), t("salary", "me", 2000.0),  // me +4000
-            t("me", "rent", 1500.0), t("me", "rent", 1500.0),       // me -3000
-            t("me", "food", 800.0), t("me", "food", 800.0),         // me -1600
+            t("salary", "me", 2000.0),
+            t("salary", "me", 2000.0), // me +4000
+            t("me", "rent", 1500.0),
+            t("me", "rent", 1500.0), // me -3000
+            t("me", "food", 800.0),
+            t("me", "food", 800.0), // me -1600
         ];
         let flows = detect_flows(&txns, 2);
         let bals = balances(&flows);

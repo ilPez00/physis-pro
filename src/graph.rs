@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use slotmap::{DenseSlotMap, new_key_type, Key, KeyData};
-use serde::{Serialize, Deserialize};
-use bytemuck::{Pod, Zeroable};
-use crossbeam_channel::{Sender, unbounded};
 use crate::ai::onnx_worker::{OnnxRequest, OnnxResponse};
 use crate::storage::MmappedStorage;
+use bytemuck::{Pod, Zeroable};
+use crossbeam_channel::{unbounded, Sender};
+use serde::{Deserialize, Serialize};
+use slotmap::{new_key_type, DenseSlotMap, Key, KeyData};
 
 new_key_type! {
     pub struct NodeKey;
@@ -21,7 +21,9 @@ pub struct RawNodeKey {
 
 impl From<NodeKey> for RawNodeKey {
     fn from(key: NodeKey) -> Self {
-        Self { data: key.data().as_ffi() }
+        Self {
+            data: key.data().as_ffi(),
+        }
     }
 }
 
@@ -93,7 +95,9 @@ impl HolonicGraph {
         }
 
         // 3. Physical purge of flagged nodes
-        let to_remove: Vec<NodeKey> = self.nodes.iter()
+        let to_remove: Vec<NodeKey> = self
+            .nodes
+            .iter()
             .filter(|(_, p)| p.prune_flag == 1)
             .map(|(k, _)| k)
             .collect();
@@ -103,7 +107,8 @@ impl HolonicGraph {
             self.embeddings.remove(key);
             // Remove associated edges
             let raw_key = RawNodeKey::from(key);
-            self.edges.retain(|e| e.source.data != raw_key.data && e.target.data != raw_key.data);
+            self.edges
+                .retain(|e| e.source.data != raw_key.data && e.target.data != raw_key.data);
         }
     }
 
@@ -130,14 +135,17 @@ impl<'a> MmappedGraph<'a> {
     pub fn nodes_mut(&mut self) -> &mut [NodePayload] {
         let header = *self.storage.header_mut();
         let offset = std::mem::size_of::<crate::storage::GraphHeader>();
-        self.storage.as_slice_mut(offset, header.node_count as usize)
+        self.storage
+            .as_slice_mut(offset, header.node_count as usize)
     }
 
     pub fn edges_mut(&mut self) -> &mut [Edge] {
         let header = *self.storage.header_mut();
         let node_offset = std::mem::size_of::<crate::storage::GraphHeader>();
-        let edge_offset = node_offset + (header.node_count as usize * std::mem::size_of::<NodePayload>());
-        self.storage.as_slice_mut(edge_offset, header.edge_count as usize)
+        let edge_offset =
+            node_offset + (header.node_count as usize * std::mem::size_of::<NodePayload>());
+        self.storage
+            .as_slice_mut(edge_offset, header.edge_count as usize)
     }
 }
 
@@ -154,7 +162,7 @@ pub struct IngestRing {
 impl IngestRing {
     pub fn spawn(onnx_tx: Sender<OnnxRequest>, graph_tx: Sender<(NodePayload, Vec<f32>)>) -> Self {
         let (tx, rx) = unbounded::<IngestMessage>();
-        
+
         std::thread::spawn(move || {
             let (reply_tx, reply_rx) = unbounded::<OnnxResponse>();
             while let Ok(msg) = rx.recv() {
@@ -163,19 +171,26 @@ impl IngestRing {
                     raw_buffer: msg.payload,
                     reply_to: reply_tx.clone(),
                 });
-                
-                if let Ok(OnnxResponse::IngestResult { cleaned_text: _, payload }) = reply_rx.recv() {
+
+                if let Ok(OnnxResponse::IngestResult {
+                    cleaned_text: _,
+                    payload,
+                }) = reply_rx.recv()
+                {
                     let dummy_embedding = vec![0.0; 32];
                     let _ = graph_tx.send((payload, dummy_embedding));
                 }
             }
         });
-        
+
         Self { tx }
     }
 
     pub fn push(&self, signal_type: u8, payload: Vec<u8>) {
-        let _ = self.tx.send(IngestMessage { signal_type, payload });
+        let _ = self.tx.send(IngestMessage {
+            signal_type,
+            payload,
+        });
     }
 }
 
@@ -282,11 +297,17 @@ impl FileThemeGraph {
     }
 
     pub fn add_edge(&mut self, theme_id: usize, file_id: usize, score: f32) {
-        self.edges.push(ThemeFileEdge { theme_id, file_id, score });
+        self.edges.push(ThemeFileEdge {
+            theme_id,
+            file_id,
+            score,
+        });
     }
 
     pub fn list_categories(&self) -> Vec<String> {
-        let mut cats: Vec<String> = self.themes.iter()
+        let mut cats: Vec<String> = self
+            .themes
+            .iter()
             .filter_map(|t| t.category.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
@@ -296,7 +317,9 @@ impl FileThemeGraph {
     }
 
     pub fn themes_by_category(&self, category: &str) -> Vec<&ThemeNode> {
-        let mut result: Vec<&ThemeNode> = self.themes.iter()
+        let mut result: Vec<&ThemeNode> = self
+            .themes
+            .iter()
             .filter(|t| t.category.as_deref() == Some(category))
             .collect();
         result.sort_by(|a, b| a.name.cmp(&b.name));
@@ -304,11 +327,14 @@ impl FileThemeGraph {
     }
 
     pub fn files_for_theme(&self, theme_id: usize) -> Vec<&FileNode> {
-        let file_ids: std::collections::HashSet<usize> = self.edges.iter()
+        let file_ids: std::collections::HashSet<usize> = self
+            .edges
+            .iter()
             .filter(|e| e.theme_id == theme_id)
             .map(|e| e.file_id)
             .collect();
-        self.files.iter()
+        self.files
+            .iter()
             .filter(|f| file_ids.contains(&f.id))
             .collect()
     }
@@ -322,7 +348,9 @@ impl FileThemeGraph {
             Some(t) => t,
             None => return vec![],
         };
-        let mut results: Vec<(usize, f32)> = self.themes.iter()
+        let mut results: Vec<(usize, f32)> = self
+            .themes
+            .iter()
             .filter(|t| t.id != theme_id)
             .map(|t| {
                 let sim = crate::models::cosine_sim(&theme.embedding, &t.embedding);
@@ -336,7 +364,9 @@ impl FileThemeGraph {
 
     pub fn search_files(&self, query: &str) -> Vec<&FileNode> {
         let q = query.to_lowercase();
-        let mut results: Vec<&FileNode> = self.files.iter()
+        let mut results: Vec<&FileNode> = self
+            .files
+            .iter()
             .filter(|f| {
                 f.title.to_lowercase().contains(&q)
                     || f.path.to_string_lossy().to_lowercase().contains(&q)
@@ -350,10 +380,15 @@ impl FileThemeGraph {
     /// Search themes by name matching a text query (for wiki integration).
     pub fn search_themes_by_text(&self, query: &str) -> Vec<&ThemeNode> {
         let q = query.to_lowercase();
-        let mut results: Vec<&ThemeNode> = self.themes.iter()
+        let mut results: Vec<&ThemeNode> = self
+            .themes
+            .iter()
             .filter(|t| {
                 t.name.to_lowercase().contains(&q)
-                    || t.category.as_deref().map(|c| c.to_lowercase().contains(&q)).unwrap_or(false)
+                    || t.category
+                        .as_deref()
+                        .map(|c| c.to_lowercase().contains(&q))
+                        .unwrap_or(false)
                     || t.domain.to_lowercase().contains(&q)
                     || t.mode.to_lowercase().contains(&q)
                     || t.axis_kind.to_lowercase().contains(&q)
@@ -371,7 +406,11 @@ impl FileThemeGraph {
         // Index page
         let mut index = String::new();
         index.push_str("# File Theme Graph\n\n");
-        index.push_str(&format!("- **{} themes** across {} categories\n", self.themes.len(), self.list_categories().len()));
+        index.push_str(&format!(
+            "- **{} themes** across {} categories\n",
+            self.themes.len(),
+            self.list_categories().len()
+        ));
         index.push_str(&format!("- **{} ingested files**\n", self.files.len()));
         index.push_str(&format!("- **{} theme-file edges**\n\n", self.edges.len()));
 
@@ -379,17 +418,29 @@ impl FileThemeGraph {
         for cat in &categories {
             let themes = self.themes_by_category(cat);
             let safe_name = cat.to_lowercase().replace(' ', "_");
-            index.push_str(&format!("- [[{}|{}]] — {} themes\n", safe_name, cat, themes.len()));
+            index.push_str(&format!(
+                "- [[{}|{}]] — {} themes\n",
+                safe_name,
+                cat,
+                themes.len()
+            ));
         }
 
         index.push_str("\n---\n\n### All Files\n\n");
         for file in &self.files {
-            let themes: Vec<&str> = self.edges.iter()
+            let themes: Vec<&str> = self
+                .edges
+                .iter()
                 .filter(|e| e.file_id == file.id)
                 .filter_map(|e| self.get_theme(e.theme_id))
                 .map(|t| t.name.as_str())
                 .collect();
-            index.push_str(&format!("- **{}** — {} — {}\n", file.title, file.path.display(), themes.join(", ")));
+            index.push_str(&format!(
+                "- **{}** — {} — {}\n",
+                file.title,
+                file.path.display(),
+                themes.join(", ")
+            ));
         }
 
         std::fs::write(wiki_dir.join("index.md"), &index)?;
@@ -403,8 +454,15 @@ impl FileThemeGraph {
 
             for theme in themes {
                 page.push_str(&format!("## {}\n\n", theme.name));
-                page.push_str(&format!("- **Domain:** {} × {}\n", theme.domain, theme.mode));
-                page.push_str(&format!("- **Axis:** {} ({})\n", theme.axis_kind, theme.category.as_deref().unwrap_or("")));
+                page.push_str(&format!(
+                    "- **Domain:** {} × {}\n",
+                    theme.domain, theme.mode
+                ));
+                page.push_str(&format!(
+                    "- **Axis:** {} ({})\n",
+                    theme.axis_kind,
+                    theme.category.as_deref().unwrap_or("")
+                ));
 
                 let files = self.files_for_theme(theme.id);
                 if !files.is_empty() {
@@ -440,7 +498,9 @@ impl FileThemeGraph {
                 page.push_str(&format!("- **Path:** {}\n", file.path.display()));
                 page.push_str(&format!("- **Kind:** {}\n", file.kind));
 
-                let file_themes: Vec<&ThemeNode> = self.edges.iter()
+                let file_themes: Vec<&ThemeNode> = self
+                    .edges
+                    .iter()
                     .filter(|e| e.file_id == file.id)
                     .filter_map(|e| self.get_theme(e.theme_id))
                     .collect();
@@ -448,7 +508,11 @@ impl FileThemeGraph {
                 if !file_themes.is_empty() {
                     page.push_str("\n### Themes\n\n");
                     for theme in &file_themes {
-                        page.push_str(&format!("- [[{}|{}]]\n", theme.name.to_lowercase().replace(' ', "_"), theme.name));
+                        page.push_str(&format!(
+                            "- [[{}|{}]]\n",
+                            theme.name.to_lowercase().replace(' ', "_"),
+                            theme.name
+                        ));
                     }
                 }
 
@@ -523,7 +587,9 @@ pub fn build_theme_graph(
         );
 
         // Find matching themes via cosine similarity
-        let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
+        let mut theme_scores: Vec<(usize, f32)> = graph
+            .themes
+            .iter()
             .map(|t| {
                 let sim = crate::models::cosine_sim(&file_embedding, &t.embedding);
                 (t.id, sim)
@@ -548,10 +614,34 @@ mod file_theme_graph_tests {
 
     fn make_test_graph() -> FileThemeGraph {
         let mut g = FileThemeGraph::new();
-        g.add_theme("Email", Some("Communication"), "BOND", "WORK", "office", vec![0.9, 0.1]);
-        g.add_theme("Budget", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
-        g.add_file(PathBuf::from("inbox/msg.eml"), "Q4 report", "Email", vec![0.85, 0.15]);
-        g.add_file(PathBuf::from("finance/budget.xlsx"), "Budget 2025", "Spreadsheet", vec![0.15, 0.85]);
+        g.add_theme(
+            "Email",
+            Some("Communication"),
+            "BOND",
+            "WORK",
+            "office",
+            vec![0.9, 0.1],
+        );
+        g.add_theme(
+            "Budget",
+            Some("Finance"),
+            "CONSTRUCT",
+            "CREATE",
+            "office",
+            vec![0.1, 0.9],
+        );
+        g.add_file(
+            PathBuf::from("inbox/msg.eml"),
+            "Q4 report",
+            "Email",
+            vec![0.85, 0.15],
+        );
+        g.add_file(
+            PathBuf::from("finance/budget.xlsx"),
+            "Budget 2025",
+            "Spreadsheet",
+            vec![0.15, 0.85],
+        );
         g.add_edge(0, 0, 0.95); // Email → Q4 report
         g.add_edge(1, 1, 0.90); // Budget → Budget 2025
         g
@@ -641,17 +731,15 @@ mod file_theme_graph_tests {
 
     #[test]
     fn test_build_from_docs() {
-        let docs = vec![
-            IngestedDoc {
-                path: PathBuf::from("test.txt"),
-                kind: crate::ingest::DocKind::Report,
-                title: "Test".into(),
-                body: "some financial report about budget planning".into(),
-                timestamp: chrono::Utc::now(),
-                ontology_tags: vec![],
-                meta: crate::ingest::DocMeta::default(),
-            },
-        ];
+        let docs = vec![IngestedDoc {
+            path: PathBuf::from("test.txt"),
+            kind: crate::ingest::DocKind::Report,
+            title: "Test".into(),
+            body: "some financial report about budget planning".into(),
+            timestamp: chrono::Utc::now(),
+            ontology_tags: vec![],
+            meta: crate::ingest::DocMeta::default(),
+        }];
         let embedder = RandomProjectionEmbedder::new(4);
         let config = crate::config::PhysisConfig::default();
         let ontology = crate::config::OntologyLoader::load_all(&config);

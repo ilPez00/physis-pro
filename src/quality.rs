@@ -49,7 +49,9 @@ impl std::ops::DerefMut for QualityTracker {
 
 impl QualityTracker {
     pub fn new(embedder: Box<dyn VectorEmbed>, _ontology: OntologyLoader) -> Self {
-        Self(physis_core::quality::QualityTracker::new(Box::new(CoreEmbed(embedder))))
+        Self(physis_core::quality::QualityTracker::new(Box::new(
+            CoreEmbed(embedder),
+        )))
     }
 
     /// Look up `failures` type from the core without deref (associated fn).
@@ -83,7 +85,8 @@ mod tests {
         centroids.insert("WORK\x00DO".to_string(), vec![0.5; 384]);
 
         let (top_cell, top_score) = {
-            let f = tracker.report_failure("this classification is completely wrong", &centroids, None);
+            let f =
+                tracker.report_failure("this classification is completely wrong", &centroids, None);
             (f.top_cell.clone(), f.top_score)
         };
         assert_eq!(tracker.failures.len(), 1);
@@ -117,11 +120,14 @@ mod tests {
     fn test_adjust_score_with_boost() {
         let mut t = make_tracker();
         let decay_rate = t.boost_decay_rate;
-        t.cell_boosts.insert("WORK\x00DO".to_string(), physis_core::quality::BoostInfo {
-            amount: 0.5,
-            decay_rate,
-            last_reinforced: std::time::Instant::now(),
-        });
+        t.cell_boosts.insert(
+            "WORK\x00DO".to_string(),
+            physis_core::quality::BoostInfo {
+                amount: 0.5,
+                decay_rate,
+                last_reinforced: std::time::Instant::now(),
+            },
+        );
         let adjusted = t.adjust_score("WORK\x00DO", 0.8);
         assert!(adjusted > 0.8, "boost should increase score");
     }

@@ -9,8 +9,8 @@ mod mcp_impl {
 
     use rmcp::handler::server::ServerHandler;
     use rmcp::model::{
-        CallToolRequestParam, CallToolResult, Content, ListToolsResult,
-        PaginatedRequestParam, ServerCapabilities, ServerInfo, Tool,
+        CallToolRequestParam, CallToolResult, Content, ListToolsResult, PaginatedRequestParam,
+        ServerCapabilities, ServerInfo, Tool,
     };
     use rmcp::service::{RequestContext, RoleServer, ServiceExt};
     use rmcp::Error as McpError;
@@ -25,9 +25,9 @@ mod mcp_impl {
     use crate::config::{OntologyLoader, PhysisConfig};
     use crate::dream::DreamEngine;
     use crate::embed::VectorEmbed;
-    use crate::gantt::{GanttScheduler, AbstractDomain};
+    use crate::gantt::{AbstractDomain, GanttScheduler};
     use crate::mapper::OntologyMapper;
-    use crate::models::{Goal, Experience};
+    use crate::models::{Experience, Goal};
 
     /// Shared state served by the MCP server.
     pub struct PhysisContext {
@@ -86,8 +86,12 @@ mod mcp_impl {
             // Load the cache first: the classifier is the expensive part of
             // startup, and it is exactly what the cache is for.
             let mut pack_cache = crate::pack::EmbedCache::load(&config.data_dir);
-            let classifier =
-                CellClassifier::build_cached(&ontology, embedder.as_ref(), embedder_kind, &mut pack_cache);
+            let classifier = CellClassifier::build_cached(
+                &ontology,
+                embedder.as_ref(),
+                embedder_kind,
+                &mut pack_cache,
+            );
             let (hits, misses) = pack_cache.stats();
             eprintln!("physis: ontology seeds embedded — {hits} cached, {misses} computed");
             pack_cache.save(&config.data_dir);
@@ -120,12 +124,17 @@ mod mcp_impl {
 
     fn json_content(value: &JsonValue) -> Result<Content, McpError> {
         Content::json(value).map_err(|e| {
-            McpError::internal_error("json serialization failed", Some(json!({"reason": e.to_string()})))
+            McpError::internal_error(
+                "json serialization failed",
+                Some(json!({"reason": e.to_string()})),
+            )
         })
     }
 
     #[inline]
-    fn args_map(request: &CallToolRequestParam) -> Result<&serde_json::Map<String, JsonValue>, McpError> {
+    fn args_map(
+        request: &CallToolRequestParam,
+    ) -> Result<&serde_json::Map<String, JsonValue>, McpError> {
         request
             .arguments
             .as_ref()
@@ -156,7 +165,12 @@ mod mcp_impl {
         args_map(request)?
             .get(name)
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_f64()).map(|f| f as f32).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_f64())
+                    .map(|f| f as f32)
+                    .collect()
+            })
             .ok_or_else(|| McpError::invalid_params(format!("missing array arg: {name}"), None))
     }
 
@@ -394,26 +408,38 @@ mod mcp_impl {
                     let before = ctx.goals.len();
                     ctx.goals.retain(|g| g.id != id);
                     let removed = before - ctx.goals.len();
-                    Ok(CallToolResult::success(vec![json_content(&json!({"removed": removed > 0}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"removed": removed > 0}),
+                    )?]))
                 }
 
                 "physis_pdca_plan" => {
                     let ctx = self.ctx.lock().await;
                     let priority_map: Option<std::collections::HashMap<String, f32>> = {
-                        let cp: Vec<&str> = ctx.scheduler.tasks.iter()
+                        let cp: Vec<&str> = ctx
+                            .scheduler
+                            .tasks
+                            .iter()
                             .filter(|t| t.on_critical_path)
                             .map(|t| t.id.as_str())
                             .collect();
-                        if cp.is_empty() { None } else {
+                        if cp.is_empty() {
+                            None
+                        } else {
                             let mut m = std::collections::HashMap::new();
-                            for t in cp { m.insert(t.to_string(), 1.0); }
+                            for t in cp {
+                                m.insert(t.to_string(), 1.0);
+                            }
                             Some(m)
                         }
                     };
-                    let planned = ctx.actor.plan_with_schedule(&ctx.goals, priority_map.as_ref());
-                    let goals: Vec<JsonValue> = planned.iter().map(|g| {
-                        json!({"id": g.id, "progress": g.progress})
-                    }).collect();
+                    let planned = ctx
+                        .actor
+                        .plan_with_schedule(&ctx.goals, priority_map.as_ref());
+                    let goals: Vec<JsonValue> = planned
+                        .iter()
+                        .map(|g| json!({"id": g.id, "progress": g.progress}))
+                        .collect();
                     let result = json!({"planned": goals, "count": goals.len()});
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
                 }
@@ -425,7 +451,9 @@ mod mcp_impl {
                     let before = match ctx.goals.iter().find(|g| g.id == goal_id) {
                         Some(g) => g.embedding.clone(),
                         None => {
-                            return Ok(CallToolResult::error(vec![json_content(&json!({"error": "goal not found"}))?]));
+                            return Ok(CallToolResult::error(vec![json_content(
+                                &json!({"error": "goal not found"}),
+                            )?]));
                         }
                     };
                     let exp_id = ctx.actor.do_action(&goal_id, before, state_vector).id;
@@ -439,12 +467,16 @@ mod mcp_impl {
                     }
                     ctx.experiences = exps;
                     ctx.goals = goals;
-                    Ok(CallToolResult::success(vec![json_content(&json!({"experience_id": exp_id}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"experience_id": exp_id}),
+                    )?]))
                 }
 
                 "physis_pdca_stats" => {
                     let ctx = self.ctx.lock().await;
-                    let stats_json = json!(ctx.actor.stats_with_schedule(&ctx.goals, Some(&ctx.scheduler)));
+                    let stats_json = json!(ctx
+                        .actor
+                        .stats_with_schedule(&ctx.goals, Some(&ctx.scheduler)));
                     Ok(CallToolResult::success(vec![json_content(&stats_json)?]))
                 }
 
@@ -452,12 +484,14 @@ mod mcp_impl {
                     let count = get_i64(&request, "count").unwrap_or(5) as usize;
                     let mut ctx = self.ctx.lock().await;
                     if ctx.goals.is_empty() {
-                        return Ok(CallToolResult::success(vec![
-                            json_content(&json!({"dreams": [], "count": 0, "reason": "no goals"}))?]));
+                        return Ok(CallToolResult::success(vec![json_content(
+                            &json!({"dreams": [], "count": 0, "reason": "no goals"}),
+                        )?]));
                     }
                     if ctx.actor.is_working(&ctx.goals) {
-                        return Ok(CallToolResult::success(vec![
-                            json_content(&json!({"dreams": [], "count": 0, "reason": "PDCA active"}))?]));
+                        return Ok(CallToolResult::success(vec![json_content(
+                            &json!({"dreams": [], "count": 0, "reason": "PDCA active"}),
+                        )?]));
                     }
                     let goals = ctx.goals.clone();
                     let dreams = ctx.dreams.generate_dreams(&goals, count);
@@ -473,8 +507,9 @@ mod mcp_impl {
                     let grade = get_f64(&request, "grade")? as f32;
                     let mut ctx = self.ctx.lock().await;
                     let accepted = ctx.dreams.evaluate_dream(&id, grade);
-                    Ok(CallToolResult::success(vec![
-                        json_content(&json!({"accepted": accepted, "dream_id": id, "grade": grade}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"accepted": accepted, "dream_id": id, "grade": grade}),
+                    )?]))
                 }
 
                 "physis_query" => {
@@ -483,8 +518,9 @@ mod mcp_impl {
                     let ctx = self.ctx.lock().await;
                     let results = ctx.mapper.query(&query);
                     let limited: Vec<Vec<String>> = results.into_iter().take(max).collect();
-                    Ok(CallToolResult::success(vec![
-                        json_content(&json!({"count": limited.len(), "results": limited}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"count": limited.len(), "results": limited}),
+                    )?]))
                 }
 
                 "physis_stats" => {
@@ -503,8 +539,9 @@ mod mcp_impl {
                     let wiki_path = ctx.config.data_dir.join("wiki");
                     let graph_path = ctx.config.data_dir.join("theme_graph.json");
                     let results = crate::wiki::search_all(&query, &wiki_path, &graph_path);
-                    Ok(CallToolResult::success(vec![
-                        json_content(&json!({"count": results.len(), "results": results}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"count": results.len(), "results": results}),
+                    )?]))
                 }
 
                 "physis_scan" => {
@@ -514,8 +551,9 @@ mod mcp_impl {
                         Err(_) => ctx.config.data_dir.clone(),
                     };
                     let inserted = ctx.mapper.map_filesystem(&scan_dir, None);
-                    Ok(CallToolResult::success(vec![
-                        json_content(&json!({"inserted": inserted, "path": scan_dir.to_string_lossy().to_string()}))?]))
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"inserted": inserted, "path": scan_dir.to_string_lossy().to_string()}),
+                    )?]))
                 }
 
                 "physis_gantt_schedule" => {
@@ -528,18 +566,31 @@ mod mcp_impl {
                             let dep_list: Vec<String> = args_map(&request)?
                                 .get("dependencies")
                                 .and_then(|v| v.as_array())
-                                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                                .map(|arr| {
+                                    arr.iter()
+                                        .filter_map(|v| v.as_str().map(String::from))
+                                        .collect()
+                                })
                                 .unwrap_or_default();
                             let mut hasher = DefaultHasher::new();
                             task_id.hash(&mut hasher);
                             let node_data = hasher.finish();
                             let node_key = crate::graph::RawNodeKey { data: node_data };
-                            let deps: Vec<crate::graph::RawNodeKey> = dep_list.iter().map(|d| {
-                                let mut h = DefaultHasher::new();
-                                d.hash(&mut h);
-                                crate::graph::RawNodeKey { data: h.finish() }
-                            }).collect();
-                            ctx.scheduler.add_task_with_duration(node_key, task_id.clone(), duration, 0, deps);
+                            let deps: Vec<crate::graph::RawNodeKey> = dep_list
+                                .iter()
+                                .map(|d| {
+                                    let mut h = DefaultHasher::new();
+                                    d.hash(&mut h);
+                                    crate::graph::RawNodeKey { data: h.finish() }
+                                })
+                                .collect();
+                            ctx.scheduler.add_task_with_duration(
+                                node_key,
+                                task_id.clone(),
+                                duration,
+                                0,
+                                deps,
+                            );
                             json!({"status": "ok", "task_id": task_id, "duration_secs": duration})
                         }
                         "recompute" => {
@@ -549,26 +600,38 @@ mod mcp_impl {
                         }
                         "status" => {
                             let health = ctx.scheduler.schedule_health();
-                            let tasks: Vec<JsonValue> = ctx.scheduler.tasks.iter().map(|t| {
-                                json!({
-                                    "id": t.id,
-                                    "name": t.name,
-                                    "duration": t.planned_duration_secs,
-                                    "early_start": t.early_start,
-                                    "early_finish": t.early_finish,
-                                    "late_start": t.late_start,
-                                    "late_finish": t.late_finish,
-                                    "float": t.float,
-                                    "critical": t.on_critical_path,
-                                    "progress": t.progress,
+                            let tasks: Vec<JsonValue> = ctx
+                                .scheduler
+                                .tasks
+                                .iter()
+                                .map(|t| {
+                                    json!({
+                                        "id": t.id,
+                                        "name": t.name,
+                                        "duration": t.planned_duration_secs,
+                                        "early_start": t.early_start,
+                                        "early_finish": t.early_finish,
+                                        "late_start": t.late_start,
+                                        "late_finish": t.late_finish,
+                                        "float": t.float,
+                                        "critical": t.on_critical_path,
+                                        "progress": t.progress,
+                                    })
                                 })
-                            }).collect();
-                            let critical_path_ids: Vec<&str> = ctx.scheduler.tasks.iter()
+                                .collect();
+                            let critical_path_ids: Vec<&str> = ctx
+                                .scheduler
+                                .tasks
+                                .iter()
                                 .filter(|t| t.on_critical_path)
                                 .map(|t| t.id.as_str())
                                 .collect();
-                            let at_risk: Vec<&str> = ctx.scheduler.tasks_approaching_late_finish(3600)
-                                .iter().map(|t| t.id.as_str()).collect();
+                            let at_risk: Vec<&str> = ctx
+                                .scheduler
+                                .tasks_approaching_late_finish(3600)
+                                .iter()
+                                .map(|t| t.id.as_str())
+                                .collect();
                             json!({
                                 "schedule_health": health,
                                 "task_count": tasks.len(),
@@ -584,7 +647,9 @@ mod mcp_impl {
 
                 "physis_gantt_cross_correlate" => {
                     let ctx = self.ctx.lock().await;
-                    let progress_pairs: Vec<(String, f32)> = ctx.goals.iter()
+                    let progress_pairs: Vec<(String, f32)> = ctx
+                        .goals
+                        .iter()
                         .map(|g| (g.id.clone(), g.progress))
                         .collect();
                     let r = ctx.scheduler.cross_correlate(&progress_pairs);
@@ -603,15 +668,18 @@ mod mcp_impl {
 
                 "physis_dream_advanced" => {
                     let count = get_i64(&request, "count").unwrap_or(5) as usize;
-                    let context = get_str(&request, "context").unwrap_or_else(|_| "mixed".to_string());
+                    let context =
+                        get_str(&request, "context").unwrap_or_else(|_| "mixed".to_string());
                     let mut ctx = self.ctx.lock().await;
                     if ctx.goals.is_empty() {
-                        return Ok(CallToolResult::success(vec![
-                            json_content(&json!({"dreams": [], "count": 0, "reason": "no goals"}))?]));
+                        return Ok(CallToolResult::success(vec![json_content(
+                            &json!({"dreams": [], "count": 0, "reason": "no goals"}),
+                        )?]));
                     }
                     if ctx.actor.is_working(&ctx.goals) {
-                        return Ok(CallToolResult::success(vec![
-                            json_content(&json!({"dreams": [], "count": 0, "reason": "PDCA active"}))?]));
+                        return Ok(CallToolResult::success(vec![json_content(
+                            &json!({"dreams": [], "count": 0, "reason": "PDCA active"}),
+                        )?]));
                     }
                     let use_schedule = context == "schedule" || context == "mixed";
                     let use_cm = context == "countermeasure" || context == "mixed";
@@ -620,11 +688,14 @@ mod mcp_impl {
                     // Extract scheduler and dreams from ctx to avoid borrow conflicts
                     let scheduler: *const crate::gantt::GanttScheduler = &ctx.scheduler;
                     let dreams = &mut ctx.dreams;
-                    let sched_ref = if use_schedule { Some(unsafe { &*scheduler }) } else { None };
+                    let sched_ref = if use_schedule {
+                        Some(unsafe { &*scheduler })
+                    } else {
+                        None
+                    };
                     let exps_ref = if use_cm { Some(&exps[..]) } else { None };
-                    let generated = dreams.generate_dreams_with_context(
-                        &goals, count, sched_ref, exps_ref,
-                    );
+                    let generated =
+                        dreams.generate_dreams_with_context(&goals, count, sched_ref, exps_ref);
                     let result = json!({
                         "dreams": generated.iter().map(|d| json!({
                             "id": d.id,
@@ -638,8 +709,9 @@ mod mcp_impl {
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
                 }
 
-                name => Ok(CallToolResult::error(vec![
-                    json_content(&json!({"error": format!("unknown tool: {name}")}))?])),
+                name => Ok(CallToolResult::error(vec![json_content(
+                    &json!({"error": format!("unknown tool: {name}")}),
+                )?])),
             }
         }
     }
@@ -705,7 +777,10 @@ mod mcp_impl {
             let req = request(json!({"text": "hello", "count": 3}));
             assert_eq!(get_str(&req, "text").unwrap(), "hello");
             assert!(get_str(&req, "missing").is_err());
-            assert!(get_str(&req, "count").is_err(), "non-string must not coerce");
+            assert!(
+                get_str(&req, "count").is_err(),
+                "non-string must not coerce"
+            );
         }
 
         #[test]
@@ -722,7 +797,11 @@ mod mcp_impl {
             let req = request(json!({"limit": 10, "weight": 0.5}));
             assert_eq!(get_i64(&req, "limit"), Some(10));
             assert_eq!(get_i64(&req, "missing"), None);
-            assert_eq!(get_i64(&req, "weight"), None, "float must not coerce to int");
+            assert_eq!(
+                get_i64(&req, "weight"),
+                None,
+                "float must not coerce to int"
+            );
         }
 
         #[test]
@@ -734,7 +813,10 @@ mod mcp_impl {
 
         #[test]
         fn missing_arguments_map_errors() {
-            let req = CallToolRequestParam { name: "test_tool".into(), arguments: None };
+            let req = CallToolRequestParam {
+                name: "test_tool".into(),
+                arguments: None,
+            };
             assert!(args_map(&req).is_err());
             assert!(get_str(&req, "any").is_err());
             assert_eq!(get_i64(&req, "any"), None);

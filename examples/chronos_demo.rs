@@ -10,28 +10,49 @@ use physis_pro::machines::chronos::{detect_rhythms, slipping, upcoming, TimedEve
 
 /// A fixed "today" so the demo is deterministic.
 fn now() -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339("2026-06-06T09:00:00Z").unwrap().with_timezone(&Utc)
+    DateTime::parse_from_rfc3339("2026-06-06T09:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc)
 }
 
 /// Helper: an event `days_ago` before `now()`.
 fn ago(label: &str, days_ago: i64) -> TimedEvent {
-    TimedEvent { label: label.to_string(), at: now() - Duration::days(days_ago) }
+    TimedEvent {
+        label: label.to_string(),
+        at: now() - Duration::days(days_ago),
+    }
 }
 
 fn main() {
     // A plausible month of life-log events.
     let events = vec![
         // gym — steady, ~every 2 days (regular)
-        ago("gym", 28), ago("gym", 26), ago("gym", 24), ago("gym", 22),
-        ago("gym", 20), ago("gym", 18), ago("gym", 16), ago("gym", 14),
-        ago("gym", 12), ago("gym", 10), ago("gym", 8), ago("gym", 6),
-        ago("gym", 4), ago("gym", 2),
+        ago("gym", 28),
+        ago("gym", 26),
+        ago("gym", 24),
+        ago("gym", 22),
+        ago("gym", 20),
+        ago("gym", 18),
+        ago("gym", 16),
+        ago("gym", 14),
+        ago("gym", 12),
+        ago("gym", 10),
+        ago("gym", 8),
+        ago("gym", 6),
+        ago("gym", 4),
+        ago("gym", 2),
         // team standup — weekly, but the last one was 11 days ago (slipping)
-        ago("standup", 32), ago("standup", 25), ago("standup", 18), ago("standup", 11),
+        ago("standup", 32),
+        ago("standup", 25),
+        ago("standup", 18),
+        ago("standup", 11),
         // pay rent — monthly, due about now
-        ago("pay rent", 62), ago("pay rent", 31),
+        ago("pay rent", 62),
+        ago("pay rent", 31),
         // call mum — irregular (low confidence)
-        ago("call mum", 21), ago("call mum", 9), ago("call mum", 2),
+        ago("call mum", 21),
+        ago("call mum", 9),
+        ago("call mum", 2),
         // one-offs — should NOT become rhythms
         ago("dentist", 13),
         ago("flight booked", 5),
@@ -41,7 +62,11 @@ fn main() {
     let t = now();
 
     println!("chronos — temporal machine");
-    println!("perceived {} events · now = {}\n", events.len(), t.format("%Y-%m-%d"));
+    println!(
+        "perceived {} events · now = {}\n",
+        events.len(),
+        t.format("%Y-%m-%d")
+    );
 
     println!("RHYTHMS (recurrence primitives, by confidence):");
     for r in &rhythms {
@@ -71,6 +96,9 @@ fn main() {
     }
     for r in slip {
         let overdue = (t - r.next_due).num_days();
-        println!("  ⚠ {:<14} {}d overdue (period {:.1}d)", r.label, overdue, r.period_days);
+        println!(
+            "  ⚠ {:<14} {}d overdue (period {:.1}d)",
+            r.label, overdue, r.period_days
+        );
     }
 }

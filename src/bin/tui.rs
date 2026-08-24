@@ -19,6 +19,12 @@ use std::io::stdout;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crossterm::{
+    event::{self, Event, KeyCode, KeyModifiers},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use dotenvy::dotenv;
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -27,12 +33,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs, Wrap},
     Terminal,
 };
-use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
-use dotenvy::dotenv;
 
 use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
@@ -156,7 +156,9 @@ fn engine_bin() -> std::path::PathBuf {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let sib = dir.join("physis-pro-web");
-            if sib.exists() { return sib; }
+            if sib.exists() {
+                return sib;
+            }
         }
     }
     std::path::PathBuf::from("physis-pro-web")
@@ -172,7 +174,10 @@ fn start_engine(app: &mut App) {
         .stderr(std::process::Stdio::null())
         .spawn()
     {
-        Ok(child) => { app.status_msg = format!("engine started (pid {})", child.id()); app.engine = Some(child); }
+        Ok(child) => {
+            app.status_msg = format!("engine started (pid {})", child.id());
+            app.engine = Some(child);
+        }
         Err(e) => app.status_msg = format!("start failed: {e} (is physis-pro-web built?)"),
     }
 }
@@ -192,17 +197,29 @@ fn stop_engine(app: &mut App) {
 fn reload_config(app: &mut App) {
     let url = format!("{}/api/v1/config/reload", app.url);
     let token = app.token.clone();
-    let rt = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
         Ok(rt) => rt,
-        Err(e) => { app.status_msg = format!("reload runtime: {e}"); return; }
+        Err(e) => {
+            app.status_msg = format!("reload runtime: {e}");
+            return;
+        }
     };
     app.status_msg = rt.block_on(async move {
         let client = reqwest::Client::new();
         let mut rb = client.post(&url);
-        if let Some(t) = token { rb = rb.bearer_auth(t); }
+        if let Some(t) = token {
+            rb = rb.bearer_auth(t);
+        }
         match rb.send().await {
             Ok(r) => match r.json::<serde_json::Value>().await {
-                Ok(v) => v.get("note").and_then(|n| n.as_str()).unwrap_or("reloaded").to_string(),
+                Ok(v) => v
+                    .get("note")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("reloaded")
+                    .to_string(),
                 Err(_) => "reloaded".into(),
             },
             Err(e) => format!("reload failed: {e}"),
@@ -232,10 +249,15 @@ fn save_config(cfg: &PhysisConfig) -> std::io::Result<()> {
 fn edit_field(cfg: &mut PhysisConfig, field: usize, up: bool) {
     let s = if up { 1.0 } else { -1.0 };
     match field {
-        0 => cfg.network_scan_interval_secs = (cfg.network_scan_interval_secs as i64 + (s * 5.0) as i64).max(1) as u64,
+        0 => {
+            cfg.network_scan_interval_secs =
+                (cfg.network_scan_interval_secs as i64 + (s * 5.0) as i64).max(1) as u64
+        }
         1 => cfg.dream_batch_size = (cfg.dream_batch_size as i64 + s as i64).max(1) as usize,
         2 => cfg.pdca_stagnant_threshold = (cfg.pdca_stagnant_threshold + s * 0.05).clamp(0.0, 1.0),
-        3 => cfg.pdca_stagnant_window = (cfg.pdca_stagnant_window as i64 + s as i64).max(1) as usize,
+        3 => {
+            cfg.pdca_stagnant_window = (cfg.pdca_stagnant_window as i64 + s as i64).max(1) as usize
+        }
         4 => cfg.embed_dim = (cfg.embed_dim as i64 + (s * 64.0) as i64).max(64) as usize,
         _ => {}
     }
@@ -256,7 +278,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
 
     let url = std::env::var("PHYSIS_URL").unwrap_or_else(|_| "http://127.0.0.1:19876".into());
-    let token = std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty());
+    let token = std::env::var("PHYSIS_API_TOKEN")
+        .ok()
+        .filter(|t| !t.is_empty());
     // Which tenant's wiki to browse. Matches the aion client's env var.
     let user = std::env::var("PHYSIS_USER").unwrap_or_else(|_| "_default".into());
 
@@ -278,10 +302,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     st.online = matches!(&health, Ok(r) if r.status().is_success());
                     if st.online {
                         let mut rb = client.get(format!("{url}/api/v1/embedder"));
-                        if let Some(t) = &token { rb = rb.bearer_auth(t); }
+                        if let Some(t) = &token {
+                            rb = rb.bearer_auth(t);
+                        }
                         if let Ok(resp) = rb.send().await {
                             if let Ok(v) = resp.json::<serde_json::Value>().await {
-                                st.embedder = v.get("kind").and_then(|x| x.as_str()).unwrap_or("?").to_string();
+                                st.embedder = v
+                                    .get("kind")
+                                    .and_then(|x| x.as_str())
+                                    .unwrap_or("?")
+                                    .to_string();
                                 st.detail = v.to_string();
                             }
                         }
@@ -347,7 +377,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// each call spins a current-thread runtime the same way `reload_config` does —
 /// searches are user-initiated (Enter), not per-keystroke, so this never runs
 /// hot enough to justify a background poller.
-fn wiki_fetch(app: &App, path: &str, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+fn wiki_fetch(
+    app: &App,
+    path: &str,
+    body: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
     let url = format!("{}{}", app.url, path);
     let token = app.token.clone();
     let user = app.user.clone();
@@ -372,7 +406,9 @@ fn wiki_fetch(app: &App, path: &str, body: Option<serde_json::Value>) -> Result<
         if !resp.status().is_success() {
             return Err(format!("HTTP {}", resp.status()));
         }
-        resp.json::<serde_json::Value>().await.map_err(|e| format!("{e}"))
+        resp.json::<serde_json::Value>()
+            .await
+            .map_err(|e| format!("{e}"))
     })
 }
 
@@ -388,8 +424,16 @@ fn parse_hits(v: &serde_json::Value) -> Vec<WikiHit> {
         .map(|arr| {
             arr.iter()
                 .map(|n| WikiHit {
-                    id: n.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                    label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                    id: n
+                        .get("id")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    label: n
+                        .get("label")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     density: n.get("score").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
                     asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
                 })
@@ -420,21 +464,26 @@ fn wiki_search(app: &mut App) {
             app.status_msg = format!("{} hits for \"{q}\"", app.wiki_hits.len());
             if app.wiki_hits.is_empty() {
                 app.wiki_preview = "nothing near that yet — the wiki only knows what has been \
-                                    registered into this tenant".into();
+                                    registered into this tenant"
+                    .into();
             } else {
                 wiki_load_preview(app);
             }
         }
         Err(e) => {
             app.status_msg = format!("search failed: {e}");
-            app.wiki_preview = format!("search failed: {e}\n\nis physis-pro-web running? (STATUS tab, 's' starts it)");
+            app.wiki_preview = format!(
+                "search failed: {e}\n\nis physis-pro-web running? (STATUS tab, 's' starts it)"
+            );
         }
     }
 }
 
 /// Neighbours of the selected node — what this thing sits next to in meaning.
 fn wiki_load_preview(app: &mut App) {
-    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else { return };
+    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else {
+        return;
+    };
     let label = hit.label.clone();
     let verdict = match hit.asserted {
         Some(a) if a > 0.2 => format!("reported: WORKED ({a:+.2})"),
@@ -442,14 +491,31 @@ fn wiki_load_preview(app: &mut App) {
         Some(a) => format!("reported: inert ({a:+.2})"),
         None => "reported: — (nobody has judged this)".to_string(),
     };
-    let head = format!("{label}\n\ndensity: {:.3}   {verdict}\n\nnearest in meaning:\n", hit.density);
-    match wiki_fetch(app, "/api/v1/reconstruct", Some(serde_json::json!({ "input": label }))) {
+    let head = format!(
+        "{label}\n\ndensity: {:.3}   {verdict}\n\nnearest in meaning:\n",
+        hit.density
+    );
+    match wiki_fetch(
+        app,
+        "/api/v1/reconstruct",
+        Some(serde_json::json!({ "input": label })),
+    ) {
         Ok(v) => {
             let mut out = head;
-            let neighbours = v.get("neighbors").and_then(|n| n.as_array()).cloned().unwrap_or_default();
+            let neighbours = v
+                .get("neighbors")
+                .and_then(|n| n.as_array())
+                .cloned()
+                .unwrap_or_default();
             for n in neighbours.iter().take(6) {
-                let l = n.get("label").and_then(|x| x.as_str()).unwrap_or("(unlabeled)");
-                let sim = n.get("cosine_similarity").and_then(|x| x.as_f64()).unwrap_or(0.0);
+                let l = n
+                    .get("label")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("(unlabeled)");
+                let sim = n
+                    .get("cosine_similarity")
+                    .and_then(|x| x.as_f64())
+                    .unwrap_or(0.0);
                 let mark = match n.get("asserted").and_then(|x| x.as_f64()) {
                     Some(a) if a > 0.2 => "+",
                     Some(a) if a < -0.2 => "-",
@@ -528,20 +594,39 @@ fn wiki_load_grid(app: &mut App) {
     if !app.wiki_grid.is_empty() {
         return;
     }
-    let path = format!("/api/v1/semiotic/grid?confidence={:.2}", app.wiki_confidence);
+    let path = format!(
+        "/api/v1/semiotic/grid?confidence={:.2}",
+        app.wiki_confidence
+    );
     match wiki_fetch(app, &path, None) {
         Ok(v) => {
-            let cells = v.get("cells").and_then(|c| c.as_array()).cloned().unwrap_or_default();
+            let cells = v
+                .get("cells")
+                .and_then(|c| c.as_array())
+                .cloned()
+                .unwrap_or_default();
             app.wiki_grid = cells
                 .iter()
                 .map(|c| GridCell {
-                    domain: c.get("domain").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                    mode: c.get("mode").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                    domain: c
+                        .get("domain")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    mode: c
+                        .get("mode")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     activation: c.get("activation").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
                     entries: c
                         .get("entries")
                         .and_then(|e| e.as_array())
-                        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str().map(str::to_string))
+                                .collect()
+                        })
                         .unwrap_or_default(),
                     condition: c.get("condition").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
                     // Absent `standing` means an older server that does not
@@ -579,7 +664,9 @@ fn distinct(it: impl Iterator<Item = String>) -> Vec<String> {
 fn cell_at(app: &App, row: usize, col: usize) -> Option<&GridCell> {
     let domain = app.wiki_domains.get(row)?;
     let mode = app.wiki_modes.get(col)?;
-    app.wiki_grid.iter().find(|c| &c.domain == domain && &c.mode == mode)
+    app.wiki_grid
+        .iter()
+        .find(|c| &c.domain == domain && &c.mode == mode)
 }
 
 /// Scope the results to the selected cell.
@@ -604,7 +691,12 @@ fn wiki_scope_to_cell(app: &mut App) {
         (format!("{} {}", cell.domain, cell.mode), "axis names")
     } else {
         (
-            cell.entries.iter().take(6).cloned().collect::<Vec<_>>().join(", "),
+            cell.entries
+                .iter()
+                .take(6)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", "),
             "cell entries",
         )
     };
@@ -622,21 +714,35 @@ fn wiki_scope_to_cell(app: &mut App) {
 /// similarity. Similarity says "these mean alike"; an edge says "someone
 /// asserted these are related", which is a different and usually stronger claim.
 fn wiki_walk_into(app: &mut App) {
-    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else { return };
+    let Some(hit) = app.wiki_hits.get(app.wiki_sel) else {
+        return;
+    };
     let (id, label) = (hit.id.clone(), hit.label.clone());
     if id.is_empty() {
         app.status_msg = "this row has no node id to walk from".into();
         return;
     }
-    match wiki_fetch(app, &format!("/api/v1/holarchy/neighbors?id={}", urlencoding_minimal(&id)), None) {
+    match wiki_fetch(
+        app,
+        &format!("/api/v1/holarchy/neighbors?id={}", urlencoding_minimal(&id)),
+        None,
+    ) {
         Ok(v) => {
             let hits: Vec<WikiHit> = v
                 .as_array()
                 .map(|arr| {
                     arr.iter()
                         .map(|n| WikiHit {
-                            id: n.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                            label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                            id: n
+                                .get("id")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            label: n
+                                .get("label")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
                             // An edge carries a weight, not a density; show it in
                             // the same column rather than inventing a fake score.
                             density: n.get("weight").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
@@ -674,9 +780,18 @@ fn wiki_dream(app: &mut App) {
                 .map(|arr| {
                     arr.iter()
                         .map(|n| WikiHit {
-                            id: n.get("node_id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                            label: n.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string(),
-                            density: n.get("density").and_then(|x| x.as_f64()).unwrap_or(0.0) as f32,
+                            id: n
+                                .get("node_id")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            label: n
+                                .get("label")
+                                .and_then(|x| x.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            density: n.get("density").and_then(|x| x.as_f64()).unwrap_or(0.0)
+                                as f32,
                             asserted: n.get("asserted").and_then(|x| x.as_f64()).map(|x| x as f32),
                         })
                         .collect()
@@ -730,7 +845,11 @@ fn urlencoding_minimal(s: &str) -> String {
         .map(|c| match c {
             'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
             ' ' => "+".to_string(),
-            other => other.to_string().bytes().map(|b| format!("%{b:02X}")).collect(),
+            other => other
+                .to_string()
+                .bytes()
+                .map(|b| format!("%{b:02X}"))
+                .collect(),
         })
         .collect()
 }
@@ -747,14 +866,20 @@ fn run<B: ratatui::backend::Backend>(
             // than on each keypress) is what keeps one embed per pause instead
             // of one per letter.
             if app.wiki_typing
-                && should_search(app.wiki_dirty, app.wiki_last_input.elapsed().as_millis(), app.wiki_query.chars().count())
+                && should_search(
+                    app.wiki_dirty,
+                    app.wiki_last_input.elapsed().as_millis(),
+                    app.wiki_query.chars().count(),
+                )
             {
                 app.wiki_dirty = false;
                 wiki_search(app);
             }
             continue;
         }
-        let Event::Key(key) = event::read()? else { continue };
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
         if key.kind != crossterm::event::KeyEventKind::Press {
             continue;
         }
@@ -765,8 +890,14 @@ fn run<B: ratatui::backend::Backend>(
         // otherwise searching for "quality" would quit on the first letter.
         if app.wiki_typing {
             match key.code {
-                KeyCode::Esc => { app.wiki_typing = false; }
-                KeyCode::Enter => { app.wiki_typing = false; app.wiki_dirty = false; wiki_search(app); }
+                KeyCode::Esc => {
+                    app.wiki_typing = false;
+                }
+                KeyCode::Enter => {
+                    app.wiki_typing = false;
+                    app.wiki_dirty = false;
+                    wiki_search(app);
+                }
                 KeyCode::Backspace => {
                     app.wiki_query.pop();
                     app.wiki_dirty = true;
@@ -879,14 +1010,28 @@ fn run<B: ratatui::backend::Backend>(
 fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ])
         .split(f.size());
 
     // Tab bar
     let tabs = Tabs::new(TABS.iter().map(|t| Line::from(*t)).collect::<Vec<_>>())
         .select(app.tab)
-        .block(Block::default().title(" PHYSIS PRO 🌻 ").borders(Borders::ALL).border_style(Style::default().fg(Color::Cyan)))
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
+        .block(
+            Block::default()
+                .title(" PHYSIS PRO 🌻 ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)),
+        )
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        );
     f.render_widget(tabs, rows[0]);
 
     match app.tab {
@@ -900,7 +1045,9 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     let help = match app.tab {
         1 => " Tab switch · ↑/↓ select · Enter run · q quit",
         2 => " Tab switch · ↑/↓ field · +/- edit · s save · q quit",
-        TAB_WIKI if app.wiki_typing => " type — results re-rank when you pause · Enter search now · Esc cancel",
+        TAB_WIKI if app.wiki_typing => {
+            " type — results re-rank when you pause · Enter search now · Esc cancel"
+        }
         TAB_WIKI if app.wiki_map_focus => {
             " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
         }
@@ -909,7 +1056,10 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     };
     let foot = Paragraph::new(Line::from(vec![
         Span::styled(help, Style::default().fg(Color::Cyan)),
-        Span::styled(format!("   {}", app.status_msg), Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!("   {}", app.status_msg),
+            Style::default().fg(Color::DarkGray),
+        ),
     ]));
     f.render_widget(foot, rows[2]);
 }
@@ -924,28 +1074,48 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
     // Search box, results/preview, then the map. The map gets a fixed height
     // (one line per domain plus header and borders) so the result list keeps
     // every remaining row.
-    let map_height = if app.wiki_domains.is_empty() { 3 } else { app.wiki_domains.len() as u16 + 4 };
+    let map_height = if app.wiki_domains.is_empty() {
+        3
+    } else {
+        app.wiki_domains.len() as u16 + 4
+    };
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(4), Constraint::Length(map_height)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(4),
+            Constraint::Length(map_height),
+        ])
         .split(area);
 
     let query_style = if app.wiki_typing {
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::Gray)
     };
-    let shown = if app.wiki_query.is_empty() { "(press / and describe what it was about)" } else { &app.wiki_query };
-    let search = Paragraph::new(Line::from(Span::styled(shown.to_string(), query_style)))
-        .block(Block::default().title(" search by meaning ").borders(Borders::ALL)
-            .border_style(Style::default().fg(if app.wiki_typing { Color::Yellow } else { Color::DarkGray })));
+    let shown = if app.wiki_query.is_empty() {
+        "(press / and describe what it was about)"
+    } else {
+        &app.wiki_query
+    };
+    let search = Paragraph::new(Line::from(Span::styled(shown.to_string(), query_style))).block(
+        Block::default()
+            .title(" search by meaning ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(if app.wiki_typing {
+                Color::Yellow
+            } else {
+                Color::DarkGray
+            })),
+    );
     f.render_widget(search, rows[0]);
 
     let cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(rows[1]);
-
 
     let items: Vec<ListItem> = app
         .wiki_hits
@@ -963,7 +1133,10 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
             }
             ListItem::new(Line::from(vec![
                 Span::styled(format!("{dot} "), Style::default().fg(colour)),
-                Span::styled(format!("{:.2} ", h.density), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{:.2} ", h.density),
+                    Style::default().fg(Color::DarkGray),
+                ),
                 Span::raw(label),
             ]))
         })
@@ -974,19 +1147,35 @@ fn draw_wiki(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
         state.select(Some(app.wiki_sel));
     }
     let list = List::new(items)
-        .block(Block::default()
-            .title(if app.wiki_crumbs.is_empty() {
-                format!(" {} hits · tenant {} · ●worked ●blocked ●inert ○unjudged ",
-                        app.wiki_hits.len(), app.user)
-            } else {
-                // Show the walk path so it is obvious these are edges, not
-                // search results, and how deep the walk has gone.
-                format!(" edges of {} · {} neighbour(s) ",
-                        app.wiki_crumbs.iter().map(|c| truncate(c, 18)).collect::<Vec<_>>().join(" → "),
-                        app.wiki_hits.len())
-            })
-            .borders(Borders::ALL))
-        .highlight_style(Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD));
+        .block(
+            Block::default()
+                .title(if app.wiki_crumbs.is_empty() {
+                    format!(
+                        " {} hits · tenant {} · ●worked ●blocked ●inert ○unjudged ",
+                        app.wiki_hits.len(),
+                        app.user
+                    )
+                } else {
+                    // Show the walk path so it is obvious these are edges, not
+                    // search results, and how deep the walk has gone.
+                    format!(
+                        " edges of {} · {} neighbour(s) ",
+                        app.wiki_crumbs
+                            .iter()
+                            .map(|c| truncate(c, 18))
+                            .collect::<Vec<_>>()
+                            .join(" → "),
+                        app.wiki_hits.len()
+                    )
+                })
+                .borders(Borders::ALL),
+        )
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        );
     f.render_stateful_widget(list, cols[0], &mut state);
 
     let preview = Paragraph::new(app.wiki_preview.clone())
@@ -1005,7 +1194,11 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
             " press m to load the semiotic map ",
             Style::default().fg(Color::DarkGray),
         )))
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
         f.render_widget(hint, area);
         return;
     }
@@ -1016,7 +1209,9 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
     for (i, m) in app.wiki_modes.iter().enumerate() {
         let initial = m.chars().next().unwrap_or('?');
         let style = if app.wiki_map_focus && i == app.wiki_cell_col {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::DarkGray)
         };
@@ -1029,7 +1224,9 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
         let mut spans = vec![Span::styled(
             format!("{:<10}", truncate(domain, 9)),
             if row_focused {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::Gray)
             },
@@ -1041,7 +1238,10 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
             let ch = shade(act);
             let on_cursor = app.wiki_map_focus && r == app.wiki_cell_row && c == app.wiki_cell_col;
             let style = if on_cursor {
-                Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(condition_color(cond, act))
             };
@@ -1068,28 +1268,54 @@ fn draw_heatmap(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) 
         _ => " semiotic map · m to focus ".to_string(),
     };
     let widget = Paragraph::new(lines).block(
-        Block::default().title(title).borders(Borders::ALL).border_style(
-            if app.wiki_map_focus { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::DarkGray) },
-        ),
+        Block::default()
+            .title(title)
+            .borders(Borders::ALL)
+            .border_style(if app.wiki_map_focus {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            }),
     );
     f.render_widget(widget, area);
 }
 
-fn draw_status(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App, status: &Arc<Mutex<EngineStatus>>) {
+fn draw_status(
+    f: &mut ratatui::Frame,
+    area: ratatui::layout::Rect,
+    app: &App,
+    status: &Arc<Mutex<EngineStatus>>,
+) {
     let st = status.lock().unwrap();
-    let dot = if st.online { Span::styled("● ONLINE", Style::default().fg(Color::Green)) }
-              else { Span::styled("● OFFLINE", Style::default().fg(Color::Red)) };
+    let dot = if st.online {
+        Span::styled("● ONLINE", Style::default().fg(Color::Green))
+    } else {
+        Span::styled("● OFFLINE", Style::default().fg(Color::Red))
+    };
     let mut lines = vec![
         Line::from(vec![Span::raw("engine   "), dot]),
         Line::from(format!("url      {}", app.url)),
-        Line::from(format!("embedder {}", if st.embedder.is_empty() { "—" } else { &st.embedder })),
+        Line::from(format!(
+            "embedder {}",
+            if st.embedder.is_empty() {
+                "—"
+            } else {
+                &st.embedder
+            }
+        )),
         Line::from(""),
     ];
     if !st.detail.is_empty() {
-        lines.push(Line::from(Span::styled("/api/v1/embedder:", Style::default().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled(
+            "/api/v1/embedder:",
+            Style::default().fg(Color::DarkGray),
+        )));
         lines.push(Line::from(st.detail.clone()));
     } else if !st.online {
-        lines.push(Line::from(Span::styled("start the engine: physis-pro-web", Style::default().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled(
+            "start the engine: physis-pro-web",
+            Style::default().fg(Color::DarkGray),
+        )));
     }
     let p = Paragraph::new(lines)
         .block(Block::default().title(" STATUS ").borders(Borders::ALL))
@@ -1103,42 +1329,80 @@ fn draw_machines(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App)
         .constraints([Constraint::Percentage(38), Constraint::Percentage(62)])
         .split(area);
 
-    let items: Vec<ListItem> = MACHINES.iter().map(|(n, d)| {
-        ListItem::new(Line::from(vec![
-            Span::styled(format!("{n:<10}"), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-            Span::styled(*d, Style::default().fg(Color::DarkGray)),
-        ]))
-    }).collect();
+    let items: Vec<ListItem> = MACHINES
+        .iter()
+        .map(|(n, d)| {
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{n:<10}"),
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(*d, Style::default().fg(Color::DarkGray)),
+            ]))
+        })
+        .collect();
     let mut state = ListState::default();
     state.select(Some(app.machine_sel));
     let list = List::new(items)
         .block(Block::default().title(" MACHINES ").borders(Borders::ALL))
-        .highlight_style(Style::default().bg(Color::Rgb(40, 40, 60)).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .bg(Color::Rgb(40, 40, 60))
+                .add_modifier(Modifier::BOLD),
+        )
         .highlight_symbol("▶ ");
     f.render_stateful_widget(list, cols[0], &mut state);
 
     let out = Paragraph::new(app.machine_out.as_str())
-        .block(Block::default().title(format!(" {} OUTPUT ", MACHINES[app.machine_sel].0)).borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(format!(" {} OUTPUT ", MACHINES[app.machine_sel].0))
+                .borders(Borders::ALL),
+        )
         .wrap(Wrap { trim: false });
     f.render_widget(out, cols[1]);
 }
 
 fn draw_config(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
     let mut lines = vec![
-        Line::from(Span::styled(format!("file: {}", cfg_path(&app.cfg).display()), Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled(
+            format!("file: {}", cfg_path(&app.cfg).display()),
+            Style::default().fg(Color::DarkGray),
+        )),
         Line::from(""),
     ];
     for (i, name) in CFG_FIELDS.iter().enumerate() {
         let sel = i == app.cfg_sel;
         lines.push(Line::from(vec![
-            Span::styled(if sel { "▶ " } else { "  " }, Style::default().fg(Color::Cyan)),
-            Span::styled(format!("{name:<30}"), Style::default().fg(if sel { Color::White } else { Color::Gray }).add_modifier(if sel { Modifier::BOLD } else { Modifier::empty() })),
+            Span::styled(
+                if sel { "▶ " } else { "  " },
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(
+                format!("{name:<30}"),
+                Style::default()
+                    .fg(if sel { Color::White } else { Color::Gray })
+                    .add_modifier(if sel {
+                        Modifier::BOLD
+                    } else {
+                        Modifier::empty()
+                    }),
+            ),
             Span::styled(cfg_value(&app.cfg, i), Style::default().fg(Color::Yellow)),
         ]));
     }
     lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled("+/- to change · s to save", Style::default().fg(Color::DarkGray))));
-    let p = Paragraph::new(lines).block(Block::default().title(" CONFIG (~/.physis/config.json) ").borders(Borders::ALL));
+    lines.push(Line::from(Span::styled(
+        "+/- to change · s to save",
+        Style::default().fg(Color::DarkGray),
+    )));
+    let p = Paragraph::new(lines).block(
+        Block::default()
+            .title(" CONFIG (~/.physis/config.json) ")
+            .borders(Borders::ALL),
+    );
     f.render_widget(p, area);
 }
 
@@ -1159,28 +1423,53 @@ fn run_machine(name: &str) -> String {
 
 fn chronos_demo() -> String {
     let now = Utc::now();
-    let ev = |label: &str, days_ago: i64| chronos::TimedEvent { label: label.into(), at: now - ChronoDuration::days(days_ago) };
+    let ev = |label: &str, days_ago: i64| chronos::TimedEvent {
+        label: label.into(),
+        at: now - ChronoDuration::days(days_ago),
+    };
     let mut events: Vec<chronos::TimedEvent> = (0..7).map(|i| ev("gym", 2 + i * 2)).collect();
-    for d in [32, 25, 18, 11] { events.push(ev("standup", d)); }
-    for d in [21, 9, 2] { events.push(ev("call mum", d)); }
+    for d in [32, 25, 18, 11] {
+        events.push(ev("standup", d));
+    }
+    for d in [21, 9, 2] {
+        events.push(ev("call mum", d));
+    }
     let rhythms = chronos::detect_rhythms(&events);
     let mut s = format!("{} events → {} rhythms:\n", events.len(), rhythms.len());
     for r in &rhythms {
-        s += &format!("  {:<10} every {:>4.1}d  conf {:.2}  next {}\n", r.label, r.period_days, r.confidence, r.next_due.format("%Y-%m-%d"));
+        s += &format!(
+            "  {:<10} every {:>4.1}d  conf {:.2}  next {}\n",
+            r.label,
+            r.period_days,
+            r.confidence,
+            r.next_due.format("%Y-%m-%d")
+        );
     }
     let slip = chronos::slipping(&rhythms, now, 0.5);
     if !slip.is_empty() {
-        s += &format!("slipping: {}", slip.iter().map(|r| r.label.as_str()).collect::<Vec<_>>().join(", "));
+        s += &format!(
+            "slipping: {}",
+            slip.iter()
+                .map(|r| r.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     s
 }
 
 fn techne_demo() -> String {
-    let f = |path: &str, lines: &[&str]| techne::SourceFile { path: path.into(), lines: lines.iter().map(|s| s.to_string()).collect() };
+    let f = |path: &str, lines: &[&str]| techne::SourceFile {
+        path: path.into(),
+        lines: lines.iter().map(|s| s.to_string()).collect(),
+    };
     let files = vec![
         f("src/embed/mod.rs", &[]),
         f("src/classify.rs", &["use crate::embed::VectorEmbed;"]),
-        f("src/core.rs", &["use crate::trie::Trie;", "use crate::embed::VectorEmbed;"]),
+        f(
+            "src/core.rs",
+            &["use crate::trie::Trie;", "use crate::embed::VectorEmbed;"],
+        ),
         f("src/trie.rs", &[]),
         f("src/bin/web_server.rs", &["use crate::core::PhysisCore;"]),
         f("src/spanner.rs", &["use crate::core::PhysisCore;"]),
@@ -1190,42 +1479,111 @@ fn techne_demo() -> String {
         s += &format!("  {:<14} {}\n", c.name, c.files.join(", "));
     }
     let edges = techne::dependency_edges(&files);
-    s += &format!("impact of `embed`: {}", techne::impact_of(&edges, "embed").join(", "));
+    s += &format!(
+        "impact of `embed`: {}",
+        techne::impact_of(&edges, "embed").join(", ")
+    );
     s
 }
 
 fn soma_demo() -> String {
-    let s = |day: u32, load: f32, recovery: f32| soma::Session { day, activity: "lift".into(), load, recovery };
-    let sessions = vec![s(1, 0.5, 0.9), s(2, 0.7, 0.8), s(3, 0.8, 0.6), s(4, 0.8, 0.5), s(5, 0.9, 0.4), s(6, 0.9, 0.35)];
+    let s = |day: u32, load: f32, recovery: f32| soma::Session {
+        day,
+        activity: "lift".into(),
+        load,
+        recovery,
+    };
+    let sessions = vec![
+        s(1, 0.5, 0.9),
+        s(2, 0.7, 0.8),
+        s(3, 0.8, 0.6),
+        s(4, 0.8, 0.5),
+        s(5, 0.9, 0.4),
+        s(6, 0.9, 0.35),
+    ];
     let mut out = String::new();
     for x in &sessions {
-        out += &format!("  day {}  load {:.1} rec {:.1}  {:?}\n", x.day, x.load, x.recovery, soma::classify(x));
+        out += &format!(
+            "  day {}  load {:.1} rec {:.1}  {:?}\n",
+            x.day,
+            x.load,
+            x.recovery,
+            soma::classify(x)
+        );
     }
     let d = soma::drift(&sessions, 6);
-    out += &format!("drift {:+.2} → {}", d, if d > 0.5 { "overreaching risk" } else { "stable" });
+    out += &format!(
+        "drift {:+.2} → {}",
+        d,
+        if d > 0.5 {
+            "overreaching risk"
+        } else {
+            "stable"
+        }
+    );
     out
 }
 
 fn elenchus_demo() -> String {
-    let st = |id: &str, kind: elenchus::Kind, text: &str, target: Option<&str>| elenchus::Statement { id: id.into(), kind, text: text.into(), target: target.map(|s| s.into()) };
+    let st =
+        |id: &str, kind: elenchus::Kind, text: &str, target: Option<&str>| elenchus::Statement {
+            id: id.into(),
+            kind,
+            text: text.into(),
+            target: target.map(|s| s.into()),
+        };
     let arg = vec![
-        st("c1", elenchus::Kind::Claim, "Remote work raises output", None),
-        st("w1", elenchus::Kind::Warrant, "fewer commute hours", Some("c1")),
-        st("c2", elenchus::Kind::Claim, "Open offices boost collaboration", None),
-        st("r2", elenchus::Kind::Rebuttal, "studies show -70% face time", Some("c2")),
-        st("c3", elenchus::Kind::Claim, "Four-day weeks always better", None),
+        st(
+            "c1",
+            elenchus::Kind::Claim,
+            "Remote work raises output",
+            None,
+        ),
+        st(
+            "w1",
+            elenchus::Kind::Warrant,
+            "fewer commute hours",
+            Some("c1"),
+        ),
+        st(
+            "c2",
+            elenchus::Kind::Claim,
+            "Open offices boost collaboration",
+            None,
+        ),
+        st(
+            "r2",
+            elenchus::Kind::Rebuttal,
+            "studies show -70% face time",
+            Some("c2"),
+        ),
+        st(
+            "c3",
+            elenchus::Kind::Claim,
+            "Four-day weeks always better",
+            None,
+        ),
     ];
     let mut s = String::new();
     for (id, standing) in elenchus::evaluate(&arg) {
         let t = arg.iter().find(|x| x.id == id).unwrap();
         s += &format!("  {:<3} {:<12?} {}\n", id, standing, t.text);
     }
-    s += &format!("press: {:?}\nrecalibrate: {:?}", elenchus::unsupported_claims(&arg), elenchus::contested_claims(&arg));
+    s += &format!(
+        "press: {:?}\nrecalibrate: {:?}",
+        elenchus::unsupported_claims(&arg),
+        elenchus::contested_claims(&arg)
+    );
     s
 }
 
 fn lex_demo() -> String {
-    let c = |id: &str, kind: lex::Kind, requires: &[&str]| lex::Clause { id: id.into(), kind, text: id.into(), requires: requires.iter().map(|s| s.to_string()).collect() };
+    let c = |id: &str, kind: lex::Kind, requires: &[&str]| lex::Clause {
+        id: id.into(),
+        kind,
+        text: id.into(),
+        requires: requires.iter().map(|s| s.to_string()).collect(),
+    };
     let contract = vec![
         c("deliver", lex::Kind::Obligation, &[]),
         c("pay", lex::Kind::Obligation, &["delivered"]),
@@ -1252,20 +1610,36 @@ fn harmony_demo() -> String {
 }
 
 fn polis_demo() -> String {
-    let i = |from: &str, to: &str, w: f32| polis::Interaction { from: from.into(), to: to.into(), weight: w };
+    let i = |from: &str, to: &str, w: f32| polis::Interaction {
+        from: from.into(),
+        to: to.into(),
+        weight: w,
+    };
     let interactions = vec![
-        i("you", "ana", 9.0), i("ana", "you", 8.0),
-        i("you", "ben", 7.0), i("ben", "you", 1.0),
-        i("ana", "ben", 4.0), i("ben", "ana", 4.0),
+        i("you", "ana", 9.0),
+        i("ana", "you", 8.0),
+        i("you", "ben", 7.0),
+        i("ben", "you", 1.0),
+        i("ana", "ben", 4.0),
+        i("ben", "ana", 4.0),
     ];
     let ties = polis::ties(&interactions);
     let mut s = String::from("ties:\n");
     for t in &ties {
-        s += &format!("  {:<4}-{:<4} strength {:>4.1} recip {:.2}\n", t.a, t.b, t.strength, t.reciprocity);
+        s += &format!(
+            "  {:<4}-{:<4} strength {:>4.1} recip {:.2}\n",
+            t.a, t.b, t.strength, t.reciprocity
+        );
     }
     let fade = polis::fading(&ties, 0.5);
     if !fade.is_empty() {
-        s += &format!("fading: {}", fade.iter().map(|t| format!("{}-{}", t.a, t.b)).collect::<Vec<_>>().join(", "));
+        s += &format!(
+            "fading: {}",
+            fade.iter()
+                .map(|t| format!("{}-{}", t.a, t.b))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
     }
     s
 }
@@ -1290,8 +1664,15 @@ mod tests {
         let hits = parse_hits(&v);
         assert_eq!(hits.len(), 3);
         assert_eq!(hits[0].asserted, Some(1.0));
-        assert_eq!(hits[1].asserted, Some(0.0), "an explicit 0.0 verdict is a judgement");
-        assert_eq!(hits[2].asserted, None, "a missing verdict must not become 0.0");
+        assert_eq!(
+            hits[1].asserted,
+            Some(0.0),
+            "an explicit 0.0 verdict is a judgement"
+        );
+        assert_eq!(
+            hits[2].asserted, None,
+            "a missing verdict must not become 0.0"
+        );
         assert!((hits[0].density - 0.9).abs() < 1e-6);
     }
 
@@ -1300,7 +1681,10 @@ mod tests {
         // Unlabeled nodes cannot be browsed by content, and a malformed payload
         // must yield an empty list rather than panic the UI loop.
         let v = serde_json::json!({ "results": [ { "id": "a", "score": 0.9 } ] });
-        assert!(parse_hits(&v).is_empty(), "unlabeled node has no readable handle");
+        assert!(
+            parse_hits(&v).is_empty(),
+            "unlabeled node has no readable handle"
+        );
         assert!(parse_hits(&serde_json::json!({})).is_empty());
         assert!(parse_hits(&serde_json::json!({ "results": "not-an-array" })).is_empty());
     }
@@ -1315,7 +1699,10 @@ mod tests {
         ]});
         let hits = parse_hits(&v);
         assert_eq!(hits[0].id, "abc-123");
-        assert!(hits[1].id.is_empty(), "missing id stays empty rather than faking one");
+        assert!(
+            hits[1].id.is_empty(),
+            "missing id stays empty rather than faking one"
+        );
     }
 
     #[test]
@@ -1357,9 +1744,15 @@ mod tests {
         // request behind every letter.
         assert!(should_search(true, 400, 10), "settled typing re-ranks");
         assert!(!should_search(true, 100, 10), "still typing — hold");
-        assert!(!should_search(false, 999, 10), "nothing changed since last search");
+        assert!(
+            !should_search(false, 999, 10),
+            "nothing changed since last search"
+        );
         // 1-2 chars match nearly everything; a round-trip to rank noise.
-        assert!(!should_search(true, 999, 2), "fragment too short to mean anything");
+        assert!(
+            !should_search(true, 999, 2),
+            "fragment too short to mean anything"
+        );
         assert!(should_search(true, 999, 3), "3 chars is the floor");
     }
 
@@ -1367,9 +1760,16 @@ mod tests {
     fn query_encoding_survives_a_real_sentence() {
         // Spaces become '+' (serde_urlencoded decodes that back to a space) and
         // anything that would break the query string is percent-encoded.
-        assert_eq!(urlencoding_minimal("ate cake at midnight"), "ate+cake+at+midnight");
+        assert_eq!(
+            urlencoding_minimal("ate cake at midnight"),
+            "ate+cake+at+midnight"
+        );
         assert_eq!(urlencoding_minimal("a&b=c"), "a%26b%3Dc");
-        assert_eq!(urlencoding_minimal("caffè"), "caff%C3%A8", "multi-byte utf8 encodes per byte");
+        assert_eq!(
+            urlencoding_minimal("caffè"),
+            "caff%C3%A8",
+            "multi-byte utf8 encodes per byte"
+        );
         assert_eq!(urlencoding_minimal("plain-text_1.0~"), "plain-text_1.0~");
     }
 }

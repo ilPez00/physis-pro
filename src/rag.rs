@@ -258,7 +258,12 @@ impl TokenFixedRetriever {
 /// Assemble the retrieved chunks into a single context string.
 /// The returned text's token estimate is <= `result.total_tokens`.
 pub fn assemble_context(result: &RetrievalResult, separator: &str) -> String {
-    result.chunks.iter().map(|c| c.text.as_str()).collect::<Vec<_>>().join(separator)
+    result
+        .chunks
+        .iter()
+        .map(|c| c.text.as_str())
+        .collect::<Vec<_>>()
+        .join(separator)
 }
 
 /// Convenience: build a corpus from texts, embed the query, retrieve
@@ -304,7 +309,11 @@ mod tests {
         let corpus = RagCorpus::build(&texts, &e);
         let q = e.embed("query about chunk number five");
         let r = TokenFixedRetriever::new(40, 100).retrieve(&q, &corpus);
-        assert!(r.total_tokens <= 40, "total {} must be <= budget 40", r.total_tokens);
+        assert!(
+            r.total_tokens <= 40,
+            "total {} must be <= budget 40",
+            r.total_tokens
+        );
     }
 
     #[test]

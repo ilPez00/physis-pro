@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::StatusCode};
+use axum::{
+    extract::{Json, State},
+    http::StatusCode,
+};
 
 /// Register a machine / set its shift parameters.
 pub async fn oee_machine_handler(
@@ -204,4 +207,3 @@ pub async fn maintenance_score_handler(Json(req): Json<ScoreRequest>) -> Json<An
 pub async fn maintenance_rul_handler(Json(req): Json<RulRequest>) -> Json<Option<RulEstimate>> {
     Json(project_time_to_limit(&req.samples, req.limit))
 }
-

@@ -35,7 +35,9 @@ impl PDCActor {
     pub fn plan<'a>(&self, goals: &'a [Goal]) -> Vec<&'a Goal> {
         let mut sorted: Vec<&Goal> = goals.iter().collect();
         sorted.sort_by(|a, b| {
-            a.progress.partial_cmp(&b.progress).unwrap_or(std::cmp::Ordering::Equal)
+            a.progress
+                .partial_cmp(&b.progress)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         sorted.truncate(3);
         sorted
@@ -51,11 +53,14 @@ impl PDCActor {
             None => return self.plan(goals),
         };
 
-        let mut scored: Vec<(&Goal, f32)> = goals.iter().map(|g| {
-            let schedule_priority = priorities.get(&g.id).copied().unwrap_or(0.0);
-            let progress_score = 1.0 - g.progress;
-            (g, progress_score + schedule_priority)
-        }).collect();
+        let mut scored: Vec<(&Goal, f32)> = goals
+            .iter()
+            .map(|g| {
+                let schedule_priority = priorities.get(&g.id).copied().unwrap_or(0.0);
+                let progress_score = 1.0 - g.progress;
+                (g, progress_score + schedule_priority)
+            })
+            .collect();
 
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scored.truncate(3);
@@ -97,7 +102,8 @@ impl PDCActor {
                 continue;
             }
 
-            let avg_grade: Score = relevant.iter().map(|e| e.grade).sum::<Score>() / relevant.len() as Score;
+            let avg_grade: Score =
+                relevant.iter().map(|e| e.grade).sum::<Score>() / relevant.len() as Score;
             goal.progress = (goal.progress + avg_grade * 0.1).clamp(0.0, 1.0);
 
             if let Some(latest) = relevant.last() {
@@ -153,9 +159,8 @@ impl PDCActor {
 
         let stagnant = self.detect_stagnant(goals);
         let schedule_correlation = scheduler.map_or(0.0, |s| {
-            let goal_progress: Vec<(String, f32)> = goals.iter()
-                .map(|g| (g.id.clone(), g.progress))
-                .collect();
+            let goal_progress: Vec<(String, f32)> =
+                goals.iter().map(|g| (g.id.clone(), g.progress)).collect();
             s.cross_correlate(&goal_progress)
         });
         let at_risk_tasks = scheduler.map_or(Vec::new(), |s| {
@@ -182,7 +187,8 @@ impl PDCActor {
         let threshold = self.config_stagnant_threshold;
 
         for goal in goals {
-            let goal_exps: Vec<&Experience> = self.experiences
+            let goal_exps: Vec<&Experience> = self
+                .experiences
                 .iter()
                 .filter(|e| e.goal_id == goal.id)
                 .collect();
@@ -191,7 +197,8 @@ impl PDCActor {
                 continue;
             }
 
-            let recent: Vec<Score> = goal_exps.iter()
+            let recent: Vec<Score> = goal_exps
+                .iter()
                 .rev()
                 .take(window)
                 .map(|e| e.grade)
@@ -223,7 +230,9 @@ impl PDCActor {
 
     pub fn is_working(&self, goals: &[Goal]) -> bool {
         let stagnant = self.detect_stagnant(goals);
-        goals.iter().any(|g| g.progress < 1.0 && !stagnant.contains(&g.id))
+        goals
+            .iter()
+            .any(|g| g.progress < 1.0 && !stagnant.contains(&g.id))
     }
 }
 
@@ -247,7 +256,11 @@ mod tests {
         let planned = actor.plan(&goals);
         assert_eq!(planned.len(), 2);
 
-        let exp = actor.do_action(&goals[0].id, vec![0.0, 0.0, 0.0, 0.0], vec![0.2, 0.3, 0.4, 0.5]);
+        let exp = actor.do_action(
+            &goals[0].id,
+            vec![0.0, 0.0, 0.0, 0.0],
+            vec![0.2, 0.3, 0.4, 0.5],
+        );
         assert!(actor.check(&exp.id, 0.8));
 
         let adjustments = actor.act(&actor.experiences, &mut goals);

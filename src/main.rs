@@ -1,21 +1,25 @@
+use clap::{Parser, Subcommand};
+use physis_pro::vfs::orchestrator::VfsOrchestrator;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use physis_pro::vfs::orchestrator::VfsOrchestrator;
-use clap::{Parser, Subcommand};
 
 use physis_pro::cli::PhysisApp;
 use physis_pro::config::{OntologyLoader, PhysisProConfig};
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_pro::graph::FileThemeGraph;
+use physis_pro::industrial_benchmark::secom::{self, BenchmarkConfig};
 use physis_pro::ingest;
 use physis_pro::models::{cosine_sim, DomainDef, Score};
-use physis_pro::industrial_benchmark::secom::{self, BenchmarkConfig};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
 
 #[derive(Parser)]
-#[command(name = "physis-pro", version, about = "Industrial backoffice intelligence engine")]
+#[command(
+    name = "physis-pro",
+    version,
+    about = "Industrial backoffice intelligence engine"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -30,9 +34,7 @@ pub enum Commands {
         format: String,
     },
     /// Deep AI-powered scan
-    DeepScan {
-        dir: PathBuf,
-    },
+    DeepScan { dir: PathBuf },
     /// Query the ontology trie
     Query {
         query: String,
@@ -45,10 +47,7 @@ pub enum Commands {
         count: usize,
     },
     /// Evaluate a dream
-    Evaluate {
-        id: String,
-        grade: Score,
-    },
+    Evaluate { id: String, grade: Score },
     /// Start MCP server. Use --stdio for Claude Code, Codex, OpenCode and any
     /// other client that spawns the server as a child process; the default TCP
     /// listener exists for the hosted deployment and no mainstream client can
@@ -142,9 +141,7 @@ pub enum Commands {
         lense: Option<String>,
     },
     /// Classify a text file against the semiotic grid
-    Classify {
-        file: PathBuf,
-    },
+    Classify { file: PathBuf },
     /// Render a timeline/incident view from normalized operational events
     Timeline {
         /// JSON file containing an array of OperationalEvent records
@@ -281,9 +278,7 @@ pub enum Commands {
         demo: bool,
     },
     /// Search the wiki (llmwiki + file-theme graph)
-    Wiki {
-        query: String,
-    },
+    Wiki { query: String },
     /// Browse the file-theme graph interactively
     BrowseGraph {
         /// Path to a specific directory to browse (optional, uses ingest dirs otherwise)
@@ -366,7 +361,8 @@ pub enum Commands {
     /// generate, edit or delete — with date, time, place, file type and order —
     /// into the running engine's Study Log (POST /api/v1/study/log). The
     /// learning/teaching app renders it on /study.
-    Study {        /// Directory to watch (default: current directory)
+    Study {
+        /// Directory to watch (default: current directory)
         dir: PathBuf,
         /// Engine base URL
         #[arg(long, default_value = "http://127.0.0.1:19876")]
@@ -505,7 +501,15 @@ fn main() -> anyhow::Result<()> {
 
     // The `study` recorder only needs the filesystem + the running engine: run
     // it before building the heavy PhysisApp (ontology + embedder).
-    if let Commands::Study { dir, url, place, user, interval, once } = &cli.command {
+    if let Commands::Study {
+        dir,
+        url,
+        place,
+        user,
+        interval,
+        once,
+    } = &cli.command
+    {
         return run_study_recorder(dir, url, place, user, *interval, *once);
     }
 
@@ -514,7 +518,15 @@ fn main() -> anyhow::Result<()> {
     // entries and dominated the runtime: packing 35 chunks took 6m52s with the
     // pass and seconds without it. Any command that does not read the ontology
     // belongs here rather than below.
-    if let Commands::Pack { dir, query, budget, top_k, diversity, show_context } = &cli.command {
+    if let Commands::Pack {
+        dir,
+        query,
+        budget,
+        top_k,
+        diversity,
+        show_context,
+    } = &cli.command
+    {
         let config = PhysisProConfig::default();
         let root = physis_pro::pack::resolve_root(dir, None)?;
         let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
@@ -573,7 +585,14 @@ fn main() -> anyhow::Result<()> {
             // A pack over the tree is what populates the chunk embeddings; the
             // result is discarded, the cache it fills is the point.
             let result = physis_pro::pack::pack_cached(
-                &root, "warm", 1, 1, 0.0, embedder.as_ref(), kind, &mut cache,
+                &root,
+                "warm",
+                1,
+                1,
+                0.0,
+                embedder.as_ref(),
+                kind,
+                &mut cache,
             );
             let (hits, misses) = cache.stats();
             println!(
@@ -681,11 +700,27 @@ fn main() -> anyhow::Result<()> {
             let output = app.run_stats();
             println!("{output}");
         }
-        Commands::Facet { kind, domain, mode, lifecycle, agency, scale, abstraction, sub_domain, sub_mode } => {
+        Commands::Facet {
+            kind,
+            domain,
+            mode,
+            lifecycle,
+            agency,
+            scale,
+            abstraction,
+            sub_domain,
+            sub_mode,
+        } => {
             let out = app.run_facet_query(
-                kind.as_deref(), domain.as_deref(), mode.as_deref(),
-                lifecycle.as_deref(), agency.as_deref(), scale.as_deref(),
-                abstraction.as_deref(), sub_domain.as_deref(), sub_mode.as_deref(),
+                kind.as_deref(),
+                domain.as_deref(),
+                mode.as_deref(),
+                lifecycle.as_deref(),
+                agency.as_deref(),
+                scale.as_deref(),
+                abstraction.as_deref(),
+                sub_domain.as_deref(),
+                sub_mode.as_deref(),
             );
             print!("{out}");
         }
@@ -702,7 +737,15 @@ fn main() -> anyhow::Result<()> {
             println!("{output}");
         }
         Commands::Connect { source } => match source {
-            ConnectSource::Moonraker { url, machine_id, interval, once, post_to, user, state_file } => {
+            ConnectSource::Moonraker {
+                url,
+                machine_id,
+                interval,
+                once,
+                post_to,
+                user,
+                state_file,
+            } => {
                 let opts = physis_pro::moonraker_connect::ConnectOptions {
                     url,
                     machine_id,
@@ -710,7 +753,9 @@ fn main() -> anyhow::Result<()> {
                     once,
                     post_to,
                     user,
-                    token: std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty()),
+                    token: std::env::var("PHYSIS_API_TOKEN")
+                        .ok()
+                        .filter(|t| !t.is_empty()),
                     state_file,
                 };
                 let rt = tokio::runtime::Runtime::new()?;
@@ -721,7 +766,8 @@ fn main() -> anyhow::Result<()> {
             let raw = std::fs::read_to_string(&input)?;
             let events: Vec<physis_pro::operational::OperationalEvent> =
                 serde_json::from_str(&raw)?;
-            let timeline = physis_pro::operational_report::OperationalTimeline::from_events(&events);
+            let timeline =
+                physis_pro::operational_report::OperationalTimeline::from_events(&events);
             if json {
                 println!("{}", serde_json::to_string_pretty(&timeline)?);
             } else {
@@ -729,7 +775,12 @@ fn main() -> anyhow::Result<()> {
             }
         }
         // ── Semiotic node editing ("exchange parts") ──
-        Commands::NodeEdit { id, label, domain, mode } => {
+        Commands::NodeEdit {
+            id,
+            label,
+            domain,
+            mode,
+        } => {
             let pin = match (domain, mode) {
                 (Some(d), Some(m)) => Some((d, m)),
                 (None, None) => None,
@@ -800,11 +851,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Fail { feedback, correct } => {
             let fail_path = config.physis.data_dir.join("quality_failures.json");
             let mut tracker = load_tracker(&fail_path, &config);
-            let _ = tracker.report_failure(
-                &feedback,
-                &app.cell_centroids,
-                correct.as_deref(),
-            );
+            let _ = tracker.report_failure(&feedback, &app.cell_centroids, correct.as_deref());
             if let Err(e) = tracker.save(&fail_path) {
                 eprintln!("Warning: could not save quality failures: {e}");
             }
@@ -834,7 +881,10 @@ fn main() -> anyhow::Result<()> {
                     println!("Process monitoring: no industrial endpoints configured.");
                     println!("  Add MQTT/Modbus endpoints to config.industrial_endpoints.");
                 } else {
-                    println!("Process monitoring — checking {} endpoint(s):", config.industrial_endpoints.len());
+                    println!(
+                        "Process monitoring — checking {} endpoint(s):",
+                        config.industrial_endpoints.len()
+                    );
                     let rt = tokio::runtime::Runtime::new()?;
                     rt.block_on(async {
                         for ep in &config.industrial_endpoints {
@@ -843,7 +893,11 @@ fn main() -> anyhow::Result<()> {
                                 .trim_start_matches("tcp://")
                                 .trim_start_matches("modbus://");
                             let host = clean.split(':').next().unwrap_or(clean);
-                            let port: u16 = clean.split(':').nth(1).and_then(|p| p.parse().ok()).unwrap_or(1883);
+                            let port: u16 = clean
+                                .split(':')
+                                .nth(1)
+                                .and_then(|p| p.parse().ok())
+                                .unwrap_or(1883);
                             let addr = format!("{host}:{port}");
                             match tokio::time::timeout(
                                 std::time::Duration::from_secs(3),
@@ -863,7 +917,10 @@ fn main() -> anyhow::Result<()> {
             {
                 println!("Process monitoring requires the 'industrial' feature.");
                 if !config.industrial_endpoints.is_empty() {
-                    println!("  Configured endpoints: {}", config.industrial_endpoints.len());
+                    println!(
+                        "  Configured endpoints: {}",
+                        config.industrial_endpoints.len()
+                    );
                     for ep in &config.industrial_endpoints {
                         println!("    - {ep}");
                     }
@@ -871,36 +928,37 @@ fn main() -> anyhow::Result<()> {
                 println!("  Rebuild with: cargo build --features industrial");
             }
         }
-        Commands::Inventory => {
-            match sled::open(&config.inventory_db) {
-                Ok(db) => {
-                    let count = db.iter().count();
-                    println!("Inventory database: {count} item(s)");
-                    println!("  Path: {}", config.inventory_db.display());
-                    println!("  Order mode: {}", config.order_mode);
-                    println!("  Order cooldown: {} hours", config.order_cooldown_hours);
-                    if count > 0 {
-                        println!("\n  Items (first 20):");
-                        for result in db.iter().take(20) {
-                            match result {
-                                Ok((key, value)) => {
-                                    let k = String::from_utf8_lossy(&key);
-                                    let v = String::from_utf8_lossy(&value);
-                                    println!("    {k}: {v}");
-                                }
-                                Err(e) => eprintln!("    Error reading item: {e}"),
+        Commands::Inventory => match sled::open(&config.inventory_db) {
+            Ok(db) => {
+                let count = db.iter().count();
+                println!("Inventory database: {count} item(s)");
+                println!("  Path: {}", config.inventory_db.display());
+                println!("  Order mode: {}", config.order_mode);
+                println!("  Order cooldown: {} hours", config.order_cooldown_hours);
+                if count > 0 {
+                    println!("\n  Items (first 20):");
+                    for result in db.iter().take(20) {
+                        match result {
+                            Ok((key, value)) => {
+                                let k = String::from_utf8_lossy(&key);
+                                let v = String::from_utf8_lossy(&value);
+                                println!("    {k}: {v}");
                             }
+                            Err(e) => eprintln!("    Error reading item: {e}"),
                         }
                     }
-                    println!("\n  Use 'physis-pro order <item> <qty>' to suggest a restock.");
                 }
-                Err(e) => {
-                    println!("Could not open inventory database at {}.", config.inventory_db.display());
-                    println!("  Error: {e}");
-                    println!("  Run 'physis-pro ingest' to initialize it.");
-                }
+                println!("\n  Use 'physis-pro order <item> <qty>' to suggest a restock.");
             }
-        }
+            Err(e) => {
+                println!(
+                    "Could not open inventory database at {}.",
+                    config.inventory_db.display()
+                );
+                println!("  Error: {e}");
+                println!("  Run 'physis-pro ingest' to initialize it.");
+            }
+        },
         Commands::Order { item, qty } => {
             println!(
                 "Order suggestion: {} x {} — requires manual approval (order_mode={})",
@@ -908,7 +966,9 @@ fn main() -> anyhow::Result<()> {
             );
         }
         Commands::Wiki { query } => {
-            let wiki_path = config.wiki_path.unwrap_or_else(|| config.physis.data_dir.join("wiki"));
+            let wiki_path = config
+                .wiki_path
+                .unwrap_or_else(|| config.physis.data_dir.join("wiki"));
             let graph_path = config.physis.data_dir.join("theme_graph.json");
             let results = wiki::search_all(&query, &wiki_path, &graph_path);
             if results.is_empty() {
@@ -927,7 +987,10 @@ fn main() -> anyhow::Result<()> {
             let graph = match FileThemeGraph::load(&graph_path) {
                 Ok(g) => g,
                 Err(e) => {
-                    eprintln!("No theme graph found at {}. Run 'physis-pro ingest' first.", graph_path.display());
+                    eprintln!(
+                        "No theme graph found at {}. Run 'physis-pro ingest' first.",
+                        graph_path.display()
+                    );
                     eprintln!("Error: {e}");
                     return Ok(());
                 }
@@ -937,7 +1000,12 @@ fn main() -> anyhow::Result<()> {
         Commands::RebuildGraph => {
             run_ingest_pipeline(&config, "Rebuilding graph from", false)?;
         }
-        Commands::Discover { dir, json_out, threshold, ai } => {
+        Commands::Discover {
+            dir,
+            json_out,
+            threshold,
+            ai,
+        } => {
             if !ai {
                 // Default: pure embedding-gap discovery — measured coverage
                 // against the live grid, draft entries from the gaps.
@@ -994,18 +1062,28 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::WikiExport => {
             let graph_path = config.physis.data_dir.join("theme_graph.json");
-            let wiki_dir = config.wiki_path.unwrap_or_else(|| config.physis.data_dir.join("wiki"));
+            let wiki_dir = config
+                .wiki_path
+                .unwrap_or_else(|| config.physis.data_dir.join("wiki"));
             let graph = match FileThemeGraph::load(&graph_path) {
                 Ok(g) => g,
                 Err(e) => {
-                    eprintln!("No theme graph found at {}. Run 'physis-pro ingest' first.", graph_path.display());
+                    eprintln!(
+                        "No theme graph found at {}. Run 'physis-pro ingest' first.",
+                        graph_path.display()
+                    );
                     eprintln!("Error: {e}");
                     return Ok(());
                 }
             };
             graph.export_to_wiki(&wiki_dir)?;
             println!("Wiki pages exported to {}", wiki_dir.display());
-            println!("  {} categories, {} themes, {} files", graph.list_categories().len(), graph.themes.len(), graph.files.len());
+            println!(
+                "  {} categories, {} themes, {} files",
+                graph.list_categories().len(),
+                graph.themes.len(),
+                graph.files.len()
+            );
             println!("  Index: {}/index.md", wiki_dir.display());
 
             // Also generate an uberwiki index file listing all themes and files
@@ -1015,21 +1093,36 @@ fn main() -> anyhow::Result<()> {
             uber.push_str("Generated from the File Theme Graph.\n\n");
             uber.push_str("## Quick Links\n\n");
             uber.push_str("- [[theme_graph_index|File Theme Graph]]\n");
-            uber.push_str(&format!("- [[wiki|LLM Wiki]] — {}/index.md\n\n", wiki_dir.display()));
+            uber.push_str(&format!(
+                "- [[wiki|LLM Wiki]] — {}/index.md\n\n",
+                wiki_dir.display()
+            ));
             uber.push_str("## By Theme\n\n");
             for theme in &graph.themes {
                 let safe = theme.name.to_lowercase().replace(' ', "_");
-                uber.push_str(&format!("- [[{}|{}]]  [{}×{}]\n", safe, theme.name, theme.domain, theme.mode));
+                uber.push_str(&format!(
+                    "- [[{}|{}]]  [{}×{}]\n",
+                    safe, theme.name, theme.domain, theme.mode
+                ));
             }
             uber.push_str("\n## By File\n\n");
             for file in &graph.files {
                 let safe = file.title.to_lowercase().replace(' ', "_");
-                uber.push_str(&format!("- [[{}|{}]] — {}\n", safe, file.title, file.path.display()));
+                uber.push_str(&format!(
+                    "- [[{}|{}]] — {}\n",
+                    safe,
+                    file.title,
+                    file.path.display()
+                ));
             }
             std::fs::write(&uber_path, &uber)?;
             println!("  Uberwiki index: {}", uber_path.display());
         }
-        Commands::Studio { dir, html_out, demo } => {
+        Commands::Studio {
+            dir,
+            html_out,
+            demo,
+        } => {
             if demo {
                 physis_pro::demo_corpus::seed_demo_corpus(&dir)?;
             }
@@ -1042,24 +1135,48 @@ fn main() -> anyhow::Result<()> {
             let nodes_b = load_structure_nodes(&b)?;
             let embedder: Box<dyn VectorEmbed> =
                 Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
-            let g = physis_pro::structsim::compare_node_lists(&nodes_a, &nodes_b, embedder.as_ref(), threshold);
-            println!("=== Structure Similarity: {} vs {} ===", a.display(), b.display());
-            println!("  nodes A: {} · nodes B: {}", g.nodes_a.len(), g.nodes_b.len());
+            let g = physis_pro::structsim::compare_node_lists(
+                &nodes_a,
+                &nodes_b,
+                embedder.as_ref(),
+                threshold,
+            );
+            println!(
+                "=== Structure Similarity: {} vs {} ===",
+                a.display(),
+                b.display()
+            );
+            println!(
+                "  nodes A: {} · nodes B: {}",
+                g.nodes_a.len(),
+                g.nodes_b.len()
+            );
             println!("  overall similarity: {:.3}", g.similarity);
             println!("  matched fields (≥ {:.2}): {}", threshold, g.matches.len());
             for m in &g.matches {
                 println!("    {}  ↔  {}   ({:.3})", m.a_path, m.b_path, m.score);
             }
-            println!("  missing in B (fields A has, B lacks/renamed): {}", g.missing_in_b.len());
+            println!(
+                "  missing in B (fields A has, B lacks/renamed): {}",
+                g.missing_in_b.len()
+            );
             for p in &g.missing_in_b {
                 println!("    - {p}");
             }
-            println!("  extra in B (fields B has, A lacks): {}", g.extra_in_b.len());
+            println!(
+                "  extra in B (fields B has, A lacks): {}",
+                g.extra_in_b.len()
+            );
             for p in &g.extra_in_b {
                 println!("    + {p}");
             }
         }
-        Commands::StructSearch { dir, query, threshold, max } => {
+        Commands::StructSearch {
+            dir,
+            query,
+            threshold,
+            max,
+        } => {
             let q_nodes = load_structure_nodes(&query)?;
             let embedder: Box<dyn VectorEmbed> =
                 Box::new(RandomProjectionEmbedder::new(config.physis.embed_dim));
@@ -1083,7 +1200,10 @@ fn main() -> anyhow::Result<()> {
                 ranked.push((path.display().to_string(), sim));
             }
             ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-            println!("=== Structure Search: {} ranked by similarity ===", query.display());
+            println!(
+                "=== Structure Search: {} ranked by similarity ===",
+                query.display()
+            );
             for (path, sim) in ranked.iter().take(max) {
                 println!("  {sim:.3}  {path}");
             }
@@ -1091,7 +1211,12 @@ fn main() -> anyhow::Result<()> {
                 println!("  (no parseable structures found under {})", dir.display());
             }
         }
-        Commands::Rag { dir, query, tokens, top_k } => {
+        Commands::Rag {
+            dir,
+            query,
+            tokens,
+            top_k,
+        } => {
             let docs = ingest::ingest_all(std::slice::from_ref(&dir));
             if docs.is_empty() {
                 anyhow::bail!("no documents found under {}", dir.display());
@@ -1109,9 +1234,16 @@ fn main() -> anyhow::Result<()> {
             );
             println!("=== Token-Fixed RAG ===");
             println!("  query: {query}");
-            println!("  corpus: {} docs · budget: {tokens} tokens · top_k: {top_k}", docs.len());
-            println!("  selected: {} chunks · total {} tokens · truncated: {}",
-                result.chunks.len(), result.total_tokens, result.truncated);
+            println!(
+                "  corpus: {} docs · budget: {tokens} tokens · top_k: {top_k}",
+                docs.len()
+            );
+            println!(
+                "  selected: {} chunks · total {} tokens · truncated: {}",
+                result.chunks.len(),
+                result.total_tokens,
+                result.truncated
+            );
             for c in &result.chunks {
                 println!("    [{:.3}] ({} tokens) doc#{}", c.score, c.tokens, c.id);
             }
@@ -1121,7 +1253,14 @@ fn main() -> anyhow::Result<()> {
         Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
         Commands::Benchmark { dataset } => match dataset {
-            BenchmarkDataset::Secom { limit, seed, train_ratio, output, no_feedback, embedder } => {
+            BenchmarkDataset::Secom {
+                limit,
+                seed,
+                train_ratio,
+                output,
+                no_feedback,
+                embedder,
+            } => {
                 let cfg = BenchmarkConfig {
                     seed,
                     train_ratio,
@@ -1134,7 +1273,10 @@ fn main() -> anyhow::Result<()> {
                 let run = secom::run_benchmark(cfg)?;
                 println!("{}", serde_json::to_string_pretty(&run)?);
                 if !no_feedback {
-                    println!("\nReport written to {}/latest.md", run.config.output_dir.display());
+                    println!(
+                        "\nReport written to {}/latest.md",
+                        run.config.output_dir.display()
+                    );
                 }
             }
         },
@@ -1168,7 +1310,12 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
     // 2. Scan root
     let scan_root = std::env::var("PHYSIS_SCAN_ROOT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| data_dir.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))));
+        .unwrap_or_else(|_| {
+            data_dir
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+        });
     println!("\n🔎 Scan root: {}", scan_root.display());
     if !scan_root.exists() {
         println!("  ❌ Does not exist");
@@ -1237,8 +1384,14 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
 
     let generic_model = check_model("model.onnx", model_dir.join("model.onnx"));
     let generic_tok = check_model("tokenizer.json", model_dir.join("tokenizer.json"));
-    let bge_model = check_model("bge-base/model.onnx", model_dir.join("bge-base-en-v1.5/onnx/model.onnx"));
-    let bge_tok = check_model("bge-base/tokenizer.json", model_dir.join("bge-base-en-v1.5/tokenizer.json"));
+    let bge_model = check_model(
+        "bge-base/model.onnx",
+        model_dir.join("bge-base-en-v1.5/onnx/model.onnx"),
+    );
+    let bge_tok = check_model(
+        "bge-base/tokenizer.json",
+        model_dir.join("bge-base-en-v1.5/tokenizer.json"),
+    );
 
     if !generic_model && !bge_model {
         model_ok = false;
@@ -1258,17 +1411,22 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
     println!("\n📚 Ontology:");
     let ont = OntologyLoader::load_all(&config.physis);
     let total = ont.human_domains.len() + ont.machine_domains.len() + ont.custom_domains.len();
-    println!("  ✅ Loaded: {} domains ({} human + {} machine + {} custom)",
+    println!(
+        "  ✅ Loaded: {} domains ({} human + {} machine + {} custom)",
         total,
         ont.human_domains.len(),
         ont.machine_domains.len(),
-        ont.custom_domains.len());
+        ont.custom_domains.len()
+    );
 
     // 6. License
     println!("\n🎫 License:");
     match physis_pro::license::load() {
         Ok(lic) => {
-            println!("  ✅ Valid: {} → {} (seats: {})", lic.org, lic.exp, lic.seats);
+            println!(
+                "  ✅ Valid: {} → {} (seats: {})",
+                lic.org, lic.exp, lic.seats
+            );
         }
         Err(e) => {
             println!("  ⚠️  {e}");
@@ -1329,7 +1487,10 @@ fn run_study_recorder(
     }
 
     let mut prev = snapshot_dir(dir)?;
-    println!("watching {} every {interval}s → {api} (place: {place})", dir.display());
+    println!(
+        "watching {} every {interval}s → {api} (place: {place})",
+        dir.display()
+    );
     loop {
         std::thread::sleep(std::time::Duration::from_secs(interval));
         let cur = snapshot_dir(dir)?;
@@ -1382,7 +1543,11 @@ fn post_study_events(
     Ok(())
 }
 
-fn run_ingest_pipeline(config: &PhysisProConfig, label: &str, sync_vfs: bool) -> anyhow::Result<()> {
+fn run_ingest_pipeline(
+    config: &PhysisProConfig,
+    label: &str,
+    sync_vfs: bool,
+) -> anyhow::Result<()> {
     let graph_path = config.physis.data_dir.join("theme_graph.json");
     let watch_dirs: Vec<PathBuf> = if config.ingest_dirs.is_empty() {
         vec![PathBuf::from(".")]
@@ -1426,9 +1591,16 @@ fn run_ingest_pipeline(config: &PhysisProConfig, label: &str, sync_vfs: bool) ->
 
     for doc in &docs {
         let file_embedding = embedder.embed(&doc.body);
-        let file_id = graph.add_file(doc.path.clone(), &doc.title, &format!("{:?}", doc.kind), file_embedding.clone());
+        let file_id = graph.add_file(
+            doc.path.clone(),
+            &doc.title,
+            &format!("{:?}", doc.kind),
+            file_embedding.clone(),
+        );
 
-        let mut theme_scores: Vec<(usize, f32)> = graph.themes.iter()
+        let mut theme_scores: Vec<(usize, f32)> = graph
+            .themes
+            .iter()
             .map(|t| {
                 let sim = cosine_sim(&file_embedding, &t.embedding);
                 (t.id, sim)
@@ -1441,7 +1613,9 @@ fn run_ingest_pipeline(config: &PhysisProConfig, label: &str, sync_vfs: bool) ->
             graph.add_edge(*theme_id, file_id, *score);
         }
 
-        let top_themes: Vec<String> = theme_scores.iter().take(3)
+        let top_themes: Vec<String> = theme_scores
+            .iter()
+            .take(3)
             .filter_map(|(tid, _)| graph.get_theme(*tid))
             .map(|t| t.name.clone())
             .collect();
@@ -1453,23 +1627,39 @@ fn run_ingest_pipeline(config: &PhysisProConfig, label: &str, sync_vfs: bool) ->
     if sync_vfs {
         let mut vfs = VfsOrchestrator::new(config.physis.data_dir.clone());
         vfs.sync_graph(&graph)?;
-        println!("Virtual File System synchronized in {}", config.physis.data_dir.join("virtual").display());
+        println!(
+            "Virtual File System synchronized in {}",
+            config.physis.data_dir.join("virtual").display()
+        );
     }
 
     graph.save(&graph_path)?;
     println!("\nTheme graph saved to {}", graph_path.display());
-    println!("  {} themes, {} files, {} edges", graph.themes.len(), graph.files.len(), graph.edges.len());
+    println!(
+        "  {} themes, {} files, {} edges",
+        graph.themes.len(),
+        graph.files.len(),
+        graph.edges.len()
+    );
     Ok(())
 }
 
 /// Interactive graph browser — navigate themes by category, see files per theme.
-fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) -> anyhow::Result<()> {
+fn browse_graph_interactive(
+    graph: &FileThemeGraph,
+    _filter_dir: Option<&Path>,
+) -> anyhow::Result<()> {
     use std::io::{self, BufRead, Write};
 
     let categories = graph.list_categories();
 
     println!("\n━━━ Physis File Theme Graph ━━━");
-    println!("{} themes, {} files, {} edges\n", graph.themes.len(), graph.files.len(), graph.edges.len());
+    println!(
+        "{} themes, {} files, {} edges\n",
+        graph.themes.len(),
+        graph.files.len(),
+        graph.edges.len()
+    );
 
     'outer: loop {
         println!("\n── Categories ──");
@@ -1501,7 +1691,9 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
             } else {
                 println!("\n── Search Results ──");
                 for file in results {
-                    let themes: Vec<String> = graph.edges.iter()
+                    let themes: Vec<String> = graph
+                        .edges
+                        .iter()
                         .filter(|e| e.file_id == file.id)
                         .filter_map(|e| graph.get_theme(e.theme_id))
                         .map(|t| t.name.clone())
@@ -1526,9 +1718,19 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
             'category: loop {
                 println!("\n── {} ──", category);
                 for (i, theme) in themes.iter().enumerate() {
-                    let file_count = graph.edges.iter().filter(|e| e.theme_id == theme.id).count();
+                    let file_count = graph
+                        .edges
+                        .iter()
+                        .filter(|e| e.theme_id == theme.id)
+                        .count();
                     let domain_mode = format!("{}×{}", theme.domain, theme.mode);
-                    println!("  {}. {}  [{}]  ({} files)", i + 1, theme.name, domain_mode, file_count);
+                    println!(
+                        "  {}. {}  [{}]  ({} files)",
+                        i + 1,
+                        theme.name,
+                        domain_mode,
+                        file_count
+                    );
                 }
                 println!("  b. Back to categories");
                 println!("  q. Quit");
@@ -1556,7 +1758,11 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
                     'theme: loop {
                         println!("\n── {} ──", theme.name);
                         println!("  Domain: {} × {}", theme.domain, theme.mode);
-                        println!("  Axis: {} ({})", theme.axis_kind, theme.category.as_deref().unwrap_or(""));
+                        println!(
+                            "  Axis: {} ({})",
+                            theme.axis_kind,
+                            theme.category.as_deref().unwrap_or("")
+                        );
 
                         // Show files
                         let files = graph.files_for_theme(theme.id);
@@ -1565,7 +1771,12 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
                         } else {
                             println!("\n  Files:");
                             for (fi, file) in files.iter().enumerate() {
-                                println!("    {}. {}  ({})", fi + 1, file.title, file.path.display());
+                                println!(
+                                    "    {}. {}  ({})",
+                                    fi + 1,
+                                    file.title,
+                                    file.path.display()
+                                );
                             }
                         }
 
@@ -1618,7 +1829,12 @@ fn browse_graph_interactive(graph: &FileThemeGraph, _filter_dir: Option<&Path>) 
                                         } else {
                                             println!("\n  Files:");
                                             for (fi, rf) in r_files.iter().enumerate() {
-                                                println!("    {}. {}  ({})", fi + 1, rf.title, rf.path.display());
+                                                println!(
+                                                    "    {}. {}  ({})",
+                                                    fi + 1,
+                                                    rf.title,
+                                                    rf.path.display()
+                                                );
                                             }
                                         }
                                         // Just show once and return to related theme menu
@@ -1660,17 +1876,21 @@ fn load_tracker(path: &Path, config: &PhysisProConfig) -> QualityTracker {
     if path.exists() {
         let failures = QualityTracker::load(path).unwrap_or_default();
         for f in &failures {
-            let penalty = tracker.cell_penalties.entry(f.top_cell.clone()).or_insert(0.0);
+            let penalty = tracker
+                .cell_penalties
+                .entry(f.top_cell.clone())
+                .or_insert(0.0);
             *penalty = (*penalty + f.severity * 0.2).min(1.0);
             if let Some(ref _correct) = f.correct_domain {
                 let decay_rate = tracker.boost_decay_rate;
-                let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert_with(|| {
-                    physis_core::quality::BoostInfo {
+                let boost = tracker
+                    .cell_boosts
+                    .entry(f.top_cell.clone())
+                    .or_insert_with(|| physis_core::quality::BoostInfo {
                         amount: 0.0,
                         decay_rate,
                         last_reinforced: std::time::Instant::now(),
-                    }
-                });
+                    });
                 boost.reinforce(0.1);
             }
         }
@@ -1695,10 +1915,36 @@ mod tests {
     #[test]
     fn test_browse_graph_with_themes() {
         let mut graph = FileThemeGraph::new();
-        graph.add_theme("Email", Some("Communication"), "BOND", "WORK", "office", vec![0.9, 0.1]);
-        graph.add_theme("Meeting", Some("Communication"), "BOND", "CREATE", "office", vec![0.8, 0.2]);
-        graph.add_theme("Budget", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
-        graph.add_file(Path::new("msg.eml").to_path_buf(), "Q4 report", "Email", vec![0.85, 0.15]);
+        graph.add_theme(
+            "Email",
+            Some("Communication"),
+            "BOND",
+            "WORK",
+            "office",
+            vec![0.9, 0.1],
+        );
+        graph.add_theme(
+            "Meeting",
+            Some("Communication"),
+            "BOND",
+            "CREATE",
+            "office",
+            vec![0.8, 0.2],
+        );
+        graph.add_theme(
+            "Budget",
+            Some("Finance"),
+            "CONSTRUCT",
+            "CREATE",
+            "office",
+            vec![0.1, 0.9],
+        );
+        graph.add_file(
+            Path::new("msg.eml").to_path_buf(),
+            "Q4 report",
+            "Email",
+            vec![0.85, 0.15],
+        );
         graph.add_edge(0, 0, 0.95);
 
         let cats = graph.list_categories();
@@ -1730,8 +1976,18 @@ mod tests {
     #[test]
     fn test_search_files() {
         let mut graph = FileThemeGraph::new();
-        graph.add_file(Path::new("invoices/2024-01.pdf").to_path_buf(), "Invoice Jan", "Invoice", vec![0.5; 4]);
-        graph.add_file(Path::new("reports/q4.md").to_path_buf(), "Q4 Report", "Report", vec![0.5; 4]);
+        graph.add_file(
+            Path::new("invoices/2024-01.pdf").to_path_buf(),
+            "Invoice Jan",
+            "Invoice",
+            vec![0.5; 4],
+        );
+        graph.add_file(
+            Path::new("reports/q4.md").to_path_buf(),
+            "Q4 Report",
+            "Report",
+            vec![0.5; 4],
+        );
 
         let results = graph.search_files("invoice");
         assert_eq!(results.len(), 1);
@@ -1771,26 +2027,38 @@ mod tests {
         let mut app = cli_app(dir.path());
 
         // Register a node into the shared store (mirrors /scan + /coherence/register).
-        let id = app.register_persisted_node("milling spindle bearing").unwrap();
+        let id = app
+            .register_persisted_node("milling spindle bearing")
+            .unwrap();
 
         // Edit without a pin.
-        let out = app.run_node_edit(&id, "welding robot joint recalibration", None).unwrap();
+        let out = app
+            .run_node_edit(&id, "welding robot joint recalibration", None)
+            .unwrap();
         assert!(out.contains(&id), "identity survives the swap: {out}");
 
         // Edit with a pin.
-        let pinned = app.run_node_edit(
-            &id,
-            "welding robot joint recalibration (edited)",
-            Some(("FABRICATE".into(), "MAINTAIN".into())),
-        ).unwrap();
-        assert!(pinned.contains("FABRICATE×MAINTAIN"), "pin echoed: {pinned}");
+        let pinned = app
+            .run_node_edit(
+                &id,
+                "welding robot joint recalibration (edited)",
+                Some(("FABRICATE".into(), "MAINTAIN".into())),
+            )
+            .unwrap();
+        assert!(
+            pinned.contains("FABRICATE×MAINTAIN"),
+            "pin echoed: {pinned}"
+        );
 
         // Unknown id errors.
         assert!(app.run_node_edit("missing", "x", None).is_err());
 
         // Delete, then the id is gone.
         app.run_node_delete(&id).unwrap();
-        assert!(app.run_node_delete(&id).is_err(), "second delete is a no-op");
+        assert!(
+            app.run_node_delete(&id).is_err(),
+            "second delete is a no-op"
+        );
     }
 
     #[test]
@@ -1798,7 +2066,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut app = cli_app(dir.path());
 
-        for label in ["milling spindle bearing wear", "furnace temperature profile", "welding robot joint calibration"] {
+        for label in [
+            "milling spindle bearing wear",
+            "furnace temperature profile",
+            "welding robot joint calibration",
+        ] {
             app.register_persisted_node(label).unwrap();
         }
 
@@ -1806,8 +2078,16 @@ mod tests {
         assert!(out.contains("budget 20"), "budget echoed: {out}");
         // The packed result is bounded: total tokens can't exceed the budget.
         let header = out.lines().next().unwrap();
-        let tokens: usize = header.split("tokens").next().unwrap()
-            .split(',').nth(1).unwrap().trim().parse().unwrap();
+        let tokens: usize = header
+            .split("tokens")
+            .next()
+            .unwrap()
+            .split(',')
+            .nth(1)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
         assert!(tokens <= 20, "total tokens {tokens} must respect budget 20");
         assert!(out.lines().nth(1).is_some(), "at least one result listed");
 
@@ -1829,17 +2109,26 @@ mod tests {
 
         // First sweep registers the file as labeled core nodes.
         let out = app.run_watch(vec![watched.clone()], true).unwrap();
-        assert!(out.contains("1 new"), "first sweep sees the new file: {out}");
+        assert!(
+            out.contains("1 new"),
+            "first sweep sees the new file: {out}"
+        );
         assert!(out.contains("registered"), "registers nodes: {out}");
 
         // Idle sweep: nothing to do.
         let out2 = app.run_watch(vec![watched.clone()], true).unwrap();
-        assert!(out2.contains("0 new"), "second sweep sees nothing new: {out2}");
+        assert!(
+            out2.contains("0 new"),
+            "second sweep sees nothing new: {out2}"
+        );
 
         // Content change → re-register; removal → nodes dropped.
         std::fs::write(&file, "# Topology edited\n").unwrap();
         let out3 = app.run_watch(vec![watched.clone()], true).unwrap();
-        assert!(out3.contains("1 changed"), "content change detected: {out3}");
+        assert!(
+            out3.contains("1 changed"),
+            "content change detected: {out3}"
+        );
 
         std::fs::remove_file(&file).unwrap();
         let out4 = app.run_watch(vec![watched.clone()], true).unwrap();
@@ -1847,7 +2136,10 @@ mod tests {
 
         // Nothing left in the store for the removed file's prefix.
         let out5 = app.run_node_search("Topology", 100, 10).unwrap();
-        assert!(out5.contains("0 result(s)"), "removed nodes are gone: {out5}");
+        assert!(
+            out5.contains("0 result(s)"),
+            "removed nodes are gone: {out5}"
+        );
     }
 
     #[test]
@@ -1855,8 +2147,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let vault = dir.path().join("vault");
         std::fs::create_dir_all(vault.join("notes")).unwrap();
-        std::fs::write(vault.join("notes").join("alpha.md"), "# Alpha\n\n## Sub\n\ncontent here").unwrap();
-        std::fs::write(vault.join("notes").join("beta.txt"), "Beta title\nplain body text").unwrap();
+        std::fs::write(
+            vault.join("notes").join("alpha.md"),
+            "# Alpha\n\n## Sub\n\ncontent here",
+        )
+        .unwrap();
+        std::fs::write(
+            vault.join("notes").join("beta.txt"),
+            "Beta title\nplain body text",
+        )
+        .unwrap();
         let mut app = cli_app(dir.path());
 
         let out = app.run_vault_import(&vault, 0).unwrap();
@@ -1879,8 +2179,12 @@ mod tests {
     fn test_cli_history_import_registers_nodes() {
         let dir = tempfile::tempdir().unwrap();
         let bookmarks = dir.path().join("bookmarks.html");
-        std::fs::write(&bookmarks, r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor</A></DL><p>"#).unwrap();
+        std::fs::write(
+            &bookmarks,
+            r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor</A></DL><p>"#,
+        )
+        .unwrap();
         let mut app = cli_app(dir.path());
 
         let out = app.run_history_import(&bookmarks).unwrap();
@@ -1890,7 +2194,10 @@ mod tests {
 
         // Recallable by content.
         let search = app.run_node_search("shop floor", 100, 10).unwrap();
-        assert!(search.contains("Shop floor"), "bookmark recallable: {search}");
+        assert!(
+            search.contains("Shop floor"),
+            "bookmark recallable: {search}"
+        );
 
         // Re-import dedupes.
         let out2 = app.run_history_import(&bookmarks).unwrap();
@@ -1906,17 +2213,24 @@ mod tests {
     fn test_cli_praxis_backfill_asserts_verdicts() {
         let dir = tempfile::tempdir().unwrap();
         let export = dir.path().join("praxis.json");
-        std::fs::write(&export, r#"{
+        std::fs::write(
+            &export,
+            r#"{
             "notebook": [
               {"content": "shipped the release","mood": 9},
               {"content": "tired","mood": 2}
             ],
             "trackers": [{"name": "reading", "progress": 0.9}]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let mut app = cli_app(dir.path());
 
         let out = app.run_praxis_backfill(&export).unwrap();
-        assert!(out.contains("3 items (2 success, 0 inert, 1 failure)"), "verdicts: {out}");
+        assert!(
+            out.contains("3 items (2 success, 0 inert, 1 failure)"),
+            "verdicts: {out}"
+        );
         assert!(out.contains("registered"), "nodes registered: {out}");
 
         // Re-backfill dedupes.
@@ -1924,7 +2238,9 @@ mod tests {
         assert!(out2.contains("deduped"), "re-backfill dedupes: {out2}");
 
         // Missing file errors.
-        assert!(app.run_praxis_backfill(&dir.path().join("nope.json")).is_err());
+        assert!(app
+            .run_praxis_backfill(&dir.path().join("nope.json"))
+            .is_err());
     }
 
     #[test]
@@ -1938,20 +2254,81 @@ mod tests {
         assert!(all.contains("ENTRY"), "table header present");
 
         // Unknown facet value is tolerated (no filter) → same listing as no filter.
-        let bogus = app.run_facet_query(None, None, None, Some("NOWHERE"), None, None, None, None, None);
-        assert_eq!(bogus.trim_end(), all.trim_end(), "unknown facet value ignored");
+        let bogus = app.run_facet_query(
+            None,
+            None,
+            None,
+            Some("NOWHERE"),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            bogus.trim_end(),
+            all.trim_end(),
+            "unknown facet value ignored"
+        );
 
         // A filter that matches nothing returns a zero-count message, not an error.
-        let none = app.run_facet_query(None, None, None, Some("DESIGN"), None, None, None, Some("zzz-no-such-sub"), None);
-        assert!(none.contains("0 entries match"), "empty result is a valid answer: {none}");
+        let none = app.run_facet_query(
+            None,
+            None,
+            None,
+            Some("DESIGN"),
+            None,
+            None,
+            None,
+            Some("zzz-no-such-sub"),
+            None,
+        );
+        assert!(
+            none.contains("0 entries match"),
+            "empty result is a valid answer: {none}"
+        );
 
         // Case-insensitive facet matching works when entries carry the facet.
-        let operate = app.run_facet_query(None, None, None, Some("operate"), None, None, None, None, None);
-        let also = app.run_facet_query(None, None, None, Some("OPERATE"), None, None, None, None, None);
-        assert_eq!(operate.trim_end(), also.trim_end(), "case-insensitive facet match");
+        let operate = app.run_facet_query(
+            None,
+            None,
+            None,
+            Some("operate"),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        let also = app.run_facet_query(
+            None,
+            None,
+            None,
+            Some("OPERATE"),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(
+            operate.trim_end(),
+            also.trim_end(),
+            "case-insensitive facet match"
+        );
 
         // Kind restriction narrows the search space.
-        let office = app.run_facet_query(Some("office"), None, None, None, None, None, None, None, None);
+        let office = app.run_facet_query(
+            Some("office"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
         assert!(office.contains("entries match"), "office kind listed");
     }
 }

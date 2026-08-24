@@ -7,8 +7,20 @@ use physis_core::classify::EntrySeed;
 
 pub const DOMAINS: [&str; 5] = ["HEAL", "CONSTRUCT", "FABRICATE", "BOND", "STUDY"];
 pub const MODES: [&str; 14] = [
-    "LIFT", "REST", "WALK", "WORK", "CREATE", "LEARN", "DESTROY", "SENSE", "GUIDE",
-    "PLAY", "BRAINSTORM", "MAINTAIN", "MOVE", "PLAN",
+    "LIFT",
+    "REST",
+    "WALK",
+    "WORK",
+    "CREATE",
+    "LEARN",
+    "DESTROY",
+    "SENSE",
+    "GUIDE",
+    "PLAY",
+    "BRAINSTORM",
+    "MAINTAIN",
+    "MOVE",
+    "PLAN",
 ];
 
 pub fn is_canonical(domain: &str, mode: &str) -> bool {
@@ -57,6 +69,8 @@ mod tests {
         let existing = vec![("HEAL".into(), "LIFT".into())];
         let anchors = fallback_anchors(&existing);
         assert_eq!(anchors.len(), 69);
-        assert!(anchors.iter().all(|a| !(a.domain == "HEAL" && a.mode == "LIFT")));
+        assert!(anchors
+            .iter()
+            .all(|a| !(a.domain == "HEAL" && a.mode == "LIFT")));
     }
 }

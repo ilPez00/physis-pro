@@ -94,7 +94,11 @@ pub fn classify(exit_code: Option<i32>, output: &str, engine: &str) -> (Verdict,
         Some(0) => (Verdict::Certified, String::new()),
         Some(_) => (
             Verdict::Refuted,
-            if witness.is_empty() { truncate(output) } else { witness },
+            if witness.is_empty() {
+                truncate(output)
+            } else {
+                witness
+            },
         ),
         None => (
             Verdict::Untestable,
@@ -123,7 +127,11 @@ pub fn evaluate(checks: &[Check]) -> VerdictReport {
             Verdict::Untestable => untestable.push(c.id.clone()),
         }
     }
-    VerdictReport { certified, refuted, untestable }
+    VerdictReport {
+        certified,
+        refuted,
+        untestable,
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,7 +149,10 @@ pub struct VerdictReport {
 /// machine that isn't installed reports the situation instead of erroring the
 /// request.
 pub fn reduce(obligations: &[Obligation], timeout_secs: u64) -> Vec<Check> {
-    obligations.iter().map(|o| verify(o, timeout_secs)).collect()
+    obligations
+        .iter()
+        .map(|o| verify(o, timeout_secs))
+        .collect()
 }
 
 fn lean_exe() -> Option<PathBuf> {
@@ -184,9 +195,15 @@ pub fn verify(ob: &Obligation, timeout_secs: u64) -> Check {
         );
     };
 
-    let file = std::env::temp_dir().join(format!("apodeixis-{}.lean", uuid::Uuid::new_v4().simple()));
+    let file =
+        std::env::temp_dir().join(format!("apodeixis-{}.lean", uuid::Uuid::new_v4().simple()));
     if let Err(e) = std::fs::write(&file, &ob.snippet) {
-        return msg(Verdict::Untestable, format!("could not write proof file: {e}"), None, "lean");
+        return msg(
+            Verdict::Untestable,
+            format!("could not write proof file: {e}"),
+            None,
+            "lean",
+        );
     }
 
     let output = Command::new("timeout")
@@ -203,10 +220,16 @@ pub fn verify(ob: &Obligation, timeout_secs: u64) -> Check {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
             let stderr = String::from_utf8_lossy(&out.stderr);
-            let (verdict, witness) = classify(out.status.code(), &format!("{stdout}\n{stderr}"), "lean");
+            let (verdict, witness) =
+                classify(out.status.code(), &format!("{stdout}\n{stderr}"), "lean");
             msg(verdict, witness, out.status.code(), "lean")
         }
-        Err(e) => msg(Verdict::Untestable, format!("could not run Lean: {e}"), None, "lean"),
+        Err(e) => msg(
+            Verdict::Untestable,
+            format!("could not run Lean: {e}"),
+            None,
+            "lean",
+        ),
     }
 }
 
@@ -267,7 +290,10 @@ mod tests {
         let out = "\x1b[0m\x1b[31mfile.lean:2:0: error: type mismatch\n  x\nhas type\n  Nat\nbut expected\n  Bool\n\x1b[0mmore";
         let (v, w) = classify(Some(1), out, "lean");
         assert_eq!(v, Verdict::Refuted);
-        assert!(w.contains("type mismatch"), "witness must name the failing step: {w}");
+        assert!(
+            w.contains("type mismatch"),
+            "witness must name the failing step: {w}"
+        );
         assert!(w.len() < 300);
         assert_eq!(v.coherence(), -1.0);
     }
@@ -290,7 +316,11 @@ mod tests {
             exit_code: None,
             engine: "lean".into(),
         };
-        let checks = vec![mk("a", Verdict::Certified), mk("b", Verdict::Refuted), mk("c", Verdict::Untestable)];
+        let checks = vec![
+            mk("a", Verdict::Certified),
+            mk("b", Verdict::Refuted),
+            mk("c", Verdict::Untestable),
+        ];
         let r = evaluate(&checks);
         assert_eq!(r.certified, vec!["a"]);
         assert_eq!(r.refuted, vec!["b"]);
@@ -299,7 +329,11 @@ mod tests {
 
     #[test]
     fn missing_lean_is_untestable_and_never_panics() {
-        let ob = Obligation { id: "o".into(), claim: "x".into(), snippet: "#check True".into() };
+        let ob = Obligation {
+            id: "o".into(),
+            claim: "x".into(),
+            snippet: "#check True".into(),
+        };
         std::env::set_var("LEAN_BIN", "/nonexistent/lean");
         let c = verify(&ob, 5);
         assert_eq!(c.verdict, Verdict::Untestable);
@@ -309,7 +343,11 @@ mod tests {
     #[test]
     fn real_lean_certifies_trivial_theorem() {
         let lean = std::env::var("LEAN_BIN").unwrap_or_else(|_| "lean".into());
-        if std::process::Command::new(&lean).arg("--version").output().is_err() {
+        if std::process::Command::new(&lean)
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("skipping: lean not available");
             return;
         }
@@ -319,14 +357,24 @@ mod tests {
             snippet: "#check True\n".into(),
         };
         let c = verify(&ob, 20);
-        assert_eq!(c.verdict, Verdict::Certified, "expected Certified, got {:?} witness={}", c.verdict, c.witness);
+        assert_eq!(
+            c.verdict,
+            Verdict::Certified,
+            "expected Certified, got {:?} witness={}",
+            c.verdict,
+            c.witness
+        );
         assert_eq!(c.engine, "lean");
     }
 
     #[test]
     fn real_lean_refutes_type_mismatch() {
         let lean = std::env::var("LEAN_BIN").unwrap_or_else(|_| "lean".into());
-        if std::process::Command::new(&lean).arg("--version").output().is_err() {
+        if std::process::Command::new(&lean)
+            .arg("--version")
+            .output()
+            .is_err()
+        {
             eprintln!("skipping: lean not available");
             return;
         }
@@ -336,11 +384,22 @@ mod tests {
             snippet: r#"
 def f (x : Nat) : Bool := x
 theorem t : True := trivial
-"#.into(),
+"#
+            .into(),
         };
         let c = verify(&ob, 20);
-        assert_eq!(c.verdict, Verdict::Refuted, "expected Refuted, got {:?} witness={}", c.verdict, c.witness);
-        assert!(c.witness.contains("error"), "witness must contain kernel diagnostic: {}", c.witness);
+        assert_eq!(
+            c.verdict,
+            Verdict::Refuted,
+            "expected Refuted, got {:?} witness={}",
+            c.verdict,
+            c.witness
+        );
+        assert!(
+            c.witness.contains("error"),
+            "witness must contain kernel diagnostic: {}",
+            c.witness
+        );
         assert!(c.exit_code.unwrap_or(0) != 0);
     }
 }

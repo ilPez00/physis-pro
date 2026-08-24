@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use std::collections::{HashMap, VecDeque};
+use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 
 use crate::graph::RawNodeKey;
@@ -90,18 +90,23 @@ impl ScheduleDomain for AbstractDomain {
     }
 
     fn resolve_dependencies(&self, edges: &[crate::graph::Edge]) -> Vec<TaskDependency> {
-        edges.iter().map(|e| TaskDependency {
-            predecessor: format!("task_{}", e.source.data),
-            successor: format!("task_{}", e.target.data),
-            lag: 0,
-        }).collect()
+        edges
+            .iter()
+            .map(|e| TaskDependency {
+                predecessor: format!("task_{}", e.source.data),
+                successor: format!("task_{}", e.target.data),
+                lag: 0,
+            })
+            .collect()
     }
 
     fn compute_priority(&self, task: &ScheduledTask) -> f32 {
         1.0 - (task.float as f32 / task.early_start.max(1) as f32).clamp(0.0, 1.0)
     }
 
-    fn domain_name(&self) -> &'static str { "abstract" }
+    fn domain_name(&self) -> &'static str {
+        "abstract"
+    }
 }
 
 pub struct OeeDomain;
@@ -115,24 +120,34 @@ impl ScheduleDomain for OeeDomain {
     }
 
     fn resolve_dependencies(&self, edges: &[crate::graph::Edge]) -> Vec<TaskDependency> {
-        edges.iter().filter_map(|e| {
-            let predecessor = format!("task_{}", e.source.data);
-            let successor = format!("task_{}", e.target.data);
-            if predecessor != successor {
-                Some(TaskDependency { predecessor, successor, lag: 0 })
-            } else {
-                None
-            }
-        }).collect()
+        edges
+            .iter()
+            .filter_map(|e| {
+                let predecessor = format!("task_{}", e.source.data);
+                let successor = format!("task_{}", e.target.data);
+                if predecessor != successor {
+                    Some(TaskDependency {
+                        predecessor,
+                        successor,
+                        lag: 0,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     fn compute_priority(&self, task: &ScheduledTask) -> f32 {
-        let duration_ratio = task.actual_duration_secs as f32 / task.planned_duration_secs.max(1) as f32;
+        let duration_ratio =
+            task.actual_duration_secs as f32 / task.planned_duration_secs.max(1) as f32;
         let float_ratio = task.float as f32 / task.early_start.max(1) as f32;
         (duration_ratio + (1.0 - float_ratio.clamp(0.0, 1.0))) / 2.0
     }
 
-    fn domain_name(&self) -> &'static str { "oee" }
+    fn domain_name(&self) -> &'static str {
+        "oee"
+    }
 }
 
 impl GanttScheduler {
@@ -156,7 +171,9 @@ impl GanttScheduler {
         dependencies: Vec<RawNodeKey>,
     ) -> String {
         let id = format!("task_{}", node_id.data);
-        let duration = self.domain.estimate_duration(activation_energy, decay_metrics);
+        let duration = self
+            .domain
+            .estimate_duration(activation_energy, decay_metrics);
 
         self.tasks.push(ScheduledTask {
             id: id.clone(),
@@ -255,7 +272,9 @@ impl GanttScheduler {
             return;
         }
 
-        let task_map: HashMap<String, usize> = self.tasks.iter()
+        let task_map: HashMap<String, usize> = self
+            .tasks
+            .iter()
             .enumerate()
             .map(|(i, t)| (t.id.clone(), i))
             .collect();
@@ -264,14 +283,17 @@ impl GanttScheduler {
         let mut in_degree = vec![0usize; self.tasks.len()];
 
         for dep in &self.dependencies {
-            if let (Some(&pred), Some(&succ)) = (task_map.get(&dep.predecessor), task_map.get(&dep.successor)) {
+            if let (Some(&pred), Some(&succ)) =
+                (task_map.get(&dep.predecessor), task_map.get(&dep.successor))
+            {
                 adj.entry(pred).or_default().push((succ, dep.lag));
                 in_degree[succ] += 1;
             }
         }
 
         let mut topo = Vec::new();
-        let mut queue: VecDeque<usize> = in_degree.iter()
+        let mut queue: VecDeque<usize> = in_degree
+            .iter()
             .enumerate()
             .filter(|(_, &deg)| deg == 0)
             .map(|(i, _)| i)
@@ -296,7 +318,9 @@ impl GanttScheduler {
 
         for &idx in &topo {
             let mut es = 0u64;
-            let deps: Vec<usize> = self.dependencies.iter()
+            let deps: Vec<usize> = self
+                .dependencies
+                .iter()
                 .filter(|d| task_map.get(&d.successor) == Some(&idx))
                 .filter_map(|d| task_map.get(&d.predecessor).copied())
                 .collect();
@@ -310,7 +334,9 @@ impl GanttScheduler {
         let project_end = self.tasks.iter().map(|t| t.early_finish).max().unwrap_or(0);
 
         for &idx in topo.iter().rev() {
-            let successors: Vec<usize> = self.dependencies.iter()
+            let successors: Vec<usize> = self
+                .dependencies
+                .iter()
                 .filter(|d| task_map.get(&d.predecessor) == Some(&idx))
                 .filter_map(|d| task_map.get(&d.successor).copied())
                 .collect();
@@ -318,7 +344,11 @@ impl GanttScheduler {
             let lf = if successors.is_empty() {
                 project_end
             } else {
-                successors.iter().map(|&s| self.tasks[s].late_start).min().unwrap_or(project_end)
+                successors
+                    .iter()
+                    .map(|&s| self.tasks[s].late_start)
+                    .min()
+                    .unwrap_or(project_end)
             };
             let ls = lf.saturating_sub(self.tasks[idx].planned_duration_secs);
             self.tasks[idx].late_start = ls;
@@ -327,7 +357,9 @@ impl GanttScheduler {
             self.tasks[idx].on_critical_path = self.tasks[idx].float == 0;
         }
 
-        let critical_tasks: Vec<String> = self.tasks.iter()
+        let critical_tasks: Vec<String> = self
+            .tasks
+            .iter()
             .filter(|t| t.on_critical_path)
             .map(|t| t.id.clone())
             .collect();
@@ -376,7 +408,8 @@ impl GanttScheduler {
     }
 
     pub fn tasks_approaching_late_finish(&self, threshold_float: i64) -> Vec<&ScheduledTask> {
-        self.tasks.iter()
+        self.tasks
+            .iter()
             .filter(|t| t.float <= threshold_float && t.progress < 1.0)
             .collect()
     }
@@ -392,33 +425,46 @@ impl GanttScheduler {
     pub fn dream_proposals(&self) -> Vec<GanttDreamProposal> {
         let mut proposals = Vec::new();
         for task in self.tasks_approaching_late_finish(0) {
-            if let Some(swap) = self.tasks.iter()
+            if let Some(swap) = self
+                .tasks
+                .iter()
                 .filter(|t| t.id != task.id && t.float > 0 && t.progress < 0.5)
                 .max_by_key(|t| t.float)
             {
                 proposals.push(GanttDreamProposal {
-                    description: format!("Reorder {} (float={}) with {} (float={})",
-                        task.name, task.float, swap.name, swap.float),
+                    description: format!(
+                        "Reorder {} (float={}) with {} (float={})",
+                        task.name, task.float, swap.name, swap.float
+                    ),
                     task_id: task.id.clone(),
                     alternative_start: swap.early_start,
                     new_float: task.float + swap.float / 2,
                     expected_impact: 0.3,
-                    kind: GanttDreamKind::Reorder { swap_with: swap.id.clone() },
+                    kind: GanttDreamKind::Reorder {
+                        swap_with: swap.id.clone(),
+                    },
                 });
             }
 
             if task.progress < 0.3 {
                 proposals.push(GanttDreamProposal {
-                    description: format!("Boost resources for {} to halve remaining duration", task.name),
+                    description: format!(
+                        "Boost resources for {} to halve remaining duration",
+                        task.name
+                    ),
                     task_id: task.id.clone(),
                     alternative_start: task.early_start,
                     new_float: task.float + (task.planned_duration_secs as i64 / 2),
                     expected_impact: 0.5,
-                    kind: GanttDreamKind::ResourceBoost { additional_capacity: 1.0 },
+                    kind: GanttDreamKind::ResourceBoost {
+                        additional_capacity: 1.0,
+                    },
                 });
             }
 
-            let concurrent: Vec<String> = self.tasks.iter()
+            let concurrent: Vec<String> = self
+                .tasks
+                .iter()
                 .filter(|t| t.id != task.id && t.float > task.float && !t.on_critical_path)
                 .map(|t| t.id.clone())
                 .take(2)
@@ -426,12 +472,18 @@ impl GanttScheduler {
 
             if !concurrent.is_empty() {
                 proposals.push(GanttDreamProposal {
-                    description: format!("Parallelize {} with {} concurrent tasks", task.name, concurrent.len()),
+                    description: format!(
+                        "Parallelize {} with {} concurrent tasks",
+                        task.name,
+                        concurrent.len()
+                    ),
                     task_id: task.id.clone(),
                     alternative_start: task.early_start,
                     new_float: task.float + 3600,
                     expected_impact: 0.4,
-                    kind: GanttDreamKind::Parallelize { concurrent_tasks: concurrent },
+                    kind: GanttDreamKind::Parallelize {
+                        concurrent_tasks: concurrent,
+                    },
                 });
             }
         }
@@ -443,7 +495,9 @@ impl GanttScheduler {
             return 0.0;
         }
 
-        let task_map: HashMap<String, f32> = self.tasks.iter()
+        let task_map: HashMap<String, f32> = self
+            .tasks
+            .iter()
             .map(|t| (t.id.clone(), t.progress))
             .collect();
 
@@ -455,9 +509,16 @@ impl GanttScheduler {
         }
 
         if paired.len() < 2 {
-            return paired.first().map(|(a, b)| {
-                if a + b > 0.0 { 1.0 - (a - b).abs() / (a + b) } else { 0.0 }
-            }).unwrap_or(0.0);
+            return paired
+                .first()
+                .map(|(a, b)| {
+                    if a + b > 0.0 {
+                        1.0 - (a - b).abs() / (a + b)
+                    } else {
+                        0.0
+                    }
+                })
+                .unwrap_or(0.0);
         }
 
         let n = paired.len() as f32;
@@ -469,7 +530,11 @@ impl GanttScheduler {
 
         let num = n * sum_xy - sum_x * sum_y;
         let denom = ((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)).sqrt();
-        if denom == 0.0 { 0.0 } else { (num / denom).clamp(-1.0, 1.0) }
+        if denom == 0.0 {
+            0.0
+        } else {
+            (num / denom).clamp(-1.0, 1.0)
+        }
     }
 }
 
@@ -535,8 +600,12 @@ pub fn compute_schedule(
     };
     let mut s = GanttScheduler::new(dom);
     for t in inputs {
-        let node = RawNodeKey { data: id_hash(&t.id) };
-        let deps: Vec<RawNodeKey> = t.dependencies.iter()
+        let node = RawNodeKey {
+            data: id_hash(&t.id),
+        };
+        let deps: Vec<RawNodeKey> = t
+            .dependencies
+            .iter()
             .map(|d| RawNodeKey { data: id_hash(d) })
             .collect();
         // Task `name` carries the caller's id so results map back cleanly.
@@ -548,26 +617,37 @@ pub fn compute_schedule(
     }
 
     // Remap caller goal ids → internal task ids so cross_correlate matches.
-    let gp_internal: Vec<(String, f32)> = goal_progress.iter()
+    let gp_internal: Vec<(String, f32)> = goal_progress
+        .iter()
         .map(|(id, p)| (format!("task_{}", id_hash(id)), *p))
         .collect();
     let cross_correlation = s.cross_correlate(&gp_internal);
 
-    let tasks: Vec<TaskResult> = s.tasks.iter().map(|t| TaskResult {
-        id: t.name.clone(),
-        early_start: t.early_start,
-        early_finish: t.early_finish,
-        late_start: t.late_start,
-        late_finish: t.late_finish,
-        float: t.float,
-        on_critical_path: t.on_critical_path,
-        progress: t.progress,
-    }).collect();
-    let critical_path: Vec<String> = s.tasks.iter()
+    let tasks: Vec<TaskResult> = s
+        .tasks
+        .iter()
+        .map(|t| TaskResult {
+            id: t.name.clone(),
+            early_start: t.early_start,
+            early_finish: t.early_finish,
+            late_start: t.late_start,
+            late_finish: t.late_finish,
+            float: t.float,
+            on_critical_path: t.on_critical_path,
+            progress: t.progress,
+        })
+        .collect();
+    let critical_path: Vec<String> = s
+        .tasks
+        .iter()
         .filter(|t| t.on_critical_path)
         .map(|t| t.name.clone())
         .collect();
-    let total_duration = s.critical_path.as_ref().map(|c| c.total_duration).unwrap_or(0);
+    let total_duration = s
+        .critical_path
+        .as_ref()
+        .map(|c| c.total_duration)
+        .unwrap_or(0);
 
     ScheduleResult {
         tasks,
@@ -602,20 +682,28 @@ pub fn compute_trajectory(
     scheduler: &GanttScheduler,
     goal_progress: &[(String, f32)],
 ) -> Trajectory {
-    let tasks: Vec<GanttTask> = scheduler.tasks.iter().map(|st| {
-        let deps = st.dependencies.clone();
-        GanttTask {
-            id: st.id.clone(),
-            node_id: st.node_id,
-            name: st.name.clone(),
-            start_time: st.early_start,
-            end_time: st.early_finish,
-            progress: st.progress,
-            dependencies: deps,
-        }
-    }).collect();
+    let tasks: Vec<GanttTask> = scheduler
+        .tasks
+        .iter()
+        .map(|st| {
+            let deps = st.dependencies.clone();
+            GanttTask {
+                id: st.id.clone(),
+                node_id: st.node_id,
+                name: st.name.clone(),
+                start_time: st.early_start,
+                end_time: st.early_finish,
+                progress: st.progress,
+                dependencies: deps,
+            }
+        })
+        .collect();
 
-    let coherence = if tasks.is_empty() { 1.0 } else { scheduler.schedule_health() };
+    let coherence = if tasks.is_empty() {
+        1.0
+    } else {
+        scheduler.schedule_health()
+    };
 
     Trajectory {
         tasks,
@@ -632,11 +720,30 @@ mod tests {
 
     fn make_scheduler() -> GanttScheduler {
         let mut s = GanttScheduler::new(Box::new(AbstractDomain));
-        s.add_task(RawNodeKey { data: 1 }, "Task A".into(), 0.5, 0.0, 10000, vec![]);
-        s.add_task(RawNodeKey { data: 2 }, "Task B".into(), 0.3, 0.0, 10000,
-            vec![RawNodeKey { data: 1 }]);
-        s.add_task(RawNodeKey { data: 3 }, "Task C".into(), 0.7, 0.0, 10000,
-            vec![RawNodeKey { data: 2 }]);
+        s.add_task(
+            RawNodeKey { data: 1 },
+            "Task A".into(),
+            0.5,
+            0.0,
+            10000,
+            vec![],
+        );
+        s.add_task(
+            RawNodeKey { data: 2 },
+            "Task B".into(),
+            0.3,
+            0.0,
+            10000,
+            vec![RawNodeKey { data: 1 }],
+        );
+        s.add_task(
+            RawNodeKey { data: 3 },
+            "Task C".into(),
+            0.7,
+            0.0,
+            10000,
+            vec![RawNodeKey { data: 2 }],
+        );
         s.recompute();
         s
     }
@@ -664,7 +771,14 @@ mod tests {
     #[test]
     fn test_add_and_allocate_resource() {
         let mut s = GanttScheduler::new(Box::new(AbstractDomain));
-        let id = s.add_task(RawNodeKey { data: 1 }, "Test".into(), 0.5, 0.0, 10000, vec![]);
+        let id = s.add_task(
+            RawNodeKey { data: 1 },
+            "Test".into(),
+            0.5,
+            0.0,
+            10000,
+            vec![],
+        );
         s.add_resource("r1".into(), "Worker".into(), 2.0);
         assert!(s.allocate_resource(&id, "r1"));
     }
@@ -731,9 +845,24 @@ mod tests {
     #[test]
     fn test_compute_schedule_stateless() {
         let inputs = vec![
-            TaskInput { id: "a".into(), duration_secs: 100, progress: 0.5, dependencies: vec![] },
-            TaskInput { id: "b".into(), duration_secs: 100, progress: 0.0, dependencies: vec!["a".into()] },
-            TaskInput { id: "c".into(), duration_secs: 50, progress: 0.0, dependencies: vec![] },
+            TaskInput {
+                id: "a".into(),
+                duration_secs: 100,
+                progress: 0.5,
+                dependencies: vec![],
+            },
+            TaskInput {
+                id: "b".into(),
+                duration_secs: 100,
+                progress: 0.0,
+                dependencies: vec!["a".into()],
+            },
+            TaskInput {
+                id: "c".into(),
+                duration_secs: 50,
+                progress: 0.0,
+                dependencies: vec![],
+            },
         ];
         let r = compute_schedule(&inputs, &[("a".into(), 0.5), ("b".into(), 0.2)], "abstract");
         assert_eq!(r.tasks.len(), 3);

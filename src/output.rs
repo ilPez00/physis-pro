@@ -17,12 +17,18 @@ pub fn format_wiki(trie: &DynamicVectorTrie, goals: &[Goal], title: &str) -> Str
     out.push_str("## Goals\n\n");
     let tracked: Vec<&Goal> = goals.iter().filter(|g| g.progress > 0.0).collect();
     for goal in &tracked {
-        out.push_str(&format!("- [[{}]] — progress: {:.0}%\n", goal.id, goal.progress * 100.0));
+        out.push_str(&format!(
+            "- [[{}]] — progress: {:.0}%\n",
+            goal.id,
+            goal.progress * 100.0
+        ));
     }
     let untracked = goals.len() - tracked.len();
     if untracked > 0 {
         let sep = if tracked.is_empty() { "" } else { "\n" };
-        out.push_str(&format!("{sep}_{untracked} entries mapped, no progress tracked yet._\n"));
+        out.push_str(&format!(
+            "{sep}_{untracked} entries mapped, no progress tracked yet._\n"
+        ));
     }
 
     out.push_str("\n## Ontology Tree\n\n");
@@ -66,8 +72,14 @@ pub fn format_wiki(trie: &DynamicVectorTrie, goals: &[Goal], title: &str) -> Str
     out.push_str("## Stats\n\n");
     out.push_str(&format!("- Nodes: {}\n", s.get("nodes").unwrap_or(&0)));
     out.push_str(&format!("- Tokens: {}\n", s.get("tokens").unwrap_or(&0)));
-    out.push_str(&format!("- Terminal nodes: {}\n", s.get("terminal_nodes").unwrap_or(&0)));
-    out.push_str(&format!("- Max depth: {}\n", s.get("max_depth").unwrap_or(&0)));
+    out.push_str(&format!(
+        "- Terminal nodes: {}\n",
+        s.get("terminal_nodes").unwrap_or(&0)
+    ));
+    out.push_str(&format!(
+        "- Max depth: {}\n",
+        s.get("max_depth").unwrap_or(&0)
+    ));
 
     out
 }
@@ -128,7 +140,10 @@ pub fn format_mermaid_flowchart(trie: &DynamicVectorTrie) -> String {
             let child_idx = cs + j;
             let child_label = trie.token_str(trie.pool[child_idx].token_id);
             let child_escaped = child_label.replace('\"', "'");
-            out.push_str(&format!("    n{}[{}] --> n{}[{}]\n", i, display, child_idx, child_escaped));
+            out.push_str(&format!(
+                "    n{}[{}] --> n{}[{}]\n",
+                i, display, child_idx, child_escaped
+            ));
         }
     }
 
@@ -146,7 +161,10 @@ pub fn format_domain_report(
 
     for (name, def) in domains {
         out.push_str(&format!("## {}\n\n", def.name));
-        out.push_str(&format!("- Category: {}\n", def.category.as_deref().unwrap_or("none")));
+        out.push_str(&format!(
+            "- Category: {}\n",
+            def.category.as_deref().unwrap_or("none")
+        ));
         out.push_str(&format!("- Domain: {}\n", def.name));
         out.push_str(&format!("- Unit: {}\n", def.unit));
 
@@ -171,7 +189,12 @@ pub fn format_domain_report(
 // ── Semiotic Renderers ─────────────────────────────────────────────
 
 /// Renders a Peircean semiotic triangle as a Mermaid flowchart.
-pub fn format_semiotic_triangle(name: &str, representamen: &str, object: &str, interpretant: &str) -> String {
+pub fn format_semiotic_triangle(
+    name: &str,
+    representamen: &str,
+    object: &str,
+    interpretant: &str,
+) -> String {
     format!(
         r#"flowchart TD
     subgraph "{} Semiotic Triangle"
@@ -214,7 +237,10 @@ pub fn format_greimas_square(
 }
 
 /// Renders a category-theory diagram (objects + morphisms) as a Mermaid flowchart.
-pub fn format_category_diagram(objects: &[(&str, &str)], morphisms: &[(&str, &str, &str)]) -> String {
+pub fn format_category_diagram(
+    objects: &[(&str, &str)],
+    morphisms: &[(&str, &str, &str)],
+) -> String {
     let mut out = String::from("flowchart LR\n");
     for (id, label) in objects {
         out.push_str(&format!("    {}[\"{}\"]\n", id, label));
@@ -300,7 +326,12 @@ pub fn format_semiotic_mindmap(grid: &SemioticGrid) -> String {
         for m in HumanMode::all() {
             if let Some(cell) = grid.get_cell(d, m) {
                 let activation_bar = "█".repeat(((cell.activation * 10.0) as usize).min(10));
-                out.push_str(&format!("      {} {} {}\n", m.as_str(), cell.entries.len(), activation_bar));
+                out.push_str(&format!(
+                    "      {} {} {}\n",
+                    m.as_str(),
+                    cell.entries.len(),
+                    activation_bar
+                ));
             }
         }
     }
@@ -325,7 +356,11 @@ pub fn format_domain_matrix(domains: &HashMap<String, DomainDef>) -> String {
     for d in HumanDomain::all() {
         out.push_str(&format!("{:<14}", d.as_str()));
         for m in HumanMode::all() {
-            let count = counts.get(d.as_str()).and_then(|c| c.get(m.as_str())).copied().unwrap_or(0);
+            let count = counts
+                .get(d.as_str())
+                .and_then(|c| c.get(m.as_str()))
+                .copied()
+                .unwrap_or(0);
             out.push_str(&format!("{:<8}", count));
         }
         out.push('\n');
@@ -336,8 +371,8 @@ pub fn format_domain_matrix(domains: &HashMap<String, DomainDef>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::PhysisConfig;
     use crate::config::OntologyLoader;
+    use crate::config::PhysisConfig;
 
     /// `{:<8}` is a minimum width, not a maximum, so any value wider than the
     /// column overflowed and shifted the rest of the line: the header read
@@ -365,16 +400,27 @@ mod tests {
             !header.contains("BRAINSTORMMAINTAIN"),
             "headers must not collide: {header:?}",
         );
-        assert!(header.contains(" MAINTAIN"), "later headers survive: {header:?}");
+        assert!(
+            header.contains(" MAINTAIN"),
+            "later headers survive: {header:?}"
+        );
 
         // A header only has to identify its column, so clipping is fine as long
         // as no two columns end up spelled the same.
         let names: Vec<&str> = header.split_whitespace().collect();
-        assert_eq!(names.len(), HumanMode::all().len(), "one header per mode: {names:?}");
+        assert_eq!(
+            names.len(),
+            HumanMode::all().len(),
+            "one header per mode: {names:?}"
+        );
         let mut uniq = names.clone();
         uniq.sort_unstable();
         uniq.dedup();
-        assert_eq!(uniq.len(), names.len(), "clipped headers collide: {names:?}");
+        assert_eq!(
+            uniq.len(),
+            names.len(),
+            "clipped headers collide: {names:?}"
+        );
 
         // Every row occupies the same grid, so a column index means one thing.
         let expected = 14 + 9 * HumanMode::all().len();
@@ -389,7 +435,10 @@ mod tests {
         }
 
         // And the saturated bar is still drawn, just inside its column.
-        assert!(body[1..].iter().any(|r| r.contains('\u{2588}')), "no bar drawn");
+        assert!(
+            body[1..].iter().any(|r| r.contains('\u{2588}')),
+            "no bar drawn"
+        );
     }
 
     #[test]
@@ -412,12 +461,27 @@ mod tests {
         goals[2].progress = 0.5;
         let tracked_id = goals[2].id.clone();
         let wiki = format_wiki(&DynamicVectorTrie::new(), &goals, "T");
-        let section = wiki.split("## Goals").nth(1).unwrap()
-            .split("## Ontology Tree").next().unwrap();
-        assert!(section.contains(&format!("[[{tracked_id}]]")), "tracked goal missing");
-        assert!(section.contains("2 entries mapped"), "untracked not collapsed: {section}");
+        let section = wiki
+            .split("## Goals")
+            .nth(1)
+            .unwrap()
+            .split("## Ontology Tree")
+            .next()
+            .unwrap();
+        assert!(
+            section.contains(&format!("[[{tracked_id}]]")),
+            "tracked goal missing"
+        );
+        assert!(
+            section.contains("2 entries mapped"),
+            "untracked not collapsed: {section}"
+        );
         // The two 0% goals must NOT be listed individually.
-        assert_eq!(section.matches("progress:").count(), 1, "0% goals not collapsed");
+        assert_eq!(
+            section.matches("progress:").count(),
+            1,
+            "0% goals not collapsed"
+        );
     }
 
     #[test]
@@ -428,8 +492,12 @@ mod tests {
         trie.insert_path("alpha/delta");
         let wiki = format_wiki(&trie, &[], "T");
         let tree = wiki
-            .split("## Ontology Tree").nth(1).unwrap()
-            .split("## Stats").next().unwrap();
+            .split("## Ontology Tree")
+            .nth(1)
+            .unwrap()
+            .split("## Stats")
+            .next()
+            .unwrap();
         // All four path tokens should appear, at increasing indentation depth.
         for tok in ["alpha", "beta", "gamma", "delta"] {
             assert!(tree.contains(tok), "tree missing token {tok}: {tree}");

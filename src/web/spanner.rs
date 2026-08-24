@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, State},
+    http::{HeaderMap, StatusCode},
+};
 
 /// POST /api/v1/spanner/sync — mirror the tenant's coherence graph into Spanner.
 /// Upserts nodes + edges, then (when `mirror`) hard-deletes durable rows that
@@ -120,4 +123,3 @@ pub async fn spanner_hydrate_handler(
         re_embedded,
     }))
 }
-

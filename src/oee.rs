@@ -96,7 +96,11 @@ pub struct OeeShift {
 }
 
 impl OeeShift {
-    pub fn new(machine_id: impl Into<String>, shift_length_secs: f32, ideal_cycle_time_secs: f32) -> Self {
+    pub fn new(
+        machine_id: impl Into<String>,
+        shift_length_secs: f32,
+        ideal_cycle_time_secs: f32,
+    ) -> Self {
         Self {
             machine_id: machine_id.into(),
             shift_length_secs: shift_length_secs.max(0.0),
@@ -209,7 +213,11 @@ impl OeeShift {
             });
         }
 
-        buckets.sort_by(|a, b| b.lost_secs.partial_cmp(&a.lost_secs).unwrap_or(std::cmp::Ordering::Equal));
+        buckets.sort_by(|a, b| {
+            b.lost_secs
+                .partial_cmp(&a.lost_secs)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         buckets
     }
 }
@@ -279,7 +287,11 @@ pub fn plant_oee(reports: &[OeeReport]) -> PlantOee {
         }
     }
     let mut losses: Vec<LossBucket> = merged.into_values().collect();
-    losses.sort_by(|a, b| b.lost_secs.partial_cmp(&a.lost_secs).unwrap_or(std::cmp::Ordering::Equal));
+    losses.sort_by(|a, b| {
+        b.lost_secs
+            .partial_cmp(&a.lost_secs)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     PlantOee {
         machine_count: reports.len(),
@@ -316,12 +328,19 @@ pub struct OeeBoard {
 
 impl OeeBoard {
     pub fn new() -> Self {
-        Self { shifts: HashMap::new() }
+        Self {
+            shifts: HashMap::new(),
+        }
     }
 
     /// Register a machine or update its shift parameters. Existing accumulated
     /// counts/stops are preserved (use `start_shift` to zero them).
-    pub fn upsert_machine(&mut self, machine_id: &str, shift_length_secs: f32, ideal_cycle_time_secs: f32) {
+    pub fn upsert_machine(
+        &mut self,
+        machine_id: &str,
+        shift_length_secs: f32,
+        ideal_cycle_time_secs: f32,
+    ) {
         match self.shifts.get_mut(machine_id) {
             Some(s) => {
                 s.shift_length_secs = shift_length_secs.max(0.0);
@@ -350,7 +369,13 @@ impl OeeBoard {
     }
 
     /// Record a stoppage. Returns false if the machine is unknown.
-    pub fn record_stop(&mut self, machine_id: &str, reason: StopReason, duration_secs: f32, note: impl Into<String>) -> bool {
+    pub fn record_stop(
+        &mut self,
+        machine_id: &str,
+        reason: StopReason,
+        duration_secs: f32,
+        note: impl Into<String>,
+    ) -> bool {
         match self.shifts.get_mut(machine_id) {
             Some(s) => {
                 s.record_stop(reason, duration_secs, note);
@@ -432,9 +457,17 @@ mod tests {
         assert!((r.planned_production_time_secs - 27000.0).abs() < 1.0);
         assert!((r.run_time_secs - 24180.0).abs() < 1.0);
         // Availability = 24180/27000 ≈ 0.8956
-        assert!((r.availability - 0.8956).abs() < 0.001, "A={}", r.availability);
+        assert!(
+            (r.availability - 0.8956).abs() < 0.001,
+            "A={}",
+            r.availability
+        );
         // Performance = (1.0 × 19271)/24180 ≈ 0.7970
-        assert!((r.performance - 0.7970).abs() < 0.001, "P={}", r.performance);
+        assert!(
+            (r.performance - 0.7970).abs() < 0.001,
+            "P={}",
+            r.performance
+        );
         // Quality = 18848/19271 ≈ 0.9780
         assert!((r.quality - 0.9780).abs() < 0.001, "Q={}", r.quality);
         // OEE ≈ 0.6977
@@ -481,7 +514,10 @@ mod tests {
         let r = shift.compute();
         // Biggest loss first.
         assert_eq!(r.losses[0].label, "Breakdown");
-        assert!(r.losses.iter().any(|b| b.factor == LossFactor::Quality && b.lost_parts == 50));
+        assert!(r
+            .losses
+            .iter()
+            .any(|b| b.factor == LossFactor::Quality && b.lost_parts == 50));
     }
 
     #[test]
@@ -506,7 +542,11 @@ mod tests {
         assert_eq!(plant.machine_count, 2);
         // Equal planned weight initially, but b's planned time = 3600 too.
         // availability weighted = (1.0*3600 + 0.5*3600)/7200 = 0.75
-        assert!((plant.availability - 0.75).abs() < 0.001, "A={}", plant.availability);
+        assert!(
+            (plant.availability - 0.75).abs() < 0.001,
+            "A={}",
+            plant.availability
+        );
         assert_eq!(plant.total_good, 5400);
     }
 
@@ -526,7 +566,7 @@ mod tests {
         let r = board.report("press-01").unwrap();
         assert_eq!(r.total_count, 1800);
         assert!(r.availability < 1.0); // breakdown ate into it
-        // Unknown machine is a no-op, not a panic.
+                                       // Unknown machine is a no-op, not a panic.
         assert!(!board.record_production("ghost", 1, 0));
         assert!(board.report("ghost").is_none());
     }

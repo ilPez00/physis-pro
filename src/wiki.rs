@@ -191,7 +191,11 @@ Design specs, CAD files, BOM, test protocols, validation reports.
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let tag_str = tags.iter().map(|t| format!("  - {t}")).collect::<Vec<_>>().join("\n");
+        let tag_str = tags
+            .iter()
+            .map(|t| format!("  - {t}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let escaped_desc = description.replace('"', r#"\""#);
         let content = format!(
             "---\ntitle: {title}\ndescription: \"{escaped_desc}\"\ntags:\n{tag_str}\n---\n\n{body}"
@@ -211,8 +215,13 @@ pub fn ensure_wiki_indexed(wiki_path: &Path) {
         return;
     }
     match llmwiki_physis::index(wiki_path, true) {
-        Ok(stats) => log::info!("[wiki] indexed +{} ~{} -{} ({} skipped)",
-            stats.added, stats.updated, stats.removed, stats.skipped),
+        Ok(stats) => log::info!(
+            "[wiki] indexed +{} ~{} -{} ({} skipped)",
+            stats.added,
+            stats.updated,
+            stats.removed,
+            stats.skipped
+        ),
         Err(e) => log::warn!("[wiki] index failed: {e}"),
     }
 }
@@ -262,7 +271,13 @@ pub fn search_wiki(query: &str, wiki_path: &Path) -> Vec<String> {
 
     let wiki_bin = which("wiki").or_else(|| which("llmwiki"));
     if let Some(bin) = wiki_bin {
-        match Command::new(bin).arg("search").arg(query).arg("--path").arg(wiki_path).output() {
+        match Command::new(bin)
+            .arg("search")
+            .arg(query)
+            .arg("--path")
+            .arg(wiki_path)
+            .output()
+        {
             Ok(output) => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let lines: Vec<String> = stdout.lines().map(|l| l.to_string()).collect();
@@ -291,22 +306,34 @@ pub fn search_graph(query: &str, graph: &FileThemeGraph) -> Vec<String> {
     // Match themes
     let matching_themes = graph.search_themes_by_text(query);
     for theme in matching_themes {
-        let file_count = graph.edges.iter().filter(|e| e.theme_id == theme.id).count();
+        let file_count = graph
+            .edges
+            .iter()
+            .filter(|e| e.theme_id == theme.id)
+            .count();
         let cat = theme.category.as_deref().unwrap_or("uncategorized");
-        results.push(format!("theme: {} [{}×{}] ({}, {} files)",
-            theme.name, theme.domain, theme.mode, cat, file_count));
+        results.push(format!(
+            "theme: {} [{}×{}] ({}, {} files)",
+            theme.name, theme.domain, theme.mode, cat, file_count
+        ));
     }
 
     // Match files
     let matching_files = graph.search_files(query);
     for file in matching_files {
-        let themes: Vec<&str> = graph.edges.iter()
+        let themes: Vec<&str> = graph
+            .edges
+            .iter()
             .filter(|e| e.file_id == file.id)
             .filter_map(|e| graph.get_theme(e.theme_id))
             .map(|t| t.name.as_str())
             .collect();
-        results.push(format!("file: {} ({}) — themes: {}",
-            file.title, file.path.display(), themes.join(", ")));
+        results.push(format!(
+            "file: {} ({}) — themes: {}",
+            file.title,
+            file.path.display(),
+            themes.join(", ")
+        ));
     }
 
     results
@@ -326,11 +353,18 @@ fn walk_files(dir: &Path, query: &str, results: &mut Vec<String>) -> std::io::Re
             if ext == "md" || ext == "txt" {
                 if let Ok(content) = std::fs::read_to_string(&path) {
                     if content.to_lowercase().contains(&q) {
-                        results.push(format!("{}: ...{}...", path.display(),
-                            content[content.to_lowercase().find(&q)
+                        results.push(format!(
+                            "{}: ...{}...",
+                            path.display(),
+                            content[content
+                                .to_lowercase()
+                                .find(&q)
                                 .map(|i| i.saturating_sub(20))
                                 .unwrap_or(0)..]
-                                .chars().take(100).collect::<String>()));
+                                .chars()
+                                .take(100)
+                                .collect::<String>()
+                        ));
                     }
                 }
             }
@@ -341,10 +375,16 @@ fn walk_files(dir: &Path, query: &str, results: &mut Vec<String>) -> std::io::Re
 
 fn which(name: &str) -> Option<std::path::PathBuf> {
     std::env::var_os("PATH").and_then(|paths| {
-        std::env::split_paths(&paths).filter_map(|dir| {
-            let full = dir.join(name);
-            if full.is_file() { Some(full) } else { None }
-        }).next()
+        std::env::split_paths(&paths)
+            .filter_map(|dir| {
+                let full = dir.join(name);
+                if full.is_file() {
+                    Some(full)
+                } else {
+                    None
+                }
+            })
+            .next()
     })
 }
 
@@ -362,8 +402,22 @@ mod tests {
     #[test]
     fn test_search_graph_themes() {
         let mut g = FileThemeGraph::new();
-        g.add_theme("Budget Planning", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
-        g.add_theme("Email Management", Some("Communication"), "BOND", "WORK", "office", vec![0.9, 0.1]);
+        g.add_theme(
+            "Budget Planning",
+            Some("Finance"),
+            "CONSTRUCT",
+            "CREATE",
+            "office",
+            vec![0.1, 0.9],
+        );
+        g.add_theme(
+            "Email Management",
+            Some("Communication"),
+            "BOND",
+            "WORK",
+            "office",
+            vec![0.9, 0.1],
+        );
         let results = search_graph("budget", &g);
         assert!(results.iter().any(|r| r.contains("Budget Planning")));
         assert!(!results.iter().any(|r| r.contains("Email Management")));
@@ -372,8 +426,20 @@ mod tests {
     #[test]
     fn test_search_graph_files() {
         let mut g = FileThemeGraph::new();
-        g.add_theme("Budget", Some("Finance"), "CONSTRUCT", "CREATE", "office", vec![0.1, 0.9]);
-        g.add_file(std::path::PathBuf::from("budget.xlsx"), "Q4 Budget", "Spreadsheet", vec![0.1, 0.9]);
+        g.add_theme(
+            "Budget",
+            Some("Finance"),
+            "CONSTRUCT",
+            "CREATE",
+            "office",
+            vec![0.1, 0.9],
+        );
+        g.add_file(
+            std::path::PathBuf::from("budget.xlsx"),
+            "Q4 Budget",
+            "Spreadsheet",
+            vec![0.1, 0.9],
+        );
         g.add_edge(0, 0, 0.95);
         let results = search_graph("Q4", &g);
         assert!(results.iter().any(|r| r.contains("Q4 Budget")));

@@ -43,7 +43,11 @@ impl Status {
 /// Classify a session. High load = ≥ 0.6; adequate recovery = ≥ 0.5.
 pub fn classify(s: &Session) -> Status {
     if s.load >= 0.6 {
-        if s.recovery >= 0.5 { Status::Effort } else { Status::Overreaching }
+        if s.recovery >= 0.5 {
+            Status::Effort
+        } else {
+            Status::Overreaching
+        }
     } else {
         Status::Recovery
     }
@@ -77,7 +81,10 @@ pub fn register_sessions(
     let mut ids = Vec::new();
     for s in sessions {
         let status = classify(s);
-        let text = format!("{} day {}: {:?} (load {:.1} rec {:.1})", s.activity, s.day, status, s.load, s.recovery);
+        let text = format!(
+            "{} day {}: {:?} (load {:.1} rec {:.1})",
+            s.activity, s.day, status, s.load, s.recovery
+        );
         let id = core.register_node_from_text(&text, embedder);
         core.bridge_node(&id);
         ids.push(id);
@@ -90,7 +97,12 @@ mod tests {
     use super::*;
 
     fn s(day: u32, load: f32, recovery: f32) -> Session {
-        Session { day, activity: "lift".into(), load, recovery }
+        Session {
+            day,
+            activity: "lift".into(),
+            load,
+            recovery,
+        }
     }
 
     #[test]
@@ -104,10 +116,20 @@ mod tests {
     #[test]
     fn drift_detects_load_up_recovery_down() {
         // load climbs 0.4→0.9, recovery falls 0.9→0.4 over 4 sessions.
-        let sessions = vec![s(1, 0.4, 0.9), s(2, 0.5, 0.8), s(3, 0.8, 0.5), s(4, 0.9, 0.4)];
+        let sessions = vec![
+            s(1, 0.4, 0.9),
+            s(2, 0.5, 0.8),
+            s(3, 0.8, 0.5),
+            s(4, 0.9, 0.4),
+        ];
         assert!(drift(&sessions, 4) > 0.5, "expected positive drift");
         // steady state → ~no drift
-        let steady = vec![s(1, 0.6, 0.6), s(2, 0.6, 0.6), s(3, 0.6, 0.6), s(4, 0.6, 0.6)];
+        let steady = vec![
+            s(1, 0.6, 0.6),
+            s(2, 0.6, 0.6),
+            s(3, 0.6, 0.6),
+            s(4, 0.6, 0.6),
+        ];
         assert!(drift(&steady, 4).abs() < 0.01);
     }
 }

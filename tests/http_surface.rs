@@ -42,7 +42,9 @@ async fn app_on(dir: &std::path::Path) -> (axum::Router, MutexGuard<'static, ()>
     std::env::set_var("PHYSIS_SCAN_ROOT", dir);
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("PHYSIS_DATA_DIR", dir); // config resolves data dir
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
     (router, env)
 }
 
@@ -60,9 +62,11 @@ async fn send(router: &axum::Router, mut req: Request<Body>) -> (StatusCode, Val
     // does not, and without it the extractor rejects every request — which is
     // precisely the 500-on-everything failure the middleware comment warns
     // about, so injecting it here keeps the test exercising the real stack.
-    req.extensions_mut().insert(axum::extract::ConnectInfo(
-        std::net::SocketAddr::from(([127, 0, 0, 1], 40000)),
-    ));
+    req.extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [127, 0, 0, 1],
+            40000,
+        ))));
     let resp = router.clone().oneshot(req).await.expect("router responds");
     let status = resp.status();
     let bytes = resp.into_body().collect().await.expect("body").to_bytes();
@@ -74,9 +78,11 @@ async fn send(router: &axum::Router, mut req: Request<Body>) -> (StatusCode, Val
 /// aren't JSON, e.g. the `/ui` and `/demo` pages).
 async fn send_text(router: &Router, req: Request<Body>) -> (StatusCode, String) {
     let mut req = req;
-    req.extensions_mut().insert(axum::extract::ConnectInfo(
-        std::net::SocketAddr::from(([127, 0, 0, 1], 40000)),
-    ));
+    req.extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [127, 0, 0, 1],
+            40000,
+        ))));
     let resp = router.clone().oneshot(req).await.expect("router responds");
     let status = resp.status();
     let bytes = resp.into_body().collect().await.expect("body").to_bytes();
@@ -113,6 +119,205 @@ fn post_auth(path: &str, user: &str, body: Value, token: &str) -> Request<Body> 
         .unwrap()
 }
 
+fn post_text(path: &str, user: &str, content_type: &str, body: &str) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", content_type)
+        .header("x-physis-user", user)
+        .body(Body::from(body.to_string()))
+        .unwrap()
+}
+
+// ── Shift history (PLAN 5.1 + 5.3) ──────────────────────────────────────────
+
+const SHIFT_CSV: &str = "\
+machine_id,shift_length_secs,ideal_cycle_time_secs,total_count,good_count,downtime_secs,stop_reason,recorded_at
+CNC-01,28800,60,400,390,1800,breakdown,2026-08-24T06:00:00Z
+CNC-02,28800,45,500,500,,,
+";
+
+#[tokio::test]
+async fn shift_csv_import_accepts_partially_and_reports_lines() {
+    let (router, _dir, _env) = app().await;
+
+    let csv = format!("{SHIFT_CSV}PRESS-9,28800,60,10,999,,,\nBROKEN,-1,60,1,1,,,\n");
+    let (status, body) = send(
+        &router,
+        post_text("/api/v1/shifts/import", "plant", "text/csv", &csv),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["accepted"], 2, "the two good rows land");
+    assert_eq!(
+        body["rejected"].as_array().unwrap().len(),
+        2,
+        "the bad rows bounce"
+    );
+    assert_eq!(body["rejected"][0]["line"], 4);
+    assert!(body["rejected"][0]["error"]
+        .as_str()
+        .unwrap()
+        .contains("cannot exceed total_count"));
+    assert_eq!(body["rejected"][1]["line"], 5);
+    assert_eq!(body["stored"], 2);
+
+    // History is durable and tenant-scoped.
+    let (_, list) = send(&router, get("/api/v1/shifts", "plant")).await;
+    assert_eq!(list["count"], 2);
+    let (_, other) = send(&router, get("/api/v1/shifts", "intruder")).await;
+    assert_eq!(other["count"], 0, "another tenant must see nothing");
+
+    // Machine filter.
+    let (_, filtered) = send(&router, get("/api/v1/shifts?machine=CNC-01", "plant")).await;
+    assert_eq!(filtered["count"], 1);
+    assert_eq!(filtered["shifts"][0]["shift"]["machine_id"], "CNC-01");
+}
+
+#[tokio::test]
+async fn shift_report_aggregates_history_per_machine() {
+    let (router, _dir, _env) = app().await;
+
+    let csv = "\
+machine_id,shift_length_secs,ideal_cycle_time_secs,total_count,good_count,downtime_secs,stop_reason
+M1,100,10,100,90,20,breakdown
+M1,100,10,100,80,0,
+M2,200,20,50,45,0,
+";
+    let (_, imported) = send(
+        &router,
+        post_text("/api/v1/shifts/import", "plant", "text/csv", csv),
+    )
+    .await;
+    assert_eq!(imported["accepted"], 3);
+
+    let (status, report) = send(&router, get("/api/v1/shifts/report", "plant")).await;
+    assert_eq!(status, StatusCode::OK);
+    let machines = report["machines"].as_array().unwrap();
+    assert_eq!(machines.len(), 2);
+    let m1 = machines.iter().find(|m| m["machine_id"] == "M1").unwrap();
+    assert_eq!(m1["total_count"], 200, "history sums across shifts");
+    assert_eq!(m1["good_count"], 170);
+    // Availability: (200 planned − 20 stopped) / 200.
+    assert!((m1["availability"].as_f64().unwrap() - 0.9).abs() < 1e-4);
+
+    // Plant rollup present with ≥2 machines.
+    assert!(
+        report["plant"]["oee"].is_number(),
+        "rollup computed across machines"
+    );
+
+    // Single-machine slice.
+    let (_, only_m2) = send(&router, get("/api/v1/shifts/report?machine=M2", "plant")).await;
+    assert_eq!(only_m2["machines"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn shift_export_bundle_carries_provenance_and_metadata() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, imported) = send(
+        &router,
+        post_text("/api/v1/shifts/import", "plant", "text/csv", SHIFT_CSV),
+    )
+    .await;
+    assert_eq!(imported["accepted"], 2);
+
+    // Evidence bundle: raw records + per-record OEE, aligned, tenant-stamped.
+    let (_, export) = send(&router, get("/api/v1/shifts/export", "plant")).await;
+    assert_eq!(export["tenant"], "plant");
+    assert_eq!(export["shift_count"], 2);
+    assert_eq!(export["machine_count"], 2);
+    let records = export["records"].as_array().unwrap();
+    let reports = export["reports"].as_array().unwrap();
+    assert_eq!(
+        records.len(),
+        reports.len(),
+        "every record has its recomputed OEE"
+    );
+    assert_eq!(records[0]["shift"]["machine_id"], reports[0]["machine_id"]);
+    assert_eq!(
+        export["span"]["from"], "2026-08-24T06:00:00Z",
+        "window opens at the oldest dated record"
+    );
+
+    // Another tenant sees an empty bundle, not someone else's plant.
+    let (_, foreign) = send(&router, get("/api/v1/shifts/export", "intruder")).await;
+    assert_eq!(foreign["shift_count"], 0);
+
+    // Aggregated report carries provenance metadata.
+    let (_, report) = send(
+        &router,
+        get("/api/v1/shifts/report?machine=CNC-01", "plant"),
+    )
+    .await;
+    assert_eq!(report["metadata"]["source"], "shift-history");
+    assert_eq!(report["metadata"]["shift_count"], 1);
+
+    // Customer-ready render paths reuse the report renderer.
+    let (_, md) = send(
+        &router,
+        get("/api/v1/shifts/report?format=md&label=Agosto", "plant"),
+    )
+    .await;
+    let markdown = md["markdown"].as_str().unwrap();
+    assert!(markdown.contains("# Agosto"), "{markdown}");
+    assert!(markdown.contains("turni su"), "provenance line present");
+
+    let (status, html) =
+        send_text(&router, get("/api/v1/shifts/report?format=html", "plant")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("class=\"meta\""));
+    assert!(html.contains("<!DOCTYPE html>"));
+}
+
+#[tokio::test]
+async fn shift_json_import_and_clear() {
+    let (router, _dir, _env) = app().await;
+
+    let body = json!({
+        "shifts": [
+            {"machine_id": "PRESS-2", "shift_length_secs": 14400.0,
+             "ideal_cycle_time_secs": 30.0, "total_count": 300, "good_count": 295,
+             "stops": [{"reason": "minor_stop", "duration_secs": 240.0}],
+             "recorded_at": "2026-08-23T22:00:00Z"}
+        ]
+    });
+    let (_, imported) = send(&router, post("/api/v1/shifts/import", "plant", body)).await;
+    assert_eq!(imported["accepted"], 1, "{imported}");
+    assert_eq!(imported["stored"], 1);
+
+    let (_, bad) = send(
+        &router,
+        post(
+            "/api/v1/shifts/import",
+            "plant",
+            json!({"shifts": [{"machine_id": "", "shift_length_secs": 1.0,
+                               "ideal_cycle_time_secs": 1.0, "total_count": 1,
+                               "good_count": 1}]}),
+        ),
+    )
+    .await;
+    assert_eq!(bad["accepted"], 0);
+    assert!(bad["rejected"][0]["error"]
+        .as_str()
+        .unwrap()
+        .contains("machine_id"));
+
+    // A malformed JSON envelope is a reported error, never a 500.
+    let (_, envelope_err) = send(
+        &router,
+        post("/api/v1/shifts/import", "plant", json!({"nope": true})),
+    )
+    .await;
+    assert!(envelope_err["rejected"][0]["error"].is_string());
+
+    let (_, cleared) = send(&router, post("/api/v1/shifts/clear", "plant", json!({}))).await;
+    assert_eq!(cleared["cleared"], true);
+    let (_, after) = send(&router, get("/api/v1/shifts", "plant")).await;
+    assert_eq!(after["count"], 0);
+}
+
 #[tokio::test]
 async fn health_and_embedder_are_public() {
     // These two are the ops surface: they must answer without a token, and the
@@ -132,7 +337,10 @@ async fn health_and_embedder_are_public() {
     // for offline mode — so it is non-semantic on purpose and must NOT raise the
     // alarm, or an intentional offline run is indistinguishable from a real
     // model failure.
-    assert_eq!(body["semantic"], false, "a non-semantic embedder must say so");
+    assert_eq!(
+        body["semantic"], false,
+        "a non-semantic embedder must say so"
+    );
     assert_eq!(
         body["degraded"], false,
         "explicitly requested offline mode is supported, not a silent failure"
@@ -147,8 +355,14 @@ async fn demo_and_console_ui_are_served() {
 
     let (status, body) = send_text(&router, get("/demo", "_default")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("Physis · Industrial Backoffice Intelligence"), "demo page must be the product dashboard");
-    assert!(body.contains("/api/v1/oee/plant"), "demo page must wire the live API");
+    assert!(
+        body.contains("Physis · Industrial Backoffice Intelligence"),
+        "demo page must be the product dashboard"
+    );
+    assert!(
+        body.contains("/api/v1/oee/plant"),
+        "demo page must wire the live API"
+    );
 
     let (status, body) = send_text(&router, get("/ui", "_default")).await;
     assert_eq!(status, StatusCode::OK);
@@ -160,11 +374,17 @@ async fn demo_and_console_ui_are_served() {
     // and no route, and all three dashboards booted with `$` undefined.
     for page in ["/demo", "/ui", "/study"] {
         let (_, body) = send_text(&router, get(page, "_default")).await;
-        assert!(body.contains("src=\"ui-shell.js\""), "{page} loads the shared runtime");
+        assert!(
+            body.contains("src=\"ui-shell.js\""),
+            "{page} loads the shared runtime"
+        );
     }
     let (status, body) = send_text(&router, get("/ui-shell.js", "_default")).await;
     assert_eq!(status, StatusCode::OK, "ui-shell.js must be served");
-    assert!(body.contains("function toast"), "ui-shell.js must be the runtime, not an error page");
+    assert!(
+        body.contains("function toast"),
+        "ui-shell.js must be the runtime, not an error page"
+    );
 }
 
 #[tokio::test]
@@ -272,22 +492,34 @@ async fn study_log_sessions_are_served_and_isolated_per_tenant() {
 
     let (status, body) = send_text(&router, get("/study", "_default")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("physis-schola"), "study page must be the learning dashboard");
-    assert!(body.contains("/api/v1/study/session"), "study page must wire the live API");
+    assert!(
+        body.contains("physis-schola"),
+        "study page must be the learning dashboard"
+    );
+    assert!(
+        body.contains("/api/v1/study/session"),
+        "study page must wire the live API"
+    );
 
-    let ev = |at, action, path, place| json!({
-        "observed_at": at, "action": action, "path": path, "place": place
-    });
+    let ev = |at, action, path, place| {
+        json!({
+            "observed_at": at, "action": action, "path": path, "place": place
+        })
+    };
     let base = "2026-08-10T08:00:00Z";
     let (_, logged) = send(
         &router,
-        post("/api/v1/study/log", "stu", json!({
-            "events": [
-                ev(base, "generated", "notes/topology.md", "Library"),
-                ev("2026-08-11T08:00:00Z", "edited", "notes/topology.md", "Home"),
-                ev("2026-08-12T08:00:00Z", "edited", "notes/topology.md", "Library"),
-            ]
-        })),
+        post(
+            "/api/v1/study/log",
+            "stu",
+            json!({
+                "events": [
+                    ev(base, "generated", "notes/topology.md", "Library"),
+                    ev("2026-08-11T08:00:00Z", "edited", "notes/topology.md", "Home"),
+                    ev("2026-08-12T08:00:00Z", "edited", "notes/topology.md", "Library"),
+                ]
+            }),
+        ),
     )
     .await;
     assert_eq!(logged["accepted"], 3);
@@ -298,11 +530,22 @@ async fn study_log_sessions_are_served_and_isolated_per_tenant() {
     assert_eq!(s["by_action"][0]["key"], "edited");
     assert_eq!(s["by_action"][0]["count"], 2);
     assert_eq!(s["by_type"][0]["key"], "md");
-    assert_eq!(s["rhythms"][0]["period_days"].as_f64().unwrap(), 1.0, "daily rhythm detected");
-    assert_eq!(s["timeline"]["entries"][0]["properties"]["place"], "Library");
+    assert_eq!(
+        s["rhythms"][0]["period_days"].as_f64().unwrap(),
+        1.0,
+        "daily rhythm detected"
+    );
+    assert_eq!(
+        s["timeline"]["entries"][0]["properties"]["place"],
+        "Library"
+    );
 
     let (_, t) = send(&router, get("/api/v1/study/session", "tea")).await;
-    assert_eq!(t["timeline"]["entries"].as_array().unwrap().len(), 0, "a teacher never sees a student's log");
+    assert_eq!(
+        t["timeline"]["entries"].as_array().unwrap().len(),
+        0,
+        "a teacher never sees a student's log"
+    );
 }
 
 #[tokio::test]
@@ -314,13 +557,21 @@ async fn coherence_nodes_are_isolated_per_tenant() {
 
     let (status, body) = send(
         &router,
-        post("/api/v1/coherence/register", "alice", json!({"input": "alice's private note"})),
+        post(
+            "/api/v1/coherence/register",
+            "alice",
+            json!({"input": "alice's private note"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     assert!(body["node_id"].is_string());
 
-    let (_, alice) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "alice")).await;
+    let (_, alice) = send(
+        &router,
+        get("/api/v1/coherence/nodes/all?limit=10", "alice"),
+    )
+    .await;
     assert_eq!(alice["count"], 1, "alice sees her own node");
 
     let (_, bob) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "bob")).await;
@@ -329,7 +580,11 @@ async fn coherence_nodes_are_isolated_per_tenant() {
     // The read half of the loop has to honour the header too.
     let (_, recon) = send(
         &router,
-        post("/api/v1/reconstruct", "alice", json!({"input": "private note"})),
+        post(
+            "/api/v1/reconstruct",
+            "alice",
+            json!({"input": "private note"}),
+        ),
     )
     .await;
     assert!(
@@ -339,7 +594,11 @@ async fn coherence_nodes_are_isolated_per_tenant() {
 
     let (_, empty) = send(
         &router,
-        post("/api/v1/reconstruct", "bob", json!({"input": "private note"})),
+        post(
+            "/api/v1/reconstruct",
+            "bob",
+            json!({"input": "private note"}),
+        ),
     )
     .await;
     assert_eq!(empty["count"], 0, "and must stay empty for another tenant");
@@ -354,23 +613,38 @@ async fn a_verdict_is_stored_and_can_be_corrected() {
 
     let (_, first) = send(
         &router,
-        post("/api/v1/coherence/register", "t", json!({"input": "deploy step", "coherence_score": 1.0})),
+        post(
+            "/api/v1/coherence/register",
+            "t",
+            json!({"input": "deploy step", "coherence_score": 1.0}),
+        ),
     )
     .await;
     assert_eq!(first["asserted"], 1.0);
 
     let (_, again) = send(
         &router,
-        post("/api/v1/coherence/register", "t", json!({"input": "deploy step", "coherence_score": -1.0})),
+        post(
+            "/api/v1/coherence/register",
+            "t",
+            json!({"input": "deploy step", "coherence_score": -1.0}),
+        ),
     )
     .await;
-    assert_eq!(again["node_id"], first["node_id"], "dedupe returns the same node");
+    assert_eq!(
+        again["node_id"], first["node_id"],
+        "dedupe returns the same node"
+    );
     assert_eq!(again["asserted"], -1.0, "and the verdict is corrected");
 
     // Out-of-range verdicts are clamped rather than stored raw.
     let (_, clamped) = send(
         &router,
-        post("/api/v1/coherence/register", "t", json!({"input": "deploy step", "coherence_score": 9.0})),
+        post(
+            "/api/v1/coherence/register",
+            "t",
+            json!({"input": "deploy step", "coherence_score": 9.0}),
+        ),
     )
     .await;
     assert_eq!(clamped["asserted"], 1.0);
@@ -385,13 +659,21 @@ async fn dreams_return_a_readable_proposal_not_raw_vectors() {
 
     send(
         &router,
-        post("/api/v1/goals", "d", json!({"prompt": "reduce nozzle clogs before the next batch"})),
+        post(
+            "/api/v1/goals",
+            "d",
+            json!({"prompt": "reduce nozzle clogs before the next batch"}),
+        ),
     )
     .await;
 
     let (status, body) = send(
         &router,
-        post("/api/v1/dream/generate", "d", json!({"count": 2, "force": true})),
+        post(
+            "/api/v1/dream/generate",
+            "d",
+            json!({"count": 2, "force": true}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -415,7 +697,11 @@ async fn dreams_return_a_readable_proposal_not_raw_vectors() {
     // Opt in and the vectors come back, for graph tooling that wants them.
     let (_, raw) = send(
         &router,
-        post("/api/v1/dream/generate", "d", json!({"count": 1, "force": true, "embeddings": true})),
+        post(
+            "/api/v1/dream/generate",
+            "d",
+            json!({"count": 1, "force": true, "embeddings": true}),
+        ),
     )
     .await;
     assert!(raw["dreams"][0]["embedding"].is_array());
@@ -433,7 +719,11 @@ async fn dream_replay_names_failures_and_skips_successes() {
     ] {
         send(
             &router,
-            post("/api/v1/coherence/register", "r", json!({"input": text, "coherence_score": score})),
+            post(
+                "/api/v1/coherence/register",
+                "r",
+                json!({"input": text, "coherence_score": score}),
+            ),
         )
         .await;
     }
@@ -446,7 +736,10 @@ async fn dream_replay_names_failures_and_skips_successes() {
         .iter()
         .filter_map(|e| e["label"].as_str())
         .collect();
-    assert!(labels.iter().any(|l| l.contains("clogged")), "failures are replayed");
+    assert!(
+        labels.iter().any(|l| l.contains("clogged")),
+        "failures are replayed"
+    );
     assert!(
         !labels.iter().any(|l| l.contains("levelling")),
         "a reported success is not replayed, however typical it looks"
@@ -471,7 +764,11 @@ async fn holarchy_edges_are_visible_to_the_tenant_that_wrote_them() {
 
     let (status, _) = send(
         &router,
-        post("/api/v1/holarchy/edge", "g", json!({"source": ids[0], "target": ids[1]})),
+        post(
+            "/api/v1/holarchy/edge",
+            "g",
+            json!({"source": ids[0], "target": ids[1]}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -513,7 +810,10 @@ async fn the_semiotic_grid_reports_every_loaded_ontology() {
         .iter()
         .filter(|c| c["entries"].as_array().map(Vec::is_empty).unwrap_or(true))
         .count();
-    assert_eq!(empty, 0, "every cell must report the entries classify scores against");
+    assert_eq!(
+        empty, 0,
+        "every cell must report the entries classify scores against"
+    );
 
     let maintain = cells
         .iter()
@@ -536,7 +836,11 @@ async fn goals_survive_a_restart() {
     let (router, env) = app_on(dir.path()).await;
     let (status, body) = send(
         &router,
-        post("/api/v1/goals", "persist", json!({"prompt": "reduce nozzle clogs before the next batch"})),
+        post(
+            "/api/v1/goals",
+            "persist",
+            json!({"prompt": "reduce nozzle clogs before the next batch"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -549,12 +853,19 @@ async fn goals_survive_a_restart() {
     let (router, _env) = app_on(dir.path()).await;
     let (status, body) = send(
         &router,
-        post("/api/v1/dream/generate", "persist", json!({"count": 2, "force": true})),
+        post(
+            "/api/v1/dream/generate",
+            "persist",
+            json!({"count": 2, "force": true}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let dreams = body["dreams"].as_array().expect("dreams array");
-    assert!(!dreams.is_empty(), "a tenant whose goal survived restart can dream");
+    assert!(
+        !dreams.is_empty(),
+        "a tenant whose goal survived restart can dream"
+    );
     let proposal = dreams[0]["proposal"].as_str().unwrap_or("");
     assert!(
         proposal.contains("nozzle"),
@@ -578,32 +889,64 @@ async fn scan_is_confined_to_scan_root() {
 
     let (status, _) = send(
         &router,
-        post("/api/v1/scan", "_default", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "a path inside scan root is scannable");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "a path inside scan root is scannable"
+    );
 
     // A second scan reuses the directory hash diff and content-addressed
     // embeddings instead of forwarding the same label through the embedder.
     let (status, second) = send(
         &router,
-        post("/api/v1/scan", "_default", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "repeat scan succeeds: {second}");
-    assert_eq!(second["unchanged"], 1, "unchanged file is recognized: {second}");
-    assert!(second["reused_labels"].as_u64().unwrap_or(0) > 0, "repeat scan reuses labels: {second}");
-    assert_eq!(second["embedding_cache_hits"], 0, "unchanged labels bypass embedding: {second}");
-    assert_eq!(second["embedding_cache_misses"], 0, "no re-embedding on repeat: {second}");
+    assert_eq!(
+        second["unchanged"], 1,
+        "unchanged file is recognized: {second}"
+    );
+    assert!(
+        second["reused_labels"].as_u64().unwrap_or(0) > 0,
+        "repeat scan reuses labels: {second}"
+    );
+    assert_eq!(
+        second["embedding_cache_hits"], 0,
+        "unchanged labels bypass embedding: {second}"
+    );
+    assert_eq!(
+        second["embedding_cache_misses"], 0,
+        "no re-embedding on repeat: {second}"
+    );
 
     // An existing directory OUTSIDE the root must be refused, not scanned.
     let outside = std::env::temp_dir();
     let (status, body) = send(
         &router,
-        post("/api/v1/scan", "_default", json!({"dir": outside.to_string_lossy()})),
+        post(
+            "/api/v1/scan",
+            "_default",
+            json!({"dir": outside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "path outside scan root rejected"
+    );
     assert!(
         body["error"].as_str().unwrap_or("").contains("scan root"),
         "the refusal must name the confinement: {body}"
@@ -627,7 +970,9 @@ async fn fs_list_and_resolve_are_confined_to_scan_root() {
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("PHYSIS_DATA_DIR", dir.path());
     std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
 
     let (status, body) = send(&router, get("/api/v1/fs/list", "_default")).await;
     assert_eq!(status, StatusCode::OK, "list scan root: {body}");
@@ -637,30 +982,51 @@ async fn fs_list_and_resolve_are_confined_to_scan_root() {
         .iter()
         .map(|e| e["name"].as_str().unwrap_or(""))
         .collect();
-    assert!(names.contains(&"workshop"), "scan root lists workshop: {body}");
-    assert_eq!(body["parent"], serde_json::Value::Null, "scan root has no parent");
+    assert!(
+        names.contains(&"workshop"),
+        "scan root lists workshop: {body}"
+    );
+    assert_eq!(
+        body["parent"],
+        serde_json::Value::Null,
+        "scan root has no parent"
+    );
 
     let notes = workshop.join("notes");
     let uri = format!("/api/v1/fs/list?dir={}", notes.display());
     let (status, body) = send(&router, get(&uri, "_default")).await;
     assert_eq!(status, StatusCode::OK, "list notes: {body}");
     assert!(
-        body["entries"].as_array().unwrap().iter().any(|e| e["name"] == "log.txt" && e["kind"] == "file"),
+        body["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["name"] == "log.txt" && e["kind"] == "file"),
         "notes contains log.txt: {body}"
     );
 
     let (status, body) = send(&router, get("/api/v1/fs/list?dir=/etc", "_default")).await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "list outside scan root: {body}");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "list outside scan root: {body}"
+    );
 
     let (status, body) = send(&router, get("/api/v1/fs/resolve?name=notes", "_default")).await;
     assert_eq!(status, StatusCode::OK, "resolve notes: {body}");
     let hits = body["matches"].as_array().expect("matches");
     assert!(
-        hits.iter().any(|h| h["kind"] == "dir" && h["path"].as_str().unwrap_or("").ends_with("workshop/notes")),
+        hits.iter()
+            .any(|h| h["kind"] == "dir"
+                && h["path"].as_str().unwrap_or("").ends_with("workshop/notes")),
         "resolve finds workshop/notes: {body}"
     );
 
-    let (status, _) = send(&router, get("/api/v1/fs/resolve?name=workshop/notes", "_default")).await;
+    let (status, _) = send(
+        &router,
+        get("/api/v1/fs/resolve?name=workshop/notes", "_default"),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "resolve rejects a path");
 
     std::env::remove_var("PHYSIS_SCAN_ROOT");
@@ -682,9 +1048,16 @@ async fn sql_schema_and_incremental_scan_are_exposed() {
     drop(conn);
 
     let (router, _env) = app_on(dir.path()).await;
-    let uri = format!("/api/v1/sql/schema?database={}", urlencoding::encode(&db_path.to_string_lossy()));
+    let uri = format!(
+        "/api/v1/sql/schema?database={}",
+        urlencoding::encode(&db_path.to_string_lossy())
+    );
     let (status, schema) = send(&router, get(&uri, "sql-test")).await;
-    assert_eq!(status, StatusCode::OK, "schema discovery succeeds: {schema}");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "schema discovery succeeds: {schema}"
+    );
     assert_eq!(schema["tables"][0]["name"], "orders");
     assert_eq!(schema["tables"][0]["columns"][0]["name"], "id");
 
@@ -693,7 +1066,11 @@ async fn sql_schema_and_incremental_scan_are_exposed() {
         "table": "orders",
         "key_columns": ["id"]
     });
-    let (status, first) = send(&router, post("/api/v1/sql/scan", "sql-test", request.clone())).await;
+    let (status, first) = send(
+        &router,
+        post("/api/v1/sql/scan", "sql-test", request.clone()),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "first SQL scan succeeds: {first}");
     assert_eq!(first["new"], 2);
     let (status, second) = send(&router, post("/api/v1/sql/scan", "sql-test", request)).await;
@@ -717,17 +1094,28 @@ async fn watch_ingests_then_removes_nodes() {
 
     let (status, body) = send(
         &router,
-        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/watch",
+            "w",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "first sweep succeeds: {body}");
     assert_eq!(body["new"], 1, "new file seen: {body}");
-    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "nodes registered: {body}");
+    assert!(
+        body["registered"].as_u64().unwrap_or(0) >= 1,
+        "nodes registered: {body}"
+    );
 
     // Idle sweep: nothing new, cache advanced.
     let (_, idle) = send(
         &router,
-        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/watch",
+            "w",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(idle["new"], 0, "second sweep sees nothing new: {idle}");
@@ -736,7 +1124,11 @@ async fn watch_ingests_then_removes_nodes() {
     std::fs::write(&file, "# Topology edited\n").expect("rewrite");
     let (_, changed) = send(
         &router,
-        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/watch",
+            "w",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(changed["changed"], 1, "content change detected: {changed}");
@@ -745,20 +1137,35 @@ async fn watch_ingests_then_removes_nodes() {
     std::fs::remove_file(&file).expect("remove");
     let (_, removed) = send(
         &router,
-        post("/api/v1/watch", "w", json!({"dir": inside.to_string_lossy()})),
+        post(
+            "/api/v1/watch",
+            "w",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(removed["deleted"], 1, "removal detected: {removed}");
-    assert!(removed["removed"].as_u64().unwrap_or(0) >= 1, "nodes dropped: {removed}");
+    assert!(
+        removed["removed"].as_u64().unwrap_or(0) >= 1,
+        "nodes dropped: {removed}"
+    );
 
     // Confinement: an outside dir is refused, not watched.
     let outside = std::env::temp_dir();
     let (status, body) = send(
         &router,
-        post("/api/v1/watch", "w", json!({"dir": outside.to_string_lossy()})),
+        post(
+            "/api/v1/watch",
+            "w",
+            json!({"dir": outside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected: {body}");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "path outside scan root rejected: {body}"
+    );
 }
 
 #[tokio::test]
@@ -768,27 +1175,46 @@ async fn vault_import_registers_recallable_nodes() {
     let dir = tempfile::tempdir().expect("temp data dir");
     let vault = dir.path().join(".physis").join("vault");
     std::fs::create_dir_all(&vault).expect("mkdir inside scan root");
-    std::fs::write(vault.join("alpha.md"), "# Alpha Note\n\n## Fixes\n\nmachine body text").expect("write note");
+    std::fs::write(
+        vault.join("alpha.md"),
+        "# Alpha Note\n\n## Fixes\n\nmachine body text",
+    )
+    .expect("write note");
 
     let (router, _env) = app_on(dir.path()).await;
 
     let (status, body) = send(
         &router,
-        post("/api/v1/vault/import", "v", json!({"dir": vault.to_string_lossy(), "git": 0})),
+        post(
+            "/api/v1/vault/import",
+            "v",
+            json!({"dir": vault.to_string_lossy(), "git": 0}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "import succeeds: {body}");
     assert_eq!(body["docs"], 1, "one note: {body}");
-    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "labels registered: {body}");
+    assert!(
+        body["registered"].as_u64().unwrap_or(0) >= 1,
+        "labels registered: {body}"
+    );
 
     // Recall by content.
     let (_, search) = send(
         &router,
-        post("/api/v1/search/nodes", "v", json!({"query": "alpha note", "token_budget": 100})),
+        post(
+            "/api/v1/search/nodes",
+            "v",
+            json!({"query": "alpha note", "token_budget": 100}),
+        ),
     )
     .await;
     assert!(
-        search["results"].as_array().map(|a| a.iter().any(|r| r["label"].as_str().unwrap_or("").contains("Alpha")))
+        search["results"]
+            .as_array()
+            .map(|a| a
+                .iter()
+                .any(|r| r["label"].as_str().unwrap_or("").contains("Alpha")))
             .unwrap_or(false),
         "vault note recallable by content: {search}"
     );
@@ -796,19 +1222,34 @@ async fn vault_import_registers_recallable_nodes() {
     // Re-import dedupes.
     let (_, again) = send(
         &router,
-        post("/api/v1/vault/import", "v", json!({"dir": vault.to_string_lossy(), "git": 0})),
+        post(
+            "/api/v1/vault/import",
+            "v",
+            json!({"dir": vault.to_string_lossy(), "git": 0}),
+        ),
     )
     .await;
-    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-import dedupes: {again}");
+    assert!(
+        again["deduped"].as_u64().unwrap_or(0) >= 1,
+        "re-import dedupes: {again}"
+    );
 
     // Confinement.
     let outside = std::env::temp_dir();
     let (status, _) = send(
         &router,
-        post("/api/v1/vault/import", "v", json!({"dir": outside.to_string_lossy()})),
+        post(
+            "/api/v1/vault/import",
+            "v",
+            json!({"dir": outside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "path outside scan root rejected"
+    );
 }
 
 #[tokio::test]
@@ -819,30 +1260,48 @@ async fn history_import_registers_recallable_nodes() {
     let notes = dir.path().join(".physis").join("exports");
     std::fs::create_dir_all(&notes).expect("mkdir inside scan root");
     let bookmarks = notes.join("bookmarks.html");
-    std::fs::write(&bookmarks, r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor portal</A></DL><p>"#)
-        .expect("write bookmarks");
+    std::fs::write(
+        &bookmarks,
+        r#"<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<DL><p><DT><A HREF="https://shopfloor.example/">Shop floor portal</A></DL><p>"#,
+    )
+    .expect("write bookmarks");
 
     let (router, _env) = app_on(dir.path()).await;
 
     let (status, body) = send(
         &router,
-        post("/api/v1/history/import", "h", json!({"path": bookmarks.to_string_lossy()})),
+        post(
+            "/api/v1/history/import",
+            "h",
+            json!({"path": bookmarks.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "import succeeds: {body}");
     assert_eq!(body["items"], 1, "one bookmark: {body}");
     assert_eq!(body["file"], "bookmarks.html");
-    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "labels registered: {body}");
+    assert!(
+        body["registered"].as_u64().unwrap_or(0) >= 1,
+        "labels registered: {body}"
+    );
 
     // Recall by content.
     let (_, search) = send(
         &router,
-        post("/api/v1/search/nodes", "h", json!({"query": "shop floor portal", "token_budget": 100})),
+        post(
+            "/api/v1/search/nodes",
+            "h",
+            json!({"query": "shop floor portal", "token_budget": 100}),
+        ),
     )
     .await;
     assert!(
-        search["results"].as_array().map(|a| a.iter().any(|r| r["label"].as_str().unwrap_or("").contains("Shop floor")))
+        search["results"]
+            .as_array()
+            .map(|a| a
+                .iter()
+                .any(|r| r["label"].as_str().unwrap_or("").contains("Shop floor")))
             .unwrap_or(false),
         "bookmark recallable by content: {search}"
     );
@@ -850,28 +1309,51 @@ async fn history_import_registers_recallable_nodes() {
     // Re-import dedupes.
     let (_, again) = send(
         &router,
-        post("/api/v1/history/import", "h", json!({"path": bookmarks.to_string_lossy()})),
+        post(
+            "/api/v1/history/import",
+            "h",
+            json!({"path": bookmarks.to_string_lossy()}),
+        ),
     )
     .await;
-    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-import dedupes: {again}");
+    assert!(
+        again["deduped"].as_u64().unwrap_or(0) >= 1,
+        "re-import dedupes: {again}"
+    );
 
     // Unsupported file → 400; outside scan root → 403.
     let csv = notes.join("data.csv");
     std::fs::write(&csv, "a,b\n").expect("write csv");
     let (status, _) = send(
         &router,
-        post("/api/v1/history/import", "h", json!({"path": csv.to_string_lossy()})),
+        post(
+            "/api/v1/history/import",
+            "h",
+            json!({"path": csv.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "unsupported extension rejected");
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "unsupported extension rejected"
+    );
 
     let outside = std::env::temp_dir();
     let (status, _) = send(
         &router,
-        post("/api/v1/history/import", "h", json!({"path": outside.to_string_lossy()})),
+        post(
+            "/api/v1/history/import",
+            "h",
+            json!({"path": outside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "path outside scan root rejected"
+    );
 }
 
 #[tokio::test]
@@ -882,7 +1364,9 @@ async fn praxis_backfill_seeds_behavioral_verdicts() {
     let exports = dir.path().join(".physis").join("exports");
     std::fs::create_dir_all(&exports).expect("mkdir inside scan root");
     let export = exports.join("praxis.json");
-    std::fs::write(&export, r#"{
+    std::fs::write(
+        &export,
+        r#"{
         "notebook": [
           {"content": "fixed the nozzle bind","mood": 9},
           {"content": "meh day","mood": 4},
@@ -892,13 +1376,19 @@ async fn praxis_backfill_seeds_behavioral_verdicts() {
           {"name": "reading", "progress": 0.9},
           {"name": "meditate", "progress": 0.2}
         ]
-    }"#).expect("write export");
+    }"#,
+    )
+    .expect("write export");
 
     let (router, _env) = app_on(dir.path()).await;
 
     let (status, body) = send(
         &router,
-        post("/api/v1/praxis/backfill", "p", json!({"path": export.to_string_lossy()})),
+        post(
+            "/api/v1/praxis/backfill",
+            "p",
+            json!({"path": export.to_string_lossy()}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "backfill succeeds: {body}");
@@ -906,24 +1396,42 @@ async fn praxis_backfill_seeds_behavioral_verdicts() {
     assert_eq!(body["successes"], 2, "high mood + full tracker: {body}");
     assert_eq!(body["inert"], 1, "neutral mood: {body}");
     assert_eq!(body["failures"], 2, "low mood + empty tracker: {body}");
-    assert!(body["registered"].as_u64().unwrap_or(0) >= 1, "nodes registered: {body}");
+    assert!(
+        body["registered"].as_u64().unwrap_or(0) >= 1,
+        "nodes registered: {body}"
+    );
 
     // Re-backfill dedupes (labels praxis:notebook/… are stable).
     let (_, again) = send(
         &router,
-        post("/api/v1/praxis/backfill", "p", json!({"path": export.to_string_lossy()})),
+        post(
+            "/api/v1/praxis/backfill",
+            "p",
+            json!({"path": export.to_string_lossy()}),
+        ),
     )
     .await;
-    assert!(again["deduped"].as_u64().unwrap_or(0) >= 1, "re-backfill dedupes: {again}");
+    assert!(
+        again["deduped"].as_u64().unwrap_or(0) >= 1,
+        "re-backfill dedupes: {again}"
+    );
 
     // Confinement.
     let outside = std::env::temp_dir();
     let (status, _) = send(
         &router,
-        post("/api/v1/praxis/backfill", "p", json!({"path": outside.to_string_lossy()})),
+        post(
+            "/api/v1/praxis/backfill",
+            "p",
+            json!({"path": outside.to_string_lossy()}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "path outside scan root rejected");
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "path outside scan root rejected"
+    );
 }
 
 #[tokio::test]
@@ -939,15 +1447,25 @@ async fn spanner_routes_are_registered_but_reject_unconfigured() {
         post("/api/v1/spanner/sync", "s", json!({"mirror": true})),
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_GATEWAY, "unconfigured sync → 502: {body}");
-    assert!(body["error"].as_str().unwrap_or("").contains("not configured"), "names the problem: {body}");
+    assert_eq!(
+        status,
+        StatusCode::BAD_GATEWAY,
+        "unconfigured sync → 502: {body}"
+    );
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("not configured"),
+        "names the problem: {body}"
+    );
 
-    let (status, body) = send(
-        &router,
-        post("/api/v1/spanner/hydrate", "s", json!({})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::BAD_GATEWAY, "unconfigured hydrate → 502: {body}");
+    let (status, body) = send(&router, post("/api/v1/spanner/hydrate", "s", json!({}))).await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_GATEWAY,
+        "unconfigured hydrate → 502: {body}"
+    );
 }
 
 #[tokio::test]
@@ -960,7 +1478,9 @@ async fn bearer_token_gates_protected_routes() {
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
     std::env::set_var("PHYSIS_API_TOKEN", "test-secret");
     std::env::set_var("HOME", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
 
     // Public ops surface: no token needed.
     let (status, _) = send(&router, get("/health", "_default")).await;
@@ -971,21 +1491,39 @@ async fn bearer_token_gates_protected_routes() {
     // A protected POST with no bearer — the header must be compulsory.
     let (status, _) = send(
         &router,
-        post("/api/v1/coherence/register", "u", json!({"input": "deploy step"})),
+        post(
+            "/api/v1/coherence/register",
+            "u",
+            json!({"input": "deploy step"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::UNAUTHORIZED, "no bearer is rejected");
 
     let (status, _) = send(
         &router,
-        post_auth("/api/v1/coherence/register", "u", json!({"input": "deploy step"}), "wrong-secret"),
+        post_auth(
+            "/api/v1/coherence/register",
+            "u",
+            json!({"input": "deploy step"}),
+            "wrong-secret",
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "a wrong secret is rejected");
+    assert_eq!(
+        status,
+        StatusCode::UNAUTHORIZED,
+        "a wrong secret is rejected"
+    );
 
     let (status, _) = send(
         &router,
-        post_auth("/api/v1/coherence/register", "u", json!({"input": "deploy step"}), "test-secret"),
+        post_auth(
+            "/api/v1/coherence/register",
+            "u",
+            json!({"input": "deploy step"}),
+            "test-secret",
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "the configured token passes");
@@ -1003,14 +1541,24 @@ async fn dev_mode_without_tokens_skips_auth() {
     std::env::remove_var("PHYSIS_TOKENS");
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("HOME", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
 
     let (status, _) = send(
         &router,
-        post("/api/v1/coherence/register", "u", json!({"input": "dev mode step"})),
+        post(
+            "/api/v1/coherence/register",
+            "u",
+            json!({"input": "dev mode step"}),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "PHYSIS_DEV bypasses auth without tokens");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "PHYSIS_DEV bypasses auth without tokens"
+    );
     drop(env);
 }
 
@@ -1028,7 +1576,10 @@ async fn no_dev_mode_without_tokens_requires_auth() {
     std::env::set_var("HOME", dir.path());
 
     let result = physis_pro::web::build_app().await;
-    assert!(result.is_err(), "build_app must fail without PHYSIS_DEV and without tokens");
+    assert!(
+        result.is_err(),
+        "build_app must fail without PHYSIS_DEV and without tokens"
+    );
     drop(env);
 }
 
@@ -1041,7 +1592,11 @@ async fn semiotic_edit_swaps_content_keeps_structure() {
 
     let (_, reg) = send(
         &router,
-        post("/api/v1/coherence/register", "ed", json!({"input": "milling spindle bearing", "coherence_score": -1.0})),
+        post(
+            "/api/v1/coherence/register",
+            "ed",
+            json!({"input": "milling spindle bearing", "coherence_score": -1.0}),
+        ),
     )
     .await;
     let id = reg["node_id"].as_str().unwrap().to_string();
@@ -1050,31 +1605,59 @@ async fn semiotic_edit_swaps_content_keeps_structure() {
     // Edit without a pin: verdict preserved, id stable, auto cell reported.
     let (status, edit) = send(
         &router,
-        post("/api/v1/coherence/edit", "ed", json!({"id": id, "label": "welding robot joint recalibration"})),
+        post(
+            "/api/v1/coherence/edit",
+            "ed",
+            json!({"id": id, "label": "welding robot joint recalibration"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "edit succeeds: {edit}");
     assert_eq!(edit["node_id"], id, "identity survives the content swap");
     assert_eq!(edit["label"], "welding robot joint recalibration");
     assert_eq!(edit["asserted"], -1.0, "verdict survives the swap");
-    assert!(edit["auto_cell"]["domain"].is_string(), "auto cell derived from new content");
-    assert!(edit["before_cell"].is_object(), "before cell reported for the delta");
-    assert_eq!(edit["pinned_cell"], Value::Null, "no pin supplied → none stored");
+    assert!(
+        edit["auto_cell"]["domain"].is_string(),
+        "auto cell derived from new content"
+    );
+    assert!(
+        edit["before_cell"].is_object(),
+        "before cell reported for the delta"
+    );
+    assert_eq!(
+        edit["pinned_cell"],
+        Value::Null,
+        "no pin supplied → none stored"
+    );
 
     // The old label is no longer a dedupe alias: re-registering it makes a NEW
     // node; re-registering the new label returns the same id.
     let (_, dup_old) = send(
         &router,
-        post("/api/v1/coherence/register", "ed", json!({"input": "milling spindle bearing"})),
+        post(
+            "/api/v1/coherence/register",
+            "ed",
+            json!({"input": "milling spindle bearing"}),
+        ),
     )
     .await;
-    assert_ne!(dup_old["node_id"], id, "old label must not dedupe to the edited node");
+    assert_ne!(
+        dup_old["node_id"], id,
+        "old label must not dedupe to the edited node"
+    );
     let (_, dup_new) = send(
         &router,
-        post("/api/v1/coherence/register", "ed", json!({"input": "welding robot joint recalibration"})),
+        post(
+            "/api/v1/coherence/register",
+            "ed",
+            json!({"input": "welding robot joint recalibration"}),
+        ),
     )
     .await;
-    assert_eq!(dup_new["node_id"], id, "new label dedupes to the edited node");
+    assert_eq!(
+        dup_new["node_id"], id,
+        "new label dedupes to the edited node"
+    );
 }
 
 #[tokio::test]
@@ -1083,7 +1666,11 @@ async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
 
     let (_, reg) = send(
         &router,
-        post("/api/v1/coherence/register", "pn", json!({"input": "autoclave cycle log"})),
+        post(
+            "/api/v1/coherence/register",
+            "pn",
+            json!({"input": "autoclave cycle log"}),
+        ),
     )
     .await;
     let id = reg["node_id"].as_str().unwrap().to_string();
@@ -1091,11 +1678,15 @@ async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
     // Pin a cell: the pin is echoed + persisted (survives a re-read via edit).
     let (status, pinned) = send(
         &router,
-        post("/api/v1/coherence/edit", "pn", json!({
-            "id": id,
-            "label": "autoclave cycle log (edited)",
-            "cell": {"domain": "FABRICATE", "mode": "MAINTAIN"},
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "pn",
+            json!({
+                "id": id,
+                "label": "autoclave cycle log (edited)",
+                "cell": {"domain": "FABRICATE", "mode": "MAINTAIN"},
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "pinned edit succeeds: {pinned}");
@@ -1105,11 +1696,15 @@ async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
     // An invalid cell is rejected before anything is mutated.
     let (status, bad) = send(
         &router,
-        post("/api/v1/coherence/edit", "pn", json!({
-            "id": id,
-            "label": "garbage cell",
-            "cell": {"domain": "NOPE", "mode": "MAYBE"},
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "pn",
+            json!({
+                "id": id,
+                "label": "garbage cell",
+                "cell": {"domain": "NOPE", "mode": "MAYBE"},
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "bad cell rejected: {bad}");
@@ -1117,7 +1712,11 @@ async fn semiotic_edit_supports_pin_and_rejects_bad_cells() {
     // Unknown id → 404.
     let (status, missing) = send(
         &router,
-        post("/api/v1/coherence/edit", "pn", json!({"id": "no-such-node", "label": "x"})),
+        post(
+            "/api/v1/coherence/edit",
+            "pn",
+            json!({"id": "no-such-node", "label": "x"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "unknown id: {missing}");
@@ -1134,7 +1733,11 @@ async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
 
     let (_, reg) = send(
         &router,
-        post("/api/v1/coherence/register", "pv", json!({"input": "autoclave cycle log"})),
+        post(
+            "/api/v1/coherence/register",
+            "pv",
+            json!({"input": "autoclave cycle log"}),
+        ),
     )
     .await;
     let id = reg["node_id"].as_str().unwrap().to_string();
@@ -1152,23 +1755,33 @@ async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
     // Unpinned: whatever the classifier says, flagged as not pinned.
     let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
     let before = find(&all, &id);
-    assert_eq!(before["pinned"], false, "an unedited node is not pinned: {before}");
+    assert_eq!(
+        before["pinned"], false,
+        "an unedited node is not pinned: {before}"
+    );
 
     // Pin it somewhere the classifier would not have chosen on its own.
     let (status, _) = send(
         &router,
-        post("/api/v1/coherence/edit", "pv", json!({
-            "id": id,
-            "label": "autoclave cycle log",
-            "cell": {"domain": "BOND", "mode": "PLAY"},
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "pv",
+            json!({
+                "id": id,
+                "label": "autoclave cycle log",
+                "cell": {"domain": "BOND", "mode": "PLAY"},
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
 
     let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
     let pinned = find(&all, &id);
-    assert_eq!(pinned["pinned"], true, "the listing reports the pin: {pinned}");
+    assert_eq!(
+        pinned["pinned"], true,
+        "the listing reports the pin: {pinned}"
+    );
     assert_eq!(pinned["cell"][0], "BOND", "the pin outranks the classifier");
     assert_eq!(pinned["cell"][1], "PLAY");
 
@@ -1176,29 +1789,43 @@ async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
     // changing the text is not a retraction of where someone said it belongs.
     let (status, _) = send(
         &router,
-        post("/api/v1/coherence/edit", "pv", json!({
-            "id": id, "label": "autoclave cycle log, revised",
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "pv",
+            json!({
+                "id": id, "label": "autoclave cycle log, revised",
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
     let still = find(&all, &id);
-    assert_eq!(still["pinned"], true, "a content edit leaves the pin standing: {still}");
+    assert_eq!(
+        still["pinned"], true,
+        "a content edit leaves the pin standing: {still}"
+    );
     assert_eq!(still["cell"][0], "BOND");
 
     // Retraction is explicit: `"cell": null`.
     let (status, _) = send(
         &router,
-        post("/api/v1/coherence/edit", "pv", json!({
-            "id": id, "label": "autoclave cycle log, revised", "cell": null,
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "pv",
+            json!({
+                "id": id, "label": "autoclave cycle log, revised", "cell": null,
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let (_, all) = send(&router, get("/api/v1/coherence/nodes/all", "pv")).await;
     let cleared = find(&all, &id);
-    assert_eq!(cleared["pinned"], false, "an explicit null retracts the pin: {cleared}");
+    assert_eq!(
+        cleared["pinned"], false,
+        "an explicit null retracts the pin: {cleared}"
+    );
 }
 
 /// A pin that disagrees with the classifier is a labelled correction, so it has
@@ -1209,7 +1836,11 @@ async fn a_dissenting_pin_penalizes_the_cell_the_classifier_chose() {
 
     let (_, reg) = send(
         &router,
-        post("/api/v1/coherence/register", "qz", json!({"input": "hydraulic press tonnage drift"})),
+        post(
+            "/api/v1/coherence/register",
+            "qz",
+            json!({"input": "hydraulic press tonnage drift"}),
+        ),
     )
     .await;
     let id = reg["node_id"].as_str().unwrap().to_string();
@@ -1217,26 +1848,47 @@ async fn a_dissenting_pin_penalizes_the_cell_the_classifier_chose() {
     // What the classifier picked on its own, before any human says otherwise.
     let (_, edited) = send(
         &router,
-        post("/api/v1/coherence/edit", "qz", json!({
-            "id": id, "label": "hydraulic press tonnage drift",
-        })),
+        post(
+            "/api/v1/coherence/edit",
+            "qz",
+            json!({
+                "id": id, "label": "hydraulic press tonnage drift",
+            }),
+        ),
     )
     .await;
-    let auto_domain = edited["auto_cell"]["domain"].as_str().unwrap_or("").to_string();
-    let auto_mode = edited["auto_cell"]["mode"].as_str().unwrap_or("").to_string();
-    assert!(!auto_domain.is_empty(), "the classifier picked a cell: {edited}");
+    let auto_domain = edited["auto_cell"]["domain"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let auto_mode = edited["auto_cell"]["mode"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    assert!(
+        !auto_domain.is_empty(),
+        "the classifier picked a cell: {edited}"
+    );
 
     // Disagree with it, repeatedly. One pin is a sample, not a verdict, so the
     // penalty has to accumulate rather than land in full on the first click.
-    let dissent = if auto_domain == "BOND" { "STUDY" } else { "BOND" };
+    let dissent = if auto_domain == "BOND" {
+        "STUDY"
+    } else {
+        "BOND"
+    };
     for _ in 0..3 {
         let (status, _) = send(
             &router,
-            post("/api/v1/coherence/edit", "qz", json!({
-                "id": id,
-                "label": "hydraulic press tonnage drift",
-                "cell": {"domain": dissent, "mode": "PLAY"},
-            })),
+            post(
+                "/api/v1/coherence/edit",
+                "qz",
+                json!({
+                    "id": id,
+                    "label": "hydraulic press tonnage drift",
+                    "cell": {"domain": dissent, "mode": "PLAY"},
+                }),
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
@@ -1263,7 +1915,11 @@ async fn coherence_delete_removes_node_and_index() {
 
     let (_, reg) = send(
         &router,
-        post("/api/v1/coherence/register", "dl", json!({"input": "turbine bearing temp"})),
+        post(
+            "/api/v1/coherence/register",
+            "dl",
+            json!({"input": "turbine bearing temp"}),
+        ),
     )
     .await;
     let id = reg["node_id"].as_str().unwrap().to_string();
@@ -1288,7 +1944,11 @@ async fn coherence_delete_removes_node_and_index() {
     // The label is free to register again (dedupe index cleaned up).
     let (_, dup) = send(
         &router,
-        post("/api/v1/coherence/register", "dl", json!({"input": "turbine bearing temp"})),
+        post(
+            "/api/v1/coherence/register",
+            "dl",
+            json!({"input": "turbine bearing temp"}),
+        ),
     )
     .await;
     assert_ne!(dup["node_id"], id, "deleted label is free again");
@@ -1309,37 +1969,63 @@ async fn fixed_token_node_search_bounds_the_response() {
     let (router, _dir, _env) = app().await;
     let (_, _) = send(
         &router,
-        post("/api/v1/coherence/register", "sr", json!({"input": "milling spindle bearing wear"})),
+        post(
+            "/api/v1/coherence/register",
+            "sr",
+            json!({"input": "milling spindle bearing wear"}),
+        ),
     )
     .await;
     let (_, _) = send(
         &router,
-        post("/api/v1/coherence/register", "sr", json!({"input": "furnace temperature profile"})),
+        post(
+            "/api/v1/coherence/register",
+            "sr",
+            json!({"input": "furnace temperature profile"}),
+        ),
     )
     .await;
     let (_, _) = send(
         &router,
-        post("/api/v1/coherence/register", "sr", json!({"input": "welding robot joint calibration"})),
+        post(
+            "/api/v1/coherence/register",
+            "sr",
+            json!({"input": "welding robot joint calibration"}),
+        ),
     )
     .await;
 
     let (status, res) = send(
         &router,
-        post("/api/v1/search/nodes", "sr", json!({"query": "spindle bearing", "token_budget": 20})),
+        post(
+            "/api/v1/search/nodes",
+            "sr",
+            json!({"query": "spindle bearing", "token_budget": 20}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "search succeeds: {res}");
-    assert!(res["total_tokens"].as_u64().unwrap_or(u64::MAX) <= 20,
-            "total_tokens {} must respect the 20-token budget", res["total_tokens"]);
+    assert!(
+        res["total_tokens"].as_u64().unwrap_or(u64::MAX) <= 20,
+        "total_tokens {} must respect the 20-token budget",
+        res["total_tokens"]
+    );
     assert_eq!(res["budget"], 20);
-    assert!(!res["results"].as_array().unwrap().is_empty(), "relevant nodes found");
+    assert!(
+        !res["results"].as_array().unwrap().is_empty(),
+        "relevant nodes found"
+    );
     assert_eq!(res["results"][0]["kind"], "node");
     assert!(res["results"][0]["label"].is_string());
 
     // Empty budget → zero results, zero tokens (hard bound holds at the floor).
     let (_, res) = send(
         &router,
-        post("/api/v1/search/nodes", "sr", json!({"query": "spindle", "token_budget": 0})),
+        post(
+            "/api/v1/search/nodes",
+            "sr",
+            json!({"query": "spindle", "token_budget": 0}),
+        ),
     )
     .await;
     assert_eq!(res["total_tokens"], 0);
@@ -1354,11 +2040,15 @@ async fn oee_endpoints_accept_and_compute() {
     // Register a machine.
     let (status, body) = send(
         &router,
-        post("/api/v1/oee/machine", "plant", json!({
-            "machine_id": "cnc-1",
-            "shift_length_secs": 28800.0,
-            "ideal_cycle_time_secs": 60.0
-        })),
+        post(
+            "/api/v1/oee/machine",
+            "plant",
+            json!({
+                "machine_id": "cnc-1",
+                "shift_length_secs": 28800.0,
+                "ideal_cycle_time_secs": 60.0
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "register machine: {body}");
@@ -1368,16 +2058,23 @@ async fn oee_endpoints_accept_and_compute() {
     // Record production.
     let (status, body) = send(
         &router,
-        post("/api/v1/oee/event", "plant", json!({
-            "kind": "production",
-            "machine_id": "cnc-1",
-            "good": 85,
-            "scrap": 2
-        })),
+        post(
+            "/api/v1/oee/event",
+            "plant",
+            json!({
+                "kind": "production",
+                "machine_id": "cnc-1",
+                "good": 85,
+                "scrap": 2
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "record event: {body}");
-    assert!(body["oee"].as_f64().unwrap_or(0.0) >= 0.0, "OEE must be non-negative");
+    assert!(
+        body["oee"].as_f64().unwrap_or(0.0) >= 0.0,
+        "OEE must be non-negative"
+    );
 
     // Plant rollup.
     let (status, body) = send(&router, get("/api/v1/oee/plant", "plant")).await;
@@ -1397,16 +2094,24 @@ async fn maintenance_check_requires_baseline_and_returns_404_without() {
     // Without a baseline, check returns 404 (no baseline to score against).
     let (status, _) = send(
         &router,
-        post("/api/v1/maintenance/check", "plant", json!({
-            "machine_id": "cnc-1",
-            "temperature": 65.0,
-            "vibration": 1.2,
-            "rpm": 8000,
-            "status": "online"
-        })),
+        post(
+            "/api/v1/maintenance/check",
+            "plant",
+            json!({
+                "machine_id": "cnc-1",
+                "temperature": 65.0,
+                "vibration": 1.2,
+                "rpm": 8000,
+                "status": "online"
+            }),
+        ),
     )
     .await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "check without baseline returns 404");
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "check without baseline returns 404"
+    );
 }
 
 #[tokio::test]
@@ -1433,11 +2138,15 @@ async fn epistemic_hypotheses_crud_and_lifecycle() {
     // 1. Create hypothesis
     let (status, body) = send(
         &router,
-        post("/api/v1/hypotheses", "tester", json!({
-            "statement": "Bearing overheating due to lube starvation",
-            "assumptions": ["spindle running > 5000 RPM", "NLGI-2 grease"],
-            "confidence": 0.85
-        })),
+        post(
+            "/api/v1/hypotheses",
+            "tester",
+            json!({
+                "statement": "Bearing overheating due to lube starvation",
+                "assumptions": ["spindle running > 5000 RPM", "NLGI-2 grease"],
+                "confidence": 0.85
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "create hypothesis: {body}");
@@ -1446,39 +2155,57 @@ async fn epistemic_hypotheses_crud_and_lifecycle() {
     // 2. Add supporting evidence
     let (status, ev_body) = send(
         &router,
-        post(&format!("/api/v1/hypotheses/{}/evidence", hyp_id), "tester", json!({
-            "source": "vibration_sensor_v1",
-            "polarity": "Supports",
-            "confidence": 0.92,
-            "claim": "High frequency acceleration peaks at 3.2 kHz"
-        })),
+        post(
+            &format!("/api/v1/hypotheses/{}/evidence", hyp_id),
+            "tester",
+            json!({
+                "source": "vibration_sensor_v1",
+                "polarity": "Supports",
+                "confidence": 0.92,
+                "claim": "High frequency acceleration peaks at 3.2 kHz"
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "add evidence: {ev_body}");
-    assert_eq!(ev_body["supporting_evidence"].as_array().map(|a| a.len()), Some(1));
+    assert_eq!(
+        ev_body["supporting_evidence"].as_array().map(|a| a.len()),
+        Some(1)
+    );
 
     // 3. Record prediction
     let (status, pred_body) = send(
         &router,
-        post(&format!("/api/v1/hypotheses/{}/prediction", hyp_id), "tester", json!({
-            "statement": "Purging lube channel will drop temp by 15C",
-            "expected_outcome": "Temp < 70C",
-            "actual_outcome": "Temp reached 64C",
-            "correct": true,
-            "confidence": 0.9
-        })),
+        post(
+            &format!("/api/v1/hypotheses/{}/prediction", hyp_id),
+            "tester",
+            json!({
+                "statement": "Purging lube channel will drop temp by 15C",
+                "expected_outcome": "Temp < 70C",
+                "actual_outcome": "Temp reached 64C",
+                "correct": true,
+                "confidence": 0.9
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "record prediction: {pred_body}");
-    assert_eq!(pred_body["predictions"].as_array().map(|a| a.len()), Some(1));
+    assert_eq!(
+        pred_body["predictions"].as_array().map(|a| a.len()),
+        Some(1)
+    );
 
     // 4. Transition state
     let (status, trans_body) = send(
         &router,
-        post(&format!("/api/v1/hypotheses/{}/transition", hyp_id), "tester", json!({
-            "status": "Confirmed",
-            "reason": "Purge test verified prediction"
-        })),
+        post(
+            &format!("/api/v1/hypotheses/{}/transition", hyp_id),
+            "tester",
+            json!({
+                "status": "Confirmed",
+                "reason": "Purge test verified prediction"
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "transition state: {trans_body}");
@@ -1492,7 +2219,10 @@ async fn epistemic_hypotheses_crud_and_lifecycle() {
     .await;
     assert_eq!(status, StatusCode::OK, "explanation report: {exp_body}");
     assert_eq!(exp_body["status"].as_str(), Some("Confirmed"));
-    assert!(!exp_body["human_readable_summary"].as_str().unwrap().is_empty());
+    assert!(!exp_body["human_readable_summary"]
+        .as_str()
+        .unwrap()
+        .is_empty());
 }
 
 #[tokio::test]
@@ -1502,21 +2232,25 @@ async fn epistemic_contradictions_and_resolution() {
     // 1. Create contradiction
     let (status, body) = send(
         &router,
-        post("/api/v1/contradictions", "operator_u1", json!({
-            "claim_a": {
-                "claim": "Telemetry sensor S1 reads 98C",
-                "source": "sensor_s1",
-                "confidence": 0.95,
-                "authority": 0.95
-            },
-            "claim_b": {
-                "claim": "Operator thermal gun reads 45C",
-                "source": "operator_shift_1",
-                "confidence": 0.85,
-                "authority": 0.80
-            },
-            "resolution": "Open"
-        })),
+        post(
+            "/api/v1/contradictions",
+            "operator_u1",
+            json!({
+                "claim_a": {
+                    "claim": "Telemetry sensor S1 reads 98C",
+                    "source": "sensor_s1",
+                    "confidence": 0.95,
+                    "authority": 0.95
+                },
+                "claim_b": {
+                    "claim": "Operator thermal gun reads 45C",
+                    "source": "operator_shift_1",
+                    "confidence": 0.85,
+                    "authority": 0.80
+                },
+                "resolution": "Open"
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED, "record contradiction: {body}");
@@ -1525,10 +2259,14 @@ async fn epistemic_contradictions_and_resolution() {
     // 2. Resolve contradiction
     let (status, res_body) = send(
         &router,
-        post(&format!("/api/v1/contradictions/{}/resolve", contra_id), "operator_u1", json!({
-            "resolution": "BPreferred",
-            "explanation": "Sensor S1 thermocouple wire had loose ground contact"
-        })),
+        post(
+            &format!("/api/v1/contradictions/{}/resolve", contra_id),
+            "operator_u1",
+            json!({
+                "resolution": "BPreferred",
+                "explanation": "Sensor S1 thermocouple wire had loose ground contact"
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "resolve contradiction: {res_body}");
@@ -1542,20 +2280,20 @@ async fn epistemic_audit_stream_and_historical_replay() {
     // 1. Create hypothesis to seed audit events
     let (_, h_body) = send(
         &router,
-        post("/api/v1/hypotheses", "user_audit", json!({
-            "statement": "Nozzle pressure anomaly",
-            "confidence": 0.7
-        })),
+        post(
+            "/api/v1/hypotheses",
+            "user_audit",
+            json!({
+                "statement": "Nozzle pressure anomaly",
+                "confidence": 0.7
+            }),
+        ),
     )
     .await;
     let hyp_id = h_body["id"].as_str().unwrap();
 
     // 2. Query audit log
-    let (status, audit_body) = send(
-        &router,
-        get("/api/v1/epistemic/audit", "user_audit"),
-    )
-    .await;
+    let (status, audit_body) = send(&router, get("/api/v1/epistemic/audit", "user_audit")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(!audit_body.as_array().unwrap().is_empty());
 
@@ -1563,12 +2301,22 @@ async fn epistemic_audit_stream_and_historical_replay() {
     let target_time = chrono::Utc::now().to_rfc3339();
     let (status, replay_body) = send(
         &router,
-        get(&format!("/api/v1/epistemic/replay?subject_id={}&at={}", hyp_id, urlencoding::encode(&target_time)), "user_audit"),
+        get(
+            &format!(
+                "/api/v1/epistemic/replay?subject_id={}&at={}",
+                hyp_id,
+                urlencoding::encode(&target_time)
+            ),
+            "user_audit",
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(replay_body["subject_id"].as_str(), Some(hyp_id));
-    assert_eq!(replay_body["reconstructed_status"].as_str(), Some("Candidate"));
+    assert_eq!(
+        replay_body["reconstructed_status"].as_str(),
+        Some("Candidate")
+    );
 }
 
 #[tokio::test]
@@ -1577,15 +2325,19 @@ async fn unsupervised_ontology_discovery_endpoint() {
 
     let (status, disc_body) = send(
         &router,
-        post("/api/v1/ontology/discover", "anyone", json!({
-            "texts": [
-                "quantum qubit decoherence gate fidelity",
-                "superconducting qubit dilution refrigerator microwave control",
-                "quantum error correction lattice surgery surface code"
-            ],
-            "coverage_threshold": 0.85,
-            "min_cluster": 2
-        })),
+        post(
+            "/api/v1/ontology/discover",
+            "anyone",
+            json!({
+                "texts": [
+                    "quantum qubit decoherence gate fidelity",
+                    "superconducting qubit dilution refrigerator microwave control",
+                    "quantum error correction lattice surgery surface code"
+                ],
+                "coverage_threshold": 0.85,
+                "min_cluster": 2
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -1597,11 +2349,7 @@ async fn llm_coherence_harness_config_and_evaluate_endpoint() {
     let (router, _dir, _env) = app().await;
 
     // 1. Check Harness Config
-    let (status, cfg_body) = send(
-        &router,
-        get("/api/v1/harness/config", "test_user"),
-    )
-    .await;
+    let (status, cfg_body) = send(&router, get("/api/v1/harness/config", "test_user")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(cfg_body["default_config"].is_object());
     assert!(cfg_body["available_providers"].is_array());
@@ -1609,14 +2357,18 @@ async fn llm_coherence_harness_config_and_evaluate_endpoint() {
     // 2. Run Evaluate on coherent technical statement
     let (status, eval_body) = send(
         &router,
-        post("/api/v1/harness/evaluate", "test_user", json!({
-            "text": "Replace worn spindle bearings to eliminate thermal runaway",
-            "context": "Bearing temperature measured at 92C under continuous load",
-            "config": {
-                "coherence_threshold": 0.50,
-                "reject_contradictions": true
-            }
-        })),
+        post(
+            "/api/v1/harness/evaluate",
+            "test_user",
+            json!({
+                "text": "Replace worn spindle bearings to eliminate thermal runaway",
+                "context": "Bearing temperature measured at 92C under continuous load",
+                "config": {
+                    "coherence_threshold": 0.50,
+                    "reject_contradictions": true
+                }
+            }),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -1625,9 +2377,6 @@ async fn llm_coherence_harness_config_and_evaluate_endpoint() {
     assert!(eval_body["composite_fitness"].as_f64().is_some());
     assert!(eval_body["explanation_report"].is_object());
 }
-
-
-
 
 #[tokio::test]
 async fn the_agent_dashboard_renders_the_harness_verdict() {
@@ -1640,7 +2389,10 @@ async fn the_agent_dashboard_renders_the_harness_verdict() {
     let (status, body) = send_text(&router, get("/agent", "_default")).await;
     assert_eq!(status, StatusCode::OK);
 
-    assert!(body.contains("function renderVerdict"), "verdict renderer must exist");
+    assert!(
+        body.contains("function renderVerdict"),
+        "verdict renderer must exist"
+    );
     assert!(
         body.contains("ev.kind === 'verdict'"),
         "the event loop must route verdicts to it, or the card never renders",
@@ -1648,7 +2400,10 @@ async fn the_agent_dashboard_renders_the_harness_verdict() {
     // The four verdicts the arbiter can return must each be styleable, or an
     // unstyled one silently renders as an unmarked card.
     for verdict in ["APPROVED", "WARNING", "REJECTED", "REVISED"] {
-        assert!(body.contains(&format!(".verdict.{verdict}")), "no style for {verdict}");
+        assert!(
+            body.contains(&format!(".verdict.{verdict}")),
+            "no style for {verdict}"
+        );
     }
     // Contradictions are the whole point of the gate: a conflicting answer is
     // exactly what a fitness percentage alone hides.
@@ -1658,7 +2413,10 @@ async fn the_agent_dashboard_renders_the_harness_verdict() {
     );
     // "gate off" and "gate on but quiet" are indistinguishable in the trace,
     // so the capabilities line has to state which one it is.
-    assert!(body.contains("harness_gate"), "caps must report whether the gate is on");
+    assert!(
+        body.contains("harness_gate"),
+        "caps must report whether the gate is on"
+    );
 }
 
 #[tokio::test]
@@ -1670,8 +2428,13 @@ async fn agent_capabilities_report_the_coherence_gate() {
     // keep only interpretations that go on working would be the one component
     // exempt from that rule.
     assert_eq!(body["harness_gate"], true, "the gate must default on");
-    let floor = body["harness_threshold"].as_f64().expect("threshold must be numeric");
-    assert!((0.0..=1.0).contains(&floor), "threshold is a fitness fraction, got {floor}");
+    let floor = body["harness_threshold"]
+        .as_f64()
+        .expect("threshold must be numeric");
+    assert!(
+        (0.0..=1.0).contains(&floor),
+        "threshold is a fitness fraction, got {floor}"
+    );
 }
 
 // ── Agent demo: the same loop, inside and outside the harness ─────────────────
@@ -1766,7 +2529,9 @@ async fn agent_demo_inside_harness_sse_stream() {
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("PHYSIS_DATA_DIR", dir.path());
     std::env::set_var("EP_ORCHESTRATOR", &base);
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
     std::env::remove_var("EP_ORCHESTRATOR");
     drop(env);
 
@@ -1779,14 +2544,25 @@ async fn agent_demo_inside_harness_sse_stream() {
             "mode": "ANALYZE"
         }),
     );
-    req.extensions_mut().insert(axum::extract::ConnectInfo(
-        std::net::SocketAddr::from(([127, 0, 0, 1], 40000)),
-    ));
+    req.extensions_mut()
+        .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+            [127, 0, 0, 1],
+            40000,
+        ))));
 
     let resp = router.oneshot(req).await.expect("router responds");
-    assert_eq!(resp.status(), StatusCode::OK, "POST /api/v1/agent/run must be accepted");
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "POST /api/v1/agent/run must be accepted"
+    );
 
-    let bytes = resp.into_body().collect().await.expect("sse body").to_bytes();
+    let bytes = resp
+        .into_body()
+        .collect()
+        .await
+        .expect("sse body")
+        .to_bytes();
     let raw = String::from_utf8_lossy(&bytes);
 
     // Parse the SSE frames: `event: <kind>` + `data: {json}`.
@@ -1795,19 +2571,39 @@ async fn agent_demo_inside_harness_sse_stream() {
         let kind = block.lines().find_map(|l| l.strip_prefix("event: "));
         let data = block.lines().find_map(|l| l.strip_prefix("data: "));
         if let (Some(k), Some(d)) = (kind, data) {
-            frames.push((k.trim().to_string(), serde_json::from_str(d.trim()).unwrap_or_default()));
+            frames.push((
+                k.trim().to_string(),
+                serde_json::from_str(d.trim()).unwrap_or_default(),
+            ));
         }
     }
     for (k, d) in &frames {
-        println!("[inside] event={k:<11} {}", d["text"].as_str().unwrap_or(""));
+        println!(
+            "[inside] event={k:<11} {}",
+            d["text"].as_str().unwrap_or("")
+        );
     }
 
     let kinds: Vec<&str> = frames.iter().map(|(k, _)| k.as_str()).collect();
-    let pos = |name: &str| kinds.iter().position(|k| *k == name).unwrap_or_else(|| panic!("missing `{name}` frame; got {kinds:?}"));
-    assert!(pos("tool_call") < pos("tool_result"), "result must follow its call");
-    assert!(pos("tool_result") < pos("final"), "final answer comes after tools");
+    let pos = |name: &str| {
+        kinds
+            .iter()
+            .position(|k| *k == name)
+            .unwrap_or_else(|| panic!("missing `{name}` frame; got {kinds:?}"))
+    };
+    assert!(
+        pos("tool_call") < pos("tool_result"),
+        "result must follow its call"
+    );
+    assert!(
+        pos("tool_result") < pos("final"),
+        "final answer comes after tools"
+    );
     assert!(pos("final") < pos("done"), "done terminates the stream");
-    assert!(kinds.contains(&"verdict"), "the coherence gate must judge the final answer");
+    assert!(
+        kinds.contains(&"verdict"),
+        "the coherence gate must judge the final answer"
+    );
 
     // The verdict frame carries the arbiter's structured evaluation.
     let verdict_text = frames
@@ -1815,7 +2611,8 @@ async fn agent_demo_inside_harness_sse_stream() {
         .find(|(k, _)| k == "verdict")
         .and_then(|(_, d)| d["text"].as_str())
         .expect("verdict frame carries its payload as text");
-    let evaluation: serde_json::Value = serde_json::from_str(verdict_text).expect("verdict is JSON");
+    let evaluation: serde_json::Value =
+        serde_json::from_str(verdict_text).expect("verdict is JSON");
     println!(
         "[inside] gate verdict={} fitness={:.3}",
         evaluation["verdict"].as_str().unwrap_or("?"),
@@ -1840,7 +2637,9 @@ async fn agent_demo_outside_harness_direct_call() {
     drop(env);
 
     assert!(
-        cascade.provider_names().contains(&"orchestrator".to_string()),
+        cascade
+            .provider_names()
+            .contains(&"orchestrator".to_string()),
         "mock must be registered, got {:?}",
         cascade.provider_names()
     );
@@ -1852,15 +2651,18 @@ async fn agent_demo_outside_harness_direct_call() {
         "get_time",
         "Returns the current UTC timestamp.",
         serde_json::json!({"type": "object", "properties": {}}),
-        Box::new(|_args| {
-            Box::pin(async move { Ok(chrono::Utc::now().to_rfc3339()) })
-        }),
+        Box::new(|_args| Box::pin(async move { Ok(chrono::Utc::now().to_rfc3339()) })),
     );
 
     let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let sink_events = events.clone();
     let sink: physis_pro::ai::agent::EventSink = std::sync::Arc::new(move |ev| {
-        println!("[outside] r{} {:<11} {}", ev.round, ev.kind, ev.text.replace('\n', " "));
+        println!(
+            "[outside] r{} {:<11} {}",
+            ev.round,
+            ev.kind,
+            ev.text.replace('\n', " ")
+        );
         sink_events.lock().unwrap().push(ev.kind);
     });
 
@@ -1887,12 +2689,18 @@ async fn agent_demo_outside_harness_direct_call() {
 
     let kinds = events.lock().unwrap().clone();
     assert!(kinds.contains(&"tool_call".to_string()), "trace: {kinds:?}");
-    assert!(kinds.contains(&"tool_result".to_string()), "trace: {kinds:?}");
+    assert!(
+        kinds.contains(&"tool_result".to_string()),
+        "trace: {kinds:?}"
+    );
     assert!(kinds.contains(&"final".to_string()), "trace: {kinds:?}");
     let call_pos = kinds.iter().position(|k| k == "tool_call").unwrap();
     let res_pos = kinds.iter().position(|k| k == "tool_result").unwrap();
     let fin_pos = kinds.iter().position(|k| k == "final").unwrap();
-    assert!(call_pos < res_pos && res_pos < fin_pos, "trace must be ordered: {kinds:?}");
+    assert!(
+        call_pos < res_pos && res_pos < fin_pos,
+        "trace must be ordered: {kinds:?}"
+    );
 }
 
 #[tokio::test]
@@ -1907,7 +2715,9 @@ async fn agent_run_rejects_unknown_tool_whitelist_instead_of_running_empty() {
     std::env::set_var("PHYSIS_DEV", "1");
     std::env::set_var("PHYSIS_DATA_DIR", dir.path());
     std::env::set_var("PHYSIS_SCAN_ROOT", dir.path());
-    let (_state, router) = physis_pro::web::build_app().await.expect("build_app must succeed");
+    let (_state, router) = physis_pro::web::build_app()
+        .await
+        .expect("build_app must succeed");
 
     // A whitelist naming tools that don't exist used to run the agent with an
     // empty registry — the model was told to use tools it never received and
@@ -1918,9 +2728,16 @@ async fn agent_run_rejects_unknown_tool_whitelist_instead_of_running_empty() {
         "mode": "ANALYZE"
     });
     let (status, err) = send(&router, post("/api/v1/agent/run", "_default", body)).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "unknown tool must 400: {err}");
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "unknown tool must 400: {err}"
+    );
     let msg = err["error"].as_str().unwrap_or_default();
-    assert!(msg.contains("get_time"), "error must name the missing tool: {msg}");
+    assert!(
+        msg.contains("get_time"),
+        "error must name the missing tool: {msg}"
+    );
     assert!(
         msg.contains("classify"),
         "error should list available tools for discoverability: {msg}"
@@ -1933,7 +2750,11 @@ async fn agent_run_rejects_unknown_tool_whitelist_instead_of_running_empty() {
         "mode": "ANALYZE"
     });
     let (status, _) = send(&router, post("/api/v1/agent/run", "_default", body)).await;
-    assert_eq!(status, StatusCode::OK, "known tool must open the SSE stream");
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "known tool must open the SSE stream"
+    );
 
     std::env::remove_var("PHYSIS_SCAN_ROOT");
     drop(env);
@@ -1959,7 +2780,10 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
 
     let (status, shell) = send_text(&router, get("/ui-shell.js", "_default")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(shell.contains("initProductNav"), "the shell must define the switcher");
+    assert!(
+        shell.contains("initProductNav"),
+        "the shell must define the switcher"
+    );
     assert!(
         shell.contains("DOMContentLoaded"),
         "the shell loads from <head> on /agent and end-of-body elsewhere, so it \
@@ -1974,7 +2798,11 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
             "the switcher must list {href}",
         );
         let (status, _) = send_text(&router, get(href, "_default")).await;
-        assert_eq!(status, StatusCode::OK, "switcher links to {href}, which must serve");
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "switcher links to {href}, which must serve"
+        );
     }
 }
 
@@ -1988,7 +2816,10 @@ async fn the_ask_bar_is_on_every_dashboard_and_queries_the_vector_graph() {
 
     let (status, shell) = send_text(&router, get("/ui-shell.js", "_default")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(shell.contains("initAskBar"), "the shell must define the ask bar");
+    assert!(
+        shell.contains("initAskBar"),
+        "the shell must define the ask bar"
+    );
     assert!(
         shell.contains("/api/v1/search/nodes"),
         "the box must query the vector graph, not an LLM endpoint",
@@ -2000,14 +2831,20 @@ async fn the_ask_bar_is_on_every_dashboard_and_queries_the_vector_graph() {
         shell.contains("document.body.appendChild(panel)"),
         "the results panel must be portalled out of the header",
     );
-    assert!(shell.contains("position:fixed"), "the panel must escape ancestor clipping");
+    assert!(
+        shell.contains("position:fixed"),
+        "the panel must escape ancestor clipping"
+    );
 
     // The endpoint it calls must exist and answer.
     let body = serde_json::json!({ "query": "nozzle temperature", "top_k": 3 });
     let (status, out) = send(&router, post("/api/v1/search/nodes", "_default", body)).await;
     assert_eq!(status, StatusCode::OK, "the ask bar's endpoint must serve");
     assert!(out["results"].is_array(), "results must be a list: {out}");
-    assert!(out["budget"].is_number(), "the response is token-packed and says so");
+    assert!(
+        out["budget"].is_number(),
+        "the response is token-packed and says so"
+    );
 
     // The handoff target must accept the question the box hands over.
     let (status, agent) = send_text(&router, get("/agent", "_default")).await;

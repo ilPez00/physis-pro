@@ -1,6 +1,6 @@
+use crate::graph::NodePayload;
 use crossbeam_channel::{unbounded, Sender};
 use std::thread;
-use crate::graph::NodePayload;
 
 pub enum OnnxRequest {
     IngestFilter {
@@ -41,17 +41,21 @@ pub struct OnnxHolon {
 impl OnnxHolon {
     pub fn spawn() -> Self {
         let (tx, rx) = unbounded::<OnnxRequest>();
-        
+
         thread::spawn(move || {
             // Here we would initialize the ONNX Runtime sessions
             // let session = ort::Session::builder()...
-            
+
             while let Ok(request) = rx.recv() {
                 match request {
-                    OnnxRequest::IngestFilter { signal_type, raw_buffer, reply_to } => {
+                    OnnxRequest::IngestFilter {
+                        signal_type,
+                        raw_buffer,
+                        reply_to,
+                    } => {
                         // Phase 1: Signal-specific activation
                         let cleaned_text = String::from_utf8_lossy(&raw_buffer).to_string();
-                        
+
                         let activation = match signal_type {
                             3 => 2.0, // ThoughtCapture: High priority
                             4 => 1.5, // VisionFeature: Medium-High
@@ -66,9 +70,17 @@ impl OnnxHolon {
                             compress_flag: 0,
                             _padding: [0; 2],
                         };
-                        let _ = reply_to.send(OnnxResponse::IngestResult { cleaned_text, payload });
+                        let _ = reply_to.send(OnnxResponse::IngestResult {
+                            cleaned_text,
+                            payload,
+                        });
                     }
-                    OnnxRequest::TopologicalRoute { node_id: _, embedding, neighborhood_embeddings, reply_to } => {
+                    OnnxRequest::TopologicalRoute {
+                        node_id: _,
+                        embedding,
+                        neighborhood_embeddings,
+                        reply_to,
+                    } => {
                         // Phase 2: Predict edges based on vector similarity
                         let mut predicted_edges = Vec::new();
                         let threshold = 0.85;
@@ -79,17 +91,23 @@ impl OnnxHolon {
                                 predicted_edges.push((neighbor_id, sim));
                             }
                         }
-                        
+
                         let _ = reply_to.send(OnnxResponse::RouteResult { predicted_edges });
                     }
-                    OnnxRequest::GnnContext { nodes, edges, reply_to } => {
+                    OnnxRequest::GnnContext {
+                        nodes,
+                        edges,
+                        reply_to,
+                    } => {
                         // Refined Phase 3: Attention-Weighted Pooling
                         // Aggregates based on node activation energy and edge connectivity
                         if nodes.is_empty() {
-                             let _ = reply_to.send(OnnxResponse::GnnResult { context_vector: vec![] });
-                             continue;
+                            let _ = reply_to.send(OnnxResponse::GnnResult {
+                                context_vector: vec![],
+                            });
+                            continue;
                         }
-                        
+
                         let dim = nodes[0].1.len();
                         let mut context_vector = vec![0.0f32; dim];
                         let mut total_weight = 0.0f32;
@@ -102,7 +120,7 @@ impl OnnxHolon {
                                     connectivity += edge.weight;
                                 }
                             }
-                            
+
                             let node_weight = payload.activation_energy * (1.0 + connectivity);
                             total_weight += node_weight;
 
@@ -116,13 +134,13 @@ impl OnnxHolon {
                                 *val /= total_weight;
                             }
                         }
-                        
+
                         let _ = reply_to.send(OnnxResponse::GnnResult { context_vector });
                     }
                 }
             }
         });
-        
+
         Self { tx }
     }
 

@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::HeaderMap};
+use axum::{
+    extract::{Json, State},
+    http::HeaderMap,
+};
 
 /// GET /api/v1/machines — registry of the philosophical machines.
 pub async fn machines_list_handler() -> Json<serde_json::Value> {
@@ -539,7 +542,9 @@ pub async fn machines_soma_handler(Json(req): Json<SomaRequest>) -> Json<serde_j
 /// POST /api/v1/machines/elenchus — reduce a dialogue to Toulmin claim/warrant/
 /// rebuttal primitives; return each claim's standing + the unsupported/contested
 /// claims to press. Statements with an unknown kind are ignored. Stateless.
-pub async fn machines_elenchus_handler(Json(req): Json<ElenchusRequest>) -> Json<serde_json::Value> {
+pub async fn machines_elenchus_handler(
+    Json(req): Json<ElenchusRequest>,
+) -> Json<serde_json::Value> {
     use crate::machines::elenchus;
     let statements: Vec<elenchus::Statement> = req
         .statements
@@ -750,4 +755,3 @@ pub async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde
 
     Json(serde_json::json!({ "places": all, "fading": fading }))
 }
-

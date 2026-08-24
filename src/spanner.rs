@@ -101,7 +101,11 @@ pub fn export_edges(core: &PhysisCore) -> Vec<EdgeRow> {
     core.resolved_edges()
         .into_iter()
         .filter_map(|(s, t, w)| match (s, t) {
-            (Some(source), Some(target)) => Some(EdgeRow { source, target, weight: w }),
+            (Some(source), Some(target)) => Some(EdgeRow {
+                source,
+                target,
+                weight: w,
+            }),
             _ => None,
         })
         .collect()
@@ -153,18 +157,32 @@ impl Auth {
     /// Parse a service-account key JSON (`{client_email, private_key, ...}`).
     fn from_sa_json(json: &str) -> anyhow::Result<Self> {
         let v: serde_json::Value = serde_json::from_str(json)?;
-        let client_email = v.get("client_email").and_then(|x| x.as_str())
-            .ok_or_else(|| anyhow::anyhow!("SA key: no client_email"))?.to_string();
-        let private_key = v.get("private_key").and_then(|x| x.as_str())
-            .ok_or_else(|| anyhow::anyhow!("SA key: no private_key"))?.to_string();
-        Ok(Auth::ServiceAccount { client_email, private_key, cache: std::sync::Mutex::new(None) })
+        let client_email = v
+            .get("client_email")
+            .and_then(|x| x.as_str())
+            .ok_or_else(|| anyhow::anyhow!("SA key: no client_email"))?
+            .to_string();
+        let private_key = v
+            .get("private_key")
+            .and_then(|x| x.as_str())
+            .ok_or_else(|| anyhow::anyhow!("SA key: no private_key"))?
+            .to_string();
+        Ok(Auth::ServiceAccount {
+            client_email,
+            private_key,
+            cache: std::sync::Mutex::new(None),
+        })
     }
 
     /// Current bearer token; mints + caches for service accounts (60s safety margin).
     async fn token(&self, http: &reqwest::Client) -> anyhow::Result<String> {
         match self {
             Auth::Static(t) => Ok(t.clone()),
-            Auth::ServiceAccount { client_email, private_key, cache } => {
+            Auth::ServiceAccount {
+                client_email,
+                private_key,
+                cache,
+            } => {
                 if let Some((tok, exp)) = cache.lock().unwrap().as_ref() {
                     if *exp > std::time::Instant::now() {
                         return Ok(tok.clone());
@@ -177,10 +195,20 @@ impl Auth {
                         ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
                         ("assertion", assertion.as_str()),
                     ])
-                    .send().await?.error_for_status()?.json().await?;
-                let tok = resp.get("access_token").and_then(|x| x.as_str())
-                    .ok_or_else(|| anyhow::anyhow!("token endpoint: no access_token"))?.to_string();
-                let ttl = resp.get("expires_in").and_then(|x| x.as_u64()).unwrap_or(3600);
+                    .send()
+                    .await?
+                    .error_for_status()?
+                    .json()
+                    .await?;
+                let tok = resp
+                    .get("access_token")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| anyhow::anyhow!("token endpoint: no access_token"))?
+                    .to_string();
+                let ttl = resp
+                    .get("expires_in")
+                    .and_then(|x| x.as_u64())
+                    .unwrap_or(3600);
                 let exp = std::time::Instant::now()
                     + std::time::Duration::from_secs(ttl.saturating_sub(60));
                 *cache.lock().unwrap() = Some((tok.clone(), exp));
@@ -227,9 +255,7 @@ impl SpannerSink {
             .unwrap_or_else(|_| "https://spanner.googleapis.com".into());
         Ok(Self {
             host,
-            database: format!(
-                "projects/{project}/instances/{instance}/databases/{database}"
-            ),
+            database: format!("projects/{project}/instances/{instance}/databases/{database}"),
             table,
             edge_table,
             auth,
@@ -308,7 +334,10 @@ impl SpannerSink {
     pub async fn fetch_nodes(&self) -> anyhow::Result<Vec<NodeRow>> {
         let session = self.create_session().await?;
         let url = self.url(&format!("{session}:executeSql"));
-        let sql = format!("SELECT id, label, coherence, dim, embedder FROM {}", self.table);
+        let sql = format!(
+            "SELECT id, label, coherence, dim, embedder FROM {}",
+            self.table
+        );
         let resp: serde_json::Value = self
             .http
             .post(url)
@@ -320,8 +349,13 @@ impl SpannerSink {
             .json()
             .await?;
 
-        let opt = |s: &serde_json::Value| s.as_str().filter(|x| !x.is_empty()).map(|x| x.to_string());
-        let rows = resp.get("rows").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+        let opt =
+            |s: &serde_json::Value| s.as_str().filter(|x| !x.is_empty()).map(|x| x.to_string());
+        let rows = resp
+            .get("rows")
+            .and_then(|r| r.as_array())
+            .cloned()
+            .unwrap_or_default();
         Ok(rows
             .iter()
             .filter_map(|row| {
@@ -330,11 +364,19 @@ impl SpannerSink {
                     id: c.first()?.as_str()?.to_string(),
                     label: c.get(1).and_then(opt),
                     // FLOAT64 comes back as a JSON number; tolerate a string too.
-                    coherence: c.get(2)
-                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                    coherence: c
+                        .get(2)
+                        .and_then(|v| {
+                            v.as_f64()
+                                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                        })
                         .map(|f| f as f32)
                         .unwrap_or(0.0),
-                    dim: c.get(3).and_then(|v| v.as_str()).and_then(|s| s.parse().ok()).unwrap_or(0),
+                    dim: c
+                        .get(3)
+                        .and_then(|v| v.as_str())
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0),
                     embedder: c.get(4).and_then(opt),
                 })
             })
@@ -366,12 +408,22 @@ impl SpannerSink {
     }
 
     /// POST one commit with a single mutation (shared by upserts and deletes).
-    async fn post_commit(&self, commit_url: &str, mutation: serde_json::Value) -> anyhow::Result<()> {
+    async fn post_commit(
+        &self,
+        commit_url: &str,
+        mutation: serde_json::Value,
+    ) -> anyhow::Result<()> {
         let body = serde_json::json!({
             "mutations": [mutation],
             "singleUseTransaction": { "readWrite": {} }
         });
-        let resp = self.http.post(commit_url).bearer_auth(self.auth.token(&self.http).await?).json(&body).send().await?;
+        let resp = self
+            .http
+            .post(commit_url)
+            .bearer_auth(self.auth.token(&self.http).await?)
+            .json(&body)
+            .send()
+            .await?;
         if !resp.status().is_success() {
             let st = resp.status();
             let txt = resp.text().await.unwrap_or_default();
@@ -412,8 +464,10 @@ impl SpannerSink {
         let commit_url = self.url(&format!("{session}:commit"));
         let mut total = 0usize;
         for chunk in keys.chunks(UPSERT_CHUNK) {
-            let keys: Vec<serde_json::Value> =
-                chunk.iter().map(|(s, t)| serde_json::json!([s, t])).collect();
+            let keys: Vec<serde_json::Value> = chunk
+                .iter()
+                .map(|(s, t)| serde_json::json!([s, t]))
+                .collect();
             let mutation = serde_json::json!({
                 "delete": { "table": self.edge_table, "keySet": { "keys": keys } }
             });
@@ -438,7 +492,11 @@ impl SpannerSink {
             .error_for_status()?
             .json()
             .await?;
-        let rows = resp.get("rows").and_then(|r| r.as_array()).cloned().unwrap_or_default();
+        let rows = resp
+            .get("rows")
+            .and_then(|r| r.as_array())
+            .cloned()
+            .unwrap_or_default();
         Ok(rows
             .iter()
             .filter_map(|row| {
@@ -446,8 +504,12 @@ impl SpannerSink {
                 Some(EdgeRow {
                     source: c.first()?.as_str()?.to_string(),
                     target: c.get(1)?.as_str()?.to_string(),
-                    weight: c.get(2)
-                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                    weight: c
+                        .get(2)
+                        .and_then(|v| {
+                            v.as_f64()
+                                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                        })
                         .map(|f| f as f32)
                         .unwrap_or(0.0),
                 })
@@ -476,13 +538,19 @@ pub struct SyncStats {
 /// Remote node ids that no longer exist locally — the delete targets.
 pub fn orphan_node_ids(remote: &[NodeRow], local: &[NodeRow]) -> Vec<String> {
     let live: std::collections::HashSet<&str> = local.iter().map(|r| r.id.as_str()).collect();
-    remote.iter().filter(|r| !live.contains(r.id.as_str())).map(|r| r.id.clone()).collect()
+    remote
+        .iter()
+        .filter(|r| !live.contains(r.id.as_str()))
+        .map(|r| r.id.clone())
+        .collect()
 }
 
 /// Remote edge keys that no longer exist locally — the delete targets.
 pub fn orphan_edge_keys(remote: &[EdgeRow], local: &[EdgeRow]) -> Vec<(String, String)> {
-    let live: std::collections::HashSet<(&str, &str)> =
-        local.iter().map(|e| (e.source.as_str(), e.target.as_str())).collect();
+    let live: std::collections::HashSet<(&str, &str)> = local
+        .iter()
+        .map(|e| (e.source.as_str(), e.target.as_str()))
+        .collect();
     remote
         .iter()
         .filter(|e| !live.contains(&(e.source.as_str(), e.target.as_str())))
@@ -506,12 +574,19 @@ pub async fn sync_full(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<
     let stale_nodes = orphan_node_ids(&sink.fetch_nodes().await?, &local_nodes);
     let nodes_deleted = sink.delete_nodes(&stale_nodes).await?;
 
-    Ok(SyncStats { nodes_upserted, edges_upserted, nodes_deleted, edges_deleted })
+    Ok(SyncStats {
+        nodes_upserted,
+        edges_upserted,
+        nodes_deleted,
+        edges_deleted,
+    })
 }
 
 /// Rows whose embedder id differs from the live one — the re-embed targets.
 pub fn stale_nodes<'a>(rows: &'a [NodeRow], live_id: &str) -> Vec<&'a NodeRow> {
-    rows.iter().filter(|r| r.embedder.as_deref() != Some(live_id)).collect()
+    rows.iter()
+        .filter(|r| r.embedder.as_deref() != Some(live_id))
+        .collect()
 }
 
 /// Re-embed each row's label with the LIVE embedder and register it into `core`
@@ -601,7 +676,10 @@ mod tests {
             auth: Auth::Static("emulator".into()),
             http: reqwest::Client::new(),
         };
-        assert_eq!(sink.base(), "http://localhost:9020/v1/projects/p/instances/i/databases/d");
+        assert_eq!(
+            sink.base(),
+            "http://localhost:9020/v1/projects/p/instances/i/databases/d"
+        );
         assert_eq!(sink.url("x:commit"), "http://localhost:9020/v1/x:commit");
     }
 
@@ -613,10 +691,15 @@ mod tests {
         let json = serde_json::json!({
             "client_email": "test@proj.iam.gserviceaccount.com",
             "private_key": pem,
-        }).to_string();
+        })
+        .to_string();
         let auth = Auth::from_sa_json(&json).expect("parse SA json");
         let (email, key) = match &auth {
-            Auth::ServiceAccount { client_email, private_key, .. } => (client_email.clone(), private_key.clone()),
+            Auth::ServiceAccount {
+                client_email,
+                private_key,
+                ..
+            } => (client_email.clone(), private_key.clone()),
             _ => panic!("expected ServiceAccount"),
         };
         assert_eq!(email, "test@proj.iam.gserviceaccount.com");
@@ -639,8 +722,20 @@ mod tests {
         }
         let sink = SpannerSink::from_env().expect("from_env");
         let rows = vec![
-            NodeRow { id: "n1".into(), label: Some("alpha".into()), coherence: 0.5, dim: 16, embedder: Some("bge".into()) },
-            NodeRow { id: "n2".into(), label: Some("beta".into()), coherence: -1.0, dim: 16, embedder: None },
+            NodeRow {
+                id: "n1".into(),
+                label: Some("alpha".into()),
+                coherence: 0.5,
+                dim: 16,
+                embedder: Some("bge".into()),
+            },
+            NodeRow {
+                id: "n2".into(),
+                label: Some("beta".into()),
+                coherence: -1.0,
+                dim: 16,
+                embedder: None,
+            },
         ];
         let up = sink.upsert_nodes(&rows).await.expect("upsert");
         assert_eq!(up, 2);
@@ -652,28 +747,53 @@ mod tests {
         assert!(got.iter().any(|r| r.id == "n2"));
 
         // Edges round-trip too.
-        let edges = vec![EdgeRow { source: "n1".into(), target: "n2".into(), weight: 0.7 }];
+        let edges = vec![EdgeRow {
+            source: "n1".into(),
+            target: "n2".into(),
+            weight: 0.7,
+        }];
         assert_eq!(sink.upsert_edges(&edges).await.expect("upsert edges"), 1);
         let got_edges = sink.fetch_edges().await.expect("fetch edges");
-        let e = got_edges.iter().find(|e| e.source == "n1" && e.target == "n2").expect("edge round-tripped");
+        let e = got_edges
+            .iter()
+            .find(|e| e.source == "n1" && e.target == "n2")
+            .expect("edge round-tripped");
         assert!((e.weight - 0.7).abs() < 1e-5);
 
         // Hard deletes: drop the edge then n2; both must be gone on read-back.
         assert_eq!(
-            sink.delete_edges(&[("n1".into(), "n2".into())]).await.expect("delete edge"),
+            sink.delete_edges(&[("n1".into(), "n2".into())])
+                .await
+                .expect("delete edge"),
             1
         );
-        assert!(!sink.fetch_edges().await.expect("fetch edges after delete")
-            .iter().any(|e| e.source == "n1" && e.target == "n2"));
-        assert_eq!(sink.delete_nodes(&["n2".into()]).await.expect("delete node"), 1);
+        assert!(!sink
+            .fetch_edges()
+            .await
+            .expect("fetch edges after delete")
+            .iter()
+            .any(|e| e.source == "n1" && e.target == "n2"));
+        assert_eq!(
+            sink.delete_nodes(&["n2".into()])
+                .await
+                .expect("delete node"),
+            1
+        );
         let after = sink.fetch_nodes().await.expect("fetch after delete");
-        assert!(!after.iter().any(|r| r.id == "n2"), "n2 must be hard-deleted");
+        assert!(
+            !after.iter().any(|r| r.id == "n2"),
+            "n2 must be hard-deleted"
+        );
         assert!(after.iter().any(|r| r.id == "n1"), "n1 must survive");
     }
 
     #[test]
     fn test_orphan_node_ids_diffs_remote_against_local() {
-        let remote = vec![row("a", None, None), row("b", None, None), row("c", None, None)];
+        let remote = vec![
+            row("a", None, None),
+            row("b", None, None),
+            row("c", None, None),
+        ];
         let local = vec![row("b", None, None)];
         let mut orphans = orphan_node_ids(&remote, &local);
         orphans.sort();
@@ -683,7 +803,11 @@ mod tests {
 
     #[test]
     fn test_orphan_edge_keys_diffs_on_full_pk() {
-        let e = |s: &str, t: &str| EdgeRow { source: s.into(), target: t.into(), weight: 1.0 };
+        let e = |s: &str, t: &str| EdgeRow {
+            source: s.into(),
+            target: t.into(),
+            weight: 1.0,
+        };
         let remote = vec![e("a", "b"), e("a", "c")];
         let local = vec![e("a", "b"), e("c", "a")]; // (a,c) gone; (c,a) is a different key
         let orphans = orphan_edge_keys(&remote, &local);

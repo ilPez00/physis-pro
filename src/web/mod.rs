@@ -13,8 +13,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use tower_http::trace::TraceLayer;
 use serde::{Deserialize, Serialize};
+use tower_http::trace::TraceLayer;
 
 use base64::Engine;
 use uuid::Uuid;
@@ -63,28 +63,29 @@ use crate::planner::{self, CellOutcome, PlannerItem, PlannerSimulation};
 use crate::quality::QualityTracker;
 use crate::rachmaninov::RachmaninovHolon;
 
+mod admin_study;
+mod agent;
+mod axes;
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
 /// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
 /// or the healthcheck. See PREMORTEM.md P1.
 mod coherence;
+mod context;
 mod dream;
-mod pdca;
 mod holarchy;
 mod industrial;
 mod ingest;
-mod search;
-mod admin_study;
-mod axes;
 mod machines;
-#[cfg(feature = "spanner")]
-mod spanner;
 #[cfg(feature = "mcp")]
 mod mcp;
-mod wiki_semiotic;
-mod context;
+mod pdca;
+mod search;
+mod shifts;
+#[cfg(feature = "spanner")]
+mod spanner;
 mod ui_chat;
-mod agent;
+mod wiki_semiotic;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -283,9 +284,6 @@ pub type SharedState = Arc<AppCtx>;
 // (the healthcheck + non-embed requests stay responsive). The embedder is
 // Send+Sync behind Arc<SharedCtx>.
 
-
-
-
 /// Build a `QualityTracker` from the shared embedder + ontology, replaying any
 /// persisted failures so cell penalties survive restarts.
 pub(crate) fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
@@ -302,13 +300,14 @@ pub(crate) fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
                 *penalty = (*penalty + f.severity * 0.2).min(1.0);
                 if let Some(ref _correct) = f.correct_domain {
                     let decay_rate = tracker.boost_decay_rate;
-                    let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert_with(|| {
-                        physis_core::quality::BoostInfo {
+                    let boost = tracker
+                        .cell_boosts
+                        .entry(f.top_cell.clone())
+                        .or_insert_with(|| physis_core::quality::BoostInfo {
                             amount: 0.0,
                             decay_rate,
                             last_reinforced: std::time::Instant::now(),
-                        }
-                    });
+                        });
                     boost.reinforce(0.1);
                 }
             }
@@ -442,7 +441,9 @@ pub struct PlannerSimulationRequest {
     confidence_threshold: f32,
 }
 
-pub(crate) fn default_planner_confidence() -> f32 { 0.60 }
+pub(crate) fn default_planner_confidence() -> f32 {
+    0.60
+}
 
 #[derive(Serialize)]
 pub struct PraxisBackfillResponse {
@@ -756,18 +757,15 @@ async fn rate_limit(
 
 /// Generate or reuse a request ID, attach it to the tracing span, and echo it
 /// back as `X-Request-ID` so clients can correlate logs.
-async fn request_id(
-    mut headers: HeaderMap,
-    req: Request,
-    next: Next,
-) -> Response {
+async fn request_id(mut headers: HeaderMap, req: Request, next: Next) -> Response {
     let id = headers
         .get("X-Request-ID")
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     headers.insert("X-Request-ID", id.parse().unwrap());
-    let span = info_span!("http.request", request_id = %id, method = %req.method(), uri = %req.uri());
+    let span =
+        info_span!("http.request", request_id = %id, method = %req.method(), uri = %req.uri());
     async move {
         let mut res = next.run(req).await;
         res.headers_mut()
@@ -779,19 +777,13 @@ async fn request_id(
 }
 
 /// Attach tenant (`X-Physis-User`) to the tracing span for every request.
-async fn trace_tenant(
-    headers: HeaderMap,
-    req: Request,
-    next: Next,
-) -> Response {
+async fn trace_tenant(headers: HeaderMap, req: Request, next: Next) -> Response {
     let uid = headers
         .get("X-Physis-User")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("_default");
     let span = info_span!("http.request", tenant = %uid, method = %req.method(), uri = %req.uri());
-    async move { next.run(req).await }
-        .instrument(span)
-        .await
+    async move { next.run(req).await }.instrument(span).await
 }
 
 /// Constant-time byte comparison — avoids leaking the token via timing.
@@ -875,15 +867,25 @@ struct HealthResponse {
 
 #[allow(clippy::vec_init_then_push)]
 async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
-    let tenant_count = state.tenants.lock().unwrap_or_else(|e| e.into_inner()).len();
+    let tenant_count = state
+        .tenants
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .len();
     let db_ok = state.db.is_some();
     let mut features = vec![];
-    #[cfg(feature = "web")] features.push("web");
-    #[cfg(feature = "industrial")] features.push("industrial");
-    #[cfg(feature = "voice")] features.push("voice");
-    #[cfg(feature = "mcp")] features.push("mcp");
-    #[cfg(feature = "spanner")] features.push("spanner");
-    #[cfg(feature = "wiki-embedded")] features.push("wiki-embedded");
+    #[cfg(feature = "web")]
+    features.push("web");
+    #[cfg(feature = "industrial")]
+    features.push("industrial");
+    #[cfg(feature = "voice")]
+    features.push("voice");
+    #[cfg(feature = "mcp")]
+    features.push("mcp");
+    #[cfg(feature = "spanner")]
+    features.push("spanner");
+    #[cfg(feature = "wiki-embedded")]
+    features.push("wiki-embedded");
 
     Json(HealthResponse {
         status: "ok",
@@ -935,9 +937,6 @@ pub struct ChatApiResponse {
     rag_tokens: Option<usize>,
 }
 
-
-
-
 /// Best-effort extraction of the last user message text, used as the RAG query.
 pub(crate) fn last_user_text(messages: &[Message]) -> String {
     for m in messages.iter().rev() {
@@ -951,18 +950,6 @@ pub(crate) fn last_user_text(messages: &[Message]) -> String {
 }
 
 // ── /api/v1/providers ────────────────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ── Spanner Graph sink (Phase 7C) ───────────────────────────────────────────
 // Durable-memory mirror: push a tenant's coherence graph up, or pull durable
@@ -1479,7 +1466,10 @@ pub struct ReportFormatQuery {
     format: Option<String>,
 }
 
-pub(crate) fn report_response(input: &crate::report::ShiftReportInput, format: Option<&str>) -> Response {
+pub(crate) fn report_response(
+    input: &crate::report::ShiftReportInput,
+    format: Option<&str>,
+) -> Response {
     if format == Some("html") {
         Html(crate::report::render_shift_report_html(input)).into_response()
     } else {
@@ -1507,15 +1497,6 @@ pub struct OperationalTimelineRequest {
 
 const OPERATIONAL_TIMELINE_DEMO: &str =
     include_str!("../../tests/fixtures/operational_timeline_demo.json");
-
-
-
-
-
-
-
-
-
 
 #[derive(Deserialize)]
 pub struct FoldRequest {
@@ -1565,18 +1546,6 @@ pub struct AddTaskRequest {
     dependencies: Vec<String>,
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 #[derive(Deserialize)]
 pub struct ScheduleComputeRequest {
     tasks: Vec<TaskInput>,
@@ -1622,9 +1591,6 @@ pub struct HolarchyIngestRequest {
     data: String,
 }
 
-
-
-
 #[derive(Deserialize)]
 pub struct EdgeWriteRequest {
     /// Coherence node ids (not RawNodeKeys). Both are bridged automatically.
@@ -1667,9 +1633,6 @@ pub struct OntologyListing {
     kind: String,
     count: usize,
 }
-
-
-
 
 #[derive(Serialize)]
 pub struct StudioEntry {
@@ -1719,16 +1682,10 @@ pub struct SemioticTriangleResponse {
     mermaid: String,
 }
 
-
-
-
 #[derive(Serialize)]
 pub struct GreimasSquareResponse {
     mermaid: String,
 }
-
-
-
 
 #[derive(Deserialize)]
 pub struct CategoryDiagramRequest {
@@ -1754,9 +1711,6 @@ pub struct CategoryDiagramResponse {
     mermaid: String,
 }
 
-
-
-
 // ── Wiki (in-process Tantivy BM25; replaces the llmwiki subprocess) ──────────
 //
 // Only `wiki_root` is read without the `wiki-embedded` feature, but the bodies
@@ -1780,7 +1734,6 @@ pub struct WikiIndexRequest {
     #[cfg_attr(not(feature = "wiki-embedded"), allow(dead_code))]
     incremental: bool,
 }
-
 
 #[derive(Serialize)]
 pub struct HeatmapResponse {
@@ -1892,9 +1845,6 @@ async fn rerank_cell(
         .map(|c| (c.domain.clone(), c.mode.clone()))
 }
 
-
-
-
 // ── Embed Handler ─────────────────────────────────────────────────
 // Raw vector embedding — for pgvector storage and semantic search.
 
@@ -1939,9 +1889,6 @@ pub struct VideoEmbedResponse {
     /// Frames that contributed to the pooled vector.
     frames: usize,
 }
-
-
-
 
 // ── Main ──────────────────────────────────────────────────────────────
 
@@ -2219,7 +2166,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // `degraded` is reserved for the *implicit* failure case: a trained model was
     // expected/attempted but silently emitted garbage (self-test failed) and we
     // fell through to random-projection without the operator asking for it.
-    let mut degraded = !explicit_rp_override && embedder_kind == "random-projection" && !self_test_ok;
+    let mut degraded =
+        !explicit_rp_override && embedder_kind == "random-projection" && !self_test_ok;
     if !explicit_rp_override && !self_test_ok && embedder_kind != "random-projection" {
         log::error!("embedder '{embedder_kind}' loaded but FAILED the semantic self-test — output is non-semantic (PREMORTEM.md P4).");
         eprintln!("[physis] WARNING: embedder '{embedder_kind}' failed semantic self-test — treating as DEGRADED.");
@@ -2236,7 +2184,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         eprintln!("[physis] offline mode: random-projection embedder (deterministic, non-semantic but reproducible).");
     } else if degraded {
         log::error!("════════════════════════════════════════════════════════════════");
-        log::error!("  DEGRADED: trained embedder failed self-test — fell back to RANDOM-PROJECTION.");
+        log::error!(
+            "  DEGRADED: trained embedder failed self-test — fell back to RANDOM-PROJECTION."
+        );
         log::error!("  Classification output is NOT semantic; cosine scores are noise.");
         log::error!("  Set MODEL_DIR / MODEL_BASE_URL so real weights load. See PREMORTEM.md P0.");
         log::error!("════════════════════════════════════════════════════════════════");
@@ -2316,7 +2266,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         if !is_loopback {
             log::error!("Refusing to bind {host} without any token — would expose an unauthenticated API + open LLM relay.");
             eprintln!("[physis] FATAL: non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS. Set one, or bind 127.0.0.1.");
-            return Err(format!("non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS"));
+            return Err(format!(
+                "non-loopback bind ({host}) requires PHYSIS_API_TOKEN or PHYSIS_TOKENS"
+            ));
         }
         if !dev_mode {
             log::error!("Refusing to start on loopback without any token and without PHYSIS_DEV — set a token or set PHYSIS_DEV=1 for local development.");
@@ -2333,7 +2285,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // override with PHYSIS_SCAN_ROOT. Canonicalized for real-path compare.
     let scan_root = std::env::var("PHYSIS_SCAN_ROOT")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| config.data_dir.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))));
+        .unwrap_or_else(|_| {
+            config
+                .data_dir
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+        });
     let scan_root = scan_root.canonicalize().unwrap_or(scan_root);
     log::info!("scan root: {}", scan_root.display());
 
@@ -2593,12 +2551,24 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/scan", post(ingest::scan_handler))
         .route("/api/v1/sql/schema", get(ingest::sql_schema_handler))
         .route("/api/v1/sql/scan", post(ingest::sql_scan_handler))
-        .route("/api/v1/sql/postgres/schema", post(ingest::postgres_schema_handler))
-        .route("/api/v1/sql/postgres/scan", post(ingest::postgres_scan_handler))
+        .route(
+            "/api/v1/sql/postgres/schema",
+            post(ingest::postgres_schema_handler),
+        )
+        .route(
+            "/api/v1/sql/postgres/scan",
+            post(ingest::postgres_scan_handler),
+        )
         .route("/api/v1/watch", post(ingest::watch_handler))
         .route("/api/v1/vault/import", post(ingest::vault_import_handler))
-        .route("/api/v1/history/import", post(ingest::history_import_handler))
-        .route("/api/v1/praxis/backfill", post(ingest::praxis_backfill_handler))
+        .route(
+            "/api/v1/history/import",
+            post(ingest::history_import_handler),
+        )
+        .route(
+            "/api/v1/praxis/backfill",
+            post(ingest::praxis_backfill_handler),
+        )
         .route("/api/v1/fs/graph", get(ingest::fs_graph_handler))
         .route("/api/v1/fs/list", get(ingest::fs_list_handler))
         .route("/api/v1/fs/resolve", get(ingest::fs_resolve_handler))
@@ -2606,14 +2576,23 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/rag/retrieve", post(search::rag_retrieve_handler))
         .route("/api/v1/fs/file", get(ingest::fs_file_handler))
         .route("/api/v1/fs/move", post(ingest::fs_move_handler))
-        .route("/api/v1/dream/generate", post(dream::dream_generate_handler))
-        .route("/api/v1/dream/evaluate", post(dream::dream_evaluate_handler))
+        .route(
+            "/api/v1/dream/generate",
+            post(dream::dream_generate_handler),
+        )
+        .route(
+            "/api/v1/dream/evaluate",
+            post(dream::dream_evaluate_handler),
+        )
         .route("/api/v1/dream/replay", post(dream::dream_replay_handler))
         .route(
             "/api/v1/coherence/snapshot",
             get(coherence::coherence_snapshot_handler),
         )
-        .route("/api/v1/coherence/nodes", get(coherence::coherence_nodes_handler))
+        .route(
+            "/api/v1/coherence/nodes",
+            get(coherence::coherence_nodes_handler),
+        )
         .route(
             "/api/v1/coherence/nodes/all",
             get(coherence::coherence_nodes_all_handler),
@@ -2623,40 +2602,102 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/coherence/register",
             post(coherence::coherence_register_handler),
         )
-        .route("/api/v1/coherence/edit", post(coherence::coherence_edit_handler))
-        .route("/api/v1/coherence/delete", post(coherence::coherence_delete_handler))
-        .route("/api/v1/hypotheses", get(coherence::hypotheses_list_handler).post(coherence::hypothesis_create_handler))
-        .route("/api/v1/hypotheses/:id", get(coherence::hypothesis_get_handler))
-        .route("/api/v1/hypotheses/:id/evidence", post(coherence::hypothesis_evidence_handler))
-        .route("/api/v1/hypotheses/:id/prediction", post(coherence::hypothesis_prediction_handler))
-        .route("/api/v1/hypotheses/:id/transition", post(coherence::hypothesis_transition_handler))
-        .route("/api/v1/explanation/:id", get(coherence::explanation_get_handler))
-        .route("/api/v1/coherence/query", post(coherence::coherence_query_handler))
-        .route("/api/v1/contradictions", get(coherence::contradictions_list_handler).post(coherence::contradiction_create_handler))
-        .route("/api/v1/contradictions/:id/resolve", post(coherence::contradiction_resolve_handler))
-        .route("/api/v1/epistemic/audit", get(coherence::epistemic_audit_handler))
-        .route("/api/v1/epistemic/replay", get(coherence::epistemic_replay_handler))
+        .route(
+            "/api/v1/coherence/edit",
+            post(coherence::coherence_edit_handler),
+        )
+        .route(
+            "/api/v1/coherence/delete",
+            post(coherence::coherence_delete_handler),
+        )
+        .route(
+            "/api/v1/hypotheses",
+            get(coherence::hypotheses_list_handler).post(coherence::hypothesis_create_handler),
+        )
+        .route(
+            "/api/v1/hypotheses/:id",
+            get(coherence::hypothesis_get_handler),
+        )
+        .route(
+            "/api/v1/hypotheses/:id/evidence",
+            post(coherence::hypothesis_evidence_handler),
+        )
+        .route(
+            "/api/v1/hypotheses/:id/prediction",
+            post(coherence::hypothesis_prediction_handler),
+        )
+        .route(
+            "/api/v1/hypotheses/:id/transition",
+            post(coherence::hypothesis_transition_handler),
+        )
+        .route(
+            "/api/v1/explanation/:id",
+            get(coherence::explanation_get_handler),
+        )
+        .route(
+            "/api/v1/coherence/query",
+            post(coherence::coherence_query_handler),
+        )
+        .route(
+            "/api/v1/contradictions",
+            get(coherence::contradictions_list_handler)
+                .post(coherence::contradiction_create_handler),
+        )
+        .route(
+            "/api/v1/contradictions/:id/resolve",
+            post(coherence::contradiction_resolve_handler),
+        )
+        .route(
+            "/api/v1/epistemic/audit",
+            get(coherence::epistemic_audit_handler),
+        )
+        .route(
+            "/api/v1/epistemic/replay",
+            get(coherence::epistemic_replay_handler),
+        )
         .route("/api/v1/processes", get(coherence::processes_list_handler))
-        .route("/api/v1/ontology/discover", post(coherence::ontology_discover_handler))
-        .route("/api/v1/fitness/feedback", post(coherence::fitness_feedback_handler))
-        .route("/api/v1/harness/config", get(coherence::harness_config_handler))
-        .route("/api/v1/harness/evaluate", post(coherence::harness_evaluate_handler))
-        .route("/api/v1/harness/generate", post(coherence::harness_generate_handler))
+        .route(
+            "/api/v1/ontology/discover",
+            post(coherence::ontology_discover_handler),
+        )
+        .route(
+            "/api/v1/fitness/feedback",
+            post(coherence::fitness_feedback_handler),
+        )
+        .route(
+            "/api/v1/harness/config",
+            get(coherence::harness_config_handler),
+        )
+        .route(
+            "/api/v1/harness/evaluate",
+            post(coherence::harness_evaluate_handler),
+        )
+        .route(
+            "/api/v1/harness/generate",
+            post(coherence::harness_generate_handler),
+        )
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))
         .route("/api/v1/oee/plant", get(industrial::oee_plant_handler))
-        .route("/api/v1/oee/:machine", get(industrial::oee_machine_report_handler))
+        .route(
+            "/api/v1/oee/:machine",
+            get(industrial::oee_machine_report_handler),
+        )
         .route(
             "/api/v1/maintenance/observe",
             post(industrial::maintenance_observe_handler),
         )
-        .route("/api/v1/maintenance/check", post(industrial::maintenance_check_handler))
+        .route(
+            "/api/v1/maintenance/check",
+            post(industrial::maintenance_check_handler),
+        )
         .route("/api/v1/oee/compute", post(industrial::oee_compute_handler))
         .route("/api/v1/oee/rollup", post(industrial::oee_rollup_handler))
         .route(
             "/api/v1/report/shift",
-            get(admin_study::report_shift_live_handler).post(admin_study::report_shift_compute_handler),
+            get(admin_study::report_shift_live_handler)
+                .post(admin_study::report_shift_compute_handler),
         )
         .route(
             "/api/v1/operational/timeline",
@@ -2671,94 +2712,226 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             get(context::operational_timeline_demo_events_handler),
         )
         .route("/api/v1/study/log", post(admin_study::study_log_handler))
-        .route("/api/v1/study/session", get(admin_study::study_session_handler))
-        .route("/api/v1/study/clear", post(admin_study::study_clear_handler))
+        .route(
+            "/api/v1/study/session",
+            get(admin_study::study_session_handler),
+        )
+        .route(
+            "/api/v1/study/clear",
+            post(admin_study::study_clear_handler),
+        )
+        // Durable shift history (PLAN 5.1 + 5.3): CSV/JSON import, tenant-scoped.
+        .route("/api/v1/shifts/import", post(shifts::shifts_import_handler))
+        .route("/api/v1/shifts", get(shifts::shifts_list_handler))
+        .route("/api/v1/shifts/report", get(shifts::shifts_report_handler))
+        .route("/api/v1/shifts/export", get(shifts::shifts_export_handler))
+        .route("/api/v1/shifts/clear", post(shifts::shifts_clear_handler))
         // Agent orchestration surface (Physis as the host/harness).
         .route("/agent", get(agent::agent_ui_handler))
         .route("/api/v1/agent/caps", get(agent::agent_capabilities_handler))
         .route("/api/v1/agent/run", post(agent::agent_run_handler))
         .route("/api/v1/agent/abort", post(agent::agent_abort_handler))
         .route("/api/v1/discover", post(context::discover_handler))
-        .route("/api/v1/planner/simulate", post(context::planner_simulate_handler))
-        .route("/api/v1/admin/review", post(admin_study::admin_review_handler))
-        .route("/api/v1/maintenance/fold", post(industrial::maintenance_fold_handler))
-        .route("/api/v1/maintenance/score", post(industrial::maintenance_score_handler))
-        .route("/api/v1/maintenance/rul", post(industrial::maintenance_rul_handler))
+        .route(
+            "/api/v1/planner/simulate",
+            post(context::planner_simulate_handler),
+        )
+        .route(
+            "/api/v1/admin/review",
+            post(admin_study::admin_review_handler),
+        )
+        .route(
+            "/api/v1/maintenance/fold",
+            post(industrial::maintenance_fold_handler),
+        )
+        .route(
+            "/api/v1/maintenance/score",
+            post(industrial::maintenance_score_handler),
+        )
+        .route(
+            "/api/v1/maintenance/rul",
+            post(industrial::maintenance_rul_handler),
+        )
         .route(
             "/api/v1/maintenance/:machine",
             get(industrial::maintenance_baseline_handler),
         )
-        .route("/api/v1/context/filter", post(context::context_filter_handler))
-        .route("/api/v1/compress/logs", post(context::compress_logs_handler))
+        .route(
+            "/api/v1/context/filter",
+            post(context::context_filter_handler),
+        )
+        .route(
+            "/api/v1/compress/logs",
+            post(context::compress_logs_handler),
+        )
         .route("/api/v1/goals", post(pdca::ingest_prompt_handler))
         .route("/api/v1/pdca/plan", get(pdca::pdca_plan_handler))
         .route("/api/v1/pdca/act", post(pdca::pdca_act_handler))
         .route("/api/v1/pdca/stats", get(pdca::pdca_stats_handler))
-        .route("/api/v1/config/reload", post(context::config_reload_handler))
+        .route(
+            "/api/v1/config/reload",
+            post(context::config_reload_handler),
+        )
         .route("/api/v1/reconstruct", post(context::reconstruct_handler))
         .route("/api/v1/translate", post(context::translate_handler))
-        .route("/api/v1/holarchy/ingest", post(holarchy::holarchy_ingest_handler))
-        .route("/api/v1/holarchy/edge", post(holarchy::holarchy_edge_handler))
-        .route("/api/v1/holarchy/snapshot", get(holarchy::holarchy_snapshot_handler))
+        .route(
+            "/api/v1/holarchy/ingest",
+            post(holarchy::holarchy_ingest_handler),
+        )
+        .route(
+            "/api/v1/holarchy/edge",
+            post(holarchy::holarchy_edge_handler),
+        )
+        .route(
+            "/api/v1/holarchy/snapshot",
+            get(holarchy::holarchy_snapshot_handler),
+        )
         .route(
             "/api/v1/holarchy/trajectory",
             get(holarchy::holarchy_trajectory_handler),
         )
-        .route("/api/v1/holarchy/graph", get(holarchy::holarchy_graph_handler))
+        .route(
+            "/api/v1/holarchy/graph",
+            get(holarchy::holarchy_graph_handler),
+        )
         .route(
             "/api/v1/holarchy/neighbors",
             get(holarchy::holarchy_neighbors_handler),
         )
-        .route("/api/v1/schedule/status", get(pdca::schedule_status_handler))
+        .route(
+            "/api/v1/schedule/status",
+            get(pdca::schedule_status_handler),
+        )
         .route(
             "/api/v1/schedule/cross-correlate",
             get(pdca::schedule_cross_correlate_handler),
         )
-        .route("/api/v1/schedule/add-task", post(pdca::schedule_add_task_handler))
+        .route(
+            "/api/v1/schedule/add-task",
+            post(pdca::schedule_add_task_handler),
+        )
         .route(
             "/api/v1/schedule/recompute",
             post(pdca::schedule_recompute_handler),
         )
-        .route("/api/v1/schedule/compute", post(pdca::schedule_compute_handler))
+        .route(
+            "/api/v1/schedule/compute",
+            post(pdca::schedule_compute_handler),
+        )
         .route("/api/v1/lifeos/goal", post(pdca::lifeos_goal_handler))
-        .route("/api/v1/lifeos/progress", post(pdca::lifeos_progress_handler))
+        .route(
+            "/api/v1/lifeos/progress",
+            post(pdca::lifeos_progress_handler),
+        )
         .route("/api/v1/lifeos/status", get(pdca::lifeos_status_handler))
         .route("/api/v1/lifeos/charge", post(pdca::lifeos_charge_handler))
         .route("/api/v1/lifeos/today", get(pdca::lifeos_today_handler))
         // Semiotic / Ontology endpoints
-        .route("/api/v1/ontology/list", get(wiki_semiotic::ontology_list_handler))
-        .route("/api/v1/ontology/studio", get(wiki_semiotic::ontology_studio_handler))
-        .route("/api/v1/ontology/meaning", get(wiki_semiotic::ontology_meaning_handler))
-        .route("/api/v1/semiotic/grid", get(wiki_semiotic::semiotic_grid_handler))
-        .route("/api/v1/semiotic/triangle", get(wiki_semiotic::semiotic_triangle_handler))
-        .route("/api/v1/semiotic/square", get(wiki_semiotic::greimas_square_handler))
-        .route("/api/v1/semiotic/heatmap", get(wiki_semiotic::heatmap_handler))
+        .route(
+            "/api/v1/ontology/list",
+            get(wiki_semiotic::ontology_list_handler),
+        )
+        .route(
+            "/api/v1/ontology/studio",
+            get(wiki_semiotic::ontology_studio_handler),
+        )
+        .route(
+            "/api/v1/ontology/meaning",
+            get(wiki_semiotic::ontology_meaning_handler),
+        )
+        .route(
+            "/api/v1/semiotic/grid",
+            get(wiki_semiotic::semiotic_grid_handler),
+        )
+        .route(
+            "/api/v1/semiotic/triangle",
+            get(wiki_semiotic::semiotic_triangle_handler),
+        )
+        .route(
+            "/api/v1/semiotic/square",
+            get(wiki_semiotic::greimas_square_handler),
+        )
+        .route(
+            "/api/v1/semiotic/heatmap",
+            get(wiki_semiotic::heatmap_handler),
+        )
         .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
         .route("/api/v1/embed", post(wiki_semiotic::embed_handler))
-        .route("/api/v1/embed/video", post(wiki_semiotic::embed_video_handler))
-        .route("/api/v1/category/diagram", post(wiki_semiotic::category_diagram_handler))
+        .route(
+            "/api/v1/embed/video",
+            post(wiki_semiotic::embed_video_handler),
+        )
+        .route(
+            "/api/v1/category/diagram",
+            post(wiki_semiotic::category_diagram_handler),
+        )
         // Philosophical machines: registry + stateless reducers.
         .route("/api/v1/machines", get(machines::machines_list_handler))
-        .route("/api/v1/machines/chronos", post(machines::machines_chronos_handler))
-        .route("/api/v1/machines/topos", post(machines::machines_topos_handler))
-        .route("/api/v1/machines/harmony", post(machines::machines_harmony_handler))
-        .route("/api/v1/machines/polis", post(machines::machines_polis_handler))
-        .route("/api/v1/machines/soma", post(machines::machines_soma_handler))
-        .route("/api/v1/machines/elenchus", post(machines::machines_elenchus_handler))
+        .route(
+            "/api/v1/machines/chronos",
+            post(machines::machines_chronos_handler),
+        )
+        .route(
+            "/api/v1/machines/topos",
+            post(machines::machines_topos_handler),
+        )
+        .route(
+            "/api/v1/machines/harmony",
+            post(machines::machines_harmony_handler),
+        )
+        .route(
+            "/api/v1/machines/polis",
+            post(machines::machines_polis_handler),
+        )
+        .route(
+            "/api/v1/machines/soma",
+            post(machines::machines_soma_handler),
+        )
+        .route(
+            "/api/v1/machines/elenchus",
+            post(machines::machines_elenchus_handler),
+        )
         .route("/api/v1/machines/lex", post(machines::machines_lex_handler))
         .route(
             "/api/v1/machines/empedocles",
             post(machines::machines_empedocles_handler),
         )
-        .route("/api/v1/machines/erosp", post(machines::machines_erosp_handler))
-        .route("/api/v1/machines/erosa", post(machines::machines_erosa_handler))
-        .route("/api/v1/machines/techne", post(machines::machines_techne_handler))
-        .route("/api/v1/machines/euclid", post(machines::machines_euclid_handler))
-        .route("/api/v1/machines/plutos", post(machines::machines_plutos_handler))
-        .route("/api/v1/machines/krisis", post(machines::machines_krisis_handler))
-        .route("/api/v1/machines/pathos", post(machines::machines_pathos_handler))
-        .route("/api/v1/machines/chroma", post(machines::machines_chroma_handler))
-        .route("/api/v1/machines/kinesis", post(machines::machines_kinesis_handler))
+        .route(
+            "/api/v1/machines/erosp",
+            post(machines::machines_erosp_handler),
+        )
+        .route(
+            "/api/v1/machines/erosa",
+            post(machines::machines_erosa_handler),
+        )
+        .route(
+            "/api/v1/machines/techne",
+            post(machines::machines_techne_handler),
+        )
+        .route(
+            "/api/v1/machines/euclid",
+            post(machines::machines_euclid_handler),
+        )
+        .route(
+            "/api/v1/machines/plutos",
+            post(machines::machines_plutos_handler),
+        )
+        .route(
+            "/api/v1/machines/krisis",
+            post(machines::machines_krisis_handler),
+        )
+        .route(
+            "/api/v1/machines/pathos",
+            post(machines::machines_pathos_handler),
+        )
+        .route(
+            "/api/v1/machines/chroma",
+            post(machines::machines_chroma_handler),
+        )
+        .route(
+            "/api/v1/machines/kinesis",
+            post(machines::machines_kinesis_handler),
+        )
         .route(
             "/api/v1/machines/apodeixis",
             post(machines::machines_apodeixis_handler),
@@ -2774,8 +2947,14 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // handlers answer "wiki-embedded feature not enabled" when the feature is
     // off, which tells a caller more than a 404 would.
     let protected = protected
-        .route("/api/v1/wiki/search", post(wiki_semiotic::wiki_search_handler))
-        .route("/api/v1/wiki/index", post(wiki_semiotic::wiki_index_handler));
+        .route(
+            "/api/v1/wiki/search",
+            post(wiki_semiotic::wiki_search_handler),
+        )
+        .route(
+            "/api/v1/wiki/index",
+            post(wiki_semiotic::wiki_index_handler),
+        );
 
     // MCP SSE transport — gated like every other route. The URL + port are not a
     // secret; the token is. (Was previously exposed without auth — see PREMORTEM P6.)
@@ -2788,7 +2967,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     #[cfg(feature = "spanner")]
     let protected = protected
         .route("/api/v1/spanner/sync", post(spanner::spanner_sync_handler))
-        .route("/api/v1/spanner/hydrate", post(spanner::spanner_hydrate_handler));
+        .route(
+            "/api/v1/spanner/hydrate",
+            post(spanner::spanner_hydrate_handler),
+        );
 
     let protected =
         protected.route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
@@ -2815,7 +2997,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
 pub async fn serve() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            std::env::var("PHYSIS_LOG").unwrap_or_else(|_| "info,physis=info,tower_http=info".into()),
+            std::env::var("PHYSIS_LOG")
+                .unwrap_or_else(|_| "info,physis=info,tower_http=info".into()),
         )
         .with_target(false)
         .with_thread_ids(true)
@@ -2862,12 +3045,6 @@ pub async fn serve() {
 //   POST /mcp/message           → send JSON-RPC to server
 //
 // Each SSE session creates a channel-based transport for rmcp::serve_server.
-
-
-
-
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Philosophical machines — HTTP surface.
@@ -3236,5 +3413,3 @@ pub struct AxesDemoteRequest {
 pub struct AxesLineageQuery {
     id: String,
 }
-
-

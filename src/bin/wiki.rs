@@ -18,6 +18,11 @@ use std::time::{Duration, Instant};
 
 use tokio::sync::mpsc;
 
+use crossterm::{
+    event::{self, Event, KeyCode, KeyModifiers},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use ratatui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
@@ -25,11 +30,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Terminal,
-};
-use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use serde::Deserialize;
 
@@ -105,9 +105,10 @@ struct Api {
 impl Api {
     fn from_env() -> Self {
         Api {
-            base: std::env::var("PHYSIS_URL")
-                .unwrap_or_else(|_| "http://127.0.0.1:19876".into()),
-            token: std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty()),
+            base: std::env::var("PHYSIS_URL").unwrap_or_else(|_| "http://127.0.0.1:19876".into()),
+            token: std::env::var("PHYSIS_API_TOKEN")
+                .ok()
+                .filter(|t| !t.is_empty()),
             user: std::env::var("PHYSIS_USER").ok().filter(|u| !u.is_empty()),
             http: reqwest::Client::new(),
         }
@@ -127,7 +128,11 @@ impl Api {
     async fn reconstruct(&self, input: &str) -> anyhow::Result<Vec<Neighbor>> {
         let url = format!("{}/api/v1/reconstruct", self.base);
         let r: Reconstruction = self
-            .auth(self.http.post(url).json(&serde_json::json!({ "input": input })))
+            .auth(
+                self.http
+                    .post(url)
+                    .json(&serde_json::json!({ "input": input })),
+            )
             .send()
             .await?
             .error_for_status()?
@@ -139,7 +144,11 @@ impl Api {
     async fn classify(&self, text: &str) -> anyhow::Result<CellScore> {
         let url = format!("{}/api/v1/classify", self.base);
         let r: ClassifyResponse = self
-            .auth(self.http.post(url).json(&serde_json::json!({ "text": text })))
+            .auth(
+                self.http
+                    .post(url)
+                    .json(&serde_json::json!({ "text": text })),
+            )
             .send()
             .await?
             .error_for_status()?
@@ -182,11 +191,11 @@ struct App {
     list: ListState,
     status: String,
     overlay: Option<(String, String)>, // (title, body) — heatmap / dreams
-    dirty: bool,                        // query edited since last search
-    last_edit: Instant,                 // for debounce
-    searched: String,                   // query of the last completed search
-    seq: u64,                           // monotonic id of the last dispatched search
-    applied_seq: u64,                   // seq of the last result applied to the UI
+    dirty: bool,                       // query edited since last search
+    last_edit: Instant,                // for debounce
+    searched: String,                  // query of the last completed search
+    seq: u64,                          // monotonic id of the last dispatched search
+    applied_seq: u64,                  // seq of the last result applied to the UI
 }
 
 /// A completed background search, tagged with the seq it was dispatched under so
@@ -296,7 +305,12 @@ fn dispatch_search(app: &mut App, api: &Api, tx: &mpsc::UnboundedSender<SearchMs
     tokio::spawn(async move {
         let neighbors = task_api.reconstruct(&q).await.map_err(|e| e.to_string());
         let cell = task_api.classify(&q).await.unwrap_or_default();
-        let _ = tx.send(SearchMsg { seq, query: q, neighbors, cell });
+        let _ = tx.send(SearchMsg {
+            seq,
+            query: q,
+            neighbors,
+            cell,
+        });
     });
 }
 
@@ -332,7 +346,9 @@ async fn run<B: ratatui::backend::Backend>(
         }
 
         if event::poll(Duration::from_millis(120))? {
-            let Event::Key(key) = event::read()? else { continue };
+            let Event::Key(key) = event::read()? else {
+                continue;
+            };
             if key.kind != crossterm::event::KeyEventKind::Press {
                 continue;
             }
@@ -352,7 +368,9 @@ async fn run<B: ratatui::backend::Backend>(
                 KeyCode::Down => app.move_sel(1),
                 KeyCode::Up => app.move_sel(-1),
                 KeyCode::F(2) => match api.heatmap().await {
-                    Ok(t) => app.overlay = Some((" SEMIOTIC HEATMAP — any key to close ".into(), t)),
+                    Ok(t) => {
+                        app.overlay = Some((" SEMIOTIC HEATMAP — any key to close ".into(), t))
+                    }
                     Err(e) => app.status = format!("heatmap failed: {e}"),
                 },
                 KeyCode::F(3) => match api.dreams().await {
@@ -363,7 +381,8 @@ async fn run<B: ratatui::backend::Backend>(
                             d.dreams
                                 .iter()
                                 .map(|x| {
-                                    let g = x.grade.map(|g| format!("  [{g:.2}]")).unwrap_or_default();
+                                    let g =
+                                        x.grade.map(|g| format!("  [{g:.2}]")).unwrap_or_default();
                                     format!("✦ {}{g}\n   {}", x.id, x.source)
                                 })
                                 .collect::<Vec<_>>()
@@ -422,7 +441,9 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         Span::styled("search ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             &app.query,
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled("▏", Style::default().fg(Color::Cyan)),
     ]))
@@ -449,7 +470,10 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                 text = format!("{}…", text.chars().take(60).collect::<String>());
             }
             ListItem::new(Line::from(vec![
-                Span::styled("● ", Style::default().fg(coherence_color(n.coherence_score))),
+                Span::styled(
+                    "● ",
+                    Style::default().fg(coherence_color(n.coherence_score)),
+                ),
                 Span::styled(
                     format!("{:.2}  ", n.cosine_similarity),
                     Style::default().fg(Color::Yellow),
@@ -478,7 +502,9 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     if let Some(n) = app.selected() {
         lines.push(Line::from(Span::styled(
             n.display().to_string(),
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
         )));
         if n.label.is_some() {
             lines.push(Line::from(Span::styled(
@@ -506,9 +532,14 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         lines.push(Line::from(vec![
             Span::styled(
                 format!("{} × {}", c.domain, c.mode),
-                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(format!("  ({:.2})", c.score), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                format!("  ({:.2})", c.score),
+                Style::default().fg(Color::Yellow),
+            ),
         ]));
         if !c.entries.is_empty() {
             lines.push(Line::from(Span::styled(

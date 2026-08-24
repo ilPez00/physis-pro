@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 
 pub async fn coherence_snapshot_handler(
     State(state): State<SharedState>,
@@ -234,7 +237,9 @@ pub async fn coherence_edit_handler(
 /// per-tenant: the penalties apply to the shared classifier.
 pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityResponse> {
     let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
-    let boosts: HashMap<String, f32> = quality.cell_boosts.iter()
+    let boosts: HashMap<String, f32> = quality
+        .cell_boosts
+        .iter()
         .map(|(k, b)| (k.clone(), b.current_value()))
         .collect();
     Json(QualityResponse {
@@ -277,7 +282,9 @@ use physis_core::coherence_query::{EpistemicQuery, EpistemicQueryResult};
 use physis_core::contradiction::{Contradiction, ContradictionParty, ResolutionStatus};
 use physis_core::epistemic::EpistemicEvent;
 use physis_core::explanation::ExplanationReport;
-use physis_core::hypothesis::{Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction};
+use physis_core::hypothesis::{
+    Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction,
+};
 use physis_core::quality::FitnessContext;
 
 #[derive(Debug, Deserialize)]
@@ -370,7 +377,11 @@ pub async fn hypotheses_list_handler(
         if let Some(min_fit) = params.min_fitness {
             list.retain(|h| h.fitness >= min_fit);
         }
-        list.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+        list.sort_by(|a, b| {
+            b.fitness
+                .partial_cmp(&a.fitness)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         if let Some(lim) = params.limit {
             list.truncate(lim);
         }
@@ -411,7 +422,10 @@ pub async fn hypothesis_get_handler(
     let hyp = state.with_user(&uid, |s| s.core.hypothesis(&id).cloned());
     match hyp {
         Some(h) => Ok(Json(h)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("Hypothesis {} not found", id),
+        )),
     }
 }
 
@@ -447,7 +461,10 @@ pub async fn hypothesis_evidence_handler(
     });
     match updated {
         Some(h) => Ok(Json(h)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("Hypothesis {} not found", id),
+        )),
     }
 }
 
@@ -465,7 +482,11 @@ pub async fn hypothesis_prediction_handler(
             statement: req.statement,
             expected_outcome: req.expected_outcome,
             made_at: chrono::Utc::now(),
-            observed_at: if req.actual_outcome.is_some() { Some(chrono::Utc::now()) } else { None },
+            observed_at: if req.actual_outcome.is_some() {
+                Some(chrono::Utc::now())
+            } else {
+                None
+            },
             actual_outcome: req.actual_outcome,
             correct: req.correct,
             confidence: req.confidence.unwrap_or(0.8),
@@ -475,7 +496,10 @@ pub async fn hypothesis_prediction_handler(
     });
     match updated {
         Some(h) => Ok(Json(h)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("Hypothesis {} not found", id),
+        )),
     }
 }
 
@@ -497,16 +521,25 @@ pub async fn hypothesis_transition_handler(
         "superseded" => HypothesisStatus::Superseded,
         "isolated" => HypothesisStatus::Isolated,
         "certified" => HypothesisStatus::Certified,
-        _ => return Err(err_response(StatusCode::BAD_REQUEST, &format!("Invalid status: {}", req.status))),
+        _ => {
+            return Err(err_response(
+                StatusCode::BAD_REQUEST,
+                &format!("Invalid status: {}", req.status),
+            ))
+        }
     };
 
     let updated = state.with_user(&uid, |s| {
-        s.core.transition_hypothesis(&id, new_status, &req.reason, req.trigger_id);
+        s.core
+            .transition_hypothesis(&id, new_status, &req.reason, req.trigger_id);
         s.core.hypothesis(&id).cloned()
     });
     match updated {
         Some(h) => Ok(Json(h)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Hypothesis {} not found", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("Hypothesis {} not found", id),
+        )),
     }
 }
 
@@ -520,7 +553,10 @@ pub async fn explanation_get_handler(
     let report = state.with_user(&uid, |s| s.core.full_explanation_report(&id));
     match report {
         Some(r) => Ok(Json(r)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("No explanation available for {}", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("No explanation available for {}", id),
+        )),
     }
 }
 
@@ -561,7 +597,12 @@ pub async fn contradiction_create_handler(
             contra.explanation = Some(exp);
         }
         let id = s.core.record_contradiction(contra.clone());
-        s.core.contradictions.iter().find(|c| c.id == id).cloned().unwrap_or(contra)
+        s.core
+            .contradictions
+            .iter()
+            .find(|c| c.id == id)
+            .cloned()
+            .unwrap_or(contra)
     });
     (StatusCode::CREATED, Json(created))
 }
@@ -584,7 +625,10 @@ pub async fn contradiction_resolve_handler(
     });
     match updated {
         Some(c) => Ok(Json(c)),
-        None => Err(err_response(StatusCode::NOT_FOUND, &format!("Contradiction {} not found", id))),
+        None => Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("Contradiction {} not found", id),
+        )),
     }
 }
 
@@ -607,11 +651,17 @@ pub async fn epistemic_replay_handler(
     let uid = user_key(&headers);
     let target_time = match chrono::DateTime::parse_from_rfc3339(&params.at) {
         Ok(dt) => dt.with_timezone(&chrono::Utc),
-        Err(e) => return Err(err_response(StatusCode::BAD_REQUEST, &format!("Invalid timestamp {}: {}", params.at, e))),
+        Err(e) => {
+            return Err(err_response(
+                StatusCode::BAD_REQUEST,
+                &format!("Invalid timestamp {}: {}", params.at, e),
+            ))
+        }
     };
 
     let belief = state.with_user(&uid, |s| {
-        s.core.reconstruct_belief_at(&params.subject_id, target_time)
+        s.core
+            .reconstruct_belief_at(&params.subject_id, target_time)
     });
 
     Ok(Json(serde_json::json!({
@@ -706,9 +756,7 @@ pub struct HarnessGenerateRequest {
 }
 
 /// GET /api/v1/harness/config — retrieve available providers and default harness rules.
-pub async fn harness_config_handler(
-    State(state): State<SharedState>,
-) -> Json<serde_json::Value> {
+pub async fn harness_config_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
     let providers = state.shared.cascade.providers_list();
     Json(serde_json::json!({
         "default_config": crate::ai::harness::HarnessConfig::default(),
@@ -762,6 +810,3 @@ pub async fn harness_generate_handler(
 
     Ok(Json(result))
 }
-
-
-

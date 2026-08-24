@@ -83,7 +83,11 @@ impl Default for DyadConfig {
 }
 
 fn dist(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| (x - y) * (x - y)).sum::<f32>().sqrt()
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y) * (x - y))
+        .sum::<f32>()
+        .sqrt()
 }
 
 /// A population of nodes evolving under the dyad. Deterministic given its seed.
@@ -106,7 +110,12 @@ impl NodeField {
                 label: None,
             })
             .collect();
-        Self { nodes, cfg, rng, dim }
+        Self {
+            nodes,
+            cfg,
+            rng,
+            dim,
+        }
     }
 
     /// Seed the field from real node embeddings (e.g. coherence-node vectors) at
@@ -119,9 +128,19 @@ impl NodeField {
         let dim = positions.first().map_or(0, Vec::len);
         let nodes = positions
             .into_iter()
-            .map(|pos| FieldNode { pos, charge: 1.0, age: 0, label: None })
+            .map(|pos| FieldNode {
+                pos,
+                charge: 1.0,
+                age: 0,
+                label: None,
+            })
             .collect();
-        Self { nodes, cfg, rng: StdRng::seed_from_u64(seed), dim }
+        Self {
+            nodes,
+            cfg,
+            rng: StdRng::seed_from_u64(seed),
+            dim,
+        }
     }
 
     /// Seed from `(vector, class)` pairs at full charge. Used by the no-regression
@@ -131,9 +150,19 @@ impl NodeField {
         let dim = items.first().map_or(0, |(p, _)| p.len());
         let nodes = items
             .into_iter()
-            .map(|(pos, label)| FieldNode { pos, charge: 1.0, age: 0, label: Some(label) })
+            .map(|(pos, label)| FieldNode {
+                pos,
+                charge: 1.0,
+                age: 0,
+                label: Some(label),
+            })
             .collect();
-        Self { nodes, cfg, rng: StdRng::seed_from_u64(seed), dim }
+        Self {
+            nodes,
+            cfg,
+            rng: StdRng::seed_from_u64(seed),
+            dim,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -194,7 +223,11 @@ impl NodeField {
         for (node, dl) in self.nodes.iter_mut().zip(&delta) {
             // Velocity clamp: scale the displacement down if it exceeds max_step.
             let mag = dl.iter().map(|x| x * x).sum::<f32>().sqrt();
-            let scale = if mag > max_step && mag > 1e-9 { max_step / mag } else { 1.0 };
+            let scale = if mag > max_step && mag > 1e-9 {
+                max_step / mag
+            } else {
+                1.0
+            };
             for k in 0..self.dim {
                 node.pos[k] += dl[k] * scale;
             }
@@ -234,7 +267,12 @@ impl NodeField {
                             (Some(a), Some(b)) if a == b => Some(a),
                             _ => None,
                         };
-                        offspring.push(FieldNode { pos, charge, age: 0, label });
+                        offspring.push(FieldNode {
+                            pos,
+                            charge,
+                            age: 0,
+                            label,
+                        });
                         if self.nodes.len() + offspring.len() >= self.cfg.max_nodes {
                             break;
                         }
@@ -350,8 +388,7 @@ pub fn regime(sizes: &[usize], total: usize) -> (Regime, f32) {
         return (Regime::Subcritical, 0.0);
     }
     let largest = sizes[0] as f32 / total as f32;
-    let singleton_frac =
-        sizes.iter().filter(|&&s| s == 1).count() as f32 / sizes.len() as f32;
+    let singleton_frac = sizes.iter().filter(|&&s| s == 1).count() as f32 / sizes.len() as f32;
     let r = if largest > 0.6 {
         Regime::Supercritical
     } else if singleton_frac > 0.9 {
@@ -476,7 +513,11 @@ mod tests {
             f.step();
         }
         let sizes = f.cluster_sizes(0.1);
-        assert_eq!(sizes.len(), 2, "near pair should cluster, far point separate");
+        assert_eq!(
+            sizes.len(),
+            2,
+            "near pair should cluster, far point separate"
+        );
         assert_eq!(sizes[0], 2, "the two near vectors must coalesce");
     }
 
@@ -545,7 +586,10 @@ mod tests {
             .filter(|(p, y)| field.classify_nearest_label(p) == Some(*y))
             .count();
 
-        assert!(base_correct >= test.len() - 1, "baseline must be near-perfect");
+        assert!(
+            base_correct >= test.len() - 1,
+            "baseline must be near-perfect"
+        );
         assert!(
             dyad_correct >= base_correct,
             "dyad regressed classification: {dyad_correct} vs baseline {base_correct} of {}",

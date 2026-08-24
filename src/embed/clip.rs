@@ -21,10 +21,16 @@ pub struct ClipEmbedder {
 use super::load_onnx_session as load_session;
 
 impl ClipEmbedder {
-    fn load_text(model_dir: &str) -> (Option<ort::session::Session>, Option<tokenizers::Tokenizer>) {
+    fn load_text(
+        model_dir: &str,
+    ) -> (Option<ort::session::Session>, Option<tokenizers::Tokenizer>) {
         let model_path = Path::new(model_dir).join("onnx/text_model.onnx");
         let tok_path = Path::new(model_dir).join("tokenizer.json");
-        let session = if model_path.exists() { load_session(&model_path) } else { None };
+        let session = if model_path.exists() {
+            load_session(&model_path)
+        } else {
+            None
+        };
         let tokenizer = if tok_path.exists() {
             tokenizers::Tokenizer::from_file(&tok_path).ok()
         } else {
@@ -35,7 +41,11 @@ impl ClipEmbedder {
 
     fn load_vision(model_dir: &str) -> Option<ort::session::Session> {
         let model_path = Path::new(model_dir).join("onnx/vision_model.onnx");
-        if model_path.exists() { load_session(&model_path) } else { None }
+        if model_path.exists() {
+            load_session(&model_path)
+        } else {
+            None
+        }
     }
 
     pub fn new(model_dir: &str) -> Self {
@@ -52,7 +62,10 @@ impl ClipEmbedder {
     }
 
     pub fn with_config(config: &OnnxConfig) -> Self {
-        let model_dir = config.model_dir.as_deref().unwrap_or("./models/clip-vit-base-patch32");
+        let model_dir = config
+            .model_dir
+            .as_deref()
+            .unwrap_or("./models/clip-vit-base-patch32");
         Self::new(model_dir)
     }
 
@@ -74,7 +87,14 @@ impl ClipEmbedder {
         let cx = new_w / 2;
         let cy = new_h / 2;
         let crop_size = 224.min(new_w).min(new_h);
-        let cropped = image::imageops::crop_imm(&resized, cx - crop_size / 2, cy - crop_size / 2, crop_size, crop_size).to_image();
+        let cropped = image::imageops::crop_imm(
+            &resized,
+            cx - crop_size / 2,
+            cy - crop_size / 2,
+            crop_size,
+            crop_size,
+        )
+        .to_image();
         let mean = [0.48145466f32, 0.4578275, 0.40821073];
         let std = [0.26862954f32, 0.261_302_6, 0.275_777_1];
         let mut tensor = Vec::with_capacity(3 * 224 * 224);
@@ -94,11 +114,23 @@ impl ClipEmbedder {
         let tokenizer = self.tokenizer.as_ref()?;
         let encoding = tokenizer.encode(text, true).ok()?;
         let actual_len = encoding.len().min(self.max_length);
-        let mut ids: Vec<i64> = encoding.get_ids().iter().take(self.max_length).map(|&v| v as i64).collect();
+        let mut ids: Vec<i64> = encoding
+            .get_ids()
+            .iter()
+            .take(self.max_length)
+            .map(|&v| v as i64)
+            .collect();
         ids.resize(self.max_length, 0i64);
-        let mut type_ids: Vec<i64> = encoding.get_type_ids().iter().take(self.max_length).map(|&v| v as i64).collect();
+        let mut type_ids: Vec<i64> = encoding
+            .get_type_ids()
+            .iter()
+            .take(self.max_length)
+            .map(|&v| v as i64)
+            .collect();
         type_ids.resize(self.max_length, 0i64);
-        let mask: Vec<i64> = (0..self.max_length).map(|i| if i < actual_len { 1i64 } else { 0i64 }).collect();
+        let mask: Vec<i64> = (0..self.max_length)
+            .map(|i| if i < actual_len { 1i64 } else { 0i64 })
+            .collect();
         let shape = vec![1i64, self.max_length as i64];
         let input_ids = Tensor::<i64>::from_array((shape.clone(), ids)).ok()?;
         let attn_mask = Tensor::<i64>::from_array((shape.clone(), mask)).ok()?;
@@ -111,7 +143,9 @@ impl ClipEmbedder {
         let mut guard = self.text_session.lock().unwrap();
         let s = guard.as_mut()?;
         let outputs = s.run(inputs).ok()?;
-        let out = outputs.get("text_embeds").or_else(|| (outputs.len() > 0).then(|| &outputs[0]))?;
+        let out = outputs
+            .get("text_embeds")
+            .or_else(|| (outputs.len() > 0).then(|| &outputs[0]))?;
         let t = out.downcast_ref::<DynTensorValueType>().ok()?;
         let view = t.try_extract_array::<f32>().ok()?;
         let shape = view.shape();
@@ -128,19 +162,21 @@ impl ClipEmbedder {
 
 impl VectorEmbed for ClipEmbedder {
     fn embed(&self, text: &str) -> Vec<f32> {
-        self.run_text_session(text).unwrap_or_else(|| fallback_embed(text, self.dim))
+        self.run_text_session(text)
+            .unwrap_or_else(|| fallback_embed(text, self.dim))
     }
 
     fn embed_image(&self, bytes: &[u8]) -> Option<Vec<f32>> {
         let pixels = Self::preprocess_image(bytes)?;
         let pixel_tensor = Tensor::<f32>::from_array((vec![1i64, 3, 224, 224], pixels)).ok()?;
-        let inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> = vec![
-            ("pixel_values", pixel_tensor.into()),
-        ];
+        let inputs: Vec<(&str, ort::value::Value<ort::value::DynValueTypeMarker>)> =
+            vec![("pixel_values", pixel_tensor.into())];
         let mut guard = self.vision_session.lock().unwrap();
         let s = guard.as_mut()?;
         let outputs = s.run(inputs).ok()?;
-        let out = outputs.get("image_embeds").or_else(|| (outputs.len() > 0).then(|| &outputs[0]))?;
+        let out = outputs
+            .get("image_embeds")
+            .or_else(|| (outputs.len() > 0).then(|| &outputs[0]))?;
         let t = out.downcast_ref::<DynTensorValueType>().ok()?;
         let view = t.try_extract_array::<f32>().ok()?;
         let shape = view.shape();
@@ -161,7 +197,9 @@ impl VectorEmbed for ClipEmbedder {
 
 fn fallback_embed(text: &str, dim: usize) -> Vec<f32> {
     let mut v = vec![0.0f32; dim];
-    let h: u64 = text.bytes().fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
+    let h: u64 = text
+        .bytes()
+        .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(h);
     use rand::Rng;
     for x in &mut v {

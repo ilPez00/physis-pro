@@ -67,7 +67,12 @@ pub fn detect_preferences(choices: &[Choice]) -> Vec<Preference> {
             let (over, under) = if n > 0 { (a, b) } else { (b, a) };
             let margin = n.abs();
             let hash = format!("krisis_{over}_{under}");
-            Preference { over, under, margin, hash }
+            Preference {
+                over,
+                under,
+                margin,
+                hash,
+            }
         })
         .collect();
     out.sort_by_key(|p| std::cmp::Reverse(p.margin));
@@ -81,7 +86,10 @@ pub fn ranking(prefs: &[Preference]) -> Vec<Rank> {
         *score.entry(p.over.clone()).or_insert(0) += 1;
         *score.entry(p.under.clone()).or_insert(0) -= 1;
     }
-    let mut out: Vec<Rank> = score.into_iter().map(|(option, score)| Rank { option, score }).collect();
+    let mut out: Vec<Rank> = score
+        .into_iter()
+        .map(|(option, score)| Rank { option, score })
+        .collect();
     out.sort_by(|a, b| b.score.cmp(&a.score).then(a.option.cmp(&b.option)));
     out
 }
@@ -141,18 +149,25 @@ mod tests {
     use super::*;
 
     fn c(over: &str, under: &str) -> Choice {
-        Choice { over: over.into(), under: under.into() }
+        Choice {
+            over: over.into(),
+            under: under.into(),
+        }
     }
 
     #[test]
     fn net_preferences_and_ranking() {
         let choices = vec![
-            c("tea", "coffee"), c("tea", "coffee"), c("coffee", "tea"), // net tea≻coffee (1)
-            c("tea", "water"),                                          // tea≻water
-            c("coffee", "water"),                                       // coffee≻water
+            c("tea", "coffee"),
+            c("tea", "coffee"),
+            c("coffee", "tea"),   // net tea≻coffee (1)
+            c("tea", "water"),    // tea≻water
+            c("coffee", "water"), // coffee≻water
         ];
         let prefs = detect_preferences(&choices);
-        assert!(prefs.iter().any(|p| p.over == "tea" && p.under == "coffee" && p.margin == 1));
+        assert!(prefs
+            .iter()
+            .any(|p| p.over == "tea" && p.under == "coffee" && p.margin == 1));
         assert!(prefs.iter().any(|p| p.over == "tea" && p.under == "water"));
         let rank = ranking(&prefs);
         // tea beats 2, coffee net 0, water loses 2

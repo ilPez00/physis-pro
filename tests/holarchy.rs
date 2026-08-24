@@ -39,7 +39,10 @@ fn test_ingest_ring_spawn_and_push() {
     let ring = IngestRing::spawn(onnx_tx, graph_tx);
     ring.push(3, b"hello world".to_vec());
     let received = graph_rx.recv_timeout(std::time::Duration::from_secs(5));
-    assert!(received.is_ok(), "IngestRing should forward processed data to graph");
+    assert!(
+        received.is_ok(),
+        "IngestRing should forward processed data to graph"
+    );
     if let Ok((payload, embedding)) = received {
         assert!((payload.activation_energy - 2.0).abs() < 1e-6);
         assert_eq!(embedding.len(), 32);

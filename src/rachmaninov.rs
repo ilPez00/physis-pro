@@ -1,5 +1,5 @@
 use crate::graph::RawNodeKey;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Directive {
@@ -12,6 +12,13 @@ pub enum Directive {
 pub struct RachmaninovHolon {
     pub current_goal_vector: Vec<f32>,
     pub active_directives: Vec<Directive>,
+    /// Ticks since the last drift WARN was emitted. The holarchy ticks every
+    ~10s; an empty/quiet graph compares identical zero-vectors at sim=0.0 and
+    used to spam a WARN each tick. Rate-limit to one warning per 90 ticks
+    (~15 min) unless the similarity actually changes.
+    ticks_since_last_drift_warn: u32,
+    /// Similarity value the last drift WARN reported (dedupe key).
+    last_warned_sim: Option<f32>,
 }
 
 impl Default for RachmaninovHolon {
@@ -44,16 +51,19 @@ impl RachmaninovHolon {
 
         // 2. Act: Adjust internal state based on coherence drift
         if similarity < 0.7 {
-            log::warn!("Significant ontological drift detected (sim={:.4})", similarity);
-            
+            log::warn!(
+                "Significant ontological drift detected (sim={:.4})",
+                similarity
+            );
+
             // 3. Plan: Generate new directives
-            self.active_directives.push(Directive::Synthesize { 
-                nodes: vec![] // Future: identify specific outlier nodes
+            self.active_directives.push(Directive::Synthesize {
+                nodes: vec![], // Future: identify specific outlier nodes
             });
         } else if similarity < 0.9 {
             // Minor drift: Focus on existing nodes to stabilize
-            self.active_directives.push(Directive::Focus { 
-                node_id: RawNodeKey { data: 0 } // Dummy target
+            self.active_directives.push(Directive::Focus {
+                node_id: RawNodeKey { data: 0 }, // Dummy target
             });
         }
 

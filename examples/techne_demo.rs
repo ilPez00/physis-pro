@@ -9,7 +9,10 @@ use physis_pro::machines::techne::{
 };
 
 fn f(path: &str, lines: &[&str]) -> SourceFile {
-    SourceFile { path: path.to_string(), lines: lines.iter().map(|s| s.to_string()).collect() }
+    SourceFile {
+        path: path.to_string(),
+        lines: lines.iter().map(|s| s.to_string()).collect(),
+    }
 }
 
 fn main() {
@@ -18,12 +21,31 @@ fn main() {
         f("src/embed/mod.rs", &[]),
         f("src/embed/clip.rs", &["use crate::embed::VectorEmbed;"]),
         f("src/classify.rs", &["use crate::embed::VectorEmbed;"]),
-        f("src/core.rs", &["use crate::trie::Trie;", "use crate::graph::HolonicGraph;", "use crate::embed::VectorEmbed;"]),
+        f(
+            "src/core.rs",
+            &[
+                "use crate::trie::Trie;",
+                "use crate::graph::HolonicGraph;",
+                "use crate::embed::VectorEmbed;",
+            ],
+        ),
         f("src/trie.rs", &[]),
         f("src/graph.rs", &[]),
-        f("src/machines/chronos.rs", &["use crate::core::PhysisCore;", "use crate::embed::VectorEmbed;"]),
+        f(
+            "src/machines/chronos.rs",
+            &[
+                "use crate::core::PhysisCore;",
+                "use crate::embed::VectorEmbed;",
+            ],
+        ),
         f("src/machines/techne.rs", &["use crate::core::PhysisCore;"]),
-        f("src/bin/web_server.rs", &["use crate::core::PhysisCore;", "use crate::classify::CellClassifier;"]),
+        f(
+            "src/bin/web_server.rs",
+            &[
+                "use crate::core::PhysisCore;",
+                "use crate::classify::CellClassifier;",
+            ],
+        ),
         f("src/spanner.rs", &["use crate::core::PhysisCore;"]),
         f("src/auth_guard.rs", &[]),
     ];

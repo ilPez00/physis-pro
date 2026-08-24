@@ -1,13 +1,13 @@
-use physis_core::embed::VectorEmbed as _;
-use crate::config::PhysisConfig;
 #[cfg(feature = "embed-onnx")]
 use crate::config::EmbedderKindConfig;
+use crate::config::PhysisConfig;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::clip::ClipEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
+use physis_core::embed::VectorEmbed as _;
 
 /// Load an ONNX session, logging the actual `ort` error on failure instead of
 /// swallowing it. A returned `None` plus a `warn!` line tells the operator
@@ -18,7 +18,9 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
     // Intra-op threads = all cores: matmul parallelism within ONE inference. The
     // embedder serializes runs behind a Mutex (one embed at a time), so per-run
     // threading is the only core-level parallelism available.
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
+    let threads = std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1);
     let build = |opt: GraphOptimizationLevel| -> ort::Result<ort::session::Session> {
         ort::session::Session::builder()?
             .with_optimization_level(opt)?
@@ -32,7 +34,10 @@ pub(crate) fn load_onnx_session(model_path: &std::path::Path) -> Option<ort::ses
     match build(GraphOptimizationLevel::Level3) {
         Ok(s) => Some(s),
         Err(e_opt) => {
-            log::warn!("optimized load of {} failed ({e_opt}); retrying with optimization disabled", model_path.display());
+            log::warn!(
+                "optimized load of {} failed ({e_opt}); retrying with optimization disabled",
+                model_path.display()
+            );
             match build(GraphOptimizationLevel::Disable) {
                 Ok(s) => Some(s),
                 Err(e) => {
@@ -102,7 +107,11 @@ impl SelfTestCache {
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
-        Self { path, map, dirty: false }
+        Self {
+            path,
+            map,
+            dirty: false,
+        }
     }
 
     /// Key by the resolved model file (flat `model.onnx`, else `onnx/model.onnx`,
@@ -122,7 +131,12 @@ impl SelfTestCache {
 
     /// Build + self-test an embedder, but skip the (eager, possibly multi-GB)
     /// build entirely when a prior run recorded this model as failing.
-    pub fn gated<F>(&mut self, label: &str, model_dir: &str, build: F) -> Option<Box<dyn VectorEmbed>>
+    pub fn gated<F>(
+        &mut self,
+        label: &str,
+        model_dir: &str,
+        build: F,
+    ) -> Option<Box<dyn VectorEmbed>>
     where
         F: FnOnce() -> Option<Box<dyn VectorEmbed>>,
     {
@@ -181,7 +195,9 @@ impl RandomProjectionEmbedder {
     ///
     /// Use `384` for compatibility with MiniLM (upgraded via `embed-onnx` feature).
     pub fn new(dim: usize) -> Self {
-        Self { inner: physis_core::RandomProjectionEmbedder::new(dim) }
+        Self {
+            inner: physis_core::RandomProjectionEmbedder::new(dim),
+        }
     }
 }
 
@@ -207,7 +223,6 @@ pub mod jina;
 #[cfg(feature = "embed-onnx")]
 pub mod registry;
 
-
 /// Pick the best available embedder, self-test gated.
 ///
 /// Extracted so every entry point resolves the embedder the same way. The MCP
@@ -217,77 +232,37 @@ pub mod registry;
 ///
 /// Returns the embedder and a short provenance label for logging.
 pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static str) {
-        #[cfg(feature = "embed-onnx")]
-        {
-            // Self-test gate (same as the web server): a candidate that loads
-            // but emits non-semantic vectors (e.g. Jina fp16 → garbage) is
-            // skipped so the next working candidate wins. Without this gate
-            // the CLI silently classified with noise.
-            let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
-                opt.filter(|(e, _)| crate::embed::semantic_self_test(e.as_ref()))
-            };
-            let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-                let ec = config.embedders.primary.as_ref()?;
-                if !ec.enabled { return None; }
-                match ec.kind {
-                    EmbedderKindConfig::JinaV2 => {
-                        let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                        j.is_available().then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                    }
-                    EmbedderKindConfig::Clip => {
-                        let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                    }
-                    EmbedderKindConfig::MiniLM => {
-                        let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                    }
-                    EmbedderKindConfig::BgeBase => {
-                        let cfg = crate::config::OnnxConfig {
-                            enabled: true,
-                            model_dir: Some(model_dir(config, "bge-base-en-v1.5")),
-                            dim: 768,
-                            max_length: 512,
-                            pooling: crate::config::PoolingStrategy::Mean,
-                        };
-                        let b = OnnxEmbedder::with_config(&cfg);
-                        b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
-                    }
-                    EmbedderKindConfig::BgeM3 => {
-                        let cfg = crate::config::OnnxConfig {
-                            enabled: true,
-                            model_dir: Some(model_dir(config, "bge-m3")),
-                            dim: 1024,
-                            max_length: 512,
-                            pooling: crate::config::PoolingStrategy::Cls,
-                        };
-                        let b = OnnxEmbedder::with_config(&cfg);
-                        b.is_available().then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
-                    }
-                    EmbedderKindConfig::RandomProjection => {
-                        Some((Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection"))
-                    }
+    #[cfg(feature = "embed-onnx")]
+    {
+        // Self-test gate (same as the web server): a candidate that loads
+        // but emits non-semantic vectors (e.g. Jina fp16 → garbage) is
+        // skipped so the next working candidate wins. Without this gate
+        // the CLI silently classified with noise.
+        let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
+            opt.filter(|(e, _)| crate::embed::semantic_self_test(e.as_ref()))
+        };
+        let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+            let ec = config.embedders.primary.as_ref()?;
+            if !ec.enabled {
+                return None;
+            }
+            match ec.kind {
+                EmbedderKindConfig::JinaV2 => {
+                    let j = JinaEmbedder::with_model_dir(&ec.model_dir);
+                    j.is_available()
+                        .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
                 }
-            };
-            // Cascade: BGE → BGE-M3 → CLIP → MiniLM → RP, every candidate
-            // self-test-gated. Jina is deliberately NOT in the auto-fallback:
-            // the bundled jina-clip-v2 fp16 export is broken (self-test always
-            // fails, ~0.06 top score on real text) yet mmapping it cost a cold
-            // 1.7 GB disk read on every scan — minutes stuck in state-D before
-            // the gate rejected it. It stays reachable only when explicitly set
-            // as `embedders.primary` (try_primary), so a fixed export can opt in.
-            // Heavy ONNX fallbacks (bge-base 417 MB, bge-m3 2.2 GB) are routed
-            // through a persistent self-test cache: after the first run records
-            // them as failing, later scans skip the multi-GB load entirely
-            // instead of re-reading and re-rejecting them every time. Sequential
-            // `if let` (not a `.or_else` chain) so `stc` is borrowed once at a
-            // time. `break 'pick` yields the first embedder that passes.
-            let mut stc = crate::embed::SelfTestCache::load(&config.data_dir);
-            let chosen: (Box<dyn VectorEmbed>, &'static str) = 'pick: {
-                if let Some(e) = gate(try_primary()) {
-                    break 'pick e;
+                EmbedderKindConfig::Clip => {
+                    let c = ClipEmbedder::with_config(&config.onnx);
+                    c.is_available()
+                        .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
                 }
-                if let Some(e) = stc.gated("bge-base", "models/bge-base-en-v1.5", || {
+                EmbedderKindConfig::MiniLM => {
+                    let m = OnnxEmbedder::with_config(&config.onnx);
+                    m.is_available()
+                        .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                }
+                EmbedderKindConfig::BgeBase => {
                     let cfg = crate::config::OnnxConfig {
                         enabled: true,
                         model_dir: Some(model_dir(config, "bge-base-en-v1.5")),
@@ -296,11 +271,10 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                         pooling: crate::config::PoolingStrategy::Mean,
                     };
                     let b = OnnxEmbedder::with_config(&cfg);
-                    b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                }).map(|e| (e, "bge-base")) {
-                    break 'pick e;
+                    b.is_available()
+                        .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
                 }
-                if let Some(e) = stc.gated("bge-m3", "models/bge-m3", || {
+                EmbedderKindConfig::BgeM3 => {
                     let cfg = crate::config::OnnxConfig {
                         enabled: true,
                         model_dir: Some(model_dir(config, "bge-m3")),
@@ -309,32 +283,95 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                         pooling: crate::config::PoolingStrategy::Cls,
                     };
                     let b = OnnxEmbedder::with_config(&cfg);
-                    b.is_available().then(|| Box::new(b) as Box<dyn VectorEmbed>)
-                }).map(|e| (e, "bge-m3")) {
-                    break 'pick e;
+                    b.is_available()
+                        .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
                 }
-                if let Some(e) = gate({
-                    let c = ClipEmbedder::with_config(&config.onnx);
-                    c.is_available().then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                }) {
-                    break 'pick e;
-                }
-                if let Some(e) = gate({
-                    let m = OnnxEmbedder::with_config(&config.onnx);
-                    m.is_available().then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                }) {
-                    break 'pick e;
-                }
-                (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
-            };
-            stc.save();
-            chosen
-        }
-        #[cfg(not(feature = "embed-onnx"))]
-        (Box::new(RandomProjectionEmbedder::new(config.embed_dim)), "random-projection")
+                EmbedderKindConfig::RandomProjection => Some((
+                    Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                    "random-projection",
+                )),
+            }
+        };
+        // Cascade: BGE → BGE-M3 → CLIP → MiniLM → RP, every candidate
+        // self-test-gated. Jina is deliberately NOT in the auto-fallback:
+        // the bundled jina-clip-v2 fp16 export is broken (self-test always
+        // fails, ~0.06 top score on real text) yet mmapping it cost a cold
+        // 1.7 GB disk read on every scan — minutes stuck in state-D before
+        // the gate rejected it. It stays reachable only when explicitly set
+        // as `embedders.primary` (try_primary), so a fixed export can opt in.
+        // Heavy ONNX fallbacks (bge-base 417 MB, bge-m3 2.2 GB) are routed
+        // through a persistent self-test cache: after the first run records
+        // them as failing, later scans skip the multi-GB load entirely
+        // instead of re-reading and re-rejecting them every time. Sequential
+        // `if let` (not a `.or_else` chain) so `stc` is borrowed once at a
+        // time. `break 'pick` yields the first embedder that passes.
+        let mut stc = crate::embed::SelfTestCache::load(&config.data_dir);
+        let chosen: (Box<dyn VectorEmbed>, &'static str) = 'pick: {
+            if let Some(e) = gate(try_primary()) {
+                break 'pick e;
+            }
+            if let Some(e) = stc
+                .gated("bge-base", "models/bge-base-en-v1.5", || {
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some(model_dir(config, "bge-base-en-v1.5")),
+                        dim: 768,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Mean,
+                    };
+                    let b = OnnxEmbedder::with_config(&cfg);
+                    b.is_available()
+                        .then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                })
+                .map(|e| (e, "bge-base"))
+            {
+                break 'pick e;
+            }
+            if let Some(e) = stc
+                .gated("bge-m3", "models/bge-m3", || {
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some(model_dir(config, "bge-m3")),
+                        dim: 1024,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Cls,
+                    };
+                    let b = OnnxEmbedder::with_config(&cfg);
+                    b.is_available()
+                        .then(|| Box::new(b) as Box<dyn VectorEmbed>)
+                })
+                .map(|e| (e, "bge-m3"))
+            {
+                break 'pick e;
+            }
+            if let Some(e) = gate({
+                let c = ClipEmbedder::with_config(&config.onnx);
+                c.is_available()
+                    .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+            }) {
+                break 'pick e;
+            }
+            if let Some(e) = gate({
+                let m = OnnxEmbedder::with_config(&config.onnx);
+                m.is_available()
+                    .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+            }) {
+                break 'pick e;
+            }
+            (
+                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                "random-projection",
+            )
+        };
+        stc.save();
+        chosen
+    }
+    #[cfg(not(feature = "embed-onnx"))]
+    (
+        Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+        "random-projection",
+    )
 }
-
-
 
 /// Resolve a bundled model directory by name, searching the places it can
 /// legitimately live.
@@ -402,7 +439,10 @@ mod tests {
         let embedder = RandomProjectionEmbedder::new(64);
         let v = embedder.embed("test string");
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "vector must be unit normalized, got {norm}");
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "vector must be unit normalized, got {norm}"
+        );
     }
 
     #[test]
@@ -418,7 +458,10 @@ mod tests {
         let v = embedder.embed("");
         assert_eq!(v.len(), 64);
         let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "empty string must produce normalized vector");
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "empty string must produce normalized vector"
+        );
     }
 
     #[test]

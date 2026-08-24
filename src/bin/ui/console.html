@@ -465,6 +465,9 @@
 </div>
 <main>
   <nav aria-label="Console pages">
+    <div class="nav-group">You</div>
+    <button data-tab="interest" title="What you have been working on lately">Interest<span class="nav-why">your workflow</span></button>
+    <div class="nav-sep"></div>
     <div class="nav-group">See</div>
     <button data-tab="overview" class="active" title="Incidents and the last few events">Overview<span class="nav-why">plant at a glance</span></button>
     <button data-tab="timeline" title="Events in time order">Timeline<span class="nav-why">what happened when</span></button>
@@ -490,6 +493,39 @@
     <div class="nav-group">Arbiter &amp; Guardrail</div>
     <button data-tab="harness" title="LLM Coherence Harness &amp; Epistemic Gate">LLM Harness<span class="nav-why">coherence arbiter</span></button>
   </nav>
+
+  <!-- INTEREST -->
+  <section class="tab" id="tab-interest">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> <span id="interestSignal">local observer</span></div>
+        <h2>What have you been into?</h2>
+        <p>The daemon watches your clipboard (preview + hash only) and folders, classifies each observation onto the meaning grid, and decays old signals. Recent weeks, not all time.</p>
+      </div>
+    </div>
+    <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label for="interestUrl">Daemon</label>
+      <input id="interestUrl" type="text" placeholder="http://localhost:19878" style="flex:1;min-width:240px;background:#111;border:1px solid #333;color:#eee;border-radius:6px;padding:6px 10px;font:inherit">
+      <button id="interestConnect" class="primary" type="button">Connect</button>
+      <span id="interestStatus" class="signal"><i></i> idle</span>
+    </div>
+    <div class="card" id="interestProfileCard" hidden>
+      <h3>Interest profile <span class="tip" data-tip="Domain share of your recent observations, time-decayed (14-day half-life)">top domains</span></h3>
+      <div id="interestProfile" style="display:flex;flex-direction:column;gap:8px"></div>
+      <p class="nav-why" id="interestProfileMeta"></p>
+    </div>
+    <div class="card" id="interestEventsCard" hidden>
+      <h3>Recent observations</h3>
+      <div id="interestEvents" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div class="card" id="interestOfflineCard" hidden>
+      <h3>Daemon not reachable</h3>
+      <p>Start it locally:</p>
+      <pre style="background:#111;border:1px solid #333;border-radius:6px;padding:10px;overflow:auto">cargo run --features daemon,embed-onnx --bin physis-interest-daemon -- \
+  --dirs ~/notes ~/reports --port 19878</pre>
+      <p class="nav-why">Clipboard is stored as a 280-char preview + hash — never the full text.</p>
+    </div>
+  </section>
 
   <!-- OVERVIEW -->
   <section class="tab active" id="tab-overview">
@@ -1111,7 +1147,7 @@ const MODE_GLOSS={
   LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
   BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
 };
-const TABS=["overview","timeline","oee","classify","grid","ontology","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
+const TABS=["interest","overview","timeline","oee","classify","grid","ontology","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
 function currentTab(){
   const a=document.querySelector('nav button.active');
   return a?a.dataset.tab:'overview';
@@ -1122,6 +1158,7 @@ function goTab(name){
 }
 
 const COACH={
+  interest:{text:'<b>Interest.</b> The local daemon watches your folders and clipboard (preview + hash only) and scores what you have been into lately. Start it, then Connect.',act:null,run:null},
   overview:{text:'<b>Start here.</b> This is the plant at a glance — health, what needs attention, and the last events.',act:'Load demo timeline',run:()=>loadTimelineDemo()},
   timeline:{text:'<b>Timeline.</b> Load the workshop demo, or paste events. A warning becomes an incident with a next action.',act:'Load demo events',run:()=>loadTimelineDemo()},
   oee:{text:'<b>Plant health.</b> OEE is still-running × at-speed × good-parts. Connect a token for live machines.',act:null,run:null},
@@ -1149,6 +1186,107 @@ function showCoach(tab){
   else btn.hidden=true;
 }
 
+// ── Interest (local daemon) ───────────────────────────────────────────────
+const INTEREST_LS='physis_interest_url';
+function interestBase(){
+  let u=localStorage.getItem(INTEREST_LS);
+  if(!u){
+    const host=location.hostname||'localhost';
+    u=`http://${host}:19878`;
+  }
+  return u.replace(/\/+$/,'');
+}
+async function interestFetch(path,timeoutMs=4000){
+  const ctl=new AbortController();
+  const t=setTimeout(()=>ctl.abort(),timeoutMs);
+  try{
+    const r=await fetch(interestBase()+path,{signal:ctl.signal});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+function setInterestStatus(ok,text){
+  const el=$('interestStatus');
+  el.innerHTML=`<i></i> ${esc(text)}`;
+  el.style.color=ok?'var(--green)':'#b71c1c';
+}
+function timeAgo(iso){
+  try{
+    const s=(Date.now()-new Date(iso).getTime())/1000;
+    if(s<60) return 'just now';
+    if(s<3600) return `${Math.floor(s/60)}m ago`;
+    if(s<86400) return `${Math.floor(s/3600)}h ago`;
+    return `${Math.floor(s/86400)}d ago`;
+  }catch(_){ return iso; }
+}
+const KIND_BADGE={paste:'📋 paste',document:'📄 doc',file_event:'👁 file'};
+function renderInterestProfile(p){
+  const wrap=$('interestProfile');
+  wrap.innerHTML='';
+  const entries=(p.entries||[]).slice(0,10);
+  if(!entries.length){
+    wrap.innerHTML='<p class="nav-why">No classified observations yet.</p>';
+    return;
+  }
+  for(const e of entries){
+    const row=document.createElement('div');
+    row.style.cssText='display:grid;grid-template-columns:130px 1fr auto;gap:10px;align-items:center';
+    const pct=Math.round(e.score*100);
+    row.innerHTML=`<span>${esc(e.domain)}</span>
+      <div style="background:#222;border-radius:999px;height:8px"><div class="bar" style="width:${pct}%"></div></div>
+      <span class="nav-why">${pct}% · ${e.samples} obs</span>`;
+    wrap.appendChild(row);
+  }
+  $('interestProfileMeta').textContent=
+    `${p.total_observations} observations total`+
+    (p.updated_at?` · updated ${timeAgo(p.updated_at)}`:'');
+}
+function renderInterestEvents(items){
+  const wrap=$('interestEvents');
+  wrap.innerHTML='';
+  if(!items.length){ wrap.innerHTML='<p class="nav-why">Nothing observed yet.</p>'; return; }
+  for(const it of items.slice(0,40)){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:10px;align-items:baseline;border-bottom:1px solid #222;padding:6px 0';
+    const chips=Object.entries(it.metadata||{}).slice(0,3)
+      .map(([k,v])=>`<span class="nav-why">${esc(k)}: ${esc(v)}</span>`).join(' ');
+    row.innerHTML=`<span>${KIND_BADGE[it.kind]||'·'}</span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.label)}">${esc(it.label)}</span>
+      ${chips}
+      <span class="nav-why">${timeAgo(it.at)}</span>`;
+    wrap.appendChild(row);
+  }
+}
+async function loadInterest(){
+  $('interestUrl').value=interestBase();
+  $('interestOfflineCard').hidden=true;
+  setInterestStatus(false,'connecting…');
+  let profile=null;
+  try{
+    await interestFetch('/health',2500);
+    setInterestStatus(true,'daemon live');
+    [profile]=await Promise.all([interestFetch('/api/v1/interest/profile?limit=10')]);
+  }catch(_){
+    setInterestStatus(false,'offline');
+    $('interestProfileCard').hidden=true;
+    $('interestEventsCard').hidden=true;
+    $('interestOfflineCard').hidden=false;
+    return;
+  }
+  $('interestProfileCard').hidden=false;
+  renderInterestProfile(profile||{});
+  try{
+    const evs=await interestFetch('/api/v1/interest/events?limit=50');
+    $('interestEventsCard').hidden=false;
+    renderInterestEvents(evs.items||[]);
+  }catch(_){ /* profile alone is still useful */ }
+}
+$('interestConnect').onclick=()=>{
+  const v=$('interestUrl').value.trim();
+  if(v) localStorage.setItem(INTEREST_LS,v);
+  loadInterest();
+};
+
 // ── tabs ──
 let cyReady=false;
 function activateTab(name){
@@ -1156,6 +1294,7 @@ function activateTab(name){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.id==='tab-'+name));
   localStorage.setItem(LS.tab, name);
   showCoach(name);
+  if(name==='interest') loadInterest();
   if(name==='overview') loadOverview();
   if(name==='timeline') loadTimelineDemo();
   if(name==='grid') loadHeat();

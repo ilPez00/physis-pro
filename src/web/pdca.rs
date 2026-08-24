@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, State},
+    http::{HeaderMap, StatusCode},
+};
 
 pub async fn ingest_prompt_handler(
     State(state): State<SharedState>,
@@ -203,7 +206,9 @@ pub async fn schedule_recompute_handler(
 /// back. Holds no server state, so it behaves identically across replicas and on
 /// a redeploy (unlike the in-memory `/schedule/*` routes above, which are
 /// single-instance/local only).
-pub async fn schedule_compute_handler(Json(req): Json<ScheduleComputeRequest>) -> Json<ScheduleResult> {
+pub async fn schedule_compute_handler(
+    Json(req): Json<ScheduleComputeRequest>,
+) -> Json<ScheduleResult> {
     Json(compute_schedule(
         &req.tasks,
         &req.goal_progress,
@@ -309,4 +314,3 @@ pub async fn lifeos_today_handler(
         Json(lifeos.today(scheduler))
     })
 }
-

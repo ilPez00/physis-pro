@@ -294,7 +294,10 @@ impl Overlays {
                 for (name, def) in &o.domains {
                     if seen.insert(name.clone()) {
                         out.push((
-                            Provenance { scope, source: o.id.clone() },
+                            Provenance {
+                                scope,
+                                source: o.id.clone(),
+                            },
                             def.clone(),
                         ));
                     }

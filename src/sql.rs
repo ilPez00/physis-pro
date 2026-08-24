@@ -154,9 +154,8 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
         .unwrap_or_default();
-    let incremental = !req.reconcile
-        && req.updated_column.is_some()
-        && previous.watermark.is_some();
+    let incremental =
+        !req.reconcile && req.updated_column.is_some() && previous.watermark.is_some();
     let current_keys = if incremental {
         read_keys(&conn, req)?
     } else {
@@ -167,7 +166,11 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         req,
         &columns,
         &text_columns,
-        if incremental { previous.watermark.as_ref() } else { None },
+        if incremental {
+            previous.watermark.as_ref()
+        } else {
+            None
+        },
     )?;
     let source_watermark = req
         .updated_column
@@ -195,7 +198,9 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         old_keys.remove(key);
     }
     for row in &current {
-        let prior = old_keys.remove(&row.key).or_else(|| previous.rows.get(&row.key).cloned());
+        let prior = old_keys
+            .remove(&row.key)
+            .or_else(|| previous.rows.get(&row.key).cloned());
         next.insert(
             row.key.clone(),
             ManifestRow {
@@ -209,7 +214,8 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
             Some(_) => {}
         }
     }
-    let deleted_rows = previous.rows
+    let deleted_rows = previous
+        .rows
         .into_iter()
         .filter(|(key, _)| !active_keys.contains(key))
         .map(|(key, old)| SqlRow {
@@ -220,10 +226,15 @@ pub fn scan(req: &SqlRequest, manifest_file: &Path) -> Result<SqlDiff> {
         })
         .collect::<Vec<_>>();
 
-    let next = Manifest { rows: next, watermark: source_watermark };
+    let next = Manifest {
+        rows: next,
+        watermark: source_watermark,
+    };
     crate::atomic::write_json_durable(manifest_file, &next)
         .with_context(|| format!("write scan manifest {}", manifest_file.display()))?;
-    let unchanged = active_keys.len().saturating_sub(new_rows.len() + changed_rows.len());
+    let unchanged = active_keys
+        .len()
+        .saturating_sub(new_rows.len() + changed_rows.len());
 
     Ok(SqlDiff {
         new_rows,
@@ -275,10 +286,18 @@ fn read_rows(
         .join(", ");
     let filter = match (&req.updated_column, watermark) {
         (Some(column), Some(watermark)) if watermark.numeric => {
-            format!(" WHERE (CAST({} AS REAL) >= CAST(?1 AS REAL) OR {} IS NULL)", quote(column), quote(column))
+            format!(
+                " WHERE (CAST({} AS REAL) >= CAST(?1 AS REAL) OR {} IS NULL)",
+                quote(column),
+                quote(column)
+            )
         }
         (Some(column), Some(_)) => {
-            format!(" WHERE (CAST({} AS TEXT) >= CAST(?1 AS TEXT) OR {} IS NULL)", quote(column), quote(column))
+            format!(
+                " WHERE (CAST({} AS TEXT) >= CAST(?1 AS TEXT) OR {} IS NULL)",
+                quote(column),
+                quote(column)
+            )
         }
         _ => String::new(),
     };
@@ -311,23 +330,37 @@ fn read_rows(
             .join("; ");
         let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
         let label = format!("sql://{}/{}#{}", req.database.display(), req.table, key);
-        current.push(SqlRow { key, label, text, hash });
+        current.push(SqlRow {
+            key,
+            label,
+            text,
+            hash,
+        });
     }
     Ok(current)
 }
 
 #[cfg(feature = "sql")]
 fn read_watermark(conn: &Connection, table: &str, column: &str) -> Result<Option<Watermark>> {
-    let sql = format!("SELECT MAX({0}), typeof(MAX({0})) FROM {1}", quote(column), quote(table));
+    let sql = format!(
+        "SELECT MAX({0}), typeof(MAX({0})) FROM {1}",
+        quote(column),
+        quote(table)
+    );
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query([])?;
-    let Some(row) = rows.next()? else { return Ok(None) };
+    let Some(row) = rows.next()? else {
+        return Ok(None);
+    };
     let value = row.get_ref(0)?;
     if matches!(value, ValueRef::Null) {
         return Ok(None);
     }
     let numeric = matches!(row.get::<_, String>(1)?.as_str(), "integer" | "real");
-    Ok(Some(Watermark { value: value_string(value), numeric }))
+    Ok(Some(Watermark {
+        value: value_string(value),
+        numeric,
+    }))
 }
 
 #[cfg(feature = "sql")]
@@ -370,7 +403,6 @@ fn value_string(value: ValueRef<'_>) -> String {
                 .collect::<String>()
         ),
     }
-
 }
 
 fn quote(identifier: &str) -> String {
@@ -459,10 +491,23 @@ mod tests {
         let manifest = dir.path().join("watermark.json");
         let first = scan(&req, &manifest).unwrap();
         assert_eq!((first.new_rows.len(), first.unchanged), (2, 0));
-        conn.execute("UPDATE events SET updated_at=3, body='changed' WHERE id=1", []).unwrap();
-        conn.execute("INSERT INTO events VALUES (3, 4, 'new')", []).unwrap();
+        conn.execute(
+            "UPDATE events SET updated_at=3, body='changed' WHERE id=1",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO events VALUES (3, 4, 'new')", [])
+            .unwrap();
         conn.execute("DELETE FROM events WHERE id=2", []).unwrap();
         let second = scan(&req, &manifest).unwrap();
-        assert_eq!((second.new_rows.len(), second.changed_rows.len(), second.deleted_rows.len(), second.unchanged), (1, 1, 1, 0));
+        assert_eq!(
+            (
+                second.new_rows.len(),
+                second.changed_rows.len(),
+                second.deleted_rows.len(),
+                second.unchanged
+            ),
+            (1, 1, 1, 0)
+        );
     }
 }

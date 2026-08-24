@@ -127,9 +127,17 @@ mod tests {
     fn test_router_all_lenses() {
         let router = LinguisticRouter::new();
         let data = "ran 5k exercise";
-        for lense in &[LinguisticLense::Wenyan, LinguisticLense::Piraha, LinguisticLense::Sanskrit] {
+        for lense in &[
+            LinguisticLense::Wenyan,
+            LinguisticLense::Piraha,
+            LinguisticLense::Sanskrit,
+        ] {
             let output = router.route(data, *lense);
-            assert!(!output.is_empty(), "{} should produce output", lense.as_str());
+            assert!(
+                !output.is_empty(),
+                "{} should produce output",
+                lense.as_str()
+            );
         }
     }
 
@@ -190,7 +198,10 @@ mod tests {
             ..LinguisticConfig::default()
         };
         let router = LinguisticRouter::with_config(&cfg);
-        assert_eq!(router.route("hello world", LinguisticLense::Wenyan), "hello world");
+        assert_eq!(
+            router.route("hello world", LinguisticLense::Wenyan),
+            "hello world"
+        );
     }
 
     #[test]

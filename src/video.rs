@@ -23,7 +23,10 @@ pub struct VideoEmbedOptions {
 
 impl Default for VideoEmbedOptions {
     fn default() -> Self {
-        Self { fps: 1.0, max_frames: 32 }
+        Self {
+            fps: 1.0,
+            max_frames: 32,
+        }
     }
 }
 
@@ -51,7 +54,14 @@ pub fn embed_video_file(
     let status = Command::new("ffmpeg")
         .args(["-loglevel", "error", "-i"])
         .arg(path)
-        .args(["-vf", &vf, "-frames:v", &opts.max_frames.to_string(), "-q:v", "3"])
+        .args([
+            "-vf",
+            &vf,
+            "-frames:v",
+            &opts.max_frames.to_string(),
+            "-q:v",
+            "3",
+        ])
         .arg(&pattern)
         .status();
     match status {
@@ -81,7 +91,9 @@ pub fn embed_video_file(
     let mut acc = vec![0.0f32; dim];
     let mut n = 0usize;
     for f in frames.iter().take(opts.max_frames) {
-        let Ok(bytes) = std::fs::read(f) else { continue };
+        let Ok(bytes) = std::fs::read(f) else {
+            continue;
+        };
         if let Some(v) = embedder.embed_image(&bytes) {
             if v.len() == dim {
                 for i in 0..dim {
@@ -103,7 +115,10 @@ pub fn embed_video_file(
     for x in acc.iter_mut() {
         *x /= norm;
     }
-    Some(VideoEmbedResult { embedding: acc, frames: n })
+    Some(VideoEmbedResult {
+        embedding: acc,
+        frames: n,
+    })
 }
 
 /// Same as [`embed_video_file`] but from in-memory bytes (writes a temp file
@@ -120,7 +135,11 @@ pub fn embed_video_bytes(
         .filter(|c| c.is_ascii_alphanumeric())
         .take(8)
         .collect();
-    let ext = if safe.is_empty() { "mp4".to_string() } else { safe };
+    let ext = if safe.is_empty() {
+        "mp4".to_string()
+    } else {
+        safe
+    };
     let tmp = std::env::temp_dir().join(format!("physis_vid_{}.{}", uuid::Uuid::new_v4(), ext));
     if std::fs::write(&tmp, bytes).is_err() {
         return None;

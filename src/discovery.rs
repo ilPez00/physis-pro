@@ -138,11 +138,10 @@ pub fn suggest_text(
 /// Tiny stopword list — just enough to keep hints meaningful. Bilingual
 /// because the corpora this runs on are Italian shop floors and English logs.
 const STOPWORDS: &[&str] = &[
-    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "is",
-    "are", "was", "be", "this", "that", "it", "at", "by", "from", "as", "we",
-    "il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "di", "del", "della",
-    "e", "o", "che", "per", "con", "su", "da", "dal", "dalla", "al", "alla",
-    "in", "non", "si", "ha", "sono", "è",
+    "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "is", "are", "was", "be",
+    "this", "that", "it", "at", "by", "from", "as", "we", "il", "lo", "la", "i", "gli", "le", "un",
+    "uno", "una", "di", "del", "della", "e", "o", "che", "per", "con", "su", "da", "dal", "dalla",
+    "al", "alla", "in", "non", "si", "ha", "sono", "è",
 ];
 
 fn terms(text: &str) -> impl Iterator<Item = String> + '_ {
@@ -215,7 +214,11 @@ fn tail_threshold(sorted_sims: &[f32], frac: f32) -> Option<f32> {
 /// Split scored texts at `threshold`, cluster the unmapped, draft proposals.
 /// Pure over precomputed scores — no embedding — so `discover` can retry at an
 /// auto-tuned threshold without re-embedding.
-fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usize, Vec<ProposedDomain>) {
+fn cluster_at(
+    scored: &[Scored],
+    threshold: f32,
+    cfg: &DiscoveryConfig,
+) -> (usize, Vec<ProposedDomain>) {
     let unmapped: Vec<&Scored> = scored.iter().filter(|s| s.best < threshold).collect();
     let covered = scored.len() - unmapped.len();
 
@@ -248,7 +251,11 @@ fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usiz
                     w.replace_range(0..1, &up);
                 }
             }
-            if words.is_empty() { "Unnamed Cluster".to_string() } else { words.join(" & ") }
+            if words.is_empty() {
+                "Unnamed Cluster".to_string()
+            } else {
+                words.join(" & ")
+            }
         };
         #[allow(clippy::cast_precision_loss)]
         let coverage =
@@ -258,7 +265,11 @@ fn cluster_at(scored: &[Scored], threshold: f32, cfg: &DiscoveryConfig) -> (usiz
             domain: unmapped[members[0]].domain.clone(),
             mode: unmapped[members[0]].mode.clone(),
             hints,
-            samples: member_texts.iter().take(3).map(ToString::to_string).collect(),
+            samples: member_texts
+                .iter()
+                .take(3)
+                .map(ToString::to_string)
+                .collect(),
             count: members.len(),
             coverage,
         });
@@ -297,7 +308,9 @@ pub fn discover(
         .iter()
         .zip(embeddings)
         .map(|(text, emb)| {
-            let (best, d, m) = clf.best_entry_sim(&emb).unwrap_or((0.0, String::new(), String::new()));
+            let (best, d, m) =
+                clf.best_entry_sim(&emb)
+                    .unwrap_or((0.0, String::new(), String::new()));
             sim_min = sim_min.min(best);
             sim_max = sim_max.max(best);
             sim_sum += best;
@@ -313,7 +326,11 @@ pub fn discover(
     // text count in a discovery run is small → no precision loss
     #[allow(clippy::cast_precision_loss)]
     let n = texts.len().max(1) as f32;
-    let (sim_min, sim_max) = if texts.is_empty() { (0.0, 0.0) } else { (sim_min, sim_max) };
+    let (sim_min, sim_max) = if texts.is_empty() {
+        (0.0, 0.0)
+    } else {
+        (sim_min, sim_max)
+    };
 
     let mut threshold = cfg.coverage_threshold;
     let (mut covered, mut proposals) = cluster_at(&scored, threshold, cfg);
@@ -371,7 +388,10 @@ pub fn discover(
         // noise (the `test_singletons_dropped` guard). Real onboarding corpora
         // are larger, so the P10 guarantee holds where it matters.
         if proposals.is_empty() && scored.len() >= 3 {
-            let loosened = DiscoveryConfig { min_cluster: 1, ..cfg.clone() };
+            let loosened = DiscoveryConfig {
+                min_cluster: 1,
+                ..cfg.clone()
+            };
             if let Some(&worst) = sims.first() {
                 let cand = worst.max(threshold + 1e-3);
                 let (c2, p2) = cluster_at(&scored, cand, &loosened);
@@ -453,13 +473,20 @@ mod tests {
             "zorgon flux capacitor recalibration".to_string(),
             "zorgon flux capacitor recalibration".to_string(),
         ];
-        let cfg = DiscoveryConfig { coverage_threshold: 1.1, ..Default::default() };
+        let cfg = DiscoveryConfig {
+            coverage_threshold: 1.1,
+            ..Default::default()
+        };
         let report = discover(&texts, &clf, &embedder, &cfg);
         assert_eq!(report.unmapped, 3);
         assert_eq!(report.proposals.len(), 1);
         let p = &report.proposals[0];
         assert_eq!(p.count, 3);
-        assert!(p.hints.contains(&"zorgon".to_string()), "hints: {:?}", p.hints);
+        assert!(
+            p.hints.contains(&"zorgon".to_string()),
+            "hints: {:?}",
+            p.hints
+        );
         assert!(!p.name.is_empty());
     }
 
@@ -468,7 +495,11 @@ mod tests {
         let (clf, embedder) = clf_and_embedder();
         let texts = vec!["anything at all".to_string(), "another text".to_string()];
         // auto_retune off: this test asserts the *requested* threshold's split.
-        let cfg = DiscoveryConfig { coverage_threshold: -1.0, auto_retune: false, ..Default::default() };
+        let cfg = DiscoveryConfig {
+            coverage_threshold: -1.0,
+            auto_retune: false,
+            ..Default::default()
+        };
         let report = discover(&texts, &clf, &embedder, &cfg);
         assert_eq!(report.covered, 2);
         assert_eq!(report.unmapped, 0);
@@ -483,10 +514,16 @@ mod tests {
             "wibble grommet anodizing".to_string(),
             "completely unrelated quasar telemetry".to_string(),
         ];
-        let cfg = DiscoveryConfig { coverage_threshold: 1.1, ..Default::default() };
+        let cfg = DiscoveryConfig {
+            coverage_threshold: 1.1,
+            ..Default::default()
+        };
         let report = discover(&texts, &clf, &embedder, &cfg);
         assert_eq!(report.unmapped, 2);
-        assert!(report.proposals.is_empty(), "singletons must not become proposals");
+        assert!(
+            report.proposals.is_empty(),
+            "singletons must not become proposals"
+        );
     }
 
     #[test]
@@ -524,9 +561,14 @@ mod tests {
         // Many identical out-of-grid texts. At a high default everything reads
         // "covered" (RP sims are low but uniform); auto_retune must raise the
         // threshold to a quantile and surface the cluster.
-        let texts: Vec<String> =
-            (0..6).map(|_| "zorgon flux capacitor recalibration".to_string()).collect();
-        let cfg = DiscoveryConfig { coverage_threshold: 0.99, auto_retune: true, ..Default::default() };
+        let texts: Vec<String> = (0..6)
+            .map(|_| "zorgon flux capacitor recalibration".to_string())
+            .collect();
+        let cfg = DiscoveryConfig {
+            coverage_threshold: 0.99,
+            auto_retune: true,
+            ..Default::default()
+        };
         let report = discover(&texts, &clf, &embedder, &cfg);
         // With identical embeddings the first pass at 0.99 marks them all
         // unmapped already (sims well under 0.99), so a cluster forms without
@@ -539,7 +581,11 @@ mod tests {
     fn test_auto_retune_off_respects_requested_threshold() {
         let (clf, embedder) = clf_and_embedder();
         let texts = vec!["anything".to_string(), "another".to_string()];
-        let cfg = DiscoveryConfig { coverage_threshold: -1.0, auto_retune: false, ..Default::default() };
+        let cfg = DiscoveryConfig {
+            coverage_threshold: -1.0,
+            auto_retune: false,
+            ..Default::default()
+        };
         let report = discover(&texts, &clf, &embedder, &cfg);
         assert!(!report.auto_retuned);
         assert_eq!(report.covered, 2);
@@ -554,7 +600,10 @@ mod tests {
         let sims: Vec<f32> = (0..10).map(|i| 0.50 + i as f32 * 0.01).collect(); // 0.50..0.59
         let t = tail_threshold(&sims, 0.20).unwrap();
         let unmapped = sims.iter().filter(|&&s| s < t).count();
-        assert!(unmapped <= 3, "bottom-20% tail must stay small, got {unmapped}/10");
+        assert!(
+            unmapped <= 3,
+            "bottom-20% tail must stay small, got {unmapped}/10"
+        );
         // A high quantile would do the opposite — prove the direction.
         let high = tail_threshold(&sims, 0.80).unwrap();
         let unmapped_high = sims.iter().filter(|&&s| s < high).count();

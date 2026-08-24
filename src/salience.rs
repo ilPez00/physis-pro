@@ -170,11 +170,14 @@ impl SalienceStore {
     ) {
         let delta = interp.delta(signal.outcome());
         let now = Self::now();
-        let e = self.entries.entry(Self::key(tenant, ctx, entry)).or_insert(Accrued {
-            score: 0.0,
-            updated_at: now,
-            observations: 0,
-        });
+        let e = self
+            .entries
+            .entry(Self::key(tenant, ctx, entry))
+            .or_insert(Accrued {
+                score: 0.0,
+                updated_at: now,
+                observations: 0,
+            });
         let days = ((now - e.updated_at).max(0) as f32) / DAY;
         e.score = e.score * interp.decay(days) + delta;
         e.updated_at = now;
@@ -191,7 +194,10 @@ impl SalienceStore {
     }
 
     pub fn observations(&self, tenant: &str, ctx: &Context, entry: &str) -> u32 {
-        self.entries.get(&Self::key(tenant, ctx, entry)).map(|e| e.observations).unwrap_or(0)
+        self.entries
+            .get(&Self::key(tenant, ctx, entry))
+            .map(|e| e.observations)
+            .unwrap_or(0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -248,7 +254,11 @@ impl SalienceStore {
             .filter_map(|(k, v)| {
                 let name = k.strip_prefix(&prefix)?;
                 let days = ((Self::now() - v.updated_at).max(0) as f32) / DAY;
-                Some((name.to_string(), v.score * interp.decay(days), v.observations))
+                Some((
+                    name.to_string(),
+                    v.score * interp.decay(days),
+                    v.observations,
+                ))
             })
             .collect();
         out.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -366,16 +376,26 @@ mod tests {
     #[test]
     fn a_zero_weight_interpretant_records_but_never_biases() {
         let mut s = SalienceStore::default();
-        let i = Interpretant { weight: 0.0, ..Default::default() };
+        let i = Interpretant {
+            weight: 0.0,
+            ..Default::default()
+        };
         s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
         assert!(s.score(T, &ctx(), "Debugging", &i) > 0.0, "still recorded");
-        assert_eq!(s.bias(T, &ctx(), "Debugging", &i), 0.0, "but cannot influence ranking");
+        assert_eq!(
+            s.bias(T, &ctx(), "Debugging", &i),
+            0.0,
+            "but cannot influence ranking"
+        );
     }
 
     #[test]
     fn stale_evidence_decays_toward_zero() {
         let mut s = SalienceStore::default();
-        let i = Interpretant { half_life_days: 30.0, ..Default::default() };
+        let i = Interpretant {
+            half_life_days: 30.0,
+            ..Default::default()
+        };
         s.record(T, &ctx(), "Debugging", Signal::Edited, &i);
 
         // Backdate the observation by two half-lives.
@@ -383,17 +403,27 @@ mod tests {
         s.entries.get_mut(&k).unwrap().updated_at -= (60.0 * DAY) as i64;
 
         let decayed = s.score(T, &ctx(), "Debugging", &i);
-        assert!((decayed - 0.25).abs() < 1e-3, "expected ~0.25, got {decayed}");
+        assert!(
+            (decayed - 0.25).abs() < 1e-3,
+            "expected ~0.25, got {decayed}"
+        );
     }
 
     #[test]
     fn an_ontology_that_never_decays_keeps_its_evidence() {
         let mut s = SalienceStore::default();
-        let i = Interpretant { half_life_days: 0.0, ..Default::default() };
+        let i = Interpretant {
+            half_life_days: 0.0,
+            ..Default::default()
+        };
         s.record(T, &ctx(), "Inspection", Signal::Edited, &i);
         let k = SalienceStore::key(T, &ctx(), "Inspection");
         s.entries.get_mut(&k).unwrap().updated_at -= (3650.0 * DAY) as i64;
-        assert_eq!(s.score(T, &ctx(), "Inspection", &i), 1.0, "ten years, no decay");
+        assert_eq!(
+            s.score(T, &ctx(), "Inspection", &i),
+            1.0,
+            "ten years, no decay"
+        );
     }
 
     #[test]
@@ -411,7 +441,10 @@ mod tests {
 
         let solo = s.cell_bias(T, &ctx(), &["Debugging".to_string()], &i);
         let diluted = s.cell_bias(T, &ctx(), &members, &i);
-        assert!((solo - diluted).abs() < 1e-6, "40 silent members must not dilute");
+        assert!(
+            (solo - diluted).abs() < 1e-6,
+            "40 silent members must not dilute"
+        );
     }
 
     #[test]
@@ -434,8 +467,14 @@ mod tests {
             std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
         }
 
-        assert_eq!(std::fs::read(SalienceStore::path(dir.path())).unwrap(), before);
-        assert_eq!(SalienceStore::load(dir.path()).observations(T, &ctx(), "Debugging"), 1);
+        assert_eq!(
+            std::fs::read(SalienceStore::path(dir.path())).unwrap(),
+            before
+        );
+        assert_eq!(
+            SalienceStore::load(dir.path()).observations(T, &ctx(), "Debugging"),
+            1
+        );
     }
 
     #[test]
@@ -447,7 +486,13 @@ mod tests {
         }
         s.record(T, &ctx(), "Profiling", Signal::Edited, &i);
         s.record(T, &ctx(), "Vendoring", Signal::Deleted, &i);
-        s.record(T, &Context::parse("client:other"), "Elsewhere", Signal::Edited, &i);
+        s.record(
+            T,
+            &Context::parse("client:other"),
+            "Elsewhere",
+            Signal::Edited,
+            &i,
+        );
 
         let r = s.ranked(T, &ctx(), &i);
         assert_eq!(r.len(), 3, "only this context's entries");

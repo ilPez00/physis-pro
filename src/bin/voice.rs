@@ -1,14 +1,18 @@
-use physis_pro::ai::provider::ProviderCascade;
+use axum::{
+    extract::State,
+    routing::{get, post},
+    Json, Router,
+};
+use dotenvy::dotenv;
 use physis_pro::ai::agent::{run_agent, AgentConfig};
+use physis_pro::ai::provider::ProviderCascade;
 use physis_pro::ai::tools::ToolRegistry;
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
-use physis_pro::{OntologyLoader, PhysisConfig, DreamEngine, Goal, OntologicalMap};
+use physis_pro::{DreamEngine, Goal, OntologicalMap, OntologyLoader, PhysisConfig};
+use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
-use axum::{extract::State, routing::{get, post}, Json, Router};
-use dotenvy::dotenv;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Settings {
@@ -71,21 +75,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         let (wav_path, record_secs, trans_model, ext_model, show_dreams) = {
             let s = shared_state.lock().unwrap();
-            ("chunk.wav", s.settings.record_secs, s.settings.transcription_model.clone(), s.settings.extraction_model.clone(), s.settings.show_dreams)
+            (
+                "chunk.wav",
+                s.settings.record_secs,
+                s.settings.transcription_model.clone(),
+                s.settings.extraction_model.clone(),
+                s.settings.show_dreams,
+            )
         };
 
         println!("Recording {}s with {}...", record_secs, trans_model);
         // arecord with improved quality: 44100Hz Stereo
         let _ = Command::new("arecord")
-            .args(["-d", &record_secs.to_string(), "-f", "S16_LE", "-r", "44100", "-c", "2", "-t", "wav", wav_path])
+            .args([
+                "-d",
+                &record_secs.to_string(),
+                "-f",
+                "S16_LE",
+                "-r",
+                "44100",
+                "-c",
+                "2",
+                "-t",
+                "wav",
+                wav_path,
+            ])
             .status();
 
         if let Ok(transcript) = cascade.transcribe(wav_path, Some(&trans_model)).await {
-            if transcript.trim().is_empty() { 
+            if transcript.trim().is_empty() {
                 tokio::time::sleep(Duration::from_millis(500)).await;
-                continue; 
+                continue;
             }
-            
+
             println!("Transcript: {}", transcript);
             {
                 let mut state = shared_state.lock().unwrap();
@@ -104,16 +126,28 @@ Output ONLY JSON:
                 system_prompt: extraction_prompt.into(),
                 ..Default::default()
             };
-            
-            if let Ok(output) = run_agent(&cascade, &tools, &agent_config, &[], &transcript, None, "DATA", Some(&ext_model)).await {
+
+            if let Ok(output) = run_agent(
+                &cascade,
+                &tools,
+                &agent_config,
+                &[],
+                &transcript,
+                None,
+                "DATA",
+                Some(&ext_model),
+            )
+            .await
+            {
                 if let (Some(s), Some(e)) = (output.text.find('{'), output.text.rfind('}')) {
-                    if let Ok(new_map) = serde_json::from_str::<OntologicalMap>(&output.text[s..=e]) {
+                    if let Ok(new_map) = serde_json::from_str::<OntologicalMap>(&output.text[s..=e])
+                    {
                         let mut state = shared_state.lock().unwrap();
                         state.map.merge(new_map);
                     }
                 }
             }
-            
+
             // Dreaming
             if show_dreams {
                 let embedding = embedder.embed(&transcript);
@@ -121,7 +155,11 @@ Output ONLY JSON:
                 let dreams = dream_engine.generate_dreams(&goals, 2);
                 let mut state = shared_state.lock().unwrap();
                 for d in dreams {
-                    state.dreams.push(format!("{}: sim={:.3}", d.id, physis_pro::models::cosine_sim(&d.source, &d.embedding)));
+                    state.dreams.push(format!(
+                        "{}: sim={:.3}",
+                        d.id,
+                        physis_pro::models::cosine_sim(&d.source, &d.embedding)
+                    ));
                 }
             }
         }
@@ -132,7 +170,10 @@ async fn get_data(State(state): State<SharedState>) -> Json<AppState> {
     Json(state.lock().unwrap().clone())
 }
 
-async fn update_settings(State(state): State<SharedState>, Json(new_settings): Json<Settings>) -> Json<Settings> {
+async fn update_settings(
+    State(state): State<SharedState>,
+    Json(new_settings): Json<Settings>,
+) -> Json<Settings> {
     let mut s = state.lock().unwrap();
     s.settings = new_settings.clone();
     Json(new_settings)

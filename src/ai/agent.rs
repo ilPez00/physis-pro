@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::ai::provider::{Content, ContentPart, ImageUrl, Message};
-use crate::ai::tools::{ToolRegistry, call_tool};
-use crate::ai::{AiError, AiResult, provider::ProviderCascade};
+use crate::ai::tools::{call_tool, ToolRegistry};
+use crate::ai::{provider::ProviderCascade, AiError, AiResult};
 use serde::{Deserialize, Serialize};
 
 const MAX_TOOL_ROUNDS: u32 = 8;
@@ -18,9 +18,18 @@ const MAX_TOOL_ROUNDS: u32 = 8;
 /// these markers. Rough heuristic — only used to gate recalibration guidance.
 fn looks_like_failure(result: &str) -> bool {
     let r = result.to_lowercase();
-    ["error", "failed", "failure", "exception", "panic", "traceback", "not found", "❌"]
-        .iter()
-        .any(|m| r.contains(m))
+    [
+        "error",
+        "failed",
+        "failure",
+        "exception",
+        "panic",
+        "traceback",
+        "not found",
+        "❌",
+    ]
+    .iter()
+    .any(|m| r.contains(m))
 }
 
 /// A short, stable signature for a tool call so repeated identical failures can
@@ -177,10 +186,16 @@ pub async fn run_agent_stream(
 
     loop {
         let (resp, provider_name) = if let Some(m) = model_override {
-            let p = provider_cascade.providers_for_task(&route).into_iter()
+            let p = provider_cascade
+                .providers_for_task(&route)
+                .into_iter()
                 .find(|p| p.model() == m || p.name() == m)
                 .ok_or_else(|| AiError::NoProvider)?;
-            (p.complete(&messages, defs_for_call, Some(config.max_tokens)).await?, p.name().to_string())
+            (
+                p.complete(&messages, defs_for_call, Some(config.max_tokens))
+                    .await?,
+                p.name().to_string(),
+            )
         } else {
             provider_cascade
                 .complete(&messages, defs_for_call, &route, Some(config.max_tokens))
@@ -217,7 +232,11 @@ pub async fn run_agent_stream(
 
         tool_rounds += 1;
         if tool_rounds > MAX_TOOL_ROUNDS {
-            emit(tool_rounds, "error", &format!("max tool rounds ({MAX_TOOL_ROUNDS}) reached"));
+            emit(
+                tool_rounds,
+                "error",
+                &format!("max tool rounds ({MAX_TOOL_ROUNDS}) reached"),
+            );
             return Err(AiError::MaxToolRounds);
         }
 

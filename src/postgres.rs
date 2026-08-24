@@ -128,19 +128,53 @@ pub async fn scan(req: &Request, manifest_file: &Path) -> Result<SqlDiff> {
             bail!("text column '{}' is not present in '{}'", column, req.table);
         }
     }
-    let select = columns.iter().map(|column| quote(column)).collect::<Vec<_>>().join(", ");
-    let query = format!("SELECT row_to_json(t)::text FROM (SELECT {select} FROM {}.{}) t", quote("public"), quote(&req.table));
+    let select = columns
+        .iter()
+        .map(|column| quote(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let query = format!(
+        "SELECT row_to_json(t)::text FROM (SELECT {select} FROM {}.{}) t",
+        quote("public"),
+        quote(&req.table)
+    );
     let rows = client.query(&query, &[]).await?;
-    let indexes = columns.iter().enumerate().map(|(i, column)| (column.as_str(), i)).collect::<HashMap<_, _>>();
+    let indexes = columns
+        .iter()
+        .enumerate()
+        .map(|(i, column)| (column.as_str(), i))
+        .collect::<HashMap<_, _>>();
     let mut current = Vec::new();
     for row in rows {
         let json: Value = serde_json::from_str::<Value>(&row.get::<_, String>(0))?;
-        let values = columns.iter().map(|column| json.get(column).cloned().unwrap_or(Value::Null)).collect::<Vec<_>>();
-        let key = req.key_columns.iter().map(|column| canonical_value(&values[indexes[column.as_str()]])).collect::<Vec<_>>().join("|");
-        let text = text_columns.iter().map(|column| format!("{column}={}", canonical_value(&values[indexes[column.as_str()]]))).collect::<Vec<_>>().join("; ");
+        let values = columns
+            .iter()
+            .map(|column| json.get(column).cloned().unwrap_or(Value::Null))
+            .collect::<Vec<_>>();
+        let key = req
+            .key_columns
+            .iter()
+            .map(|column| canonical_value(&values[indexes[column.as_str()]]))
+            .collect::<Vec<_>>()
+            .join("|");
+        let text = text_columns
+            .iter()
+            .map(|column| {
+                format!(
+                    "{column}={}",
+                    canonical_value(&values[indexes[column.as_str()]])
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ");
         let hash = format!("{:x}", Sha256::digest(text.as_bytes()));
         let label = format!("postgres://{}/{}#{}", req.source, req.table, key);
-        current.push(SqlRow { key, label, text, hash });
+        current.push(SqlRow {
+            key,
+            label,
+            text,
+            hash,
+        });
     }
     reconcile(current, manifest_file)
 }
@@ -168,7 +202,13 @@ fn reconcile(current: Vec<SqlRow>, manifest_file: &Path) -> Result<SqlDiff> {
     let mut new_rows = Vec::new();
     let mut changed_rows = Vec::new();
     for row in &current {
-        next.insert(row.key.clone(), ManifestRow { label: row.label.clone(), hash: row.hash.clone() });
+        next.insert(
+            row.key.clone(),
+            ManifestRow {
+                label: row.label.clone(),
+                hash: row.hash.clone(),
+            },
+        );
         match old.remove(&row.key) {
             None => new_rows.push(row.clone()),
             Some(previous) if previous.hash != row.hash => changed_rows.push(row.clone()),
@@ -178,11 +218,27 @@ fn reconcile(current: Vec<SqlRow>, manifest_file: &Path) -> Result<SqlDiff> {
     // Whatever the current read did not account for is gone from the source.
     // The label is carried over from the manifest because the row no longer
     // exists to derive one from, and the caller deletes by label prefix.
-    let deleted_rows = old.into_iter().map(|(key, previous)| SqlRow { key, label: previous.label, text: String::new(), hash: previous.hash }).collect::<Vec<_>>();
+    let deleted_rows = old
+        .into_iter()
+        .map(|(key, previous)| SqlRow {
+            key,
+            label: previous.label,
+            text: String::new(),
+            hash: previous.hash,
+        })
+        .collect::<Vec<_>>();
     crate::atomic::write_json_durable(manifest_file, &Manifest { rows: next })
         .with_context(|| format!("write scan manifest {}", manifest_file.display()))?;
-    let unchanged = current.len().saturating_sub(new_rows.len() + changed_rows.len());
-    Ok(SqlDiff { new_rows, changed_rows, deleted_rows, unchanged, total: current.len() })
+    let unchanged = current
+        .len()
+        .saturating_sub(new_rows.len() + changed_rows.len());
+    Ok(SqlDiff {
+        new_rows,
+        changed_rows,
+        deleted_rows,
+        unchanged,
+        total: current.len(),
+    })
 }
 
 #[cfg(not(feature = "postgres"))]
@@ -329,7 +385,14 @@ mod tests {
 
     #[test]
     fn rejects_identifiers_that_could_escape_quoting() {
-        for bad in ["orders; DROP TABLE users", "orders\"", "1orders", "", "public.orders", "ord ers"] {
+        for bad in [
+            "orders; DROP TABLE users",
+            "orders\"",
+            "1orders",
+            "",
+            "public.orders",
+            "ord ers",
+        ] {
             assert!(validate_identifier(bad).is_err(), "accepted {bad:?}");
         }
         for good in ["orders", "_private", "order_items2"] {

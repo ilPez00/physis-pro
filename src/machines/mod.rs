@@ -27,22 +27,22 @@
 //! reducers over the core. `physis-logos`→[`elenchus`], `physis-nous`→[`techne`],
 //! `physis-pythagoras`→[`harmony`] map onto existing reducers (see their notes).
 
-pub mod chronos;
-pub mod topos;
-pub mod techne;
-pub mod soma;
-pub mod elenchus;
-pub mod lex;
-pub mod harmony;
-pub mod polis;
-pub mod empedocles;
-pub mod euclid;
-pub mod erosp;
-pub mod erosa;
-pub mod plutos;
-pub mod krisis;
-pub mod pathos;
-pub mod chroma;
-pub mod kinesis;
 pub mod apodeixis;
+pub mod chroma;
+pub mod chronos;
+pub mod elenchus;
+pub mod empedocles;
+pub mod erosa;
+pub mod erosp;
+pub mod euclid;
+pub mod harmony;
+pub mod kinesis;
+pub mod krisis;
+pub mod lex;
+pub mod pathos;
+pub mod plutos;
+pub mod polis;
 pub mod run;
+pub mod soma;
+pub mod techne;
+pub mod topos;

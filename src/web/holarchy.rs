@@ -1,6 +1,9 @@
 use super::*;
 use crate::web::SharedState;
-use axum::{extract::{Json, Query, State}, http::{StatusCode, HeaderMap}};
+use axum::{
+    extract::{Json, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 
 pub async fn holarchy_ingest_handler(
     State(state): State<SharedState>,
@@ -124,4 +127,3 @@ pub async fn holarchy_graph_handler(
     });
     Json(GraphResponse { nodes, edges })
 }
-

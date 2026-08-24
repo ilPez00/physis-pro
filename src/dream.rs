@@ -15,7 +15,6 @@ fn truncate_name(name: &str) -> String {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum DreamContext {
     Random,
@@ -90,12 +89,15 @@ impl DreamEngine {
                         _ => vec![],
                     },
                 };
-                (Dream::new(
-                    goals[0].embedding.clone(),
-                    embedding,
-                    "schedule_dream".to_string(),
-                    desc,
-                ), ctx)
+                (
+                    Dream::new(
+                        goals[0].embedding.clone(),
+                        embedding,
+                        "schedule_dream".to_string(),
+                        desc,
+                    ),
+                    ctx,
+                )
             } else if let Some(exps) = experiences {
                 if !exps.is_empty() && roll < 0.6 {
                     self.generate_countermeasure_dream(goals, exps)
@@ -123,13 +125,20 @@ impl DreamEngine {
         dreams
     }
 
-    fn dream_from_proposal(&mut self, goals: &[Goal], proposal: &crate::gantt::GanttDreamProposal) -> Vec<f32> {
+    fn dream_from_proposal(
+        &mut self,
+        goals: &[Goal],
+        proposal: &crate::gantt::GanttDreamProposal,
+    ) -> Vec<f32> {
         if goals.is_empty() {
             return vec![];
         }
         let g = &goals[self.rng.random_range(0..goals.len())];
         let boost = proposal.expected_impact;
-        g.embedding.iter().map(|x| x * (1.0 + boost * 0.1)).collect()
+        g.embedding
+            .iter()
+            .map(|x| x * (1.0 + boost * 0.1))
+            .collect()
     }
 
     fn generate_countermeasure_dream(
@@ -137,41 +146,63 @@ impl DreamEngine {
         goals: &[Goal],
         experiences: &[Experience],
     ) -> (Dream, DreamContext) {
-        let stagnant_goals: Vec<&Goal> = goals.iter()
+        let stagnant_goals: Vec<&Goal> = goals
+            .iter()
             .filter(|g| {
-                let recent: Vec<&Experience> = experiences.iter()
-                    .filter(|e| e.goal_id == g.id)
-                    .collect();
+                let recent: Vec<&Experience> =
+                    experiences.iter().filter(|e| e.goal_id == g.id).collect();
                 recent.last().is_some_and(|e| e.grade < 0.3)
             })
             .collect();
 
         if stagnant_goals.is_empty() {
-        let g = &goals[self.rng.random_range(0..goals.len())];
-            let embedding: Vec<f32> = g.embedding.iter()
+            let g = &goals[self.rng.random_range(0..goals.len())];
+            let embedding: Vec<f32> = g
+                .embedding
+                .iter()
                 .map(|x| x + self.rng.random::<f32>() * 0.2 - 0.1)
                 .collect();
-            let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+            let norm: f32 = embedding
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt()
+                .max(1e-8);
             let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
             let desc = format!("Explore near {} after stagnation", truncate_name(g.name()));
-            return (Dream::new(g.embedding.clone(), embedding, "explore".to_string(), desc), DreamContext::Random);
+            return (
+                Dream::new(g.embedding.clone(), embedding, "explore".to_string(), desc),
+                DreamContext::Random,
+            );
         }
 
         let source = stagnant_goals[0];
-        let breakthrough = experiences.iter()
+        let breakthrough = experiences
+            .iter()
             .filter(|e| e.grade > 0.7)
             .max_by_key(|e| (e.grade * 100.0) as i64);
 
         let (embedding, steps) = if let Some(best) = breakthrough {
             let vec = best.after.clone();
             let steps = vec![
-                format!("Apply breakthrough pattern from experience {}", &best.id[..8]),
-                format!("Increase grade target from {:.2} to {:.2}", source.progress, best.grade),
-                format!("Shift vector toward {:.2?}", &best.after[..2.min(best.after.len())]),
+                format!(
+                    "Apply breakthrough pattern from experience {}",
+                    &best.id[..8]
+                ),
+                format!(
+                    "Increase grade target from {:.2} to {:.2}",
+                    source.progress, best.grade
+                ),
+                format!(
+                    "Shift vector toward {:.2?}",
+                    &best.after[..2.min(best.after.len())]
+                ),
             ];
             (vec, steps)
         } else {
-            let vec: Vec<f32> = source.embedding.iter()
+            let vec: Vec<f32> = source
+                .embedding
+                .iter()
                 .map(|x| x + self.rng.random::<f32>() * 0.3 - 0.15)
                 .collect();
             let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
@@ -184,13 +215,24 @@ impl DreamEngine {
             (vec, steps)
         };
 
-        let desc = format!("Countermeasure for {} — {} steps", truncate_name(source.name()), steps.len());
-        (Dream::new(source.embedding.clone(), embedding, "countermeasure".to_string(), desc),
-         DreamContext::Countermeasure {
-             steps,
-             expected_impact: 0.3,
-             triggered_by_goal: source.id.clone(),
-         })
+        let desc = format!(
+            "Countermeasure for {} — {} steps",
+            truncate_name(source.name()),
+            steps.len()
+        );
+        (
+            Dream::new(
+                source.embedding.clone(),
+                embedding,
+                "countermeasure".to_string(),
+                desc,
+            ),
+            DreamContext::Countermeasure {
+                steps,
+                expected_impact: 0.3,
+                triggered_by_goal: source.id.clone(),
+            },
+        )
     }
 
     fn generate_interpolation_dream(&mut self, goals: &[Goal]) -> (Dream, DreamContext) {
@@ -200,33 +242,65 @@ impl DreamEngine {
         let g1 = &goals[self.rng.random_range(0..goals.len())];
         let g2 = &goals[self.rng.random_range(0..goals.len())];
         let t: f32 = self.rng.random();
-        let embedding: Vec<f32> = g1.embedding.iter()
+        let embedding: Vec<f32> = g1
+            .embedding
+            .iter()
             .zip(g2.embedding.iter())
             .map(|(a, b)| a * (1.0 - t) + b * t)
             .collect();
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        let norm: f32 = embedding
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Interpolate {:.2} {} ↔ {}", t, truncate_name(g1.name()), truncate_name(g2.name()));
-        (Dream::new(g1.embedding.clone(), embedding, "interpolate".to_string(), desc),
-         DreamContext::Interpolation {
-             source_goal: g1.id.clone(),
-             target_goal: g2.id.clone(),
-         })
+        let desc = format!(
+            "Interpolate {:.2} {} ↔ {}",
+            t,
+            truncate_name(g1.name()),
+            truncate_name(g2.name())
+        );
+        (
+            Dream::new(
+                g1.embedding.clone(),
+                embedding,
+                "interpolate".to_string(),
+                desc,
+            ),
+            DreamContext::Interpolation {
+                source_goal: g1.id.clone(),
+                target_goal: g2.id.clone(),
+            },
+        )
     }
 
     fn generate_mutation_dream(&mut self, goals: &[Goal]) -> (Dream, DreamContext) {
         let g = &goals[self.rng.random_range(0..goals.len())];
         let noise_std: f32 = 0.1 + self.rng.random::<f32>() * 0.3;
-        let embedding: Vec<f32> = g.embedding.iter()
+        let embedding: Vec<f32> = g
+            .embedding
+            .iter()
             .map(|x| x + self.rng.random::<f32>() * noise_std - noise_std * 0.5)
             .collect();
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        let norm: f32 = embedding
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Mutate {} with noise_std={:.3}", truncate_name(g.name()), noise_std);
-        (Dream::new(g.embedding.clone(), embedding, "mutate".to_string(), desc),
-         DreamContext::Random)
+        let desc = format!(
+            "Mutate {} with noise_std={:.3}",
+            truncate_name(g.name()),
+            noise_std
+        );
+        (
+            Dream::new(g.embedding.clone(), embedding, "mutate".to_string(), desc),
+            DreamContext::Random,
+        )
     }
 
     fn extrapolate(&mut self, goals: &[Goal]) -> Dream {
@@ -238,15 +312,31 @@ impl DreamEngine {
             .collect();
 
         let factor: f32 = 0.3 + self.rng.random::<f32>() * 0.5;
-        let embedding: Vec<f32> = g.embedding.iter()
+        let embedding: Vec<f32> = g
+            .embedding
+            .iter()
             .zip(centroid.iter())
             .map(|(a, c)| a + (a - c) * factor)
             .collect();
-        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        let norm: f32 = embedding
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-8);
         let embedding: Vec<f32> = embedding.iter().map(|x| x / norm).collect();
 
-        let desc = format!("Extrapolate {} factor={:.2}", truncate_name(g.name()), factor);
-        Dream::new(g.embedding.clone(), embedding, "extrapolate".to_string(), desc)
+        let desc = format!(
+            "Extrapolate {} factor={:.2}",
+            truncate_name(g.name()),
+            factor
+        );
+        Dream::new(
+            g.embedding.clone(),
+            embedding,
+            "extrapolate".to_string(),
+            desc,
+        )
     }
 
     pub fn evaluate_dream(&mut self, dream_id: &str, grade: f32) -> bool {
@@ -267,7 +357,8 @@ impl DreamEngine {
     }
 
     pub fn get_context(&self, dream_id: &str) -> Option<&DreamContext> {
-        self.dreams.iter()
+        self.dreams
+            .iter()
             .position(|d| d.id == dream_id)
             .and_then(|idx| self.dream_contexts.get(idx))
     }
@@ -286,12 +377,14 @@ mod tests {
 
     fn test_goals(dim: usize) -> Vec<Goal> {
         let mut rng = StdRng::seed_from_u64(42);
-        (0..5).map(|_| {
-            let v: Vec<f32> = (0..dim).map(|_| rng.random::<f32>() * 2.0 - 1.0).collect();
-            let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
-            let embedding: Vec<f32> = v.iter().map(|x| x / norm).collect();
-            Goal::new(embedding, "test".to_string())
-        }).collect()
+        (0..5)
+            .map(|_| {
+                let v: Vec<f32> = (0..dim).map(|_| rng.random::<f32>() * 2.0 - 1.0).collect();
+                let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+                let embedding: Vec<f32> = v.iter().map(|x| x / norm).collect();
+                Goal::new(embedding, "test".to_string())
+            })
+            .collect()
     }
 
     #[test]
@@ -323,8 +416,12 @@ mod tests {
 
         let mut exps = Vec::new();
         let exp = Experience::new(
-            &goals[0].id, vec![0.0; 32], vec![0.1; 32],
-            "action".to_string(), "test".to_string(), std::collections::HashMap::new(),
+            &goals[0].id,
+            vec![0.0; 32],
+            vec![0.1; 32],
+            "action".to_string(),
+            "test".to_string(),
+            std::collections::HashMap::new(),
         );
         exps.push(exp);
 

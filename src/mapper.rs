@@ -83,7 +83,9 @@ impl OntologyMapper {
     /// Inserts goal embeddings into the trie as tokenized paths.
     pub fn map_goals_to_trie(&mut self, goals: &[Goal]) {
         for goal in goals {
-            let embedding_str: String = goal.embedding.iter()
+            let embedding_str: String = goal
+                .embedding
+                .iter()
                 .map(|v| format!("{:.4}", v))
                 .take(8)
                 .collect::<Vec<_>>()
@@ -101,7 +103,8 @@ impl OntologyMapper {
         }
 
         let lang_domain = match ext_no_dot {
-            "rs" | "py" | "kt" | "java" | "ts" | "js" | "go" | "rb" | "swift" | "c" | "cpp" | "h" | "hpp" => "code",
+            "rs" | "py" | "kt" | "java" | "ts" | "js" | "go" | "rb" | "swift" | "c" | "cpp"
+            | "h" | "hpp" => "code",
             "md" | "txt" | "rst" | "adoc" => "documentation",
             "json" | "yaml" | "yml" | "toml" | "xml" => "config",
             "html" | "css" | "scss" | "less" => "web",
@@ -123,10 +126,7 @@ impl OntologyMapper {
     /// Searches the trie for paths matching a whitespace-delimited query string.
     pub fn query(&self, query: &str) -> Vec<Vec<String>> {
         let words: Vec<&str> = query.split_whitespace().collect();
-        let tids: Vec<u32> = words
-            .iter()
-            .filter_map(|w| self.trie.token_id(w))
-            .collect();
+        let tids: Vec<u32> = words.iter().filter_map(|w| self.trie.token_id(w)).collect();
         if tids.is_empty() {
             return vec![];
         }
@@ -136,8 +136,14 @@ impl OntologyMapper {
     /// Returns trie statistics plus domain counts from the ontology.
     pub fn stats(&self) -> HashMap<String, usize> {
         let mut s = self.trie.stats();
-        s.insert("human_domains".to_string(), self.ontology.human_domains.len());
-        s.insert("machine_domains".to_string(), self.ontology.machine_domains.len());
+        s.insert(
+            "human_domains".to_string(),
+            self.ontology.human_domains.len(),
+        );
+        s.insert(
+            "machine_domains".to_string(),
+            self.ontology.machine_domains.len(),
+        );
         s
     }
 }
@@ -214,7 +220,10 @@ mod tests {
 
         mapper.map_filesystem(&dir, None);
         let s = mapper.stats();
-        assert!(*s.get("terminal_nodes").unwrap() > 0, "trie should have terminal nodes from structural lines");
+        assert!(
+            *s.get("terminal_nodes").unwrap() > 0,
+            "trie should have terminal nodes from structural lines"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -233,7 +242,10 @@ mod tests {
         mapper.map_goals_to_trie(&goals);
 
         let s = mapper.stats();
-        assert!(*s.get("nodes").unwrap() > 1, "trie should have nodes after inserting goals");
+        assert!(
+            *s.get("nodes").unwrap() > 1,
+            "trie should have nodes after inserting goals"
+        );
     }
 
     #[test]
@@ -244,8 +256,16 @@ mod tests {
 
         mapper.trie.insert_path("test/stats/path");
         let s = mapper.stats();
-        assert!(*s.get("human_domains").unwrap() >= 14, "human domains should be at least 14, got {}", s.get("human_domains").unwrap());
-        assert!(*s.get("machine_domains").unwrap() >= 53, "machine domains should be at least 53, got {}", s.get("machine_domains").unwrap());
+        assert!(
+            *s.get("human_domains").unwrap() >= 14,
+            "human domains should be at least 14, got {}",
+            s.get("human_domains").unwrap()
+        );
+        assert!(
+            *s.get("machine_domains").unwrap() >= 53,
+            "machine domains should be at least 53, got {}",
+            s.get("machine_domains").unwrap()
+        );
         assert!(*s.get("nodes").unwrap() > 1);
     }
 }

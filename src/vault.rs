@@ -115,7 +115,9 @@ pub fn scan_vault(dir: &Path) -> Vec<VaultDoc> {
         {
             continue;
         }
-        let Ok(body) = std::fs::read_to_string(&f.abs_path) else { continue };
+        let Ok(body) = std::fs::read_to_string(&f.abs_path) else {
+            continue;
+        };
         let title = title_of(&PathBuf::from(&f.path), &body);
         let headings = headings_of(&body);
         let doc = VaultDoc {
@@ -157,7 +159,11 @@ pub fn parse_git_log(output: &str) -> Vec<VaultDoc> {
         }
         docs.push(VaultDoc {
             source: format!("git {short}"),
-            title: if subject.is_empty() { short.to_string() } else { subject.to_string() },
+            title: if subject.is_empty() {
+                short.to_string()
+            } else {
+                subject.to_string()
+            },
             body: full,
             headings: vec![],
         });
@@ -282,7 +288,10 @@ mod tests {
         let docs = scan_vault(&dir);
         let titles: Vec<&str> = docs.iter().map(|d| d.title.as_str()).collect();
         assert!(titles.contains(&"First Note"));
-        assert!(titles.contains(&"two"), "txt file picked up with stem title");
+        assert!(
+            titles.contains(&"two"),
+            "txt file picked up with stem title"
+        );
         assert_eq!(docs.len(), 2, "binary is not a note");
         let _ = std::fs::remove_dir_all(&dir);
     }

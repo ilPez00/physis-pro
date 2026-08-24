@@ -142,7 +142,10 @@ fn sse_event(ev: &AgentEvent) -> Event {
 // ── GET /agent ───────────────────────────────────────────────────────────────
 
 pub async fn agent_ui_handler() -> Html<&'static str> {
-    Html(include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/bin/ui/agent.html")))
+    Html(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/bin/ui/agent.html"
+    )))
 }
 
 // ── GET /api/v1/agent/caps ──────────────────────────────────────────────────
@@ -151,7 +154,11 @@ pub async fn agent_capabilities_handler(
     State(state): State<SharedState>,
 ) -> Json<AgentCapabilities> {
     let cfg = &state.shared.config.agent;
-    let opencode_enabled = cfg.opencode_bin.as_ref().map(|p| p.exists()).unwrap_or(false);
+    let opencode_enabled = cfg
+        .opencode_bin
+        .as_ref()
+        .map(|p| p.exists())
+        .unwrap_or(false);
     let tools = vec![
         AgentToolInfo {
             name: "graph_search".into(),
@@ -240,8 +247,10 @@ pub async fn agent_run_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(req): Json<AgentRunRequest>,
-) -> Result<Sse<impl Stream<Item = Result<Event, axum::Error>>>, (axum::http::StatusCode, Json<serde_json::Value>)>
-{
+) -> Result<
+    Sse<impl Stream<Item = Result<Event, axum::Error>>>,
+    (axum::http::StatusCode, Json<serde_json::Value>),
+> {
     let uid = user_key(&headers);
     let run_id = format!("run-{}", uuid::Uuid::new_v4());
     let handle = state.agent_runs.insert(&run_id, &uid);
@@ -259,8 +268,13 @@ pub async fn agent_run_handler(
     // Built unfiltered first so the whitelist can be validated against what
     // actually exists — the filtered build of a bogus whitelist is empty, which
     // is exactly the silent failure this check exists to prevent.
-    let unfiltered =
-        build_tool_registry(state.clone(), child_for_run.clone(), cancelled.clone(), &uid, &None);
+    let unfiltered = build_tool_registry(
+        state.clone(),
+        child_for_run.clone(),
+        cancelled.clone(),
+        &uid,
+        &None,
+    );
 
     // A whitelist naming tools that don't exist would silently run the agent
     // with an empty registry: the prompt tells the model to use tools it was
@@ -268,8 +282,11 @@ pub async fn agent_run_handler(
     // Fail loudly instead of letting the loop publish the improvisation.
     let tools = match &allowed {
         Some(want) => {
-            let missing: Vec<String> =
-                want.iter().filter(|n| !unfiltered.has(n)).cloned().collect();
+            let missing: Vec<String> = want
+                .iter()
+                .filter(|n| !unfiltered.has(n))
+                .cloned()
+                .collect();
             if !missing.is_empty() {
                 state.agent_runs.remove(&run_id);
                 return Err((
@@ -370,7 +387,11 @@ pub async fn agent_run_handler(
         // in Physis, and emit the verdict as its own event so the dashboard can
         // render it beside the answer.
         if gate_enabled {
-            let answer = final_text.lock().ok().and_then(|s| s.clone()).unwrap_or_default();
+            let answer = final_text
+                .lock()
+                .ok()
+                .and_then(|s| s.clone())
+                .unwrap_or_default();
             if !answer.trim().is_empty() {
                 let ev = evaluate_answer(&gate_state, &gate_uid, &answer, &query, gate_threshold);
                 let _ = run_tx.send(AgentEvent {
@@ -756,7 +777,11 @@ async fn run_opencode(
         Some(b) if b.exists() => b,
         _ => return Ok("opencode tool disabled: no opencode_bin configured/present".to_string()),
     };
-    let task = args.get("task").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let task = args
+        .get("task")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if task.trim().is_empty() {
         return Ok("error: 'task' is required".to_string());
     }
@@ -838,7 +863,6 @@ async fn run_opencode(
         Ok(output)
     }
 }
-
 
 /// Judge one agent answer with the coherence harness.
 ///
@@ -928,9 +952,15 @@ mod tests {
         let root = tmp.path().join("root");
         std::fs::create_dir_all(root.join("sub")).unwrap();
 
-        for attack in ["..", "../..", "../../etc", "/../../etc", "sub/../../..", "./../out"] {
-            let err = resolve_workdir(&root, attack)
-                .expect_err("{attack:?} must be refused");
+        for attack in [
+            "..",
+            "../..",
+            "../../etc",
+            "/../../etc",
+            "sub/../../..",
+            "./../out",
+        ] {
+            let err = resolve_workdir(&root, attack).expect_err("{attack:?} must be refused");
             assert!(
                 err.contains("must not contain '..'") || err.contains("outside scan root"),
                 "{attack:?} refused for the wrong reason: {err}",
@@ -968,7 +998,10 @@ mod tests {
         // Empty means "the root itself", not "reject".
         assert_eq!(resolve_workdir(&root, "  ").unwrap(), root);
         // A leading slash is treated as root-relative, not absolute.
-        assert_eq!(resolve_workdir(&root, "/pkg").unwrap(), std::fs::canonicalize(root.join("pkg")).unwrap());
+        assert_eq!(
+            resolve_workdir(&root, "/pkg").unwrap(),
+            std::fs::canonicalize(root.join("pkg")).unwrap()
+        );
     }
 
     #[test]
@@ -990,7 +1023,10 @@ mod tests {
         reg.insert("run-1", "alice");
 
         assert!(reg.get_owned("run-1", "alice").is_some(), "owner may abort");
-        assert!(reg.get_owned("run-1", "bob").is_none(), "another tenant may not");
+        assert!(
+            reg.get_owned("run-1", "bob").is_none(),
+            "another tenant may not"
+        );
         // Unknown id and someone else's id are indistinguishable, so the
         // response cannot be used to probe for live run ids.
         assert!(reg.get_owned("run-does-not-exist", "bob").is_none());

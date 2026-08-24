@@ -20,7 +20,11 @@ impl EmbedderRegistry {
     pub fn from_config(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> Self {
         let (text, image) = Self::build_embedders(config, onnx_cfg);
         let text_dim = text.dimension();
-        Self { text, image, text_dim }
+        Self {
+            text,
+            image,
+            text_dim,
+        }
     }
 
     fn build_embedders(
@@ -89,7 +93,9 @@ impl EmbedderRegistry {
         Self::fallback_onnx(onnx_cfg)
     }
 
-    fn fallback_onnx(onnx_cfg: &OnnxConfig) -> (Box<dyn VectorEmbed>, Option<Box<dyn VectorEmbed>>) {
+    fn fallback_onnx(
+        onnx_cfg: &OnnxConfig,
+    ) -> (Box<dyn VectorEmbed>, Option<Box<dyn VectorEmbed>>) {
         let onnx = OnnxEmbedder::with_config(onnx_cfg);
         if onnx.is_available() {
             (Box::new(onnx), None)

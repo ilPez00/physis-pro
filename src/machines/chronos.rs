@@ -78,8 +78,8 @@ pub fn detect_rhythms(events: &[TimedEvent]) -> Vec<Rhythm> {
             continue;
         }
         let mean = intervals.iter().sum::<f64>() / intervals.len() as f64;
-        let var = intervals.iter().map(|d| (d - mean).powi(2)).sum::<f64>()
-            / intervals.len() as f64;
+        let var =
+            intervals.iter().map(|d| (d - mean).powi(2)).sum::<f64>() / intervals.len() as f64;
         let cv = if mean > 0.0 { var.sqrt() / mean } else { 1.0 };
         let regularity = (1.0 - cv).clamp(0.0, 1.0);
         let evidence = (times.len() as f64 / 5.0).min(1.0);
@@ -95,14 +95,21 @@ pub fn detect_rhythms(events: &[TimedEvent]) -> Vec<Rhythm> {
             confidence,
         });
     }
-    rhythms.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
+    rhythms.sort_by(|a, b| {
+        b.confidence
+            .partial_cmp(&a.confidence)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     rhythms
 }
 
 /// Rhythms whose next occurrence falls within `[now, now + horizon_days]`.
 pub fn upcoming(rhythms: &[Rhythm], now: DateTime<Utc>, horizon_days: i64) -> Vec<&Rhythm> {
     let horizon = now + Duration::days(horizon_days);
-    rhythms.iter().filter(|r| r.next_due >= now && r.next_due <= horizon).collect()
+    rhythms
+        .iter()
+        .filter(|r| r.next_due >= now && r.next_due <= horizon)
+        .collect()
 }
 
 /// Rhythms overdue past their period — the "about to break" / slipping signal.
@@ -179,7 +186,12 @@ mod tests {
     fn reduce_scores_regular_rhythms_positive() {
         let events: Vec<TimedEvent> = (0..5).map(|i| ev("standup", i * 7)).collect();
         let now = DateTime::<Utc>::from_timestamp(11 * 86_400, 0).unwrap();
-        let s = reduce(&mut PhysisCore::new(), &RandomProjectionEmbedder::new(64), &events, now);
+        let s = reduce(
+            &mut PhysisCore::new(),
+            &RandomProjectionEmbedder::new(64),
+            &events,
+            now,
+        );
         assert!(s > 0.5, "regular rhythms should score positive (got {})", s);
     }
 
@@ -192,7 +204,12 @@ mod tests {
         let overdue = DateTime::<Utc>::from_timestamp(20 * 86_400, 0).unwrap();
         let s_ok = reduce(&mut PhysisCore::new(), &embedder, &events, on_time);
         let s_late = reduce(&mut PhysisCore::new(), &embedder, &events, overdue);
-        assert!(s_late < s_ok, "overdue rhythm should score LOWER than on-time ({} vs {})", s_late, s_ok);
+        assert!(
+            s_late < s_ok,
+            "overdue rhythm should score LOWER than on-time ({} vs {})",
+            s_late,
+            s_ok
+        );
     }
 
     #[test]
@@ -222,7 +239,7 @@ mod tests {
     fn upcoming_and_slipping_partition_by_due_date() {
         let events: Vec<TimedEvent> = (0..4).map(|i| ev("water plants", i * 3)).collect();
         let rhythms = detect_rhythms(&events); // period ~3d, last day 9, next ~day 12
-        // now = day 11 → upcoming within 3 days
+                                               // now = day 11 → upcoming within 3 days
         let now = DateTime::<Utc>::from_timestamp(11 * 86_400, 0).unwrap();
         assert_eq!(upcoming(&rhythms, now, 3).len(), 1);
         assert!(slipping(&rhythms, now, 0.5).is_empty());

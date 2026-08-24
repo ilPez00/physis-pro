@@ -191,7 +191,14 @@ mod tests {
     use crate::embed::RandomProjectionEmbedder;
 
     fn prim(vertices: u32, circularity: f32, bbox: BBox) -> Primitive {
-        Primitive { vertices, circularity, aspect_ratio: 1.0, color: (2, 2, 2), texture: 0.0, bbox }
+        Primitive {
+            vertices,
+            circularity,
+            aspect_ratio: 1.0,
+            color: (2, 2, 2),
+            texture: 0.0,
+            bbox,
+        }
     }
 
     #[test]
@@ -249,7 +256,10 @@ mod tests {
         // each form +1, plus 1 composed relation -> (1+1+1)/2 = 1.5 normalised? no:
         // score sums (1+1 +1 relation) / total primitives(2) = 1.5 -> clamp not applied;
         // assert strictly greater than a lone form's 1.0/1 = 1.0
-        assert!(score > 1.0, "composed forms should exceed lone-form coherence");
+        assert!(
+            score > 1.0,
+            "composed forms should exceed lone-form coherence"
+        );
     }
 
     #[test]

@@ -20,7 +20,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::machines::chronos::{detect_rhythms, TimedEvent};
-use crate::operational::{OperationalEvent, OperationalKind, OperationalProvenance, OperationalStatus};
+use crate::operational::{
+    OperationalEvent, OperationalKind, OperationalProvenance, OperationalStatus,
+};
 use crate::operational_report::OperationalTimeline;
 
 /// What the student did to a file.
@@ -65,13 +67,24 @@ pub struct StudyEvent {
 }
 
 impl StudyEvent {
-    pub fn new(observed_at: DateTime<Utc>, action: StudyAction, path: impl Into<String>, place: impl Into<String>) -> Self {
+    pub fn new(
+        observed_at: DateTime<Utc>,
+        action: StudyAction,
+        path: impl Into<String>,
+        place: impl Into<String>,
+    ) -> Self {
         let path = path.into();
         let file_type = Path::new(&path)
             .extension()
             .map(|e| e.to_string_lossy().to_string())
             .unwrap_or_default();
-        Self { observed_at, action, path, place: place.into(), file_type }
+        Self {
+            observed_at,
+            action,
+            path,
+            place: place.into(),
+            file_type,
+        }
     }
 
     fn name(&self) -> String {
@@ -145,7 +158,8 @@ pub struct FileSnapshot {
 /// - path present in `prev` but not `cur` → `Deleted`
 /// - callers may reinterpret the *first* tick (empty `prev`) as `Opened`
 pub fn diff_snapshots(prev: &[FileSnapshot], cur: &[FileSnapshot]) -> Vec<(String, StudyAction)> {
-    let prev_map: HashMap<&str, &FileSnapshot> = prev.iter().map(|f| (f.path.as_str(), f)).collect();
+    let prev_map: HashMap<&str, &FileSnapshot> =
+        prev.iter().map(|f| (f.path.as_str(), f)).collect();
     let cur_map: HashMap<&str, &FileSnapshot> = cur.iter().map(|f| (f.path.as_str(), f)).collect();
     let mut out = Vec::new();
     for f in cur {
@@ -183,8 +197,17 @@ pub fn snapshot_dir(root: &Path) -> std::io::Result<Vec<FileSnapshot>> {
                 queue.push(p);
             } else {
                 if let Ok(meta) = entry.metadata() {
-                    let mtime = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0);
-                    snap.push(FileSnapshot { path: p.to_string_lossy().to_string(), mtime_unix: mtime, size: meta.len() });
+                    let mtime = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    snap.push(FileSnapshot {
+                        path: p.to_string_lossy().to_string(),
+                        mtime_unix: mtime,
+                        size: meta.len(),
+                    });
                 }
             }
         }
@@ -237,7 +260,10 @@ fn tally<I: IntoIterator<Item = String>>(items: I) -> Vec<Tally> {
     for k in items {
         *map.entry(k).or_insert(0) += 1;
     }
-    let mut v: Vec<Tally> = map.into_iter().map(|(key, count)| Tally { key, count }).collect();
+    let mut v: Vec<Tally> = map
+        .into_iter()
+        .map(|(key, count)| Tally { key, count })
+        .collect();
     v.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.key.cmp(&b.key)));
     v
 }
@@ -271,7 +297,11 @@ pub fn session(events: &[StudyEvent]) -> StudySession {
         timeline,
         by_type: tally(events.iter().map(|e| {
             let t = e.file_type_of();
-            if t.is_empty() { "none".to_string() } else { t }
+            if t.is_empty() {
+                "none".to_string()
+            } else {
+                t
+            }
         })),
         by_dir: tally(events.iter().map(|e| e.dir())),
         by_action: tally(events.iter().map(|e| e.action.as_str().to_string())),
@@ -284,12 +314,20 @@ mod tests {
     use super::*;
 
     fn snap(path: &str, mtime: u64, size: u64) -> FileSnapshot {
-        FileSnapshot { path: path.into(), mtime_unix: mtime, size }
+        FileSnapshot {
+            path: path.into(),
+            mtime_unix: mtime,
+            size,
+        }
     }
 
     #[test]
     fn diff_snapshots_detects_generate_edit_delete() {
-        let prev = vec![snap("a.md", 100, 5), snap("b.md", 200, 5), snap("gone.md", 300, 5)];
+        let prev = vec![
+            snap("a.md", 100, 5),
+            snap("b.md", 200, 5),
+            snap("gone.md", 300, 5),
+        ];
         let cur = vec![
             snap("a.md", 101, 5),   // changed mtime → edited
             snap("b.md", 200, 9),   // changed size → edited
@@ -297,7 +335,10 @@ mod tests {
         ];
         let mut got = diff_snapshots(&prev, &cur);
         got.sort_by(|a, b| a.0.cmp(&b.0));
-        let got: Vec<(String, String)> = got.into_iter().map(|(p, a)| (p, a.as_str().to_string())).collect();
+        let got: Vec<(String, String)> = got
+            .into_iter()
+            .map(|(p, a)| (p, a.as_str().to_string()))
+            .collect();
         assert_eq!(
             got,
             vec![
@@ -312,14 +353,30 @@ mod tests {
     #[test]
     fn empty_prev_means_everything_is_new() {
         let cur = vec![snap("a.md", 1, 2), snap("b.tex", 3, 4)];
-        let got: Vec<(String, String)> = diff_snapshots(&[], &cur).into_iter().map(|(p, a)| (p, a.as_str().to_string())).collect();
-        assert_eq!(got, vec![("a.md".into(), "generated".into()), ("b.tex".into(), "generated".into())]);
+        let got: Vec<(String, String)> = diff_snapshots(&[], &cur)
+            .into_iter()
+            .map(|(p, a)| (p, a.as_str().to_string()))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("a.md".into(), "generated".into()),
+                ("b.tex".into(), "generated".into())
+            ]
+        );
     }
 
     #[test]
     fn event_carries_full_context_metadata() {
-        let t = DateTime::parse_from_rfc3339("2026-08-13T10:00:00Z").unwrap().with_timezone(&Utc);
-        let e = StudyEvent::new(t, StudyAction::Generated, "/home/u/topo/notes/lecture-03.md", "Library");
+        let t = DateTime::parse_from_rfc3339("2026-08-13T10:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let e = StudyEvent::new(
+            t,
+            StudyAction::Generated,
+            "/home/u/topo/notes/lecture-03.md",
+            "Library",
+        );
         assert_eq!(e.file_type, "md");
         assert_eq!(e.dir(), "/home/u/topo/notes");
         assert_eq!(e.name(), "lecture-03.md");
@@ -332,9 +389,15 @@ mod tests {
 
     #[test]
     fn session_orders_timeline_and_tallies_by_type_dir_action() {
-        let t0 = DateTime::parse_from_rfc3339("2026-08-13T09:00:00Z").unwrap().with_timezone(&Utc);
-        let t1 = DateTime::parse_from_rfc3339("2026-08-13T09:10:00Z").unwrap().with_timezone(&Utc);
-        let t2 = DateTime::parse_from_rfc3339("2026-08-13T09:20:00Z").unwrap().with_timezone(&Utc);
+        let t0 = DateTime::parse_from_rfc3339("2026-08-13T09:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let t1 = DateTime::parse_from_rfc3339("2026-08-13T09:10:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let t2 = DateTime::parse_from_rfc3339("2026-08-13T09:20:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
         let evs = vec![
             StudyEvent::new(t2, StudyAction::Edited, "d/notes/b.md", "home"),
             StudyEvent::new(t0, StudyAction::Generated, "d/notes/a.md", "home"),
@@ -342,29 +405,52 @@ mod tests {
         ];
         let s = session(&evs);
         assert_eq!(s.timeline.entries.len(), 3);
-        assert!(s.timeline.entries[0].observed_at <= s.timeline.entries[2].observed_at, "timeline must be oldest-first");
+        assert!(
+            s.timeline.entries[0].observed_at <= s.timeline.entries[2].observed_at,
+            "timeline must be oldest-first"
+        );
         assert_eq!(
-            s.by_action.iter().map(|t| (t.key.as_str(), t.count)).collect::<Vec<_>>(),
+            s.by_action
+                .iter()
+                .map(|t| (t.key.as_str(), t.count))
+                .collect::<Vec<_>>(),
             vec![("generated", 2), ("edited", 1)]
         );
-        let types: Vec<(String, usize)> = s.by_type.iter().map(|t| (t.key.clone(), t.count)).collect();
+        let types: Vec<(String, usize)> =
+            s.by_type.iter().map(|t| (t.key.clone(), t.count)).collect();
         assert_eq!(types, vec![("md".into(), 2), ("py".into(), 1)]);
         assert_eq!(s.by_dir.len(), 2);
-        assert!(s.rhythms.is_empty(), "fewer than 3 occurrences per label → no rhythm");
+        assert!(
+            s.rhythms.is_empty(),
+            "fewer than 3 occurrences per label → no rhythm"
+        );
     }
 
     #[test]
     fn session_detects_a_daily_rhythm() {
-        let base = DateTime::parse_from_rfc3339("2026-08-10T08:00:00Z").unwrap().with_timezone(&Utc);
+        let base = DateTime::parse_from_rfc3339("2026-08-10T08:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
         let days: Vec<i64> = vec![0, 1, 2, 3, 4, 5];
         let evs: Vec<StudyEvent> = days
             .iter()
-            .map(|d| StudyEvent::new(base + chrono::Duration::days(*d), StudyAction::Edited, "notes/inventory.md", "home"))
+            .map(|d| {
+                StudyEvent::new(
+                    base + chrono::Duration::days(*d),
+                    StudyAction::Edited,
+                    "notes/inventory.md",
+                    "home",
+                )
+            })
             .collect();
         let s = session(&evs);
         let r = &s.rhythms[0];
         assert_eq!(r.label, "notes / inventory.md");
-        assert!((r.period_days - 1.0).abs() < 0.01, "daily rhythm, got {}", r.period_days);
+        assert!(
+            (r.period_days - 1.0).abs() < 0.01,
+            "daily rhythm, got {}",
+            r.period_days
+        );
         assert!(r.confidence > 0.5);
     }
 }
