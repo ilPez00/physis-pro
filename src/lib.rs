@@ -62,6 +62,7 @@ pub mod video;
 #[cfg(feature = "web")]
 pub mod web;
 pub mod wiki;
+pub mod wiki_gen;
 
 #[cfg(feature = "spanner")]
 pub mod spanner;
