@@ -2952,3 +2952,71 @@ async fn scenarios_persist_review_and_promote_per_tenant() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
 }
+
+#[tokio::test]
+async fn wiki_generate_covers_registered_nodes_and_tours_edges() {
+    // Phase 9.6: /api/v1/wiki/generate must cover every labeled node (outline
+    // coverage invariant) and order the tour by edge direction. Deterministic
+    // mode is forced via `deterministic:true` so no model call happens.
+    let (router, _dir, _env) = app().await;
+
+    for label in ["alpha/ingest", "alpha/classify", "beta/report"] {
+        let (status, body) = send(
+            &router,
+            post(
+                "/api/v1/coherence/register",
+                "wiki-user",
+                json!({"input": label, "label": label}),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+
+    let (status, gen) = send(
+        &router,
+        post(
+            "/api/v1/wiki/generate",
+            "wiki-user",
+            json!({ "deterministic": true, "max_group": 5, "tour_cap": 10 }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{gen}");
+    assert_eq!(gen["degraded"], true, "RP embedder reports degraded honestly");
+
+    // Coverage invariant: every registered label appears in exactly one page.
+    let pages = gen["pages"].as_array().expect("pages array");
+    let mut covered: Vec<&str> = pages
+        .as_slice()
+        .iter()
+        .flat_map(|p| p["members"].as_array().unwrap().iter())
+        .filter_map(|m| m.as_str())
+        .collect();
+    covered.sort_unstable();
+    assert_eq!(
+        covered,
+        vec!["alpha/classify", "alpha/ingest", "beta/report"],
+        "{pages:?}"
+    );
+    // Markdown skeleton present even with no LLM.
+    assert!(pages
+        .iter()
+        .all(|p| p["markdown"].as_str().unwrap_or("").contains("## Members")));
+
+    // Tour covers all nodes.
+    assert_eq!(gen["tour"]["count"].as_u64(), Some(3));
+
+    // Empty tenant answers an explicit error, not a 500.
+    let (_, empty) = send(
+        &router,
+        post("/api/v1/wiki/generate", "nobody-here", json!({ "deterministic": true })),
+    )
+    .await;
+    assert!(empty["error"].is_string(), "{empty}");
+
+    // GET tour endpoint works and stays tenant-scoped.
+    let (status, tour) = send(&router, get("/api/v1/wiki/tour", "wiki-user")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(tour["count"].as_u64(), Some(3));
+}
