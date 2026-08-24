@@ -99,30 +99,55 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.is_dir() {
-            walk_and_ingest(&path, docs)?;
-        } else {
-            // Skip the Studio's own generated artifacts so a re-run doesn't
-            // ingest its previous HTML/JSON output and pollute discovery.
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-            if ext == "html" || ext == "json" {
+        // Never descend into the engine's own data dir: `.physis/virtual/**`
+        // holds VFS symlinks to previously-ingested files, so recursing into
+        // it re-ingests old documents and grows the graph on every run.
+        // (symlink_metadata does NOT follow links — a symlink named dir is
+        // still skipped, a real dir is descended.)
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if name == ".physis"
+                && std::fs::symlink_metadata(&path)
+                    .map(|m| m.is_dir())
+                    .unwrap_or(false)
+            {
                 continue;
             }
-            let kind = classify_file(&path);
-            // Extract real text + structured metadata per document type. Each
-            // extractor is feature-gated and fallible; on any failure we fall
-            // back to best-effort (raw read for text-like files, empty body for
-            // binaries) so a bad file never aborts the whole ingest.
-            let (body, meta) = extract_doc(&path, kind.clone());
-            docs.push(IngestedDoc {
-                path: path.clone(),
-                kind,
-                title: path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown").to_string(),
-                body,
-                timestamp: chrono::Utc::now(),
-                ontology_tags: Vec::new(),
-                meta,
-            });
+        }
+        match std::fs::symlink_metadata(&path) {
+            Ok(meta) if meta.is_symlink() => continue, // never ingest through symlinks
+            Ok(meta) if meta.is_dir() => walk_and_ingest(&path, docs)?,
+            Ok(_) => {
+                // Skip the Studio's own generated artifacts so a re-run doesn't
+                // ingest its previous HTML/JSON output and pollute discovery.
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if ext == "html" || ext == "json" {
+                    continue;
+                }
+                let kind = classify_file(&path);
+                // Extract real text + structured metadata per document type. Each
+                // extractor is feature-gated and fallible; on any failure we fall
+                // back to best-effort (raw read for text-like files, empty body for
+                // binaries) so a bad file never aborts the whole ingest.
+                let (body, meta) = extract_doc(&path, kind.clone());
+                docs.push(IngestedDoc {
+                    path: path.clone(),
+                    kind,
+                    title: path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    body,
+                    timestamp: chrono::Utc::now(),
+                    ontology_tags: Vec::new(),
+                    meta,
+                });
+            }
+            Err(_) => {} // unreadable entry (race/permissions): skip, never abort ingest
         }
     }
     Ok(())
@@ -207,9 +232,16 @@ fn invoice_meta_from_text(text: &str) -> DocMeta {
             let toks: Vec<&str> = line.split_whitespace().collect();
             for (i, w) in toks.iter().enumerate() {
                 let lw = w.to_lowercase();
-                if lw == "no." || lw == "n." || lw == "invoice" || lw == "fattura" || lw == "document" {
+                if lw == "no."
+                    || lw == "n."
+                    || lw == "invoice"
+                    || lw == "fattura"
+                    || lw == "document"
+                {
                     if let Some(next) = toks.get(i + 1) {
-                        let cand = next.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '.');
+                        let cand = next.trim_matches(|c: char| {
+                            !c.is_ascii_alphanumeric() && c != '-' && c != '.'
+                        });
                         if !cand.is_empty() && cand.chars().any(|c| c.is_ascii_digit()) {
                             meta.doc_number = Some(cand.to_string());
                             break;
@@ -222,7 +254,13 @@ fn invoice_meta_from_text(text: &str) -> DocMeta {
         // the issuer. Take the first sufficiently-long uppercase token run.
         if meta.vendor.is_none() {
             let words: Vec<&str> = line.split_whitespace().collect();
-            if !words.is_empty() && words[0].len() >= 3 && words[0].chars().all(|c| c.is_uppercase() || c.is_whitespace() || c == '.') && line.len() < 60 {
+            if !words.is_empty()
+                && words[0].len() >= 3
+                && words[0]
+                    .chars()
+                    .all(|c| c.is_uppercase() || c.is_whitespace() || c == '.')
+                && line.len() < 60
+            {
                 meta.vendor = Some(line.trim().to_string());
             }
         }
@@ -236,12 +274,20 @@ fn parse_flexible_date(tok: &str) -> Option<String> {
     let t = tok.trim_matches(|c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '/');
     // YYYY-MM-DD
     let parts: Vec<&str> = t.splitn(3, '-').collect();
-    if parts.len() == 3 && parts[0].len() == 4 && parts[1].parse::<u32>().is_ok() && parts[2].parse::<u32>().is_ok() {
+    if parts.len() == 3
+        && parts[0].len() == 4
+        && parts[1].parse::<u32>().is_ok()
+        && parts[2].parse::<u32>().is_ok()
+    {
         return Some(format!("{}-{}-{}", parts[0], parts[1], parts[2]));
     }
     // DD/MM/YYYY or MM/DD/YYYY
     let parts: Vec<&str> = t.splitn(3, '/').collect();
-    if parts.len() == 3 && parts[2].len() == 4 && parts[0].parse::<u32>().is_ok() && parts[1].parse::<u32>().is_ok() {
+    if parts.len() == 3
+        && parts[2].len() == 4
+        && parts[0].parse::<u32>().is_ok()
+        && parts[1].parse::<u32>().is_ok()
+    {
         return Some(format!("{}-{}-{}", parts[2], parts[0], parts[1]));
     }
     None
@@ -321,16 +367,34 @@ mod tests {
 
     #[test]
     fn test_classify_by_extension() {
-        assert!(matches!(classify_file(Path::new("inv.pdf")), DocKind::Invoice));
-        assert!(matches!(classify_file(Path::new("msg.eml")), DocKind::Email));
-        assert!(matches!(classify_file(Path::new("data.xlsx")), DocKind::Spreadsheet));
-        assert!(matches!(classify_file(Path::new("data.csv")), DocKind::Spreadsheet));
+        assert!(matches!(
+            classify_file(Path::new("inv.pdf")),
+            DocKind::Invoice
+        ));
+        assert!(matches!(
+            classify_file(Path::new("msg.eml")),
+            DocKind::Email
+        ));
+        assert!(matches!(
+            classify_file(Path::new("data.xlsx")),
+            DocKind::Spreadsheet
+        ));
+        assert!(matches!(
+            classify_file(Path::new("data.csv")),
+            DocKind::Spreadsheet
+        ));
     }
 
     #[test]
     fn test_classify_transcript() {
-        assert!(matches!(classify_file(Path::new("call_transcript.txt")), DocKind::VoiceTranscript));
-        assert!(matches!(classify_file(Path::new("report.md")), DocKind::Report));
+        assert!(matches!(
+            classify_file(Path::new("call_transcript.txt")),
+            DocKind::VoiceTranscript
+        ));
+        assert!(matches!(
+            classify_file(Path::new("report.md")),
+            DocKind::Report
+        ));
     }
 
     #[test]
@@ -381,9 +445,18 @@ mod tests {
         std::fs::write(tmp.join("discovered_ontology.json"), "{}").unwrap();
         let docs = ingest_all(std::slice::from_ref(&tmp));
         let names: Vec<String> = docs.iter().map(|d| d.title.clone()).collect();
-        assert!(names.contains(&"report".to_string()), "md should be ingested: {names:?}");
-        assert!(!names.contains(&"studio".to_string()), "studio.html must be skipped: {names:?}");
-        assert!(!names.contains(&"discovered_ontology".to_string()), "json must be skipped: {names:?}");
+        assert!(
+            names.contains(&"report".to_string()),
+            "md should be ingested: {names:?}"
+        );
+        assert!(
+            !names.contains(&"studio".to_string()),
+            "studio.html must be skipped: {names:?}"
+        );
+        assert!(
+            !names.contains(&"discovered_ontology".to_string()),
+            "json must be skipped: {names:?}"
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
