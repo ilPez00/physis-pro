@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Physis · Agent Orchestration</title>
 <script src="/ui-shell.js"></script>
+<link rel="stylesheet" href="/physis.css" />
 <style>
   :root {
-    --bg: #0d1117; --panel: #161b22; --panel2: #11161d; --ink: #e6edf3;
-    --muted: #8b949e; --line: #21262d; --accent: #f5b301; --accent2: #3fb950;
-    --danger: #f85149; --plan: #58a6ff; --tool: #d2a8ff; --note: #e3b341;
+    /* Bioluminal Forge (shared) + agent-role hues */
+    --bg: var(--abyss); --panel: rgba(10,18,32,.9); --panel2: rgba(7,12,22,.95);
+    --ink: #e8f1ff; --muted: #7e93b8; --line: rgba(122,150,214,.14);
+    --accent: #ffc46b; --accent2: #a8e663; --danger: #ff6d8f;
+    --plan: #5ff2d6; --tool: #9d8cff; --note: #ffc46b;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);

@@ -364,9 +364,13 @@ async fn demo_and_console_ui_are_served() {
         "demo page must wire the live API"
     );
 
-    let (status, body) = send_text(&router, get("/ui", "_default")).await;
+    let (status, body) = send_text(&router, get("/console", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("Physis Console"));
+
+    let (status, body) = send_text(&router, get("/ui", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("GRAPH FILE MANAGER"), "/ui is the graph file-manager");
 
     // Every page loads the shared runtime with a bare `<script src>`, which
     // carries no Bearer token — so the asset has to be on the public router and

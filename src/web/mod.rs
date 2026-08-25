@@ -2207,6 +2207,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         log::info!("Embedder loaded: kind={embedder_kind} dim={embed_dim}");
     }
     core.set_embedder_id(embedder_kind); // vector provenance on the default tenant
+    // Live graph: the web server auto-bridges every new coherence node into the
+    // holarchy so /holarchy/graph and the dashboards see the graph grow without
+    // callers having to assert bridge edges by hand.
+    core.set_auto_bridge(true);
 
     // Pre-compute per-cell centroids from the human grid + every extra
     // domain-specific ontology (software, fitness, finance, …). The classify
@@ -2537,7 +2541,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // token; see ui_chat::ui_shell_js_handler.
         .route("/ui-shell.js", get(ui_chat::ui_shell_js_handler))
         // Sunflower branding (self-contained, no external asset).
-        .route("/sunflower.js", get(ui_chat::sunflower_js_handler));
+        .route("/sunflower.js", get(ui_chat::sunflower_js_handler))
+        // Shared design system. Public for the same reason as ui-shell.js.
+        .route("/physis.css", get(ui_chat::physis_css_handler));
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
@@ -2545,6 +2551,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // Graph file-manager SPA. The page is gated; its data calls hit the
         // authenticated fs/* routes with a token the user pastes in-page.
         .route("/ui", get(ui_chat::graph_fm_ui_handler))
+        .route("/console", get(ui_chat::console_ui_handler))
         .route("/demo", get(ui_chat::demo_ui_handler))
         .route("/study", get(ui_chat::study_ui_handler))
         .route("/api/v1/chat", post(ui_chat::chat_handler))

@@ -525,6 +525,13 @@ impl PhysisCore {
         self.embedder_id = Some(id.into());
     }
 
+    /// Join every newly registered coherence node into the holarchy
+    /// automatically (see `auto_bridge`). The web server enables this at
+    /// startup so the live graph grows without per-write bridge calls.
+    pub fn set_auto_bridge(&mut self, on: bool) {
+        self.auto_bridge = on;
+    }
+
     /// Assert a relation between two coherence nodes. Both are bridged into the
     /// holarchy (idempotent), then a holarchy edge is added between their keys.
     /// This is how a machine's reducer composes a graph — not just nodes, but

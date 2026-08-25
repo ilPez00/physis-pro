@@ -5,25 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Physis · Industrial Backoffice Intelligence — Live Demo</title>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<link rel="stylesheet" href="/physis.css" />
 <style>
+  /* Bioluminal Forge tokens (shared) — legacy var names aliased in physis.css */
   :root{
-    --bg:#070b16;
-    --bg2:#0a1020;
-    --panel:#0d1526;
-    --panel2:#0a1120;
-    --line:#1d2b47;
-    --line-soft:#17233c;
-    --fg:#eaf1ff;
-    --muted:#8fa3c4;
-    --accent:#6ea8ff;
-    --accent2:#62e6d4;
-    --green:#3ddc84;
-    --amber:#f0b45a;
-    --red:#ff6b7a;
-    --purple:#b79bff;
-    --pink:#f791c9;
-    --shadow:0 18px 48px rgba(0,0,0,.35);
     --radius:16px;
+    --line-soft:rgba(122,150,214,.09);
+    --purple:var(--violet);
+    --pink:#ff8fd0;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -381,7 +370,7 @@
     </section>
 
     <!-- Holarchy -->
-    <section class="section" id="holarchy" style="margin-bottom:0">
+    <section class="section" id="holarchySec" style="margin-bottom:0">
       <h2>How today’s notes connect <span class="tip" data-tip="Each note is a node. Edges mean they belong together in the same judgment.">(?)</span></h2>
       <div class="panel">
         <div id="holarchy"></div>
@@ -504,7 +493,7 @@ async function loadMachines(){
     any=true;
     const color=oeeColor(r.oee);
     const cls=r.oee>=0.85?'good':r.oee>=0.6?'warn':'bad';
-    const fact=(v,color)=>`<div class="factor"><span>Availability</span><div class="bar"><i style="background:${color};width:${Math.round(100*v)}%"></i></div><b>${fmtPct(v)}</b></div>`;
+    const fact=(label,v)=>`<div class="factor"><span>${label}</span><div class="bar"><i style="background:${color};width:${Math.round(100*v)}%"></i></div><b>${fmtPct(v)}</b></div>`;
     html+=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><h3>${MACHINES[i].name}</h3><div class="tag">${r.machine_id} · ${MACHINES[i].ideal}s ideal cycle</div></div>
@@ -514,7 +503,7 @@ async function loadMachines(){
         <span class="bigoee" style="color:${color}">${fmtPct(r.oee)}</span><span class="muted small">OEE</span>
       </div>
       <div class="bar" style="height:8px"><i style="background:${color};width:${Math.round(100*r.oee)}%"></i></div>
-      ${fact(r.availability,color)}${fact(r.performance,color)}${fact(r.quality,color)}
+      ${fact('Availability',r.availability)}${fact('Performance',r.performance)}${fact('Quality',r.quality)}
       <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--muted)">
         <span>good <b style="color:var(--green)">${r.good_count.toLocaleString()}</b></span>
         <span>scrap <b style="color:${r.total_count-r.good_count>0?'var(--red)':'var(--muted)'}">${(r.total_count-r.good_count).toLocaleString()}</b></span>
