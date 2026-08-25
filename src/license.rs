@@ -61,6 +61,80 @@ const BUILD_DATE: &str = env!("PHYSIS_BUILD_DATE");
 /// meaningfully extending an expired licence.
 const CLOCK_SKEW_DAYS: i64 = 2;
 
+/// Commercial packaging tiers (PLAN 4.1).
+///
+/// A tier is a named feature bundle customers buy; the licence itself only
+/// ever stores the flat feature list, so runtime gating keeps using
+/// `License::allows` and the tier is pure presentation + sales vocabulary.
+///
+/// - **Core** — knowledge work: classify, scan, query, wiki, vault. Single
+///   team, no plant floor.
+/// - **Industrial** — Core + the plant: machines/OEE, shifts, maintenance,
+///   inventory, reconciliation.
+/// - **Enterprise** — everything: multi-tenant admin, spanner mirror, MCP,
+///   agent orchestration, RAG.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Tier {
+    Core,
+    Industrial,
+    Enterprise,
+}
+
+impl Tier {
+    /// Feature slugs each tier grants. Order matters for `from_features`.
+    pub fn features(self) -> &'static [&'static str] {
+        match self {
+            Tier::Core => &["classify", "scan", "query", "wiki", "vault", "history"],
+            Tier::Industrial => &[
+                "classify",
+                "scan",
+                "query",
+                "wiki",
+                "vault",
+                "history",
+                "industrial",
+                "shifts",
+                "maintenance",
+                "inventory",
+                "reconcile",
+            ],
+            // Enterprise: everything the build offers.
+            Tier::Enterprise => &["*"],
+        }
+    }
+
+    /// Recognise the tier from a signed feature list: the most generous tier
+    /// whose bundle is fully contained in the list. `"*"` short-circuits to
+    /// Enterprise.
+    pub fn from_features(features: &[String]) -> Tier {
+        if features.iter().any(|f| f == "*") {
+            return Tier::Enterprise;
+        }
+        for tier in [Tier::Enterprise, Tier::Industrial, Tier::Core] {
+            if tier
+                .features()
+                .iter()
+                .all(|f| features.iter().any(|g| g == f))
+            {
+                return tier;
+            }
+        }
+        // Partial lists (custom deals) still get a floor: they bought at least
+        // something from Core.
+        Tier::Core
+    }
+
+    /// Human name for the banner and invoices.
+    pub fn name(self) -> &'static str {
+        match self {
+            Tier::Core => "Core",
+            Tier::Industrial => "Industrial",
+            Tier::Enterprise => "Enterprise",
+        }
+    }
+}
+
 /// A verified licence. Constructing one outside [`verify_blob`] is impossible
 /// from other modules — the fields are public for reading, but the only public
 /// constructor runs the signature check first.
@@ -127,6 +201,16 @@ impl License {
         self.features.iter().any(|f| f == "*" || f == feature)
     }
 
+    /// Commercial tier this licence belongs to, derived from the feature set.
+    ///
+    /// Tiers are bundles, not extra licence fields — the signed feature list
+    /// stays the single source of truth, so a forged tier upgrade is
+    /// impossible without breaking the signature. Recognition order matters:
+    /// Enterprise ⊃ Industrial ⊃ Core.
+    pub fn tier(&self) -> Tier {
+        Tier::from_features(&self.features)
+    }
+
     /// Error out unless `feature` is licensed — for gating an entry point.
     pub fn require(&self, feature: &str) -> Result<(), LicenseError> {
         if self.allows(feature) {
@@ -147,8 +231,9 @@ impl License {
     /// which licence a host is running under.
     pub fn banner(&self) -> String {
         format!(
-            "licensed to {} — {} seats, expires {} ({} days)",
+            "licensed to {} — {} tier, {} seats, expires {} ({} days)",
             self.org,
+            self.tier().name(),
             self.seats,
             self.exp,
             self.days_remaining()
@@ -334,6 +419,121 @@ pub fn enforce() -> License {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
+
+    fn feats(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn star_features_recognise_as_enterprise() {
+        assert_eq!(Tier::from_features(&feats(&["*"])), Tier::Enterprise);
+    }
+
+    #[test]
+    fn full_core_bundle_recognises_as_core() {
+        assert_eq!(
+            Tier::from_features(&feats(Tier::Core.features())),
+            Tier::Core
+        );
+    }
+
+    #[test]
+    fn full_industrial_bundle_recognises_as_industrial() {
+        let f = feats(Tier::Industrial.features());
+        assert_eq!(Tier::from_features(&f), Tier::Industrial);
+    }
+
+    #[test]
+    fn industrial_bundle_also_satisfies_core() {
+        // Recognition is "most generous tier fully contained", so an
+        // Industrial feature list is at least Core.
+        let f = feats(Tier::Industrial.features());
+        let core_all = Tier::Core
+            .features()
+            .iter()
+            .all(|c| f.iter().any(|g| g == c));
+        assert!(core_all);
+    }
+
+    #[test]
+    fn partial_custom_list_floors_at_core() {
+        // A bespoke deal with only two features still gets a tier name.
+        assert_eq!(Tier::from_features(&feats(&["wiki"])), Tier::Core);
+    }
+
+    #[test]
+    fn core_tier_denies_industrial_features() {
+        // The gating property the tiers exist for: a Core licence must not
+        // unlock plant-floor features.
+        let lic = License {
+            license_id: "PX-T-1".into(),
+            org: "Test".into(),
+            seats: 1,
+            features: feats(Tier::Core.features()),
+            iat: "2026-01-01".into(),
+            exp: "2099-01-01".into(),
+            maint_exp: "2099-01-01".into(),
+            revoked: false,
+        };
+        assert!(lic.allows("classify"));
+        assert!(lic.allows("wiki"));
+        assert!(!lic.allows("industrial"));
+        assert!(!lic.allows("maintenance"));
+        assert!(!lic.allows("inventory"));
+        assert!(!lic.allows("*"));
+    }
+
+    #[test]
+    fn industrial_tier_allows_plant_denies_enterprise_extras() {
+        let lic = License {
+            license_id: "PX-T-2".into(),
+            org: "Test".into(),
+            seats: 5,
+            features: feats(Tier::Industrial.features()),
+            iat: "2026-01-01".into(),
+            exp: "2099-01-01".into(),
+            maint_exp: "2099-01-01".into(),
+            revoked: false,
+        };
+        assert!(lic.allows("industrial"));
+        assert!(lic.allows("maintenance"));
+        assert!(lic.allows("inventory"));
+        assert!(!lic.allows("mcp"));
+        assert!(!lic.allows("spanner"));
+    }
+
+    #[test]
+    fn enterprise_tier_allows_everything() {
+        let lic = License {
+            license_id: "PX-T-3".into(),
+            org: "Test".into(),
+            seats: 50,
+            features: feats(Tier::Enterprise.features()),
+            iat: "2026-01-01".into(),
+            exp: "2099-01-01".into(),
+            maint_exp: "2099-01-01".into(),
+            revoked: false,
+        };
+        assert_eq!(lic.tier(), Tier::Enterprise);
+        assert!(lic.allows("mcp"));
+        assert!(lic.allows("anything-at-all"));
+    }
+
+    #[test]
+    fn banner_names_the_tier() {
+        let lic = License {
+            license_id: "PX-T-4".into(),
+            org: "Acciaierie".into(),
+            seats: 3,
+            features: feats(Tier::Industrial.features()),
+            iat: "2026-01-01".into(),
+            exp: "2099-01-01".into(),
+            maint_exp: "2099-01-01".into(),
+            revoked: false,
+        };
+        assert!(lic.banner().contains("Industrial tier"), "{}", lic.banner());
+        assert!(lic.banner().contains("3 seats"));
+    }
 
     /// Build a signed blob with a throwaway key, and the matching public key,
     /// so tests never depend on the embedded vendor key.

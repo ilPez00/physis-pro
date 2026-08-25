@@ -51,12 +51,17 @@ enum Command {
         /// Licensee legal name, as it should appear in the startup banner.
         #[arg(long)]
         org: String,
+        /// Commercial tier: core | industrial | enterprise. Expands to the
+        /// tier's feature bundle; `--features` overrides when given.
+        #[arg(long)]
+        tier: Option<String>,
         /// Licensed seat/host count.
         #[arg(long, default_value = "1")]
         seats: u32,
         /// Comma-separated feature slugs, or `*` for everything.
-        #[arg(long, default_value = "*")]
-        features: String,
+        /// Overrides `--tier` when present.
+        #[arg(long)]
+        features: Option<String>,
         /// Expiry of the right to run, `YYYY-MM-DD`.
         #[arg(long)]
         exp: String,
@@ -134,6 +139,7 @@ fn main() -> anyhow::Result<()> {
         Command::Sign {
             key,
             org,
+            tier,
             seats,
             features,
             exp,
@@ -145,11 +151,25 @@ fn main() -> anyhow::Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("signing key is not 32 hex-encoded bytes"))?;
             let signing = SigningKey::from_bytes(&key_bytes);
 
-            let features: Vec<String> = features
-                .split(',')
-                .map(|f| f.trim().to_string())
-                .filter(|f| !f.is_empty())
-                .collect();
+            // Feature list: explicit --features wins; else expand --tier;
+            // else default to Enterprise (`*`) so ad-hoc internal licences
+            // keep working exactly as before this flag existed.
+            let features: Vec<String> = if let Some(f) = features {
+                f.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            } else if let Some(t) = tier.as_deref() {
+                let bundle = match t {
+                    "core" => physis_pro::license::Tier::Core,
+                    "industrial" => physis_pro::license::Tier::Industrial,
+                    "enterprise" => physis_pro::license::Tier::Enterprise,
+                    other => anyhow::bail!("unknown tier '{other}' — core|industrial|enterprise"),
+                };
+                bundle.features().iter().map(|s| s.to_string()).collect()
+            } else {
+                vec!["*".to_string()]
+            };
             let maint_exp = maint_exp.unwrap_or_else(|| exp.clone());
             let license_id = id.unwrap_or_else(|| {
                 let slug: String = org
