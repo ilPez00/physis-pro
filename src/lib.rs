@@ -47,6 +47,7 @@ pub mod quality;
 pub mod quantize;
 pub mod rachmaninov;
 pub mod rbac;
+pub mod management_pack;
 pub mod reconcile;
 pub mod reconstruct;
 pub mod report;
