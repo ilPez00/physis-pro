@@ -63,6 +63,7 @@ use crate::planner::{self, CellOutcome, PlannerItem, PlannerSimulation};
 use crate::quality::QualityTracker;
 use crate::rachmaninov::RachmaninovHolon;
 
+mod admin_datawork;
 mod admin_study;
 mod agent;
 mod axes;
@@ -2753,6 +2754,18 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/admin/review",
             post(admin_study::admin_review_handler),
+        )
+        .route(
+            "/api/v1/admin/desk",
+            post(admin_datawork::admin_desk_handler),
+        )
+        .route(
+            "/api/v1/admin/batch",
+            post(admin_datawork::admin_batch_handler),
+        )
+        .route(
+            "/api/v1/admin/pack",
+            post(admin_datawork::admin_pack_handler),
         )
         .route(
             "/api/v1/maintenance/fold",

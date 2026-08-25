@@ -41,7 +41,7 @@ pub struct InvoiceLine {
 }
 
 /// Machine-readable outcome per invoice line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MatchStatus {
     /// All three documents agree within tolerance.
@@ -72,7 +72,7 @@ impl MatchStatus {
 }
 
 /// Reconciliation verdict for one invoice line.
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ReconciledLine {
     pub invoice_number: String,
     pub vendor: String,
