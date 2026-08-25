@@ -43,7 +43,10 @@ pub async fn admin_desk_handler(Json(req): Json<DeskRequest>) -> Response {
 /// Request body for `/api/v1/admin/batch`.
 #[derive(Debug, Deserialize)]
 pub struct BatchRequest {
-    /// Raw CSV text with header: vendor,doc_number,date,amount_eur
+    /// Raw CSV text with header: vendor,doc_number,date,amount_eur.
+    /// Read by the ingest-gated handler; kept unconditionally so the request
+    /// shape (and client contract) is feature-independent.
+    #[allow(dead_code)]
     pub csv_text: String,
 }
 
