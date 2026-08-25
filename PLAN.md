@@ -140,7 +140,7 @@ anomaly detection to corrective action.
 |---|-------------|--------|-------|-------|
 | 6.1 | Fixed demo corpus + Admin Review Desk flow | ✅ Done (core) | demo corpus existed (studio --demo); review_desk.rs: run_desk() exceptions queue (missing fields, low confidence, fingerprint duplicates) + markdown report, 4 tests (ac62f29); CLI/web surfacing = 6.1b |
 | 6.2 | CSV/XLSX batch import with validation | ✅ Done (CSV core) | batch_csv.rs: per-row validation (missing fields, ISO dates, EU decimal amounts), status/error codes, reviewed export round-trip; 4 tests (a05267a); XLSX via existing calamine + web/CLI surfacing = 6.2b |
-| 6.3 | Invoice/PO/delivery-note reconciliation | ⬜ Pending | — | No payment automation |
+| 6.3 | Invoice/PO/delivery-note reconciliation | ✅ Done (core) | reconcile.rs: 3-way match keyed on vendor+PO, qty/amount tolerance ±2%/€0.05, duplicate-invoice flagging, multi-note delivery accumulation, markdown report; 10 tests (1965427); no payment automation per plan |
 | 6.4 | Weekly management-pack templates | ⬜ Pending | — | Source provenance |
 
 ### Phase 7 — Decision Planner
