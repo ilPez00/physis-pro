@@ -1,0 +1,287 @@
+/* physis.css — Physis Pro shared design system (v1 "Bioluminal Forge")
+   Load on every UI page AFTER any reset, BEFORE page CSS:
+     <link rel="stylesheet" href="/physis.css">
+
+   SURFACE DOCTRINE (Monitor/Operate surfaces): density + glanceability beat
+   decoration. No heroes, no marketing framing. Type and color carry hierarchy.
+
+   THE SYSTEM
+   ──────────
+   Palette: deep-sea abyss base, bioluminescent life. Organic = irregular,
+   glowing, alive; futuristic = precise mono data, hairline structure.
+   - abyss   #04070f  page floor — nearly black, blue-cold
+   - trench  #0a1220  panel bodies
+   - shelf   rgba(122,150,214,.14)  hairlines (never solid gray)
+   - ink     #e8f1ff  primary text, cold white
+   - brume   #7e93b8  secondary text
+   - cyan    #5ff2d6  PRIMARY accent — healthy/live data
+   - violet  #9d8cff  secondary accent — intelligence/AI actions
+   - amber   #ffc46b  warning/drift
+   - rose    #ff6d8f  danger/degraded
+   - lime    #a8e663  success/nominal
+
+   Signature: the CELL GRID. Every panel sits on an invisible lattice; data
+   panels carry a corner tick (organic growth point) + scanline shimmer on
+   hover. Sparkbars are the unit of history: dense vertical ticks, not bars.
+
+   Type: "Chakra Petch"-adjacent display is NOT loaded remotely — pages use
+   local stacks only: display = system-ui tightened; DATA ALWAYS MONO.
+*/
+
+:root {
+  /* palette */
+  --abyss:#04070f;
+  --trench:#0a1220;
+  --shelf:rgba(122,150,214,.14);
+  --shelf-strong:rgba(122,168,255,.32);
+  --ink:#e8f1ff;
+  --brume:#7e93b8;
+  --cyan:#5ff2d6;
+  --cyan-dim:rgba(95,242,214,.14);
+  --violet:#9d8cff;
+  --violet-dim:rgba(157,140,255,.16);
+  --amber:#ffc46b;
+  --amber-dim:rgba(255,196,107,.14);
+  --rose:#ff6d8f;
+  --rose-dim:rgba(255,109,143,.15);
+  --lime:#a8e663;
+  --lime-dim:rgba(168,230,99,.13);
+
+  /* legacy aliases so existing pages keep working during migration */
+  --bg:var(--abyss);
+  --bg2:var(--trench);
+  --panel:rgba(10,18,32,.82);
+  --panel2:rgba(7,12,22,.92);
+  --line:var(--shelf);
+  --line-strong:var(--shelf-strong);
+  --fg:var(--ink);
+  --muted:var(--brume);
+  --accent:var(--cyan);
+  --accent2:var(--violet);
+  --green:var(--lime);
+  --red:var(--rose);
+
+  --mono:"SFMono-Regular","JetBrains Mono","Fira Code",Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+
+  --r-s:4px;
+  --r-m:8px;
+  --r-l:14px;
+  --shadow:0 18px 60px rgba(0,0,0,.45);
+  --glow-cyan:0 0 0 1px rgba(95,242,214,.25), 0 0 24px rgba(95,242,214,.08);
+}
+
+* { box-sizing:border-box; }
+html, body { height:100%; }
+
+body {
+  margin:0;
+  font:14px/1.5 var(--sans);
+  color:var(--ink);
+  background:
+    radial-gradient(1100px 700px at 85% -10%, var(--cyan-dim), transparent 55%),
+    radial-gradient(900px 600px at -5% 30%, var(--violet-dim), transparent 50%),
+    linear-gradient(180deg, var(--abyss), var(--trench));
+  background-attachment:fixed;
+}
+
+/* organic lattice — faint, breathing grid over everything */
+body::before {
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(rgba(122,150,214,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122,150,214,.05) 1px, transparent 1px);
+  background-size:44px 44px;
+  mask-image:radial-gradient(1200px 800px at 50% 0%, black, transparent 90%);
+}
+
+/* ── typography ─────────────────────────────────────────────────────────── */
+h1,h2,h3 { letter-spacing:.02em; }
+h1 { font-weight:800; }
+
+.mono, code, kbd, pre {
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+}
+
+/* section eyebrows: tiny tracked labels that encode structure */
+.eyebrow, h3.eyebrow {
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.22em;
+  color:var(--brume);
+}
+h3 { margin:0 0 6px; font-size:11px; text-transform:uppercase;
+     letter-spacing:.14em; color:var(--brume); font-weight:600; }
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+input, select, textarea, button {
+  background:rgba(7,12,22,.92);
+  color:var(--ink);
+  border:1px solid var(--shelf);
+  border-radius:var(--r-m);
+  padding:7px 11px;
+  font-size:13px;
+  font-family:inherit;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline:none;
+  border-color:var(--cyan);
+  box-shadow:var(--glow-cyan);
+}
+button { cursor:pointer; font-weight:600; }
+button:hover { border-color:var(--cyan); color:var(--cyan); }
+button:active { transform:translateY(1px); }
+button:focus-visible { outline:none; border-color:var(--cyan); box-shadow:var(--glow-cyan); }
+
+.btn-primary {
+  background:linear-gradient(135deg, rgba(95,242,214,.18), rgba(157,140,255,.14));
+  border-color:rgba(95,242,214,.45);
+  color:var(--cyan);
+}
+.btn-primary:hover { box-shadow:var(--glow-cyan); }
+
+/* pill chips for statuses / tags */
+.chip {
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.08em;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--shelf-strong);
+  color:var(--brume);
+}
+.chip.ok    { color:var(--lime);  border-color:rgba(168,230,99,.4);  background:var(--lime-dim); }
+.chip.warn  { color:var(--amber); border-color:rgba(255,196,107,.4); background:var(--amber-dim); }
+.chip.err   { color:var(--rose);  border-color:rgba(255,109,143,.4); background:var(--rose-dim); }
+.chip.info  { color:var(--cyan);  border-color:rgba(95,242,214,.4);  background:var(--cyan-dim); }
+.chip.ai    { color:var(--violet);border-color:rgba(157,140,255,.4);background:var(--violet-dim); }
+
+/* ── panels: the cell-grid signature ────────────────────────────────────── */
+.panel, aside.pane, .card {
+  position:relative;
+  background:var(--panel);
+  border:1px solid var(--shelf);
+  border-radius:var(--r-l);
+  backdrop-filter:blur(10px);
+}
+
+/* organic corner tick — every data cell grows from a luminous node */
+.panel::after, .card::after {
+  content:""; position:absolute; top:-1px; left:-1px;
+  width:14px; height:14px; pointer-events:none;
+  border-top:2px solid var(--cyan);
+  border-left:2px solid var(--cyan);
+  border-top-left-radius:var(--r-l);
+  opacity:.75;
+  transition:opacity .2s ease, box-shadow .2s ease;
+}
+.panel:hover::after, .card:hover::after {
+  opacity:1;
+  box-shadow:-2px -2px 12px rgba(95,242,214,.35);
+}
+
+/* scanline sweep on hover — subtle, once */
+@keyframes physis-sweep {
+  from { transform:translateX(-100%); }
+  to   { transform:translateX(100%); }
+}
+.panel { overflow:hidden; }
+.panel > * { position:relative; z-index:1; }
+.panel::before {
+  content:""; position:absolute; top:0; bottom:0; width:38%; pointer-events:none;
+  background:linear-gradient(100deg, transparent, rgba(232,241,255,.028), transparent);
+  transform:translateX(-120%);
+}
+.panel:hover::before { animation:physis-sweep 1.1s ease forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .panel:hover::before { display:none; }
+  * { transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
+
+/* ── data primitives ────────────────────────────────────────────────────── */
+.stat-num {
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+  font-weight:700;
+  letter-spacing:-.01em;
+}
+
+/* sparkbar row: dense vertical history ticks (the unit of time here) */
+.spark {
+  display:inline-flex; align-items:flex-end; gap:1.5px; height:26px;
+}
+.spark i {
+  width:3px; min-height:2px; display:block;
+  background:var(--cyan); opacity:.85; border-radius:1px;
+}
+.spark i.hot { background:var(--amber); }
+.spark i.crit { background:var(--rose); }
+
+/* meter bar with glow cap */
+.meter {
+  height:6px; border-radius:999px; overflow:hidden;
+  background:rgba(122,150,214,.12);
+}
+.meter > i {
+  display:block; height:100%; border-radius:999px;
+  background:linear-gradient(90deg, var(--cyan), var(--violet));
+  box-shadow:0 0 10px rgba(95,242,214,.5);
+}
+.meter.warn > i { background:linear-gradient(90deg, var(--amber), #ff9a5c); box-shadow:0 0 10px rgba(255,196,107,.5); }
+.meter.crit > i { background:linear-gradient(90deg, var(--rose), #ff9ab0); box-shadow:0 0 10px rgba(255,109,143,.5); }
+
+/* tables: hairline rows, mono numerics, hover row-glow */
+table.data {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12.5px;
+}
+table.data th {
+  font-family:var(--mono);
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.14em;
+  color:var(--brume);
+  text-align:left;
+  padding:6px 10px;
+  border-bottom:1px solid var(--shelf-strong);
+}
+table.data td {
+  padding:6px 10px;
+  border-bottom:1px solid var(--shelf);
+  font-variant-numeric:tabular-nums;
+}
+table.data tr:hover td { background:rgba(95,242,214,.045); }
+
+/* toast */
+.toast {
+  position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(20px);
+  padding:10px 18px; border-radius:999px; font-size:13px;
+  background:rgba(7,12,22,.96); border:1px solid var(--shelf-strong);
+  color:var(--ink); opacity:0; pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease; z-index:60;
+  box-shadow:var(--shadow);
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+.toast.ok  { border-color:rgba(168,230,99,.5); color:var(--lime); }
+.toast.err { border-color:rgba(255,109,143,.5); color:var(--rose); }
+
+/* scrollbars — thin, cold */
+* { scrollbar-width:thin; scrollbar-color:rgba(122,150,214,.3) transparent; }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-thumb { background:rgba(122,150,214,.25); border-radius:99px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(95,242,214,.45); }
+
+/* links */
+a { color:var(--cyan); text-decoration:none; }
+a:hover { text-decoration:underline; text-underline-offset:3px; }
+
+/* utility */
+.muted { color:var(--brume); }
+.small { font-size:12px; }
+.glow  { text-shadow:0 0 14px rgba(95,242,214,.45); }

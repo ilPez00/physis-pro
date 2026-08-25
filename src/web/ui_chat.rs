@@ -148,9 +148,27 @@ pub async fn query_handler(
     })
 }
 
+/// GET /physis.css — shared design system ("Bioluminal Forge"). Public like
+/// ui-shell.js: stylesheets cannot send Bearer headers either.
+pub async fn physis_css_handler() -> impl axum::response::IntoResponse {
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/css; charset=utf-8",
+        )],
+        include_str!("../bin/ui/physis.css"),
+    )
+}
+
 /// GET /ui — the graph file-manager single-page app (public; calls the
 /// authenticated fs/* endpoints with a token the user pastes in the page).
 pub async fn graph_fm_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/graph_fm.html"))
+}
+
+/// GET /console — the operator console (interest feed, overview, timeline,
+/// OEE, classify, meaning grid, planner, hypotheses, ...).
+pub async fn console_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/console.html"))
 }
 

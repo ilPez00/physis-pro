@@ -5,37 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Physis — Graph File Manager</title>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script src="ui-shell.js"></script>
+<link rel="stylesheet" href="/physis.css" />
 <style>
-  :root { --bg:#0e1116; --panel:#161b22; --line:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; flex-direction:column; }
-  header { padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  header h1 { font-size:15px; margin:0 12px 0 0; font-weight:600; }
-  input, button { background:#0d1117; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font-size:13px; }
-  input { min-width:120px; }
+  /* page-local layout on top of the shared Bioluminal Forge system */
+  body { height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  header { position:relative; z-index:2; padding:10px 14px; background:rgba(4,7,15,.82);
+           backdrop-filter:blur(12px); border-bottom:1px solid var(--shelf);
+           display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0 14px 0 0; font-weight:800; letter-spacing:.04em;
+              font-family:var(--mono); text-transform:uppercase; }
+  header h1 .glow { color:var(--cyan); }
+  input, button, select { border-radius:var(--r-m); }
   #dir { min-width:260px; }
-  button { cursor:pointer; }
-  button:hover { border-color:var(--accent); }
-  .muted { color:var(--muted); }
+  .muted { color:var(--brume); }
   main { flex:1; display:flex; min-height:0; }
-  #cy { flex:1; background:var(--bg); }
-  aside { width:380px; border-left:1px solid var(--line); background:var(--panel); display:flex; flex-direction:column; min-height:0; }
-  .pane { padding:10px 12px; border-bottom:1px solid var(--line); overflow:auto; }
-  #preview { flex:1; }
-  #content { white-space:pre-wrap; word-break:break-word; font:12px/1.45 ui-monospace,monospace; background:#0d1117; border:1px solid var(--line); border-radius:6px; padding:8px; max-height:100%; overflow:auto; }
-  #heat { display:grid; gap:2px; font-size:9px; }
-  .hc { aspect-ratio:1; border-radius:2px; }
-  .rowlab,.collab { color:var(--muted); font-size:9px; }
-  h3 { margin:0 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
-  #status { margin-left:auto; font-size:12px; }
-  .err { color:#f85149; }
-  label.small { font-size:11px; color:var(--muted); display:block; margin:6px 0 2px; }
+  #cy { flex:1; background:transparent; }
+  aside { width:380px; border-left:1px solid var(--shelf); background:rgba(4,7,15,.72);
+          backdrop-filter:blur(10px); display:flex; flex-direction:column; min-height:0; z-index:2; }
+  .pane { padding:12px 14px; border-bottom:1px solid var(--shelf); overflow:auto; }
+  #preview { flex:1; display:flex; flex-direction:column; }
+  #content { flex:1; white-space:pre-wrap; word-break:break-word; font:11.5px/1.5 var(--mono);
+             background:rgba(4,7,15,.85); border:1px solid var(--shelf); border-radius:var(--r-m);
+             padding:9px; max-height:100%; overflow:auto; color:var(--ink); }
+  /* semiotic heatmap — bioluminal cells */
+  #heat { display:grid; gap:2px; font-size:9px; grid-template-columns:repeat(14,1fr); width:100%; }
+  .hc { aspect-ratio:1; border-radius:2px; transition:transform .12s ease, box-shadow .12s ease;
+        box-shadow:inset 0 0 0 1px rgba(122,150,214,.08); }
+  .hc:hover { transform:scale(1.35); z-index:3; box-shadow:0 0 12px rgba(95,242,214,.65), inset 0 0 0 1px rgba(232,241,255,.5); }
+  .rowlab,.collab { color:var(--brume); font-size:8px; font-family:var(--mono); }
+  h3 { margin:0 0 8px; }
+  #status { margin-left:auto; font-size:12px; font-family:var(--mono); }
+  .err { color:var(--rose); }
+  label.small { font-size:11px; color:var(--brume); display:block; margin:6px 0 2px; }
 </style>
   <script src="/sunflower.js"></script>
 </head>
 <body>
 <header>
-  <h1>Physis · Graph File Manager</h1>
+  <h1>PHYSIS <span class="glow">·</span> GRAPH FILE MANAGER</h1>
   <input id="base" placeholder="API base (blank = same origin)" />
   <input id="token" type="password" placeholder="API token (Bearer)" />
   <input id="dir" placeholder="/abs/path/to/scan (inside scan root)" />
@@ -84,8 +92,8 @@ const save = () => ['base','token','dir'].forEach(k => localStorage.setItem(LS[k
 
 const DOMAINS = ["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
 const MODES = ["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
-// stable color per domain
-const DCOL = {HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+// Bioluminal domain palette (matches physis.css accents; stable per domain)
+const DCOL = {HEAL:"#a8e663",CONSTRUCT:"#ffc46b",FABRICATE:"#5ff2d6",BOND:"#9d8cff",STUDY:"#ff8fd0","":"#7e93b8"};
 
 function api(path){ const b=$('base').value.trim().replace(/\/$/,''); return (b||'')+path; }
 function headers(){ const t=$('token').value.trim(); return t?{Authorization:'Bearer '+t}:{}; }
@@ -102,11 +110,11 @@ function initCy(){
   cy = cytoscape({
     container: $('cy'),
     style: [
-      { selector:'node[kind="theme"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#e6edf3','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#0e1116','text-outline-width':2 } },
-      { selector:'node[kind="file"]', style:{ 'background-color':'data(color)','border-color':'#0e1116','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':11,'height':11 } },
-      { selector:'node:selected', style:{ 'border-color':'#f0f6fc','border-width':3 } },
-      { selector:'edge[etype="theme"]', style:{ 'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack' } },
-      { selector:'edge[etype="sim"]', style:{ 'width':'data(w)','line-color':'#3fb950','line-style':'dashed','opacity':0.5,'curve-style':'haystack' } }
+      { selector:'node[kind="theme"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#e8f1ff','font-size':10,'font-weight':700,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#04070f','text-outline-width':2.5 } },
+      { selector:'node[kind="file"]', style:{ 'background-color':'data(color)','border-color':'rgba(232,241,255,.25)','border-width':1,'label':'data(label)','color':'#7e93b8','font-size':8,'shape':'round-rectangle','width':11,'height':11 } },
+      { selector:'node:selected', style:{ 'border-color':'#5ff2d6','border-width':3,'overlay-color':'rgba(95,242,214,.18)','overlay-padding':6 } },
+      { selector:'edge[etype="theme"]', style:{ 'width':'data(w)','line-color':'rgba(122,150,214,.35)','opacity':0.55,'curve-style':'haystack' } },
+      { selector:'edge[etype="sim"]', style:{ 'width':'data(w)','line-color':'#5ff2d6','line-style':'dashed','opacity':0.5,'curve-style':'haystack' } }
     ],
     layout:{name:'cose', animate:false}
   });
@@ -151,7 +159,7 @@ async function scan(){
 }
 
 // Palette for discovered-mode hubs (no fixed domain → color by index).
-const PALETTE = ['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba','#f0883e','#56d4dd','#db61a2','#a5d6ff','#7ee787'];
+const PALETTE = ['#5ff2d6','#9d8cff','#ffc46b','#ff8fd0','#a8e663','#6bc7ff','#ffb36b','#b49cff','#7ef2c4','#ff9ab0'];
 let lastG = null;
 function render(g){
   if(!g) return;
@@ -232,7 +240,12 @@ async function loadHeat(){
       html += `<div class="rowlab">${(DOMAINS[i]||'').slice(0,4)}</div>`;
       for(let k=0;k<m[i].length;k++){
         const v=m[i][k], a=max>0?v/max:0;
-        html += `<div class="hc" title="${DOMAINS[i]}×${MODES[k]} = ${v.toFixed(3)}" style="background:rgba(88,166,255,${0.12+0.88*a})"></div>`;
+        // bioluminal ramp: abyss → deep teal → cyan → violet-white core
+        const bg = a < 0.02
+          ? 'rgba(122,150,214,.07)'
+          : `rgb(${Math.round(10+85*a)},${Math.round(18+180*a)},${Math.round(32+120*a)})`;
+        const glow = a > 0.66 ? `box-shadow:0 0 ${Math.round(8*a)}px rgba(95,242,214,${a*.5})` : '';
+        html += `<div class="hc" title="${DOMAINS[i]}×${MODES[k]} = ${v.toFixed(3)}" style="background:${bg};${glow}"></div>`;
       }
     }
     heat.innerHTML=html;

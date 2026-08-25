@@ -180,7 +180,8 @@ function initCoach(storageKey) {
 // copies would drift apart on the first edit. Any page that loads this shell
 // gets the nav, including ones not written yet.
 const PRODUCT_PAGES = [
-  { href: '/ui',     label: 'Console', hint: 'operations — plant, timeline, meaning' },
+  { href: '/ui',     label: 'Files',   hint: 'graph file manager — scan, cluster, move' },
+  { href: '/console', label: 'Console', hint: 'operations — plant, timeline, meaning' },
   { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
   { href: '/study',  label: 'Study',   hint: 'learning — sessions and the study log' },
   { href: '/demo',   label: 'Demo',    hint: 'the guided walkthrough' },
