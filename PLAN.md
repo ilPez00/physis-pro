@@ -138,10 +138,10 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 6.1 | Fixed demo corpus + Admin Review Desk flow | ✅ Done (core) | demo corpus existed (studio --demo); review_desk.rs: run_desk() exceptions queue (missing fields, low confidence, fingerprint duplicates) + markdown report, 4 tests (ac62f29); CLI/web surfacing = 6.1b |
-| 6.2 | CSV/XLSX batch import with validation | ✅ Done (CSV core) | batch_csv.rs: per-row validation (missing fields, ISO dates, EU decimal amounts), status/error codes, reviewed export round-trip; 4 tests (a05267a); XLSX via existing calamine + web/CLI surfacing = 6.2b |
+| 6.1 | Fixed demo corpus + Admin Review Desk flow | ✅ Done (core) | demo corpus existed (studio --demo); review_desk.rs: run_desk() exceptions queue (missing fields, low confidence, fingerprint duplicates) + markdown report, 4 tests (ac62f29); HTTP surfacing = 6.1b done (f78c372 POST /api/v1/admin/desk) |
+| 6.2 | CSV/XLSX batch import with validation | ✅ Done (CSV core) | batch_csv.rs: per-row validation (missing fields, ISO dates, EU decimal amounts), status/error codes, reviewed export round-trip; 4 tests (a05267a); HTTP surfacing done (f78c372 POST /api/v1/admin/batch); XLSX via existing calamine = remainder of 6.2b |
 | 6.3 | Invoice/PO/delivery-note reconciliation | ✅ Done (core) | reconcile.rs: 3-way match keyed on vendor+PO, qty/amount tolerance ±2%/€0.05, duplicate-invoice flagging, multi-note delivery accumulation, markdown report; 10 tests (1965427); no payment automation per plan |
-| 6.4 | Weekly management-pack templates | ✅ Done (core) | management_pack.rs: render_weekly_pack() — headline metrics w/ provenance, exceptions table, reconciliation status + actionable detail, notes; deterministic output; 3 tests (348b7b5); HTML template variant = 6.4b if needed |
+| 6.4 | Weekly management-pack templates | ✅ Done (core) | management_pack.rs: render_weekly_pack() — headline metrics w/ provenance, exceptions table, reconciliation status + actionable detail, notes; deterministic output; 3 tests (348b7b5); HTTP surfacing done (f78c372 POST /api/v1/admin/pack); HTML variant = 6.4b if needed |
 
 ### Phase 7 — Decision Planner
 
