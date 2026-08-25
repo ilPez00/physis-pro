@@ -80,7 +80,7 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 4.1 | Tiered licensing (Core / Industrial / Enterprise) | 🔜 In Progress | — | Offline enforcement done |
+| 4.1 | Tiered licensing (Core / Industrial / Enterprise) | ✅ Done | Tier enum derived from the signed feature list (no separate field → no forged upgrades); banner shows tier; vendor tool `--tier core\|industrial\|enterprise` expands bundles; 9 tests incl. cross-tier denial (56341a8); offline enforcement was already done |
 | 4.2 | Industry-specific ontology packs | ⬜ Pending | — | Aerospace, Food Processing, … |
 | 4.3 | ROI-based pricing | ⬜ Pending | — | Quality failures prevented / inventory optimized |
 
