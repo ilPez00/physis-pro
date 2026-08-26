@@ -186,6 +186,14 @@ Categories (Finance, Communication, ...)
 | CLI | `physis-pro study <dir> --place <where>` (poll recorder, `--once` = opened) |
 | Web | `POST /api/v1/study/log` · `GET /api/v1/study/session` · `POST /api/v1/study/clear` · page at `/study` (Study Log dashboard + Elenchus argument trainer), page `src/bin/ui/study.html` |
 
+## Ask — NL graph queries (PLAN 3.2)
+
+| Piece | Description |
+|-------|-------------|
+| Endpoint | `POST /api/v1/ask` (`web/search.rs::ask_handler`) — question → `retrieve_nodes()` (shared with `/api/v1/search/nodes`: embedder-consistent cosine over coherence+goal labels, token-packed) → grounded synthesis via cascade (system prompt demands `[n]` citations, 300-token cap). Never errors for lack of provider/hits: returns raw matches + `note`. Response: `question/semantic/answer/provider/note/budget/total_tokens/truncated/results` |
+| UI | ui-shell ask bar calls `/api/v1/ask`; answer renders above the matches it cites (`.ask-answer` in physis.css), degradation notes inline; Agent handoff unchanged |
+| Tests | pure `ask_prompt()` citation-contract tests + http_surface degradation test + shell-wiring assertion |
+
 ## Quality Dashboard (PLAN 3.3)
 
 | Piece | Description |

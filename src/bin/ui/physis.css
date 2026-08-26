@@ -402,6 +402,16 @@ a:hover { text-decoration:underline; text-underline-offset:3px; }
 #askPanel .ask-note {
   font-family:var(--mono); font-size:11px; color:var(--brume); padding:6px 8px;
 }
+/* synthesized answer (PLAN 3.2) — sits above the raw matches it is grounded in */
+#askPanel .ask-answer {
+  margin:2px 2px 6px; padding:9px 10px; border-radius:6px;
+  background:var(--cyan-dim); border:1px solid rgba(95,242,214,.25);
+  font-size:12.5px; line-height:1.5; color:var(--ink);
+}
+#askPanel .ask-provider {
+  display:block; margin-top:6px; font-family:var(--mono); font-size:10px;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--brume);
+}
 
 @media(max-width:720px){
   #productNav { margin-left:0; flex-wrap:wrap; }
