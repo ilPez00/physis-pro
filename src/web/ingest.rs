@@ -113,6 +113,19 @@ pub async fn scan_handler(
                 let _ = s.core.persist_node(db, &uid, &id);
             }
         }
+        // Causal record (Phase 10 D4): a manual /scan is the same producing
+        // act watch-mode performs, just driven by hand.
+        s.ledger.record(
+            crate::address::Mechanism::Generated,
+            "scan",
+            canonical.display().to_string(),
+            None,
+        );
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("scan: ledger persist failed: {e}");
+            }
+        }
     });
     scanner.update_cache(&diffs);
 
@@ -470,6 +483,7 @@ pub async fn vault_import_handler(
         ));
     }
     let uid = user_key(&headers);
+    let vault_dir = canonical.display().to_string();
 
     // Scan notes + optional git log (off-thread; git runs a subprocess).
     let (docs, commits) = tokio::task::spawn_blocking(move || {
@@ -510,6 +524,29 @@ pub async fn vault_import_handler(
             let id = s.core.register_node_vec_labeled(emb, Some(label));
             if let Some(db) = state.db() {
                 let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        // Causal record (Phase 10 D4): one event per source stream, not per
+        // doc — a 500-note vault would flood the ledger; the run is the event.
+        if note_count > 0 {
+            s.ledger.record(
+                crate::address::Mechanism::Received,
+                "vault-import",
+                &vault_dir,
+                None,
+            );
+        }
+        if commits > 0 {
+            s.ledger.record(
+                crate::address::Mechanism::Derived,
+                "git-log",
+                format!("{vault_dir} (git ×{commits})"),
+                None,
+            );
+        }
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("vault import: ledger persist failed: {e}");
             }
         }
         let registered = s.core.nodes.len().saturating_sub(before);
@@ -555,6 +592,7 @@ pub async fn history_import_handler(
         ));
     }
     let uid = user_key(&headers);
+    let export_path = canonical.display().to_string();
 
     let (docs, name) = tokio::task::spawn_blocking(move || crate::history::import_file(&canonical))
         .await
@@ -584,6 +622,20 @@ pub async fn history_import_handler(
                 let _ = s.core.persist_node(db, &uid, &id);
             }
         }
+        // Causal record (Phase 10 D4): the export file is the received
+        // artifact; actor names its stream family.
+        let stream = history_stream_actor(&name);
+        s.ledger.record(
+            crate::address::Mechanism::Received,
+            stream,
+            &export_path,
+            None,
+        );
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("history import: ledger persist failed: {e}");
+            }
+        }
         let registered = s.core.nodes.len().saturating_sub(before);
         let deduped = labels_total.saturating_sub(registered);
         (registered, deduped)
@@ -595,6 +647,23 @@ pub async fn history_import_handler(
         registered,
         deduped,
     }))
+}
+
+/// Actor name for a personal-history import, from the export file's extension
+/// — the ledger reads as `received(bookmarks)` rather than `received(.html)`.
+fn history_stream_actor(file_name: &str) -> &'static str {
+    let ext = file_name
+        .rsplit('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match ext.as_str() {
+        "html" | "htm" => "bookmarks",
+        "json" => "browser-history",
+        "opml" | "xml" => "feeds",
+        "jsonl" | "txt" => "chat-log",
+        _ => "history-export",
+    }
 }
 
 /// POST /api/v1/praxis/backfill — seed coherence from the real life-log: read a
@@ -627,6 +696,7 @@ pub async fn praxis_backfill_handler(
         ));
     }
     let uid = user_key(&headers);
+    let export_path = canonical.display().to_string();
 
     let records = tokio::task::spawn_blocking(move || {
         let text = std::fs::read_to_string(&canonical)?;
@@ -671,6 +741,19 @@ pub async fn praxis_backfill_handler(
             s.core.assert_coherence(&id, record.status.as_score());
             if let Some(db) = state.db() {
                 let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        // Causal record (Phase 10 D4): behavioural nodes derive from the
+        // Praxis export.
+        s.ledger.record(
+            crate::address::Mechanism::Derived,
+            "praxis-backfill",
+            &export_path,
+            None,
+        );
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("praxis backfill: ledger persist failed: {e}");
             }
         }
         let registered = s.core.nodes.len().saturating_sub(before);
@@ -1218,4 +1301,116 @@ pub async fn fs_resolve_handler(
         root: root.display().to_string(),
         matches,
     }))
+}
+
+// ── Space·Time·Cause queries (Phase 10 D5) ─────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct FilesQueryRequest {
+    /// Free-text filter over the event's object and input paths.
+    #[serde(default)]
+    query: String,
+    /// Space facet: events whose object path starts with this root.
+    #[serde(default)]
+    place: Option<String>,
+    /// Cause facet: mechanism name (`generated`/`received`/`derived`/
+    /// `corrected`/`cited`/`serves`) or actor (`watch`, `scan`, `vault-import`…).
+    #[serde(default)]
+    cause: Option<String>,
+    /// Time facet: only events within the last N days.
+    #[serde(default)]
+    within_days: Option<i64>,
+    /// Time facet: exact period bucket, `YYYY-MM`.
+    #[serde(default)]
+    during: Option<String>,
+}
+
+/// POST /api/v1/files/query — facet query over the tenant's causal ledger
+/// (PLAN Phase 10 D5). Composes space (place prefix), time (within/during)
+/// and cause (mechanism/actor/text) filters; matches come back newest first
+/// with per-facet rollups so a dashboard can draw distributions without a
+/// second call.
+pub async fn files_query_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<FilesQueryRequest>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let now = chrono::Utc::now();
+        let mut matches: Vec<serde_json::Value> = Vec::new();
+        let mut by_place: std::collections::BTreeMap<String, usize> = Default::default();
+        let mut by_period: std::collections::BTreeMap<String, usize> = Default::default();
+        let mut by_mechanism: std::collections::BTreeMap<String, usize> = Default::default();
+
+        for ev in s.ledger.events() {
+            if !req.query.is_empty() {
+                let hay = format!(
+                    "{} {} {}",
+                    ev.object,
+                    ev.input.as_deref().unwrap_or(""),
+                    ev.actor
+                );
+                if !hay.to_lowercase().contains(&req.query.to_lowercase()) {
+                    continue;
+                }
+            }
+            if let Some(p) = &req.place {
+                if !ev.object.starts_with(p.as_str()) {
+                    continue;
+                }
+            }
+            if let Some(c) = &req.cause {
+                let c = c.to_ascii_lowercase();
+                let mech_hit = ev.mechanism.as_str() == c;
+                let actor_hit = ev.actor.to_lowercase() == c;
+                if !mech_hit && !actor_hit {
+                    continue;
+                }
+            }
+            if let Some(d) = req.within_days {
+                if (now - ev.at).num_days() > d {
+                    continue;
+                }
+            }
+            if let Some(period) = &req.during {
+                if crate::address::period_of(ev.at) != *period {
+                    continue;
+                }
+            }
+
+            // Rollups. Place = the artifact's directory (the finest stable
+            // grouping available without re-resolving ontology ids).
+            let place = std::path::Path::new(&ev.object)
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "/".into());
+            *by_place.entry(place).or_default() += 1;
+            *by_period
+                .entry(crate::address::period_of(ev.at))
+                .or_default() += 1;
+            *by_mechanism
+                .entry(ev.mechanism.as_str().to_string())
+                .or_default() += 1;
+
+            matches.push(serde_json::json!({
+                "seq": ev.seq,
+                "at": ev.at.to_rfc3339(),
+                "mechanism": ev.mechanism.as_str(),
+                "actor": ev.actor,
+                "object": ev.object,
+                "input": ev.input,
+            }));
+        }
+        // Newest first: dashboards read the recent window.
+        matches.reverse();
+
+        Json(serde_json::json!({
+            "total": matches.len(),
+            "matches": matches,
+            "by_place": by_place,
+            "by_period": by_period,
+            "by_mechanism": by_mechanism,
+        }))
+    })
 }

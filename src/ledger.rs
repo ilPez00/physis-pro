@@ -47,6 +47,12 @@ impl CausalLedger {
         self.events.len()
     }
 
+    /// All events in recording order (seq ascending). Queries filter and
+    /// reverse as needed; the ledger itself stays append-only.
+    pub fn events(&self) -> &[CauseEvent] {
+        &self.events
+    }
+
     pub fn is_empty(&self) -> bool {
         self.events.is_empty()
     }
