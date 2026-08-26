@@ -808,6 +808,12 @@ fn main() -> anyhow::Result<()> {
             let output = app.run_watch(dirs, once)?;
             println!("{output}");
         }
+        Commands::Studio { dir, html_out, demo } => {
+            let out = html_out
+                .unwrap_or_else(|| dir.join("studio.html"));
+            let report = app.run_studio(&dir, &out, demo)?;
+            println!("{report}");
+        }
         Commands::Stats => {
             let output = app.run_stats();
             println!("{output}");
@@ -1319,7 +1325,7 @@ fn main() -> anyhow::Result<()> {
                 physis_pro::demo_corpus::seed_demo_corpus(&dir)?;
             }
             let out_path = html_out.unwrap_or_else(|| dir.join("studio.html"));
-            let result = app.run_studio(&dir, &out_path)?;
+            let result = app.run_studio(&dir, &out_path, demo)?;
             println!("{result}");
         }
         Commands::StructSim { a, b, threshold } => {

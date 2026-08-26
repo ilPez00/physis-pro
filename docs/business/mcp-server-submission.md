@@ -36,12 +36,14 @@ args:      ["serve", "--stdio"]
 Notes:
 - The stdio path is dispatched **before** the licence gate specifically so the
   handshake answers inside client timeouts — no licence needed to connect.
-- Tool surface (Phase 10c A1): 23 tools — classify/embed/pack/goals/PDCA/
+- Tool surface (Phase 10c A1): 24 tools — classify/embed/pack/goals/PDCA/
   dreams/gantt/wiki plus the memory family added 2026-08-26: `remember`,
   `recall` (write/read semiotic memory over the shared sled store; `recall`
   returns each hit's outcome `verdict` and a top-level `failures` list of
   recorded failures so agents avoid repeating known-bad paths), `why`,
-  `serve`, `causes` (causal ledger). Agents get the full pitch, not just
+  `serve`, `causes` (causal ledger), and `discover` (ontology-gap discovery over
+  a corpus — coverage + draft ontology for the grid's blind spots, so an agent
+  grows the grid from its own documents). Agents get the full pitch, not just
   classification.
 
 ## Environment
