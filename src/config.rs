@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::models::*;
 use crate::ontology::OFFICE_ONTOLOGY_NAME;
 use crate::ontology::*;
+use crate::ontology::{SPACE_ONTOLOGY_NAME, TIME_ONTOLOGY_NAME};
 use crate::ontology_nonhuman::MACHINE_ONTOLOGY_NAME;
 
 /// The named built-in ontologies, resolvable by `OntologyLoader::load_builtin`.
@@ -54,6 +55,17 @@ static BUILTIN_ONTOLOGIES: &[(&str, &str)] = &[
     (
         OFFICE_ONTOLOGY_NAME,
         include_str!("../config/office_ontology.json"),
+    ),
+    // Phase 10 datawork: the space and time filing axes. Deliberately NOT
+    // classification themes — files are not *about* "Warehouse" — so they get
+    // their own domain maps and never join the classifier's centroids.
+    (
+        SPACE_ONTOLOGY_NAME,
+        include_str!("../config/space_ontology.json"),
+    ),
+    (
+        TIME_ONTOLOGY_NAME,
+        include_str!("../config/time_ontology.json"),
     ),
 ];
 
@@ -508,6 +520,18 @@ impl Default for PhysisConfig {
                     kind: "office".to_string(),
                     enabled: true,
                 },
+                OntologySource {
+                    name: SPACE_ONTOLOGY_NAME.to_string(),
+                    path: None,
+                    kind: "place".to_string(),
+                    enabled: true,
+                },
+                OntologySource {
+                    name: TIME_ONTOLOGY_NAME.to_string(),
+                    path: None,
+                    kind: "period".to_string(),
+                    enabled: true,
+                },
             ],
             network_scan_interval_secs: 60,
             dream_batch_size: 5,
@@ -549,6 +573,12 @@ pub struct OntologyLoader {
     pub engineering_domains: HashMap<String, DomainDef>,
     /// Office/business domain definitions.
     pub office_domains: HashMap<String, DomainDef>,
+    /// Place definitions (space axis, Phase 10 datawork). Not classification
+    /// themes: they name *where* things live.
+    pub space_domains: HashMap<String, DomainDef>,
+    /// Period definitions (time axis, Phase 10 datawork): shifts, sprints,
+    /// quarters — the rhythm vocabulary addresses bucket into.
+    pub time_domains: HashMap<String, DomainDef>,
     /// Custom domain definitions loaded from file paths.
     pub custom_domains: HashMap<String, DomainDef>,
     /// Per-ontology interpretant, keyed by the source's `kind`.
@@ -575,6 +605,8 @@ impl OntologyLoader {
             abstract_domains: HashMap::new(),
             engineering_domains: HashMap::new(),
             office_domains: HashMap::new(),
+            space_domains: HashMap::new(),
+            time_domains: HashMap::new(),
             custom_domains: HashMap::new(),
             interpretants: HashMap::new(),
         }
@@ -752,6 +784,12 @@ impl OntologyLoader {
                     "office" => {
                         loader.office_domains.insert(name, def);
                     }
+                    "place" => {
+                        loader.space_domains.insert(name, def);
+                    }
+                    "period" => {
+                        loader.time_domains.insert(name, def);
+                    }
                     _ => {
                         loader.custom_domains.insert(name, def);
                     }
@@ -891,6 +929,93 @@ mod tests {
             "expected at least 60 office domains, got {}",
             map.len()
         );
+    }
+
+    #[test]
+    fn test_builtin_space_and_time_ontologies_load() {
+        let space = OntologyLoader::load_builtin(SPACE_ONTOLOGY_NAME).unwrap();
+        let time = OntologyLoader::load_builtin(TIME_ONTOLOGY_NAME).unwrap();
+        assert!(
+            space.len() >= 20,
+            "expected at least 20 places, got {}",
+            space.len()
+        );
+        assert!(
+            time.len() >= 15,
+            "expected at least 15 periods, got {}",
+            time.len()
+        );
+    }
+
+    #[test]
+    fn test_space_time_loaded_into_dedicated_buckets() {
+        let config = PhysisConfig::default();
+        let loader = OntologyLoader::load_all(&config);
+        assert!(
+            !loader.space_domains.is_empty(),
+            "place entries must land in their own bucket"
+        );
+        assert!(
+            !loader.time_domains.is_empty(),
+            "period entries must land in their own bucket"
+        );
+        // Filing axes are NOT classification themes: none of their entry names
+        // may appear in the custom (classification) bucket.
+        for (bucket, other) in [
+            (&loader.space_domains, &loader.custom_domains),
+            (&loader.time_domains, &loader.custom_domains),
+        ] {
+            for name in bucket.keys() {
+                assert!(
+                    !other.contains_key(name),
+                    "space/time entry leaked into classification themes: {name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_space_time_have_valid_grid_cells() {
+        let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
+        let valid_modes = [
+            "WORK",
+            "WALK",
+            "LEARN",
+            "CREATE",
+            "REST",
+            "LIFT",
+            "DESTROY",
+            "SENSE",
+            "GUIDE",
+            "PLAY",
+            "BRAINSTORM",
+            "MAINTAIN",
+            "MOVE",
+            "PLAN",
+        ];
+        for (axis, name_const) in [
+            ("place", SPACE_ONTOLOGY_NAME),
+            ("period", TIME_ONTOLOGY_NAME),
+        ] {
+            let map = OntologyLoader::load_builtin(name_const).unwrap();
+            for (name, def) in &map {
+                let d = def.domain.as_deref().unwrap_or("");
+                let m = def.mode.as_deref().unwrap_or("");
+                assert!(
+                    valid_domains.contains(&d),
+                    "{name}: domain `{d}` not on the grid"
+                );
+                assert!(
+                    valid_modes.contains(&m),
+                    "{name}: mode `{m}` not on the grid"
+                );
+                assert_eq!(
+                    def.axis_kind.as_deref(),
+                    Some(axis),
+                    "{name}: wrong axis_kind"
+                );
+            }
+        }
     }
 
     #[test]

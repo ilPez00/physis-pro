@@ -1020,13 +1020,23 @@ No other text."#.into(),
             }
         }
         let mut file_texts: Vec<String> = Vec::with_capacity(docs.len());
+        let ingested_at = chrono::Utc::now();
         for doc in &docs {
             let file_embedding = self.embedder.embed(&doc.body);
+            // Address at capture time (Phase 10): one scan root per call.
+            let address = crate::address::FileAddress::derive(
+                &doc.path,
+                doc.path.parent().unwrap_or(std::path::Path::new("/")),
+                crate::address::Mechanism::Generated,
+                "ingest",
+                ingested_at,
+            );
             let file_id = graph.add_file(
                 doc.path.clone(),
                 &doc.title,
                 &format!("{:?}", doc.kind),
                 file_embedding.clone(),
+                Some(address),
             );
             let mut theme_scores: Vec<(usize, f32)> = graph
                 .themes
@@ -1141,6 +1151,9 @@ No other text."#.into(),
             ("natural", &self.ontology.natural_domains),
             ("social", &self.ontology.social_domains),
             ("abstract", &self.ontology.abstract_domains),
+            // Phase 10 datawork axes: `facet --kind place|period`.
+            ("place", &self.ontology.space_domains),
+            ("period", &self.ontology.time_domains),
             ("custom", &self.ontology.custom_domains),
         ];
 

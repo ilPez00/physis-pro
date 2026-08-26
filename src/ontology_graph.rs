@@ -432,12 +432,14 @@ mod tests {
             "Q4 report",
             "Email",
             vec![0.85, 0.15],
+            None,
         );
         g.add_file(
             std::path::PathBuf::from("finance/budget.xlsx"),
             "Budget 2025",
             "Spreadsheet",
             vec![0.15, 0.85],
+            None,
         );
         g.add_edge(0, 0, 0.95);
         g.add_edge(1, 1, 0.90);

@@ -439,6 +439,7 @@ mod tests {
             "Q4 Budget",
             "Spreadsheet",
             vec![0.1, 0.9],
+            None,
         );
         g.add_edge(0, 0, 0.95);
         let results = search_graph("Q4", &g);

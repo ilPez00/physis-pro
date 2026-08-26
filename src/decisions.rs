@@ -287,7 +287,7 @@ mod tests {
     // ── 9.3b embedding dedup ────────────────────────────────────────────
 
     use crate::embed::RandomProjectionEmbedder;
-    use crate::embed::VectorEmbed as _;
+    use crate::embed::VectorEmbed;
 
     fn cand(decision: &str) -> Candidate {
         Candidate {
