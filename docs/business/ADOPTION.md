@@ -78,9 +78,9 @@ Three real options, ordered by effort:
 ## First 48 hours checklist
 
 - [x] Crate published to crates.io (v0.1.10)
-- [ ] GitHub topics added
-- [ ] llms.txt committed
-- [ ] Registry submission drafted (name, transport=stdio, command=`physis-pro serve --stdio`)
+- [ ] GitHub topics added (`docs/business/mcp-server-submission.md` has the exact command; CI token lacks repo scope)
+- [x] llms.txt committed + served at `/llms.txt` on every instance
+- [x] Registry submission drafted (`docs/business/mcp-server-submission.md`)
 - [ ] One screenshot set exported from /pulse + /console
 - [ ] Smithery submission opened
 

@@ -406,7 +406,26 @@ async fn demo_and_console_ui_are_served() {
     assert!(body.contains("/api/v1/ask"), "ask bar wired to /api/v1/ask");
 }
 
+/// The llms.txt convention (adoption track 1): AI crawlers read one plain file
+/// to learn what an instance can do. Public, no auth, served from the repo.
 #[tokio::test]
+async fn llms_txt_is_publicly_served_and_names_the_capabilities() {
+    let (router, _dir, _env) = app().await;
+
+    // No auth header — must be public like /health.
+    let (status, body) = send_text(&router, get("/llms.txt", "")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.starts_with("# Physis Pro"));
+    for capability in [
+        "/api/v1/ask",
+        "/api/v1/files/query",
+        "physis-pro serve --stdio",
+        "space·time·cause",
+    ] {
+        assert!(body.contains(capability), "llms.txt names `{capability}`");
+    }
+}
+
 async fn dashboard_pages_end_at_the_closing_html_tag() {
     // Console shipped with ~950 lines of JavaScript appended AFTER `</html>`:
     // 19 functions (hypotheses, contradictions, epistemic audit, explanation,

@@ -2639,7 +2639,21 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // Sunflower branding (self-contained, no external asset).
         .route("/sunflower.js", get(ui_chat::sunflower_js_handler))
         // Shared design system. Public for the same reason as ui-shell.js.
-        .route("/physis.css", get(ui_chat::physis_css_handler));
+        .route("/physis.css", get(ui_chat::physis_css_handler))
+        // AI-crawler discoverability (adoption track 1): every deployed
+        // instance advertises its capabilities in the llms.txt convention.
+        .route(
+            "/llms.txt",
+            get(|| async {
+                (
+                    [(
+                        axum::http::header::CONTENT_TYPE,
+                        "text/plain; charset=utf-8",
+                    )],
+                    include_str!("../../llms.txt"),
+                )
+            }),
+        );
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
