@@ -167,6 +167,49 @@ pub struct Usage {
     pub total_tokens: u32,
 }
 
+/// How long a provider-scoped fault — a rejected key, a model id the endpoint
+/// no longer serves — keeps a provider out of the cascade. Long enough that a
+/// dead provider is not re-dialled on every request, bounded so a rotated key
+/// or a corrected model id recovers without restarting the process.
+const CONFIG_FAULT_PARK_SECS: i64 = 900;
+
+/// Error codes that identify a fault in *this deployment's* configuration
+/// rather than in the request that happened to hit it. Every provider here
+/// speaks the OpenAI error envelope; the codes differ by vendor, hence the
+/// union (`model_decommissioned` is groq's, `model_not_found` is OpenAI's and
+/// GitHub Models').
+const CONFIG_FAULT_CODES: &[&str] = &[
+    "model_not_found",
+    "model_decommissioned",
+    "model_terminated",
+    "unknown_model",
+    "invalid_api_key",
+    "account_deactivated",
+];
+
+/// Whether a non-success body reports a provider-scoped configuration fault, as
+/// opposed to a request-scoped 400 that a different request would survive.
+///
+/// Only the machine-written `error.code` / `error.type` fields are consulted.
+/// The human-readable `error.message` is deliberately **not** scanned: providers
+/// quote the offending request back inside it, and that request carries caller
+/// text, so matching on the prose would let any caller park a shared provider
+/// for every tenant by planting a phrase in a prompt. `invalid_request_error`
+/// is likewise excluded — it is the generic envelope type for ordinary bad
+/// arguments and says nothing about the provider's health.
+fn is_config_fault(body: &str) -> bool {
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(body) else {
+        return false;
+    };
+    let err = parsed.get("error").unwrap_or(&parsed);
+    ["code", "type"].iter().any(|field| {
+        err.get(field)
+            .and_then(|v| v.as_str())
+            .map(str::to_ascii_lowercase)
+            .is_some_and(|v| CONFIG_FAULT_CODES.contains(&v.as_str()))
+    })
+}
+
 /// A single LLM provider backed by an OpenAI-compatible API.
 ///
 /// Wraps configuration, per-provider rate-limiting (cooldown), availability
@@ -235,6 +278,10 @@ impl Provider {
     }
 
     /// Mark this provider as permanently unavailable.
+    ///
+    /// Administrative only — nothing clears this short of a restart, so it must
+    /// never be driven by a remote response. Provider faults inferred from
+    /// network traffic go through [`Provider::cooldown`] instead.
     pub fn mark_unavailable(&self) {
         self.available.store(false, Ordering::Relaxed);
     }
@@ -285,7 +332,7 @@ impl Provider {
             )));
         }
         if status == 401 || status == 403 {
-            self.mark_unavailable();
+            self.cooldown(CONFIG_FAULT_PARK_SECS);
             return Err(AiError::Provider(format!(
                 "auth error on {}",
                 self.config.name
@@ -293,17 +340,19 @@ impl Provider {
         }
         if !status.is_success() {
             let text = resp.text().await.unwrap_or_default();
-            // Permanent configuration failures — a retired model id, a key the
-            // endpoint refuses — return the same body on every retry. Park the
-            // provider so later requests skip straight past the dead one.
-            // Ordinary 400s (bad arguments, tool misuse) stay live.
-            let lower = text.to_lowercase();
-            if lower.contains("model_not_found")
-                || lower.contains("does not exist")
-                || lower.contains("valid api key")
-                || lower.contains("invalid api key")
-            {
-                self.mark_unavailable();
+            // Configuration faults — a retired model id, a key the endpoint
+            // refuses — return the same body on every retry, so park the
+            // provider and let later requests skip straight past it. Ordinary
+            // 400s (bad arguments, tool misuse) stay live.
+            //
+            // The park is timed, not permanent, and keys off the structured
+            // error code rather than the message prose. Both matter: the
+            // message quotes the caller's own request back, so prose matching
+            // would hand any tenant a switch for disabling a shared provider,
+            // and an unbounded park would make one bad guess survive until the
+            // process restarts.
+            if is_config_fault(&text) {
+                self.cooldown(CONFIG_FAULT_PARK_SECS);
             }
             return Err(AiError::Provider(format!(
                 "{} returned {}: {}",
@@ -1049,6 +1098,74 @@ mod tests {
         assert!(json.contains("gpt-4"));
         assert!(json.contains("be helpful"));
         assert!(json.contains("100"));
+    }
+
+    #[test]
+    fn retired_model_ids_are_recognised_as_configuration_faults() {
+        // groq's shape for a decommissioned model, and OpenAI's / GitHub
+        // Models' shape for an unknown one. Both are provider-scoped: every
+        // later request against this deployment fails identically.
+        assert!(is_config_fault(
+            r#"{"error":{"message":"The model `llama-3.3-70b-versatile` has been decommissioned","type":"invalid_request_error","code":"model_decommissioned"}}"#
+        ));
+        assert!(is_config_fault(
+            r#"{"error":{"message":"The model `gpt-4o-mini` does not exist","type":"invalid_request_error","code":"model_not_found"}}"#
+        ));
+    }
+
+    #[test]
+    fn a_caller_cannot_park_a_provider_by_quoting_the_error_prose() {
+        // Providers echo the offending request back inside `error.message`,
+        // and that request carries the caller's prompt. If the message were
+        // matched, any tenant could disable a shared provider for everyone by
+        // planting a phrase in a prompt — so these must all stay live.
+        for body in [
+            r#"{"error":{"message":"Invalid value for 'tool_choice': tool 'x' does not exist","type":"invalid_request_error","code":null}}"#,
+            r#"{"error":{"message":"prompt was: please explain why model_not_found happens","type":"invalid_request_error","code":"context_length_exceeded"}}"#,
+            r#"{"error":{"message":"the user asked: how do I get a valid api key?","type":"invalid_request_error"}}"#,
+        ] {
+            assert!(!is_config_fault(body), "must not park on prose: {body}");
+        }
+    }
+
+    #[test]
+    fn ordinary_bad_requests_and_unparseable_bodies_leave_the_provider_live() {
+        // `invalid_request_error` is the generic envelope type for bad
+        // arguments; it says nothing about the provider's health. A body that
+        // is not JSON at all (proxy HTML, truncated response) is no evidence
+        // either.
+        assert!(!is_config_fault(
+            r#"{"error":{"message":"max_tokens too large","type":"invalid_request_error"}}"#
+        ));
+        assert!(!is_config_fault("<html>502 Bad Gateway</html>"));
+        assert!(!is_config_fault(""));
+    }
+
+    #[test]
+    fn a_parked_provider_recovers_on_its_own() {
+        // The park is a cooldown, not a latch: a rotated key or a corrected
+        // model id must take effect without restarting the process.
+        let provider = Provider::new(ProviderConfig {
+            name: "parked".into(),
+            base_url: "http://localhost".into(),
+            model: "test-model".into(),
+            api_key: "sk-test".into(),
+            supports_vision: false,
+            supports_tools: true,
+            max_tokens: 1024,
+            timeout_secs: 10.0,
+        });
+        provider.cooldown(CONFIG_FAULT_PARK_SECS);
+        assert!(
+            !provider.is_available(),
+            "fault must take it out of rotation"
+        );
+
+        provider.cooldown(-1);
+        assert!(
+            provider.is_available(),
+            "an elapsed park must return the provider to the cascade"
+        );
     }
 
     #[test]
