@@ -285,3 +285,139 @@ a:hover { text-decoration:underline; text-underline-offset:3px; }
 .muted { color:var(--brume); }
 .small { font-size:12px; }
 .glow  { text-shadow:0 0 14px rgba(95,242,214,.45); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   #physis shell — chrome shared by every dashboard page.
+   Mounted by ui-shell.js: #productNav (the app switcher) and #askBar (the
+   one query box). Lives here rather than in JS so a page needs no runtime
+   restyling to look native, and future pages inherit it for free.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── app switcher ────────────────────────────────────────────────────────── */
+#productNav {
+  display:flex; flex-direction:row; width:auto; gap:2px;
+  margin-left:auto; align-items:center; position:relative;
+  padding:3px; border-radius:999px;
+  border:1px solid var(--shelf);
+  background:rgba(7,12,22,.55);
+}
+/* Console styles a bare `nav` (sidebar shape) AND `nav:after` ("PHYSIS / 01"
+   watermark) generically; both would bleed into the switcher pill. ID
+   specificity outranks the element selector, so restate the geometry here
+   and kill any pseudo-content outright. */
+#productNav::after, #productNav::before { content:none; margin:0; }
+#productNav a {
+  font-family:var(--mono);
+  font-size:10px; line-height:1;
+  letter-spacing:.1em; text-transform:uppercase;
+  text-decoration:none;
+  color:var(--brume);
+  padding:6px 11px; border-radius:999px; white-space:nowrap;
+  transition:color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+#productNav a:hover {
+  color:var(--ink); text-decoration:none;
+  background:rgba(122,150,214,.12);
+}
+/* current page: quiet glow, not a filled pill — the page itself is the
+   evidence of where you are; the nav only underlines it */
+#productNav a[aria-current="page"] {
+  color:var(--cyan); font-weight:700;
+  background:var(--cyan-dim);
+  box-shadow:inset 0 0 0 1px rgba(95,242,214,.28), 0 0 14px rgba(95,242,214,.10);
+}
+#productNav a.home {
+  font-size:12px; line-height:1; padding:5px 9px;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 0 6px rgba(95,242,214,.35));
+}
+#productNav a.home:hover { filter:drop-shadow(0 0 10px rgba(95,242,214,.6)); }
+#productNav a.home[aria-current="page"] {
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  -webkit-background-clip:text; background-clip:text;
+  box-shadow:none;
+}
+#productNav .nav-sep {
+  width:1px; height:14px; align-self:center;
+  background:var(--shelf-strong); margin:0 3px;
+}
+/* Console/Agent already push a status pill right with margin-left:auto; two
+   auto margins would split the gap and unbalance the row, so the pill keeps
+   its position and the switcher sits beside it. */
+#productNav ~ #status, #productNav ~ .status { margin-left:10px; }
+
+/* ── ask bar ─────────────────────────────────────────────────────────────── */
+#askBar { position:relative; display:flex; gap:6px; align-items:center; margin-left:14px; }
+#askBar input {
+  width:min(30vw,280px);
+  font-family:var(--mono); font-size:12px;
+  padding:7px 12px; border-radius:999px;
+  border:1px solid var(--shelf);
+  background:rgba(4,7,15,.65); color:var(--ink);
+}
+#askBar input::placeholder { color:var(--brume); }
+#askBar input:focus-visible {
+  border-color:var(--cyan); box-shadow:var(--glow-cyan); outline:none;
+}
+#askBar button {
+  font-family:var(--mono); font-size:10px;
+  letter-spacing:.1em; text-transform:uppercase;
+  padding:7px 11px; border-radius:999px;
+  border:1px solid var(--violet-dim);
+  background:rgba(157,140,255,.08); color:var(--violet);
+}
+#askBar button:hover {
+  color:#c9bfff; text-decoration:none;
+  border-color:rgba(157,140,255,.5);
+  background:rgba(157,140,255,.16);
+  box-shadow:0 0 14px rgba(157,140,255,.18);
+}
+
+/* results panel (portalled to <body> by ui-shell.js) */
+#askPanel {
+  position:fixed; max-height:52vh; overflow:auto; z-index:2147483647;
+  padding:8px; border-radius:var(--r-m);
+  border:1px solid var(--shelf-strong);
+  background:rgba(7,12,22,.97);
+  backdrop-filter:blur(14px);
+  box-shadow:var(--shadow), 0 0 30px rgba(95,242,214,.05);
+}
+#askPanel .ask-hit {
+  display:flex; gap:9px; align-items:baseline; padding:7px 8px; border-radius:6px;
+}
+#askPanel .ask-hit:hover { background:rgba(95,242,214,.06); }
+#askPanel .ask-score {
+  font-family:var(--mono); font-size:11px; color:var(--cyan); flex:none;
+  font-variant-numeric:tabular-nums;
+}
+#askPanel .ask-kind {
+  font-family:var(--mono); font-size:9px; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--violet); flex:none;
+  padding:1px 6px; border:1px solid var(--violet-dim); border-radius:999px;
+}
+#askPanel .ask-label {
+  font-size:12px; line-height:1.45; color:var(--ink); overflow-wrap:anywhere;
+}
+#askPanel .ask-note {
+  font-family:var(--mono); font-size:11px; color:var(--brume); padding:6px 8px;
+}
+
+@media(max-width:720px){
+  #productNav { margin-left:0; flex-wrap:wrap; }
+  #askBar { margin-left:0; width:100%; }
+  #askBar input { width:100%; }
+}
+
+/* in-header section jump nav (Pulse: Vitals / Attention / …) — same mono-tab
+   language as the app switcher, quieter: secondary destinations, not apps */
+header nav[aria-label="Sections"] { display:flex; gap:4px; flex-wrap:wrap; }
+header nav[aria-label="Sections"] a {
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em;
+  text-transform:uppercase; text-decoration:none;
+  color:var(--brume);
+  padding:5px 10px; border-radius:999px; border:1px solid transparent;
+}
+header nav[aria-label="Sections"] a:hover {
+  color:var(--cyan); text-decoration:none; border-color:var(--shelf);
+}

@@ -5,24 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Physis Console</title>
 <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<link rel="stylesheet" href="/physis.css" />
 <style>
-  :root{
-    --bg:#070a18;
-    --bg2:#0b1025;
-    --panel:rgba(16,22,49,.78);
-    --panel2:rgba(11,16,35,.88);
-    --line:rgba(135,157,219,.18);
-    --line-strong:rgba(104,231,255,.42);
-    --fg:#f1f5ff;
-    --muted:#8997b8;
-    --accent:#68e7ff;
-    --accent2:#b49cff;
-    --green:#72f0b2;
-    --amber:#ffc66d;
-    --red:#ff718d;
-    --shadow:0 20px 70px rgba(0,0,0,.34);
-    --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
-  }
+  /* Palette comes from the shared Bioluminal Forge system (physis.css).
+     Its legacy aliases (--bg --bg2 --panel --line --accent --green …) resolve
+     to the abyss/trench floor and the cyan/violet accents, so the console
+     stops drifting hue-wise from Pulse, Demo, Files and Agent. Only layout
+     and console-specific chrome are declared below. */
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -30,8 +19,8 @@
     font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     color:var(--fg);
     background:
-      radial-gradient(900px 600px at 8% -12%, rgba(75,110,255,.28), transparent 58%),
-      radial-gradient(760px 520px at 96% 4%, rgba(104,231,255,.13), transparent 58%),
+      radial-gradient(900px 600px at 8% -12%, rgba(95,140,255,.22), transparent 58%),
+      radial-gradient(760px 520px at 96% 4%, rgba(95,242,214,.11), transparent 58%),
       linear-gradient(180deg, var(--bg), var(--bg2));
     display:flex;
     flex-direction:column;
@@ -39,12 +28,12 @@
   }
   body:before{
     content:"";position:fixed;inset:0;pointer-events:none;opacity:.28;
-    background-image:linear-gradient(rgba(111,135,204,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(111,135,204,.055) 1px,transparent 1px);
+    background-image:linear-gradient(rgba(122,150,214,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(122,150,214,.05) 1px,transparent 1px);
     background-size:42px 42px;mask-image:linear-gradient(to bottom,black,transparent 76%);
   }
   header{
     padding:14px 22px;
-    background:rgba(7,10,24,.7);
+    background:rgba(4,7,15,.78);
     backdrop-filter: blur(12px);
     border-bottom:1px solid var(--line);
     display:flex;
@@ -74,11 +63,11 @@
   }
   textarea{width:100%;min-height:110px;resize:vertical}
   button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
-  button:hover{border-color:var(--accent);background:rgba(104,231,255,.1);box-shadow:0 0 20px rgba(104,231,255,.08)}
+  button:hover{border-color:var(--accent);background:rgba(95,242,214,.09);box-shadow:0 0 20px rgba(95,242,214,.08)}
   button:active{transform:translateY(1px)}
   button.primary{
-    background:linear-gradient(135deg,rgba(104,231,255,.22),rgba(180,156,255,.14));
-    border-color:rgba(104,231,255,.5);
+    background:linear-gradient(135deg,rgba(95,242,214,.18),rgba(157,140,255,.13));
+    border-color:rgba(95,242,214,.45);
   }
   button.ghost{background:none;color:var(--muted)}
   button.ghost:hover{color:var(--fg)}
@@ -86,13 +75,13 @@
     outline:2px solid var(--accent);outline-offset:2px
   }
   #status{margin-left:auto;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:rgba(13,19,35,.75)}
-  .kbd{font:10px var(--mono);border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--accent);background:rgba(104,231,255,.08)}
+  .kbd{font:10px var(--mono);border:1px solid var(--line);padding:1px 6px;border-radius:4px;color:var(--accent);background:rgba(95,242,214,.08)}
   .muted{color:var(--muted)}
   .err{color:var(--red)}
   main{flex:1;display:flex;min-height:0}
   nav{
     width:206px;
-    background:rgba(8,12,29,.76);
+    background:rgba(6,10,20,.82);
     border-right:1px solid var(--line);
     display:flex;
     flex-direction:column;
@@ -113,7 +102,7 @@
   }
   nav button.active{
     color:var(--fg);
-    background:linear-gradient(90deg,rgba(104,231,255,.16),rgba(180,156,255,.06));
+    background:linear-gradient(90deg,rgba(95,242,214,.13),rgba(157,140,255,.07));
     border:1px solid var(--line-strong);
     box-shadow:inset 3px 0 0 var(--accent),0 8px 28px rgba(41,112,160,.12);
   }
@@ -135,11 +124,11 @@
     padding:25px 26px;
     border:1px solid var(--line);
     border-radius:18px;
-    background:linear-gradient(120deg,rgba(19,28,61,.86),rgba(9,14,33,.76));
+    background:linear-gradient(120deg,rgba(12,20,38,.86),rgba(7,12,22,.78));
     box-shadow:var(--shadow);
     position:relative;overflow:hidden;
   }
-  .hero:after{content:"";position:absolute;right:-90px;top:-140px;width:360px;height:360px;border:1px solid rgba(104,231,255,.25);border-radius:50%;box-shadow:0 0 0 22px rgba(104,231,255,.025),0 0 0 46px rgba(180,156,255,.025);pointer-events:none}
+  .hero:after{content:"";position:absolute;right:-90px;top:-140px;width:360px;height:360px;border:1px solid rgba(95,242,214,.25);border-radius:50%;box-shadow:0 0 0 22px rgba(95,242,214,.025),0 0 0 46px rgba(157,140,255,.025);pointer-events:none}
   .hero h2{margin:0 0 8px;font-size:clamp(22px,3vw,34px);line-height:1.04;letter-spacing:-.045em;max-width:620px}
   .hero p{margin:0;color:var(--muted)}
   .hero .actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -229,9 +218,9 @@
   .signal i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green);animation:pulse 2.4s ease-in-out infinite}
   @keyframes pulse{50%{opacity:.42;transform:scale(.72)}}
   .orbit{position:absolute;right:34px;top:30px;width:190px;height:140px;pointer-events:none;opacity:.86}
-  .orbit:before,.orbit:after{content:"";position:absolute;inset:8px 0;border:1px solid rgba(104,231,255,.35);border-radius:50%;transform:rotate(-23deg)}
-  .orbit:after{inset:0 24px;transform:rotate(48deg);border-color:rgba(180,156,255,.34)}
-  .orbit b{position:absolute;left:88px;top:62px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 7px rgba(104,231,255,.12),0 0 30px var(--accent)}
+  .orbit:before,.orbit:after{content:"";position:absolute;inset:8px 0;border:1px solid rgba(95,242,214,.35);border-radius:50%;transform:rotate(-23deg)}
+  .orbit:after{inset:0 24px;transform:rotate(48deg);border-color:rgba(157,140,255,.34)}
+  .orbit b{position:absolute;left:88px;top:62px;width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 7px rgba(95,242,214,.12),0 0 30px var(--accent)}
   .orbit span{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 12px var(--amber)}
   .orbit span:nth-child(2){left:20px;top:33px}.orbit span:nth-child(3){right:14px;top:78px;background:var(--accent2);box-shadow:0 0 12px var(--accent2)}
   .timeline{
@@ -299,7 +288,7 @@
   .coach{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
     padding:10px 22px;border-bottom:1px solid var(--line);
-    background:linear-gradient(90deg,rgba(104,231,255,.10),transparent 70%);
+    background:linear-gradient(90deg,rgba(95,242,214,.10),transparent 70%);
     font-size:13px;position:relative;z-index:2
   }
   .coach[hidden]{display:none}
@@ -321,7 +310,7 @@
   .overlay.show{display:flex}
   .overlay-card{
     background:linear-gradient(180deg,rgba(16,24,48,.98),rgba(10,16,32,.96));
-    border:1px solid rgba(104,231,255,.22);border-radius:20px;padding:28px 32px;
+    border:1px solid rgba(95,242,214,.22);border-radius:20px;padding:28px 32px;
     max-width:540px;width:100%;box-shadow:0 30px 90px rgba(0,0,0,.55)
   }
   .overlay-card h2{margin:0 0 8px;font-size:22px;letter-spacing:-.02em}
@@ -329,7 +318,7 @@
   .step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
   .step i{
     width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    background:rgba(104,231,255,.12);border:1px solid rgba(104,231,255,.28);color:var(--accent);font:700 12px var(--mono)
+    background:rgba(95,242,214,.12);border:1px solid rgba(95,242,214,.28);color:var(--accent);font:700 12px var(--mono)
   }
   .empty{
     padding:28px 18px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted)
@@ -339,24 +328,24 @@
   .legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 12px}
   .legend span{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
   .legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
-  .pulse-hint{box-shadow:0 0 0 0 rgba(104,231,255,.55);animation:hintpulse 1.8s ease-out infinite}
-  @keyframes hintpulse{70%{box-shadow:0 0 0 10px rgba(104,231,255,0)}}
+  .pulse-hint{box-shadow:0 0 0 0 rgba(95,242,214,.55);animation:hintpulse 1.8s ease-out infinite}
+  @keyframes hintpulse{70%{box-shadow:0 0 0 10px rgba(95,242,214,0)}}
 
   /* Epistemic & Hypothesis workbench styles */
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;font:600 11px var(--mono);text-transform:uppercase;letter-spacing:.05em}
   .badge-candidate{background:rgba(255,198,109,.16);color:var(--amber);border:1px solid rgba(255,198,109,.4)}
-  .badge-supported{background:rgba(104,231,255,.16);color:var(--accent);border:1px solid rgba(104,231,255,.4)}
+  .badge-supported{background:rgba(95,242,214,.16);color:var(--accent);border:1px solid rgba(95,242,214,.4)}
   .badge-contradicted{background:rgba(255,113,141,.16);color:var(--red);border:1px solid rgba(255,113,141,.4)}
-  .badge-confirmed,.badge-certified{background:rgba(114,240,178,.16);color:var(--green);border:1px solid rgba(114,240,178,.4)}
-  .badge-failed{background:rgba(255,80,80,.22);color:#ff5050;border:1px solid #ff5050}
+  .badge-confirmed,.badge-certified{background:rgba(168,230,99,.16);color:var(--green);border:1px solid rgba(168,230,99,.4)}
+  .badge-failed{background:rgba(255,80,80,.22);color:var(--rose);border:1px solid var(--rose)}
   .badge-superseded,.badge-inert,.badge-isolated{background:rgba(137,151,184,.16);color:var(--muted);border:1px solid rgba(137,151,184,.3)}
-  .badge-open{background:rgba(180,156,255,.16);color:var(--accent2);border:1px solid rgba(180,156,255,.4)}
+  .badge-open{background:rgba(157,140,255,.16);color:var(--accent2);border:1px solid rgba(157,140,255,.4)}
   
   .hyp-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px}
   .hyp-card.supported{border-left:4px solid var(--accent)}
   .hyp-card.contradicted{border-left:4px solid var(--red)}
   .hyp-card.confirmed,.hyp-card.certified{border-left:4px solid var(--green)}
-  .hyp-card.failed{border-left:4px solid #ff5050}
+  .hyp-card.failed{border-left:4px solid var(--rose)}
   .hyp-card.candidate{border-left:4px solid var(--amber)}
   
   .dim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;background:rgba(5,9,22,.5);padding:8px;border-radius:8px}
@@ -369,16 +358,16 @@
   .claim-pane{background:rgba(5,9,22,.6);border:1px solid var(--line);border-radius:10px;padding:12px}
   
   .ev-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(10,16,32,.8);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;margin:3px}
-  .ev-pill.supports{border-color:rgba(114,240,178,.35);color:var(--green)}
+  .ev-pill.supports{border-color:rgba(168,230,99,.35);color:var(--green)}
   .ev-pill.contradicts{border-color:rgba(255,113,141,.35);color:var(--red)}
   
-  .audit-item{display:grid;grid-template-columns:140px 150px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid rgba(135,157,219,.1);font-size:12px;align-items:center}
+  .audit-item{display:grid;grid-template-columns:140px 150px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid rgba(122,150,214,.1);font-size:12px;align-items:center}
 
   /* Harness & Coherence Arbiter Styles */
-  .badge-approved,.badge-verdict-approved{background:linear-gradient(135deg,rgba(114,240,178,.22),rgba(104,231,255,.14));color:var(--green);border:1px solid rgba(114,240,178,.55);box-shadow:0 0 16px rgba(114,240,178,.15)}
+  .badge-approved,.badge-verdict-approved{background:linear-gradient(135deg,rgba(168,230,99,.22),rgba(95,242,214,.14));color:var(--green);border:1px solid rgba(168,230,99,.55);box-shadow:0 0 16px rgba(168,230,99,.15)}
   .badge-warning,.badge-verdict-warning{background:linear-gradient(135deg,rgba(255,198,109,.22),rgba(255,140,50,.14));color:var(--amber);border:1px solid rgba(255,198,109,.55);box-shadow:0 0 16px rgba(255,198,109,.15)}
   .badge-rejected,.badge-verdict-rejected{background:linear-gradient(135deg,rgba(255,113,141,.25),rgba(255,50,80,.16));color:var(--red);border:1px solid rgba(255,113,141,.6);box-shadow:0 0 18px rgba(255,113,141,.18)}
-  .badge-revised,.badge-verdict-revised{background:linear-gradient(135deg,rgba(104,231,255,.25),rgba(180,156,255,.2));color:var(--accent);border:1px solid rgba(104,231,255,.6);box-shadow:0 0 18px rgba(104,231,255,.18)}
+  .badge-revised,.badge-verdict-revised{background:linear-gradient(135deg,rgba(95,242,214,.25),rgba(157,140,255,.2));color:var(--accent);border:1px solid rgba(95,242,214,.6);box-shadow:0 0 18px rgba(95,242,214,.18)}
 
   .verdict-hero{
     padding:18px 22px;border-radius:14px;margin-bottom:14px;
@@ -386,10 +375,10 @@
     border:1px solid var(--line);background:rgba(8,14,30,.85);
     backdrop-filter:blur(12px);transition:all .3s ease;
   }
-  .verdict-hero.APPROVED{border-color:rgba(114,240,178,.45);background:linear-gradient(135deg,rgba(114,240,178,.12),rgba(7,10,24,.9))}
+  .verdict-hero.APPROVED{border-color:rgba(168,230,99,.45);background:linear-gradient(135deg,rgba(168,230,99,.12),rgba(7,10,24,.9))}
   .verdict-hero.WARNING{border-color:rgba(255,198,109,.45);background:linear-gradient(135deg,rgba(255,198,109,.12),rgba(7,10,24,.9))}
   .verdict-hero.REJECTED{border-color:rgba(255,113,141,.5);background:linear-gradient(135deg,rgba(255,113,141,.15),rgba(7,10,24,.9))}
-  .verdict-hero.REVISED{border-color:rgba(104,231,255,.5);background:linear-gradient(135deg,rgba(104,231,255,.15),rgba(7,10,24,.9))}
+  .verdict-hero.REVISED{border-color:rgba(95,242,214,.5);background:linear-gradient(135deg,rgba(95,242,214,.15),rgba(7,10,24,.9))}
 
   .switch{position:relative;display:inline-block;width:38px;height:20px;vertical-align:middle}
   .switch input{opacity:0;width:0;height:0}
@@ -1135,7 +1124,7 @@ const setS=(m,e)=>{const s=$('status');const now=new Date();const ts=now.toLocal
 
 const DOMAINS=["HEAL","CONSTRUCT","FABRICATE","BOND","STUDY"];
 const MODES=["LIFT","REST","WALK","WORK","CREATE","LEARN","DESTROY","SENSE","GUIDE","PLAY","BRAINSTORM","MAINTAIN","MOVE","PLAN"];
-const DCOL={HEAL:"#3fb950",CONSTRUCT:"#d29922",FABRICATE:"#58a6ff",BOND:"#bc8cff",STUDY:"#f778ba","":"#8b949e"};
+const DCOL={HEAL:"#a8e663",CONSTRUCT:"#ffc46b",FABRICATE:"#5ff2d6",BOND:"#9d8cff",STUDY:"#ff8fd0","":"#8b949e"};
 // Customer-facing one-liners for the five domains. These are the words a
 // first-time operator should read under HEAL / CONSTRUCT / … — not the
 // ontology paper. Tune them to the plant you are showing.
@@ -1212,7 +1201,7 @@ async function interestFetch(path,timeoutMs=4000){
 function setInterestStatus(ok,text){
   const el=$('interestStatus');
   el.innerHTML=`<i></i> ${esc(text)}`;
-  el.style.color=ok?'var(--green)':'#b71c1c';
+  el.style.color=ok?'var(--green)':'var(--rose)';
 }
 function timeAgo(iso){
   try{
@@ -1651,15 +1640,15 @@ $('tlDemo').onclick=loadTimelineDemo;
 $('tlRun').onclick=runTimeline;
 
 // ── file graph (cytoscape) ──
-const PALETTE=['#58a6ff','#3fb950','#d29922','#bc8cff','#f778ba','#f0883e','#56d4dd','#db61a2','#a5d6ff','#7ee787'];
+const PALETTE=['#5ff2d6','#9d8cff','#ffc46b','#a8e663','#ff8fd0','#7ec8ff','#c4b5ff','#ffd9a8','#bff2e4','#e0aaff'];
 let cy,lastG=null;
 function initCy(){
   cy=cytoscape({container:$('cy'),style:[
-    {selector:'node[kind="theme"]',style:{'background-color':'data(color)','label':'data(label)','color':'#e6edf3','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#0e1116','text-outline-width':2}},
-    {selector:'node[kind="file"]',style:{'background-color':'data(color)','border-color':'#0e1116','border-width':1,'label':'data(label)','color':'#8b949e','font-size':8,'shape':'round-rectangle','width':11,'height':11}},
-    {selector:'node:selected',style:{'border-color':'#f0f6fc','border-width':3}},
-    {selector:'edge[etype="theme"]',style:{'width':'data(w)','line-color':'#30363d','opacity':0.6,'curve-style':'haystack'}},
-    {selector:'edge[etype="sim"]',style:{'width':'data(w)','line-color':'#3fb950','line-style':'dashed','opacity':0.5,'curve-style':'haystack'}}
+    {selector:'node[kind="theme"]',style:{'background-color':'data(color)','label':'data(label)','color':'#e8f1ff','font-size':9,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#04070f','text-outline-width':2}},
+    {selector:'node[kind="file"]',style:{'background-color':'data(color)','border-color':'#04070f','border-width':1,'label':'data(label)','color':'#7e93b8','font-size':8,'shape':'round-rectangle','width':11,'height':11}},
+    {selector:'node:selected',style:{'border-color':'#5ff2d6','border-width':3}},
+    {selector:'edge[etype="theme"]',style:{'width':'data(w)','line-color':'rgba(122,150,214,.38)','opacity':0.6,'curve-style':'haystack'}},
+    {selector:'edge[etype="sim"]',style:{'width':'data(w)','line-color':'#a8e663','line-style':'dashed','opacity':0.5,'curve-style':'haystack'}}
   ],layout:{name:'cose',animate:false}});
   cy.on('tap','node',e=>onNode(e.target));
 }
@@ -1699,9 +1688,9 @@ let ONT=null;
 function ontStats(d){
   const unreach=d.total-d.classified;
   const pct=d.total?Math.round(100*d.classified/d.total):0;
-  const warn=unreach>0?`<span style="color:#f85149">${unreach} unreachable</span>`:'none unreachable';
+  const warn=unreach>0?`<span style="color:#ff6d8f">${unreach} unreachable</span>`:'none unreachable';
   const fw=d.faceted===0
-    ? `<span style="color:#f85149">0 entries carry any facet</span> — the orthogonal axes (lifecycle/agency/scale/abstraction) are defined but unpopulated, so every facet query returns nothing`
+    ? `<span style="color:#ff6d8f">0 entries carry any facet</span> — the orthogonal axes (lifecycle/agency/scale/abstraction) are defined but unpopulated, so every facet query returns nothing`
     : `${d.faceted} faceted`;
   $('onStats').innerHTML=
     `<b>${d.total}</b> entries authored · <b>${d.classified}</b> reachable by the classifier (${pct}%) · ${warn}<br>${fw}`;
@@ -1710,12 +1699,12 @@ function ontStats(d){
 function ontKinds(d){
   const rows=d.kinds.filter(k=>k.count>0).map(k=>{
     const ok=k.classified===k.count;
-    const col=ok?'#3fb950':(k.classified===0?'#f85149':'#d29922');
+    const col=ok?'#a8e663':(k.classified===0?'#ff6d8f':'#ffc46b');
     const i=k.interpretant||{};
     // An inherited interpretant is an unanswered question, not a decision —
     // shown muted so declared rules stand out.
     const dec=i.declared
-      ? `<span style="color:#3fb950" title="${esc(i.note||'')}">${esc((i.confirms||[]).join('+'))} ↑ / ${esc((i.refutes||[]).join('+'))} ↓`
+      ? `<span style="color:#a8e663" title="${esc(i.note||'')}">${esc((i.confirms||[]).join('+'))} ↑ / ${esc((i.refutes||[]).join('+'))} ↓`
         +`, ${i.half_life_days===0?'no decay':i.half_life_days+'d half-life'}, w=${i.weight}</span>`
       : '<span class="muted">inherits default</span>';
     return `<tr><td style="padding:1px 8px 1px 0">${esc(k.kind)}</td>`
@@ -1765,12 +1754,12 @@ function ontList(){
   $('onCount').textContent=`— showing ${hit.length} of ${ONT.entries.length}`;
   $('onList').innerHTML=hit.slice(0,600).map(e=>{
     const cell=e.domain&&e.mode
-      ? `<span style="color:${DCOL[e.domain]||'#8b949e'}">${esc(e.domain)}</span> × ${esc(e.mode)}`
+      ? `<span style="color:${DCOL[e.domain]||'#7e93b8'}">${esc(e.domain)}</span> × ${esc(e.mode)}`
       : '<span class="muted">no cell</span>';
     const reach=e.classified
-      ? '<span style="color:#3fb950" title="classification can return this">reachable</span>'
-      : '<span style="color:#f85149" title="loaded and displayed, but classification never scores it">unreachable</span>';
-    const fac=e.faceted?'<span style="color:#3fb950">faceted</span>':'<span class="muted">no facets</span>';
+      ? '<span style="color:#a8e663" title="classification can return this">reachable</span>'
+      : '<span style="color:#ff6d8f" title="loaded and displayed, but classification never scores it">unreachable</span>';
+    const fac=e.faceted?'<span style="color:#a8e663">faceted</span>':'<span class="muted">no facets</span>';
     return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
       +`<b>${esc(e.name)}</b> <span class="sm muted">${esc(e.kind)}</span> — ${cell} · ${reach} · ${fac}`
       +`<div class="sm muted">${esc(e.hints.slice(0,10).join(', '))}</div></div>`;
@@ -1786,13 +1775,13 @@ async function loadOntology(){
     $('onKind').innerHTML='<option value="">all sources</option>'
       +kinds.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join('');
     ontList();
-  }catch(e){ $('onStats').innerHTML=`<span style="color:#f85149">${esc(String(e))}</span>`; }
+  }catch(e){ $('onStats').innerHTML=`<span style="color:#ff6d8f">${esc(String(e))}</span>`; }
 }
 
 // The same name resolved in every context that defines it. A name meaning one
 // thing globally and another for a client is not a conflict to reconcile — it
 // is the fact the overlays exist to record.
-const SCOPE_COL={global:'#8b949e',sector:'#58a6ff',client:'#bc8cff',project:'#3fb950'};
+const SCOPE_COL={global:'#7e93b8',sector:'#5ff2d6',client:'#9d8cff',project:'#a8e663'};
 
 async function loadMeanings(){
   try{
@@ -1815,7 +1804,7 @@ async function showMeaning(){
   try{
     const d=await getJSON('/api/v1/ontology/meaning?name='+encodeURIComponent(name));
     $('onMeaning').innerHTML=(d.meanings||[]).map(m=>{
-      const col=SCOPE_COL[m.scope]||'#8b949e';
+      const col=SCOPE_COL[m.scope]||'#7e93b8';
       return `<div style="padding:4px 0;border-bottom:1px solid #21262d">`
         +`<span style="color:${col}">${esc(m.scope)}:${esc(m.source)}</span> — `
         +`<b>${esc(m.domain||'?')} × ${esc(m.mode||'?')}</b>`
@@ -2520,7 +2509,7 @@ async function runExplanation(id){
     const rep = await getJSON(`/api/v1/explanation/${id}`);
     const provLinks = (rep.provenance_chain?.links || []).map((l, i) => `
       <div style="display:flex;gap:8px;align-items:center;padding:4px 0">
-        <span style="width:20px;height:20px;border-radius:50%;background:rgba(104,231,255,.15);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent)">${i+1}</span>
+        <span style="width:20px;height:20px;border-radius:50%;background:rgba(95,242,214,.15);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--accent)">${i+1}</span>
         <div><b>${esc(l.claim)}</b> <span class="muted sm">via ${esc(l.source)} (${Math.round((l.confidence||0)*100)}%)</span></div>
       </div>
     `).join('');
@@ -2850,7 +2839,7 @@ function renderHarnessResult(res){
   let revisionHTML = '';
   if(res.revisions_attempted > 0 && res.raw_initial_output){
     revisionHTML = `
-      <div style="margin-top:14px;background:rgba(104,231,255,.05);border:1px solid var(--line);border-radius:10px;padding:12px">
+      <div style="margin-top:14px;background:rgba(95,242,214,.05);border:1px solid var(--line);border-radius:10px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <span class="badge badge-revised">🔄 Auto-Revised by Coherence Gate (${res.revisions_attempted} iteration${res.revisions_attempted>1?'s':''})</span>
         </div>
@@ -2859,7 +2848,7 @@ function renderHarnessResult(res){
             <div class="sm muted" style="color:var(--red);font-weight:700">Initial Incoherent Output</div>
             <div style="margin-top:6px">${esc(res.raw_initial_output)}</div>
           </div>
-          <div class="revision-pane" style="border-color:rgba(114,240,178,.4)">
+          <div class="revision-pane" style="border-color:rgba(168,230,99,.4)">
             <div class="sm muted" style="color:var(--green);font-weight:700">Revised Coherent Form</div>
             <div style="margin-top:6px">${esc(res.output)}</div>
           </div>

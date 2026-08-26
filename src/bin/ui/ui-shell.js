@@ -114,14 +114,20 @@ async function loadHealth() {
     const h = await getJSON('/health');
     const e = await getJSON('/api/v1/embedder').catch(() => null);
     const txt = $('healthTxt');
-    if (txt) txt.textContent = h.status + ' · ' + (e && e.provenance ? e.provenance : 'engine');
-    const dot = $('health');
-    if (dot) dot.querySelector('.dot').className = 'dot ' + (h.status === 'ok' ? 'ok' : 'bad');
+    if (txt) txt.textContent = h.status + ' · ' +
+      (e ? (e.semantic ? 'semantic' : (e.kind || 'engine')) : 'engine');
+    // Not every page's #health carries a .dot (Pulse's is a bare chip); a
+    // missing dot used to throw HERE, inside the try, and the catch then
+    // branded a healthy engine "offline".
+    const d = $('health');
+    const dot = d && d.querySelector('.dot');
+    if (dot) dot.className = 'dot ' + (h.status === 'ok' ? 'ok' : 'bad');
   } catch (err) {
     const txt = $('healthTxt');
     if (txt) txt.textContent = 'offline';
-    const dot = $('health');
-    if (dot) dot.querySelector('.dot').className = 'dot bad';
+    const d = $('health');
+    const dot = d && d.querySelector('.dot');
+    if (dot) dot.className = 'dot bad';
   }
 }
 
@@ -180,6 +186,7 @@ function initCoach(storageKey) {
 // copies would drift apart on the first edit. Any page that loads this shell
 // gets the nav, including ones not written yet.
 const PRODUCT_PAGES = [
+  { href: '/pulse',  label: 'Pulse',   hint: 'dashboard — coherence, communities, wiki tour' },
   { href: '/ui',     label: 'Files',   hint: 'graph file manager — scan, cluster, move' },
   { href: '/console', label: 'Console', hint: 'operations — plant, timeline, meaning' },
   { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
@@ -198,39 +205,23 @@ function initProductNav() {
   const nav = document.createElement('nav');
   nav.id = 'productNav';
   nav.setAttribute('aria-label', 'Physis apps');
-  nav.innerHTML = PRODUCT_PAGES.map(pg => {
-    const current = here === pg.href;
-    return '<a href="' + pg.href + '"' +
-      (current ? ' aria-current="page"' : '') +
-      ' title="' + esc(pg.hint) + '">' + esc(pg.label) + '</a>';
-  }).join('');
+  // Home glyph first — Pulse is the front door (read-only vitals over the
+  // whole graph), so the sigil always offers a way back to the overview.
+  nav.innerHTML =
+    '<a class="home" href="/pulse" title="Physis — coherence dashboard" ' +
+      (here === '/pulse' ? 'aria-current="page"' : '') + '>◈</a>' +
+    '<span class="nav-sep" aria-hidden="true"></span>' +
+    PRODUCT_PAGES.filter(pg => pg.href !== '/pulse').map(pg => {
+      const current = here === pg.href;
+      return '<a href="' + pg.href + '"' +
+        (current ? ' aria-current="page"' : '') +
+        ' title="' + esc(pg.hint) + '">' + esc(pg.label) + '</a>';
+    }).join('');
   header.appendChild(nav);
 
-  // Styles ship with the switcher so a page needs no CSS of its own. Scoped to
-  // #productNav so nothing here can reach a page's own header or nav rules.
-  if (document.getElementById('productNavCss')) return;
-  const css = document.createElement('style');
-  css.id = 'productNavCss';
-  css.textContent =
-    // Console and Studio both carry a bare `nav {}` rule for their sidebar
-    // (fixed width, column direction). Restate the properties that rule
-    // could otherwise impose, so the switcher cannot inherit a sidebar's
-    // shape on any page that styles `nav` generically.
-    '#productNav{display:flex;flex-direction:row;width:auto;gap:2px;' +
-      'margin-left:auto;align-items:center;position:relative;' +
-      'padding:3px;border-radius:999px;border:1px solid rgba(135,157,219,.22);' +
-      'background:rgba(10,14,30,.55)}' +
-    '#productNav a{font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;' +
-      'letter-spacing:.1em;text-transform:uppercase;text-decoration:none;' +
-      'color:#8997b8;padding:6px 11px;border-radius:999px;white-space:nowrap}' +
-    '#productNav a:hover{color:#f1f5ff;background:rgba(255,255,255,.06)}' +
-    '#productNav a[aria-current="page"]{color:#04121c;background:#68e7ff;font-weight:700}' +
-    // Console/Agent already push a status pill to the right with margin-left:auto;
-    // two auto margins would split the gap and unbalance the row, so the pill
-    // keeps its position and the switcher sits beside it.
-    '#productNav ~ #status,#productNav ~ .status{margin-left:10px}' +
-    '@media(max-width:720px){#productNav{margin-left:0;flex-wrap:wrap}}';
-  document.head.appendChild(css);
+  // Chrome styles are part of the shared design system (physis.css,
+  // "#physis shell" section) so every page — including ones not written yet —
+  // gets them without this script restyling the world at runtime.
 }
 
 // ── Ask bar ───────────────────────────────────────────────────────
@@ -347,41 +338,6 @@ function initAskBar() {
       input.select();
     }
   });
-
-  if (document.getElementById('askBarCss')) return;
-  const css = document.createElement('style');
-  css.id = 'askBarCss';
-  css.textContent =
-    '#askBar{position:relative;display:flex;gap:6px;align-items:center;margin-left:14px}' +
-    '#askBar input{width:min(30vw,280px);font:12px/1 ui-sans-serif,system-ui,sans-serif;' +
-      'padding:7px 11px;border-radius:999px;border:1px solid rgba(135,157,219,.28);' +
-      'background:rgba(10,14,30,.6);color:#f1f5ff;outline:none}' +
-    '#askBar input::placeholder{color:#8997b8}' +
-    '#askBar input:focus{border-color:#68e7ff}' +
-    '#askBar button{font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;' +
-      'letter-spacing:.1em;text-transform:uppercase;padding:7px 10px;border-radius:999px;' +
-      'border:1px solid rgba(135,157,219,.28);background:rgba(10,14,30,.6);' +
-      'color:#8997b8;cursor:pointer}' +
-    '#askBar button:hover{color:#f1f5ff;border-color:#68e7ff}' +
-    // Anchored to the bar and above page content: several dashboards stack
-    // panels with their own z-index, and results behind a panel are results
-    // the user never sees.
-    '#askPanel{position:fixed;max-height:52vh;overflow:auto;z-index:2147483647;' +
-      'padding:8px;border-radius:12px;' +
-      'border:1px solid rgba(135,157,219,.28);background:#0b1025;' +
-      'box-shadow:0 20px 60px rgba(0,0,0,.5)}' +
-    '#askPanel .ask-hit{display:flex;gap:9px;align-items:baseline;padding:7px 8px;' +
-      'border-radius:8px}' +
-    '#askPanel .ask-hit:hover{background:rgba(255,255,255,.05)}' +
-    '#askPanel .ask-score{font:11px ui-monospace,Menlo,monospace;color:#68e7ff;flex:none}' +
-    '#askPanel .ask-kind{font:9px ui-monospace,Menlo,monospace;letter-spacing:.1em;' +
-      'text-transform:uppercase;color:#8997b8;flex:none}' +
-    '#askPanel .ask-label{font:12px/1.45 ui-sans-serif,system-ui,sans-serif;color:#f1f5ff;' +
-      'overflow-wrap:anywhere}' +
-    '#askPanel .ask-note{font:11px ui-monospace,Menlo,monospace;color:#8997b8;padding:6px 8px}' +
-    '@media(max-width:720px){#askBar{margin-left:0;width:100%}' +
-      '#askBar input{width:100%}}';
-  document.head.appendChild(css);
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────

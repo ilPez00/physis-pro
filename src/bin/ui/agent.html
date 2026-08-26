@@ -8,10 +8,12 @@
 <link rel="stylesheet" href="/physis.css" />
 <style>
   :root {
-    /* Bioluminal Forge (shared) + agent-role hues */
+    /* Bioluminal Forge (shared) + agent-role hues. Chrome follows the shared
+       system — violet is the system's "intelligence/AI" accent, which is what
+       this page is — while event kinds keep their own hues below. */
     --bg: var(--abyss); --panel: rgba(10,18,32,.9); --panel2: rgba(7,12,22,.95);
     --ink: #e8f1ff; --muted: #7e93b8; --line: rgba(122,150,214,.14);
-    --accent: #ffc46b; --accent2: #a8e663; --danger: #ff6d8f;
+    --accent: #9d8cff; --accent2: #5ff2d6; --danger: #ff6d8f;
     --plan: #5ff2d6; --tool: #9d8cff; --note: #ffc46b;
   }
   * { box-sizing: border-box; }
@@ -46,13 +48,13 @@
   .ev { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
   .ev .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px;
            border-radius: 4px; margin-right: 8px; }
-  .k-plan { background: rgba(88,166,255,.15); color: var(--plan); }
-  .k-tool_call { background: rgba(210,168,255,.15); color: var(--tool); }
-  .k-tool_result { background: rgba(63,185,80,.12); color: var(--accent2); }
-  .k-note { background: rgba(227,179,65,.15); color: var(--note); }
-  .k-opencode { background: rgba(248,81,73,.12); color: var(--danger); }
-  .k-final { background: rgba(245,179,1,.18); color: var(--accent); font-weight: 700; }
-  .k-done { background: var(--accent2); color: #04210f; }
+  .k-plan { background: rgba(95,242,214,.15); color: var(--plan); }
+  .k-tool_call { background: rgba(157,140,255,.15); color: var(--tool); }
+  .k-tool_result { background: rgba(168,230,99,.12); color: var(--accent2); }
+  .k-note { background: rgba(255,196,107,.15); color: var(--note); }
+  .k-opencode { background: rgba(255,109,143,.12); color: var(--danger); }
+  .k-final { background: rgba(157,140,255,.2); color: var(--accent); font-weight: 700; }
+  .k-done { background: var(--accent2); color: #04070f; }
   .k-error { background: var(--danger); color: #fff; }
   .rnd { color: var(--muted); font-size: 11px; }
 
@@ -68,10 +70,10 @@
   .verdict .vhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .verdict .vb { font-size: 11px; font-weight: 700; letter-spacing: .06em;
                  padding: 2px 8px; border-radius: 999px; }
-  .verdict.APPROVED .vb { background: rgba(63,185,80,.15); color: var(--accent2); }
-  .verdict.WARNING  .vb { background: rgba(227,179,65,.18); color: var(--note); }
-  .verdict.REJECTED .vb { background: rgba(248,81,73,.15); color: var(--danger); }
-  .verdict.REVISED  .vb { background: rgba(88,166,255,.15); color: var(--plan); }
+  .verdict.APPROVED .vb { background: rgba(168,230,99,.15); color: var(--accent2); }
+  .verdict.WARNING  .vb { background: rgba(255,196,107,.18); color: var(--note); }
+  .verdict.REJECTED .vb { background: rgba(255,109,143,.15); color: var(--danger); }
+  .verdict.REVISED  .vb { background: rgba(95,242,214,.15); color: var(--plan); }
   .verdict .vnum { font-size: 12px; color: var(--muted); }
   .verdict .vnum b { color: var(--ink); }
   .verdict .vrec { margin-top: 7px; font-size: 13px; }
