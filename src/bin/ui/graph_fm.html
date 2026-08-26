@@ -58,6 +58,8 @@
     <option value="sim">similarity only</option>
   </select>
   <input id="search" placeholder="filter files…" style="min-width:130px" />
+  <select id="placeF" title="space facet — where the file lives"><option value="">all places</option></select>
+  <select id="periodF" title="time facet — month bucket"><option value="">all periods</option></select>
   <span id="status" class="muted">idle</span>
 </header>
 <main>
@@ -112,9 +114,11 @@ function initCy(){
     style: [
       { selector:'node[kind="theme"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#e8f1ff','font-size':10,'font-weight':700,'text-valign':'center','width':'data(sz)','height':'data(sz)','text-outline-color':'#04070f','text-outline-width':2.5 } },
       { selector:'node[kind="file"]', style:{ 'background-color':'data(color)','border-color':'rgba(232,241,255,.25)','border-width':1,'label':'data(label)','color':'#7e93b8','font-size':8,'shape':'round-rectangle','width':11,'height':11 } },
+      { selector:'node[kind="cause"]', style:{ 'background-color':'data(color)','label':'data(label)','color':'#ffb3c8','font-size':8,'shape':'round-diamond','width':'data(sz)','height':'data(sz)','text-valign':'bottom','text-margin-y':4,'text-outline-color':'#04070f','text-outline-width':2 } },
       { selector:'node:selected', style:{ 'border-color':'#5ff2d6','border-width':3,'overlay-color':'rgba(95,242,214,.18)','overlay-padding':6 } },
       { selector:'edge[etype="theme"]', style:{ 'width':'data(w)','line-color':'rgba(122,150,214,.35)','opacity':0.55,'curve-style':'haystack' } },
-      { selector:'edge[etype="sim"]', style:{ 'width':'data(w)','line-color':'#5ff2d6','line-style':'dashed','opacity':0.5,'curve-style':'haystack' } }
+      { selector:'edge[etype="sim"]', style:{ 'width':'data(w)','line-color':'#5ff2d6','line-style':'dashed','opacity':0.5,'curve-style':'haystack' } },
+      { selector:'edge[etype="cause"]', style:{ 'width':'data(w)','line-color':'rgba(255,143,208,.55)','line-style':'dotted','opacity':0.9,'curve-style':'bezier','target-arrow-shape':'triangle','arrow-scale':0.7 } }
     ],
     layout:{name:'cose', animate:false}
   });
@@ -124,14 +128,48 @@ function initCy(){
 function onNode(n){
   const d=n.data();
   $('moveBox').style.display = d.kind==='file' ? 'block' : 'none';
+  clearCauseChain();
   if(d.kind==='file'){
-    $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.path}</span><br>kind: ${d.fkind}`;
+    $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.path}</span><br>kind: ${d.fkind}${d.period?`<br><span class="muted">⚙ ${d.mechanism||'?'} · ${d.period}</span>`:''}`;
     $('dest').value = d.path;
     preview(d.path);
+    drawCauseChain(d);
   } else {
     $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.domain}×${d.mode}${d.category?(' · '+d.category):''}</span>`;
     $('content').textContent='—';
   }
+}
+
+// ── T3: why-made chain as edges ──
+// Selecting a file draws its lineage into the graph: cause nodes (rose,
+// mechanism·actor) chained input→artifact, plus purposes (goal nodes it
+// serves). render() wipes them; so does selecting something else.
+let causeEls=[];
+async function drawCauseChain(fileData){
+  try{
+    const j = await getJSON('/api/v1/files/lineage?path='+encodeURIComponent(fileData.path));
+    if(!(j.lineage||[]).length && !(j.purposes||[]).length) return;
+    const pos = cy.getElementById('f'+fileData.id).position();
+    const els=[]; let x=pos.x-110, y=pos.y;
+    // Upstream chain oldest→newest so arrows read parent → child.
+    const chain=[...(j.lineage||[])].reverse();
+    let prevId='f'+fileData.id;   // newest cause connects to the file itself
+    chain.forEach((ev,i)=>{
+      const id='cl'+i;
+      els.push({data:{id, kind:'cause', label:`${ev.mechanism}·${ev.actor}`, color:'#ff8fd0', sz:14}, position:{x,y}});
+      els.push({data:{id:'ce'+id, etype:'cause', source:id, target:prevId, w:1.5}});
+      prevId=id; y+=34;
+    });
+    (j.purposes||[]).forEach((p,i)=>{
+      els.push({data:{id:'gp'+i, kind:'cause', label:'serves·goal', color:'#a8e663', sz:12}, position:{x:pos.x+90,y:pos.y+i*30-15}});
+      els.push({data:{id:'ge'+i, etype:'cause', source:'f'+fileData.id, target:'gp'+i, w:1.5}});
+    });
+    cy.batch(()=>{ cy.add(els); causeEls=els.map(e=>e.data.id); });
+  }catch(e){ /* lineage is best-effort decoration — never break selection */ }
+}
+function clearCauseChain(){
+  if(causeEls.length) cy.remove(causeEls.map(id=>'#'+id));
+  causeEls=[];
 }
 
 async function preview(path){
@@ -154,9 +192,10 @@ async function scan(){
     lastG = g;
     render(g);
     const hub = grid==='discovered' ? 'discovered-modes' : 'cells';
-    setStatus(`${g.themes.length} ${hub} · ${g.files.length} files · ${g.edges.length} hub-edges · ${(g.file_edges||[]).length} sim-edges`);
+    setStatus(`${g.themes.length} ${hub} · ${g.files.length} files · ${(file_edges_count(g))} edges · ${applyFilters()} shown`);
   }catch(e){ setStatus(String(e), true); }
 }
+function file_edges_count(g){ return g.edges.length + (g.file_edges||[]).length; }
 
 // Palette for discovered-mode hubs (no fixed domain → color by index).
 const PALETTE = ['#5ff2d6','#9d8cff','#ffc46b','#ff8fd0','#a8e663','#6bc7ff','#ffb36b','#b49cff','#7ef2c4','#ff9ab0'];
@@ -183,6 +222,7 @@ function render(g){
   for(const e of g.edges){ if(topHub[e.file_id]===undefined) topHub[e.file_id]=e.theme_id; }
   for(const f of g.files){
     els.push({data:{ id:'f'+f.id, kind:'file', label:f.title||f.path.split('/').pop(), path:f.path, fkind:f.kind,
+      place:f.place||'', period:f.period||'', mechanism:f.mechanism||'',
       color: hubColor[topHub[f.id]]||DCOL[''] }});
   }
   if(showCells){
@@ -198,18 +238,39 @@ function render(g){
   cy.elements().remove();
   cy.add(els);
   cy.layout({name:'cose', animate:false, nodeRepulsion:8000, idealEdgeLength:60}).run();
-  applySearch();
+  populateFacets(g);
+  applyFilters();
 }
 
-// Dim file nodes whose name doesn't match the search box.
-function applySearch(){
+// ── Space·Time·Cause facets (Phase 10b T2/T3) ──
+// Populate the place/period selects from the scanned files; keep the current
+// choice when it still exists so re-scans don't reset the operator's lens.
+function populateFacets(g){
+  const places=[...new Set((g.files||[]).map(f=>f.place).filter(Boolean))].sort();
+  const periods=[...new Set((g.files||[]).map(f=>f.period).filter(Boolean))].sort().reverse();
+  fillFacet($('placeF'), places);
+  fillFacet($('periodF'), periods);
+}
+function fillFacet(sel, values){
+  const cur=sel.value;
+  sel.innerHTML='<option value="">all</option>'+values.map(v=>`<option${v===cur?' selected':''}>${v}</option>`).join('');
+}
+
+// Dim file nodes that don't match the combined text + space + time facets.
+function applyFilters(){
   const q=($('search').value||'').toLowerCase().trim();
+  const place=$('placeF').value, period=$('periodF').value;
+  let visible=0;
   cy.batch(()=>{
     cy.nodes('[kind="file"]').forEach(n=>{
-      const hit = !q || (n.data('label')||'').toLowerCase().includes(q) || (n.data('path')||'').toLowerCase().includes(q);
+      const hit = (!q || (n.data('label')||'').toLowerCase().includes(q) || (n.data('path')||'').toLowerCase().includes(q))
+        && (!place || n.data('place')===place)
+        && (!period || n.data('period')===period);
       n.style('opacity', hit?1:0.08);
+      if(hit) visible++;
     });
   });
+  return visible;
 }
 
 async function move(){
@@ -256,7 +317,9 @@ $('scan').onclick=scan;
 $('move').onclick=move;
 $('view').onchange=()=>render(lastG);
 $('grid').onchange=scan;          // hubs come from the server → re-scan
-$('search').oninput=applySearch;
+$('search').oninput=applyFilters;
+$('placeF').onchange=applyFilters;
+$('periodF').onchange=applyFilters;
 ['base','token'].forEach(k=>$(k).onchange=()=>{ save(); loadHeat(); });
 initCy();
 loadHeat();

@@ -1,0 +1,14 @@
+{
+  "kind": "logistics",
+  "domains": [
+    {"name":"Freight Booking","category":"Logistics","domain":"BOND","mode":"WORK","axis_kind":"logistics","axis_name":"shipping","unit":"bookings","hints":["freight","booking","carrier","forwarder","bol","bill of lading"]},
+    {"name":"Customs Declaration","category":"Logistics","domain":"CONSTRUCT","mode":"WORK","axis_kind":"logistics","axis_name":"compliance","unit":"declarations","hints":["customs","declaration","duties","tariff code","hs code","border"]},
+    {"name":"Fleet Tracking","category":"Logistics","domain":"STUDY","mode":"SENSE","axis_kind":"logistics","axis_name":"telemetry","unit":"vehicles","hints":["fleet","gps tracking","vehicle position","route trace","telematics"]},
+    {"name":"Last-Mile Delivery","category":"Logistics","domain":"FABRICATE","mode":"MOVE","axis_kind":"logistics","axis_name":"delivery","unit":"deliveries","hints":["last mile","courier","doorstep","final delivery","drop-off"]},
+    {"name":"Load Optimization","category":"Logistics","domain":"CONSTRUCT","mode":"PLAN","axis_kind":"logistics","axis_name":"planning","unit":"loads","hints":["load planning","palletization","container fill","cube utilization"]},
+    {"name":"Route Planning","category":"Logistics","domain":"CONSTRUCT","mode":"PLAN","axis_kind":"logistics","axis_name":"planning","unit":"routes","hints":["routing","route optimization","multi-stop","delivery sequence"]},
+    {"name":"Damage Claim","category":"Logistics","domain":"HEAL","mode":"WORK","axis_kind":"logistics","axis_name":"recovery","unit":"claims","hints":["damage claim","broken cargo","insurance claim","compensation"]},
+    {"name":"Warehouse Slotting","category":"Logistics","domain":"STUDY","mode":"LEARN","axis_kind":"logistics","axis_name":"warehousing","unit":"slots","hints":["slotting","bin assignment","pick path","abc analysis"]},
+    {"name":"Delivery Window","category":"Logistics","domain":"BOND","mode":"GUIDE","axis_kind":"logistics","axis_name":"commitment","unit":"windows","hints":["delivery window","time slot","eta promise","customer window"]}
+  ]
+}
