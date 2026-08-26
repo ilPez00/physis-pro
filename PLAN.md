@@ -153,6 +153,17 @@ anomaly detection to corrective action.
 
 **Phase 10 complete (D1–D7).**
 
+### Phase 10b — Datawork surfaces (2026-08-26)
+
+> Follow-ups found while landing D1–D7. All buildable now; no external deps.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| T1 | Timeline pipeline consumes the ledger | ✅ Done | `GET /api/v1/study/session` merges `to_op_events()` into the assembled timeline (chronologically interleaved with study events; connector-tagged via `properties.mechanism`), exposes a `causes` count, tallies/rhythms stay study-scoped; empty-ledger tenants unchanged (back-compat asserted); /study page renders merged view for free + mechanism chip in entry meta; e2e covers interleaving, counts, scoping |
+| T2 | /ui place+time filters | ⬜ Pending | finish D5 acceptance: filter the force-graph file set by place root + period bucket |
+| T3 | Lineage as edges | ⬜ Pending | render why-made chains visually on the graph FM page instead of text-only trace |
+| T4 | Ontology pack mechanism (4.2-lite) | ⬜ Pending | generic loader for industry packs (config dirs) + one example pack, without committing to specific customers |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |
