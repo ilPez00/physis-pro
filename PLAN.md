@@ -135,6 +135,21 @@ anomaly detection to corrective action.
 | 9.6 | HTTP surface for wiki-gen | ✅ Done | POST `/api/v1/wiki/generate` (outline+pages+tour, cascade naming skipped when degraded/deterministic) + GET `/api/v1/wiki/tour`; empty-tenant explicit error; http_surface coverage test (d9b72a6) |
 | 9.7 | Overview dashboard (`/pulse`) + main-server communities endpoint | ✅ Done | `GET /api/v1/communities` (`web/coherence.rs`: label-space rollup — resolved_edges ids mapped to labels before detection, edge-less labeled nodes kept as one singleton community, largest-first; pure `communities_payload` + 3 tests) + `/pulse` page (`src/bin/ui/pulse.html`, Bioluminal Forge + ui-shell): KPI ribbon, coherence distribution, dream-replay attention feed, dream proposals, communities grid, wiki execution tour, semiotic heatmap — repowise dashboard patterns per adaptation doc, thin read-only UI over existing endpoints; live-verified on :19899 |
 
+### Phase 10 — Datawork: Space · Time · Cause (2026-08-26)
+
+> Source: `docs/plans/2026-08-26-space-time-cause-datawork.md`. Filing axes the
+> meaning grid cannot carry — where/when/why-made/what-for — as one
+> `FileAddress` per file plus a causal ledger and two new ontologies.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| D1 | `FileAddress` on FileNode + scan/watch capture | ⬜ Pending | exhaustive destructure forces consumer decisions |
+| D2 | Space + time ontologies (`place`, `period`) | ⬜ Pending | office-pattern config files, facet CLI parity |
+| D3 | Causal ledger (sled, per-tenant) → OperationalEvent | ⬜ Pending | replay-stable; connector `cause` |
+| D4 | Vault/history/praxis importers write addresses | ⬜ Pending | round-trip tests |
+| D5 | `where` CLI + `/api/v1/files/query` + /ui panels | ⬜ Pending | four-facet composition e2e |
+| D6 | Purpose links (`serves` events) file↔goal | ⬜ Pending | lineage view |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |
