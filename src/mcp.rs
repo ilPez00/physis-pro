@@ -45,6 +45,15 @@ mod mcp_impl {
         pub pack_cache: crate::pack::EmbedCache,
         pub scheduler: GanttScheduler,
         pub experiences: Vec<Experience>,
+        /// Semiotic memory (Phase 10c A1): the same store the web server and
+        /// CLI write — a mounted agent reads and writes the real graph, not a
+        /// private sandbox.
+        pub core: crate::core::PhysisCore,
+        /// Why-made history over that memory.
+        pub ledger: crate::ledger::CausalLedger,
+        /// Shared sled store (`{data_dir}/state.sled`); `None` when the
+        /// directory cannot be opened — tools then work in-memory only.
+        pub db: Option<sled::Db>,
     }
 
     /// Thread-safe shared reference.
@@ -96,6 +105,31 @@ mod mcp_impl {
             eprintln!("physis: ontology seeds embedded — {hits} cached, {misses} computed");
             pack_cache.save(&config.data_dir);
             lap(&mut t, "classifier");
+            // Memory (Phase 10c A1): open the shared store and rehydrate the
+            // default tenant, so a mounted agent reads/writes the same graph
+            // the web server and CLI do. Failure degrades to session-only.
+            let db = sled::open(config.data_dir.join("state.sled"))
+                .map_err(|e| eprintln!("physis: sled unavailable ({e}); memory is session-only"))
+                .ok();
+            let mut core = crate::core::PhysisCore::new();
+            core.set_embedder_id(embedder_kind);
+            if let Some(db) = &db {
+                let (loaded, skipped) = core.load_nodes(db, "_default");
+                if loaded > 0 || skipped > 0 {
+                    eprintln!("physis: memory restored {loaded} nodes ({skipped} skipped)");
+                }
+            }
+            let ledger = db
+                .as_ref()
+                .and_then(|db| match crate::ledger::CausalLedger::load(db, "_default") {
+                    Ok(l) => Some(l),
+                    Err(e) => {
+                        eprintln!("physis: ledger load failed ({e}); starting empty");
+                        None
+                    }
+                })
+                .unwrap_or_default();
+            lap(&mut t, "memory");
             eprintln!("physis: startup TOTAL {:.2}s", t0.elapsed().as_secs_f32());
             let ctx = Arc::new(Mutex::new(PhysisContext {
                 config,
@@ -109,6 +143,9 @@ mod mcp_impl {
                 pack_cache,
                 scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
                 experiences: Vec::new(),
+                core,
+                ledger,
+                db,
             }));
             PhysisMcpServer { ctx }
         }
