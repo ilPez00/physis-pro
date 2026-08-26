@@ -133,6 +133,24 @@ pub enum Commands {
         #[arg(long)]
         sub_mode: Option<String>,
     },
+    /// Ask "where/when/why" about ingested files (Phase 10 datawork): facet
+    /// query over the causal ledger — space, time, and cause at once.
+    Where {
+        /// Free-text filter over artifact paths
+        query: Option<String>,
+        /// Space facet: object paths starting with this root
+        #[arg(long)]
+        place: Option<String>,
+        /// Cause facet: mechanism or actor (`generated`, `watch`, `vault-import`, …)
+        #[arg(long)]
+        cause: Option<String>,
+        /// Time facet: only events within the last N days
+        #[arg(long)]
+        within: Option<i64>,
+        /// Time facet: exact period bucket `YYYY-MM`
+        #[arg(long)]
+        during: Option<String>,
+    },
     /// Print config
     Config,
     /// Translate text through a linguistic lense
@@ -815,6 +833,22 @@ fn main() -> anyhow::Result<()> {
                 abstraction.as_deref(),
                 sub_domain.as_deref(),
                 sub_mode.as_deref(),
+            );
+            print!("{out}");
+        }
+        Commands::Where {
+            query,
+            place,
+            cause,
+            within,
+            during,
+        } => {
+            let out = app.run_where(
+                query.as_deref(),
+                place.as_deref(),
+                cause.as_deref(),
+                within,
+                during.as_deref(),
             );
             print!("{out}");
         }

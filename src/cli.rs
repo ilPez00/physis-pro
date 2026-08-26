@@ -1128,6 +1128,122 @@ No other text."#.into(),
     /// table of matching entries. Empty result → a message, not an error (an
     /// empty facet set is a legitimate answer, e.g. "no OPERATE+SELL entries").
     #[allow(clippy::too_many_arguments)] // 8 optional filters + kind; a builder type would be overkill for a CLI query
+    /// Ask where/when/why about ingested artifacts (Phase 10 D5): facet query
+    /// over the persisted "_default" causal ledger. Reads the same sled store
+    /// the web server writes; no server needed.
+    pub fn run_where(
+        &self,
+        query: Option<&str>,
+        place: Option<&str>,
+        cause: Option<&str>,
+        within_days: Option<i64>,
+        during: Option<&str>,
+    ) -> String {
+        let Some(db) = self.db() else {
+            return "[physis] store unavailable (persistence off)\n".to_string();
+        };
+        let ledger = match crate::ledger::CausalLedger::load(&db, "_default") {
+            Ok(l) => l,
+            Err(e) => return format!("[physis] cannot load ledger: {e}\n"),
+        };
+        if ledger.is_empty() {
+            return "[physis] the causal ledger is empty — run a scan, watch a \
+                    directory, or import a vault first.\n"
+                .to_string();
+        }
+
+        let now = chrono::Utc::now();
+        let kept: Vec<&crate::ledger::CauseEvent> = ledger
+            .events()
+            .iter()
+            .filter(|ev| {
+                if let Some(q) = query {
+                    let hay = format!(
+                        "{} {} {}",
+                        ev.object,
+                        ev.input.as_deref().unwrap_or(""),
+                        ev.actor
+                    );
+                    if !hay.to_lowercase().contains(&q.to_lowercase()) {
+                        return false;
+                    }
+                }
+                if let Some(p) = place {
+                    if !ev.object.starts_with(p) {
+                        return false;
+                    }
+                }
+                if let Some(c) = cause {
+                    let c = c.to_lowercase();
+                    if ev.mechanism.as_str() != c && ev.actor.to_lowercase() != c {
+                        return false;
+                    }
+                }
+                if let Some(d) = within_days {
+                    if (now - ev.at).num_days() > d {
+                        return false;
+                    }
+                }
+                if let Some(period) = during {
+                    if crate::address::period_of(ev.at) != period {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
+
+        let mut out = String::new();
+        out.push_str(&format!(
+            "{:>4}  {:<19}  {:<10}  {:<14}  {}\n",
+            "seq", "when (UTC)", "mechanism", "actor", "object"
+        ));
+        for ev in kept.iter().rev().take(100) {
+            out.push_str(&format!(
+                "{:>4}  {:<19}  {:<10}  {:<14}  {}{}\n",
+                ev.seq,
+                ev.at.format("%Y-%m-%d %H:%M:%S"),
+                ev.mechanism.as_str(),
+                ev.actor,
+                ev.object,
+                ev.input
+                    .as_ref()
+                    .map(|i| format!("  ← {i}"))
+                    .unwrap_or_default(),
+            ));
+        }
+        // Facet rollups over everything that matched (not just the printed tail).
+        let mut by_period: HashMap<String, usize> = HashMap::new();
+        let mut by_mechanism: HashMap<String, usize> = HashMap::new();
+        for ev in &kept {
+            *by_period
+                .entry(crate::address::period_of(ev.at))
+                .or_default() += 1;
+            *by_mechanism
+                .entry(ev.mechanism.as_str().to_string())
+                .or_default() += 1;
+        }
+        out.push_str(&format!("\n{} matching events", kept.len()));
+        if kept.len() > 100 {
+            out.push_str(" (showing newest 100)");
+        }
+        out.push_str("\n\nby period:\n");
+        for (p, n) in sorted_counts(&by_period) {
+            out.push_str(&format!("  {p:<12} {}\n", bar(n, kept.len())));
+        }
+        out.push_str("by mechanism:\n");
+        for (m, n) in sorted_counts(&by_mechanism) {
+            out.push_str(&format!("  {m:<12} {}\n", bar(n, kept.len())));
+        }
+        out
+    }
+
+    /// Query the ontology by orthogonal facets (beyond DOMAIN×MODE): filter the
+    /// whole loaded ontology by lifecycle/agency/scale/abstraction/sub-domain/
+    /// sub-mode. Tolerant by design — an unknown facet value is skipped, never
+    /// a hard error (an empty result set is a legitimate answer, e.g. "no
+    /// OPERATE+SELL entries").
+    #[allow(clippy::too_many_arguments)] // mirrors the facet CLI's flat flags
     pub fn run_facet_query(
         &self,
         kind: Option<&str>,
@@ -1264,6 +1380,23 @@ No other text."#.into(),
 /// Parse an optional facet filter value against the known spellings, matching
 /// case-insensitively. Unknown/absent → `None` (no filter). Known → the
 /// canonical spelling, so "operate" and "OPERATE" both filter correctly.
+/// Sort `(label, count)` pairs by count desc, then label — the rollup order
+/// for `where` output.
+fn sorted_counts(map: &HashMap<String, usize>) -> Vec<(String, usize)> {
+    let mut v: Vec<(String, usize)> = map.clone().into_iter().collect();
+    v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    v
+}
+
+/// Tiny ASCII bar proportional to `n` out of `total` (max 20 chars).
+fn bar(n: usize, total: usize) -> String {
+    if total == 0 {
+        return String::new();
+    }
+    let width = (n * 20 / total).clamp(1, 20);
+    format!("{:<6} {}", n, "█".repeat(width))
+}
+
 fn facet_parse(value: Option<&str>, allowed: &[&'static str]) -> Option<&'static str> {
     let v = value?;
     allowed.iter().find(|a| a.eq_ignore_ascii_case(v)).copied()
