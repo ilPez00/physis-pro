@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] — 2026-08-26
+
+Published as `physis_pro` 0.1.9 (physis-core 0.1.8).
+
+**Security — a remote error body could permanently disable a shared LLM
+provider.** In 0.1.6 through 0.1.8 a provider was taken out of the cascade by
+substring-matching the text of a failed HTTP response. OpenAI-compatible
+endpoints quote the offending request back inside `error.message`, and that
+request carries the caller's prompt, so a prompt containing a phrase like
+`does not exist` that provoked any 4xx would match. The removal was permanent
+— `mark_unavailable()` wrote a flag that only `Provider::new()` ever cleared —
+and the cascade is process-wide, so the loss hit every tenant, not the one who
+caused it. Repeating it across configured providers reaches
+`No provider available` for the life of the process.
+
+Detection now reads only the machine-written `error.code` / `error.type`
+fields against a fixed set of vendor codes, never the message prose, and skips
+bodies that are not JSON. `invalid_request_error` is excluded — it is the
+envelope for ordinary bad arguments and says nothing about provider health.
+The park became a bounded 15-minute cooldown rather than a latch, applied to
+the `401`/`403` path as well, so a rotated key or a corrected model id takes
+effect without a restart.
+
+`0.1.6`, `0.1.7` and `0.1.8` are yanked. A yank stops new dependents from
+selecting them but does not touch a project whose `Cargo.lock` already pins
+one, so anyone on those versions must upgrade to be fixed. Full text in
+[`security/advisories/`](security/advisories/physis_pro-provider-availability.md);
+`physis-core` is unaffected, the provider cascade living only in Pro.
+
+**Accessibility — the dashboards now meet WCAG 2.2 AA on contrast and target
+size.** Measured in a browser rather than read off the stylesheet. Six defects,
+five of them a rule that belonged to the shared system being left to each page
+to remember: `ui-shell.js` emits `<span class="err">` on every page while
+`physis.css` defined only the compound `.chip.err` / `.toast.err`, so Pulse and
+Agent — the two pages that never grew a private copy — rendered API errors in
+the muted body colour at 3.76:1. Product-nav pills measured 22px against the
+24px SC 2.5.8 minimum (the web figure; the 44pt one is native guidance and
+would have cost the density this surface is built on), shared controls 23.2px.
+Raw hex `#5c6f92` and `#5a6a8a` for muted text failed AA on four pages, and
+`.k-error` — the badge marking a failed agent run — was white on rose at
+2.68:1. All six pages now report zero contrast and zero target-size failures.
+
+**Also.** Unknown tool names in an agent run return 400 instead of silently
+running with an empty registry. Provider discovery reads the conventional
+vendor key names (`GROQ_API_KEY`, `GEMINI_API_KEY`, and so on) alongside the
+Physis-specific ones, and the retired groq/cerebras model ids and moved GitHub
+Models endpoint are corrected.
+
 ## [0.9.6] — 2026-08-24
 
 Published as `physis_pro` 0.1.8 (physis-core 0.1.7).
