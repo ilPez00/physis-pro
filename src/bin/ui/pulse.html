@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Pulse — Coherence Dashboard</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  /* Pulse-specific layout on top of the shared design system. */
+  :root{ --r-l:14px; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;min-height:100%}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:11px 20px;
+    background:rgba(4,7,15,.85);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--shelf);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;
+    box-shadow:0 0 22px rgba(95,242,214,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+  .brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+  .spacer{flex:1}
+
+  main{flex:1;width:100%;max-width:1440px;margin:0 auto;padding:18px 20px 46px}
+  section{margin-bottom:24px}
+  section > h2{
+    font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.22em;color:var(--brume);
+    margin:0 0 10px;display:flex;align-items:center;gap:10px;
+  }
+  section > h2::before{
+    content:"";width:16px;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan),var(--violet));
+  }
+
+  /* KPI ribbon */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px}
+  .kpi{
+    padding:13px 15px;
+  }
+  .kpi .num{font-family:var(--mono);font-size:23px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  .kpi .num.idx{color:var(--cyan);text-shadow:0 0 14px rgba(95,242,214,.4)}
+  .kpi .lbl{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--brume);margin-top:3px}
+
+  .two-col{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:1050px){.two-col{grid-template-columns:1fr}}
+
+  .panel{padding:14px 16px;min-width:0}
+  .panel h3{display:flex;align-items:baseline;gap:8px}
+  .panel h3 .hint{font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--brume)}
+
+  /* verdict chips */
+  .verdict{flex:none}
+
+  /* attention feed rows */
+  .feed{max-height:420px;overflow:auto}
+  .frow{
+    display:flex;gap:10px;align-items:baseline;
+    padding:8px 6px;border-bottom:1px solid var(--shelf);
+    font-size:12.5px;
+  }
+  .frow:last-child{border-bottom:none}
+  .frow:hover{background:rgba(95,242,214,.04)}
+  .frow .den{font-family:var(--mono);color:var(--brume);font-size:11px;flex:none;min-width:74px;text-align:right}
+  .frow .lab{overflow-wrap:anywhere}
+  .frow .out{font-family:var(--mono);font-size:11px;color:var(--brume);margin-left:auto;flex:none}
+
+  /* coherence distribution */
+  .dist .row{display:grid;grid-template-columns:96px 1fr 52px;gap:10px;align-items:center;margin:9px 0;font-size:12px;color:var(--brume)}
+  .dist .row b{font-family:var(--mono);text-align:right;color:var(--ink);font-weight:600}
+  .pdca-line{margin-top:12px;padding-top:10px;border-top:1px solid var(--shelf);font-size:11.5px;color:var(--brume)}
+  .pdca-line b{color:var(--ink);font-family:var(--mono)}
+
+  /* communities grid */
+  .comms{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .comm{padding:12px 14px}
+  .comm .top{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+  .comm .n{font-family:var(--mono);font-weight:700;font-size:17px}
+  .comm .co{font-family:var(--mono);font-size:10.5px;color:var(--brume)}
+  .comm .mem{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+  .comm .mem .chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* execution tour */
+  ol.tour{list-style:none;margin:0;padding:0;counter-reset:step;max-height:380px;overflow:auto}
+  ol.tour li{
+    counter-increment:step;
+    display:flex;gap:12px;align-items:baseline;
+    padding:7px 4px;border-bottom:1px solid var(--shelf);
+    font-size:13px;
+  }
+  ol.tour li:last-child{border-bottom:none}
+  ol.tour li::before{
+    content:counter(step,decimal-leading-zero);
+    font-family:var(--mono);font-size:11px;color:var(--cyan);
+    flex:none;opacity:.85;
+  }
+
+  /* heatmap */
+  pre.hmap{
+    margin:0;max-height:380px;overflow:auto;
+    font-family:var(--mono);font-size:10.5px;line-height:1.45;
+    color:#b9cbe8;white-space:pre;
+  }
+  pre.hmap .hot{background:rgba(255,196,107,.18)}
+  pre.hmap .crit{background:rgba(255,109,143,.2)}
+
+  .emptynote{color:#5c6f92;font-size:12.5px;padding:10px 2px;line-height:1.55}
+  .loading{color:var(--brume);font-size:12.5px;padding:8px 2px}
+
+  footer{text-align:center;color:var(--brume);font-size:11px;padding:14px}
+  .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--shelf-strong);padding:1px 6px;border-radius:4px;color:var(--violet);background:rgba(157,140,255,.08)}
+
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,15,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px;
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(10,18,32,.98),rgba(7,12,22,.96));
+    border:1px solid rgba(95,242,214,.25);border-radius:20px;padding:26px 30px;
+    max-width:520px;width:100%;box-shadow:var(--shadow);
+  }
+  .overlay-card h2{margin:0 0 10px;font-size:20px}
+  @media(max-width:720px){
+    header{padding:10px 12px}
+    main{padding:14px 12px 40px}
+  }
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">Pulse</h2>
+    <div style="font-size:13px;display:grid;gap:8px">
+      <div><span class="kbd">R</span> <span class="muted">refresh every panel</span></div>
+      <div><span class="kbd">D</span> <span class="muted">replay the dream queue (attention feed)</span></div>
+      <div><span class="kbd">?</span> <span class="muted">open or close this help</span></div>
+      <div><span class="kbd">Esc</span> <span class="muted">close help</span></div>
+      <div class="muted" style="margin-top:6px">All panels read this tenant's live state — nothing here mutates the graph except Dream replay, which archives what it revisits.</div>
+    </div>
+    <button id="helpClose" class="btn-primary" style="width:100%;margin-top:14px">Close</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div>
+      <h1>PHYSIS · PULSE</h1>
+      <div class="sub">Coherence dashboard — vitals, attention, communities, tour</div>
+    </div>
+  </div>
+  <nav aria-label="Sections" style="display:flex;gap:2px;flex-wrap:wrap">
+    <a href="#vitals">Vitals</a>
+    <a href="#attention">Attention</a>
+    <a href="#communities">Communities</a>
+    <a href="#tour">Wiki tour</a>
+    <a href="#heatmap">Heatmap</a>
+  </nav>
+  <div class="spacer"></div>
+  <span id="health" class="chip"><span id="healthTxt">checking…</span></span>
+  <button id="btnRefresh" class="btn-primary">Refresh</button>
+  <button id="btnDreams">Dream replay</button>
+  <span id="status" class="chip" style="margin-left:8px"><span class="muted">ready</span></span>
+  <button id="btnHelp" title="Help (?)" style="padding:6px 10px;font-size:11px">?</button>
+</header>
+
+<main>
+
+  <!-- Vitals -->
+  <section id="vitals">
+    <h2>Vitals — one graph, one metabolism</h2>
+    <div class="kpis" id="kpis"><div class="loading">loading snapshot…</div></div>
+
+    <div class="two-col">
+      <div class="panel dist">
+        <h3>Coherence distribution <span class="hint">asserted verdicts across the graph — where the metabolism sits</span></h3>
+        <div id="dist"><div class="loading">loading…</div></div>
+        <div class="pdca-line" id="pdca"><span class="loading">PDCA…</span></div>
+      </div>
+      <div class="panel">
+        <h3>Dream proposals <span class="hint">generated countermeasures over goals</span></h3>
+        <div id="proposals"><div class="emptynote">No proposals loaded yet. Press <b>Dream replay</b> to revisit failing nodes, or generate goal dreams from the Console.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Attention -->
+  <section id="attention">
+    <h2>Attention — what the dream loop says needs care</h2>
+    <div class="panel">
+      <div class="feed" id="feed"><div class="emptynote">Nothing queued. The dream loop selects reported failures first, then sparse neighbourhoods nobody has judged.</div></div>
+    </div>
+  </section>
+
+  <!-- Communities -->
+  <section id="communities">
+    <h2>Communities — label-propagation rollup over coherence edges</h2>
+    <div class="comms" id="comms"><div class="loading">clustering…</div></div>
+  </section>
+
+  <!-- Tour + Heatmap -->
+  <section id="tour">
+    <h2>Wiki tour &amp; semiotic heat</h2>
+    <div class="two-col">
+      <div class="panel">
+        <h3>Execution tour <span class="hint">dependency order — read the graph front to back (<a href="/console">generate full wiki</a>)</span></h3>
+        <ol class="tour" id="tourList"><div class="loading">ordering…</div></ol>
+      </div>
+      <div class="panel" id="heatmap">
+        <h3>Semiotic heatmap <span class="hint">ontology activation across DOMAIN × MODE</span></h3>
+        <pre class="hmap" id="hmap">loading…</pre>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>pulse · read-only over per-user state (X-Physis-User) · communities computed live, never written back</footer>
+<div class="toast" id="toast"></div>
+
+<script src="ui-shell.js"></script>
+<script>
+"use strict";
+// Shell globals are used throughout: $, esc, toast, setStatus, getJSON,
+// postJSON, loadHealth, initHelp, initShortcuts (ui-shell.js). Nothing is
+// redeclared here — top-level duplicates of the shell's exports would be
+// shadowed at best and fatal at worst.
+
+const VERDICTS = [
+  { min:  0.34, cls: 'ok',   label: 'SUCCESS' },
+  { min: -0.34, cls: 'info', label: 'INERT'   },
+  { min: null,  cls: 'err',  label: 'FAILURE' },
+];
+
+function verdictChip(asserted) {
+  if (asserted == null) return '<span class="chip warn verdict">UNJUDGED</span>';
+  const v = asserted >= 0.34 ? VERDICTS[0] : asserted >= -0.34 ? VERDICTS[1] : VERDICTS[2];
+  return '<span class="chip ' + v.cls + ' verdict">' + v.label + '</span>';
+}
+
+function fmt(x, d) { return (x == null || isNaN(x)) ? '—' : Number(x).toFixed(d == null ? 0 : d); }
+
+// ── Vitals ────────────────────────────────────────────────────────────────
+async function loadVitals() {
+  try {
+    const snap = await getJSON('/api/v1/coherence/snapshot');
+    const cells = [
+      ['NODES', fmt(snap.total_nodes), ''],
+      ['INDEX', fmt(snap.coherence_index, 2), 'idx'],
+      ['SUCCESS', fmt(snap.asserted_success), ''],
+      ['INERT', fmt(snap.asserted_inert), ''],
+      ['FAILURE', fmt(snap.asserted_failure), ''],
+      ['CLUSTERS', fmt(snap.cluster_count), ''],
+      ['OUTLIERS', fmt(snap.outlier_count), ''],
+      ['DREAM CYCLES', fmt(snap.dream_cycle_count), ''],
+    ];
+    $('kpis').innerHTML = cells.map(([l, v, extra]) =>
+      '<div class="kpi panel"><div class="num ' + extra + '">' + esc(v) +
+      '</div><div class="lbl">' + esc(l) + '</div></div>').join('');
+
+    const tot = Math.max(1, snap.total_nodes);
+    const rows = [
+      ['High', snap.high_coherence, 'var(--lime)'],
+      ['Mid', snap.mid_coherence, 'var(--cyan)'],
+      ['Low', snap.low_coherence, 'var(--rose)'],
+    ];
+    $('dist').innerHTML = rows.map(([l, n, color]) => {
+      const pct = Math.round((n / tot) * 100);
+      return '<div class="row"><span>' + l + '</span>' +
+        '<div class="meter"><i style="width:' + pct + '%;background:' + color +
+        ';box-shadow:0 0 10px ' + color + '"></i></div>' +
+        '<b>' + n + '</b></div>';
+    }).join('') +
+      '<div class="row"><span>Certified</span><div class="meter"><i style="width:' +
+      Math.min(100, Math.round((snap.certified_branches_count / tot) * 100)) +
+      '%"></i></div><b>' + snap.certified_branches_count + '</b></div>';
+
+    getJSON('/api/v1/pdca/stats').then(p => {
+      $('pdca').innerHTML = 'PDCA — goals <b>' + (p.total_goals ?? 0) +
+        '</b> · actions <b>' + (p.total_actions ?? 0) +
+        '</b> · mean progress <b>' + fmt((p.mean_progress ?? 0) * 100, 0) + '%' +
+        '</b> · stagnant <b>' + (p.stagnant_count ?? 0) + '</b>';
+    }).catch(() => { $('pdca').textContent = 'PDCA stats unavailable'; });
+  } catch (e) {
+    $('kpis').innerHTML = '<div class="emptynote">snapshot failed: ' + apiError(e) + '</div>';
+  }
+}
+
+// ── Attention feed (dream replay) ─────────────────────────────────────────
+async function loadAttention() {
+  const feed = $('feed');
+  try {
+    const rows = await postJSON('/api/v1/dream/replay', {});
+    if (!rows.length) {
+      feed.innerHTML = '<div class="emptynote">Queue clear — no reported failures and no unjudged sparse neighbourhoods right now.</div>';
+      return;
+    }
+    feed.innerHTML = rows.map(r =>
+      '<div class="frow">' + verdictChip(r.asserted) +
+      '<span class="lab">' + esc(r.label || '(unlabeled)') + '</span>' +
+      '<span class="den">ρ ' + fmt(r.density, 2) + '</span>' +
+      '<span class="out">outcome ' + fmt(r.outcome, 2) +
+      (r.prevented_failure ? ' · ⚡prevented' : '') + '</span></div>'
+    ).join('');
+  } catch (e) {
+    feed.innerHTML = '<div class="emptynote">dream replay failed: ' + apiError(e) + '</div>';
+  }
+}
+
+// ── Dream proposals over goals ────────────────────────────────────────────
+async function generateProposals() {
+  const box = $('proposals');
+  box.innerHTML = '<div class="loading">dreaming…</div>';
+  try {
+    const r = await postJSON('/api/v1/dream/generate', { count: 3 });
+    if (!r.count) {
+      box.innerHTML = '<div class="emptynote">' + esc(r.reason || 'No dreams produced.') + '</div>';
+      return;
+    }
+    box.innerHTML = r.dreams.map(d =>
+      '<div class="frow"><span class="chip ai">' + esc(d.kind || 'drift') + '</span>' +
+      '<span class="lab">' + esc(d.proposal || '') + '</span></div>'
+    ).join('');
+    toast(r.count + ' proposal' + (r.count === 1 ? '' : 's'));
+  } catch (e) {
+    box.innerHTML = '<div class="emptynote">dream generation failed: ' + apiError(e) + '</div>';
+  }
+}
+
+// ── Communities ───────────────────────────────────────────────────────────
+async function loadCommunities() {
+  const box = $('comms');
+  try {
+    const r = await getJSON('/api/v1/communities');
+    if (!r.communities.length) {
+      box.innerHTML = '<div class="emptynote">No labeled nodes yet — ingest or scan a directory first (Console → scan).</div>';
+      return;
+    }
+    box.innerHTML = r.communities.map(c => {
+      const m = c.members || [];
+      const shown = m.slice(0, 6);
+      const rest = m.length - shown.length;
+      const co = c.cohesion ?? 0;
+      return '<div class="comm panel">' +
+        '<div class="top"><span class="n">' + m.length + '</span>' +
+        '<span class="co">cohesion ' + fmt(co, 2) + '</span></div>' +
+        '<div class="meter' + (co < 0.4 ? ' warn' : '') + '"><i style="width:' +
+        Math.max(4, Math.round(co * 100)) + '%"></i></div>' +
+        '<div class="mem">' + shown.map(x => '<span class="chip" title="' + esc(x) + '">' +
+          esc(x) + '</span>').join('') +
+        (rest > 0 ? '<span class="chip">+' + rest + ' more</span>' : '') +
+        '</div></div>';
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="emptynote">communities failed: ' + apiError(e) + '</div>';
+  }
+}
+
+// ── Wiki tour ─────────────────────────────────────────────────────────────
+async function loadTour() {
+  const list = $('tourList');
+  try {
+    const r = await getJSON('/api/v1/wiki/tour');
+    if (!r.count) {
+      list.innerHTML = '<div class="emptynote">No labeled nodes to order yet.</div>';
+      return;
+    }
+    list.innerHTML = (r.tour || []).map(t => '<li>' + esc(t) + '</li>').join('');
+  } catch (e) {
+    list.innerHTML = '<div class="emptynote">tour failed: ' + apiError(e) + '</div>';
+  }
+}
+
+// ── Semiotic heatmap ──────────────────────────────────────────────────────
+async function loadHeatmap() {
+  const el = $('hmap');
+  try {
+    const r = await getJSON('/api/v1/semiotic/heatmap');
+    // The table already renders the labelled DOMAIN×MODE grid; hot cells get
+    // highlighted by value after escaping.
+    const html = esc(r.table || '');
+    el.textContent = '';
+    el.innerHTML = html.split('\n').map(line => {
+      const m = line.match(/(\d\.\d\d?)/g);
+      let out = esc(line);
+      if (m) {
+        for (const raw of m) {
+          const v = parseFloat(raw);
+          const cls = v >= 0.75 ? 'crit' : v >= 0.4 ? 'hot' : null;
+          if (cls) out = out.replace(raw, '<span class="' + cls + '">' + raw + '</span>');
+        }
+      }
+      return out;
+    }).join('\n');
+  } catch (e) {
+    el.textContent = 'heatmap failed: ' + String(e);
+  }
+}
+
+// ── Orchestration ─────────────────────────────────────────────────────────
+function refresh(msg) {
+  Promise.allSettled([
+    loadVitals(), loadAttention(), loadCommunities(), loadTour(), loadHeatmap(),
+  ]).then(() => setStatus(msg || 'all panels live'));
+}
+
+$('btnRefresh').onclick = () => refresh();
+$('btnDreams').onclick = async () => {
+  await Promise.allSettled([loadAttention()]);
+  await generateProposals();
+};
+$('btnHelp').onclick = () => $('help').classList.add('show');
+$('helpClose').onclick = () => $('help').classList.remove('show');
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('help').classList.remove('show'); return; }
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !typing(e.target)) {
+    e.preventDefault(); $('help').classList.toggle('show'); return;
+  }
+  if (!typing(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.key === 'r' || e.key === 'R') { e.preventDefault(); refresh(); }
+    if (e.key === 'd' || e.key === 'D') { e.preventDefault(); $('btnDreams').click(); }
+  }
+});
+
+initShortcuts({ focus: () => {}, run: () => refresh('refreshed') });
+loadHealth();
+refresh('boot complete');
+</script>
+</body>
+</html>

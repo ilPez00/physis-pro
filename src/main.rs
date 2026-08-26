@@ -1174,14 +1174,14 @@ fn main() -> anyhow::Result<()> {
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(async {
                 println!("Starting Universal Discovery on {}...", dir.display());
-                
+
                 // 1. Scan the project
                 let files = physis_pro::scanner::scan_project(&dir, None);
                 println!("Found {} files to analyze.", files.len());
-                
+
                 // 2. Synthesize using LLM Agent
                 println!("Synthesizing ontology proposals via AI...");
-                
+
                 use physis_pro::ai::provider::ProviderCascade;
                 use physis_pro::ai::agent::{run_agent, AgentConfig};
                 use physis_pro::ai::tools::ToolRegistry;
@@ -1189,26 +1189,26 @@ fn main() -> anyhow::Result<()> {
                 let cascade = ProviderCascade::from_env();
                 let tools = ToolRegistry::new();
                 let mut summary = String::new();
-                for file in files.iter().take(20) { 
-                     summary.push_str(&format!("File: {}\nContent snippet: {}\n\n", file.path, 
+                for file in files.iter().take(20) {
+                     summary.push_str(&format!("File: {}\nContent snippet: {}\n\n", file.path,
                         std::fs::read_to_string(&file.abs_path).unwrap_or_default().chars().take(200).collect::<String>()));
                 }
 
                 let config = AgentConfig {
-                    system_prompt: r#"You are a Physis Ontology Engineer. 
-    Analyze the provided file list and their content snippets. 
-    Synthesize a JSON list of proposed ontology domains. 
+                    system_prompt: r#"You are a Physis Ontology Engineer.
+    Analyze the provided file list and their content snippets.
+    Synthesize a JSON list of proposed ontology domains.
     Each entry must have: "name", "category", "domain", "mode", "axis_kind", "axis_name", "unit", "hints" (list).
     Output ONLY valid JSON."#.into(),
                     ..Default::default()
                 };
 
                 let output = run_agent(&cascade, &tools, &config, &[], &format!("Propose ontology domains based on these files:\n{}", summary), None, "DATA", None).await?;
-                
+
                 if let (Some(s), Some(e)) = (output.text.find('['), output.text.rfind(']')) {
                     let json_data = &output.text[s..=e];
                     let proposals: Vec<physis_pro::models::DomainDef> = serde_json::from_str(json_data)?;
-                    
+
                     let json = serde_json::to_string_pretty(&proposals)?;
                     std::fs::write(dir.join("proposed_ontology.json"), json)?;
                     println!("Proposals written to {}/proposed_ontology.json. Review and apply.", dir.display());

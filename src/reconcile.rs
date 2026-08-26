@@ -258,10 +258,11 @@ pub fn report(lines: &[ReconciledLine]) -> String {
             l.vendor,
             l.po_number,
             l.status.as_str(),
-            l.detail
-                .is_empty()
-                .then(|| "-".to_string())
-                .unwrap_or_else(|| l.detail.clone())
+            if l.detail.is_empty() {
+                "-".to_string()
+            } else {
+                l.detail.clone()
+            }
         ));
     }
     md

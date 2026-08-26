@@ -152,10 +152,7 @@ pub async fn query_handler(
 /// ui-shell.js: stylesheets cannot send Bearer headers either.
 pub async fn physis_css_handler() -> impl axum::response::IntoResponse {
     (
-        [(
-            axum::http::header::CONTENT_TYPE,
-            "text/css; charset=utf-8",
-        )],
+        [(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")],
         include_str!("../bin/ui/physis.css"),
     )
 }
@@ -170,6 +167,13 @@ pub async fn graph_fm_ui_handler() -> Html<&'static str> {
 /// OEE, classify, meaning grid, planner, hypotheses, ...).
 pub async fn console_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/console.html"))
+}
+
+/// GET /pulse — the overview dashboard: coherence KPIs and distribution, the
+/// dream-replay attention feed, communities, the wiki execution tour and the
+/// semiotic heatmap. Read-only over the tenant's live state.
+pub async fn pulse_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/pulse.html"))
 }
 
 /// GET /ui-shell.js — the runtime every dashboard page loads with a plain

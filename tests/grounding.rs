@@ -35,7 +35,10 @@ fn invented_rationale_is_dropped_candidate_survives_as_partial() {
     let mut c = grounded();
     c.rationale = "sled was recommended by the Rust performance book".into(); // not in source
     let (kept, rejected) = apply_gate(vec![c]);
-    assert_eq!(rejected, 0, "decision+quote still grounded: evidence survives");
+    assert_eq!(
+        rejected, 0,
+        "decision+quote still grounded: evidence survives"
+    );
     assert_eq!(kept[0].verification, Verdict::Partial);
     assert_eq!(
         kept[0].rationale, "",

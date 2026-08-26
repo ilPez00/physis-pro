@@ -466,6 +466,7 @@
     <button data-tab="classify" title="Paste text, get a domain × mode cell">Classify<span class="nav-why">what does this mean?</span></button>
     <button data-tab="grid" title="5 kinds of work × 14 ways of working">Meaning grid<span class="nav-why">70 cells</span></button>
     <button data-tab="ontology" title="The dictionary classification uses">Dictionary<span class="nav-why">ontology studio</span></button>
+    <button data-tab="quality" title="What classification got wrong and what it learned from it">Quality<span class="nav-why">feedback loop</span></button>
     <div class="nav-sep"></div>
     <div class="nav-group">Decide</div>
     <button data-tab="planner" title="Replay documents against a candidate dictionary">What-if<span class="nav-why">preview a change</span></button>
@@ -640,6 +641,38 @@
     <div class="pane" style="margin-top:10px">
       <h3>Entries <span class="sm muted" id="onCount"></span></h3>
       <div id="onList" style="max-height:420px;overflow:auto"></div>
+    </div>
+  </section>
+
+  <!-- QUALITY -->
+  <section class="tab" id="tab-quality">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> feedback loop · <span class="tip" data-tip="Every complaint, pin dissent, and correction teaches the classifier — penalties demote cells, boosts reinforce them">the grid learns</span></div>
+        <h2>What classification got wrong — and what it learned.</h2>
+        <p>Each reported failure lands on the meaning cell it came from and demotes that cell for future classifications. Pins and confirmations do the reverse. This is the loop's ledger.</p>
+      </div>
+      <div class="actions"><button id="qRefresh">Refresh</button></div>
+    </div>
+    <div id="qKpis" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+    <div class="card">
+      <h3>Failures per day <span class="tip" data-tip="Reports in the last 30 days; bar height is the count for that day">last 30 days</span></h3>
+      <div id="qTrend" style="display:flex;align-items:flex-end;gap:2px;height:80px"></div>
+      <p class="nav-why" id="qTrendMeta"></p>
+    </div>
+    <div class="card">
+      <h3>Recent reports</h3>
+      <div id="qRecords" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">
+      <div class="card" style="flex:1;min-width:280px">
+        <h3>Demoted cells <span class="tip" data-tip="Learned penalties already applied to every live classification (adjust_score)">penalties</span></h3>
+        <div id="qPenalties" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+      <div class="card" style="flex:1;min-width:280px">
+        <h3>Reinforced cells <span class="tip" data-tip="Current decayed boost values — unreinforced boosts fade over time">boosts</span></h3>
+        <div id="qBoosts" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
     </div>
   </section>
 
@@ -959,6 +992,8 @@
         <input id="discMinCluster" type="number" min="1" max="10" value="2" style="width:60px"/>
       </div>
     </div>
+    <div id="discResults" style="display:none"></div>
+  </section>
 
   <!-- LLM COHERENCE HARNESS -->
   <section class="tab" id="tab-harness">
@@ -1140,7 +1175,7 @@ const MODE_GLOSS={
   LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
   BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
 };
-const TABS=["interest","overview","timeline","oee","classify","grid","ontology","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
+const TABS=["interest","overview","timeline","oee","classify","grid","ontology","quality","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
 function currentTab(){
   const a=document.querySelector('nav button.active');
   return a?a.dataset.tab:'overview';
@@ -1280,6 +1315,92 @@ $('interestConnect').onclick=()=>{
   loadInterest();
 };
 
+// ── quality feedback loop (PLAN 3.3) ──
+// Reads the global tracker through /api/v1/quality. The endpoint is
+// process-wide (penalties apply to the shared classifier), so this tab is a
+// window on the learning signal, not per-tenant state.
+let qLoaded=false;
+async function loadQuality(force){
+  if(qLoaded && !force) return;
+  try{
+    const q=await getJSON('/api/v1/quality');
+    renderQuality(q);
+    qLoaded=true;
+  }catch(e){
+    $('qKpis').innerHTML='<div class="empty">Quality ledger unavailable: '+esc(String(e.message||e))+'</div>';
+  }
+}
+function renderQuality(q){
+  const sev=q.mean_severity||0;
+  const sevCls=sev>=0.7?'var(--rose)':sev>=0.5?'var(--amber)':'var(--cyan)';
+  $('qKpis').innerHTML=[
+    kpi('Reports',q.failures??0),
+    kpi('Open',q.open??0,q.open?'var(--rose)':undefined),
+    kpi('Resolved',q.resolved??0,q.resolved?'var(--lime)':undefined),
+    kpi('Mean severity',sev.toFixed(2),sevCls),
+    kpi('Cells demoted',Object.keys(q.penalties||{}).length),
+    kpi('Cells reinforced',Object.keys(q.boosts||{}).length),
+  ].join('');
+  // 30-day trend: zero-filled buckets so gaps read as calm, not missing data.
+  const days=30, buckets=new Array(days).fill(0);
+  let newest=null;
+  for(const r of (q.records||[])){
+    const d=new Date(r.at);
+    if(isNaN(d)) continue;
+    if(!newest||d>newest) newest=d;
+  }
+  const anchor=newest||new Date();
+  for(const r of (q.records||[])){
+    const d=new Date(r.at);
+    if(isNaN(d)) continue;
+    const back=Math.floor((anchor-d)/86400000);
+    if(back>=0&&back<days) buckets[days-1-back]++;
+  }
+  const max=Math.max(1,...buckets);
+  $('qTrend').innerHTML=buckets.map((n,i)=>{
+    const h=Math.round(n/max*72);
+    const date=new Date(anchor); date.setDate(date.getDate()-(days-1-i));
+    return '<div title="'+date.toISOString().slice(0,10)+' — '+n+' report'+(n===1?'':'s')+'" '+
+      'style="flex:1;height:'+Math.max(h,n?6:2)+'px;border-radius:2px;background:'+
+      (n?(n>=3?'var(--rose)':'var(--violet)'):'var(--shelf)')+'"></div>';
+  }).join('');
+  $('qTrendMeta').textContent=(q.records||[]).length
+    ?'newest report '+(anchor.toISOString().slice(0,10))+' · oldest window starts '+(new Date(anchor-86400000*(days-1)).toISOString().slice(0,10))
+    :'no failures reported yet';
+  // Records: newest first from the API; cap the list so the tab stays light.
+  $('qRecords').innerHTML=(q.records||[]).slice(0,25).map(r=>{
+    const s=r.severity>=0.7?'var(--rose)':r.severity>=0.5?'var(--amber)':'var(--cyan)';
+    return '<div style="border:1px solid var(--line);border-radius:6px;padding:8px 10px">'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+        '<span class="pill" style="color:'+s+'">sev '+Number(r.severity).toFixed(1)+'</span>'+
+        '<b>'+esc(r.top_cell)+'</b>'+
+        '<span class="muted sm">'+esc((r.at||'').replace('T',' ').slice(0,16))+'</span>'+
+        (r.resolved?'<span class="pill" style="color:var(--lime)">resolved</span>':'')+
+        (r.corrected_to?'<span class="pill" style="color:var(--amber)">→ '+esc(r.corrected_to)+'</span>':'')+
+      '</div>'+
+      '<div class="sm" style="margin-top:4px;color:var(--brume)">'+esc(r.feedback)+'</div>'+
+    '</div>';
+  }).join('')||'<div class="empty">Nothing reported yet. Complaints land here and teach the grid.</div>';
+  barList($('qPenalties'),q.penalties,'var(--rose)');
+  barList($('qBoosts'),q.boosts,'var(--cyan)');
+}
+function kpi(label,value,color){
+  return '<div class="card" style="flex:1;min-width:130px;margin:0;text-align:center;padding:10px 12px">'+
+    '<div style="font-size:22px;font-weight:700;color:'+(color||'var(--ink)')+'">'+esc(String(value))+'</div>'+
+    '<div class="nav-why">'+esc(label)+'</div></div>';
+}
+function barList(el,map,color){
+  const rows=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  el.innerHTML=rows.map(([k,v])=>{
+    const pct=Math.min(100,v*100);
+    return '<div><div style="display:flex;justify-content:space-between" class="sm">'+
+      '<span>'+esc(k.replace('\u0000','/'))+'</span><span class="muted">'+v.toFixed(2)+'</span></div>'+
+      '<div style="height:6px;background:var(--shelf);border-radius:3px;overflow:hidden">'+
+        '<div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+color+'"></div></div></div>';
+  }).join('')||'<div class="empty">none learned yet</div>';
+}
+$('qRefresh').onclick=()=>loadQuality(true);
+
 // ── tabs ──
 let cyReady=false;
 function activateTab(name){
@@ -1292,6 +1413,7 @@ function activateTab(name){
   if(name==='overview') loadOverview();
   if(name==='timeline') loadTimelineDemo();
   if(name==='grid') loadHeat();
+  if(name==='quality') loadQuality();
   if(name==='oee') loadOee();
   if(name==='hypotheses') loadHypotheses();
   if(name==='contradictions') loadContradictions();

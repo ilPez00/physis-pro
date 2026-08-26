@@ -42,13 +42,17 @@ pub async fn wiki_tour_handler(
             .core
             .nodes
             .values()
-            .filter_map(|n| n.label.as_ref().map(|l| crate::wiki_gen::NodeInput { label: l.clone() }))
+            .filter_map(|n| {
+                n.label
+                    .as_ref()
+                    .map(|l| crate::wiki_gen::NodeInput { label: l.clone() })
+            })
             .collect();
         let edges: crate::communities::EdgeList = s
             .core
             .resolved_edges()
             .into_iter()
-            .filter_map(|(a, b, w)| match (a, b) {
+            .filter_map(|(a, b, _w)| match (a, b) {
                 (Some(a), Some(b)) => Some((a, b)),
                 _ => None,
             })
@@ -72,7 +76,11 @@ pub async fn wiki_generate_handler(
             .core
             .nodes
             .values()
-            .filter_map(|n| n.label.as_ref().map(|l| crate::wiki_gen::NodeInput { label: l.clone() }))
+            .filter_map(|n| {
+                n.label
+                    .as_ref()
+                    .map(|l| crate::wiki_gen::NodeInput { label: l.clone() })
+            })
             .collect();
         let edges: Vec<(Option<String>, Option<String>, f32)> = s.core.resolved_edges();
         (nodes, edges)
@@ -105,7 +113,11 @@ pub async fn wiki_generate_handler(
     let use_llm = !req.deterministic && semantic_ok;
     let mut pages = crate::wiki_gen::name_groups(&groups, &|_p: &str| anyhow::bail!("fallback"));
 
-    async fn ask(cascade: &Arc<ProviderCascade>, prompt: String, hint: &str) -> anyhow::Result<String> {
+    async fn ask(
+        cascade: &Arc<ProviderCascade>,
+        prompt: String,
+        hint: &str,
+    ) -> anyhow::Result<String> {
         let messages = vec![Message {
             role: "user".into(),
             content: Content::Text(prompt),
@@ -113,7 +125,10 @@ pub async fn wiki_generate_handler(
             tool_call_id: None,
             name: None,
         }];
-        let rh = RouteHint { task_type: hint.into(), has_image: false };
+        let rh = RouteHint {
+            task_type: hint.into(),
+            has_image: false,
+        };
         let (msg, _prov) = cascade
             .complete(&messages, None, &rh, Some(512))
             .await
@@ -151,7 +166,13 @@ pub async fn wiki_generate_handler(
             let prompt = format!(
                 "{title}: members {members}",
                 title = p.title,
-                members = p.members.iter().take(10).cloned().collect::<Vec<_>>().join(", ")
+                members = p
+                    .members
+                    .iter()
+                    .take(10)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
             );
             match ask(&state.shared.cascade,
                       format!("Write ONE concise paragraph introducing this wiki page for an                                industrial knowledge base. STRICT plain prose. Page data: {prompt}"),

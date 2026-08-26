@@ -76,7 +76,11 @@ pub fn import_csv(text: &str) -> Vec<BatchRow> {
 
         let amount_eur = parse_amount(&amount_raw);
         if amount_eur.is_none() {
-            status = if status == "ok" { "bad_amount".into() } else { status };
+            status = if status == "ok" {
+                "bad_amount".into()
+            } else {
+                status
+            };
             error = Some(format!(
                 "amount `{amount_raw}` not numeric; {}",
                 error.unwrap_or_default()
@@ -105,7 +109,15 @@ pub fn valid_rows(rows: &[BatchRow]) -> Vec<&BatchRow> {
 /// `import_csv`'s sibling importer on the customer side.
 pub fn export_reviewed_csv(rows: &[BatchRow]) -> String {
     let mut w = csv::WriterBuilder::new().from_writer(Vec::new());
-    let _ = w.write_record(["line", "vendor", "doc_number", "date", "amount_eur", "status", "error"]);
+    let _ = w.write_record([
+        "line",
+        "vendor",
+        "doc_number",
+        "date",
+        "amount_eur",
+        "status",
+        "error",
+    ]);
     for r in rows {
         let _ = w.write_record([
             &r.line.to_string(),
@@ -153,7 +165,11 @@ Delta Spa,INV-004,2026-03-03,abc\n";
         assert_eq!(rows[1].status, "missing_field");
         assert!(rows[1].error.as_deref().unwrap().contains("doc_number"));
         assert_eq!(rows[2].status, "bad_date");
-        assert_eq!(rows[3].status.contains("amount") || rows[3].status == "bad_amount", true, "{rows:?}");
+        assert_eq!(
+            rows[3].status.contains("amount") || rows[3].status == "bad_amount",
+            true,
+            "{rows:?}"
+        );
         // line numbers account for the header
         assert_eq!(rows[0].line, 2);
         assert_eq!(rows[3].line, 5);
@@ -182,6 +198,9 @@ Delta Spa,INV-004,2026-03-03,abc\n";
     #[test]
     fn empty_input_yields_no_rows_not_panic() {
         assert!(import_csv("").is_empty());
-        assert_eq!(export_reviewed_csv(&[]), "line,vendor,doc_number,date,amount_eur,status,error\n");
+        assert_eq!(
+            export_reviewed_csv(&[]),
+            "line,vendor,doc_number,date,amount_eur,status,error\n"
+        );
     }
 }
