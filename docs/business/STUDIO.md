@@ -20,6 +20,19 @@ gated behind `pdf`/`email` so the default build stays light.
 ./target/debug/physis-pro studio <DOCS_DIR> --html-out <DOCS_DIR>/studio.html
 ```
 
+## Try it (zero setup)
+
+```bash
+# Seeds a sample corpus (shift report, PO email, invoice, off-grid security
+# incident) if the dir is empty, then runs the full wedge — idempotent, never
+# clobbers a real prospect's data on re-run:
+mkdir -p /tmp/demo
+./target/debug/physis-pro studio /tmp/demo --demo --html-out /tmp/demo/studio.html
+
+# Or point it at your own documents:
+./target/debug/physis-pro studio /path/to/your/docs --html-out /path/to/your/docs/studio.html
+```
+
 What it does, in order:
 1. **Ingest** every document in the folder — real text + structured metadata
    (PDF → invoice vendor/date/number; email → From/Subject/thread-id). The

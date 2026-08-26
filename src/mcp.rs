@@ -363,6 +363,13 @@ mod mcp_impl {
                             "within_days": {"type": "integer"}
                         }
                     })),
+                    tool("physis_discover", "Ontology-gap discovery over a corpus: given a list of `texts`, report how many map to a known cell, how many the current grid misses, and draft new ontology domains for the gaps (loadable via EXTRA_ONTOLOGIES). This is how an agent grows the grid from its own documents — offline, no model needed.", json!({
+                        "type": "object", "properties": {
+                            "texts": {"type": "array", "items": {"type": "string"}, "description": "Corpus lines/texts to check against the live ontology"},
+                            "min_cluster": {"type": "integer", "description": "Minimum gap-cluster size to propose as a new domain (default 3)"}
+                        },
+                        "required": ["texts"]
+                    })),
                 ],
             })
         }
@@ -985,6 +992,49 @@ mod mcp_impl {
                     Ok(CallToolResult::success(vec![json_content(
                         &json!({"total": matches.len(), "matches": matches}),
                     )?]))
+                }
+
+                "physis_discover" => {
+                    // Corpus texts → coverage + draft ontology for the gaps.
+                    let texts: Vec<String> = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("texts"))
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .filter(|s| s.trim().len() > 10)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if texts.is_empty() {
+                        return Ok(CallToolResult::error(vec![json_content(
+                            &json!({"error": "texts must be a non-empty array of strings"}),
+                        )?]));
+                    }
+                    let min_cluster = get_i64(&request, "min_cluster").unwrap_or(3).max(1) as usize;
+                    let cfg = crate::discovery::DiscoveryConfig {
+                        min_cluster,
+                        auto_retune: true,
+                        ..Default::default()
+                    };
+                    let ctx = self.ctx.lock().await;
+                    let report = crate::discovery::discover(
+                        &texts,
+                        &ctx.classifier,
+                        ctx.embedder.as_ref(),
+                        &cfg,
+                    );
+                    let onto = crate::discovery::to_ontology_json(&report, "discovered");
+                    drop(ctx);
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "covered": report.covered,
+                        "unmapped": report.unmapped,
+                        "total": report.total,
+                        "proposals": report.proposals.len(),
+                        "draft_ontology": onto,
+                    }))?]))
                 }
 
                 name => Ok(CallToolResult::error(vec![json_content(

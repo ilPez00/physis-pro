@@ -99,6 +99,19 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Ontology Studio — the sellable demo wedge. Drop a folder of docs in,
+    /// get a self-contained HTML report + a loadable discovered_ontology.json
+    /// that grows the grid itself.
+    Studio {
+        /// Documents directory to ingest (or seed with samples when --demo).
+        dir: PathBuf,
+        /// Where to write the HTML report (default: <dir>/studio.html).
+        #[arg(long)]
+        html_out: Option<PathBuf>,
+        /// Seed a sample corpus if the dir is empty, then run (idempotent).
+        #[arg(long)]
+        demo: bool,
+    },
     /// Run diagnostics: config, data dir, scan root, embedder, license
     Doctor,
 }
@@ -996,11 +1009,23 @@ No other text."#.into(),
         &self,
         dir: &std::path::Path,
         html_out: &std::path::Path,
+        demo: bool,
     ) -> anyhow::Result<String> {
+        // --demo: seed a sample corpus idempotently, so a prospect can see the
+        // whole wedge with zero setup. Only writes the samples when the dir has
+        // no ingestable docs yet, so a real prospect's data is never clobbered
+        // on re-run (matches the documented contract).
+        if demo {
+            std::fs::create_dir_all(dir).ok();
+            if ingest::ingest_all(&[dir.to_path_buf()]).is_empty() {
+                crate::demo_corpus::seed_demo_corpus(dir)?;
+            }
+        }
+
         let docs = ingest::ingest_all(&[dir.to_path_buf()]);
         if docs.is_empty() {
             anyhow::bail!(
-                "no documents found under {} (.txt/.md/.csv/.log/.xlsx/.eml)",
+                "no documents found under {} (.txt/.md/.csv/.log/.xlsx/.eml); pass --demo to seed a sample",
                 dir.display()
             );
         }
