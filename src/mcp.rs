@@ -121,13 +121,15 @@ mod mcp_impl {
             }
             let ledger = db
                 .as_ref()
-                .and_then(|db| match crate::ledger::CausalLedger::load(db, "_default") {
-                    Ok(l) => Some(l),
-                    Err(e) => {
-                        eprintln!("physis: ledger load failed ({e}); starting empty");
-                        None
-                    }
-                })
+                .and_then(
+                    |db| match crate::ledger::CausalLedger::load(db, "_default") {
+                        Ok(l) => Some(l),
+                        Err(e) => {
+                            eprintln!("physis: ledger load failed ({e}); starting empty");
+                            None
+                        }
+                    },
+                )
                 .unwrap_or_default();
             lap(&mut t, "memory");
             eprintln!("physis: startup TOTAL {:.2}s", t0.elapsed().as_secs_f32());
@@ -328,6 +330,38 @@ mod mcp_impl {
                             "top_k": {"type": "integer", "description": "Maximum chunks to consider", "default": 50},
                             "diversity": {"type": "number", "description": "0 = pure relevance, 1 = maximum spread", "default": 0.3}
                         }, "required": ["query"]
+                    })),
+                    // ── memory + why-made (Phase 10c A1) ──
+                    tool("physis_remember", "Register a labeled memory into the shared semiotic graph (deduped by label — re-posting the same text updates it). Optional verdict in −1..1 records whether it works (+1), is inert (0), or fails (−1).", json!({
+                        "type": "object", "properties": {
+                            "input": {"type": "string", "description": "The text to remember; also becomes its searchable label"},
+                            "verdict": {"type": "number", "description": "Coherence verdict −1..1 (optional)"}
+                        }, "required": ["input"]
+                    })),
+                    tool("physis_recall", "Semantic recall over everything remembered (nodes + goals): embeds the query and returns the top labels packed to a token budget. This reads the graph; grounded LLM synthesis over these matches is available via the HTTP /api/v1/ask endpoint.", json!({
+                        "type": "object", "properties": {
+                            "query": {"type": "string"},
+                            "top_k": {"type": "integer", "default": 8},
+                            "token_budget": {"type": "integer", "default": 600}
+                        }, "required": ["query"]
+                    })),
+                    tool("physis_why", "Why-made chain for one artifact from the causal ledger: what produced it and from what (lineage), what it fed (descendants), which goals it serves (purposes).", json!({
+                        "type": "object", "properties": {
+                            "path": {"type": "string", "description": "Artifact path as recorded in the ledger"}
+                        }, "required": ["path"]
+                    })),
+                    tool("physis_serve", "Record that an artifact serves a goal (final cause). The goal must exist — list ids with physis_goals_list.", json!({
+                        "type": "object", "properties": {
+                            "object": {"type": "string", "description": "Artifact path"},
+                            "goal_id": {"type": "string"}
+                        }, "required": ["object", "goal_id"]
+                    })),
+                    tool("physis_causes", "Browse recorded causes: filter the ledger by free text, mechanism (generated/received/derived/corrected/cited/serves) or actor, optionally within the last N days. Newest first.", json!({
+                        "type": "object", "properties": {
+                            "query": {"type": "string", "description": "Free text over object/input/actor"},
+                            "mechanism": {"type": "string"},
+                            "within_days": {"type": "integer"}
+                        }
                     })),
                 ],
             })
@@ -744,6 +778,200 @@ mod mcp_impl {
                         "context_type": context,
                     });
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                // ── memory + why-made (Phase 10c A1) ──
+                "physis_remember" => {
+                    let input = get_str(&request, "input")?;
+                    let verdict = get_f64(&request, "verdict").unwrap_or(0.0).clamp(-1.0, 1.0);
+                    let mut ctx = self.ctx.lock().await;
+                    if input.trim().is_empty() {
+                        return Ok(CallToolResult::error(vec![json_content(
+                            &json!({"error": "empty input"}),
+                        )?]));
+                    }
+                    let embedding = ctx.embedder.embed(&input);
+                    let id = ctx
+                        .core
+                        .register_node_vec_labeled(embedding, Some(input.clone()));
+                    ctx.core.assert_coherence(&id, verdict as f32);
+                    if let Some(db) = &ctx.db {
+                        if let Err(e) = ctx.core.persist_node(db, "_default", &id) {
+                            eprintln!("physis: persist failed: {e}");
+                        }
+                    }
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "id": id,
+                        "label": input,
+                        "verdict": verdict,
+                        "nodes": ctx.core.nodes.len(),
+                    }))?]))
+                }
+
+                "physis_recall" => {
+                    let query = get_str(&request, "query")?;
+                    let top_k = get_i64(&request, "top_k").unwrap_or(8).max(1) as usize;
+                    let budget = get_i64(&request, "token_budget").unwrap_or(600).max(1) as usize;
+                    let ctx = self.ctx.lock().await;
+                    let q_emb = ctx.embedder.embed(&query);
+                    // Same corpus contract as the web /api/v1/search/nodes:
+                    // labeled coherence nodes + goals, ranked cosine, packed.
+                    let candidates: Vec<(String, String, Vec<f32>)> = ctx
+                        .core
+                        .nodes
+                        .values()
+                        .filter_map(|n| {
+                            let label = n.label.as_deref()?;
+                            (!label.trim().is_empty())
+                                .then(|| (label.to_string(), n.id.clone(), n.embedding.clone()))
+                        })
+                        .chain(ctx.goals.iter().filter_map(|g| {
+                            g.label
+                                .as_ref()
+                                .map(|l| (l.clone(), g.id.clone(), g.embedding.clone()))
+                        }))
+                        .collect();
+                    let corpus = crate::rag::RagCorpus {
+                        chunks: candidates
+                            .iter()
+                            .enumerate()
+                            .map(|(i, (text, _, emb))| crate::rag::RagChunk {
+                                id: i,
+                                text: text.clone(),
+                                tokens: crate::rag::count_tokens(text),
+                                embedding: emb.clone(),
+                            })
+                            .collect(),
+                    };
+                    let result = crate::rag::TokenFixedRetriever::new(budget, top_k)
+                        .retrieve(&q_emb, &corpus);
+                    let hits: Vec<JsonValue> = result
+                        .chunks
+                        .iter()
+                        .filter_map(|c| {
+                            let (label, id, _) = candidates.get(c.id)?;
+                            Some(json!({
+                                "id": id, "label": label,
+                                "score": c.score, "tokens": c.tokens,
+                            }))
+                        })
+                        .collect();
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "query": query,
+                        "results": hits,
+                        "total_tokens": result.total_tokens,
+                        "truncated": result.truncated,
+                        "note": "grounded synthesis over these matches: HTTP /api/v1/ask",
+                    }))?]))
+                }
+
+                "physis_why" => {
+                    let path = get_str(&request, "path")?;
+                    let ctx = self.ctx.lock().await;
+                    let view = |ev: &crate::ledger::CauseEvent| {
+                        json!({
+                            "seq": ev.seq, "at": ev.at.to_rfc3339(),
+                            "mechanism": ev.mechanism.as_str(), "actor": ev.actor,
+                            "object": ev.object, "input": ev.input,
+                        })
+                    };
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "path": path,
+                        "lineage": ctx.ledger.lineage(&path).iter().map(|e| view(e)).collect::<Vec<_>>(),
+                        "descendants": ctx.ledger.descendants(&path).iter().map(|e| view(e)).collect::<Vec<_>>(),
+                        "purposes": ctx.ledger.purposes(&path).iter().map(|e| view(e)).collect::<Vec<_>>(),
+                    }))?]))
+                }
+
+                "physis_serve" => {
+                    let object = get_str(&request, "object")?;
+                    let goal_id = get_str(&request, "goal_id")?;
+                    let mut ctx = self.ctx.lock().await;
+                    if !ctx.goals.iter().any(|g| g.id == goal_id) {
+                        return Ok(CallToolResult::error(vec![json_content(
+                            &json!({"error": format!("goal {goal_id} not found — list ids with physis_goals_list")}),
+                        )?]));
+                    }
+                    let ev = ctx.ledger.record(
+                        crate::address::Mechanism::Serves,
+                        "agent",
+                        object.clone(),
+                        Some(goal_id.clone()),
+                    );
+                    let ev_view = json!({
+                        "seq": ev.seq, "at": ev.at.to_rfc3339(),
+                        "mechanism": ev.mechanism.as_str(),
+                    });
+                    if let Some(db) = &ctx.db {
+                        if let Err(e) = ctx.ledger.save(db, "_default") {
+                            eprintln!("physis: ledger persist failed: {e}");
+                        }
+                    }
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "recorded": ev_view,
+                        "object": object, "goal_id": goal_id,
+                    }))?]))
+                }
+
+                "physis_causes" => {
+                    let query = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("query"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from)
+                        .unwrap_or_default();
+                    let mechanism = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("mechanism"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let within_days = get_i64(&request, "within_days");
+                    let ctx = self.ctx.lock().await;
+                    let now = chrono::Utc::now();
+                    let mut matches: Vec<JsonValue> = ctx
+                        .ledger
+                        .events()
+                        .iter()
+                        .filter(|ev| {
+                            if !query.is_empty() {
+                                let hay = format!(
+                                    "{} {} {}",
+                                    ev.object,
+                                    ev.input.as_deref().unwrap_or(""),
+                                    ev.actor
+                                );
+                                if !hay.to_lowercase().contains(&query.to_lowercase()) {
+                                    return false;
+                                }
+                            }
+                            if let Some(m) = &mechanism {
+                                if ev.mechanism.as_str() != m.as_str()
+                                    && ev.actor.to_lowercase() != m.to_lowercase()
+                                {
+                                    return false;
+                                }
+                            }
+                            if let Some(d) = within_days {
+                                if (now - ev.at).num_days() > d {
+                                    return false;
+                                }
+                            }
+                            true
+                        })
+                        .map(|ev| {
+                            json!({
+                                "at": ev.at.to_rfc3339(),
+                                "mechanism": ev.mechanism.as_str(), "actor": ev.actor,
+                                "object": ev.object, "input": ev.input,
+                            })
+                        })
+                        .collect();
+                    matches.reverse(); // newest first
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"total": matches.len(), "matches": matches}),
+                    )?]))
                 }
 
                 name => Ok(CallToolResult::error(vec![json_content(

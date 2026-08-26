@@ -426,6 +426,8 @@ async fn llms_txt_is_publicly_served_and_names_the_capabilities() {
     }
 }
 
+/// Regression: the console once shipped ~950 lines of JS after `</html>`.
+#[tokio::test]
 async fn dashboard_pages_end_at_the_closing_html_tag() {
     // Console shipped with ~950 lines of JavaScript appended AFTER `</html>`:
     // 19 functions (hypotheses, contradictions, epistemic audit, explanation,
