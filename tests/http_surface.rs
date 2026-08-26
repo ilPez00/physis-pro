@@ -2222,6 +2222,61 @@ fn urlencode(s: &str) -> String {
         .collect()
 }
 
+/// Phase 10 D7: mailbox import — .eml/.mbox exports register labeled nodes
+/// and record `received(mailbox)` cause events, visible through the facet
+/// query.
+#[tokio::test]
+async fn mail_import_registers_messages_and_records_mailbox_causes() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let maildir = dir.path().join(".physis").join("mail");
+    std::fs::create_dir_all(&maildir).expect("mkdir");
+    std::fs::write(
+        maildir.join("report.eml"),
+        "From: Ada <ada@example.org>\nSubject: press tonnage\nDate: Mon, 24 Aug 2026 08:15:00 +0000\n\n drifted 2 tons\n",
+    )
+    .unwrap();
+    std::fs::write(
+        maildir.join("inbox.mbox"),
+        "From x Sat Aug 22 10:00:00 2026\nFrom: bob@example.org\nSubject: shift handover\n\nall quiet\n",
+    )
+    .unwrap();
+
+    let (router, _env) = app_on(dir.path()).await;
+    let dir_str = maildir.display().to_string();
+    let (_, m) = send(
+        &router,
+        post("/api/v1/mail/import", "alice", json!({"dir": dir_str})),
+    )
+    .await;
+    assert_eq!(m["files"], 2, "one event per source file: {m}");
+    assert_eq!(m["messages"], 2, "{m}");
+    assert!(m["registered"].as_u64().unwrap_or(0) >= 1, "{m}");
+
+    // Cause trail: two received events under actor `mailbox`.
+    let (_, q) = send(
+        &router,
+        post("/api/v1/files/query", "alice", json!({"cause": "mailbox"})),
+    )
+    .await;
+    assert_eq!(q["total"], 2, "{q}");
+    assert!(
+        q["matches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|e| e["actor"] == "mailbox" && e["mechanism"] == "received"),
+        "{q}"
+    );
+
+    // Confinement still applies.
+    let (status, out) = send(
+        &router,
+        post("/api/v1/mail/import", "alice", json!({"dir": "/etc"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{out}");
+}
+
 #[tokio::test]
 async fn coherence_delete_removes_node_and_index() {
     let (router, _dir, _env) = app().await;

@@ -2668,6 +2668,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/praxis/backfill",
             post(ingest::praxis_backfill_handler),
         )
+        .route("/api/v1/mail/import", post(ingest::mail_import_handler))
         .route("/api/v1/fs/graph", get(ingest::fs_graph_handler))
         .route("/api/v1/files/query", post(ingest::files_query_handler))
         .route("/api/v1/files/serve", post(ingest::files_serve_handler))

@@ -1532,3 +1532,119 @@ pub async fn files_lineage_handler(
         }))
     })
 }
+
+/// POST /api/v1/mail/import — mailbox ingestion (Phase 10 D7): walk an export
+/// dir of `.eml` files and `.mbox` bundles, register one labeled node per
+/// message (`mail:<subject> — <from>`), and record `received(mailbox)` cause
+/// events per source file. Same scan-root confinement as every importer.
+#[derive(Deserialize)]
+pub struct MailImportRequest {
+    /// Absolute path to a directory of mail exports. Confined to scan_root.
+    dir: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct MailImportResponse {
+    files: usize,
+    messages: usize,
+    registered: usize,
+    deduped: usize,
+}
+
+pub async fn mail_import_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<MailImportRequest>,
+) -> Result<Json<MailImportResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let path = PathBuf::from(&req.dir);
+    if !path.exists() {
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("directory not found: {}", req.dir),
+        ));
+    }
+    let canonical = path.canonicalize().map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("cannot resolve path: {e}"),
+        )
+    })?;
+    if !canonical.starts_with(state.scan_root()) {
+        return Err(err_response(
+            StatusCode::FORBIDDEN,
+            &format!("path outside scan root ({})", state.scan_root().display()),
+        ));
+    }
+    if !canonical.is_dir() {
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "mail import needs a directory",
+        ));
+    }
+    let uid = user_key(&headers);
+
+    let docs = tokio::task::spawn_blocking(move || crate::mails::scan_mail_dir(&canonical))
+        .await
+        .map_err(|e| err_response(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e.to_string()))?;
+    let messages = docs.len();
+    // Distinct source files → causal events (one per stream, not per message).
+    let sources: Vec<String> = docs
+        .iter()
+        .map(|d| d.source.split('#').next().unwrap_or(&d.source).to_string())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let files = sources.len();
+
+    if docs.is_empty() {
+        return Ok(Json(MailImportResponse {
+            files: 0,
+            messages: 0,
+            registered: 0,
+            deduped: 0,
+        }));
+    }
+
+    let labels: Vec<String> = docs.iter().map(|d| d.label.clone()).collect();
+    let bodies: Vec<String> = docs
+        .iter()
+        .map(|d| format!("{}\n{}", d.label, d.body))
+        .collect();
+    let embeddings = embed_batch_off_thread(state.shared.clone(), bodies).await;
+
+    let (registered, deduped) = state.with_user(&uid, |s| {
+        let before = s.core.nodes.len();
+        for (label, emb) in labels.into_iter().zip(embeddings) {
+            let id = s.core.register_node_vec_labeled(emb, Some(label));
+            if let Some(db) = state.db() {
+                let _ = s.core.persist_node(db, &uid, &id);
+            }
+        }
+        // Causal record (D7): the mailbox export is received mail; one event
+        // per source file keeps lineage at file granularity without flooding.
+        for src in &sources {
+            s.ledger.record(
+                crate::address::Mechanism::Received,
+                "mailbox",
+                src.clone(),
+                None,
+            );
+        }
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("mail import: ledger persist failed: {e}");
+            }
+        }
+        let registered = s.core.nodes.len().saturating_sub(before);
+        let deduped = messages.saturating_sub(registered);
+        (registered, deduped)
+    });
+
+    Ok(Json(MailImportResponse {
+        files,
+        messages,
+        registered,
+        deduped,
+    }))
+}
