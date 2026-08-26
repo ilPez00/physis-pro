@@ -160,9 +160,9 @@ anomaly detection to corrective action.
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
 | T1 | Timeline pipeline consumes the ledger | ✅ Done | `GET /api/v1/study/session` merges `to_op_events()` into the assembled timeline (chronologically interleaved with study events; connector-tagged via `properties.mechanism`), exposes a `causes` count, tallies/rhythms stay study-scoped; empty-ledger tenants unchanged (back-compat asserted); /study page renders merged view for free + mechanism chip in entry meta; e2e covers interleaving, counts, scoping |
-| T2 | /ui place+time filters | ⬜ Pending | finish D5 acceptance: filter the force-graph file set by place root + period bucket |
-| T3 | Lineage as edges | ⬜ Pending | render why-made chains visually on the graph FM page instead of text-only trace |
-| T4 | Ontology pack mechanism (4.2-lite) | ⬜ Pending | generic loader for industry packs (config dirs) + one example pack, without committing to specific customers |
+| T2 | /ui place+time filters | ✅ Done | fs/graph already ships `place`/`period` per file (D1) — two facet selects on the graph FM header populated from the scan, combined with text search into one dimming pass, status line shows visible count; selections survive re-scans when still valid |
+| T3 | Lineage as edges | ✅ Done | selecting a file node draws its why-made chain into the cose graph: rose round-diamond cause nodes (`mechanism·actor`) chained input→artifact with dotted arrow edges + lime `serves·goal` nodes for purposes; cleared on reselect/re-render, best-effort (never breaks selection) |
+| T4 | Ontology pack mechanism (4.2-lite) | ✅ Done | `load_all` scans `{data_dir}/packs/*.json` (sorted, deterministic): entries join `custom_domains` keyed `pack-stem:name`, interpretants attributed `pack:<stem>`, broken packs skipped with a warning — packs are data, no rebuild. Example pack `docs/examples/logistics_pack.json` (9 entries); unit test covers load + skip + classification enrichment |
 
 ### Phase 6 — Administration / Datawork
 

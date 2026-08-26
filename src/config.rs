@@ -817,6 +817,50 @@ impl OntologyLoader {
             }
         }
 
+        // Industry packs (Phase 10b T4, PLAN 4.2-lite): drop JSON ontology
+        // files into `{data_dir}/packs/` and they join custom_domains the same
+        // way as baked extras — keyed "kind:name", interpretant honored. No
+        // code change, no rebuild: an industry pack is data, and packs a
+        // customer hasn't installed must not silently classify their files.
+        let packs_dir = config.data_dir.join("packs");
+        if let Ok(entries) = std::fs::read_dir(&packs_dir) {
+            let mut paths: Vec<PathBuf> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("json"))
+                .collect();
+            paths.sort(); // deterministic order across machines
+            for path in paths {
+                match Self::load_file(&path) {
+                    Ok((interpretant, map)) => {
+                        // Pack identity = file stem, so interpretants and
+                        // domains stay attributable to the pack that shipped them.
+                        let kind = path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("pack")
+                            .to_string();
+                        if let Some(i) = interpretant {
+                            loader.interpretants.insert(format!("pack:{kind}"), i);
+                        }
+                        let n = map.len();
+                        for (name, def) in map {
+                            loader
+                                .custom_domains
+                                .insert(format!("{}:{name}", kind), def);
+                        }
+                        eprintln!(
+                            "[physis] loaded ontology pack '{}' ({n} entries)",
+                            path.display()
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: skipping broken pack {}: {e}", path.display())
+                    }
+                }
+            }
+        }
+
         loader
     }
 
@@ -1016,6 +1060,51 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_industry_packs_load_from_data_dir_and_broken_ones_are_skipped() {
+        // T4 / PLAN 4.2-lite: packs are data, not code — drop JSON into
+        // {data_dir}/packs/ and they join the classification themes.
+        let dir = tempfile::tempdir().unwrap();
+        let packs = dir.path().join("packs");
+        std::fs::create_dir_all(&packs).unwrap();
+        std::fs::copy(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/docs/examples/logistics_pack.json"
+            ),
+            packs.join("logistics_pack.json"),
+        )
+        .unwrap();
+        std::fs::write(packs.join("broken.json"), "{not json").unwrap();
+
+        let config = PhysisConfig {
+            data_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        let loader = OntologyLoader::load_all(&config);
+
+        assert!(
+            loader
+                .custom_domains
+                .contains_key("logistics_pack:Freight Booking"),
+            "pack entries join custom_domains keyed pack:name; got {:?}",
+            loader
+                .custom_domains
+                .keys()
+                .filter(|k| k.contains("Logistics"))
+                .take(5)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            !loader.custom_domains.contains_key("broken:anything"),
+            "a broken pack must not poison the loader"
+        );
+        // The pack enriches classification like any extra ontology.
+        assert!(loader
+            .classification_domains()
+            .any(|d| d.name == "Freight Booking"));
     }
 
     #[test]
