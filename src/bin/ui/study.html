@@ -436,7 +436,7 @@ async function loadSession(){
   $('tl').innerHTML=entries.length?entries.map(e=>{
     const p=e.properties||{};
     const act=p.action||'';
-    const meta=[p.place?('📍 '+p.place):'',p.dir?('📁 '+p.dir):'',p.file_type?('· '+p.file_type):''].filter(Boolean).join('  ');
+    const meta=[p.place?('📍 '+p.place):'',p.dir?('📁 '+p.dir):'',p.file_type?('· '+p.file_type):'',p.mechanism?('⚙ '+p.mechanism+(p.input?' ← '+p.input.split('/').pop():'')):''].filter(Boolean).join('  ');
     return `<div class="tevent s-${e.status}">
       <div class="t">${ts(e.observed_at)}<span class="act ${act}">${act||e.status}</span></div>
       <div class="s">${e.subject}</div>

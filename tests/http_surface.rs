@@ -2211,6 +2211,77 @@ async fn purpose_links_record_final_cause_and_show_in_lineage() {
     assert_eq!(bobs["error"].is_null(), false, "{bobs}");
 }
 
+/// Phase 10b T1: the causal ledger joins the assembled operational timeline.
+/// Study events and cause events (from a vault import) appear in one ordered
+/// view; tallies stay study-scoped; the response reports how many causes
+/// merged.
+#[tokio::test]
+async fn session_timeline_merges_cause_events_with_study_events() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let vault = dir.path().join(".physis").join("vault");
+    std::fs::create_dir_all(&vault).expect("mkdir");
+    std::fs::write(vault.join("note.md"), "# Plant Log\n\npress fine").expect("note");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    // A study event older than the import, and one newer — ordering across
+    // connectors must hold in the merged timeline.
+    let (_, logged) = send(
+        &router,
+        post(
+            "/api/v1/study/log",
+            "mx",
+            json!({"events": [
+                {"observed_at": "2026-08-20T08:00:00Z", "action": "generated",
+                 "path": "notes/press.md", "place": "Library"}
+            ]}),
+        ),
+    )
+    .await;
+    assert_eq!(logged["accepted"], 1, "{logged}");
+
+    let vault_str = vault.display().to_string();
+    let (_, v) = send(
+        &router,
+        post(
+            "/api/v1/vault/import",
+            "mx",
+            json!({"dir": vault_str, "git": 0}),
+        ),
+    )
+    .await;
+    assert!(v["registered"].as_u64().unwrap_or(0) >= 1, "{v}");
+
+    let (_, s) = send(&router, get("/api/v1/study/session", "mx")).await;
+    let entries = s["timeline"]["entries"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    // 1 study + ≥1 cause, chronologically interleaved (study event first).
+    assert!(entries.len() >= 2, "{s}");
+    assert_eq!(
+        entries[0]["subject"], "press.md",
+        "oldest event leads regardless of connector: {s}"
+    );
+    let cause_entries = entries
+        .iter()
+        .filter(|e| e["properties"]["mechanism"] == "received")
+        .count();
+    assert!(cause_entries >= 1, "cause events joined the timeline: {s}");
+    assert_eq!(
+        s["causes"].as_u64(),
+        Some(cause_entries as u64),
+        "`causes` reports exactly the merged ledger events: {s}"
+    );
+
+    // Tallies stay study-scoped: by_action counts only study actions.
+    assert_eq!(s["by_action"][0]["key"], "generated", "{s}");
+
+    // A tenant with no ledger sees no merge (and no phantom field drift).
+    let (_, plain) = send(&router, get("/api/v1/study/session", "solo")).await;
+    assert_eq!(plain["causes"], 0, "{plain}");
+}
+
 fn urlencode(s: &str) -> String {
     s.bytes()
         .map(|b| match b {

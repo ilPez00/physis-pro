@@ -103,6 +103,12 @@ pub async fn study_log_handler(
 
 /// GET /api/v1/study/session — aggregate the tenant's Study Log into a
 /// `StudySession` (timeline, file-type/dir/action tallies, rhythms).
+///
+/// Phase 10b T1: the causal ledger is part of the same timeline — cause
+/// events (connector `cause`) are projected and merged into the assembled
+/// `timeline` alongside study events, so one ordered view answers both "what
+/// did I study" and "why does this artifact exist". Tallies/rhythms stay
+/// study-scoped; `causes` reports how many ledger events joined.
 pub async fn study_session_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
@@ -112,11 +118,21 @@ pub async fn study_session_handler(
         .db()
         .map(|db| load_study(db, &uid))
         .unwrap_or_default();
-    let s = crate::study::session(&events);
-    Json(
-        serde_json::to_value(s)
-            .unwrap_or_else(|_| serde_json::json!({ "error": "session encode" })),
-    )
+    let cause_ops = state.with_user(&uid, |s| s.ledger.to_op_events());
+    let n_causes = cause_ops.len();
+
+    let mut s = crate::study::session(&events);
+    if !cause_ops.is_empty() {
+        let mut ops: Vec<crate::operational::OperationalEvent> =
+            events.iter().map(|e| e.to_op_event()).collect();
+        ops.extend(cause_ops);
+        s.timeline = crate::operational_report::OperationalTimeline::from_events(&ops);
+    }
+
+    let mut v = serde_json::to_value(&s)
+        .unwrap_or_else(|_| serde_json::json!({ "error": "session encode" }));
+    v["causes"] = serde_json::json!(n_causes);
+    Json(v)
 }
 
 /// POST /api/v1/study/clear — wipe the tenant's Study Log (demo reset).
