@@ -1716,10 +1716,10 @@ pub struct StudioEntry {
     facets: crate::models::Facets,
     /// Whether the classifier can ever return this entry.
     ///
-    /// `classification_domains()` covers only `human` + `custom`, while the
-    /// grid renders `all_domains()`. Everything else is authored, loaded, and
-    /// displayed, but unreachable by classification. Surfacing the flag per
-    /// entry is the point of the studio: the gap is invisible otherwise.
+    /// Phase 10c chained every domain ontology into `classification_domains()`,
+    /// so authored entries are reachable by default; only `place`/`period`
+    /// filing axes stay out. The flag remains because a future bucket could
+    /// reintroduce the gap silently — the studio exists to make it visible.
     classified: bool,
     /// True when any facet is set. Facets are the designed expansion beyond
     /// the DOMAIN×MODE grid, and are currently unpopulated everywhere.

@@ -865,12 +865,26 @@ impl OntologyLoader {
     }
 
     /// All domain definitions used for classification: the human (praxis) grid
-    /// plus every extra domain-specific ontology in `custom_domains`. All share
-    /// the HEAL/CONSTRUCT/FABRICATE/BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN
-    /// vocabulary, so they enrich the same semiotic grid.
+    /// plus every domain ontology and pack. All share the grid vocabulary.
+    ///
+    /// Phase 10c fix — this used to chain only `human + custom`, which locked
+    /// machine/agent/engineering/office/semiotic/category/natural/social/
+    /// abstract entries out of the classifier entirely (~360 authored entries
+    /// that could never be scored): industrial text fell back to human cells
+    /// even when a perfect machine-ontology entry existed. Only `place`/
+    /// `period` stay excluded — files are not *about* "Warehouse" (Phase 10).
     pub fn classification_domains(&self) -> impl Iterator<Item = &DomainDef> {
         self.human_domains
             .values()
+            .chain(self.machine_domains.values())
+            .chain(self.agent_domains.values())
+            .chain(self.engineering_domains.values())
+            .chain(self.semiotic_domains.values())
+            .chain(self.category_domains.values())
+            .chain(self.natural_domains.values())
+            .chain(self.social_domains.values())
+            .chain(self.abstract_domains.values())
+            .chain(self.office_domains.values())
             .chain(self.custom_domains.values())
     }
 
@@ -963,6 +977,39 @@ mod tests {
     fn test_load_from_str_invalid() {
         let result = OntologyLoader::load_from_str("not valid json");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn classification_reaches_every_domain_ontology_but_not_filing_axes() {
+        // Phase 10c regression: classification_domains() used to chain only
+        // human+custom, leaving machine/agent/office/engineering authored but
+        // unscoreable (~360 invisible entries). Industrial text then fell back
+        // to human cells even when a perfect machine entry existed.
+        let config = PhysisConfig::default();
+        let loader = OntologyLoader::load_all(&config);
+        let reachable: Vec<&str> = loader.classification_domains().map(|d| d.name.as_str()).collect();
+        for name in ["OEE", "Error Recovery"] {
+            assert!(
+                reachable.iter().any(|n| n.contains(name)),
+                "`{name}` must be scoreable, not just displayed"
+            );
+        }
+        // The filing axes stay out by design (Phase 10): files are not *about*
+        // "Warehouse" or "Sprint".
+        assert!(
+            !reachable
+                .iter()
+                .any(|n| n == &"Warehouse" || n == &"Sprint"),
+            "place/period entries must not become classification themes"
+        );
+        // And the count must track what the classifier receives.
+        let total: usize = loader.all_domains().values().count();
+        assert!(
+            reachable.len() > total / 2,
+            "classification lost reach: {}/{}",
+            reachable.len(),
+            total
+        );
     }
 
     #[test]
