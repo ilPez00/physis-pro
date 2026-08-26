@@ -186,6 +186,14 @@ Categories (Finance, Communication, ...)
 | CLI | `physis-pro study <dir> --place <where>` (poll recorder, `--once` = opened) |
 | Web | `POST /api/v1/study/log` · `GET /api/v1/study/session` · `POST /api/v1/study/clear` · page at `/study` (Study Log dashboard + Elenchus argument trainer), page `src/bin/ui/study.html` |
 
+## Space·Time·Cause Datawork (Phase 10, D1–D3)
+
+| Piece | Description |
+|-------|-------------|
+| Address | `src/address.rs` — `FileAddress { space: SpaceRef, time: TimeRef, cause: CauseRef }` derived from fs metadata at ingestion (`Mechanism`: generated/received/derived/corrected/cited/serves, serde snake_case); period = `YYYY-MM` month bucket. `FileNode.address` is `Option`, serde-defaulted → old graph JSON loads |
+| Ontologies | `config/space_ontology.json` (kind `place`, 22 entries) + `config/time_ontology.json` (kind `period`, 16) → dedicated `OntologyLoader::space_domains`/`time_domains`; NOT classification themes; facet CLI: `physis-pro facet --kind place\|period` |
+| Ledger | `src/ledger.rs` — `CausalLedger` per-tenant on `RuntimeState`; append-only `CauseEvent`s; `lineage()`/`descendants()` walk input chains (Serves links excluded); `purposes()` = final cause; `to_op_events()` projects onto OperationalEvent (connector `cause`, replay-stable keys); sled rows `ledger:{uid}:{seq}`, idempotent save; watch thread records Generated/Corrected per file |
+
 ## Ask — NL graph queries (PLAN 3.2)
 
 | Piece | Description |

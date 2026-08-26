@@ -134,6 +134,8 @@ pub struct RuntimeState {
     pub(crate) goals: Vec<Goal>,
     pub(crate) scheduler: GanttScheduler,
     pub(crate) lifeos: LifeOSTracker,
+    /// Causal ledger (Phase 10 D3): per-tenant why-made history.
+    pub(crate) ledger: crate::ledger::CausalLedger,
 }
 
 impl RuntimeState {
@@ -153,6 +155,7 @@ impl RuntimeState {
             goals: Vec::new(),
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
             lifeos: LifeOSTracker::new(),
+            ledger: crate::ledger::CausalLedger::new(),
         }
     }
 }
@@ -249,6 +252,11 @@ impl AppCtx {
                 if let Some(db) = &self.db {
                     rt.lifeos = LifeOSTracker::load(db, uid);
                     rt.goals = load_goals(db, uid);
+                    // Causal history (Phase 10): per-tenant why-made chain.
+                    match crate::ledger::CausalLedger::load(db, uid) {
+                        Ok(l) => rt.ledger = l,
+                        Err(e) => log::warn!("tenant {uid}: ledger load failed: {e}"),
+                    }
                     let (loaded, skipped) = rt.core.load_nodes(db, uid);
                     if loaded > 0 || skipped > 0 {
                         log::info!(
@@ -1048,6 +1056,16 @@ pub struct FsFileDto {
     path: String,
     title: String,
     kind: String,
+    /// Space·time·cause coordinates (Phase 10), flattened for the UI. `None`
+    /// when fs metadata was unreadable at scan time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    place: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    period: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mechanism: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -2417,6 +2435,14 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 .as_ref()
                 .map(|d| LifeOSTracker::load(d, "_default"))
                 .unwrap_or_default(),
+            ledger: db
+                .as_ref()
+                .and_then(|d| {
+                    crate::ledger::CausalLedger::load(d, "_default")
+                        .map_err(|e| log::warn!("default tenant: ledger load failed: {e}"))
+                        .ok()
+                })
+                .unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
         salience: Mutex::new(salience_store),
@@ -2541,9 +2567,20 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 std::thread::spawn(move || loop {
                     let diffs = scanner.scan_all();
                     let mut labels: Vec<String> = Vec::new();
+                    // One causal event per new/changed file (Phase 10 D3):
+                    // watch is the actor, the mechanism distinguishes birth
+                    // from edit so lineage can tell creation from correction.
+                    let mut cause_events: Vec<(crate::address::Mechanism, String)> = Vec::new();
                     for d in &diffs {
-                        for f in d.new.iter().chain(d.changed.iter()) {
+                        for f in d.new.iter() {
                             labels.extend(f.labels());
+                            cause_events
+                                .push((crate::address::Mechanism::Generated, f.abs_path.clone()));
+                        }
+                        for f in d.changed.iter() {
+                            labels.extend(f.labels());
+                            cause_events
+                                .push((crate::address::Mechanism::Corrected, f.abs_path.clone()));
                         }
                     }
                     if !labels.is_empty() {
@@ -2558,8 +2595,17 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                                 let _ = s.core.persist_node(db, "_default", &id);
                             }
                         }
+                        for (mechanism, object) in cause_events {
+                            s.ledger.record(mechanism, "watch", object, None);
+                        }
+                        if let Some(db) = watch_state.db() {
+                            if let Err(e) = s.ledger.save(db, "_default") {
+                                log::warn!("watch: ledger persist failed: {e}");
+                            }
+                        }
+                    } else {
+                        scanner.update_cache(&diffs);
                     }
-                    scanner.update_cache(&diffs);
                     std::thread::sleep(std::time::Duration::from_secs(interval_secs));
                 });
             }

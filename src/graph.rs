@@ -216,6 +216,11 @@ pub struct FileNode {
     pub title: String,
     pub kind: String,
     pub embedding: Vec<f32>,
+    /// Where/when/why (PLAN Phase 10). `None` only for graphs persisted before
+    /// addressing existed; re-ingest fills it. Serde default keeps old JSON
+    /// graph files loadable.
+    #[serde(default)]
+    pub address: Option<crate::address::FileAddress>,
 }
 
 /// Edge connecting a file to a theme with a relevance score.
@@ -283,6 +288,7 @@ impl FileThemeGraph {
         title: &str,
         kind: &str,
         embedding: Vec<f32>,
+        address: Option<crate::address::FileAddress>,
     ) -> usize {
         let id = self.next_file_id;
         self.next_file_id += 1;
@@ -292,6 +298,7 @@ impl FileThemeGraph {
             title: title.to_string(),
             kind: kind.to_string(),
             embedding,
+            address,
         });
         id
     }
@@ -577,13 +584,24 @@ pub fn build_theme_graph(
     }
 
     // Classify each file and add edges
+    let ingested_at = chrono::Utc::now();
     for doc in docs {
         let file_embedding = embedder.embed(&doc.body);
+        // Address at capture time (Phase 10): root = the file's own directory —
+        // build_theme_graph sees one scan's worth of docs, so that IS the place.
+        let address = crate::address::FileAddress::derive(
+            &doc.path,
+            doc.path.parent().unwrap_or(std::path::Path::new("/")),
+            crate::address::Mechanism::Generated,
+            "ingest",
+            ingested_at,
+        );
         let file_id = graph.add_file(
             doc.path.clone(),
             &doc.title,
             &format!("{:?}", doc.kind),
             file_embedding.clone(),
+            Some(address),
         );
 
         // Find matching themes via cosine similarity
@@ -635,12 +653,14 @@ mod file_theme_graph_tests {
             "Q4 report",
             "Email",
             vec![0.85, 0.15],
+            None,
         );
         g.add_file(
             PathBuf::from("finance/budget.xlsx"),
             "Budget 2025",
             "Spreadsheet",
             vec![0.15, 0.85],
+            None,
         );
         g.add_edge(0, 0, 0.95); // Email → Q4 report
         g.add_edge(1, 1, 0.90); // Budget → Budget 2025
@@ -661,6 +681,44 @@ mod file_theme_graph_tests {
         let id2 = g.add_theme("Test", None, "STUDY", "WORK", "human", vec![0.5; 4]);
         assert_eq!(id1, id2);
         assert_eq!(g.themes.len(), 1);
+    }
+
+    #[test]
+    fn address_survives_save_load_and_old_graphs_still_load() {
+        use crate::address::{FileAddress, Mechanism};
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("g.json");
+
+        let now = chrono::Utc::now();
+        let mut g = FileThemeGraph::new();
+        g.add_theme("T", None, "STUDY", "WORK", "human", vec![0.5; 4]);
+        let addr = FileAddress::derive(
+            std::path::Path::new("/plant/line1/log.txt"),
+            std::path::Path::new("/plant/line1"),
+            Mechanism::Generated,
+            "watch",
+            now,
+        );
+        g.add_file(
+            PathBuf::from("/plant/line1/log.txt"),
+            "log",
+            "Log",
+            vec![0.5; 4],
+            Some(addr),
+        );
+        // Legacy node (no address) coexists.
+        g.add_file(PathBuf::from("/old.md"), "old", "Md", vec![0.5; 4], None);
+        g.save(&path).unwrap();
+
+        let loaded = FileThemeGraph::load(&path).unwrap();
+        assert_eq!(loaded.files.len(), 2);
+        let a = loaded.files[0].address.as_ref().expect("address persisted");
+        assert_eq!(a.cause.mechanism, Mechanism::Generated);
+        assert_eq!(a.cause.actor, "watch");
+        assert!(
+            loaded.files[1].address.is_none(),
+            "legacy node stays addressless"
+        );
     }
 
     #[test]

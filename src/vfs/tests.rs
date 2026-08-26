@@ -14,7 +14,7 @@ mod tests {
         graph.add_theme("Test", Some("Cat"), "DOM", "MODE", "axis", vec![0.1; 4]);
         let file_path = dir.path().join("test.txt");
         std::fs::write(&file_path, "content").unwrap();
-        graph.add_file(file_path.clone(), "Test", "Report", vec![0.1; 4]);
+        graph.add_file(file_path.clone(), "Test", "Report", vec![0.1; 4], None);
         graph.add_edge(0, 0, 1.0);
 
         orch.sync_graph(&graph).unwrap();
@@ -36,7 +36,7 @@ mod tests {
         let make_graph = |target: &std::path::Path| {
             let mut graph = FileThemeGraph::new();
             graph.add_theme("Test", Some("Cat"), "DOM", "MODE", "axis", vec![0.1; 4]);
-            graph.add_file(target.to_path_buf(), "Test", "Report", vec![0.1; 4]);
+            graph.add_file(target.to_path_buf(), "Test", "Report", vec![0.1; 4], None);
             graph.add_edge(0, 0, 1.0);
             graph
         };
@@ -78,7 +78,7 @@ mod tests {
 
         let mut graph = FileThemeGraph::new();
         graph.add_theme("Test", Some("Cat"), "DOM", "MODE", "axis", vec![0.1; 4]);
-        graph.add_file(file_path.clone(), "Test", "Report", vec![0.1; 4]);
+        graph.add_file(file_path.clone(), "Test", "Report", vec![0.1; 4], None);
         graph.add_edge(0, 0, 1.0);
 
         let mut orch = VfsOrchestrator::new(dir.path().to_path_buf());

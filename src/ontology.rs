@@ -25,6 +25,9 @@ pub const SOCIAL_ONTOLOGY_NAME: &str = "social_ontology";
 pub const ABSTRACT_ONTOLOGY_NAME: &str = "abstract_ontology";
 pub const ENGINEERING_ONTOLOGY_NAME: &str = "engineering_ontology";
 pub const OFFICE_ONTOLOGY_NAME: &str = "office_ontology";
+/// Phase 10 datawork: filing ontologies for the space and time axes.
+pub const SPACE_ONTOLOGY_NAME: &str = "space_ontology";
+pub const TIME_ONTOLOGY_NAME: &str = "time_ontology";
 
 #[cfg(test)]
 mod tests {

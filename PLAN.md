@@ -143,9 +143,9 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| D1 | `FileAddress` on FileNode + scan/watch capture | ⬜ Pending | exhaustive destructure forces consumer decisions |
-| D2 | Space + time ontologies (`place`, `period`) | ⬜ Pending | office-pattern config files, facet CLI parity |
-| D3 | Causal ledger (sled, per-tenant) → OperationalEvent | ⬜ Pending | replay-stable; connector `cause` |
+| D1 | `FileAddress` on FileNode + scan/watch capture | ✅ Done | `src/address.rs`: SpaceRef/TimeRef/CauseRef + fs-metadata derivation (degrades to `now`, never fails ingestion); `FileNode.address` serde-defaulted so old graph JSON still loads; captured in `build_theme_graph`, demo CLI graph builder, `/api/v1/fs/graph` DTO (`place/period/modified/mechanism` fields); 4 unit tests + save/load round-trip incl. legacy-node coexistence |
+| D2 | Space + time ontologies (`place`, `period`) | ✅ Done | `config/space_ontology.json` (22 places), `config/time_ontology.json` (16 periods); dedicated `space_domains`/`time_domains` buckets — deliberately NOT classification themes (never join classifier centroids); facet CLI parity via `--kind place\|period`; grid-cell validation tests |
+| D3 | Causal ledger (sled, per-tenant) → OperationalEvent | ✅ Done | `src/ledger.rs`: CauseEvent (monotonic seq) + lineage/descendants/purposes walks; projects onto OperationalEvent pipeline under connector `cause` with replay-stable event_keys; sled rows keyed `ledger:{uid}:{seq}` (append-only, idempotent save); RuntimeState field, lazy tenant load + default-tenant startup load; watch thread records Generated/Corrected per file diff; 5 unit tests |
 | D4 | Vault/history/praxis importers write addresses | ⬜ Pending | round-trip tests |
 | D5 | `where` CLI + `/api/v1/files/query` + /ui panels | ⬜ Pending | four-facet composition e2e |
 | D6 | Purpose links (`serves` events) file↔goal | ⬜ Pending | lineage view |

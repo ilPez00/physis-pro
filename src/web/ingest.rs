@@ -712,6 +712,7 @@ pub async fn fs_graph_handler(
     let want_k = q.k;
     let shared = state.shared.clone();
     let (themes, files, edges, file_edges) = tokio::task::spawn_blocking(move || {
+        let root_display = canonical.display().to_string();
         let docs = crate::ingest::ingest_all(&[canonical]);
         // Embed in BATCHES — one ORT session run per chunk amortizes per-call
         // overhead and lets the batch matmul use multiple cores, far cheaper than
@@ -725,11 +726,26 @@ pub async fn fs_graph_handler(
         let files: Vec<FsFileDto> = docs
             .iter()
             .enumerate()
-            .map(|(fid, doc)| FsFileDto {
-                id: fid,
-                path: doc.path.display().to_string(),
-                title: doc.title.clone(),
-                kind: format!("{:?}", doc.kind),
+            .map(|(fid, doc)| {
+                // Address at scan time (Phase 10): one root per request, fs
+                // metadata read here inside the blocking task.
+                let addr = crate::address::FileAddress::derive(
+                    &doc.path,
+                    std::path::Path::new(&root_display),
+                    crate::address::Mechanism::Generated,
+                    "scan",
+                    chrono::Utc::now(),
+                );
+                FsFileDto {
+                    id: fid,
+                    path: doc.path.display().to_string(),
+                    title: doc.title.clone(),
+                    kind: format!("{:?}", doc.kind),
+                    place: Some(addr.space.place),
+                    period: Some(addr.time.period),
+                    modified: Some(addr.time.modified.to_rfc3339()),
+                    mechanism: Some(addr.cause.mechanism.as_str()),
+                }
             })
             .collect();
         let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();

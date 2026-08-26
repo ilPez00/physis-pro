@@ -1905,13 +1905,23 @@ fn run_ingest_pipeline(
         }
     }
 
+    let ingested_at = chrono::Utc::now();
     for doc in &docs {
         let file_embedding = embedder.embed(&doc.body);
+        // Address at capture time (Phase 10).
+        let address = physis_pro::address::FileAddress::derive(
+            &doc.path,
+            doc.path.parent().unwrap_or(std::path::Path::new("/")),
+            physis_pro::address::Mechanism::Generated,
+            "ingest",
+            ingested_at,
+        );
         let file_id = graph.add_file(
             doc.path.clone(),
             &doc.title,
             &format!("{:?}", doc.kind),
             file_embedding.clone(),
+            Some(address),
         );
 
         let mut theme_scores: Vec<(usize, f32)> = graph
@@ -2260,6 +2270,7 @@ mod tests {
             "Q4 report",
             "Email",
             vec![0.85, 0.15],
+            None,
         );
         graph.add_edge(0, 0, 0.95);
 
@@ -2297,12 +2308,14 @@ mod tests {
             "Invoice Jan",
             "Invoice",
             vec![0.5; 4],
+            None,
         );
         graph.add_file(
             Path::new("reports/q4.md").to_path_buf(),
             "Q4 Report",
             "Report",
             vec![0.5; 4],
+            None,
         );
 
         let results = graph.search_files("invoice");
