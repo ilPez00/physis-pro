@@ -171,7 +171,7 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| A1 | MCP surface parity | ⬜ Pending | the 18 existing tools predate memory: add `remember`/`recall` (write/read semiotic memory over the shared sled store), `why`/`serve`/`causes` (causal ledger access) so a mounted agent gets the full pitch — classify AND remember AND ask why |
+| A1 | MCP surface parity | ✅ Done | `src/mcp.rs`: 18 → 23 tools. `remember` (register labeled node + verdict into the shared sled graph), `recall` (token-packed semantic retrieval over nodes+goals, same corpus contract as /search/nodes), `why`/`serve`/`causes` (causal ledger: lineage+purposes, purpose links validated against agent goals, facet browse). Startup opens `{data_dir}/state.sled`, rehydrates default tenant, degrades to session-only memory if sled unavailable |
 | A2 | llms.txt served per instance | ✅ Done | repo root → public route `/llms.txt`, capability coverage tested |
 | A3 | Registry submission pack | ✅ Done | `docs/business/mcp-server-submission.md`; owner runs topics command (CI token lacks scope) |
 | A4 | Crate published | ✅ Done | `physis_pro v0.1.10` live on crates.io |

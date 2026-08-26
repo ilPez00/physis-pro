@@ -32,8 +32,11 @@ args:      ["serve", "--stdio"]
 Notes:
 - The stdio path is dispatched **before** the licence gate specifically so the
   handshake answers inside client timeouts — no licence needed to connect.
-- Tools exposed come from `src/mcp.rs`; confirm the exported tool list matches
-  the directory's capability taxonomy before submitting.
+- Tool surface (Phase 10c A1): 23 tools — classify/embed/pack/goals/PDCA/
+  dreams/gantt/wiki plus the memory family added 2026-08-26: `remember`,
+  `recall` (write/read semiotic memory over the shared sled store), `why`,
+  `serve`, `causes` (causal ledger). Agents get the full pitch, not just
+  classification.
 
 ## Environment
 
