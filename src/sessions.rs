@@ -296,7 +296,10 @@ mod tests {
     fn prefilter_rejects_before_parse() {
         // A huge irrelevant line short-circuits without touching serde_json.
         let big = format!("{}\"type\":\"other\"", "x".repeat(300_000));
-        assert!(!line_may_contain(&big, &[NEEDLE_CC_USER, NEEDLE_CC_ASSISTANT]));
+        assert!(!line_may_contain(
+            &big,
+            &[NEEDLE_CC_USER, NEEDLE_CC_ASSISTANT]
+        ));
     }
 
     const NEEDLE_CC_USER: &str = "\"type\":\"user\"";
