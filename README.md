@@ -649,6 +649,184 @@ cargo build --features full       # everything (industrial, ingest, pdf, email)
 
 ---
 
+## Practical Examples
+
+### Industrial Monitoring — CNC Press OEE
+
+```bash
+# 1. Register the machine (once)
+curl -X POST http://127.0.0.1:19876/api/v1/oee/machine \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"machine_id":"cnc-press-01","shift_length_secs":28800,"ideal_cycle_time_secs":45}'
+
+# 2. Record production events (every shift)
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"start_shift","machine_id":"cnc-press-01"}'
+
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"production","machine_id":"cnc-press-01","good":480,"scrap":12}'
+
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"stop","machine_id":"cnc-press-01","reason":"unplanned","duration_secs":1800,"note":"tool change"}'
+
+# 3. Get OEE report
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/oee/cnc-press-01"
+
+# 4. Generate Italian shift report (Markdown or HTML)
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/report/shift?format=html"
+```
+
+### Document Ingestion & Knowledge Graph
+
+```bash
+# Ingest a vault of markdown notes + git history
+cargo run --bin physis-pro -- vault ~/my-notes --git 100
+
+# Import browser bookmarks
+cargo run --bin physis-pro -- history ~/bookmarks.html
+
+# Import OPML feed subscriptions
+cargo run --bin physis-pro -- history ~/feeds.opml
+
+# Query the resulting knowledge graph
+cargo run --bin physis-pro -- query "machine maintenance"
+cargo run --bin physis-pro -- where "hydraulic" --cause mailbox --within 30
+```
+
+### Quality Feedback Loop
+
+```bash
+# Classify a failure report
+curl -X POST http://127.0.0.1:19876/api/v1/classify \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"text":"Spindle bearing overheating on CNC lathe line 3"}'
+
+# Report the outcome (failure) — teaches the engine
+curl -X POST http://127.0.0.1:19876/api/v1/coherence/register \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"input":"Spindle bearing overheating on CNC lathe line 3","coherence_score":-1.0}'
+
+# View learned penalties
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/quality"
+```
+
+### Rust API — Build a Custom Agent
+
+```rust
+use physis_pro::{
+    core::PhysisCore,
+    models::{CoherenceRating, CoherenceNode},
+    classify::OntologyLoader,
+    config::PhysisProConfig,
+    embed::{VectorEmbed, RandomProjectionEmbedder},
+};
+
+fn main() -> anyhow::Result<()> {
+    // Load ontologies + config
+    let config = PhysisProConfig::default();
+    let ontology = OntologyLoader::load_all(&config);
+    
+    // Use deterministic embedder for reproducibility (no model files needed)
+    let embedder = RandomProjectionEmbedder::new(64);
+    
+    let mut core = PhysisCore::new();
+    core.set_embedder_id("random-projection");
+
+    // Register a production incident
+    let id = core.register_node_from_text(
+        "Hydraulic press drift: tonnage +12% when cold",
+        &embedder,
+    )?;
+
+    // Assert the outcome — this is the "ground truth" signal
+    core.assert_coherence(&id, CoherenceRating::Failure.weight());
+
+    // Run a dream cycle to propose countermeasures
+    let dreams = core.dream();
+    for dream in dreams {
+        println!("Proposal: {}", dream.proposal);
+        println!("Grade: {:.2}", dream.grade);
+    }
+
+    // Fixed-token search (bounded context for LLM)
+    let results = core.search_nodes("hydraulic press", 500, 10)?;
+    for r in results {
+        println!("[{:.2}] {}", r.score, r.label);
+    }
+
+    // Persist to Sled (survives restart)
+    let db = sled::open("~/.physis/mydb")?;
+    core.persist_node(&db, "plant-1", &id)?;
+    
+    Ok(())
+}
+```
+
+### Multi-Tenant Web Deployment
+
+```bash
+# Start server (binds 127.0.0.1:19876 by default)
+cargo run --bin physis-pro-web
+
+# Client A (tenant "plant-1")
+curl -H "X-Physis-User: plant-1" -H "Authorization: Bearer $TOKEN" \
+  -X POST http://127.0.0.1:19876/api/v1/goals \
+  -d '{"prompt":"Reduce unplanned downtime on line 2"}'
+
+# Client B (tenant "plant-2") — completely isolated state
+curl -H "X-Physis-User: plant-2" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST http://127.0.0.1:19876/api/v1/classify \
+  -d '{"text":"Conveyor belt misalignment"}'
+
+# Shared holarchy (global knowledge graph)
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:19876/api/v1/holarchy/snapshot"
+```
+
+### Spanner Graph — Durable Cross-Device Memory
+
+```bash
+# Set up service account credentials
+export SPANNER_PROJECT=my-project
+export SPANNER_INSTANCE=physis
+export SPANNER_DATABASE=core
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json
+
+# Sync tenant graph to Spanner (upsert + mirror orphans)
+cargo run --bin physis-pro --features spanner -- spanner sync --mirror
+
+# Hydrate from Spanner (pull + re-embed under live embedder)
+cargo run --bin physis-pro --features spanner -- spanner hydrate
+```
+
+### Docker Production Deploy
+
+```bash
+# Build (downloads models at build time via MODEL_BASE_URL)
+docker build --build-arg MODEL_BASE_URL=https://my-s3-bucket/models -t physis-pro .
+
+# Run (auto-downloads models from MODEL_BASE_URL if not baked)
+docker run -d \
+  -p 19876:19876 \
+  -e PHYSIS_API_TOKEN=your-secure-token \
+  -e PHYSIS_HOST=0.0.0.0 \
+  -e PHYSIS_SCAN_ROOT=/data \
+  -v /host/data:/data \
+  physis-pro
+
+# With Lean 4 (for apodeixis machine proofs)
+docker build --build-arg WITH_LEAN=1 --build-arg MODEL_BASE_URL=... -t physis-pro:lean .
+```
+
+---
+
 ## See also
 
 - `AGENTS.md` — multi-tenancy contract + agent integration notes
