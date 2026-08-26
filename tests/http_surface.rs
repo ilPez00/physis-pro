@@ -2001,6 +2001,110 @@ async fn ask_answers_over_the_graph_and_degrades_without_a_provider() {
     }
 }
 
+/// Phase 10 D4+D5: importers record causal events and /api/v1/files/query
+/// composes the space·time·cause facets over them, isolated per tenant.
+#[tokio::test]
+async fn cause_ledger_records_imports_and_answers_facet_queries() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let vault = dir.path().join(".physis").join("vault");
+    std::fs::create_dir_all(&vault).expect("mkdir");
+    std::fs::write(vault.join("note.md"), "# Plant Log\n\npress ran fine").expect("note");
+    let exports = dir.path().join(".physis").join("exports");
+    std::fs::create_dir_all(&exports).expect("mkdir");
+    std::fs::write(
+        exports.join("praxis.json"),
+        r#"{"notebook":[{"content":"cleaned the line","mood":8}]}"#,
+    )
+    .expect("export");
+
+    let (router, _env) = app_on(dir.path()).await;
+    let vault_str = vault.display().to_string();
+
+    // Import both streams.
+    let (_, v) = send(
+        &router,
+        post(
+            "/api/v1/vault/import",
+            "alice",
+            json!({"dir": vault_str, "git": 0}),
+        ),
+    )
+    .await;
+    assert!(v["registered"].as_u64().unwrap_or(0) >= 1, "{v}");
+    let (_, p) = send(
+        &router,
+        post(
+            "/api/v1/praxis/backfill",
+            "alice",
+            json!({"path": exports.join("praxis.json").display().to_string()}),
+        ),
+    )
+    .await;
+    assert!(p["registered"].as_u64().unwrap_or(0) >= 1, "{p}");
+
+    // Unfiltered query: both causal events visible to their tenant.
+    let (_, all) = send(&router, post("/api/v1/files/query", "alice", json!({}))).await;
+    let matches = all["matches"].as_array().cloned().unwrap_or_default();
+    assert!(
+        matches
+            .iter()
+            .any(|m| m["mechanism"] == "received" && m["actor"] == "vault-import"),
+        "vault import recorded as received: {all}"
+    );
+    assert!(
+        matches
+            .iter()
+            .any(|m| m["mechanism"] == "derived" && m["actor"] == "praxis-backfill"),
+        "praxis backfill recorded as derived: {all}"
+    );
+
+    // Cause facet composes: only the received stream survives.
+    let (_, recv) = send(
+        &router,
+        post("/api/v1/files/query", "alice", json!({"cause": "received"})),
+    )
+    .await;
+    let rm = recv["matches"].as_array().unwrap();
+    assert!(
+        !rm.is_empty() && rm.iter().all(|m| m["mechanism"] == "received"),
+        "{recv}"
+    );
+
+    // Time facet: current month bucket catches everything; a past bucket nothing.
+    let now_period = chrono::Utc::now().format("%Y-%m").to_string();
+    let (_, during) = send(
+        &router,
+        post(
+            "/api/v1/files/query",
+            "alice",
+            json!({"during": now_period}),
+        ),
+    )
+    .await;
+    assert!(during["total"].as_u64().unwrap_or(0) >= 2, "{during}");
+    let (_, empty_past) = send(
+        &router,
+        post("/api/v1/files/query", "alice", json!({"during": "1999-01"})),
+    )
+    .await;
+    assert_eq!(empty_past["total"], 0, "{empty_past}");
+
+    // Space facet: place prefix filters.
+    let (_, spaced) = send(
+        &router,
+        post("/api/v1/files/query", "alice", json!({"place": vault_str})),
+    )
+    .await;
+    assert_eq!(
+        spaced["total"], 1,
+        "only the vault event sits under its root: {spaced}"
+    );
+
+    // Tenant isolation: bob sees none of alice's causes.
+    let (_, bobs) = send(&router, post("/api/v1/files/query", "bob", json!({}))).await;
+    assert_eq!(bobs["total"], 0, "{bobs}");
+}
+
 #[tokio::test]
 async fn coherence_delete_removes_node_and_index() {
     let (router, _dir, _env) = app().await;
@@ -2861,7 +2965,7 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
     // shell, and that the shell still lists exactly the routes that exist.
     let (router, _dir, _env) = app().await;
 
-    for page in ["/ui", "/demo", "/study", "/agent"] {
+    for page in ["/ui", "/demo", "/study", "/agent", "/pulse", "/console"] {
         let (status, body) = send_text(&router, get(page, "_default")).await;
         assert_eq!(status, StatusCode::OK, "{page} must be served");
         assert!(
@@ -2884,7 +2988,7 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
 
     // A switcher entry pointing at a route that does not exist is a 404 the
     // user finds by clicking, so every listed href must actually serve.
-    for href in ["/ui", "/agent", "/study", "/demo"] {
+    for href in ["/ui", "/agent", "/study", "/demo", "/pulse", "/console"] {
         assert!(
             shell.contains(&format!("href: '{href}'")),
             "the switcher must list {href}",
@@ -2894,6 +2998,50 @@ async fn every_dashboard_carries_the_shared_product_switcher() {
             status,
             StatusCode::OK,
             "switcher links to {href}, which must serve"
+        );
+    }
+}
+
+#[tokio::test]
+async fn the_shared_stylesheet_carries_the_accessibility_floors() {
+    // These three regressed independently once already, each because a rule
+    // that belonged to the shared system was left to the pages to remember.
+    let (router, _dir, _env) = app().await;
+
+    let (status, css) = send_text(&router, get("/physis.css", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // ui-shell.js emits <span class="err"> from apiError() on every page. Four
+    // pages kept a private copy of the bare rule and two never did, so an API
+    // error on Pulse or Agent rendered in the muted body colour at 3.76:1 —
+    // the least visible text on the screen was the failure.
+    assert!(
+        css.contains(".err {"),
+        "physis.css must define the bare .err rule that ui-shell.js relies on",
+    );
+
+    // WCAG 2.2 SC 2.5.8 (AA) — the web minimum is 24 CSS px, not the 44pt
+    // native figure. The nav pills measured 22px and shared controls 23.2px.
+    assert!(
+        css.matches("min-height:24px").count() >= 2,
+        "the control floor and the nav floor must both survive",
+    );
+
+    // Raw hex for muted text is how the contrast failures got in: #5c6f92 on
+    // three pages and #5a6a8a on Console, both under 4.5:1, both invisible to
+    // review because they never touched the token table.
+    for page in ["/ui", "/demo", "/study", "/agent", "/pulse", "/console"] {
+        let (_, body) = send_text(&router, get(page, "_default")).await;
+        for banned in ["#5c6f92", "#5a6a8a"] {
+            assert!(
+                !body.contains(banned),
+                "{page} reintroduced {banned}, which fails AA for body text — \
+                 use var(--brume)",
+            );
+        }
+        assert!(
+            body.contains("/physis.css"),
+            "{page} must load the shared stylesheet to inherit these floors",
         );
     }
 }

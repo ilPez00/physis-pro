@@ -283,7 +283,7 @@
   }
   .nav-sep{height:1px;background:var(--line);margin:8px 8px 4px;opacity:.6}
   .nav-group{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;padding:8px 10px 2px;opacity:.7}
-  .nav-why{display:block;font-size:10px;color:#5a6a8a;font-weight:400;letter-spacing:0;margin-top:2px;text-transform:none}
+  .nav-why{display:block;font-size:10px;color:var(--brume);font-weight:400;letter-spacing:0;margin-top:2px;text-transform:none}
   nav button{line-height:1.25}
   .coach{
     display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -566,6 +566,11 @@
         <button id="tlDemo">Load demo events</button>
         <button id="tlRun">Render timeline</button>
       </div>
+    </div>
+    <div class="card">
+      <h3>Cause ledger <span class="tip" data-tip="Why artifacts exist: what produced them (scan/watch/import), when, and from what — the space·time·cause record of your files">why things exist</span> <button class="ghost" id="tlCauseRefresh" style="padding:2px 10px;font-size:11px">refresh</button></h3>
+      <div id="causeRollups" style="display:flex;gap:18px;flex-wrap:wrap"></div>
+      <div id="causeEvents" style="display:flex;flex-direction:column;gap:4px;margin-top:10px;max-height:260px;overflow:auto"></div>
     </div>
     <div class="split">
       <section class="surface">
@@ -1411,7 +1416,7 @@ function activateTab(name){
   if(name==='interest') loadInterest();
   if(name==='planner') loadPlannerVersions();
   if(name==='overview') loadOverview();
-  if(name==='timeline') loadTimelineDemo();
+  if(name==='timeline') { loadTimelineDemo(); loadCauseLedger(false); }
   if(name==='grid') loadHeat();
   if(name==='quality') loadQuality();
   if(name==='oee') loadOee();
@@ -1645,6 +1650,42 @@ async function loadOverview(){
     setS(String(e),1);
   }
 }
+
+// ── cause ledger (Phase 10 D5) ──
+// Reads the tenant's causal ledger through /api/v1/files/query. Fetch-once;
+// the refresh button forces a re-read.
+let causeLoaded=false;
+const CAUSE_COLOR={generated:'var(--cyan)',received:'var(--violet)',derived:'var(--lime)',corrected:'var(--amber)',cited:'var(--brume)',serves:'var(--rose)'};
+async function loadCauseLedger(force){
+  if(causeLoaded && !force) return;
+  try{
+    const q=await postJSON('/api/v1/files/query',{});
+    const roll=(title,map)=>{
+      const rows=Object.entries(map||{}).sort((a,b)=>b[1]-a[1]).slice(0,4);
+      return '<div><div class="nav-why" style="margin-bottom:2px">'+esc(title)+'</div>'+
+        rows.map(([k,n])=>'<span class="pill" style="margin:1px 3px 1px 0;color:var(--ink)">'+esc(k.length>28?k.slice(0,27)+'…':k)+' · '+n+'</span>').join('')+
+        (rows.length?'':'<span class="muted sm">none</span>')+'</div>';
+    };
+    $('causeRollups').innerHTML=
+      roll('by mechanism',q.by_mechanism)+
+      roll('by period',q.by_period)+
+      roll('by place',q.by_place);
+    $('causeEvents').innerHTML=(q.matches||[]).slice(0,40).map(ev=>{
+      const c=CAUSE_COLOR[ev.mechanism]||'var(--brume)';
+      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:4px 2px">'+
+        '<span class="ask-score" style="color:'+c+'">'+esc(ev.mechanism)+'</span>'+
+        '<span class="muted sm">'+esc((ev.at||'').replace('T',' ').slice(0,16))+'</span>'+
+        '<b class="sm">'+esc((ev.object||'').split('/').pop()||ev.object)+'</b>'+
+        '<span class="muted sm">'+esc(ev.actor)+'</span>'+
+        (ev.input?'<span class="muted sm">← '+esc(ev.input.split('/').pop())+'</span>':'')+
+      '</div>';
+    }).join('')||'<div class="empty">No causes recorded yet — run a scan or import something.</div>';
+    causeLoaded=true;
+  }catch(e){
+    $('causeEvents').innerHTML='<div class="empty">Cause ledger unavailable: '+esc(String(e.message||e))+'</div>';
+  }
+}
+$('tlCauseRefresh').onclick=()=>loadCauseLedger(true);
 
 async function loadTimelineDemo(){
   if(!$('token').value.trim()){

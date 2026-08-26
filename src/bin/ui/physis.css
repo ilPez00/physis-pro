@@ -122,6 +122,11 @@ input, select, textarea, button {
   border:1px solid var(--shelf);
   border-radius:var(--r-m);
   padding:7px 11px;
+  /* Floor every control at the WCAG 2.2 SC 2.5.8 (AA) web minimum. Set on the
+     shared rule rather than per page: pages that tighten line-height landed at
+     23.2px from this padding alone, and a floor here fixes those and any page
+     written later. Controls already taller keep their size. */
+  min-height:24px;
   font-size:13px;
   font-family:inherit;
   transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
@@ -286,6 +291,21 @@ a:hover { text-decoration:underline; text-underline-offset:3px; }
 .small { font-size:12px; }
 .glow  { text-shadow:0 0 14px rgba(95,242,214,.45); }
 
+/* Inline failure text. `apiError()` in ui-shell.js emits <span class="err">
+   on every page, so the class has to live in the shared stylesheet — only the
+   compound `.chip.err` / `.toast.err` did, and four pages each kept a private
+   copy of the bare rule. Pulse and Agent never got one, so an API error there
+   inherited the muted body colour and rendered at 3.76:1: the least visible
+   text on the screen was the thing that had gone wrong.
+   Only `.err` is defined here. `.ok` has no bare usage, and a bare `.warn`
+   would tint `class="meter warn"`, which wants only its bar recoloured. */
+.err { color:var(--rose); }
+
+/* Empty-state notes are content, not chrome, so they carry the readable
+   secondary tone. The pages had hardcoded #5c6f92, which measures 3.76:1
+   against the panel and fails AA for body text. */
+.empty, .emptynote { color:var(--brume); }
+
 /* ════════════════════════════════════════════════════════════════════════
    #physis shell — chrome shared by every dashboard page.
    Mounted by ui-shell.js: #productNav (the app switcher) and #askBar (the
@@ -306,14 +326,34 @@ a:hover { text-decoration:underline; text-underline-offset:3px; }
    specificity outranks the element selector, so restate the geometry here
    and kill any pseudo-content outright. */
 #productNav::after, #productNav::before { content:none; margin:0; }
+/* 24px is the WCAG 2.2 SC 2.5.8 (AA) web minimum, not the 44pt native figure —
+   the pills measured 22px tall with 2px between them, which fails the minimum
+   and is too tight to claim the spacing exception instead. 24px is also the
+   largest value that leaves this dense header untouched: the box grows by two
+   pixels and no type, padding or rhythm changes. */
 #productNav a {
   font-family:var(--mono);
   font-size:10px; line-height:1;
   letter-spacing:.1em; text-transform:uppercase;
   text-decoration:none;
   color:var(--brume);
+  display:flex; align-items:center;
+  min-height:24px;
   padding:6px 11px; border-radius:999px; white-space:nowrap;
   transition:color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+/* Coarse pointers get the platform-appropriate target instead. Kept behind the
+   media query so a mouse-driven control room keeps its density. */
+@media (pointer: coarse) {
+  #productNav { gap:6px; }
+  #productNav a { min-height:44px; padding-left:14px; padding-right:14px; }
+}
+/* Links keep the UA ring by default, which reads inconsistently against this
+   palette; match the ring the buttons and inputs already use. */
+#productNav a:focus-visible,
+header nav[aria-label="Sections"] a:focus-visible {
+  outline:none; color:var(--ink);
+  box-shadow:var(--glow-cyan);
 }
 #productNav a:hover {
   color:var(--ink); text-decoration:none;
@@ -328,6 +368,7 @@ a:hover { text-decoration:underline; text-underline-offset:3px; }
 }
 #productNav a.home {
   font-size:12px; line-height:1; padding:5px 9px;
+  min-height:24px; min-width:24px; justify-content:center;
   background:linear-gradient(135deg,var(--cyan),var(--violet));
   -webkit-background-clip:text; background-clip:text; color:transparent;
   filter:drop-shadow(0 0 6px rgba(95,242,214,.35));

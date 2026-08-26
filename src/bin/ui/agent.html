@@ -41,7 +41,11 @@
   button { background: var(--accent); color: #1a1206; border: 0; border-radius: 8px;
            padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
   button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  button.danger { background: var(--danger); color: #fff; }
+  /* Dark label, not white: rose is mid-luminance, so #fff sits at 2.68:1 and
+     #04070f at 7.06:1. The solid fill stays — it is what marks the control as
+     destructive — only the text flips. (`.k-done` gets away with a solid fill
+     and dark text for the same reason: cyan is light enough to carry it.) */
+  button.danger { background: var(--danger); color: #04070f; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .meta { color: var(--muted); font-size: 12px; }
   #trace { max-height: 62vh; overflow: auto; }
@@ -55,7 +59,12 @@
   .k-opencode { background: rgba(255,109,143,.12); color: var(--danger); }
   .k-final { background: rgba(157,140,255,.2); color: var(--accent); font-weight: 700; }
   .k-done { background: var(--accent2); color: #04070f; }
-  .k-error { background: var(--danger); color: #fff; }
+  /* White on rose measured 2.68:1 — the badge marking a failed run was the
+     least legible label in the trace. Takes the tinted treatment its five
+     neighbours already use (~6.9:1), weighted heavier and ringed so it still
+     reads as louder than `.k-opencode`, which shares the rose hue. */
+  .k-error { background: rgba(255,109,143,.22); color: var(--danger); font-weight: 700;
+             box-shadow: inset 0 0 0 1px rgba(255,109,143,.55); }
   .rnd { color: var(--muted); font-size: 11px; }
 
   /* Harness verdict. Rendered as a card, not an event line: the payload is
