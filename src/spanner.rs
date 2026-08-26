@@ -526,6 +526,86 @@ pub async fn sync(core: &PhysisCore, sink: &SpannerSink) -> anyhow::Result<(usiz
     Ok((n, e))
 }
 
+// ── causal-ledger mirror (Phase 10b) ────────────────────────────────────────
+//
+// Why-made history joins the durable wiki under the SAME schema (no
+// migration): an artifact becomes a node keyed `cause:{path}` with its label,
+// a cause event `input --mechanism--> object` becomes a directed edge, and a
+// `serves` event becomes artifact→goal. Ids are namespaced `cause:` so the
+// coherence sync's orphan sweep never mistakes ledger rows for vanished
+// coherence nodes — the two mirrors share tables but not lifecycles.
+
+/// Id namespace for ledger-mirrored rows.
+pub const CAUSE_NS: &str = "cause:";
+
+fn cause_id(path: &str) -> String {
+    format!("{CAUSE_NS}{path}")
+}
+
+/// One node per distinct artifact in the ledger (objects + inputs + served
+/// goals). The label IS the path — Spanner readers see why-chains without the
+/// local store.
+pub fn export_ledger_nodes(ledger: &crate::ledger::CausalLedger) -> Vec<NodeRow> {
+    let mut ids: Vec<String> = Vec::new();
+    for ev in ledger.events() {
+        let mut endpoints: Vec<&str> = vec![&ev.object];
+        if let Some(i) = &ev.input {
+            endpoints.push(i);
+        }
+        for endpoint in endpoints {
+            if !ids.contains(&endpoint.to_string()) {
+                ids.push(endpoint.to_string());
+            }
+        }
+    }
+    ids.sort();
+    ids.into_iter()
+        .map(|p| NodeRow {
+            id: cause_id(&p),
+            label: Some(p),
+            coherence: 1.0,
+            dim: 0,
+            embedder: None,
+        })
+        .collect()
+}
+
+/// One directed edge per event that links two endpoints. Derivations read
+/// `input → object` (what produced what); serves events invert —
+/// `object → goal` — so the durable graph reads "this artifact serves that
+/// purpose". Events without an endpoint pair are attributes of their object
+/// node, not edges.
+pub fn export_ledger_edges(ledger: &crate::ledger::CausalLedger) -> Vec<EdgeRow> {
+    ledger
+        .events()
+        .iter()
+        .filter_map(|ev| {
+            let input = ev.input.as_ref()?;
+            let (source, target) = if ev.mechanism == crate::address::Mechanism::Serves {
+                (ev.object.as_str(), input.as_str())
+            } else {
+                (input.as_str(), ev.object.as_str())
+            };
+            Some(EdgeRow {
+                source: cause_id(source),
+                target: cause_id(target),
+                weight: 1.0,
+            })
+        })
+        .collect()
+}
+
+/// Upsert the ledger mirror (nodes then edges). Append-only ledger means
+/// there is nothing to orphan-sweep: rows are only ever added.
+pub async fn sync_ledger(
+    sink: &SpannerSink,
+    ledger: &crate::ledger::CausalLedger,
+) -> anyhow::Result<(usize, usize)> {
+    let n = sink.upsert_nodes(&export_ledger_nodes(ledger)).await?;
+    let e = sink.upsert_edges(&export_ledger_edges(ledger)).await?;
+    Ok((n, e))
+}
+
 /// Counts from a full (mirroring) sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SyncStats {
@@ -536,16 +616,19 @@ pub struct SyncStats {
 }
 
 /// Remote node ids that no longer exist locally — the delete targets.
+/// Ledger-mirrored rows (`cause:` namespace) belong to the separate ledger
+/// lifecycle and are never coherence orphans.
 pub fn orphan_node_ids(remote: &[NodeRow], local: &[NodeRow]) -> Vec<String> {
     let live: std::collections::HashSet<&str> = local.iter().map(|r| r.id.as_str()).collect();
     remote
         .iter()
-        .filter(|r| !live.contains(r.id.as_str()))
+        .filter(|r| !live.contains(r.id.as_str()) && !r.id.starts_with(CAUSE_NS))
         .map(|r| r.id.clone())
         .collect()
 }
 
 /// Remote edge keys that no longer exist locally — the delete targets.
+/// Edges touching the `cause:` namespace are ledger-managed, not coherence.
 pub fn orphan_edge_keys(remote: &[EdgeRow], local: &[EdgeRow]) -> Vec<(String, String)> {
     let live: std::collections::HashSet<(&str, &str)> = local
         .iter()
@@ -553,7 +636,11 @@ pub fn orphan_edge_keys(remote: &[EdgeRow], local: &[EdgeRow]) -> Vec<(String, S
         .collect();
     remote
         .iter()
-        .filter(|e| !live.contains(&(e.source.as_str(), e.target.as_str())))
+        .filter(|e| {
+            !live.contains(&(e.source.as_str(), e.target.as_str()))
+                && !e.source.starts_with(CAUSE_NS)
+                && !e.target.starts_with(CAUSE_NS)
+        })
         .map(|e| (e.source.clone(), e.target.clone()))
         .collect()
 }
@@ -625,6 +712,95 @@ pub async fn migrate(
 mod tests {
     use super::*;
     use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
+
+    fn ledger_with_chain() -> crate::ledger::CausalLedger {
+        use crate::address::Mechanism;
+        let mut l = crate::ledger::CausalLedger::new();
+        l.record(Mechanism::Received, "vault", "note.md", None);
+        l.record(
+            Mechanism::Derived,
+            "pack",
+            "weekly-pack.md",
+            Some("note.md".into()),
+        );
+        l.record(
+            Mechanism::Serves,
+            "planner",
+            "note.md",
+            Some("goal-1".into()),
+        );
+        l
+    }
+
+    #[test]
+    fn ledger_export_namespaces_artifacts_and_links_events() {
+        let l = ledger_with_chain();
+        let nodes = export_ledger_nodes(&l);
+        let ids: Vec<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
+        // Distinct artifacts only: note.md, weekly-pack.md, goal-1.
+        assert_eq!(ids.len(), 3, "{nodes:?}");
+        assert!(ids.iter().all(|i| i.starts_with(CAUSE_NS)), "{ids:?}");
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.label.as_deref() == Some("weekly-pack.md")),
+            "the path is the label: {nodes:?}"
+        );
+        let edges = export_ledger_edges(&l);
+        assert_eq!(
+            edges.len(),
+            2,
+            "derived + serves carry edges; bare received does not: {edges:?}"
+        );
+        assert!(
+            edges
+                .iter()
+                .any(|e| e.source == format!("{CAUSE_NS}note.md")
+                    && e.target == format!("{CAUSE_NS}weekly-pack.md")),
+            "{edges:?}"
+        );
+        assert!(
+            edges
+                .iter()
+                .any(|e| e.target == format!("{CAUSE_NS}goal-1")),
+            "serves links artifact → goal: {edges:?}"
+        );
+    }
+
+    #[test]
+    fn coherence_orphan_sweep_never_touches_cause_rows() {
+        let remote = vec![
+            NodeRow {
+                id: "gone-coherence-node".into(),
+                label: None,
+                coherence: 0.5,
+                dim: 4,
+                embedder: None,
+            },
+            NodeRow {
+                id: format!("{CAUSE_NS}note.md"),
+                label: None,
+                coherence: 1.0,
+                dim: 0,
+                embedder: None,
+            },
+        ];
+        let local: Vec<NodeRow> = vec![];
+        assert_eq!(
+            orphan_node_ids(&remote, &local),
+            vec!["gone-coherence-node".to_string()],
+            "cause rows survive a coherence-only mirror sync"
+        );
+        let remote_edges = vec![EdgeRow {
+            source: format!("{CAUSE_NS}note.md"),
+            target: format!("{CAUSE_NS}goal-1"),
+            weight: 1.0,
+        }];
+        assert!(
+            orphan_edge_keys(&remote_edges, &[]).is_empty(),
+            "cause edges survive a coherence-only mirror sync"
+        );
+    }
 
     fn row(id: &str, label: Option<&str>, embedder: Option<&str>) -> NodeRow {
         NodeRow {

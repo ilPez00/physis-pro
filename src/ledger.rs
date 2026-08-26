@@ -64,11 +64,25 @@ impl CausalLedger {
         object: impl Into<String>,
         input: Option<String>,
     ) -> &CauseEvent {
+        self.record_at(mechanism, actor, object, input, Utc::now())
+    }
+
+    /// Record with an explicit event time — for artifacts whose native clock
+    /// is more truthful than the import moment (a message's Date header, a
+    /// commit's author date). Seq stays monotonic; `at` may point backwards.
+    pub fn record_at(
+        &mut self,
+        mechanism: Mechanism,
+        actor: &str,
+        object: impl Into<String>,
+        input: Option<String>,
+        at: DateTime<Utc>,
+    ) -> &CauseEvent {
         let seq = self.next_seq;
         self.next_seq += 1;
         self.events.push(CauseEvent {
             seq,
-            at: Utc::now(),
+            at,
             mechanism,
             actor: actor.to_string(),
             object: object.into(),
@@ -237,6 +251,30 @@ mod tests {
         assert_eq!(l.events[0].seq, 0);
         assert_eq!(l.events[1].seq, 1);
         assert_eq!(l.events[1].at.timestamp(), l.events[1].at.timestamp());
+    }
+
+    #[test]
+    fn record_at_keeps_seq_monotonic_while_time_points_backwards() {
+        let mut l = CausalLedger::new();
+        l.record(Mechanism::Generated, "watch", "today.md", None);
+        // A month-old letter imported today was received a month ago.
+        let old = ts(1_700_000_000);
+        l.record_at(Mechanism::Received, "mailbox", "old.eml", None, old);
+        assert_eq!(l.events[1].seq, 1, "seq stays monotonic");
+        assert_eq!(l.events[1].at, old, "at carries the artifact's own clock");
+        // Projections preserve recording order; chronological ordering happens
+        // where the timeline is assembled (OperationalTimeline::from_events).
+        let evs = l.to_op_events();
+        assert_eq!(evs.len(), 2);
+        let tl = crate::operational_report::OperationalTimeline::from_events(&evs);
+        let times: Vec<i64> = tl
+            .entries
+            .iter()
+            .map(|e| e.observed_at.timestamp())
+            .collect();
+        let mut sorted = times.clone();
+        sorted.sort_unstable();
+        assert_eq!(times, sorted, "timeline assembly respects native clocks");
     }
 
     #[test]
