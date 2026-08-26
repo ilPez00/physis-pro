@@ -64,7 +64,7 @@ pub async fn search_nodes_handler(
     Json(req): Json<SearchNodesRequest>,
 ) -> Json<SearchNodesResponse> {
     let uid = user_key(&headers);
-    let (budget, total_tokens, truncated, results) =
+    let (budget, total_tokens, truncated, results, failures) =
         retrieve_nodes(&state, &uid, req.query.clone(), req.token_budget, req.top_k).await;
     Json(SearchNodesResponse {
         query: req.query,
@@ -72,6 +72,7 @@ pub async fn search_nodes_handler(
         total_tokens,
         truncated,
         results,
+        failures,
     })
 }
 
@@ -85,14 +86,16 @@ pub(crate) async fn retrieve_nodes(
     query: String,
     token_budget: usize,
     top_k: usize,
-) -> (usize, usize, bool, Vec<SearchNodeHit>) {
+) -> (usize, usize, bool, Vec<SearchNodeHit>, Vec<RecalledFailure>) {
     let shared = state.shared.clone();
     let q_emb = embed_text(shared, query.clone()).await;
 
-    // Collect (kind, id, label, embedding) from the tenant's store. Unlabeled
-    // goals (pure vectors) are skipped — nothing browsable to return.
-    let candidates: Vec<(String, String, String, Vec<f32>)> = state.with_user(uid, |s| {
-        let mut out: Vec<(String, String, String, Vec<f32>)> = Vec::new();
+    // Collect (kind, id, label, embedding, verdict) from the tenant's store.
+    // The asserted verdict rides along so recall becomes outcome memory: a top
+    // hit can say "you already tried this and it failed." Unlabeled goals
+    // (pure vectors) are skipped — nothing browsable to return.
+    let candidates: Vec<(String, String, String, Vec<f32>, Option<f32>)> = state.with_user(uid, |s| {
+        let mut out: Vec<(String, String, String, Vec<f32>, Option<f32>)> = Vec::new();
         for n in s.core.nodes.values() {
             if let Some(label) = n.label.as_deref() {
                 if !label.trim().is_empty() {
@@ -101,6 +104,7 @@ pub(crate) async fn retrieve_nodes(
                         n.id.clone(),
                         label.to_string(),
                         n.embedding.clone(),
+                        n.asserted,
                     ));
                 }
             }
@@ -110,7 +114,13 @@ pub(crate) async fn retrieve_nodes(
                 Some(l) if !l.trim().is_empty() => l.clone(),
                 _ => continue,
             };
-            out.push(("goal".to_string(), g.id.clone(), label, g.embedding.clone()));
+            out.push((
+                "goal".to_string(),
+                g.id.clone(),
+                label,
+                g.embedding.clone(),
+                None,
+            ));
         }
         out
     });
@@ -121,7 +131,7 @@ pub(crate) async fn retrieve_nodes(
         chunks: candidates
             .iter()
             .enumerate()
-            .map(|(i, (_, _, label, emb))| rag::RagChunk {
+            .map(|(i, (_, _, label, emb, _))| rag::RagChunk {
                 id: i,
                 text: label.clone(),
                 tokens: rag::count_tokens(label),
@@ -136,18 +146,30 @@ pub(crate) async fn retrieve_nodes(
         .chunks
         .iter()
         .filter_map(|c| {
-            let (kind, id, label, _) = candidates.get(c.id)?;
+            let (kind, id, label, _, verdict) = candidates.get(c.id)?;
             Some(SearchNodeHit {
                 kind: kind.clone(),
                 id: id.clone(),
                 label: label.clone(),
                 score: c.score,
                 tokens: c.tokens,
+                verdict: *verdict,
             })
         })
         .collect();
 
-    (result.budget, result.total_tokens, result.truncated, hits)
+    // Recorded failures among the recalled set — the "already failed here" flag.
+    let failures: Vec<RecalledFailure> = hits
+        .iter()
+        .filter(|h| h.verdict == Some(-1.0))
+        .map(|h| RecalledFailure {
+            id: h.id.clone(),
+            label: h.label.clone(),
+            score: h.score,
+        })
+        .collect();
+
+    (result.budget, result.total_tokens, result.truncated, hits, failures)
 }
 
 /// POST /api/v1/ask — plain-English question over the graph (PLAN 3.2).
@@ -163,7 +185,7 @@ pub async fn ask_handler(
     Json(req): Json<AskRequest>,
 ) -> Json<serde_json::Value> {
     let uid = user_key(&headers);
-    let (budget, total_tokens, truncated, hits) = retrieve_nodes(
+    let (budget, total_tokens, truncated, hits, failures) = retrieve_nodes(
         &state,
         &uid,
         req.question.clone(),
@@ -183,10 +205,17 @@ pub async fn ask_handler(
 
     if note.is_none() {
         let cascade = state.shared.cascade.clone();
+        // Surface any recorded failures to the synthesizer so it can warn the
+        // user away from an approach the graph already marks as failed.
+        let warn_failures = !failures.is_empty();
         let messages = vec![
             crate::ai::provider::Message {
                 role: "system".into(),
-                content: crate::ai::provider::Content::Text(ask_prompt(&req.question, &hits)),
+                content: crate::ai::provider::Content::Text(ask_prompt(
+                    &req.question,
+                    &hits,
+                    warn_failures,
+                )),
                 tool_calls: None,
                 tool_call_id: None,
                 name: None,
@@ -228,6 +257,7 @@ pub async fn ask_handler(
         "total_tokens": total_tokens,
         "truncated": truncated,
         "results": hits,
+        "failures": failures,
     }))
 }
 
@@ -236,19 +266,35 @@ pub async fn ask_handler(
 const ASK_MAX_TOKENS: u32 = 300;
 
 /// Build the grounding system prompt for [`ask_handler`]. Pure so the citation
-/// contract is unit-testable without a live provider.
-fn ask_prompt(question: &str, hits: &[SearchNodeHit]) -> String {
+/// contract is unit-testable without a live provider. When `warn_failures` is
+/// set, the prompt instructs the synthesizer to flag any entry the graph marks
+/// as a recorded failure (−1.0) so the agent doesn't recommend a known-bad path.
+fn ask_prompt(question: &str, hits: &[SearchNodeHit], warn_failures: bool) -> String {
     let mut p = String::from(
         "Answer the question using ONLY the numbered graph entries below. \
          Cite entries as [n] where n is the entry number. If the entries do \
          not contain the answer, say exactly: \
          \"The graph does not cover that yet.\"\n\n",
     );
+    if warn_failures {
+        p.push_str(
+            "WARNING: some entries below are flagged as RECORDED FAILURES \
+             (the graph already shows they did not work). Do not recommend a \
+             failed entry as a solution unless you explicitly warn that it has \
+             failed before. Mark failed entries as [n]* in your answer.\n\n",
+        );
+    }
     p.push_str("QUESTION: ");
     p.push_str(question);
     p.push_str("\n\nGRAPH ENTRIES:\n");
     for (i, h) in hits.iter().enumerate() {
-        p.push_str(&format!("[{}] ({}) {}\n", i + 1, h.kind, h.label));
+        let verdict = match h.verdict {
+            Some(v) if v <= -0.5 => " [FAILED]",
+            Some(v) if v >= 0.5 => " [WORKED]",
+            Some(_) => " [INERT]",
+            None => "",
+        };
+        p.push_str(&format!("[{}] ({}) {}{}\n", i + 1, h.kind, h.label, verdict));
     }
     p
 }
@@ -266,6 +312,7 @@ mod tests {
                 label: "hydraulic press tonnage drift".into(),
                 score: 0.9,
                 tokens: 4,
+                verdict: None,
             },
             SearchNodeHit {
                 kind: "goal".into(),
@@ -273,9 +320,11 @@ mod tests {
                 label: "cut scrap rate".into(),
                 score: 0.7,
                 tokens: 3,
+                verdict: None,
             },
         ];
-        let p = ask_prompt("what do I have on presses?", &hits);
+        // warn_failures = false keeps the legacy (no-verdict) prompt shape.
+        let p = ask_prompt("what do I have on presses?", &hits, false);
         assert!(
             p.contains("[1] (node) hydraulic press tonnage drift"),
             "{p}"
@@ -286,8 +335,35 @@ mod tests {
     }
 
     #[test]
+    fn prompt_flags_recorded_failures_when_warned() {
+        let hits = vec![
+            SearchNodeHit {
+                kind: "node".into(),
+                id: "n1".into(),
+                label: "switch to OOM-prone batch size".into(),
+                score: 0.95,
+                tokens: 5,
+                verdict: Some(-1.0),
+            },
+            SearchNodeHit {
+                kind: "node".into(),
+                id: "n2".into(),
+                label: "stream the corpus in chunks".into(),
+                score: 0.6,
+                tokens: 4,
+                verdict: Some(1.0),
+            },
+        ];
+        let p = ask_prompt("how should I embed the corpus?", &hits, true);
+        // Failure warning emitted, and the failed entry is tagged [FAILED].
+        assert!(p.contains("RECORDED FAILURES"), "{p}");
+        assert!(p.contains("[1] (node) switch to OOM-prone batch size [FAILED]"), "{p}");
+        assert!(p.contains("[2] (node) stream the corpus in chunks [WORKED]"), "{p}");
+    }
+
+    #[test]
     fn empty_hits_still_yield_a_well_formed_prompt() {
-        let p = ask_prompt("anything?", &[]);
+        let p = ask_prompt("anything?", &[], false);
         assert!(p.contains("GRAPH ENTRIES:"));
         assert!(!p.contains("[1]"));
     }

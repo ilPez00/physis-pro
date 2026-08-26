@@ -816,26 +816,30 @@ mod mcp_impl {
                     let q_emb = ctx.embedder.embed(&query);
                     // Same corpus contract as the web /api/v1/search/nodes:
                     // labeled coherence nodes + goals, ranked cosine, packed.
-                    let candidates: Vec<(String, String, Vec<f32>)> = ctx
+                    // Verdict (−1/0/+1 asserted outcome) rides along so recall
+                    // is outcome memory: a top hit can say "you already tried
+                    // this and it failed."
+                    let candidates: Vec<(String, String, Vec<f32>, Option<f32>)> = ctx
                         .core
                         .nodes
                         .values()
                         .filter_map(|n| {
                             let label = n.label.as_deref()?;
-                            (!label.trim().is_empty())
-                                .then(|| (label.to_string(), n.id.clone(), n.embedding.clone()))
+                            (!label.trim().is_empty()).then(|| {
+                                (label.to_string(), n.id.clone(), n.embedding.clone(), n.asserted)
+                            })
                         })
                         .chain(ctx.goals.iter().filter_map(|g| {
                             g.label
                                 .as_ref()
-                                .map(|l| (l.clone(), g.id.clone(), g.embedding.clone()))
+                                .map(|l| (l.clone(), g.id.clone(), g.embedding.clone(), None))
                         }))
                         .collect();
                     let corpus = crate::rag::RagCorpus {
                         chunks: candidates
                             .iter()
                             .enumerate()
-                            .map(|(i, (text, _, emb))| crate::rag::RagChunk {
+                            .map(|(i, (text, _, emb, _))| crate::rag::RagChunk {
                                 id: i,
                                 text: text.clone(),
                                 tokens: crate::rag::count_tokens(text),
@@ -849,19 +853,28 @@ mod mcp_impl {
                         .chunks
                         .iter()
                         .filter_map(|c| {
-                            let (label, id, _) = candidates.get(c.id)?;
+                            let (label, id, _, verdict) = candidates.get(c.id)?;
                             Some(json!({
                                 "id": id, "label": label,
                                 "score": c.score, "tokens": c.tokens,
+                                "verdict": verdict,
                             }))
                         })
+                        .collect();
+                    // Recorded failures among the recalled set — the "already
+                    // failed here" flag, surfaced up front for the agent.
+                    let failures: Vec<JsonValue> = hits
+                        .iter()
+                        .filter(|h| h["verdict"] == json!(-1.0))
+                        .cloned()
                         .collect();
                     Ok(CallToolResult::success(vec![json_content(&json!({
                         "query": query,
                         "results": hits,
+                        "failures": failures,
                         "total_tokens": result.total_tokens,
                         "truncated": result.truncated,
-                        "note": "grounded synthesis over these matches: HTTP /api/v1/ask",
+                        "note": "verdict: -1 failed, 0 inert, +1 worked, null unjudged. grounded synthesis over these matches: HTTP /api/v1/ask",
                     }))?]))
                 }
 

@@ -1412,6 +1412,23 @@ pub struct SearchNodeHit {
     label: String,
     score: f32,
     tokens: usize,
+    /// Asserted outcome in `[-1, 1]` for this node, when someone has judged it
+    /// (None = unjudged). Goals carry no verdict, so this is always None for
+    /// them. Surfacing the verdict turns recall into outcome memory: an agent
+    /// can see a top match already failed before it repeats the action.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    verdict: Option<f32>,
+}
+
+/// A recorded failure that surfaced in the top-k (verdict == -1.0). This is the
+/// "stop stepping on the same rake" signal: even if a failure is not the single
+/// most cosimilar hit, an agent that already tried this and it blew up deserves
+/// to be told up front, not buried below success hits.
+#[derive(Serialize)]
+pub struct RecalledFailure {
+    id: String,
+    label: String,
+    score: f32,
 }
 
 #[derive(Serialize)]
@@ -1421,6 +1438,10 @@ pub struct SearchNodesResponse {
     total_tokens: usize,
     truncated: bool,
     results: Vec<SearchNodeHit>,
+    /// Recorded failures (verdict == -1.0) among the recalled candidates,
+    /// newest-judged-first not ordered (cosine order). Empty when none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    failures: Vec<RecalledFailure>,
 }
 
 #[derive(Deserialize)]
