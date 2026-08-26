@@ -35,7 +35,8 @@
   .hc:hover { transform:scale(1.35); z-index:3; box-shadow:0 0 12px rgba(95,242,214,.65), inset 0 0 0 1px rgba(232,241,255,.5); }
   .rowlab,.collab { color:var(--brume); font-size:8px; font-family:var(--mono); }
   h3 { margin:0 0 8px; }
-  #status { margin-left:auto; font-size:12px; font-family:var(--mono); }
+  #status { margin-left:auto; font-size:12px; font-family:var(--mono);
+            display:inline-flex; align-items:center; gap:6px; }
   .err { color:var(--rose); }
   label.small { font-size:11px; color:var(--brume); display:block; margin:6px 0 2px; }
 </style>
@@ -60,7 +61,7 @@
   <input id="search" placeholder="filter files…" style="min-width:130px" />
   <select id="placeF" title="space facet — where the file lives"><option value="">all places</option></select>
   <select id="periodF" title="time facet — month bucket"><option value="">all periods</option></select>
-  <span id="status" class="muted">idle</span>
+  <span id="status" class="muted"><i class="sig live" aria-hidden="true"></i> <span id="statusTxt">idle</span></span>
 </header>
 <main>
   <div id="cy"></div>
@@ -99,7 +100,12 @@ const DCOL = {HEAL:"#a8e663",CONSTRUCT:"#ffc46b",FABRICATE:"#5ff2d6",BOND:"#9d8c
 
 function api(path){ const b=$('base').value.trim().replace(/\/$/,''); return (b||'')+path; }
 function headers(){ const t=$('token').value.trim(); return t?{Authorization:'Bearer '+t}:{}; }
-function setStatus(msg, err){ const s=$('status'); s.textContent=msg; s.className=err?'err':'muted'; }
+function setStatus(msg, err){
+  $('statusTxt').textContent = msg;
+  const s=$('status');
+  s.className = err?'err':'muted';
+  s.querySelector('.sig').className = 'sig '+(err?'err':'live');
+}
 
 async function getJSON(path){
   const r = await fetch(api(path), {headers:headers()});
@@ -135,7 +141,10 @@ function onNode(n){
     preview(d.path);
     drawCauseChain(d);
   } else {
-    $('sel').innerHTML = `<b>${d.label}</b><br><span class="muted">${d.domain}×${d.mode}${d.category?(' · '+d.category):''}</span>`;
+    const dom=(d.domain||'').toUpperCase();
+    $('sel').innerHTML = `<b>${d.label}</b><br>
+      <span class="cell" data-domain="${dom}">${dom||'?'}·${(d.mode||'?').toUpperCase()}</span>
+      ${d.category?`<span class="muted small"> · ${d.category}</span>`:''}`;
     $('content').textContent='—';
   }
 }

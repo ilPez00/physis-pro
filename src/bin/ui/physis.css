@@ -23,9 +23,12 @@
    Signature: the CELL GRID. Every panel sits on an invisible lattice; data
    panels carry a corner tick (organic growth point) + scanline shimmer on
    hover. Sparkbars are the unit of history: dense vertical ticks, not bars.
+   The `.cell` chip is the unit of meaning: DOMAIN×MODE as a squared chip
+   whose glyph carries the domain color. The `.sig` dot is the unit of life:
+   one lumen node per state, breathing only when `.live`.
 
-   Type: "Chakra Petch"-adjacent display is NOT loaded remotely — pages use
-   local stacks only: display = system-ui tightened; DATA ALWAYS MONO.
+   Type: local stacks only (offline product — no webfonts, ever). Display =
+   system-ui tightened via the --fs-* ramp; DATA ALWAYS MONO TABULAR.
 */
 
 :root {
@@ -64,6 +67,18 @@
   --mono:"SFMono-Regular","JetBrains Mono","Fira Code",Consolas,"Liberation Mono",monospace;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 
+  /* type ramp — one ladder for every page. Display sizes tighten tracking,
+     data sizes go mono tabular; labels always track wide. Pages pick from
+     this ramp instead of inventing px values per panel. */
+  --fs-xs:10px;   /* eyebrows, chips, nav tabs */
+  --fs-s:12px;    /* secondary copy, table body */
+  --fs-m:13px;    /* controls, default emphasis */
+  --fs-base:14px; /* body */
+  --fs-l:17px;    /* section leads */
+  --fs-xl:22px;   /* page-level numerals / titles */
+  --track-label:.14em;  /* uppercase micro-labels */
+  --track-data:-.01em;  /* large tabular numerals */
+
   --r-s:4px;
   --r-m:8px;
   --r-l:14px;
@@ -98,6 +113,17 @@ body::before {
 /* ── typography ─────────────────────────────────────────────────────────── */
 h1,h2,h3 { letter-spacing:.02em; }
 h1 { font-weight:800; }
+/* Bare page titles (agent, graph FM) get the forge treatment: cold white,
+   tracked tight, and a single luminous hairline under the wordmark — the
+   same corner-tick language the panels use, drawn as type. Pages that ship
+   their own h1 styling keep it; this only catches the unstyled ones. */
+main > header h1:not([class])::after,
+body > header h1:not([class])::after {
+  content:""; display:block; width:56px; height:2px; margin-top:6px;
+  border-radius:2px;
+  background:linear-gradient(90deg, var(--cyan), transparent);
+  box-shadow:0 0 10px rgba(95,242,214,.35);
+}
 
 .mono, code, kbd, pre {
   font-family:var(--mono);
@@ -164,6 +190,59 @@ button:focus-visible { outline:none; border-color:var(--cyan); box-shadow:var(--
 .chip.err   { color:var(--rose);  border-color:rgba(255,109,143,.4); background:var(--rose-dim); }
 .chip.info  { color:var(--cyan);  border-color:rgba(95,242,214,.4);  background:var(--cyan-dim); }
 .chip.ai    { color:var(--violet);border-color:rgba(157,140,255,.4);background:var(--violet-dim); }
+
+/* ── the CELL atom ─────────────────────────────────────────────────────────
+   DOMAIN×MODE is this product's unit of meaning, so it renders as a
+   first-class primitive, not inline text: a squared chip whose border and
+   glyph carry the domain color while MODE stays neutral. Structure encodes
+   information — you can read the grid position before reading the words.
+   Usage: <span class="cell" data-domain="BOND">BOND·WORK</span> */
+.cell {
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.1em;
+  padding:2px 7px;
+  border-radius:var(--r-s);
+  border:1px solid var(--shelf-strong);
+  color:var(--ink);
+  background:rgba(4,7,15,.6);
+}
+.cell::before {
+  content:""; display:inline-block; width:5px; height:5px; margin-right:6px;
+  border-radius:1px; vertical-align:1px;
+  background:var(--brume);
+}
+.cell[data-domain="HEAL"]      { color:#c9f0a4; border-color:rgba(168,230,99,.45); }
+.cell[data-domain="HEAL"]::before      { background:var(--lime);  box-shadow:0 0 6px rgba(168,230,99,.8); }
+.cell[data-domain="CONSTRUCT"] { color:#ffd9a0; border-color:rgba(255,196,107,.45); }
+.cell[data-domain="CONSTRUCT"]::before { background:var(--amber); box-shadow:0 0 6px rgba(255,196,107,.8); }
+.cell[data-domain="FABRICATE"] { color:#9df2e0; border-color:rgba(95,242,214,.45); }
+.cell[data-domain="FABRICATE"]::before{ background:var(--cyan);  box-shadow:0 0 6px rgba(95,242,214,.8); }
+.cell[data-domain="BOND"]      { color:#cabfff; border-color:rgba(157,140,255,.45); }
+.cell[data-domain="BOND"]::before      { background:var(--violet);box-shadow:0 0 6px rgba(157,140,255,.8); }
+.cell[data-domain="STUDY"]     { color:#ffb3d4; border-color:rgba(255,143,208,.45); }
+.cell[data-domain="STUDY"]::before     { background:#ff8fd0; box-shadow:0 0 6px rgba(255,143,208,.8); }
+
+/* ── signal dots ───────────────────────────────────────────────────────────
+   One lumen language for "is this alive": a 7px node that glows in its state
+   color. `.live` breathes (the only autonomous motion in the system besides
+   the panel sweep). Pages had three private copies (.dot, .signal i) with
+   divergent colors; new markup uses this and old copies can retire onto it. */
+.sig {
+  width:7px; height:7px; border-radius:50%;
+  display:inline-block; flex:none;
+  background:var(--brume);
+}
+.sig.ok,  .sig.live { background:var(--lime); }
+.sig.warn { background:var(--amber); }
+.sig.err  { background:var(--rose); }
+.sig.ok,  .sig.live, .sig.warn, .sig.err { box-shadow:0 0 10px currentColor; color:inherit; }
+.sig.ok   { color:rgba(168,230,99,.9); }
+.sig.live { color:rgba(95,242,214,.9); background:var(--cyan); animation:sig-breathe 2.4s ease-in-out infinite; }
+.sig.warn { color:rgba(255,196,107,.9); }
+.sig.err  { color:rgba(255,109,143,.9); }
+@keyframes sig-breathe { 50% { opacity:.42; transform:scale(.72); } }
 
 /* ── panels: the cell-grid signature ────────────────────────────────────── */
 .panel, aside.pane, .card {
@@ -285,6 +364,13 @@ table.data tr:hover td { background:rgba(95,242,214,.045); }
 /* links */
 a { color:var(--cyan); text-decoration:none; }
 a:hover { text-decoration:underline; text-underline-offset:3px; }
+/* The UA focus ring is near-invisible on abyss; every interactive element
+   speaks the same cyan ring language (buttons/inputs already do). */
+a:focus-visible {
+  outline:none;
+  border-radius:var(--r-s);
+  box-shadow:var(--glow-cyan);
+}
 
 /* utility */
 .muted { color:var(--brume); }
