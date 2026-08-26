@@ -206,10 +206,9 @@ impl<'a> ScenarioStore<'a> {
 
     pub fn get(&self, scenario_id: &str, version: u32) -> Result<ScenarioVersion, ScenarioError> {
         match self.db.get(self.key(scenario_id, version)) {
-            Ok(Some(raw)) => serde_json::from_slice(&raw)
-                .map_err(|e| {
-                    ScenarioError::NotFound(format!("{scenario_id} (corrupt: {e})"), version)
-                }),
+            Ok(Some(raw)) => serde_json::from_slice(&raw).map_err(|e| {
+                ScenarioError::NotFound(format!("{scenario_id} (corrupt: {e})"), version)
+            }),
             _ => Err(ScenarioError::NotFound(scenario_id.to_string(), version)),
         }
     }
@@ -232,14 +231,30 @@ mod tests {
             PlannerItem {
                 id: "a".into(),
                 source: "s/a".into(),
-                before: CellOutcome { domain: "OPERATE".into(), mode: "MONITOR".into(), score: 0.9 },
-                after: CellOutcome { domain: "OPERATE".into(), mode: "CORRECT".into(), score: 0.8 },
+                before: CellOutcome {
+                    domain: "OPERATE".into(),
+                    mode: "MONITOR".into(),
+                    score: 0.9,
+                },
+                after: CellOutcome {
+                    domain: "OPERATE".into(),
+                    mode: "CORRECT".into(),
+                    score: 0.8,
+                },
             },
             PlannerItem {
                 id: "b".into(),
                 source: "s/b".into(),
-                before: CellOutcome { domain: "BOND".into(), mode: "PLAY".into(), score: 0.9 },
-                after: CellOutcome { domain: "BOND".into(), mode: "PLAY".into(), score: 0.9 },
+                before: CellOutcome {
+                    domain: "BOND".into(),
+                    mode: "PLAY".into(),
+                    score: 0.9,
+                },
+                after: CellOutcome {
+                    domain: "BOND".into(),
+                    mode: "PLAY".into(),
+                    score: 0.9,
+                },
             },
         ];
         crate::planner::simulate(id, items, 0.6)
@@ -268,7 +283,14 @@ mod tests {
 
         // Promote v2 → it is live; promote v1 → v1 live, v2 back to draft.
         store.promote("procurement-v2", 2).unwrap();
-        assert_eq!(store.live_version("procurement-v2").unwrap().unwrap().version, 2);
+        assert_eq!(
+            store
+                .live_version("procurement-v2")
+                .unwrap()
+                .unwrap()
+                .version,
+            2
+        );
         store.promote("procurement-v2", 1).unwrap();
         let live = store.live_version("procurement-v2").unwrap().unwrap();
         assert_eq!(live.version, 1);
@@ -294,7 +316,10 @@ mod tests {
         let b = ScenarioStore::new(&db, "tenant-b");
         a.save(&sim("alpha"), "gio").unwrap();
 
-        assert!(b.list("alpha").unwrap().is_empty(), "tenants must not see each other");
+        assert!(
+            b.list("alpha").unwrap().is_empty(),
+            "tenants must not see each other"
+        );
         assert_eq!(a.list("alpha").unwrap().len(), 1);
     }
 }
@@ -309,7 +334,11 @@ use axum::{
 };
 
 fn err(status: StatusCode, msg: impl std::fmt::Display) -> Response {
-    (status, Json(serde_json::json!({ "error": msg.to_string() }))).into_response()
+    (
+        status,
+        Json(serde_json::json!({ "error": msg.to_string() })),
+    )
+        .into_response()
 }
 
 /// POST /api/v1/planner/scenarios/save
@@ -372,9 +401,10 @@ pub async fn scenario_promote_handler(
     };
     match ScenarioStore::new(db, &uid).promote(&scenario_id, req.version) {
         Ok(record) => Json(record).into_response(),
-        Err(ScenarioError::NotFound(_, _)) => {
-            err(StatusCode::NOT_FOUND, format!("no version {} of {scenario_id}", req.version))
-        }
+        Err(ScenarioError::NotFound(_, _)) => err(
+            StatusCode::NOT_FOUND,
+            format!("no version {} of {scenario_id}", req.version),
+        ),
         Err(e) => err(StatusCode::INTERNAL_SERVER_ERROR, e),
     }
 }

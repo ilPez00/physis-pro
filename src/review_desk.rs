@@ -148,10 +148,7 @@ pub fn render_markdown(report: &ReviewDeskReport) -> String {
     }
     out.push_str("| Reason | Kind | Document |\n|---|---|---|\n");
     for e in &report.exceptions {
-        out.push_str(&format!(
-            "| {} | {} | `{}` |\n",
-            e.reason, e.kind, e.path
-        ));
+        out.push_str(&format!("| {} | {} | `{}` |\n", e.reason, e.kind, e.path));
     }
     out
 }
@@ -179,7 +176,11 @@ mod tests {
         let body = "Invoice No. 5555 from ACME SpA dated 2026-01-31, total 120 EUR";
         std::fs::write(tmp.join("inv1.pdf"), body).unwrap();
         std::fs::write(tmp.join("inv2.pdf"), body).unwrap(); // exact duplicate content
-        std::fs::write(tmp.join("mystery.xyz"), "completely unclassifiable content qwerty").unwrap();
+        std::fs::write(
+            tmp.join("mystery.xyz"),
+            "completely unclassifiable content qwerty",
+        )
+        .unwrap();
 
         let r = run_desk(&tmp);
         assert!(r.documents >= 3, "{r:?}");
@@ -206,7 +207,9 @@ mod tests {
         .unwrap();
         let r = run_desk(&tmp);
         assert!(
-            !r.exceptions.iter().any(|e| e.reason.starts_with("missing_")),
+            !r.exceptions
+                .iter()
+                .any(|e| e.reason.starts_with("missing_")),
             "{r:?}"
         );
         std::fs::remove_dir_all(&tmp).unwrap();

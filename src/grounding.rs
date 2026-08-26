@@ -84,8 +84,9 @@ pub fn apply_gate(candidates: Vec<Candidate>) -> (Vec<Candidate>, usize) {
         let grounded_decision = token_match(&c.decision.clone(), &hay);
         let grounded_rationale = token_match(&c.rationale.clone(), &hay);
         let grounded_quote = token_match(&c.source_quote.clone(), &hay);
-        let grounded_n =
-            usize::from(grounded_decision) + usize::from(grounded_rationale) + usize::from(grounded_quote);
+        let grounded_n = usize::from(grounded_decision)
+            + usize::from(grounded_rationale)
+            + usize::from(grounded_quote);
         c.verification = match grounded_n {
             3 => Verdict::Grounded,
             _ if grounded_n > 0 => Verdict::Partial,
@@ -120,8 +121,14 @@ mod tests {
 
     #[test]
     fn token_match_folds_case_and_punctuation() {
-        assert!(token_match("ACID, transactions!", &tokens("sled gives acid transactions.")));
-        assert!(!token_match("quantum ledger", &tokens("sled gives acid transactions.")));
+        assert!(token_match(
+            "ACID, transactions!",
+            &tokens("sled gives acid transactions.")
+        ));
+        assert!(!token_match(
+            "quantum ledger",
+            &tokens("sled gives acid transactions.")
+        ));
         assert!(!token_match("", &tokens("anything")));
     }
 

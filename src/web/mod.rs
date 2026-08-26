@@ -1217,6 +1217,33 @@ pub struct QualityResponse {
     boosts: std::collections::HashMap<String, f32>,
     /// How many failures have been reported, of any kind.
     failures: usize,
+    /// Failures not yet marked resolved.
+    open: usize,
+    /// Failures a later signal (pin agreement, explicit resolve) closed.
+    resolved: usize,
+    /// Mean severity across all recorded failures (0.0 when none).
+    mean_severity: f32,
+    /// Individual records, newest first, embeddings stripped — enough to draw
+    /// trends (when, how severe, which cell, resolved?) without shipping the
+    /// 384-dim vectors the tracker keeps for similarity.
+    records: Vec<QualityFailureView>,
+}
+
+/// One reported failure as the dashboards may show it (PLAN 3.3).
+#[derive(Serialize)]
+pub struct QualityFailureView {
+    id: String,
+    /// RFC 3339 timestamp of the report.
+    at: String,
+    /// Verbatim feedback, truncated — full text stays in the store.
+    feedback: String,
+    /// Display form (`DOMAIN/MODE`) of the cell the complaint landed on.
+    top_cell: String,
+    top_score: f32,
+    severity: f32,
+    resolved: bool,
+    /// Where a correction said it should have gone, if one was given.
+    corrected_to: Option<String>,
 }
 
 /// How hard one pin disagreement pushes against the cell the classifier chose.
@@ -2207,9 +2234,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         log::info!("Embedder loaded: kind={embedder_kind} dim={embed_dim}");
     }
     core.set_embedder_id(embedder_kind); // vector provenance on the default tenant
-    // Live graph: the web server auto-bridges every new coherence node into the
-    // holarchy so /holarchy/graph and the dashboards see the graph grow without
-    // callers having to assert bridge edges by hand.
+                                         // Live graph: the web server auto-bridges every new coherence node into the
+                                         // holarchy so /holarchy/graph and the dashboards see the graph grow without
+                                         // callers having to assert bridge edges by hand.
     core.set_auto_bridge(true);
 
     // Pre-compute per-cell centroids from the human grid + every extra
@@ -2552,6 +2579,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // authenticated fs/* routes with a token the user pastes in-page.
         .route("/ui", get(ui_chat::graph_fm_ui_handler))
         .route("/console", get(ui_chat::console_ui_handler))
+        .route("/pulse", get(ui_chat::pulse_ui_handler))
         .route("/demo", get(ui_chat::demo_ui_handler))
         .route("/study", get(ui_chat::study_ui_handler))
         .route("/api/v1/chat", post(ui_chat::chat_handler))
@@ -2599,6 +2627,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/coherence/snapshot",
             get(coherence::coherence_snapshot_handler),
         )
+        .route("/api/v1/communities", get(coherence::communities_handler))
         .route(
             "/api/v1/coherence/nodes",
             get(coherence::coherence_nodes_handler),

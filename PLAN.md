@@ -74,7 +74,7 @@ anomaly detection to corrective action.
 |---|-------------|--------|-------|-------|
 | 3.1 | Web-based Dashboard (React/Next.js) | ⬜ Pending | — | FileThemeGraph force-directed |
 | 3.2 | Natural Language Interface (chat) | ⬜ Pending | — | Plain-English graph queries |
-| 3.3 | Quality Dashboard UI | ⬜ Pending | — | Failure trends + ROI metrics |
+| 3.3 | Quality Dashboard UI | ✅ Done | — | `GET /api/v1/quality` enriched: per-failure records (embeddings stripped, `DOMAIN/MODE` display cells, newest first) + open/resolved/mean-severity aggregates; pure `quality_response()` builder, 4 unit tests + 2 http_surface tests. Console Quality tab (`#tab-quality`, unified Bioluminal Forge shell): KPI tiles, zero-filled 30-day trend bars, recent reports with severity/resolution/correction pills, penalty & boost bar lists |
 
 ### Phase 4 — Monetization
 
@@ -133,6 +133,7 @@ anomaly detection to corrective action.
 | 9.4 | Holarchy community detection (`label-propagation`, no new deps) | ✅ Done | core: deterministic label-prop + cohesion + read-only invariant, 6 tests (afc2a29); 9.4b: GET /api/v1/communities + Communities studio tab, live-verified on :19877 (5b5d4a7) |
 | 9.5 | Wiki generation over the holarchy (`wiki-gen` feature) | ✅ Done | outline core: group_nodes + name_groups (9e86c27); 9.5b prose + tour (b047601): `render_page` deterministic skeleton + LLM summary injection, `execution_tour` Kahn order w/ cycle-safe fallback; 12 tests total |
 | 9.6 | HTTP surface for wiki-gen | ✅ Done | POST `/api/v1/wiki/generate` (outline+pages+tour, cascade naming skipped when degraded/deterministic) + GET `/api/v1/wiki/tour`; empty-tenant explicit error; http_surface coverage test (d9b72a6) |
+| 9.7 | Overview dashboard (`/pulse`) + main-server communities endpoint | ✅ Done | `GET /api/v1/communities` (`web/coherence.rs`: label-space rollup — resolved_edges ids mapped to labels before detection, edge-less labeled nodes kept as one singleton community, largest-first; pure `communities_payload` + 3 tests) + `/pulse` page (`src/bin/ui/pulse.html`, Bioluminal Forge + ui-shell): KPI ribbon, coherence distribution, dream-replay attention feed, dream proposals, communities grid, wiki execution tour, semiotic heatmap — repowise dashboard patterns per adaptation doc, thin read-only UI over existing endpoints; live-verified on :19899 |
 
 ### Phase 6 — Administration / Datawork
 

@@ -171,19 +171,19 @@ fn full_file_iteration_builds_event_stream() {
     let mut n_result = 0;
     {
         use std::io::BufRead;
-    for line in std::io::BufReader::new(std::fs::File::open(&file).unwrap()).lines() {
-        if let Some(evs) = a.normalize(line.unwrap().trim()) {
-            for e in evs {
-                match e {
-                    Event::UserTurn { .. } => n_user += 1,
-                    Event::ToolCall { .. } => n_call += 1,
-                    Event::ToolResult { .. } => n_result += 1,
-                    _ => {}
+        for line in std::io::BufReader::new(std::fs::File::open(&file).unwrap()).lines() {
+            if let Some(evs) = a.normalize(line.unwrap().trim()) {
+                for e in evs {
+                    match e {
+                        Event::UserTurn { .. } => n_user += 1,
+                        Event::ToolCall { .. } => n_call += 1,
+                        Event::ToolResult { .. } => n_result += 1,
+                        _ => {}
+                    }
                 }
             }
         }
-    }
-    assert_eq!((n_user, n_call, n_result), (1, 1, 1));
+        assert_eq!((n_user, n_call, n_result), (1, 1, 1));
     }
     std::fs::remove_dir_all(&tmp).unwrap();
 }

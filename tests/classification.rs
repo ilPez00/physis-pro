@@ -311,14 +311,22 @@ fn scoring_strategy_sweep() {
             match f.tier.as_str() {
                 "italian" => {
                     inn += 1;
-                    if dom_ok { idom += 1; }
-                    if cell_ok { icell += 1; }
+                    if dom_ok {
+                        idom += 1;
+                    }
+                    if cell_ok {
+                        icell += 1;
+                    }
                 }
                 "hard" => {}
                 _ => {
                     cn += 1;
-                    if dom_ok { cd += 1; }
-                    if cell_ok { cc += 1; }
+                    if dom_ok {
+                        cd += 1;
+                    }
+                    if cell_ok {
+                        cc += 1;
+                    }
                 }
             }
         }

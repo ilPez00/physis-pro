@@ -129,9 +129,8 @@ impl ImpactAnalysis {
     /// both sides agree it landed somewhere real (`score >= threshold`);
     /// `unknown×unknown` never counts as covered regardless of score.
     pub fn derive(sim: &PlannerSimulation, threshold: f32) -> Self {
-        let covered = |o: &CellOutcome| {
-            o.domain != "unknown" && o.mode != "unknown" && o.score >= threshold
-        };
+        let covered =
+            |o: &CellOutcome| o.domain != "unknown" && o.mode != "unknown" && o.score >= threshold;
 
         let mut newly_covered = Vec::new();
         let mut newly_uncovered = Vec::new();
@@ -241,7 +240,11 @@ mod tests {
             "procurement-v2",
             vec![
                 // Confident move: covered both sides, aggregate shifts.
-                item("1", ("OPERATE", "MONITOR", 0.91), ("OPERATE", "CORRECT", 0.84)),
+                item(
+                    "1",
+                    ("OPERATE", "MONITOR", 0.91),
+                    ("OPERATE", "CORRECT", 0.84),
+                ),
                 // Falls out of coverage: the candidate opens a gap here.
                 item("2", ("OPERATE", "MONITOR", 0.88), ("STUDY", "WORK", 0.20)),
                 // Gains coverage the base did not have.

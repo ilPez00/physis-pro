@@ -242,11 +242,65 @@ pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityRe
         .iter()
         .map(|(k, b)| (k.clone(), b.current_value()))
         .collect();
-    Json(QualityResponse {
-        penalties: quality.cell_penalties.clone(),
+    Json(quality_response(
+        quality.cell_penalties.clone(),
         boosts,
-        failures: quality.failures.len(),
-    })
+        &quality.failures,
+    ))
+}
+
+/// Pure payload builder for [`quality_handler`] — the trend/aggregation logic
+/// is unit-tested here rather than driven through HTTP (no shipped endpoint
+/// creates failure *records* cheaply; pin dissents only `penalize_cell`).
+pub(crate) fn quality_response(
+    penalties: HashMap<String, f32>,
+    boosts: HashMap<String, f32>,
+    failures: &[physis_core::quality::QualityFailure],
+) -> QualityResponse {
+    let resolved = failures.iter().filter(|f| f.resolved).count();
+    let mean_severity = if failures.is_empty() {
+        0.0
+    } else {
+        failures.iter().map(|f| f.severity).sum::<f32>() / failures.len() as f32
+    };
+    // Newest first: the dashboard reads the recent window, not the archive.
+    let mut ordered: Vec<&physis_core::quality::QualityFailure> = failures.iter().collect();
+    ordered.sort_by_key(|f| std::cmp::Reverse(f.timestamp));
+    let records = ordered
+        .into_iter()
+        .map(|f| QualityFailureView {
+            feedback: {
+                let mut s: String = f.feedback.chars().take(160).collect();
+                if f.feedback.chars().count() > 160 {
+                    s.push('…');
+                }
+                s
+            },
+            corrected_to: f.correct_domain.clone(),
+            id: f.id.clone(),
+            at: f.timestamp.to_rfc3339(),
+            top_cell: display_cell(&f.top_cell),
+            top_score: f.top_score,
+            severity: f.severity,
+            resolved: f.resolved,
+        })
+        .collect();
+
+    QualityResponse {
+        penalties,
+        boosts,
+        failures: failures.len(),
+        open: failures.len() - resolved,
+        resolved,
+        mean_severity,
+        records,
+    }
+}
+
+/// `DOMAIN\x00MODE` store key → `DOMAIN/MODE` display form (QA 8.5 parity with
+/// the physis-core summary renderer; the NUL never reaches a browser).
+fn display_cell(key: &str) -> String {
+    key.replace('\0', "/")
 }
 
 /// POST /api/v1/coherence/delete — remove a node and every structure referencing
@@ -809,4 +863,237 @@ pub async fn harness_generate_handler(
     .map_err(|e| err_response(StatusCode::BAD_REQUEST, &e))?;
 
     Ok(Json(result))
+}
+
+// ── Communities rollup (PLAN 9.4b parity with the studio endpoint) ─────────
+//
+// The studio (physis-core, :19877) has had `GET /api/v1/communities` since the
+// Phase-9.4b landing; the main server never got one, so the Pulse dashboard
+// would have had to call a second process for its community grid. This is the
+// same rollup over the main server's tenant state, reusing the Phase-9.4
+// clean-room `crate::communities` detector directly.
+//
+// Read-only invariant (adopted from the pattern source as an engineering rule):
+// this handler READS the core and writes only its own JSON response.
+
+/// Build the communities payload from labeled node labels + resolved edges.
+/// Split out from the handler so it is unit-testable without an HTTP stack.
+///
+/// Edge endpoints are labels already (`resolved_edges` resolves ids → labels),
+/// so detection runs in label space. Labeled nodes that carry no edge are not
+/// seen by the detector — they are appended as one singleton community with
+/// full cohesion rather than vanishing from the rollup.
+fn communities_payload(
+    labeled: &[String],
+    edges: &crate::communities::EdgeList,
+) -> serde_json::Value {
+    let report = crate::communities::detect_communities(edges, 16);
+
+    let mut out: Vec<serde_json::Value> = (0..report.n_communities())
+        .map(|i| {
+            let mut members: Vec<String> = report
+                .members(i as u32)
+                .into_iter()
+                .map(String::from)
+                .collect();
+            members.sort();
+            serde_json::json!({
+                "id": i,
+                "members": members,
+                "cohesion": report.cohesion[i],
+            })
+        })
+        .collect();
+
+    // Singletons: labeled nodes absent from every detected community. The
+    // report's `nodes` holds exactly the edge endpoints, so set difference is
+    // enough — no second graph pass.
+    let connected: std::collections::HashSet<&str> =
+        report.nodes.iter().map(|s| s.as_str()).collect();
+    let mut singles: Vec<String> = labeled
+        .iter()
+        .filter(|l| !connected.contains(l.as_str()))
+        .cloned()
+        .collect();
+    singles.sort();
+    if !singles.is_empty() {
+        out.push(serde_json::json!({
+            "id": out.len(),
+            "members": singles,
+            "cohesion": 1.0,
+        }));
+    }
+
+    // Largest first so a client renders the shape of the graph without having
+    // to sort; ties break on first member for determinism.
+    out.sort_by_key(|c| {
+        std::cmp::Reverse((
+            c["members"].as_array().map(|m| m.len()).unwrap_or(0),
+            c["members"]
+                .as_array()
+                .and_then(|m| m.first())
+                .and_then(|f| f.as_str())
+                .unwrap_or("")
+                .to_string(),
+        ))
+    });
+
+    serde_json::json!({ "communities": out })
+}
+
+/// GET /api/v1/communities — label-propagation communities over this tenant's
+/// labeled coherence nodes, largest first, isolated nodes as singletons.
+pub async fn communities_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let (labeled, edges) = state.with_user(&uid, |s| {
+        // `resolved_edges` yields coherence IDS (bridge lookup), not labels —
+        // map them into label space so detection and display share one vocabulary.
+        let names: std::collections::HashMap<String, String> = s
+            .core
+            .nodes
+            .values()
+            .filter_map(|n| n.label.as_ref().map(|l| (n.id.clone(), l.clone())))
+            .collect();
+        let labeled: Vec<String> = names.values().cloned().collect();
+        let edges: crate::communities::EdgeList = s
+            .core
+            .resolved_edges()
+            .into_iter()
+            .filter_map(|(a, b, _w)| match (a, b) {
+                (Some(a), Some(b)) if a != b => match (names.get(&a), names.get(&b)) {
+                    (Some(la), Some(lb)) if la != lb => Some((la.clone(), lb.clone())),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect();
+        (labeled, edges)
+    });
+    Json(communities_payload(&labeled, &edges))
+}
+
+#[cfg(test)]
+mod communities_tests {
+    use super::*;
+
+    #[test]
+    fn two_cliques_and_a_singleton() {
+        let e = |a: &str, b: &str| (a.to_string(), b.to_string());
+        let edges: crate::communities::EdgeList =
+            vec![e("a", "b"), e("b", "c"), e("a", "c"), e("x", "y")];
+        let labeled = vec![
+            "a".into(),
+            "b".into(),
+            "c".into(),
+            "x".into(),
+            "y".into(),
+            "solo".into(),
+        ];
+        let v = communities_payload(&labeled, &edges);
+        let comms = v["communities"].as_array().unwrap();
+        assert_eq!(comms.len(), 3, "{v:?}");
+        // Largest first: the triangle, then the pair, then the singleton.
+        assert_eq!(comms[0]["members"].as_array().unwrap().len(), 3);
+        assert_eq!(comms[1]["members"].as_array().unwrap().len(), 2);
+        assert_eq!(comms[2]["members"], serde_json::json!(["solo"]));
+        assert_eq!(comms[2]["cohesion"], serde_json::json!(1.0));
+    }
+
+    #[test]
+    fn empty_tenant_yields_empty_rollup_not_error() {
+        let v = communities_payload(&[], &Vec::new());
+        assert_eq!(v["communities"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn all_isolated_nodes_collapse_into_one_singleton_community() {
+        let v = communities_payload(&vec!["q/1".into(), "q/2".into()], &Vec::new());
+        let comms = v["communities"].as_array().unwrap();
+        assert_eq!(comms.len(), 1, "{v:?}");
+        assert_eq!(comms[0]["members"], serde_json::json!(["q/1", "q/2"]));
+    }
+}
+
+#[cfg(test)]
+mod quality_tests {
+    use super::*;
+
+    fn failure(
+        id: &str,
+        hours_ago: i64,
+        severity: f32,
+        resolved: bool,
+    ) -> physis_core::quality::QualityFailure {
+        physis_core::quality::QualityFailure {
+            id: id.into(),
+            timestamp: chrono::Utc::now() - chrono::Duration::hours(hours_ago),
+            feedback: format!("feedback {id}"),
+            feedback_embedding: vec![0.0; 384],
+            top_cell: format!("BOND\x00PLAY"),
+            top_score: 0.42,
+            correct_domain: None,
+            correct_embedding: None,
+            severity,
+            resolved,
+        }
+    }
+
+    #[test]
+    fn empty_ledger_reads_as_zeroed_not_erroring() {
+        let r = quality_response(HashMap::new(), HashMap::new(), &[]);
+        assert_eq!(r.failures, 0);
+        assert_eq!(r.open, 0);
+        assert_eq!(r.resolved, 0);
+        assert_eq!(r.mean_severity, 0.0);
+        assert!(r.records.is_empty());
+    }
+
+    #[test]
+    fn records_are_newest_first_and_aggregates_add_up() {
+        let failures = vec![
+            failure("old", 48, 0.3, true),
+            failure("mid", 24, 0.5, false),
+            failure("new", 1, 0.8, false),
+        ];
+        let mut penalties = HashMap::new();
+        penalties.insert("BOND\u{0}PLAY".to_string(), 0.25);
+        let r = quality_response(penalties, HashMap::new(), &failures);
+        assert_eq!(r.failures, 3);
+        assert_eq!(r.open, 2);
+        assert_eq!(r.resolved, 1);
+        assert!(
+            (r.mean_severity - 0.5333333).abs() < 1e-4,
+            "{}",
+            r.mean_severity
+        );
+        // Newest first: the dashboard reads the recent window.
+        let ids: Vec<&str> = r.records.iter().map(|v| v.id.as_str()).collect();
+        assert_eq!(ids, ["new", "mid", "old"], "{ids:?}");
+    }
+
+    #[test]
+    fn views_carry_display_cells_and_never_embeddings() {
+        let failures = vec![failure("one", 2, 0.8, false)];
+        let v = serde_json::to_value(quality_response(HashMap::new(), HashMap::new(), &failures))
+            .unwrap();
+        let rec = &v["records"][0];
+        // The NUL-keyed store cell is rendered DOMAIN/MODE (QA 8.5 parity).
+        assert_eq!(rec["top_cell"], serde_json::json!("BOND/PLAY"));
+        let payload = v.to_string();
+        assert!(!payload.contains("embedding"), "no vectors over the wire");
+        assert!(!payload.contains('\u{0}'), "no NUL bytes reach the browser");
+    }
+
+    #[test]
+    fn long_feedback_is_truncated_with_ellipsis() {
+        let mut f = failure("long", 0, 0.5, false);
+        f.feedback = "x".repeat(400);
+        let r = quality_response(HashMap::new(), HashMap::new(), &[f]);
+        let view = &r.records[0];
+        assert_eq!(view.feedback.chars().count(), 161); // 160 + ellipsis
+        assert!(view.feedback.ends_with('…'));
+    }
 }

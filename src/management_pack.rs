@@ -35,7 +35,11 @@ pub fn render_weekly_pack(input: &PackInput) -> String {
     // ── headline ──────────────────────────────────────────────────────────
     let docs = input.desk.map(|d| d.documents).unwrap_or(0);
     let exceptions = input.desk.map(|d| d.exceptions.len()).unwrap_or(0);
-    let unmatched = input.recon.iter().filter(|l| l.status != MatchStatus::Matched).count();
+    let unmatched = input
+        .recon
+        .iter()
+        .filter(|l| l.status != MatchStatus::Matched)
+        .count();
     let matched = input.recon.len() - unmatched;
     out.push_str("## Headline\n\n");
     out.push_str(&format!(

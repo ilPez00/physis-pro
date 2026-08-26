@@ -185,3 +185,29 @@ Categories (Finance, Communication, ...)
 | `to_op_event` | Projects onto `OperationalEvent` (provenance connector `study`) so the timeline pipeline is reused; never mixes with shop-floor |
 | CLI | `physis-pro study <dir> --place <where>` (poll recorder, `--once` = opened) |
 | Web | `POST /api/v1/study/log` · `GET /api/v1/study/session` · `POST /api/v1/study/clear` · page at `/study` (Study Log dashboard + Elenchus argument trainer), page `src/bin/ui/study.html` |
+
+## Quality Dashboard (PLAN 3.3)
+
+| Piece | Description |
+|-------|-------------|
+| Endpoint | `GET /api/v1/quality` (`web/coherence.rs::quality_handler`) — enriched: `records` (per-failure views, newest first, embeddings stripped, feedback truncated to 160 chars, cells as `DOMAIN/MODE` display form), `open`/`resolved` counts, `mean_severity`; legacy `penalties`/`boosts`/`failures` unchanged. Pure builder `quality_response()` unit-tested (4 tests: empty ledger, ordering+aggregates, no vectors/NULs over the wire, truncation) |
+| UI | Console tab `#tab-quality` ("Quality — feedback loop", nav under *Mean*): KPI tiles, zero-filled 30-day trend bars anchored on the newest report, recent reports with severity/resolved/correction pills, top-10 penalty & decayed-boost bar lists; loader `loadQuality()` fetch-once + manual refresh |
+
+## Pulse Dashboard (`/pulse`)
+
+Overview dashboard (PLAN 9.7) — repowise dashboard *patterns* (adaptation doc:
+StatRibbon / attention panel / community grid / execution tour / heatmap) as a
+thin read-only page over existing endpoints. No new data writes except dream
+replay (archives what it revisits).
+
+| Piece | Description |
+|-------|-------------|
+| Page | `src/bin/ui/pulse.html` — loads shared `/physis.css` + `ui-shell.js`; handler `pulse_ui_handler`, route `GET /pulse` (protected router, like Console/Demo/Study) |
+| Panels | KPI ribbon (`coherence/snapshot`), coherence distribution + PDCA line (`pdca/stats`), attention feed (`POST dream/replay`), dream proposals (`dream/generate`), communities grid (`communities`), wiki execution tour (`wiki/tour`), semiotic heatmap (`semiotic/heatmap`) |
+| Communities endpoint | `GET /api/v1/communities` (`web/coherence.rs::communities_handler`) — PLAN 9.4b parity with the physis-core studio endpoint, reusing the Phase-9.4 clean-room detector. `resolved_edges()` yields coherence **ids**, so the handler maps ids→labels before detection; edge-less labeled nodes collapse into one singleton community (full cohesion); response sorted largest-first; read-only invariant; pure `communities_payload()` unit-tested |
+| Nav | Registered in `PRODUCT_PAGES` (`ui-shell.js`) — first entry, all pages inherit |
+
+Dev note: rebuilding with a custom vendor key needs
+`PHYSIS_LICENSE_PUBKEY=<hex> cargo build` (baked at compile time via
+`option_env!`); a licence signed by that key then runs the binary
+(`PHYSIS_LICENSE_FILE`). See `docs/business/DEPLOY.md`.

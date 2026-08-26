@@ -367,10 +367,22 @@ async fn demo_and_console_ui_are_served() {
     let (status, body) = send_text(&router, get("/console", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("Physis Console"));
+    // PLAN 3.3: the quality feedback-loop tab ships inside the unified console.
+    assert!(
+        body.contains("data-tab=\"quality\"") && body.contains("id=\"tab-quality\""),
+        "console serves the Quality tab (nav button + section)"
+    );
+    assert!(
+        body.contains("loadQuality"),
+        "console wires a loader for the Quality tab"
+    );
 
     let (status, body) = send_text(&router, get("/ui", "_default")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("GRAPH FILE MANAGER"), "/ui is the graph file-manager");
+    assert!(
+        body.contains("GRAPH FILE MANAGER"),
+        "/ui is the graph file-manager"
+    );
 
     // Every page loads the shared runtime with a bare `<script src>`, which
     // carries no Bearer token — so the asset has to be on the public router and
@@ -1913,6 +1925,23 @@ async fn a_dissenting_pin_penalizes_the_cell_the_classifier_chose() {
     );
 }
 
+/// The quality endpoint serves the trend fields the console Quality tab draws
+/// from, even on a fresh tracker with nothing reported (PLAN 3.3).
+#[tokio::test]
+async fn quality_endpoint_reports_trend_fields_on_an_empty_ledger() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, quality) = send(&router, get("/api/v1/quality", "qz")).await;
+    assert_eq!(status, StatusCode::OK, "quality readable: {quality}");
+    for key in ["failures", "open", "resolved", "mean_severity", "records"] {
+        assert!(
+            quality.get(key).is_some(),
+            "response must carry `{key}` for the dashboard: {quality}"
+        );
+    }
+    assert_eq!(quality["records"].as_array().unwrap().len(), 0);
+}
+
 #[tokio::test]
 async fn coherence_delete_removes_node_and_index() {
     let (router, _dir, _env) = app().await;
@@ -2987,7 +3016,10 @@ async fn wiki_generate_covers_registered_nodes_and_tours_edges() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{gen}");
-    assert_eq!(gen["degraded"], true, "RP embedder reports degraded honestly");
+    assert_eq!(
+        gen["degraded"], true,
+        "RP embedder reports degraded honestly"
+    );
 
     // Coverage invariant: every registered label appears in exactly one page.
     let pages = gen["pages"].as_array().expect("pages array");
@@ -3014,7 +3046,11 @@ async fn wiki_generate_covers_registered_nodes_and_tours_edges() {
     // Empty tenant answers an explicit error, not a 500.
     let (_, empty) = send(
         &router,
-        post("/api/v1/wiki/generate", "nobody-here", json!({ "deterministic": true })),
+        post(
+            "/api/v1/wiki/generate",
+            "nobody-here",
+            json!({ "deterministic": true }),
+        ),
     )
     .await;
     assert!(empty["error"].is_string(), "{empty}");
