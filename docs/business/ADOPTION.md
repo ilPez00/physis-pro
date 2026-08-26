@@ -80,7 +80,7 @@ Three real options, ordered by effort:
 - [x] Crate published to crates.io (v0.1.10)
 - [ ] GitHub topics added
 - [ ] llms.txt committed
-- [ ] Registry submission drafted (name, transport=stdio, command=`physis-pro mcp`)
+- [ ] Registry submission drafted (name, transport=stdio, command=`physis-pro serve --stdio`)
 - [ ] One screenshot set exported from /pulse + /console
 - [ ] Smithery submission opened
 
