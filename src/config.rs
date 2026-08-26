@@ -987,7 +987,10 @@ mod tests {
         // to human cells even when a perfect machine entry existed.
         let config = PhysisConfig::default();
         let loader = OntologyLoader::load_all(&config);
-        let reachable: Vec<&str> = loader.classification_domains().map(|d| d.name.as_str()).collect();
+        let reachable: Vec<&str> = loader
+            .classification_domains()
+            .map(|d| d.name.as_str())
+            .collect();
         for name in ["OEE", "Error Recovery"] {
             assert!(
                 reachable.iter().any(|n| n.contains(name)),
