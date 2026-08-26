@@ -1778,8 +1778,10 @@ mod tests {
     #[test]
     fn test_run_query_nodes_without_store_is_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let mut config = PhysisConfig::default();
-        config.data_dir = dir.path().to_path_buf();
+        let config = PhysisConfig {
+            data_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
         let app = PhysisApp::new(config);
         assert!(app.run_query_nodes("anything", 5).is_empty());
     }

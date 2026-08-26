@@ -1961,7 +1961,7 @@ async fn ask_answers_over_the_graph_and_degrades_without_a_provider() {
         ),
     )
     .await;
-    assert_eq!(reg["node_id"].as_str().is_some(), true, "{reg}");
+    assert!(reg["node_id"].as_str().is_some(), "{reg}");
 
     let (status, ask) = send(
         &router,
@@ -1973,7 +1973,7 @@ async fn ask_answers_over_the_graph_and_degrades_without_a_provider() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "ask readable: {ask}");
-    assert_eq!(ask["semantic"].is_boolean(), true, "{ask}");
+    assert!(ask["semantic"].is_boolean(), "{ask}");
     // The retrieval half must work regardless of providers.
     assert!(
         ask["results"]
@@ -1993,9 +1993,8 @@ async fn ask_answers_over_the_graph_and_degrades_without_a_provider() {
             "a missing answer must say why: {ask}"
         );
     } else {
-        assert_eq!(
+        assert!(
             ask["provider"].is_string(),
-            true,
             "an answer names its provider: {ask}"
         );
     }
@@ -2208,7 +2207,7 @@ async fn purpose_links_record_final_cause_and_show_in_lineage() {
         ),
     )
     .await;
-    assert_eq!(bobs["error"].is_null(), false, "{bobs}");
+    assert!(!bobs["error"].is_null(), "{bobs}");
 }
 
 /// Phase 10b T1: the causal ledger joins the assembled operational timeline.
@@ -2323,20 +2322,28 @@ async fn mail_import_registers_messages_and_records_mailbox_causes() {
     assert_eq!(m["messages"], 2, "{m}");
     assert!(m["registered"].as_u64().unwrap_or(0) >= 1, "{m}");
 
-    // Cause trail: two received events under actor `mailbox`.
+    // Cause trail: two received events under actor `mailbox`, timed by the
+    // messages' own Date headers (TimeRef) — not the import moment.
     let (_, q) = send(
         &router,
         post("/api/v1/files/query", "alice", json!({"cause": "mailbox"})),
     )
     .await;
     assert_eq!(q["total"], 2, "{q}");
+    let mail_matches = q["matches"].as_array().unwrap();
     assert!(
-        q["matches"]
-            .as_array()
-            .unwrap()
+        mail_matches
             .iter()
             .all(|e| e["actor"] == "mailbox" && e["mechanism"] == "received"),
         "{q}"
+    );
+    let eml_event = mail_matches
+        .iter()
+        .find(|e| e["object"].as_str().unwrap_or("").ends_with("report.eml"))
+        .expect("eml event present");
+    assert_eq!(
+        eml_event["at"], "2026-08-24T08:15:00+00:00",
+        "message Date header drives the event time: {q}"
     );
 
     // Confinement still applies.

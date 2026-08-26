@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn input_edges_not_mutated_read_only_invariant() {
-        let mut edges: EdgeList = vec![e("a", "b"), e("b", "c")];
+        let edges: EdgeList = vec![e("a", "b"), e("b", "c")];
         let before = edges.clone();
         let _ = detect_communities(&edges, 8);
         assert_eq!(
