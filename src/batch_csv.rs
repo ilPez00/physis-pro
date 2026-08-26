@@ -165,9 +165,8 @@ Delta Spa,INV-004,2026-03-03,abc\n";
         assert_eq!(rows[1].status, "missing_field");
         assert!(rows[1].error.as_deref().unwrap().contains("doc_number"));
         assert_eq!(rows[2].status, "bad_date");
-        assert_eq!(
+        assert!(
             rows[3].status.contains("amount") || rows[3].status == "bad_amount",
-            true,
             "{rows:?}"
         );
         // line numbers account for the header
