@@ -1356,6 +1356,21 @@ pub struct SearchNodesRequest {
     top_k: usize,
 }
 
+/// POST /api/v1/ask — plain-English question over the graph (PLAN 3.2). Same
+/// retrieval defaults as search; synthesis is best-effort on top.
+#[derive(Deserialize)]
+pub struct AskRequest {
+    question: String,
+    #[serde(default = "default_search_budget")]
+    token_budget: usize,
+    #[serde(default = "default_ask_topk")]
+    top_k: usize,
+}
+
+pub(crate) fn default_ask_topk() -> usize {
+    8
+}
+
 pub(crate) fn default_search_budget() -> usize {
     600
 }
@@ -2716,6 +2731,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             post(coherence::harness_generate_handler),
         )
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
+        .route("/api/v1/ask", post(search::ask_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))
         .route("/api/v1/oee/plant", get(industrial::oee_plant_handler))

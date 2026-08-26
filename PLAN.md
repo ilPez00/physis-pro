@@ -72,8 +72,8 @@ anomaly detection to corrective action.
 
 | # | Deliverable | Status | Owner | Notes |
 |---|-------------|--------|-------|-------|
-| 3.1 | Web-based Dashboard (React/Next.js) | ⬜ Pending | — | FileThemeGraph force-directed |
-| 3.2 | Natural Language Interface (chat) | ⬜ Pending | — | Plain-English graph queries |
+| 3.1 | Web-based Dashboard (React/Next.js) | ✅ Done (superseded) | — | React/Next framing dropped for the no-build Bioluminal Forge shell; the substance ships: `/api/v1/fs/graph` FileThemeGraph over HTTP + force-directed (cose) theme↔file visualization on the console File-map tab and `/ui`, with file preview, moves, similarity edges |
+| 3.2 | Natural Language Interface (chat) | ✅ Done | — | `POST /api/v1/ask`: plain-English question → embedder-consistent retrieval over coherence+goal labels (token-packed) → grounded synthesis via the provider cascade with [n] citations, 300-token cap. Degrades gracefully: no provider / no hits / synthesis failure each return the raw ranked matches + an explicit note, never an error. Ask bar on every page renders the answer above the matches it is grounded in; pure `ask_prompt()` unit-tested (citation contract) + http_surface degradation test |
 | 3.3 | Quality Dashboard UI | ✅ Done | — | `GET /api/v1/quality` enriched: per-failure records (embeddings stripped, `DOMAIN/MODE` display cells, newest first) + open/resolved/mean-severity aggregates; pure `quality_response()` builder, 4 unit tests + 2 http_surface tests. Console Quality tab (`#tab-quality`, unified Bioluminal Forge shell): KPI tiles, zero-filled 30-day trend bars, recent reports with severity/resolution/correction pills, penalty & boost bar lists |
 
 ### Phase 4 — Monetization

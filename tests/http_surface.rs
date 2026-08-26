@@ -401,6 +401,9 @@ async fn demo_and_console_ui_are_served() {
         body.contains("function toast"),
         "ui-shell.js must be the runtime, not an error page"
     );
+    // The ask bar speaks to the NL endpoint (PLAN 3.2), not the raw search —
+    // drift here would silently demote every page's query box back to search-only.
+    assert!(body.contains("/api/v1/ask"), "ask bar wired to /api/v1/ask");
 }
 
 #[tokio::test]
@@ -1940,6 +1943,62 @@ async fn quality_endpoint_reports_trend_fields_on_an_empty_ledger() {
         );
     }
     assert_eq!(quality["records"].as_array().unwrap().len(), 0);
+}
+
+/// PLAN 3.2: /api/v1/ask answers plain-English questions over the graph.
+/// Retrieval always works; without a semantic provider the endpoint degrades
+/// to raw matches and says why instead of failing.
+#[tokio::test]
+async fn ask_answers_over_the_graph_and_degrades_without_a_provider() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "qz",
+            json!({"input": "hydraulic press tonnage drift"}),
+        ),
+    )
+    .await;
+    assert_eq!(reg["node_id"].as_str().is_some(), true, "{reg}");
+
+    let (status, ask) = send(
+        &router,
+        post(
+            "/api/v1/ask",
+            "qz",
+            json!({"question": "what do I have about the hydraulic press?"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "ask readable: {ask}");
+    assert_eq!(ask["semantic"].is_boolean(), true, "{ask}");
+    // The retrieval half must work regardless of providers.
+    assert!(
+        ask["results"]
+            .as_array()
+            .map(|a| a
+                .iter()
+                .any(|r| r["label"].as_str().unwrap_or("").contains("hydraulic")))
+            .unwrap_or(false),
+        "registered node recallable through /ask: {ask}"
+    );
+    // No provider configured in the test env: either a grounded answer naming
+    // its provider, or an explicit reason — never a silent empty reply.
+    if ask["answer"].is_null() {
+        let note = ask["note"].as_str().unwrap_or("");
+        assert!(
+            note.contains("provider"),
+            "a missing answer must say why: {ask}"
+        );
+    } else {
+        assert_eq!(
+            ask["provider"].is_string(),
+            true,
+            "an answer names its provider: {ask}"
+        );
+    }
 }
 
 #[tokio::test]

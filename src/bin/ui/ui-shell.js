@@ -280,15 +280,25 @@ function initAskBar() {
     if (!q) { hide(); return; }
     show('<div class="ask-note">searching…</div>');
     try {
-      const r = await postJSON('/api/v1/search/nodes', { query: q, top_k: 8 });
+      // One call does both halves of PLAN 3.2: retrieval (always) and grounded
+      // synthesis (when a semantic provider is configured). The endpoint never
+      // fails for lack of a provider — it degrades to raw matches and says so.
+      const r = await postJSON('/api/v1/ask', { question: q });
       const hits = r.results || [];
+      let html = '';
+      if (r.answer) {
+        html += '<div class="ask-answer">' + esc(r.answer).replace(/\n+/g, '<br>') +
+                '<span class="ask-provider">' + esc(r.provider || '') + '</span></div>';
+      } else if (hits.length && r.note) {
+        html += '<div class="ask-note">' + esc(r.note) + '</div>';
+      }
       if (!hits.length) {
-        show('<div class="ask-note">Nothing in the graph matches yet. ' +
-             'Scan a directory or register a node first.</div>');
+        html += '<div class="ask-note">Nothing in the graph matches yet. ' +
+                'Scan a directory or register a node first.</div>';
+        show(html);
         return;
       }
-      show(
-        hits.map(h =>
+      html += hits.map(h =>
           '<div class="ask-hit">' +
             '<span class="ask-score">' + (h.score != null ? h.score.toFixed(3) : '—') + '</span>' +
             '<span class="ask-kind">' + esc(h.kind || 'node') + '</span>' +
@@ -297,8 +307,8 @@ function initAskBar() {
         // The response is token-packed, so a truncated result set is normal and
         // must be said — a short list otherwise reads as "that is all there is".
         '<div class="ask-note">' + hits.length + ' of a ' + r.budget +
-          '-token budget' + (r.truncated ? ' · more matches were cut to fit' : '') + '</div>'
-      );
+          '-token budget' + (r.truncated ? ' · more matches were cut to fit' : '') + '</div>';
+      show(html);
     } catch (e) {
       show('<div class="ask-note">search failed: ' + esc(String(e)) + '</div>');
     }
