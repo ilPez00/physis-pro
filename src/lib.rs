@@ -31,6 +31,7 @@ pub mod ledger;
 pub mod life_os;
 pub mod linguistic;
 pub mod machines;
+pub mod mails;
 pub mod maintenance;
 pub mod management_pack;
 pub mod mapper;
