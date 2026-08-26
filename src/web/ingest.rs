@@ -1533,6 +1533,26 @@ pub async fn files_lineage_handler(
     })
 }
 
+/// Newest parseable message Date per source file (path before the `#N`
+/// mbox index). Files with no parseable dates are absent → callers fall back
+/// to the import moment.
+fn source_mail_dates(
+    docs: &[crate::mails::MailDoc],
+) -> std::collections::HashMap<String, Option<chrono::DateTime<chrono::Utc>>> {
+    let mut out: std::collections::HashMap<String, Option<chrono::DateTime<chrono::Utc>>> =
+        Default::default();
+    for d in docs {
+        let src = d.source.split('#').next().unwrap_or(&d.source).to_string();
+        let entry = out.entry(src).or_insert(None);
+        if let Some(date) = d.date {
+            if entry.is_none_or(|cur| date > cur) {
+                *entry = Some(date);
+            }
+        }
+    }
+    out
+}
+
 /// POST /api/v1/mail/import — mailbox ingestion (Phase 10 D7): walk an export
 /// dir of `.eml` files and `.mbox` bundles, register one labeled node per
 /// message (`mail:<subject> — <from>`), and record `received(mailbox)` cause
@@ -1612,6 +1632,8 @@ pub async fn mail_import_handler(
         .map(|d| format!("{}\n{}", d.label, d.body))
         .collect();
     let embeddings = embed_batch_off_thread(state.shared.clone(), bodies).await;
+    // Truthful clock per source file: newest message Date inside it.
+    let mail_dates = source_mail_dates(&docs);
 
     let (registered, deduped) = state.with_user(&uid, |s| {
         let before = s.core.nodes.len();
@@ -1623,12 +1645,20 @@ pub async fn mail_import_handler(
         }
         // Causal record (D7): the mailbox export is received mail; one event
         // per source file keeps lineage at file granularity without flooding.
+        // The message's own Date header is the truthful clock — a month-old
+        // letter imported today was received a month ago (TimeRef).
         for src in &sources {
-            s.ledger.record(
+            let at = mail_dates
+                .get(src)
+                .copied()
+                .flatten()
+                .unwrap_or_else(chrono::Utc::now);
+            s.ledger.record_at(
                 crate::address::Mechanism::Received,
                 "mailbox",
                 src.clone(),
                 None,
+                at,
             );
         }
         if let Some(db) = state.db() {

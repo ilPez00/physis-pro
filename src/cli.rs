@@ -537,10 +537,21 @@ impl PhysisApp {
             anyhow::bail!("node store unavailable (persistence off)");
         };
         if sync {
+            // The default tenant's causal ledger rides along (Phase 10b):
+            // why-made chains join the durable wiki under the cause: namespace.
+            let ledger = self.db().and_then(|db| {
+                crate::ledger::CausalLedger::load(&db, "_default")
+                    .map_err(|e| eprintln!("[physis] ledger load failed: {e}"))
+                    .ok()
+            });
             if mirror {
                 let stats = crate::spanner::sync_full(&core, &sink).await?;
+                let (cn, ce) = match &ledger {
+                    Some(l) => crate::spanner::sync_ledger(&sink, l).await?,
+                    None => (0, 0),
+                };
                 Ok(format!(
-                    "spanner sync: {} nodes + {} edges upserted, {} nodes + {} edges deleted",
+                    "spanner sync: {} nodes + {} edges upserted, {} nodes + {} edges deleted · ledger: {cn} artifact nodes + {ce} cause edges",
                     stats.nodes_upserted,
                     stats.edges_upserted,
                     stats.nodes_deleted,
@@ -548,7 +559,11 @@ impl PhysisApp {
                 ))
             } else {
                 let (n, e) = crate::spanner::sync(&core, &sink).await?;
-                Ok(format!("spanner sync: {n} nodes + {e} edges upserted"))
+                let (cn, ce) = match &ledger {
+                    Some(l) => crate::spanner::sync_ledger(&sink, l).await?,
+                    None => (0, 0),
+                };
+                Ok(format!("spanner sync: {n} nodes + {e} edges upserted · ledger: {cn} nodes + {ce} edges"))
             }
         } else {
             let Some((db, mut core)) = self.open_persisted_core() else {

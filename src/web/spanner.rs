@@ -22,22 +22,39 @@ pub async fn spanner_sync_handler(
     })?;
 
     // Export under the tenant lock, then do IO outside it (Spanner is slow).
-    let (nodes, edges) = state.with_user(&uid, |s| {
+    let (nodes, edges, ledger) = state.with_user(&uid, |s| {
+        let ledger = if req.ledger {
+            Some(s.ledger.clone())
+        } else {
+            None
+        };
         (
             crate::spanner::export_nodes(&s.core),
             crate::spanner::export_edges(&s.core),
+            ledger,
         )
     });
 
     let (nodes_upserted, edges_upserted) = join_spanner(&sink, &nodes, &edges)
         .await
         .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?;
+
+    // Ledger mirror (Phase 10b): upsert-only, namespaced `cause:`.
+    let (cause_nodes, cause_edges) = match &ledger {
+        Some(l) => crate::spanner::sync_ledger(&sink, l)
+            .await
+            .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &e.to_string()))?,
+        None => (0, 0),
+    };
+
     if !req.mirror {
         return Ok(Json(SpannerSyncResponse {
             nodes_upserted,
             edges_upserted,
             nodes_deleted: 0,
             edges_deleted: 0,
+            cause_nodes_upserted: cause_nodes,
+            cause_edges_upserted: cause_edges,
         }));
     }
 
@@ -70,6 +87,8 @@ pub async fn spanner_sync_handler(
         edges_upserted,
         nodes_deleted,
         edges_deleted,
+        cause_nodes_upserted: cause_nodes,
+        cause_edges_upserted: cause_edges,
     }))
 }
 

@@ -974,6 +974,11 @@ pub struct SpannerSyncRequest {
     /// Default true; set false to only upsert.
     #[serde(default = "default_spanner_mirror")]
     mirror: bool,
+    /// Also mirror the tenant's causal ledger (Phase 10b): artifacts become
+    /// `cause:`-namespaced nodes, events become directed edges. Upsert-only —
+    /// the ledger is append-only, so there is nothing to orphan-sweep.
+    #[serde(default)]
+    ledger: bool,
 }
 
 #[cfg(feature = "spanner")]
@@ -988,6 +993,9 @@ pub struct SpannerSyncResponse {
     edges_upserted: usize,
     nodes_deleted: usize,
     edges_deleted: usize,
+    /// Ledger-mirror counts (Phase 10b); 0 when `ledger` was not requested.
+    cause_nodes_upserted: usize,
+    cause_edges_upserted: usize,
 }
 
 #[cfg(feature = "spanner")]
