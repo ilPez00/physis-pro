@@ -2670,6 +2670,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/fs/graph", get(ingest::fs_graph_handler))
         .route("/api/v1/files/query", post(ingest::files_query_handler))
+        .route("/api/v1/files/serve", post(ingest::files_serve_handler))
+        .route("/api/v1/files/lineage", get(ingest::files_lineage_handler))
         .route("/api/v1/fs/list", get(ingest::fs_list_handler))
         .route("/api/v1/fs/resolve", get(ingest::fs_resolve_handler))
         .route("/api/v1/structsim", post(ingest::structsim_handler))
@@ -2891,6 +2893,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             post(context::compress_logs_handler),
         )
         .route("/api/v1/goals", post(pdca::ingest_prompt_handler))
+        .route("/api/v1/goals/list", get(pdca::goals_list_handler))
         .route("/api/v1/pdca/plan", get(pdca::pdca_plan_handler))
         .route("/api/v1/pdca/act", post(pdca::pdca_act_handler))
         .route("/api/v1/pdca/stats", get(pdca::pdca_stats_handler))

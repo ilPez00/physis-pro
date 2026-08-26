@@ -57,6 +57,30 @@ pub async fn pdca_plan_handler(
     })
 }
 
+/// GET /api/v1/goals/list — every tenant goal with its human label (the
+/// purpose-link picker on the Timeline tab needs all of them, not just the
+/// ones PDCA would act on this round).
+pub async fn goals_list_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let goals: Vec<serde_json::Value> = s
+            .goals
+            .iter()
+            .map(|g| {
+                serde_json::json!({
+                    "id": g.id,
+                    "label": g.label.clone().unwrap_or_else(|| g.domain_name.clone()),
+                    "progress": g.progress,
+                })
+            })
+            .collect();
+        Json(serde_json::json!({ "goals": goals, "count": goals.len() }))
+    })
+}
+
 pub async fn pdca_act_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,

@@ -1414,3 +1414,121 @@ pub async fn files_query_handler(
         }))
     })
 }
+
+/// POST /api/v1/files/serve — record a purpose link (Phase 10 D6): this
+/// artifact serves that goal. The final cause is ledger history like every
+/// other cause — append-only, no parallel truth.
+#[derive(Deserialize)]
+pub struct FileServeRequest {
+    /// Artifact path (as recorded in the ledger's object field).
+    object: String,
+    /// Goal the artifact serves.
+    goal_id: String,
+}
+
+pub async fn files_serve_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<FileServeRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let goal_label = state.with_user(&uid, |s| {
+        s.goals
+            .iter()
+            .find(|g| g.id == req.goal_id)
+            .map(|g| g.label.clone().unwrap_or_else(|| g.domain_name.clone()))
+    });
+    let Some(goal_label) = goal_label else {
+        return Err(err_response(
+            StatusCode::NOT_FOUND,
+            &format!("goal {} not found for tenant", req.goal_id),
+        ));
+    };
+    if req.object.trim().is_empty() {
+        return Err(err_response(
+            StatusCode::BAD_REQUEST,
+            "object path required",
+        ));
+    }
+
+    let event = state.with_user(&uid, |s| {
+        let ev = s.ledger.record(
+            crate::address::Mechanism::Serves,
+            "planner",
+            req.object.clone(),
+            Some(req.goal_id.clone()),
+        );
+        let view = serde_json::json!({
+            "seq": ev.seq,
+            "at": ev.at.to_rfc3339(),
+            "mechanism": ev.mechanism.as_str(),
+            "actor": ev.actor,
+            "object": ev.object,
+            "input": ev.input,
+        });
+        if let Some(db) = state.db() {
+            if let Err(e) = s.ledger.save(db, &uid) {
+                log::warn!("serve: ledger persist failed: {e}");
+            }
+        }
+        view
+    });
+
+    Ok(Json(serde_json::json!({
+        "recorded": event,
+        "goal": {"id": req.goal_id, "label": goal_label},
+    })))
+}
+
+/// GET /api/v1/files/lineage?path=… — the why-made chain for one artifact:
+/// upstream lineage (what produced it, transitively), descendants (what it
+/// fed), and purposes (which goals it serves).
+#[derive(Deserialize)]
+pub struct FileLineageQuery {
+    path: String,
+}
+
+fn event_view(ev: &crate::ledger::CauseEvent) -> serde_json::Value {
+    serde_json::json!({
+        "seq": ev.seq,
+        "at": ev.at.to_rfc3339(),
+        "mechanism": ev.mechanism.as_str(),
+        "actor": ev.actor,
+        "object": ev.object,
+        "input": ev.input,
+    })
+}
+
+pub async fn files_lineage_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(q): Query<FileLineageQuery>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let lineage: Vec<serde_json::Value> = s
+            .ledger
+            .lineage(&q.path)
+            .iter()
+            .map(|e| event_view(e))
+            .collect();
+        let descendants: Vec<serde_json::Value> = s
+            .ledger
+            .descendants(&q.path)
+            .iter()
+            .map(|e| event_view(e))
+            .collect();
+        let purposes: Vec<serde_json::Value> = s
+            .ledger
+            .purposes(&q.path)
+            .iter()
+            .map(|e| event_view(e))
+            .collect();
+        Json(serde_json::json!({
+            "path": q.path,
+            "lineage": lineage,
+            "descendants": descendants,
+            "purposes": purposes,
+        }))
+    })
+}

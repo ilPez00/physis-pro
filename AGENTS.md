@@ -195,6 +195,7 @@ Categories (Finance, Communication, ...)
 | Ledger | `src/ledger.rs` — `CausalLedger` per-tenant on `RuntimeState`; append-only `CauseEvent`s; `lineage()`/`descendants()` walk input chains (Serves links excluded); `purposes()` = final cause; `to_op_events()` projects onto OperationalEvent (connector `cause`, replay-stable keys); sled rows `ledger:{uid}:{seq}`, idempotent save; watch thread records Generated/Corrected per file |
 | Capture points | /scan (`generated(scan)`) + watch (`generated`/`corrected` per diff, actor `watch`) · vault import → `received(vault-import)` + `derived(git-log ×N)` · history import → `received(bookmarks\|browser-history\|feeds\|chat-log)` by export type · praxis backfill → `derived(praxis-backfill)` — one event per run, all persisted idempotently |
 | Queries | `POST /api/v1/files/query` (`web/ingest.rs::files_query_handler`, tenant-scoped): facets `query`/`place`/`cause`(mechanism or actor)/`within_days`/`during YYYY-MM` → newest-first matches + `by_place`/`by_period`/`by_mechanism` rollups. CLI: `physis-pro where <q> [--place --cause --within N --during P]` reads the `_default` ledger straight from sled. UI: console Timeline tab Cause-ledger card |
+| Purpose links | D6: `POST /api/v1/files/serve` `{object, goal_id}` → `serves(planner)` event (goal validated per tenant, 404 otherwise); `GET /api/v1/files/lineage?path=` → lineage/descendants/purposes; `GET /api/v1/goals/list` for the picker; UI: serve form + click-to-trace on the Cause-ledger card |
 
 ## Ask — NL graph queries (PLAN 3.2)
 
