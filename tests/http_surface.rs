@@ -691,6 +691,98 @@ async fn a_verdict_is_stored_and_can_be_corrected() {
 }
 
 #[tokio::test]
+async fn outcome_memory_surfaces_recorded_failures_on_recall() {
+    // The killer feature: recall is outcome-valenced. A node the caller has
+    // judged as failed (−1) must travel its verdict into /search/nodes and into
+    // the top-level `failures` list, so an agent sees "you already tried this
+    // and it blew up" instead of a bare cosimilar match.
+    let (router, _dir, _env) = app().await;
+
+    // Register a labeled node and mark it a recorded failure.
+    let (_, reg) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "om",
+            json!({"input": "bake the firmware at 300C", "coherence_score": -1.0}),
+        ),
+    )
+    .await;
+    assert_eq!(reg["asserted"], -1.0, "verdict persisted on register");
+
+    // Recall by the same text — random-projection embedder ranks exact text first.
+    let (_, search) = send(
+        &router,
+        post(
+            "/api/v1/search/nodes",
+            "om",
+            json!({"query": "bake the firmware at 300C", "token_budget": 200}),
+        ),
+    )
+    .await;
+
+    // The hit carries the verdict...
+    let failed_hit = search["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["label"].as_str().unwrap_or("").contains("firmware"))
+        .expect("failed node is recalled");
+    assert_eq!(
+        failed_hit["verdict"], -1.0,
+        "recalled hit exposes its asserted verdict"
+    );
+
+    // ...and the top-level failures list names it.
+    let in_failures = search["failures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["label"].as_str().unwrap_or("").contains("firmware"));
+    assert!(in_failures, "recorded failure surfaced in `failures`: {search}");
+
+    // A node judged as success (+1) is recalled with its verdict but is NOT a
+    // failure — proving the failures list is verdict-gated, not "everything".
+    let (_, ok) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "om",
+            json!({"input": "ship the signed image", "coherence_score": 1.0}),
+        ),
+    )
+    .await;
+    assert_eq!(ok["asserted"], 1.0, "success verdict persisted");
+
+    let (_, search2) = send(
+        &router,
+        post(
+            "/api/v1/search/nodes",
+            "om",
+            json!({"query": "ship the signed image", "token_budget": 400}),
+        ),
+    )
+    .await;
+    let ok_hit = search2["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["label"].as_str().unwrap_or("").contains("signed image"))
+        .expect("success node recalled");
+    assert_eq!(ok_hit["verdict"], 1.0, "success hit keeps its verdict");
+    let failure_labels: Vec<String> = search2["failures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["label"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(
+        !failure_labels.iter().any(|l| l.contains("signed image")),
+        "success node must not appear in failures: {search2}"
+    );
+}
+
+#[tokio::test]
 async fn dreams_return_a_readable_proposal_not_raw_vectors() {
     // Regression: the handler serialized two 768-d vectors per dream and
     // dropped `description`, so every client saw the arithmetic and none of
