@@ -1,0 +1,31 @@
+# Physis Pro
+
+> Industrial backoffice intelligence in Rust: any input — text, image, log, human action — becomes a vector in one embedding space, classified against a 70-cell semiotic grid (DOMAIN×MODE) with per-client interpretants. Coherence tracking (+1/0/−1 verdicts), a dream loop that replays failures into corrective proposals, OEE/maintenance for the shop floor, and a causal ledger giving every file a space·time·cause address (where / when / why-made / what-for). Runs as CLI, HTTP server, MCP server, TUI, and voice mapper.
+
+## Core endpoints (HTTP, default 127.0.0.1:19876)
+
+- [POST /api/v1/classify](https://github.com/ilPez00/physis-pro#classify): embed text or base64 image → ranked DOMAIN×MODE cells
+- [POST /api/v1/ask](https://github.com/ilPez00/physis-pro#http-api): plain-English question over the knowledge graph; grounded answer with [n] citations when an LLM provider is configured, ranked matches otherwise — never an error
+- [POST /api/v1/coherence/register](https://github.com/ilPez00/physis-pro#http-api): register a labeled node with an asserted verdict
+- [POST /api/v1/search/nodes](https://github.com/ilPez00/physis-pro#http-api): fixed-token similarity search over coherence + goal nodes
+- [GET /api/v1/files/query](https://github.com/ilPez00/physis-pro#http-api): facet query over the causal ledger — place, period, mechanism/actor, free text
+- [GET /api/v1/files/lineage](https://github.com/ilPez00/physis-pro#http-api): why-made chain for one artifact (upstream, descendants, purposes)
+- [POST /api/v1/files/serve](https://github.com/ilPez00/physis-pro#http-api): record that an artifact serves a goal (final cause)
+- [POST /api/v1/mail/import](https://github.com/ilPez00/physis-pro#http-api): ingest .eml/.mbox exports as labeled nodes with native Date timestamps
+- [POST /api/v1/spanner/sync](https://github.com/ilPez00/physis-pro#http-api): mirror coherence + causal history to Google Spanner Graph
+
+## Surfaces
+
+- [CLI](https://github.com/ilPez00/physis-pro#run): scan, query, classify, where (space·time·cause facets), vault/history/praxis/mail importers, spanner sync
+- [MCP server](https://github.com/ilPez00/physis-pro#mcp-server): `physis-pro serve --stdio` — Model Context Protocol over stdin/stdout for Claude Code, Codex, OpenCode, and any MCP client
+- [Dashboards](https://github.com/ilPez00/physis-pro#web-ui): /pulse overview, /console (16 tabs: timeline, quality feedback loop, file map, planner), /study, agent demo — one shared design system
+
+## Design docs
+
+- [Space·Time·Cause datawork plan](https://github.com/ilPez00/physis-pro/blob/main/docs/plans/2026-08-26-space-time-cause-datawork.md)
+- [Contextual meaning & interpretants](https://github.com/ilPez00/physis-pro/blob/main/docs/CONTEXTUAL_MEANING.md)
+- [Pipeline diagrams](https://github.com/ilPez00/physis-pro/blob/main/docs/PIPELINE_DIAGRAMS.md)
+
+## Licensing
+
+Proprietary EULA (`LICENSE.txt`); source-visible on GitHub. Binary runs require a licence signed by the vendor key.
