@@ -164,6 +164,18 @@ anomaly detection to corrective action.
 | T3 | Lineage as edges | ✅ Done | selecting a file node draws its why-made chain into the cose graph: rose round-diamond cause nodes (`mechanism·actor`) chained input→artifact with dotted arrow edges + lime `serves·goal` nodes for purposes; cleared on reselect/re-render, best-effort (never breaks selection) |
 | T4 | Ontology pack mechanism (4.2-lite) | ✅ Done | `load_all` scans `{data_dir}/packs/*.json` (sorted, deterministic): entries join `custom_domains` keyed `pack-stem:name`, interpretants attributed `pack:<stem>`, broken packs skipped with a warning — packs are data, no rebuild. Example pack `docs/examples/logistics_pack.json` (9 entries); unit test covers load + skip + classification enrichment |
 
+### Phase 10c — Adoption track (2026-08-26)
+
+> Source: `docs/business/ADOPTION.md`. Make the agent-facing surface match
+> what the product can actually do.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| A1 | MCP surface parity | ⬜ Pending | the 18 existing tools predate memory: add `remember`/`recall` (write/read semiotic memory over the shared sled store), `why`/`serve`/`causes` (causal ledger access) so a mounted agent gets the full pitch — classify AND remember AND ask why |
+| A2 | llms.txt served per instance | ✅ Done | repo root → public route `/llms.txt`, capability coverage tested |
+| A3 | Registry submission pack | ✅ Done | `docs/business/mcp-server-submission.md`; owner runs topics command (CI token lacks scope) |
+| A4 | Crate published | ✅ Done | `physis_pro v0.1.10` live on crates.io |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |
