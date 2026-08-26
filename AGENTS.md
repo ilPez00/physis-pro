@@ -206,6 +206,13 @@ Categories (Finance, Communication, ...)
 | UI | ui-shell ask bar calls `/api/v1/ask`; answer renders above the matches it cites (`.ask-answer` in physis.css), degradation notes inline; Agent handoff unchanged |
 | Tests | pure `ask_prompt()` citation-contract tests + http_surface degradation test + shell-wiring assertion |
 
+## Output-Quality Probe (Phase 10c A6)
+
+| Piece | Description |
+|-------|-------------|
+| Probe | `tests/output_quality.rs` — `#[ignore]`d like accuracy_floor; run `cargo test --features full --test output_quality -- --ignored --nocapture`. Prints live classify (cells + similarity-ranked exemplars), recall rankings over planted facts, `/ask` synthesis, ledger facets, lineage/purpose chains under the production ONNX cascade |
+| Guarantees | classification seeds = all nine domain buckets (928); cell exemplars ranked by per-entry cosine (core 0.1.10); recall top-1 correct on the probe set; ask degrades to matches+note without a provider and cites `[n]` with one |
+
 ## Quality Dashboard (PLAN 3.3)
 
 | Piece | Description |

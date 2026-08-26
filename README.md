@@ -210,8 +210,22 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 curl -X POST http://127.0.0.1:19876/api/v1/classify \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
-  -d '{"text":"a serene landscape painting with soft brush strokes"}'
-# → top: FABRICATE×CREATE (0.89) — Visual Arts, Storytelling, Music & Performance
+  -d '{"text":"OEE dropped due to unplanned downtime on the CNC press"}'
+# → top: FABRICATE×WORK (0.85) — OEE Metrics, Manufacturing Processes
+#   (exemplar entries are ranked by their own similarity to the query)
+```
+
+### Example — ask (plain-English graph query)
+
+```bash
+curl -X POST http://127.0.0.1:19876/api/v1/ask \
+  -H "Content-Type: application/json" \
+  -H "X-Physis-User: plant-1" \
+  -d '{"question":"what do I know about the hydraulic press?"}'
+# → {"answer":"The hydraulic press on line 2 drifts above its nominal
+#    tonnage when it is cold. [1]","provider":"groq", ...}
+# Without a configured provider the same call returns the ranked matches
+# plus a note — it never errors.
 ```
 
 At startup every ontology entry (name + hints) is embedded and averaged per
