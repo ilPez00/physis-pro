@@ -6,7 +6,10 @@ Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input
 text, image, video, audio, a code log, a human action — to a vector in one shared
 embedding space, classifies it against a 70-cell semiotic grid, and tracks each
 thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
-the failures to propose corrective actions.
+the failures to propose corrective actions. Beyond meaning, every ingested file
+carries a **space·time·cause address** — where it lives, when it matters, why it
+exists — recorded in an append-only causal ledger you query in plain facets
+(`physis-pro where …`, `POST /api/v1/files/query`).
 
 It runs as:
 - a **CLI** (`physis-pro`) for scanning, querying, and one-off dreams,
@@ -150,6 +153,9 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/coherence/edit` | ✓ | **Exchange-parts edit** `{id, label, cell?}` — swap content while preserving structure (id, verdict, edges); `cell: {domain, mode}` pins the semiotic cell (auto re-derivation otherwise). Returns `before_cell`/`auto_cell`/`pinned_cell` |
 | POST | `/api/v1/coherence/delete` | ✓ | Delete a node + every reference (dedupe index, holarchy node/edges, sled row) `{id}` |
 | POST | `/api/v1/search/nodes` | ✓ | **Fixed-token search** over coherence + goal nodes `{query, token_budget?, top_k?}` — response `total_tokens ≤ token_budget` (same contract as `/rag/retrieve`) |
+| POST | `/api/v1/ask` | ✓ | **Plain-English graph query**: question → embedder-consistent retrieval (token-packed) → grounded synthesis via the LLM cascade with `[n]` citations. Never errors for lack of a provider — degrades to ranked matches + a `note` |
+| GET  | `/api/v1/quality` | global | **Quality feedback ledger**: learned per-cell penalties/boosts + per-failure records (newest first, embeddings stripped) with open/resolved counts and mean severity |
+| GET  | `/api/v1/communities` | ✓ | Label-propagation communities over the tenant's labelled coherence graph, largest first |
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
@@ -182,7 +188,12 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
 | POST | `/api/v1/history/import` | ✓ | **Personal-history import**: browser bookmarks/history, OPML feeds, chat JSONL → labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{file, items, registered, deduped}` |
 | POST | `/api/v1/praxis/backfill` | ✓ | **Praxis backfill**: notebook entries + trackers → labeled behavioural nodes with asserted success/inert/failure verdicts (confined to `PHYSIS_SCAN_ROOT`) → `{items, successes, inert, failures, registered, deduped}` |
-| POST | `/api/v1/spanner/sync` | spanner | **Spanner Graph sink**: mirror the tenant's coherence graph up (upsert + optional `mirror` orphan-delete) → `{nodes_upserted, edges_upserted, nodes_deleted, edges_deleted}` |
+| POST | `/api/v1/mail/import` | ✓ | **Mailbox import**: a dir of `.eml` files + RFC-4155 `.mbox` bundles → one labeled node per message (`mail:<subject> — <from>`, native Date parsed); records `received(mailbox)` per source file (confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/files/query` | ✓ | **Space·Time·Cause query** over the tenant's causal ledger: facets `query`/`place`(path prefix)/`cause`(mechanism or actor)/`within_days`/`during YYYY-MM` → newest-first matches + `by_place`/`by_period`/`by_mechanism` rollups |
+| POST | `/api/v1/files/serve` | ✓ | **Purpose link**: `{object, goal_id}` records a `serves` event — the final cause of an artifact, validated against the tenant's goals (404 otherwise) |
+| GET  | `/api/v1/files/lineage` | ✓ | Why-made chain for one artifact `?path=`: upstream lineage, descendants, and purposes (serves links never enter derivation chains) |
+| GET  | `/api/v1/goals/list` | ✓ | Every tenant goal `{id, label, progress}` — the purpose-link picker |
+| POST | `/api/v1/spanner/sync` | spanner | **Spanner Graph sink**: mirror the tenant's coherence graph up (upsert + optional `mirror` orphan-delete); `ledger:true` also mirrors causal history as `cause:`-namespaced artifact nodes + directed cause edges (no orphan sweep — the ledger is append-only) |
 | POST | `/api/v1/spanner/hydrate` | spanner | **Spanner hydrate**: pull durable rows, re-embed under the live embedder, persist into the tenant core → `{pulled, re_embedded}` |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
@@ -314,6 +325,7 @@ and renewal procedure.
 - [`docs/UMBRELLAPEDIA_GUIDE.md`](docs/UMBRELLAPEDIA_GUIDE.md) — wiring physis to the Umbrellapedia wiki surface
 - [`docs/PIPELINE_DIAGRAMS.md`](docs/PIPELINE_DIAGRAMS.md) — ingestion→recall pipeline + live engine phases
 - [`docs/PUBLIC_ARCHITECTURE.md`](docs/PUBLIC_ARCHITECTURE.md) — cross-repo public deployment
+- [`docs/plans/2026-08-26-space-time-cause-datawork.md`](docs/plans/2026-08-26-space-time-cause-datawork.md) — the datawork design: file addresses (space/time/cause), the causal ledger, place/period ontologies
 
 ---
 
@@ -351,8 +363,17 @@ cargo run --bin physis-pro -- history feeds.opml
 # Praxis backfill: seed coherence from the real life-log
 cargo run --bin physis-pro -- praxis export.json   # notebook + trackers → verdicts
 
+# Space·Time·Cause: ask where/when/why about ingested artifacts (causal ledger)
+cargo run --bin physis-pro -- where "press"                    # everything mentioning press
+cargo run --bin physis-pro -- where --cause mailbox --within 30 # mail that arrived in 30 days
+cargo run --bin physis-pro -- where --place ~/plant --during 2026-08            # place + period
+
+# Industry ontology packs (4.2): drop JSON ontology files, no rebuild
+mkdir -p ~/.physis/packs && cp docs/examples/logistics_pack.json ~/.physis/packs/
+# → entries join classification keyed "logistics_pack:<name>" at next start
+
 # Spanner Graph sink (Phase 7C): durable, cross-device memory mirror
-cargo run --bin physis-pro --features spanner -- spanner sync --mirror   # upsert + delete orphans
+cargo run --bin physis-pro --features spanner -- spanner sync --mirror   # upsert + delete orphans (+ causal ledger)
 cargo run --bin physis-pro --features spanner -- spanner hydrate         # pull + re-embed
 # env: SPANNER_PROJECT/INSTANCE/DATABASE + GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_OAUTH_TOKEN
 
