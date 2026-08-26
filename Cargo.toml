@@ -1,6 +1,6 @@
 [package]
 name = "physis_pro"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
 # LICENSE.txt is a proprietary EULA ("licensed, not sold", enforced by the
 # Ed25519 gate in src/license.rs), so there is no SPDX id to declare — only
