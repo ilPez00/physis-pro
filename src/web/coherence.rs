@@ -1010,7 +1010,8 @@ mod communities_tests {
 
     #[test]
     fn all_isolated_nodes_collapse_into_one_singleton_community() {
-        let v = communities_payload(&vec!["q/1".into(), "q/2".into()], &Vec::new());
+        let edges: crate::communities::EdgeList = Vec::new();
+        let v = communities_payload(&["q/1".to_string(), "q/2".to_string()], &edges);
         let comms = v["communities"].as_array().unwrap();
         assert_eq!(comms.len(), 1, "{v:?}");
         assert_eq!(comms[0]["members"], serde_json::json!(["q/1", "q/2"]));
@@ -1032,7 +1033,7 @@ mod quality_tests {
             timestamp: chrono::Utc::now() - chrono::Duration::hours(hours_ago),
             feedback: format!("feedback {id}"),
             feedback_embedding: vec![0.0; 384],
-            top_cell: format!("BOND\x00PLAY"),
+            top_cell: "BOND\u{0}PLAY".to_string(),
             top_score: 0.42,
             correct_domain: None,
             correct_embedding: None,
