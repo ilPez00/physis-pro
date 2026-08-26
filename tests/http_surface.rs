@@ -2105,6 +2105,123 @@ async fn cause_ledger_records_imports_and_answers_facet_queries() {
     assert_eq!(bobs["total"], 0, "{bobs}");
 }
 
+/// Phase 10 D6: purpose links. A goal is created, an artifact is attached to
+/// it with /api/v1/files/serve, the link shows up as a `serves` cause event
+/// and in the artifact's lineage; unknown goals are rejected.
+#[tokio::test]
+async fn purpose_links_record_final_cause_and_show_in_lineage() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let vault = dir.path().join(".physis").join("vault");
+    std::fs::create_dir_all(&vault).expect("mkdir");
+    std::fs::write(vault.join("runbook.md"), "# Runbook\n\nline restart steps").expect("note");
+
+    let (router, _env) = app_on(dir.path()).await;
+    let vault_str = vault.display().to_string();
+
+    // A goal to serve.
+    let (_, g) = send(
+        &router,
+        post(
+            "/api/v1/goals",
+            "alice",
+            json!({"prompt": "keep the line running"}),
+        ),
+    )
+    .await;
+    let goal_id = g["goal"]["id"].as_str().expect("goal id").to_string();
+    let (_, list) = send(&router, get("/api/v1/goals/list", "alice")).await;
+    assert!(
+        list["goals"]
+            .as_array()
+            .map(|a| a.iter().any(|x| x["id"] == g["goal"]["id"]))
+            .unwrap_or(false),
+        "goal picker lists all tenant goals: {list}"
+    );
+
+    // An artifact with a producing event.
+    let (_, v) = send(
+        &router,
+        post(
+            "/api/v1/vault/import",
+            "alice",
+            json!({"dir": vault_str, "git": 0}),
+        ),
+    )
+    .await;
+    assert!(v["registered"].as_u64().unwrap_or(0) >= 1, "{v}");
+
+    // Attach purpose.
+    let (status, s) = send(
+        &router,
+        post(
+            "/api/v1/files/serve",
+            "alice",
+            json!({"object": vault_str, "goal_id": goal_id}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{s}");
+    assert_eq!(s["recorded"]["mechanism"], "serves", "{s}");
+
+    // Unknown goal → 404, never a silent record.
+    let (status, miss) = send(
+        &router,
+        post(
+            "/api/v1/files/serve",
+            "alice",
+            json!({"object": vault_str, "goal_id": "nope"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{miss}");
+
+    // Purpose visible through the facet query…
+    let (_, q) = send(
+        &router,
+        post("/api/v1/files/query", "alice", json!({"cause": "serves"})),
+    )
+    .await;
+    assert_eq!(q["total"], 1, "{q}");
+    // …and through lineage: purposes populated, serves excluded from chains.
+    let (_, lin) = send(
+        &router,
+        get(
+            &format!("/api/v1/files/lineage?path={}", urlencode(&vault_str)),
+            "alice",
+        ),
+    )
+    .await;
+    assert_eq!(lin["purposes"].as_array().unwrap().len(), 1, "{lin}");
+    let chain = lin["lineage"].as_array().unwrap();
+    assert!(
+        chain.iter().all(|e| e["mechanism"] != "serves"),
+        "purpose links are not derivations: {lin}"
+    );
+
+    // Tenant isolation: bob cannot see or attach to alice's world.
+    let (_, bobs) = send(
+        &router,
+        post(
+            "/api/v1/files/serve",
+            "bob",
+            json!({"object": vault_str, "goal_id": goal_id}),
+        ),
+    )
+    .await;
+    assert_eq!(bobs["error"].is_null(), false, "{bobs}");
+}
+
+fn urlencode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
 #[tokio::test]
 async fn coherence_delete_removes_node_and_index() {
     let (router, _dir, _env) = app().await;

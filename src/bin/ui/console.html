@@ -571,6 +571,13 @@
       <h3>Cause ledger <span class="tip" data-tip="Why artifacts exist: what produced them (scan/watch/import), when, and from what — the space·time·cause record of your files">why things exist</span> <button class="ghost" id="tlCauseRefresh" style="padding:2px 10px;font-size:11px">refresh</button></h3>
       <div id="causeRollups" style="display:flex;gap:18px;flex-wrap:wrap"></div>
       <div id="causeEvents" style="display:flex;flex-direction:column;gap:4px;margin-top:10px;max-height:260px;overflow:auto"></div>
+      <div class="sm muted" style="margin-top:8px">click an event to trace its lineage · final cause:</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+        <input id="serveObj" placeholder="artifact path…" style="flex:2;min-width:170px">
+        <select id="serveGoal" style="flex:2;min-width:150px"><option value="">— goal —</option></select>
+        <button class="ghost" id="serveBtn">serves</button>
+      </div>
+      <div id="lineageBox" class="sm" style="margin-top:6px;color:var(--brume)"></div>
     </div>
     <div class="split">
       <section class="surface">
@@ -1672,7 +1679,7 @@ async function loadCauseLedger(force){
       roll('by place',q.by_place);
     $('causeEvents').innerHTML=(q.matches||[]).slice(0,40).map(ev=>{
       const c=CAUSE_COLOR[ev.mechanism]||'var(--brume)';
-      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:4px 2px">'+
+      return '<div data-obj="'+esc(ev.object)+'" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:4px 2px;cursor:pointer">'+
         '<span class="ask-score" style="color:'+c+'">'+esc(ev.mechanism)+'</span>'+
         '<span class="muted sm">'+esc((ev.at||'').replace('T',' ').slice(0,16))+'</span>'+
         '<b class="sm">'+esc((ev.object||'').split('/').pop()||ev.object)+'</b>'+
@@ -1680,11 +1687,48 @@ async function loadCauseLedger(force){
         (ev.input?'<span class="muted sm">← '+esc(ev.input.split('/').pop())+'</span>':'')+
       '</div>';
     }).join('')||'<div class="empty">No causes recorded yet — run a scan or import something.</div>';
+    loadGoalOptions();
     causeLoaded=true;
   }catch(e){
     $('causeEvents').innerHTML='<div class="empty">Cause ledger unavailable: '+esc(String(e.message||e))+'</div>';
   }
 }
+// Purpose links (D6): every tenant goal is a candidate final cause.
+async function loadGoalOptions(){
+  try{
+    const g=await getJSON('/api/v1/goals/list');
+    const sel=$('serveGoal');
+    const cur=sel.value;
+    sel.innerHTML='<option value="">— goal —</option>'+((g.goals||[]).map(x=>
+      '<option value="'+esc(x.id)+'">'+esc((x.label||'').slice(0,60))+'</option>').join(''));
+    if(cur) sel.value=cur;
+  }catch(e){ /* goal picker stays empty; serving still possible with a pasted id */ }
+}
+$('serveBtn').onclick=async()=>{
+  const obj=$('serveObj').value.trim(), gid=$('serveGoal').value;
+  if(!obj||!gid){ $('lineageBox').textContent='pick an artifact path and a goal first.'; return; }
+  try{
+    await postJSON('/api/v1/files/serve',{object:obj,goal_id:gid});
+    $('lineageBox').innerHTML='<span style="color:var(--lime)">recorded:</span> <b>'+esc(obj.split('/').pop())+'</b> serves this goal';
+    loadCauseLedger(true);
+  }catch(e){ $('lineageBox').textContent='serve failed: '+String(e.message||e); }
+};
+// Lineage trace on click: upstream chain + descendants + purposes.
+$('causeEvents').addEventListener('click',async e=>{
+  const row=e.target.closest('[data-obj]');
+  if(!row) return;
+  const obj=row.getAttribute('data-obj');
+  $('lineageBox').textContent='tracing '+obj+' …';
+  try{
+    const l=await getJSON('/api/v1/files/lineage?path='+encodeURIComponent(obj));
+    const chain=(l.lineage||[]).map(x=>x.mechanism[0]+'·'+(x.object.split('/').pop()||x.object));
+    const down=(l.descendants||[]).length, purp=(l.purposes||[]).length;
+    $('lineageBox').innerHTML=
+      '<b>'+esc(obj)+'</b><br>'+
+      '↑ '+esc(chain.join(' ← ')||'no upstream')+'<br>'+
+      '<span class="muted">'+down+' downstream · '+purp+' purpose'+(purp===1?'':'s')+'</span>';
+  }catch(err){ $('lineageBox').textContent='lineage failed: '+String(err.message||err); }
+});
 $('tlCauseRefresh').onclick=()=>loadCauseLedger(true);
 
 async function loadTimelineDemo(){
