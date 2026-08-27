@@ -1316,18 +1316,6 @@ fn main() -> anyhow::Result<()> {
             std::fs::write(&uber_path, &uber)?;
             println!("  Uberwiki index: {}", uber_path.display());
         }
-        Commands::Studio {
-            dir,
-            html_out,
-            demo,
-        } => {
-            if demo {
-                physis_pro::demo_corpus::seed_demo_corpus(&dir)?;
-            }
-            let out_path = html_out.unwrap_or_else(|| dir.join("studio.html"));
-            let result = app.run_studio(&dir, &out_path, demo)?;
-            println!("{result}");
-        }
         Commands::StructSim { a, b, threshold } => {
             let nodes_a = load_structure_nodes(&a)?;
             let nodes_b = load_structure_nodes(&b)?;
