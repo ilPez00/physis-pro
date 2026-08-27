@@ -1278,6 +1278,83 @@ No other text."#.into(),
         out
     }
 
+    /// Phase 11 C5 — cluster the persisted coherence graph into communities and
+    /// summarize each one: title, distinctive keywords, dominant facets, outcome
+    /// tally, and a deterministic digest. Offline and deterministic, so it runs
+    /// without a provider. Reads the "_default" tenant's store + ledger.
+    pub fn run_themes(&self, min_size: usize, json: bool) -> String {
+        let Some((_, core)) = self.open_persisted_core() else {
+            return "[physis] store unavailable (persistence off)\n".to_string();
+        };
+        let Some(db) = self.db() else {
+            return "[physis] store unavailable (persistence off)\n".to_string();
+        };
+        let ledger = match crate::ledger::CausalLedger::load(&db, "_default") {
+            Ok(l) => l,
+            Err(e) => return format!("[physis] cannot load ledger: {e}\n"),
+        };
+        if core.nodes.is_empty() {
+            return "[physis] the coherence graph is empty — run a scan, watch a \
+                    directory, or import a vault first.\n"
+                .to_string();
+        }
+
+        let (facts, edges) = crate::corpus::gather_facts(&core, &ledger);
+        let summaries = crate::corpus::build_summaries(&facts, &edges);
+        let visible: Vec<_> = summaries.iter().filter(|s| s.size >= min_size).collect();
+
+        if json {
+            return serde_json::to_string_pretty(&serde_json::json!({
+                "communities": summaries.len(),
+                "nodes": facts.len(),
+                "summaries": summaries,
+            }))
+            .unwrap_or_default();
+        }
+
+        let mut out = String::new();
+        out.push_str(&format!(
+            "Corpus themes — {} communit{}, {} nodes analysed\n",
+            summaries.len(),
+            if summaries.len() == 1 { "y" } else { "ies" },
+            facts.len(),
+        ));
+        if visible.is_empty() {
+            out.push_str("\nNo community meets --min-size. Lower it to see smaller clusters.\n");
+            return out;
+        }
+        for s in &visible {
+            out.push_str(&format!("\n## {}  ·  {} nodes  ·  cohesion {:.2}\n", s.title, s.size, s.cohesion));
+            if !s.keywords.is_empty() {
+                out.push_str(&format!("  keywords: {}\n", s.keywords.join(", ")));
+            }
+            let mut facets: Vec<String> = Vec::new();
+            if let Some(c) = &s.dominant_cell {
+                facets.push(format!("cell {c}"));
+            }
+            if let Some(p) = &s.dominant_place {
+                facets.push(format!("at {p}"));
+            }
+            if let Some(p) = &s.dominant_period {
+                facets.push(format!("during {p}"));
+            }
+            if let Some(m) = &s.dominant_mechanism {
+                facets.push(format!("via {m}"));
+            }
+            if !facets.is_empty() {
+                out.push_str(&format!("  {}\n", facets.join(" · ")));
+            }
+            if s.wins > 0 || s.failures > 0 {
+                out.push_str(&format!("  outcomes: {} positive, {} negative\n", s.wins, s.failures));
+            }
+            out.push_str(&format!("  {}\n", s.digest));
+            if !s.representatives.is_empty() {
+                out.push_str(&format!("  e.g. {}\n", s.representatives.join("; ")));
+            }
+        }
+        out
+    }
+
     /// Query the ontology by orthogonal facets (beyond DOMAIN×MODE): filter the
     /// whole loaded ontology by lifecycle/agency/scale/abstraction/sub-domain/
     /// sub-mode. Tolerant by design — an unknown facet value is skipped, never

@@ -467,6 +467,7 @@
     <button data-tab="grid" title="5 kinds of work × 14 ways of working">Meaning grid<span class="nav-why">70 cells</span></button>
     <button data-tab="ontology" title="The dictionary classification uses">Dictionary<span class="nav-why">ontology studio</span></button>
     <button data-tab="quality" title="What classification got wrong and what it learned from it">Quality<span class="nav-why">feedback loop</span></button>
+    <button data-tab="themes" title="Recurring themes across the whole graph — clustered communities, offline">Themes<span class="nav-why">shape of the corpus</span></button>
     <div class="nav-sep"></div>
     <div class="nav-group">Decide</div>
     <button data-tab="planner" title="Replay documents against a candidate dictionary">What-if<span class="nav-why">preview a change</span></button>
@@ -686,6 +687,20 @@
         <div id="qBoosts" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
     </div>
+  </section>
+
+  <!-- THEMES -->
+  <section class="tab" id="tab-themes">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> corpus comprehension · <span class="tip" data-tip="Top-k retrieval can't answer 'what recurs across the corpus': no single node holds that answer. Communities can.">clusters, not documents</span></div>
+        <h2>The shape of the corpus.</h2>
+        <p>Every remembered node is clustered into a community; each community is summarized offline — distinctive keywords, dominant cell / place / period / mechanism, and an outcome tally. This is the view the dashboards lack: what the whole graph is <em>about</em>.</p>
+      </div>
+      <div class="actions"><button id="themesRefresh">Refresh</button></div>
+    </div>
+    <div id="themesKpis" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+    <div id="themesGrid" style="display:flex;flex-direction:column;gap:12px;margin-top:12px"></div>
   </section>
 
   <!-- DECISION PLANNER -->
@@ -1187,7 +1202,7 @@ const MODE_GLOSS={
   LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
   BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
 };
-const TABS=["interest","overview","timeline","oee","classify","grid","ontology","quality","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
+const TABS=["interest","overview","timeline","oee","classify","grid","ontology","quality","themes","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
 function currentTab(){
   const a=document.querySelector('nav button.active');
   return a?a.dataset.tab:'overview';
@@ -1213,7 +1228,8 @@ const COACH={
   epistemic:{text:'<b>Audit &amp; Replay.</b> Reconstruct belief states at timestamp T and trace the root trigger of belief shifts.',act:'Refresh audit stream',run:()=>loadEpistemicAudit()},
   explanation:{text:'<b>Explanations.</b> Structured multi-hop provenance and multi-dimensional coherence decomposition.',act:null,run:null},
   discovery:{text:'<b>Discovery.</b> Unsupervised clustering over unmapped observations to propose ontology extensions.',act:'Load sample corpus',run:()=>loadDiscoverySample()},
-  harness:{text:'<b>LLM Harness.</b> Epistemic gatekeeper that checks candidate LLM responses against contradictions and multidimensional coherence.',act:'Load sample scenario',run:()=>loadHarnessScenario('spindle')}
+  harness:{text:'<b>LLM Harness.</b> Epistemic gatekeeper that checks candidate LLM responses against contradictions and multidimensional coherence.',act:'Load sample scenario',run:()=>loadHarnessScenario('spindle')},
+  themes:{text:'<b>Themes.</b> The graph clustered into communities — what recurs, where, and what keeps failing. Offline and deterministic; no provider needed.',act:'Load themes',run:()=>loadThemes(true)}
 };
 function showCoach(tab){
   const bar=$('coach');
@@ -1327,6 +1343,56 @@ $('interestConnect').onclick=()=>{
   loadInterest();
 };
 
+// ── corpus themes (Phase 11 C6) ──
+// Reads the per-tenant community summaries through /api/v1/corpus/summaries.
+// Offline and deterministic — no provider — so the tab works on the default
+// install. Each summary is one community; render the grid of them.
+let themesLoaded=false;
+async function loadThemes(force){
+  if(themesLoaded && !force) return;
+  const grid=$('themesGrid'), kpis=$('themesKpis');
+  if(!grid) return;
+  grid.innerHTML='<div class="empty">loading…</div>';
+  try{
+    const r=await getJSON('/api/v1/corpus/summaries');
+    const sums=r.summaries||[];
+    themesLoaded=true;
+    kpis.innerHTML=
+      kpi('Communities', sums.length, '')+
+      kpi('Nodes analysed', r.nodes||0, '');
+    if(!sums.length){
+      grid.innerHTML='<div class="empty">No communities yet — register nodes (scan, watch, vault import) first.</div>';
+      return;
+    }
+    grid.innerHTML=sums.map(s=>{
+      const facets=[];
+      if(s.dominant_cell) facets.push('cell '+esc(s.dominant_cell));
+      if(s.dominant_place) facets.push('at '+esc(s.dominant_place));
+      if(s.dominant_period) facets.push('during '+esc(s.dominant_period));
+      if(s.dominant_mechanism) facets.push('via '+esc(s.dominant_mechanism));
+      const kw=(s.keywords||[]).map(k=>'<span class="chip">'+esc(k)+'</span>').join('');
+      const out=[];
+      if(s.wins>0) out.push('<span class="pill ok">'+s.wins+' positive</span>');
+      if(s.failures>0) out.push('<span class="pill bad">'+s.failures+' negative</span>');
+      const reps=(s.representatives||[]).map(x=>esc(x)).join('; ');
+      return '<div class="card">'+
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'+
+          '<h3 style="margin:0">'+esc(s.title)+'</h3>'+
+          '<span class="muted">'+s.size+' nodes · cohesion '+s.cohesion.toFixed(2)+'</span>'+
+        '</div>'+
+        (facets.length?'<div class="nav-why">'+facets.map(esc).join(' · ')+'</div>':'')+
+        (kw?'<div class="chips">'+kw+'</div>':'')+
+        (out.length?'<div style="margin:6px 0">'+out.join(' ')+'</div>':'')+
+        '<p style="margin:6px 0">'+esc(s.digest)+'</p>'+
+        (reps?'<div class="muted">e.g. '+reps+'</div>':'')+
+      '</div>';
+    }).join('');
+  }catch(e){
+    grid.innerHTML='<div class="empty">Themes unavailable: '+apiError(e)+'</div>';
+  }
+}
+$('themesRefresh') && ($('themesRefresh').onclick=()=>{ themesLoaded=false; loadThemes(true); });
+
 // ── quality feedback loop (PLAN 3.3) ──
 // Reads the global tracker through /api/v1/quality. The endpoint is
 // process-wide (penalties apply to the shared classifier), so this tab is a
@@ -1426,6 +1492,7 @@ function activateTab(name){
   if(name==='timeline') { loadTimelineDemo(); loadCauseLedger(false); }
   if(name==='grid') loadHeat();
   if(name==='quality') loadQuality();
+  if(name==='themes') loadThemes();
   if(name==='oee') loadOee();
   if(name==='hypotheses') loadHypotheses();
   if(name==='contradictions') loadContradictions();

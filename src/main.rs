@@ -462,6 +462,17 @@ pub enum Commands {
         #[arg(long)]
         register: bool,
     },
+    /// Show the recurring themes across the persisted graph: cluster the
+    /// coherence nodes into communities and summarize each (Phase 11). Offline
+    /// and deterministic — no provider needed; reads the "_default" tenant.
+    Themes {
+        /// Only show communities with at least this many members
+        #[arg(long, default_value_t = 1)]
+        min_size: usize,
+        /// Emit JSON instead of markdown
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1536,6 +1547,9 @@ fn main() -> anyhow::Result<()> {
                 );
             }
             return Ok(());
+        }
+        Commands::Themes { min_size, json } => {
+            print!("{}", app.run_themes(min_size, json));
         }
         Commands::Benchmark { dataset } => match dataset {
             BenchmarkDataset::Secom {

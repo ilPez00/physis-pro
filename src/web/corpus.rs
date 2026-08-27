@@ -15,7 +15,7 @@
 //! core and the ledger and write only their own JSON response.
 
 use super::*;
-use crate::corpus::{self, CommunitySummary, MemberFacts};
+use crate::corpus::{self, CommunitySummary};
 use crate::web::SharedState;
 use axum::{
     extract::{Json, State},
@@ -27,121 +27,23 @@ use axum::{
 const GLOBAL_MAX_TOKENS: u32 = 500;
 
 /// Gather the tenant's labeled nodes, their edges in label space, and the
-/// facets each label carries.
-///
-/// Facets come from wherever the graph actually records them: the semiotic
-/// cell from the node's pin, the verdict from its asserted outcome, and the
-/// mechanism from the causal ledger when an event names this label as its
-/// object. Place and period live on `FileAddress`, which belongs to file nodes
-/// rather than coherence nodes, so they stay `None` here — `MemberFacts` omits
-/// absent facets from the digest rather than guessing them.
+/// facets each label carries — delegating to the shared
+/// [`crate::corpus::gather_facts`] so the CLI and the web surface summarize the
+/// same data under the same rules.
 fn collect_facts(
     state: &SharedState,
     uid: &str,
-) -> (Vec<MemberFacts>, crate::communities::EdgeList) {
-    state.with_user(uid, |s| {
-        // Latest mechanism per artifact. The ledger is append-only and ordered
-        // by seq, so a later event simply overwrites an earlier one here.
-        let mut mechanism_of: std::collections::HashMap<&str, &'static str> =
-            std::collections::HashMap::new();
-        for e in s.ledger.events() {
-            mechanism_of.insert(e.object.as_str(), e.mechanism.as_str());
-        }
-
-        let names: std::collections::HashMap<String, String> = s
-            .core
-            .nodes
-            .values()
-            .filter_map(|n| n.label.as_ref().map(|l| (n.id.clone(), l.clone())))
-            .collect();
-
-        let facts: Vec<MemberFacts> = s
-            .core
-            .nodes
-            .values()
-            .filter_map(|n| {
-                let label = n.label.as_deref()?;
-                if label.trim().is_empty() {
-                    return None;
-                }
-                Some(MemberFacts {
-                    label: label.to_string(),
-                    cell: n.cell_pin.clone(),
-                    verdict: n.asserted,
-                    place: None,
-                    period: None,
-                    mechanism: mechanism_of
-                        .get(label)
-                        .or_else(|| mechanism_of.get(n.id.as_str()))
-                        .map(|m| m.to_string()),
-                })
-            })
-            .collect();
-
-        let edges: crate::communities::EdgeList = s
-            .core
-            .resolved_edges()
-            .into_iter()
-            .filter_map(|(a, b, _w)| match (a, b) {
-                (Some(a), Some(b)) if a != b => match (names.get(&a), names.get(&b)) {
-                    (Some(la), Some(lb)) if la != lb => Some((la.clone(), lb.clone())),
-                    _ => None,
-                },
-                _ => None,
-            })
-            .collect();
-
-        (facts, edges)
-    })
+) -> (Vec<corpus::MemberFacts>, crate::communities::EdgeList) {
+    state.with_user(uid, |s| corpus::gather_facts(&s.core, &s.ledger))
 }
 
-/// Detect communities over `edges` and summarize them, carrying each member's
-/// facets across.
-///
-/// Split out from the handler so the whole summary pipeline is unit-testable
-/// without an HTTP stack. Labeled nodes carrying no edge are gathered into one
-/// singleton community at full cohesion — the same convention the communities
-/// rollup uses, so a node is never invisible to corpus-level questions just
-/// because nothing links to it.
+/// Detect communities and summarize them, delegating to the shared
+/// [`crate::corpus::build_summaries`].
 fn build_summaries(
-    facts: &[MemberFacts],
+    facts: &[corpus::MemberFacts],
     edges: &crate::communities::EdgeList,
 ) -> Vec<CommunitySummary> {
-    let report = crate::communities::detect_communities(edges, 16);
-    let by_label: std::collections::HashMap<&str, &MemberFacts> =
-        facts.iter().map(|f| (f.label.as_str(), f)).collect();
-
-    let mut input: Vec<(u32, f32, Vec<MemberFacts>)> = (0..report.n_communities())
-        .map(|i| {
-            let members: Vec<MemberFacts> = report
-                .members(i as u32)
-                .into_iter()
-                .map(|label| {
-                    by_label
-                        .get(label)
-                        .map(|f| (*f).clone())
-                        // An edge endpoint with no node behind it still counts
-                        // as a member: dropping it would break the coverage
-                        // contract (`members` must list every member).
-                        .unwrap_or_else(|| MemberFacts::new(label))
-                })
-                .collect();
-            (i as u32, report.cohesion[i], members)
-        })
-        .collect();
-
-    let connected: std::collections::HashSet<&str> =
-        report.nodes.iter().map(|s| s.as_str()).collect();
-    let singles: Vec<MemberFacts> = facts
-        .iter()
-        .filter(|f| !connected.contains(f.label.as_str()))
-        .cloned()
-        .collect();
-    if !singles.is_empty() {
-        input.push((input.len() as u32, 1.0, singles));
-    }
-
-    corpus::summarize(&input)
+    corpus::build_summaries(facts, edges)
 }
 
 /// GET /api/v1/corpus/summaries — every community in this tenant's graph,
@@ -281,8 +183,12 @@ pub async fn global_ask_handler(
 mod tests {
     use super::*;
 
-    fn facts(label: &str, cell: Option<(&str, &str)>, verdict: Option<f32>) -> MemberFacts {
-        MemberFacts {
+    fn facts(
+        label: &str,
+        cell: Option<(&str, &str)>,
+        verdict: Option<f32>,
+    ) -> corpus::MemberFacts {
+        corpus::MemberFacts {
             label: label.to_string(),
             cell: cell.map(|(d, m)| (d.to_string(), m.to_string())),
             verdict,
