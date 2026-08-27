@@ -2752,6 +2752,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/coherence/nodes/all",
             get(coherence::coherence_nodes_all_handler),
         )
+        .route(
+            "/api/v1/coherence/facet",
+            get(coherence::coherence_facet_query_handler),
+        )
         .route("/api/v1/quality", get(coherence::quality_handler))
         .route(
             "/api/v1/coherence/register",
