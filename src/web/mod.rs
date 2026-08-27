@@ -648,12 +648,20 @@ pub struct CoherenceRegisterResponse {
 pub struct CoherenceNodesResponse {
     results: Vec<NodeView>,
     count: usize,
+    /// Echo of the `as_of` filter (RFC3339), if the caller requested a
+    /// point-in-time view. Absent when browsing the live graph.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    as_of: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct AllNodesParams {
     #[serde(default = "default_all_limit")]
     limit: usize,
+    /// Optional RFC3339 cutoff: only nodes registered at or before this instant
+    /// are returned — reconstructs the graph as it stood at that point in time
+    /// (creation-time time-travel; see CoherenceNode::created_at).
+    as_of: Option<String>,
 }
 pub(crate) fn default_all_limit() -> usize {
     500

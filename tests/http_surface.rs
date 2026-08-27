@@ -645,6 +645,60 @@ async fn coherence_nodes_are_isolated_per_tenant() {
 }
 
 #[tokio::test]
+async fn coherence_nodes_all_respects_as_of_point_in_time() {
+    // Time-travel: an `as_of` RFC3339 cutoff must exclude nodes registered
+    // after that instant. The node we register is stamped "now", so a cutoff in
+    // the distant past yields nothing and a cutoff in the far future keeps it.
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "carol",
+            json!({"input": "a note registered right now"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["node_id"].is_string());
+
+    let (_, past) = send(
+        &router,
+        get("/api/v1/coherence/nodes/all?limit=10&as_of=1970-01-01T00:00:00Z", "carol"),
+    )
+    .await;
+    assert_eq!(past["count"], 0, "cutoff before registration hides the node");
+    assert_eq!(
+        past["as_of"].as_str(),
+        Some("1970-01-01T00:00:00Z"),
+        "echoes the requested cutoff"
+    );
+
+    let (_, future) = send(
+        &router,
+        get("/api/v1/coherence/nodes/all?limit=10&as_of=2099-01-01T00:00:00Z", "carol"),
+    )
+    .await;
+    assert_eq!(future["count"], 1, "cutoff after registration keeps the node");
+
+    let (_, live) = send(
+        &router,
+        get("/api/v1/coherence/nodes/all?limit=10", "carol"),
+    )
+    .await;
+    assert_eq!(live["as_of"], serde_json::Value::Null, "no cutoff when omitted");
+
+    // A malformed cutoff must not 500 — it degrades to the live view.
+    let (_, bad) = send(
+        &router,
+        get("/api/v1/coherence/nodes/all?limit=10&as_of=not-a-date", "carol"),
+    )
+    .await;
+    assert_eq!(bad["count"], 1, "unparseable cutoff is ignored, shows all");
+}
+
+#[tokio::test]
 async fn a_verdict_is_stored_and_can_be_corrected() {
     // The asserted axis travels on the wire and re-registering the same label
     // updates it — that is how a task reported optimistically at spawn gets

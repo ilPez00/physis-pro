@@ -39,6 +39,7 @@ pub async fn coherence_nodes_handler(
     Json(CoherenceNodesResponse {
         count: results.len(),
         results,
+        as_of: None,
     })
 }
 
@@ -53,12 +54,23 @@ pub async fn coherence_nodes_all_handler(
 ) -> Json<CoherenceNodesResponse> {
     let uid = user_key(&headers);
     let shared = state.shared.clone();
+    // Parse the optional point-in-time cutoff once. A bad RFC3339 value is not
+    // fatal — we surface an empty/erroneous view rather than 500ing the browse.
+    let as_of: Option<chrono::DateTime<chrono::Utc>> = params
+        .as_of
+        .as_ref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&chrono::Utc));
     let results: Vec<NodeView> = state.with_user(&uid, |s| {
         // Rank and cut BEFORE projecting: deriving the auto cell costs a pass
         // over the grid centroids per node, so classifying the whole store only
         // to discard all but `limit` would make browsing O(store) instead of
         // O(limit).
         let mut ranked: Vec<&CoherenceNode> = s.core.nodes.values().collect();
+        // Point-in-time replay: keep only nodes that existed at or before `as_of`.
+        if let Some(cut) = as_of {
+            ranked.retain(|n| n.created_at <= cut);
+        }
         ranked.sort_by(|a, b| {
             b.coherence_score
                 .partial_cmp(&a.coherence_score)
@@ -73,6 +85,7 @@ pub async fn coherence_nodes_all_handler(
     Json(CoherenceNodesResponse {
         count: results.len(),
         results,
+        as_of: params.as_of.clone(),
     })
 }
 

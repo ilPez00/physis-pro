@@ -197,6 +197,13 @@ pub struct CoherenceNode {
     /// hence `serde(default)`).
     #[serde(default)]
     pub cell_pin: Option<(String, String)>,
+    /// When this node was first registered into the graph. Backward-compatible:
+    /// rows written before the field existed deserialize to the epoch
+    /// (1970-01-01), so `as_of` time-travel over legacy stores simply treats
+    /// them as "always present". Stamped by `CoherenceNode::new` and preserved
+    /// across content edits (structure survives, only content/score change).
+    #[serde(default)]
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl CoherenceNode {
@@ -209,6 +216,7 @@ impl CoherenceNode {
             label: None,
             embedder: None,
             cell_pin: None,
+            created_at: chrono::Utc::now(),
         }
     }
 
@@ -250,6 +258,7 @@ impl CoherenceNode {
             label,
             embedder,
             cell_pin,
+            created_at,
         } = self;
         NodeView {
             id: id.clone(),
@@ -265,6 +274,7 @@ impl CoherenceNode {
             // The vector itself is never projected — it is not renderable and
             // callers that want it hold the node. Its width is the useful part.
             dimension: embedding.len(),
+            created_at: *created_at,
         }
     }
 }
@@ -299,6 +309,10 @@ pub struct NodeView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub embedder: Option<String>,
     pub dimension: usize,
+    /// When the node was first registered — surfaces the time axis so clients
+    /// can do "what did the graph know before <incident>" without re-deriving
+    /// it. Epoch 1970 for legacy nodes written before the field existed.
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 /// An experience is a vector delta — before → after. No action text or rationale.
