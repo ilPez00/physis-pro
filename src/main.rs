@@ -528,6 +528,43 @@ pub enum ConnectSource {
         #[arg(long)]
         state_file: Option<PathBuf>,
     },
+    /// Generic industrial adapter (MQTT or Modbus) — the Phase 1.8 real-time loop.
+    /// Polls a machine for telemetry, detects anomalies, emits normalized
+    /// OperationalEvents as JSON lines, and optionally registers them into a
+    /// physis engine. Only built with the `industrial` feature.
+    #[cfg(feature = "industrial")]
+    Adapter {
+        /// Protocol: mqtt | modbus
+        #[arg(long, default_value = "mqtt")]
+        protocol: String,
+        /// Broker/host, or host:port (Modbus defaults to 502)
+        #[arg(long)]
+        endpoint: String,
+        /// Machine id recorded on every event
+        #[arg(long, default_value = "machine-01")]
+        machine_id: String,
+        /// MQTT telemetry topic (mqtt only; defaults to physis/<id>/reading)
+        #[arg(long)]
+        topic: Option<String>,
+        /// Also register events into this physis engine (base URL)
+        #[arg(long)]
+        post_to: Option<String>,
+        /// Tenant for those registrations
+        #[arg(long, default_value = "_default")]
+        user: String,
+        /// Bearer token for the engine
+        #[arg(long)]
+        token: Option<String>,
+        /// Seconds between polls
+        #[arg(long, default_value_t = 10)]
+        interval: u64,
+        /// Poll once and exit (smoke test)
+        #[arg(long)]
+        once: bool,
+        /// Temperature anomaly threshold (passed to detect_anomalies as temp_max)
+        #[arg(long)]
+        temp_max: Option<f32>,
+    },
 }
 
 /// Actions for the `spanner` command (Phase 7C durable-memory mirror).
@@ -905,6 +942,40 @@ fn main() -> anyhow::Result<()> {
                 };
                 let rt = tokio::runtime::Runtime::new()?;
                 rt.block_on(physis_pro::moonraker_connect::run(opts))?;
+            }
+            #[cfg(feature = "industrial")]
+            ConnectSource::Adapter {
+                protocol,
+                endpoint,
+                machine_id,
+                topic,
+                post_to,
+                user,
+                token,
+                interval,
+                once,
+                temp_max,
+            } => {
+                let mut thresholds = std::collections::HashMap::new();
+                if let Some(t) = temp_max {
+                    thresholds.insert("temp_max".to_string(), t);
+                }
+                let opts = physis_pro::industrial::AdapterRunOptions {
+                    protocol,
+                    endpoint,
+                    machine_id,
+                    topic,
+                    post_to,
+                    user,
+                    token: token
+                        .or_else(|| std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty())),
+                    interval_secs: interval,
+                    once,
+                    thresholds,
+                    modbus_map: None,
+                };
+                let rt = tokio::runtime::Runtime::new()?;
+                rt.block_on(physis_pro::industrial::run_adapter(opts))?;
             }
         },
         Commands::Timeline { input, json } => {

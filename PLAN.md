@@ -41,7 +41,7 @@ anomaly detection to corrective action.
 | 1.5 | CI/CD: cargo check + clippy + test | ✅ Done | — | 3 feature sets |
 | 1.6 | Inventory command (sled DB) | ✅ Done | — | + SMA-30 forecast |
 | 1.7 | Process command (TCP checks) | ✅ Done | — | Behind `industrial` feature |
-| 1.8 | Real-time MQTT/Modbus adapters | ⬜ Pending | — | Full subscribe/publish loops |
+| 1.8 | Real-time MQTT/Modbus adapters | ✅ Done | — | `src/industrial.rs`: `MachineAdapter` trait gains `publish()`; MQTT subscribe (rumqttc) + `publish` to `physis/<id>/cmd`; new `modbus::ModbusTcpAdapter` (tokio-modbus 0.17) with `ModbusMap` register decoding + `publish` writes coils/registers; `AdapterRunOptions` + `run_adapter`/`run_loop` driver emits normalized `OperationalEvent` JSON per poll, dedupes by state fingerprint, flags anomalies via `detect_anomalies`, optionally registers into an engine (`post_event`); CLI `physis-pro connect adapter --protocol mqtt\|modbus --endpoint … [--post-to … --temp-max … --once]`; 3 new tests (ModbusCommand parse, ModbusMap defaults, mock-loop `once`) |
 | 1.9 | BGE-base embedder + self-test gate | ✅ Done | — | 768-d, MiniLM→RP fallback |
 | 1.10 | Automated ontology discovery | ✅ Done | — | `discover` + `--ai` legacy path |
 | 1.11 | Config dedup (`BUILTIN_ONTOLOGIES` table) | ✅ Done | — | 10 fns → 1 lookup |
