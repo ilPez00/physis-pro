@@ -363,6 +363,14 @@ mod mcp_impl {
                             "within_days": {"type": "integer"}
                         }
                     })),
+                    tool("physis_coherence_query", "Typed facet query over the live coherence graph — the 'objects' API. Filter nodes by asserted outcome (verdict=success|inert|failure), by semiotic cell (cell=Domain|Mode, e.g. Finance|Procure), and/or by label substring (q). Returns the same node projection as the HTTP /api/v1/coherence/nodes/all, so an agent can ask 'every failed node in Finance|Procure' without pulling the whole store.", json!({
+                        "type": "object", "properties": {
+                            "verdict": {"type": "string", "enum": ["success", "inert", "failure"], "description": "Only nodes with this asserted outcome"},
+                            "cell": {"type": "string", "description": "Only nodes in this semiotic cell, as 'Domain|Mode'"},
+                            "q": {"type": "string", "description": "Case-insensitive substring match against the node label"},
+                            "limit": {"type": "integer", "default": 500}
+                        }
+                    })),
                     tool("physis_discover", "Ontology-gap discovery over a corpus: given a list of `texts`, report how many map to a known cell, how many the current grid misses, and draft new ontology domains for the gaps (loadable via EXTRA_ONTOLOGIES). This is how an agent grows the grid from its own documents — offline, no model needed.", json!({
                         "type": "object", "properties": {
                             "texts": {"type": "array", "items": {"type": "string"}, "description": "Corpus lines/texts to check against the live ontology"},
@@ -991,6 +999,68 @@ mod mcp_impl {
                     matches.reverse(); // newest first
                     Ok(CallToolResult::success(vec![json_content(
                         &json!({"total": matches.len(), "matches": matches}),
+                    )?]))
+                }
+
+                "physis_coherence_query" => {
+                    let verdict = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("verdict"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let cell = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("cell"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let q = request
+                        .arguments
+                        .as_ref()
+                        .and_then(|a| a.get("q"))
+                        .and_then(|v| v.as_str())
+                        .map(String::from);
+                    let limit = get_i64(&request, "limit").unwrap_or(500).max(1) as usize;
+                    let ctx = self.ctx.lock().await;
+                    let verdict_rating = match verdict.as_deref() {
+                        Some("success") => Some(crate::models::CoherenceRating::Success),
+                        Some("inert") => Some(crate::models::CoherenceRating::Inert),
+                        Some("failure") => Some(crate::models::CoherenceRating::Failure),
+                        _ => None,
+                    };
+                    let cell_tuple = cell.as_ref().and_then(|c| {
+                        let mut it = c.splitn(2, '|');
+                        match (it.next(), it.next()) {
+                            (Some(d), Some(m)) if !d.is_empty() && !m.is_empty() => {
+                                Some((d.to_string(), m.to_string()))
+                            }
+                            _ => None,
+                        }
+                    });
+                    let nodes: Vec<JsonValue> = crate::web::coherence::query_coherence_nodes(
+                        &ctx.core.nodes,
+                        &ctx.classifier,
+                        verdict_rating,
+                        cell_tuple,
+                        q.as_deref(),
+                        limit,
+                    )
+                    .into_iter()
+                    .map(|nv| {
+                        json!({
+                            "id": nv.id,
+                            "label": nv.label,
+                            "score": nv.score,
+                            "verdict": nv.verdict,
+                            "cell": nv.cell,
+                            "pinned": nv.pinned,
+                            "created_at": nv.created_at.to_rfc3339(),
+                        })
+                    })
+                    .collect();
+                    Ok(CallToolResult::success(vec![json_content(
+                        &json!({"total": nodes.len(), "results": nodes}),
                     )?]))
                 }
 

@@ -36,7 +36,7 @@ args:      ["serve", "--stdio"]
 Notes:
 - The stdio path is dispatched **before** the licence gate specifically so the
   handshake answers inside client timeouts — no licence needed to connect.
-- Tool surface (Phase 10c A1): 24 tools — classify/embed/pack/goals/PDCA/
+- Tool surface (Phase 10c D): 25 tools — classify/embed/pack/goals/PDCA/
   dreams/gantt/wiki plus the memory family added 2026-08-26: `remember`,
   `recall` (write/read semiotic memory over the shared sled store; `recall`
   returns each hit's outcome `verdict` and a top-level `failures` list of

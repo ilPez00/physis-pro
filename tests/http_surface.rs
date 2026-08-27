@@ -699,6 +699,76 @@ async fn coherence_nodes_all_respects_as_of_point_in_time() {
 }
 
 #[tokio::test]
+async fn coherence_query_filters_by_verdict_and_label() {
+    // The "objects" API: structured facet query over the live graph.
+    let (router, _dir, _env) = app().await;
+
+    // Register three nodes with distinct labels + outcomes.
+    let (_, a) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "dave",
+            json!({"input": "Finance invoice mismatch on PO-77", "coherence_score": -1.0}),
+        ),
+    )
+    .await;
+    let (_, b) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "dave",
+            json!({"input": "Procurement lead time within SLA", "coherence_score": 1.0}),
+        ),
+    )
+    .await;
+    let (_, c) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "dave",
+            json!({"input": "Unrelated maintenance log entry", "coherence_score": 0.0}),
+        ),
+    )
+    .await;
+    assert!(a["node_id"].is_string() && b["node_id"].is_string() && c["node_id"].is_string());
+
+    // verdict=failure → only the -1 node.
+    let (_, fails) = send(
+        &router,
+        get("/api/v1/coherence/facet?verdict=failure&limit=10", "dave"),
+    )
+    .await;
+    assert_eq!(fails["count"], 1, "one failure node");
+    assert_eq!(fails["results"][0]["rating"], "Failure");
+
+    // q=invoice → only the Finance node (substring, case-insensitive).
+    let (_, inv) = send(
+        &router,
+        get("/api/v1/coherence/facet?q=INVOICE&limit=10", "dave"),
+    )
+    .await;
+    assert_eq!(inv["count"], 1, "substring match is case-insensitive");
+    assert!(inv["results"][0]["label"].as_str().unwrap().contains("invoice"));
+
+    // Combined verdict=success + q=procure → the +1 procurement node.
+    let (_, combo) = send(
+        &router,
+        get("/api/v1/coherence/facet?verdict=success&q=procure&limit=10", "dave"),
+    )
+    .await;
+    assert_eq!(combo["count"], 1, "verdict + label filters compose");
+
+    // No filter → all three.
+    let (_, all) = send(
+        &router,
+        get("/api/v1/coherence/facet?limit=10", "dave"),
+    )
+    .await;
+    assert_eq!(all["count"], 3, "no filter returns the whole store");
+}
+
+#[tokio::test]
 async fn a_verdict_is_stored_and_can_be_corrected() {
     // The asserted axis travels on the wire and re-registering the same label
     // updates it — that is how a task reported optimistically at spawn gets

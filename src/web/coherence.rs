@@ -43,6 +43,130 @@ pub async fn coherence_nodes_handler(
     })
 }
 
+/// Structured, agent-facing query over the live coherence graph — the
+/// "objects" API PRODUCT_RETHINK.md called for. Filter nodes by outcome
+/// verdict, semiotic cell, and/or label substring, then project to `NodeView`.
+/// Reused by both the HTTP handler and the `physis_coherence_query` MCP tool so
+/// the two surfaces never diverge.
+pub fn query_coherence_nodes(
+    nodes: &std::collections::HashMap<String, CoherenceNode>,
+    classifier: &CellClassifier,
+    verdict: Option<crate::models::CoherenceRating>,
+    cell: Option<(String, String)>,
+    q: Option<&str>,
+    limit: usize,
+) -> Vec<NodeView> {
+    let q = q.map(|s| s.to_ascii_lowercase());
+    let mut matched: Vec<&CoherenceNode> = nodes
+        .values()
+        .filter(|n| {
+            if let Some(want) = verdict {
+                if n.rating() != Some(want) {
+                    return false;
+                }
+            }
+            if let Some((d, m)) = &cell {
+                // A pin outranks the classifier: the node occupies `cell_pin`
+                // when set, else the classifier's top hit.
+                let occupied = n
+                    .cell_pin
+                    .clone()
+                    .or_else(|| {
+                        classifier
+                            .classify(&n.embedding)
+                            .first()
+                            .map(|c| (c.domain.clone(), c.mode.clone()))
+                    });
+                if occupied.as_ref() != Some(&(d.clone(), m.clone())) {
+                    return false;
+                }
+            }
+            if let Some(q) = &q {
+                if !n
+                    .label
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_ascii_lowercase()
+                    .contains(q)
+                {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    // Highest-density first — same ordering the browse endpoint uses.
+    matched.sort_by(|a, b| {
+        b.coherence_score
+            .partial_cmp(&a.coherence_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    matched
+        .into_iter()
+        .take(limit)
+        .map(|n| n.observable(classifier.classify(&n.embedding).first().map(|c| (c.domain.clone(), c.mode.clone()))))
+        .collect()
+}
+
+#[derive(Deserialize)]
+pub struct CoherenceQueryParams {
+    /// Only nodes with this asserted outcome: `success` | `inert` | `failure`.
+    #[serde(default)]
+    verdict: Option<String>,
+    /// Only nodes in this semiotic cell, given as `domain|mode` (e.g. `Finance|Procure`).
+    #[serde(default)]
+    cell: Option<String>,
+    /// Substring match against the node label (case-insensitive).
+    #[serde(default)]
+    q: Option<String>,
+    #[serde(default = "default_all_limit")]
+    limit: usize,
+}
+
+/// `GET /api/v1/coherence/query` — typed facet query over the live coherence
+/// graph. Returns the same `NodeView` projection as `/coherence/nodes/all`, so
+/// clients can ask "every failed node in Finance|Procure" instead of pulling
+/// the whole store and filtering client-side.
+pub async fn coherence_facet_query_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<CoherenceQueryParams>,
+) -> Json<CoherenceNodesResponse> {
+    let verdict = match params.verdict.as_deref() {
+        None | Some("") => None,
+        Some("success") => Some(crate::models::CoherenceRating::Success),
+        Some("inert") => Some(crate::models::CoherenceRating::Inert),
+        Some("failure") => Some(crate::models::CoherenceRating::Failure),
+        // An unrecognised verdict is not fatal — treat as "no verdict filter".
+        Some(_) => None,
+    };
+    let cell = params.cell.as_ref().and_then(|c| {
+        let mut it = c.splitn(2, '|');
+        match (it.next(), it.next()) {
+            (Some(d), Some(m)) if !d.is_empty() && !m.is_empty() => {
+                Some((d.to_string(), m.to_string()))
+            }
+            _ => None,
+        }
+    });
+    let uid = user_key(&headers);
+    let results: Vec<NodeView> = state.with_user(&uid, |s| {
+        query_coherence_nodes(
+            &s.core.nodes,
+            &state.shared.classifier,
+            verdict,
+            cell.clone(),
+            params.q.as_deref(),
+            params.limit,
+        )
+    });
+    Json(CoherenceNodesResponse {
+        count: results.len(),
+        results,
+        as_of: None,
+    })
+}
+
 /// List ALL coherence nodes for the tenant (id + label + score), capped + sorted
 /// by score desc. Unlike `/coherence/nodes` (similarity search, needs a query),
 /// this enumerates the graph so a client can render/browse it without a query.
