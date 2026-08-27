@@ -178,6 +178,24 @@ anomaly detection to corrective action.
 | A5 | Classification reach fix | ✅ Done | root cause: `classification_domains()` chained only `human+custom`, so machine/agent/engineering/office/semiotic/category/natural/social/abstract entries (≈576) were authored and displayed but never scoreable — industrial text fell back to human cells. All nine domain buckets now chained (seeds 352 → 928); `place`/`period` stay excluded by design; regression test pins OEE/Error-Recovery reachability + filing-axis exclusion; accuracy_floor passes under the real embedder. physis-core's studio copy needs the same treatment in its own release |
 | A6 | Output-quality validation | ✅ Done | `tests/output_quality.rs` (ignored probe, real bge embedder, production ONNX cascade) prints live output for classify/recall/ask/ledger/lineage/serve. Surfaced and fixed a second defect: cell exemplar entries returned in insertion order — core 0.1.10 now ranks them by their own similarity. Verified: OEE query fronts [OEE Metrics], agent-failure fronts [Agent Loop/Tool Invocation/Error Recovery], recall top-1 correct with wide margins, ask synthesizes correct `[1]`-cited answers via groq; accuracy_floor re-passes. Shipped as physis-core 0.1.10 + physis_pro 0.1.13 |
 
+### Phase 11 — Corpus comprehension: summaries · structure (2026-08-27)
+
+> Two limits top-k retrieval cannot fix by ranking harder. A question about the
+> whole corpus ("what are the recurring themes", "what do we keep failing at")
+> has no single node holding the answer, so no similarity ranking can surface
+> it — rank *community summaries* instead. And flat chunking throws away the
+> heading chain that makes a chunk mean anything — parse the document's own
+> structure and make each section carry its ancestors.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| C1 | `corpus` module — community summaries + global packing | ✅ Done | `src/corpus.rs`: `MemberFacts` → `CommunitySummary` (TF-IDF keywords distinctive *across* communities, majority-vote facets with deterministic tie-break, representatives by keyword coverage, win/failure tally, template digest). Default path is offline and model-free, preserving the air-gapped guarantee; `pack_global` mirrors `rag::TokenFixedRetriever` (skip-not-truncate, so half a digest is never cited); `global_prompt` states the unit is a cluster, not a document. 15 unit tests |
+| C2 | `doctree` module — hierarchical document index | ✅ Done | `src/doctree.rs`: parses ATX + setext headings (fenced code blocks skipped, so `# comment` in a shell snippet cannot shred the tree), YAML frontmatter skipped, every line lands in exactly one section, headingless documents degrade to one whole-document section. `Section::retrieval_text()` = breadcrumb + body, so the embedder sees the context the author implied but never repeated; `outline`/`max_depth`/`children` for navigation. 19 unit tests |
+| C3 | Modules registered + surfaced over HTTP | ✅ Done | both modules were written but never declared in `lib.rs` (dead files, zero coverage). Now registered; `src/web/corpus.rs` adds `GET /api/v1/corpus/summaries` (offline, no provider needed) and `POST /api/v1/corpus/ask` (rank digests through the content-addressed embed cache → `pack_global` → grounded synthesis, degrading to ranked communities when no provider is configured). Facets come from where the graph records them: cell from `cell_pin`, verdict from `asserted`, mechanism from the causal ledger; `place`/`period` live on `FileAddress` and stay absent rather than guessed. Isolated nodes join one singleton community, same convention as the communities rollup, so nothing is invisible to a corpus-level question. 3 unit tests + e2e (coverage invariant, budget bound, citation resolution, tenant isolation) |
+| C4 | doctree wired into retrieval (additive) | ✅ Done | `POST /api/v1/rag/retrieve` gains `unit: "chunk"\|"section"`. `"section"` parses each ingested document into its heading tree and embeds `breadcrumb + body` per section; the response gains `unit` plus a `sources` array parallel to `chunks` (file path + section path + heading level), so a hit cites "Spindle Assembly > Reassembly > Bearing preload" instead of an offset. Additive by decision: the default flat path keeps the same corpus, ids and vectors, so no cached embedding is invalidated. e2e pins the breadcrumb inside the embedded text, hit↔source alignment, and flat-path parity |
+| C5 | CLI + MCP surface for corpus questions | ⏳ Open | `physis-pro themes` / an MCP `physis_themes` tool over the same summaries |
+| C6 | Console tab for summaries | ⏳ Open | the summaries grid is the "shape of the corpus" view the Pulse dashboard lacks |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |

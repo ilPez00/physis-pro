@@ -3754,3 +3754,210 @@ async fn wiki_generate_covers_registered_nodes_and_tours_edges() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(tour["count"].as_u64(), Some(3));
 }
+
+/// Phase 11 — corpus-level comprehension: community summaries and the global
+/// question that ranks them.
+///
+/// The failure this guards is the one top-k retrieval cannot even express:
+/// "what are the recurring themes" has no single node holding the answer, so a
+/// summaries surface that silently drops members, or a global ask that ranks
+/// nodes instead of communities, would look fine and answer the wrong question.
+#[tokio::test]
+async fn corpus_summaries_and_global_ask_are_tenant_scoped() {
+    let (router, _dir, _env) = app().await;
+
+    // Two linked nodes (one community) plus one isolated node (a singleton).
+    let mut ids = Vec::new();
+    for text in [
+        "spindle bearing preload procedure",
+        "spindle bearing replacement procedure",
+        "invoice reconciliation exception",
+    ] {
+        let (_, body) = send(
+            &router,
+            post(
+                "/api/v1/coherence/register",
+                "corpus-user",
+                json!({"input": text}),
+            ),
+        )
+        .await;
+        ids.push(body["node_id"].as_str().unwrap().to_string());
+    }
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/holarchy/edge",
+            "corpus-user",
+            json!({"source": ids[0], "target": ids[1]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, summ) = send(&router, get("/api/v1/corpus/summaries", "corpus-user")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(summ["nodes"].as_u64(), Some(3));
+
+    // Coverage invariant: no summary step may drop a member.
+    let summaries = summ["summaries"].as_array().expect("summaries array");
+    let mut covered: Vec<&str> = summaries
+        .iter()
+        .flat_map(|s| s["members"].as_array().unwrap().iter())
+        .filter_map(|m| m.as_str())
+        .collect();
+    covered.sort_unstable();
+    assert_eq!(
+        covered,
+        vec![
+            "invoice reconciliation exception",
+            "spindle bearing preload procedure",
+            "spindle bearing replacement procedure",
+        ],
+        "{summaries:?}"
+    );
+
+    // The linked pair summarizes as a community with distinctive keywords and a
+    // digest — the text a global question actually ranks.
+    let linked = summaries
+        .iter()
+        .find(|s| s["size"].as_u64() == Some(2))
+        .expect("the two linked nodes form one community");
+    assert!(
+        linked["keywords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|k| k == "spindle"),
+        "{linked}"
+    );
+    assert!(
+        linked["digest"].as_str().unwrap().contains("2 nodes"),
+        "{linked}"
+    );
+
+    // Global ask degrades to ranked communities without a provider rather than
+    // failing — same contract as /api/v1/ask.
+    let (status, ask) = send(
+        &router,
+        post(
+            "/api/v1/corpus/ask",
+            "corpus-user",
+            json!({"question": "what are the recurring themes here?"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!ask["hits"].as_array().unwrap().is_empty(), "{ask}");
+    assert!(
+        ask["total_tokens"].as_u64().unwrap() <= ask["budget"].as_u64().unwrap(),
+        "packed context must stay inside the budget: {ask}"
+    );
+    assert_eq!(
+        ask["cited"].as_array().unwrap().len(),
+        ask["hits"].as_array().unwrap().len(),
+        "every citation resolves to a summary: {ask}"
+    );
+
+    // Another tenant sees none of it.
+    let (_, other) = send(&router, get("/api/v1/corpus/summaries", "someone-else")).await;
+    assert_eq!(other["nodes"].as_u64(), Some(0));
+    assert_eq!(other["communities"].as_u64(), Some(0));
+}
+
+/// Phase 11 C4 — `unit: "section"` retrieves heading-scoped sections and says
+/// where each hit came from, while the default flat path stays byte-identical.
+///
+/// The bug this guards against is silent: a section retriever that loses the
+/// breadcrumb still returns plausible text, and the caller cannot tell that
+/// "Torque to 45 Nm" came from the wrong assembly.
+#[tokio::test]
+async fn rag_retrieve_section_unit_carries_heading_context() {
+    let dir = tempfile::tempdir().expect("temp scan root");
+    std::fs::write(
+        dir.path().join("manual.md"),
+        "# Spindle Assembly\n\nGeneral notes.\n\n## Reassembly\n\n### Bearing preload\n\nTorque to 45 Nm.\n\n## Teardown\n\nRemove the housing.\n",
+    )
+    .expect("write manual");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, sectioned) = send(
+        &router,
+        post(
+            "/api/v1/rag/retrieve",
+            "rag-user",
+            json!({
+                "dir": dir.path().to_str().unwrap(),
+                "query": "bearing preload torque",
+                "unit": "section",
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(sectioned["unit"], "section");
+
+    let chunks = sectioned["chunks"].as_array().expect("chunks");
+    let sources = sectioned["sources"].as_array().expect("sources");
+    assert_eq!(
+        chunks.len(),
+        sources.len(),
+        "every hit reports its provenance: {sectioned}"
+    );
+    assert!(chunks.len() > 1, "one document split into sections: {sectioned}");
+
+    // A section's text carries its ancestors, and its source names the path.
+    let preload = chunks
+        .iter()
+        .position(|c| c["text"].as_str().unwrap_or("").contains("45 Nm"))
+        .expect("the preload section is retrieved");
+    assert!(
+        chunks[preload]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Spindle Assembly > Reassembly > Bearing preload"),
+        "the embedded text carries the heading chain: {}",
+        chunks[preload]["text"]
+    );
+    assert_eq!(
+        sources[preload]["section"],
+        "manual > Spindle Assembly > Reassembly > Bearing preload"
+    );
+    assert!(sources[preload]["path"]
+        .as_str()
+        .unwrap()
+        .ends_with("manual.md"));
+
+    // Default unit is unchanged: whole documents, one chunk per file.
+    let (status, flat) = send(
+        &router,
+        post(
+            "/api/v1/rag/retrieve",
+            "rag-user",
+            json!({
+                "dir": dir.path().to_str().unwrap(),
+                "query": "bearing preload torque",
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(flat["unit"], "chunk");
+    // Whole document as one chunk: the manual's first and last sections share a
+    // single chunk, and no section path is reported for it.
+    let flat_chunks = flat["chunks"].as_array().unwrap();
+    let manual = flat_chunks
+        .iter()
+        .position(|c| c["text"].as_str().unwrap_or("").contains("45 Nm"))
+        .expect("the manual is retrieved");
+    let manual_text = flat_chunks[manual]["text"].as_str().unwrap();
+    assert!(
+        manual_text.contains("Remove the housing."),
+        "flat unit keeps the document whole: {manual_text}"
+    );
+    assert!(
+        flat["sources"][manual]["section"].is_null(),
+        "the flat unit reports no section path: {flat}"
+    );
+}
