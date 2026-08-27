@@ -73,6 +73,7 @@ mod axes;
 /// or the healthcheck. See PREMORTEM.md P1.
 mod coherence;
 mod context;
+mod corpus;
 mod dream;
 mod holarchy;
 mod industrial;
@@ -1150,6 +1151,17 @@ pub struct RagRequest {
     /// Maximum chunks to select (default 8).
     #[serde(default = "default_rag_topk")]
     top_k: usize,
+    /// Retrieval unit (Phase 11 C4): `"chunk"` (default) keeps the flat
+    /// whole-document corpus; `"section"` parses each document's own heading
+    /// tree and retrieves `breadcrumb + body` sections instead, so a hit can
+    /// cite "Spindle Assembly > Reassembly > Bearing preload" rather than an
+    /// opaque offset. Additive — the flat path is untouched.
+    #[serde(default = "default_rag_unit")]
+    unit: String,
+}
+
+pub(crate) fn default_rag_unit() -> String {
+    "chunk".to_string()
 }
 
 pub(crate) fn default_rag_tokens() -> usize {
@@ -1403,6 +1415,27 @@ pub struct AskRequest {
 
 pub(crate) fn default_ask_topk() -> usize {
     8
+}
+
+/// POST /api/v1/corpus/ask — a question about the corpus as a whole (Phase 11).
+/// The retrieval unit is a community summary, so a bigger budget buys whole
+/// themes rather than more sentences of one document.
+#[derive(Deserialize)]
+pub struct GlobalAskRequest {
+    question: String,
+    #[serde(default = "default_global_budget")]
+    token_budget: usize,
+    #[serde(default = "default_global_topk")]
+    top_k: usize,
+}
+
+/// Digests run longer than node labels — a summary is a paragraph, not a
+/// title — so the global budget is wider than `search`'s 600.
+pub(crate) fn default_global_budget() -> usize {
+    1500
+}
+pub(crate) fn default_global_topk() -> usize {
+    6
 }
 
 pub(crate) fn default_search_budget() -> usize {
@@ -2837,6 +2870,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
         .route("/api/v1/ask", post(search::ask_handler))
+        .route("/api/v1/corpus/summaries", get(corpus::summaries_handler))
+        .route("/api/v1/corpus/ask", post(corpus::global_ask_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))
         .route("/api/v1/oee/plant", get(industrial::oee_plant_handler))

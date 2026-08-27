@@ -8,6 +8,14 @@ use axum::{
 /// POST /api/v1/rag/retrieve — scan a sandboxed dir, embed each doc, and return
 /// the chunks whose packed token total stays within `tokens`. Deterministic and
 /// overflow-proof.
+///
+/// `unit: "section"` (Phase 11 C4) swaps the retrieval unit from whole document
+/// to heading-scoped section: each document is parsed into its own heading tree
+/// and every section is embedded as `breadcrumb + body`, so the vector carries
+/// the context the author implied but never repeated, and each hit reports the
+/// file and section path it came from. The default flat path is unchanged —
+/// same corpus, same ids, same vectors — so existing callers keep their
+/// behaviour.
 pub async fn rag_retrieve_handler(
     State(state): State<SharedState>,
     Json(req): Json<RagRequest>,
@@ -17,21 +25,56 @@ pub async fn rag_retrieve_handler(
     let query = req.query.clone();
     let budget = req.tokens;
     let top_k = req.top_k;
-    let (result, context) =
-        tokio::task::spawn_blocking(move || -> anyhow::Result<(rag::RetrievalResult, String)> {
+    let by_section = req.unit == "section";
+    let (result, context, sources) = tokio::task::spawn_blocking(
+        move || -> anyhow::Result<(rag::RetrievalResult, String, Vec<serde_json::Value>)> {
             let docs = crate::ingest::ingest_all(&[canonical]);
             if docs.is_empty() {
                 anyhow::bail!("no documents found under scan dir");
             }
-            let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
+
+            // Provenance runs parallel to `texts`: chunk id is the index into
+            // both, so a hit can name its file (and section) without a second
+            // pass over the corpus.
+            let (texts, sources): (Vec<String>, Vec<serde_json::Value>) = if by_section {
+                let mut texts = Vec::new();
+                let mut sources = Vec::new();
+                for d in &docs {
+                    for sec in crate::doctree::parse(&d.title, &d.body) {
+                        texts.push(sec.retrieval_text());
+                        sources.push(serde_json::json!({
+                            "path": d.path.display().to_string(),
+                            "section": sec.path(),
+                            "level": sec.level,
+                        }));
+                    }
+                }
+                (texts, sources)
+            } else {
+                (
+                    docs.iter().map(|d| d.body.clone()).collect(),
+                    docs.iter()
+                        .map(|d| serde_json::json!({ "path": d.path.display().to_string() }))
+                        .collect(),
+                )
+            };
+
             let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
             let q_emb = shared.embedder.embed(&query);
             let retriever = rag::TokenFixedRetriever::new(budget, top_k);
             let result = retriever.retrieve(&q_emb, &corpus);
             let context = rag::assemble_context(&result, "\n\n---\n\n");
-            Ok((result, context))
-        })
-        .await
+
+            // Only the selected chunks' provenance is returned, in hit order.
+            let selected: Vec<serde_json::Value> = result
+                .chunks
+                .iter()
+                .filter_map(|c| sources.get(c.id).cloned())
+                .collect();
+            Ok((result, context, selected))
+        },
+    )
+    .await
         .map_err(|e| {
             err_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -46,10 +89,12 @@ pub async fn rag_retrieve_handler(
         })?;
 
     Ok(Json(serde_json::json!({
+        "unit": if by_section { "section" } else { "chunk" },
         "total_tokens": result.total_tokens,
         "budget": result.budget,
         "truncated": result.truncated,
         "chunks": result.chunks,
+        "sources": sources,
         "context": context,
     })))
 }

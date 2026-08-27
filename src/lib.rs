@@ -13,8 +13,10 @@ pub mod communities;
 pub mod config;
 pub mod context;
 pub mod core;
+pub mod corpus;
 pub mod demo_corpus;
 pub mod discovery;
+pub mod doctree;
 pub mod dream;
 pub mod embed;
 #[cfg(feature = "empedocles")]
