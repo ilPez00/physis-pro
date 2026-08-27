@@ -196,6 +196,23 @@ button:focus-visible { outline:none; border-color:var(--cyan); box-shadow:var(--
 .chip.info  { color:var(--cyan);  border-color:rgba(95,242,214,.4);  background:var(--cyan-dim); }
 .chip.ai    { color:var(--violet);border-color:rgba(157,140,255,.4);background:var(--violet-dim); }
 
+/* chips row (keyword cluster under a themes card) */
+.chips { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+
+/* outcome pill (positive / negative tally) */
+.pill {
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.06em;
+  padding:2px 9px;
+  border-radius:999px;
+  border:1px solid var(--shelf-strong);
+  color:var(--brume);
+}
+.pill.ok  { color:var(--lime);  border-color:rgba(168,230,99,.4);  background:var(--lime-dim); }
+.pill.bad { color:var(--rose);  border-color:rgba(255,109,143,.4); background:var(--rose-dim); }
+
 /* ── the CELL atom ─────────────────────────────────────────────────────────
    DOMAIN×MODE is this product's unit of meaning, so it renders as a
    first-class primitive, not inline text: a squared chip whose border and

@@ -17,6 +17,9 @@
 //! Read-only invariant, inherited from [`crate::communities`]: nothing in this
 //! module mutates its inputs; every function returns fresh owned data.
 
+use crate::communities::{self, EdgeList};
+use crate::core::PhysisCore;
+use crate::ledger::CausalLedger;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -286,6 +289,124 @@ pub fn summarize(communities: &[(u32, f32, Vec<MemberFacts>)]) -> Vec<CommunityS
 
     out.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.id.cmp(&b.id)));
     out
+}
+
+/// Gather member facts and label-space edges from a tenant's coherence graph and
+/// its causal ledger — the input [`build_summaries`] needs.
+///
+/// Facets come from wherever the graph actually records them: the semiotic cell
+/// from the node's pin, the verdict from its asserted outcome, and the mechanism
+/// from the causal ledger when an event names this label (or node id) as its
+/// object. Place and period live on `FileAddress`, which belongs to file nodes
+/// rather than coherence nodes, so they stay `None` here — [`MemberFacts`] omits
+/// absent facets from the digest rather than guessing them.
+///
+/// This is the graph-side half of the corpus pipeline, shared by the web
+/// handlers and the `physis-pro themes` CLI so both summarize the same data
+/// under the same rules. The read-only invariant holds: nothing here mutates the
+/// core or the ledger.
+pub fn gather_facts(
+    core: &PhysisCore,
+    ledger: &CausalLedger,
+) -> (Vec<MemberFacts>, EdgeList) {
+    // Latest mechanism per artifact. The ledger is append-only and ordered by
+    // seq, so a later event simply overwrites an earlier one here.
+    let mut mechanism_of: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for e in ledger.events() {
+        mechanism_of.insert(e.object.clone(), e.mechanism.as_str().to_string());
+    }
+
+    let names: std::collections::HashMap<String, String> = core
+        .nodes
+        .values()
+        .filter_map(|n| n.label.as_ref().map(|l| (n.id.clone(), l.clone())))
+        .collect();
+
+    let facts: Vec<MemberFacts> = core
+        .nodes
+        .values()
+        .filter_map(|n| {
+            let label = n.label.as_deref()?;
+            if label.trim().is_empty() {
+                return None;
+            }
+            Some(MemberFacts {
+                label: label.to_string(),
+                cell: n.cell_pin.clone(),
+                verdict: n.asserted,
+                place: None,
+                period: None,
+                mechanism: mechanism_of
+                    .get(label)
+                    .or_else(|| mechanism_of.get(&n.id))
+                    .cloned(),
+            })
+        })
+        .collect();
+
+    let edges: EdgeList = core
+        .resolved_edges()
+        .into_iter()
+        .filter_map(|(a, b, _w)| match (a, b) {
+            (Some(a), Some(b)) if a != b => match (names.get(&a), names.get(&b)) {
+                (Some(la), Some(lb)) if la != lb => Some((la.clone(), lb.clone())),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+
+    (facts, edges)
+}
+
+/// Detect communities over `edges` and summarize them, carrying each member's
+/// facets across.
+///
+/// Split from the summary math so the whole pipeline is unit-testable without an
+/// HTTP stack or a persistence layer. Labeled nodes carrying no edge are
+/// gathered into one singleton community at full cohesion — the same convention
+/// the communities rollup uses, so a node is never invisible to corpus-level
+/// questions just because nothing links to it.
+pub fn build_summaries(
+    facts: &[MemberFacts],
+    edges: &EdgeList,
+) -> Vec<CommunitySummary> {
+    let report = communities::detect_communities(edges, 16);
+    let by_label: std::collections::HashMap<&str, &MemberFacts> =
+        facts.iter().map(|f| (f.label.as_str(), f)).collect();
+
+    let mut input: Vec<(u32, f32, Vec<MemberFacts>)> = (0..report.n_communities())
+        .map(|i| {
+            let members: Vec<MemberFacts> = report
+                .members(i as u32)
+                .into_iter()
+                .map(|label| {
+                    by_label
+                        .get(label)
+                        .map(|f| (*f).clone())
+                        // An edge endpoint with no node behind it still counts
+                        // as a member: dropping it would break the coverage
+                        // contract (`members` must list every member).
+                        .unwrap_or_else(|| MemberFacts::new(label))
+                })
+                .collect();
+            (i as u32, report.cohesion[i], members)
+        })
+        .collect();
+
+    let connected: std::collections::HashSet<&str> =
+        report.nodes.iter().map(|s| s.as_str()).collect();
+    let singles: Vec<MemberFacts> = facts
+        .iter()
+        .filter(|f| !connected.contains(f.label.as_str()))
+        .cloned()
+        .collect();
+    if !singles.is_empty() {
+        input.push((input.len() as u32, 1.0, singles));
+    }
+
+    summarize(&input)
 }
 
 /// `DOMAIN/MODE — kw, kw, kw`, degrading to keywords alone, then to the id.

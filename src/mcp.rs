@@ -378,6 +378,11 @@ mod mcp_impl {
                         },
                         "required": ["texts"]
                     })),
+                    tool("physis_themes", "Recurring themes across the remembered graph: cluster the coherence nodes into communities and summarize each (Phase 11). Returns, per community, its title, distinctive keywords, dominant semiotic cell / place / period / mechanism, outcome tally (positive/negative), and a deterministic digest. Offline and model-free — the shape of the corpus rather than one document. Use it to answer 'what do we keep failing at' or 'what recurs'.", json!({
+                        "type": "object", "properties": {
+                            "min_size": {"type": "integer", "description": "Only return communities with at least this many members (default 1)"}
+                        }
+                    })),
                 ],
             })
         }
@@ -1000,6 +1005,31 @@ mod mcp_impl {
                     Ok(CallToolResult::success(vec![json_content(
                         &json!({"total": matches.len(), "matches": matches}),
                     )?]))
+                }
+
+                "physis_themes" => {
+                    let min_size = get_i64(&request, "min_size").unwrap_or(1).max(0) as usize;
+                    let ctx = self.ctx.lock().await;
+                    if ctx.core.nodes.is_empty() {
+                        return Ok(CallToolResult::success(vec![json_content(&json!({
+                            "communities": 0,
+                            "nodes": 0,
+                            "note": "the coherence graph is empty — remember something first",
+                            "summaries": [],
+                        }))?]));
+                    }
+                    let (facts, edges) =
+                        crate::corpus::gather_facts(&ctx.core, &ctx.ledger);
+                    let summaries = crate::corpus::build_summaries(&facts, &edges);
+                    let visible: Vec<&crate::corpus::CommunitySummary> = summaries
+                        .iter()
+                        .filter(|s| s.size >= min_size)
+                        .collect();
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "communities": summaries.len(),
+                        "nodes": facts.len(),
+                        "summaries": visible,
+                    }))?]))
                 }
 
                 "physis_coherence_query" => {
