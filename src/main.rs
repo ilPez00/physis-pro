@@ -151,6 +151,34 @@ pub enum Commands {
         #[arg(long)]
         during: Option<String>,
     },
+    /// Search inside the corpus: heading-scoped sections ranked by keyword
+    /// (BM25) and meaning (cosine) together.
+    ///
+    /// `query` recalls the labels the graph already knows; `find` recalls what
+    /// the documents actually say — the paragraph nobody labeled. Quote a
+    /// phrase to require it verbatim: physis-pro find '"no fault found"'
+    Find {
+        /// What to look for. Quoted spans must appear verbatim.
+        query: String,
+        /// Directory to search (default: the first configured watch dir)
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Ranking: hybrid (default) | semantic | lexical
+        #[arg(long)]
+        mode: Option<String>,
+        /// Space facet: folder under the search root
+        #[arg(long)]
+        place: Option<String>,
+        /// Time facet: period bucket `YYYY-MM`
+        #[arg(long)]
+        period: Option<String>,
+        /// File type facet: extension without the dot (`md`, `txt`, `eml`)
+        #[arg(long)]
+        kind: Option<String>,
+        /// Maximum sections to print
+        #[arg(long, default_value = "10")]
+        top_k: usize,
+    },
     /// Print config
     Config,
     /// Translate text through a linguistic lense
@@ -903,6 +931,26 @@ fn main() -> anyhow::Result<()> {
                 cause.as_deref(),
                 within,
                 during.as_deref(),
+            );
+            print!("{out}");
+        }
+        Commands::Find {
+            query,
+            dir,
+            mode,
+            place,
+            period,
+            kind,
+            top_k,
+        } => {
+            let out = app.run_find(
+                &query,
+                dir.as_deref(),
+                mode.as_deref(),
+                place.as_deref(),
+                period.as_deref(),
+                kind.as_deref(),
+                top_k,
             );
             print!("{out}");
         }

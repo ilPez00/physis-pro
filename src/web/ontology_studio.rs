@@ -401,8 +401,8 @@ mod tests {
 
     #[test]
     fn a_valid_draft_becomes_the_on_disk_format() {
-        let doc = validate_pack("logistics", &[entry("Freight Booking", "bond", "work")])
-            .expect("valid");
+        let doc =
+            validate_pack("logistics", &[entry("Freight Booking", "bond", "work")]).expect("valid");
         assert_eq!(doc.kind, "logistics");
         assert_eq!(doc.domains[0].domain, "BOND");
         assert_eq!(doc.domains[0].mode, "WORK");
@@ -426,17 +426,32 @@ mod tests {
             ],
         )
         .unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("name is required")), "{errors:?}");
-        assert!(errors.iter().any(|e| e.contains("not a domain")), "{errors:?}");
-        assert!(errors.iter().any(|e| e.contains("not a mode")), "{errors:?}");
-        assert!(errors.len() >= 3, "one round-trip per error is not a studio: {errors:?}");
+        assert!(
+            errors.iter().any(|e| e.contains("name is required")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("not a domain")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("not a mode")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.len() >= 3,
+            "one round-trip per error is not a studio: {errors:?}"
+        );
     }
 
     #[test]
     fn duplicate_names_are_rejected_because_the_loader_would_collapse_them() {
         let errors = validate_pack(
             "dupes",
-            &[entry("Freight Booking", "BOND", "WORK"), entry("freight booking", "STUDY", "SENSE")],
+            &[
+                entry("Freight Booking", "BOND", "WORK"),
+                entry("freight booking", "STUDY", "SENSE"),
+            ],
         )
         .unwrap_err();
         assert!(errors.iter().any(|e| e.contains("duplicate")), "{errors:?}");
@@ -453,6 +468,9 @@ mod tests {
     #[test]
     fn an_empty_pack_is_not_a_pack() {
         let errors = validate_pack("empty", &[]).unwrap_err();
-        assert!(errors.iter().any(|e| e.contains("at least one entry")), "{errors:?}");
+        assert!(
+            errors.iter().any(|e| e.contains("at least one entry")),
+            "{errors:?}"
+        );
     }
 }

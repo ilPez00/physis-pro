@@ -125,8 +125,7 @@ pub fn build_atlas(
             .then_with(|| a.id.cmp(&b.id))
     });
 
-    let present: std::collections::HashSet<&str> =
-        nodes.iter().map(|n| n.id.as_str()).collect();
+    let present: std::collections::HashSet<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
 
     let mut edges: Vec<AtlasEdge> = Vec::new();
     let mut seen: std::collections::HashSet<(String, String)> = Default::default();
@@ -313,10 +312,7 @@ pub async fn atlas_graph_handler(
                 // The pin wins over the classifier — same precedence as
                 // `NodeView::observable`, so the atlas and the node browser
                 // never disagree about which cell a node is in.
-                cell: n
-                    .cell_pin
-                    .clone()
-                    .or_else(|| auto_cell(&shared, n)),
+                cell: n.cell_pin.clone().or_else(|| auto_cell(&shared, n)),
                 pinned: n.cell_pin.is_some(),
                 created_at: n.created_at.to_rfc3339(),
                 embedding: n.embedding.clone(),
@@ -390,7 +386,8 @@ mod tests {
         assert_eq!(g.edges.len(), 1, "the pair collapses: {:?}", g.edges);
         assert_eq!(
             g.edges[0].kind, "holarchy",
-            "recorded structure outranks resemblance: {:?}", g.edges
+            "recorded structure outranks resemblance: {:?}",
+            g.edges
         );
         assert_eq!(g.edges[0].weight, 0.4);
     }
@@ -418,7 +415,11 @@ mod tests {
         assert_eq!(lonely[0].community, lonely[1].community);
         assert_eq!(lonely[0].degree, 0);
         let total: usize = g.communities.iter().map(|c| c.size).sum();
-        assert_eq!(total, 4, "communities partition the nodes: {:?}", g.communities);
+        assert_eq!(
+            total, 4,
+            "communities partition the nodes: {:?}",
+            g.communities
+        );
     }
 
     #[test]

@@ -331,6 +331,17 @@ mod mcp_impl {
                             "diversity": {"type": "number", "description": "0 = pure relevance, 1 = maximum spread", "default": 0.3}
                         }, "required": ["query"]
                     })),
+                    tool("physis_find", "Search INSIDE documents: heading-scoped sections of every file under a directory, ranked by keyword (BM25) and meaning (cosine) together. Use this when the answer is written in a file rather than remembered as a label — physis_recall ranks labels, this ranks text. Quote a span to require it verbatim. Returns each hit's file, heading chain and a snippet.", json!({
+                        "type": "object", "properties": {
+                            "query": {"type": "string", "description": "What to look for; \"quoted spans\" must appear verbatim"},
+                            "root": {"type": "string", "description": "Directory to search", "default": "."},
+                            "mode": {"type": "string", "description": "hybrid (default) | semantic | lexical"},
+                            "place": {"type": "string", "description": "Folder facet, relative to the search root"},
+                            "period": {"type": "string", "description": "Period facet, YYYY-MM"},
+                            "kind": {"type": "string", "description": "File extension without the dot"},
+                            "top_k": {"type": "integer", "default": 8}
+                        }, "required": ["query"]
+                    })),
                     // ── memory + why-made (Phase 10c A1) ──
                     tool("physis_remember", "Register a labeled memory into the shared semiotic graph (deduped by label — re-posting the same text updates it). Optional verdict in −1..1 records whether it works (+1), is inert (0), or fails (−1).", json!({
                         "type": "object", "properties": {
@@ -453,6 +464,123 @@ mod mcp_impl {
                     // embedding it avoids.
                     pack_cache.save(&config.data_dir);
                     Ok(CallToolResult::success(vec![json_content(&json!(result))?]))
+                }
+
+                "physis_find" => {
+                    let query = get_str(&request, "query")?;
+                    let root = get_str(&request, "root").unwrap_or_else(|_| ".".to_string());
+                    let top_k = get_i64(&request, "top_k").unwrap_or(8).max(1) as usize;
+                    let mode = get_str(&request, "mode").ok();
+                    let place = get_str(&request, "place").ok();
+                    let period = get_str(&request, "period").ok();
+                    let kind = get_str(&request, "kind").ok();
+
+                    // Same confinement as physis_pack: an agent acting on a
+                    // poisoned instruction will ask for `/etc` or `../../..`.
+                    let confine = std::env::var_os("PHYSIS_SCAN_ROOT").map(PathBuf::from);
+                    let root = match crate::pack::resolve_root(
+                        std::path::Path::new(&root),
+                        confine.as_deref(),
+                    ) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            return Ok(CallToolResult::error(vec![json_content(
+                                &json!({"error": e.to_string()}),
+                            )?]))
+                        }
+                    };
+
+                    let mut ctx = self.ctx.lock().await;
+                    let PhysisContext {
+                        embedder,
+                        embedder_kind,
+                        pack_cache,
+                        config,
+                        ..
+                    } = &mut *ctx;
+
+                    let docs = crate::ingest::ingest_all(std::slice::from_ref(&root));
+                    if docs.is_empty() {
+                        return Ok(CallToolResult::success(vec![json_content(&json!({
+                            "root": root.display().to_string(),
+                            "matched": 0,
+                            "hits": [],
+                            "note": "no readable documents under that directory",
+                        }))?]));
+                    }
+                    let now = chrono::Utc::now();
+                    // Addresses from filesystem metadata, not ingest time — the
+                    // latter would bucket the whole corpus into this month and
+                    // make the period facet meaningless.
+                    let addresses: Vec<Option<crate::address::FileAddress>> = docs
+                        .iter()
+                        .map(|d| {
+                            Some(crate::address::FileAddress::derive(
+                                &d.path,
+                                &root,
+                                crate::address::Mechanism::Cited,
+                                "mcp-find",
+                                now,
+                            ))
+                        })
+                        .collect();
+
+                    let texts =
+                        crate::content::ContentIndex::retrieval_texts(&root, &docs, &addresses);
+                    // Random-projection vectors rank confidently and wrongly, so
+                    // the semantic channel is omitted rather than faked; the
+                    // response reports which ranking actually ran.
+                    let semantic = *embedder_kind != "random-projection";
+                    let embeddings = if semantic {
+                        let out = pack_cache.embed_texts(&texts, embedder.as_ref(), embedder_kind);
+                        pack_cache.save(&config.data_dir);
+                        out
+                    } else {
+                        Vec::new()
+                    };
+                    let index =
+                        crate::content::ContentIndex::build(&root, &docs, &addresses, embeddings);
+                    let opts = crate::content::SearchOptions {
+                        mode: mode
+                            .as_deref()
+                            .map(crate::content::SearchMode::parse)
+                            .unwrap_or_default(),
+                        top_k: top_k.clamp(1, 50),
+                        place,
+                        period,
+                        kind,
+                        ..Default::default()
+                    };
+                    let q_emb = if index.semantic {
+                        embedder.embed(&query)
+                    } else {
+                        Vec::new()
+                    };
+                    let result = index.search(&query, &q_emb, &opts);
+
+                    let hits: Vec<JsonValue> = result
+                        .hits
+                        .iter()
+                        .map(|h| {
+                            json!({
+                                "score": h.score,
+                                "path": h.path,
+                                "section": h.citation,
+                                "snippet": h.snippet,
+                                "place": h.place,
+                                "period": h.period,
+                            })
+                        })
+                        .collect();
+                    Ok(CallToolResult::success(vec![json_content(&json!({
+                        "root": root.display().to_string(),
+                        "matched": result.matched,
+                        "indexed_sections": result.indexed_sections,
+                        "indexed_files": result.indexed_files,
+                        "mode": result.mode.as_str(),
+                        "semantic_index": index.semantic,
+                        "hits": hits,
+                    }))?]))
                 }
 
                 "physis_classify" => {

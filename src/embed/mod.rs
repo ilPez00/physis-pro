@@ -223,6 +223,16 @@ pub mod jina;
 #[cfg(feature = "embed-onnx")]
 pub mod registry;
 
+/// Whether an operator explicitly asked for the offline random-projection
+/// embedder, given the raw `PHYSIS_EMBEDDER` value.
+///
+/// One predicate, three callers (CLI selection, server selection, and the
+/// server's DEGRADED decision) — the spelling of this request is a contract
+/// with the operator, and three hand-written copies of it drift.
+pub fn wants_random_projection(requested: Option<&str>) -> bool {
+    matches!(requested, Some("random-projection") | Some("rp"))
+}
+
 /// Pick the best available embedder, self-test gated.
 ///
 /// Extracted so every entry point resolves the embedder the same way. The MCP
@@ -232,6 +242,26 @@ pub mod registry;
 ///
 /// Returns the embedder and a short provenance label for logging.
 pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static str) {
+    // Explicit operator override, honored before any model is touched.
+    //
+    // The web server and the interest daemon already respect
+    // `PHYSIS_EMBEDDER=random-projection`; the CLI did not, so a command run
+    // with the variable set loaded the full ONNX cascade anyway and spent
+    // minutes embedding the ontology the operator had just asked it to skip.
+    // An ignored instruction is worse than an unsupported one: the caller has
+    // no way to tell it was ignored except by the wait.
+    //
+    // This is the supported OFFLINE mode, not a fallback — deterministic,
+    // model-free, coarser but meaningful — so it is chosen silently rather
+    // than warned about here (`PhysisApp` still prints the non-semantic
+    // warning, which is where an operator will read it).
+    if wants_random_projection(std::env::var("PHYSIS_EMBEDDER").ok().as_deref()) {
+        return (
+            Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+            "random-projection",
+        );
+    }
+
     #[cfg(feature = "embed-onnx")]
     {
         // Self-test gate (same as the web server): a candidate that loads
@@ -417,6 +447,18 @@ fn model_dir(config: &PhysisConfig, name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_offline_override_is_recognised_by_both_spellings() {
+        // The CLI ignored this request entirely and loaded the ONNX cascade
+        // anyway; the only symptom was a command that took minutes instead of
+        // seconds. Both spellings the server documents must be honored.
+        assert!(wants_random_projection(Some("random-projection")));
+        assert!(wants_random_projection(Some("rp")));
+        assert!(!wants_random_projection(Some("bge-base")));
+        assert!(!wants_random_projection(Some("")));
+        assert!(!wants_random_projection(None));
+    }
 
     #[test]
     fn test_embed_deterministic() {
