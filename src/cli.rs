@@ -320,6 +320,58 @@ impl PhysisApp {
         Ok(out)
     }
 
+    /// Run a machine's **engine-side** reduce against the persisted `_default`
+    /// graph (Phase 8 read-back), serverless.
+    ///
+    /// `physis-pro machine <name>` reduces a payload to JSON and forgets it.
+    /// This registers what the machine perceived, bridges it into the holarchy
+    /// and writes it through, so the CLI and the HTTP surface close the same
+    /// loop — both go through `machines::run::reduce`, so a machine cannot mean
+    /// one thing over HTTP and another on the command line.
+    pub fn run_machine_reduce(
+        &mut self,
+        name: &str,
+        input: &serde_json::Value,
+    ) -> anyhow::Result<String> {
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!(
+                "node store unavailable (persistence off) — reduce writes into the \
+                 graph, so there is nothing to write to"
+            );
+        };
+        let outcome = crate::machines::run::reduce(name, input, &mut core, self.embedder.as_ref())?;
+        let mut persisted = 0usize;
+        for id in &outcome.registered {
+            core.persist_node(&db, "_default", id)?;
+            persisted += 1;
+        }
+        let mut out = format!(
+            "{} reduced: score {:+.3}, {} node(s) registered ({} → {}), {persisted} persisted\n",
+            outcome.machine,
+            outcome.score,
+            outcome.registered.len(),
+            outcome.nodes_before,
+            outcome.nodes_after,
+        );
+        if outcome.registered.is_empty() {
+            // Registration dedupes by label, so this is the normal second run,
+            // not a failure — say so rather than leaving a bare zero.
+            out.push_str(
+                "[physis] nothing new: every primitive was already in the graph \
+                 (registration dedupes by label)\n",
+            );
+        }
+        for id in outcome.registered.iter().take(20) {
+            if let Some(node) = core.nodes.get(id) {
+                out.push_str(&format!(
+                    "  {id}  {}\n",
+                    node.label.as_deref().unwrap_or("(unlabeled)")
+                ));
+            }
+        }
+        Ok(out)
+    }
+
     /// Delete a node and every reference to it from the CLI.
     pub fn run_node_delete(&mut self, id: &str) -> anyhow::Result<String> {
         let Some((db, mut core)) = self.open_persisted_core() else {

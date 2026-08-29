@@ -155,8 +155,9 @@ pub fn reduce(
     let mut score: f32 = 0.0;
     for r in &rhythms {
         let text = format!("rhythm: {} every {:.1}d", r.label, r.period_days);
-        core.register_node_from_text(&text, embedder);
-        core.bridge_node(&text);
+        // The id, not the label — see the note in `euclid::reduce`.
+        let id = core.register_node_from_text(&text, embedder);
+        core.bridge_node(&id);
         score += r.confidence; // regular, frequent rhythms add coherence
     }
     if !rhythms.is_empty() {
@@ -193,6 +194,27 @@ mod tests {
             now,
         );
         assert!(s > 0.5, "regular rhythms should score positive (got {})", s);
+    }
+
+    #[test]
+    fn reduce_bridges_what_it_registers() {
+        // Phase-8 read-back is the whole point of `reduce`: the primitives it
+        // registers must land in the holarchy, not just in the coherence map.
+        // This bridged the *label* instead of the id, and `bridge_node` returns
+        // None for an unknown id — so every node stayed unbridged and the loop
+        // silently never closed.
+        let mut core = PhysisCore::new();
+        let events: Vec<TimedEvent> = (0..5).map(|i| ev("standup", i * 7)).collect();
+        let now = DateTime::<Utc>::from_timestamp(11 * 86_400, 0).unwrap();
+        reduce(&mut core, &RandomProjectionEmbedder::new(64), &events, now);
+
+        assert!(!core.nodes.is_empty(), "reduce registered nothing");
+        for id in core.nodes.keys() {
+            assert!(
+                core.bridge.holon_for(id).is_some(),
+                "node {id} was registered but never bridged into the holarchy"
+            );
+        }
     }
 
     #[test]

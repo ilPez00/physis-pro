@@ -158,8 +158,9 @@ pub fn reduce(
             r.baseline,
             r.deviation()
         );
-        core.register_node_from_text(&text, embedder);
-        core.bridge_node(&text);
+        // The id, not the label — see the note in `euclid::reduce`.
+        let id = core.register_node_from_text(&text, embedder);
+        core.bridge_node(&id);
         score += status.coherence();
     }
     if !readings.is_empty() {

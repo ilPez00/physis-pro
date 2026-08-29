@@ -98,6 +98,172 @@ pub fn schema(name: &str) -> Option<&'static str> {
     })
 }
 
+/// Machines that have an **engine-side** `reduce`: one that registers what it
+/// perceives into the shared graph and bridges it into the holarchy, rather
+/// than returning a reading and forgetting it.
+///
+/// The rest of `NAMES` are stateless reducers. That is a real distinction and
+/// the surface reports it instead of pretending every machine can write.
+pub const REDUCERS: &[&str] = &["chronos", "euclid", "empedocles"];
+
+/// What an engine-side reduce did, beyond the score.
+///
+/// `registered` is the set of node ids that did not exist before the call.
+/// Registration dedupes by label, so a second identical reduce legitimately
+/// registers nothing — reporting the count separately from the score is what
+/// makes that visible instead of looking like a failure.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReduceOutcome {
+    pub machine: String,
+    pub score: f32,
+    pub registered: Vec<String>,
+    /// Nodes in the tenant's graph before and after; the difference is how much
+    /// of what was perceived was actually new.
+    pub nodes_before: usize,
+    pub nodes_after: usize,
+}
+
+/// Run machine `name`'s **engine-side** reduce against a live core (Phase 8
+/// read-back).
+///
+/// [`run`] is pure: it reduces a JSON payload to JSON and touches nothing. This
+/// is the other half — the machine registers its primitives as coherence nodes
+/// and bridges them into the holarchy, so a later recall, dream or wiki pass
+/// can see what the machine perceived. Both halves live here so the HTTP and
+/// CLI surfaces cannot drift apart in what a machine *means*.
+///
+/// Unknown names and stateless machines are errors, never silent no-ops: a
+/// caller who asked a machine to write and got `{"score": 0}` back would have
+/// no way to tell nothing was written.
+pub fn reduce(
+    name: &str,
+    input: &Value,
+    core: &mut crate::core::PhysisCore,
+    embedder: &dyn crate::embed::VectorEmbed,
+) -> Result<ReduceOutcome> {
+    if !REDUCERS.contains(&name) {
+        if NAMES.contains(&name) {
+            bail!(
+                "machine '{name}' is a stateless reducer — it has no engine-side reduce. Machines that write into the graph: {}",
+                REDUCERS.join(", ")
+            );
+        }
+        bail!("unknown machine '{name}'");
+    }
+
+    let before: std::collections::HashSet<String> = core.nodes.keys().cloned().collect();
+    let v = input.clone();
+    let score = match name {
+        "chronos" => {
+            #[derive(Deserialize)]
+            struct Ev {
+                label: String,
+                at: String,
+            }
+            #[derive(Deserialize)]
+            struct Req {
+                events: Vec<Ev>,
+            }
+            let r: Req = serde_json::from_value(v)?;
+            let events: Vec<chronos::TimedEvent> = r
+                .events
+                .iter()
+                .filter_map(|e| {
+                    chrono::DateTime::parse_from_rfc3339(&e.at)
+                        .ok()
+                        .map(|dt| chronos::TimedEvent {
+                            label: e.label.clone(),
+                            at: dt.with_timezone(&chrono::Utc),
+                        })
+                })
+                .collect();
+            // `now` is the caller's clock, not an input field: a reduce that
+            // let the payload choose "now" could hide a slipping rhythm just by
+            // backdating the request.
+            chronos::reduce(core, embedder, &events, chrono::Utc::now())
+        }
+        "euclid" => {
+            #[derive(Deserialize)]
+            struct P {
+                vertices: u32,
+                circularity: f32,
+                #[serde(default)]
+                aspect_ratio: f32,
+                #[serde(default)]
+                color: [u8; 3],
+                #[serde(default)]
+                texture: f32,
+                #[serde(default)]
+                bbox: [f32; 4],
+            }
+            #[derive(Deserialize)]
+            struct Req {
+                primitives: Vec<P>,
+                #[serde(default)]
+                circularity_limit: Option<f32>,
+            }
+            let r: Req = serde_json::from_value(v)?;
+            let prims: Vec<euclid::Primitive> = r
+                .primitives
+                .iter()
+                .map(|p| euclid::Primitive {
+                    vertices: p.vertices,
+                    circularity: p.circularity,
+                    aspect_ratio: p.aspect_ratio,
+                    color: (p.color[0], p.color[1], p.color[2]),
+                    texture: p.texture,
+                    bbox: (p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]),
+                })
+                .collect();
+            // Same default as the stateless path, so the two agree on what
+            // counts as noise.
+            euclid::reduce(core, embedder, &prims, r.circularity_limit.unwrap_or(0.85))
+        }
+        "empedocles" => {
+            #[derive(Deserialize)]
+            struct Rd {
+                metric: String,
+                value: f32,
+                baseline: f32,
+            }
+            #[derive(Deserialize)]
+            struct Req {
+                readings: Vec<Rd>,
+                #[serde(default)]
+                threshold: Option<f32>,
+            }
+            let r: Req = serde_json::from_value(v)?;
+            let readings: Vec<empedocles::Reading> = r
+                .readings
+                .iter()
+                .map(|rd| empedocles::Reading {
+                    metric: rd.metric.clone(),
+                    value: rd.value,
+                    baseline: rd.baseline,
+                })
+                .collect();
+            empedocles::reduce(core, embedder, &readings, r.threshold.unwrap_or(1.0))
+        }
+        _ => unreachable!("guarded by REDUCERS above"),
+    };
+
+    let mut registered: Vec<String> = core
+        .nodes
+        .keys()
+        .filter(|id| !before.contains(*id))
+        .cloned()
+        .collect();
+    registered.sort(); // deterministic response ordering
+
+    Ok(ReduceOutcome {
+        machine: name.to_string(),
+        score,
+        registered,
+        nodes_before: before.len(),
+        nodes_after: core.nodes.len(),
+    })
+}
+
 /// Run machine `name` over `input`, returning the reduced JSON.
 pub fn run(name: &str, input: &Value) -> Result<Value> {
     let v = input.clone();
@@ -817,5 +983,70 @@ mod tests {
         assert!(out["checks"][0]["verdict"].as_str().is_some());
 
         assert!(run("nope", &json!({})).is_err());
+    }
+
+    #[test]
+    fn engine_side_reduce_registers_and_bridges() {
+        use crate::embed::RandomProjectionEmbedder;
+        let embedder = RandomProjectionEmbedder::new(64);
+        let mut core = crate::core::PhysisCore::new();
+
+        let out = reduce(
+            "chronos",
+            &json!({"events": [
+                {"label":"oil check","at":"2026-08-01T08:00:00Z"},
+                {"label":"oil check","at":"2026-08-08T08:00:00Z"},
+                {"label":"oil check","at":"2026-08-15T08:00:00Z"}
+            ]}),
+            &mut core,
+            &embedder,
+        )
+        .expect("chronos reduces");
+
+        assert!(!out.registered.is_empty(), "reduce registered nothing");
+        assert_eq!(out.nodes_before, 0);
+        assert_eq!(out.nodes_after, core.nodes.len());
+        for id in &out.registered {
+            assert!(
+                core.bridge.holon_for(id).is_some(),
+                "registered node {id} was never bridged"
+            );
+        }
+
+        // Registration dedupes by label, so an identical second pass adds
+        // nothing — and the outcome says so instead of looking like a failure.
+        let again = reduce(
+            "chronos",
+            &json!({"events": [
+                {"label":"oil check","at":"2026-08-01T08:00:00Z"},
+                {"label":"oil check","at":"2026-08-08T08:00:00Z"},
+                {"label":"oil check","at":"2026-08-15T08:00:00Z"}
+            ]}),
+            &mut core,
+            &embedder,
+        )
+        .unwrap();
+        assert!(again.registered.is_empty(), "{:?}", again.registered);
+        assert_eq!(again.nodes_before, again.nodes_after);
+    }
+
+    #[test]
+    fn reduce_refuses_stateless_machines_and_unknown_names() {
+        use crate::embed::RandomProjectionEmbedder;
+        let embedder = RandomProjectionEmbedder::new(64);
+        let mut core = crate::core::PhysisCore::new();
+
+        // A caller who asked a machine to write and got {"score": 0} back could
+        // not tell that nothing was written, so this is an error, not a no-op.
+        let err = reduce("harmony", &json!({"notes":[60,64]}), &mut core, &embedder)
+            .expect_err("harmony has no engine-side reduce");
+        assert!(err.to_string().contains("stateless reducer"), "{err}");
+        assert!(
+            err.to_string().contains("chronos"),
+            "names the ones that do: {err}"
+        );
+
+        let err = reduce("nope", &json!({}), &mut core, &embedder).expect_err("unknown");
+        assert!(err.to_string().contains("unknown machine"), "{err}");
     }
 }
