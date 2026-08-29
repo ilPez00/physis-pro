@@ -1492,6 +1492,138 @@ No other text."#.into(),
         }
         out
     }
+
+    /// Search *inside* the corpus: heading-scoped sections ranked by keyword
+    /// and meaning together (PLAN 12.1), with no server running.
+    ///
+    /// `query` recalls persisted node *labels*; this recalls the text those
+    /// labels never captured, which is where the answer usually is. The index
+    /// is built per invocation because a CLI process has nowhere to keep one —
+    /// the embedding cache on the data dir is what makes the second run cheap.
+    #[allow(clippy::too_many_arguments)] // one optional filter per facet; a CLI query is not a builder
+    pub fn run_find(
+        &self,
+        query: &str,
+        dir: Option<&std::path::Path>,
+        mode: Option<&str>,
+        place: Option<&str>,
+        period: Option<&str>,
+        kind: Option<&str>,
+        top_k: usize,
+    ) -> String {
+        let root = match dir {
+            Some(d) => d.to_path_buf(),
+            // Default to the configured watch dirs' first entry, then the data
+            // dir. Guessing the CWD would silently index whatever directory the
+            // operator happened to be standing in.
+            None => match self.config.watch_dirs.first() {
+                Some(d) => d.clone(),
+                None => self.config.data_dir.clone(),
+            },
+        };
+        if !root.exists() {
+            return format!(
+                "[physis] nothing to search: {} does not exist. Pass --dir, or set \
+                 watch_dirs in config.\n",
+                root.display()
+            );
+        }
+
+        let docs = ingest::ingest_all(std::slice::from_ref(&root));
+        if docs.is_empty() {
+            return format!("[physis] no readable documents under {}\n", root.display());
+        }
+        let now = chrono::Utc::now();
+        // Filesystem metadata, not ingest time: the ingest timestamp is when we
+        // read the file, so using it would bucket the whole corpus into the
+        // current month and make --period useless.
+        let addresses: Vec<Option<crate::address::FileAddress>> = docs
+            .iter()
+            .map(|d| {
+                Some(crate::address::FileAddress::derive(
+                    &d.path,
+                    &root,
+                    crate::address::Mechanism::Cited,
+                    "cli-find",
+                    now,
+                ))
+            })
+            .collect();
+
+        let texts = crate::content::ContentIndex::retrieval_texts(&root, &docs, &addresses);
+        // Without a real semantic model the vectors are a random projection:
+        // BM25 over real terms beats cosine over noise, so the semantic channel
+        // is left out entirely rather than ranked on confidently.
+        let semantic = self.embedder_kind != "random-projection";
+        let embeddings = if semantic {
+            let mut cache = crate::pack::EmbedCache::load(&self.config.data_dir);
+            let out = cache.embed_texts(&texts, self.embedder.as_ref(), self.embedder_kind);
+            cache.save(&self.config.data_dir);
+            out
+        } else {
+            Vec::new()
+        };
+        let index = crate::content::ContentIndex::build(&root, &docs, &addresses, embeddings);
+
+        let opts = crate::content::SearchOptions {
+            mode: mode.map(crate::content::SearchMode::parse).unwrap_or_default(),
+            top_k: top_k.clamp(1, 200),
+            place: place.map(str::to_string),
+            period: period.map(str::to_string),
+            kind: kind.map(str::to_string),
+            ..Default::default()
+        };
+        let q_emb = if index.semantic {
+            self.embedder.embed(query)
+        } else {
+            Vec::new()
+        };
+        let result = index.search(query, &q_emb, &opts);
+
+        let mut out = String::new();
+        out.push_str(&format!(
+            "[physis] {} section(s) matched in {} — {} indexed from {} file(s), ranked by {}\n",
+            result.matched,
+            root.display(),
+            result.indexed_sections,
+            result.indexed_files,
+            result.mode.as_str()
+        ));
+        if !index.semantic {
+            out.push_str(
+                "[physis] no semantic model loaded — keyword ranking only \
+                 (paraphrases will not match)\n",
+            );
+        }
+        if result.truncated_index {
+            out.push_str("[physis] corpus larger than the index cap; showing what was indexed\n");
+        }
+        if result.hits.is_empty() {
+            out.push_str("\nNothing in the corpus says that.\n");
+            return out;
+        }
+        out.push('\n');
+        for hit in &result.hits {
+            out.push_str(&format!("{:.3}  {}\n", hit.score, hit.citation));
+            let facets = [
+                hit.place.clone(),
+                hit.period.clone(),
+                Some(hit.kind.clone()).filter(|k| !k.is_empty()),
+            ]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" · ");
+            if !facets.is_empty() {
+                out.push_str(&format!("       {facets}\n"));
+            }
+            // Snippets carry newlines from the source; collapse them so one hit
+            // stays one visual block in a terminal.
+            let snippet = hit.snippet.split_whitespace().collect::<Vec<_>>().join(" ");
+            out.push_str(&format!("       {snippet}\n\n"));
+        }
+        out
+    }
 }
 
 /// Parse an optional facet filter value against the known spellings, matching

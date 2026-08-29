@@ -2164,10 +2164,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // real provenance of every vector this process produces — surfaced at startup
     // and on /api/v1/embedder so a silent fall-through to random projection
     // (P0 in PREMORTEM.md) can never masquerade as a working model.
-    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) = if matches!(
-        std::env::var("PHYSIS_EMBEDDER").as_deref(),
-        Ok("random-projection") | Ok("rp")
-    ) {
+    let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) =
+        if crate::embed::wants_random_projection(
+            std::env::var("PHYSIS_EMBEDDER").ok().as_deref(),
+        ) {
         // Fast-start override: skip the ONNX embedder cascade entirely. Comparable
         // vectors are enough for coherence/machine recall, and loading ONNX models
         // off slow storage stalls cold starts. Default path (below) is unchanged:
@@ -2309,10 +2309,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // mode (same input → same vector; cosine between related texts is meaningful,
     // just coarser than a trained model). It is NOT "noise" and must not be
     // flagged DEGRADED.
-    let explicit_rp_override = matches!(
-        std::env::var("PHYSIS_EMBEDDER").as_deref(),
-        Ok("random-projection") | Ok("rp")
-    );
+    let explicit_rp_override =
+        crate::embed::wants_random_projection(std::env::var("PHYSIS_EMBEDDER").ok().as_deref());
     // `degraded` is reserved for the *implicit* failure case: a trained model was
     // expected/attempted but silently emitted garbage (self-test failed) and we
     // fell through to random-projection without the operator asking for it.

@@ -153,13 +153,10 @@ pub async fn content_section_handler(
         .collect();
 
     let wanted = params.section.as_deref().map(normalize_breadcrumb);
-    let body = match &wanted {
-        Some(w) => sections
-            .iter()
-            .find(|s| normalize_breadcrumb(&s.path()) == *w)
-            .map(|s| s.body.clone()),
-        None => None,
-    };
+    let body = wanted
+        .as_deref()
+        .and_then(|w| find_section(&sections, w))
+        .map(|s| s.body.clone());
 
     Ok(Json(serde_json::json!({
         "path": params.path,
@@ -175,10 +172,34 @@ pub async fn content_section_handler(
 }
 
 fn body_matched(sections: &[crate::doctree::Section], wanted: Option<&str>) -> bool {
-    match wanted {
-        Some(w) => sections.iter().any(|s| normalize_breadcrumb(&s.path()) == w),
-        None => false,
+    wanted.and_then(|w| find_section(sections, w)).is_some()
+}
+
+/// Resolve a requested heading chain against the parsed document.
+///
+/// Exact match first. Failing that, a **unique** trailing suffix: a hit cites
+/// "policy.md › Maintenance policy › Escalation" — the citation deliberately
+/// drops the document-title crumb that doctree roots every path with — so the
+/// chain a caller copies out of a hit is one crumb shorter than the path here.
+/// Ambiguous suffixes resolve to nothing rather than to a guess: two sections
+/// can legitimately end in "Notes", and silently previewing the wrong one is
+/// worse than saying the section was not found.
+fn find_section<'a>(
+    sections: &'a [crate::doctree::Section],
+    wanted: &str,
+) -> Option<&'a crate::doctree::Section> {
+    if let Some(exact) = sections
+        .iter()
+        .find(|s| normalize_breadcrumb(&s.path()) == wanted)
+    {
+        return Some(exact);
     }
+    let suffix = format!(">{wanted}");
+    let mut matches = sections
+        .iter()
+        .filter(|s| normalize_breadcrumb(&s.path()).ends_with(&suffix));
+    let first = matches.next()?;
+    matches.next().is_none().then_some(first)
 }
 
 /// Hits cite with `›`, doctree joins with `>`; compare on neither.

@@ -169,19 +169,18 @@ function create(canvas, opts) {
       e.b.vx -= fx; e.b.vy -= fy;
     }
 
-    let motion = 0;
     for (const a of S.nodes) {
       if (a.fixed || a === S.dragging) { a.vx = 0; a.vy = 0; continue; }
       a.vx *= DAMPING; a.vy *= DAMPING;
       const step = S.alpha;
       a.x += a.vx * step;
       a.y += a.vy * step;
-      motion += Math.abs(a.vx) + Math.abs(a.vy);
     }
     // Cool down, but never to zero: a graph that stops entirely looks dead,
     // and the residual motion is what makes the breathing read as alive.
+    // Nothing measures convergence, so nothing computes it — the frame loop
+    // runs while the tab is visible and the temperature floor does the rest.
     S.alpha = Math.max(0.08, S.alpha * 0.985);
-    return motion / n;
   }
 
   // ── Drawing ──────────────────────────────────────────────────────────────
@@ -245,7 +244,9 @@ function create(canvas, opts) {
 
   function drawEdges() {
     const hi = S.hover || S.selected;
-    const near = hi ? neighbours(hi) : null;
+    // No neighbour set here on purpose: an edge knows whether it touches the
+    // highlighted node from its own endpoints, so building one would be an
+    // O(E) walk per frame for an answer already in hand.
     for (const e of S.edges) {
       if (!visible(e.a) || !visible(e.b)) continue;
       const p = toScreen(e.a), q = toScreen(e.b);

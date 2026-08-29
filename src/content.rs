@@ -96,16 +96,33 @@ pub struct IndexedSection {
 
 impl IndexedSection {
     /// "file.md › Spindle › Reassembly" — what a hit cites.
+    ///
+    /// The heading chain starts with the document title, which for a file-backed
+    /// document is the file stem, so the naive form reads "policy.md › policy ›
+    /// Escalation". That first crumb is dropped here and only here: it still
+    /// belongs in the embedded text, where the filename is real signal.
     pub fn citation(&self) -> String {
         let name = self
             .path
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| self.path.display().to_string());
-        if self.breadcrumb.is_empty() {
+        let stem = self
+            .path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        let chain: Vec<&str> = self
+            .breadcrumb
+            .iter()
+            .enumerate()
+            .filter(|(i, c)| !(*i == 0 && c.trim().to_ascii_lowercase() == stem))
+            .map(|(_, c)| c.as_str())
+            .collect();
+        if chain.is_empty() {
             name
         } else {
-            format!("{name} › {}", self.breadcrumb.join(" › "))
+            format!("{name} › {}", chain.join(" › "))
         }
     }
 }
@@ -244,12 +261,12 @@ impl ContentIndex {
         let terms = tokenize(query);
         let phrases = phrases(query);
         let mode = if q_emb.is_empty() || !self.semantic {
-            // Asking for semantic ranking without vectors would return an
-            // arbitrary order that *looks* ranked. Fall back and say so.
-            match opts.mode {
-                SearchMode::Semantic => SearchMode::Lexical,
-                m => m,
-            }
+            // With no vectors there is only one channel, whatever was asked
+            // for. Reporting "hybrid" here would be a quiet lie: the caller
+            // would read paraphrase matching into a pure keyword result, and
+            // hybrid's own weighting never ran. Semantic likewise cannot
+            // return an order that merely *looks* ranked.
+            SearchMode::Lexical
         } else {
             opts.mode
         };
@@ -313,8 +330,16 @@ impl ContentIndex {
         let mut hits: Vec<ContentHit> = scored
             .into_iter()
             .map(|c| {
-                let l = if max_lex > 0.0 { c.lexical / max_lex } else { 0.0 };
-                let s = if max_sem > 0.0 { c.semantic / max_sem } else { 0.0 };
+                let l = if max_lex > 0.0 {
+                    c.lexical / max_lex
+                } else {
+                    0.0
+                };
+                let s = if max_sem > 0.0 {
+                    c.semantic / max_sem
+                } else {
+                    0.0
+                };
                 let score = match mode {
                     SearchMode::Lexical => l,
                     SearchMode::Semantic => s,
@@ -592,11 +617,7 @@ fn section_units(
 /// root, which is the distinction an operator actually navigates by
 /// (`line-2/maintenance` vs `office/invoices`). A named place from the space
 /// ontology always wins, because that is a human decision and this is a guess.
-fn place_of(
-    root: &Path,
-    path: &Path,
-    addr: Option<&crate::address::FileAddress>,
-) -> String {
+fn place_of(root: &Path, path: &Path, addr: Option<&crate::address::FileAddress>) -> String {
     if let Some(a) = addr {
         if a.space.place != a.space.root {
             return a.space.place.clone();
@@ -651,10 +672,10 @@ pub fn scan_signature(root: &Path) -> IndexSignature {
 /// common ones. This list only removes words so frequent they distort the
 /// length normalization.
 const STOPWORDS: &[&str] = &[
-    "the", "and", "for", "with", "that", "this", "from", "was", "were", "are", "has", "have", "not",
-    "but", "you", "your", "its", "our", "all", "any", "can", "will", "into", "per", "che", "con",
-    "del", "della", "delle", "dei", "degli", "una", "uno", "gli", "sono", "come", "nel", "nella",
-    "per", "non", "alla", "allo", "dal", "dalla",
+    "the", "and", "for", "with", "that", "this", "from", "was", "were", "are", "has", "have",
+    "not", "but", "you", "your", "its", "our", "all", "any", "can", "will", "into", "per", "che",
+    "con", "del", "della", "delle", "dei", "degli", "una", "uno", "gli", "sono", "come", "nel",
+    "nella", "per", "non", "alla", "allo", "dal", "dalla",
 ];
 
 /// Lowercase alphanumeric terms, stopwords and 1-character noise removed.
@@ -886,6 +907,46 @@ mod tests {
         let p = phrases("\"seized bearing\" spindle \"no fault found\"");
         assert_eq!(p, vec!["seized bearing", "no fault found"]);
         assert!(phrases("no quotes here").is_empty());
+    }
+
+    #[test]
+    fn a_citation_does_not_repeat_the_filename_as_its_first_heading() {
+        // doctree roots the chain at the document title, which for a file is
+        // the stem — "policy.md › policy › Escalation" reads as a bug.
+        let idx = index(vec![doc(
+            "/corpus/policy.md",
+            "policy",
+            "# Maintenance policy\n\n## Escalation\n\nRepeated E4412 escalates.\n",
+        )]);
+        let r = idx.search("escalates", &[], &SearchOptions::default());
+        assert_eq!(r.hits.len(), 1, "{:?}", r.hits);
+        assert_eq!(
+            r.hits[0].citation,
+            "policy.md › Maintenance policy › Escalation"
+        );
+    }
+
+    #[test]
+    fn a_vectorless_index_reports_lexical_whatever_was_asked_for() {
+        // Reporting "hybrid" with no vectors would let the caller read
+        // paraphrase matching into a pure keyword result.
+        let idx = index(vec![doc("/corpus/a.md", "a", "# One\n\nbearing seized\n")]);
+        for requested in [
+            SearchMode::Hybrid,
+            SearchMode::Semantic,
+            SearchMode::Lexical,
+        ] {
+            let r = idx.search(
+                "bearing",
+                &[],
+                &SearchOptions {
+                    mode: requested,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(r.mode, SearchMode::Lexical, "requested {requested:?}");
+            assert!(!r.hits.is_empty(), "requested {requested:?}");
+        }
     }
 
     #[test]
