@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Studio — ontology editor</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;min-height:100%}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:11px 20px;background:rgba(4,7,15,.85);
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--shelf);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;box-shadow:0 0 22px rgba(95,242,214,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+  .brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+  .spacer{flex:1}
+
+  main{
+    flex:1;display:grid;grid-template-columns:250px minmax(0,1.2fr) minmax(0,1fr);
+    min-height:0;
+  }
+  @media(max-width:1250px){ main{grid-template-columns:220px minmax(0,1fr)} #tryPane{grid-column:1/-1;border-left:none;border-top:1px solid var(--shelf)} }
+  @media(max-width:860px){ main{grid-template-columns:1fr} #packs{border-right:none;border-bottom:1px solid var(--shelf)} }
+
+  #packs,#editor,#tryPane{overflow:auto;min-height:0;padding:14px 16px 40px}
+  #packs{border-right:1px solid var(--shelf);background:rgba(7,12,22,.5)}
+  #tryPane{border-left:1px solid var(--shelf);background:rgba(7,12,22,.5)}
+
+  h4.grp{
+    font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;
+    color:var(--brume);margin:0 0 8px;display:flex;align-items:center;gap:7px;
+  }
+  h4.grp::before{content:"";width:12px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+
+  .pack{
+    display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;
+    padding:7px 8px;border-radius:var(--r-s);cursor:pointer;font-size:12.5px;
+    border:1px solid transparent;
+  }
+  .pack:hover{background:rgba(95,242,214,.06);border-color:var(--shelf)}
+  .pack[aria-current="true"]{background:var(--cyan-dim);border-color:rgba(95,242,214,.4)}
+  .pack .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pack .m{font-family:var(--mono);font-size:9.5px;color:var(--brume)}
+
+  /* 70-cell picker: the grid is the vocabulary, so picking a cell is picking
+     from the grid rather than from two disconnected dropdowns. */
+  .gridwrap{overflow:auto;margin:8px 0 4px;border:1px solid var(--shelf);border-radius:var(--r-m)}
+  table.grid{border-collapse:collapse;font-family:var(--mono);font-size:9.5px;width:100%}
+  table.grid th{
+    position:sticky;top:0;background:rgba(7,12,22,.96);color:var(--brume);
+    font-weight:500;letter-spacing:.1em;padding:6px 5px;text-align:center;white-space:nowrap;z-index:1;
+  }
+  table.grid th.rowh{position:sticky;left:0;text-align:right;z-index:2}
+  table.grid td{padding:0;border:1px solid rgba(122,150,214,.09)}
+  table.grid td button{
+    width:100%;min-width:34px;height:26px;border:none;border-radius:0;background:transparent;
+    color:var(--brume);font-family:var(--mono);font-size:9px;cursor:pointer;padding:0;
+  }
+  table.grid td button:hover{background:rgba(95,242,214,.12);color:var(--ink)}
+  table.grid td button[aria-pressed="true"]{background:var(--cyan);color:#04101f;font-weight:700}
+
+  .entry{
+    display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;
+    padding:6px 8px;border-bottom:1px solid var(--shelf);font-size:12.5px;
+  }
+  .entry:hover{background:rgba(95,242,214,.04)}
+  .entry .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .entry button{padding:3px 7px;font-size:10px}
+  .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:8px 0}
+  .form label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume)}
+  .form input,.form select,textarea{
+    font-family:var(--sans);font-size:12.5px;padding:7px 9px;border-radius:var(--r-s);
+    background:rgba(4,7,15,.7);border:1px solid var(--shelf-strong);color:var(--ink);
+  }
+  textarea{width:100%;min-height:90px;font-family:var(--mono);font-size:11.5px;line-height:1.5}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+
+  .errs{border:1px solid rgba(255,109,143,.4);background:var(--rose-dim);border-radius:var(--r-m);padding:9px 11px;margin:8px 0;font-size:12px}
+  .errs ul{margin:4px 0 0 16px;padding:0}
+  .warns{border:1px solid rgba(255,196,107,.4);background:var(--amber-dim);border-radius:var(--r-m);padding:9px 11px;margin:8px 0;font-size:12px;color:var(--amber)}
+
+  .diff{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--shelf);font-size:11.5px}
+  .diff .arr{font-family:var(--mono);color:var(--brume);font-size:10px}
+  .diff .src{grid-column:1/-1;color:var(--brume);font-size:11px;overflow-wrap:anywhere}
+  .diff.changed{background:rgba(157,140,255,.07)}
+
+  .empty,.loading{color:var(--brume);font-size:12.5px;padding:10px 2px;line-height:1.6}
+  .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--shelf-strong);padding:1px 6px;border-radius:4px;color:var(--violet);background:rgba(157,140,255,.08)}
+
+  .overlay{position:fixed;inset:0;z-index:100;background:rgba(4,7,15,.92);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(10,18,32,.98),rgba(7,12,22,.96));
+    border:1px solid rgba(95,242,214,.25);border-radius:20px;padding:26px 30px;max-width:600px;width:100%;box-shadow:var(--shadow);
+  }
+  .overlay-card h2{margin:0 0 10px;font-size:20px}
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">Ontology studio</h2>
+    <div style="font-size:13px;display:grid;gap:8px">
+      <div class="muted">
+        A <b>pack</b> is a dictionary of terms your business already uses, each
+        filed on one of the 70 meaning cells. Classification scores text against
+        every entry's hints, so hints are the words your people actually write —
+        not synonyms of the entry's own name.
+      </div>
+      <div class="muted">
+        <b>Try it</b> classifies your sample text twice: once with the dictionary
+        the engine is running now, once with your draft on its own. That comparison
+        is live and costs nothing — it builds a throwaway classifier and throws it
+        away. The draft column is not a preview of the merged result: every cell
+        your draft leaves empty still carries the grid's generic anchor, so text
+        your terms do not cover lands on an anchor rather than nowhere.
+      </div>
+      <div class="muted">
+        <b>Save</b> writes the pack to disk. It becomes part of classification at
+        the next restart, and the pack list says which packs the running process
+        actually has. Nothing here silently reclassifies your history.
+      </div>
+    </div>
+    <button id="helpClose" class="btn-primary" style="width:100%;margin-top:14px">Close</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div>
+      <h1>PHYSIS · STUDIO</h1>
+      <div class="sub">Ontology editor — the dictionary classification reads</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span id="health" class="chip"><span class="dot"></span><span id="healthTxt">checking…</span></span>
+  <span id="status" class="chip"><span class="muted">ready</span></span>
+  <button id="btnHelp" title="Help (?)" style="padding:6px 10px;font-size:11px">?</button>
+</header>
+
+<main>
+  <aside id="packs">
+    <h4 class="grp">Installed packs</h4>
+    <div id="packList"><div class="loading">loading…</div></div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnNew" class="btn-primary" style="flex:1">New pack</button>
+    </div>
+    <div id="packsNote" class="muted" style="font-size:11px;margin-top:10px;line-height:1.55"></div>
+
+    <h4 class="grp" style="margin-top:18px">Live dictionary</h4>
+    <div id="liveStats" class="muted" style="font-size:11.5px;line-height:1.6">—</div>
+  </aside>
+
+  <section id="editor">
+    <div class="row">
+      <label style="font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume)">Pack name</label>
+      <input id="packName" placeholder="e.g. aerospace" style="min-width:180px;font-family:var(--sans);font-size:13px;padding:7px 9px;border-radius:var(--r-s);background:rgba(4,7,15,.7);border:1px solid var(--shelf-strong);color:var(--ink)" />
+      <span id="packState" class="chip">draft</span>
+      <div class="spacer" style="flex:1"></div>
+      <button id="btnSave" class="btn-primary">Save pack</button>
+      <button id="btnDelete">Delete</button>
+    </div>
+    <div id="saveMsg"></div>
+
+    <h4 class="grp" style="margin-top:14px">Entries <span id="entryCount" class="muted"></span></h4>
+    <div id="entryList"><div class="empty">No entries yet. Add the first term below.</div></div>
+
+    <h4 class="grp" style="margin-top:16px">Add / edit a term</h4>
+    <div class="form">
+      <label>Name<input id="fName" placeholder="Freight Booking" /></label>
+      <label>Category<input id="fCategory" placeholder="Logistics" /></label>
+      <label>Unit<input id="fUnit" placeholder="bookings" /></label>
+    </div>
+    <label style="font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume)">Hints — the words people actually write, comma separated</label>
+    <input id="fHints" placeholder="freight, carrier, bill of lading, forwarder" style="width:100%;margin-top:4px;font-family:var(--sans);font-size:12.5px;padding:8px 10px;border-radius:var(--r-s);background:rgba(4,7,15,.7);border:1px solid var(--shelf-strong);color:var(--ink)" />
+
+    <h4 class="grp" style="margin-top:14px">Cell <span id="cellPicked" class="muted"></span></h4>
+    <p class="muted" style="font-size:11.5px;margin:0 0 4px">
+      Shade = how many entries the live dictionary already files here. A dark
+      cell is not a strong cell: the largest cells measured the lowest internal
+      coherence.
+    </p>
+    <div class="gridwrap"><div id="gridBox"><div class="loading">loading the grid…</div></div></div>
+
+    <div class="row">
+      <button id="btnAdd" class="btn-primary">Add term</button>
+      <button id="btnClearForm">Clear</button>
+    </div>
+  </section>
+
+  <aside id="tryPane">
+    <h4 class="grp">Try it — before vs after</h4>
+    <p class="muted" style="font-size:11.5px;margin:0 0 6px">
+      One sample per line. Each is classified twice: with the dictionary running
+      now, and with this draft alone.
+    </p>
+    <textarea id="samples" spellcheck="false" placeholder="Carrier confirmed the bill of lading for tomorrow's pickup&#10;Spindle bearing replaced after the vibration alarm&#10;Invoice 8871 from Acme reconciled against PO 4412"></textarea>
+    <div class="row">
+      <button id="btnTry" class="btn-primary">Classify both ways</button>
+      <span id="tryMeta" class="muted" style="font-family:var(--mono);font-size:10.5px"></span>
+    </div>
+    <div id="tryOut"><div class="empty">Nothing tested yet.</div></div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/ui-shell.js"></script>
+<script>
+"use strict";
+// Shell globals: $, esc, toast, setStatus, getJSON, postJSON, loadHealth,
+// initHelp, initShortcuts.
+
+const D = {
+  name: '',
+  entries: [],
+  editing: -1,        // index being edited, -1 = adding
+  cell: { domain: null, mode: null },
+  grid: null,
+  packs: [],
+};
+
+// ── Pack list ─────────────────────────────────────────────────────────────
+async function loadPacks() {
+  try {
+    const r = await getJSON('/api/v1/ontology/packs');
+    D.packs = r.packs || [];
+    $('packList').innerHTML = D.packs.length
+      ? D.packs.map(p =>
+          '<div class="pack" data-name="' + esc(p.name) + '" aria-current="' + (p.name === D.name) + '">' +
+            '<span class="n">' + esc(p.name) + '</span>' +
+            '<span class="m">' + (p.entries != null ? p.entries : '?') + ' · ' +
+              // "live" is the only honest word here: a pack on disk that the
+              // running process has not loaded is not yet classifying anything.
+              (p.valid ? (p.live ? 'live' : 'pending') : 'broken') + '</span>' +
+          '</div>').join('')
+      : '<div class="empty">No packs installed.</div>';
+    $('packsNote').textContent = r.note || '';
+    $('packList').querySelectorAll('.pack').forEach(el => {
+      el.onclick = () => openPack(el.dataset.name);
+    });
+  } catch (e) {
+    $('packList').innerHTML = '<div class="empty err">' + esc(String(e)) + '</div>';
+  }
+}
+
+async function openPack(name) {
+  try {
+    const doc = await getJSON('/api/v1/ontology/packs/read?name=' + encodeURIComponent(name));
+    D.name = name;
+    D.entries = (doc.domains || []).map(d => ({
+      name: d.name, category: d.category || '', unit: d.unit || '',
+      domain: d.domain, mode: d.mode, hints: d.hints || [],
+    }));
+    $('packName').value = name;
+    const live = (D.packs.find(p => p.name === name) || {}).live;
+    $('packState').textContent = live ? 'live' : 'saved · pending restart';
+    $('packState').className = 'chip ' + (live ? 'ok' : 'warn');
+    renderEntries();
+    loadPacks();
+    setStatus('opened pack ' + name);
+  } catch (e) {
+    toast('could not open pack: ' + e, true);
+  }
+}
+
+// ── Entries ───────────────────────────────────────────────────────────────
+function renderEntries() {
+  $('entryCount').textContent = D.entries.length ? '(' + D.entries.length + ')' : '';
+  $('entryList').innerHTML = D.entries.length
+    ? D.entries.map((e, i) =>
+        '<div class="entry">' +
+          '<span class="nm">' + esc(e.name) +
+            (e.hints.length ? '' : ' <span class="chip warn" title="matched only by its own name">no hints</span>') +
+          '</span>' +
+          '<span class="cell" data-domain="' + esc(e.domain) + '">' + esc(e.domain) + '/' + esc(e.mode) + '</span>' +
+          '<span><button data-edit="' + i + '">edit</button> <button data-del="' + i + '">✕</button></span>' +
+        '</div>').join('')
+    : '<div class="empty">No entries yet. Add the first term below.</div>';
+
+  $('entryList').querySelectorAll('[data-del]').forEach(b => {
+    b.onclick = () => { D.entries.splice(Number(b.dataset.del), 1); renderEntries(); };
+  });
+  $('entryList').querySelectorAll('[data-edit]').forEach(b => {
+    b.onclick = () => {
+      const i = Number(b.dataset.edit);
+      const e = D.entries[i];
+      D.editing = i;
+      $('fName').value = e.name;
+      $('fCategory').value = e.category || '';
+      $('fUnit').value = e.unit || '';
+      $('fHints').value = (e.hints || []).join(', ');
+      pickCell(e.domain, e.mode);
+      $('btnAdd').textContent = 'Update term';
+      $('fName').focus();
+    };
+  });
+}
+
+function clearForm() {
+  D.editing = -1;
+  ['fName', 'fCategory', 'fUnit', 'fHints'].forEach(id => { $(id).value = ''; });
+  $('btnAdd').textContent = 'Add term';
+}
+
+// ── Cell grid ─────────────────────────────────────────────────────────────
+async function loadGrid() {
+  try {
+    D.grid = await getJSON('/api/v1/semiotic/grid');
+    const cells = D.grid.cells || [];
+    const domains = [...new Set(cells.map(c => c.domain))];
+    const modes = [...new Set(cells.map(c => c.mode))];
+    const byKey = new Map(cells.map(c => [c.domain + '|' + c.mode, c]));
+    const max = cells.reduce((m, c) => Math.max(m, (c.entries || []).length), 0) || 1;
+
+    let html = '<table class="grid"><thead><tr><th class="rowh"></th>' +
+      modes.map(m => '<th>' + esc(m) + '</th>').join('') + '</tr></thead><tbody>';
+    for (const d of domains) {
+      html += '<tr><th class="rowh">' + esc(d) + '</th>';
+      for (const m of modes) {
+        const c = byKey.get(d + '|' + m);
+        const n = c ? (c.entries || []).length : 0;
+        // Density as opacity, so the grid reads as a map of where the
+        // dictionary is thick and where it is empty.
+        const a = (0.06 + 0.5 * (n / max)).toFixed(3);
+        html += '<td style="background:rgba(95,242,214,' + a + ')">' +
+          '<button data-d="' + esc(d) + '" data-m="' + esc(m) + '" aria-pressed="false" ' +
+                  'title="' + esc(d + ' × ' + m) + ' — ' + n + ' entries">' + (n || '') + '</button></td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    $('gridBox').innerHTML = html;
+    $('gridBox').querySelectorAll('button').forEach(b => {
+      b.onclick = () => pickCell(b.dataset.d, b.dataset.m);
+    });
+
+    const total = cells.reduce((s, c) => s + (c.entries || []).length, 0);
+    const filled = cells.filter(c => (c.entries || []).length > 0).length;
+    $('liveStats').innerHTML =
+      '<b>' + total + '</b> entries across <b>' + filled + '</b> of ' + cells.length + ' cells.<br>' +
+      'Empty cells are meanings the dictionary cannot express yet.';
+  } catch (e) {
+    $('gridBox').innerHTML = '<div class="empty err">' + esc(String(e)) + '</div>';
+  }
+}
+
+function pickCell(domain, mode) {
+  D.cell = { domain, mode };
+  $('cellPicked').textContent = domain ? '· ' + domain + ' × ' + mode : '';
+  document.querySelectorAll('#gridBox button').forEach(b => {
+    b.setAttribute('aria-pressed', (b.dataset.d === domain && b.dataset.m === mode) ? 'true' : 'false');
+  });
+}
+
+// ── Draft → pack JSON (the same shape the loader reads) ───────────────────
+function draftDoc() {
+  return {
+    kind: ($('packName').value || 'draft').trim(),
+    domains: D.entries.map(e => ({
+      name: e.name,
+      category: e.category || null,
+      domain: e.domain,
+      mode: e.mode,
+      axis_kind: '',
+      axis_name: '',
+      unit: e.unit || 'items',
+      hints: e.hints,
+    })),
+  };
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────
+$('btnAdd').onclick = () => {
+  const name = $('fName').value.trim();
+  if (!name) { toast('a term needs a name', true); return; }
+  if (!D.cell.domain) { toast('pick a cell in the grid', true); return; }
+  const entry = {
+    name,
+    category: $('fCategory').value.trim(),
+    unit: $('fUnit').value.trim(),
+    domain: D.cell.domain,
+    mode: D.cell.mode,
+    hints: $('fHints').value.split(',').map(h => h.trim()).filter(Boolean),
+  };
+  if (D.editing >= 0) D.entries[D.editing] = entry;
+  else D.entries.push(entry);
+  clearForm();
+  renderEntries();
+};
+
+$('btnClearForm').onclick = clearForm;
+
+$('btnNew').onclick = () => {
+  D.name = '';
+  D.entries = [];
+  $('packName').value = '';
+  $('packState').textContent = 'draft';
+  $('packState').className = 'chip';
+  clearForm();
+  renderEntries();
+  loadPacks();
+};
+
+$('btnSave').onclick = async () => {
+  const name = $('packName').value.trim();
+  $('saveMsg').innerHTML = '';
+  try {
+    const r = await postJSON('/api/v1/ontology/packs/save', { name, entries: D.entries });
+    D.name = r.name;
+    $('packState').textContent = 'saved · pending restart';
+    $('packState').className = 'chip warn';
+    const warns = r.warnings || [];
+    $('saveMsg').innerHTML =
+      '<div class="warns" style="border-color:rgba(168,230,99,.4);background:var(--lime-dim);color:var(--lime)">' +
+        'Saved ' + r.entries + ' entries to <code>' + esc(r.path) + '</code>. ' + esc(r.note) +
+      '</div>' +
+      (warns.length ? '<div class="warns">' + warns.map(esc).join('<br>') + '</div>' : '');
+    toast('pack saved');
+    loadPacks();
+  } catch (e) {
+    // The endpoint reports every problem at once; show them as a list rather
+    // than one toast the user has to re-trigger per error.
+    let msg = String(e), items = null;
+    const m = msg.match(/\{[\s\S]*\}$/);
+    if (m) { try { const j = JSON.parse(m[0]); items = j.errors; } catch (_) {} }
+    $('saveMsg').innerHTML = '<div class="errs"><b>Pack rejected</b>' +
+      (items ? '<ul>' + items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>'
+             : '<div>' + esc(msg) + '</div>') + '</div>';
+  }
+};
+
+$('btnDelete').onclick = async () => {
+  const name = $('packName').value.trim();
+  if (!name) return;
+  try {
+    const r = await postJSON('/api/v1/ontology/packs/delete', { name });
+    toast('deleted · ' + r.note);
+    $('btnNew').click();
+  } catch (e) { toast('delete failed: ' + e, true); }
+};
+
+$('btnTry').onclick = async () => {
+  const lines = $('samples').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { toast('add a sample line first', true); return; }
+  if (!D.entries.length) { toast('the draft has no entries to test', true); return; }
+  $('tryOut').innerHTML = '<div class="loading">classifying…</div>';
+  try {
+    const r = await postJSON('/api/v1/planner/simulate', {
+      scenario_id: 'studio-draft',
+      // The draft is sent as the candidate ontology document itself — the same
+      // JSON the loader reads — so what is tested is exactly what gets saved.
+      candidate_ontology: JSON.stringify(draftDoc()),
+      texts: lines.map((s, i) => ({ id: 'sample-' + (i + 1), source: s })),
+    });
+    const items = r.items || [];
+    $('tryMeta').textContent =
+      r.changed + ' of ' + r.records_scanned + ' would move · ' + r.low_confidence + ' low confidence';
+    $('tryOut').innerHTML = items.map(it => {
+      const moved = it.before.domain !== it.after.domain || it.before.mode !== it.after.mode;
+      return '<div class="diff' + (moved ? ' changed' : '') + '">' +
+        '<span class="cell" data-domain="' + esc(it.before.domain) + '">' + esc(it.before.domain) + '/' + esc(it.before.mode) +
+          ' <span class="muted">' + it.before.score.toFixed(2) + '</span></span>' +
+        '<span class="arr">' + (moved ? '⟶' : '=') + '</span>' +
+        '<span class="cell" data-domain="' + esc(it.after.domain) + '">' + esc(it.after.domain) + '/' + esc(it.after.mode) +
+          ' <span class="muted">' + it.after.score.toFixed(2) + '</span></span>' +
+        '<span class="src">' + esc(it.source) + '</span>' +
+      '</div>';
+    }).join('') +
+    '<div class="muted" style="font-size:11px;margin-top:8px;line-height:1.55">' +
+      'Left: the dictionary the engine is running now. Right: <i>only</i> this draft, ' +
+      'plus the generic anchor every empty cell always carries — so a sample your ' +
+      'draft says nothing about still lands somewhere, on an anchor rather than on ' +
+      'a term. A saved pack <i>joins</i> the live dictionary instead of replacing it, ' +
+      'so after a restart the real result sits between these two columns.' +
+    '</div>';
+  } catch (e) {
+    $('tryOut').innerHTML = '<div class="empty err">' + esc(String(e)) + '</div>';
+  }
+};
+
+initHelp();
+initShortcuts({ focus: () => $('fName').focus() });
+loadHealth();
+loadPacks();
+loadGrid();
+renderEntries();
+</script>
+</body>
+</html>

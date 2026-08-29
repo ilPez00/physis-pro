@@ -3961,3 +3961,392 @@ async fn rag_retrieve_section_unit_carries_heading_context() {
         "the flat unit reports no section path: {flat}"
     );
 }
+
+/// Search by content (PLAN 12.1): the answer lives in a paragraph nobody
+/// labeled, so ranking labels cannot find it. These assert the properties the
+/// GUI depends on — citation, highlight offsets, facets over the whole match
+/// set, filters, confinement, and that the index is not rebuilt per keystroke.
+#[tokio::test]
+async fn content_search_finds_sections_cites_them_and_reuses_its_index() {
+    let (router, dir, _env) = app().await;
+
+    std::fs::create_dir_all(dir.path().join("line-2")).unwrap();
+    std::fs::create_dir_all(dir.path().join("office")).unwrap();
+    std::fs::write(
+        dir.path().join("line-2/maintenance.md"),
+        "# Spindle Assembly\n\n## Reassembly\n\n### Bearing preload\n\n\
+         Torque the retaining nut to 45 Nm, then recheck after error E4412 clears.\n\n\
+         ## Teardown\n\nRemove the housing.\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("office/invoices.md"),
+        "# Invoices\n\nAcme invoice 8871 paid; no bearing work billed.\n",
+    )
+    .unwrap();
+
+    let (status, r) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "E4412" }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{r}");
+
+    let hits = r["hits"].as_array().expect("hits array");
+    assert!(!hits.is_empty(), "the section that says E4412 is found: {r}");
+    let top = &hits[0];
+    assert!(
+        top["path"].as_str().unwrap().ends_with("maintenance.md"),
+        "{top}"
+    );
+    // The citation is the heading chain, not a byte offset: "Bearing preload"
+    // is what makes a hit legible.
+    assert!(
+        top["citation"].as_str().unwrap().contains("Bearing preload"),
+        "{top}"
+    );
+
+    // Highlight offsets are character ranges into `snippet`; slicing by them
+    // must land exactly on the matched term or the UI marks the wrong text.
+    let snippet: Vec<char> = top["snippet"].as_str().unwrap().chars().collect();
+    let hl = top["highlights"].as_array().expect("highlights");
+    assert!(!hl.is_empty(), "the matched term is marked: {top}");
+    let start = hl[0][0].as_u64().unwrap() as usize;
+    let len = hl[0][1].as_u64().unwrap() as usize;
+    let marked: String = snippet[start..start + len].iter().collect();
+    assert_eq!(marked.to_lowercase(), "e4412", "{top}");
+
+    // Facets describe the corpus that matched, and the place facet is the
+    // folder — the distinction an operator navigates by.
+    let (_, broad) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "bearing" }),
+        ),
+    )
+    .await;
+    assert!(
+        broad["matched"].as_u64().unwrap() >= 2,
+        "both files mention bearings: {broad}"
+    );
+    let places: Vec<&str> = broad["facets"]["place"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["value"].as_str().unwrap())
+        .collect();
+    assert!(places.contains(&"line-2"), "{broad}");
+    assert!(places.contains(&"office"), "{broad}");
+
+    // The index is built once, not per query: a rebuild on every keystroke is
+    // the difference between a search box and a progress bar.
+    assert_eq!(broad["rebuilt"], false, "{broad}");
+
+    // Filtering by place narrows to that folder.
+    let (_, filtered) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "bearing", "place": "office" }),
+        ),
+    )
+    .await;
+    for h in filtered["hits"].as_array().unwrap() {
+        assert_eq!(h["place"], "office", "{filtered}");
+    }
+
+    // A quoted phrase must appear verbatim.
+    let (_, phrase) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "\"no bearing work\"" }),
+        ),
+    )
+    .await;
+    assert_eq!(phrase["matched"], 1, "{phrase}");
+    assert!(phrase["hits"][0]["path"]
+        .as_str()
+        .unwrap()
+        .ends_with("invoices.md"));
+
+    // The preview pane reads the section back out of the file on disk.
+    let cited = top["citation"].as_str().unwrap().to_string();
+    let section = cited.split_once('›').map(|(_, s)| s.trim()).unwrap();
+    let path = top["path"].as_str().unwrap();
+    let (status, preview) = send(
+        &router,
+        get(
+            &format!(
+                "/api/v1/search/content/section?path={}&section={}",
+                urlencoding::encode(path),
+                urlencoding::encode(section)
+            ),
+            "search-user",
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert!(
+        preview["body"].as_str().unwrap().contains("45 Nm"),
+        "{preview}"
+    );
+    assert_eq!(preview["matched_section"], true, "{preview}");
+
+    // Confinement: the scan root is the only reachable corpus.
+    let outside = tempfile::tempdir().unwrap();
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "bearing", "dir": outside.path().to_str().unwrap() }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+/// With no semantic model loaded the semantic channel must be absent, not
+/// faked: random-projection vectors rank confidently and wrongly. The surface
+/// says which mode actually ran.
+#[tokio::test]
+async fn content_search_degrades_to_lexical_without_a_semantic_embedder() {
+    let (router, dir, _env) = app().await;
+    std::fs::write(
+        dir.path().join("log.md"),
+        "# Shift\n\nPump seal replaced on line one.\n",
+    )
+    .unwrap();
+
+    let (status, r) = send(
+        &router,
+        post(
+            "/api/v1/search/content",
+            "search-user",
+            json!({ "query": "pump seal", "mode": "semantic" }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{r}");
+    assert_eq!(r["semantic_index"], false, "{r}");
+    assert_eq!(r["requested_mode"], "semantic", "{r}");
+    assert_eq!(r["mode"], "lexical", "the mode that actually ran: {r}");
+    assert!(!r["hits"].as_array().unwrap().is_empty(), "{r}");
+}
+
+/// Atlas (PLAN 12.3): one call returns a drawable graph. The visualization is
+/// only as honest as this payload — recorded edges must stay distinguishable
+/// from resemblance, every node must land in exactly one community, and the
+/// whole thing must be tenant-scoped like the store it reads.
+#[tokio::test]
+async fn atlas_graph_returns_a_drawable_tenant_scoped_graph() {
+    let (router, _dir, _env) = app().await;
+
+    for label in [
+        "spindle bearing seized on line two",
+        "spindle bearing replaced on line two",
+        "quarterly invoice reconciliation for Acme",
+    ] {
+        let (status, _) = send(
+            &router,
+            post(
+                "/api/v1/coherence/register",
+                "atlas-user",
+                json!({ "input": label }),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let (status, g) = send(&router, get("/api/v1/atlas/graph", "atlas-user")).await;
+    assert_eq!(status, StatusCode::OK, "{g}");
+    let nodes = g["nodes"].as_array().unwrap();
+    assert_eq!(nodes.len(), 3, "{g}");
+    assert_eq!(g["total_nodes"], 3);
+    assert_eq!(g["truncated"], false);
+
+    // Every node carries what the renderer draws with.
+    for n in nodes {
+        assert!(n["label"].as_str().unwrap().len() > 0, "{n}");
+        assert!(n["community"].is_number(), "{n}");
+        assert!(n["degree"].is_number(), "{n}");
+    }
+
+    // Communities partition the nodes: nothing is invisible to the picture.
+    let sizes: u64 = g["communities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["size"].as_u64().unwrap())
+        .sum();
+    assert_eq!(sizes as usize, nodes.len(), "{g}");
+
+    // Edge kinds stay separate — "we recorded this" and "these look alike" are
+    // different claims and the legend distinguishes them.
+    for e in g["edges"].as_array().unwrap() {
+        let kind = e["kind"].as_str().unwrap();
+        assert!(kind == "similarity" || kind == "holarchy", "{e}");
+    }
+
+    // Another tenant sees its own (empty) graph, not this one.
+    let (status, other) = send(&router, get("/api/v1/atlas/graph", "someone-else")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(other["nodes"].as_array().unwrap().len(), 0, "{other}");
+}
+
+/// The new surfaces are served by the binary itself: no CDN, no build step.
+/// An air-gapped install that renders an empty graph is the failure this
+/// asserts against.
+#[tokio::test]
+async fn search_and_atlas_pages_are_served_self_contained() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, html) = send_text(&router, get("/search", "u")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("/api/v1/search/content"), "search page is wired");
+
+    let (status, html) = send_text(&router, get("/atlas", "u")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("/organic.js"), "atlas loads the local renderer");
+    assert!(
+        !html.contains("unpkg.com") && !html.contains("cdn."),
+        "no external script host may appear on an air-gapped surface"
+    );
+
+    // The renderer is public: a <script src> carries no Bearer header.
+    let (status, js) = send_text(&router, get("/organic.js", "u")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(js.contains("window.Organic"), "renderer exports its entry point");
+}
+
+/// Ontology studio write path (PLAN 12.4). A pack is data, so the studio must
+/// be able to author one — but only inside the packs directory, only with the
+/// grid's own vocabulary, and only in the shape the loader can actually read.
+#[tokio::test]
+async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
+    let (router, dir, _env) = app().await;
+
+    let entries = json!([
+        {
+            "name": "Freight Booking",
+            "category": "Logistics",
+            "domain": "bond",
+            "mode": "work",
+            "hints": ["freight", "carrier", "bill of lading"]
+        },
+        {
+            "name": "Customs Declaration",
+            "domain": "CONSTRUCT",
+            "mode": "WORK",
+            "hints": ["customs", "tariff code"]
+        }
+    ]);
+
+    let (status, saved) = send(
+        &router,
+        post(
+            "/api/v1/ontology/packs/save",
+            "studio-user",
+            json!({ "name": "logistics-demo", "entries": entries }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["entries"], 2);
+    // Saving is not loading, and the response says so rather than implying the
+    // classifier already changed.
+    assert_eq!(saved["live"], false, "{saved}");
+
+    // It landed in the packs directory, in the format the loader parses.
+    let path = dir.path().join("packs/logistics-demo.json");
+    assert!(path.exists(), "pack written to {}", path.display());
+    let on_disk = std::fs::read_to_string(&path).unwrap();
+    let (_, loaded) = physis_pro::config::OntologyLoader::load_str(&on_disk, "logistics-demo")
+        .expect("the engine's own loader reads what the studio wrote");
+    assert_eq!(loaded.len(), 2);
+
+    let (status, list) = send(&router, get("/api/v1/ontology/packs", "studio-user")).await;
+    assert_eq!(status, StatusCode::OK);
+    let pack = list["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "logistics-demo")
+        .expect("the saved pack is listed");
+    assert_eq!(pack["valid"], true, "{pack}");
+    assert_eq!(pack["entries"], 2, "{pack}");
+    // This process started before the pack existed, so it is pending, not live.
+    assert_eq!(pack["live"], false, "{pack}");
+
+    let (status, read) = send(
+        &router,
+        get("/api/v1/ontology/packs/read?name=logistics-demo", "studio-user"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(read["domains"][0]["domain"], "BOND", "{read}");
+    assert_eq!(read["domains"][0]["mode"], "WORK", "{read}");
+
+    // Every problem comes back at once — one round-trip per error is not a
+    // studio.
+    let (status, bad) = send(
+        &router,
+        post(
+            "/api/v1/ontology/packs/save",
+            "studio-user",
+            json!({
+                "name": "broken",
+                "entries": [{ "name": "", "domain": "NOPE", "mode": "ALSO-NOPE" }]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(bad["errors"].as_array().unwrap().len() >= 3, "{bad}");
+
+    // A name that would escape the packs directory is refused outright.
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/ontology/packs/save",
+            "studio-user",
+            json!({ "name": "../escape", "entries": entries }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(!dir.path().join("../escape.json").exists());
+
+    let (status, del) = send(
+        &router,
+        post(
+            "/api/v1/ontology/packs/delete",
+            "studio-user",
+            json!({ "name": "logistics-demo" }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{del}");
+    assert!(!path.exists(), "the file is gone");
+
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/ontology/packs/delete",
+            "studio-user",
+            json!({ "name": "logistics-demo" }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -11,6 +11,7 @@ pub mod batch_csv;
 pub mod classify;
 pub mod communities;
 pub mod config;
+pub mod content;
 pub mod context;
 pub mod core;
 pub mod corpus;

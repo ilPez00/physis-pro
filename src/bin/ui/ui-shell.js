@@ -187,7 +187,10 @@ function initCoach(storageKey) {
 // gets the nav, including ones not written yet.
 const PRODUCT_PAGES = [
   { href: '/pulse',  label: 'Pulse',   hint: 'dashboard — coherence, communities, wiki tour' },
+  { href: '/search', label: 'Search',  hint: 'by content — sections, facets, preview' },
+  { href: '/atlas',  label: 'Atlas',   hint: 'organic graph — communities, lineage, entities' },
   { href: '/ui',     label: 'Files',   hint: 'graph file manager — scan, cluster, move' },
+  { href: '/studio', label: 'Studio',  hint: 'ontology editor — packs, cells, before/after' },
   { href: '/console', label: 'Console', hint: 'operations — plant, timeline, meaning' },
   { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
   { href: '/study',  label: 'Study',   hint: 'learning — sessions and the study log' },
@@ -292,9 +295,15 @@ function initAskBar() {
       } else if (hits.length && r.note) {
         html += '<div class="ask-note">' + esc(r.note) + '</div>';
       }
+      // This bar ranks *labels* — the names the graph already knows. When the
+      // answer is inside a document nobody labeled, no amount of label ranking
+      // reaches it, so every result set offers the content search as the next
+      // move rather than leaving the user to conclude the corpus is empty.
+      const contentLink = '<a class="ask-note" style="display:block;text-decoration:none" href="/search?q=' +
+        encodeURIComponent(q) + '">↗ Search inside the documents instead</a>';
       if (!hits.length) {
-        html += '<div class="ask-note">Nothing in the graph matches yet. ' +
-                'Scan a directory or register a node first.</div>';
+        html += '<div class="ask-note">Nothing <em>labeled</em> in the graph matches. ' +
+                'The text inside your files is searched separately.</div>' + contentLink;
         show(html);
         return;
       }
@@ -307,7 +316,8 @@ function initAskBar() {
         // The response is token-packed, so a truncated result set is normal and
         // must be said — a short list otherwise reads as "that is all there is".
         '<div class="ask-note">' + hits.length + ' of a ' + r.budget +
-          '-token budget' + (r.truncated ? ' · more matches were cut to fit' : '') + '</div>';
+          '-token budget' + (r.truncated ? ' · more matches were cut to fit' : '') + '</div>' +
+        contentLink;
       show(html);
     } catch (e) {
       show('<div class="ask-note">search failed: ' + esc(String(e)) + '</div>');
