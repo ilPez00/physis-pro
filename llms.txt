@@ -8,6 +8,9 @@
 - [POST /api/v1/ask](https://github.com/ilPez00/physis-pro#http-api): plain-English question over the knowledge graph; grounded answer with [n] citations when an LLM provider is configured, ranked matches otherwise — never an error
 - [POST /api/v1/coherence/register](https://github.com/ilPez00/physis-pro#http-api): register a labeled node with an asserted verdict
 - [POST /api/v1/search/nodes](https://github.com/ilPez00/physis-pro#http-api): fixed-token similarity search over coherence + goal nodes
+- [POST /api/v1/search/content](https://github.com/ilPez00/physis-pro#http-api): search inside documents — heading-scoped sections ranked by keyword (BM25) and meaning together, with snippets, highlight offsets and place/period/type facets
+- [GET /api/v1/atlas/graph](https://github.com/ilPez00/physis-pro#http-api): one drawable graph — nodes, recorded holarchy edges, derived similarity edges (tagged separately), and communities
+- [GET /api/v1/ontology/packs](https://github.com/ilPez00/physis-pro#http-api): installed ontology packs and whether the running process has loaded them (save/read/delete alongside)
 - [GET /api/v1/files/query](https://github.com/ilPez00/physis-pro#http-api): facet query over the causal ledger — place, period, mechanism/actor, free text
 - [GET /api/v1/files/lineage](https://github.com/ilPez00/physis-pro#http-api): why-made chain for one artifact (upstream, descendants, purposes)
 - [POST /api/v1/files/serve](https://github.com/ilPez00/physis-pro#http-api): record that an artifact serves a goal (final cause)

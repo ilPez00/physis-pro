@@ -66,12 +66,18 @@ use crate::rachmaninov::RachmaninovHolon;
 mod admin_datawork;
 mod admin_study;
 mod agent;
+mod atlas;
 mod axes;
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
 /// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
 /// or the healthcheck. See PREMORTEM.md P1.
-mod coherence;
+// `pub(crate)` because the MCP tool surface calls `query_coherence_nodes`
+// directly: the HTTP handler and `physis_coherence_query` must project nodes
+// through the same function, or the two surfaces answer the same question
+// differently.
+pub(crate) mod coherence;
+mod content;
 mod context;
 mod corpus;
 mod dream;
@@ -81,6 +87,7 @@ mod ingest;
 mod machines;
 #[cfg(feature = "mcp")]
 mod mcp;
+mod ontology_studio;
 mod pdca;
 mod scenarios;
 mod search;
@@ -204,6 +211,16 @@ pub struct AppCtx {
     pub(crate) quality: Mutex<QualityTracker>,
     /// Live agent runs (for `/agent/abort`): cancels a run + kills its OpenCode child.
     pub(crate) agent_runs: crate::web::agent::AgentRunRegistry,
+    /// Built content-search index, kept across requests.
+    ///
+    /// Rebuilding costs a full read + embed of the corpus, so a search box that
+    /// rebuilt per keystroke would be unusable. It is process-global rather than
+    /// per-tenant on purpose: the index holds *files on disk under the scan
+    /// root*, which every tenant already reaches through `/scan` and
+    /// `/rag/retrieve` — it stores no tenant state, so scoping it per tenant
+    /// would multiply the cost without adding any isolation. Staleness is
+    /// decided by the root path plus a metadata-only filesystem signature.
+    pub(crate) content_index: Mutex<Option<Arc<crate::content::ContentIndex>>>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     pub(crate) limiter: RateLimiter,
     /// Server start time for uptime reporting.
@@ -2531,6 +2548,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         ),
         quality: Mutex::new(build_quality_tracker(&shared)),
         agent_runs: crate::web::agent::AgentRunRegistry::new(),
+        content_index: Mutex::new(None),
         limiter: rate_limit_from_env(),
         started_at: std::time::Instant::now(),
         #[cfg(feature = "mcp")]
@@ -2700,6 +2718,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/ui-shell.js", get(ui_chat::ui_shell_js_handler))
         // Sunflower branding (self-contained, no external asset).
         .route("/sunflower.js", get(ui_chat::sunflower_js_handler))
+        // Organic graph renderer. Public for the same reason as ui-shell.js,
+        // and self-hosted so an air-gapped install still draws its graph.
+        .route("/organic.js", get(ui_chat::organic_js_handler))
         // Shared design system. Public for the same reason as ui-shell.js.
         .route("/physis.css", get(ui_chat::physis_css_handler))
         // AI-crawler discoverability (adoption track 1): every deployed
@@ -2724,6 +2745,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // authenticated fs/* routes with a token the user pastes in-page.
         .route("/ui", get(ui_chat::graph_fm_ui_handler))
         .route("/console", get(ui_chat::console_ui_handler))
+        .route("/search", get(ui_chat::search_ui_handler))
+        .route("/atlas", get(ui_chat::atlas_ui_handler))
+        .route("/studio", get(ui_chat::studio_ui_handler))
         .route("/pulse", get(ui_chat::pulse_ui_handler))
         .route("/demo", get(ui_chat::demo_ui_handler))
         .route("/study", get(ui_chat::study_ui_handler))
@@ -2869,7 +2893,19 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             post(coherence::harness_generate_handler),
         )
         .route("/api/v1/search/nodes", post(search::search_nodes_handler))
+        // Search by content: labels answer "which named thing is closest",
+        // this answers "where does it say that".
+        .route(
+            "/api/v1/search/content",
+            post(content::content_search_handler),
+        )
+        .route(
+            "/api/v1/search/content/section",
+            get(content::content_section_handler),
+        )
         .route("/api/v1/ask", post(search::ask_handler))
+        // One drawable graph: nodes, recorded + derived edges, communities.
+        .route("/api/v1/atlas/graph", get(atlas::atlas_graph_handler))
         .route("/api/v1/corpus/summaries", get(corpus::summaries_handler))
         .route("/api/v1/corpus/ask", post(corpus::global_ask_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
@@ -3050,6 +3086,22 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/ontology/list",
             get(wiki_semiotic::ontology_list_handler),
+        )
+        .route(
+            "/api/v1/ontology/packs",
+            get(ontology_studio::packs_list_handler),
+        )
+        .route(
+            "/api/v1/ontology/packs/read",
+            get(ontology_studio::pack_read_handler),
+        )
+        .route(
+            "/api/v1/ontology/packs/save",
+            post(ontology_studio::pack_save_handler),
+        )
+        .route(
+            "/api/v1/ontology/packs/delete",
+            post(ontology_studio::pack_delete_handler),
         )
         .route(
             "/api/v1/ontology/studio",

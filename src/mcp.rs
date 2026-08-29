@@ -1082,7 +1082,10 @@ mod mcp_impl {
                             "id": nv.id,
                             "label": nv.label,
                             "score": nv.score,
-                            "verdict": nv.verdict,
+                            // NodeView carries the raw asserted outcome plus the
+                            // derived rating; `verdict` was never a field on it.
+                            "verdict": nv.rating,
+                            "asserted": nv.asserted,
                             "cell": nv.cell,
                             "pinned": nv.pinned,
                             "created_at": nv.created_at.to_rfc3339(),

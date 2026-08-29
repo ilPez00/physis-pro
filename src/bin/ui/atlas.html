@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Atlas — organic knowledge graph</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{display:flex;flex-direction:column;min-height:100%}
+
+  header{
+    position:relative;z-index:20;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:11px 20px;
+    background:rgba(4,7,15,.85);
+    backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--shelf);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;
+    box-shadow:0 0 22px rgba(95,242,214,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+  .brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+  .spacer{flex:1}
+
+  main{
+    flex:1;display:grid;
+    grid-template-columns:230px minmax(0,1fr) 340px;
+    min-height:0;
+  }
+  @media(max-width:1200px){ main{grid-template-columns:200px minmax(0,1fr)} #explorer{display:none} }
+  @media(max-width:860px){ main{grid-template-columns:1fr} #rail{display:none} }
+
+  #rail,#explorer{overflow:auto;min-height:0;padding:14px 15px 40px;background:rgba(7,12,22,.5)}
+  #rail{border-right:1px solid var(--shelf)}
+  #explorer{border-left:1px solid var(--shelf)}
+
+  #stage{position:relative;min-width:0;min-height:0}
+  #cv{width:100%;height:100%;display:block;cursor:grab;background:
+      radial-gradient(1200px 700px at 50% 40%, rgba(95,242,214,.045), transparent 70%),
+      radial-gradient(900px 600px at 20% 80%, rgba(157,140,255,.05), transparent 70%)}
+
+  .overlaybar{
+    position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;z-index:3;
+  }
+  .legend{
+    position:absolute;right:12px;bottom:12px;z-index:3;
+    background:rgba(7,12,22,.82);border:1px solid var(--shelf);border-radius:var(--r-m);
+    padding:9px 11px;font-family:var(--mono);font-size:10px;color:var(--brume);
+    display:grid;gap:4px;backdrop-filter:blur(8px);
+  }
+  .legend b{color:var(--ink);font-weight:600}
+  .legend .sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  #tip{
+    position:absolute;z-index:5;pointer-events:none;display:none;
+    background:rgba(4,7,15,.94);border:1px solid var(--shelf-strong);border-radius:var(--r-s);
+    padding:6px 9px;font-size:11.5px;max-width:280px;box-shadow:var(--shadow);
+  }
+  #tip .m{font-family:var(--mono);font-size:10px;color:var(--brume);margin-top:3px}
+
+  .rail-group{margin-bottom:16px}
+  .rail-group h4{
+    font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;
+    color:var(--brume);margin:0 0 7px;display:flex;align-items:center;gap:7px;
+  }
+  .rail-group h4::before{content:"";width:12px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+  .opt{
+    display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+    padding:4px 6px;border-radius:var(--r-s);cursor:pointer;font-size:12px;position:relative;
+  }
+  .opt:hover{background:rgba(95,242,214,.06)}
+  .opt[aria-pressed="true"]{background:var(--cyan-dim);color:var(--cyan)}
+  .opt .v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .opt .c{font-family:var(--mono);font-size:10.5px;color:var(--brume)}
+  #railSearch{width:100%;font-size:12px;padding:7px 9px;margin-bottom:6px}
+
+  #explorer h3{margin-top:0}
+  .ex-label{font-size:14px;line-height:1.45;overflow-wrap:anywhere;margin-bottom:8px}
+  .ex-grid{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:12px;margin:10px 0}
+  .ex-grid dt{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume);align-self:center}
+  .ex-grid dd{margin:0;overflow-wrap:anywhere}
+  .ex-actions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+  .ex-list{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+  .ex-item{
+    display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;
+    padding:5px 7px;border-radius:var(--r-s);cursor:pointer;font-size:12px;
+    border:1px solid transparent;
+  }
+  .ex-item:hover{background:rgba(95,242,214,.06);border-color:var(--shelf)}
+  .ex-item .k{font-family:var(--mono);font-size:10px;color:var(--brume)}
+  .ex-item .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sect{margin-top:14px}
+  .sect h4{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.2em;color:var(--brume);margin:0 0 6px}
+  .empty,.loading{color:var(--brume);font-size:12.5px;padding:10px 2px;line-height:1.6}
+  .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--shelf-strong);padding:1px 6px;border-radius:4px;color:var(--violet);background:rgba(157,140,255,.08)}
+  select,input{font-family:inherit}
+
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,15,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px;
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(10,18,32,.98),rgba(7,12,22,.96));
+    border:1px solid rgba(95,242,214,.25);border-radius:20px;padding:26px 30px;
+    max-width:560px;width:100%;box-shadow:var(--shadow);
+  }
+  .overlay-card h2{margin:0 0 10px;font-size:20px}
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">Atlas</h2>
+    <div style="font-size:13px;display:grid;gap:8px">
+      <div><span class="kbd">drag</span> <span class="muted">a node to pull it · drag the background to pan · wheel to zoom</span></div>
+      <div><span class="kbd">F</span> <span class="muted">fit the graph · <span class="kbd">R</span> reload from the engine</span></div>
+      <div><span class="kbd">?</span> <span class="muted">open or close this help</span></div>
+      <div class="muted" style="margin-top:6px">
+        Positions are a physical simulation, not a stored layout: strong links pull
+        nodes together, so distance on screen is a fact about the graph. Solid
+        cyan links with a travelling pulse are <b>recorded</b> holarchy edges;
+        soft violet links are <b>resemblance</b> between vectors. They are never
+        merged — one is a claim the system made, the other is a shape the
+        embeddings happen to have.
+      </div>
+    </div>
+    <button id="helpClose" class="btn-primary" style="width:100%;margin-top:14px">Close</button>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div>
+      <h1>PHYSIS · ATLAS</h1>
+      <div class="sub">The graph as an organism — communities, links, entities</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span id="health" class="chip"><span class="dot"></span><span id="healthTxt">checking…</span></span>
+  <span id="status" class="chip"><span class="muted">ready</span></span>
+  <button id="btnHelp" title="Help (?)" style="padding:6px 10px;font-size:11px">?</button>
+</header>
+
+<main>
+  <aside id="rail">
+    <div class="rail-group">
+      <h4>Find</h4>
+      <input id="railSearch" type="search" placeholder="filter by label…" aria-label="Filter nodes by label" />
+      <div id="railStats" class="muted" style="font-family:var(--mono);font-size:10px"></div>
+    </div>
+
+    <div class="rail-group">
+      <h4>Verdict</h4>
+      <div class="opt" role="button" tabindex="0" data-kind="verdict" data-value="success" aria-pressed="false"><span class="v">Succeeded</span><span class="c" id="cSuccess">0</span></div>
+      <div class="opt" role="button" tabindex="0" data-kind="verdict" data-value="failure" aria-pressed="false"><span class="v">Failed</span><span class="c" id="cFailure">0</span></div>
+      <div class="opt" role="button" tabindex="0" data-kind="verdict" data-value="inert" aria-pressed="false"><span class="v">Inert</span><span class="c" id="cInert">0</span></div>
+      <div class="opt" role="button" tabindex="0" data-kind="verdict" data-value="unjudged" aria-pressed="false"><span class="v">Unjudged</span><span class="c" id="cUnjudged">0</span></div>
+    </div>
+
+    <div class="rail-group">
+      <h4>Kind of work</h4>
+      <div id="railDomains"></div>
+    </div>
+
+    <div class="rail-group">
+      <h4>Communities</h4>
+      <div id="railComms"></div>
+    </div>
+  </aside>
+
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <div class="overlaybar">
+      <button id="btnReload">Reload</button>
+      <button id="btnFit">Fit</button>
+      <button id="btnClear">Clear filters</button>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="background:#5ff2d6"></span><b>recorded</b> edge — holarchy, with pulse</div>
+      <div><span class="sw" style="background:#9d8cff"></span><b>resemblance</b> — cosine ≥ <span id="lgSim">0.55</span></div>
+      <div><span class="sw" style="background:#a8e663"></span>green ring = succeeded · <span class="sw" style="background:#ff6d8f"></span>failed</div>
+      <div><span class="sw" style="background:#ffc46b"></span>amber ring = human-pinned cell</div>
+      <div>size = links + coherence · pulse = coherence</div>
+    </div>
+    <div id="tip"></div>
+  </section>
+
+  <aside id="explorer">
+    <div class="empty">
+      Click a node to open it.<br><br>
+      The panel is the object: what it is, where it sits on the meaning grid,
+      what it links to, what it came from, and the few things you can do to it.
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/ui-shell.js"></script>
+<script src="/organic.js"></script>
+<script>
+"use strict";
+// Shell globals: $, esc, toast, setStatus, getJSON, postJSON, loadHealth,
+// initHelp, initShortcuts, typing.
+
+const A = {
+  graph: { nodes: [], edges: [], communities: [] },
+  filters: { verdict: null, domain: null, community: null, text: '' },
+  viz: null,
+  grid: null,     // semiotic grid cells, loaded once for the pin editor
+  goals: null,    // goal list, loaded once for the purpose editor
+};
+
+// Same bands the rest of the product uses: ≥ 0.34 succeeded, ≤ -0.34 failed,
+// the middle is inert — judged, but nothing came of it. Inert is its own state,
+// not a soft failure, so it is counted and filtered as itself.
+function verdictOf(n) {
+  if (n.asserted == null) return 'unjudged';
+  if (n.asserted >= 0.34) return 'success';
+  if (n.asserted <= -0.34) return 'failure';
+  return 'inert';
+}
+
+function matches(n) {
+  const f = A.filters;
+  if (f.verdict && verdictOf(n) !== f.verdict) return false;
+  if (f.domain && n.domain !== f.domain) return false;
+  if (f.community != null && n.community !== f.community) return false;
+  if (f.text && !(n.label || '').toLowerCase().includes(f.text)) return false;
+  return true;
+}
+
+function applyFilters() {
+  A.viz.setFilter(matches);
+  const shown = A.graph.nodes.filter(matches).length;
+  $('railStats').textContent =
+    shown + ' of ' + A.graph.nodes.length + ' nodes · ' + A.graph.edges.length + ' links';
+  document.querySelectorAll('.opt').forEach(el => {
+    const kind = el.dataset.kind, val = el.dataset.value;
+    const on = kind === 'community'
+      ? A.filters.community === Number(val)
+      : A.filters[kind] === val;
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// ── Rail ──────────────────────────────────────────────────────────────────
+function renderRail() {
+  const counts = { success: 0, failure: 0, inert: 0, unjudged: 0 };
+  const domains = new Map();
+  for (const n of A.graph.nodes) {
+    counts[verdictOf(n)]++;
+    if (n.domain) domains.set(n.domain, (domains.get(n.domain) || 0) + 1);
+  }
+  $('cSuccess').textContent = counts.success;
+  $('cFailure').textContent = counts.failure;
+  $('cInert').textContent = counts.inert;
+  $('cUnjudged').textContent = counts.unjudged;
+
+  $('railDomains').innerHTML = [...domains.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([d, c]) =>
+      '<div class="opt" role="button" tabindex="0" data-kind="domain" data-value="' + esc(d) + '" aria-pressed="false">' +
+        '<span class="v cell" data-domain="' + esc(d) + '">' + esc(d) + '</span><span class="c">' + c + '</span></div>')
+    .join('') || '<div class="empty">No cells yet.</div>';
+
+  $('railComms').innerHTML = A.graph.communities.slice(0, 24).map(c =>
+    '<div class="opt" role="button" tabindex="0" data-kind="community" data-value="' + c.id + '" aria-pressed="false" ' +
+         'title="' + esc(c.exemplar) + ' · cohesion ' + c.cohesion.toFixed(2) + '">' +
+      '<span class="v">' + esc(c.exemplar) + '</span><span class="c">' + c.size + '</span></div>')
+    .join('') || '<div class="empty">No communities yet.</div>';
+
+  document.querySelectorAll('.opt').forEach(el => {
+    const act = () => {
+      const kind = el.dataset.kind;
+      if (kind === 'community') {
+        const v = Number(el.dataset.value);
+        A.filters.community = A.filters.community === v ? null : v;
+      } else {
+        A.filters[kind] = A.filters[kind] === el.dataset.value ? null : el.dataset.value;
+      }
+      applyFilters();
+    };
+    el.onclick = act;
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } };
+  });
+}
+
+// ── Object explorer ───────────────────────────────────────────────────────
+// A file path is the one label that unlocks the causal surfaces: lineage and
+// purpose links are keyed by path, so a node whose label is prose simply does
+// not have them, and the panel omits those sections rather than showing empty
+// ones the user cannot fill.
+function pathOf(node) {
+  const l = (node.label || '').trim();
+  return /^(\/|[A-Za-z]:\\|\.\/|~\/)/.test(l) ? l : null;
+}
+
+function cellChip(n) {
+  if (!n.domain) return '<span class="chip">unclassified</span>';
+  return '<span class="cell" data-domain="' + esc(n.domain) + '">' + esc(n.domain) + ' / ' + esc(n.mode || '') + '</span>' +
+         (n.pinned ? ' <span class="chip warn" title="a person pinned this cell">pinned</span>'
+                   : ' <span class="chip" title="derived by the classifier">auto</span>');
+}
+
+function verdictChip(n) {
+  const v = verdictOf(n);
+  const cls = v === 'success' ? 'ok' : v === 'failure' ? 'err' : v === 'inert' ? 'warn' : '';
+  return '<span class="chip ' + cls + '">' + v.toUpperCase() + '</span>';
+}
+
+async function openEntity(node) {
+  const box = $('explorer');
+  if (!node) {
+    box.innerHTML = '<div class="empty">Nothing selected.</div>';
+    return;
+  }
+  const neighbours = A.graph.edges
+    .filter(e => e.source === node.id || e.target === node.id)
+    .map(e => ({
+      id: e.source === node.id ? e.target : e.source,
+      kind: e.kind,
+      weight: e.weight,
+    }))
+    .sort((a, b) => b.weight - a.weight);
+  const byId = new Map(A.graph.nodes.map(n => [n.id, n]));
+  const path = pathOf(node);
+
+  box.innerHTML =
+    '<h3>Entity</h3>' +
+    '<div class="ex-label">' + esc(node.label) + '</div>' +
+    '<div>' + cellChip(node) + ' ' + verdictChip(node) + '</div>' +
+    '<dl class="ex-grid">' +
+      '<dt>coherence</dt><dd>' + (node.score != null ? node.score.toFixed(3) : '—') + '</dd>' +
+      '<dt>links</dt><dd>' + node.degree + '</dd>' +
+      '<dt>community</dt><dd>#' + node.community + '</dd>' +
+      '<dt>first seen</dt><dd>' + esc((node.created_at || '').replace('T', ' ').slice(0, 16)) + '</dd>' +
+      '<dt>id</dt><dd class="muted" style="font-family:var(--mono);font-size:10px">' + esc(node.id) + '</dd>' +
+    '</dl>' +
+
+    '<div class="ex-actions">' +
+      '<button id="exSuccess" title="Record that this worked">Mark succeeded</button>' +
+      '<button id="exFailure" title="Record that this failed">Mark failed</button>' +
+      '<button id="exAsk" title="Ask the graph about this">Ask</button>' +
+      '<button id="exSearch" title="Find this text inside documents">In documents ↗</button>' +
+    '</div>' +
+
+    '<div class="sect"><h4>Pin a cell</h4>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<select id="exDomain" style="flex:1;min-width:110px"></select>' +
+        '<select id="exMode" style="flex:1;min-width:110px"></select>' +
+        '<button id="exPin">Pin</button>' +
+        (node.pinned ? '<button id="exUnpin" title="Give the cell back to the classifier">Unpin</button>' : '') +
+      '</div>' +
+      '<div class="muted" style="font-size:11px;margin-top:5px">A pin is testimony: it overrides the classifier and teaches the feedback loop.</div>' +
+    '</div>' +
+
+    (path ? '<div class="sect"><h4>Why it exists</h4><div id="exLineage" class="loading">tracing…</div></div>' : '') +
+    (path ? '<div class="sect"><h4>Attach to a goal</h4>' +
+              '<div style="display:flex;gap:6px"><select id="exGoal" style="flex:1"></select><button id="exServe">Serve</button></div>' +
+            '</div>' : '') +
+
+    '<div class="sect"><h4>Links (' + neighbours.length + ')</h4>' +
+      (neighbours.length
+        ? '<div class="ex-list">' + neighbours.slice(0, 24).map(nb => {
+            const t = byId.get(nb.id);
+            return '<div class="ex-item" data-id="' + esc(nb.id) + '">' +
+                     '<span class="t">' + esc(t ? t.label : nb.id) + '</span>' +
+                     '<span class="k">' + (nb.kind === 'holarchy' ? '⛓' : '≈') + ' ' + nb.weight.toFixed(2) + '</span>' +
+                   '</div>';
+          }).join('') + '</div>'
+        : '<div class="empty">No links. It has neither recorded edges nor a close neighbour above the resemblance floor.</div>') +
+    '</div>' +
+
+    '<div class="sect"><h4>Closest by meaning</h4><div id="exRelated" class="loading">ranking…</div></div>';
+
+  // Neighbour navigation keeps the investigation inside one surface.
+  box.querySelectorAll('.ex-item').forEach(el => {
+    el.onclick = () => {
+      const n = A.graph.nodes.find(x => x.id === el.dataset.id);
+      if (!n) return;
+      A.viz.select(n.id);
+      A.viz.focus(n.id);
+    };
+  });
+
+  wireEntityActions(node, path);
+  loadCellPickers(node);
+  loadRelated(node);
+  if (path) { loadLineage(path); loadGoals(); }
+}
+
+function wireEntityActions(node, path) {
+  const assert = async (score, word) => {
+    try {
+      // Registering the same label returns the same node id (dedupe), so this
+      // updates the verdict in place instead of creating a twin.
+      await postJSON('/api/v1/coherence/register', { input: node.label, coherence_score: score });
+      toast('recorded: ' + word);
+      await load({ keepSelection: node.id });
+    } catch (e) { toast('failed: ' + e, true); }
+  };
+  $('exSuccess').onclick = () => assert(1.0, 'succeeded');
+  $('exFailure').onclick = () => assert(-1.0, 'failed');
+  $('exAsk').onclick = () => {
+    const input = document.getElementById('askInput');
+    if (input) { input.value = node.label; input.focus(); }
+  };
+  $('exSearch').onclick = () => {
+    window.location.href = '/search?q=' + encodeURIComponent(node.label.slice(0, 120));
+  };
+
+  const pin = $('exPin');
+  if (pin) pin.onclick = async () => {
+    try {
+      await postJSON('/api/v1/coherence/edit', {
+        id: node.id,
+        label: node.label,
+        cell: { domain: $('exDomain').value, mode: $('exMode').value },
+      });
+      toast('pinned');
+      await load({ keepSelection: node.id });
+    } catch (e) { toast('pin failed: ' + e, true); }
+  };
+  const unpin = $('exUnpin');
+  if (unpin) unpin.onclick = async () => {
+    try {
+      // An explicit null retracts the pin; omitting the key would keep it.
+      await postJSON('/api/v1/coherence/edit', { id: node.id, label: node.label, cell: null });
+      toast('pin retracted');
+      await load({ keepSelection: node.id });
+    } catch (e) { toast('unpin failed: ' + e, true); }
+  };
+
+  const serve = $('exServe');
+  if (serve) serve.onclick = async () => {
+    const goal = $('exGoal').value;
+    if (!goal) { toast('no goal selected', true); return; }
+    try {
+      // The ledger keys artifacts by `object`, which is the path as recorded —
+      // the endpoint validates the goal against this tenant before writing.
+      await postJSON('/api/v1/files/serve', { object: path, goal_id: goal });
+      toast('purpose recorded');
+      loadLineage(path);
+    } catch (e) { toast('serve failed: ' + e, true); }
+  };
+}
+
+async function loadCellPickers(node) {
+  try {
+    if (!A.grid) A.grid = await getJSON('/api/v1/semiotic/grid');
+    const cells = A.grid.cells || [];
+    const domains = [...new Set(cells.map(c => c.domain))];
+    const modes = [...new Set(cells.map(c => c.mode))];
+    const sel = (id, values, current) => {
+      const el = $(id);
+      if (!el) return;
+      el.innerHTML = values.map(v =>
+        '<option value="' + esc(v) + '"' + (v === current ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+    };
+    sel('exDomain', domains, node.domain);
+    sel('exMode', modes, node.mode);
+  } catch (e) {
+    const d = $('exDomain');
+    if (d) d.innerHTML = '<option>grid unavailable</option>';
+  }
+}
+
+async function loadRelated(node) {
+  const box = $('exRelated');
+  if (!box) return;
+  try {
+    const r = await postJSON('/api/v1/search/nodes', { query: node.label, top_k: 8 });
+    const hits = (r.results || []).filter(h => h.id !== node.id);
+    box.innerHTML = hits.length
+      ? '<div class="ex-list">' + hits.map(h =>
+          '<div class="ex-item" data-id="' + esc(h.id) + '">' +
+            '<span class="t">' + esc(h.label) + '</span>' +
+            '<span class="k">' + h.score.toFixed(3) + (h.verdict === -1 ? ' ✗' : '') + '</span>' +
+          '</div>').join('') + '</div>'
+      : '<div class="empty">Nothing else is close to this.</div>';
+    box.querySelectorAll('.ex-item').forEach(el => {
+      el.onclick = () => {
+        // A recall hit may sit outside the drawn slice of the graph; say so
+        // rather than silently doing nothing when the click lands nowhere.
+        const n = A.graph.nodes.find(x => x.id === el.dataset.id);
+        if (n) { A.viz.select(n.id); A.viz.focus(n.id); }
+        else toast('that node is outside the drawn slice — raise the node limit', true);
+      };
+    });
+  } catch (e) {
+    box.innerHTML = '<div class="empty">recall unavailable: ' + esc(String(e)) + '</div>';
+  }
+}
+
+async function loadLineage(path) {
+  const box = $('exLineage');
+  if (!box) return;
+  try {
+    const r = await getJSON('/api/v1/files/lineage?path=' + encodeURIComponent(path));
+    const chain = r.lineage || [];
+    const purposes = r.purposes || [];
+    const descendants = r.descendants || [];
+    // A cause event is mechanism · actor at a date, optionally naming the input
+    // it was derived from. That quadruple is the whole answer to "why does this
+    // file exist", so the row shows all of it rather than a prettier subset.
+    const row = e =>
+      '<div class="ex-item"><span class="t">' + esc(e.mechanism || '') + ' · ' + esc(e.actor || '') +
+      (e.input ? ' <span class="muted">← ' + esc(String(e.input).split('/').pop()) + '</span>' : '') +
+      '</span><span class="k">' + esc((e.at || '').slice(0, 10)) + '</span></div>';
+    box.innerHTML =
+      (chain.length ? '<div class="ex-list">' + chain.map(row).join('') + '</div>'
+                    : '<div class="empty">No causal events recorded for this file.</div>') +
+      (purposes.length ? '<div class="muted" style="font-size:11px;margin-top:6px">serves goal: ' +
+          purposes.map(p => esc(p.input || '')).join(', ') + '</div>' : '') +
+      (descendants.length ? '<div class="muted" style="font-size:11px;margin-top:4px">' +
+          descendants.length + ' derived artifact(s)</div>' : '');
+  } catch (e) {
+    box.innerHTML = '<div class="empty">no ledger entry: ' + esc(String(e)) + '</div>';
+  }
+}
+
+async function loadGoals() {
+  const sel = $('exGoal');
+  if (!sel) return;
+  try {
+    if (!A.goals) A.goals = await getJSON('/api/v1/goals/list');
+    const goals = A.goals.goals || A.goals || [];
+    sel.innerHTML = goals.length
+      ? goals.map(g => '<option value="' + esc(g.id) + '">' + esc(g.label || g.id) + '</option>').join('')
+      : '<option value="">no goals defined</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">goals unavailable</option>';
+  }
+}
+
+// ── Load ──────────────────────────────────────────────────────────────────
+async function load(opts) {
+  setStatus('loading graph…');
+  try {
+    const g = await getJSON('/api/v1/atlas/graph?limit=280&k=3&min_sim=0.55');
+    A.graph = g;
+    $('lgSim').textContent = (g.min_sim != null ? g.min_sim : 0.55).toFixed(2);
+    A.viz.setData(g);
+    renderRail();
+    applyFilters();
+    const keep = opts && opts.keepSelection;
+    if (keep) {
+      const n = A.graph.nodes.find(x => x.id === keep);
+      if (n) { A.viz.select(n.id); openEntity(n); }
+    }
+    setStatus(g.nodes.length + ' nodes · ' + g.edges.length + ' links' +
+              (g.truncated ? ' · showing the strongest ' + g.nodes.length + ' of ' + g.total_nodes : ''));
+    if (!g.nodes.length) {
+      $('explorer').innerHTML =
+        '<div class="empty">This tenant has no coherence nodes yet.<br><br>' +
+        'Scan a folder from <a href="/ui">Files</a> or register a node, and the ' +
+        'graph appears here — it is drawn from the same store, not a copy.</div>';
+    }
+  } catch (e) {
+    setStatus('load failed', true);
+    toast(String(e), true);
+  }
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+A.viz = Organic.create($('cv'), {
+  onSelect: n => openEntity(n),
+  onHover: (n, p) => {
+    const tip = $('tip');
+    if (!n) { tip.style.display = 'none'; return; }
+    tip.innerHTML = '<div>' + esc(n.label.length > 120 ? n.label.slice(0, 119) + '…' : n.label) + '</div>' +
+      '<div class="m">' + (n.domain ? esc(n.domain + ' / ' + n.mode) : 'unclassified') +
+      ' · coherence ' + (n.score != null ? n.score.toFixed(2) : '—') +
+      ' · ' + n.degree + ' link' + (n.degree === 1 ? '' : 's') + '</div>';
+    tip.style.display = 'block';
+    const stage = $('stage').getBoundingClientRect();
+    tip.style.left = Math.min(p.x + 14, stage.width - 300) + 'px';
+    tip.style.top = (p.y + 14) + 'px';
+  },
+});
+
+$('btnReload').onclick = () => load();
+$('btnFit').onclick = () => A.viz.fit();
+$('btnClear').onclick = () => {
+  A.filters = { verdict: null, domain: null, community: null, text: '' };
+  $('railSearch').value = '';
+  applyFilters();
+};
+$('railSearch').addEventListener('input', e => {
+  A.filters.text = e.target.value.trim().toLowerCase();
+  applyFilters();
+});
+
+document.addEventListener('keydown', e => {
+  if (typing(e.target)) return;
+  if (e.key === 'f' || e.key === 'F') { e.preventDefault(); A.viz.fit(); }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); load(); }
+});
+
+initHelp();
+initShortcuts({ focus: () => $('railSearch').focus() });
+loadHealth();
+// Two fits: one as soon as there is something to frame, one after the
+// simulation has cooled. Fitting only at 400ms frames a layout that is still
+// expanding, so the graph settles half off-screen.
+load().then(() => { setTimeout(() => A.viz.fit(), 400); setTimeout(() => A.viz.fit(), 2200); });
+</script>
+</body>
+</html>

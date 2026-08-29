@@ -163,6 +163,44 @@ pub async fn graph_fm_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/graph_fm.html"))
 }
 
+/// GET /search — search by content: every section of every file under the scan
+/// root, ranked by keyword and meaning together, with a facet rail and a
+/// preview pane. The other surfaces rank labels; this one ranks what the
+/// documents actually say.
+pub async fn search_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/search.html"))
+}
+
+/// GET /organic.js — the self-hosted force-directed canvas renderer.
+///
+/// Public for the same reason as ui-shell.js: a `<script src>` cannot send a
+/// Bearer header. It ships no data, only a simulation. Self-hosted rather than
+/// CDN-loaded because the air-gapped installs this engine is sold into would
+/// otherwise render an empty graph — the one deployment whose entire promise is
+/// that nothing leaves the machine.
+pub async fn organic_js_handler() -> impl axum::response::IntoResponse {
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        include_str!("../bin/ui/organic.js"),
+    )
+}
+
+/// GET /atlas — the organic knowledge graph: communities as soft fields,
+/// recorded edges distinguished from resemblance, and an object explorer for
+/// whatever node you click.
+pub async fn atlas_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/atlas.html"))
+}
+
+/// GET /studio — the ontology editor: browse installed packs, author terms
+/// against the 70-cell grid, test a draft against real text before saving it.
+pub async fn studio_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/studio.html"))
+}
+
 /// GET /console — the operator console (interest feed, overview, timeline,
 /// OEE, classify, meaning grid, planner, hypotheses, ...).
 pub async fn console_ui_handler() -> Html<&'static str> {

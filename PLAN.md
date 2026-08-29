@@ -22,7 +22,7 @@ anomaly detection to corrective action.
 | Document | Ingest, classify, duplicate detection, admin review queue |
 | Personal history | Vault import (Obsidian/git log), browser history, OPML, chat JSONL, praxis backfill |
 | Study | Study log with rhythms, Elenchus argument trainer |
-| UI | Console (9-tab dashboard), Demo (shop-floor seed+watch+classify), Study (log+trainer) |
+| UI | Pulse (vitals), Search (by content), Atlas (organic graph + object explorer), Studio (ontology editor), Files (graph file manager), Console (multi-tab dashboard), Agent, Demo, Study — one shared shell, no external assets |
 | Licensing | Offline license enforcement with vendor-signed envelope |
 | Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping |
 
@@ -196,6 +196,24 @@ anomaly detection to corrective action.
 | C5 | CLI + MCP surface for corpus questions | ✅ Done | `physis-pro themes [--min-size N] [--json]` clusters the `_default` graph into communities and prints each summary (offline, lib `corpus::gather_facts`+`build_summaries` reused by the web handler); MCP `physis_themes` tool returns the same summaries (min_size filter) for agents |
 | C6 | Console tab for summaries | ✅ Done | `console.html` `#tab-themes` under **Mean**: load-on-activate `GET /api/v1/corpus/summaries`, KPI tiles + one card per community (title, keywords, dominant facets, outcome pills, digest, representatives); refresh button; `.chips`/`.pill` styles added to `physis.css` |
 
+### Phase 12 — Demo-grade GUI: content search · organic graph · ontology studio (2026-08-29)
+
+> Three gaps the dashboards could not close by polish. Every search surface
+> ranked **labels** — the names the graph already knows — so the paragraph
+> nobody labeled was unreachable. Every graph loaded cytoscape from a CDN, so
+> the air-gapped install this engine is sold into drew nothing. And the
+> dictionary could be *read* but not *written*, which meant "add your own
+> vocabulary" was a filesystem chore, not a product.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 12.1 | `content` module + `POST /api/v1/search/content` | ✅ Done | `src/content.rs`: hybrid retrieval over **doctree sections** — BM25 (k1=1.2, b=0.75, idf never negative) fused with cosine, each channel max-normalized over the candidate set then weighted 0.55 semantic. Two channels because an industrial corpus is half codes and half prose: vectors treat `E4412`/`E4413` as near-identical, terms miss "cuscinetto grippato" for "seized bearing". Quoted phrases are required verbatim; snippet picks the densest window and returns **character** offsets (byte offsets land mid-codepoint on the first accented word). Facets (place/period/kind/file) count the whole match set, not the page. Index is built once and held on `AppCtx`; staleness is a metadata-only walk (size+mtime), so freshness is checked per request while read+embed happens once; embeddings served from the content-addressed `EmbedCache`. Without a semantic model the index is built lexical-only and the response says `semantic_index: false` rather than ranking random projections confidently. Place facet falls back to the folder relative to the scan root — the address's own `place` defaults to the root itself, which would be one value covering everything. 12 unit tests + 2 e2e |
+| 12.2 | `/search` — investigation surface | ✅ Done | `src/bin/ui/search.html`: facet rail with proportion bars, ranked sections citing the heading chain, `<mark>`ed snippets, preview pane reading the section back off disk (with outline, and an explicit note when the file changed since indexing), mode segmented control, `j`/`k` navigation, stale-response guard. Status line states what actually ran — requested vs effective mode, index rebuild cost, missing semantic model. Ask bar now offers content search on every page instead of implying an empty corpus |
+| 12.3 | Organic renderer + `/atlas` | ✅ Done | `src/bin/ui/organic.js` (served at `/organic.js`, **no CDN**): force simulation on a plain canvas — breathing amplitude from coherence, edge sway from weight, community blobs as radial fields rather than hulls (a hull asserts a boundary the clustering does not have), travelling pulses on recorded edges only. Layout seeded from a hash of the node id, never `Math.random`, so an unchanged graph lands in the same place and "did it change?" stays answerable. `GET /api/v1/atlas/graph` (`src/web/atlas.rs`) joins nodes + edges + communities server-side: recorded holarchy edges plus derived kNN similarity edges, **tagged and never merged**; label-propagation over both layers so register-only tenants are not a starfield; unconnected nodes share one community, matching the communities rollup. 5 unit tests + 1 e2e |
+| 12.4 | Ontology studio write path | ✅ Done | `src/web/ontology_studio.rs`: list / read / save / delete packs under `{data_dir}/packs`, names validated (rejected, never sanitized — a `..` join escapes a sandbox and a silent rename loses a customer's pack), cells validated against the 70-cell grid, **all** errors returned at once. Writes `OntologyEntry`, not `DomainDef`: the loaded shape serializes `"axis_kind": null`, which the loader rejects — the studio would have written packs the engine skipped at startup, and the round-trip test caught it. Atomic write. `/studio` page: pack list with live/pending state, 70-cell density picker, hint editor, and a **before/after** panel that classifies real samples through `/api/v1/planner/simulate`. Deliberately no hot-swap of the live classifier (ontology + centroids are immutable in `SharedCtx`, read lock-free on the hot path); the surface says a pack goes live on restart instead of pretending. 5 unit tests + 1 e2e |
+| 12.5 | Object explorer (Palantir parity) | ✅ Done | Atlas right pane: entity card (label, cell with auto-vs-pinned provenance, verdict, coherence, links, community, first seen), neighbour list with edge kind + weight, closest-by-meaning recall, causal lineage + purposes for file-backed nodes, and the actions that write back — assert succeeded/failed (idempotent re-register), pin/unpin a cell, attach a goal, hand the label to Ask or to content search |
+| 12.6 | `--features full` build repair | ✅ Done | Pre-existing break at HEAD: `mcp.rs` called `web::coherence::query_coherence_nodes` through a private module and read a `verdict` field `NodeView` does not have. Module is now `pub(crate)` (both surfaces must project through one function or they answer differently) and the tool returns `rating` + `asserted` |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |
@@ -247,18 +265,33 @@ anomaly detection to corrective action.
 
 ---
 
-## Detailed Plans (Archive)
+## Plan Index & Reconciled Status
 
-Historical planning documents have been consolidated here. For full detail on
-any section, see `docs/archive/`:
+Single entry point for *what* each planning document covers and *where it
+stands. Detail docs are not duplicated here — they are linked. Status is
+reconciled against the live code (verified 2026-08-28).
 
-| Document | Topics |
-|----------|--------|
-| `docs/archive/DEVELOPMENT_PLAN.md` | Semiotic editing, interface design, NodeView, pins as testimony |
-| `docs/archive/DEVPLAN.md` | Industrial MVP, administration/datawork, decision planner, documentation |
-| `docs/archive/LEAN_I40_PLAN.md` | OEE, predictive maintenance, SPC, A3, management dashboard, JIT inventory |
-| `docs/archive/INDUSTRIAL_VERTICAL_PLAN.md` | BGE-M3 evaluation, MQTT adapter, shift report, telemetry upsell |
-| `docs/archive/ONTOLOGY_EXPANSION_PLAN.md` | Semiotic ontology (Peirce/Eco), 70-cell grid, holonic graph, category theory |
+| Plan document | Area | Status | Notes |
+|---------------|------|--------|-------|
+| `PLAN.md` (this file) | Master roadmap | Living | Phase tables 1–7 + 10/11; authoritative status for shipped work |
+| `docs/plans/2026-08-26-space-time-cause-datawork.md` | Phase 10 — Space·Time·Cause | ✅ Shipped | D1–D6 (+ D7 mail) built; see `AGENTS.md` Space·Time·Cause section. End-to-end verify on next pass |
+| `docs/plans/2026-07-15-phase8-engine-readback.md` | Phase 8 — engine-side reduce | ✅ Done + open follow-up | Tasks 1–6 done (2026-07-16); `cargo test --lib machines::` = 53 pass. **Residual:** engine-side `reduce()` not wired into HTTP/CLI surface (handlers stateless); `/reduce` registration = proposed resume |
+| `docs/plans/2026-07-16-ecosystem-next.md` | Ecosystem rescue + Praxis/Agora | ✅ Done (2026-07-16) | A–E complete; Python `Machine` base verified pure-perception; Praxis→physis recall wired; Agora ToS pivot documented |
+| `docs/archive/DEVELOPMENT_PLAN.md` | Semiotic editing / NodeView / pins | 📚 Archive | historical |
+| `docs/archive/DEVPLAN.md` | Industrial MVP / admin / decision planner | 📚 Archive | historical |
+| `docs/archive/LEAN_I40_PLAN.md` | OEE / SPC / A3 / JIT | 📚 Archive | historical |
+| `docs/archive/INDUSTRIAL_VERTICAL_PLAN.md` | BGE-M3 eval / MQTT / shift report | 📚 Archive | historical |
+| `docs/archive/ONTOLOGY_EXPANSION_PLAN.md` | 70-cell grid / holonic graph | 📚 Archive | historical |
+
+### Open threads (reconciled)
+- **Phase 8 boundary wiring** — close the read-back loop: expose engine-side
+  `reduce()` (registers primitives into `PhysisCore`) over
+  `POST /api/v1/machines/{name}/reduce` + `physis-pro machine <name> --reduce`.
+  Today only stateless classify is exposed (`src/web/machines.rs`;
+  `src/web/mod.rs` flags `register_*` as "planned follow-up").
+- **Space·Time·Cause verification** — D1–D6 built per `AGENTS.md`; an
+  end-to-end check (importer addresses + `where` + purpose links) is the
+  remaining confidence step.
 
 ---
 
