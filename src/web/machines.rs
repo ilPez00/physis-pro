@@ -2,8 +2,83 @@ use super::*;
 use crate::web::SharedState;
 use axum::{
     extract::{Json, State},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
 };
+
+/// POST /api/v1/machines/:name/reduce — the **engine-side** reduce (Phase 8).
+///
+/// Every other machine route is stateless: perceive, answer, forget. This one
+/// closes the read-back loop the machines exist for — the primitives a machine
+/// perceives are registered as coherence nodes, bridged into the holarchy and
+/// written through to sled, so recall, dreams and the wiki can see them later.
+/// Without it the Python machines had to do their own elaboration, which is
+/// exactly the split (perception there, meaning here) the architecture denies.
+///
+/// Tenant-scoped: a machine writes into the caller's graph, never a shared one.
+pub async fn machines_reduce_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let shared = state.shared.clone();
+
+    // Reduce mutates the tenant's core, so it runs under the tenant lock. The
+    // embedding inside is the expensive part; these payloads are a handful of
+    // primitives, not a corpus, so it stays off the blocking pool rather than
+    // moving a `&mut` core across threads.
+    let outcome = state.with_user(&uid, |s| {
+        crate::machines::run::reduce(&name, &body, &mut s.core, shared.embedder.as_ref())
+    });
+
+    let outcome = match outcome {
+        Ok(o) => o,
+        Err(e) => {
+            let msg = e.to_string();
+            // "unknown machine" is a 404; asking a stateless machine to write
+            // is a 400 — the caller's request was understood and refused.
+            let status = if msg.starts_with("unknown machine") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::BAD_REQUEST
+            };
+            return Err(err_response(status, &msg));
+        }
+    };
+
+    // Write the new nodes through, so a machine's perception survives a
+    // restart. Persistence failures are reported in the response rather than
+    // swallowed: a reduce that looked like it worked and vanished on restart is
+    // the worst of both.
+    let mut persisted = 0usize;
+    let mut persist_error: Option<String> = None;
+    if let Some(db) = state.db() {
+        state.with_user(&uid, |s| {
+            for id in &outcome.registered {
+                match s.core.persist_node(db, &uid, id) {
+                    Ok(()) => persisted += 1,
+                    Err(e) => {
+                        log::warn!("machine {}: node {id} not persisted: {e}", outcome.machine);
+                        persist_error.get_or_insert_with(|| e.to_string());
+                    }
+                }
+            }
+        });
+    }
+
+    Ok(Json(serde_json::json!({
+        "machine": outcome.machine,
+        "score": outcome.score,
+        "registered": outcome.registered.len(),
+        "node_ids": outcome.registered,
+        "nodes_before": outcome.nodes_before,
+        "nodes_after": outcome.nodes_after,
+        "persisted": persisted,
+        "persist_error": persist_error,
+        "tenant": uid,
+    })))
+}
 
 /// GET /api/v1/machines — registry of the philosophical machines.
 pub async fn machines_list_handler() -> Json<serde_json::Value> {
@@ -12,108 +87,126 @@ pub async fn machines_list_handler() -> Json<serde_json::Value> {
             name: "chronos",
             modality: "timed events",
             primitive: "rhythm (recurrence)",
+            writes: true,
             status: "live",
         },
         MachineInfo {
             name: "topos",
             modality: "geotagged waypoints",
             primitive: "place / region (recurring)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "harmony",
             modality: "notes (pitches)",
             primitive: "interval / motif",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "elenchus",
             modality: "dialogue statements",
             primitive: "claim / warrant / rebuttal",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "lex",
             modality: "contract clauses",
             primitive: "obligation / right / condition",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "soma",
             modality: "training sessions",
             primitive: "effort / recovery / drift",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "polis",
             modality: "social interactions",
             primitive: "affinity / reciprocity tie",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "empedocles",
             modality: "physical readings",
             primitive: "element (earth/air/fire/water)",
+            writes: true,
             status: "live",
         },
         MachineInfo {
             name: "erosp",
             modality: "directed reaches",
             primitive: "longing (Penia/Poros)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "erosa",
             modality: "directed reaches",
             primitive: "conquest (Ares/Aphrodite)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "techne",
             modality: "source files",
             primitive: "capability / dependency",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "euclid",
             modality: "visual primitives",
             primitive: "polygon (vertices)",
+            writes: true,
             status: "live",
         },
         MachineInfo {
             name: "plutos",
             modality: "transactions",
             primitive: "value flow (recurring)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "krisis",
             modality: "pairwise choices",
             primitive: "preference (A > B)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "pathos",
             modality: "affect episodes",
             primitive: "affect (valence x arousal)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "chroma",
             modality: "colors",
             primitive: "color relation (wheel)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "kinesis",
             modality: "trajectories",
             primitive: "motion gestalt (reach/gait)",
+            writes: false,
             status: "live",
         },
         MachineInfo {
             name: "apodeixis",
             modality: "lean proof obligations",
             primitive: "verdict (certified / refuted)",
+            writes: false,
             status: "live",
         },
     ];

@@ -4350,3 +4350,95 @@ async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+/// Phase 8 read-back (`POST /api/v1/machines/:name/reduce`): the machines are
+/// meant to register what they perceive into the graph, not answer and forget.
+/// Only stateless classify was exposed, so the loop was open at the boundary.
+#[tokio::test]
+async fn machine_reduce_registers_bridges_and_persists_per_tenant() {
+    let (router, _dir, _env) = app().await;
+
+    let events = json!({"events": [
+        {"label": "oil check", "at": "2026-08-01T08:00:00Z"},
+        {"label": "oil check", "at": "2026-08-08T08:00:00Z"},
+        {"label": "oil check", "at": "2026-08-15T08:00:00Z"}
+    ]});
+
+    let (status, r) = send(
+        &router,
+        post("/api/v1/machines/chronos/reduce", "machine-user", events.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{r}");
+    assert_eq!(r["machine"], "chronos");
+    let registered = r["registered"].as_u64().unwrap();
+    assert!(registered >= 1, "reduce registered nothing: {r}");
+    assert_eq!(r["nodes_before"], 0, "{r}");
+    assert_eq!(r["nodes_after"].as_u64().unwrap(), registered, "{r}");
+    // Persistence is reported, not assumed: a reduce that looked like it worked
+    // and vanished on restart is the worst of both.
+    assert_eq!(r["persisted"].as_u64().unwrap(), registered, "{r}");
+    assert!(r["persist_error"].is_null(), "{r}");
+
+    // What it registered is in the caller's graph, recallable by content.
+    let (_, nodes) = send(&router, get("/api/v1/coherence/nodes/all", "machine-user")).await;
+    let labels: Vec<String> = nodes["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["label"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(
+        labels.iter().any(|l| l.contains("oil check")),
+        "the rhythm it perceived is in the graph: {labels:?}"
+    );
+
+    // Registration dedupes by label, so an identical second reduce adds
+    // nothing — and says so rather than looking like a failure.
+    let (status, again) = send(
+        &router,
+        post("/api/v1/machines/chronos/reduce", "machine-user", events),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(again["registered"], 0, "{again}");
+    assert_eq!(again["nodes_before"], again["nodes_after"], "{again}");
+
+    // A machine writes into the caller's graph, never a shared one.
+    let (_, other) = send(&router, get("/api/v1/coherence/nodes/all", "other-tenant")).await;
+    assert_eq!(other["results"].as_array().unwrap().len(), 0, "{other}");
+
+    // Asking a stateless machine to write is refused, and the refusal names
+    // the machines that can — a caller who got {"score": 0} back would have no
+    // way to tell nothing was written.
+    let (status, err) = send(
+        &router,
+        post(
+            "/api/v1/machines/harmony/reduce",
+            "machine-user",
+            json!({"notes": [60, 64, 67]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{err}");
+    assert!(
+        err["error"].as_str().unwrap().contains("chronos"),
+        "names the machines that do write: {err}"
+    );
+
+    let (status, _) = send(
+        &router,
+        post("/api/v1/machines/nope/reduce", "machine-user", json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // The registry says which machines write, so a client need not discover it
+    // from a 400.
+    let (_, list) = send(&router, get("/api/v1/machines", "machine-user")).await;
+    let machines = list["machines"].as_array().unwrap();
+    let chronos = machines.iter().find(|m| m["name"] == "chronos").unwrap();
+    let harmony = machines.iter().find(|m| m["name"] == "harmony").unwrap();
+    assert_eq!(chronos["writes"], true, "{chronos}");
+    assert_eq!(harmony["writes"], false, "{harmony}");
+}

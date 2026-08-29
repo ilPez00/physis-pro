@@ -161,8 +161,12 @@ pub fn reduce(
             continue; // noise rejected, no coherence contribution
         }
         let text = compute_hash(p);
-        core.register_node_from_text(&text, embedder);
-        core.bridge_node(&text);
+        // Bridge the returned *id*, not the label. `bridge_node` looks the id
+        // up in `core.nodes` and returns None for anything else, so passing
+        // the text silently skipped the holarchy join — registering the node
+        // and leaving the read-back loop this function exists to close open.
+        let id = core.register_node_from_text(&text, embedder);
+        core.bridge_node(&id);
         registered.push(p);
         score += Status::Form.coherence(); // +1 per clean form
     }

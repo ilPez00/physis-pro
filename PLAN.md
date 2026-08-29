@@ -216,6 +216,19 @@ anomaly detection to corrective action.
 | 12.7 | Agent + CLI parity for content search | ✅ Done | `physis-pro find <query> [--dir --mode --place --period --kind --top-k]` (serverless: ingests, embeds through the persistent `EmbedCache`, prints citation + facets + snippet) and MCP `physis_find` (same corpus contract, `PHYSIS_SCAN_ROOT`-confined like `physis_pack`). Two honesty fixes fell out of using it: a vectorless index now reports `lexical` whatever was requested — saying "hybrid" would let a caller read paraphrase matching into a pure keyword result — and `citation()` drops the leading crumb that only repeats the filename (`policy.md › policy › Escalation`). The preview endpoint therefore resolves a section by exact path **or unique trailing suffix**, ambiguous suffixes matching nothing rather than guessing between two sections that both end in "Notes". 14 unit tests |
 | 12.6 | `--features full` build repair | ✅ Done | Pre-existing break at HEAD: `mcp.rs` called `web::coherence::query_coherence_nodes` through a private module and read a `verdict` field `NodeView` does not have. Module is now `pub(crate)` (both surfaces must project through one function or they answer differently) and the tool returns `rating` + `asserted` |
 
+### Phase 8b — Engine-side read-back wired to the boundary (2026-08-30)
+
+> Closes the open thread flagged in the plan index: `reduce()` existed in Rust
+> and no surface could reach it, so the machines' whole point — perceive there,
+> mean here — stopped at the boundary.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 8b.1 | `bridge_node` was being handed the label, not the id | ✅ Done | Found while wiring the endpoint. `chronos`, `euclid` and `empedocles` `reduce()` all called `core.bridge_node(&text)`; `bridge_node` looks the argument up in `core.nodes` and returns `None` for anything that is not an id, so **every node these reducers registered stayed unbridged** and the read-back loop silently never closed — the `Option` return made it a no-op with no error. All three now bridge the returned id, with a regression test asserting every registered node has a holon |
+| 8b.2 | `machines::run::reduce` — one dispatcher for both surfaces | ✅ Done | `run()` is pure (JSON → JSON, touches nothing); `reduce()` is the other half (registers, bridges, reports). Both live in `run.rs` so HTTP and CLI cannot drift on what a machine *means*. Returns `ReduceOutcome { score, registered, nodes_before, nodes_after }` — the id set is diffed rather than guessed, so a repeat run reporting zero new nodes is legible as dedup rather than as failure. `REDUCERS` names the three machines with an engine-side half; asking any other to write is an **error, not a silent no-op**, because a caller who got `{"score": 0}` back could not tell nothing had been written. 2 unit tests |
+| 8b.3 | `POST /api/v1/machines/:name/reduce` | ✅ Done | Tenant-scoped (a machine writes into the caller's graph, never a shared one), persists each new node through sled and **reports** the persisted count and any persist error rather than swallowing it — a reduce that looked like it worked and vanished on restart is the worst of both. Unknown machine → 404, stateless machine → 400 naming the ones that do write. `GET /api/v1/machines` now carries `writes` per machine so a client need not discover it from a 400. e2e covers registration, holarchy bridging via recall, dedup on repeat, tenant isolation, both refusals and the registry flag |
+| 8b.4 | `physis-pro machine <name> --reduce` | ✅ Done | Same dispatcher, serverless: loads the persisted `_default` graph, reduces, writes back. The payload is parsed before app init because stdin can only be read once. Verified live: first run registers and persists, second reports "nothing new" with the dedup reason, stateless machines refuse with the same message as HTTP |
+
 ### Phase 13 — `/notebook`: user-composed dashboards (proposed)
 
 > Full design: `docs/plans/2026-08-29-notebook-dashboard-editor.md`. **Not
@@ -297,7 +310,7 @@ reconciled against the live code (verified 2026-08-28).
 | `PLAN.md` (this file) | Master roadmap | Living | Phase tables 1–7 + 10/11; authoritative status for shipped work |
 | `docs/plans/2026-08-29-notebook-dashboard-editor.md` | Phase 13 — `/notebook` composable dashboards | 📝 Proposed | Design only, nothing built; registry-as-references, per-tenant persistence, pinned queries |
 | `docs/plans/2026-08-26-space-time-cause-datawork.md` | Phase 10 — Space·Time·Cause | ✅ Shipped | D1–D6 (+ D7 mail) built; see `AGENTS.md` Space·Time·Cause section. End-to-end verify on next pass |
-| `docs/plans/2026-07-15-phase8-engine-readback.md` | Phase 8 — engine-side reduce | ✅ Done + open follow-up | Tasks 1–6 done (2026-07-16); `cargo test --lib machines::` = 53 pass. **Residual:** engine-side `reduce()` not wired into HTTP/CLI surface (handlers stateless); `/reduce` registration = proposed resume |
+| `docs/plans/2026-07-15-phase8-engine-readback.md` | Phase 8 — engine-side reduce | ✅ Done | Tasks 1–6 done (2026-07-16); the residual boundary wiring shipped 2026-08-30 as Phase 8b — `POST /api/v1/machines/:name/reduce` + `machine --reduce`, and the bridge-the-id fix that made the loop actually close. `cargo test --lib machines::` = 56 pass |
 | `docs/plans/2026-07-16-ecosystem-next.md` | Ecosystem rescue + Praxis/Agora | ✅ Done (2026-07-16) | A–E complete; Python `Machine` base verified pure-perception; Praxis→physis recall wired; Agora ToS pivot documented |
 | `docs/archive/DEVELOPMENT_PLAN.md` | Semiotic editing / NodeView / pins | 📚 Archive | historical |
 | `docs/archive/DEVPLAN.md` | Industrial MVP / admin / decision planner | 📚 Archive | historical |
@@ -306,11 +319,11 @@ reconciled against the live code (verified 2026-08-28).
 | `docs/archive/ONTOLOGY_EXPANSION_PLAN.md` | 70-cell grid / holonic graph | 📚 Archive | historical |
 
 ### Open threads (reconciled)
-- **Phase 8 boundary wiring** — close the read-back loop: expose engine-side
-  `reduce()` (registers primitives into `PhysisCore`) over
-  `POST /api/v1/machines/{name}/reduce` + `physis-pro machine <name> --reduce`.
-  Today only stateless classify is exposed (`src/web/machines.rs`;
-  `src/web/mod.rs` flags `register_*` as "planned follow-up").
+- ~~**Phase 8 boundary wiring**~~ — **closed 2026-08-30** (Phase 8b above).
+  Both surfaces now reach the engine-side `reduce()`. Wiring it surfaced a
+  defect that had made the loop a no-op even in Rust: all three reducers
+  bridged the node's *label* instead of its id, so nothing they registered ever
+  entered the holarchy.
 - **Space·Time·Cause verification** — D1–D6 built per `AGENTS.md`; an
   end-to-end check (importer addresses + `where` + purpose links) is the
   remaining confidence step.

@@ -401,6 +401,11 @@ pub enum Commands {
         /// Print a ready-to-edit example input JSON for <name> and exit.
         #[arg(long)]
         schema: bool,
+        /// Run the machine's engine-side reduce instead of the stateless one:
+        /// register what it perceives into the persisted graph and bridge it
+        /// into the holarchy. Supported by chronos, euclid and empedocles.
+        #[arg(long)]
+        reduce: bool,
     },
     /// Compare two data structures (JSON/struct text) node-by-node by vector
     /// similarity. Prints matched fields, what A is missing in B, and overall
@@ -658,10 +663,19 @@ fn main() -> anyhow::Result<()> {
         return run_indexer(dir, *watch, *interval);
     }
 
-    // The `machine` subcommand is pure: dispatch it before building the heavy
-    // PhysisApp (ontology + embedder), so it runs with no disk state — ideal for
-    // a faulty mount or a quick offline reduction.
-    if let Commands::Machine { name, input, .. } = &cli.command {
+    // The stateless `machine` subcommand is pure: dispatch it before building
+    // the heavy PhysisApp (ontology + embedder), so it runs with no disk state
+    // — ideal for a faulty mount or a quick offline reduction.
+    //
+    // `--reduce` is the other half (Phase 8): it writes into the persisted
+    // graph, so it needs the embedder and the store and falls through to the
+    // app path below. The payload is parsed once, here, because stdin can only
+    // be read once — re-reading it after app init would find it empty.
+    let mut machine_reduce: Option<serde_json::Value> = None;
+    if let Commands::Machine {
+        name, input, reduce, ..
+    } = &cli.command
+    {
         let raw = match input.as_deref() {
             Some(p) if p != Path::new("-") => std::fs::read_to_string(p)?,
             _ => {
@@ -673,9 +687,13 @@ fn main() -> anyhow::Result<()> {
         };
         let value: serde_json::Value =
             serde_json::from_str(&raw).map_err(|e| anyhow::anyhow!("invalid JSON input: {e}"))?;
-        let out = physis_pro::machines::run::run(name, &value)?;
-        println!("{}", serde_json::to_string_pretty(&out)?);
-        return Ok(());
+        if *reduce {
+            machine_reduce = Some(value);
+        } else {
+            let out = physis_pro::machines::run::run(name, &value)?;
+            println!("{}", serde_json::to_string_pretty(&out)?);
+            return Ok(());
+        }
     }
 
     // The `study` recorder only needs the filesystem + the running engine: run
@@ -1566,7 +1584,15 @@ fn main() -> anyhow::Result<()> {
             println!("\n--- assembled context (≤ {tokens} tokens) ---\n");
             println!("{context}");
         }
-        Commands::Machine { .. } => unreachable!("machine subcommand handled before app init"),
+        Commands::Machine { name, .. } => {
+            // Only the `--reduce` path reaches here; the stateless dispatch
+            // returned before the app was built.
+            let input = machine_reduce
+                .take()
+                .expect("stateless machine dispatch returns before app init");
+            let out = app.run_machine_reduce(&name, &input)?;
+            print!("{out}");
+        }
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
         Commands::DecisionsMine {
             files,

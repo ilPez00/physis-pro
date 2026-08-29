@@ -3137,6 +3137,11 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         // Philosophical machines: registry + stateless reducers.
         .route("/api/v1/machines", get(machines::machines_list_handler))
+        // The stateful half: perceive, register, bridge, persist (Phase 8).
+        .route(
+            "/api/v1/machines/:name/reduce",
+            post(machines::machines_reduce_handler),
+        )
         .route(
             "/api/v1/machines/chronos",
             post(machines::machines_chronos_handler),
@@ -3325,8 +3330,12 @@ pub async fn serve() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Philosophical machines — HTTP surface.
 // Each machine reduces a modality to *primitives* (the smallest elaborable unit).
-// These handlers expose the stateless reducers (no core/embedder mutation); the
-// node-registering variants (register_*) are a planned follow-up. See src/machines/.
+// Two halves, both wired: the per-machine handlers below are stateless (perceive,
+// answer, forget), and `POST /api/v1/machines/{name}/reduce` is the engine-side
+// read-back — it registers the primitives as coherence nodes, bridges them into
+// the holarchy and persists them, so a later recall or dream can see what the
+// machine perceived. `machines::run::REDUCERS` lists which machines have that
+// half; the registry reports it per machine as `writes`. See src/machines/.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -3336,6 +3345,12 @@ pub struct MachineInfo {
     primitive: &'static str,
     /// "live" = HTTP reducer wired; "reducer-only" = Rust reducer exists, endpoint pending.
     status: &'static str,
+    /// Whether `POST /api/v1/machines/{name}/reduce` will write this machine's
+    /// primitives into the caller's graph. Stateless machines answer and
+    /// forget, and the registry says which is which rather than leaving a
+    /// caller to discover it from a 400.
+    #[serde(default)]
+    writes: bool,
 }
 
 #[derive(Deserialize)]
