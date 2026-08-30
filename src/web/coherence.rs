@@ -377,7 +377,7 @@ pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityRe
     let boosts: HashMap<String, f32> = quality
         .cell_boosts
         .iter()
-        .map(|(k, b)| (k.clone(), b.current_value()))
+        .map(|(k, b)| (k.clone(), *b))
         .collect();
     Json(quality_response(
         quality.cell_penalties.clone(),
