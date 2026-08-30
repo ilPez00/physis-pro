@@ -265,3 +265,97 @@ pub async fn demo_ui_handler() -> Html<&'static str> {
 pub async fn study_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/study.html"))
 }
+
+/// GET / — the public landing page. The one surface that names what the product
+/// actually is: adaptive industrial intelligence that runs air-gapped. Kept
+/// public (it is marketing, not state) and free of the product shell's ask bar.
+pub async fn landing_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/index.html"))
+}
+
+/// GET /pricing — the service-led offer ladder (Pilot → Industriale →
+/// Enterprise). Supersedes the per-job SaaS tiers.
+pub async fn pricing_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/pricing.html"))
+}
+
+/// GET /about — capabilities, run surfaces, licensing. The honest description,
+/// not "pay-per-job API platform".
+pub async fn about_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/about.html"))
+}
+
+/// GET /deploy — this instance's health and embedder provenance, read from the
+/// live public endpoints only. A license is an offline key, not an account, so
+/// the page carries no billing backend.
+pub async fn deployment_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/customer_dashboard.html"))
+}
+
+/// GET /settings — the operator console for the install itself.
+pub async fn settings_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/settings.html"))
+}
+
+/// GET /api/v1/settings — one call answering "is this install healthy, and is
+/// it current?".
+///
+/// Six separate fetches would each need their own failure copy, and a settings
+/// screen whose own error state is invisible is the worst kind — so this never
+/// fails. A missing licence, an unopenable store and a degraded embedder all
+/// come back as *values*, not as a 500, because the whole point of the page is
+/// to show the operator what is wrong.
+///
+/// The version comparison is deliberately **not** done here: this product is
+/// sold into air-gapped networks, and an engine that phones home to check for
+/// updates is the wrong default. `/settings` asks crates.io from the browser
+/// instead, and reports honestly when it cannot reach it.
+pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_json::Value> {
+    let s = &state.shared;
+    let scan_root = state
+        .scan_root
+        .read()
+        .map(|g| g.display().to_string())
+        .unwrap_or_else(|_| s.config.data_dir.display().to_string());
+    let tenants = state.tenants.lock().map(|t| t.len()).unwrap_or(0);
+
+    let license = crate::license::load().ok().map(|l| {
+        serde_json::json!({
+            "tier": l.tier().name(),
+            "org": l.org,
+            "seats": l.seats,
+            "features": l.features,
+            "issued": l.iat,
+            "expires": l.exp,
+            "maintenance_expires": l.maint_exp,
+            "days_remaining": l.days_remaining(),
+            "revoked": l.revoked,
+            "banner": l.banner(),
+        })
+    });
+
+    Json(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "crate": "physis_pro",
+        "engine": {
+            "data_dir": s.config.data_dir.display().to_string(),
+            "scan_root": scan_root,
+            // sled open failed (read-only volume, no data dir) → everything is
+            // in-memory and will not survive a restart. That is a health fact
+            // an operator must see, not an internal detail.
+            "persistence": state.db.is_some(),
+            "tenants": tenants,
+            "dev_mode": s.dev_mode,
+            "watch_dir": std::env::var("PHYSIS_WATCH_DIR").ok(),
+            "watch_interval_secs": std::env::var("PHYSIS_WATCH_INTERVAL_SECS").ok(),
+        },
+        "embedder": {
+            "kind": s.embedder_kind,
+            "dim": s.embed_dim,
+            "semantic": s.semantic,
+            "degraded": s.degraded,
+            "self_test": s.self_test,
+        },
+        "license": license,
+    }))
+}

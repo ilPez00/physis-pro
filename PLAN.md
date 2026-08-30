@@ -9,7 +9,9 @@ history; classifies them on a 70-cell semiotic grid; and closes the loop from
 anomaly detection to corrective action.
 
 **Active vertical:** Industrial backoffice intelligence (Lean / Industry 4.0).
-**Monetization:** Tiered licensing (Core / Industrial SaaS / Enterprise On-Prem).
+**Monetization:** service-led pilots → Industriale/Enterprise licensing (Pro),
+plus MIT Core as the agent-directory distribution funnel (see
+`docs/plans/2026-08-30-productization.md`).
 
 ---
 
@@ -23,7 +25,7 @@ anomaly detection to corrective action.
 | Personal history | Vault import (Obsidian/git log), browser history, OPML, chat JSONL, praxis backfill |
 | Study | Study log with rhythms, Elenchus argument trainer |
 | UI | Pulse (vitals), Search (by content), Atlas (organic graph + object explorer), Studio (ontology editor), Files (graph file manager), Console (multi-tab dashboard), Agent, Demo, Study — one shared shell, no external assets; new customer-facing pages: index.html (landing), customer_dashboard.html (usage/jobs/tier), api_tester.html (endpoint experimentation), pricing.html (4-tier: Free Trial/Starter/Professional/Enterprise), about.html (capabilities/contact) |
-| Licensing | Offline license enforcement with vendor-signed envelope; per-job billing model: Free Trial (100 jobs), Starter ($10/mo/100), Professional ($50/mo/500), Enterprise (custom); pay-per-job: classify=$0.01, ask=$0.05, quality=$0.001, communities=$0.002 |
+| Licensing | Offline license enforcement with vendor-signed envelope; tier derived from signed feature list (no forged upgrades); banner shows tier. **2026-08-30:** per-job billing (Free Trial/Starter/Professional/Enterprise, pay-per-job) is superseded by the service-led offer in `docs/COMMERCIAL_MODEL.md` — pilots → Industriale/Enterprise licensing |
 | Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping; two deployment nodes: omo and pansa (shared PostgreSQL + model volume, unique API tokens per node; `RAILWAY_PG_CONNECTION_URL` or direct PostgreSQL; ONNX weights from S3/Supabase via `MODEL_BASE_URL`) |
 
 ---
@@ -289,6 +291,98 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | M5 | Audio features with **no retention** | ✅ Done | The one piece with real legal exposure. Recording yourself is your business; a lesson or a call captures *other people*, which leaves the GDPR household exemption and engages art. 615-bis / 617 c.p. The liability is in storing audio and the value is in the inference, which does not need it: on-device RMS / spectral flux / VAD / speaker-count on a rolling buffer discarded in the same pass, never PCM on disk. The event is "conversation, 2+ voices, 50 minutes, at the university" — the audio was never the point. Shipped as `AudioProbe.kt`: one `ShortArray` allocated once and overwritten per ~62 ms frame, loudness + zero-crossing rate + an adaptive noise floor, recorder released *before* the result is returned. The guarantee is structural — the file contains no `File`, no `OutputStream`, no `Uri` and no network call, verified by grep over the source. Voice count comes from turn-taking and returns **null when the window gives no honest basis for a guess**, because "you met someone" recorded on no evidence is worse than a gap |
 | M6 | Distribution: Play + direct APK from git | ✅ Done | **Owner decision:** F-Droid dropped because it requires every dependency to be free software. Recorded correction: F-Droid's constraint is *licensing*, Play's is *review*, and Play reviews background location and microphone — this app's two most sensitive permissions — far more harshly. The useful consequence is that **none of this needs Play Services** (`LocationManager`, `SensorManager`, `AudioRecord` are AOSP), so building without them costs nothing, ships on Play, ships from git, and leaves F-Droid open if review turns out to be the harder road. Pro mode points at the user's own instance, which is the honest answer to any store's "where does the data go". Shipped: `PRIVACY.md` (what leaves the phone per source, and why the microphone design is what it is), `RELEASE.md` (build, signing, direct-APK checksums, the **complete Play data-safety answers**, the background-location justification, the microphone disclosure, and the review friction to expect), `README.md`. Release builds are deliberately **not minified** so an APK published from git can be diffed against the source that claims to produce it |
 
+### Phase 15 — Monetization v2 (2026-08-30)
+
+> Source: `docs/plans/2026-08-30-productization.md` + `docs/COMMERCIAL_MODEL.md`.
+> The repo was trying to be three products at once. Split into two — MIT **Core**
+> (distribution funnel via MCP/agents) and EULA **Pro** (service-led pilots →
+> Industriale/Enterprise licensing) — and drop the stale 4-tier SaaS / per-job
+> metering (`BUSINESS.md`, the old `pricing.html`) that describes a product this
+> repo is not.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 15.1 | SKU → feature-slug entitlement table + order-form mapping | ⬜ Pending | `src/license.rs` already carries slugs; the mapping is the missing piece |
+| 15.2 | License `inspect` / `info` endpoints + trial-key generator | ⬜ Pending | free → paid conversion; 14-day pilot flow |
+| 15.3 | Key rotation + revocation (sled-backed) | ⬜ Pending | enterprise sales enabler; hard seat enforcement already done |
+| 15.4 | Customer/plant/host identity in report metadata | ⬜ Pending | makes reports evidence-grade |
+| 15.5 | Pricing page rewritten to the offer ladder (Pilot €1.5–2.5k → Industriale €1,500/mo → Enterprise €5,000/mo) | ⬜ Pending | with `/` landing + `/about`, routed publicly |
+
+### Phase 16 — Integration spine (2026-08-30)
+
+> Normalize every source into one typed, timestamped `OperationalEvent`, promote
+> the substrate to a typed property graph, add the temporal/audit layer, and bind
+> dream output to outbound actions. Each step is additive — the embed/coherence/
+> dream engine only reads `.coherence`/`.embedding`, so nothing breaks.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| I1 | Canonical `OperationalEvent` (connector, mechanism, actor, ts, payload) | 🔨 In progress | partial in `ledger.rs` + `industrial.rs`; Moonraker/MQTT/Modbus emit it |
+| I2 | Adapters as `SourceAdapter` emitting `OperationalEvent` | ⬜ Pending | mail/scan/watch normalize to the same event |
+| I3 | One `post_event` ingestion path | ⬜ Pending | the Phase 8b read-back contract, generalized |
+| I4 | Provenance survives every projection (timeline, ledger, report, lineage) | ⬜ Pending | new adapter ≈ 100 lines inherits everything |
+| I5 | `CoherenceNode` gains `type` + `properties` (default-empty, back-compat) | ⬜ Pending | Palantir-parity object model |
+| I6 | Named link types + inverse traversal (replace bare `semantic_type: u32`) | ⬜ Pending | |
+| I7 | 70-cell grid → object types (Machine, WorkOrder, SensorReading, Invoice) | ⬜ Pending | |
+| I8 | Dream output → typed actions (open WorkOrder, schedule maintenance) | ⬜ Pending | decide+act half |
+| I9 | Append-only mutation log (node/link/verdict) | ⬜ Pending | the audit/trust layer |
+| I10 | Time-travel + audit view | ⬜ Pending | "what did the graph look like when OEE dropped" |
+| I11 | Dream countermeasures → webhook/CSV export | ⬜ Pending | lowest-build outbound; demo value |
+| I12 | ERP/MES/ticketing bindings | ⬜ Pending | only when a named customer names their system |
+
+### Phase 17 — UI/UX honesty (2026-08-30)
+
+> The 10 product pages (Pulse…Demo) share the Bioluminal Forge shell and are
+> strong. The customer-facing pages are orphans — unrouted, using CSS classes
+> that no longer exist, describing a "pay-per-job API platform", with broken JS
+> and dead `/api/v1/my/*` endpoints. This phase makes the customer surface stop
+> lying about the product.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| U1 | Landing (`/`), pricing, about rewritten to the real model + design system | 🔨 In progress | this change |
+| U2 | `customer_dashboard.html` → license/deployment status page over real endpoints | ⬜ Pending | no billing backend exists; stop faking one |
+| U3 | Remove or fold `api_tester.html` into Agent/Studio | ⬜ Pending | duplicates Notebook + Search affordances |
+| U4 | Route `/`, `/pricing`, `/about` publicly; keep `/pulse` as product home | 🔨 In progress | |
+| U5 | 10-minute demo: `prospect.csv → shift report + ontology studio` | ⬜ Pending | the week-1 "wow" wedge |
+| U6 | `--screenshot` mode / per-release capture pipeline | ⬜ Pending | feeds visual distribution (ADOPTION.md) |
+| U7 | Re-audit pages against the offline/WCAG floors in `physis.css` | ⬜ Pending | |
+
+### Phase 18 — Feature testing (2026-08-30)
+
+> The engine is unit-tested (759 lib tests) but tests are per-phase, not
+> funnel-shaped. Add cross-surface tests for the journey a customer actually
+> walks, and prove the air-gapped moat in CI.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| T1 | E2E funnel: scan → shift report → quality → dream → `where` → lineage | ⬜ Pending | one test, whole journey, tenant isolation |
+| T2 | Adapter-contract test: stub `OperationalEvent` inherits dedup+anomaly+ledger | ⬜ Pending | verifies I4 |
+| T3 | Typed-object round-trip (type+props survive persist/edit/delete) | ⬜ Pending | verifies I5 back-compat |
+| T4 | Temporal-log replay + audit view | ⬜ Pending | verifies I9–I10 |
+| T5 | Marketing-page smoke: `/`, `/pricing`, `/about` 200 + no external assets | ⬜ Pending | verifies U1/U4 |
+| T6 | Entitlement matrix (each SKU = exactly its slugs, cross-tier denial) | ⬜ Pending | extends Phase 4.1's 9 tests |
+| T7 | Air-gapped test: no weights, no network → lexical path, no 500, no CDN | ⬜ Pending | the moat, proven in CI |
+| T8 | Un-ignore `output_quality` on a scheduled (non-push) job | ⬜ Pending | keeps the accuracy floor honest |
+
+### Phase 19 — Agent surface (2026-08-30)
+
+> **Thesis:** Physis is not "LangChain + Semantic Router" — it is the layer both
+> are missing: routing that learns, budget-bounded grounded retrieval, and
+> memory that carries verdicts. The harness owns the loop; Physis owns the
+> semantics, served over MCP + HTTP. This phase closes the four gaps agents
+> expect (route table, structured output, streaming/tool schemas, tracing) and
+> ships a thin SDK. **Non-goals:** no LCEL/chains, no integration catalog, no
+> vector-store zoo — composition stays data, and the harness stays out of repo.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| P1 | Declarative route table (`src/routes.rs` + `src/web/routes.rs` + MCP `physis_route`) | ✅ Done | `Route { name, cell, action, examples }` as JSON data in `{data_dir}/routes.json` (composition-as-data, same rule as the notebook registry). `GET/POST/DELETE /api/v1/routes`, `POST /api/v1/routes/match` (classify → cell → routes, deterministic), MCP tool. Validation reports every problem at once; routes persist before `ok`. 6 unit tests |
+| P2 | Structured output / slot extraction (`src/extract.rs` + `src/web/extract.rs`) | ✅ Done | `POST /api/v1/extract {text, schema}` — schema-constrained extraction through the cascade; tools-first, plain JSON prompt fallback, explicit `note` on failure (never a fabricated object). 4 unit tests (fenced/prose JSON, garbage, schema in message) |
+| P3 | Streaming + tool schemas | ✅ Verified | `run_agent_stream` + `POST /api/v1/agent/run` → SSE of `AgentEvent`s already shipped (web/agent.rs); `ProviderCascade.complete(.., tools, ..)` already takes `ToolDefinition[]`. Nothing to build — recorded so the claim is checked, not assumed |
+| P4 | Thin SDK (`clients/physis_client.ts`) | ✅ Done | Zero-dep fetch client mirroring the MCP surface: health/settings, classify/ask, routes CRUD + `route`, `extract`, `recall`. Field names match the wire (`token_budget`/`top_k`) |
+| P5 | Quality-failure trace (`GET /api/v1/trace?failure_id=`) | ✅ Done | Wired the previously-dead scaffold: resolves the failure from `QualityTracker`, joins the tenant's causal-ledger events within ±1h (tenant-scoped), returns failure + ledger trail. Removed the dead `display_cell`/`TraceFailureRequest` |
+
 ### Phase 6 — Administration / Datawork
 
 | # | Deliverable | Status | Owner | Notes |
@@ -351,6 +445,8 @@ reconciled against the live code (verified 2026-08-28).
 | `PLAN.md` (this file) | Master roadmap | Living | Phase tables 1–7 + 10/11; authoritative status for shipped work |
 | `docs/plans/2026-08-29-notebook-dashboard-editor.md` | Phase 13 — `/notebook` composable dashboards | ✅ Shipped | N1–N5 built 2026-08-30; registry-as-references, per-tenant persistence, pinned queries |
 | `docs/plans/2026-08-30-monitor-mode.md` | Phase 14 — monitor mode (mobile perception) | 🔨 In progress | Engine slice M1–M3 here; Android client M4–M6 is a separate repo over HTTP |
+| `docs/plans/2026-08-30-productization.md` | Phase 15–18 — monetization v2 · integration · UI/UX · feature testing | 🔨 In progress | Pro/Core split, offer ladder, saleability gates, `OperationalEvent` spine, temporal log, customer-page rewrite, funnel tests |
+| `PLAN.md` Phase 19 | Agent surface (route table, extract, SSE, SDK, trace) | ✅ Done (P1–P5) | Harness out of repo; MCP + HTTP are the contract |
 | `docs/plans/2026-08-26-space-time-cause-datawork.md` | Phase 10 — Space·Time·Cause | ✅ Shipped + verified | D1–D6 (+ D7 mail) built; see `AGENTS.md` Space·Time·Cause section. End-to-end verified 2026-08-30 (Phase 10v) — HTTP chain passed as documented, CLI `scan` was found recording no cause and fixed |
 | `docs/plans/2026-07-15-phase8-engine-readback.md` | Phase 8 — engine-side reduce | ✅ Done | Tasks 1–6 done (2026-07-16); the residual boundary wiring shipped 2026-08-30 as Phase 8b — `POST /api/v1/machines/:name/reduce` + `machine --reduce`, and the bridge-the-id fix that made the loop actually close. `cargo test --lib machines::` = 56 pass |
 | `docs/plans/2026-07-16-ecosystem-next.md` | Ecosystem rescue + Praxis/Agora | ✅ Done (2026-07-16) | A–E complete; Python `Machine` base verified pure-perception; Praxis→physis recall wired; Agora ToS pivot documented |

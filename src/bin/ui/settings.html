@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Physis — Settings</title>
+  <link rel="stylesheet" href="/physis.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">P</div>
+      <div>
+        <h1>Physis <span>· Settings</span></h1>
+        <div class="sub">install health · updates · licence · API playground</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="toast" class="toast"></div>
+  <div id="status" class="muted small" style="padding:0 28px;"></div>
+
+  <main class="site">
+    <!-- ── Health ───────────────────────────────────────────────── -->
+    <div class="set-sec">
+      <div class="eyebrow">health markers</div>
+      <div class="health-grid" id="healthGrid">
+        <div class="health-card"><div class="hk">loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ── Updates ──────────────────────────────────────────────── -->
+    <div class="set-sec">
+      <div class="eyebrow">update checks</div>
+      <div class="health-grid" id="updateGrid"></div>
+    </div>
+
+    <!-- ── Configuration ────────────────────────────────────────── -->
+    <div class="set-sec">
+      <div class="eyebrow">configuration</div>
+      <div class="card" style="padding:18px;">
+        <dl class="kv" id="kv"><dt>loading…</dt><dd></dd></dl>
+      </div>
+      <p class="tag-note">Paths and watch settings come from the running process.
+        Scan root is live-reloadable through <code>POST /api/v1/config/reload</code>;
+        the embedder is fixed at startup — changing dimension live would corrupt
+        every stored vector.</p>
+    </div>
+
+    <!-- ── API playground (folded in from api_tester.html) ───────── -->
+    <div class="set-sec">
+      <div class="eyebrow">api playground</div>
+      <div class="card" style="padding:18px;">
+        <div class="play">
+          <div class="play-row">
+            <select id="pgMethod" aria-label="HTTP method">
+              <option value="GET">GET</option>
+              <option value="POST" selected>POST</option>
+            </select>
+            <input id="pgPath" type="text" spellcheck="false" value="/api/v1/classify" aria-label="API path">
+            <button id="pgSend" class="btn-primary" type="button">Send</button>
+          </div>
+          <textarea id="pgBody" spellcheck="false" aria-label="JSON request body">{"text":"OEE dropped due to unplanned downtime on the CNC press"}</textarea>
+          <pre id="pgOut">— response —</pre>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site">
+    <div class="site-foot">
+      <a href="/pulse">Pulse</a>
+      <a href="/deploy">This instance</a>
+      <a href="/pricing">Licensing</a>
+      <span id="footVer"></span>
+    </div>
+  </footer>
+
+  <script src="ui-shell.js"></script>
+  <script>
+  (function () {
+    var st = null;
+
+    function dot(cls, label, value, note) {
+      return '<div class="health-card ' + cls + '">' +
+        '<div class="hk"><span class="sig ' + (cls === 'bad' ? 'err' : cls === 'warn' ? 'warn' : 'ok') + '"></span>' + esc(label) + '</div>' +
+        '<div class="hv">' + value + '</div>' +
+        (note ? '<div class="hn">' + note + '</div>' : '') +
+        '</div>';
+    }
+
+    // ── health markers ──────────────────────────────────────────
+    function renderHealth(h, provCount) {
+      var grid = $('healthGrid');
+      var cards = [];
+
+      cards.push(dot(h.status === 'ok' ? '' : 'bad', 'engine', esc(h.status || 'unknown'),
+        'GET /health — liveness of the running process.'));
+
+      var e = st.embedder || {};
+      var ecls = e.degraded ? 'bad' : (e.semantic ? '' : 'warn');
+      var enote = e.degraded
+        ? 'No real model loaded — vectors are random-projection noise. Classification is non-semantic; do not gate on it.'
+        : (e.semantic ? 'Real semantic model, self-test passed.' : 'Explicit offline random-projection mode (non-semantic by request).');
+      cards.push(dot(ecls, 'embedder', esc(e.kind || 'unknown') + ' · ' + (e.dim || '—') + 'd', enote));
+
+      cards.push(dot(st.engine.persistence ? '' : 'warn', 'persistence',
+        st.engine.persistence ? 'sled — durable' : 'in-memory only',
+        st.engine.persistence ? 'Nodes and verdicts survive a restart.'
+          : 'The store could not be opened. Nothing survives a restart — check the data-dir volume.'));
+
+      var lic = st.license;
+      if (!lic) {
+        cards.push(dot('warn', 'licence', 'none loaded',
+          'Running unlicensed. Set PHYSIS_LICENSE or place a key at ~/.physis/license.key.'));
+      } else {
+        var lcls = lic.revoked ? 'bad' : (lic.days_remaining < 30 ? 'warn' : '');
+        var lnote = lic.revoked ? 'This licence has been revoked.'
+          : lic.days_remaining + ' day(s) of runtime remaining · maintenance until ' + esc(lic.maintenance_expires) + '.';
+        cards.push(dot(lcls, 'licence · ' + esc(lic.tier), esc(lic.org || '—') + ' · ' + lic.seats + ' seats', lnote));
+      }
+
+      cards.push(dot('', 'tenants', String(st.engine.tenants),
+        'Isolated RuntimeStates keyed by the X-Physis-User header.'));
+
+      cards.push(dot(provCount > 0 ? '' : 'warn', 'llm providers', String(provCount),
+        provCount > 0 ? 'Synthesis for /ask and dream countermeasures is available.'
+          : 'No provider configured — /ask degrades to ranked matches with a note, which is the intended offline behaviour.'));
+
+      if (st.engine.dev_mode) {
+        cards.push(dot('warn', 'auth', 'dev mode',
+          'Loopback auth bypass is enabled. Never enable this on a non-loopback bind.'));
+      }
+
+      grid.innerHTML = cards.join('');
+    }
+
+    // ── update checks ───────────────────────────────────────────
+    function renderUpdates(latest) {
+      var grid = $('updateGrid');
+      var cards = [];
+
+      if (latest === undefined) {
+        cards.push(dot('warn', 'engine version', esc(st.version) + ' · not checked',
+          'Update check pending — if it stays pending this install cannot reach crates.io.'));
+      } else if (latest === null) {
+        cards.push(dot('warn', 'engine version', esc(st.version) + ' · offline',
+          'Could not reach crates.io. On an air-gapped install this is expected — update by shipping a new binary or image.'));
+      } else if (latest === st.version) {
+        cards.push(dot('', 'engine version', esc(st.version) + ' · up to date',
+          'Latest published release on crates.io.'));
+      } else {
+        cards.push(dot('warn', 'engine version', esc(st.version) + ' → ' + esc(latest),
+          'A newer release is published. On an air-gapped install, update by shipping a new binary or image.'));
+      }
+
+      var e = st.embedder || {};
+      cards.push(dot(e.semantic ? '' : 'warn', 'model weights',
+        e.semantic ? 'present' : (e.degraded ? 'MISSING' : 'bypassed'),
+        e.semantic ? 'Semantic weights loaded and self-tested.'
+          : (e.degraded ? 'Weights missing or failed the self-test — run scripts/download_models.sh or set MODEL_BASE_URL.'
+                        : 'PHYSIS_EMBEDDER requests the offline projection, so no weights are needed.')));
+
+      var lic = st.license;
+      if (lic) {
+        var mcls = lic.days_remaining < 0 ? 'bad' : lic.days_remaining < 60 ? 'warn' : '';
+        cards.push(dot(mcls, 'licence window', lic.days_remaining + ' day(s) runtime',
+          'Runtime expires ' + esc(lic.expires) + ' · maintenance (right to install newer builds) until ' + esc(lic.maintenance_expires) + '.'));
+      } else {
+        cards.push(dot('warn', 'licence window', 'n/a', 'No licence loaded, so there is no window to watch.'));
+      }
+
+      cards.push(dot('', 'check again',
+        '<button id="recheckBtn" type="button" style="font-family:var(--mono);font-size:11px;">re-run check</button>',
+        'The engine never phones home on its own — this button asks crates.io from your browser.'));
+      grid.innerHTML = cards.join('');
+      var b = $('recheckBtn');
+      if (b) b.onclick = function () { checkUpdates(); };
+    }
+
+    // Deliberately client-side. This product is sold into air-gapped networks,
+    // so the server must not make outbound calls to check for updates; the
+    // browser asks, and reports honestly when it cannot reach the registry.
+    function checkUpdates() {
+      renderUpdates(undefined);
+      fetch('https://crates.io/api/v1/crates/physis_pro', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var v = j && j.crate && (j.crate.max_stable_version || j.crate.max_version);
+          renderUpdates(v || null);
+        })
+        .catch(function () { renderUpdates(null); });
+    }
+
+    // ── configuration ───────────────────────────────────────────
+    function renderConfig() {
+      var e = st.engine;
+      var rows = [
+        ['version', esc(st.version)],
+        ['data dir', esc(e.data_dir)],
+        ['scan root', esc(e.scan_root)],
+        ['watch dir', esc(e.watch_dir || 'not set (PHYSIS_WATCH_DIR)')],
+        ['watch interval', esc(e.watch_interval_secs || '30 (default)') + ' s'],
+        ['persistence', e.persistence ? 'sled (durable)' : 'in-memory'],
+        ['tenants', String(e.tenants)],
+        ['dev mode', e.dev_mode ? 'on — loopback auth bypassed' : 'off'],
+      ];
+      if (st.license) {
+        rows.push(['licence', esc(st.license.tier) + ' · ' + esc(st.license.org || '—') + ' · ' + st.license.seats + ' seats']);
+        rows.push(['features', esc((st.license.features || []).join(', ') || '—')]);
+        rows.push(['issued / expires', esc(st.license.issued) + ' → ' + esc(st.license.expires)]);
+      }
+      $('kv').innerHTML = rows.map(function (r) {
+        return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
+      }).join('');
+      $('footVer').textContent = 'physis_pro v' + st.version;
+    }
+
+    // ── API playground ──────────────────────────────────────────
+    function initPlayground() {
+      $('pgSend').onclick = function () {
+        var method = $('pgMethod').value;
+        var path = $('pgPath').value.trim();
+        var out = $('pgOut');
+        out.textContent = '…';
+        var init = { method: method, headers: {} };
+        var h = hdr();
+        Object.keys(h).forEach(function (k) { init.headers[k] = h[k]; });
+        if (method !== 'GET') {
+          init.headers['Content-Type'] = 'application/json';
+          try { init.body = JSON.stringify(JSON.parse($('pgBody').value)); }
+          catch (err) { out.textContent = 'body is not valid JSON: ' + err; return; }
+        }
+        fetch(apiUrl(path), init)
+          .then(function (r) {
+            return r.text().then(function (t) {
+              var body = t;
+              try { body = JSON.stringify(JSON.parse(t), null, 2); } catch (_) {}
+              return r.status + ' ' + r.statusText + '\n\n' + body;
+            });
+          })
+          .then(function (txt) { out.textContent = txt; })
+          .catch(function (err) { out.textContent = 'request failed: ' + err; });
+      };
+    }
+
+    // ── boot ────────────────────────────────────────────────────
+    Promise.all([
+      getJSON('/api/v1/settings'),
+      getJSON('/health').catch(function () { return { status: 'unreachable' }; }),
+      getJSON('/api/v1/providers').catch(function () { return []; }),
+    ]).then(function (res) {
+      st = res[0];
+      st.status = res[1].status;
+      var prov = res[2];
+      var n = Array.isArray(prov) ? prov.length
+        : (prov && prov.providers ? prov.providers.length : 0);
+      renderHealth(res[1], n);
+      renderConfig();
+      checkUpdates();
+      setStatus('settings loaded');
+    }).catch(function (e) {
+      $('healthGrid').innerHTML = dot('bad', 'settings', 'unavailable',
+        esc(String(e)) + ' — /api/v1/settings did not answer.');
+    });
+
+    initPlayground();
+  })();
+  </script>
+</body>
+</html>

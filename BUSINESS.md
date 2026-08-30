@@ -1,5 +1,12 @@
 # Physis-Pro Business Plan
 
+> **Superseded (2026-08-30).** The 4-tier SaaS subscription and per-job
+> metering below describe a generic API platform, not the product. The canonical
+> commercial model is now `docs/COMMERCIAL_MODEL.md` (service-led pilots →
+> Industriale/Enterprise licensing) and `docs/plans/2026-08-30-productization.md`
+> (integration/UI-UX/testing + the Pro/Core split). This file is kept only for
+> the original feature-analysis tables.
+
 ## Vision
 Physis-Pro: Industrial backoffice intelligence that runs air-gapped. Knowledge management, process monitoring, and quality feedback for regulated environments where network connectivity is a liability, not an asset.
 

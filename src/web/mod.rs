@@ -81,6 +81,7 @@ mod content;
 mod context;
 mod corpus;
 mod dream;
+mod extract;
 mod holarchy;
 mod industrial;
 mod ingest;
@@ -91,6 +92,7 @@ mod monitor;
 mod notebook;
 mod ontology_studio;
 mod pdca;
+mod routes;
 mod scenarios;
 mod search;
 mod shifts;
@@ -211,6 +213,10 @@ pub struct AppCtx {
     /// it exists on the data dir. Mutex because `report_failure` mutates
     /// penalties and appends a failure record.
     pub(crate) quality: Mutex<QualityTracker>,
+    /// Declarative agent route table (Phase 19 B1): semantic cells bound to
+    /// harness actions, persisted to `{data_dir}/routes.json`. Operator-level
+    /// (like axes), so shared across tenants.
+    pub(crate) routes: Mutex<crate::routes::RouteTable>,
     /// Live agent runs (for `/agent/abort`): cancels a run + kills its OpenCode child.
     pub(crate) agent_runs: crate::web::agent::AgentRunRegistry,
     /// Built content-search index, kept across requests.
@@ -2542,6 +2548,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 .unwrap_or_default(),
         ),
         quality: Mutex::new(build_quality_tracker(&shared)),
+        routes: Mutex::new(crate::routes::RouteTable::load(
+            &shared.config.data_dir.join("routes.json"),
+        )),
         agent_runs: crate::web::agent::AgentRunRegistry::new(),
         content_index: Mutex::new(None),
         limiter: rate_limit_from_env(),
@@ -2731,7 +2740,14 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                     include_str!("../../llms.txt"),
                 )
             }),
-        );
+        )
+        // Public marketing/status pages. Landing, pricing and about carry no
+        // state and no secrets; /deploy reads only the public health + embedder
+        // endpoints. The product itself lives behind /pulse (protected).
+        .route("/", get(ui_chat::landing_ui_handler))
+        .route("/pricing", get(ui_chat::pricing_ui_handler))
+        .route("/about", get(ui_chat::about_ui_handler))
+        .route("/deploy", get(ui_chat::deployment_ui_handler));
 
     // Protected routes: everything that mutates state, reads data, or proxies
     // to paid LLM providers. Gated by the Bearer-token middleware.
@@ -2750,6 +2766,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/chat", post(ui_chat::chat_handler))
         .route("/api/v1/providers", get(ui_chat::providers_handler))
         .route("/api/v1/stats", get(ui_chat::stats_handler))
+        // Install health + update markers for /settings. Never fails: every
+        // problem is returned as a value so the page can show it.
+        .route("/api/v1/settings", get(ui_chat::settings_handler))
+        .route("/settings", get(ui_chat::settings_ui_handler))
         .route("/api/v1/query", get(ui_chat::query_handler))
         .route("/api/v1/scan", post(ingest::scan_handler))
         .route("/api/v1/sql/schema", get(ingest::sql_schema_handler))
@@ -3147,6 +3167,21 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             get(wiki_semiotic::heatmap_handler),
         )
         .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
+        // Structured-output slot extraction (Phase 19 B2): schema-constrained
+        // extraction over the provider cascade, degrading to an explicit note.
+        .route("/api/v1/extract", post(extract::extract_handler))
+        // Quality-failure upstream trace (B5): what the ledger was doing
+        // around the moment a failure was reported.
+        .route("/api/v1/trace", get(trace_handler))
+        // Declarative route table (Phase 19 B1): semantic cells → harness
+        // actions. Operator-level data, persisted to routes.json.
+        .route("/api/v1/routes", get(routes::list_routes))
+        .route("/api/v1/routes", post(routes::save_route))
+        .route(
+            "/api/v1/routes/:name",
+            axum::routing::delete(routes::delete_route),
+        )
+        .route("/api/v1/routes/match", post(routes::match_route))
         .route("/api/v1/embed", post(wiki_semiotic::embed_handler))
         .route(
             "/api/v1/embed/video",
@@ -3727,27 +3762,49 @@ pub struct AxesLineageQuery {
 }
 
 #[derive(Deserialize)]
-pub struct TraceFailureRequest {
+pub struct TraceQuery {
     failure_id: String,
 }
 
 async fn trace_handler(
     State(state): State<SharedState>,
-    Query(failure_id): Query<String>,
+    headers: HeaderMap,
+    Query(q): Query<TraceQuery>,
 ) -> Result<Json<TraceResponse>, (StatusCode, Json<ErrorResponse>)> {
     let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
     let failure = quality
         .failures
         .iter()
-        .find(|f| f.id == failure_id)
+        .find(|f| f.id == q.failure_id)
         .ok_or_else(|| {
             (
                 StatusCode::NOT_FOUND,
                 Json(ErrorResponse {
-                    error: format!("Quality failure '{failure_id}' not found"),
+                    error: format!("Quality failure '{}' not found", q.failure_id),
                 }),
             )
         })?;
+
+    // What the causal ledger was doing around the failure — tenant-scoped, so
+    // one customer's cause trail can never surface in another's trace.
+    const WINDOW: i64 = 3600;
+    let uid = user_key(&headers);
+    let ledger_events: Vec<TraceEvent> = state
+        .with_user(&uid, |rt| rt.ledger.events().to_vec())
+        .into_iter()
+        .filter(|e| {
+            let dt = (e.at - failure.timestamp).num_seconds();
+            dt.abs() <= WINDOW
+        })
+        .map(|e| TraceEvent::Ledger {
+            seq: e.seq,
+            at: e.at.to_rfc3339(),
+            mechanism: format!("{:?}", e.mechanism),
+            actor: e.actor,
+            object: e.object,
+        })
+        .collect();
+
     let trace = Trace {
         failure: TraceFailure {
             id: failure.id.clone(),
@@ -3757,9 +3814,9 @@ async fn trace_handler(
             severity: failure.severity,
             feedback: feedback_truncate(&failure.feedback),
         },
-        ledger_events: Vec::new(),
+        ledger_events,
         watch_events: Vec::new(),
-        window_secs: 3600,
+        window_secs: WINDOW,
     };
     Ok(Json(TraceResponse { trace }))
 }
@@ -3771,11 +3828,6 @@ fn feedback_truncate(s: &str) -> String {
     } else {
         s.to_string()
     }
-}
-
-/// Display a cell key as `DOMAIN/MODE` (NUL → slash; QA 8.5 parity).
-fn display_cell(key: &str) -> String {
-    key.replace('\u{0000}', "/")
 }
 
 /// Trace of a quality failure — upstream dataflow.

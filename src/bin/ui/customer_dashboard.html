@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Physis Pro — Customer Dashboard</title>
+  <title>Physis — Deployment</title>
   <link rel="stylesheet" href="/physis.css">
 </head>
 <body>
@@ -11,242 +11,73 @@
     <div class="brand">
       <div class="logo">P</div>
       <div>
-        <h1>Physis <span>· Billing</span></h1>
-        <div class="sub">Customer portal — API access & usage</div>
+        <h1>Physis <span>· Deployment</span></h1>
+        <div class="sub">this instance</div>
       </div>
     </div>
   </header>
 
-  <main>
-    <div class="sidebar">
-      <div class="nav-group">Physis</div>
-      <button data-section="overview" class="nav-button active">Overview</button>
-      <button data-section="jobs" class="nav-button">Job History</button>
-      <button data-section="jobs-add" class="nav-button">Add Jobs</button>
-      <button data-section="api-keys" class="nav-button">API Keys</button>
-      <button data-section="analytics" class="nav-button">Usage Analytics</button>
-      <div class="nav-sep"></div>
-      <button id="logoutBtn" class="nav-button" style="width:100%; margin-top:10px;">Logout</button>
+  <main class="site">
+    <h2 class="lead">Deployment status.</h2>
+    <p class="sublead">Reads the live public endpoints only — <code>/health</code> and
+      <code>/api/v1/embedder</code>. There is no billing backend behind this page; a
+      license is an offline Ed25519 key, not an account.</p>
+
+    <div class="dep-row">
+      <div class="card">
+        <div class="k">health</div>
+        <div class="v"><span id="dep-health" class="sig"></span> <span id="dep-health-txt">checking…</span></div>
+      </div>
+      <div class="card">
+        <div class="k">embedder</div>
+        <div class="v" id="dep-embedder">checking…</div>
+      </div>
+      <div class="card">
+        <div class="k">license</div>
+        <div class="v" id="dep-license">offline key, not an account</div>
+      </div>
     </div>
 
-    <div class="sidebar-footer">
-      <p>Physis Pro API Service</p>
-      <p>Version 1.0</p>
-    </div>
+    <div class="tag-note">To license Physis Pro, request a signed key
+      (<a href="mailto:support@praxisweb.xyz">support@praxisweb.xyz</a>) and place it at
+      <code>~/.physis/license.key</code>. Tiers are negotiated per plant/seat — see
+      <a href="/pricing">Pricing</a>. The MIT core needs no key.</div>
   </main>
 
-  <div class="content">
-    <!-- Overview Section -->
-    <div id="section-overview" class="section active">
-      <div class="header">
-        <h2>Welcome to Physis Pro</h2>
-        <p>Your API access key and usage dashboard</p>
-      </div>
-
-      <div class="card" style="background:var(--panel);">
-        <div class="card-header">
-          <span>Current Tier</span>
-          <span class="tier-badge starter">Starter</span>
-        </div>
-        <div class="card-body">
-          <p>Monthly job limit: <strong>100 jobs</strong></p>
-          <p>Jobs this month: <strong id="jobs-this-month">0</strong> / 100</p>
-          <p style="color:var(--brume);">Cost this month: <strong id="cost-this-month">$0.00</strong></p>
-          <p style="color:var(--brume);">Cost last month: <strong id="cost-last-month">$0.00</strong></p>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:12px;">
-        <div class="card-header">Usage This Month</h2></div>
-        <div class="card-body">
-          <div class="sparkbar">
-            <div style="width:0%;" class="sparkbar-fill"></div>
-          </div>
-          <p style="font-size:12px; color:var(--brume);">0% of 100 jobs used</p>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:12px;">
-        <div class="card-header">Recent Jobs</h2></div>
-        <div class="card-body" id="recent-jobs">
-          <p style="color:var(--brume);">No jobs yet — make your first API call!</p>
-        </div>
-      </div>
+  <footer class="site">
+    <div class="site-foot">
+      <a href="/">Home</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/about">About</a>
+      <span>© 2026 Physis</span>
     </div>
+  </footer>
 
-    <!-- Job History Section -->
-    <div id="section-jobs" class="section">
-      <div class="header">
-        <h2>Job History</h2>
-      </div>
-      <div class="card-body" id="job-history">
-        <p style="color:var(--brume);">No job history yet</p>
-      </div>
-    </div>
+  <script src="ui-shell.js"></script>
+  <script>
+    (function () {
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+      var base = window.location.pathname.replace(/\/\w+.*$/, '/');
+      function api(p) { return base.replace(/\/+$/, '') + (p[0] === '/' ? p : '/' + p); }
 
-    <!-- Add Jobs Section -->
-    <div id="section-jobs-add" class="section">
-      <div class="header">
-        <h2>Add Jobs</h2>
-      </div>
-      <div class="card-body">
-        <p>Purchase additional jobs for this month</p>
-        <div class="pricing-table">
-          <div class="pricing-item">
-            <span>100 jobs</span>
-            <span>$5.00</span>
-          </div>
-          <div class="pricing-item">
-            <span>500 jobs</span>
-            <span>$20.00</span>
-          </div>
-          <div class="pricing-item">
-            <span>1000 jobs</span>
-            <span>$35.00</span>
-          </div>
-        </div>
-        <button id="buy-jobs-btn" class="primary" style="width:100%; margin-top:10px;">Purchase Jobs</button>
-      </div>
-    </div>
+      fetch(api('/health')).then(function (r) { return r.json(); }).then(function (h) {
+        document.getElementById('dep-health-txt').textContent = h.status;
+        document.getElementById('dep-health').className = 'sig ' + (h.status === 'ok' ? 'ok' : 'err');
+      }).catch(function () {
+        document.getElementById('dep-health-txt').textContent = 'offline';
+        document.getElementById('dep-health').className = 'sig err';
+      });
 
-    <!-- API Keys Section -->
-    <div id="section-api-keys" class="section">
-      <div class="header">
-        <h2>API Keys</h2>
-      </div>
-      <div class="card-body">
-        <p>Your active API keys</p>
-        <div id="api-keys-list">
-          <p style="color:var(--brume);">No keys yet — generate your first key below</p>
-        </div>
-        <button id="generate-key-btn" class="primary" style="width:100%; margin-top:10px;">Generate API Key</button>
-      </div>
-    </div>
-
-    <!-- Usage Analytics Section -->
-    <div id="section-analytics" class="section">
-      <div class="header">
-        <h2>Usage Analytics</h2>
-      </div>
-      <div class="card-body">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <span>Jobs this month</span>
-          <span id="analytics-jobs">0</span>
-        </div>
-        <div style="height:200px;">
-          <canvas id="jobs-chart"></canvas>
-        </div>
-        <div style="margin-top:10px;">
-          <span>Cost this month</span>
-          <span id="cost-chart">$0.00</span>
-        </div>
-      </div>
-    </div>
-  </div>
+      fetch(api('/api/v1/embedder')).then(function (r) { return r.json(); }).then(function (e) {
+        var parts = [e.kind || e.id || 'engine'];
+        if (e.semantic) parts.push('semantic');
+        if (e.degraded) parts.push('degraded');
+        document.getElementById('dep-embedder').textContent = parts.join(' · ');
+      }).catch(function () {
+        document.getElementById('dep-embedder').textContent = 'unavailable';
+      });
+    })();
+  </script>
 </body>
-
-<script>
-  // Check if user is logged in
-  const customerId = localStorage.getItem('physis_customer_id');
-  if (!customerId) {
-    // Redirect to login
-    window.location.href = '/';
-    return;
-  }
-
-  // UI Elements
-  const sections = document.querySelectorAll('.section');
-  const navButtons = document.querySelectorAll('.nav-button');
-  const jobHistoryDiv = document.getElementById('job-history');
-  const recentJobsDiv = document.getElementById('recent-jobs');
-  const apiKeysList = document.getElementById('api-keys-list');
-  const buyJobsBtn = document.getElementById('buy-jobs-btn');
-  const generateKeyBtn = document.getElementById('generate-key-btn');
-
-  // Initialize: show overview by default
-  showSection('overview');
-
-  // Navigation
-  navButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      navButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      showSection(btn.dataset.section);
-    });
-  });
-
-  function showSection(sectionId) {
-    sections.forEach(s => s.classList.add('active'));
-    // Remove active from all, add to target
-    const target = document.getElementById('section-' + sectionId);
-    if (target) {
-      target.classList.add('active');
-      navButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    }
-  }
-
-  // API calls
-  async function apiFetch(path, options = {}) {
-    const url = `/api/v1${path}`;
-    const headers = {
-      'Authorization': `Bearer ${localStorage.getItem('physis_api_key')}`,
-      'Content-Type': 'application/json'
-    };
-    
-    const response = await fetch(url, {
-      ...options,
-      headers
-    });
-    
-    if (!response.ok) {
-      const error data = await response.text();
-      throw new Error(data);
-    }
-    
-    return response.json();
-  }
-
-  // Load dashboard data
-  async function loadDashboard() {
-    try {
-      const account = await apiFetch('/api/v1/my/account');
-      const usage = await apiFetch('/api/v1/my/usage');
-      
-      // Update UI
-      document.getElementById('jobs-this-month').textContent = account.jobs_this_month;
-      document.getElementById('cost-this-month').textContent = `$${account.cost_this_month.toFixed(3)}`;
-      document.getElementById('cost-last-month').textContent = `$${account.cost_last_month.toFixed(3)}`;
-      
-      // Update progress bar
-      const progress = (account.jobs_this_month / account.jobs_monthly) * 100;
-      document.querySelector('.sparkbar-fill').style.width = `${progress}%`;
-      document.querySelector('.sparkbar p').textContent = `${progress.toFixed(1)}% of ${account.jobs_monthly} jobs used`;
-      
-      // Update job history
-      renderJobHistory(account.job_history || []);
-      
-    } catch (err) {
-      console.error('Failed to load dashboard:', err);
-    }
-  }
-
-  function renderJobHistory(jobs) {
-    if (!jobs || jobs.length === 0) {
-      recentJobsDiv.innerHTML = '<p style="color:var(--brume);">No jobs yet — make your first API call!</p>';
-      return;
-    }
-    
-    recentJobsDiv.innerHTML = jobs.map(job => `
-      <div style="border:1px solid var(--line); border-radius:6px; padding:10px; margin-bottom:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span style="font-size:12px;">${job.endpoint}</span>
-          <span style="font-size:12px; color:var(--brume);">${job.timestamp}</span>
-        </div>
-        <div style="font-size:12px; color:var(--brume);">$${job.cost.toFixed(3)}</div>
-      </div>
-    `).join('');
-  }
-
-  // Initialize
-  loadDashboard();
+</html>

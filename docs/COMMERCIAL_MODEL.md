@@ -4,6 +4,23 @@ This document describes the proposed packaging. `LICENSE.txt` remains the
 controlling legal agreement; pricing and packaging are commercial terms in the
 signed order form.
 
+> **Supersedes** the 4-tier SaaS / per-job metering in `BUSINESS.md` and the
+> `pricing.html` page. Those describe a generic API platform this repo is not.
+> This document (and `docs/plans/2026-08-30-productization.md`) is the canonical
+> commercial model.
+
+## Two products, one funnel
+
+| Product | License | Buyer | Channel |
+|---------|---------|-------|---------|
+| **Core** (`physis-core`, MIT) | MIT | developers / agents / MCP directories | crates.io, MCP registry, Smithery, llms.txt, agent-framework recipes |
+| **Pro** (`physis_pro`, EULA) | commercial, offline Ed25519 key | SME manufacturers first, then regulated | **service-led pilots** → license/subscription |
+
+Core is the free distribution funnel into Pro. Pro is the revenue. Core must
+stay genuinely useful (not crippled) for the funnel to work — its "adoption"
+goal is measured in agent-directory presence and long-tail Pro leads, not MRR.
+See `docs/business/ADOPTION.md` for the zero-budget Core distribution plan.
+
 ## Revenue model
 
 ## 2026 monetary re-evaluation
@@ -88,12 +105,34 @@ trend; it does not certify equipment safety, replace a qualified technician,
 or guarantee remaining useful life. Reports must show data coverage and
 assumptions, and the customer remains responsible for operational decisions.
 
+## Saleability gates
+
+Each gate must close before the tier above it is an honest claim. Order matters:
+the entitlement/revocation work is days and unblocks Enterprise; the temporal
+log is the audit differentiator that justifies the price; RBAC only becomes
+blocking once multi-customer hosted service is attempted, which the service-led
+model deliberately avoids first.
+
+| Gate | Blocks | Status |
+|------|--------|--------|
+| SKU → feature-slug entitlement table + order form | any tier | partial (`src/license.rs` has slugs; no mapping) |
+| License `inspect`/`info` + trial-key generator | free → paid conversion | open |
+| Key rotation + revocation | enterprise sales (lost keys, terminations) | open (hard seat enforcement is done) |
+| Real authn/RBAC (beyond the header token) | multi-customer hosted / Enterprise | open |
+| Append-only temporal/audit log | audit claims in the pitch | partial (causal ledger only) |
+| On-prem single-binary distro + installer UX | air-gapped claim at scale | partial (Docker; installer untested end-to-end) |
+| One measurable customer baseline | every marketing number | open (first pilot pending) |
+
 ## Commercial MVP backlog
 
 - [ ] SKU-to-feature entitlement table and renewal checklist.
-- [ ] Evaluation-key issuance and a documented 14-day pilot flow.
+- [ ] License `inspect` / `info` endpoints and a 14-day trial-key generator.
+- [ ] Key rotation + revocation list (sled-backed), tied to the vendor tool.
+- [ ] Evaluation-key issuance and a documented pilot flow.
 - [ ] Customer/plant/host identity in report metadata.
 - [ ] Durable shift history before multi-replica hosted deployment.
+- [ ] Rewrite `pricing.html` to the offer ladder here (Pilot → Industriale →
+      Enterprise), not the SaaS tiers; route it with `/` and `/about`.
 - [ ] Invoice/checkout process outside the engine first; automate only after
       three paying customers establish the pricing and tax workflow.
 - [ ] Track pilot-to-recurring conversion, time-to-first-report, exception

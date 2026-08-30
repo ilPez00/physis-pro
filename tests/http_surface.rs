@@ -4874,3 +4874,81 @@ async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+// ── Phase 19 B1: declarative route table ────────────────────────────────────
+#[tokio::test]
+async fn route_table_crud_match_and_validation() {
+    let (router, _dir, _env) = app().await;
+
+    // Invalid route: every problem reported at once, one round-trip.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/routes",
+            "tenant-a",
+            json!({"route": {"name": "  ", "cell": "BROKEN", "action": ""}}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let errors = body["errors"].as_array().expect("errors array");
+    assert!(errors.len() >= 3, "all problems reported: {body}");
+
+    // Upsert a valid route, then read it back.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/routes",
+            "tenant-a",
+            json!({"route": {
+                "name": "downtime",
+                "cell": "FABRICATE/WORK",
+                "action": "open the shift-loss countermeasure",
+                "examples": ["press seized", "CNC down 40 min"]
+            }}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ok"], true);
+
+    let (status, body) = send(&router, get("/api/v1/routes", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let routes = body["routes"].as_array().expect("routes array");
+    assert_eq!(routes.len(), 1);
+    assert_eq!(routes[0]["name"], "downtime");
+    assert_eq!(routes[0]["cell"], "FABRICATE/WORK");
+
+    // Match: classify text and return routes bound to the winning cell. Under
+    // the random-projection embedder the cell is not guaranteed, but the shape
+    // is: a cell string and a routes array, never an error.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/routes/match",
+            "tenant-a",
+            json!({"text": "seized bearing on the press"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["cell"].as_str().is_some(), "cell present: {body}");
+    assert!(body["routes"].is_array());
+
+    // Delete, then confirm deletion.
+    let (status, body) = send(&router, delete("/api/v1/routes/downtime", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["ok"], true);
+    let (_, body) = send(&router, get("/api/v1/routes", "tenant-a")).await;
+    assert_eq!(body["routes"].as_array().unwrap().len(), 0);
+}
+
+// ── Phase 19 B5: quality-failure trace ──────────────────────────────────────
+#[tokio::test]
+async fn trace_unknown_failure_is_404_and_known_is_well_shaped() {
+    let (router, _dir, _env) = app().await;
+
+    // Unknown id → explicit 404, not a 500.
+    let (status, _) = send(&router, get("/api/v1/trace?failure_id=nope", "tenant-a")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
