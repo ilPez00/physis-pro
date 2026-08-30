@@ -87,6 +87,7 @@ mod ingest;
 mod machines;
 #[cfg(feature = "mcp")]
 mod mcp;
+mod notebook;
 mod ontology_studio;
 mod pdca;
 mod scenarios;
@@ -2746,6 +2747,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/search", get(ui_chat::search_ui_handler))
         .route("/atlas", get(ui_chat::atlas_ui_handler))
         .route("/studio", get(ui_chat::studio_ui_handler))
+        .route("/notebook", get(ui_chat::notebook_ui_handler))
         .route("/pulse", get(ui_chat::pulse_ui_handler))
         .route("/demo", get(ui_chat::demo_ui_handler))
         .route("/study", get(ui_chat::study_ui_handler))
@@ -2904,6 +2906,19 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/api/v1/ask", post(search::ask_handler))
         // One drawable graph: nodes, recorded + derived edges, communities.
         .route("/api/v1/atlas/graph", get(atlas::atlas_graph_handler))
+        // Notebooks: dashboards the user composes. The registry route sits
+        // before `/:id` so "registry" is never read as a notebook id.
+        .route(
+            "/api/v1/notebooks/registry",
+            get(notebook::registry_handler),
+        )
+        .route("/api/v1/notebooks", get(notebook::list_handler))
+        .route(
+            "/api/v1/notebooks/:id",
+            get(notebook::get_handler)
+                .post(notebook::save_handler)
+                .delete(notebook::delete_handler),
+        )
         .route("/api/v1/corpus/summaries", get(corpus::summaries_handler))
         .route("/api/v1/corpus/ask", post(corpus::global_ask_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))

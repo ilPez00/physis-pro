@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Notebook</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  *{box-sizing:border-box}
+  body{min-height:100vh}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:11px 20px;background:rgba(4,7,15,.85);
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--shelf);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;box-shadow:0 0 22px rgba(95,242,214,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+  .brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+  .spacer{flex:1}
+
+  .bar{
+    display:flex;gap:9px;align-items:center;flex-wrap:wrap;
+    padding:11px 20px;border-bottom:1px solid var(--shelf);
+    background:linear-gradient(180deg,rgba(10,18,32,.5),transparent);
+  }
+  #nbTitle{
+    font-family:var(--sans);font-size:15px;font-weight:600;
+    background:transparent;border:1px solid transparent;color:var(--ink);
+    padding:6px 9px;border-radius:var(--r-s);min-width:220px;
+  }
+  #nbTitle:hover{border-color:var(--shelf)}
+  #nbTitle:focus{border-color:rgba(95,242,214,.5);outline:none;background:rgba(4,7,15,.6)}
+  select,input{font-family:inherit}
+  .state{font-family:var(--mono);font-size:10.5px;color:var(--brume)}
+
+  main{padding:16px 20px 60px;max-width:1600px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+  .cell{
+    grid-column:span 6;min-width:0;display:flex;flex-direction:column;
+    padding:12px 14px;
+  }
+  .cell[data-span="3"]{grid-column:span 3}
+  .cell[data-span="4"]{grid-column:span 4}
+  .cell[data-span="6"]{grid-column:span 6}
+  .cell[data-span="12"]{grid-column:span 12}
+  @media(max-width:1100px){ .cell,.cell[data-span]{grid-column:span 12} }
+
+  .cell .head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+  .cell .head h3{margin:0;flex:none}
+  .cell .head .why{font-family:var(--mono);font-size:10px;color:var(--brume);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cell .tools{margin-left:auto;display:flex;gap:4px;flex:none}
+  .cell .tools button{padding:2px 7px;font-size:10px;line-height:1.5}
+  .cell.editing{border-color:rgba(157,140,255,.45)}
+  .cell .body{flex:1;overflow:auto;min-height:0}
+  .cell[data-height="s"] .body{max-height:120px}
+  .cell[data-height="m"] .body{max-height:240px}
+  .cell[data-height="l"] .body{max-height:400px}
+  .cell[data-height="xl"] .body{max-height:640px}
+  .cell .foot{font-family:var(--mono);font-size:9.5px;color:var(--brume);margin-top:7px}
+
+  /* renderers */
+  .kpi-row{display:flex;flex-wrap:wrap;gap:14px}
+  .kpi{min-width:96px}
+  .kpi .n{font-family:var(--mono);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .kpi .l{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.16em;color:var(--brume);margin-top:2px}
+  .barrow{display:grid;grid-template-columns:120px 1fr 48px;gap:9px;align-items:center;margin:6px 0;font-size:12px;color:var(--brume)}
+  .barrow .track{height:6px;border-radius:3px;background:rgba(122,150,214,.14);overflow:hidden}
+  .barrow .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+  .barrow b{font-family:var(--mono);text-align:right;color:var(--ink);font-weight:600}
+  .rowitem{display:grid;grid-template-columns:1fr auto;gap:8px;padding:5px 2px;border-bottom:1px solid var(--shelf);font-size:12.5px}
+  .rowitem:last-child{border-bottom:none}
+  .rowitem .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rowitem .k{font-family:var(--mono);font-size:10px;color:var(--brume)}
+  .hit{padding:7px 2px;border-bottom:1px solid var(--shelf);font-size:12.5px}
+  .hit:last-child{border-bottom:none}
+  .hit .cite{font-weight:600}
+  .hit .cite .file{color:var(--cyan)}
+  .hit .snip{color:#c6d5ee;margin-top:3px;line-height:1.5}
+  .hit mark{background:rgba(255,196,107,.22);color:var(--amber);border-radius:3px;padding:0 2px}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px}
+  table.tbl th{text-align:left;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume);padding:4px 6px;border-bottom:1px solid var(--shelf)}
+  table.tbl td{padding:4px 6px;border-bottom:1px solid var(--shelf);overflow-wrap:anywhere}
+  pre.heat{margin:0;font-family:var(--mono);font-size:10px;line-height:1.4;color:#b9cbe8;white-space:pre}
+
+  .empty,.loading{color:var(--brume);font-size:12.5px;padding:10px 2px;line-height:1.6}
+  .cellerr{color:var(--rose);font-size:12px;padding:8px 2px;line-height:1.55}
+  .kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--shelf-strong);padding:1px 6px;border-radius:4px;color:var(--violet);background:rgba(157,140,255,.08)}
+
+  .overlay{position:fixed;inset:0;z-index:100;background:rgba(4,7,15,.92);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(10,18,32,.98),rgba(7,12,22,.96));
+    border:1px solid rgba(95,242,214,.25);border-radius:20px;padding:24px 26px;
+    max-width:680px;width:100%;max-height:86vh;overflow:auto;box-shadow:var(--shadow);
+  }
+  .overlay-card h2{margin:0 0 12px;font-size:19px}
+  .pick{
+    display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+    padding:9px 10px;border:1px solid var(--shelf);border-radius:var(--r-m);
+    margin-bottom:7px;cursor:pointer;
+  }
+  .pick:hover{border-color:rgba(95,242,214,.45);background:rgba(95,242,214,.05)}
+  .pick .t{font-weight:600;font-size:13px}
+  .pick .d{font-size:11.5px;color:var(--brume);margin-top:2px;line-height:1.45}
+  .pick .m{font-family:var(--mono);font-size:9.5px;color:var(--brume)}
+  .pform{display:grid;gap:8px;margin-top:10px}
+  .pform label{display:grid;gap:3px;font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume)}
+  .pform input,.pform select{
+    font-family:var(--sans);font-size:12.5px;padding:7px 9px;border-radius:var(--r-s);
+    background:rgba(4,7,15,.7);border:1px solid var(--shelf-strong);color:var(--ink);
+  }
+  .errs{border:1px solid rgba(255,109,143,.4);background:var(--rose-dim);border-radius:var(--r-m);padding:9px 11px;margin:8px 0;font-size:12px}
+  .errs ul{margin:4px 0 0 16px;padding:0}
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">Notebook</h2>
+    <div style="font-size:13px;display:grid;gap:9px">
+      <div class="muted">
+        A notebook is <b>your</b> dashboard: pick the panels that matter to your
+        job, order them, size them. Every other page in this product is a
+        composition we chose; this one is yours.
+      </div>
+      <div class="muted">
+        <b>Pinned searches</b> are the point. Add a <i>Pinned search</i> cell with
+        a query you keep asking — <code>"no fault found"</code> in <code>line-2</code>
+        — and it is answered live every time you open the page.
+      </div>
+      <div class="muted">
+        Notebooks are stored per user on the server, so yours follows you to the
+        machine wired to the projector. <b>Export</b> hands a colleague the
+        layout as JSON — it carries panel names and settings, never code.
+      </div>
+      <div><span class="kbd">E</span> <span class="muted">toggle edit mode · <span class="kbd">R</span> refresh every cell · <span class="kbd">?</span> this help</span></div>
+    </div>
+    <button id="helpClose" class="btn-primary" style="width:100%;margin-top:14px">Close</button>
+  </div>
+</div>
+
+<div id="picker" class="overlay" role="dialog" aria-labelledby="pickTitle">
+  <div class="overlay-card">
+    <h2 id="pickTitle">Add a panel</h2>
+    <div id="pickList"></div>
+    <div id="pickParams"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button id="pickCancel" style="flex:1">Cancel</button>
+      <button id="pickAdd" class="btn-primary" style="flex:1" disabled>Add panel</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div>
+      <h1>PHYSIS · NOTEBOOK</h1>
+      <div class="sub">Your dashboard — the panels you choose, in the order you choose</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span id="health" class="chip"><span class="dot"></span><span id="healthTxt">checking…</span></span>
+  <span id="status" class="chip"><span class="muted">ready</span></span>
+  <button id="btnHelp" title="Help (?)" style="padding:6px 10px;font-size:11px">?</button>
+</header>
+
+<div class="bar">
+  <select id="nbPick" aria-label="Notebook" style="min-width:150px"></select>
+  <input id="nbTitle" aria-label="Notebook title" placeholder="Untitled notebook" />
+  <span id="nbState" class="state"></span>
+  <div class="spacer"></div>
+  <button id="btnEdit">Edit layout</button>
+  <button id="btnAdd" hidden>Add panel</button>
+  <button id="btnSave" class="btn-primary" hidden>Save</button>
+  <button id="btnNew">New</button>
+  <button id="btnExport" title="Copy this layout as JSON">Export</button>
+  <button id="btnImport" title="Paste a layout someone shared">Import</button>
+  <button id="btnDelete" hidden>Delete</button>
+  <button id="btnRefresh" title="Refresh every panel (R)">Refresh</button>
+</div>
+
+<main>
+  <div id="saveMsg"></div>
+  <div class="grid" id="grid"><div class="loading">loading your notebook…</div></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/ui-shell.js"></script>
+<script>
+"use strict";
+// Shell globals: $, esc, toast, setStatus, getJSON, postJSON, loadHealth,
+// initHelp, initShortcuts, typing.
+
+const NB = {
+  registry: null,      // widget catalogue, keyed by id
+  doc: null,           // the notebook being shown
+  editing: false,
+  dirty: false,
+  saved: false,        // whether the server has a copy
+  timers: [],          // interval refresh handles
+};
+
+// ── Fetch one cell's data ─────────────────────────────────────────────────
+// The cell names a widget; the *registry* says what to call. A notebook never
+// carries a URL, so a shared notebook cannot make your browser fetch something
+// of the author's choosing.
+async function fetchCell(cell) {
+  const def = NB.registry[cell.widget];
+  if (!def) throw new Error('unknown widget');
+  if (def.method === 'POST') return postJSON(def.path, cell.params || {});
+  const qs = new URLSearchParams(cell.params || {}).toString();
+  return getJSON(def.path + (qs ? '?' + qs : ''));
+}
+
+// ── Renderers ─────────────────────────────────────────────────────────────
+// Few and shared. A bespoke renderer per widget is how a catalogue stops being
+// cheap to extend.
+// Pull the numbers a widget declares, in the order it declares them. Falling
+// back to "every number in the response" is right for a vitals tile and wrong
+// for anything claiming to show one distribution.
+function numericPairs(data, def) {
+  if (def && def.fields && def.fields.length) {
+    return def.fields
+      .filter(f => typeof data[f] === 'number')
+      .map(f => [f, data[f]]);
+  }
+  return Object.entries(data).filter(([, v]) => typeof v === 'number');
+}
+
+const RENDER = {
+  kpis(data, def) {
+    const pairs = numericPairs(data, def).slice(0, 10);
+    if (!pairs.length) return empty('Nothing to count yet.');
+    return '<div class="kpi-row">' + pairs.map(([k, v]) =>
+      '<div class="kpi"><div class="n">' + fmtNum(v) + '</div><div class="l">' +
+      esc(k.replace(/_/g, ' ')) + '</div></div>').join('') + '</div>';
+  },
+
+  bars(data, def) {
+    // A trend array wins when present (quality's 30-day tally); otherwise the
+    // declared fields.
+    let pairs = numericPairs(data, def);
+    if (Array.isArray(data.trend)) {
+      pairs = data.trend.map(t => [t.day || t.date || '', t.count || 0]);
+    }
+    pairs = pairs.filter(([k]) => k).slice(0, 14);
+    if (!pairs.length) return empty('Nothing recorded yet.');
+    const max = pairs.reduce((m, [, v]) => Math.max(m, v), 0) || 1;
+    return pairs.map(([k, v]) =>
+      '<div class="barrow"><span>' + esc(String(k).replace(/_/g, ' ')) + '</span>' +
+      '<span class="track"><span class="fill" style="width:' + Math.round(100 * v / max) + '%"></span></span>' +
+      '<b>' + fmtNum(v) + '</b></div>').join('');
+  },
+
+  list(data) {
+    const rows = firstArray(data);
+    if (!rows.length) return empty('Nothing here yet.');
+    return rows.slice(0, 40).map(r => {
+      if (typeof r === 'string') {
+        return '<div class="rowitem"><span class="t">' + esc(r) + '</span><span class="k"></span></div>';
+      }
+      const label = rowLabel(r);
+      const side = r.size ?? r.count ?? (Array.isArray(r.members) ? r.members.length : '') ??
+                   r.progress ?? '';
+      return '<div class="rowitem"><span class="t">' + esc(String(label)) + '</span>' +
+             '<span class="k">' + esc(String(side)) + '</span></div>';
+    }).join('');
+  },
+
+  table(data) {
+    const rows = firstArray(data);
+    if (!rows.length) return empty('Nothing here yet.');
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r)))]
+      .filter(c => rows.some(r => typeof r[c] !== 'object'))
+      .slice(0, 4);
+    return '<table class="tbl"><thead><tr>' +
+      cols.map(c => '<th>' + esc(c.replace(/_/g, ' ')) + '</th>').join('') +
+      '</tr></thead><tbody>' +
+      rows.slice(0, 30).map(r => '<tr>' + cols.map(c =>
+        '<td>' + esc(String(r[c] ?? '')) + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table>';
+  },
+
+  hits(data) {
+    const hits = data.hits || [];
+    if (!hits.length) {
+      return empty('Nothing in the corpus says that' +
+        (data.semantic_index === false ? ' (keyword ranking only — no semantic model loaded).' : '.'));
+    }
+    return hits.map(h =>
+      '<div class="hit"><div class="cite"><span class="file">' +
+        esc((h.path || '').split('/').pop()) + '</span> ' +
+        esc((h.breadcrumb || []).slice(1).join(' › ')) + '</div>' +
+      '<div class="snip">' + mark(h.snippet, h.highlights) + '</div></div>').join('');
+  },
+
+  feed(data) {
+    const rows = data.matches || firstArray(data);
+    if (!rows.length) return empty('No events recorded yet.');
+    return rows.slice(0, 30).map(e =>
+      '<div class="rowitem"><span class="t">' +
+        esc(e.mechanism || '') + ' · ' + esc(e.actor || '') + ' — ' +
+        esc(String(e.object || '').split('/').pop()) + '</span>' +
+      '<span class="k">' + esc(String(e.at || '').slice(0, 10)) + '</span></div>').join('');
+  },
+
+  heat(data) {
+    const text = typeof data === 'string' ? data : (data.heatmap || data.text || '');
+    if (!text) return empty('No activation yet.');
+    return '<pre class="heat">' + esc(text) + '</pre>';
+  },
+};
+
+// A readable name for a row of an unknown shape. Ordered from most explicit to
+// least: a community has members but no title, a theme has keywords, a goal has
+// a label. Serialising the whole object is the last resort and looks like a
+// bug, so it is never reached for the shapes this catalogue actually returns.
+function rowLabel(r) {
+  if (r.title) return r.title;
+  if (r.label) return r.label;
+  if (r.exemplar) return r.exemplar;
+  if (r.name) return r.name;
+  if (Array.isArray(r.keywords) && r.keywords.length) return r.keywords.slice(0, 6).join(', ');
+  if (Array.isArray(r.members) && r.members.length) {
+    return r.members[0] + (r.members.length > 1 ? ' + ' + (r.members.length - 1) + ' more' : '');
+  }
+  if (r.digest) return String(r.digest).split('.')[0];
+  if (r.id != null) return '#' + r.id;
+  return JSON.stringify(r).slice(0, 80);
+}
+
+function empty(msg) { return '<div class="empty">' + esc(msg) + '</div>'; }
+function fmtNum(v) {
+  if (typeof v !== 'number') return esc(String(v));
+  return Number.isInteger(v) ? String(v) : v.toFixed(2);
+}
+function firstArray(data) {
+  if (Array.isArray(data)) return data;
+  for (const v of Object.values(data || {})) if (Array.isArray(v) && v.length) return v;
+  for (const v of Object.values(data || {})) if (Array.isArray(v)) return v;
+  return [];
+}
+// Character-offset highlights, same contract as /search.
+function mark(text, highlights) {
+  const chars = Array.from(text || '');
+  if (!highlights || !highlights.length) return esc(chars.join(''));
+  let out = '', cursor = 0;
+  for (const [start, len] of highlights.slice().sort((a, b) => a[0] - b[0])) {
+    if (start < cursor || start >= chars.length) continue;
+    out += esc(chars.slice(cursor, start).join(''));
+    out += '<mark>' + esc(chars.slice(start, start + len).join('')) + '</mark>';
+    cursor = start + len;
+  }
+  return out + esc(chars.slice(cursor).join(''));
+}
+
+// ── Grid ──────────────────────────────────────────────────────────────────
+function render() {
+  const grid = $('grid');
+  const cells = NB.doc.cells || [];
+  if (!cells.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:span 12">' +
+      'This notebook is empty. Press <b>Edit layout</b>, then <b>Add panel</b>.</div>';
+    return;
+  }
+  grid.innerHTML = cells.map((c, i) => {
+    const def = NB.registry[c.widget];
+    // A retired widget renders as an explicit card. A layout that quietly
+    // loses a panel teaches people not to trust it.
+    const title = def ? def.title : c.widget;
+    const why = def ? paramSummary(c, def) : 'this panel no longer exists in this version';
+    // Every interpolated value is coerced or escaped at the sink. The server
+    // validates what it stores, but the import path below renders a pasted
+    // document *before* it has ever reached the server — and a shared layout is
+    // precisely the input an attacker controls. `Number()` on span cannot
+    // produce an attribute break; `esc` on height cannot either.
+    return '<article class="card cell' + (NB.editing ? ' editing' : '') + '" data-i="' + i + '" ' +
+             'data-span="' + Number(c.span) + '" data-height="' + esc(c.height) + '">' +
+      '<div class="head"><h3>' + esc(title) + '</h3>' +
+        '<span class="why">' + esc(why) + '</span>' +
+        (NB.editing ? '<span class="tools">' +
+          '<button data-act="up" title="Move up">↑</button>' +
+          '<button data-act="down" title="Move down">↓</button>' +
+          '<button data-act="span" title="Cycle width">⇔</button>' +
+          '<button data-act="height" title="Cycle height">⇕</button>' +
+          '<button data-act="remove" title="Remove">✕</button>' +
+        '</span>' : '') +
+      '</div>' +
+      '<div class="body" id="cell' + i + '">' +
+        (def ? '<div class="loading">loading…</div>'
+             : '<div class="cellerr">Unknown panel <code>' + esc(c.widget) + '</code>. ' +
+               'It was removed or renamed in this version — remove it in edit mode.</div>') +
+      '</div>' +
+      '<div class="foot" id="foot' + i + '"></div>' +
+    '</article>';
+  }).join('');
+
+  grid.querySelectorAll('.tools button').forEach(b => {
+    b.onclick = () => act(Number(b.closest('.cell').dataset.i), b.dataset.act);
+  });
+
+  cells.forEach((c, i) => { if (NB.registry[c.widget]) loadCell(i); });
+  scheduleRefreshes();
+}
+
+function paramSummary(cell, def) {
+  const entries = Object.entries(cell.params || {});
+  if (!entries.length) return def.description;
+  return entries.map(([k, v]) => k + ': ' + v).join(' · ');
+}
+
+async function loadCell(i) {
+  const cell = NB.doc.cells[i];
+  const box = $('cell' + i);
+  const foot = $('foot' + i);
+  if (!box) return;
+  const def = NB.registry[cell.widget];
+  const started = performance.now();
+  try {
+    const data = await fetchCell(cell);
+    const render = RENDER[def.render] || RENDER.list;
+    box.innerHTML = render(data, def);
+    if (foot) {
+      foot.textContent = def.method + ' ' + def.path + ' · ' +
+        Math.round(performance.now() - started) + 'ms' +
+        (cell.refresh?.mode === 'interval' ? ' · every ' + cell.refresh.seconds + 's' : '');
+    }
+  } catch (e) {
+    // A panel that fails must not look like a panel that is empty — that
+    // confusion is most of the perceived brokenness in a dashboard.
+    box.innerHTML = '<div class="cellerr">Could not load: ' + esc(String(e)) + '</div>';
+    if (foot) foot.textContent = def.method + ' ' + def.path;
+  }
+}
+
+function scheduleRefreshes() {
+  NB.timers.forEach(clearInterval);
+  NB.timers = [];
+  (NB.doc.cells || []).forEach((c, i) => {
+    if (c.refresh?.mode !== 'interval') return;
+    const secs = Math.max(15, c.refresh.seconds || 60);
+    // One timer per interval cell, and every tick checks visibility: a hidden
+    // tab polling the engine is work nobody asked for.
+    NB.timers.push(setInterval(() => {
+      if (document.visibilityState === 'visible') loadCell(i);
+    }, secs * 1000));
+  });
+}
+
+// ── Editing ───────────────────────────────────────────────────────────────
+function act(i, what) {
+  const cells = NB.doc.cells;
+  if (what === 'remove') cells.splice(i, 1);
+  if (what === 'up' && i > 0) [cells[i - 1], cells[i]] = [cells[i], cells[i - 1]];
+  if (what === 'down' && i < cells.length - 1) [cells[i + 1], cells[i]] = [cells[i], cells[i + 1]];
+  if (what === 'span') {
+    const spans = NB.spans;
+    cells[i].span = spans[(spans.indexOf(cells[i].span) + 1) % spans.length];
+  }
+  if (what === 'height') {
+    const hs = NB.heights;
+    cells[i].height = hs[(hs.indexOf(cells[i].height) + 1) % hs.length];
+  }
+  markDirty();
+  render();
+}
+
+function markDirty() {
+  NB.dirty = true;
+  $('nbState').textContent = 'unsaved changes';
+}
+
+function setEditing(on) {
+  NB.editing = on;
+  $('btnEdit').textContent = on ? 'Done' : 'Edit layout';
+  $('btnAdd').hidden = !on;
+  $('btnSave').hidden = !on;
+  $('btnDelete').hidden = !(on && NB.saved);
+  render();
+}
+
+// ── Picker ────────────────────────────────────────────────────────────────
+let picked = null;
+function openPicker() {
+  picked = null;
+  $('pickAdd').disabled = true;
+  $('pickParams').innerHTML = '';
+  $('pickList').innerHTML = Object.values(NB.registry).map(w =>
+    '<div class="pick" data-id="' + esc(w.id) + '">' +
+      '<div><div class="t">' + esc(w.title) + (w.writes ? ' <span class="chip warn">writes</span>' : '') + '</div>' +
+      '<div class="d">' + esc(w.description) + '</div></div>' +
+      '<span class="m">' + esc(w.render) + '</span></div>').join('');
+  $('pickList').querySelectorAll('.pick').forEach(el => {
+    el.onclick = () => selectWidget(el.dataset.id);
+  });
+  $('picker').classList.add('show');
+}
+
+function selectWidget(id) {
+  picked = id;
+  const def = NB.registry[id];
+  document.querySelectorAll('.pick').forEach(el =>
+    el.style.borderColor = el.dataset.id === id ? 'rgba(95,242,214,.55)' : '');
+  $('pickParams').innerHTML = def.params.length
+    ? '<div class="pform">' + def.params.map(p => {
+        const field = p.kind === 'enum'
+          ? '<select data-p="' + esc(p.name) + '">' +
+            (p.required ? '' : '<option value="">(default)</option>') +
+            (p.options || []).map(o => '<option>' + esc(o) + '</option>').join('') + '</select>'
+          : '<input data-p="' + esc(p.name) + '" ' +
+            (p.kind === 'int' ? 'type="number" ' : '') +
+            'placeholder="' + esc(p.help) + '">';
+        return '<label>' + esc(p.name) + (p.required ? ' *' : '') + field + '</label>';
+      }).join('') + '</div>'
+    : '<div class="muted" style="font-size:12px;margin-top:8px">No settings — it shows the same thing for everyone.</div>';
+  $('pickAdd').disabled = false;
+}
+
+function addPicked() {
+  const def = NB.registry[picked];
+  const params = {};
+  $('pickParams').querySelectorAll('[data-p]').forEach(el => {
+    const v = el.value.trim();
+    if (!v) return;
+    // Ints are sent as numbers: the server validates types, and a quoted
+    // number would be rejected rather than silently coerced.
+    const p = def.params.find(p => p.name === el.dataset.p);
+    params[el.dataset.p] = p && p.kind === 'int' ? Number(v) : v;
+  });
+  const missing = def.params.filter(p => p.required && !(p.name in params));
+  if (missing.length) {
+    toast(def.title + ' needs ' + missing.map(p => p.name).join(', '), true);
+    return;
+  }
+  NB.doc.cells.push({
+    widget: def.id,
+    span: def.default_span,
+    height: 'm',
+    params,
+  });
+  $('picker').classList.remove('show');
+  markDirty();
+  render();
+}
+
+// ── Load / save ───────────────────────────────────────────────────────────
+async function loadRegistry() {
+  const r = await getJSON('/api/v1/notebooks/registry');
+  NB.registry = Object.fromEntries(r.widgets.map(w => [w.id, w]));
+  NB.spans = r.spans;
+  NB.heights = r.heights;
+  NB.maxCells = r.max_cells;
+}
+
+async function loadList(select) {
+  const r = await getJSON('/api/v1/notebooks');
+  const ids = (r.notebooks || []).map(n => n.id);
+  if (!ids.includes('default')) ids.unshift('default');
+  $('nbPick').innerHTML = ids.map(id =>
+    '<option' + (id === select ? ' selected' : '') + '>' + esc(id) + '</option>').join('');
+  if (!r.persistent) {
+    $('nbState').textContent = 'persistence is off — changes will not survive a restart';
+  }
+}
+
+async function loadNotebook(id) {
+  setStatus('loading ' + id + '…');
+  try {
+    const r = await getJSON('/api/v1/notebooks/' + encodeURIComponent(id));
+    NB.doc = r.notebook;
+    NB.saved = r.saved;
+    NB.dirty = false;
+    $('nbTitle').value = NB.doc.title;
+    $('nbState').textContent = r.saved
+      ? 'saved ' + (NB.doc.updated_at || '').slice(0, 16).replace('T', ' ')
+      : 'starter layout — save to make it yours';
+    $('btnDelete').hidden = !(NB.editing && r.saved);
+    render();
+    setStatus(NB.doc.cells.length + ' panels');
+  } catch (e) {
+    setStatus('load failed', true);
+    toast(String(e), true);
+  }
+}
+
+async function save() {
+  NB.doc.title = $('nbTitle').value.trim() || 'Untitled notebook';
+  $('saveMsg').innerHTML = '';
+  try {
+    const r = await postJSON('/api/v1/notebooks/' + encodeURIComponent(NB.doc.id), NB.doc);
+    NB.dirty = false;
+    NB.saved = true;
+    $('nbState').textContent = 'saved ' + (r.updated_at || '').slice(0, 16).replace('T', ' ');
+    toast('notebook saved');
+    loadList(NB.doc.id);
+  } catch (e) {
+    // The server reports every problem at once; show the list rather than one
+    // toast the user has to re-trigger per error.
+    let items = null;
+    const m = String(e).match(/\{[\s\S]*\}$/);
+    if (m) { try { items = JSON.parse(m[0]).errors; } catch (_) {} }
+    $('saveMsg').innerHTML = '<div class="errs"><b>Not saved</b>' +
+      (items ? '<ul>' + items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul>'
+             : '<div>' + esc(String(e)) + '</div>') + '</div>';
+  }
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+$('btnEdit').onclick = () => setEditing(!NB.editing);
+$('btnAdd').onclick = () => {
+  if (NB.doc.cells.length >= NB.maxCells) {
+    toast('a notebook holds at most ' + NB.maxCells + ' panels', true);
+    return;
+  }
+  openPicker();
+};
+$('btnSave').onclick = save;
+$('btnRefresh').onclick = () => NB.doc.cells.forEach((c, i) => { if (NB.registry[c.widget]) loadCell(i); });
+$('pickCancel').onclick = () => $('picker').classList.remove('show');
+$('pickAdd').onclick = addPicked;
+$('nbTitle').addEventListener('input', markDirty);
+$('nbPick').onchange = e => loadNotebook(e.target.value);
+
+$('btnNew').onclick = async () => {
+  const id = prompt('Notebook id (letters, digits, - and _):', 'my-notebook');
+  if (!id) return;
+  NB.doc = { id: id.trim(), title: 'Untitled notebook', cells: [], updated_at: '' };
+  NB.saved = false;
+  $('nbTitle').value = NB.doc.title;
+  $('nbState').textContent = 'new — add panels, then save';
+  setEditing(true);
+};
+
+$('btnDelete').onclick = async () => {
+  if (!NB.saved) return;
+  if (!confirm('Delete notebook "' + NB.doc.id + '"? The panels it points at are untouched.')) return;
+  try {
+    await fetch(apiUrl('/api/v1/notebooks/' + encodeURIComponent(NB.doc.id)),
+                { method: 'DELETE', headers: hdr() });
+    toast('notebook deleted');
+    await loadList('default');
+    loadNotebook('default');
+  } catch (e) { toast(String(e), true); }
+};
+
+$('btnExport').onclick = async () => {
+  const text = JSON.stringify(NB.doc, null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('layout copied to the clipboard');
+  } catch (_) {
+    // Clipboard needs a permission the browser may refuse; showing the JSON
+    // is worse than copying it but far better than a silent failure.
+    prompt('Copy this layout:', text);
+  }
+};
+
+// Rebuild an imported document from scratch against the registry.
+//
+// An imported notebook is untrusted: it is JSON a colleague pasted, and the
+// whole point of the format is that it travels between people. The server
+// validator never sees it until a save, so the client cannot lean on that —
+// this mirrors the same rules, and it *reconstructs* each cell field by field
+// rather than filtering a copy, so anything the format does not describe is
+// dropped by construction instead of by a blacklist.
+//
+// Rejections are reported, never silently repaired: a layout that quietly
+// loses panels on import is worse than one that says what it could not read.
+function sanitizeImported(raw) {
+  const dropped = [];
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.cells)) {
+    throw new Error('that is not a notebook layout');
+  }
+  const cells = [];
+  raw.cells.forEach((c, i) => {
+    const at = 'cell ' + (i + 1);
+    if (!c || typeof c !== 'object' || !NB.registry[c.widget]) {
+      dropped.push(at + ': unknown panel "' + String(c && c.widget).slice(0, 40) + '"');
+      return;
+    }
+    const def = NB.registry[c.widget];
+    const span = NB.spans.includes(Number(c.span)) ? Number(c.span) : def.default_span;
+    const height = NB.heights.includes(c.height) ? c.height : 'm';
+    // Params are rebuilt from the widget's own declarations: a key the widget
+    // does not declare cannot survive the trip, whatever the file says.
+    const params = {};
+    for (const p of def.params) {
+      const v = c.params ? c.params[p.name] : undefined;
+      if (v === undefined || v === null) continue;
+      if (p.kind === 'int') {
+        if (Number.isFinite(Number(v))) params[p.name] = Number(v);
+      } else if (p.kind === 'enum') {
+        if ((p.options || []).includes(String(v))) params[p.name] = String(v);
+      } else if (typeof v === 'string' || typeof v === 'number') {
+        params[p.name] = String(v).slice(0, 500);
+      }
+    }
+    const extras = Object.keys(c.params || {}).filter(
+      k => !def.params.some(p => p.name === k));
+    if (extras.length) dropped.push(at + ': ignored setting(s) ' + extras.join(', '));
+
+    const cell = { widget: def.id, span, height, params };
+    if (c.refresh && c.refresh.mode === 'interval') {
+      cell.refresh = { mode: 'interval', seconds: Math.max(15, Number(c.refresh.seconds) || 60) };
+    }
+    cells.push(cell);
+  });
+  if (cells.length > NB.maxCells) {
+    dropped.push('kept the first ' + NB.maxCells + ' panels of ' + cells.length);
+    cells.length = NB.maxCells;
+  }
+  const title = typeof raw.title === 'string' ? raw.title.slice(0, 120) : 'Imported notebook';
+  return { doc: { id: NB.doc.id, title, cells, updated_at: '' }, dropped };
+}
+
+$('btnImport').onclick = () => {
+  const text = prompt('Paste a notebook layout (JSON):');
+  if (!text) return;
+  try {
+    // The id we are editing is kept: importing someone else's layout must not
+    // silently overwrite a different notebook of yours.
+    const { doc, dropped } = sanitizeImported(JSON.parse(text));
+    NB.doc = doc;
+    $('nbTitle').value = doc.title;
+    markDirty();
+    setEditing(true);
+    if (dropped.length) {
+      $('saveMsg').innerHTML = '<div class="errs"><b>Imported with changes</b><ul>' +
+        dropped.map(d => '<li>' + esc(d) + '</li>').join('') + '</ul></div>';
+    } else {
+      $('saveMsg').innerHTML = '';
+    }
+    toast('imported ' + doc.cells.length + ' panel(s) — review, then save');
+  } catch (e) {
+    toast('could not import: ' + e, true);
+  }
+};
+
+document.addEventListener('keydown', e => {
+  if (typing(e.target)) return;
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); setEditing(!NB.editing); }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); $('btnRefresh').click(); }
+});
+
+// Unsaved layout changes are cheap to lose and annoying to redo.
+window.addEventListener('beforeunload', e => {
+  if (NB.dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+initHelp();
+initShortcuts({ focus: () => $('nbTitle').focus() });
+loadHealth();
+(async () => {
+  await loadRegistry();
+  const wanted = new URLSearchParams(window.location.search).get('id') || 'default';
+  await loadList(wanted);
+  await loadNotebook(wanted);
+})();
+</script>
+</body>
+</html>

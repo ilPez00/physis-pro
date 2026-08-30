@@ -793,7 +793,12 @@ pub fn snippet(
     for t in terms {
         marks.extend(find_all(&lower, &t.chars().collect::<Vec<_>>(), true));
     }
-    marks.sort();
+    // Longest span first at a shared start: a quoted phrase and its own words
+    // both match at the same offset, and the renderer keeps the first of any
+    // overlapping pair. Plain ascending order hands that to the single word, so
+    // `"no fault found"` was marked as three separate terms — the phrase the
+    // user asked for verbatim shown as if it were three coincidences.
+    marks.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| b.1.cmp(&a.1)));
     marks.dedup();
 
     if marks.is_empty() {
@@ -1004,6 +1009,21 @@ mod tests {
         let r = idx.search("\"seized bearing\"", &[], &SearchOptions::default());
         assert_eq!(r.hits.len(), 1, "{:?}", r.hits);
         assert!(r.hits[0].path.ends_with("b.md"));
+    }
+
+    #[test]
+    fn a_quoted_phrase_marks_as_one_span_not_as_its_words() {
+        // The phrase and each of its words match at the same offset. Whichever
+        // is listed first wins in the renderer, so the phrase has to be.
+        let (text, marks) = snippet(
+            "Three parts scrapped. No fault found on the fourth.",
+            &["no".into(), "fault".into(), "found".into()],
+            &["no fault found".into()],
+            120,
+        );
+        let first = marks.first().expect("a mark");
+        let got: String = text.chars().skip(first[0]).take(first[1]).collect();
+        assert_eq!(got, "No fault found", "{marks:?}");
     }
 
     #[test]

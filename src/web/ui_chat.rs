@@ -201,6 +201,14 @@ pub async fn studio_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/studio.html"))
 }
 
+/// GET /notebook — the dashboard the user composes: an ordered grid of cells,
+/// each naming a widget from the registry. The page holds the renderers; the
+/// notebook holds only references, so a layout shared between people carries
+/// panel names and settings and never code.
+pub async fn notebook_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/notebook.html"))
+}
+
 /// GET /console — the operator console (interest feed, overview, timeline,
 /// OEE, classify, meaning grid, planner, hypotheses, ...).
 pub async fn console_ui_handler() -> Html<&'static str> {

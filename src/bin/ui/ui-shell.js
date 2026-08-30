@@ -187,6 +187,7 @@ function initCoach(storageKey) {
 // gets the nav, including ones not written yet.
 const PRODUCT_PAGES = [
   { href: '/pulse',  label: 'Pulse',   hint: 'dashboard — coherence, communities, wiki tour' },
+  { href: '/notebook', label: 'Notebook', hint: 'your dashboard — pick the panels, order them' },
   { href: '/search', label: 'Search',  hint: 'by content — sections, facets, preview' },
   { href: '/atlas',  label: 'Atlas',   hint: 'organic graph — communities, lineage, entities' },
   { href: '/ui',     label: 'Files',   hint: 'graph file manager — scan, cluster, move' },
