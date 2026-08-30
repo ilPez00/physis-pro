@@ -322,6 +322,7 @@ pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_js
     let license = crate::license::load().ok().map(|l| {
         serde_json::json!({
             "tier": l.tier().name(),
+            "sku": l.tier().sku(),
             "org": l.org,
             "seats": l.seats,
             "features": l.features,

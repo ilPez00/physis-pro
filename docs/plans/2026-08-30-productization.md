@@ -70,13 +70,13 @@ pilot free without a named reference + usable data + a case-study agreement.
 
 | Gate | Blocks | Already done? |
 |------|--------|---------------|
-| SKU → feature-slug entitlement table | selling any tier | partial (`src/license.rs` has slugs; no order-form mapping) |
-| License `inspect`/`info` + trial-key generator | free → paid conversion | no |
-| Key rotation + revocation | enterprise sales (lost keys, terminations) | no (hard seat enforcement done) |
-| Real authn/RBAC (not just header token) | multi-customer hosted / Enterprise | no |
+| SKU → feature-slug entitlement table | selling any tier | ✅ Done (`Tier::sku/from_sku/ALL` + `ENTITLEMENTS` in `src/license.rs`; `physis-license list-skus`; SKU surfaced in `/settings` + `physis-pro license`) |
+| License `inspect`/`info` + trial-key generator | free → paid conversion | ✅ Done (`physis-pro license [--json]`, instant; vendor `sign --trial` mints 14-day TRIAL ids) |
+| Key rotation + revocation | enterprise sales (lost keys, terminations) | ✅ Done for revocation (drop-in `revocations.json`, enforced in `load()`, vendor `revoke --id`). Rotation documented out of scope — rotating the vendor key reissues every licence |
+| Real authn/RBAC (not just header token) | multi-customer hosted / Enterprise | partial (`src/rbac.rs` TokenTable + viewer/editor/admin roles exist; no hosted SaaS motion yet) |
 | Append-only temporal event log | audit claims, "trust" layer | partial (causal ledger; not node/link mutation history) |
 | On-prem single-binary distro + installer | air-gapped claim at scale | partial (Docker; no `install-physis` UX test) |
-| One measurable customer baseline | every marketing number | no (first pilot pending) |
+| One measurable customer baseline | every marketing number | open (first pilot pending) |
 
 Order of work: the entitlement table + revocation are days of work and unblock
 Enterprise pricing; the temporal log is the differentiator that justifies the

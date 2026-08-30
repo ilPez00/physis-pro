@@ -302,11 +302,11 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| 15.1 | SKU → feature-slug entitlement table + order-form mapping | ⬜ Pending | `src/license.rs` already carries slugs; the mapping is the missing piece |
-| 15.2 | License `inspect` / `info` endpoints + trial-key generator | ⬜ Pending | free → paid conversion; 14-day pilot flow |
-| 15.3 | Key rotation + revocation (sled-backed) | ⬜ Pending | enterprise sales enabler; hard seat enforcement already done |
+| 15.1 | SKU → feature-slug entitlement table + order-form mapping | ✅ Done | `Tier::sku()/from_sku()/ALL` + `ENTITLEMENTS` table + `entitlement_for()` in `src/license.rs`; vendor tool `physis-license list-skus` prints the order-form table; `/settings` and `physis-pro license` expose the SKU. The licence still stores only features — the SKU is presentation, so a forged upgrade stays impossible |
+| 15.2 | License `inspect` / `info` + trial-key generator | ✅ Done | `physis-pro license [--json]` (instant — dispatched before `PhysisApp::new`); vendor tool `sign --trial` mints a 14-day eval (TRIAL- prefixed id, maintenance included, traceable) |
+| 15.3 | Key rotation + revocation | ✅ Done | `LicenseError::Revoked` + `check_revoked()` enforced in `license::load()` against a drop-in `revocations.json` (`PHYSIS_REVOCATIONS_FILE` override); vendor tool `revoke --id X [--list]` writes the sorted list to ship to air-gapped hosts. Malformed lists fail open (a vendor typo must not brick installs); key **rotation** stays out of scope — the module documents that rotating the vendor key reissues every licence |
 | 15.4 | Customer/plant/host identity in report metadata | ⬜ Pending | makes reports evidence-grade |
-| 15.5 | Pricing page rewritten to the offer ladder (Pilot €1.5–2.5k → Industriale €1,500/mo → Enterprise €5,000/mo) | ⬜ Pending | with `/` landing + `/about`, routed publicly |
+| 15.5 | Pricing page rewritten to the offer ladder (Pilot €1.5–2.5k → Industriale €1,500/mo → Enterprise €5,000/mo) | ✅ Done | `/` landing + `/pricing` + `/about` rewritten to the service-led model and routed publicly; supersedes the per-job SaaS tiers |
 
 ### Phase 16 — Integration spine (2026-08-30)
 
