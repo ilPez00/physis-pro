@@ -629,6 +629,8 @@ Text: "chopping vegetables for a hearty soup"
 | 8 | Multi-modal classify endpoint — accepts text + base64 image | Steps 3, 4 | 1 day | ✅ Done |
 | 9 | Gemma re-ranker — confidence-gated generative path | Steps 8 | 2 days | ✅ Shipped (`rerank_cell`; margin-gated; server `PHYSIS_RERANK` **or** per-request **BYOK** `llm_key`/`llm_model` on `/classify` → one-off provider, no server key needed) |
 | 10 | Process embedding — task graph → vector via Gemma structural summarization | Steps 9 | 2 days | ⬜ Pending |
+| 11 | Brainstorm post-trained model (Gemma LoRA reranker via unsloth) — LoRA on quality_failures.json → JSONL {"Activity":"…","completion":"3"} same prompt as rerank_cell; evaluate with output_quality probe; if accuracy_floor +3pts → ship GGUF variant on OLLAMA_FLOOR_MODEL=gemma-uncensored, else revert to centroid/boost tuning | — | 3 days | ⬜ Pending |
+| 12 | UI/UX polish phase — unified shell + per-user nav + quality traces + ask bar + incoherence viz | — | 5 days ⬜⟳ 3d done | ⬜ Pending |
 
 ### 6I. Key Decisions
 
@@ -637,6 +639,38 @@ Text: "chopping vegetables for a hearty soup"
 - **Jina v2 is the recommended primary embedder** for both text and image: best accuracy, multilingual, open weights, ONNX-exportable.
 - **CLIP is the recommended fallback**: smaller, faster, battle-tested.
 - **Gemma is not an embedder replacement** — it's a complementary reasoning layer. The vector space stays the source of truth for PDCA, dreaming, and coherence.
+
+---
+
+## 6J. UI/UX polish phase
+
+Goal: turn the functional but utilitarian console/web UI into a unified,
+per-user decision-support shell. Three deliverables:
+
+**1. Unified nav + per-user state** (`src/bin/ui/` + `ui-shell.js`)
+   - Single top nav bar (Home / Console / Quality / Pulse / Study / Net / Ask)
+   - `X-Physis-User` header auto-injected per-session; each user gets isolated
+     `RuntimeState` (goals, PDCA, dreams, coherence) without config changes.
+   - KPI ribbon shared across panels; panel toggling via route `GET /console`
+     etc. instead of separate html files (`pulse.html`, `study.html`).
+   - Net workspace (key `9`, icon `🌐`) shows remote nodes with live status,
+     last-seen age, auto-refresh every 30 ticks.
+
+**2. "Why did this happen?" traces** (`web/coherence.rs` + `quality.rs`)
+   - From a `QualityFailure` cell penalty spike → one-click trace to last
+     `watch` diff event → file change → ontology hint → centroid delta.
+   - `POST /api/v1/quality/trace?failure_id={id}` returns chain:
+     `failure → watch event → file ingest → classification score change`
+   - Summary pill in quality dashboard: "penalty ↑ 0.32 after file X changed
+     on 2026-08-20."
+
+**3. AI co-pilot ask bar** (integrated into unified shell)
+   - Persistent ask input calling `POST /api/v1/ask` with grounded synthesis.
+   - Answers render above matches with `[n]` citations.
+   - Prompt suggestions from current context: "why is cell WORK/LIFT penalized?",
+     "which files contributed to this quality drop?", "what does MODE=REST mean
+     for machine X?"
+   - Degradation: without provider → raw matches + note, still functional.
 
 ---
 

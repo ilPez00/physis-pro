@@ -90,7 +90,7 @@
     position:relative;z-index:1;
   }
   nav:after{content:"PHYSIS / 01";margin:auto 10px 4px;color:#4e5a7a;font:9px var(--mono);letter-spacing:.18em}
-  nav button{
+nav button{
     background:none;
     border:none;
     border-radius:9px;
@@ -99,14 +99,19 @@
     color:var(--muted);
     font-size:12px;
     letter-spacing:.02em;
-  }
-  nav button.active{
+    transition:color .15s ease, background-color .15s ease;
+}
+nav button:focus-visible{
+    outline:2px solid var(--cyan);
+    outline-offset:2px;
+}
+nav button.active{
     color:var(--fg);
-    background:linear-gradient(90deg,rgba(95,242,214,.13),rgba(157,140,255,.07));
+    background:linear-gradient(90deg,rgba(95,242,214,.15),rgba(157,140,255,.08));
     border:1px solid var(--line-strong);
-    box-shadow:inset 3px 0 0 var(--accent),0 8px 28px rgba(41,112,160,.12);
-  }
-  nav button:hover{color:var(--fg)}
+    box-shadow:inset 3px 0 0 var(--cyan),0 8px 28px rgba(41,112,160,.12);
+}
+nav button:hover{color:var(--fg)}
   .tab{
     flex:1;
     min-width:0;
@@ -438,6 +443,8 @@
       <input id="base" placeholder="blank = this page's origin"/>
       <label for="token">Access token</label>
       <input id="token" type="password" placeholder="paste the bearer token"/>
+      <label for="user">User</label>
+      <input id="user" placeholder="_default"/>
       <div class="row" style="margin-top:12px;margin-bottom:0">
         <button id="connectSave" class="primary">Use these settings</button>
         <button id="connectClear" class="ghost" type="button">Stay offline</button>
@@ -467,6 +474,7 @@
     <button data-tab="grid" title="5 kinds of work × 14 ways of working">Meaning grid<span class="nav-why">70 cells</span></button>
     <button data-tab="ontology" title="The dictionary classification uses">Dictionary<span class="nav-why">ontology studio</span></button>
     <button data-tab="quality" title="What classification got wrong and what it learned from it">Quality<span class="nav-why">feedback loop</span></button>
+    <button data-tab="incoherence" title="Cells that struggle + knowledge gaps">Incoherence<span class="nav-why">mistakes & gaps</span></button>
     <button data-tab="themes" title="Recurring themes across the whole graph — clustered communities, offline">Themes<span class="nav-why">shape of the corpus</span></button>
     <div class="nav-sep"></div>
     <div class="nav-group">Decide</div>
@@ -688,6 +696,31 @@
         <h3>Reinforced cells <span class="tip" data-tip="Current decayed boost values — unreinforced boosts fade over time">boosts</span></h3>
         <div id="qBoosts" style="display:flex;flex-direction:column;gap:6px"></div>
       </div>
+    </div>
+  </section>
+
+  <!-- INCOHERENCE -->
+  <section class="tab" id="tab-incoherence">
+    <div class="hero">
+      <div>
+        <div class="signal"><i></i> knowledge gaps & classification errors</div>
+        <h2>Where the model struggles.</h2>
+        <p>Cells that rarely succeed, files that don't fit their theme, and contexts where classification wavers — the gaps in the grid that need attention.</p>
+        <div class="actions"><button id="icRefresh">Refresh</button></div>
+      </div>
+      <div id="icKpis" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+    </div>
+    <div class="card">
+      <h3>High-penalty cells <span class="tip" data-tip="Cells demoted by 3+ failures; severity ≥ 0.5">mistakes</span></h3>
+      <div id="icHighPenalty" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div class="card">
+      <h3>Low-coverage cells <span class="tip" data-tip="Few entries (count < 5) but penalized — unknown if bad or just unused">gaps</span></h3>
+      <div id="icLowCoverage" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
+    <div class="card">
+      <h3>Contextual wobble <span class="tip" data-tip="Fitness varies wildly across machines/operators/contexts">context drift</span></h3>
+      <div id="icWobble" style="display:flex;flex-direction:column;gap:6px"></div>
     </div>
   </section>
 
@@ -1160,9 +1193,9 @@
 <script src="ui-shell.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-const LS={base:'physis_base',token:'physis_token',dir:'physis_dir',tab:'physis_tab'};
-['base','token','dir'].forEach(k=>{const v=localStorage.getItem(LS[k]); if(v&&$(k))$(k).value=v;});
-const save=()=>['base','token','dir'].forEach(k=>$(k)&&localStorage.setItem(LS[k],$(k).value));
+const LS={base:'physis_base',token:'physis_token',user:'physis_user',dir:'physis_dir',tab:'physis_tab'};
+['base','token','user','dir'].forEach(k=>{const v=localStorage.getItem(LS[k]); if(v&&$(k))$(k).value=v;});
+const save=()=>['base','token','user','dir'].forEach(k=>$(k)&&localStorage.setItem(LS[k],$(k).value));
 const typing=el=>{
   const t=el&&el.tagName;
   return t==='INPUT'||t==='TEXTAREA'||t==='SELECT'||(el&&el.isContentEditable);
@@ -1204,7 +1237,7 @@ const MODE_GLOSS={
   LEARN:"absorb",DESTROY:"take apart",SENSE:"observe",GUIDE:"steer",PLAY:"try",
   BRAINSTORM:"ideate",MAINTAIN:"keep running",MOVE:"relocate",PLAN:"intend"
 };
-const TABS=["interest","overview","timeline","oee","classify","grid","ontology","quality","themes","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
+const TABS=["interest","overview","timeline","oee","classify","grid","ontology","quality","incoherence","themes","planner","admin","graph","hypotheses","contradictions","epistemic","explanation","discovery","harness"];
 function currentTab(){
   const a=document.querySelector('nav button.active');
   return a?a.dataset.tab:'overview';
@@ -1479,7 +1512,73 @@ function barList(el,map,color){
         '<div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+color+'"></div></div></div>';
   }).join('')||'<div class="empty">none learned yet</div>';
 }
-$('qRefresh').onclick=()=>loadQuality(true);
+async function loadIncoherence(force){
+  if(iLoaded && !force) return;
+  try{
+    const q=await getJSON('/api/v1/quality');
+    renderIncoherence(q);
+    iLoaded=true;
+  }catch(e){
+    $('icKpis').innerHTML='<div class="empty">Incoherence data unavailable: '+esc(String(e.message||e))+'</div>';
+  }
+}
+function renderIncoherence(q){
+  const sev=q.mean_severity||0;
+  const sevCls=sev>=0.7?'var(--rose)':sev>=0.5?'var(--amber)':'var(--cyan)';
+  const penalized=Object.keys(q.penalties||{}).sort((a,b)=>q.penalties[b]-q.penalties[a]).slice(0,10);
+  const reinforced=Object.keys(q.boosts||{}).sort((a,b)=>q.boosts[b]-q.boosts[a]).slice(0,10);
+  $('icKpis').innerHTML=[
+    kpi('High-penalty cells',penalized.length,sevCls),
+    kpi('Reinforced cells',reinforced.length),
+    kpi('Mean severity',sev.toFixed(2),sevCls),
+  ].join('');
+  // High-penalty cells
+  $('icHighPenalty').innerHTML=penalized.map(k=>{
+    const s=q.penalties[k]||0;
+    return '<div style="border:1px solid var(--line);border-radius:6px;padding:8px 10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">'+
+      '<span class="cell" data-domain="'+k.split('\u0000')[0]+'">'+esc(k)+'</span>'+
+      '<span class="muted">penalty '+s.toFixed(2)+'</span>'+
+      '</div>'+
+      '<div class="sm" style="margin-top:4px;color:var(--brume)">'+(q.failures||[]).filter(f=>f.top_cell===k).length+' failure(s)</div>'+
+    '</div>';
+  }).join('')||'<div class="empty">No high-penalty cells yet — the grid is clean.</div>';
+  // Low-coverage cells (few entries but penalized)
+  const cellCounts={};
+  (q.records||[]).forEach(r=>{
+    const k=r.top_cell||'—';
+    cellCounts[k]=(cellCounts[k]||0)+1;
+  });
+  const lowCov=Object.entries(cellCounts).filter(([_,c])=>c>0&&c<5&&(q.penalties||{}[_]||0)>0).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  $('icLowCoverage').innerHTML=lowCov.map(([k,c])=>{
+    return '<div style="border:1px solid var(--line);border-radius:6px;padding:8px 10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">'+
+      '<span class="cell">'+esc(k)+'</span>'+
+      '<span class="muted">entries '+c+'</span>'+
+      '</div>'+
+      '<div class="sm" style="margin-top:4px;color:var(--brume)">penalty active</div>'+
+    '</div>';
+  }).join('')||'<div class="empty">No low-coverage penalized cells.</div>';
+  // Contextual wobble: cells where fitness varies across contexts
+  const cellContexts={};
+  (q.records||[]).forEach(r=>{
+    const k=r.top_cell||'—';
+    if(!cellContexts[k]) cellContexts[k]=[];
+    cellContexts[k].push(r.severity);
+  });
+  const wobble=Object.entries(cellContexts).filter(([_,sevs])=>sevs.length>=3).sort((a,b)=>Math.max(...b[1])-Math.max(...a[1])).slice(0,10);
+  $('icWobble').innerHTML=wobble.map(([k,sevs])=>{
+    const maxDev=Math.max(...sevs.map(v=>Math.abs(v-0.5)));
+    return '<div style="border:1px solid var(--line);border-radius:6px;padding:8px 10px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">'+
+      '<span class="cell">'+esc(k)+'</span>'+
+      '<span class="muted">dev '+maxDev.toFixed(2)+'</span>'+
+      '</div>'+
+      '<div class="sm" style="margin-top:4px;color:var(--brume)">'+sevs.length+' reports, range '+sevs.map(v=>v.toFixed(1)).join(', ')+'</div>'+
+    '</div>';
+  }).join('')||'<div class="empty">No contextual wobble detected.</div>';
+}
+$('icRefresh').onclick=()=>loadIncoherence(true);
 
 // ── tabs ──
 let cyReady=false;
@@ -1494,6 +1593,7 @@ function activateTab(name){
   if(name==='timeline') { loadTimelineDemo(); loadCauseLedger(false); }
   if(name==='grid') loadHeat();
   if(name==='quality') loadQuality();
+  if(name==='incoherence') loadIncoherence();
   if(name==='themes') loadThemes();
   if(name==='oee') loadOee();
   if(name==='hypotheses') loadHypotheses();
