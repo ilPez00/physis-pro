@@ -99,6 +99,15 @@ fn post(path: &str, user: &str, body: Value) -> Request<Body> {
         .unwrap()
 }
 
+fn delete(path: &str, user: &str) -> Request<Body> {
+    Request::builder()
+        .method("DELETE")
+        .uri(path)
+        .header("x-physis-user", user)
+        .body(Body::empty())
+        .unwrap()
+}
+
 fn get(path: &str, user: &str) -> Request<Body> {
     Request::builder()
         .method("GET")
@@ -4608,4 +4617,135 @@ async fn space_time_cause_survives_a_real_scan_end_to_end() {
     // ── Isolation: another tenant shares the files on disk, not the history.
     let (_, other) = send(&router, post("/api/v1/files/query", "auditor", json!({}))).await;
     assert_eq!(other["total"], 0, "{other}");
+}
+
+/// Notebooks (PLAN Phase 13, N1–N2): a user-composed dashboard is stored
+/// server-side per tenant and validated on every write. The validation is the
+/// security boundary as much as the ergonomic one — a notebook is meant to be
+/// exported and handed to a colleague, so it must hold references the server
+/// recognises and nothing else.
+#[tokio::test]
+async fn notebooks_are_validated_stored_per_tenant_and_never_hold_markup() {
+    let (router, _dir, _env) = app().await;
+
+    // The catalogue the picker offers is the one the validator checks against.
+    let (status, registry) = send(&router, get("/api/v1/notebooks/registry", "ops")).await;
+    assert_eq!(status, StatusCode::OK);
+    let widgets = registry["widgets"].as_array().expect("widgets");
+    assert!(!widgets.is_empty(), "{registry}");
+    for w in widgets {
+        let path = w["path"].as_str().unwrap();
+        assert!(path.starts_with("/api/v1/"), "{w}");
+    }
+
+    // A tenant who never composed anything gets the starter composition, not a
+    // blank grid and not a 404.
+    let (status, fresh) = send(&router, get("/api/v1/notebooks/default", "ops")).await;
+    assert_eq!(status, StatusCode::OK, "{fresh}");
+    assert_eq!(fresh["saved"], false, "{fresh}");
+    assert!(!fresh["notebook"]["cells"].as_array().unwrap().is_empty());
+
+    // Save a real composition, including a pinned query — the cell type that
+    // makes this more than rearranging panels.
+    let doc = json!({
+        "id": "ops",
+        "title": "Line 2 — daily",
+        "cells": [
+            {"widget": "coherence.kpis", "span": 12, "height": "s", "params": {}},
+            {"widget": "search.content", "span": 6, "height": "l",
+             "params": {"query": "\"no fault found\"", "place": "line-2", "top_k": 8},
+             "refresh": {"mode": "interval", "seconds": 60}}
+        ]
+    });
+    let (status, saved) = send(&router, post("/api/v1/notebooks/ops", "ops", doc)).await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert_eq!(saved["cells"], 2, "{saved}");
+    assert!(saved["updated_at"].as_str().unwrap().contains('T'), "{saved}");
+
+    let (_, listed) = send(&router, get("/api/v1/notebooks", "ops")).await;
+    let ids: Vec<&str> = listed["notebooks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert!(ids.contains(&"ops"), "{listed}");
+
+    let (_, read) = send(&router, get("/api/v1/notebooks/ops", "ops")).await;
+    assert_eq!(read["saved"], true, "{read}");
+    assert_eq!(read["notebook"]["cells"][1]["params"]["top_k"], 8, "{read}");
+
+    // A widget nobody ships is refused outright rather than stored and skipped
+    // at render — a stored reference nobody validates is how a payload rides in.
+    let (status, bad) = send(
+        &router,
+        post(
+            "/api/v1/notebooks/evil",
+            "ops",
+            json!({
+                "id": "evil",
+                "title": "x",
+                "cells": [{"widget": "<img src=x onerror=alert(1)>", "span": 6, "height": "m"}]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+    assert!(
+        bad["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e.as_str().unwrap().contains("unknown widget")),
+        "{bad}"
+    );
+
+    // An undeclared parameter is refused too: widgets take what they declare,
+    // so a cell cannot smuggle a field through to the endpoint behind it.
+    let (status, smuggle) = send(
+        &router,
+        post(
+            "/api/v1/notebooks/ops2",
+            "ops",
+            json!({
+                "id": "ops2",
+                "title": "x",
+                "cells": [{"widget": "search.content", "span": 6, "height": "m",
+                           "params": {"query": "ok", "dir": "/etc"}}]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{smuggle}");
+    assert!(
+        smuggle["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e.as_str().unwrap().contains("takes no parameter 'dir'")),
+        "{smuggle}"
+    );
+
+    // The body cannot rename the notebook out from under its own URL.
+    let (_, renamed) = send(
+        &router,
+        post(
+            "/api/v1/notebooks/ops",
+            "ops",
+            json!({"id": "somewhere-else", "title": "t", "cells": []}),
+        ),
+    )
+    .await;
+    assert_eq!(renamed["id"], "ops", "{renamed}");
+    let (status, _) = send(&router, get("/api/v1/notebooks/somewhere-else", "ops")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // One operator's composition is not another's.
+    let (_, other) = send(&router, get("/api/v1/notebooks", "auditor")).await;
+    assert_eq!(other["notebooks"].as_array().unwrap().len(), 0, "{other}");
+
+    let (status, gone) = send(&router, delete("/api/v1/notebooks/ops", "ops")).await;
+    assert_eq!(status, StatusCode::OK, "{gone}");
+    let (status, _) = send(&router, delete("/api/v1/notebooks/ops", "ops")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "deleting twice is a 404");
 }

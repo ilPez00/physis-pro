@@ -43,6 +43,7 @@ pub mod models;
 pub mod moonraker;
 pub mod moonraker_connect;
 pub mod network;
+pub mod notebook;
 pub mod oee;
 pub mod ontology;
 pub mod ontology_graph;

@@ -10,6 +10,7 @@
 - [POST /api/v1/search/nodes](https://github.com/ilPez00/physis-pro#http-api): fixed-token similarity search over coherence + goal nodes
 - [POST /api/v1/search/content](https://github.com/ilPez00/physis-pro#http-api): search inside documents — heading-scoped sections ranked by keyword (BM25) and meaning together, with snippets, highlight offsets and place/period/type facets
 - [POST /api/v1/machines/{name}/reduce](https://github.com/ilPez00/physis-pro#http-api): engine-side read-back — the machine registers what it perceives as coherence nodes, bridges them into the holarchy and persists them (chronos, euclid, empedocles; the rest are stateless)
+- [GET /api/v1/notebooks](https://github.com/ilPez00/physis-pro#http-api): user-composed dashboards — a notebook is an ordered list of widget ids and params, validated against the server's own catalogue (`/api/v1/notebooks/registry`) and stored per tenant
 - [GET /api/v1/atlas/graph](https://github.com/ilPez00/physis-pro#http-api): one drawable graph — nodes, recorded holarchy edges, derived similarity edges (tagged separately), and communities
 - [GET /api/v1/ontology/packs](https://github.com/ilPez00/physis-pro#http-api): installed ontology packs and whether the running process has loaded them (save/read/delete alongside)
 - [GET /api/v1/files/query](https://github.com/ilPez00/physis-pro#http-api): facet query over the causal ledger — place, period, mechanism/actor, free text
