@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Shared PostgreSQL database for both omo and pansa nodes
+  postgres:
+    image: postgres:15-trixie
+    container_name: physis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: physis
+      POSTGRES_USER: physis_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-physis_pass_change_me}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    env_file:
+      - deploy/omo/.env
+      - deploy/pansa/.env
+
+  # Shared model volume (ONNX weights, tokenizer, etc.)
+  models:
+    image: alpine:3.19
+    container_name: physis-models
+    restart: unless-stopped
+    volumes:
+      - model_data:/models
+    environment:
+      - MODEL_BASE_URL=https://supabase-prod-images.s3.amazonaws.com/models
+
+  # Volume definitions
+volumes:
+  pg_data:
+  model_data:
