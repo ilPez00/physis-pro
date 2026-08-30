@@ -112,6 +112,18 @@ pub enum Commands {
         #[arg(long)]
         demo: bool,
     },
+    /// Print the licence on this host: SKU, org, seats, expiry, maintenance,
+    /// feature list, revocation status. Serverless — reads the configured
+    /// default location (PHYSIS_LICENSE env, PHYSIS_LICENSE_FILE, or
+    /// .physis/license.key). `--json` for scripts and the SDK.
+    License {
+        /// Path to a licence file to inspect instead of the default location.
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Print the licence as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Run diagnostics: config, data dir, scan root, embedder, license
     Doctor,
 }
