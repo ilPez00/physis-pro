@@ -195,6 +195,39 @@ pub const WIDGETS: &[WidgetDef] = &[
         writes: false,
     },
     WidgetDef {
+        id: "coherence.facet",
+        title: "Graph query",
+        description: "Nodes matching a label, a verdict, or a cell — including what \
+                      monitor mode records: try \"workout\", \"place:\", \"rhythm:\" or \
+                      \"conversation\".",
+        method: Method::Get,
+        path: "/api/v1/coherence/facet",
+        fields: &[],
+        render: "list",
+        params: &[
+            ParamDef {
+                name: "q",
+                kind: ParamKind::Text,
+                required: false,
+                help: "Label contains this text",
+            },
+            ParamDef {
+                name: "verdict",
+                kind: ParamKind::Enum(&["success", "inert", "failure"]),
+                required: false,
+                help: "Only nodes judged this way",
+            },
+            ParamDef {
+                name: "limit",
+                kind: ParamKind::Int,
+                required: false,
+                help: "How many nodes to show",
+            },
+        ],
+        default_span: 6,
+        writes: false,
+    },
+    WidgetDef {
         id: "corpus.themes",
         title: "Recurring themes",
         description: "What the whole corpus is about — community summaries, computed offline.",
@@ -676,6 +709,23 @@ mod tests {
         let cells: Vec<Cell> = (0..MAX_CELLS + 1).map(|_| cell("goals.list")).collect();
         let errors = validate(&nb(cells)).unwrap_err();
         assert!(errors.iter().any(|e| e.contains("at most")), "{errors:?}");
+    }
+
+    #[test]
+    fn one_query_widget_covers_what_monitor_mode_writes() {
+        // Monitor mode records labelled observations — "workout day 242…",
+        // "place: gym (2 visits)", "rhythm: … every 7.0d", "conversation (3
+        // voices) · …". Four bespoke widgets would each be a thin filter over
+        // the same endpoint; one query widget plus a saved param is the same
+        // panel without four entries to keep in step with the labels.
+        let w = widget("coherence.facet").expect("the query widget exists");
+        assert_eq!(w.path, "/api/v1/coherence/facet");
+        let names: Vec<&str> = w.params.iter().map(|p| p.name).collect();
+        assert!(names.contains(&"q"), "{names:?}");
+        assert!(names.contains(&"verdict"), "{names:?}");
+        // No param is required: an unfiltered graph query is a legitimate
+        // panel, and requiring a filter would make the empty case unreachable.
+        assert!(w.params.iter().all(|p| !p.required));
     }
 
     #[test]

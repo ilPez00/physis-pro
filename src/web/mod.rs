@@ -87,6 +87,7 @@ mod ingest;
 mod machines;
 #[cfg(feature = "mcp")]
 mod mcp;
+mod monitor;
 mod notebook;
 mod ontology_studio;
 mod pdca;
@@ -2911,6 +2912,12 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/notebooks/registry",
             get(notebook::registry_handler),
+        )
+        // One sync, one call: a phone should not make four round trips to
+        // record one morning.
+        .route(
+            "/api/v1/monitor/ingest",
+            post(monitor::monitor_ingest_handler),
         )
         .route("/api/v1/notebooks", get(notebook::list_handler))
         .route(

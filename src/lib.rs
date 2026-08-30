@@ -40,6 +40,7 @@ pub mod management_pack;
 pub mod mapper;
 pub mod mcp;
 pub mod models;
+pub mod monitor;
 pub mod moonraker;
 pub mod moonraker_connect;
 pub mod network;

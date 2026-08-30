@@ -354,6 +354,8 @@ async function openEntity(node) {
       '<button id="exFailure" title="Record that this failed">Mark failed</button>' +
       '<button id="exAsk" title="Ask the graph about this">Ask</button>' +
       '<button id="exSearch" title="Find this text inside documents">In documents ↗</button>' +
+      // `exPin` is already the cell-pin button below; this pins a *panel*.
+      '<button id="exPinNotebook" title="Keep a live search for this entity on your notebook">Pin ↗</button>' +
     '</div>' +
 
     '<div class="sect"><h4>Pin a cell</h4>' +
@@ -420,6 +422,13 @@ function wireEntityActions(node, path) {
   $('exSearch').onclick = () => {
     window.location.href = '/search?q=' + encodeURIComponent(node.label.slice(0, 120));
   };
+  // Pin the entity as a standing question rather than a snapshot: the panel
+  // re-runs the search, so it keeps answering as the corpus changes.
+  $('exPinNotebook').onclick = () => addToNotebook(
+    'search.content',
+    { query: node.label.slice(0, 200), top_k: 6 },
+    'Search for ' + node.label.slice(0, 40),
+  );
 
   const pin = $('exPin');
   if (pin) pin.onclick = async () => {

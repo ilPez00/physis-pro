@@ -219,6 +219,7 @@
     </div>
     <button id="btnSearch" class="btn-primary">Search</button>
     <button id="btnRefresh" title="Re-read and re-embed the corpus">Reindex</button>
+    <button id="btnPin" title="Keep this search as a panel on your notebook">Pin ↗</button>
   </div>
   <div class="metaline">
     <span id="idxInfo" class="muted">index not built yet</span>
@@ -531,6 +532,18 @@ document.querySelectorAll('.seg button').forEach(b => {
     if (ST.lastQuery) run();
   };
 });
+// A query worth running twice is worth keeping. The pinned cell carries the
+// query *and* the filters that were active, so the panel answers the same
+// question tomorrow rather than a broader one.
+$('btnPin').onclick = () => {
+  const q = $('q').value.trim();
+  if (!q) { toast('type a query first', true); return; }
+  const params = { query: q, top_k: 8 };
+  if (ST.mode !== 'hybrid') params.mode = ST.mode;
+  if (ST.filters.place) params.place = ST.filters.place;
+  addToNotebook('search.content', params, 'Search for ' + q);
+};
+
 $('btnSearch').onclick = () => run();
 $('btnRefresh').onclick = () => run({ refresh: true });
 $('q').addEventListener('keydown', e => {
