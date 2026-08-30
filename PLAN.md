@@ -17,14 +17,14 @@ anomaly detection to corrective action.
 
 | Layer | Status |
 |-------|--------|
-| Engine | Holarchic runtime with real-time graph processing, semantic classification, temporal scheduling |
+| Engine | Holarchic runtime with real-time graph processing, semantic classification, temporal scheduling; 5 compilation blockers fixed (quality.rs, web/mod.rs, coherence.rs, main.rs, industrial_benchmark/secom.rs); `cargo check --features web` compiles cleanly; 759/759 lib tests pass |
 | Industrial | OEE tracking, maintenance baselines, anomaly detection, Italian shift reports |
 | Document | Ingest, classify, duplicate detection, admin review queue |
 | Personal history | Vault import (Obsidian/git log), browser history, OPML, chat JSONL, praxis backfill |
 | Study | Study log with rhythms, Elenchus argument trainer |
-| UI | Pulse (vitals), Search (by content), Atlas (organic graph + object explorer), Studio (ontology editor), Files (graph file manager), Console (multi-tab dashboard), Agent, Demo, Study — one shared shell, no external assets |
-| Licensing | Offline license enforcement with vendor-signed envelope |
-| Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping |
+| UI | Pulse (vitals), Search (by content), Atlas (organic graph + object explorer), Studio (ontology editor), Files (graph file manager), Console (multi-tab dashboard), Agent, Demo, Study — one shared shell, no external assets; new customer-facing pages: index.html (landing), customer_dashboard.html (usage/jobs/tier), api_tester.html (endpoint experimentation), pricing.html (4-tier: Free Trial/Starter/Professional/Enterprise), about.html (capabilities/contact) |
+| Licensing | Offline license enforcement with vendor-signed envelope; per-job billing model: Free Trial (100 jobs), Starter ($10/mo/100), Professional ($50/mo/500), Enterprise (custom); pay-per-job: classify=$0.01, ask=$0.05, quality=$0.001, communities=$0.002 |
+| Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping; two deployment nodes: omo and pansa (shared PostgreSQL + model volume, unique API tokens per node; `RAILWAY_PG_CONNECTION_URL` or direct PostgreSQL; ONNX weights from S3/Supabase via `MODEL_BASE_URL`) |
 
 ---
 

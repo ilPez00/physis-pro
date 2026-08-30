@@ -330,16 +330,11 @@ pub(crate) fn build_quality_tracker(shared: &SharedCtx) -> QualityTracker {
                     .or_insert(0.0);
                 *penalty = (*penalty + f.severity * 0.2).min(1.0);
                 if let Some(ref _correct) = f.correct_domain {
-                    let decay_rate = tracker.boost_decay_rate;
-                    let boost = tracker
-                        .cell_boosts
-                        .entry(f.top_cell.clone())
-                        .or_insert_with(|| physis_core::quality::BoostInfo {
-                            amount: 0.0,
-                            decay_rate,
-                            last_reinforced: std::time::Instant::now(),
-                        });
-                    boost.reinforce(0.1);
+                    let boost = tracker.cell_boosts.entry(f.top_cell.clone()).or_insert(0.0);
+                    *boost += 0.1;
+                    if *boost > 1.0 {
+                        *boost = 1.0;
+                    }
                 }
             }
             tracker.failures = failures;
