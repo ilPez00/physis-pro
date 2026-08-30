@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A ring with a gap: something watching, and the gap is the part it does not keep. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#5FF2D6"
+        android:pathData="M54,30a24,24 0 1,1 -17,7l5,5a17,17 0 1,0 12,-5z" />
+    <path android:fillColor="#9D8CFF" android:pathData="M50,50h8v8h-8z" />
+</vector>
