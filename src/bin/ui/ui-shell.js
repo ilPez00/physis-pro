@@ -198,7 +198,24 @@ const PRODUCT_PAGES = [
   { href: '/agent',  label: 'Agent',   hint: 'orchestration — tools, OpenCode, coherence gate' },
   { href: '/study',  label: 'Study',   hint: 'learning — sessions and the study log' },
   { href: '/demo',   label: 'Demo',    hint: 'the guided walkthrough' },
+  { href: '/settings', label: 'Settings', hint: 'install health · updates · licence · API playground' },
 ];
+
+// One product, one shell. Pro is not a separate app — it is the same shell with
+// a wider licence, so the marketing pages ride the same nav as the dashboards
+// instead of being an island with its own header (which is how they drifted
+// into describing a product that does not exist).
+const SITE_PAGES = [
+  { href: '/',        label: 'Home',    hint: 'what Physis is' },
+  { href: '/pricing', label: 'Pricing', hint: 'pilot → Industriale → Enterprise' },
+  { href: '/about',   label: 'About',   hint: 'capabilities and licensing' },
+  { href: '/deploy',  label: 'Deploy',  hint: 'this instance — health, embedder, licence' },
+];
+
+function isSitePage() {
+  const here = window.location.pathname.replace(/\/+$/, '') || '/';
+  return SITE_PAGES.some(p => p.href === here);
+}
 
 function initProductNav() {
   const header = document.querySelector('header');
@@ -227,6 +244,15 @@ function initProductNav() {
     PRODUCT_PAGES.filter(pg => pg.href !== '/pulse').map(pg => {
       const current = here === pg.href;
       return '<a href="' + pg.href + '"' +
+        (current ? ' aria-current="page"' : '') +
+        ' title="' + esc(pg.hint) + '">' + esc(pg.label) + '</a>';
+    }).join('') +
+    // The site pages are quieter destinations — same nav, separated so the
+    // product row still reads as the product.
+    '<span class="nav-sep" aria-hidden="true"></span>' +
+    SITE_PAGES.map(pg => {
+      const current = here === pg.href;
+      return '<a class="site" href="' + pg.href + '"' +
         (current ? ' aria-current="page"' : '') +
         ' title="' + esc(pg.hint) + '">' + esc(pg.label) + '</a>';
     }).join('');
@@ -462,10 +488,41 @@ function initShortcuts(bindings) {
 Object.assign(window, {
   $, S, apiUrl, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
   syncConnect, loadHealth, initWelcome, initHelp, initCoach, initShortcuts,
-  initProductNav, initAskBar, addToNotebook,
+  initProductNav, initAskBar, initTierBadge, addToNotebook,
+  PRODUCT_PAGES, SITE_PAGES, isSitePage,
 });
 
-function mountShellChrome() { initProductNav(); initAskBar(); }
+// ── Tier badge ──────────────────────────────────────────────────
+// Pro is an *expansion* of Core, not a different app: same shell, same pages,
+// a wider licence. Naming the tier in the nav is what makes that visible —
+// and it fails silently, because a marketing page or an unauthenticated view
+// has no instance to ask.
+async function initTierBadge() {
+  try {
+    const s = await getJSON('/api/v1/settings');
+    const nav = document.getElementById('productNav');
+    if (!nav) return;
+    const tier = (s.license && s.license.tier) || 'core';
+    const chip = document.createElement('span');
+    chip.className = 'nav-tier' + (tier.toLowerCase() === 'core' ? '' : ' pro');
+    chip.textContent = tier.toUpperCase();
+    chip.title = s.license
+      ? 'Licensed: ' + tier + (s.license.org ? ' — ' + s.license.org : '')
+      : 'No licence loaded — running the Core feature set';
+    nav.appendChild(chip);
+  } catch (_) {
+    // No badge rather than an error: the absence is not a failure of the page.
+  }
+}
+
+function mountShellChrome() {
+  initProductNav();
+  initTierBadge();
+  // The ask bar needs a live graph behind the page. On the marketing pages
+  // there is often no instance at all, so mounting it there would offer a
+  // search box that can only fail.
+  if (!isSitePage()) initAskBar();
+}
 
 // Mount the shared chrome without each page opting in — an opt-in is exactly what
 // leaves the next page an island again. Agent loads this shell from <head> and

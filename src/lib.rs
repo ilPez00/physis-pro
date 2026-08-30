@@ -22,6 +22,7 @@ pub mod dream;
 pub mod embed;
 #[cfg(feature = "empedocles")]
 pub mod empedocles;
+pub mod extract;
 pub mod gantt;
 pub mod graph;
 pub mod indexer;
@@ -59,6 +60,7 @@ pub mod rbac;
 pub mod reconcile;
 pub mod reconstruct;
 pub mod report;
+pub mod routes;
 pub mod review_desk;
 pub mod salience;
 pub mod scanner;

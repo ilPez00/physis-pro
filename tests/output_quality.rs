@@ -11,6 +11,13 @@
 //! purpose links, mail timestamps — so quality regressions are visible to a
 //! human, not just shape-checked. The HTTP surfaces run under the same
 //! in-process router the http_surface tests use.
+//!
+//! Gated behind `embed-onnx`: this probe imports `embed::onnx`, which only
+//! exists with that feature, so compiling it into a plain `--features web`
+//! test run failed the whole suite. It is a real-embedder probe, not a shape
+//! check — it should only ever build where the model path is available.
+
+#![cfg(feature = "embed-onnx")]
 
 #![allow(dead_code)]
 

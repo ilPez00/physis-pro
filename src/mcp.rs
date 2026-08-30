@@ -54,6 +54,9 @@ mod mcp_impl {
         /// Shared sled store (`{data_dir}/state.sled`); `None` when the
         /// directory cannot be opened — tools then work in-memory only.
         pub db: Option<sled::Db>,
+        /// Declarative agent route table (Phase 19 B1): semantic cells bound to
+        /// harness actions, persisted to `{data_dir}/routes.json`.
+        pub routes: crate::routes::RouteTable,
     }
 
     /// Thread-safe shared reference.
@@ -133,6 +136,8 @@ mod mcp_impl {
                 .unwrap_or_default();
             lap(&mut t, "memory");
             eprintln!("physis: startup TOTAL {:.2}s", t0.elapsed().as_secs_f32());
+            // Computed before `config` moves into the context below.
+            let routes_path = config.data_dir.join("routes.json");
             let ctx = Arc::new(Mutex::new(PhysisContext {
                 config,
                 mapper,
@@ -148,6 +153,7 @@ mod mcp_impl {
                 core,
                 ledger,
                 db,
+                routes: crate::routes::RouteTable::load(&routes_path),
             }));
             PhysisMcpServer { ctx }
         }
@@ -248,6 +254,11 @@ mod mcp_impl {
                     tool("physis_embed", "Embed text into a vector", json!({
                         "type": "object", "properties": {
                             "text": {"type": "string", "description": "Text to embed"}
+                        }, "required": ["text"]
+                    })),
+                    tool("physis_route", "Route text to the action bound to its semantic cell", json!({
+                        "type": "object", "properties": {
+                            "text": {"type": "string", "description": "Text to route to a cell-bound action"}
                         }, "required": ["text"]
                     })),
                     tool("physis_goals_list", "List all current goals with progress", json!({
@@ -597,6 +608,37 @@ mod mcp_impl {
                     let ctx = self.ctx.lock().await;
                     let embedding = ctx.embedder.embed(&text);
                     let result = json!({"embedding": embedding, "dim": embedding.len()});
+                    Ok(CallToolResult::success(vec![json_content(&result)?]))
+                }
+
+                "physis_route" => {
+                    let text = get_str(&request, "text")?;
+                    let ctx = self.ctx.lock().await;
+                    let embedding = ctx.embedder.embed(&text);
+                    let results = ctx.classifier.classify(&embedding);
+                    let (domain, mode) = match results.first() {
+                        Some(c) => (c.domain.clone(), c.mode.clone()),
+                        None => (String::new(), String::new()),
+                    };
+                    let routes: Vec<JsonValue> = ctx
+                        .routes
+                        .for_cell(&domain, &mode)
+                        .iter()
+                        .map(|r| {
+                            json!({
+                                "name": r.name,
+                                "cell": r.cell,
+                                "action": r.action,
+                                "examples": r.examples,
+                                "enabled": r.enabled,
+                            })
+                        })
+                        .collect();
+                    let result = json!({
+                        "cell": format!("{domain}/{mode}"),
+                        "routes": routes,
+                        "count": routes.len(),
+                    });
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
                 }
 

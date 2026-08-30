@@ -3,74 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Physis Pro — About</title>
+  <title>Physis — About</title>
   <link rel="stylesheet" href="/physis.css">
 </head>
 <body>
   <header>
     <div class="brand">
       <div class="logo">P</div>
-      <h1>Physis</h1>
+      <div>
+        <h1>Physis <span>· About</span></h1>
+        <div class="sub">the engine, not the marketing</div>
+      </div>
     </div>
   </header>
 
-  <main>
-    <div class="container">
-      <div class="section">
-        <h2>About Physis Pro</h2>
-        <p>Physis Pro is an AI-powered analysis platform that exposes its capabilities through a REST API with pay-per-job pricing. Built on a foundation of ontology-driven classification, contextual quality tracking, and causal reasoning, Physis Pro transforms raw data into actionable intelligence.</p>
-      </div>
+  <main class="site prose">
+    <h2 class="lead" style="margin-top:10px;">A Rust runtime for ontological
+      classification, coherence tracking, and dream planning.</h2>
 
-      <div class="section">
-        <h2>Core Capabilities</h2>
-        <div class="capabilities-grid">
-          <div class="capability">
-            <h3>Classification</h3>
-            <p>Text classification into domain×mode cells using ontology-driven analysis</p>
-          </div>
-          <div class="capability">
-            <h3>Quality Tracking</h3>
-            <p>Automated penalty/boost system that learns from failures and improvements</p>
-          </div>
-          <div class="capability">
-            <h3>Community Detection</h3>
-            <p>Graph-based detection of meaningful clusters and communities</p>
-          </div>
-          <div class="capability">
-            <h3>RAG & Retrieval</h3>
-            <p>Fixed-token budget retrieval with grounded synthesis and [n] citations</p>
-          </div>
-        </div>
-      </div>
+    <h2>What it is</h2>
+    <p>Physis reduces any input — text, image, video, audio, a machine reading, a
+      code log, a human action — to one shared vector space, classifies it against a
+      70-cell semiotic grid (5 domains × 14 modes, ~630 authored entries), and tracks
+      each thing's <strong>coherence</strong>: did it work? +1 / 0 / −1. A background
+      "dream" loop replays the failures to propose corrective actions.</p>
 
-      <div class="section">
-        <h2>Technical Foundation</h2>
-        <p>Physis Pro is built on a foundation of:</p>
-        <ul>
-          <li>Ontology-driven classification (370+ domain×mode combinations)</li>
-          <li>Contextual quality tracking with contextual feedback loops</li>
-          <li>Causal reasoning through the physis causal ledger</li>
-          <li>Fixed-token budget RAG with grounded synthesis</li>
-          <li>Community detection and graph analysis</li>
-        </ul>
-      </div>
+    <h2>What sits on top</h2>
+    <ul>
+      <li><strong>Industrial</strong> — OEE (A×P×Q + six-big-losses Pareto),
+        predictive maintenance (σ-distance anomalies, RUL), SMA-30 inventory forecast.</li>
+      <li><strong>Datawork</strong> — space·time·cause addresses on every file, an
+        append-only causal ledger queryable in plain facets.</li>
+      <li><strong>Ingest</strong> — documents, mailboxes, Obsidian vaults, browser
+        history, OPML feeds, chat logs, Praxis life-logs → labeled core nodes.</li>
+      <li><strong>Quality loop</strong> — reported failures persist, penalize their
+        cell, and keep proposing countermeasures.</li>
+      <li><strong>Semiotic editing</strong> — exchange a node's content while its
+        structure (id, verdict, edges) survives.</li>
+    </ul>
 
-      <div class="section">
-        <h2>Contact</h2>
-        <p>For support, partnership inquiries, or custom feature requests, please email <a href="mailto:support@praxisweb.xyz">support@praxisweb.xyz</a></p>
-      </div>
-    </div>
+    <h2>How it runs</h2>
+    <p>CLI (<code>physis-pro</code>), HTTP server (<code>physis-pro-web</code>), an
+      MCP server for agent tool-use, a TUI, and a voice binary. Multi-tenant by
+      <code>X-Physis-User</code> header. License-gated by an offline Ed25519 key.</p>
+
+    <h2>Licensing</h2>
+    <p><code>physis-core</code> is MIT. <code>physis_pro</code> is dual-licensed —
+      MIT for the crate API, a commercial EULA for production deployments. See
+      <a href="/pricing">Pricing</a> for the service-led offer.</p>
+
+    <h2>Contact</h2>
+    <p>For a pilot, a license, or a question: <a href="mailto:support@praxisweb.xyz">support@praxisweb.xyz</a></p>
   </main>
 
-  <footer>
-    <div class="footer-content">
-      <div class="footer-links">
-        <a href="/">Home</a>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/pricing">Pricing</a>
-        <a href="/about">About</a>
-      </div>
-      <p>© 2024 Physis Pro. Built with physis.css design system.</p>
+  <footer class="site">
+    <div class="site-foot">
+      <a href="/">Home</a>
+      <a href="/demo">Live demo</a>
+      <a href="/pricing">Pricing</a>
+      <span>© 2026 Physis</span>
     </div>
   </footer>
+  <script src="ui-shell.js"></script>
 </body>
+</html>

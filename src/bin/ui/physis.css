@@ -568,6 +568,22 @@ header nav[aria-label="Sections"] a:focus-visible {
   #askBar input { width:100%; }
 }
 
+/* Site pages ride the same nav but read as secondary destinations. */
+#productNav a.site { color:var(--brume); opacity:.8; }
+#productNav a.site:hover { opacity:1; }
+#productNav a.site[aria-current="page"] { opacity:1; color:var(--cyan); background:var(--cyan-dim); }
+
+/* Tier chip — Pro is an expansion of Core in the *same* shell, so the nav says
+   which licence is live rather than the UI changing shape. */
+#productNav .nav-tier {
+  font-family:var(--mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+  padding:3px 8px; border-radius:999px; margin-left:2px; flex:none;
+  color:var(--brume); border:1px solid var(--shelf-strong); background:rgba(122,150,214,.08);
+}
+#productNav .nav-tier.pro {
+  color:var(--cyan); border-color:rgba(95,242,214,.45); background:var(--cyan-dim);
+}
+
 /* in-header section jump nav (Pulse: Vitals / Attention / …) — same mono-tab
    language as the app switcher, quieter: secondary destinations, not apps */
 header nav[aria-label="Sections"] { display:flex; gap:4px; flex-wrap:wrap; }
@@ -604,3 +620,147 @@ button:hover { transform: translateY(-1px); transition: transform .1s ease }
 
 /* improved selection background */
 ::selection { background: var(--cyan-dim); color: var(--ink) }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PUBLIC PAGES — landing (/), pricing, about, deployment.
+   The only "marketing" surfaces. The monitor/operate doctrine is relaxed
+   here but not abandoned: a wordmark and one value line, then data. No
+   webfonts, no hero imagery, no external assets — the same air-gapped rule.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.site { max-width:1080px; margin:0 auto; padding:0 28px 72px; }
+
+.lead {
+  font-size:var(--fs-xl); font-weight:800; line-height:1.18; letter-spacing:-.01em;
+  max-width:760px; margin:34px 0 0;
+}
+.lead em { font-style:normal; color:var(--cyan); }
+.sublead { color:var(--brume); max-width:660px; font-size:15px; line-height:1.6; margin-top:14px; }
+.sublead strong { color:var(--ink); font-weight:600; }
+
+.cta-row { display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
+.btn {
+  display:inline-flex; align-items:center;
+  font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+  padding:10px 18px; border-radius:999px; min-height:24px;
+  border:1px solid var(--shelf-strong); color:var(--ink); text-decoration:none; cursor:pointer;
+}
+.btn:hover { text-decoration:none; border-color:var(--cyan); color:var(--cyan); }
+.btn.primary { color:var(--abyss); background:linear-gradient(135deg,var(--cyan),#7ef7dd); border-color:transparent; font-weight:700; }
+.btn.primary:hover { color:var(--abyss); box-shadow:0 0 22px rgba(95,242,214,.45); }
+
+.feature-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:34px;
+}
+.feature-grid .card { padding:18px; }
+.feature-grid h3 { color:var(--cyan); margin-bottom:8px; }
+.feature-grid p { color:var(--brume); font-size:13px; line-height:1.55; margin:0; }
+
+/* pricing */
+.pricing-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-top:30px;
+}
+.pricing-card {
+  position:relative; display:flex; flex-direction:column;
+  background:var(--panel); border:1px solid var(--shelf); border-radius:var(--r-l); padding:22px;
+}
+.pricing-card.featured {
+  border-color:rgba(95,242,214,.5);
+  box-shadow:0 0 0 1px rgba(95,242,214,.25), 0 0 34px rgba(95,242,214,.09);
+}
+.pricing-card .tier {
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--brume);
+}
+.pricing-card .tier b { color:var(--cyan); }
+.pricing-card .price {
+  font-family:var(--mono); font-size:26px; font-weight:700; font-variant-numeric:tabular-nums;
+  margin:10px 0 4px;
+}
+.pricing-card .price small { font-size:12px; color:var(--brume); font-weight:400; }
+.pricing-card .price-sub { color:var(--brume); font-size:12px; min-height:16px; }
+.pricing-card ul { list-style:none; padding:0; margin:14px 0 18px; flex:1; }
+.pricing-card li { padding:6px 0; border-bottom:1px solid var(--shelf); color:var(--ink); font-size:13px; }
+.pricing-card li:last-child { border-bottom:none; }
+
+.tag-note { font-family:var(--mono); font-size:11px; color:var(--brume); margin-top:26px; line-height:1.6; }
+.tag-note code { color:var(--cyan); }
+
+/* about / text sections */
+.prose { max-width:760px; }
+.prose h2 { font-size:15px; margin:30px 0 10px; color:var(--ink); letter-spacing:.03em; }
+.prose h2::after {
+  content:""; display:block; width:40px; height:2px; margin-top:6px; border-radius:2px;
+  background:linear-gradient(90deg, var(--cyan), transparent);
+}
+.prose p, .prose li { color:var(--brume); font-size:14px; line-height:1.7; }
+.prose a { color:var(--cyan); }
+.prose ul { padding-left:18px; }
+.prose li { margin:4px 0; }
+
+/* deployment status (customer dashboard → license page) */
+.dep-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:22px; }
+.dep-row .card { flex:1; min-width:220px; padding:18px; }
+.dep-row .k { font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--brume); }
+.dep-row .v { font-family:var(--mono); font-size:15px; color:var(--ink); margin-top:6px; word-break:break-all; }
+
+.site-foot {
+  margin-top:52px; padding-top:18px; border-top:1px solid var(--shelf);
+  color:var(--brume); font-size:12px; display:flex; gap:18px; flex-wrap:wrap;
+}
+.site-foot a { color:var(--brume); }
+.site-foot a:hover { color:var(--ink); }
+
+/* ── page header block (brand + title + subtitle) ───────────────────────
+   Four pages each kept a private .brand/.logo/.sub copy with divergent
+   metrics, so a new page inherited none of them. Defined once here; the
+   private copies can retire onto this. */
+header .brand { display:flex; align-items:center; gap:12px; }
+header .brand .logo {
+  width:32px; height:32px; border-radius:9px; flex:none;
+  display:grid; place-items:center;
+  font-family:var(--mono); font-weight:800; font-size:15px; color:var(--abyss);
+  background:linear-gradient(135deg,var(--cyan),var(--violet));
+  box-shadow:0 0 20px rgba(95,242,214,.35);
+}
+header .brand h1 { margin:0; font-size:16px; letter-spacing:.02em; }
+header .brand h1 span { color:var(--brume); font-weight:400; }
+header .brand .sub { color:var(--brume); font-size:12px; margin-top:2px; }
+
+/* ── settings (/settings) ─────────────────────────────────────────── */
+.set-sec { margin-top:34px; }
+.health-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(238px,1fr)); gap:12px; margin-top:12px;
+}
+.health-card {
+  background:var(--panel); border:1px solid var(--shelf); border-radius:var(--r-l); padding:16px;
+}
+.health-card.bad  { border-color:rgba(255,109,143,.45); }
+.health-card.warn { border-color:rgba(255,196,107,.45); }
+.health-card .hk {
+  display:flex; align-items:center; gap:7px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--brume);
+}
+.health-card .hv {
+  font-family:var(--mono); font-size:14px; margin-top:8px; word-break:break-all;
+  font-variant-numeric:tabular-nums;
+}
+.health-card .hn { font-size:12px; color:var(--brume); margin-top:7px; line-height:1.55; }
+
+.kv { display:grid; grid-template-columns:minmax(140px,230px) 1fr; gap:9px 18px; margin:0; }
+.kv dt {
+  font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--brume);
+}
+.kv dd { margin:0; font-family:var(--mono); font-size:12.5px; word-break:break-all; }
+
+/* API playground — folded in from the old api_tester.html (PLAN U3) */
+.play { display:grid; gap:10px; margin-top:12px; }
+.play-row { display:flex; gap:8px; flex-wrap:wrap; }
+.play-row input[type=text] { flex:1; min-width:220px; font-family:var(--mono); font-size:12px; }
+.play textarea {
+  width:100%; min-height:96px; font-family:var(--mono); font-size:12px; resize:vertical;
+}
+.play pre {
+  max-height:320px; overflow:auto; margin:0;
+  background:rgba(4,7,15,.6); border:1px solid var(--shelf); border-radius:var(--r-m);
+  padding:12px; font-size:12px; white-space:pre-wrap; word-break:break-word;
+}

@@ -3,67 +3,83 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Physis Pro — Pricing</title>
+  <title>Physis — Pricing</title>
   <link rel="stylesheet" href="/physis.css">
 </head>
 <body>
   <header>
     <div class="brand">
       <div class="logo">P</div>
-      <h1>Physis <span>· Pricing</span></h1>
+      <div>
+        <h1>Physis <span>· Pricing</span></h1>
+        <div class="sub">service-led entry · recurring after proof</div>
+      </div>
     </div>
   </header>
 
-  <main>
+  <main class="site">
+    <div class="eyebrow">service-led entry · recurring after proof</div>
+    <h2 class="lead">Sell a measurable result before a platform.</h2>
+    <p class="sublead">Physis is not a pay-per-job API. It enters on a fixed-scope
+      <strong>Shift Loss Review</strong>, proves value on your data, and converts to a
+      recurring license once the baseline numbers exist. The MIT core is free.</p>
+
     <div class="pricing-grid">
-      <div class="pricing-card free">
-        <div class="header">Free Trial</div>
-        <div class="price">$0<small>/ month</small></div>
+      <div class="pricing-card">
+        <div class="tier">Pilot — Shift Loss Review</div>
+        <div class="price">€1,500–2,500<small> one-time</small></div>
+        <div class="price-sub">5 days · 1 week of your data</div>
         <ul>
-          <li>100 free jobs</li>
-          <li>Classify & ask endpoints</li>
-          <li>Community detection</li>
-          <li>Email support</li>
+          <li>Italian shift report (Markdown / HTML)</li>
+          <li>OEE decomposition + loss Pareto</li>
+          <li>Anomaly review (σ from baseline)</li>
+          <li>3 concrete actions + 30-min call</li>
         </ul>
-        <button class="primary" style="margin-top:10px;">Get Started Free</button>
+        <a class="btn primary" href="mailto:support@praxisweb.xyz?subject=Shift%20Loss%20Review">Start a review</a>
       </div>
 
-      <div class="pricing-card starter">
-        <div class="header">Starter</div>
-        <div class="price">$10<small>/ month</small></div>
+      <div class="pricing-card featured">
+        <div class="tier"><b>Industriale</b> — recurring</div>
+        <div class="price">€1,500<small>/ plant / month</small></div>
+        <div class="price-sub">after two useful review cycles</div>
         <ul>
-          <li>100 jobs per month</li>
-          <li>All endpoints access</li>
-          <li>Community detection</li>
-          <li>Basic analytics</li>
+          <li>Auto shift report (email / PDF on close)</li>
+          <li>OEE + anomaly + RUL watch</li>
+          <li>Persisted history, quality loop</li>
+          <li>5 users · on-prem or private</li>
         </ul>
-        <button class="primary" style="margin-top:10px;">Subscribe</button>
+        <a class="btn primary" href="mailto:support@praxisweb.xyz?subject=Industriale%20license">Get a license</a>
       </div>
 
-      <div class="pricing-card professional">
-        <div class="header">Professional</div>
-        <div class="price">$50<small>/ month</small></div>
+      <div class="pricing-card">
+        <div class="tier">Enterprise</div>
+        <div class="price">€5,000<small>/ month</small></div>
+        <div class="price-sub">air-gapped · regulated · multi-plant</div>
         <ul>
-          <li>500 jobs per month</li>
-          <li>All endpoints access</li>
-          <li>Full analytics dashboard</li>
-          <li>Priority support</li>
-          <li>Custom API keys</li>
+          <li>Dedicated instance, signed keys</li>
+          <li>Custom ontologies + training</li>
+          <li>ERP / MES / ticketing integration</li>
+          <li>SLA + audit exports</li>
         </ul>
-        <button class="primary" style="margin-top:10px;">Subscribe</button>
-      </div>
-
-      <div class="pricing-card enterprise">
-        <div class="header">Enterprise</div>
-        <div class="price">Custom<small>/ month</small></div>
-        <ul>
-          <li>Unlimited jobs</li>
-          <li>Dedicated instance</li>
-          <li>SLA guarantee</li>
-          <li>Custom features</li>
-          <li>Account manager</li>
-        </ul>
-        <button class="primary" style="margin-top:10px;">Contact Sales</button>
+        <a class="btn" href="mailto:support@praxisweb.xyz?subject=Enterprise">Contact sales</a>
       </div>
     </div>
+
+    <p class="tag-note"><code>physis-core</code> is MIT and free — publish the crate
+      from crates.io, use the MCP server, build on the engine. Pro is the commercial
+      EULA layer (offline Ed25519 keys, feature slugs, seats). The economic ceiling is
+      the cost of recurring mistakes and the staff time spent finding them, not an
+      embedding.</p>
+  </main>
+
+  <footer class="site">
+    <div class="site-foot">
+      <a href="/">Home</a>
+      <a href="/demo">Live demo</a>
+      <a href="/about">About</a>
+      <span>© 2026 Physis · prices are first-reference hypotheses, not a quote</span>
+    </div>
+  </footer>
+  <script src="ui-shell.js"></script>
 </body>
+</html>

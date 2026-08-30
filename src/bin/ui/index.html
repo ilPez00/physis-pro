@@ -3,60 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Physis Pro — API Platform</title>
+  <title>Physis — adaptive industrial intelligence, air-gapped</title>
   <link rel="stylesheet" href="/physis.css">
 </head>
 <body>
   <header>
     <div class="brand">
       <div class="logo">P</div>
-      <h1>Physis</h1>
-      <span>API Platform</span>
+      <div>
+        <h1>Physis <span>· industrial intelligence</span></h1>
+        <div class="sub">offline-first · ontology-driven · Rust</div>
+      </div>
     </div>
-    <nav>
-      <a href="/dashboard" class="nav-button">Dashboard</a>
-      <a href="/api-tester" class="nav-button">API Tester</a>
-      <a href="/pricing" class="nav-button">Pricing</a>
-      <a href="/about" class="nav-button">About</a>
-    </nav>
   </header>
 
-  <main>
-    <div class="hero">
-      <div>
-        <div class="signature"><i></i> intelligence platform</div>
-        <h2>Physis Pro API Platform</h2>
-        <p>Turn your data into intelligence with per-job pricing.</p>
-        <div class="cta-buttons">
-          <a href="/dashboard" class="button primary">Get API Key</a>
-          <a href="/api-tester" class="button">Try API Tester</a>
-        </div>
-      </div>
-    </main>
+  <main class="site">
+    <h2 class="lead">One engine that classifies your shop-floor text, telemetry
+      and documents into a live ontology, predicts failures, and proposes the
+      next action — <em>air-gapped</em>, no cloud required.</h2>
+    <p class="sublead">Physis reduces any input — a CSV export, a machine
+      reading, a shift note, a mailbox — to one shared vector space, judges
+      whether each thing <strong>worked</strong>, and replays what didn't to
+      propose the fix. It produces an Italian shift report your production lead
+      can actually read, not another dashboard.</p>
 
-    <div class="features">
-      <div class="feature">
-        <h3>Pay-per-Job</h3>
-        <p>Only pay for the jobs you run. No subscriptions, no commitments.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="/demo">See the live demo</a>
+      <a class="btn" href="/pricing">Get a Shift Loss Review</a>
+      <a class="btn" href="https://github.com/ilPez00/physis-pro">Read the docs</a>
+    </div>
+
+    <div class="feature-grid">
+      <div class="card">
+        <h3>Classify on a 70-cell grid</h3>
+        <p>Every input lands on a <span class="cell" data-domain="FABRICATE">FABRICATE·WORK</span>
+          cell — a domain × mode meaning grid with 630+ authored entries, not a
+          black-box model.</p>
       </div>
-      <div class="feature">
-        <h3>Ontology-Driven</h3>
-        <p>All classification driven by a 370+ domain ontology.</p>
+      <div class="card">
+        <h3>OEE &amp; predictive maintenance</h3>
+        <p>Availability × performance × quality with six-big-losses Pareto, σ-distance
+          anomaly scoring and remaining-useful-life projection from your own baseline.</p>
       </div>
-      <div class="feature">
-        <h3>Isolated Instances</h3>
-        <p>Each customer gets isolated RuntimeState via X-Physis-User header.</p>
+      <div class="card">
+        <h3>Quality feedback loop</h3>
+        <p>Report a failure once and the engine remembers it, penalizes the cell,
+          and keeps proposing countermeasures — persistence that changes behavior.</p>
       </div>
-      <div class="feature">
-        <h3>Full Audit</h3>
-        <p>Complete usage tracking and billing transparency.</p>
+      <div class="card">
+        <h3>Space · time · cause</h3>
+        <p>Every file carries where it lives, when it matters and why it exists, in an
+          append-only causal ledger you query in plain facets.</p>
+      </div>
+      <div class="card">
+        <h3>Air-gapped by design</h3>
+        <p>Deterministic classification and an offline license key. No network, no
+          external fonts or CDNs — the install runs where your data cannot leave.</p>
+      </div>
+      <div class="card">
+        <h3>Speaks to agents (MCP)</h3>
+        <p>An MCP server and a plain HTTP API any agent framework can call. Give your
+          agent a semiotic memory.</p>
       </div>
     </div>
   </main>
 
-  <footer>
-    <div class="footer-content">
-      <p>© 2024 Physis Pro. Built with physis.css design system.</p>
+  <footer class="site">
+    <div class="site-foot">
+      <a href="/pulse">Open Physis</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/about">About</a>
+      <span>© 2026 Physis · MIT core, commercial Pro</span>
     </div>
   </footer>
+  <script src="ui-shell.js"></script>
 </body>
+</html>
