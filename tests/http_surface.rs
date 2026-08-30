@@ -4442,3 +4442,170 @@ async fn machine_reduce_registers_bridges_and_persists_per_tenant() {
     assert_eq!(chronos["writes"], true, "{chronos}");
     assert_eq!(harmony["writes"], false, "{harmony}");
 }
+
+/// Phase 10 end-to-end (the verification the plan index left open): a real
+/// scan must produce all three filing axes at once — where the file lives
+/// (space), when it changed (time), and what produced it (cause) — and every
+/// surface that reads them must agree.
+///
+/// D1–D6 each had their own unit or handler test; nothing walked the chain
+/// from a scan through the graph DTO, the ledger, a facet query, a purpose
+/// link and back out as lineage. That walk is what a customer does.
+#[tokio::test]
+async fn space_time_cause_survives_a_real_scan_end_to_end() {
+    let dir = tempfile::tempdir().expect("temp data dir");
+    // Two folders, so "place" has something to distinguish.
+    let line = dir.path().join(".physis").join("line-2");
+    let office = dir.path().join(".physis").join("office");
+    std::fs::create_dir_all(&line).expect("mkdir");
+    std::fs::create_dir_all(&office).expect("mkdir");
+    std::fs::write(
+        line.join("maintenance.md"),
+        "# Spindle\n\nBearing replaced after the vibration alarm.\n",
+    )
+    .expect("write");
+    std::fs::write(
+        office.join("invoice.md"),
+        "# Invoice 8871\n\nAcme reconciled against PO 4412.\n",
+    )
+    .expect("write");
+
+    let (router, _env) = app_on(dir.path()).await;
+    let root = dir.path().join(".physis");
+    let root_str = root.display().to_string();
+
+    let (status, scan) = send(
+        &router,
+        post("/api/v1/scan", "ops", json!({ "dir": root_str })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{scan}");
+
+    // ── Space + time: the graph DTO carries the address, not just the path.
+    let (status, graph) = send(
+        &router,
+        get(
+            &format!("/api/v1/fs/graph?dir={}", urlencoding::encode(&root_str)),
+            "ops",
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{graph}");
+    let files = graph["files"].as_array().expect("files array");
+    assert_eq!(files.len(), 2, "both files are in the graph: {graph}");
+    for f in files {
+        assert!(
+            f["place"].is_string(),
+            "every scanned file knows where it lives: {f}"
+        );
+        assert!(
+            f["period"].as_str().is_some_and(|p| p.len() == 7),
+            "period is the YYYY-MM bucket: {f}"
+        );
+        assert!(
+            f["modified"].is_string(),
+            "time comes from fs metadata, not ingest time: {f}"
+        );
+        assert_eq!(
+            f["mechanism"], "generated",
+            "a scan is what produced this registration: {f}"
+        );
+    }
+
+    // ── Cause: the scan itself is in the ledger, addressable by facet.
+    let (_, causes) = send(
+        &router,
+        post("/api/v1/files/query", "ops", json!({"cause": "generated"})),
+    )
+    .await;
+    let matches = causes["matches"].as_array().expect("matches");
+    assert!(
+        !matches.is_empty(),
+        "the scan recorded why these files exist: {causes}"
+    );
+    assert!(
+        matches.iter().all(|m| m["mechanism"] == "generated"),
+        "{causes}"
+    );
+    let scanned_object = matches[0]["object"].as_str().unwrap().to_string();
+
+    // Rollups answer "where/when/how", not just "which".
+    assert!(
+        causes["by_mechanism"].is_object() || causes["by_mechanism"].is_array(),
+        "facet query rolls up by mechanism: {causes}"
+    );
+
+    // Time facet: this month catches it, a past bucket does not.
+    let now_period = chrono::Utc::now().format("%Y-%m").to_string();
+    let (_, this_month) = send(
+        &router,
+        post("/api/v1/files/query", "ops", json!({"during": now_period})),
+    )
+    .await;
+    assert!(this_month["total"].as_u64().unwrap_or(0) >= 1, "{this_month}");
+    let (_, long_ago) = send(
+        &router,
+        post("/api/v1/files/query", "ops", json!({"during": "1999-01"})),
+    )
+    .await;
+    assert_eq!(long_ago["total"], 0, "{long_ago}");
+
+    // ── Purpose: attach the artifact to a goal, read it back as final cause.
+    let (status, goal) = send(
+        &router,
+        post(
+            "/api/v1/goals",
+            "ops",
+            json!({"label": "cut unplanned downtime on line 2"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{goal}");
+    let (_, goals) = send(&router, get("/api/v1/goals/list", "ops")).await;
+    let goal_id = goals["goals"][0]["id"].as_str().expect("a goal id").to_string();
+
+    let (status, served) = send(
+        &router,
+        post(
+            "/api/v1/files/serve",
+            "ops",
+            json!({"object": scanned_object, "goal_id": goal_id}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{served}");
+
+    let (status, lineage) = send(
+        &router,
+        get(
+            &format!(
+                "/api/v1/files/lineage?path={}",
+                urlencoding::encode(&scanned_object)
+            ),
+            "ops",
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{lineage}");
+    assert!(
+        !lineage["lineage"].as_array().unwrap().is_empty(),
+        "the why-made chain survives the round trip: {lineage}"
+    );
+    let purposes = lineage["purposes"].as_array().unwrap();
+    assert_eq!(purposes.len(), 1, "the goal it serves: {lineage}");
+    assert_eq!(purposes[0]["input"], goal_id, "{lineage}");
+    // Serves is a final cause, not a production step — it must not appear in
+    // the chain that explains how the artifact came to be.
+    assert!(
+        lineage["lineage"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|e| e["mechanism"] != "serves"),
+        "purpose is not lineage: {lineage}"
+    );
+
+    // ── Isolation: another tenant shares the files on disk, not the history.
+    let (_, other) = send(&router, post("/api/v1/files/query", "auditor", json!({}))).await;
+    assert_eq!(other["total"], 0, "{other}");
+}
