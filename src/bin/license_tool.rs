@@ -51,20 +51,23 @@ enum Command {
         /// Licensee legal name, as it should appear in the startup banner.
         #[arg(long)]
         org: String,
-        /// Commercial tier: core | industrial | enterprise. Expands to the
-        /// tier's feature bundle; `--features` overrides when given.
+        /// Commercial SKU: core | industrial | enterprise. Expands to the
+        /// SKU's feature bundle; `--features` overrides when given.
         #[arg(long)]
+        sku: Option<String>,
+        /// Alias for `--sku`, kept for compatibility.
+        #[arg(long, hide = true)]
         tier: Option<String>,
         /// Licensed seat/host count.
         #[arg(long, default_value = "1")]
         seats: u32,
         /// Comma-separated feature slugs, or `*` for everything.
-        /// Overrides `--tier` when present.
+        /// Overrides `--sku` when present.
         #[arg(long)]
         features: Option<String>,
         /// Expiry of the right to run, `YYYY-MM-DD`.
         #[arg(long)]
-        exp: String,
+        exp: Option<String>,
         /// Expiry of the right to install newer builds, `YYYY-MM-DD`.
         /// Defaults to `--exp` when omitted.
         #[arg(long)]
@@ -72,6 +75,10 @@ enum Command {
         /// Vendor-side licence id. Generated from org + exp when omitted.
         #[arg(long)]
         id: Option<String>,
+        /// Mint a 14-day evaluation licence: expires two weeks from today,
+        /// maintenance included, id prefixed TRIAL- so it is traceable.
+        #[arg(long)]
+        trial: bool,
     },
     /// Print the contents of a licence blob without verifying its signature.
     /// Useful for support: "what did we actually issue this customer?"
@@ -79,12 +86,21 @@ enum Command {
         /// Path to a licence file.
         path: PathBuf,
     },
-    /// Revoke a licence by ID, making it immediately invalid.
+    /// Revoke a licence by ID, adding it to a revocation list the vendor ships
+    /// to air-gapped hosts. Each host refuses to start once it has a copy of
+    /// the list containing that licence's id.
     Revoke {
         /// Licence ID to revoke (format: PX-ORG-YYYYMMDD).
         #[arg(long)]
         id: String,
+        /// Revocation list to append to (created if missing). The default
+        /// matches the runtime default: `$PHYSIS_DATA_DIR/revocations.json`
+        /// (else `./.physis/revocations.json`).
+        #[arg(long)]
+        list: Option<PathBuf>,
     },
+    /// Print the orderable SKU → feature-bundle table for the order form.
+    ListSkus,
     /// Sign a release artifact, emitting a detached signature on stdout.
     /// Air-gapped customers verify the tarball with this before unpacking.
     SignArtifact {
@@ -139,54 +155,67 @@ fn main() -> anyhow::Result<()> {
         Command::Sign {
             key,
             org,
+            sku,
             tier,
             seats,
             features,
             exp,
             maint_exp,
             id,
+            trial,
         } => {
             let key_hex = std::fs::read_to_string(&key)?;
             let key_bytes: [u8; 32] = decode_hex(key_hex.trim())
                 .ok_or_else(|| anyhow::anyhow!("signing key is not 32 hex-encoded bytes"))?;
             let signing = SigningKey::from_bytes(&key_bytes);
 
-            // Feature list: explicit --features wins; else expand --tier;
-            // else default to Enterprise (`*`) so ad-hoc internal licences
-            // keep working exactly as before this flag existed.
+            // Feature list: explicit --features wins; else expand the SKU
+            // bundle; else default to Enterprise (`*`) so ad-hoc internal
+            // licences keep working exactly as before the flag existed.
             let features: Vec<String> = if let Some(f) = features {
                 f.split(',')
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect()
-            } else if let Some(t) = tier.as_deref() {
-                let bundle = match t {
-                    "core" => physis_pro::license::Tier::Core,
-                    "industrial" => physis_pro::license::Tier::Industrial,
-                    "enterprise" => physis_pro::license::Tier::Enterprise,
-                    other => anyhow::bail!("unknown tier '{other}' — core|industrial|enterprise"),
-                };
+            } else if let Some(t) = sku.or(tier) {
+                let bundle = physis_pro::license::Tier::from_sku(&t)
+                    .ok_or_else(|| anyhow::anyhow!(
+                        "unknown SKU '{t}' — run `physis-license list-skus` (core|industrial|enterprise)"
+                    ))?;
                 bundle.features().iter().map(|s| s.to_string()).collect()
             } else {
                 vec!["*".to_string()]
             };
-            let maint_exp = maint_exp.unwrap_or_else(|| exp.clone());
-            let license_id = id.unwrap_or_else(|| {
-                let slug: String = org
-                    .chars()
-                    .filter(|c| c.is_ascii_alphanumeric())
-                    .take(8)
-                    .collect::<String>()
-                    .to_uppercase();
-                format!("PX-{slug}-{}", exp.replace('-', ""))
-            });
+
+            let today = chrono::Utc::now().date_naive();
+            let (exp, maint_exp, license_id, trial) = if trial {
+                let e = today + chrono::Duration::days(14);
+                let e = e.to_string();
+                let id = id.unwrap_or_else(|| format!("TRIAL-{}", e.replace('-', "")));
+                (e.clone(), e, id, true)
+            } else {
+                let e = exp.ok_or_else(|| {
+                    anyhow::anyhow!("--exp YYYY-MM-DD is required unless --trial is used")
+                })?;
+                let maint = maint_exp.unwrap_or_else(|| e.clone());
+                let id = id.unwrap_or_else(|| {
+                    let slug: String = org
+                        .chars()
+                        .filter(|c| c.is_ascii_alphanumeric())
+                        .take(8)
+                        .collect::<String>()
+                        .to_uppercase();
+                    format!("PX-{slug}-{}", e.replace('-', ""))
+                });
+                (e, maint, id, false)
+            };
 
             let payload = serde_json::json!({
                 "license_id": license_id,
                 "org": org,
                 "seats": seats,
                 "features": features,
-                "iat": chrono::Utc::now().date_naive().to_string(),
+                "iat": today.to_string(),
                 "exp": exp,
                 "maint_exp": maint_exp,
                 "revoked": false,
@@ -202,7 +231,12 @@ fn main() -> anyhow::Result<()> {
             });
             println!("{}", serde_json::to_string_pretty(&envelope)?);
             eprintln!(
-                "signed {license_id} for {org} — runs until {exp}, updates until {maint_exp}"
+                "signed {} for {} — runs until {}, updates until {}{}",
+                license_id,
+                org,
+                exp,
+                maint_exp,
+                if trial { " (TRIAL — 14 days)" } else { "" }
             );
         }
 
@@ -227,10 +261,54 @@ fn main() -> anyhow::Result<()> {
             );
         }
 
-        Command::Revoke { .. } => {
-            // Revocation list wiring is not present in this build; the gate
-            // only validates signature + dates. Stub so the tool compiles.
-            eprintln!("revoke: revocation list not wired in this build — no-op");
+        Command::Revoke { id, list } => {
+            use std::collections::BTreeSet;
+            // Read-modify-write the revocation list. Sorted, so the file stays
+            // stable across runs and easy to diff when the vendor ships it.
+            let path = list.unwrap_or_else(|| {
+                std::env::var("PHYSIS_DATA_DIR")
+                    .ok()
+                    .map(PathBuf::from)
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or_else(|| PathBuf::from(".physis"))
+                    .join("revocations.json")
+            });
+            let mut revoked: BTreeSet<String> = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|blob| serde_json::from_str::<serde_json::Value>(&blob).ok())
+                .and_then(|v| v.get("revoked").cloned())
+                .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
+                .unwrap_or_default()
+                .into_iter()
+                .collect();
+            let inserted = revoked.insert(id.clone());
+            let doc = serde_json::json!({ "revoked": revoked.iter().collect::<Vec<_>>() });
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&path, serde_json::to_string_pretty(&doc)?)?;
+
+            if inserted {
+                eprintln!("revoked {id} — appended to {}", path.display());
+                eprintln!(
+                    "ship this file to affected air-gapped hosts (with a release, \
+                     or as a drop-in); each host refuses to start once the list \
+                     reaches it and contains this id"
+                );
+            } else {
+                eprintln!("{id} was already on {}", path.display());
+            }
+        }
+
+        Command::ListSkus => {
+            for ent in physis_pro::license::ENTITLEMENTS {
+                println!(
+                    "{}  {:<12} {}",
+                    ent.sku,
+                    ent.label,
+                    ent.tier.features().join(", ")
+                );
+            }
         }
 
         Command::Inspect { path } => {

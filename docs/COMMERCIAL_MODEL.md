@@ -115,23 +115,23 @@ model deliberately avoids first.
 
 | Gate | Blocks | Status |
 |------|--------|--------|
-| SKU → feature-slug entitlement table + order form | any tier | partial (`src/license.rs` has slugs; no mapping) |
-| License `inspect`/`info` + trial-key generator | free → paid conversion | open |
-| Key rotation + revocation | enterprise sales (lost keys, terminations) | open (hard seat enforcement is done) |
-| Real authn/RBAC (beyond the header token) | multi-customer hosted / Enterprise | open |
+| SKU → feature-slug entitlement table + order form | any tier | ✅ Done (`ENTITLEMENTS` in `src/license.rs`; `physis-license list-skus`) |
+| License `inspect`/`info` + trial-key generator | free → paid conversion | ✅ Done (`physis-pro license [--json]`; vendor `sign --trial`) |
+| Key rotation + revocation | enterprise sales (lost keys, terminations) | ✅ Done (drop-in `revocations.json` enforced in `load()`; vendor `revoke --id`. Rotation out of scope — reissues every licence) |
+| Real authn/RBAC (beyond the header token) | multi-customer hosted / Enterprise | partial (`src/rbac.rs` roles exist) |
 | Append-only temporal/audit log | audit claims in the pitch | partial (causal ledger only) |
 | On-prem single-binary distro + installer UX | air-gapped claim at scale | partial (Docker; installer untested end-to-end) |
 | One measurable customer baseline | every marketing number | open (first pilot pending) |
 
 ## Commercial MVP backlog
 
-- [ ] SKU-to-feature entitlement table and renewal checklist.
-- [ ] License `inspect` / `info` endpoints and a 14-day trial-key generator.
-- [ ] Key rotation + revocation list (sled-backed), tied to the vendor tool.
+- [x] SKU-to-feature entitlement table and renewal checklist.
+- [x] License `inspect` / `info` and a 14-day trial-key generator.
+- [x] Key rotation + revocation list, tied to the vendor tool.
 - [ ] Evaluation-key issuance and a documented pilot flow.
 - [ ] Customer/plant/host identity in report metadata.
 - [ ] Durable shift history before multi-replica hosted deployment.
-- [ ] Rewrite `pricing.html` to the offer ladder here (Pilot → Industriale →
+- [x] Rewrite `pricing.html` to the offer ladder here (Pilot → Industriale →
       Enterprise), not the SaaS tiers; route it with `/` and `/about`.
 - [ ] Invoice/checkout process outside the engine first; automate only after
       three paying customers establish the pricing and tax workflow.
