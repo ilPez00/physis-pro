@@ -4236,6 +4236,17 @@ async fn search_and_atlas_pages_are_served_self_contained() {
     let (status, js) = send_text(&router, get("/organic.js", "u")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(js.contains("window.Organic"), "renderer exports its entry point");
+
+    // Pinning lives in the shared shell, so a page written later gets it for
+    // free — and both surfaces that can name a query actually offer it. A
+    // notebook nobody can add to from where they work is a notebook nobody
+    // keeps.
+    let (_, shell) = send_text(&router, get("/ui-shell.js", "u")).await;
+    assert!(shell.contains("function addToNotebook("), "the shell exposes pinning");
+    let (_, search) = send_text(&router, get("/search", "u")).await;
+    assert!(search.contains("addToNotebook('search.content'"), "Search can pin its query");
+    let (_, atlas) = send_text(&router, get("/atlas", "u")).await;
+    assert!(atlas.contains("addToNotebook("), "Atlas can pin an entity");
 }
 
 /// Ontology studio write path (PLAN 12.4). A pack is data, so the studio must
@@ -4748,4 +4759,118 @@ async fn notebooks_are_validated_stored_per_tenant_and_never_hold_markup() {
     assert_eq!(status, StatusCode::OK, "{gone}");
     let (status, _) = send(&router, delete("/api/v1/notebooks/ops", "ops")).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "deleting twice is a 404");
+}
+
+/// Monitor mode (PLAN Phase 14, M1–M2): a phone syncs a morning in one call and
+/// the engine decides what it meant. The device perceives; the machines mean.
+#[tokio::test]
+async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
+    let (router, _dir, _env) = app().await;
+
+    let batch = json!({
+        "device": "pixel-8",
+        "samples": [
+            // A workout: 6000 steps in 45 minutes is well past a stroll.
+            {"kind": "steps", "at": "2026-08-30T07:00:00Z", "count": 6000, "minutes": 45},
+            // A stroll: recorded as a rhythm candidate, not as a session.
+            {"kind": "steps", "at": "2026-08-30T13:00:00Z", "count": 800, "minutes": 60},
+            // Two fixes at the same place, so topos has something to cluster.
+            {"kind": "location", "at": "2026-08-30T07:05:00Z", "lat": 45.4642, "lng": 9.19,
+             "accuracy_m": 12.0, "label": "gym"},
+            {"kind": "location", "at": "2026-08-30T07:40:00Z", "lat": 45.4643, "lng": 9.1901,
+             "accuracy_m": 20.0, "label": "gym"},
+            // A fix too vague to be a place at all.
+            {"kind": "location", "at": "2026-08-30T09:00:00Z", "lat": 45.9, "lng": 9.9,
+             "accuracy_m": 900.0},
+            // A lesson: how long and how many voices — never what was said.
+            {"kind": "audio", "at": "2026-08-30T14:00:00Z", "minutes": 50, "voices": 3},
+            {"kind": "reading", "at": "2026-08-30T22:00:00Z", "metric": "battery",
+             "value": 18.0, "baseline": 80.0}
+        ]
+    });
+
+    let (status, r) = send(&router, post("/api/v1/monitor/ingest", "phone-owner", batch)).await;
+    assert_eq!(status, StatusCode::OK, "{r}");
+    assert_eq!(r["device"], "pixel-8");
+
+    // What it understood, reported as counts.
+    let u = &r["understood"];
+    assert_eq!(u["sessions"], 1, "only the burst is a session: {r}");
+    assert_eq!(u["waypoints"], 2, "the vague fix was dropped: {r}");
+    assert!(u["events"].as_u64().unwrap() >= 3, "{r}");
+
+    // A dropped sample is said out loud, not silently discarded.
+    let skipped = u["skipped"].as_array().unwrap();
+    assert_eq!(skipped.len(), 1, "{r}");
+    assert!(skipped[0].as_str().unwrap().contains("900m"), "{r}");
+
+    // It reached the reducers, and what they registered is in the graph.
+    assert!(r["registered"].as_u64().unwrap() >= 1, "{r}");
+    assert!(r["machines"]["chronos"].is_number(), "{r}");
+    assert!(r["persist_error"].is_null(), "{r}");
+
+    let (_, nodes) = send(&router, get("/api/v1/coherence/nodes/all", "phone-owner")).await;
+    let labels: Vec<String> = nodes["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["label"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(
+        labels.iter().any(|l| l.contains("workout")),
+        "the workout it inferred is in the graph: {labels:?}"
+    );
+    // The conversation is an event with a duration and a voice count. What was
+    // said never entered the system — there is nowhere in the wire format for
+    // it to live.
+    assert!(
+        labels.iter().any(|l| l.contains("conversation")),
+        "{labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|l| l.contains("transcript")),
+        "no transcript may ever appear: {labels:?}"
+    );
+
+    // Why these nodes exist: a device reported them.
+    let (_, causes) = send(
+        &router,
+        post("/api/v1/files/query", "phone-owner", json!({"cause": "monitor"})),
+    )
+    .await;
+    let matches = causes["matches"].as_array().unwrap();
+    assert!(
+        matches.iter().any(|m| m["object"] == "device:pixel-8"),
+        "the sync is accounted for: {causes}"
+    );
+
+    // A device syncs into its owner's graph, nobody else's.
+    let (_, other) = send(&router, get("/api/v1/coherence/nodes/all", "someone-else")).await;
+    assert_eq!(other["results"].as_array().unwrap().len(), 0, "{other}");
+
+    // A batch that translates to nothing says so rather than answering 200 and
+    // moving on: a collector syncing every ten minutes to no effect is
+    // misconfigured, not quiet.
+    let (status, quiet) = send(
+        &router,
+        post(
+            "/api/v1/monitor/ingest",
+            "phone-owner",
+            json!({"device": "pixel-8", "samples": [
+                {"kind": "steps", "at": "2026-08-30T03:00:00Z", "count": 0, "minutes": 60}
+            ]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(quiet["registered"], 0, "{quiet}");
+    assert!(quiet["note"].as_str().unwrap().contains("collector"), "{quiet}");
+
+    // An unnamed device is refused: two phones are two witnesses.
+    let (status, _) = send(
+        &router,
+        post("/api/v1/monitor/ingest", "phone-owner", json!({"device": "", "samples": []})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }

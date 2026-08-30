@@ -361,6 +361,58 @@ function initAskBar() {
   });
 }
 
+// ── Pin to notebook ───────────────────────────────────────────────
+// Turn whatever the user is looking at into a standing panel.
+//
+// This lives in the shell rather than on each page because the interesting
+// direction is the one nobody plans for: a query someone ran once, kept, and
+// now sees every morning. Any page that can name a widget and its params can
+// offer it, including pages not written yet.
+//
+// It sends the *same* document shape the notebook editor sends, so the server
+// validates a pinned cell exactly as it validates a hand-built one — there is
+// no second, laxer path into a notebook.
+async function addToNotebook(widget, params, describe) {
+  try {
+    const list = await getJSON('/api/v1/notebooks');
+    const ids = (list.notebooks || []).map(n => n.id);
+    if (!ids.includes('default')) ids.unshift('default');
+    const target = ids.length === 1
+      ? ids[0]
+      : prompt('Add to which notebook?\n\n' + ids.join(', '), ids[0]);
+    if (!target) return;
+
+    // Read-modify-write the whole notebook: the save endpoint replaces the
+    // document, so appending client-side is the honest way to add one cell
+    // without inventing a partial-update path that could diverge from it.
+    const current = await getJSON('/api/v1/notebooks/' + encodeURIComponent(target.trim()));
+    const doc = current.notebook;
+    const registry = await getJSON('/api/v1/notebooks/registry');
+    const def = (registry.widgets || []).find(w => w.id === widget);
+    doc.cells.push({
+      widget,
+      span: def ? def.default_span : 6,
+      height: 'm',
+      params: params || {},
+    });
+    await postJSON('/api/v1/notebooks/' + encodeURIComponent(doc.id), doc);
+    toast((describe || 'panel') + ' pinned to "' + doc.id + '" — open Notebook to see it');
+  } catch (e) {
+    // The server returns every validation problem at once; surface the first
+    // rather than a bare status, so "it did not pin" says why.
+    let msg = String(e);
+    const m = msg.match(/\{[\s\S]*\}$/);
+    if (m) {
+      try {
+        const j = JSON.parse(m[0]);
+        if (j.errors && j.errors.length) msg = j.errors[0];
+        else if (j.error) msg = j.error;
+      } catch (_) {}
+    }
+    toast('could not pin: ' + msg, true);
+  }
+}
+
 // ── Keyboard shortcuts ────────────────────────────────────────────
 function initShortcuts(bindings) {
   document.addEventListener('keydown', e => {
@@ -401,7 +453,7 @@ function initShortcuts(bindings) {
 Object.assign(window, {
   $, S, apiUrl, esc, apiError, toast, setStatus, typing, getJSON, postJSON, hdr, live, save,
   syncConnect, loadHealth, initWelcome, initHelp, initCoach, initShortcuts,
-  initProductNav, initAskBar,
+  initProductNav, initAskBar, addToNotebook,
 });
 
 function mountShellChrome() { initProductNav(); initAskBar(); }
