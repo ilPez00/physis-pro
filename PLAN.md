@@ -229,6 +229,16 @@ anomaly detection to corrective action.
 | 8b.3 | `POST /api/v1/machines/:name/reduce` | ✅ Done | Tenant-scoped (a machine writes into the caller's graph, never a shared one), persists each new node through sled and **reports** the persisted count and any persist error rather than swallowing it — a reduce that looked like it worked and vanished on restart is the worst of both. Unknown machine → 404, stateless machine → 400 naming the ones that do write. `GET /api/v1/machines` now carries `writes` per machine so a client need not discover it from a 400. e2e covers registration, holarchy bridging via recall, dedup on repeat, tenant isolation, both refusals and the registry flag |
 | 8b.4 | `physis-pro machine <name> --reduce` | ✅ Done | Same dispatcher, serverless: loads the persisted `_default` graph, reduces, writes back. The payload is parsed before app init because stdin can only be read once. Verified live: first run registers and persists, second reports "nothing new" with the dedup reason, stateless machines refuse with the same message as HTTP |
 
+### Phase 10v — Space·Time·Cause verified end to end (2026-08-30)
+
+> The second open thread from the plan index. D1–D6 each had their own unit or
+> handler test; nothing walked the chain a customer actually walks.
+
+| # | Deliverable | Status | Notes |
+|---|-------------|--------|-------|
+| 10v.1 | End-to-end walk over a real scan | ✅ Done | One e2e drives scan → `/api/v1/fs/graph` (every file carries `place`, a 7-char `period` bucket, an fs-derived `modified` and `mechanism: generated`) → the ledger (`cause: generated` with rollups) → time facets (this month hits, `1999-01` misses) → goal → `/files/serve` → `/files/lineage` (chain non-empty, purpose present, and `serves` **absent from the chain** — a final cause is not a production step) → tenant isolation. Passed unmodified: the HTTP half of D1–D6 works as documented |
+| 10v.2 | CLI `scan` recorded no cause | ✅ Done | The walk's server-less half did **not** work. `POST /api/v1/scan` recorded `generated(scan)`; `physis-pro scan` recorded nothing, so on an air-gapped install `physis-pro where` answered *"the causal ledger is empty — run a scan, watch a directory, or import a vault first"* to a user who had just run a scan — the one instruction the message gives could never work. Now both paths write the same event, keyed on the **canonical** path so `scan .` and `scan /abs/path` are one history rather than two. Extracted as a free `record_scan_cause(db, dir)` so it is testable without building a whole `PhysisApp`; unit test covers the event shape, the canonical object and that a second scan is a second producing act |
+
 ### Phase 13 — `/notebook`: user-composed dashboards (proposed)
 
 > Full design: `docs/plans/2026-08-29-notebook-dashboard-editor.md`. **Not
@@ -309,7 +319,7 @@ reconciled against the live code (verified 2026-08-28).
 |---------------|------|--------|-------|
 | `PLAN.md` (this file) | Master roadmap | Living | Phase tables 1–7 + 10/11; authoritative status for shipped work |
 | `docs/plans/2026-08-29-notebook-dashboard-editor.md` | Phase 13 — `/notebook` composable dashboards | 📝 Proposed | Design only, nothing built; registry-as-references, per-tenant persistence, pinned queries |
-| `docs/plans/2026-08-26-space-time-cause-datawork.md` | Phase 10 — Space·Time·Cause | ✅ Shipped | D1–D6 (+ D7 mail) built; see `AGENTS.md` Space·Time·Cause section. End-to-end verify on next pass |
+| `docs/plans/2026-08-26-space-time-cause-datawork.md` | Phase 10 — Space·Time·Cause | ✅ Shipped + verified | D1–D6 (+ D7 mail) built; see `AGENTS.md` Space·Time·Cause section. End-to-end verified 2026-08-30 (Phase 10v) — HTTP chain passed as documented, CLI `scan` was found recording no cause and fixed |
 | `docs/plans/2026-07-15-phase8-engine-readback.md` | Phase 8 — engine-side reduce | ✅ Done | Tasks 1–6 done (2026-07-16); the residual boundary wiring shipped 2026-08-30 as Phase 8b — `POST /api/v1/machines/:name/reduce` + `machine --reduce`, and the bridge-the-id fix that made the loop actually close. `cargo test --lib machines::` = 56 pass |
 | `docs/plans/2026-07-16-ecosystem-next.md` | Ecosystem rescue + Praxis/Agora | ✅ Done (2026-07-16) | A–E complete; Python `Machine` base verified pure-perception; Praxis→physis recall wired; Agora ToS pivot documented |
 | `docs/archive/DEVELOPMENT_PLAN.md` | Semiotic editing / NodeView / pins | 📚 Archive | historical |
@@ -324,9 +334,10 @@ reconciled against the live code (verified 2026-08-28).
   defect that had made the loop a no-op even in Rust: all three reducers
   bridged the node's *label* instead of its id, so nothing they registered ever
   entered the holarchy.
-- **Space·Time·Cause verification** — D1–D6 built per `AGENTS.md`; an
-  end-to-end check (importer addresses + `where` + purpose links) is the
-  remaining confidence step.
+- ~~**Space·Time·Cause verification**~~ — **closed 2026-08-30** (Phase 10v
+  above). The HTTP chain passed unchanged; the check earned its keep on the
+  CLI side, where `scan` had never recorded a causal event, leaving `where`
+  permanently empty on a server-less install.
 
 ---
 

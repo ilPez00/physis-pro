@@ -210,6 +210,14 @@ impl PhysisApp {
         self.goals = goals;
         // trie lives in mapper; dreams uses vector operations directly
 
+        // Causal record (Phase 10 D4), the same one `POST /api/v1/scan` writes.
+        // Without it a server-less install could never populate the ledger:
+        // `physis-pro where` answered "the causal ledger is empty — run a scan"
+        // to a user who had just run one, because only the HTTP path recorded.
+        if let Some(db) = self.db() {
+            record_scan_cause(&db, dir);
+        }
+
         match format {
             "json" => output::format_json_graph(&self.mapper.trie),
             "mermaid" => output::format_mermaid_mindmap(&self.mapper.trie, "Physis Scan"),
@@ -1376,7 +1384,10 @@ No other text."#.into(),
             return out;
         }
         for s in &visible {
-            out.push_str(&format!("\n## {}  ·  {} nodes  ·  cohesion {:.2}\n", s.title, s.size, s.cohesion));
+            out.push_str(&format!(
+                "\n## {}  ·  {} nodes  ·  cohesion {:.2}\n",
+                s.title, s.size, s.cohesion
+            ));
             if !s.keywords.is_empty() {
                 out.push_str(&format!("  keywords: {}\n", s.keywords.join(", ")));
             }
@@ -1397,7 +1408,10 @@ No other text."#.into(),
                 out.push_str(&format!("  {}\n", facets.join(" · ")));
             }
             if s.wins > 0 || s.failures > 0 {
-                out.push_str(&format!("  outcomes: {} positive, {} negative\n", s.wins, s.failures));
+                out.push_str(&format!(
+                    "  outcomes: {} positive, {} negative\n",
+                    s.wins, s.failures
+                ));
             }
             out.push_str(&format!("  {}\n", s.digest));
             if !s.representatives.is_empty() {
@@ -1618,7 +1632,9 @@ No other text."#.into(),
         let index = crate::content::ContentIndex::build(&root, &docs, &addresses, embeddings);
 
         let opts = crate::content::SearchOptions {
-            mode: mode.map(crate::content::SearchMode::parse).unwrap_or_default(),
+            mode: mode
+                .map(crate::content::SearchMode::parse)
+                .unwrap_or_default(),
             top_k: top_k.clamp(1, 200),
             place: place.map(str::to_string),
             period: period.map(str::to_string),
@@ -1681,6 +1697,38 @@ No other text."#.into(),
 /// Parse an optional facet filter value against the known spellings, matching
 /// case-insensitively. Unknown/absent → `None` (no filter). Known → the
 /// canonical spelling, so "operate" and "OPERATE" both filter correctly.
+/// Append a `generated(scan)` event for `dir` to the persisted `_default`
+/// ledger, so the CLI and the web server write the same history.
+///
+/// A free function rather than a method so it is testable without building a
+/// whole `PhysisApp` (ontology + embedder + env).
+///
+/// Failures are reported on stderr and never abort the scan: a scan that
+/// worked and failed to note *why* is still a scan, but it must not be silent
+/// — an empty `where` with no explanation is exactly the symptom that hid the
+/// missing record in the first place.
+pub(crate) fn record_scan_cause(db: &sled::Db, dir: &std::path::Path) {
+    let mut ledger = match crate::ledger::CausalLedger::load(db, "_default") {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("[physis] scan not recorded in the causal ledger: {e}");
+            return;
+        }
+    };
+    // Canonical, like the HTTP path: the ledger keys artifacts by the resolved
+    // path, so a relative `physis-pro scan .` and an absolute one must record
+    // the same object rather than two histories for one directory.
+    let object = dir
+        .canonicalize()
+        .unwrap_or_else(|_| dir.to_path_buf())
+        .display()
+        .to_string();
+    ledger.record(crate::address::Mechanism::Generated, "scan", object, None);
+    if let Err(e) = ledger.save(db, "_default") {
+        eprintln!("[physis] scan not recorded in the causal ledger: {e}");
+    }
+}
+
 /// Sort `(label, count)` pairs by count desc, then label — the rollup order
 /// for `where` output.
 fn sorted_counts(map: &HashMap<String, usize>) -> Vec<(String, usize)> {
@@ -1902,6 +1950,36 @@ mod tests {
             }
             _ => panic!("expected Scan command"),
         }
+    }
+
+    #[test]
+    fn a_cli_scan_records_why_the_files_exist() {
+        // The web `/scan` recorded `generated(scan)`; the CLI recorded nothing,
+        // so `physis-pro where` on a server-less install answered "the causal
+        // ledger is empty — run a scan" to a user who had just run one.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let db = sled::open(dir.path().join("state.sled")).expect("sled");
+        let scanned = dir.path().join("corpus");
+        std::fs::create_dir_all(&scanned).expect("mkdir");
+
+        record_scan_cause(&db, &scanned);
+
+        let ledger = crate::ledger::CausalLedger::load(&db, "_default").expect("reload");
+        let events = ledger.events();
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_eq!(events[0].mechanism, crate::address::Mechanism::Generated);
+        assert_eq!(events[0].actor, "scan");
+        assert_eq!(
+            events[0].object,
+            scanned.canonicalize().unwrap().display().to_string(),
+            "the object is the canonical path, so one directory is one history"
+        );
+
+        // Appending is idempotent in shape, not in count: a second scan is a
+        // second producing act and the history says so.
+        record_scan_cause(&db, &scanned);
+        let ledger = crate::ledger::CausalLedger::load(&db, "_default").expect("reload");
+        assert_eq!(ledger.events().len(), 2);
     }
 
     #[test]
