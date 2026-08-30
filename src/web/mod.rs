@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use tracing::{info_span, Instrument};
 
 use axum::{
-    extract::{ConnectInfo, Path, Request, State},
+    extract::{ConnectInfo, Path, Query, Request, State},
     http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
@@ -2816,6 +2816,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/quality", get(coherence::quality_handler))
         .route(
+            "/api/v1/quality/trace",
+            get(trace_handler),
+        )
+        .route(
             "/api/v1/coherence/register",
             post(coherence::coherence_register_handler),
         )
@@ -3725,4 +3729,94 @@ pub struct AxesDemoteRequest {
 #[derive(Deserialize)]
 pub struct AxesLineageQuery {
     id: String,
+}
+
+#[derive(Deserialize)]
+pub struct TraceFailureRequest {
+    failure_id: String,
+}
+
+async fn trace_handler(
+    State(state): State<SharedState>,
+    Query(failure_id): Query<String>,
+) -> Result<Json<TraceResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+    let failure = quality
+        .failures
+        .iter()
+        .find(|f| f.id == failure_id)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: format!("Quality failure '{failure_id}' not found"),
+                }),
+            )
+        })?;
+    let trace = Trace {
+        failure: TraceFailure {
+            id: failure.id.clone(),
+            timestamp: failure.timestamp.to_rfc3339(),
+            top_cell: failure.top_cell.clone(),
+            top_score: failure.top_score,
+            severity: failure.severity,
+            feedback: feedback_truncate(&failure.feedback),
+        },
+        ledger_events: Vec::new(),
+        watch_events: Vec::new(),
+        window_secs: 3600,
+    };
+    Ok(Json(TraceResponse { trace }))
+}
+
+/// Truncate feedback text for the trace response.
+fn feedback_truncate(s: &str) -> String {
+    if s.chars().count() > 120 {
+        format!("{}…", &s.chars().take(120).collect::<String>())
+    } else {
+        s.to_string()
+    }
+}
+
+/// Display a cell key as `DOMAIN/MODE` (NUL → slash; QA 8.5 parity).
+fn display_cell(key: &str) -> String {
+    key.replace('\u{0000}', "/")
+}
+
+/// Trace of a quality failure — upstream dataflow.
+#[derive(serde::Serialize)]
+struct Trace {
+    failure: TraceFailure,
+    ledger_events: Vec<TraceEvent>,
+    watch_events: Vec<TraceWatchEvent>,
+    window_secs: i64,
+}
+
+#[derive(serde::Serialize)]
+struct TraceFailure {
+    id: String,
+    timestamp: String,
+    top_cell: String,
+    top_score: f32,
+    severity: f32,
+    feedback: String,
+}
+
+#[derive(serde::Serialize)]
+enum TraceEvent {
+    Ledger { seq: u64, at: String, mechanism: String, actor: String, object: String },
+    // Watch diff events can be added when watch state is globally indexed.
+}
+
+#[derive(serde::Serialize)]
+struct TraceWatchEvent {
+    kind: String,
+    path: String,
+    summary: String,
+}
+
+/// Response wrapper for the trace endpoint.
+#[derive(serde::Serialize)]
+struct TraceResponse {
+    trace: Trace,
 }

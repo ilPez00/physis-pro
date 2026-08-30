@@ -87,6 +87,8 @@ function hdr() {
   const h = {};
   const t = $('token');
   if (t && t.value.trim()) h['Authorization'] = 'Bearer ' + t.value.trim();
+  const u = $('user');
+  if (u && u.value.trim()) h['X-Physis-User'] = u.value.trim();
   return h;
 }
 
@@ -96,7 +98,7 @@ function live() {
 }
 
 function save() {
-  ['base', 'token'].forEach(k => {
+  ['base', 'token', 'user'].forEach(k => {
     const el = $(k);
     if (el) localStorage.setItem('physis_' + k, el.value);
   });
@@ -215,6 +217,13 @@ function initProductNav() {
     '<a class="home" href="/pulse" title="Physis — coherence dashboard" ' +
       (here === '/pulse' ? 'aria-current="page"' : '') + '>◈</a>' +
     '<span class="nav-sep" aria-hidden="true"></span>' +
+    // Show active user/tenant indicator
+    (function () {
+      const uid = localStorage.getItem('physis_user');
+      return uid
+        ? '<span class="nav-user muted" title="Tenant: ' + esc(uid) + '" onclick="this.select()">' + esc(uid.substring(0, 8) + '…') + '</span>'
+        : '';
+    }()) +
     PRODUCT_PAGES.filter(pg => pg.href !== '/pulse').map(pg => {
       const current = here === pg.href;
       return '<a href="' + pg.href + '"' +
@@ -245,7 +254,7 @@ function initAskBar() {
   wrap.id = 'askBar';
   wrap.innerHTML =
     '<input id="askInput" type="search" autocomplete="off" spellcheck="false" ' +
-      'placeholder="Ask the graph…  (press /)" aria-label="Search the Physis graph">' +
+      'placeholder="Ask the graph… (press /)" aria-label="Search the Physis graph">' +
     '<button id="askAgent" type="button" title="Open this question in the Agent">Agent ↗</button>';
   header.appendChild(wrap);
 
