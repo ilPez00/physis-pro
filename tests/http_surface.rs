@@ -5029,3 +5029,52 @@ async fn events_can_register_graph_nodes_when_requested() {
     assert_eq!(ids.len(), 1);
     assert!(!ids[0].as_str().unwrap().is_empty());
 }
+
+// ── Phase 16 I5: typed CoherenceNode (kind + properties) ────────────────────
+#[tokio::test]
+async fn register_stamps_kind_and_properties_into_the_node() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({
+                "input": "press-07 cycle time drift",
+                "kind": "machine",
+                "properties": {"oee": 0.82, "down_min": 14, "cell": "FABRICATE/WORK"},
+                "coherence_score": -0.5,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+
+    // The node comes back with the typed axis through the standard projection.
+    let (status, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let nodes = body["results"].as_array().expect("results");
+    let node = nodes.iter().find(|n| n["id"] == node_id).expect("registered node");
+    assert_eq!(node["kind"], "machine");
+    assert_eq!(node["properties"]["oee"], 0.82);
+    assert_eq!(node["properties"]["down_min"], 14);
+    assert_eq!(node["rating"], "Failure");
+
+    // Re-registering the same label (dedupe) with a new kind updates it.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "press-07 cycle time drift", "kind": "sensor_reading"}),
+        ),
+    )
+    .await;
+    assert_eq!(body["node_id"], node_id);
+    let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    let nodes = body["results"].as_array().unwrap();
+    let node = nodes.iter().find(|n| n["id"] == node_id).unwrap();
+    assert_eq!(node["kind"], "sensor_reading");
+}

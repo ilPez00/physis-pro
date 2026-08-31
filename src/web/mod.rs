@@ -561,6 +561,12 @@ pub struct CoherenceRegisterRequest {
     /// accepted and dropped); aion sends it too. It is now applied.
     #[serde(default)]
     coherence_score: Option<f32>,
+    /// Typed-ontology object kind (Phase 16 I5), e.g. "machine".
+    #[serde(default)]
+    kind: Option<String>,
+    /// Typed-object properties (Phase 16 I5).
+    #[serde(default)]
+    properties: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
