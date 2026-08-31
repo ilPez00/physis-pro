@@ -5078,3 +5078,73 @@ async fn register_stamps_kind_and_properties_into_the_node() {
     let node = nodes.iter().find(|n| n["id"] == node_id).unwrap();
     assert_eq!(node["kind"], "sensor_reading");
 }
+
+// ── Phase 16 I6: named typed links + inverse traversal ──────────────────────
+#[tokio::test]
+async fn typed_edges_expose_outgoing_and_inverse_traversal() {
+    let (router, _dir, _env) = app().await;
+
+    // Two nodes: a work order and the failure it causes.
+    let (_, b1) = send(
+        &router,
+        post("/api/v1/coherence/register", "tenant-a", json!({"input": "work-order-41"})),
+    )
+    .await;
+    let (_, b2) = send(
+        &router,
+        post("/api/v1/coherence/register", "tenant-a", json!({"input": "press seized"})),
+    )
+    .await;
+    let wo = b1["node_id"].as_str().unwrap().to_string();
+    let failure = b2["node_id"].as_str().unwrap().to_string();
+
+    // A named "Causes" link: work-order-41 → press seized.
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/coherence/add-edge",
+            "tenant-a",
+            json!({
+                "source": wo,
+                "relation": "Causes",
+                "target": failure,
+                "confidence": 0.9,
+                "weight": 0.7
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Forward traversal from the source.
+    let (status, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-a"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let out = body["outgoing"].as_array().expect("outgoing");
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0]["relation"], "Causes");
+    assert_eq!(out[0]["target_id"], failure);
+    assert_eq!(out[0]["confidence"], 0.9);
+
+    // Inverse traversal: the target sees the same link as incoming.
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={failure}", failure = failure), "tenant-a"),
+    )
+    .await;
+    let inc = body["incoming"].as_array().expect("incoming");
+    assert_eq!(inc.len(), 1);
+    assert_eq!(inc[0]["relation"], "Causes");
+    assert_eq!(inc[0]["source_id"], wo);
+
+    // Tenant isolation: the other tenant sees no edges for this node.
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-b"),
+    )
+    .await;
+    assert_eq!(body["outgoing"].as_array().unwrap().len(), 0);
+}

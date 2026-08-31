@@ -2855,6 +2855,15 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/coherence/register",
             post(coherence::coherence_register_handler),
         )
+        // Named typed links + inverse traversal (Phase 16 I6).
+        .route(
+            "/api/v1/coherence/edges",
+            get(coherence::coherence_edges_handler),
+        )
+        .route(
+            "/api/v1/coherence/add-edge",
+            post(coherence::coherence_add_edge_handler),
+        )
         .route(
             "/api/v1/coherence/edit",
             post(coherence::coherence_edit_handler),
