@@ -32,6 +32,21 @@ pub struct ReportMetadata {
     /// Observed window of the underlying data (RFC 3339), when dated records exist.
     #[serde(default)]
     pub span: Option<ReportSpan>,
+    /// Evidence-grade identity (Phase 15.4): the licensee's legal name, from
+    /// the licence — a report's numbers are only evidence if it says *whose*
+    /// plant they came from. "unlicensed" when no licence is loaded.
+    #[serde(default)]
+    pub customer: String,
+    /// Plant/site name, from `PHYSIS_PLANT` (free text: line, building, plant).
+    #[serde(default)]
+    pub plant: String,
+    /// Host that produced the report, from `PHYSIS_HOST` or the machine
+    /// hostname — lets two hosts' reports never be confused.
+    #[serde(default)]
+    pub host: String,
+    /// Running build version, so "which binary made this" is answerable.
+    #[serde(default)]
+    pub version: String,
 }
 
 /// Inclusive data window behind a report.
@@ -41,15 +56,54 @@ pub struct ReportSpan {
     pub to: DateTime<Utc>,
 }
 
+/// Best-effort hostname: `PHYSIS_HOST` wins, else `/etc/hostname` on unix, else
+/// the fallback. Never fails — a report that cannot name its host still names
+/// its `host` field.
+fn hostname_or(fallback: &str) -> String {
+    #[cfg(unix)]
+    {
+        if let Ok(name) = std::fs::read_to_string("/etc/hostname") {
+            let name = name.trim().to_string();
+            if !name.is_empty() {
+                return name;
+            }
+        }
+    }
+    fallback.to_string()
+}
+
 impl ReportMetadata {
-    pub fn new(source: impl Into<String>) -> Self {
+    /// Populate the evidence-grade identity (Phase 15.4): customer from the
+    /// licence, plant/host from env, version from the build. Every report gets
+    /// it for free because every report goes through `new`.
+    pub fn identity() -> Self {
         Self {
+            customer: crate::license::load()
+                .map(|l| l.org)
+                .unwrap_or_else(|_| "unlicensed".to_string()),
+            plant: std::env::var("PHYSIS_PLANT")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "unknown".to_string()),
+            host: std::env::var("PHYSIS_HOST")
+                .ok()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| hostname_or("localhost")),
+            version: env!("CARGO_PKG_VERSION").to_string(),
             generated_at: Utc::now(),
-            source: source.into(),
+            source: String::new(),
             shift_count: 0,
             machine_count: 0,
             span: None,
         }
+    }
+
+    pub fn new(source: impl Into<String>) -> Self {
+        let mut meta = Self::identity();
+        meta.source = source.into();
+        meta
     }
 
     /// One-line human summary (Italian), e.g.
@@ -72,6 +126,16 @@ impl ReportMetadata {
         }
         parts.push(format!("origine: {}", self.source));
         parts.join(" · ")
+    }
+
+    /// Evidence-grade identity line (Phase 15.4): who, where, which host,
+    /// which build — "unlicensed · unknown · hostname · 0.1.19". Never blank,
+    /// because a printed report has to say whose plant it came from.
+    pub fn identity_it(&self) -> String {
+        format!(
+            "{} · impianto {} · host {} · build {}",
+            self.customer, self.plant, self.host, self.version
+        )
     }
 }
 
@@ -132,7 +196,8 @@ pub fn render_shift_report_it(input: &ShiftReportInput) -> String {
     let title = input.shift_label.as_deref().unwrap_or("Rapporto di turno");
     md.push_str(&format!("# {title}\n\n"));
     if let Some(meta) = &input.metadata {
-        md.push_str(&format!("*{}*\n\n", esc(&meta.summarize_it())));
+        md.push_str(&format!("*{}*\n", esc(&meta.summarize_it())));
+        md.push_str(&format!("*{}*\n\n", esc(&meta.identity_it())));
     }
 
     // ── Plant rollup (when more than one machine) ───────────────────────────
@@ -273,8 +338,9 @@ pub fn render_shift_report_html(input: &ShiftReportInput) -> String {
     let mut b = String::new();
     if let Some(meta) = &input.metadata {
         b.push_str(&format!(
-            "<p class=\"meta\">{}</p>",
-            esc(&meta.summarize_it())
+            "<p class=\"meta\">{}<br>{}</p>",
+            esc(&meta.summarize_it()),
+            esc(&meta.identity_it())
         ));
     }
     // The metadata line needs a style hook alongside the existing CSS.
@@ -512,6 +578,7 @@ mod tests {
                 from: Utc::now(),
                 to: Utc::now(),
             }),
+            ..ReportMetadata::identity()
         };
         let summary = meta.summarize_it();
         assert!(summary.contains("42 turni su 3 macchine"), "{summary}");
@@ -534,6 +601,29 @@ mod tests {
             "html provenance block present"
         );
         assert!(html.contains("42 turni"));
+    }
+
+    #[test]
+    fn identity_is_evidence_grade_and_never_blank() {
+        // Every report carries customer/plant/host/version (Phase 15.4), and
+        // without a licence or env the fields still resolve to honest values.
+        let meta = ReportMetadata::new("shift-history");
+        assert_eq!(meta.source, "shift-history");
+        assert_eq!(meta.customer, "unlicensed");
+        assert!(!meta.plant.is_empty(), "plant never blank");
+        assert!(!meta.host.is_empty(), "host never blank");
+        assert_eq!(meta.version, env!("CARGO_PKG_VERSION"));
+
+        // The markdown renderer surfaces the identity so a printed report says
+        // whose plant it came from.
+        let input = ShiftReportInput {
+            oee: vec![shift_report()],
+            metadata: Some(meta),
+            ..Default::default()
+        };
+        let md = render_shift_report_it(&input);
+        assert!(md.contains("unlicensed"), "customer in report");
+        assert!(md.contains(env!("CARGO_PKG_VERSION")), "version in report");
     }
 
     #[test]
