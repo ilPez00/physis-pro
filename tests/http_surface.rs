@@ -5449,7 +5449,7 @@ async fn shift_report_metadata_carries_evidence_grade_identity() {
         &router,
         Request::builder()
             .method("GET")
-            .uri("/api/v1/report/shift?format=md")
+            .uri("/api/v1/shifts/report?format=md")
             .header("x-physis-user", "tenant-a")
             .body(Body::empty())
             .unwrap(),
@@ -5631,4 +5631,152 @@ async fn machine_event_inherits_anomaly_detection() {
         body["anomalies"].as_array().map(|a| a.is_empty()).unwrap_or(true),
         "cool reading not flagged"
     );
+}
+
+// ── Phase 18 T1: the whole customer journey in one test ─────────────────────
+// scan → shift report → quality/anomaly → dream → where → lineage, with
+// tenant isolation throughout. Every leg is a real endpoint the same way a
+// customer would drive them; the random-projection embedder keeps it offline.
+#[tokio::test]
+async fn funnel_scan_report_quality_dream_where_lineage_is_tenant_isolated() {
+    let (router, dir, _env) = app().await;
+    let root = dir.path();
+
+    // 1. SCAN — a document in the scan root becomes a labeled graph node and a
+    //    causal-ledger "generated" event.
+    std::fs::write(root.join("shift_note.txt"), "CNC press seized bearing this shift").unwrap();
+    let (status, body) = send(
+        &router,
+        post("/api/v1/scan", "tenant-a", json!({"dir": root})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "scan: {body}");
+    assert!(
+        body["new"].as_u64().unwrap_or(0) >= 1,
+        "scan found the new file: {body}"
+    );
+
+    // 2. SHIFT REPORT — imported shifts render an Italian OEE report with the
+    //    evidence-grade identity line.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/shifts/import",
+            "tenant-a",
+            json!({"shifts": [{
+                "recorded_at": "2026-08-01T06:00:00Z",
+                "machine_id": "press-01",
+                "shift_length_secs": 28800,
+                "ideal_cycle_time_secs": 60,
+                "stops": [],
+                "total_count": 120,
+                "good_count": 117
+            }]}),
+        ),
+    )
+    .await;
+    assert!(body["accepted"].as_u64().unwrap_or(0) >= 1, "shift imported: {body}");
+    let (_, md) = send_text(
+        &router,
+        Request::builder()
+            .method("GET")
+            .uri("/api/v1/shifts/report?format=md")
+            .header("x-physis-user", "tenant-a")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert!(md.contains("OEE"), "shift report renders: {md}");
+    assert!(md.contains("origine:"), "report carries provenance");
+
+    // 3. QUALITY — a hot machine reading against thresholds is caught as an
+    //    anomaly (the quality loop) and sealed in the audit log.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/events",
+            "tenant-a",
+            json!({
+                "events": [{
+                    "event_key": "funnel-hot",
+                    "observed_at": "2026-08-12T08:55:00Z",
+                    "kind": "machine",
+                    "status": "warning",
+                    "subject": "cnc-01",
+                    "provenance": {"connector": "industrial", "source": "machine", "source_id": "cnc-01"},
+                    "properties": {"temperature": "95"},
+                    "evidence": [],
+                    "machine_id": "cnc-01",
+                    "raw": null
+                }],
+                "thresholds": {"temp_max": 90.0}
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(body["anomalies"].as_array().map(|a| a.len()), Some(1));
+
+    // 4. DREAM — a failing typed machine node is replayed with a typed action.
+    send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "pump overheat", "kind": "machine", "coherence_score": -0.8}),
+        ),
+    )
+    .await;
+    let (_, body) = send(&router, post("/api/v1/dream/replay", "tenant-a", json!({}))).await;
+    assert!(
+        body.as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["typed_action"].is_object()),
+        "dream proposes a typed action: {body}"
+    );
+
+    // 5. WHERE — facet query over the causal ledger finds the scan's
+    //    "generated" event.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/files/query", "tenant-a", json!({"cause": "scan"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body["by_mechanism"]["generated"].as_u64().unwrap_or(0) >= 1,
+        "ledger knows the scan generated something: {body}"
+    );
+
+    // 6. LINEAGE — the scanned path's cause trail resolves.
+    let (status, body) = send(
+        &router,
+        get(
+            &format!("/api/v1/files/lineage?path={}", root.to_string_lossy()),
+            "tenant-a",
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["lineage"].is_array() && body["descendants"].is_array());
+    assert!(
+        body["lineage"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["actor"] == "scan"),
+        "lineage shows the scan cause: {body}"
+    );
+
+    // 7. TENANT ISOLATION — tenant-b's ledger, events, and audit are all empty.
+    let (_, body) = send(
+        &router,
+        post("/api/v1/files/query", "tenant-b", json!({"cause": "scan"})),
+    )
+    .await;
+    assert!(body["matches"].as_array().unwrap().is_empty());
+    let (_, body) = send(&router, get("/api/v1/events", "tenant-b")).await;
+    assert!(body.as_array().unwrap().is_empty());
+    let (_, body) = send(&router, get("/api/v1/audit", "tenant-b")).await;
+    assert_eq!(body["count"], 0);
 }
