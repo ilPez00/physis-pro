@@ -1,0 +1,44 @@
+name: Output Quality (scheduled probe)
+
+# Phase 18 T8 — the output-quality probe runs on a SCHEDULED job, not per-push:
+# it needs a real ~400MB model and prints qualitative output (top cells, recall
+# rankings, ask synthesis, ledger facets) that a human reviews. The accuracy
+# floor stays per-push (classification test, `accuracy_floor`); this is the
+# heavier, review-oriented companion. Trigger it on demand with
+# `gh workflow run "Output Quality (scheduled probe)"`.
+
+on:
+  schedule:
+    # Daily 03:00 UTC — keeps the real-model quality signal fresh.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  output-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # Cache the ~400MB model across runs — keyed on the script so a model
+      # change busts the cache (same contract as the accuracy-floor job).
+      - name: cache BGE-base model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: models/bge-base-en-v1.5
+          key: bge-base-en-v1.5-${{ hashFiles('scripts/download_models.sh') }}
+      - name: fetch BGE-base (cache miss only)
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          BD=models/bge-base-en-v1.5
+          for p in onnx/model.onnx tokenizer.json config.json tokenizer_config.json; do
+            mkdir -p "$BD/$(dirname "$p")"
+            echo "fetching $p"
+            curl -fL --retry 5 --retry-delay 5 \
+              "https://huggingface.co/Xenova/bge-base-en-v1.5/resolve/main/$p" \
+              -o "$BD/$p"
+          done
+          ls -la "$BD" "$BD/onnx"
+      - name: output-quality probe (real embedder)
+        run: cargo test --features full --test output_quality -- --ignored --nocapture
