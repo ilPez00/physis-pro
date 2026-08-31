@@ -230,6 +230,7 @@ actually does across the whole product.
 | T9 | **Route-table contract** (P1): CRUD round-trip, validation-all-at-once, match→cell→action, tenant isolation | unit + e2e | 6 unit tests shipped; e2e pending |
 | T10 | **Extract degradation** (P2): schema conformance with a provider; explicit `note` (never 500) without one | unit + e2e | 4 unit tests shipped; e2e pending |
 | T11 | **Trace join** (P5): failure + ledger trail within window; unknown id → 404 | e2e | wired; test pending |
+| T12 | **Event ingestion** (I3/I4): dedupe by key, tenant isolation, timeline-from-store, optional node registration | e2e | shipped (2 tests) |
 
 ### 4.3 CI policy
 

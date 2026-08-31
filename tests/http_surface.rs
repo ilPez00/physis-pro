@@ -4952,3 +4952,80 @@ async fn trace_unknown_failure_is_404_and_known_is_well_shaped() {
     let (status, _) = send(&router, get("/api/v1/trace?failure_id=nope", "tenant-a")).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+// ── Phase 16 I3/I4: single event ingestion path ─────────────────────────────
+fn event_json(key: &str, subject: &str, kind: &str, status: &str) -> Value {
+    json!({
+        "event_key": key,
+        "observed_at": "2026-08-12T08:55:00Z",
+        "kind": kind,
+        "status": status,
+        "subject": subject,
+        "provenance": {"connector": "industrial", "source": "machine", "source_id": subject},
+        "properties": {"temperature": "78.5"},
+        "evidence": [],
+        "machine_id": subject,
+        "raw": null,
+    })
+}
+
+#[tokio::test]
+async fn events_ingest_dedupes_stores_and_isolates_tenants() {
+    let (router, _dir, _env) = app().await;
+
+    // One event, re-posted (idempotent dedupe by event_key), plus a second.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/events",
+            "tenant-a",
+            json!({"events": [
+                event_json("ev-1", "voron-01", "machine", "warning"),
+                event_json("ev-1", "voron-01", "machine", "warning"),
+                event_json("ev-2", "press-07", "machine", "failure"),
+            ]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["accepted"], 2, "two distinct events accepted: {body}");
+    assert_eq!(body["skipped"], 1, "re-post deduped: {body}");
+
+    // Read back: both stored, newest first.
+    let (status, body) = send(&router, get("/api/v1/events", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let events = body.as_array().expect("events array");
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0]["event_key"], "ev-2", "newest first");
+
+    // Timeline renders from the store.
+    let (status, body) = send(&router, get("/api/v1/events/timeline", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["entries"].as_array().map(|a| a.len()), Some(2));
+    assert!(body["counts_by_kind"]["machine"].is_number());
+
+    // Tenant isolation: the other tenant's ring is empty.
+    let (_, body) = send(&router, get("/api/v1/events", "tenant-b")).await;
+    assert_eq!(body.as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn events_can_register_graph_nodes_when_requested() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/events",
+            "tenant-a",
+            json!({"events": [event_json("ev-n1", "cnc-01", "machine", "success")],
+                   "register_nodes": true}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["accepted"], 1);
+    let ids = body["node_ids"].as_array().expect("node_ids");
+    assert_eq!(ids.len(), 1);
+    assert!(!ids[0].as_str().unwrap().is_empty());
+}

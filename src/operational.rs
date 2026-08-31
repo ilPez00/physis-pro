@@ -156,6 +156,21 @@ impl OperationalEvent {
         event
     }
 
+    /// The causal-ledger mechanism this event corresponds to: external
+    /// telemetry and documents are *received* from outside; workflow, system
+    /// and verdict events are *generated* by the engine itself. Feeds the
+    /// why-made chain so provenance survives into lineage and purposes.
+    pub fn ledger_mechanism(&self) -> crate::address::Mechanism {
+        match self.kind {
+            OperationalKind::Machine
+            | OperationalKind::Email
+            | OperationalKind::Document => crate::address::Mechanism::Received,
+            OperationalKind::Workflow
+            | OperationalKind::System
+            | OperationalKind::Verdict => crate::address::Mechanism::Generated,
+        }
+    }
+
     pub fn rekey(&mut self) {
         let mut hasher = Sha256::new();
         hasher.update(self.kind.as_str().as_bytes());
@@ -234,8 +249,7 @@ impl From<&MachineReading> for OperationalEvent {
     }
 }
 
-impl From<&IngestedDoc> for OperationalEvent {
-    fn from(doc: &IngestedDoc) -> Self {
+impl From<&IngestedDoc> for OperationalEvent {    fn from(doc: &IngestedDoc) -> Self {
         let (kind, status) = match doc.kind {
             DocKind::Email => (OperationalKind::Email, OperationalStatus::Info),
             DocKind::VoiceTranscript
@@ -279,6 +293,40 @@ impl From<&IngestedDoc> for OperationalEvent {
         event.raw = serde_json::to_value(doc).unwrap_or(serde_json::Value::Null);
         event.rekey();
         event
+    }
+}
+
+/// Ceiling on stored events per tenant. Events are cheap and lossy by design —
+/// the timeline and ledger are what matter — so the store is a bounded ring,
+/// oldest dropped first, rather than unbounded history.
+pub const MAX_STORED_EVENTS: usize = 10_000;
+
+/// Sled key for one tenant's event ring. Whole-list write, exactly like goals —
+/// the ring is append-mostly and small (≤ `MAX_STORED_EVENTS`), so rewriting
+/// the row on each ingest is correct and simple.
+pub fn events_key(uid: &str) -> String {
+    format!("op_events:{uid}")
+}
+
+pub fn save_events(db: &sled::Db, uid: &str, events: &[OperationalEvent]) -> anyhow::Result<()> {
+    db.insert(events_key(uid), serde_json::to_vec(events)?)?;
+    Ok(())
+}
+
+pub fn load_events(db: &sled::Db, uid: &str) -> Vec<OperationalEvent> {
+    db.get(events_key(uid))
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_slice::<Vec<OperationalEvent>>(&v).ok())
+        .unwrap_or_default()
+}
+
+/// Append an event, dropping the oldest beyond [`MAX_STORED_EVENTS`].
+pub fn push_capped(events: &mut Vec<OperationalEvent>, event: OperationalEvent) {
+    events.push(event);
+    if events.len() > MAX_STORED_EVENTS {
+        let overflow = events.len() - MAX_STORED_EVENTS;
+        events.drain(0..overflow);
     }
 }
 
@@ -345,5 +393,81 @@ mod tests {
             Some("msg-123")
         );
         assert!(!event.event_key.is_empty());
+    }
+
+    #[test]
+    fn push_capped_drops_oldest_beyond_ceiling() {
+        let mut events = Vec::new();
+        for i in 0..(MAX_STORED_EVENTS + 5) {
+            let p = OperationalProvenance::new("industrial", "machine");
+            let mut ev = OperationalEvent::new(
+                OperationalKind::Machine,
+                OperationalStatus::Info,
+                Utc::now(),
+                format!("machine-{i}"),
+                p,
+            );
+            // Unique event_key per iteration so the ring holds exactly the tail.
+            ev.properties.insert("i".into(), i.to_string());
+            ev.rekey();
+            push_capped(&mut events, ev);
+        }
+        assert_eq!(events.len(), MAX_STORED_EVENTS);
+        assert_eq!(
+            events.first().unwrap().properties.get("i").map(String::as_str),
+            Some("5")
+        );
+        assert_eq!(
+            events.last().unwrap().properties.get("i").map(String::as_str),
+            Some((MAX_STORED_EVENTS + 4).to_string()).as_deref()
+        );
+    }
+
+    #[test]
+    fn save_then_load_events_round_trips() {
+        let tag: u64 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.subsec_nanos() as u64)
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("physis_ev_{}_{}", std::process::id(), tag));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = sled::open(dir.join("t.sled")).unwrap();
+
+        let p = OperationalProvenance::new("industrial", "machine");
+        let ev = OperationalEvent::new(
+            OperationalKind::Machine,
+            OperationalStatus::Warning,
+            Utc::now(),
+            "voron-01",
+            p,
+        );
+        save_events(&db, "tenant-a", &[ev.clone()]).unwrap();
+        let loaded = load_events(&db, "tenant-a");
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].event_key, ev.event_key);
+        assert!(load_events(&db, "tenant-b").is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ledger_mechanism_groups_by_kind() {
+        let machine = |kind: OperationalKind| {
+            OperationalEvent::new(
+                kind,
+                OperationalStatus::Info,
+                Utc::now(),
+                "x",
+                OperationalProvenance::new("c", "s"),
+            )
+        };
+        assert_eq!(
+            machine(OperationalKind::Machine).ledger_mechanism(),
+            crate::address::Mechanism::Received
+        );
+        assert_eq!(
+            machine(OperationalKind::System).ledger_mechanism(),
+            crate::address::Mechanism::Generated
+        );
     }
 }
