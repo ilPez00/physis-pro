@@ -302,11 +302,11 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| 15.1 | SKU → feature-slug entitlement table + order-form mapping | ⬜ Pending | `src/license.rs` already carries slugs; the mapping is the missing piece |
-| 15.2 | License `inspect` / `info` endpoints + trial-key generator | ⬜ Pending | free → paid conversion; 14-day pilot flow |
-| 15.3 | Key rotation + revocation (sled-backed) | ⬜ Pending | enterprise sales enabler; hard seat enforcement already done |
+| 15.1 | SKU → feature-slug entitlement table + order-form mapping | ✅ Done | `Tier::sku()/from_sku()/ALL` + `ENTITLEMENTS` table + `entitlement_for()` in `src/license.rs`; vendor tool `physis-license list-skus` prints the order-form table; `/settings` and `physis-pro license` expose the SKU. The licence still stores only features — the SKU is presentation, so a forged upgrade stays impossible |
+| 15.2 | License `inspect` / `info` + trial-key generator | ✅ Done | `physis-pro license [--json]` (instant — dispatched before `PhysisApp::new`); vendor tool `sign --trial` mints a 14-day eval (TRIAL- prefixed id, maintenance included, traceable) |
+| 15.3 | Key rotation + revocation | ✅ Done | `LicenseError::Revoked` + `check_revoked()` enforced in `license::load()` against a drop-in `revocations.json` (`PHYSIS_REVOCATIONS_FILE` override); vendor tool `revoke --id X [--list]` writes the sorted list to ship to air-gapped hosts. Malformed lists fail open (a vendor typo must not brick installs); key **rotation** stays out of scope — the module documents that rotating the vendor key reissues every licence |
 | 15.4 | Customer/plant/host identity in report metadata | ⬜ Pending | makes reports evidence-grade |
-| 15.5 | Pricing page rewritten to the offer ladder (Pilot €1.5–2.5k → Industriale €1,500/mo → Enterprise €5,000/mo) | ⬜ Pending | with `/` landing + `/about`, routed publicly |
+| 15.5 | Pricing page rewritten to the offer ladder (Pilot €1.5–2.5k → Industriale €1,500/mo → Enterprise €5,000/mo) | ✅ Done | `/` landing + `/pricing` + `/about` rewritten to the service-led model and routed publicly; supersedes the per-job SaaS tiers |
 
 ### Phase 16 — Integration spine (2026-08-30)
 
@@ -317,10 +317,10 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| I1 | Canonical `OperationalEvent` (connector, mechanism, actor, ts, payload) | 🔨 In progress | partial in `ledger.rs` + `industrial.rs`; Moonraker/MQTT/Modbus emit it |
-| I2 | Adapters as `SourceAdapter` emitting `OperationalEvent` | ⬜ Pending | mail/scan/watch normalize to the same event |
-| I3 | One `post_event` ingestion path | ⬜ Pending | the Phase 8b read-back contract, generalized |
-| I4 | Provenance survives every projection (timeline, ledger, report, lineage) | ⬜ Pending | new adapter ≈ 100 lines inherits everything |
+| I1 | Canonical `OperationalEvent` (connector, mechanism, actor, ts, payload) | ✅ Done | `src/operational.rs`: kind/status/provenance + stable `event_key` (Sha-256) for dedupe; `From<&MachineReading>` + `From<&IngestedDoc>`; ledger-mechanism mapping |
+| I2 | Adapters as `SourceAdapter` emitting `OperationalEvent` | ✅ Done | industrial adapter `post_event` now emits the full structured event (was a flattened register); machine/doc adapters normalize via `From` impls |
+| I3 | One `post_event` ingestion path | ✅ Done | `POST /api/v1/events` (`src/web/operational.rs`): dedupe by `event_key` (idempotent), bounded per-tenant ring (`op_events:{uid}`, ≤10k, oldest dropped), causal-ledger `record_at`, optional coherence-node registration. Adapter change confirmed the "100 lines" claim |
+| I4 | Provenance survives every projection (timeline, ledger, report, lineage) | ✅ Done | events persisted per tenant and rehydrated on startup/`with_user`; `GET /api/v1/events` (newest first) + `GET /api/v1/events/timeline` (the shared `OperationalTimeline::from_events` pipeline); ledger CauseEvent carries actor/object/observed_at into lineage/purposes |
 | I5 | `CoherenceNode` gains `type` + `properties` (default-empty, back-compat) | ⬜ Pending | Palantir-parity object model |
 | I6 | Named link types + inverse traversal (replace bare `semantic_type: u32`) | ⬜ Pending | |
 | I7 | 70-cell grid → object types (Machine, WorkOrder, SensorReading, Invoice) | ⬜ Pending | |

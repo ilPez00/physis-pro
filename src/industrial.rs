@@ -531,8 +531,11 @@ pub async fn run_loop(
     }
 }
 
-/// Register an event into a physis engine as a labeled coherence node. Mirrors
-/// the Moonraker connector's `register` but keeps adapters self-contained.
+/// Push an event into a physis engine through the single ingestion path
+/// (`POST /api/v1/events`, Phase 16 I3): the engine dedupes by the event's
+/// stable hash, records the causal-ledger entry, keeps the bounded event ring,
+/// and registers a graph node. Keeps adapters self-contained — emit one
+/// `OperationalEvent` and inherit everything.
 #[cfg(feature = "industrial")]
 async fn post_event(
     base: &str,
@@ -541,14 +544,11 @@ async fn post_event(
     event: &OperationalEvent,
 ) -> anyhow::Result<()> {
     let body = serde_json::json!({
-        "input": format!("{} — {:?} [{:?}]", event.subject, event.kind, event.status),
-        "label": event.subject,
+        "events": [event],
+        "register_nodes": true,
     });
     let mut rb = reqwest::Client::new()
-        .post(format!(
-            "{}/api/v1/coherence/register",
-            base.trim_end_matches('/')
-        ))
+        .post(format!("{}/api/v1/events", base.trim_end_matches('/')))
         .header("X-Physis-User", user)
         .json(&body);
     if let Some(t) = token {
