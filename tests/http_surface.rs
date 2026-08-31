@@ -5414,3 +5414,51 @@ async fn actions_dispatch_attempts_delivery_and_reports_failure() {
     assert_eq!(results[0]["ok"], false, "dead port delivery fails loudly: {body}");
     std::env::remove_var("PHYSIS_ACTIONS_WEBHOOK");
 }
+
+// ── Phase 15.4: customer/plant/host identity in report metadata ─────────────
+#[tokio::test]
+async fn shift_report_metadata_carries_evidence_grade_identity() {
+    let (router, _dir, _guard) = app().await;
+    // Give the host a name; customer resolves to "unlicensed" (no licence in tests).
+    std::env::set_var("PHYSIS_PLANT", "Acciaierie Nord");
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/shifts/import",
+            "tenant-a",
+            json!({"shifts": [{
+                "recorded_at": "2026-08-01T06:00:00Z",
+                "shift_label": "Turno 1",
+                "machine_id": "press-01",
+                "shift_length_secs": 28800,
+                "ideal_cycle_time_secs": 60,
+                "stops": [],
+                "total_count": 120,
+                "good_count": 117
+            }]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["accepted"].as_u64().unwrap_or(0) >= 1, "shift imported: {body}");
+
+    // The markdown report is evidence-grade: it names whose plant, which host,
+    // and which build produced it — never a blank identity line.
+    let (status, text) = send_text(
+        &router,
+        Request::builder()
+            .method("GET")
+            .uri("/api/v1/report/shift?format=md")
+            .header("x-physis-user", "tenant-a")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(text.contains("Acciaierie Nord"), "plant identity in report: {text}");
+    assert!(text.contains("unlicensed"), "customer identity in report: {text}");
+    assert!(text.contains(env!("CARGO_PKG_VERSION")), "build version in report: {text}");
+    assert!(text.contains("host "), "host identity in report: {text}");
+    std::env::remove_var("PHYSIS_PLANT");
+}
