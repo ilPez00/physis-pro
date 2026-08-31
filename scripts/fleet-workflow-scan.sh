@@ -90,12 +90,14 @@ harness_flows() {
 
 main() {
   log "machine=$MACHINE  bin=$BIN  reports=$REPORT_DIR"
-  cargo_gate
+  if [[ "${PHYSIS_CAMPAIGN_SKIP_CARGO:-0}" != "1" ]]; then
+    cargo_gate
+  fi
 
   # cargo check/test rebuild target/debug/physis-pro with the default dev
   # pubkey, which invalidates a licence minted from the local vendor keypair.
   # Rebuild the scan binary with the vendor pubkey so the scans below run.
-  if [[ -f "$GIT_REPO/.physis-vendor/verifying.key" ]]; then
+  if [[ "${PHYSIS_CAMPAIGN_SKIP_CARGO:-0}" != "1" && -f "$GIT_REPO/.physis-vendor/verifying.key" ]]; then
     log "rebuilding scan binary with vendor pubkey"
     PHYSIS_LICENSE_PUBKEY="$(tr -d '\n' < "$GIT_REPO/.physis-vendor/verifying.key")" \
       cargo build --features full --bin physis-pro --manifest-path "$GIT_REPO/Cargo.toml" 2>&1 | tail -1
