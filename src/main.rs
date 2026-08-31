@@ -212,6 +212,17 @@ pub enum Commands {
     },
     /// Run diagnostics: config, data dir, scan root, embedder, license
     Doctor,
+    /// Print the licence on this host: SKU, org, seats, expiry, maintenance,
+    /// feature list, revocation status. Bypasses the licence gate so an
+    /// unlicensed host can still report its state. `--json` for scripts.
+    License {
+        /// Path to a licence file to inspect instead of the default location.
+        #[arg(long)]
+        path: Option<PathBuf>,
+        /// Print the licence as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Build/refresh the fast-path disk catalog for a directory tree (PLAN
     /// 1.3). Metadata-only walk; re-hashes just stat-changed files; persists
     /// to sled so the next run starts warm. No embedder, no ontology.
@@ -640,13 +651,16 @@ fn main() -> anyhow::Result<()> {
     // to see what the tool is before we demand a key, and support needs
     // `--version` to triage an install that refuses to run.
     //
-    // All commands except `doctor` and `benchmark` require a valid licence.
-    // These two commands bypass the gate so they can run without a licence —
-    // useful for diagnostics and triage without a full licence.
-    if !matches!(cli.command, Commands::Doctor | Commands::Benchmark { .. }) {
+    // All commands except `doctor`, `benchmark` and `license` require a valid
+    // licence. These bypass the gate so they can run without a licence —
+    // useful for diagnostics, triage, and reporting the licence state itself.
+    if !matches!(
+        cli.command,
+        Commands::Doctor | Commands::Benchmark { .. } | Commands::License { .. }
+    ) {
         let _license = physis_pro::license::enforce();
     } else {
-        // Even for doctor/benchmark, verify a minimal licence exists so the
+        // Even for these, verify a minimal licence exists so the
         // binary at least has a valid key embedded; we just don't enforce dates/
         // features for these help-of-last-resort commands.
         let _license = physis_pro::license::load().ok();
@@ -844,11 +858,58 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // `license` is a pure read of the licence state — spinning up the embedder
+    // and ontology first would make an air-gapped host wait minutes (or ~25 min
+    // under ONNX) just to answer "what licence am I running?". Dispatched here,
+    // before `PhysisApp::new`.
+    if let Commands::License { path, json } = cli.command {
+        let lic = match &path {
+            Some(p) => {
+                let blob = std::fs::read_to_string(p).map_err(|e| {
+                    anyhow::anyhow!("cannot read licence {}: {e}", p.display())
+                })?;
+                physis_pro::license::verify_blob(&blob)
+                    .map_err(|e| anyhow::anyhow!("licence is invalid: {e}"))?
+            }
+            None => physis_pro::license::load()
+                .map_err(|e| anyhow::anyhow!("no valid licence: {e}"))?,
+        };
+        let revoked = physis_pro::license::check_revoked(&lic.license_id, None).is_err();
+        if json {
+            let v = serde_json::json!({
+                "license_id": lic.license_id,
+                "org": lic.org,
+                "sku": lic.tier().sku(),
+                "tier": lic.tier().name(),
+                "seats": lic.seats,
+                "features": lic.features,
+                "issued": lic.iat,
+                "expires": lic.exp,
+                "maintenance_expires": lic.maint_exp,
+                "days_remaining": lic.days_remaining(),
+                "revoked": lic.revoked || revoked,
+            });
+            println!("{}", serde_json::to_string_pretty(&v)?);
+        } else {
+            println!("license_id      : {}", lic.license_id);
+            println!("licensed to     : {}", lic.org);
+            println!("sku             : {} ({})", lic.tier().sku(), lic.tier().name());
+            println!("seats           : {}", lic.seats);
+            println!("features        : {}", lic.features.join(", "));
+            println!("issued          : {}", lic.iat);
+            println!("expires         : {} ({} days left)", lic.exp, lic.days_remaining());
+            println!("maintenance until: {}", lic.maint_exp);
+            println!("revoked         : {}", lic.revoked || revoked);
+        }
+        return Ok(());
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
     match cli.command {
         Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::License { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Scan { dir, format } => {
             let output = app.run_scan(&dir, &format);
             println!("{output}");

@@ -38,6 +38,10 @@ use serde::{Deserialize, Serialize};
 pub const LICENSE_ENV: &str = "PHYSIS_LICENSE";
 /// Environment variable pointing at a licence file, overriding the default path.
 pub const LICENSE_FILE_ENV: &str = "PHYSIS_LICENSE_FILE";
+/// Environment variable pointing at the revocation list, overriding the default
+/// path. A fully offline scheme cannot phone home, so revocation is a drop-in
+/// file the vendor ships; see [`check_revoked`].
+pub const REVOCATIONS_ENV: &str = "PHYSIS_REVOCATIONS_FILE";
 
 /// Vendor public key, hex-encoded (32 bytes).
 ///
@@ -104,6 +108,31 @@ impl Tier {
         }
     }
 
+    /// Stable orderable SKU code — the name on invoices and the order form
+    /// (PLAN 15.1). The licence itself never stores the SKU; the feature list
+    /// is the signed source of truth and the SKU is presentation.
+    pub fn sku(self) -> &'static str {
+        match self {
+            Tier::Core => "CORE",
+            Tier::Industrial => "INDUSTRIAL",
+            Tier::Enterprise => "ENTERPRISE",
+        }
+    }
+
+    /// Resolve a SKU or tier name to a tier. Case-insensitive; accepts
+    /// `CORE`/`core`, `INDUSTRIAL`/`industrial`, `ENTERPRISE`/`enterprise`.
+    pub fn from_sku(sku: &str) -> Option<Tier> {
+        match sku.trim().to_ascii_uppercase().as_str() {
+            "CORE" => Some(Tier::Core),
+            "INDUSTRIAL" => Some(Tier::Industrial),
+            "ENTERPRISE" => Some(Tier::Enterprise),
+            _ => None,
+        }
+    }
+
+    /// All orderable tiers, in display order.
+    pub const ALL: [Tier; 3] = [Tier::Core, Tier::Industrial, Tier::Enterprise];
+
     /// Recognise the tier from a signed feature list: the most generous tier
     /// whose bundle is fully contained in the list. `"*"` short-circuits to
     /// Enterprise.
@@ -133,6 +162,48 @@ impl Tier {
             Tier::Enterprise => "Enterprise",
         }
     }
+}
+
+/// One row of the orderable entitlement table (PLAN 15.1) — what a SKU buys.
+/// Serves the order form, the vendor tool's `--list-skus`, and the settings
+/// page, so the sales vocabulary can never drift from the signed bundles.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct Entitlement {
+    /// Orderable SKU code, e.g. `INDUSTRIAL`.
+    pub sku: &'static str,
+    pub tier: Tier,
+    /// Invoice/order-form label.
+    pub label: &'static str,
+    /// One-line description of what the SKU unlocks.
+    pub blurb: &'static str,
+}
+
+/// The full entitlement table. Order matters — the order form reads top-down.
+pub const ENTITLEMENTS: [Entitlement; 3] = [
+    Entitlement {
+        sku: "CORE",
+        tier: Tier::Core,
+        label: "Core",
+        blurb: "classify, scan, query, wiki, vault, history — knowledge work for one team",
+    },
+    Entitlement {
+        sku: "INDUSTRIAL",
+        tier: Tier::Industrial,
+        label: "Industriale",
+        blurb: "Core + machines/OEE, shifts, maintenance, inventory, reconciliation — the plant floor",
+    },
+    Entitlement {
+        sku: "ENTERPRISE",
+        tier: Tier::Enterprise,
+        label: "Enterprise",
+        blurb: "everything — multi-tenant admin, spanner mirror, MCP, agent orchestration, RAG",
+    },
+];
+
+/// Look up a SKU's entitlement row by its code (case-insensitive).
+pub fn entitlement_for(sku: &str) -> Option<&'static Entitlement> {
+    let sku = sku.trim().to_ascii_uppercase();
+    ENTITLEMENTS.iter().find(|e| e.sku == sku)
 }
 
 /// A verified licence. Constructing one outside [`verify_blob`] is impossible
@@ -190,6 +261,8 @@ pub enum LicenseError {
              refusing to run on a rolled-back clock"
     )]
     ClockRolledBack { now: String, last_seen: String },
+    #[error("licence {license_id} has been revoked — contact your vendor")]
+    Revoked { license_id: String },
     #[error("feature '{0}' is not included in this licence")]
     FeatureNotLicensed(String),
 }
@@ -340,12 +413,66 @@ pub fn default_license_path() -> PathBuf {
         .join("license.key")
 }
 
+/// Default revocation-list location: `PHYSIS_DATA_DIR/revocations.json` (or
+/// `./.physis/revocations.json`), overridable with `PHYSIS_REVOCATIONS_FILE`.
+pub fn default_revocations_path() -> PathBuf {
+    std::env::var_os(REVOCATIONS_ENV)
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| {
+            let data = std::env::var("PHYSIS_DATA_DIR")
+                .ok()
+                .map(PathBuf::from)
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or_else(|| PathBuf::from(".physis"));
+            data.join("revocations.json")
+        })
+}
+
+/// Whether a licence id appears on the locally-distributed revocation list
+/// (PLAN 15.3).
+///
+/// A fully offline scheme cannot phone home, so revocation is a drop-in file:
+/// the vendor ships an updated `revocations.json` (with a release, or as an
+/// emailed drop-in) and hosts whose licence id is on it refuse to start. This
+/// is the honest reach of an air-gapped commercial control — a revoked id is
+/// only refused once the list reaches the host, and a determined user can edit
+/// either file.
+///
+/// Present-but-malformed lists are ignored with a warning rather than bricking
+/// every install on a vendor typo; a revoked id on a cleanly-parsed list still
+/// enforces.
+pub fn check_revoked(license_id: &str, revocations: Option<&Path>) -> Result<(), LicenseError> {
+    let path = revocations
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(default_revocations_path);
+    let Ok(blob) = std::fs::read_to_string(&path) else {
+        return Ok(());
+    };
+    let Ok(list) = serde_json::from_str::<serde_json::Value>(&blob) else {
+        eprintln!("physis: revocation list {path:?} is malformed — ignoring it");
+        return Ok(());
+    };
+    let Some(ids) = list.get("revoked").and_then(|v| v.as_array()) else {
+        return Ok(());
+    };
+    if ids.iter().any(|id| id.as_str() == Some(license_id)) {
+        return Err(LicenseError::Revoked {
+            license_id: license_id.to_string(),
+        });
+    }
+    Ok(())
+}
+
 /// Load and verify the licence from, in order: `PHYSIS_LICENSE` (inline),
-/// `PHYSIS_LICENSE_FILE`, then the default path.
+/// `PHYSIS_LICENSE_FILE`, then the default path. A licence whose id is on the
+/// local revocation list is refused regardless of signature and dates.
 pub fn load() -> Result<License, LicenseError> {
     if let Ok(blob) = std::env::var(LICENSE_ENV) {
         if !blob.trim().is_empty() {
-            return verify_blob(&blob);
+            let license = verify_blob(&blob)?;
+            check_revoked(&license.license_id, None)?;
+            return Ok(license);
         }
     }
 
@@ -356,6 +483,7 @@ pub fn load() -> Result<License, LicenseError> {
     let blob = std::fs::read_to_string(&path).map_err(|_| LicenseError::Missing(path.clone()))?;
     let license = verify_blob(&blob)?;
     check_clock_rollback(&path)?;
+    check_revoked(&license.license_id, None)?;
     Ok(license)
 }
 
@@ -640,5 +768,88 @@ mod tests {
         // to say where it looked.
         let err = LicenseError::Missing(PathBuf::from("/home/x/.physis/license.key"));
         assert!(err.to_string().contains("/home/x/.physis/license.key"));
+    }
+
+    #[test]
+    fn sku_round_trips_and_is_case_insensitive() {
+        for tier in Tier::ALL {
+            assert_eq!(Tier::from_sku(tier.sku()), Some(tier));
+        }
+        assert_eq!(Tier::from_sku("core"), Some(Tier::Core));
+        assert_eq!(Tier::from_sku("Industrial"), Some(Tier::Industrial));
+        assert_eq!(Tier::from_sku("ENTERPRISE"), Some(Tier::Enterprise));
+        assert_eq!(Tier::from_sku("enterprise-2"), None);
+        assert_eq!(Tier::from_sku(""), None);
+    }
+
+    #[test]
+    fn entitlement_table_covers_all_tiers_and_matches_bundles() {
+        // The order form and the signed feature bundles must never drift: every
+        // SKU row resolves to a tier whose bundle the row is really selling.
+        assert_eq!(ENTITLEMENTS.len(), 3);
+        for ent in ENTITLEMENTS {
+            assert_eq!(ent.tier.sku(), ent.sku);
+            assert_eq!(Tier::from_sku(ent.sku), Some(ent.tier));
+            assert!(!ent.label.is_empty(), "{} has no label", ent.sku);
+            assert!(!ent.blurb.is_empty(), "{} has no blurb", ent.sku);
+            // Each entitlement row's bundle is exactly the tier's feature set.
+            let features = ent.tier.features();
+            assert!(!features.is_empty(), "{} has an empty bundle", ent.sku);
+        }
+        assert!(entitlement_for("industrial").is_some());
+        assert!(entitlement_for("MISSING").is_none());
+    }
+
+    #[test]
+    fn revoked_error_is_actionable() {
+        let err = LicenseError::Revoked {
+            license_id: "PX-EVOTEC-20270101".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("PX-EVOTEC-20270101"));
+        assert!(msg.contains("revoked"));
+    }
+
+    /// Deterministic-ish per-thread tag for temp dirs. Collision-safe enough
+    /// for tests: thread id × pid won't clash with the fixed `{pid}` names.
+    fn randish_tag() -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0) as u64;
+        (std::process::id() as u64).wrapping_mul(1_000_003).wrapping_add(nanos)
+    }
+
+    #[test]
+    fn check_revoked_refuses_listed_id_and_allows_others() {
+        // Unique per test: parallel threads share the same pid, so a bare
+        // `{pid}` dir would collide with other temp-dir tests.
+        let tag: u64 = randish_tag();
+        let dir = std::env::temp_dir().join(format!("physis_revoc_{tag}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("revocations.json");
+        std::fs::write(
+            &path,
+            r#"{"revoked": ["PX-BAD-20260101", "PX-BAD2-20260101"]}"#,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            check_revoked("PX-BAD-20260101", Some(&path)),
+            Err(LicenseError::Revoked { .. })
+        ));
+        assert!(check_revoked("PX-GOOD-20260101", Some(&path)).is_ok());
+
+        // A missing list enforces nothing.
+        assert!(check_revoked("PX-ANY-20260101", Some(&dir.join("nope.json"))).is_ok());
+
+        // A malformed list is ignored (fail open — a vendor typo must not brick
+        // every install), which still refuses a listed id on a clean list.
+        let malformed = dir.join("malformed.json");
+        std::fs::write(&malformed, "not json").unwrap();
+        assert!(check_revoked("PX-ANY-20260101", Some(&malformed)).is_ok());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

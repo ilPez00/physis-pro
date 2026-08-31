@@ -70,13 +70,13 @@ pilot free without a named reference + usable data + a case-study agreement.
 
 | Gate | Blocks | Already done? |
 |------|--------|---------------|
-| SKU → feature-slug entitlement table | selling any tier | partial (`src/license.rs` has slugs; no order-form mapping) |
-| License `inspect`/`info` + trial-key generator | free → paid conversion | no |
-| Key rotation + revocation | enterprise sales (lost keys, terminations) | no (hard seat enforcement done) |
-| Real authn/RBAC (not just header token) | multi-customer hosted / Enterprise | no |
+| SKU → feature-slug entitlement table | selling any tier | ✅ Done (`Tier::sku/from_sku/ALL` + `ENTITLEMENTS` in `src/license.rs`; `physis-license list-skus`; SKU surfaced in `/settings` + `physis-pro license`) |
+| License `inspect`/`info` + trial-key generator | free → paid conversion | ✅ Done (`physis-pro license [--json]`, instant; vendor `sign --trial` mints 14-day TRIAL ids) |
+| Key rotation + revocation | enterprise sales (lost keys, terminations) | ✅ Done for revocation (drop-in `revocations.json`, enforced in `load()`, vendor `revoke --id`). Rotation documented out of scope — rotating the vendor key reissues every licence |
+| Real authn/RBAC (not just header token) | multi-customer hosted / Enterprise | partial (`src/rbac.rs` TokenTable + viewer/editor/admin roles exist; no hosted SaaS motion yet) |
 | Append-only temporal event log | audit claims, "trust" layer | partial (causal ledger; not node/link mutation history) |
 | On-prem single-binary distro + installer | air-gapped claim at scale | partial (Docker; no `install-physis` UX test) |
-| One measurable customer baseline | every marketing number | no (first pilot pending) |
+| One measurable customer baseline | every marketing number | open (first pilot pending) |
 
 Order of work: the entitlement table + revocation are days of work and unblock
 Enterprise pricing; the temporal log is the differentiator that justifies the
@@ -230,6 +230,7 @@ actually does across the whole product.
 | T9 | **Route-table contract** (P1): CRUD round-trip, validation-all-at-once, match→cell→action, tenant isolation | unit + e2e | 6 unit tests shipped; e2e pending |
 | T10 | **Extract degradation** (P2): schema conformance with a provider; explicit `note` (never 500) without one | unit + e2e | 4 unit tests shipped; e2e pending |
 | T11 | **Trace join** (P5): failure + ledger trail within window; unknown id → 404 | e2e | wired; test pending |
+| T12 | **Event ingestion** (I3/I4): dedupe by key, tenant isolation, timeline-from-store, optional node registration | e2e | shipped (2 tests) |
 
 ### 4.3 CI policy
 
