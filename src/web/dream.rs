@@ -106,6 +106,15 @@ pub async fn dream_replay_handler(
                             density: node.coherence_score,
                             outcome: r.outcome,
                             prevented_failure: r.prevented_failure,
+                            // The decide half of the dream loop (Phase 16 I8):
+                            // one concrete, typed action derived from the node's
+                            // object kind — an operator or an agent can act on it.
+                            typed_action: Some(crate::models::typed_action_for(
+                                &node.kind,
+                                Some(id.clone()),
+                                r.outcome,
+                                r.prevented_failure,
+                            )),
                         })
                     })
                     .collect::<Vec<_>>()
