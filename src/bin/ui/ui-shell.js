@@ -497,8 +497,7 @@ Object.assign(window, {
 // a wider licence. Naming the tier in the nav is what makes that visible —
 // and it fails silently, because a marketing page or an unauthenticated view
 // has no instance to ask.
-async function initTierBadge() {
-  try {
+async function initTierBadge() {  try {
     const s = await getJSON('/api/v1/settings');
     const nav = document.getElementById('productNav');
     if (!nav) return;
@@ -515,7 +514,26 @@ async function initTierBadge() {
   }
 }
 
+// WCAG 2.4.1 — skip-to-content. Keyboard users jump straight past the nav to
+// the first <main>, on every page (product and marketing), without editing
+// each page's markup.
+function initSkipLink() {
+  if (document.getElementById('skipLink')) return;
+  const main = document.querySelector('main');
+  if (main) {
+    main.id = main.id || 'main';
+    main.setAttribute('tabindex', '-1');
+  }
+  const link = document.createElement('a');
+  link.id = 'skipLink';
+  link.className = 'skip-link';
+  link.href = '#main';
+  link.textContent = 'Skip to content';
+  document.body.insertBefore(link, document.body.firstChild);
+}
+
 function mountShellChrome() {
+  initSkipLink();
   initProductNav();
   initTierBadge();
   // The ask bar needs a live graph behind the page. On the marketing pages

@@ -309,6 +309,18 @@ button:focus-visible { outline:none; border-color:var(--cyan); box-shadow:var(--
   * { transition-duration:.01ms !important; animation-duration:.01ms !important; }
 }
 
+/* WCAG 2.4.1 — skip-to-content. Mounted by ui-shell.js; visually hidden until
+   a keyboard user tabs to it, then pinned to the top-left corner. */
+.skip-link {
+  position:absolute; left:-9999px; top:-9999px; z-index:9999;
+  padding:10px 16px; border-radius:0 0 10px 0;
+  background:var(--cyan); color:var(--abyss);
+  font-family:var(--mono); font-size:12px; font-weight:700;
+  text-decoration:none;
+}
+.skip-link:focus { left:0; top:0; }
+main[tabindex="-1"] { outline:none; }
+
 /* ── data primitives ────────────────────────────────────────────────────── */
 .stat-num {
   font-family:var(--mono);
@@ -585,8 +597,7 @@ header nav[aria-label="Sections"] a:focus-visible {
 }
 
 /* in-header section jump nav (Pulse: Vitals / Attention / …) — same mono-tab
-   language as the app switcher, quieter: secondary destinations, not apps */
-header nav[aria-label="Sections"] { display:flex; gap:4px; flex-wrap:wrap; }
+   language as the app switcher, quieter: secondary destinations, not apps */header nav[aria-label="Sections"] { display:flex; gap:4px; flex-wrap:wrap; }
 header nav[aria-label="Sections"] a {
   font-family:var(--mono); font-size:10.5px; letter-spacing:.08em;
   text-transform:uppercase; text-decoration:none;

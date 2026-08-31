@@ -347,7 +347,7 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | U4 | Route `/`, `/pricing`, `/about` publicly; keep `/pulse` as product home | 🔨 In progress | |
 | U5 | 10-minute demo: `prospect.csv → shift report + ontology studio` | ✅ Done | `physis-pro demo <dir> [--demo]`: reads every shift `*.csv` → `report.html`+`report.md` (Italian OEE report, per-machine losses, evidence-grade identity line) and runs the ontology studio (`studio.html`) over the same folder. `--demo` seeds a sample `shifts.csv` + demo corpus idempotently (real data never overwritten). Verified end-to-end against a vendor-stamped build + trial license |
 | U6 | `--screenshot` mode / per-release capture pipeline | ✅ Done | `scripts/screenshots.sh`: boots the web server (real ONNX model required — marketing shots need semantics; fail-loud otherwise), captures `/`, `/pricing`, `/about`, `/deploy`, `/settings`, `/pulse`, `/console`, `/search`, `/studio`, `/demo` with headless chromium at 1440×900 into `shots/`, and writes a reviewable `shots/index.html` contact sheet. Verified end-to-end (10 valid PNGs). Local loopback capture opts into `PHYSIS_DEV=1` |
-| U7 | Re-audit pages against the offline/WCAG floors in `physis.css` | ⬜ Pending | |
+| U7 | Re-audit pages against the offline/WCAG floors in `physis.css` | ✅ Done | Audit found the system already compliant: palette contrast ≥ ~6.5:1 (AA+), `:focus-visible` on every interactive element, `prefers-reduced-motion` kills all animation, nav/ask-bar carry `aria-label`, nav sets `aria-current`. Added the one real gap: **skip-to-content** (WCAG 2.4.1) — `ui-shell.js` injects a `.skip-link` on every page (product + marketing) targeting the first `<main>` |
 
 ### Phase 18 — Feature testing (2026-08-30)
 
