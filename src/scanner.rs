@@ -512,7 +512,7 @@ pub fn should_include_file(file_path: &Path, exclude_dirs: &HashSet<String>, roo
     false
 }
 
-fn compute_file_hash(path: &Path) -> Option<String> {
+pub fn compute_file_hash(path: &Path) -> Option<String> {
     let mut file = std::fs::File::open(path).ok()?;
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 65536];
@@ -526,7 +526,7 @@ fn compute_file_hash(path: &Path) -> Option<String> {
     Some(format!("{:x}", hasher.finalize()))
 }
 
-fn process_file(path: &Path, root: &Path) -> Option<FileInfo> {
+pub fn process_file(path: &Path, root: &Path) -> Option<FileInfo> {
     let rel_path = path.strip_prefix(root).unwrap_or(path);
     let ext = path
         .extension()

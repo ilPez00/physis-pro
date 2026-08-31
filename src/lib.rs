@@ -72,6 +72,7 @@ pub mod shifts;
 pub mod social;
 pub mod storage;
 pub mod study;
+pub mod tree;
 pub mod trie;
 pub mod vfs;
 pub mod video;

@@ -49,65 +49,96 @@ pub async fn scan_handler(
         ));
     }
     let uid = user_key(&headers);
-    let scanner = crate::network::NetworkScanner::new(
-        vec![canonical.clone()],
-        watch_cache_path(&state.shared.config.data_dir, &canonical),
-        0,
-    );
-    let diffs = scanner.scan_all();
-    let files: Vec<crate::scanner::FileInfo> = diffs
-        .iter()
-        .flat_map(|d| {
-            d.new
-                .iter()
-                .chain(d.changed.iter())
-                .chain(d.unchanged.iter())
-        })
-        .cloned()
-        .collect();
-    let changed_files: Vec<crate::scanner::FileInfo> = diffs
-        .iter()
-        .flat_map(|d| d.new.iter().chain(d.changed.iter()))
-        .cloned()
-        .collect();
-    let (goals, changed_labels, removed_paths) = state.with_user(&uid, |s| {
-        let (goals, _all_labels) = s.mapper.map_file_infos_labeled(&files);
-        // Labels are cheap to derive from the already-scanned FileInfo; only
-        // their embeddings are expensive.
-        let changed_labels: Vec<String> = changed_files.iter().flat_map(|f| f.labels()).collect();
-        s.goals = goals.clone();
-        (
-            goals,
-            changed_labels,
-            diffs
-                .iter()
-                .flat_map(|d| d.deleted.clone())
-                .collect::<Vec<_>>(),
-        )
-    });
+    let data_dir = state.shared.config.data_dir.clone();
 
-    // Register each scanned file as a labeled core node so it's recallable by
-    // content in the wiki. Embed with the SHARED embedder (not mapper's internal
-    // RandomProjection one) so these vectors are comparable to query vectors.
-    // Only new/changed labels reach the shared embedder; unchanged labels are
-    // served by the persistent content-addressed cache.
-    let (embeddings, embedding_cache_hits, embedding_cache_misses) =
-        embed_scan_labels_cached(state.shared.clone(), changed_labels.clone()).await;
-    state.with_user(&uid, |s| {
-        for file in &changed_files {
-            for label in file.labels() {
-                let _ = s.core.delete_nodes_by_label_prefix(&label);
+    // Scan v2 (Phase 16 T1 follow-up): the persistent directory-hierarchy +
+    // document-metadata tree. The previous tree is diffed against a stat-only
+    // walk (no content reads); Merkle subtree fingerprints skip whole unchanged
+    // subtrees, so a document is hashed and embedded at most once.
+    let prev_tree = crate::tree::DirTree::load(&data_dir, &canonical);
+    let mut prev_fp = prev_tree.clone().unwrap_or_default();
+    prev_fp.fingerprint();
+    let mut current_tree = crate::tree::DirTree::meta_walk(&canonical);
+    current_tree.fingerprint();
+    let mut diff = prev_fp.diff(&current_tree);
+
+    // Hash + extract ONLY the candidate files (new + changed). A file whose
+    // mtime/size changed but content hash is identical is downgraded to
+    // unchanged — no re-embed.
+    let mut changed_infos: Vec<crate::scanner::FileInfo> = Vec::new();
+    let mut to_embed: Vec<(PathBuf, crate::scanner::FileInfo)> = Vec::new();
+    for rel in diff.new_files.iter().chain(diff.changed_files.iter()) {
+        let abs = canonical.join(rel);
+        let Some(fi) = crate::scanner::process_file(&abs, &canonical) else {
+            continue;
+        };
+        if let Some(node) = current_tree.node_at_mut(rel) {
+            if let Some(f) = node.file.as_mut() {
+                f.content_hash = Some(fi.hash.clone());
+                f.labels = fi.structural_lines.clone();
             }
         }
-        for path in &removed_paths {
-            let prefix = path.replace('/', " → ");
+        if let Some(prev_hash) = prev_tree.as_ref().and_then(|t| t.stored_hash(rel)) {
+            if prev_hash == fi.hash {
+                diff.unchanged_files += 1;
+                continue;
+            }
+        }
+        changed_infos.push(fi.clone());
+        to_embed.push((rel.clone(), fi));
+    }
+
+    // Rebuild FileInfo for every included file — unchanged ones come straight
+    // from the PREVIOUS tree (which stores their labels; a fresh walk has none
+    // until a file is hashed), minus deleted, plus freshly-processed ones.
+    let mut all_files: Vec<crate::scanner::FileInfo> = prev_tree
+        .as_ref()
+        .map(|t| t.file_infos(&canonical))
+        .unwrap_or_default();
+    {
+        let deleted: std::collections::HashSet<&PathBuf> = diff.deleted.iter().collect();
+        all_files.retain(|f| !deleted.contains(&PathBuf::from(&f.path)));
+    }
+    all_files.extend(changed_infos.iter().cloned());
+    all_files.sort_by(|a, b| a.path.cmp(&b.path));
+
+    // Goals via the mapper (cheap — RandomProjection over paths + structural
+    // lines, not the shared ONNX embedder).
+    let goals = state.with_user(&uid, |s| {
+        let (goals, _) = s.mapper.map_file_infos_labeled(&all_files);
+        s.goals = goals.clone();
+        goals
+    });
+
+    // Embed the changed/new documents — ONE node per document, embedded from
+    // the path-independent structural text, so identical content anywhere in
+    // the tree (or across roots) is computed once by the content-addressed
+    // cache and the embedding is shared by every node for that content.
+    let embed_texts: Vec<String> = to_embed
+        .iter()
+        .map(|(rel, fi)| {
+            if fi.structural_lines.is_empty() {
+                rel.to_string_lossy().to_string()
+            } else {
+                fi.structural_lines.join("\n")
+            }
+        })
+        .collect();
+    let (embeddings, embedding_cache_hits, embedding_cache_misses) =
+        embed_scan_labels_cached(state.shared.clone(), embed_texts).await;
+
+    state.with_user(&uid, |s| {
+        for rel in &diff.deleted {
+            let prefix = rel.to_string_lossy().replace('/', " → ");
             for id in s.core.delete_nodes_by_label_prefix(&prefix) {
                 if let Some(db) = state.db() {
                     let _ = db.remove(crate::core::PhysisCore::node_key(&uid, &id));
                 }
             }
         }
-        for (emb, label) in embeddings.into_iter().zip(changed_labels) {
+        for ((rel, _fi), emb) in to_embed.into_iter().zip(embeddings) {
+            // One document node, labeled by its structural path.
+            let label = rel.to_string_lossy().replace('/', " → ");
             let id = s.core.register_node_vec_labeled(emb, Some(label));
             if let Some(db) = state.db() {
                 let _ = s.core.persist_node(db, &uid, &id);
@@ -127,22 +158,21 @@ pub async fn scan_handler(
             }
         }
     });
-    scanner.update_cache(&diffs);
 
-    let summary = diffs.first().map(|d| &d.summary);
-    let reused_labels = diffs
-        .iter()
-        .flat_map(|d| d.unchanged.iter())
-        .map(|f| f.labels().len())
-        .sum();
+    // Persist the current tree so the next scan diffs against it.
+    let _ = current_tree.save(&data_dir, &canonical);
+
+    // One document node per file, so "reused labels" = unchanged documents
+    // whose node label was served without re-embedding.
+    let reused_labels = diff.unchanged_files;
 
     Ok(Json(ScanResponse {
         count: goals.len(),
         goals,
-        new: summary.map(|s| s.new).unwrap_or(0),
-        changed: summary.map(|s| s.changed).unwrap_or(0),
-        deleted: summary.map(|s| s.deleted).unwrap_or(0),
-        unchanged: summary.map(|s| s.unchanged).unwrap_or(0),
+        new: diff.new_files.len(),
+        changed: changed_infos.len(),
+        deleted: diff.deleted.len(),
+        unchanged: diff.unchanged_files,
         reused_labels,
         embedding_cache_hits,
         embedding_cache_misses,
