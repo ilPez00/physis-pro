@@ -336,6 +336,19 @@ pub async fn coherence_register_handler(
     Json(req): Json<CoherenceRegisterRequest>,
 ) -> Json<CoherenceRegisterResponse> {
     let embedding = embed_text(state.shared.clone(), req.input.clone()).await;
+    // Auto-stamp the object kind from the winning cell (Phase 16 I7) when the
+    // caller did not supply one. Computed before `embedding` is moved into
+    // registration.
+    let auto_kind = if req.kind.is_none() {
+        state
+            .shared
+            .classifier
+            .classify(&embedding)
+            .first()
+            .and_then(|c| crate::models::object_type_for(&c.domain, &c.mode))
+    } else {
+        None
+    };
     let uid = user_key(&headers);
     // Retain the source text so the node can be recalled/browsed by content.
     let label = Some(req.input.clone());
@@ -347,6 +360,10 @@ pub async fn coherence_register_handler(
         if let Some(node) = s.core.nodes.get_mut(&id) {
             if let Some(kind) = &req.kind {
                 node.kind = kind.clone();
+            } else if node.kind.is_empty() {
+                if let Some(t) = auto_kind {
+                    node.kind = t.to_string();
+                }
             }
             if let Some(props) = &req.properties {
                 node.properties = props.clone();

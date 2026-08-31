@@ -1025,6 +1025,77 @@ pub fn cosine_dist(a: &[f32], b: &[f32]) -> f32 {
     1.0 - cosine_sim(a, b)
 }
 
+// ── Object types (Phase 16 I7) ──────────────────────────────────────────────
+// The typed-ontology axis started with a `kind` on CoherenceNode (I5). This
+// resolver completes it: it maps the 70-cell classification grid back to the
+// kind of thing a node *is* — a machine, a work order, a sensor reading, an
+// invoice-like record. Classification (domain × mode) already applied overlays
+// and rerank, so this is a deterministic lookup, not a second classifier.
+
+/// The object-type vocabulary a classified node can denote. Used to validate
+/// user-supplied kinds and to auto-stamp `kind` from the winning cell.
+pub const OBJECT_TYPES: &[&str] = &[
+    "machine",
+    "asset",
+    "sensor_reading",
+    "work_order",
+    "maintenance_record",
+    "inspection",
+    "incident",
+    "goal",
+    "person",
+    "contact",
+    "document",
+    "knowledge",
+    "note",
+    "observation",
+    "prototype",
+];
+
+/// Resolve the 70-cell grid to an object type. **Total over the grid**: every
+/// (domain, mode) cell denotes a thing, so a winning cell always yields a type.
+/// Mode refinements beat the per-domain default.
+///
+/// The five domains: HEAL (restore/care), CONSTRUCT (build), FABRICATE
+/// (make/produce), BOND (relate/people/exchange), STUDY (learn/know).
+pub fn object_type_for(domain: &str, mode: &str) -> Option<&'static str> {
+    let d = domain.trim().to_ascii_uppercase();
+    let m = mode.trim().to_ascii_uppercase();
+    Some(match (d.as_str(), m.as_str()) {
+        // FABRICATE — the plant floor.
+        ("FABRICATE", "SENSE") => "sensor_reading",
+        ("FABRICATE", "PLAN") => "work_order",
+        ("FABRICATE", "MAINTAIN") => "maintenance_record",
+        ("FABRICATE", "CREATE") => "prototype",
+        ("FABRICATE", _) => "machine",
+        // CONSTRUCT — build / erect.
+        ("CONSTRUCT", "SENSE") => "inspection",
+        ("CONSTRUCT", "PLAN") => "work_order",
+        ("CONSTRUCT", "MAINTAIN") => "maintenance_record",
+        ("CONSTRUCT", _) => "asset",
+        // HEAL — health, recovery, incidents.
+        ("HEAL", "SENSE") => "sensor_reading",
+        ("HEAL", "MAINTAIN") => "maintenance_record",
+        ("HEAL", "PLAN") => "work_order",
+        ("HEAL", _) => "incident",
+        // BOND — people, relations, goals, exchange.
+        ("BOND", "PLAN") | ("BOND", "WORK") => "goal",
+        ("BOND", "SENSE") => "contact",
+        ("BOND", _) => "person",
+        // STUDY — knowledge work.
+        ("STUDY", "SENSE") => "observation",
+        ("STUDY", "LEARN") => "knowledge",
+        ("STUDY", "BRAINSTORM") => "note",
+        ("STUDY", _) => "document",
+        _ => return None,
+    })
+}
+
+/// Whether `kind` is in the known object vocabulary (or empty/untyped).
+pub fn is_valid_object_kind(kind: &str) -> bool {
+    kind.is_empty() || OBJECT_TYPES.contains(&kind)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1092,6 +1163,52 @@ mod tests {
         assert_eq!(node.kind, "");
         assert!(node.properties.is_empty());
         assert_eq!(node.label.as_deref(), Some("old node"));
+    }
+
+    #[test]
+    fn object_type_resolver_is_total_over_the_grid() {
+        // Every one of the 5×14 cells resolves to a known object type.
+        for d in HumanDomain::all() {
+            for m in HumanMode::all() {
+                let t = object_type_for(d.as_str(), m.as_str())
+                    .unwrap_or_else(|| panic!("no object type for {} / {}", d.as_str(), m.as_str()));
+                assert!(
+                    OBJECT_TYPES.contains(&t),
+                    "{}/{} resolved to {} which is not in the vocabulary",
+                    d.as_str(),
+                    m.as_str(),
+                    t
+                );
+            }
+        }
+        // Unknown domains yield nothing; unknown modes fall through to the
+        // domain default (the grid is total over its own 14 modes).
+        assert_eq!(object_type_for("NOT_A_DOMAIN", "WORK"), None);
+        assert_eq!(object_type_for("FABRICATE", "NOT_A_MODE"), Some("machine"));
+    }
+
+    #[test]
+    fn object_type_refinements_beat_domain_defaults() {
+        assert_eq!(object_type_for("FABRICATE", "WORK"), Some("machine"));
+        assert_eq!(object_type_for("FABRICATE", "SENSE"), Some("sensor_reading"));
+        assert_eq!(object_type_for("FABRICATE", "PLAN"), Some("work_order"));
+        assert_eq!(object_type_for("CONSTRUCT", "WORK"), Some("asset"));
+        assert_eq!(object_type_for("CONSTRUCT", "SENSE"), Some("inspection"));
+        assert_eq!(object_type_for("HEAL", "LIFT"), Some("incident"));
+        assert_eq!(object_type_for("BOND", "PLAN"), Some("goal"));
+        assert_eq!(object_type_for("BOND", "PLAY"), Some("person"));
+        assert_eq!(object_type_for("STUDY", "LEARN"), Some("knowledge"));
+        assert_eq!(object_type_for("STUDY", "BRAINSTORM"), Some("note"));
+        // Case-insensitive.
+        assert_eq!(object_type_for("fabricate", "sense"), Some("sensor_reading"));
+    }
+
+    #[test]
+    fn object_kind_validation() {
+        assert!(is_valid_object_kind("machine"));
+        assert!(is_valid_object_kind("sensor_reading"));
+        assert!(is_valid_object_kind("")); // untyped is fine
+        assert!(!is_valid_object_kind("not-a-real-kind"));
     }
 
     #[test]

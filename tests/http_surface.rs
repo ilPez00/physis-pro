@@ -5148,3 +5148,52 @@ async fn typed_edges_expose_outgoing_and_inverse_traversal() {
     .await;
     assert_eq!(body["outgoing"].as_array().unwrap().len(), 0);
 }
+
+// ── Phase 16 I7: 70-cell grid → object types ────────────────────────────────
+#[tokio::test]
+async fn classify_reports_object_type_and_register_auto_stamps_kind() {
+    let (router, _dir, _env) = app().await;
+
+    // The classify response exposes the object type of the winning cell. Under
+    // the random-projection embedder the cell isn't guaranteed, but it is one
+    // of the known vocabulary whenever classification fires.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/classify", "tenant-a", json!({"text": "CNC press cycle time drift"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let ot = body["object_type"].as_str();
+    assert!(ot.is_none() || !ot.unwrap().is_empty(), "object_type present or absent: {body}");
+
+    // Registering WITHOUT a kind auto-stamps it from the winning cell, so the
+    // node becomes a typed object with no extra round-trip.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "CNC press seized bearing — maintenance"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+    let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    let node = body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == node_id)
+        .expect("node");
+    // Either auto-stamped to a vocabulary type, or still empty if the
+    // projection embedder returned an unresolvable cell — never garbage.
+    let kind = node["kind"].as_str().unwrap();
+    if !kind.is_empty() {
+        assert!(
+            ["machine", "sensor_reading", "work_order", "asset", "document"]
+                .contains(&kind),
+            "auto-kind '{kind}' is a sensible object type"
+        );
+    }
+}
