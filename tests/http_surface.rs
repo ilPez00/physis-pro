@@ -5510,3 +5510,44 @@ async fn air_gapped_path_degrades_honestly_without_weights_or_network() {
         assert!(body["slots"].is_object(), "either slots or a note: {body}");
     }
 }
+
+// ── Phase 18 T5: marketing-page smoke (public pages, air-gap rule) ──────────
+#[tokio::test]
+async fn marketing_pages_serve_expected_copy_without_external_assets() {
+    let (router, _dir, _env) = app().await;
+
+    // Public marketing/status pages must serve 200 with the real product copy
+    // (not the stale "API platform" framing), and must not fetch external
+    // CSS/JS/font assets — the same air-gap rule the product itself obeys.
+    for (path, needle) in [
+        ("/", "adaptive industrial intelligence"),
+        ("/pricing", "Shift Loss Review"),
+        ("/about", "70-cell semiotic grid"),
+        ("/deploy", "Deployment status"),
+    ] {
+        let (status, html) = send_text(
+            &router,
+            Request::builder().method("GET").uri(path).body(Body::empty()).unwrap(),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{path} serves 200");
+        assert!(html.contains(needle), "{path} carries expected copy");
+        assert!(!html.contains("<link rel=\"stylesheet\" href=\"http"), "{path}: no external CSS");
+        assert!(!html.contains("<script src=\"http"), "{path}: no external JS");
+        assert!(html.contains("/physis.css"), "{path} loads the shared design system");
+    }
+
+    // The settings page is protected (dev mode passes) and carries its own copy.
+    let (status, html) = send_text(
+        &router,
+        Request::builder()
+            .method("GET")
+            .uri("/settings")
+            .header("x-physis-user", "smoke")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("install health"), "/settings carries its copy");
+}
