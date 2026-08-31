@@ -36,6 +36,38 @@ licence gate when `PHYSIS_LICENSE` is not set.
 
 ---
 
+## Repository layout — one repo per project
+
+This repository is the **only** working copy of the Physis engine.
+
+| Piece | Where |
+|---|---|
+| Engine, CLI, HTTP/MCP surface, licence gate | this repository |
+| `physis-core` (MIT, the lean embed/classify/quality core) | git submodule at `physis-core/`, repo [`physis-core`](https://github.com/ilPez00/physis-core) |
+
+**Do not clone this repo per deployment node.** Three such clones existed on omo
+(`~/dev/air-ts`, `~/dev/pansa-ts`, `~/dev/physis-global`), named after the machines
+they were meant to run on. They drifted three development phases apart, they read
+as separate projects in any directory listing, and `pansa-ts` accumulated two
+commits that were reachable from no remote branch and were nearly lost — they are
+now on `node/pansa-deploy`. The `physis-global` repository is archived upstream.
+
+If you genuinely need a second checkout, use a worktree rather than a clone, so
+there is one object store and one set of refs:
+
+```bash
+git worktree add ../physis-<node> <branch>
+```
+
+**`.physis-vendor/` must never be committed.** It holds the Ed25519 licence
+signing key. A copy is currently tracked in this repository's history (introduced
+by `745a3d5`) and byte-identical material had propagated into the `air-ts` clone;
+removing it needs `git filter-repo --path .physis-vendor --invert-paths`, a
+force-push, and a re-clone of every working copy. The ignore rule is in
+`node/pansa-deploy`.
+
+---
+
 ## Core model — three functions over one state
 
 ```
