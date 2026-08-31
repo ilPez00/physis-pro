@@ -153,6 +153,9 @@ pub struct RuntimeState {
     /// Normalized event ring (Phase 16 I3/I4): the single ingestion path every
     /// connector feeds. Bounded (≤ MAX_STORED_EVENTS), newest append-mostly.
     pub(crate) op_events: Vec<crate::operational::OperationalEvent>,
+    /// Append-only mutation log (Phase 16 I9/I10): every graph mutation,
+    /// sealed + per-tenant. The audit/trust layer.
+    pub(crate) audit: crate::audit::MutationLog,
 }
 
 impl RuntimeState {
@@ -174,6 +177,7 @@ impl RuntimeState {
             lifeos: LifeOSTracker::new(),
             ledger: crate::ledger::CausalLedger::new(),
             op_events: Vec::new(),
+            audit: crate::audit::MutationLog::new(),
         }
     }
 }
@@ -291,6 +295,8 @@ impl AppCtx {
                     }
                     // Normalized event ring (Phase 16): the ingestion store.
                     crate::web::operational::rehydrate_events(&mut rt, db, uid);
+                    // Append-only mutation log (Phase 16 I9): the audit layer.
+                    rt.audit = crate::audit::MutationLog::load(db, uid);
                     let (loaded, skipped) = rt.core.load_nodes(db, uid);
                     if loaded > 0 || skipped > 0 {
                         log::info!(
@@ -2557,6 +2563,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 .as_ref()
                 .map(|d| crate::operational::load_events(d, "_default"))
                 .unwrap_or_default(),
+            audit: db
+                .as_ref()
+                .map(|d| crate::audit::MutationLog::load(d, "_default"))
+                .unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
         salience: Mutex::new(salience_store),
@@ -2873,6 +2883,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/coherence/add-edge",
             post(coherence::coherence_add_edge_handler),
         )
+        // Append-only mutation log / audit view (Phase 16 I9/I10).
+        .route("/api/v1/audit", get(coherence::audit_handler))
         .route(
             "/api/v1/coherence/edit",
             post(coherence::coherence_edit_handler),

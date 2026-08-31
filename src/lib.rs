@@ -5,6 +5,7 @@ pub mod address;
 pub mod admin;
 pub mod ai;
 pub mod atomic;
+pub mod audit;
 pub mod axes;
 #[cfg(feature = "ingest")]
 pub mod batch_csv;

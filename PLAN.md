@@ -326,8 +326,8 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | I7 | 70-cell grid → object types (Machine, WorkOrder, SensorReading, Invoice) | ⬜ Pending | |
 | I7 | 70-cell grid → object types (Machine, WorkOrder, SensorReading, Invoice) | ✅ Done | `models::object_type_for(domain, mode)` — a **total** resolver over the real 5×14 grid (HEAL/CONSTRUCT/FABRICATE/BOND/STUDY × 14 modes): mode refinements beat the per-domain default (e.g. FABRICATE·SENSE → `sensor_reading`, FABRICATE·PLAN → `work_order`, FABRICATE·WORK → `machine`). `OBJECT_TYPES` vocabulary + `is_valid_object_kind`. Surfaced: `/classify` response gains `object_type`; `/coherence/register` auto-stamps `kind` from the winning cell when untyped (no second embedding). 3 unit + 1 e2e test |
 | I8 | Dream output → typed actions (open WorkOrder, schedule maintenance) | ✅ Done (decide half) | `models::ActionKind` + `TypedAction` + `typed_action_for(node_kind, id, outcome, prevented)` — a replayed failure node proposes one concrete action: machine/asset → `schedule_maintenance`, work_order/sensor → `open_work_order`, document → `review_document`, person/goal → `escalate`, resolved → `acknowledge`. `/dream/replay` entries now carry `typed_action {kind, object_id, object_kind, summary}` — agent-dispatchable, not free text. Act half (dispatching the action) is I11/I12. 3 unit + 1 e2e test |
-| I9 | Append-only mutation log (node/link/verdict) | ⬜ Pending | the audit/trust layer |
-| I10 | Time-travel + audit view | ⬜ Pending | "what did the graph look like when OEE dropped" |
+| I9 | Append-only mutation log (node/link/verdict) | ✅ Done | `src/audit.rs` `MutationLog` — sealed per-tenant rows `{seq, at, op, subject_id, subject_kind, actor, detail}`, capped ≤10k, sled `audit:{uid}` (whole-list, resumes seq across restarts). Hooked: register/assert, edit, delete, edge:add. `GET /api/v1/audit` newest-first + `?node_id=` change history + `?as_of=RFC3339` time-travel slice. 5 unit + 1 e2e test |
+| I10 | Time-travel + audit view | ✅ Done | audit slice by `as_of` (`GET /api/v1/audit?as_of=`) answers "what changed when OEE dropped"; point-in-time node *existence* already served by `/coherence/nodes/all?as_of=` (`created_at <= cut`). Deeper full-state reconstruction from the log is future work — the log is the replayable source for it |
 | I11 | Dream countermeasures → webhook/CSV export | ⬜ Pending | lowest-build outbound; demo value |
 | I12 | ERP/MES/ticketing bindings | ⬜ Pending | only when a named customer names their system |
 
@@ -467,6 +467,216 @@ reconciled against the live code (verified 2026-08-28).
   above). The HTTP chain passed unchanged; the check earned its keep on the
   CLI side, where `scan` had never recorded a causal event, leaving `where`
   permanently empty on a server-less install.
+
+---
+
+## Hardening Backlog — External Evaluation (2026-08-31)
+
+An end-to-end evaluation was run against the built binaries rather than the
+documentation: licence gate, embedder cascade, classification, the SECOM
+benchmark, `pack` retrieval, the HTTP surface, and CI configuration. What
+follows is ordered by commercial risk, not by effort. Each item names the
+evidence that produced it so it can be re-checked.
+
+### H1 — Fail closed when the licence public key was not stamped in
+
+`src/license.rs` falls back to a hardcoded development public key when
+`PHYSIS_LICENSE_PUBKEY` is absent at build time. That key
+(`3b6a27bc…8b59da29`) is the Ed25519 public key of the all-zeros seed, so its
+private half is guessable by anyone without repository access. A licence signed
+with a 32-byte zero key was minted and accepted by a `cargo build --release`
+binary as "Enterprise tier, 1 seat, expires 2027-12-31".
+
+`scripts/package.sh` does require the variable, so official packages are not
+affected — but any binary built the ordinary way carries no enforceable gate,
+and one such binary reaching a customer or a demo host removes the premise of
+the Pro layer.
+
+Fix: when `option_env!("PHYSIS_LICENSE_PUBKEY")` is `None`, compile a build
+that refuses to start unless `PHYSIS_ALLOW_DEV_LICENCE=1` is also set, and
+print an unmistakable "DEVELOPMENT BUILD — licence gate disabled" banner on
+every run. Keep the dev key usable for tests; make it impossible to ship by
+accident.
+
+### H2 — Make the semantic self-test actually discriminate
+
+`embed::semantic_self_test` compares "a photograph of a dog" against "a
+photograph of a puppy" and "quarterly corporate tax accounting spreadsheet".
+The related pair shares four of its five tokens, so any bag-of-words hash
+passes. The random-projection embedder passes it, and `/health` and
+`/api/v1/embedder` consequently report `"semantic": true, "degraded": false`
+while the CLI simultaneously warns that the same embedder is non-semantic.
+
+Measured through `/api/v1/embed` on the random-projection embedder:
+
+| pair | cosine |
+|------|--------|
+| `car` / `automobile` | 0.401 |
+| `car` / `banana` | 0.525 |
+| "the spindle motor overheated and tripped" / "thermal fault shut down the drive" | 0.843 |
+| "the spindle motor overheated and tripped" / "invoice payment terms net thirty days" | 0.823 |
+
+Fix: replace the probe with lexically disjoint synonym pairs and require a
+margin over a distractor set — for example `car`/`automobile` must beat
+`car`/`banana` by a fixed margin, over several pairs. Any embedder that fails
+must set `degraded: true` on every health surface. This is the guard PREMORTEM
+P4 was written for and it currently does not guard.
+
+### H3 — Never degrade the embedder silently
+
+`OnnxConfig::model_dir` defaults to the relative path `./models`, so the same
+command classifies correctly from the repository root and falls back to
+random-projection from any other working directory, with no error — only the
+one-line warning. Same input, from two directories:
+
+- from repo root (bge-base, dim 768): `FABRICATE×MAINTAIN — 0.840`, nearest
+  entry "Machine Maintenance" — correct.
+- from elsewhere (random-projection, dim 384): `BOND×GUIDE — 1.000`, nearest
+  entries "Mentor and Lead", with the next four cells at 0.997–0.995.
+
+Fix: resolve the model directory against the binary location and the data
+directory, not the working directory; add `PHYSIS_MODEL_DIR`; and make a
+downgrade to random-projection an error unless `PHYSIS_EMBEDDER` explicitly
+requested it. A silent fallback that produces confident nonsense is worse than
+a refusal.
+
+### H4 — Stop the feedback loop inflating confidence without accuracy
+
+`QualityTracker::adjust_score` computes `raw × (1 − penalty + boost)` clamped
+to `[0,1]`. Boosts are per-cell and input-independent, so a boosted cell is
+promoted for every subsequent input; the clamp then destroys ordering once
+several cells saturate at 1.0. The SECOM run with the ONNX embedder shows the
+effect exactly: mean adjusted score rises 0.523 → 0.939 while accuracy stays
+at 0.700 and `top1_changed` is 0.
+
+In an industrial QA setting this is the worst possible failure shape — the
+system becomes more confident and no more correct. Fix: cap `cell_standing` so
+boosts cannot saturate (for example bound the multiplier to `[0.5, 1.2]`),
+and report raw and adjusted scores separately everywhere so a boost is visible
+as a boost rather than as evidence.
+
+### H5 — Replace the SECOM benchmark or stop citing it
+
+The embedded sample is 21 observations with 10 features (real UCI SECOM is
+1567 × 590). The default run splits to a 10-row test set: 60% accuracy with the
+random embedder, 70% with ONNX, against a 61.9% majority-class baseline. At
+that size the number carries no information, and the report's own
+"Interpretation" section says feedback had no measurable effect.
+
+Fix: either wire `--dataset <path>` to the full UCI CSV and report accuracy,
+precision/recall on the rare FAIL class, and a majority-class baseline
+alongside; or remove the benchmark from any customer-facing claim. A weak
+benchmark that is quoted is a liability; one that is not quoted is dead code.
+
+### H6 — Gate Italian accuracy on the model that actually ships
+
+`tests/classification.rs` gates Italian top-1 domain accuracy at 0.80 only for
+multilingual models (`jina-v2`, `bge-m3`). Jina is deliberately excluded from
+the auto-cascade and bge-m3 is 2.2 GB, so the model that actually loads is
+`bge-base-en-v1.5`, which is English-only and ungated. The test's own comments
+record its Italian history: 0.733 → 0.867 after Italian anchors → **0.667**
+after the 2026-08-14 ontology expansion diluted nearest-entry scoring.
+
+The product is sold in Italian, to Italian plants, with an Italian shift
+report as the pilot deliverable. Two of every three Italian queries landing in
+the wrong domain is a first-meeting-ending defect. Fix: pick one multilingual
+model as the shipped default and gate on it, or add Italian anchor entries
+back until bge-base clears a stated floor — and gate at that floor regardless
+of model family. Also make `accuracy_floor` **fail** rather than `return` when
+no model is on disk, so a skipped download cannot produce a green CI run.
+
+### H7 — Give `pack` an incremental index
+
+A cold `physis-pro pack src "…"` over 189 files / 2238 chunks took 9m59s wall
+and 5164s CPU. Retrieval quality was excellent — the top three chunks were
+`bin/license_tool.rs:81-120`, `license.rs:641-680`, `bin/license_tool.rs:41-80`
+for a query about Ed25519 licence verification — but no agent will wait ten
+minutes, and the pitch for this tool is that it runs locally with no model API.
+
+The warm path depends on `EmbedCache`, which is a single JSON file loaded in
+full and rewritten in full on every invocation, with no eviction. It reached
+33 MB after two runs on `src/`. At 768 f32 per chunk in JSON text (~15 KB), a
+100k-chunk customer corpus is a 1.5 GB parse per invocation.
+
+Fix: move chunk vectors into the existing sled store keyed by content hash,
+mmap or stream them, evict by age, and reuse the `index` catalog so unchanged
+files are never re-chunked. Then publish a cold and warm number.
+
+### H8 — Repair the front-door install path
+
+`install.sh` copies `target/release/physis-web`, which is not a binary this
+workspace produces (the web binary is `physis-pro-web`), and wraps it in
+`gateway/physis_mcp_gateway.py`. It cannot succeed as written. Fix or delete
+it, and make `scripts/package.sh` the only documented install route.
+
+### H9 — Reconcile the licence claims on customer-facing pages
+
+`pricing.html`, `about.html`, `index.html` and `customer_dashboard.html` state
+that the core is MIT and that `physis_pro` is "dual-licensed — MIT for the
+crate API". `physis-core/Cargo.toml` declares `license = "Apache-2.0"`, and
+the root `Cargo.toml` carries a comment explaining that `physis_pro` has no
+SPDX id because `LICENSE.txt` is a proprietary EULA. Any enterprise legal
+review will find this before it finds anything else. Pick the true statement
+and make all four pages say it.
+
+### H10 — Small correctness debt
+
+- `/health` reports `"version":"0.1.17"`; `Cargo.toml` is at `0.1.19`. Read the
+  version from `env!("CARGO_PKG_VERSION")`.
+- `.env` sets `PHICS_LOG_LEVEL`; nothing reads that name. It is a typo for
+  `PHYSIS_LOG_LEVEL`, so log level is not configurable through the documented
+  variable.
+- The `default` feature set excludes both `mcp` and `embed-onnx` — the two
+  features that carry the value proposition. A default build has no MCP server
+  and no semantic embedder. Decide deliberately whether that is the intended
+  shipping default.
+
+### H11 — Scope discipline
+
+The surface is 181 distinct HTTP routes, 46 CLI subcommands, 29 MCP tools and
+18 named machine reducers, built by one person in 101 days. The reducers are
+real algorithms — `chronos` is a median inter-arrival rhythm detector with
+next-due prediction and a regularity×evidence confidence, which is exactly
+maintenance-interval mining — but nothing in the naming reaches a plant
+manager. Roughly 15.3k lines sit in industrially sellable modules (OEE, shifts,
+maintenance, monitor, inventory, reconcile, report, machines, ingest) against
+75.3k in `src/` overall.
+
+Fix: pick the pilot path — ingest → OEE → anomaly → Italian shift report — and
+freeze everything outside it. Rename the reducers on every customer-facing
+surface to what they compute (`chronos` → "recurring-event detector"). Keep the
+Greek names internally if they help; they cost sales externally.
+
+### What the evaluation confirmed works
+
+Recorded so the backlog above is not mistaken for a verdict on the whole system.
+
+- OEE decomposition in `src/oee.rs` is textbook-correct (availability =
+  run/planned, performance = ideal_cycle × total / run capped at 1, quality =
+  good/total, world-class at ≥0.85) and depends on no embedder at all. The
+  pilot deliverable is the part that does not carry model risk.
+- With bge-base loaded, classification is genuinely good on real industrial
+  text, and `pack` retrieval put the right three chunks first.
+- Security defaults fail closed: the web server refuses to bind loopback with
+  no token unless `PHYSIS_DEV=1`, RBAC is three-tier with method-derived
+  defaults, and filesystem handlers canonicalize under a scan root.
+- CI runs `clippy --all-targets -D warnings`, downloads the real model under
+  `set -euo pipefail` for the accuracy job, and exercises the Spanner sink
+  against the official emulator.
+- The licensing infrastructure is real work: Ed25519 envelopes, tier derived
+  from the signed feature list, revocation lists, artifact signing,
+  clock-rollback detection.
+- Comments throughout record the failure that motivated the code rather than
+  restating it. That is the single strongest maintainability signal in the
+  repository and it should survive any refactor.
+
+### Sequencing
+
+H1, H2 and H3 are one focused block on trust in the engine's own status
+reporting and should land together — each is a case of the system claiming
+health it does not have. H6 and H4 are the accuracy block and gate the first
+pilot. H7 gates any agent-facing sale. H5, H8, H9 and H10 are pre-sales
+hygiene. H11 is a standing constraint, not a task.
 
 ---
 
