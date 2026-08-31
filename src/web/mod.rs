@@ -2849,6 +2849,12 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/dream/replay", post(dream::dream_replay_handler))
         .route(
+            "/api/v1/dream/replay.csv",
+            get(dream::dream_replay_csv_handler),
+        )
+        // Outbound typed-action delivery (Phase 16 I11): the act half.
+        .route("/api/v1/actions/dispatch", post(dream::dispatch_actions_handler))
+        .route(
             "/api/v1/coherence/snapshot",
             get(coherence::coherence_snapshot_handler),
         )

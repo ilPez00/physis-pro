@@ -5326,3 +5326,91 @@ async fn audit_log_records_mutations_and_filters_by_subject() {
     let (_, body) = send(&router, get("/api/v1/audit", "tenant-b")).await;
     assert_eq!(body["count"], 0);
 }
+
+// ── Phase 16 I11: typed-action dispatch + CSV export ────────────────────────
+#[tokio::test]
+async fn actions_dispatch_is_honest_when_no_webhook_configured() {
+    let (router, _dir, _env) = app().await;
+    std::env::remove_var("PHYSIS_ACTIONS_WEBHOOK");
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/actions/dispatch",
+            "tenant-a",
+            json!({"actions": [{
+                "kind": "schedule_maintenance",
+                "object_id": "cnc-01",
+                "object_kind": "machine",
+                "summary": "schedule maintenance for cnc-01"
+            }]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["configured"], false);
+    assert_eq!(body["skipped"], 1);
+    assert_eq!(body["delivered"], 0);
+    let note = body["note"].as_str().unwrap();
+    assert!(note.contains("PHYSIS_ACTIONS_WEBHOOK"), "honest note: {note}");
+}
+
+#[tokio::test]
+async fn dream_replay_csv_exports_countermeasures() {
+    let (router, _dir, _env) = app().await;
+
+    // A failing machine node gives the CSV at least something to replay.
+    send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "CNC press seized bearing", "kind": "machine", "coherence_score": -0.9}),
+        ),
+    )
+    .await;
+
+    let (status, body) = send_text(
+        &router,
+        Request::builder()
+            .method("GET")
+            .uri("/api/v1/dream/replay.csv")
+            .header("x-physis-user", "tenant-a")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let header = "node_id,label,outcome,prevented_failure,action_kind,summary";
+    assert!(body.starts_with(header), "CSV header present: {body}");
+    assert!(body.lines().count() >= 1, "at least the header row");
+}
+
+#[tokio::test]
+async fn actions_dispatch_attempts_delivery_and_reports_failure() {
+    // app() holds ENV_LOCK for the test's duration, so setting the webhook var
+    // here is serialized against every other env-mutating test.
+    let (router, _dir, _guard) = app().await;
+    std::env::set_var("PHYSIS_ACTIONS_WEBHOOK", "http://127.0.0.1:1/dispatch");
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/actions/dispatch",
+            "tenant-a",
+            json!({"actions": [{
+                "kind": "open_work_order",
+                "object_id": "wo-9",
+                "summary": "open a work order for wo-9"
+            }]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["configured"], true);
+    assert_eq!(body["delivered"], 0);
+    let results = body["results"].as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["ok"], false, "dead port delivery fails loudly: {body}");
+    std::env::remove_var("PHYSIS_ACTIONS_WEBHOOK");
+}
