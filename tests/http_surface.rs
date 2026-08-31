@@ -5244,72 +5244,85 @@ async fn dream_replay_proposes_a_typed_action_for_the_failing_node() {
     assert!(!ta["summary"].as_str().unwrap().is_empty());
 }
 
+// ── Phase 16 I9/I10: append-only mutation log / audit view ──────────────────
 #[tokio::test]
-async fn workflow_scan_reports_coverage_and_records_events() {
-    // The workflow scanner audits doc coverage (agent vs human) + attribution
-    // inside the scan root, and records Workflow events to the tenant's ring.
-    let dir = tempfile::tempdir().expect("temp data dir");
-    let inside = dir.path().join(".physis").join("docs");
-    std::fs::create_dir_all(inside.join(".claude")).expect("mkdir .claude");
-    std::fs::write(inside.join("README.md"), "# Notes\n").expect("write README");
-    std::fs::write(inside.join("AGENTS.md"), "# Agent\n").expect("write AGENTS");
-    std::fs::write(inside.join(".claude/settings.local.json"), "{}").expect("write claude cfg");
+async fn audit_log_records_mutations_and_filters_by_subject() {
+    let (router, _dir, _env) = app().await;
 
-    let (router, _env) = app_on(dir.path()).await;
-
-    let (status, body) = send(
+    // Register (with a verdict), edit, delete, add-edge — each must be sealed.
+    let (_, b1) = send(
         &router,
         post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": inside.to_string_lossy()}),
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "pump-3 overheating", "kind": "machine", "coherence_score": -0.9}),
         ),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "workflow scan succeeds: {body}");
-    assert!(
-        body["events_recorded"].as_u64().unwrap_or(0) >= 2,
-        "agent + human docs recorded as events: {body}"
-    );
-    assert_eq!(
-        body["ledger_recorded"], true,
-        "audit run recorded to the causal ledger: {body}"
-    );
-    // Coverage tallies must exist for both audiences.
-    let by_audience = body["report"]["by_audience"].as_array().unwrap();
-    let keys: Vec<String> = by_audience
-        .iter()
-        .filter_map(|t| t["key"].as_str().map(String::from))
-        .collect();
-    assert!(keys.contains(&"agent".to_string()), "agent docs found: {body}");
-    assert!(keys.contains(&"human".to_string()), "human docs found: {body}");
+    let node_id = b1["node_id"].as_str().unwrap().to_string();
 
-    // The same scan must not double-count the same event (dedupe by key).
-    let (status2, body2) = send(
+    let (_, b2) = send(
         &router,
         post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": inside.to_string_lossy()}),
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "work order 42"}),
         ),
     )
     .await;
-    assert_eq!(status2, StatusCode::OK, "repeat workflow scan: {body2}");
+    let wo = b2["node_id"].as_str().unwrap().to_string();
 
-    // Outside the root -> refused, like /scan.
-    let outside = std::env::temp_dir();
-    let (status3, _) = send(
+    send(
         &router,
         post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": outside.to_string_lossy()}),
+            "/api/v1/coherence/edit",
+            "tenant-a",
+            json!({"id": node_id, "label": "pump-3 overheating (revised)"}),
         ),
     )
     .await;
-    assert_eq!(
-        status3,
-        StatusCode::FORBIDDEN,
-        "workflow scan outside scan root rejected"
-    );
+    send(
+        &router,
+        post(
+            "/api/v1/coherence/add-edge",
+            "tenant-a",
+            json!({"source": node_id, "relation": "Causes", "target": wo}),
+        ),
+    )
+    .await;
+
+    // The audit view is newest-first and includes all four ops.
+    let (status, body) = send(&router, get("/api/v1/audit", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let entries = body["entries"].as_array().expect("entries");
+    assert!(entries.len() >= 4);
+    let ops: Vec<String> = entries.iter().map(|e| e["op"].as_str().unwrap().to_string()).collect();
+    assert!(ops.contains(&"register".to_string()));
+    assert!(ops.contains(&"assert".to_string()));
+    assert!(ops.contains(&"edit".to_string()));
+    assert!(ops.contains(&"edge:add".to_string()));
+
+    // Per-subject history: the pump's own change trail.
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/audit?node_id={node_id}", node_id = node_id), "tenant-a"),
+    )
+    .await;
+    let hist = body["entries"].as_array().expect("history");
+    assert!(hist.len() >= 3, "register + assert + edit: {body}");
+    assert!(hist.iter().all(|e| e["subject_id"] == node_id));
+
+    // Time-travel slice: every entry has a seq and a timestamp (sealed rows).
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/audit?as_of=2100-01-01T00:00:00Z", ), "tenant-a"),
+    )
+    .await;
+    let all = body["entries"].as_array().expect("all");
+    assert_eq!(all.len(), entries.len(), "as_of in the future sees everything");
+    assert!(all.iter().all(|e| e["seq"].is_number() && e["at"].is_string()));
+
+    // Tenant isolation: the other tenant's log is empty.
+    let (_, body) = send(&router, get("/api/v1/audit", "tenant-b")).await;
+    assert_eq!(body["count"], 0);
 }

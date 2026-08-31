@@ -127,7 +127,54 @@ pub async fn coherence_add_edge_handler(
         s.core
             .add_typed_edge(&req.source, relation, &req.target, req.confidence, req.weight)
     });
+    // Audit the edge write (Phase 16 I9).
+    state.with_user(&uid, |s| {
+        s.audit.record(
+            "edge:add",
+            &edge_id,
+            None,
+            &uid,
+            format!("{} → {} ({})", req.source, req.target, req.relation),
+        );
+        if let Some(db) = state.db() {
+            let _ = s.audit.save(db, &uid);
+        }
+    });
     Ok(Json(AddEdgeResponse { edge_id }))
+}
+
+/// GET /api/v1/audit?limit=&node_id=&as_of= — the append-only mutation log
+/// (Phase 16 I9/I10). Newest-first by default; filter by a single node's change
+/// history (`node_id=`) or a point in time (`as_of=RFC3339`) for the
+/// time-travel slice. The audit/trust layer an industrial buyer audits.
+#[derive(Deserialize)]
+pub struct AuditQuery {
+    limit: Option<usize>,
+    node_id: Option<String>,
+    as_of: Option<String>,
+}
+
+pub async fn audit_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(q): Query<AuditQuery>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let entries: Vec<&crate::audit::AuditEntry> = if let Some(cut) = q
+            .as_of
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|d| d.with_timezone(&chrono::Utc))
+        {
+            s.audit.as_of(cut)
+        } else if let Some(id) = &q.node_id {
+            s.audit.for_subject(id)
+        } else {
+            s.audit.recent(q.limit.unwrap_or(50))
+        };
+        Json(serde_json::json!({ "count": entries.len(), "entries": entries }))
+    })
 }
 
 /// Recall registered coherence nodes by content similarity — across every
@@ -383,6 +430,34 @@ pub async fn coherence_register_handler(
                 log::warn!("coherence node {id} not persisted: {e}");
             }
         }
+        // Audit the mutation (Phase 16 I9): the append-only log records every
+        // registration and every verdict, sealed, with the actor.
+        let node_kind = s.core.nodes.get(&id).and_then(|n| {
+            if n.kind.is_empty() {
+                None
+            } else {
+                Some(n.kind.clone())
+            }
+        });
+        s.audit.record(
+            "register",
+            &id,
+            node_kind.clone(),
+            &uid,
+            format!("label: {}", req.input),
+        );
+        if req.coherence_score.is_some() {
+            s.audit.record(
+                "assert",
+                &id,
+                node_kind,
+                &uid,
+                format!("verdict {}", req.coherence_score.unwrap_or(0.0)),
+            );
+        }
+        if let Some(db) = state.db() {
+            let _ = s.audit.save(db, &uid);
+        }
         let asserted = s.core.nodes.get(&id).and_then(|n| n.asserted);
         (id, asserted)
     });
@@ -468,6 +543,20 @@ pub async fn coherence_edit_handler(
                 if let Err(e) = s.core.persist_node(db, &uid, &o.node_id) {
                     log::warn!("edited node {} not persisted: {e}", o.node_id);
                 }
+            }
+            // Audit the content edit (Phase 16 I9).
+            s.audit.record(
+                "edit",
+                &o.node_id,
+                s.core
+                    .nodes
+                    .get(&o.node_id)
+                    .and_then(|n| if n.kind.is_empty() { None } else { Some(n.kind.clone()) }),
+                &uid,
+                format!("label → {}", req.label),
+            );
+            if let Some(db) = state.db() {
+                let _ = s.audit.save(db, &uid);
             }
         }
         outcome
@@ -596,7 +685,10 @@ pub async fn coherence_delete_handler(
     let removed = state.with_user(&uid, |s| {
         let ok = s.core.delete_node(&req.id);
         if ok {
+            // Audit the deletion before the node is gone (Phase 16 I9).
+            s.audit.record("delete", &req.id, None, &uid, "node deleted");
             if let Some(db) = state.db() {
+                let _ = s.audit.save(db, &uid);
                 let key = crate::core::PhysisCore::node_key(&uid, &req.id);
                 let _ = db.remove(key);
             }
