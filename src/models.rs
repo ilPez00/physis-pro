@@ -204,6 +204,17 @@ pub struct CoherenceNode {
     /// across content edits (structure survives, only content/score change).
     #[serde(default)]
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Object type for the typed-ontology axis (Phase 16 I5) — the
+    /// Palantir-parity "Objects" half: `machine`, `work_order`,
+    /// `sensor_reading`, `invoice`, … Empty for nodes registered without a
+    /// type (and rows written before the field existed, hence `serde(default)`).
+    #[serde(default)]
+    pub kind: String,
+    /// Typed-object properties (Phase 16 I5), keyed by name. Default-empty for
+    /// legacy rows, so the classification/coherence/dream engine (which only
+    /// reads `coherence_score`/`embedding`) is untouched by the axis.
+    #[serde(default)]
+    pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
 impl CoherenceNode {
@@ -217,12 +228,35 @@ impl CoherenceNode {
             embedder: None,
             cell_pin: None,
             created_at: chrono::Utc::now(),
+            kind: String::new(),
+            properties: serde_json::Map::new(),
         }
     }
 
     /// Attach the source text the vector was embedded from.
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Stamp the typed-ontology object kind (Phase 16 I5).
+    pub fn with_kind(mut self, kind: impl Into<String>) -> Self {
+        self.kind = kind.into();
+        self
+    }
+
+    /// Stamp the typed-object properties (Phase 16 I5).
+    pub fn with_properties(
+        mut self,
+        properties: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        self.properties = properties;
+        self
+    }
+
+    /// Set one typed-object property.
+    pub fn property(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.properties.insert(key.into(), value);
         self
     }
 
@@ -259,6 +293,8 @@ impl CoherenceNode {
             embedder,
             cell_pin,
             created_at,
+            kind,
+            properties,
         } = self;
         NodeView {
             id: id.clone(),
@@ -275,6 +311,8 @@ impl CoherenceNode {
             // callers that want it hold the node. Its width is the useful part.
             dimension: embedding.len(),
             created_at: *created_at,
+            kind: kind.clone(),
+            properties: properties.clone(),
         }
     }
 }
@@ -313,6 +351,12 @@ pub struct NodeView {
     /// can do "what did the graph know before <incident>" without re-deriving
     /// it. Epoch 1970 for legacy nodes written before the field existed.
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Typed-ontology object kind (Phase 16 I5); empty when untyped.
+    #[serde(skip_serializing_if = "String::is_empty", default)]
+    pub kind: String,
+    /// Typed-object properties (Phase 16 I5); empty when untyped.
+    #[serde(skip_serializing_if = "serde_json::Map::is_empty", default)]
+    pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An experience is a vector delta — before → after. No action text or rationale.
@@ -1013,6 +1057,41 @@ mod tests {
         assert!(!c.id.is_empty());
         assert_eq!(c.embedding, vec![0.9, 0.1]);
         assert_eq!(c.coherence_score, 0.0);
+    }
+
+    #[test]
+    fn typed_axis_defaults_empty_and_stamps() {
+        let c = CoherenceNode::new(vec![1.0, 0.0]);
+        assert_eq!(c.kind, "");
+        assert!(c.properties.is_empty());
+
+        let mut props = serde_json::Map::new();
+        props.insert("oee".into(), serde_json::json!(0.82));
+        let typed = c
+            .with_kind("machine")
+            .with_properties(props.clone())
+            .property("down", serde_json::json!(true));
+        assert_eq!(typed.kind, "machine");
+        assert_eq!(typed.properties.get("oee"), Some(&serde_json::json!(0.82)));
+        assert_eq!(typed.properties.get("down"), Some(&serde_json::json!(true)));
+    }
+
+    #[test]
+    fn legacy_node_json_without_typed_axis_deserializes() {
+        // Rows written before the axis existed have no kind/properties fields;
+        // they must load as untyped, not fail.
+        let legacy = r#"{
+            "id": "legacy-1",
+            "embedding": [0.1, 0.2],
+            "coherence_score": 0.5,
+            "asserted": null,
+            "label": "old node",
+            "created_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let node: CoherenceNode = serde_json::from_str(legacy).unwrap();
+        assert_eq!(node.kind, "");
+        assert!(node.properties.is_empty());
+        assert_eq!(node.label.as_deref(), Some("old node"));
     }
 
     #[test]

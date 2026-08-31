@@ -224,6 +224,17 @@ pub async fn coherence_register_handler(
     let label = Some(req.input.clone());
     let (node_id, asserted) = state.with_user(&uid, |s| {
         let id = s.core.register_node_vec_labeled(embedding, label);
+        // Stamp the typed-ontology axis (Phase 16 I5): object kind + properties.
+        // `register_node_vec_labeled` dedupes by label, so this updates the
+        // existing node rather than creating a second one.
+        if let Some(node) = s.core.nodes.get_mut(&id) {
+            if let Some(kind) = &req.kind {
+                node.kind = kind.clone();
+            }
+            if let Some(props) = &req.properties {
+                node.properties = props.clone();
+            }
+        }
         // Apply the verdict AFTER registration, so re-registering an existing
         // label (dedupe returns the same id) updates its outcome rather than
         // being ignored — that is how a task reported optimistically at spawn
