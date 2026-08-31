@@ -85,7 +85,13 @@ pub async fn dream_replay_handler(
     headers: HeaderMap,
 ) -> Json<Vec<DreamReplayEntry>> {
     let uid = user_key(&headers);
-    let out = state.with_user(&uid, |s| {
+    Json(replay_core(&state, &uid))
+}
+
+/// The one implementation of "what should I revisit" — shared by the JSON and
+/// CSV surfaces so they can never drift.
+fn replay_core(state: &SharedState, uid: &str) -> Vec<DreamReplayEntry> {
+    state.with_user(uid, |s| {
         let results = s.core.dream();
         results
             .iter()
@@ -120,8 +126,165 @@ pub async fn dream_replay_handler(
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>()
+    })
+}
+
+/// GET /api/v1/dream/replay.csv — the same replay as CSV, so an operator can
+/// open the countermeasures in a spreadsheet or hand them to a workflow that
+/// does not speak JSON (Phase 16 I11). Columns: node_id,label,outcome,
+/// prevented_failure,action_kind,summary.
+pub async fn dream_replay_csv_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> axum::response::Response {
+    let uid = user_key(&headers);
+    let entries = replay_core(&state, &uid);
+    let mut out = String::from("node_id,label,outcome,prevented_failure,action_kind,summary\n");
+    for e in &entries {
+        let (kind, summary) = match &e.typed_action {
+            Some(a) => (a.kind.as_str(), a.summary.clone()),
+            None => ("", String::new()),
+        };
+        out.push_str(&format!(
+            "{},{},{},{},{},{}\n",
+            csv_field(&e.node_id),
+            csv_field(&e.label),
+            e.outcome,
+            e.prevented_failure,
+            kind,
+            csv_field(&summary),
+        ));
+    }
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/csv; charset=utf-8")],
+        out,
+    )
+        .into_response()
+}
+
+/// Minimal RFC-4180 field quoting: wrap in quotes when the value carries a
+/// comma, quote, or newline; double any inner quotes.
+fn csv_field(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+/// POST /api/v1/actions/dispatch — the **act** half of the dream loop
+/// (Phase 16 I11): deliver typed actions (I8) to an outbound webhook.
+///
+/// The webhook is configured once with `PHYSIS_ACTIONS_WEBHOOK` — an air-gapped
+/// site leaves it unset and the endpoint answers `configured: false` with an
+/// honest note instead of an error, so a harness can fall back to the CSV
+/// export rather than silently assuming delivery.
+///
+/// Body: `{ "node_id": "…" }` builds the node's typed action server-side, or
+/// `{ "actions": [ {kind, object_id, object_kind, summary}, … ] }` delivers
+/// pre-built actions (e.g. the `/dream/replay` payload) as-is.
+#[derive(Deserialize)]
+pub struct DispatchRequest {
+    node_id: Option<String>,
+    #[serde(default)]
+    actions: Vec<crate::models::TypedAction>,
+}
+
+pub async fn dispatch_actions_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<DispatchRequest>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+
+    // Build server-side from a node when that's all the caller has.
+    let mut actions = req.actions;
+    if let Some(node_id) = &req.node_id {
+        let action = state.with_user(&uid, |s| {
+            let node = s.core.nodes.get(node_id)?;
+            let failing = node.rating() == Some(crate::models::CoherenceRating::Failure);
+            Some(crate::models::typed_action_for(
+                &node.kind,
+                Some(node_id.clone()),
+                if failing { -1.0 } else { 1.0 },
+                false,
+            ))
+        });
+        if let Some(a) = action {
+            actions.push(a);
+        }
+    }
+
+    let webhook = std::env::var("PHYSIS_ACTIONS_WEBHOOK")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let Some(url) = webhook else {
+        return Json(serde_json::json!({
+            "configured": false,
+            "webhook": null,
+            "delivered": 0,
+            "skipped": actions.len(),
+            "note": "PHYSIS_ACTIONS_WEBHOOK is not set — nothing was sent. Export the countermeasures via /api/v1/dream/replay.csv instead.",
+        }));
+    };
+
+    let client = reqwest::Client::new();
+    let mut results = Vec::with_capacity(actions.len());
+    let mut delivered = 0usize;
+    for a in &actions {
+        let res = client
+            .post(&url)
+            .json(&serde_json::json!({
+                "action": a,
+                "at": chrono::Utc::now().to_rfc3339(),
+                "actor": uid,
+            }))
+            .send()
+            .await;
+        match res {
+            Ok(r) if r.status().is_success() => {
+                delivered += 1;
+                results.push(serde_json::json!({
+                    "object_id": a.object_id, "kind": a.kind.as_str(), "ok": true,
+                }));
+            }
+            Ok(r) => {
+                results.push(serde_json::json!({
+                    "object_id": a.object_id, "kind": a.kind.as_str(), "ok": false,
+                    "error": format!("webhook returned {}", r.status()),
+                }));
+            }
+            Err(e) => {
+                results.push(serde_json::json!({
+                    "object_id": a.object_id, "kind": a.kind.as_str(), "ok": false,
+                    "error": format!("webhook unreachable: {e}"),
+                }));
+            }
+        }
+    }
+    // Audit the dispatch so the loop is closed on paper too.
+    state.with_user(&uid, |s| {
+        s.audit.record(
+            "action:dispatch",
+            "actions",
+            None,
+            &uid,
+            format!("delivered {delivered}/{} to {url}", actions.len()),
+        );
+        if let Some(db) = state.db() {
+            let _ = s.audit.save(db, &uid);
+        }
     });
-    Json(out)
+
+    Json(serde_json::json!({
+        "configured": true,
+        "webhook": url,
+        "delivered": delivered,
+        "skipped": actions.len() - delivered,
+        "results": results,
+    }))
 }
 
 pub async fn dream_evaluate_handler(
