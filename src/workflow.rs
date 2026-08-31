@@ -193,8 +193,10 @@ pub fn harness_of(path: &Path) -> Option<&'static str> {
 }
 
 /// Classify a file's audience from its path. Pure — the report builder and the
-/// tests both call this directly.
-pub fn classify_audience(rel: &Path) -> DocAudience {
+/// tests both call this directly. `root_harness` is the harness the scan root
+/// itself belongs to (e.g. `.hermes` when scanning `~/.hermes`), applied when
+/// the relative path carries no harness component of its own.
+pub fn classify_audience_with_root(rel: &Path, root_harness: Option<&str>) -> DocAudience {
     let name = rel
         .file_name()
         .and_then(|n| n.to_str())
@@ -205,7 +207,7 @@ pub fn classify_audience(rel: &Path) -> DocAudience {
         .and_then(|e| e.to_str())
         .unwrap_or_default()
         .to_lowercase();
-    let harness = harness_of(rel);
+    let harness = harness_of(rel).or(root_harness);
 
     // Agent-side signals: lives under a harness dir or is a known agent doc.
     let is_skills = rel.components().any(|c| c.as_os_str() == "skills");
@@ -231,6 +233,11 @@ pub fn classify_audience(rel: &Path) -> DocAudience {
         (false, true) => DocAudience::Human,
         (false, false) => DocAudience::Other,
     }
+}
+
+/// Convenience wrapper: no root harness.
+pub fn classify_audience(rel: &Path) -> DocAudience {
+    classify_audience_with_root(rel, None)
 }
 
 /// One documentation file with its full audit context: path, timestamps,
@@ -434,6 +441,10 @@ pub fn scan_workflow(root: &Path, extra_exclude: Option<&std::collections::HashS
         .collect();
     let attribution = git_attribution(&root);
     let now = Utc::now();
+    // When the scan root IS a harness dir (e.g. `~/.hermes`), its relative
+    // paths never contain the harness name as a component; tag every doc with
+    // the root's own harness so the report still groups by harness.
+    let root_harness = harness_of(&root).map(String::from);
 
     let mut docs: Vec<WorkflowDoc> = walkdir::WalkDir::new(&root)
         .into_iter()
@@ -478,8 +489,8 @@ pub fn scan_workflow(root: &Path, extra_exclude: Option<&std::collections::HashS
                 mtime,
                 ctime,
                 hash: file_hash(path).unwrap_or_default(),
-                audience: classify_audience(rel),
-                harness: harness_of(rel).map(String::from),
+                audience: classify_audience_with_root(rel, root_harness.as_deref()),
+                harness: harness_of(rel).map(String::from).or_else(|| root_harness.clone()),
                 author: has_author.then_some(author),
                 authored_at: has_author.then_some(authored_at),
                 dir,
@@ -579,6 +590,25 @@ mod tests {
         );
         assert_eq!(
             classify_audience(Path::new("src/main.rs")),
+            DocAudience::Other
+        );
+    }
+
+    #[test]
+    fn root_harness_tags_everything_under_it() {
+        // Scanning ~/.hermes directly: the relative paths have no `.hermes`
+        // component, so the root harness must carry the classification.
+        assert_eq!(
+            classify_audience_with_root(Path::new("config.yaml"), Some("hermes")),
+            DocAudience::Agent
+        );
+        assert_eq!(
+            classify_audience_with_root(Path::new("skills/foo/SKILL.md"), Some("hermes")),
+            DocAudience::Agent
+        );
+        // Without a root harness the same file is not an agent doc.
+        assert_eq!(
+            classify_audience_with_root(Path::new("config.yaml"), None),
             DocAudience::Other
         );
     }
