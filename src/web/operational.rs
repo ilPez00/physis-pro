@@ -27,6 +27,13 @@ pub struct IngestEventsRequest {
     /// ledger without flooding the graph with one node per reading.
     #[serde(default)]
     pub register_nodes: bool,
+    /// Anomaly thresholds (Phase 16 T2): `{"temp_max": 90.0, "vibration_max": 8.0, …}`.
+    /// When set, accepted *machine* events whose scalar properties exceed a
+    /// threshold are flagged as anomalies — recorded in the audit log and
+    /// returned in the response. This is the half that makes the "a new adapter
+    /// inherits anomaly detection" claim true: an adapter just ships readings.
+    #[serde(default)]
+    pub thresholds: std::collections::HashMap<String, f32>,
 }
 
 #[derive(Serialize)]
@@ -36,6 +43,10 @@ pub struct IngestEventsResponse {
     pub total: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_ids: Option<Vec<String>>,
+    /// Anomalies detected on accepted machine events (empty when no thresholds
+    /// were given or nothing exceeded them).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub anomalies: Vec<serde_json::Value>,
 }
 
 /// POST /api/v1/events — one ingestion path, dedupe + ledger + store (+ optional
@@ -79,7 +90,42 @@ pub async fn post_events_handler(
 
     let skipped = total - accepted_events.len();
 
-    // Phase 2 — optional graph visibility, off-thread (embedding is the slow
+    // Phase 2 — optional anomaly detection (Phase 16 T2). Machine events with
+    // scalar properties (temperature, vibration, rpm, …) are checked against
+    // the caller's thresholds; each hit is audited and returned.
+    let mut anomalies: Vec<serde_json::Value> = Vec::new();
+    if !req.thresholds.is_empty() {
+        for ev in &accepted_events {
+            let Some(reading) = reading_from_event(ev) else {
+                continue;
+            };
+            for a in crate::industrial::detect_anomalies(
+                &ev.subject,
+                std::slice::from_ref(&reading),
+                &req.thresholds,
+            ) {
+                anomalies.push(serde_json::json!({
+                    "machine_id": a.machine_id,
+                    "reason": a.reason,
+                    "severity": a.severity,
+                }));
+                state.with_user(&uid, |s| {
+                    s.audit.record(
+                        "anomaly",
+                        &ev.subject,
+                        Some("machine".into()),
+                        &uid,
+                        a.reason.clone(),
+                    );
+                    if let Some(db) = state.db() {
+                        let _ = s.audit.save(db, &uid);
+                    }
+                });
+            }
+        }
+    }
+
+    // Phase 3 — optional graph visibility, off-thread (embedding is the slow
     // part and must not serialize other handlers behind the tenant lock).
     let mut node_ids: Option<Vec<String>> = None;
     if req.register_nodes && !accepted_events.is_empty() {
@@ -97,6 +143,42 @@ pub async fn post_events_handler(
         skipped,
         total,
         node_ids,
+        anomalies,
+    })
+}
+
+/// Build an industrial `MachineReading` from a machine event's scalar
+/// properties, so a telemetry adapter's events can be anomaly-checked with no
+/// extra wiring. Returns `None` for non-machine events.
+fn reading_from_event(ev: &OperationalEvent) -> Option<crate::industrial::MachineReading> {
+    if ev.kind != crate::operational::OperationalKind::Machine {
+        return None;
+    }
+    let f = |k: &str| ev.properties.get(k).and_then(|v| v.parse::<f32>().ok());
+    let status = match ev.status {
+        crate::operational::OperationalStatus::Warning => {
+            crate::industrial::MachineStatus::Warning
+        }
+        crate::operational::OperationalStatus::Failure => {
+            crate::industrial::MachineStatus::Critical
+        }
+        _ => crate::industrial::MachineStatus::Online,
+    };
+    let mut raw = std::collections::HashMap::new();
+    for (k, v) in &ev.properties {
+        if let Ok(n) = v.parse::<f32>() {
+            raw.insert(k.clone(), n);
+        }
+    }
+    Some(crate::industrial::MachineReading {
+        machine_id: ev.subject.clone(),
+        timestamp: ev.observed_at,
+        temperature: f("temperature"),
+        pressure: f("pressure"),
+        vibration: f("vibration"),
+        rpm: f("rpm"),
+        status,
+        raw,
     })
 }
 

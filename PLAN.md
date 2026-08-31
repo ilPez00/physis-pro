@@ -358,7 +358,7 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
 | T1 | E2E funnel: scan → shift report → quality → dream → `where` → lineage | ⬜ Pending | one test, whole journey, tenant isolation |
-| T2 | Adapter-contract test: stub `OperationalEvent` inherits dedup+anomaly+ledger | ⬜ Pending | verifies I4 |
+| T2 | Adapter-contract test: stub `OperationalEvent` inherits dedup+anomaly+ledger | ✅ Done | `POST /api/v1/events` now takes `thresholds` and anomaly-checks accepted **machine** events (temperature/vibration/rpm from event properties via `reading_from_event` → `detect_anomalies`); each hit is audited (`anomaly` op) and returned in the response. e2e proves the I4 "new adapter ≈ 100 lines inherits dedup + ledger + anomaly + timeline" claim end-to-end (hot reading flagged + audited; cool reading not) |
 | T3 | Typed-object round-trip (type+props survive persist/edit/delete) | ⬜ Pending | verifies I5 back-compat |
 | T4 | Temporal-log replay + audit view | ⬜ Pending | verifies I9–I10 |
 | T5 | Marketing-page smoke: `/`, `/pricing`, `/about` 200 + no external assets | ✅ Done | `marketing_pages_serve_expected_copy_without_external_assets`: `/`, `/pricing`, `/about`, `/deploy` serve 200 with the real product copy (not the stale "API platform" framing), load the shared `/physis.css`, and fetch no external CSS/JS; `/settings` serves its own copy. The air-gap rule the product obeys is asserted on the marketing pages too |

@@ -5551,3 +5551,84 @@ async fn marketing_pages_serve_expected_copy_without_external_assets() {
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("install health"), "/settings carries its copy");
 }
+
+// ── Phase 18 T2: adapter-contract — a machine event inherits anomaly
+//    detection (dedupe + ledger + timeline already covered by events_ingest) ──
+#[tokio::test]
+async fn machine_event_inherits_anomaly_detection() {
+    let (router, _dir, _env) = app().await;
+
+    // A hot machine reading + thresholds → flagged as an anomaly.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/events",
+            "tenant-a",
+            json!({
+                "events": [{
+                    "event_key": "ev-hot-1",
+                    "observed_at": "2026-08-12T08:55:00Z",
+                    "kind": "machine",
+                    "status": "warning",
+                    "subject": "cnc-01",
+                    "provenance": {"connector": "industrial", "source": "machine", "source_id": "cnc-01"},
+                    "properties": {"temperature": "95"},
+                    "evidence": [],
+                    "machine_id": "cnc-01",
+                    "raw": null
+                }],
+                "thresholds": {"temp_max": 90.0}
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["accepted"], 1);
+    let anomalies = body["anomalies"].as_array().unwrap_or_else(|| {
+        eprintln!("RESPONSE: {body}");
+        panic!("no anomalies in response")
+    });
+    assert_eq!(anomalies.len(), 1, "hot reading flagged: {body}");
+    assert_eq!(anomalies[0]["machine_id"], "cnc-01");
+    assert!(anomalies[0]["reason"].as_str().unwrap().contains("temperature"));
+
+    // The anomaly is sealed in the audit log too.
+    let (_, audit) = send(&router, get("/api/v1/audit", "tenant-a")).await;
+    assert!(
+        audit["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["op"] == "anomaly"),
+        "anomaly audited: {audit}"
+    );
+
+    // A cool machine, or no thresholds, → no anomalies.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/events",
+            "tenant-a",
+            json!({
+                "events": [{
+                    "event_key": "ev-cool-1",
+                    "observed_at": "2026-08-12T09:00:00Z",
+                    "kind": "machine",
+                    "status": "info",
+                    "subject": "cnc-01",
+                    "provenance": {"connector": "industrial", "source": "machine", "source_id": "cnc-01"},
+                    "properties": {"temperature": "60"},
+                    "evidence": [],
+                    "machine_id": "cnc-01",
+                    "raw": null
+                }]
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(body["accepted"], 1);
+    assert!(
+        body["anomalies"].as_array().map(|a| a.is_empty()).unwrap_or(true),
+        "cool reading not flagged"
+    );
+}
