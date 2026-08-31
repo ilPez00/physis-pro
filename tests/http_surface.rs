@@ -5462,3 +5462,51 @@ async fn shift_report_metadata_carries_evidence_grade_identity() {
     assert!(text.contains("host "), "host identity in report: {text}");
     std::env::remove_var("PHYSIS_PLANT");
 }
+
+// ── Phase 18 T7: air-gapped degradation (no weights, no network) ────────────
+#[tokio::test]
+async fn air_gapped_path_degrades_honestly_without_weights_or_network() {
+    // The whole http_surface suite runs under the random-projection embedder
+    // with no providers and no network — the air-gapped worst case. This test
+    // pins the contract: core endpoints answer 200 with an honest shape, never
+    // 500, and classify says outright that it is NOT semantic.
+    let (router, _dir, _env) = app().await;
+
+    // classify — even empty/garbage text is a 200 with a shape.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/classify", "air", json!({"text": ""})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "classify never 500s: {body}");
+    assert!(body["top"]["domain"].is_string(), "top cell shape: {body}");
+    // The honest air-gap marker: the assessment names the offline embedder.
+    assert_eq!(body["assessment"]["model"], "random-projection", "{body}");
+
+    // embed — random projection is deterministic and available offline.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/embed", "air", json!({"text": "hello"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["dim"].as_u64().unwrap_or(0) > 0, "embedding has a dimension: {body}");
+
+    // extract — never 500: either a provider extracts slots, or an explicit
+    // note says why not (never a fabricated object, never a silent failure).
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/extract",
+            "air",
+            json!({"text": "the press is down", "schema": {"type": "object", "properties": {"machine": {"type": "string"}}}}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    if let Some(note) = body["note"].as_str() {
+        assert!(!note.is_empty(), "honest degradation note: {body}");
+    } else {
+        assert!(body["slots"].is_object(), "either slots or a note: {body}");
+    }
+}
