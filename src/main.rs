@@ -366,6 +366,18 @@ pub enum Commands {
         #[arg(long)]
         demo: bool,
     },
+    /// The 10-minute demo (Phase 17 U5): turn a prospect folder into a shift
+    /// report + an ontology studio in one command. Reads every `*.csv` of shift
+    /// records (or `--demo` seeds a sample), renders `report.html`/`report.md`
+    /// and `studio.html` in the same folder, and prints what to show first.
+    Demo {
+        /// Folder with the prospect's shift CSVs and documents.
+        dir: PathBuf,
+        /// Seed a sample shift CSV + demo corpus first (idempotent — real data
+        /// is never overwritten).
+        #[arg(long)]
+        demo: bool,
+    },
     /// Search the wiki (llmwiki + file-theme graph)
     Wiki { query: String },
     /// Browse the file-theme graph interactively
@@ -1021,6 +1033,9 @@ fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|| dir.join("studio.html"));
             let report = app.run_studio(&dir, &out, demo)?;
             println!("{report}");
+        }
+        Commands::Demo { dir, demo } => {
+            run_demo(&mut app, &dir, demo)?;
         }
         Commands::Stats => {
             let output = app.run_stats();
@@ -2000,6 +2015,89 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
         println!("⚠️  {issues} issue(s) found — see above");
     }
 
+    Ok(())
+}
+
+/// Phase 17 U5 — the 10-minute demo: shift report + ontology studio, one run.
+/// Reads every `*.csv` of shift records in the folder, renders `report.html` +
+/// `report.md`, then runs the studio (`studio.html`) over the same folder, and
+/// prints what to show a prospect first.
+const DEMO_SHIFTS_CSV: &str = "\
+machine_id,shift_length_secs,ideal_cycle_time_secs,total_count,good_count,downtime_secs,stop_reason,recorded_at,shift_label
+CNC-01,28800,60,400,390,1800,breakdown,2026-08-24T06:00:00Z,Turno 1
+CNC-01,28800,60,380,370,900,setup,2026-08-25T06:00:00Z,Turno 2
+PRESS-07,28800,45,500,480,2700,breakdown,2026-08-24T06:00:00Z,Turno 1
+PRESS-07,28800,45,520,515,600,minor,2026-08-25T06:00:00Z,Turno 2
+";
+
+fn run_demo(app: &mut PhysisApp, dir: &std::path::Path, seed: bool) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dir).ok();
+    if seed {
+        // Seed the studio corpus idempotently (never overwrites real docs) and
+        // a sample shift CSV when the folder has none.
+        if physis_pro::ingest::ingest_all(&[dir.to_path_buf()]).is_empty() {
+            physis_pro::demo_corpus::seed_demo_corpus(dir)?;
+        }
+        let shifts = dir.join("shifts.csv");
+        if !shifts.exists() {
+            std::fs::write(&shifts, DEMO_SHIFTS_CSV)?;
+        }
+    }
+
+    // 1. Shift report from every *.csv of shift records.
+    let mut shifts_seen = 0usize;
+    let mut rejected = 0usize;
+    for entry in std::fs::read_dir(dir)? {
+        let p = entry?.path();
+        if p.extension().and_then(|e| e.to_str()) != Some("csv") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&p)?;
+        let (records, errors) = physis_pro::shifts::parse_shift_csv(&text);
+        rejected += errors.len();
+        if records.is_empty() {
+            continue;
+        }
+        shifts_seen += records.len();
+        let merged = physis_pro::shifts::aggregate(&records);
+        let reports: Vec<physis_pro::oee::OeeReport> = merged.iter().map(|s| s.compute()).collect();
+        let plant = (!reports.is_empty()).then(|| physis_pro::oee::plant_oee(&reports));
+        let input = physis_pro::report::ShiftReportInput {
+            oee: reports,
+            plant,
+            shift_label: Some(format!(
+                "Demo — {}",
+                p.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+            )),
+            metadata: Some(physis_pro::report::ReportMetadata::new("demo-csv")),
+            ..Default::default()
+        };
+        std::fs::write(
+            dir.join("report.html"),
+            physis_pro::report::render_shift_report_html(&input),
+        )?;
+        std::fs::write(dir.join("report.md"), physis_pro::report::render_shift_report_it(&input))?;
+    }
+
+    if shifts_seen > 0 {
+        println!(
+            "shift report : {} ({} shifts, {} rows rejected)",
+            dir.join("report.html").display(),
+            shifts_seen,
+            rejected
+        );
+    } else {
+        println!(
+            "shift report : none — no shift CSV under {} (add one, or pass --demo)",
+            dir.display()
+        );
+    }
+
+    // 2. Ontology studio over the same folder.
+    let studio_out = dir.join("studio.html");
+    println!("{}", app.run_studio(dir, &studio_out, false)?);
     Ok(())
 }
 

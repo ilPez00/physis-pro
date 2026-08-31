@@ -345,7 +345,7 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | U2 | `customer_dashboard.html` → license/deployment status page over real endpoints | ⬜ Pending | no billing backend exists; stop faking one |
 | U3 | Remove or fold `api_tester.html` into Agent/Studio | ⬜ Pending | duplicates Notebook + Search affordances |
 | U4 | Route `/`, `/pricing`, `/about` publicly; keep `/pulse` as product home | 🔨 In progress | |
-| U5 | 10-minute demo: `prospect.csv → shift report + ontology studio` | ⬜ Pending | the week-1 "wow" wedge |
+| U5 | 10-minute demo: `prospect.csv → shift report + ontology studio` | ✅ Done | `physis-pro demo <dir> [--demo]`: reads every shift `*.csv` → `report.html`+`report.md` (Italian OEE report, per-machine losses, evidence-grade identity line) and runs the ontology studio (`studio.html`) over the same folder. `--demo` seeds a sample `shifts.csv` + demo corpus idempotently (real data never overwritten). Verified end-to-end against a vendor-stamped build + trial license |
 | U6 | `--screenshot` mode / per-release capture pipeline | ⬜ Pending | feeds visual distribution (ADOPTION.md) |
 | U7 | Re-audit pages against the offline/WCAG floors in `physis.css` | ⬜ Pending | |
 
