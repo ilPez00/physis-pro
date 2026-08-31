@@ -1934,6 +1934,9 @@ pub struct ClassifyResponse {
     assessment: ClassificationAssessment,
     #[serde(skip_serializing_if = "Option::is_none")]
     discovery: Option<crate::discovery::DiscoverySuggestion>,
+    /// Object type the winning cell denotes (Phase 16 I7) — the typed-ontology
+    /// axis resolved from domain × mode, e.g. `machine`, `sensor_reading`.
+    object_type: Option<&'static str>,
     context: String,
     overlay_count: usize,
 }
