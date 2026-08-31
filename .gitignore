@@ -1,4 +1,5 @@
 target/
+shots/
 .env
 *.wav
 models/
