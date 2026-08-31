@@ -204,6 +204,17 @@ pub struct CoherenceNode {
     /// across content edits (structure survives, only content/score change).
     #[serde(default)]
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Object type for the typed-ontology axis (Phase 16 I5) — the
+    /// Palantir-parity "Objects" half: `machine`, `work_order`,
+    /// `sensor_reading`, `invoice`, … Empty for nodes registered without a
+    /// type (and rows written before the field existed, hence `serde(default)`).
+    #[serde(default)]
+    pub kind: String,
+    /// Typed-object properties (Phase 16 I5), keyed by name. Default-empty for
+    /// legacy rows, so the classification/coherence/dream engine (which only
+    /// reads `coherence_score`/`embedding`) is untouched by the axis.
+    #[serde(default)]
+    pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
 impl CoherenceNode {
@@ -217,12 +228,35 @@ impl CoherenceNode {
             embedder: None,
             cell_pin: None,
             created_at: chrono::Utc::now(),
+            kind: String::new(),
+            properties: serde_json::Map::new(),
         }
     }
 
     /// Attach the source text the vector was embedded from.
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    /// Stamp the typed-ontology object kind (Phase 16 I5).
+    pub fn with_kind(mut self, kind: impl Into<String>) -> Self {
+        self.kind = kind.into();
+        self
+    }
+
+    /// Stamp the typed-object properties (Phase 16 I5).
+    pub fn with_properties(
+        mut self,
+        properties: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        self.properties = properties;
+        self
+    }
+
+    /// Set one typed-object property.
+    pub fn property(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.properties.insert(key.into(), value);
         self
     }
 
@@ -259,6 +293,8 @@ impl CoherenceNode {
             embedder,
             cell_pin,
             created_at,
+            kind,
+            properties,
         } = self;
         NodeView {
             id: id.clone(),
@@ -275,6 +311,8 @@ impl CoherenceNode {
             // callers that want it hold the node. Its width is the useful part.
             dimension: embedding.len(),
             created_at: *created_at,
+            kind: kind.clone(),
+            properties: properties.clone(),
         }
     }
 }
@@ -313,6 +351,12 @@ pub struct NodeView {
     /// can do "what did the graph know before <incident>" without re-deriving
     /// it. Epoch 1970 for legacy nodes written before the field existed.
     pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Typed-ontology object kind (Phase 16 I5); empty when untyped.
+    #[serde(skip_serializing_if = "String::is_empty", default)]
+    pub kind: String,
+    /// Typed-object properties (Phase 16 I5); empty when untyped.
+    #[serde(skip_serializing_if = "serde_json::Map::is_empty", default)]
+    pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An experience is a vector delta — before → after. No action text or rationale.
@@ -981,6 +1025,174 @@ pub fn cosine_dist(a: &[f32], b: &[f32]) -> f32 {
     1.0 - cosine_sim(a, b)
 }
 
+// ── Object types (Phase 16 I7) ──────────────────────────────────────────────
+// The typed-ontology axis started with a `kind` on CoherenceNode (I5). This
+// resolver completes it: it maps the 70-cell classification grid back to the
+// kind of thing a node *is* — a machine, a work order, a sensor reading, an
+// invoice-like record. Classification (domain × mode) already applied overlays
+// and rerank, so this is a deterministic lookup, not a second classifier.
+
+/// The object-type vocabulary a classified node can denote. Used to validate
+/// user-supplied kinds and to auto-stamp `kind` from the winning cell.
+pub const OBJECT_TYPES: &[&str] = &[
+    "machine",
+    "asset",
+    "sensor_reading",
+    "work_order",
+    "maintenance_record",
+    "inspection",
+    "incident",
+    "goal",
+    "person",
+    "contact",
+    "document",
+    "knowledge",
+    "note",
+    "observation",
+    "prototype",
+];
+
+/// Resolve the 70-cell grid to an object type. **Total over the grid**: every
+/// (domain, mode) cell denotes a thing, so a winning cell always yields a type.
+/// Mode refinements beat the per-domain default.
+///
+/// The five domains: HEAL (restore/care), CONSTRUCT (build), FABRICATE
+/// (make/produce), BOND (relate/people/exchange), STUDY (learn/know).
+pub fn object_type_for(domain: &str, mode: &str) -> Option<&'static str> {
+    let d = domain.trim().to_ascii_uppercase();
+    let m = mode.trim().to_ascii_uppercase();
+    Some(match (d.as_str(), m.as_str()) {
+        // FABRICATE — the plant floor.
+        ("FABRICATE", "SENSE") => "sensor_reading",
+        ("FABRICATE", "PLAN") => "work_order",
+        ("FABRICATE", "MAINTAIN") => "maintenance_record",
+        ("FABRICATE", "CREATE") => "prototype",
+        ("FABRICATE", _) => "machine",
+        // CONSTRUCT — build / erect.
+        ("CONSTRUCT", "SENSE") => "inspection",
+        ("CONSTRUCT", "PLAN") => "work_order",
+        ("CONSTRUCT", "MAINTAIN") => "maintenance_record",
+        ("CONSTRUCT", _) => "asset",
+        // HEAL — health, recovery, incidents.
+        ("HEAL", "SENSE") => "sensor_reading",
+        ("HEAL", "MAINTAIN") => "maintenance_record",
+        ("HEAL", "PLAN") => "work_order",
+        ("HEAL", _) => "incident",
+        // BOND — people, relations, goals, exchange.
+        ("BOND", "PLAN") | ("BOND", "WORK") => "goal",
+        ("BOND", "SENSE") => "contact",
+        ("BOND", _) => "person",
+        // STUDY — knowledge work.
+        ("STUDY", "SENSE") => "observation",
+        ("STUDY", "LEARN") => "knowledge",
+        ("STUDY", "BRAINSTORM") => "note",
+        ("STUDY", _) => "document",
+        _ => return None,
+    })
+}
+
+/// Whether `kind` is in the known object vocabulary (or empty/untyped).
+pub fn is_valid_object_kind(kind: &str) -> bool {
+    kind.is_empty() || OBJECT_TYPES.contains(&kind)
+}
+
+// ── Typed actions (Phase 16 I8) ─────────────────────────────────────────────
+// The "decide" half of the dream loop: a replayed failure node proposes one
+// *concrete* action an operator — or, later, a harness via the outbound layer
+// (I11/I12) — can take, derived from the node's object kind. Not free text that
+// only a human can interpret: `OpenWorkOrder`/`ScheduleMaintenance` are actions
+// an agent can dispatch.
+
+/// The kinds of concrete action the dream loop can propose for a failing node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionKind {
+    /// Open (or re-plan) a work order for the failing object.
+    OpenWorkOrder,
+    /// Schedule maintenance for a machine/asset.
+    ScheduleMaintenance,
+    /// Update the record (maintenance/sensor log) for this object.
+    UpdateRecord,
+    /// Review the failing document/knowledge node.
+    ReviewDocument,
+    /// Escalate to a person or goal.
+    Escalate,
+    /// Acknowledge an incident or a resolved item.
+    Acknowledge,
+}
+
+impl ActionKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ActionKind::OpenWorkOrder => "open_work_order",
+            ActionKind::ScheduleMaintenance => "schedule_maintenance",
+            ActionKind::UpdateRecord => "update_record",
+            ActionKind::ReviewDocument => "review_document",
+            ActionKind::Escalate => "escalate",
+            ActionKind::Acknowledge => "acknowledge",
+        }
+    }
+}
+
+/// A concrete, typed action proposed by the dream loop for one node.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypedAction {
+    pub kind: ActionKind,
+    /// The node the action targets (the failing object's id).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+    /// The object kind (I5) that selected the action, e.g. `machine`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_kind: Option<String>,
+    /// One-line instruction both a human and an agent can act on.
+    pub summary: String,
+}
+
+/// Derive the typed action for a replayed node (Phase 16 I8). A replayed node
+/// that the dream fixed (or a positive outcome) is an acknowledgement; a node
+/// still failing gets an action chosen by its object kind — machine → schedule
+/// maintenance, work order → open a work order, sensor → investigate, etc.
+pub fn typed_action_for(
+    node_kind: &str,
+    object_id: Option<String>,
+    outcome: f32,
+    prevented_failure: bool,
+) -> TypedAction {
+    let (kind, verb, fallback_target) = if prevented_failure || outcome >= 0.0 {
+        (ActionKind::Acknowledge, "acknowledge", "the resolved item")
+    } else {
+        match node_kind {
+            "machine" | "asset" => {
+                (ActionKind::ScheduleMaintenance, "schedule maintenance for", "the machine")
+            }
+            "work_order" => (ActionKind::OpenWorkOrder, "open a work order for", "the work order"),
+            "sensor_reading" => {
+                (ActionKind::OpenWorkOrder, "investigate the reading from", "the sensor")
+            }
+            "maintenance_record" | "inspection" => {
+                (ActionKind::UpdateRecord, "update the record for", "the record")
+            }
+            "document" | "knowledge" | "note" => {
+                (ActionKind::ReviewDocument, "review", "the document")
+            }
+            "person" | "goal" => (ActionKind::Escalate, "escalate", "the person/goal"),
+            "incident" => (ActionKind::Acknowledge, "acknowledge", "the incident"),
+            _ => (ActionKind::Acknowledge, "acknowledge", "the item"),
+        }
+    };
+    let target = object_id.clone().unwrap_or_else(|| fallback_target.to_string());
+    TypedAction {
+        kind,
+        object_id,
+        object_kind: if node_kind.is_empty() {
+            None
+        } else {
+            Some(node_kind.to_string())
+        },
+        summary: format!("{verb} {target}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1013,6 +1225,127 @@ mod tests {
         assert!(!c.id.is_empty());
         assert_eq!(c.embedding, vec![0.9, 0.1]);
         assert_eq!(c.coherence_score, 0.0);
+    }
+
+    #[test]
+    fn typed_axis_defaults_empty_and_stamps() {
+        let c = CoherenceNode::new(vec![1.0, 0.0]);
+        assert_eq!(c.kind, "");
+        assert!(c.properties.is_empty());
+
+        let mut props = serde_json::Map::new();
+        props.insert("oee".into(), serde_json::json!(0.82));
+        let typed = c
+            .with_kind("machine")
+            .with_properties(props.clone())
+            .property("down", serde_json::json!(true));
+        assert_eq!(typed.kind, "machine");
+        assert_eq!(typed.properties.get("oee"), Some(&serde_json::json!(0.82)));
+        assert_eq!(typed.properties.get("down"), Some(&serde_json::json!(true)));
+    }
+
+    #[test]
+    fn legacy_node_json_without_typed_axis_deserializes() {
+        // Rows written before the axis existed have no kind/properties fields;
+        // they must load as untyped, not fail.
+        let legacy = r#"{
+            "id": "legacy-1",
+            "embedding": [0.1, 0.2],
+            "coherence_score": 0.5,
+            "asserted": null,
+            "label": "old node",
+            "created_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let node: CoherenceNode = serde_json::from_str(legacy).unwrap();
+        assert_eq!(node.kind, "");
+        assert!(node.properties.is_empty());
+        assert_eq!(node.label.as_deref(), Some("old node"));
+    }
+
+    #[test]
+    fn object_type_resolver_is_total_over_the_grid() {
+        // Every one of the 5×14 cells resolves to a known object type.
+        for d in HumanDomain::all() {
+            for m in HumanMode::all() {
+                let t = object_type_for(d.as_str(), m.as_str())
+                    .unwrap_or_else(|| panic!("no object type for {} / {}", d.as_str(), m.as_str()));
+                assert!(
+                    OBJECT_TYPES.contains(&t),
+                    "{}/{} resolved to {} which is not in the vocabulary",
+                    d.as_str(),
+                    m.as_str(),
+                    t
+                );
+            }
+        }
+        // Unknown domains yield nothing; unknown modes fall through to the
+        // domain default (the grid is total over its own 14 modes).
+        assert_eq!(object_type_for("NOT_A_DOMAIN", "WORK"), None);
+        assert_eq!(object_type_for("FABRICATE", "NOT_A_MODE"), Some("machine"));
+    }
+
+    #[test]
+    fn object_type_refinements_beat_domain_defaults() {
+        assert_eq!(object_type_for("FABRICATE", "WORK"), Some("machine"));
+        assert_eq!(object_type_for("FABRICATE", "SENSE"), Some("sensor_reading"));
+        assert_eq!(object_type_for("FABRICATE", "PLAN"), Some("work_order"));
+        assert_eq!(object_type_for("CONSTRUCT", "WORK"), Some("asset"));
+        assert_eq!(object_type_for("CONSTRUCT", "SENSE"), Some("inspection"));
+        assert_eq!(object_type_for("HEAL", "LIFT"), Some("incident"));
+        assert_eq!(object_type_for("BOND", "PLAN"), Some("goal"));
+        assert_eq!(object_type_for("BOND", "PLAY"), Some("person"));
+        assert_eq!(object_type_for("STUDY", "LEARN"), Some("knowledge"));
+        assert_eq!(object_type_for("STUDY", "BRAINSTORM"), Some("note"));
+        // Case-insensitive.
+        assert_eq!(object_type_for("fabricate", "sense"), Some("sensor_reading"));
+    }
+
+    #[test]
+    fn object_kind_validation() {
+        assert!(is_valid_object_kind("machine"));
+        assert!(is_valid_object_kind("sensor_reading"));
+        assert!(is_valid_object_kind("")); // untyped is fine
+        assert!(!is_valid_object_kind("not-a-real-kind"));
+    }
+
+    #[test]
+    fn typed_action_maps_node_kind_to_action() {
+        let a = typed_action_for("machine", Some("cnc-01".into()), -0.8, false);
+        assert_eq!(a.kind, ActionKind::ScheduleMaintenance);
+        assert_eq!(a.summary, "schedule maintenance for cnc-01");
+        assert_eq!(a.object_kind.as_deref(), Some("machine"));
+
+        let a = typed_action_for("work_order", Some("wo-41".into()), -0.8, false);
+        assert_eq!(a.kind, ActionKind::OpenWorkOrder);
+        assert_eq!(a.summary, "open a work order for wo-41");
+
+        let a = typed_action_for("sensor_reading", None, -0.8, false);
+        assert_eq!(a.kind, ActionKind::OpenWorkOrder);
+        assert_eq!(a.summary, "investigate the reading from the sensor");
+
+        let a = typed_action_for("document", Some("d-1".into()), -0.8, false);
+        assert_eq!(a.kind, ActionKind::ReviewDocument);
+
+        let a = typed_action_for("person", None, -0.8, false);
+        assert_eq!(a.kind, ActionKind::Escalate);
+    }
+
+    #[test]
+    fn typed_action_acknowledges_when_dream_prevented_failure() {
+        let a = typed_action_for("machine", Some("cnc-01".into()), 0.5, true);
+        assert_eq!(a.kind, ActionKind::Acknowledge);
+        assert_eq!(a.summary, "acknowledge cnc-01");
+
+        // Positive outcome without explicit prevention also closes the loop.
+        let b = typed_action_for("work_order", None, 0.3, false);
+        assert_eq!(b.kind, ActionKind::Acknowledge);
+    }
+
+    #[test]
+    fn typed_action_untyped_node_falls_back_to_acknowledge() {
+        let a = typed_action_for("", Some("x".into()), -0.8, false);
+        assert_eq!(a.kind, ActionKind::Acknowledge);
+        assert_eq!(a.object_kind, None);
     }
 
     #[test]

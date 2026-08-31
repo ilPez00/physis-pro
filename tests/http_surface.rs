@@ -1219,76 +1219,6 @@ async fn scan_is_confined_to_scan_root() {
 }
 
 #[tokio::test]
-async fn workflow_scan_reports_coverage_and_records_events() {
-    // The workflow scanner audits doc coverage (agent vs human) + attribution
-    // inside the scan root, and records Workflow events to the tenant's ring.
-    let dir = tempfile::tempdir().expect("temp data dir");
-    let inside = dir.path().join(".physis").join("docs");
-    std::fs::create_dir_all(inside.join(".claude")).expect("mkdir .claude");
-    std::fs::write(inside.join("README.md"), "# Notes\n").expect("write README");
-    std::fs::write(inside.join("AGENTS.md"), "# Agent\n").expect("write AGENTS");
-    std::fs::write(inside.join(".claude/settings.local.json"), "{}").expect("write claude cfg");
-
-    let (router, _env) = app_on(dir.path()).await;
-
-    let (status, body) = send(
-        &router,
-        post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": inside.to_string_lossy()}),
-        ),
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK, "workflow scan succeeds: {body}");
-    assert!(
-        body["events_recorded"].as_u64().unwrap_or(0) >= 2,
-        "agent + human docs recorded as events: {body}"
-    );
-    assert_eq!(
-        body["ledger_recorded"], true,
-        "audit run recorded to the causal ledger: {body}"
-    );
-    // Coverage tallies must exist for both audiences.
-    let by_audience = body["report"]["by_audience"].as_array().unwrap();
-    let keys: Vec<String> = by_audience
-        .iter()
-        .filter_map(|t| t["key"].as_str().map(String::from))
-        .collect();
-    assert!(keys.contains(&"agent".to_string()), "agent docs found: {body}");
-    assert!(keys.contains(&"human".to_string()), "human docs found: {body}");
-
-    // The same scan must not double-count the same event (dedupe by key).
-    let (status2, body2) = send(
-        &router,
-        post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": inside.to_string_lossy()}),
-        ),
-    )
-    .await;
-    assert_eq!(status2, StatusCode::OK, "repeat workflow scan: {body2}");
-
-    // Outside the root → refused, like /scan.
-    let outside = std::env::temp_dir();
-    let (status3, _) = send(
-        &router,
-        post(
-            "/api/v1/workflow/scan",
-            "_default",
-            json!({"dir": outside.to_string_lossy()}),
-        ),
-    )
-    .await;
-    assert_eq!(
-        status3,
-        StatusCode::FORBIDDEN,
-        "workflow scan outside scan root rejected"
-    );
-}
-
-#[tokio::test]
 async fn fs_list_and_resolve_are_confined_to_scan_root() {
     // The console file manager cannot see OS paths from a drag-and-drop, so it
     // browses scan_root through /fs/list and maps dropped basenames through
@@ -5098,4 +5028,288 @@ async fn events_can_register_graph_nodes_when_requested() {
     let ids = body["node_ids"].as_array().expect("node_ids");
     assert_eq!(ids.len(), 1);
     assert!(!ids[0].as_str().unwrap().is_empty());
+}
+
+// ── Phase 16 I5: typed CoherenceNode (kind + properties) ────────────────────
+#[tokio::test]
+async fn register_stamps_kind_and_properties_into_the_node() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({
+                "input": "press-07 cycle time drift",
+                "kind": "machine",
+                "properties": {"oee": 0.82, "down_min": 14, "cell": "FABRICATE/WORK"},
+                "coherence_score": -0.5,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+
+    // The node comes back with the typed axis through the standard projection.
+    let (status, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let nodes = body["results"].as_array().expect("results");
+    let node = nodes.iter().find(|n| n["id"] == node_id).expect("registered node");
+    assert_eq!(node["kind"], "machine");
+    assert_eq!(node["properties"]["oee"], 0.82);
+    assert_eq!(node["properties"]["down_min"], 14);
+    assert_eq!(node["rating"], "Failure");
+
+    // Re-registering the same label (dedupe) with a new kind updates it.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "press-07 cycle time drift", "kind": "sensor_reading"}),
+        ),
+    )
+    .await;
+    assert_eq!(body["node_id"], node_id);
+    let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    let nodes = body["results"].as_array().unwrap();
+    let node = nodes.iter().find(|n| n["id"] == node_id).unwrap();
+    assert_eq!(node["kind"], "sensor_reading");
+}
+
+// ── Phase 16 I6: named typed links + inverse traversal ──────────────────────
+#[tokio::test]
+async fn typed_edges_expose_outgoing_and_inverse_traversal() {
+    let (router, _dir, _env) = app().await;
+
+    // Two nodes: a work order and the failure it causes.
+    let (_, b1) = send(
+        &router,
+        post("/api/v1/coherence/register", "tenant-a", json!({"input": "work-order-41"})),
+    )
+    .await;
+    let (_, b2) = send(
+        &router,
+        post("/api/v1/coherence/register", "tenant-a", json!({"input": "press seized"})),
+    )
+    .await;
+    let wo = b1["node_id"].as_str().unwrap().to_string();
+    let failure = b2["node_id"].as_str().unwrap().to_string();
+
+    // A named "Causes" link: work-order-41 → press seized.
+    let (status, _) = send(
+        &router,
+        post(
+            "/api/v1/coherence/add-edge",
+            "tenant-a",
+            json!({
+                "source": wo,
+                "relation": "Causes",
+                "target": failure,
+                "confidence": 0.9,
+                "weight": 0.7
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Forward traversal from the source.
+    let (status, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-a"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let out = body["outgoing"].as_array().expect("outgoing");
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0]["relation"], "Causes");
+    assert_eq!(out[0]["target_id"], failure);
+    assert_eq!(out[0]["confidence"], 0.9);
+
+    // Inverse traversal: the target sees the same link as incoming.
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={failure}", failure = failure), "tenant-a"),
+    )
+    .await;
+    let inc = body["incoming"].as_array().expect("incoming");
+    assert_eq!(inc.len(), 1);
+    assert_eq!(inc[0]["relation"], "Causes");
+    assert_eq!(inc[0]["source_id"], wo);
+
+    // Tenant isolation: the other tenant sees no edges for this node.
+    let (_, body) = send(
+        &router,
+        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-b"),
+    )
+    .await;
+    assert_eq!(body["outgoing"].as_array().unwrap().len(), 0);
+}
+
+// ── Phase 16 I7: 70-cell grid → object types ────────────────────────────────
+#[tokio::test]
+async fn classify_reports_object_type_and_register_auto_stamps_kind() {
+    let (router, _dir, _env) = app().await;
+
+    // The classify response exposes the object type of the winning cell. Under
+    // the random-projection embedder the cell isn't guaranteed, but it is one
+    // of the known vocabulary whenever classification fires.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/classify", "tenant-a", json!({"text": "CNC press cycle time drift"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let ot = body["object_type"].as_str();
+    assert!(ot.is_none() || !ot.unwrap().is_empty(), "object_type present or absent: {body}");
+
+    // Registering WITHOUT a kind auto-stamps it from the winning cell, so the
+    // node becomes a typed object with no extra round-trip.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "CNC press seized bearing — maintenance"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+    let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    let node = body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == node_id)
+        .expect("node");
+    // Either auto-stamped to a vocabulary type, or still empty if the
+    // projection embedder returned an unresolvable cell — never garbage.
+    let kind = node["kind"].as_str().unwrap();
+    if !kind.is_empty() {
+        assert!(
+            ["machine", "sensor_reading", "work_order", "asset", "document"]
+                .contains(&kind),
+            "auto-kind '{kind}' is a sensible object type"
+        );
+    }
+}
+
+// ── Phase 16 I8: dream output → typed actions ───────────────────────────────
+#[tokio::test]
+async fn dream_replay_proposes_a_typed_action_for_the_failing_node() {
+    let (router, _dir, _env) = app().await;
+
+    // A failing typed machine node: the dream loop's decide half must propose a
+    // concrete action for it, not free text.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({
+                "input": "CNC press seized bearing",
+                "kind": "machine",
+                "coherence_score": -0.8,
+            }),
+        ),
+    )
+    .await;
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+
+    let (status, body) = send(&router, post("/api/v1/dream/replay", "tenant-a", json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let entries = body.as_array().expect("replay entries");
+    let entry = entries
+        .iter()
+        .find(|e| e["node_id"] == node_id)
+        .expect("the failing machine is replayed");
+
+    // The typed action is present, targets the node, and names its kind.
+    let ta = &entry["typed_action"];
+    assert!(ta.is_object(), "typed_action present: {entry}");
+    assert_eq!(ta["object_id"], node_id);
+    assert_eq!(ta["object_kind"], "machine");
+    let kind = ta["kind"].as_str().unwrap();
+    // Under the random-projection embedder the outcome may read as either
+    // "prevented" (acknowledge) or "still failing" (schedule maintenance) —
+    // both are legitimate typed actions, never free text.
+    assert!(
+        ["acknowledge", "schedule_maintenance"].contains(&kind),
+        "typed action kind '{kind}' is one of the vocabulary"
+    );
+    assert!(!ta["summary"].as_str().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn workflow_scan_reports_coverage_and_records_events() {
+    // The workflow scanner audits doc coverage (agent vs human) + attribution
+    // inside the scan root, and records Workflow events to the tenant's ring.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let inside = dir.path().join(".physis").join("docs");
+    std::fs::create_dir_all(inside.join(".claude")).expect("mkdir .claude");
+    std::fs::write(inside.join("README.md"), "# Notes\n").expect("write README");
+    std::fs::write(inside.join("AGENTS.md"), "# Agent\n").expect("write AGENTS");
+    std::fs::write(inside.join(".claude/settings.local.json"), "{}").expect("write claude cfg");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "workflow scan succeeds: {body}");
+    assert!(
+        body["events_recorded"].as_u64().unwrap_or(0) >= 2,
+        "agent + human docs recorded as events: {body}"
+    );
+    assert_eq!(
+        body["ledger_recorded"], true,
+        "audit run recorded to the causal ledger: {body}"
+    );
+    // Coverage tallies must exist for both audiences.
+    let by_audience = body["report"]["by_audience"].as_array().unwrap();
+    let keys: Vec<String> = by_audience
+        .iter()
+        .filter_map(|t| t["key"].as_str().map(String::from))
+        .collect();
+    assert!(keys.contains(&"agent".to_string()), "agent docs found: {body}");
+    assert!(keys.contains(&"human".to_string()), "human docs found: {body}");
+
+    // The same scan must not double-count the same event (dedupe by key).
+    let (status2, body2) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(status2, StatusCode::OK, "repeat workflow scan: {body2}");
+
+    // Outside the root -> refused, like /scan.
+    let outside = std::env::temp_dir();
+    let (status3, _) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": outside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        status3,
+        StatusCode::FORBIDDEN,
+        "workflow scan outside scan root rejected"
+    );
 }

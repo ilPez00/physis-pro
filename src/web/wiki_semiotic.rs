@@ -473,11 +473,14 @@ pub async fn classify_handler(
     } else {
         None
     };
+    let object_type = crate::models::object_type_for(&top.domain, &top.mode);
     Json(ClassifyResponse {
         results,
         top,
         assessment,
         discovery,
+        // Object type the winning cell denotes (Phase 16 I7).
+        object_type,
         context: ctx.label(),
         overlay_count,
     })
