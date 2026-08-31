@@ -317,10 +317,10 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| I1 | Canonical `OperationalEvent` (connector, mechanism, actor, ts, payload) | 🔨 In progress | partial in `ledger.rs` + `industrial.rs`; Moonraker/MQTT/Modbus emit it |
-| I2 | Adapters as `SourceAdapter` emitting `OperationalEvent` | ⬜ Pending | mail/scan/watch normalize to the same event |
-| I3 | One `post_event` ingestion path | ⬜ Pending | the Phase 8b read-back contract, generalized |
-| I4 | Provenance survives every projection (timeline, ledger, report, lineage) | ⬜ Pending | new adapter ≈ 100 lines inherits everything |
+| I1 | Canonical `OperationalEvent` (connector, mechanism, actor, ts, payload) | ✅ Done | `src/operational.rs`: kind/status/provenance + stable `event_key` (Sha-256) for dedupe; `From<&MachineReading>` + `From<&IngestedDoc>`; ledger-mechanism mapping |
+| I2 | Adapters as `SourceAdapter` emitting `OperationalEvent` | ✅ Done | industrial adapter `post_event` now emits the full structured event (was a flattened register); machine/doc adapters normalize via `From` impls |
+| I3 | One `post_event` ingestion path | ✅ Done | `POST /api/v1/events` (`src/web/operational.rs`): dedupe by `event_key` (idempotent), bounded per-tenant ring (`op_events:{uid}`, ≤10k, oldest dropped), causal-ledger `record_at`, optional coherence-node registration. Adapter change confirmed the "100 lines" claim |
+| I4 | Provenance survives every projection (timeline, ledger, report, lineage) | ✅ Done | events persisted per tenant and rehydrated on startup/`with_user`; `GET /api/v1/events` (newest first) + `GET /api/v1/events/timeline` (the shared `OperationalTimeline::from_events` pipeline); ledger CauseEvent carries actor/object/observed_at into lineage/purposes |
 | I5 | `CoherenceNode` gains `type` + `properties` (default-empty, back-compat) | ⬜ Pending | Palantir-parity object model |
 | I6 | Named link types + inverse traversal (replace bare `semantic_type: u32`) | ⬜ Pending | |
 | I7 | 70-cell grid → object types (Machine, WorkOrder, SensorReading, Invoice) | ⬜ Pending | |
