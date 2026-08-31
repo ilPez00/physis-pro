@@ -357,7 +357,7 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 | # | Deliverable | Status | Notes |
 |---|-------------|--------|-------|
-| T1 | E2E funnel: scan → shift report → quality → dream → `where` → lineage | ⬜ Pending | one test, whole journey, tenant isolation |
+| T1 | E2E funnel: scan → shift report → quality → dream → `where` → lineage | ✅ Done | `funnel_scan_report_quality_dream_where_lineage_is_tenant_isolated` — the whole customer journey in one test under the offline embedder: scan (file → labeled node + ledger `generated` event) → shift report (`/api/v1/shifts/report?format=md` renders OEE + provenance) → quality (hot reading vs thresholds → anomaly + audit) → dream (failing typed node → typed action) → where (`/api/v1/files/query?cause=scan` → `by_mechanism.generated`) → lineage (`/api/v1/files/lineage?path=` shows the scan cause) — plus tenant-b sees an empty ledger/events/audit. Also corrected the 15.4 test to hit the shift-history report (`/shifts/report`) instead of the live-board one |
 | T2 | Adapter-contract test: stub `OperationalEvent` inherits dedup+anomaly+ledger | ✅ Done | `POST /api/v1/events` now takes `thresholds` and anomaly-checks accepted **machine** events (temperature/vibration/rpm from event properties via `reading_from_event` → `detect_anomalies`); each hit is audited (`anomaly` op) and returned in the response. e2e proves the I4 "new adapter ≈ 100 lines inherits dedup + ledger + anomaly + timeline" claim end-to-end (hot reading flagged + audited; cool reading not) |
 | T3 | Typed-object round-trip (type+props survive persist/edit/delete) | ⬜ Pending | verifies I5 back-compat |
 | T4 | Temporal-log replay + audit view | ⬜ Pending | verifies I9–I10 |
