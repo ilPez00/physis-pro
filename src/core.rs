@@ -256,6 +256,39 @@ impl PhysisCore {
         self.edges.push(edge);
     }
 
+    /// Add a **named** typed link (Phase 16 I6) — the object-model counterpart to
+    /// the bare `u32` holarchy edge. `RelationType` is the stable vocabulary
+    /// (Supports, Contradicts, Causes, Precedes, …), and the edge gets a stable
+    /// id + provenance so downstream surfaces (atlas, lineage, spanner) can walk
+    /// it by name and backwards. Returns the edge id.
+    pub fn add_typed_edge(
+        &mut self,
+        source: &str,
+        relation: physis_core::relation::RelationType,
+        target: &str,
+        confidence: f32,
+        weight: f32,
+    ) -> String {
+        let mut edge = physis_core::relation::TypedEdge::new(relation, source, target);
+        edge.confidence = confidence.clamp(0.0, 1.0);
+        edge.weight = weight;
+        edge.provenance = Some("api".into());
+        let id = edge.id.clone();
+        self.edges.push(edge);
+        id
+    }
+
+    /// Outgoing typed edges from `id` — forward traversal by named link.
+    pub fn edges_from(&self, id: &str) -> Vec<&physis_core::relation::TypedEdge> {
+        self.edges.iter().filter(|e| e.source_id == id).collect()
+    }
+
+    /// Incoming typed edges to `id` — **inverse traversal**: everything that
+    /// cites, causes, or precedes this node, regardless of edge direction.
+    pub fn edges_to(&self, id: &str) -> Vec<&physis_core::relation::TypedEdge> {
+        self.edges.iter().filter(|e| e.target_id == id).collect()
+    }
+
     /// Reconstruct belief status at timestamp T.
     pub fn reconstruct_belief_at(
         &self,

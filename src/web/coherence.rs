@@ -13,6 +13,123 @@ pub async fn coherence_snapshot_handler(
     Json(state.with_user(&uid, |s| s.core.snapshot()))
 }
 
+/// GET /api/v1/coherence/edges?node_id=X — the named typed links (Phase 16 I6)
+/// touching a node, both directions: `outgoing` (forward traversal by link
+/// name) and `incoming` (inverse traversal — what cites/causes/precedes it).
+#[derive(Deserialize)]
+pub struct EdgeQuery {
+    node_id: String,
+}
+
+#[derive(Serialize)]
+pub struct EdgeProjection {
+    pub id: String,
+    pub relation: String,
+    pub source_id: String,
+    pub target_id: String,
+    pub confidence: f32,
+    pub weight: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct NodeEdgesResponse {
+    pub node_id: String,
+    pub outgoing: Vec<EdgeProjection>,
+    pub incoming: Vec<EdgeProjection>,
+}
+
+pub async fn coherence_edges_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(q): Query<EdgeQuery>,
+) -> Json<NodeEdgesResponse> {
+    let uid = user_key(&headers);
+    state.with_user(&uid, |s| {
+        let project = |e: &physis_core::relation::TypedEdge| EdgeProjection {
+            id: e.id.clone(),
+            relation: format!("{:?}", e.relation_type),
+            source_id: e.source_id.clone(),
+            target_id: e.target_id.clone(),
+            confidence: e.confidence,
+            weight: e.weight,
+            provenance: e.provenance.clone(),
+        };
+        Json(NodeEdgesResponse {
+            node_id: q.node_id.clone(),
+            outgoing: s.core.edges_from(&q.node_id).into_iter().map(project).collect(),
+            incoming: s.core.edges_to(&q.node_id).into_iter().map(project).collect(),
+        })
+    })
+}
+
+/// POST /api/v1/coherence/add-edge — write a named typed link (Phase 16 I6).
+#[derive(Deserialize)]
+pub struct AddEdgeRequest {
+    source: String,
+    /// RelationType variant name, e.g. "Causes", "Supports", "Precedes".
+    relation: String,
+    target: String,
+    #[serde(default = "default_conf")]
+    confidence: f32,
+    #[serde(default = "default_w")]
+    weight: f32,
+}
+
+fn default_conf() -> f32 {
+    1.0
+}
+fn default_w() -> f32 {
+    1.0
+}
+
+#[derive(Serialize)]
+pub struct AddEdgeResponse {
+    pub edge_id: String,
+}
+
+pub async fn coherence_add_edge_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(req): Json<AddEdgeRequest>,
+) -> Result<Json<AddEdgeResponse>, (StatusCode, Json<serde_json::Value>)> {
+    use physis_core::relation::RelationType;
+    let relation = match req.relation.as_str() {
+        "Supports" => RelationType::Supports,
+        "Contradicts" => RelationType::Contradicts,
+        "Causes" => RelationType::Causes,
+        "Influences" => RelationType::Influences,
+        "Precedes" => RelationType::Precedes,
+        "Follows" => RelationType::Follows,
+        other => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": format!("unknown relation '{other}' — Supports|Contradicts|Causes|Influences|Precedes|Follows")
+                })),
+            ));
+        }
+    };
+    let uid = user_key(&headers);
+    // Reject unknown endpoints so a typo'd id fails loudly instead of silently
+    // recording an edge to nothing.
+    let known = state.with_user(&uid, |s| {
+        s.core.nodes.contains_key(&req.source) && s.core.nodes.contains_key(&req.target)
+    });
+    if !known {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "source and target must be existing node ids"})),
+        ));
+    }
+    let edge_id = state.with_user(&uid, |s| {
+        s.core
+            .add_typed_edge(&req.source, relation, &req.target, req.confidence, req.weight)
+    });
+    Ok(Json(AddEdgeResponse { edge_id }))
+}
+
 /// Recall registered coherence nodes by content similarity — across every
 /// machine that wrote into the shared graph. Unlike `/query` (mapper/ontology
 /// surface), this reads the coherence nodes that `/coherence/register` creates.
