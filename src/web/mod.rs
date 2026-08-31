@@ -91,6 +91,7 @@ mod mcp;
 mod monitor;
 mod notebook;
 mod ontology_studio;
+mod operational;
 mod pdca;
 mod routes;
 mod scenarios;
@@ -148,6 +149,9 @@ pub struct RuntimeState {
     pub(crate) lifeos: LifeOSTracker,
     /// Causal ledger (Phase 10 D3): per-tenant why-made history.
     pub(crate) ledger: crate::ledger::CausalLedger,
+    /// Normalized event ring (Phase 16 I3/I4): the single ingestion path every
+    /// connector feeds. Bounded (≤ MAX_STORED_EVENTS), newest append-mostly.
+    pub(crate) op_events: Vec<crate::operational::OperationalEvent>,
 }
 
 impl RuntimeState {
@@ -168,6 +172,7 @@ impl RuntimeState {
             scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
             lifeos: LifeOSTracker::new(),
             ledger: crate::ledger::CausalLedger::new(),
+            op_events: Vec::new(),
         }
     }
 }
@@ -283,6 +288,8 @@ impl AppCtx {
                         Ok(l) => rt.ledger = l,
                         Err(e) => log::warn!("tenant {uid}: ledger load failed: {e}"),
                     }
+                    // Normalized event ring (Phase 16): the ingestion store.
+                    crate::web::operational::rehydrate_events(&mut rt, db, uid);
                     let (loaded, skipped) = rt.core.load_nodes(db, uid);
                     if loaded > 0 || skipped > 0 {
                         log::info!(
@@ -2531,6 +2538,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                         .ok()
                 })
                 .unwrap_or_default(),
+            op_events: db
+                .as_ref()
+                .map(|d| crate::operational::load_events(d, "_default"))
+                .unwrap_or_default(),
         }),
         tenants: Mutex::new(HashMap::new()),
         salience: Mutex::new(salience_store),
@@ -3166,7 +3177,15 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/semiotic/heatmap",
             get(wiki_semiotic::heatmap_handler),
         )
-        .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
+                .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
+        // Normalized event stream (Phase 16 I3/I4): the single ingestion path —
+        // dedupe + ledger + ring store (+ optional graph nodes), and read-back.
+        .route("/api/v1/events", post(operational::post_events_handler))
+        .route("/api/v1/events", get(operational::get_events_handler))
+        .route(
+            "/api/v1/events/timeline",
+            get(operational::events_timeline_handler),
+        )
         // Structured-output slot extraction (Phase 19 B2): schema-constrained
         // extraction over the provider cascade, degrading to an explicit note.
         .route("/api/v1/extract", post(extract::extract_handler))
