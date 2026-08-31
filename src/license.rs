@@ -823,8 +823,7 @@ mod tests {
     }
 
     #[test]
-    fn check_revoked_refuses_listed_id_and_allows_others() {
-        // Unique per test: parallel threads share the same pid, so a bare
+    fn check_revoked_refuses_listed_id_and_allows_others() {        // Unique per test: parallel threads share the same pid, so a bare
         // `{pid}` dir would collide with other temp-dir tests.
         let tag: u64 = randish_tag();
         let dir = std::env::temp_dir().join(format!("physis_revoc_{tag}"));
@@ -852,5 +851,43 @@ mod tests {
         assert!(check_revoked("PX-ANY-20260101", Some(&malformed)).is_ok());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn entitlement_matrix_enables_exactly_its_bundle() {
+        // The full set of feature slugs that can appear in a signed list.
+        let all: Vec<&str> = vec![
+            "classify", "scan", "query", "wiki", "vault", "history", "industrial",
+            "shifts", "maintenance", "inventory", "reconcile", "mcp", "rag",
+            "spanner", "agent", "*",
+        ];
+        for tier in Tier::ALL {
+            let features = tier.features().to_vec();
+            let lic = License {
+                license_id: "PX-MATRIX".into(),
+                org: "Matrix".into(),
+                seats: 1,
+                features: features.iter().map(|s| s.to_string()).collect(),
+                iat: "2026-01-01".into(),
+                exp: "2099-01-01".into(),
+                maint_exp: "2099-01-01".into(),
+                revoked: false,
+            };
+            // Everything in the bundle is granted.
+            for f in &features {
+                assert!(lic.allows(f), "{tier:?} must allow {f}");
+            }
+            // Everything outside the bundle is denied — no tier over-grants.
+            // (Enterprise is `["*"]`, which is definitionally everything.)
+            if !features.contains(&"*") {
+                for f in &all {
+                    if !features.contains(f) {
+                        assert!(!lic.allows(f), "{tier:?} must deny {f}");
+                    }
+                }
+            }
+            // SKU ↔ tier is consistent with the signed bundles.
+            assert_eq!(Tier::from_sku(tier.sku()), Some(tier));
+        }
     }
 }

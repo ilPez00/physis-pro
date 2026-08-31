@@ -362,8 +362,8 @@ resizes, persisted per tenant in sled and shareable as JSON.
 | T3 | Typed-object round-trip (type+props survive persist/edit/delete) | ⬜ Pending | verifies I5 back-compat |
 | T4 | Temporal-log replay + audit view | ⬜ Pending | verifies I9–I10 |
 | T5 | Marketing-page smoke: `/`, `/pricing`, `/about` 200 + no external assets | ⬜ Pending | verifies U1/U4 |
-| T6 | Entitlement matrix (each SKU = exactly its slugs, cross-tier denial) | ⬜ Pending | extends Phase 4.1's 9 tests |
-| T7 | Air-gapped test: no weights, no network → lexical path, no 500, no CDN | ⬜ Pending | the moat, proven in CI |
+| T6 | Entitlement matrix (each SKU = exactly its slugs, cross-tier denial) | ✅ Done | `entitlement_matrix_enables_exactly_its_bundle` iterates all 3 tiers against the full feature universe: every bundle feature granted, every non-bundle feature denied (no over-grant), SKU↔tier consistent with the signed bundles |
+| T7 | Air-gapped test: no weights, no network → lexical path, no 500, no CDN | ✅ Done | `air_gapped_path_degrades_honestly_without_weights_or_network`: classify 200 + names `random-projection` model; embed 200 with dim; extract 200 with slots OR an explicit degradation note — never 500, never fabricated. (The whole http_surface suite runs under the random-projection embedder as the air-gap worst case; `/ask` degradation already covered separately) |
 | T8 | Un-ignore `output_quality` on a scheduled (non-push) job | ⬜ Pending | keeps the accuracy floor honest |
 
 ### Phase 19 — Agent surface (2026-08-30)
