@@ -5197,3 +5197,49 @@ async fn classify_reports_object_type_and_register_auto_stamps_kind() {
         );
     }
 }
+
+// ── Phase 16 I8: dream output → typed actions ───────────────────────────────
+#[tokio::test]
+async fn dream_replay_proposes_a_typed_action_for_the_failing_node() {
+    let (router, _dir, _env) = app().await;
+
+    // A failing typed machine node: the dream loop's decide half must propose a
+    // concrete action for it, not free text.
+    let (_, body) = send(
+        &router,
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({
+                "input": "CNC press seized bearing",
+                "kind": "machine",
+                "coherence_score": -0.8,
+            }),
+        ),
+    )
+    .await;
+    let node_id = body["node_id"].as_str().unwrap().to_string();
+
+    let (status, body) = send(&router, post("/api/v1/dream/replay", "tenant-a", json!({}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let entries = body.as_array().expect("replay entries");
+    let entry = entries
+        .iter()
+        .find(|e| e["node_id"] == node_id)
+        .expect("the failing machine is replayed");
+
+    // The typed action is present, targets the node, and names its kind.
+    let ta = &entry["typed_action"];
+    assert!(ta.is_object(), "typed_action present: {entry}");
+    assert_eq!(ta["object_id"], node_id);
+    assert_eq!(ta["object_kind"], "machine");
+    let kind = ta["kind"].as_str().unwrap();
+    // Under the random-projection embedder the outcome may read as either
+    // "prevented" (acknowledge) or "still failing" (schedule maintenance) —
+    // both are legitimate typed actions, never free text.
+    assert!(
+        ["acknowledge", "schedule_maintenance"].contains(&kind),
+        "typed action kind '{kind}' is one of the vocabulary"
+    );
+    assert!(!ta["summary"].as_str().unwrap().is_empty());
+}

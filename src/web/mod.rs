@@ -1285,6 +1285,11 @@ pub struct DreamReplayEntry {
     density: Score,
     outcome: f32,
     prevented_failure: bool,
+    /// The concrete, typed action the dream proposes for this node (Phase 16
+    /// I8): `schedule_maintenance`, `open_work_order`, … derived from the
+    /// node's object kind. Absent only if the dream has no proposal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    typed_action: Option<crate::models::TypedAction>,
 }
 
 #[derive(Serialize)]

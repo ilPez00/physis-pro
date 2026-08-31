@@ -108,10 +108,17 @@ pdf-extract = { version = "0.7", optional = true }
 # mailparse: RFC-822 (.eml) parsing — From/Subject/body, quoted-reply stripping.
 mailparse = { version = "0.15", optional = true }
 
-# ONNX embedder opt-in (default excludes ONNX to avoid accidental deployment
-# without model weights; enable with --features embed-onnx when model is available)
+# ONNX embedder is ON by default. It was opt-in to avoid deploying without model
+# weights, but the weights have shipped since 2026-08-13 (models/model.onnx,
+# BGE-base-en-v1.5, 86MB) and the opt-in had the opposite effect to the one
+# intended: a plain `cargo build` or `cargo install physis_pro` silently fell
+# back to RandomProjectionEmbedder (see src/embed/registry.rs), which the
+# project's own QA verdict calls non-semantic. Every default build shipped an
+# engine whose classification output was noise. If you genuinely want the
+# model-free path, ask for it: `--no-default-features` plus the features you
+# want, or select the random embedder explicitly at runtime.
 [features]
-default = ["cli", "voice", "web", "tui", "sql", "postgres", "email"]
+default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
