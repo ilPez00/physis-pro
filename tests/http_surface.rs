@@ -5780,3 +5780,56 @@ async fn funnel_scan_report_quality_dream_where_lineage_is_tenant_isolated() {
     let (_, body) = send(&router, get("/api/v1/audit", "tenant-b")).await;
     assert_eq!(body["count"], 0);
 }
+
+// ── Scan v2: idempotent re-scan + one node per document ─────────────────────
+#[tokio::test]
+async fn scan_is_idempotent_and_produces_one_node_per_document() {
+    let (router, dir, _env) = app().await;
+    // Scan a subdirectory, so the persistent store (data dir) stays outside the
+    // scanned scope — the real production shape.
+    let docs = dir.path().join("docs");
+    std::fs::create_dir_all(&docs).unwrap();
+    std::fs::write(
+        docs.join("doc.md"),
+        "# Title\n\nSome body content.\n\n- bullet one\n- bullet two",
+    )
+    .unwrap();
+
+    // First scan: the document is new.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/scan", "tenant-a", json!({"dir": docs})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["new"].as_u64().unwrap_or(0) >= 1, "first scan new: {body}");
+
+    // ONE node per document — its structural path — not one per structural line.
+    let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
+    let doc_nodes: Vec<_> = body["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| {
+            n["label"]
+                .as_str()
+                .map(|l| l.contains("doc.md"))
+                .unwrap_or(false)
+        })
+        .collect();
+    assert_eq!(doc_nodes.len(), 1, "one node per document, not per line: {body}");
+
+    // Second scan, nothing changed → idempotent: nothing new/changed, and the
+    // whole tree is reported unchanged (subtree fingerprint skip).
+    let (_, body) = send(
+        &router,
+        post("/api/v1/scan", "tenant-a", json!({"dir": docs})),
+    )
+    .await;
+    assert_eq!(body["new"].as_u64().unwrap_or(0), 0, "no new on re-scan: {body}");
+    assert_eq!(body["changed"].as_u64().unwrap_or(0), 0, "no changed on re-scan: {body}");
+    assert!(
+        body["unchanged"].as_u64().unwrap_or(0) >= 1,
+        "unchanged reported: {body}"
+    );
+}
