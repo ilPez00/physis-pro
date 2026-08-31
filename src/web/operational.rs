@@ -85,8 +85,7 @@ pub async fn post_events_handler(
     if req.register_nodes && !accepted_events.is_empty() {
         node_ids = Some(Vec::with_capacity(accepted_events.len()));
         for ev in &accepted_events {
-            let text = format!("{} — {:?} [{:?}]", ev.subject, ev.kind, ev.status);
-            let id = register_node(&state, &headers, &text).await;
+            let id = register_node(&state, &headers, ev).await;
             if let Some(ids) = &mut node_ids {
                 ids.push(id);
             }
@@ -101,22 +100,37 @@ pub async fn post_events_handler(
     })
 }
 
-/// Register one labeled coherence node (deduped by label) and persist it.
-/// Best-effort: a graph write failing must not fail the event ingest.
+/// Register one labeled coherence node (deduped by label), stamped with the
+/// typed-ontology axis from the event (Phase 16 I5): kind = the event's source
+/// family, properties = the event's scalar properties. Best-effort: a graph
+/// write failing must not fail the event ingest.
 async fn register_node(
     state: &SharedState,
     headers: &HeaderMap,
-    label: &str,
+    ev: &OperationalEvent,
 ) -> String {
+    let label = format!("{} — {:?} [{:?}]", ev.subject, ev.kind, ev.status);
     let embedding = crate::web::wiki_semiotic::embed_input(
         state.shared.clone(),
-        label.to_string(),
+        label.clone(),
         None,
     )
     .await;
     let uid = user_key(headers);
     state.with_user(&uid, |s| {
-        let id = s.core.register_node_vec_labeled(embedding, Some(label.to_string()));
+        let id = s.core.register_node_vec_labeled(embedding, Some(label));
+        if let Some(node) = s.core.nodes.get_mut(&id) {
+            node.kind = ev.kind.as_str().to_string();
+            node.properties = ev
+                .properties
+                .iter()
+                .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                .collect();
+            if let Some(actor) = &ev.actor {
+                node.properties
+                    .insert("actor".into(), serde_json::Value::String(actor.clone()));
+            }
+        }
         if let Some(db) = state.db() {
             if let Err(e) = s.core.persist_node(db, &uid, &id) {
                 log::warn!("event node {id} not persisted: {e}");

@@ -562,6 +562,12 @@ pub struct CoherenceRegisterRequest {
     /// accepted and dropped); aion sends it too. It is now applied.
     #[serde(default)]
     coherence_score: Option<f32>,
+    /// Typed-ontology object kind (Phase 16 I5), e.g. "machine".
+    #[serde(default)]
+    kind: Option<String>,
+    /// Typed-object properties (Phase 16 I5).
+    #[serde(default)]
+    properties: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
@@ -1280,6 +1286,11 @@ pub struct DreamReplayEntry {
     density: Score,
     outcome: f32,
     prevented_failure: bool,
+    /// The concrete, typed action the dream proposes for this node (Phase 16
+    /// I8): `schedule_maintenance`, `open_work_order`, … derived from the
+    /// node's object kind. Absent only if the dream has no proposal.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    typed_action: Option<crate::models::TypedAction>,
 }
 
 #[derive(Serialize)]
@@ -1929,6 +1940,9 @@ pub struct ClassifyResponse {
     assessment: ClassificationAssessment,
     #[serde(skip_serializing_if = "Option::is_none")]
     discovery: Option<crate::discovery::DiscoverySuggestion>,
+    /// Object type the winning cell denotes (Phase 16 I7) — the typed-ontology
+    /// axis resolved from domain × mode, e.g. `machine`, `sensor_reading`.
+    object_type: Option<&'static str>,
     context: String,
     overlay_count: usize,
 }
@@ -2849,6 +2863,15 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route(
             "/api/v1/coherence/register",
             post(coherence::coherence_register_handler),
+        )
+        // Named typed links + inverse traversal (Phase 16 I6).
+        .route(
+            "/api/v1/coherence/edges",
+            get(coherence::coherence_edges_handler),
+        )
+        .route(
+            "/api/v1/coherence/add-edge",
+            post(coherence::coherence_add_edge_handler),
         )
         .route(
             "/api/v1/coherence/edit",
