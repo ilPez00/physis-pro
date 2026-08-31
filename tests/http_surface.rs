@@ -1219,6 +1219,76 @@ async fn scan_is_confined_to_scan_root() {
 }
 
 #[tokio::test]
+async fn workflow_scan_reports_coverage_and_records_events() {
+    // The workflow scanner audits doc coverage (agent vs human) + attribution
+    // inside the scan root, and records Workflow events to the tenant's ring.
+    let dir = tempfile::tempdir().expect("temp data dir");
+    let inside = dir.path().join(".physis").join("docs");
+    std::fs::create_dir_all(inside.join(".claude")).expect("mkdir .claude");
+    std::fs::write(inside.join("README.md"), "# Notes\n").expect("write README");
+    std::fs::write(inside.join("AGENTS.md"), "# Agent\n").expect("write AGENTS");
+    std::fs::write(inside.join(".claude/settings.local.json"), "{}").expect("write claude cfg");
+
+    let (router, _env) = app_on(dir.path()).await;
+
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "workflow scan succeeds: {body}");
+    assert!(
+        body["events_recorded"].as_u64().unwrap_or(0) >= 2,
+        "agent + human docs recorded as events: {body}"
+    );
+    assert_eq!(
+        body["ledger_recorded"], true,
+        "audit run recorded to the causal ledger: {body}"
+    );
+    // Coverage tallies must exist for both audiences.
+    let by_audience = body["report"]["by_audience"].as_array().unwrap();
+    let keys: Vec<String> = by_audience
+        .iter()
+        .filter_map(|t| t["key"].as_str().map(String::from))
+        .collect();
+    assert!(keys.contains(&"agent".to_string()), "agent docs found: {body}");
+    assert!(keys.contains(&"human".to_string()), "human docs found: {body}");
+
+    // The same scan must not double-count the same event (dedupe by key).
+    let (status2, body2) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": inside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(status2, StatusCode::OK, "repeat workflow scan: {body2}");
+
+    // Outside the root → refused, like /scan.
+    let outside = std::env::temp_dir();
+    let (status3, _) = send(
+        &router,
+        post(
+            "/api/v1/workflow/scan",
+            "_default",
+            json!({"dir": outside.to_string_lossy()}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        status3,
+        StatusCode::FORBIDDEN,
+        "workflow scan outside scan root rejected"
+    );
+}
+
+#[tokio::test]
 async fn fs_list_and_resolve_are_confined_to_scan_root() {
     // The console file manager cannot see OS paths from a drag-and-drop, so it
     // browses scan_root through /fs/list and maps dropped basenames through

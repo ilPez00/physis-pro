@@ -78,6 +78,7 @@ pub mod video;
 pub mod web;
 pub mod wiki;
 pub mod wiki_gen;
+pub mod workflow;
 
 #[cfg(feature = "spanner")]
 pub mod spanner;

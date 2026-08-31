@@ -89,10 +89,11 @@ impl Tier {
     /// Feature slugs each tier grants. Order matters for `from_features`.
     pub fn features(self) -> &'static [&'static str] {
         match self {
-            Tier::Core => &["classify", "scan", "query", "wiki", "vault", "history"],
+            Tier::Core => &["classify", "scan", "workflow", "query", "wiki", "vault", "history"],
             Tier::Industrial => &[
                 "classify",
                 "scan",
+                "workflow",
                 "query",
                 "wiki",
                 "vault",
