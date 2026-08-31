@@ -102,6 +102,7 @@ mod spanner;
 mod ui_chat;
 mod wiki_generate;
 mod wiki_semiotic;
+mod workflow;
 
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
@@ -3182,6 +3183,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         // dedupe + ledger + ring store (+ optional graph nodes), and read-back.
         .route("/api/v1/events", post(operational::post_events_handler))
         .route("/api/v1/events", get(operational::get_events_handler))
+        .route(
+            "/api/v1/workflow/scan",
+            post(workflow::workflow_scan_handler),
+        )
         .route(
             "/api/v1/events/timeline",
             get(operational::events_timeline_handler),

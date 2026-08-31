@@ -517,6 +517,26 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Workflow scanner — audit a directory's documentation: which docs exist
+    /// for AI agents vs humans, when each was last touched, and (in a git repo)
+    /// who touched it. Answers "who did what where" over the tree, walking the
+    /// harness dirs (`.claude`, `.opencode`, …) the base scan skips.
+    Workflow {
+        /// Directory to audit (default: current directory)
+        dir: PathBuf,
+        /// Emit JSON instead of markdown
+        #[arg(long)]
+        json: bool,
+        /// Record the audit to the causal ledger of the running engine too
+        #[arg(long)]
+        record: bool,
+        /// Engine base URL for --record
+        #[arg(long, default_value = "http://127.0.0.1:19876")]
+        url: String,
+        /// X-Physis-User id for --record (default "_default")
+        #[arg(long, default_value = "_default")]
+        user: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -722,6 +742,39 @@ fn main() -> anyhow::Result<()> {
     } = &cli.command
     {
         return run_study_recorder(dir, url, place, user, *interval, *once);
+    }
+
+    // The `workflow` scanner only needs the filesystem (+ optional git):
+    // dispatch before PhysisApp::new, which embeds ~650 ontology entries.
+    if let Commands::Workflow {
+        dir,
+        json,
+        record,
+        url,
+        user,
+    } = &cli.command
+    {
+        let root = std::path::PathBuf::from(dir);
+        let docs = physis_pro::workflow::scan_workflow(&root, None);
+        let report = physis_pro::workflow::report(&root, docs);
+        if *json {
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        } else {
+            print_workflow_report(&report);
+        }
+        if *record {
+            // Push the audit's events into the running engine's single event
+            // stream (POST /api/v1/events), so the timeline/ledger reflect it.
+            let events = physis_pro::workflow::to_op_events(&report.docs);
+            let client = reqwest::blocking::Client::new();
+            let api = format!("{}/api/v1/events", url.trim_end_matches('/'));
+            let _ = client
+                .post(&api)
+                .header("X-Physis-User", user)
+                .json(&serde_json::json!({ "events": events }))
+                .send();
+        }
+        return Ok(());
     }
 
     // `pack` needs an embedder and nothing else. Dispatching it before
@@ -1655,6 +1708,7 @@ fn main() -> anyhow::Result<()> {
             print!("{out}");
         }
         Commands::Study { .. } => unreachable!("study subcommand handled before app init"),
+        Commands::Workflow { .. } => unreachable!("workflow subcommand handled before app init"),
         Commands::DecisionsMine {
             files,
             adapter,
@@ -2005,6 +2059,49 @@ fn run_indexer(dir: &Path, watch: bool, interval_secs: u64) -> anyhow::Result<()
                 chrono::Local::now().format("%H:%M:%S")
             );
         }
+    }
+}
+
+/// Print a workflow report as human-readable markdown.
+fn print_workflow_report(report: &physis_pro::workflow::WorkflowReport) {
+    println!("# Workflow audit — {}", report.root);
+    println!();
+    println!("Total docs: {}", report.total);
+    println!();
+    println!("## By audience");
+    for t in &report.by_audience {
+        println!("- {}: {}", t.key, t.count);
+    }
+    if !report.by_harness.is_empty() {
+        println!();
+        println!("## By harness");
+        for t in &report.by_harness {
+            println!("- {}: {}", t.key, t.count);
+        }
+    }
+    if !report.by_author.is_empty() {
+        println!();
+        println!("## By author");
+        for t in &report.by_author {
+            println!("- {}: {}", t.key, t.count);
+        }
+    }
+    println!();
+    println!("## Docs (newest first)");
+    for d in &report.docs {
+        let who = d
+            .author
+            .clone()
+            .or_else(|| d.harness.clone())
+            .unwrap_or_else(|| "?".to_string());
+        let when = d.mtime.format("%Y-%m-%d %H:%M").to_string();
+        println!(
+            "- {}  [{} · {} · {}]",
+            d.path,
+            d.audience.as_str(),
+            who,
+            when
+        );
     }
 }
 

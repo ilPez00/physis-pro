@@ -316,6 +316,11 @@ mod mcp_impl {
                             "path": {"type": "string", "description": "Directory to scan (default: data dir)"}
                         }, "required": []
                     })),
+                    tool("physis_workflow", "Workflow audit — check documentation coverage for AI agents and humans, timestamps/metadata, and who did what where across a directory (walks harness dirs like .claude, .opencode, .hermes the base scan skips; attributes git authors when available)", json!({
+                        "type": "object", "properties": {
+                            "path": {"type": "string", "description": "Directory to audit (default: data dir)"}
+                        }, "required": []
+                    })),
                     tool("physis_gantt_schedule", "Manage the Gantt schedule — add tasks, recompute CPM, get status", json!({
                         "type": "object", "properties": {
                             "action": {"type": "string", "enum": ["add_task", "recompute", "status"], "description": "Action to perform"},
@@ -815,6 +820,25 @@ mod mcp_impl {
                     Ok(CallToolResult::success(vec![json_content(
                         &json!({"inserted": inserted, "path": scan_dir.to_string_lossy().to_string()}),
                     )?]))
+                }
+
+                "physis_workflow" => {
+                    let scan_dir = match get_str(&request, "path") {
+                        Ok(p) => PathBuf::from(p),
+                        Err(_) => self.ctx.lock().await.config.data_dir.clone(),
+                    };
+                    let docs = crate::workflow::scan_workflow(&scan_dir, None);
+                    let report = crate::workflow::report(&scan_dir, docs);
+                    let summary = json!({
+                        "path": report.root,
+                        "total": report.total,
+                        "by_audience": report.by_audience,
+                        "by_harness": report.by_harness,
+                        "by_author": report.by_author,
+                        "by_dir": report.by_dir,
+                        "docs": report.docs.iter().take(50).collect::<Vec<_>>(),
+                    });
+                    Ok(CallToolResult::success(vec![json_content(&summary)?]))
                 }
 
                 "physis_gantt_schedule" => {
