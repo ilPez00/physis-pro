@@ -353,6 +353,75 @@ fn tree_path(data_dir: &Path, root: &Path) -> PathBuf {
     data_dir.join(format!("tree_{fp}.json"))
 }
 
+/// One document resolved by a scan run: confirmed new/changed, ready to embed
+/// and register as a single node.
+#[derive(Debug, Clone)]
+pub struct ScannedDoc {
+    pub rel: PathBuf,
+    pub abs: PathBuf,
+    pub content_hash: String,
+    /// Path-independent structural text (the embedding source). Empty for docs
+    /// with no extractable structure — callers fall back to the rel path.
+    pub lines: Vec<String>,
+    /// True when the file appeared (mechanism Generated); false when it was a
+    /// content change (mechanism Corrected).
+    pub was_new: bool,
+}
+
+/// Everything a scan run needs to know about one directory: the previous tree
+/// loaded + current stat-walk diffed, plus the docs that actually need
+/// embedding. Shared by `/scan` and watch-mode, so both inherit the same
+/// subtree-skipping + one-node-per-doc semantics.
+#[derive(Debug)]
+pub struct ScanRun {
+    pub current: DirTree,
+    pub diff: TreeDiff,
+    pub docs: Vec<ScannedDoc>,
+}
+
+impl DirTree {
+    /// Load the previous tree, stat-walk the root, diff (skipping unchanged
+    /// subtrees), and hash + extract only the confirmed new/changed docs.
+    pub fn scan_run(data_dir: &Path, root: &Path) -> ScanRun {
+        let prev = DirTree::load(data_dir, root);
+        let mut prev_fp = prev.clone().unwrap_or_default();
+        prev_fp.fingerprint();
+        let mut current = DirTree::meta_walk(root);
+        current.fingerprint();
+        let mut diff = prev_fp.diff(&current);
+
+        let mut docs = Vec::new();
+        for rel in diff.new_files.iter().chain(diff.changed_files.iter()) {
+            let was_new = diff.new_files.contains(rel);
+            let abs = root.join(rel);
+            let Some(fi) = crate::scanner::process_file(&abs, root) else {
+                continue;
+            };
+            if let Some(node) = current.node_at_mut(rel) {
+                if let Some(f) = node.file.as_mut() {
+                    f.content_hash = Some(fi.hash.clone());
+                    f.labels = fi.structural_lines.clone();
+                }
+            }
+            // mtime/size bumped but content identical → no re-embed.
+            if let Some(prev_hash) = prev.as_ref().and_then(|t| t.stored_hash(rel)) {
+                if prev_hash == fi.hash {
+                    diff.unchanged_files += 1;
+                    continue;
+                }
+            }
+            docs.push(ScannedDoc {
+                rel: rel.clone(),
+                abs,
+                content_hash: fi.hash,
+                lines: fi.structural_lines,
+                was_new,
+            });
+        }
+        ScanRun { current, diff, docs }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -475,5 +544,39 @@ mod tests {
         tree.save(&data, &root).unwrap();
         let loaded = DirTree::load(&data, &root).expect("loaded");
         assert_eq!(loaded.stored_hash(Path::new("doc.txt")), Some("abc"));
+    }
+
+    #[test]
+    fn scan_run_is_idempotent_and_lists_docs() {
+        let (_d, root) = tdir("run");
+        touch(&root, "a.txt", "first content");
+        touch(&root, "sub/b.txt", "second content");
+
+        // Store lives OUTSIDE the scan root (the production shape) — otherwise
+        // the walk ingests its own store.
+        let data = root.parent().unwrap().join(".store");
+        std::fs::create_dir_all(&data).unwrap();
+
+        // First run: both docs are new. Callers persist run.current before the
+        // next run (as /scan and watch-mode do).
+        let run1 = DirTree::scan_run(&data, &root);
+        assert_eq!(run1.docs.len(), 2, "both new on first run");
+        assert!(run1.docs.iter().all(|d| d.was_new));
+        run1.current.save(&data, &root).unwrap();
+
+        // Second run, nothing changed: subtree skip, no docs, everything
+        // reported unchanged.
+        let run2 = DirTree::scan_run(&data, &root);
+        assert!(run2.docs.is_empty(), "no re-embed on unchanged tree");
+        assert_eq!(run2.diff.unchanged_files, 2);
+        run2.current.save(&data, &root).unwrap();
+
+        // Touch one file's content: exactly that one is a changed doc.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        touch(&root, "a.txt", "first content v2");
+        let run3 = DirTree::scan_run(&data, &root);
+        assert_eq!(run3.docs.len(), 1);
+        assert!(!run3.docs[0].was_new, "edit is Corrected, not Generated");
+        assert_eq!(run3.docs[0].rel, PathBuf::from("a.txt"));
     }
 }
