@@ -2149,23 +2149,6 @@ async fn embed_batch_off_thread(shared: Arc<SharedCtx>, texts: Vec<String>) -> V
     .unwrap_or_default()
 }
 
-/// Hash-cache path for one watched directory.
-///
-/// The cache was a single shared file keyed by *basename*, which made every
-/// sweep interfere with every other: watching directory B reported all of
-/// directory A's files as deleted (they are simply absent from this sweep),
-/// which already dropped their coherence nodes and — once the interpretant
-/// loop landed — would have recorded a refutation against every entry those
-/// files ever matched. Two files sharing a basename across directories
-/// collided outright. One cache per directory scopes the diff to what the
-/// sweep actually looked at.
-fn watch_cache_path(data_dir: &std::path::Path, dir: &std::path::Path) -> PathBuf {
-    use std::hash::{Hash, Hasher};
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    dir.hash(&mut h);
-    data_dir.join(format!("watch_hash_cache_{:016x}.json", h.finish()))
-}
-
 /// Build the fully wired application: shared state plus the router.
 ///
 /// Split out of `main` so `tests/` can exercise the HTTP surface without
@@ -2680,60 +2663,73 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                     .ok()
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(30);
-                let cache_path = watch_cache_path(&state.shared.config.data_dir, &canon);
-                let scanner = crate::network::NetworkScanner::new(
-                    vec![canon.clone()],
-                    cache_path,
-                    interval_secs,
-                );
+                let data_dir = state.shared.config.data_dir.clone();
                 let watch_state = state.clone();
                 log::info!(
                     "Watch-mode: polling {} every {}s",
                     canon.display(),
                     interval_secs
                 );
+                // Scan v2 (I13): the same tree-based run as /scan — hierarchy
+                // tree + Merkle subtree-skipping diff + one node per document.
                 std::thread::spawn(move || loop {
-                    let diffs = scanner.scan_all();
-                    let mut labels: Vec<String> = Vec::new();
-                    // One causal event per new/changed file (Phase 10 D3):
-                    // watch is the actor, the mechanism distinguishes birth
-                    // from edit so lineage can tell creation from correction.
-                    let mut cause_events: Vec<(crate::address::Mechanism, String)> = Vec::new();
-                    for d in &diffs {
-                        for f in d.new.iter() {
-                            labels.extend(f.labels());
-                            cause_events
-                                .push((crate::address::Mechanism::Generated, f.abs_path.clone()));
-                        }
-                        for f in d.changed.iter() {
-                            labels.extend(f.labels());
-                            cause_events
-                                .push((crate::address::Mechanism::Corrected, f.abs_path.clone()));
-                        }
-                    }
-                    if !labels.is_empty() {
-                        // Batch-embed outside the lock (CPU-heavy); register under it.
-                        // This thread is already off the async runtime.
-                        let refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+                    let run = crate::tree::DirTree::scan_run(&data_dir, &canon);
+                    if !run.docs.is_empty() {
+                        let texts: Vec<String> = run
+                            .docs
+                            .iter()
+                            .map(|d| {
+                                if d.lines.is_empty() {
+                                    d.rel.to_string_lossy().to_string()
+                                } else {
+                                    d.lines.join("\n")
+                                }
+                            })
+                            .collect();
+                        // Batch-embed outside the lock (CPU-heavy); register
+                        // under it. This thread is already off the async runtime.
+                        let refs: Vec<&str> = texts.iter().map(|s| s.as_str()).collect();
                         let embs = watch_state.shared.embedder.embed_batch(&refs);
                         let mut s = watch_state.lock();
-                        for (emb, label) in embs.into_iter().zip(labels) {
+                        for rel in &run.diff.deleted {
+                            let prefix = rel.to_string_lossy().replace('/', " → ");
+                            for id in s.core.delete_nodes_by_label_prefix(&prefix) {
+                                if let Some(db) = watch_state.db() {
+                                    let _ = db.remove(
+                                        crate::core::PhysisCore::node_key("_default", &id),
+                                    );
+                                }
+                            }
+                        }
+                        for (doc, emb) in run.docs.into_iter().zip(embs) {
+                            // One document node, labeled by its structural path.
+                            let label = doc.rel.to_string_lossy().replace('/', " → ");
                             let id = s.core.register_node_vec_labeled(emb, Some(label));
                             if let Some(db) = watch_state.db() {
                                 let _ = s.core.persist_node(db, "_default", &id);
                             }
-                        }
-                        for (mechanism, object) in cause_events {
-                            s.ledger.record(mechanism, "watch", object, None);
+                            // One causal event per new/changed doc (Phase 10 D3):
+                            // watch is the actor; the mechanism distinguishes
+                            // birth (Generated) from edit (Corrected).
+                            s.ledger.record(
+                                if doc.was_new {
+                                    crate::address::Mechanism::Generated
+                                } else {
+                                    crate::address::Mechanism::Corrected
+                                },
+                                "watch",
+                                doc.abs.to_string_lossy().to_string(),
+                                None,
+                            );
                         }
                         if let Some(db) = watch_state.db() {
                             if let Err(e) = s.ledger.save(db, "_default") {
                                 log::warn!("watch: ledger persist failed: {e}");
                             }
                         }
-                    } else {
-                        scanner.update_cache(&diffs);
                     }
+                    // Persist the tree regardless, so the next poll diffs against it.
+                    let _ = run.current.save(&data_dir, &canon);
                     std::thread::sleep(std::time::Duration::from_secs(interval_secs));
                 });
             }
