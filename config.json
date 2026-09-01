@@ -1,6 +1,0 @@
-{
-  "data_dir": "/home/gio/.physis",
-  "dream_batch_size": 5,
-  "pdca_stagnant_threshold": 0.2,
-  "pdca_stagnant_window": 5
-}
