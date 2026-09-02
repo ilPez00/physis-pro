@@ -681,6 +681,107 @@ hygiene. H11 is a standing constraint, not a task.
 
 ---
 
+
+### Phase 20 — Ontology node visualization: fragments, instances, origin links (2026-09-02)
+
+> **Goal:** every ontology node in the Atlas/Studio visualizations must cite the
+> exact text fragment it was derived from, list ALL instances of that concept
+> (conceptual and concrete), and provide hyperlinked-clickable references back to
+> each origin so the user can "search for them in their origin."
+
+**Current state:** `NodeView` (the projection every surface uses) carries `id`,
+`label`, `score`, `asserted`, `cell`, `pinned`, `created_at`, `kind`, `properties`
+— but NO source fragment, NO instance list, NO origin URI. The `properties` bag
+is a `serde_json::Map<String, Value>` (Phase 16 I5) and is the natural place to
+store this, but it is not populated with provenance references during ingestion.
+`OntologyNode` (the typed graph) has `props: HashMap<String, String>` but also
+lacks fragment/instance/origin fields. `ContentHit` (content search) already
+carries `citation` + `path` + `snippet` — the fragment-citation machinery exists
+in the search layer but is NOT surfaced at the ontology-node level.
+
+**Gaps:**
+1. `CoherenceNode.observable()` -> `NodeView` does not include `source_fragment`,
+   `instances`, or `origin_url`. Adding fields here forces every surface to
+   decide (the exhaustive-destructure rule), which is the point.
+2. `OntologyNode` (ontology_graph.rs) has no `instances` list — concept nodes
+   from `merge_discovery` carry `count`/`samples` strings, not structured
+   instance references.
+3. No origin URIs (file paths, line ranges, section paths) are attached to
+   nodes at registration time.
+4. The Atlas UI (`atlas.html`) object explorer shows label, cell, score, links,
+   and "In documents" — but that search uses `node.label`, not the actual
+   fragment the node maps to. It does not list instances of a concept.
+
+**Plan:**
+
+| #  | Deliverable | Est. Effort | Notes |
+|----|-------------|-------------|-------|
+| 20.1 | `NodeView` gains `source_fragment: Option<String>` (most relevant text snippet, <=256 chars), `instances: Vec<InstanceRef>`, `origin_url: Option<String>` (clickable URI) | Med | Exhaustive destructure in `observable()` — every surface must opt-in |
+| 20.2 | `InstanceRef` struct: `{ id, label, kind: "conceptual"|"concrete", origin: String (file:line or URI), fragment: String (<=128 chars) }` | Small | Conceptual instances are other ontology nodes; concrete are coherence nodes pointing here |
+| 20.3 | `OntologyNode` gains same fields — `instances` populated during `merge_discovery` from `samples`/`hints`, each sample becomes an `InstanceRef` | Small | |
+| 20.4 | Ingestion path writes `origin_url` + `source_fragment` into `CoherenceNode.properties` at registration | Med | `properties["origin_url"]`, `properties["source_fragment"]` |
+| 20.5 | Atlas UI explorer: node detail panel gains "Source fragment" + "All instances" sections with hyperlinks | Med | JS: `openEntity()` already exists; extend the panel HTML |
+| 20.6 | `CoherenceNode` backfill: one-time migration populates `source_fragment` from `label` for nodes where missing | Small | `properties` already persisted; backfill is additive |
+| 20.7 | MCP tool `physis_node_instances` — given node label, returns all InstanceRefs | Small | Reuse MCP surface pattern from Phase 19 |
+
+---
+
+### Phase 21 — Multimodal ingestion pipeline: OCR, MP3, WAV, image, video (2026-09-02)
+
+> **Goal:** extend the ingestion pipeline (`src/ingest.rs`, `src/content.rs`) to
+> accept OCR'd PDFs/documents, MP3/WAV audio, images (CLIP embedding), and video
+> (frame-sampled CLIP), reducing all to the shared text+vector space that feeds
+> classification, the holarchy, and causal ledger.
+
+**Current state:**
+- Images: `src/embed/clip.rs` has `ClipEmbedder` with `embed_image()` (ONNX CLIP
+  vision encoder + tokenizer), gated behind `--features embed-onnx`. `embed/mod.rs`
+  wires it as the `image` embedder in `EmbedderRegistry`. The `/classify` and
+  `/embed` endpoints accept base64 `image` in the request body (per AGENTS.md
+  "Multimodal & Sensory"). **BUT** `embed-onnx` is documented as BROKEN
+  (ort 0.13 API drift) — the CLIP embedder compiles but the semantic path is
+  not buildable in this tree (physis-pro-dev SKILL, "embed-onnx feature is BROKEN").
+- Audio: `src/bin/voice.rs` (`physis-pro-voice`) does arecord -> whisper ->
+  llama3.2 extraction -> `OntologicalMap`. `ai/provider.rs` has
+  `ProviderCascade::transcribe()` (Whisper via Groq/OpenAI). `monitor.rs`
+  has `SignalType::AudioPCM` and records speech *duration* as an event, but
+  explicitly does NOT store the audio (privacy by design). The interest daemon
+  (`physis-interest-daemon`) has clipboard + watched-dir observation but no
+  audio ingestion.
+- Video: AGENTS.md says "planned: frame-sample -> embed_image -> temporal
+  pool. Not built." `embed_onnx.rs` has no video path.
+- OCR: `ingest.rs` has `extract_pdf()` using `pdf-extract` (text-layer only).
+  For scanned PDFs (image-only), `pdf_extract::extract_text` returns empty and
+  the code falls back to raw bytes as lossy UTF-8 — **no OCR pass**. No
+  `tesseract`, `pdfium`, `mupdf`, or OCR crate dependency exists in Cargo.toml.
+- Docx/pptx: `interest.rs` handles via `ooxml_analysis` (zip-of-XML). This is
+  feature-gated behind `daemon` feature, not in the default ingest path.
+
+**Gaps:**
+1. No OCR for scanned PDFs — only text-layer extraction. Scanned docs silently
+   produce empty/garbage bodies.
+2. No audio ingestion pipeline — `voice.rs` is a streaming daemon, not the
+   batch ingestion path. `ingest.rs` has no `DocKind::Audio`.
+3. CLIP image embedder exists but is unbuildable (ort 0.13 API drift).
+4. No video ingestion — frame sampling + temporal pooling not implemented.
+5. No unified multimodal type in `ingest.rs` — `DocKind` enum is text-centric
+  (Invoice, Email, Spreadsheet, VoiceTranscript, Report, Unknown).
+
+**Plan:**
+
+| #  | Deliverable | Est. Effort | Notes |
+|----|-------------|-------------|-------|
+| 21.1 | Fix `embed-onnx` feature so CLIP vision encoder builds — either pin `ort` to a compatible version or update API calls | Med-High | Blocked on ort 0.13 migration; see PREMORTEM.md P0 |
+| 21.2 | `DocKind` adds `Image`, `Audio`, `Video`, `ScannedPDF` variants | Small | Update `classify_file()` extension matching |
+| 21.3 | OCR backend: integrate `tesseract` or `pdfium-render` for scanned PDFs | Med | `pdfium-render` has a pure-Rust path; `tesseract` is a system dep. Pick one. |
+| 21.4 | Audio ingestion: `extract_audio_transcript()` using `ProviderCascade::transcribe()` — MP3/WAV -> Whisper -> text | Med | Reuse existing Whisper path in `ai/provider.rs`; `DocKind::Audio` |
+| 21.5 | Image ingestion: frame-extract from video -> CLIP embed -> average pool | Med | Depends on 21.1; sample 1 frame/5s, temporal average |
+| 21.6 | Video ingestion: `extract_video_frames()` -> CLIP embed each -> temporal pooling | Med | Depends on 21.1; use `ffmpeg` CLI or `image`/`ndarray` |
+| 21.7 | All multimodal bodies flow through the same `doctree` heading parser + `ContentIndex` so content search covers them | Small | Additive — `section_units()` already calls `doctree::parse(&d.title, &d.body)` |
+| 21.8 | `Interest engine` (Phase 5B) gains multimodal observation types — `ObservationKind::Image/Audio/Video` | Low | `interest.rs` already has `ObservationKind`; extend enum |
+
+---
+
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by
