@@ -4,3 +4,10 @@ bin/physis-pro
 benchmark-results/
 .playwright-mcp/
 .physis-vendor/
+target/
+models/*.onnx
+*.env
+shots/*.png
+shots/*.html
+shots/index.html
+models/model.onnx
