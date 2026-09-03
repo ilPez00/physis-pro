@@ -189,7 +189,7 @@ path = "src/bin/wiki.rs"
 # default-features=false on physis-core keeps its cli/studio out of the monolith).
 [workspace]
 resolver = "2"
-members = ["physis-core"]
+members = ["physis-core", "tools/llm-coherence-scan"]
 # vendor/llmwiki carries its own [profile.release]; keeping it out of the
 # workspace avoids the "profiles for the non root package will be ignored"
 # warning (it's still reachable as the `llmwiki_physis` path dependency).

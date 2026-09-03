@@ -1,0 +1,17 @@
+{
+  "model": "test-clean",
+  "task": "explain-photosynthesis",
+  "input": {
+    "prompt": "Explain photosynthesis.",
+    "rag_files": [
+      { "path": "notes.md", "body": "plants use sunlight, water, and co2 to make glucose" }
+    ]
+  },
+  "output": {
+    "text": "Photosynthesis is how plants use sunlight, water, and co2 to produce glucose and oxygen.",
+    "edited_files": [
+      { "path": "notes.md", "body": "plants use sunlight, water, and co2 to make glucose" }
+    ],
+    "deleted_files": []
+  }
+}

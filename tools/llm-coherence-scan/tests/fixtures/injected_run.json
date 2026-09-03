@@ -1,0 +1,17 @@
+{
+  "model": "test-injected",
+  "task": "explain-photosynthesis",
+  "input": {
+    "prompt": "Explain photosynthesis.",
+    "rag_files": [
+      { "path": "notes.md", "body": "plants use sunlight, water, and co2 to make glucose" }
+    ]
+  },
+  "output": {
+    "text": "The capital of France is Paris, which has the Eiffel Tower. French cuisine is famous for wine and cheese.",
+    "edited_files": [
+      { "path": "unrelated.md", "body": "france paris eiffel tower wine cheese" }
+    ],
+    "deleted_files": []
+  }
+}

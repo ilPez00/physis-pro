@@ -1,0 +1,23 @@
+[package]
+name = "llm-coherence-scan"
+version = "0.1.0"
+edition = "2024"
+description = "Score LLM I/O for Coherence Risk, Model Drift, and run a physis-backed ontology refinement loop."
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sled = "0.34"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[features]
+default = []
+tui = []
