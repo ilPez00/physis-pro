@@ -1,11 +1,6 @@
-target/
-shots/
-.env
-*.wav
-models/
-.wiki/
 test_output.md
 bin/physis-pro
 .physis/
 benchmark-results/
 .playwright-mcp/
+.physis-vendor/
