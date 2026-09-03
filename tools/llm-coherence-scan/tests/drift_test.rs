@@ -30,11 +30,14 @@ fn first_run_drift_is_null() {
 #[test]
 fn local_drift_grows_after_history() {
     let (_dir, db) = tmp_db();
-    let clean = load("clean_run.json");
+    let mut clean = load("clean_run.json");
+    clean.created_at = Some(chrono::Utc::now() - chrono::Duration::seconds(2));
     baseline::record(&db, &clean).unwrap();
     let mut drift_r = load("drift_run.json");
     drift_r.model = clean.model.clone();
+    drift_r.created_at = Some(chrono::Utc::now() - chrono::Duration::seconds(1));
     baseline::record(&db, &drift_r).unwrap();
+    drift_r.created_at = Some(chrono::Utc::now());
     baseline::record(&db, &drift_r).unwrap();
     let d = drift::model_drift(&drift_r, &db, None).unwrap();
     assert!(d.components.local.unwrap() > 0.0);
