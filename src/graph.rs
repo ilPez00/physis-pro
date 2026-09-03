@@ -797,6 +797,7 @@ mod file_theme_graph_tests {
             timestamp: chrono::Utc::now(),
             ontology_tags: vec![],
             meta: crate::ingest::DocMeta::default(),
+            template: None,
         }];
         let embedder = RandomProjectionEmbedder::new(4);
         let config = crate::config::PhysisConfig::default();

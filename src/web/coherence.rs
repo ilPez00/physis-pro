@@ -1,7 +1,7 @@
 use super::*;
 use crate::web::SharedState;
 use axum::{
-    extract::{Json, Query, State},
+    extract::{Json, Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
 
@@ -196,7 +196,13 @@ pub async fn coherence_nodes_handler(
             .into_iter()
             .filter_map(|(id, _label, _score)| {
                 let node = s.core.nodes.get(&id)?;
-                Some(node.observable(auto_cell(&shared, node)))
+                let mut view = node.observable(auto_cell(&shared, node));
+                // Populate instances for the top search result (caller's focus)
+                // Others get an empty Vec for efficiency.
+                if view.fragment.is_none() {
+                    view.fragment = node.extract_fragment();
+                }
+                Some(view)
             })
             .collect()
     });
@@ -268,7 +274,13 @@ pub fn query_coherence_nodes(
     matched
         .into_iter()
         .take(limit)
-        .map(|n| n.observable(classifier.classify(&n.embedding).first().map(|c| (c.domain.clone(), c.mode.clone()))))
+        .map(|n| {
+            let mut view = n.observable(classifier.classify(&n.embedding).first().map(|c| (c.domain.clone(), c.mode.clone())));
+            if view.fragment.is_none() {
+                view.fragment = n.extract_fragment();
+            }
+            view
+        })
         .collect()
 }
 
@@ -367,7 +379,13 @@ pub async fn coherence_nodes_all_handler(
         ranked.truncate(params.limit);
         ranked
             .into_iter()
-            .map(|n| n.observable(auto_cell(&shared, n)))
+            .map(|n| {
+                let mut view = n.observable(auto_cell(&shared, n));
+                if view.fragment.is_none() {
+                    view.fragment = n.extract_fragment();
+                }
+                view
+            })
             .collect()
     });
     Json(CoherenceNodesResponse {
@@ -375,6 +393,64 @@ pub async fn coherence_nodes_all_handler(
         results,
         as_of: params.as_of.clone(),
     })
+}
+
+/// GET /api/v1/coherence/nodes/{id}/instances — find all nodes that share
+/// conceptual similarity with a given node. Returns `ConceptualInstance`
+/// projections with id, label, score, origin path, and cell.
+pub async fn coherence_node_instances_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Path(node_id): Path<String>,
+    Query(params): Query<InstanceParams>,
+) -> Result<Json<InstanceResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let uid = user_key(&headers);
+    let shared = state.shared.clone();
+
+    let instances: Vec<crate::models::ConceptualInstance> = state.with_user(&uid, |s| {
+        s.core.find_conceptual_instances(
+            &node_id,
+            &shared.classifier,
+            params.threshold.unwrap_or(0.3),
+            params.limit.unwrap_or(100),
+        )
+    });
+
+    if instances.is_empty() {
+        // Check if the node exists at all
+        let exists = state.with_user(&uid, |s| s.core.nodes.contains_key(&node_id));
+        if !exists {
+            return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", node_id)));
+        }
+    }
+
+    Ok(Json(InstanceResponse {
+        node_id,
+        count: instances.len(),
+        threshold: params.threshold.unwrap_or(0.3),
+        instances,
+    }))
+}
+
+#[derive(Deserialize)]
+pub struct InstanceParams {
+    /// Minimum cosine similarity threshold (default 0.3).
+    #[serde(default = "default_threshold")]
+    threshold: Option<f32>,
+    /// Maximum number of instances to return (default 100).
+    #[serde(default = "default_limit")]
+    limit: Option<usize>,
+}
+
+fn default_threshold() -> Option<f32> { Some(0.3) }
+fn default_limit() -> Option<usize> { Some(100) }
+
+#[derive(Serialize)]
+pub struct InstanceResponse {
+    pub node_id: String,
+    pub count: usize,
+    pub threshold: f32,
+    pub instances: Vec<crate::models::ConceptualInstance>,
 }
 
 pub async fn coherence_register_handler(

@@ -256,6 +256,9 @@ impl From<&IngestedDoc> for OperationalEvent {    fn from(doc: &IngestedDoc) -> 
             | DocKind::Spreadsheet
             | DocKind::Report
             | DocKind::Invoice
+            | DocKind::OcrDocument
+            | DocKind::Image
+            | DocKind::Video
             | DocKind::Unknown => (OperationalKind::Document, OperationalStatus::Info),
         };
         let mut provenance = OperationalProvenance::new("ingest", kind.as_str());
@@ -372,7 +375,7 @@ mod tests {
             timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            ontology_tags: vec!["workshop".to_string()],
+             ontology_tags: vec!["workshop".to_string()],
             meta: DocMeta {
                 vendor: None,
                 from: Some("supplier@example.com".to_string()),
@@ -381,6 +384,7 @@ mod tests {
                 subject: Some("Delay update".to_string()),
                 thread_id: Some("msg-123".to_string()),
             },
+            template: None,
         };
 
         let event = OperationalEvent::from(&doc);
