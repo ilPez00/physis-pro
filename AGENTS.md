@@ -8,6 +8,12 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 - **Inventory tracking** — SMA-30 forecast + human-in-loop ordering with cooldown
 - **Ontology extensions** — 75 office domains + 23 machine process + 21 AI agent workflow
 
+## Development Workflow
+All development happens via randomesh ssh connection on machine pansa (192.168.1.15).
+Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed
+on the pansa machine through the randomesh framework. See `today_pansa.log` for
+details on the omo vs pansa distinction.
+
 ## Multi-Tenancy (Web API — `physis-pro-web`)
 
 The web server (`src/bin/web_server.rs`) is **per-user**. Session state
