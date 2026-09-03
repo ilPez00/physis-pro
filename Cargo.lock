@@ -2333,6 +2333,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
+name = "llm-coherence-scan"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sled",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "llmwiki"
 version = "0.2.1"
 dependencies = [

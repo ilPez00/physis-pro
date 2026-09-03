@@ -1,0 +1,17 @@
+{
+  "model": "test-drift",
+  "task": "explain-photosynthesis",
+  "input": {
+    "prompt": "Summarize the design of photosynthesis for a 5-year-old.",
+    "rag_files": [
+      { "path": "notes.md", "body": "plants use sunlight, water, and co2 to make glucose" }
+    ]
+  },
+  "output": {
+    "text": "Mitochondria are the powerhouse of the cell, where ATP is produced via oxidative phosphorylation.",
+    "edited_files": [
+      { "path": "biology.md", "body": "mitochondria atp oxidative phosphorylation cell" }
+    ],
+    "deleted_files": ["notes.md"]
+  }
+}
