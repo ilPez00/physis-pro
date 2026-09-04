@@ -198,7 +198,7 @@ impl Session {
             .filter(|m| m.role == "system")
             .count();
         if self.history.len() > MAX_HISTORY + sys_count {
-            let all: Vec<Message> = self.history.drain(..).collect();
+            let all: Vec<Message> = std::mem::take(&mut self.history);
             let systems: Vec<Message> = all.iter().filter(|m| m.role == "system").cloned().collect();
             let non_systems: Vec<Message> = all.into_iter().filter(|m| m.role != "system").collect();
             let skip = non_systems.len().saturating_sub(MAX_HISTORY);
