@@ -70,15 +70,12 @@ its `src/hypothesis.rs` is the pre-resolution 459-line file, not what shipped
 in any tagged commit. crates.io versions are immutable — 0.1.12 cannot be
 corrected or reused, only yanked.
 
-**Decision (2026-09-05, owner confirmed): yank it.** Yanking is reversible
-(`cargo yank --undo`) and only stops *new* dependents from resolving to an
-unreproducible build — existing lockfiles pinned to 0.1.12 keep working. Run
-from omo or pansa (credentials, not available on feather):
-```
-cargo yank --version 0.1.12 physis-core
-```
-This has not been run yet as of this writing — do it once, then delete this
-paragraph and record the date it happened.
+**Decision (2026-09-05, owner confirmed): yank it. Done 2026-09-05T17:05:45Z**,
+run from pansa via `ssh pansa "cargo yank --version 0.1.12 physis-core"` and
+confirmed via the crates.io API (`"yanked":true`). Yanking is reversible
+(`cargo yank --undo --version 0.1.12 physis-core`, from omo or pansa) and only
+stopped *new* dependents from resolving to an unreproducible build — existing
+lockfiles pinned to 0.1.12 keep working.
 
 ## Guards this process depends on
 
