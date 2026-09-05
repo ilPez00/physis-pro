@@ -462,6 +462,77 @@ results in a row is the kind of pattern the mission's own stopping
 criteria (Section 26: "stop when further iterations produce negligible
 improvement") point at directly.
 
+## Iteration 5 — does perspective-framing CONTEXT matter more than the mechanism?
+
+Prompted by a specific claim from the user: bare noun phrases ("engine",
+"steering wheel") carry no relational context, so a static embedding of one
+cannot encode "this, considered mechanically" vs "this, considered
+economically" — every prior iteration may have been testing mechanisms
+against embeddings too impoverished to carry perspectival structure at all,
+regardless of which mechanism was applied on top.
+
+File: `physis-core/examples/perspective_discovery_experiment5_context.rs`.
+Replaced each of the 21 Dataset-B items with one natural sentence supplying
+genuine co-occurring vocabulary (e.g. "engine" → "The engine converts fuel
+into motion through repeated combustion cycles") — **without literally
+naming the perspective category anywhere** in any sentence (no
+"mechanical"/"driver"/"economic" keyword), since that would just be a
+different, cheaper confound (lexical leakage) than the one being tested.
+Re-ran the identical evaluation from Iterations 1-2 (naive NN F1,
+Δ-direction F1, k-means purity, both granularities) on the sentence
+embeddings. Bare-term numbers reproduced the published Iteration 2 values
+exactly (0.587/0.468/0.469/0.226/0.476/0.571) as a sanity check on the
+re-implementation before trusting the new column.
+
+| | bare term | contextual sentence | Δ |
+|---|---:|---:|---:|
+| naive NN, coarse | 0.587 | 0.579 | −0.008 |
+| naive NN, fine   | 0.468 | 0.286 | **−0.183** |
+| Δ-direction, coarse | 0.469 | 0.442 | −0.027 |
+| Δ-direction, fine   | 0.226 | 0.271 | +0.045 |
+| k-means(k=3) purity | 0.476 | **0.810** | **+0.333** |
+| k-means(k=6) purity | 0.571 | 0.524 | −0.048 |
+
+**The claim is confirmed, but not uniformly, and the specific shape of the
+result is the actual finding.** Context produces one dramatic effect and it
+is not on any of the reference-conditioning mechanisms — it is on
+*reference-free* global clustering: k-means(k=3) purity jumps from 0.476
+(weak, barely-above-chance signal) to 0.810 (strong, usable separation) once
+items are embedded as full sentences instead of bare terms. Every
+per-reference method (naive NN, Δ-direction) stays roughly flat or gets
+*worse*, particularly naive-NN at fine granularity (−0.183). A plausible
+mechanism: sentences in the same coarse domain share general topical/lexical
+scaffolding (all "mechanical" sentences invoke combustion-adjacent
+vocabulary) that a *global* clustering algorithm can exploit directly, but
+that same shared scaffolding adds noise to *pairwise* reference-conditioned
+comparisons — particularly at fine granularity, where the signal that
+matters is the specific difference between two sentences, and generic
+sentence structure dilutes exactly that.
+
+**This reframes the whole research track's central negative finding.**
+Iterations 1-4 asked "does some clever mechanism beat plain
+similarity/clustering?" and answered no, repeatedly, using
+under-contextualized bare-term embeddings throughout. Iteration 5 suggests a
+sharper, more useful question was hiding underneath: **plain, unsupervised,
+reference-free clustering — no reference-conditioning, no learned metric, no
+JEPA — recovers the 3-perspective structure well (0.81 purity) once the
+input representation is fixed.** The bottleneck this whole track was
+implicitly fighting may never have been "we need a cleverer discovery
+mechanism" — it may have been "the corpus was under-described." That is a
+data/representation problem, not an algorithm problem, and it was hiding in
+plain sight because every earlier iteration held the (impoverished) input
+representation fixed and only varied the mechanism on top of it.
+
+**Not yet tested:** whether this contextual-embedding effect holds on
+physis-core's real ontology (Iteration 4's task) — the 730 real entries are
+already `name + hints`, arguably already "more than a bare term" but still
+short and enumerative rather than sentence-form; whether it holds at the
+fine-grained (6-label) level as strongly as coarse (it clearly does not, by
+the numbers above — fine-grained purity mildly *dropped*, −0.048); and
+whether recursion or JEPA, re-tried on contextual embeddings instead of bare
+terms, would show a different pattern than Iterations 1-4 found. Flagging
+all three rather than picking the one that would make a tidier narrative.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
