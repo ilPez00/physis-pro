@@ -79,3 +79,16 @@ clean:
 # Full CI check: fmt + clippy + tests
 ci: fmt-check lint test
     @echo "CI passed"
+
+# Install the repo's git hooks into this clone (hooks are per-clone, not
+# inherited from the repo — run this once after cloning).
+install-hooks:
+    git config core.hooksPath scripts/hooks
+    @echo "hooksPath set to scripts/hooks"
+
+# Release physis-core to crates.io. Gated on check-release-integrity.sh so a
+# publish can only happen from a clean, tagged tree at a version not already
+# published — see docs/RELEASING.md. This is the only path to `cargo publish`.
+release-core:
+    ./scripts/check-release-integrity.sh --crate-dir physis-core
+    cd physis-core && cargo publish

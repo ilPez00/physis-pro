@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# scripts/hooks/pre-commit — refuse to commit any staged blob over 25MB
+# (PH-014 Item C). The 435MB model.onnx incident got past the .gitignore
+# pattern because the pattern didn't match the nested path it landed at;
+# this checks actual staged byte sizes instead, so the pattern doesn't matter.
+#
+# Install once per clone (hooks are per-clone, not inherited from the repo):
+#   just install-hooks
+set -euo pipefail
+
+LIMIT=$((25 * 1000 * 1000))
+fail=0
+
+while IFS= read -r -d '' file; do
+  [[ -f "$file" ]] || continue
+  size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo 0)
+  if [[ "$size" -gt "$LIMIT" ]]; then
+    echo "pre-commit: $file is $size bytes (> 25MB) — refusing to commit." >&2
+    echo "  If this file shouldn't be tracked, add it to .gitignore, e.g.:" >&2
+    echo "    echo '$file' >> .gitignore && git rm --cached '$file'" >&2
+    fail=1
+  fi
+done < <(git diff --cached --name-only -z --diff-filter=ACM)
+
+exit "$fail"
