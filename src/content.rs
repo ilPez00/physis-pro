@@ -889,6 +889,7 @@ mod tests {
             timestamp: chrono::Utc::now(),
             ontology_tags: Vec::new(),
             meta: DocMeta::default(),
+            template: None,
         }
     }
 
