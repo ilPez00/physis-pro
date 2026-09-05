@@ -573,6 +573,74 @@ context-driven improvement across more corpora) rather than the broader
 one Iteration 5's single data point suggested. Not yet tested against a
 third corpus; flagged rather than assumed.
 
+## Iteration 7 — recursion (mission Steps 8-9), the one piece never attempted
+
+Recursed the ONE mechanism with genuine (if inconsistent) baseline signal —
+plain k-means — since recursing Δ-direction or the trained predictor
+(falsified as improvements over baseline in Iterations 1-4) would only
+propagate a losing move deeper, not test the recursive hypothesis fairly.
+Used Dataset A (animal taxonomy) because it has real, independently-known
+two-level ground truth, unlike Dataset B's non-hierarchical perspectives.
+File: `physis-core/examples/experiment7_recursion.rs`.
+
+**A methodological gap in Iterations 5-6, caught here:** printing cluster
+*sizes*, not just purity, for the first time reveals depth-1 k=2 clustering
+produces a **13-vs-2 split**, not the true ~8-vs-7 mammal/bird partition.
+Purity alone (0.667, unchanged from Iterations 5-6) looked like "a
+reasonable 2-way separation" but was consistent with one giant cluster
+absorbing most items regardless of true label and a tiny second cluster
+mopping up 2 outliers — majority-vote purity does not penalize this kind of
+imbalance. **Every earlier k-means coarse-purity number in this track should
+be read with this caveat**: purity was never checked against cluster-size
+balance, and it should have been.
+
+**Two recursion pipelines, deliberately separated:**
+
+- **REAL** (recurse into whatever depth-1 actually found): dominated by the
+  13/2 imbalance above — the 13-item cluster's depth-2 split scores 0.462
+  purity (barely above the ~0.5 chance floor for a roughly-even 2-way
+  split), the 2-item cluster's "1.000" is a trivial artifact of only having
+  2 items to place into 2 slots. This pipeline mostly demonstrates
+  **error propagation**: a bad top-level split makes the recursive step
+  underneath it close to meaningless, exactly the garbage-in-garbage-out
+  failure mode the mission's own architecture notes warn about.
+- **ORACLE** (recurse into the TRUE mammal/bird groups instead): mammal ->
+  domestic/predator purity = 0.625 (bare) / **0.750** (contextual); bird ->
+  flying/flightless purity = 0.714 (both representations). Meaningfully
+  above chance (~0.5-0.57 for a near-even 2-way split at n=7-8), clearly
+  below perfect. **This is the single clearest positive signal for the
+  recursive hypothesis found anywhere in this research track**: given a
+  correct top-level grouping, a second unsupervised clustering pass
+  recovers a real, non-trivial fraction of the true nested sub-structure —
+  genuinely partial support, not a clean win, and entirely dependent on the
+  top level being right first.
+
+**Stress test** (mission Section 20 — does recursion know when to stop?):
+forced a k=2 split of the "domestic" leaf group (dog, cat, horse, sheep),
+which has no known sub-structure by construction. Bare-term and contextual
+representations agreed on 3 of 4 placements (dog+cat together in both;
+horse and sheep swapped) — 0.75 agreement. Suggestive of *some* real
+signal surviving even here (dog/cat vs horse/sheep is a defensible
+domestic-companion-vs-livestock split a human might draw), but **n=4 is far
+too small to trust this as more than a hint** — reported as inconclusive,
+not as evidence either way, rather than rounded up to a finding.
+
+## Ablation summary (mission Section 19), compiled from Iterations 1-7
+
+No component was tested in isolation from scratch for this section — the
+comparisons below were already run as part of the main iterations, and are
+collected here as the ablation matrix the mission's own protocol expects,
+rather than re-run cosmetically:
+
+| ablated component | comparison | result |
+|---|---|---|
+| reference conditioning (on vs off) | naive-NN-from-reference vs Δ-direction clustering | naive (the "off"/cheap baseline) wins on 21-item CAR at both granularities (Iteration 2); trained predictor variant also loses on real 730-entry ontology (Iteration 4) |
+| recursion (on vs off) | flat k-means vs recursive (oracle) k-means | recursion adds real value ONLY when the top level is correct (Iteration 7 oracle: 0.625-0.75) — "on" is not uniformly better, conditional on a component not yet reliable |
+| supervision (on vs off) | naive cosine (unsupervised) vs trained predictor (supervised) | supervised wins dramatically on toy data (confounded — Iteration 3) but LOSES badly on real ontology data (Iteration 4) — the opposite ranking depending on data realism, not a stable ordering |
+| input representation (bare term vs context) | Iterations 5 vs 6 | helps dramatically on one corpus (+0.333 purity), not at all on a second (+0.000) — conditional on how well-represented the bare vocabulary already is, not a stable global effect |
+| reference selection strategy (fixed vs random vs uncertainty-based) | not tested | genuine gap — flagged, not attempted |
+| coherence/novelty/boundary-detection scoring | not tested | genuine gap — flagged, not attempted (no boundary-detection mechanism was ever built; Section 12 of the mission was skipped entirely given the underlying per-reference mechanism it would have gated was already falsified) |
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
