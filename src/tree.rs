@@ -320,7 +320,7 @@ fn diff_dir(prev: &DirNode, curr: &DirNode, path: &Path, out: &mut TreeDiff) {
             );
         }
     }
-    for (name, _) in &prev.children {
+    for name in prev.children.keys() {
         if !curr.children.contains_key(name) {
             let gone = path.join(name);
             collect_deleted(prev.children.get(name).unwrap(), &gone, out);
@@ -452,12 +452,12 @@ mod tests {
         assert!(tree.root.children.contains_key("notes.md"));
         // .git is excluded — not in the tree.
         assert!(!tree.root.children.contains_key(".git"));
-        assert_eq!(tree.root.children["notes.md"].file.as_ref().unwrap().included, true);
+        assert!(tree.root.children["notes.md"].file.as_ref().unwrap().included);
         // A binary (non-included) file still appears but flagged.
         std::fs::write(root.join("img.png"), [0u8]).unwrap();
         let t2 = DirTree::meta_walk(&root);
         assert!(t2.root.children.contains_key("img.png"));
-        assert_eq!(t2.root.children["img.png"].file.as_ref().unwrap().included, false);
+        assert!(!t2.root.children["img.png"].file.as_ref().unwrap().included);
     }
 
     #[test]

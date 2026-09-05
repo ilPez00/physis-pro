@@ -121,6 +121,9 @@ pub async fn search_nodes_handler(
     })
 }
 
+/// One recall candidate: (kind, id, label, embedding, asserted verdict).
+type SearchCandidate = (String, String, String, Vec<f32>, Option<f32>);
+
 /// The retrieval half shared by [`search_nodes_handler`] and
 /// [`ask_handler`]: embed with the same embedder that embedded every node
 /// (embedder-consistency constraint), rank tenant coherence + goal labels by
@@ -139,8 +142,8 @@ pub(crate) async fn retrieve_nodes(
     // The asserted verdict rides along so recall becomes outcome memory: a top
     // hit can say "you already tried this and it failed." Unlabeled goals
     // (pure vectors) are skipped — nothing browsable to return.
-    let candidates: Vec<(String, String, String, Vec<f32>, Option<f32>)> = state.with_user(uid, |s| {
-        let mut out: Vec<(String, String, String, Vec<f32>, Option<f32>)> = Vec::new();
+    let candidates: Vec<SearchCandidate> = state.with_user(uid, |s| {
+        let mut out: Vec<SearchCandidate> = Vec::new();
         for n in s.core.nodes.values() {
             if let Some(label) = n.label.as_deref() {
                 if !label.trim().is_empty() {

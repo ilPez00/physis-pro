@@ -4186,7 +4186,7 @@ async fn atlas_graph_returns_a_drawable_tenant_scoped_graph() {
 
     // Every node carries what the renderer draws with.
     for n in nodes {
-        assert!(n["label"].as_str().unwrap().len() > 0, "{n}");
+        assert!(!n["label"].as_str().unwrap().is_empty(), "{n}");
         assert!(n["community"].is_number(), "{n}");
         assert!(n["degree"].is_number(), "{n}");
     }
@@ -5373,7 +5373,7 @@ async fn audit_log_records_mutations_and_filters_by_subject() {
     // Time-travel slice: every entry has a seq and a timestamp (sealed rows).
     let (_, body) = send(
         &router,
-        get(&format!("/api/v1/audit?as_of=2100-01-01T00:00:00Z", ), "tenant-a"),
+        get("/api/v1/audit?as_of=2100-01-01T00:00:00Z", "tenant-a"),
     )
     .await;
     let all = body["entries"].as_array().expect("all");
