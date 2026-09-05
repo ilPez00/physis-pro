@@ -177,6 +177,86 @@ broken, not merely beaten, so no A-vs-B claim is safe yet either way.
    (Section 14) — not attempted yet, and not worth attempting while the
    non-recursive, non-predictive base case is still this unsettled.
 
+## Iteration 2 — fixed baseline, fine-grained ground truth, all 21 references
+
+File: `physis-core/examples/perspective_discovery_experiment2.rs`. Addresses
+both open items from Iteration 1 directly, then tests every corpus item as
+its own reference (n=21) instead of 1-per-perspective (n=3) — Iteration 1's
+per-reference numbers were never a safe sample to generalize from.
+
+**Fix 1 — a working baseline.** Replaced single-link-at-a-global-threshold
+(which collapsed to 1 cluster at every threshold 0.3–0.8) with deterministic
+k-means (farthest-point/k-means++ init, no RNG, no label leakage into init).
+`k-means(k=3)` purity vs the 3 coarse labels: **0.476** (chance floor for 3
+even classes is 0.333) — a real, present, but weak signal: MiniLM's raw
+embedding space groups this corpus into something closer to 3 real fields
+than to random, but far from cleanly. `k-means(k=6)` purity vs the 6 fine
+labels: **0.571**. "Ordinary discovery" is now a valid comparison point for
+the first time in this project.
+
+**Fix 2 — fine-grained ground truth.** Split each of the 3 coarse
+perspectives into 2 sub-groups by genuine semantic sub-relation (not reverse
+engineered from what would flatter either method): mechanical → power-core /
+drivetrain-support; driver → active-controls / safety-awareness; economic →
+value-over-time / recurring-cost. The value-over-time split (resale value,
+depreciation rate, trade-in value) is *exactly* the 3-item cluster Iteration
+1's delta-direction method found for "purchase price" before this ground
+truth was written — a real prediction that held up, not a post-hoc fit.
+
+**Result — the headline number moved against the hypothesis.** Averaged
+over all 21 references (not 3):
+
+| method                | mean F1 vs coarse (3 labels) | mean F1 vs fine (6 labels) | wins out of 21 |
+|-----------------------|------------------------------:|----------------------------:|---------------:|
+| naive nearest-neighbor|                          0.587 |                        0.468 |              — |
+| Δ-direction clustering|                          0.469 |                        0.226 |     7 (coarse), 5 (fine) |
+
+**Naive nearest-neighbor-to-reference — the exact method Section 7 says does
+not count as reference conditioning — beats Δ-direction clustering on
+average, at both label granularities, by a wide and consistent margin.**
+Iteration 1's one encouraging case (steering wheel, driver: naive 0.333 vs
+delta 0.462) does not generalize; it was one favorable draw out of 21, not a
+trend. Fine-grained ground truth made this worse for Δ-direction, not
+better — the hoped-for story ("delta conditioning finds sub-structure naive
+NN blends away") does not hold up as a general pattern once tested past n=3;
+`purchase price`'s standout sub-cluster from Iteration 1 is confirmed real
+(fine F1 = 0.000 for delta here only because "purchase price" itself sits in
+the recurring-cost group where the method's cluster missed it — inspect
+`experiment2_results.json` per-reference for exact numbers) but it is the
+exception, not the rule, across the full reference set.
+
+## Interim classification, revised after Iteration 2
+
+**The specific mechanism tested (Δ(x,r) clustered by direction, at a fixed
+threshold, over a frozen general-purpose sentence embedding) is FALSIFIED as
+an improvement over the naive baseline the mission itself says shouldn't
+count.** This is not a tuning artifact of one bad dataset draw — it holds
+across all 21 references, at both label granularities, with a real (if
+weak) working baseline for comparison on both sides.
+
+**The broader mission hypothesis (perspective-conditioned recursive
+discovery, and separately, JEPA as the substrate) remains INCONCLUSIVE, not
+falsified** — only one candidate geometric conditioning mechanism has been
+tested, on one dataset, with one frozen off-the-shelf embedder. What *is*
+now reasonably well-evidenced: naive per-reference similarity search already
+captures most of the achievable perspective signal in this embedding space
+for this corpus (mean F1 0.587 vs a 0.476 reference-free k-means purity
+ceiling), leaving less room for a cleverer conditioning mechanism to add
+value than the mission's illustrative CAR example implies — and the specific
+"compare deltas to each other" idea does not find that room; if anything it
+throws signal away relative to just querying from r directly.
+
+**Recommendation:** do not keep tuning thresholds or trying more geometric
+transforms of a frozen embedding — that direction now has two negative data
+points (Δ-magnitude proven equivalent to cosine; Δ-direction clustering
+proven worse than cosine at n=21). The mission's own Section 1 secondary
+hypothesis (JEPA: a *predictive* latent relationship, not a static geometric
+one) is the more promising next thing to test precisely because it is a
+different kind of mechanism, not a variant of the one just falsified.
+Recursion (mission Section 9) is not worth adding on top of a per-reference
+mechanism that doesn't yet beat its own baseline — recursing a losing move
+doesn't produce a winning one.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
