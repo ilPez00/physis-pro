@@ -4,3 +4,16 @@ bin/physis-pro
 benchmark-results/
 .playwright-mcp/
 .physis-vendor/
+target/
+# Model weights are pulled from HuggingFace, never committed. `models/*.onnx`
+# matched only the top level, so a 435MB blob at
+# models/bge-base-en-v1.5/onnx/model.onnx slipped past it into a commit whose
+# own message said it had been excluded. `**` matches at any depth.
+models/**/*.onnx
+models/**/*.safetensors
+models/**/*.bin
+*.env
+shots/*.png
+shots/*.html
+shots/index.html
+models/model.onnx

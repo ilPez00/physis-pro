@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# physis-session — run the development loop from PHYSIS_DEVELOPMENT_DIRECTIVE.md.
+#
+# The directive mandates a six-step loop on every task, "including on trivial
+# tasks", plus a metrics line per task. A loop that costs five minutes of
+# bookkeeping gets skipped on exactly the trivial tasks that make the `false`
+# runs statistically meaningful, and a `plan_changed` rate computed only over
+# tasks somebody felt were worth the ceremony is not a measurement of anything.
+# So the bookkeeping is one command per step.
+#
+#   physis-session start  <task-slug>     Step 1 — scaffold the pre-registration
+#   physis-session query  <topic>         Step 2 — retrieve, and log what came back
+#   physis-session binary <true|false> [claim-id]
+#                                         Step 3 — the headline metric
+#   physis-session open                   Step 5 — what did you predict and not check
+#   physis-session end    <task-slug> [--rework] [--rediscovery] [--prereg-failed]
+#                                         Steps 5/6 — close it and append to the ledger
+#   physis-session report                 the numbers, honestly
+#
+# Deliberately NOT in Rust. This measures the developer's process, not Physis's
+# model of the world; putting it in the engine is the scope creep Part 1 warns
+# about. It shells out to `physis-core` for anything epistemic.
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESSIONS="$REPO/sessions"
+METRICS="$REPO/metrics"
+LEDGER="$METRICS/ledger.jsonl"
+TODAY="$(date +%Y-%m-%d)"
+
+BIN="${PHYSIS_CORE_BIN:-$REPO/target/debug/physis-core}"
+core() {
+  if [ ! -x "$BIN" ]; then
+    echo "physis-session: no physis-core binary at $BIN" >&2
+    echo "                cargo build -p physis-core --bin physis-core --features cli" >&2
+    return 127
+  fi
+  "$BIN" "$@"
+}
+
+session_file() { printf '%s/%s-%s.md' "$SESSIONS" "$TODAY" "$1"; }
+
+# The one field that must not be guessed at. Everything else in the ledger can
+# be reconstructed from the session note; this cannot.
+current_binary() {
+  local f="$1"
+  grep -oE '^ {0,4}plan_changed: (true|false)' "$f" 2>/dev/null | tail -1 | awk '{print $2}'
+}
+
+cmd_start() {
+  local slug="${1:-}"
+  [ -n "$slug" ] || { echo "usage: physis-session start <task-slug>" >&2; return 2; }
+  mkdir -p "$SESSIONS" "$METRICS"
+  local f; f="$(session_file "$slug")"
+  if [ -e "$f" ]; then
+    echo "physis-session: $f already exists — not overwriting a pre-registration." >&2
+    echo "                Rewriting one after the fact is how prereg_survived stops" >&2
+    echo "                meaning anything. Use a new slug." >&2
+    return 1
+  fi
+  cat > "$f" <<TEMPLATE
+# $TODAY — $slug
+
+## Step 1 — Pre-registration
+
+Written BEFORE querying Physis. No peeking.
+
+### Task
+
+<what you were asked to do>
+
+### What I intend to do
+
+<in enough detail that it could be wrong. Name files, name functions.>
+
+### What would make this wrong
+
+- <a concrete way reality could differ>
+
+### Confidence
+
+**0.0** that this approach survives contact with the code.
+
+<why that number and not a higher one>
+
+---
+
+## Step 2 — Query
+
+    physis-session query "<topic>"
+
+<what came back, or "nothing">
+
+## Step 3 — The binary
+
+    plan_changed: false
+    changed_by_claim_id: null
+
+<if true: which claim id, and which decision it changed. If false, leave it false.>
+
+## Step 4 — Execute
+
+<what you did>
+
+## Step 5 — Outcome
+
+<what actually happened. Did the Step 1 approach survive?>
+
+<predictions this task resolved: physis-core hypothesis resolve <id> <n> "..." --correct|--wrong>
+
+## Step 6 — Write back
+
+<new hypotheses, only if falsifiable AND load-bearing. "None" is a valid answer
+and is better than a fabricated one.>
+TEMPLATE
+  echo "physis-session: $f"
+  echo "                Fill Step 1 completely before running 'physis-session query'."
+}
+
+cmd_query() {
+  local topic="${1:-}"
+  [ -n "$topic" ] || { echo "usage: physis-session query <topic>" >&2; return 2; }
+  core hypothesis query "$topic" "${@:2}"
+  echo
+  echo "--- also worth looking at, before you decide anything ---"
+  core hypothesis open --older-than 0 2>/dev/null | head -20
+}
+
+cmd_binary() {
+  local v="${1:-}" claim="${2:-null}"
+  case "$v" in
+    true|false) ;;
+    *) echo "usage: physis-session binary <true|false> [claim-id]" >&2; return 2;;
+  esac
+  if [ "$v" = true ] && [ "$claim" = null ]; then
+    echo "physis-session: plan_changed=true requires the claim id that changed it." >&2
+    echo "                The directive is explicit: never report true unless a" >&2
+    echo "                SPECIFIC retrieved claim altered a SPECIFIC decision." >&2
+    echo "                An unattributed true is the metric quietly inflating." >&2
+    return 1
+  fi
+  printf '    plan_changed: %s\n    changed_by_claim_id: %s\n' "$v" "$claim"
+  echo "(paste into Step 3 of the session note)"
+}
+
+cmd_open() { core hypothesis open "$@"; }
+
+cmd_end() {
+  local slug="" rework=false redisc=false prereg=true
+  for a in "$@"; do
+    case "$a" in
+      --rework) rework=true;;
+      --rediscovery) redisc=true;;
+      --prereg-failed) prereg=false;;
+      -*) echo "unknown flag $a" >&2; return 2;;
+      *) slug="$a";;
+    esac
+  done
+  [ -n "$slug" ] || { echo "usage: physis-session end <task-slug> [--rework] [--rediscovery] [--prereg-failed]" >&2; return 2; }
+  local f; f="$(session_file "$slug")"
+  [ -f "$f" ] || { echo "physis-session: no session note at $f" >&2; return 1; }
+
+  local changed; changed="$(current_binary "$f")"
+  if [ -z "$changed" ]; then
+    echo "physis-session: Step 3 in $f has no 'plan_changed:' line." >&2
+    echo "                Refusing to write a ledger row with a guessed headline" >&2
+    echo "                metric. Record it, even — especially — if it is false." >&2
+    return 1
+  fi
+  local claim
+  claim="$(grep -oE 'changed_by_claim_id: .*' "$f" | tail -1 | awk '{print $2}')"
+  [ -n "$claim" ] || claim=null
+  [ "$claim" = null ] || claim="\"$claim\""
+  if [ "$changed" = true ] && [ "$claim" = null ]; then
+    echo "physis-session: plan_changed is true but no claim id is recorded." >&2
+    return 1
+  fi
+
+  mkdir -p "$METRICS"
+  printf '{"task_id":"%s","date":"%s","plan_changed":%s,"changed_by_claim_id":%s,"rediscovery":%s,"rework":%s,"prereg_survived":%s}\n' \
+    "$slug" "$TODAY" "$changed" "$claim" "$redisc" "$rework" "$prereg" >> "$LEDGER"
+  echo "physis-session: appended to $LEDGER"
+  tail -1 "$LEDGER"
+
+  local n; n=$(wc -l < "$LEDGER")
+  if [ $((n % 20)) -eq 0 ]; then
+    echo
+    echo "physis-session: that was task $n. The directive requires metrics/report-$((n / 20)).md now."
+    echo "                Run 'physis-session report' for the numbers, then write the honest read."
+  fi
+}
+
+cmd_report() {
+  [ -f "$LEDGER" ] || { echo "no ledger yet at $LEDGER"; return 0; }
+  python3 - "$LEDGER" <<'PY'
+import json, sys
+rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
+n = len(rows)
+if not n:
+    print("ledger is empty"); raise SystemExit
+def pct(k): return sum(1 for r in rows if r.get(k)) / n
+changed, redisc, rework, surv = pct("plan_changed"), pct("rediscovery"), pct("rework"), pct("prereg_survived")
+print(f"tasks                {n}")
+print(f"plan_changed         {changed:.0%}   ({sum(1 for r in rows if r.get('plan_changed'))}/{n})   <- the headline")
+print(f"rediscovery          {redisc:.0%}   retrieval failed to surface something it had")
+print(f"rework               {rework:.0%}")
+print(f"prereg_survived      {surv:.0%}   your own calibration")
+print()
+# The directive names the threshold and names the failure mode: narrating a
+# positive story over flat numbers. Say it here so the number is not left to
+# interpretation at the moment someone is tempted.
+if n < 20:
+    print(f"{20 - n} more tasks before report-{n//20 + 1}.md is due. Too early to read the trend.")
+elif changed < 0.15:
+    print(f"plan_changed is {changed:.0%}, under the 15% the directive names.")
+    print("The required output is one of two things, in plain language:")
+    print("  - a specific fix to retrieval, or")
+    print("  - an argument that the premise is wrong.")
+    print("Not a paragraph about promising directions.")
+else:
+    print(f"plan_changed is {changed:.0%}. Name the claims that did it, in report-*.md.")
+if redisc > changed and n >= 5:
+    print()
+    print(f"rediscovery ({redisc:.0%}) exceeds plan_changed ({changed:.0%}): Physis is being asked")
+    print("questions it already holds answers to and failing to surface them. That is a")
+    print("retrieval defect, not evidence against the premise.")
+PY
+}
+
+case "${1:-}" in
+  start)  shift; cmd_start  "$@";;
+  query)  shift; cmd_query  "$@";;
+  binary) shift; cmd_binary "$@";;
+  open)   shift; cmd_open   "$@";;
+  end)    shift; cmd_end    "$@";;
+  report) shift; cmd_report "$@";;
+  *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 2;;
+esac

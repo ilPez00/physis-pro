@@ -1,0 +1,159 @@
+// Recovered verbatim from `git show bb469ea^:src/models.rs` on 2026-09-05.
+// These are the public items bb469ea deleted from src/models.rs while leaving
+// every caller in place. Paste into src/models.rs if bb469ea is merged forward.
+// See packets/PH-014-release-and-build-integrity.md, Item A.
+
+/// The object-type vocabulary a classified node can denote. Used to validate
+/// user-supplied kinds and to auto-stamp `kind` from the winning cell.
+pub const OBJECT_TYPES: &[&str] = &[
+    "machine",
+    "asset",
+    "sensor_reading",
+    "work_order",
+    "maintenance_record",
+    "inspection",
+    "incident",
+    "goal",
+    "person",
+    "contact",
+    "document",
+    "knowledge",
+    "note",
+    "observation",
+    "prototype",
+];
+
+/// Resolve the 70-cell grid to an object type. **Total over the grid**: every
+/// (domain, mode) cell denotes a thing, so a winning cell always yields a type.
+/// Mode refinements beat the per-domain default.
+///
+/// The five domains: HEAL (restore/care), CONSTRUCT (build), FABRICATE
+/// (make/produce), BOND (relate/people/exchange), STUDY (learn/know).
+pub fn object_type_for(domain: &str, mode: &str) -> Option<&'static str> {
+    let d = domain.trim().to_ascii_uppercase();
+    let m = mode.trim().to_ascii_uppercase();
+    Some(match (d.as_str(), m.as_str()) {
+        // FABRICATE — the plant floor.
+        ("FABRICATE", "SENSE") => "sensor_reading",
+        ("FABRICATE", "PLAN") => "work_order",
+        ("FABRICATE", "MAINTAIN") => "maintenance_record",
+        ("FABRICATE", "CREATE") => "prototype",
+        ("FABRICATE", _) => "machine",
+        // CONSTRUCT — build / erect.
+        ("CONSTRUCT", "SENSE") => "inspection",
+        ("CONSTRUCT", "PLAN") => "work_order",
+        ("CONSTRUCT", "MAINTAIN") => "maintenance_record",
+        ("CONSTRUCT", _) => "asset",
+        // HEAL — health, recovery, incidents.
+        ("HEAL", "SENSE") => "sensor_reading",
+        ("HEAL", "MAINTAIN") => "maintenance_record",
+        ("HEAL", "PLAN") => "work_order",
+        ("HEAL", _) => "incident",
+        // BOND — people, relations, goals, exchange.
+        ("BOND", "PLAN") | ("BOND", "WORK") => "goal",
+        ("BOND", "SENSE") => "contact",
+        ("BOND", _) => "person",
+        // STUDY — knowledge work.
+        ("STUDY", "SENSE") => "observation",
+        ("STUDY", "LEARN") => "knowledge",
+        ("STUDY", "BRAINSTORM") => "note",
+        ("STUDY", _) => "document",
+        _ => return None,
+    })
+}
+
+
+/// Whether `kind` is in the known object vocabulary (or empty/untyped).
+pub fn is_valid_object_kind(kind: &str) -> bool {
+    kind.is_empty() || OBJECT_TYPES.contains(&kind)
+}
+
+/// The kinds of concrete action the dream loop can propose for a failing node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionKind {
+    /// Open (or re-plan) a work order for the failing object.
+    OpenWorkOrder,
+    /// Schedule maintenance for a machine/asset.
+    ScheduleMaintenance,
+    /// Update the record (maintenance/sensor log) for this object.
+    UpdateRecord,
+    /// Review the failing document/knowledge node.
+    ReviewDocument,
+    /// Escalate to a person or goal.
+    Escalate,
+    /// Acknowledge an incident or a resolved item.
+    Acknowledge,
+}
+
+impl ActionKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ActionKind::OpenWorkOrder => "open_work_order",
+            ActionKind::ScheduleMaintenance => "schedule_maintenance",
+            ActionKind::UpdateRecord => "update_record",
+            ActionKind::ReviewDocument => "review_document",
+            ActionKind::Escalate => "escalate",
+            ActionKind::Acknowledge => "acknowledge",
+        }
+    }
+}
+
+/// A concrete, typed action proposed by the dream loop for one node.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypedAction {
+    pub kind: ActionKind,
+    /// The node the action targets (the failing object's id).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+    /// The object kind (I5) that selected the action, e.g. `machine`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_kind: Option<String>,
+    /// One-line instruction both a human and an agent can act on.
+    pub summary: String,
+}
+
+/// Derive the typed action for a replayed node (Phase 16 I8). A replayed node
+/// that the dream fixed (or a positive outcome) is an acknowledgement; a node
+/// still failing gets an action chosen by its object kind — machine → schedule
+/// maintenance, work order → open a work order, sensor → investigate, etc.
+pub fn typed_action_for(
+    node_kind: &str,
+    object_id: Option<String>,
+    outcome: f32,
+    prevented_failure: bool,
+) -> TypedAction {
+    let (kind, verb, fallback_target) = if prevented_failure || outcome >= 0.0 {
+        (ActionKind::Acknowledge, "acknowledge", "the resolved item")
+    } else {
+        match node_kind {
+            "machine" | "asset" => {
+                (ActionKind::ScheduleMaintenance, "schedule maintenance for", "the machine")
+            }
+            "work_order" => (ActionKind::OpenWorkOrder, "open a work order for", "the work order"),
+            "sensor_reading" => {
+                (ActionKind::OpenWorkOrder, "investigate the reading from", "the sensor")
+            }
+            "maintenance_record" | "inspection" => {
+                (ActionKind::UpdateRecord, "update the record for", "the record")
+            }
+            "document" | "knowledge" | "note" => {
+                (ActionKind::ReviewDocument, "review", "the document")
+            }
+            "person" | "goal" => (ActionKind::Escalate, "escalate", "the person/goal"),
+            "incident" => (ActionKind::Acknowledge, "acknowledge", "the incident"),
+            _ => (ActionKind::Acknowledge, "acknowledge", "the item"),
+        }
+    };
+    let target = object_id.clone().unwrap_or_else(|| fallback_target.to_string());
+    TypedAction {
+        kind,
+        object_id,
+        object_kind: if node_kind.is_empty() {
+            None
+        } else {
+            Some(node_kind.to_string())
+        },
+        summary: format!("{verb} {target}"),
+    }
+}
