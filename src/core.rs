@@ -922,6 +922,88 @@ impl PhysisCore {
         scored
     }
 
+    /// Find all nodes that share conceptual similarity with `target_id`.
+    /// Returns `Vec<ConceptualInstance>` — lightweight projections with id,
+    /// label, score, origin path, and cell. This powers the "see all instances"
+    /// feature in the Studio UI.
+    pub fn find_conceptual_instances(
+        &self,
+        target_id: &str,
+        classifier: &crate::classify::CellClassifier,
+        threshold: Score,
+        limit: usize,
+    ) -> Vec<crate::models::ConceptualInstance> {
+        let target = match self.nodes.get(target_id) {
+            Some(n) => n,
+            None => return Vec::new(),
+        };
+        let target_cell = target
+            .cell_pin
+            .clone()
+            .or_else(|| {
+                classifier
+                    .classify(&target.embedding)
+                    .first()
+                    .map(|c| (c.domain.clone(), c.mode.clone()))
+            });
+
+        let mut results: Vec<crate::models::ConceptualInstance> = self
+            .nodes
+            .values()
+            .filter(|n| n.id != target_id)
+            .filter_map(|n| {
+                let label = n.label.as_ref()?;
+                let sim: f32 = target.embedding.iter().zip(&n.embedding).map(|(a, b)| a * b).sum();
+
+                // Determine this node's cell
+                let node_cell = n.cell_pin.clone().or_else(|| {
+                    classifier.classify(&n.embedding)
+                        .first()
+                        .map(|c| (c.domain.clone(), c.mode.clone()))
+                });
+
+                // Same cell with a minimum similarity floor to avoid hash-based noise.
+                // The floor is higher than the typical collision rate (~0.20 for
+                // 32-dim random projection with shared tokens).
+                let same_cell = target_cell.as_ref().is_some_and(|tc| {
+                    node_cell.as_ref().map(|nc| nc == tc).unwrap_or(false)
+                });
+
+                // Include if cosine similarity exceeds threshold OR they share
+                // a cell (with a minimum similarity floor to avoid hash-based noise).
+                let min_floor = 0.30; // floor for same-cell inclusion
+                if sim < threshold && !(same_cell && sim >= min_floor) {
+                    return None;
+                }
+
+                // Determine origin path from label if it looks like a file path
+                let origin = if label.contains('/') || label.contains('\\') ||
+                             label.starts_with("http") ||
+                             std::path::PathBuf::from(label).exists() {
+                    Some(label.clone())
+                } else {
+                    None
+                };
+
+                Some(crate::models::ConceptualInstance {
+                    id: n.id.clone(),
+                    label: label.clone(),
+                    score: Some(sim),
+                    origin,
+                    position: None,
+                    cell: node_cell,
+                })
+            })
+            .collect();
+
+        results.sort_by(|a, b| {
+            b.score.unwrap_or(0.0).partial_cmp(&a.score.unwrap_or(0.0))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        results.truncate(limit);
+        results
+    }
+
     /// Update coherence score for a node (mean cosine to k nearest neighbors).
     fn update_coherence(&mut self, node_id: &str) {
         if self.nodes.len() <= 1 {
@@ -1887,5 +1969,81 @@ mod tests {
         let pq_results = g.pq_find_neighbors(&query, 2);
         assert_eq!(pq_results.len(), 2);
         assert!(pq_results[0].1 <= pq_results[1].1); // sorted by distance asc
+    }
+
+    #[test]
+    fn test_find_conceptual_instances() {
+        use crate::classify::CellClassifier;
+        use crate::config::OntologyLoader;
+        use crate::config::PhysisConfig;
+        use crate::embed::RandomProjectionEmbedder;
+
+        let mut g = PhysisCore::new();
+        let emb = RandomProjectionEmbedder::new(32);
+        let config = PhysisConfig::default();
+        let ontology = OntologyLoader::load_all(&config);
+        let classifier = CellClassifier::build(&ontology, &emb);
+
+        // Register several related nodes
+        let a = g.register_node_from_text("machine bearing check alignment procedure", &emb);
+        let b = g.register_node_from_text("bearing alignment calibration routine procedure", &emb);
+        let totally_unrelated = g.register_node_from_text("recipe for chocolate cake with butter and sugar flour eggs", &emb);
+        let d = g.register_node_from_text("bearing inspection protocol document standard", &emb);
+
+        // With a threshold high enough, unrelated nodes are excluded.
+        // (RandomProjectionEmbedder gives hash-based similarity, so we verify
+        // the ranking: related nodes score higher than unrelated.)
+        let instances_low = g.find_conceptual_instances(&a, &classifier, 0.0, 100);
+        // All non-empty-label nodes should be included at threshold 0.0
+        assert!(instances_low.iter().any(|i| i.id == b));
+        assert!(instances_low.iter().any(|i| i.id == d));
+        assert!(instances_low.iter().any(|i| i.id == totally_unrelated));
+
+        // Related instances should rank higher than unrelated
+        let b_score = instances_low.iter().find(|i| i.id == b).map(|i| i.score.unwrap_or(0.0));
+        let u_score = instances_low.iter().find(|i| i.id == totally_unrelated).map(|i| i.score.unwrap_or(0.0));
+        assert!(b_score.is_some() && u_score.is_some(), "both should be found at threshold 0");
+        assert!(b_score.unwrap() >= u_score.unwrap(),
+            "related score should exceed unrelated: related={}, unrelated={}",
+            b_score.unwrap(), u_score.unwrap());
+
+        // With a sufficient threshold, the unrelated node is filtered
+        let threshold = b_score.unwrap().min(0.95);
+        let instances_high = g.find_conceptual_instances(&a, &classifier, threshold, 100);
+        assert!(instances_high.iter().any(|i| i.id == b), "b should still be found at threshold {}", threshold);
+        // The unrelated node may or may not be found depending on cosine,
+        // but we verify the ranking is stable:
+        if let Some(u) = instances_high.iter().find(|i| i.id == totally_unrelated) {
+            if let Some(b) = instances_high.iter().find(|i| i.id == b) {
+                assert!(b.score.unwrap() >= u.score.unwrap(),
+                    "ranking must be stable: b={}, u={}", b.score.unwrap(), u.score.unwrap());
+            }
+        }
+
+        // Each instance should have a label and score
+        for inst in &instances_low {
+            assert!(!inst.label.is_empty(), "instance should have a label");
+            assert!(inst.score.is_some(), "instance should have a score");
+        }
+
+        // Test with non-existent node returns empty
+        let empty = g.find_conceptual_instances("nonexistent-id", &classifier, 0.5, 100);
+        assert!(empty.is_empty(), "non-existent node should return empty");
+
+        // Verify cell info is populated for instances
+        assert!(instances_low.iter().any(|i| i.cell.is_some()), "instances should have cell info");
+    }
+
+    #[test]
+    fn test_node_fragment_extraction() {
+        let emb = fixture_embedder();
+        let mut g = PhysisCore::new();
+        let id = g.register_node_from_text("Hydraulic press tonnage drift when cold. Check calibration.", &emb);
+        let node = &g.nodes[&id];
+        let fragment = node.extract_fragment();
+        assert!(fragment.is_some(), "should extract a fragment");
+        let f = fragment.unwrap();
+        assert!(f.contains("Hydraulic press") || f.contains("drift"), "fragment should contain key text");
+        assert!(f.len() <= 120, "fragment should be bounded in length");
     }
 }
