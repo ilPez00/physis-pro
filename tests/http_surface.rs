@@ -4463,6 +4463,64 @@ async fn machine_reduce_registers_bridges_and_persists_per_tenant() {
     assert_eq!(harmony["writes"], false, "{harmony}");
 }
 
+/// PH-014 Item A: every `/api/v1/machines/<name>/register` route registers a
+/// typed `CoherenceNode` — `kind` drawn from `OBJECT_TYPES`, not left empty —
+/// which is exactly what commit `bb469ea` deleted the fields needed for while
+/// leaving these routes wired to handlers that didn't exist.
+#[tokio::test]
+async fn machine_register_routes_stamp_a_typed_kind() {
+    let (router, _dir, _env) = app().await;
+
+    let cases = [
+        (
+            "chronos",
+            json!({"events": [
+                {"label": "oil check", "at": "2026-08-01T08:00:00Z"},
+                {"label": "oil check", "at": "2026-08-08T08:00:00Z"}
+            ]}),
+        ),
+        (
+            "empedocles",
+            json!({"readings": [
+                {"metric": "spindle_temp", "value": 92.0, "baseline": 60.0}
+            ]}),
+        ),
+        (
+            "euclid",
+            json!({"primitives": [
+                {"vertices": 4, "circularity": 0.2, "aspect_ratio": 1.0, "color": [10, 10, 10], "texture": 0.1}
+            ]}),
+        ),
+    ];
+
+    for (machine, body) in cases {
+        let (status, r) = send(
+            &router,
+            post(&format!("/api/v1/machines/{machine}/register"), "machine-user", body),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{machine}: {r}");
+        assert_eq!(r["machine"], machine, "{r}");
+        let node_id = r["node_id"].as_str().expect("node_id in response");
+        let kind = r["kind"].as_str().expect("kind in response");
+        assert!(
+            physis_pro::models::OBJECT_TYPES.contains(&kind),
+            "{machine} register stamped {kind:?}, not a member of OBJECT_TYPES: {r}"
+        );
+
+        // The node it created is real and carries the same kind, not just the
+        // response echoing a value nothing persisted.
+        let (_, nodes) = send(&router, get("/api/v1/coherence/nodes/all", "machine-user")).await;
+        let node = nodes["results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == node_id)
+            .unwrap_or_else(|| panic!("{machine}: node {node_id} not found in graph: {nodes}"));
+        assert_eq!(node["kind"], kind, "{machine}: {node}");
+    }
+}
+
 /// Phase 10 end-to-end (the verification the plan index left open): a real
 /// scan must produce all three filing axes at once — where the file lives
 /// (space), when it changed (time), and what produced it (cause) — and every

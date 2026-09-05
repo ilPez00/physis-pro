@@ -80,6 +80,69 @@ pub async fn machines_reduce_handler(
     })))
 }
 
+/// Register the JSON result of a stateless machine reduction as a typed
+/// `CoherenceNode` (Phase 16 I5). Shared by every `/machines/<name>/register`
+/// route so the typed axis is populated the same way `coherence_register_handler`
+/// does: embed a label built from the machine + its output, classify it against
+/// the 70-cell grid, and stamp `kind` from `object_type_for` — a lookup, not a
+/// hand-picked guess per machine.
+async fn register_machine_result(
+    state: SharedState,
+    headers: HeaderMap,
+    machine: &str,
+    input: serde_json::Value,
+    result: serde_json::Value,
+) -> Json<serde_json::Value> {
+    let label = format!("{machine} perceived: {result}");
+    let embedding = embed_text(state.shared.clone(), label.clone()).await;
+    let kind = state
+        .shared
+        .classifier
+        .classify(&embedding)
+        .first()
+        .and_then(|c| crate::models::object_type_for(&c.domain, &c.mode))
+        .unwrap_or("observation")
+        .to_string();
+
+    let mut properties = serde_json::Map::new();
+    properties.insert("machine".to_string(), serde_json::json!(machine));
+    properties.insert("input".to_string(), input);
+    properties.insert("output".to_string(), result.clone());
+
+    let uid = user_key(&headers);
+    let kind_for_node = kind.clone();
+    let node_id = state.with_user(&uid, |s| {
+        let id = s.core.register_node_vec_labeled(embedding, Some(label));
+        if let Some(node) = s.core.nodes.get_mut(&id) {
+            node.kind = kind_for_node.clone();
+            node.properties = properties;
+        }
+        if let Some(db) = state.db() {
+            if let Err(e) = s.core.persist_node(db, &uid, &id) {
+                log::warn!("machine {machine} node {id} not persisted: {e}");
+            }
+        }
+        s.audit.record(
+            "register",
+            &id,
+            Some(kind_for_node.clone()),
+            &uid,
+            format!("machine: {machine}"),
+        );
+        if let Some(db) = state.db() {
+            let _ = s.audit.save(db, &uid);
+        }
+        id
+    });
+
+    Json(serde_json::json!({
+        "node_id": node_id,
+        "machine": machine,
+        "kind": kind,
+        "result": result,
+    }))
+}
+
 /// GET /api/v1/machines — registry of the philosophical machines.
 pub async fn machines_list_handler() -> Json<serde_json::Value> {
     let machines = [
@@ -847,4 +910,227 @@ pub async fn machines_topos_handler(Json(req): Json<ToposRequest>) -> Json<serde
         .collect();
 
     Json(serde_json::json!({ "places": all, "fading": fading }))
+}
+
+// ── /register routes (Phase 16 I5) ──────────────────────────────────────────
+// Each sibling below runs the same machine as its `/machines/<name>` route and
+// registers the result as a typed `CoherenceNode` via `register_machine_result`.
+
+/// POST /api/v1/machines/chronos/register
+pub async fn machines_chronos_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ChronosRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid chronos request: {e}")))?;
+    let Json(result) = machines_chronos_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "chronos", body, result).await)
+}
+
+/// POST /api/v1/machines/harmony/register
+pub async fn machines_harmony_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: HarmonyRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid harmony request: {e}")))?;
+    let Json(result) = machines_harmony_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "harmony", body, result).await)
+}
+
+/// POST /api/v1/machines/polis/register
+pub async fn machines_polis_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: PolisRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid polis request: {e}")))?;
+    let Json(result) = machines_polis_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "polis", body, result).await)
+}
+
+/// POST /api/v1/machines/soma/register
+pub async fn machines_soma_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: SomaRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid soma request: {e}")))?;
+    let Json(result) = machines_soma_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "soma", body, result).await)
+}
+
+/// POST /api/v1/machines/topos/register
+pub async fn machines_topos_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ToposRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid topos request: {e}")))?;
+    let Json(result) = machines_topos_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "topos", body, result).await)
+}
+
+/// POST /api/v1/machines/elenchus/register
+pub async fn machines_elenchus_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ElenchusRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid elenchus request: {e}")))?;
+    let Json(result) = machines_elenchus_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "elenchus", body, result).await)
+}
+
+/// POST /api/v1/machines/lex/register
+pub async fn machines_lex_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: LexRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid lex request: {e}")))?;
+    let Json(result) = machines_lex_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "lex", body, result).await)
+}
+
+/// POST /api/v1/machines/empedocles/register
+pub async fn machines_empedocles_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: EmpedoclesRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid empedocles request: {e}")))?;
+    let Json(result) = machines_empedocles_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "empedocles", body, result).await)
+}
+
+/// POST /api/v1/machines/erosp/register
+pub async fn machines_erosp_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ErospRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid erosp request: {e}")))?;
+    let Json(result) = machines_erosp_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "erosp", body, result).await)
+}
+
+/// POST /api/v1/machines/erosa/register
+pub async fn machines_erosa_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ErosaRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid erosa request: {e}")))?;
+    let Json(result) = machines_erosa_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "erosa", body, result).await)
+}
+
+/// POST /api/v1/machines/techne/register
+pub async fn machines_techne_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: TechneRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid techne request: {e}")))?;
+    let Json(result) = machines_techne_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "techne", body, result).await)
+}
+
+/// POST /api/v1/machines/euclid/register
+pub async fn machines_euclid_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: EuclidRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid euclid request: {e}")))?;
+    let Json(result) = machines_euclid_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "euclid", body, result).await)
+}
+
+/// POST /api/v1/machines/plutos/register
+pub async fn machines_plutos_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: PlutosRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid plutos request: {e}")))?;
+    let Json(result) = machines_plutos_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "plutos", body, result).await)
+}
+
+/// POST /api/v1/machines/krisis/register
+pub async fn machines_krisis_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: KrisisRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid krisis request: {e}")))?;
+    let Json(result) = machines_krisis_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "krisis", body, result).await)
+}
+
+/// POST /api/v1/machines/pathos/register
+pub async fn machines_pathos_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: PathosRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid pathos request: {e}")))?;
+    let Json(result) = machines_pathos_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "pathos", body, result).await)
+}
+
+/// POST /api/v1/machines/chroma/register
+pub async fn machines_chroma_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ChromaRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid chroma request: {e}")))?;
+    let Json(result) = machines_chroma_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "chroma", body, result).await)
+}
+
+/// POST /api/v1/machines/kinesis/register
+pub async fn machines_kinesis_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: KinesisRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid kinesis request: {e}")))?;
+    let Json(result) = machines_kinesis_handler(Json(req)).await;
+    Ok(register_machine_result(state, headers, "kinesis", body, result).await)
+}
+
+/// POST /api/v1/machines/apodeixis/register — apodeixis already writes its own
+/// per-claim coherence nodes (untyped); this additionally registers one typed
+/// summary node for the batch, same as every other machine's `/register` route.
+pub async fn machines_apodeixis_register_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
+    let req: ApodeixisRequest = serde_json::from_value(body.clone())
+        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid apodeixis request: {e}")))?;
+    let Json(result) =
+        machines_apodeixis_handler(State(state.clone()), headers.clone(), Json(req)).await;
+    Ok(register_machine_result(state, headers, "apodeixis", body, result).await)
 }
