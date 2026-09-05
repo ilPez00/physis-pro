@@ -257,6 +257,126 @@ Recursion (mission Section 9) is not worth adding on top of a per-reference
 mechanism that doesn't yet beat its own baseline — recursing a losing move
 doesn't produce a winning one.
 
+## Iteration 3 — JEPA-style predictive latent (and why the headline number is misleading)
+
+File: `physis-core/examples/perspective_discovery_experiment3.rs`. Tests the
+mission's secondary hypothesis (Section 1): a *predictive* latent
+relationship instead of a *static geometric* one. Architecture: frozen
+MiniLM encoder (same as Iterations 1-2) + a rank-8 linear predictor
+`pred(r) = V(Uᵀr)` trained by hand-derived gradient descent on a
+multi-positive InfoNCE loss, evaluated with **strict leave-one-out
+cross-validation** over all 21 items — for each held-out item, a fresh
+predictor is trained on the other 20 with the held-out item appearing
+nowhere in training (not as query, candidate, positive, or negative), then
+used to rank the training set from the held-out item's embedding.
+
+**Raw result:**
+
+| | naive NN | Δ-direction | JEPA predictor |
+|---|---:|---:|---:|
+| mean F1, coarse (3 labels) | 0.587 | 0.469 | **0.952** |
+| mean F1, fine (6 labels)   | 0.468 | 0.226 | **0.484** |
+
+Read naively, coarse looks like a dramatic win. **It is not evidence for the
+mission's hypothesis, and reporting it as a win would be exactly the kind of
+self-deceiving result the mission warns against.** Here is why, found by
+interrogating the number rather than trusting it:
+
+**The confound:** this predictor is trained by directly optimizing
+"score same-coarse-label pairs high, different-label pairs low," using the
+*exact ground-truth perspective labels the evaluation then scores it
+against* (just with the query item excluded from training, per LOO). That
+is supervised metric learning fit to the evaluation labels, not a
+self-supervised model discovering structure nobody told it about. Genuine
+JEPA is self-supervised: it predicts a masked/context part of an input from
+another part of the *same* input, with no external category labels
+involved anywhere. What I built and labeled "JEPA-style" uses external
+labels as direct supervision — a materially different (and much easier)
+problem. Of course a classifier trained on 20 of 21 labeled examples, over
+only 3 classes with 6-7 examples each, beats an unsupervised embedder's raw
+geometry at predicting those same 3 classes. That is not a novel finding
+about representation learning; it is the ordinary, expected behavior of
+supervised learning with generous labeled data over few classes.
+
+**Control performed before trusting the number, not after:** does the same
+architecture also "learn" to predict a fixed, deterministic *shuffle* of the
+coarse labels — i.e., meaningless relabeling that carries no real
+structure — equally well? If a high-capacity-relative-to-data model
+(rank-8 ≈ 6k parameters vs ~20 training points) is simply memorizing
+whatever labels it's given, shuffled labels should fit just as well as real
+ones. Result: **mean F1 on shuffled labels = 0.254**, at or below the
+chance floor (~0.33) — clearly *not* elevated. This rules out pure
+memorization: the model is not simply capable of fitting arbitrary label
+assignments; something about the *true* coarse labels specifically
+correlates with extractable structure in the frozen embedding space that a
+supervised learner can find and raw cosine similarity does not surface on
+its own (naive cosine only gets 0.587 on the same true-label task).
+
+**The honest reading, combining both facts:** raw cosine similarity is
+leaving real, non-trivial, non-memorized signal on the table for the
+*coarse* 3-way distinction in this embedding space — a supervised learner
+recovers much more of it (0.952) than plain cosine does (0.587). That is a
+genuine, interesting finding about MiniLM's embedding geometry and about
+supervised metric learning as a technique. **It is a different finding from
+the mission's hypothesis** (self-supervised discovery of *unknown*
+perspectival structure from a reference point, without a labeled taxonomy
+to train against). The fine-grained result is the more relevant data point
+for that actual hypothesis: with only ~2-3 labeled examples per fine class,
+the supervised advantage nearly disappears (0.484 vs naive's 0.468, a
+statistical tie) — when there is little labeled signal to exploit, this
+predictor does not meaningfully beat raw cosine either.
+
+**No self-supervised JEPA test has been run.** Building one properly would
+need a corpus with natural context/co-occurrence structure to predict from
+(e.g. sentences that mention multiple related concepts together, so a
+predictor learns "given this context, what embedding is likely nearby"
+without ever being told a category label) — this 21-item hand-labeled toy
+corpus has no such structure to exploit; it was built for the coarse/fine
+label evaluation in Iterations 1-2, not for self-supervised training.
+
+## Interim classification, revised after Iteration 3
+
+Unchanged from Iteration 2 for the mission's actual hypothesis
+(**INCONCLUSIVE** — reference-conditioned discovery of *unlabeled*
+perspectival structure, self-supervised or otherwise, has not yet been
+shown to work or fail; only supervised metric learning against known labels
+has been tested, which answers a different question). Two new, real,
+separate findings:
+- Supervised low-rank metric learning substantially outperforms raw cosine
+  for known-label classification in this embedding space, when there is
+  enough labeled data per class (coarse: yes; fine: no) — confirmed via a
+  shuffled-label negative control, not just a raw number.
+- No self-supervised predictive-latent (true JEPA) mechanism has been
+  built or tested yet; doing so needs a corpus with real context structure,
+  which does not currently exist in this research track.
+
+## A more promising direction, prompted by the user: apply supervised metric
+## learning to physis-core's EXISTING labeled ontology instead of a toy corpus
+
+Iteration 3's real (non-confounded) finding is: *supervised* metric learning
+meaningfully beats raw cosine similarity when the label taxonomy is coarse
+and well-populated. Physis-core already has exactly that: the 70-cell
+semiotic grid (5 domains × 14 modes) in `classify.rs`/`ontology.rs`, with
+real labeled ontology entries — not a 21-item hand-built toy corpus. Testing
+whether a trained low-rank metric improves `CellClassifier`'s cosine-based
+scoring against that *existing, real* ontology would be:
+
+1. Not confounded by "discovering the unknown" — it would openly be
+   supervised classification improvement, which Iteration 3 already shows
+   can be real and non-memorized. Framed honestly as that, not as
+   self-supervised discovery.
+2. Directly relevant to the user's proposal (a combined coherence signal —
+   raw embedding similarity + a learned/predictive similarity + the
+   existing categorical ontology label — rendered as a visualization in the
+   embedded Studio). The categorical "semantic datapoint" the user asked
+   for already exists in physis-core as the classified (domain, mode) cell;
+   it does not need to be invented.
+3. Worth doing *before* building any "JEPA image" visualization — if a
+   trained metric doesn't improve real ontology classification either, the
+   visualization would be presenting a mechanism with no demonstrated value
+   as if it were validated. Not yet attempted; proposed as the next
+   concrete step if this research track continues.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
