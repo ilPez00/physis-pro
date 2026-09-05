@@ -9,6 +9,11 @@ models/*.onnx
 models/**/*.onnx
 **/*.safetensors
 **/*.bin
+# Never pulled deliberately (see packets/README.md): sits above bge-base in
+# the embedder fallback chain and silently swaps the primary embedder if
+# merely present on disk.
+models/jina-clip-v2/
+models/**/tokenizer_config.json
 *.env
 shots/*.png
 shots/*.html
