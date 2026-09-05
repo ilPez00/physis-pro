@@ -6,6 +6,9 @@ benchmark-results/
 .physis-vendor/
 target/
 models/*.onnx
+models/**/*.onnx
+**/*.safetensors
+**/*.bin
 *.env
 shots/*.png
 shots/*.html
