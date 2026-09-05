@@ -377,6 +377,91 @@ scoring against that *existing, real* ontology would be:
    as if it were validated. Not yet attempted; proposed as the next
    concrete step if this research track continues.
 
+## Iteration 4 — the same technique on real ontology data (prompted by the user)
+
+File: `physis-core/examples/ontology_metric_learning_experiment.rs`. Applies
+Iteration 3's exact predictor architecture (rank-K asymmetric predictor,
+stop-gradient target, InfoNCE) to physis-core's real, existing 70-cell
+ontology instead of the 21-item toy corpus — 730 real entries, 5 domains
+(118-169 members each, well-powered), plus a 31-cell subset restricted to
+cells with >=5 members (the other 35 of 70 cells have exactly 1 entry each
+and cannot support a train/test split). Stratified 5-fold CV, 1-NN
+classification (mirrors `CellClassifier`'s actual production mechanism:
+"max cosine to any member entry").
+
+**First run: a real numerical bug, caught before it produced a false
+result.** `final_train_loss=NaN`, `pred_mean_norm=NaN`. Root cause: the
+per-query gradient summed the positive set rather than averaging it
+(`dloss/dp ∝ |positives|·E_probs[x] − Σ_positives x`). The toy corpus's
+fields topped out at 6 members, where this is harmless; domain classes here
+have up to ~170 members, so the un-normalized positive-sum term is ~30x
+larger, and the fixed learning rate that was stable at toy-corpus scale
+exploded the weights to NaN within a few epochs. Silent consequence if
+unnoticed: `f32` comparisons with NaN are always `false` in Rust, so the 1-NN
+search's `if s > best_s` never updates past its initial guess — the reported
+"jepa_acc" numbers from the broken run were not measuring the predictor at
+all, they were measuring how often training-item index 0's class happened to
+match the test item's class. **Confirmed by the diagnostic added specifically
+to check this** (final loss + predicted-vector norm + pairwise cosine,
+printed before trusting any accuracy number) — this is the same
+"interrogate the number before believing it" discipline as Iterations 1-3,
+just catching a different failure mode.
+
+**Fix:** average the positive term instead of summing it (standard
+multi-positive/SupCon-style contrastive loss — both terms become
+convex combinations of unit vectors, so the gradient stays bounded
+regardless of class size). Re-ran with the fix:
+
+- No more NaN. `pred_mean_norm=0.045` (small but non-zero — not degenerate).
+  `pred_mean_pairwise_cos=0.577` vs raw embeddings' own `0.775` — predicted
+  vectors are *more* spread out than raw ones, ruling out representation
+  collapse (predictions did not converge to a near-identical constant).
+- **`final_train_loss ≈ 6.28-6.36`, which is essentially exactly the
+  chance-level loss** for this problem size (`ln(581 candidates) ≈ 6.36`
+  for the domain task). Training is not broken and not collapsed — it
+  converged to a solution that is, by its own loss function, no better than
+  guessing.
+
+| task | n | classes | baseline 1-NN | trained 1-NN | delta |
+|---|---:|---:|---:|---:|---:|
+| domain | 730 | 5 | **0.477** | 0.227 | −0.249 |
+| cell (≥5-member subset) | 685 | 31 | **0.220** | 0.070 | −0.150 |
+
+**Raw cosine similarity — the existing production mechanism — beats the
+trained metric by a wide margin on both real tasks**, at the hyperparameters
+tested (rank=16, 150 epochs, lr=0.15, τ=0.15, λ=1e-3, chosen by carrying
+over Iteration 3's toy-corpus values, not tuned for this scale). Given the
+loss sits at the chance floor, this reads as **the optimization not finding
+a useful solution at this configuration**, not necessarily "the mechanism
+cannot work here" — 150 epochs of full-batch gradient descent on a harder,
+5-30x larger problem than Iteration 3 may simply be undertrained, or the
+fixed hyperparameters may need real tuning (a validation split, a learning
+rate schedule, more epochs) rather than a straight carry-over. I have not
+done that tuning — doing so without a principled stopping rule is exactly
+the "keep tuning until it looks good" trap the mission warns against, and
+four experiments in, the more defensible move is to report the result as-is
+and let it inform priority rather than to keep adjusting knobs hunting for
+a win.
+
+## Cumulative picture after four experiments
+
+Every mechanism tested so far, when evaluated with a proper control (a
+working baseline, held-out data, a memorization/collapse check), has been
+matched or beaten by the method the mission itself says shouldn't even
+count as sophisticated (Δ-magnitude: mathematically identical to cosine;
+Δ-direction clustering: beaten at n=21; supervised toy-corpus predictor:
+wins only because of a label-supervision confound, ties once that confound
+is thinned out; the same predictor at real scale: beaten by raw cosine by a
+wide margin, converging to chance-level loss). **Raw cosine similarity has
+not yet been beaten by anything tested under a fair, controlled comparison
+in this research track.** This is real, cumulative evidence against the
+family of mechanisms tried so far — not proof no learned mechanism could
+ever help (undertraining/hyperparameters remain a live, unexcluded
+explanation for Iteration 4 specifically), but four negative-or-confounded
+results in a row is the kind of pattern the mission's own stopping
+criteria (Section 26: "stop when further iterations produce negligible
+improvement") point at directly.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
