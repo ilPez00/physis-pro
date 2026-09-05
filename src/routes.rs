@@ -120,7 +120,7 @@ impl RouteTable {
             std::fs::create_dir_all(parent)?;
         }
         let bytes = serde_json::to_vec_pretty(&self.routes)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+            .map_err(io::Error::other)?;
         let mut f = std::fs::File::create(path)?;
         f.write_all(&bytes)
     }

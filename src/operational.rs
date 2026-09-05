@@ -445,7 +445,7 @@ mod tests {
             "voron-01",
             p,
         );
-        save_events(&db, "tenant-a", &[ev.clone()]).unwrap();
+        save_events(&db, "tenant-a", std::slice::from_ref(&ev)).unwrap();
         let loaded = load_events(&db, "tenant-a");
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].event_key, ev.event_key);

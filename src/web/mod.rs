@@ -3961,7 +3961,7 @@ async fn trace_handler(
 /// Truncate feedback text for the trace response.
 fn feedback_truncate(s: &str) -> String {
     if s.chars().count() > 120 {
-        format!("{}…", &s.chars().take(120).collect::<String>())
+        format!("{}…", s.chars().take(120).collect::<String>())
     } else {
         s.to_string()
     }
