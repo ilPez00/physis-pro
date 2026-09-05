@@ -2896,6 +2896,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             post(coherence::coherence_delete_handler),
         )
         .route(
+            "/api/v1/coherence/nodes/{id}/instances",
+            get(coherence::coherence_node_instances_handler),
+        )
+        .route(
             "/api/v1/hypotheses",
             get(coherence::hypotheses_list_handler).post(coherence::hypothesis_create_handler),
         )
@@ -3264,69 +3268,141 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             post(machines::machines_chronos_handler),
         )
         .route(
-            "/api/v1/machines/topos",
-            post(machines::machines_topos_handler),
+            "/api/v1/machines/chronos/register",
+            post(machines::machines_chronos_register_handler),
         )
         .route(
             "/api/v1/machines/harmony",
             post(machines::machines_harmony_handler),
         )
         .route(
+            "/api/v1/machines/harmony/register",
+            post(machines::machines_harmony_register_handler),
+        )
+        .route(
             "/api/v1/machines/polis",
             post(machines::machines_polis_handler),
+        )
+        .route(
+            "/api/v1/machines/polis/register",
+            post(machines::machines_polis_register_handler),
         )
         .route(
             "/api/v1/machines/soma",
             post(machines::machines_soma_handler),
         )
         .route(
+            "/api/v1/machines/soma/register",
+            post(machines::machines_soma_register_handler),
+        )
+        .route(
+            "/api/v1/machines/topos",
+            post(machines::machines_topos_handler),
+        )
+        .route(
+            "/api/v1/machines/topos/register",
+            post(machines::machines_topos_register_handler),
+        )
+        .route(
             "/api/v1/machines/elenchus",
             post(machines::machines_elenchus_handler),
         )
+        .route(
+            "/api/v1/machines/elenchus/register",
+            post(machines::machines_elenchus_register_handler),
+        )
         .route("/api/v1/machines/lex", post(machines::machines_lex_handler))
+        .route(
+            "/api/v1/machines/lex/register",
+            post(machines::machines_lex_register_handler),
+        )
         .route(
             "/api/v1/machines/empedocles",
             post(machines::machines_empedocles_handler),
+        )
+        .route(
+            "/api/v1/machines/empedocles/register",
+            post(machines::machines_empedocles_register_handler),
         )
         .route(
             "/api/v1/machines/erosp",
             post(machines::machines_erosp_handler),
         )
         .route(
+            "/api/v1/machines/erosp/register",
+            post(machines::machines_erosp_register_handler),
+        )
+        .route(
             "/api/v1/machines/erosa",
             post(machines::machines_erosa_handler),
+        )
+        .route(
+            "/api/v1/machines/erosa/register",
+            post(machines::machines_erosa_register_handler),
         )
         .route(
             "/api/v1/machines/techne",
             post(machines::machines_techne_handler),
         )
         .route(
+            "/api/v1/machines/techne/register",
+            post(machines::machines_techne_register_handler),
+        )
+        .route(
             "/api/v1/machines/euclid",
             post(machines::machines_euclid_handler),
+        )
+        .route(
+            "/api/v1/machines/euclid/register",
+            post(machines::machines_euclid_register_handler),
         )
         .route(
             "/api/v1/machines/plutos",
             post(machines::machines_plutos_handler),
         )
         .route(
+            "/api/v1/machines/plutos/register",
+            post(machines::machines_plutos_register_handler),
+        )
+        .route(
             "/api/v1/machines/krisis",
             post(machines::machines_krisis_handler),
+        )
+        .route(
+            "/api/v1/machines/krisis/register",
+            post(machines::machines_krisis_register_handler),
         )
         .route(
             "/api/v1/machines/pathos",
             post(machines::machines_pathos_handler),
         )
         .route(
+            "/api/v1/machines/pathos/register",
+            post(machines::machines_pathos_register_handler),
+        )
+        .route(
             "/api/v1/machines/chroma",
             post(machines::machines_chroma_handler),
+        )
+        .route(
+            "/api/v1/machines/chroma/register",
+            post(machines::machines_chroma_register_handler),
         )
         .route(
             "/api/v1/machines/kinesis",
             post(machines::machines_kinesis_handler),
         )
         .route(
+            "/api/v1/machines/kinesis/register",
+            post(machines::machines_kinesis_register_handler),
+        )
+        .route(
             "/api/v1/machines/apodeixis",
             post(machines::machines_apodeixis_handler),
+        )
+        .route(
+            "/api/v1/machines/apodeixis/register",
+            post(machines::machines_apodeixis_register_handler),
         )
         // Dynamic axis expansion (Phase 6): read + propose + promote/demote/lineage.
         .route("/api/v1/axes", get(axes::axes_list_handler))

@@ -81,7 +81,7 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Praxis backfill | `praxis.rs` + `web.rs` + `cli.rs` | **Praxis backfill (Phase 7B)**: notebook entries + trackers → `BehaviourRecord`s with Success/Inert/Failure verdicts (mood / value-target thresholds) → labeled behavioural nodes with **asserted** verdicts. CLI `physis-pro praxis <file>`, web `POST /api/v1/praxis/backfill` |
 | Spanner sink | `spanner.rs` + `web.rs` + `cli.rs` | **Spanner Graph sink (Phase 7C)**: durable-memory mirror (`--features spanner`, off the hot path). Web `POST /api/v1/spanner/sync\|hydrate`, CLI `physis-pro spanner sync\|hydrate`; JWT service-account auth + emulator round-trip test |
 | Facet query | `physis-core/models.rs` + `cli.rs` + `main.rs` | **Ontology facet CLI**: `physis-pro facet [--lifecycle OPERATE] [--agency SELF] [--scale …] [--abstraction …] [--sub-domain X] [--sub-mode X] [--kind X] [--domain X] [--mode X]` — filter ontology entries by orthogonal facets; `Facets::simple()` display |
-| Docs | `docs/` | `SEMIOTIC_EDITING.md`, `UMBRELLAPEDIA_GUIDE.md` (wiki surface wiring), `PIPELINE_DIAGRAMS.md` (ingestion→recall pipeline), `PUBLIC_ARCHITECTURE.md` (cross-repo deploy), `AGENT_DEMO.md` (agent loop traces: SSE inside harness + direct library call) |
+| Docs | `docs/` | `SEMIOTIC_EDITING.md`, `UMBRELLAPEDIA_GUIDE.md` (wiki surface wiring), `PIPELINE_DIAGRAMS.md` (ingestion→recall pipeline), `PUBLIC_ARCHITECTURE.md` (cross-repo deploy), `AGENT_DEMO.md` (agent loop traces: SSE inside harness + direct library call), `PLAN_11.md` (enhanced ingestion, citation, and conceptual search) |
 
 ## Ontology Extensions
 
@@ -244,3 +244,41 @@ Dev note: rebuilding with a custom vendor key needs
 `PHYSIS_LICENSE_PUBKEY=<hex> cargo build` (baked at compile time via
 `option_env!`); a licence signed by that key then runs the binary
 (`PHYSIS_LICENSE_FILE`). See `docs/business/DEPLOY.md`.
+
+## PLAN 11 — Enhanced Ingestion, Citation, and Conceptual Search
+
+### Structured Templates & Enhanced Ingestion
+- `DocumentTemplate` enum with type-specific templates: `InvoiceTemplate`, `EmailTemplate`, `SpreadsheetTemplate`, `TranscriptTemplate`, `ImageTemplate`, `VideoTemplate`, `GenericTemplate`
+- `DocKind` extended with `OcrDocument`, `Image`, `Video` variants
+- New extractor functions: `extract_ocr()` (Tesseract), `extract_spreadsheet()` (calamine), `extract_video_metadata()` (ffprobe)
+- Feature gates: `ocr` (tesseract), `audio` (Whisper API), `ingest` (calamine for spreadsheets)
+- `extract_doc()` dispatches to the correct extractor based on `DocKind`
+
+### Fragment Citation & Instance Listing
+- `CoherenceNode` now carries an optional `template: Option<DocumentTemplate>` field
+- `NodeView` extended with `fragment: Option<String>` and `instances: Vec<ConceptualInstance>`
+- `CoherenceNode::extract_fragment()` extracts the most relevant text fragment from the label
+- `PhysisCore::find_conceptual_instances()` finds all nodes sharing conceptual similarity (cosine threshold + same-cell matching)
+- `ConceptualInstance` struct: `id`, `label`, `score`, `origin`, `position`, `cell`
+- New endpoint: `GET /api/v1/coherence/nodes/{id}/instances`
+- Hyperlinked navigation: instances include origin file paths and cell info
+
+### Conceptual Search (Phase 11C — planned)
+- `GET /api/v1/concepts/search?query=<text>&threshold=<f32>` endpoint
+- Concept clustering + grouping by ontology cell
+- Salience-aware ranking using quality feedback (penalties/boosts)
+- CLI commands: `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+
+### JEPA Reranker (Phase 11D — planned)
+- Lightweight MLP reranker on top of existing embeddings
+- Improves classification in ambiguous cells (Phase 10c)
+- Feature gate: `jepa-rerank`
+- Integrates with `CellClassifier::classify` to re-rank top-k candidates
+- Falls back to pure cosine when disabled
+
+### Cargo Features
+| Feature | Dependencies | Purpose |
+|---------|-------------|---------|
+| `ocr` | `tesseract` | OCR for scanned documents/images |
+| `audio` | (Whisper API) | Audio transcription for mp3/wav/flac |
+| `jepa-rerank` | (future) | JEPA model reranking |

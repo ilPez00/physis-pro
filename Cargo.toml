@@ -107,6 +107,8 @@ rand_core = "0.6"
 pdf-extract = { version = "0.7", optional = true }
 # mailparse: RFC-822 (.eml) parsing — From/Subject/body, quoted-reply stripping.
 mailparse = { version = "0.15", optional = true }
+# tesseract: OCR engine for scanning documents and images.
+tesseract = { version = "0.14", optional = true }
 
 # ONNX embedder is ON by default. It was opt-in to avoid deploying without model
 # weights, but the weights have shipped since 2026-08-13 (models/model.onnx,
@@ -131,12 +133,16 @@ web = ["dep:axum", "dep:tower-http"]
 tui = ["dep:ratatui", "dep:crossterm"]
 # Business backoffice features
 industrial = ["dep:rumqttc", "dep:tokio-modbus"]
-ingest = ["dep:calamine", "dep:csv", "dep:quick-xml"]
+ingest = ["dep:calamine", "dep:csv", "dep:quick-xml", "dep:tesseract"]
 sql = ["dep:rusqlite"]
 postgres = ["dep:tokio-postgres"]
 # Document ingestion: real PDF text extraction + structured email parsing.
 pdf = ["dep:pdf-extract"]
 email = ["dep:mailparse"]
+# OCR pipeline: Tesseract-based OCR for scanned documents and images.
+ocr = ["dep:tesseract"]
+# Audio transcription: Whisper API integration for mp3/wav/flac.
+audio = []
 # In-process wiki engine (Tantivy BM25) — replaces the llmwiki subprocess.
 # BM25 only for now (no fastembed/usearch → no ort conflict); semantic = Phase 2.
 wiki-embedded = ["dep:llmwiki_physis"]
@@ -149,7 +155,7 @@ vendor = ["dep:clap"]
 # Local interest daemon: clipboard + watched-dir observation → interest profile.
 daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
 
-full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "mcp", "sql", "postgres"]
+full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "audio", "ocr", "sql", "postgres", "mcp"]
 
 
 

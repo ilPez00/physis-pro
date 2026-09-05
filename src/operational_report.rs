@@ -280,6 +280,7 @@ mod tests {
                 subject: Some("Delay update".to_string()),
                 thread_id: Some("msg-123".to_string()),
             },
+            template: None,
         };
         OperationalEvent::from(&doc)
     }
@@ -302,6 +303,7 @@ mod tests {
                 subject: None,
                 thread_id: None,
             },
+            template: None,
         };
         OperationalEvent::from(&doc)
     }
