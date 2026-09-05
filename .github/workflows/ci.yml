@@ -24,10 +24,43 @@ jobs:
         run: cargo check --features mcp
       - name: cargo check (voice + tui feature interactions)
         run: cargo check --features voice,tui
+      # PH-014 Item A regression guard: commit bb469ea broke this and nothing
+      # caught it for a day because no job checked the whole workspace
+      # (physis_pro + the physis-core submodule together). This is the check
+      # that makes that silent for a day, not a compile error on the next PR.
+      - name: cargo check (workspace — catches monolith/submodule drift)
+        run: cargo check --workspace
       - name: cargo build (examples — machine demos)
         run: cargo build --examples
       - name: clippy
         run: cargo clippy --all-targets -- -D warnings
+
+  # PH-014 Item C: refuse any tracked blob over 25MB. Catches the case the
+  # pre-commit hook can't (hooks are per-clone, opt-in, not enforced on
+  # someone else's checkout) — this runs on every push/PR regardless.
+  large-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no tracked file over 25MB
+        run: |
+          set -euo pipefail
+          big=$(git ls-files -z | xargs -0 -I{} sh -c 'test -f "{}" && stat -c "%s %n" "{}"' 2>/dev/null | awk '$1 > 25000000')
+          if [ -n "$big" ]; then
+            echo "tracked file(s) over 25MB:" >&2
+            echo "$big" >&2
+            exit 1
+          fi
+
+  # PH-014 Item B: prove the release guard actually rejects a dirty tree and
+  # an untagged HEAD, on every push — "a guard nobody proved fails is not a
+  # guard."
+  release-integrity-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check-release-integrity.sh --self-test
+        run: ./scripts/check-release-integrity.sh --self-test
 
   test:
     runs-on: ubuntu-latest
