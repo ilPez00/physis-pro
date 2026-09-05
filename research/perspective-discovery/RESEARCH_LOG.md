@@ -533,6 +533,46 @@ whether recursion or JEPA, re-tried on contextual embeddings instead of bare
 terms, would show a different pattern than Iterations 1-4 found. Flagging
 all three rather than picking the one that would make a tidier narrative.
 
+## Iteration 6 — replicating Iteration 5 on a second, structurally different dataset
+
+Mission Dataset A (a real taxonomic hierarchy — Animal -> Mammal/Bird ->
+Domestic/Predator/Flying/Flightless, 15 items) instead of Dataset B's
+cross-cutting perspectives. Same evaluation, same bare-term-vs-contextual-
+sentence comparison, same no-category-leakage rule for sentences. File:
+`physis-core/examples/experiment6_dataset_a_hierarchy.rs`.
+
+**The Iteration 5 effect does not replicate:**
+
+| | CAR (Iteration 5) | ANIMAL (Iteration 6) |
+|---|---:|---:|
+| bare-term k-means coarse purity | 0.476 | **0.667** |
+| contextual k-means coarse purity | 0.810 | 0.667 |
+| Δ (context − bare) | **+0.333** | **+0.000** |
+| bare-term naive NN fine F1 | 0.468 | 0.400 |
+| Δ naive NN fine (context − bare) | −0.183 | −0.056 |
+
+Zero change from context on the animal corpus's coarse clustering, against
+a dramatic +0.333 on CAR. **The broad claim "contextual sentences help
+unsupervised clustering" does not hold as a general statement — it held on
+one corpus and not on a second.** The direction of every other effect
+(naive-NN mildly hurt by context, Δ-direction mildly helped) is at least
+consistent in *sign* with Iteration 5, just far smaller in magnitude here.
+
+**A more precise, falsifiable hypothesis, refined from what both runs
+actually show:** ANIMAL's bare-term baseline was already strong (0.667
+purity) before any context was added; CAR's bare-term baseline was weak
+(0.476). Common, everyday words (dog, cat, eagle, lion) are exactly the
+kind of vocabulary a general-purpose sentence embedder sees constantly in
+its training distribution and already represents well in isolation;
+specialized/technical vocabulary (camshaft, fuel injection) is not, and
+needs surrounding context to activate the right semantic neighborhood.
+Under this refinement, context should help in proportion to how
+poorly-represented the bare terms already are — not as a blanket effect.
+This is now a specific, testable claim (correlate baseline quality against
+context-driven improvement across more corpora) rather than the broader
+one Iteration 5's single data point suggested. Not yet tested against a
+third corpus; flagged rather than assumed.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
