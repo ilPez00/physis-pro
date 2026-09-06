@@ -1856,6 +1856,120 @@ purely a compilation-gating bug, not a behavioral change. Committed
 separately from any research finding (`physis-core` `bb4d0b7`), since it
 is a code-correctness fix, not a result.
 
+## Iteration 23 — the WordNet fix: language detection works, disambiguation genuinely hard
+
+User directive: "1) go [on the WordNet fix]." `physis-core/examples/experiment23_wordnet_disambiguated.rs`.
+
+**Fix 1, language detection — works, ready for core consideration.**
+First attempt used `whatlang` (added then removed) and it massively
+over-rejected this dataset's short, telegraphic, keyword-list text —
+genuinely English entries like "Rest & Recovery sleep rest nap recovery"
+were flagged non-English, dropping apparent coverage from ~98% to
+28.6%. General-purpose language detectors are tuned for natural prose;
+this data isn't prose. Replaced with a self-referential heuristic tied
+to the same lexicon doing the anchoring: an entry passes if >=40% of its
+tokens exist in ANY WordNet POS index (not just nouns). Result: 96.4%
+pass — much closer to Iteration 22's true coverage — and the specific
+Italian false positives from Iteration 22 ("con"->"argument",
+"piano"->"keyboard instrument") are now correctly excluded, verified
+directly: "Cura e Terapia", "Pianificazione Strategica", "Montaggio e
+Installazione" all score 0.000 coverage.
+
+**Fix 2, gloss-based sense disambiguation — genuinely harder than
+expected, not ready.** Tried two designs against "log"'s known-wrong
+"exponent" anchor:
+- Whole-entry-embedding vs. gloss: "exponent" sim=0.814 beats "written
+  record" sim=0.762.
+- Local +/-2-word context window ("self track log metric quantify") vs.
+  gloss: "exponent" sim=0.861 STILL beats "written record" sim=0.809 —
+  slightly worse, not better.
+
+Diagnosed, not just observed: the surrounding vocabulary ("track",
+"metric", "quantify") is itself mathematically-flavored, so no window
+size separates it from logarithm-adjacent language for this embedding
+model — a real property of how MiniLM associates "log" with quantitative
+context, not a bug in either implementation. Separately, "give" and
+"serve" fail for a different, more tractable reason: WordNet has only
+ONE noun sense for each and the intended meaning ("donate"/"be of
+service") is a VERB sense, out of scope for the current noun-only
+lookup — not a disambiguation failure, a scope gap.
+
+**Recommendation on "include in core"**: language detection (Fix 1) is
+solid, simple, and ready. Disambiguation (Fix 2) is not — it would need
+verb-sense coverage at minimum, and the "log"-style thematic confound
+may need a fundamentally different approach (e.g. TF-IDF word overlap
+with the gloss instead of embedding similarity) rather than more
+embedding-based tuning. Do not integrate the disambiguation mechanism as
+currently built; the language-detection heuristic and the fixed-cell
+linkage layer (Iteration 21) remain the two pieces from this whole track
+that are actually ready for that decision.
+
+## Iterations 24-25 — items 11 and 13, both tested, both not supported
+
+User directive: "3) yes pick up both."
+
+### Iteration 24 (item 11) — cross-embedder split agreement, fails backwards
+
+`physis-core/examples/experiment24_cross_embedder_split_agreement.rs`.
+Different question from item 15 (multi-membership corroboration,
+Iteration 19, also not supported): does an INDEPENDENTLY-derived BGE
+k-means partition agree (ARI) with the partition under evaluation more
+for good splits than bad ones? Never actually tested before.
+
+Result: fails decisively, and backwards. The worst known-bad case
+(Iteration 12's mechanical branch, balance=0.167) scores ARI=**1.000** —
+perfect agreement — while the best known-good case (Dataset A true
+mammal/bird) scores **-0.069**, indistinguishable from random. Verified
+the mechanism directly rather than trusting the number: both MiniLM's
+real split AND BGE's independent split isolate `hybrid_battery` (one of
+the dataset's own genuine cross-cutting items) as a lone singleton
+against the other 6 mechanical items — `given: [0,0,0,0,0,1,0]`,
+`bge-independent: [0,0,0,0,0,1,0]`, identical. This is outlier-detection
+agreement (both models correctly flag one item as anomalous), not
+agreement on a meaningful two-way structure. Meanwhile BGE's own
+unsupervised clustering doesn't rediscover the true mammal/bird split
+either (`[0,0,1,1,0,0,0,1,0,0,1,1,0,1,0]` vs. the true
+`[0,0,0,0,0,0,0,0,1,1,1,1,1,1,1]`) — there is nothing for the good case
+to agree with in the first place.
+
+### Iteration 25 (item 13) — capacity-constrained training loss, still not supported
+
+`physis-core/examples/experiment25_capacity_constrained_loss_gate.rs`.
+Correction to the record first: Iteration 17's code already computed and
+tested final training loss as a candidate signal (`loss_scores` /
+`separates()` in that file) — it was never written up as its own
+finding, and the roadmap incorrectly listed it as untested. It was
+tested and failed: all 6 cases converge to near-zero loss
+(0.001-0.003), which Iteration 17 attributed to the rank-8 predictor
+memorizing tiny (4-14 item) training sets.
+
+This tests the natural fix: deliberately under-parameterize the
+predictor (rank swept 1, 2, 4, 8) so it cannot trivially memorize a bad
+partition. **Makes no difference** — losses stay near-zero
+(0.0009-0.0040) and barely move across the entire rank range, including
+rank=1 (a single linear direction). Sharper diagnosis than "memorization
+capacity" alone: the AMBIENT input dimension (384), not the bottleneck
+rank, is what overwhelms these tiny training sets — in a 384-dimensional
+space, a handful of points is trivially linearly separable along almost
+any direction, independent of how constrained the bottleneck is.
+Training-loss-based certification cannot be properly tested at this toy
+scale at all; it would need either far more training items or explicit
+regularization of the input space itself, a materially larger
+undertaking than a rank sweep.
+
+### Net effect on the certification-signal search
+
+Six structurally distinct mechanisms have now failed in this track:
+mean-margin/silhouette (Iteration 9), three kNN-consistency variants
+(Iteration 11), cross-embedder multi-membership corroboration
+(Iteration 19), density-peak discovery (Iteration 20), cross-embedder
+split agreement (Iteration 24), and capacity-constrained training loss
+(Iteration 25). The standing recommendation is now strongly reinforced
+by breadth of evidence, not just repetition: this problem needs a
+non-geometric approach (a labeled calibration set, or human/LLM review
+gated on low-confidence splits), not another statistic computed from
+embeddings.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

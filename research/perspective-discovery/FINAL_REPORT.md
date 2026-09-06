@@ -73,6 +73,9 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment20_fixed_point_discovery.rs` (Iteration 20)
 - `physis-core/examples/experiment21_fixed_cell_linkage.rs` (Iteration 21)
 - `physis-core/examples/experiment22_wordnet_discovery.rs` (Iteration 22)
+- `physis-core/examples/experiment23_wordnet_disambiguated.rs` (Iteration 23)
+- `physis-core/examples/experiment24_cross_embedder_split_agreement.rs` (Iteration 24)
+- `physis-core/examples/experiment25_capacity_constrained_loss_gate.rs` (Iteration 25)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -610,17 +613,16 @@ untested at adequate scale, not falsified — see Next Experiment 5.
     (verify output shape/pooling empirically before trusting any
     embedding it produces), not a drop-in swap — lower priority than
     item 9 given BGE is architecturally simpler and lower-risk.
-11. **READY TO RUN — BGE weights now available (Iteration 18).**
-    Cross-embedder agreement as a certification signal. A mechanism
-    genuinely different from the four that failed (Iterations 9, 11, 13,
-    14 all analyzed ONE embedding's ONE clustering result): rerun
-    k-means with BGE on the same 6 known good/bad cases from Iterations
-    13-14, and measure ARI between MiniLM's and BGE's resulting
-    partitions per case. Hypothesis: a "balanced but wrong" split may be
-    an artifact of one specific embedding space and may not reproduce
-    when a different model does the clustering, even though no
-    single-embedder statistic catches it. Directly reuses established
-    test infrastructure; nothing blocking this now.
+11. **DONE (Iteration 24) — NOT SUPPORTED, fails backwards.** Cross-
+    embedder agreement as a certification signal for clustering splits.
+    Result: the worst known-bad case scored ARI=1.000 (perfect
+    agreement) while the best known-good case scored -0.069 (random).
+    Verified the mechanism directly: both MiniLM and BGE independently
+    isolate the same genuine cross-cutting item as an outlier, which is
+    real signal but not evidence the 2-way split itself is meaningful;
+    meanwhile BGE's own unsupervised clustering doesn't rediscover the
+    true good split either, so there's nothing for it to agree with.
+    Sixth structurally distinct certification-signal family to fail.
 12. **Expectations tempered by Iteration 18, not ruled out.**
     Domain-specific embedding fine-tune. A legitimate supervised
     contrastive fine-tune (or lightweight adapter/projection) on
@@ -632,13 +634,19 @@ untested at adequate scale, not falsified — see Next Experiment 5.
     model swap (it optimizes directly for this task), but should not be
     expected to produce near-perfect separability. Do item 11 first; it
     is much cheaper and tests a more specific, more useful question.
-13. **NEW — finish Iteration 17's original proposal.** Iteration 17
-    tested whether a JEPA-style predictor's held-out accuracy separates
-    good from bad splits (inconclusive, sample-size limited). It did NOT
-    test the original hook: whether TRAINING LOSS itself (does a "bad"
-    node resist being learned, converging slower or to a higher floor
-    than a "good" node?) serves as a certification signal — cheap to add
-    on the same 6-case infrastructure already built, no new data needed.
+13. **DONE (Iteration 25) — NOT SUPPORTED, and the record is corrected.**
+    Iteration 17's own code already tested training loss as a
+    certification signal and it failed (near-zero loss, 0.001-0.003, on
+    all 6 cases) — this item incorrectly claimed it was untested; it
+    was, just never written up. Iteration 25 tested the natural
+    follow-up: does deliberately under-parameterizing the predictor
+    (rank swept 1-8) fix it by preventing memorization? No — losses stay
+    near-zero at every rank tested, including rank=1. Sharper diagnosis:
+    the ambient 384-dimensional input space, not the bottleneck rank, is
+    what overwhelms 4-14-item training sets; any partition of that few
+    points is trivially separable along almost any direction regardless
+    of bottleneck capacity. Would need far more training data or input-
+    space regularization to test properly — out of scope here.
 14. **NEW — close the residual gap from Iteration 13.** The local/split
     calibration fix (sibling vs. cross-branch, validated, recommended for
     production) was never tested against a real same-branch cross-cutting
@@ -785,3 +793,20 @@ the calibration heuristic, being the dominant constraint.
     similarity between the entry and each candidate synset's gloss (a
     second, different role for "binding to the embedder" — disambiguation,
     not coverage-extension).
+
+    **DONE (Iteration 23) — half fixed.** Language detection: fixed
+    cleanly with a WordNet-self-referential coverage-fraction heuristic
+    (>=40% of tokens recognized) after `whatlang` massively over-rejected
+    this dataset's telegraphic keyword-list text. 96.4% pass, and the
+    specific Italian false positives are now correctly excluded — **ready
+    for core consideration**. Disambiguation: genuinely harder than
+    expected. Two designs (whole-entry embedding, then a local +/-2-word
+    window) BOTH still pick "log"->"exponent" over the intended "written
+    record" sense — diagnosed as a real property of how the embedding
+    model associates quantitative-flavored surrounding vocabulary with
+    logarithm, not fixable by window size. Separately, "give"/"serve"
+    fail because WordNet's only NOUN sense for each isn't the intended
+    meaning (a VERB sense) — a scope gap, not a disambiguation failure.
+    **Not ready for core**; would need verb-sense coverage plus a
+    non-embedding disambiguation signal (e.g. lexical overlap with the
+    gloss) for the harder cases.
