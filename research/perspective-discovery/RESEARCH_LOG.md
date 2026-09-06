@@ -1523,6 +1523,66 @@ a real ceiling on physis-core's real ontology that more training doesn't
 overcome, which is at least a cautionary prior for how much to expect
 from the self-supervised version if it were tested at real scale.
 
+## Iteration 18 — multi-embedder comparison (Next Experiment 9), BGE vs MiniLM on real data
+
+User-directed: pull BGE-base-en-v1.5's ONNX weights and directly test
+whether the embedding itself is the bottleneck behind Iterations 15/17's
+weak real-domain separability, testing multiple pooling formats rather
+than assuming one is correct. `physis-core/examples/experiment18_multi_embedder_comparison.rs`.
+
+**Setup**: `BAAI/bge-base-en-v1.5` weights (416MB ONNX, `onnx/model.onnx`)
+were pulled via `hf download` — only config/tokenizer existed locally
+before this. Confirmed standard `BertModel` architecture, 768-d, loads
+through the existing `OnnxEmbedder` with zero code changes. Verified
+`.gitignore` covers the new weight file (`models/**/*.onnx`) before
+committing anything — the nested-path gitignore gap this exact repo hit
+before (PH-014 Item C) is already fixed on `main`, confirmed by
+`git check-ignore -v` rather than assumed. Three configs tested on the
+identical real 730-entry, 5-domain task, reusing Iteration 15's exact
+methodology (leave-one-out 1-NN, centroid-argmax, mean margin,
+negative-margin fraction) for direct comparability:
+
+| config | dim | LOO-1NN | centroid-argmax | mean-margin | neg-margin-frac |
+|---|---:|---:|---:|---:|---:|
+| MiniLM (mean) | 384 | 0.466 | 0.595 | +0.005 | 0.405 |
+| BGE-base (mean) | 768 | 0.488 | 0.644 | +0.007 | 0.356 |
+| BGE-base (CLS) | 768 | 0.489 | 0.642 | +0.009 | 0.358 |
+
+MiniLM's numbers match Iteration 15's almost exactly (0.595 vs. the
+implied 59.5%, 0.405 vs. 40.5%) — a clean reproducibility check that this
+new measurement is computing the same thing.
+
+**Pooling format check, answered empirically rather than assumed**: mean
+and CLS pooling perform almost identically for BGE on this task (0.488
+vs. 0.489 LOO-1NN) — CLS is BGE's conventional default, but it is NOT
+meaningfully better than mean pooling here. Worth knowing before
+defaulting to CLS out of convention.
+
+**Headline finding: BGE beats MiniLM consistently but modestly** — LOO-1NN
++0.023, centroid-argmax +0.048. This is a real, reproducible
+representation-quality effect (corroborating a prior session's
+qualitative finding, recorded in memory, that BGE correctly classifies
+CNC-fault-maintenance content that MiniLM misroutes to visual arts) — but
+far from dramatic. **Both embedders still land in the same rough range
+(46-49% 1-NN, 60-64% centroid-argmax)** — nowhere near the near-perfect
+separability that would make automatic certification easy.
+
+**Verdict on the embedding-adequacy question (item 8), now evidenced
+rather than open**: a stronger general-purpose embedder helps a little
+but does not close the gap. physis-core's 5-domain taxonomy has genuine,
+largely model-independent conceptual overlap — consistent with Iteration
+15's qualitative spot-check (entries like "Self-Awareness" plausibly
+spanning HEAL/STUDY are not embedding artifacts if a completely
+different, generally stronger model reaches the same rough separability).
+**This tempers expectations for item 12** (an expensive supervised
+fine-tune): if BGE — a model specifically built for semantic
+retrieval — only gains a few points over a smaller general-purpose
+model, the taxonomy's inherent overlap is likely the harder constraint,
+not the embedding choice. A fine-tune might still help (it optimizes
+directly for this task, unlike either general-purpose model tested
+here), but "swap to a better off-the-shelf embedder" alone is not the
+fix Iteration 15 might have suggested in isolation.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

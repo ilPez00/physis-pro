@@ -68,6 +68,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment15_real_ontology_prevalence.rs` (Iteration 15)
 - `physis-core/examples/experiment16_ablation_matrix.rs` (Iteration 16)
 - `physis-core/examples/experiment17_jepa_ontology_binding.rs` (Iteration 17)
+- `physis-core/examples/experiment18_multi_embedder_comparison.rs` (Iteration 18)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -584,21 +585,17 @@ untested at adequate scale, not falsified — see Next Experiment 5.
    15's "widespread overlap" finding would be a representation artifact
    rather than genuine multi-membership, changing how urgent the
    certification problem (item 6) actually is in practice.
-9. **NEW — cross-embedder real-domain separability comparison (directly
-   tests item 8, cheaper than a fine-tune).** Rerun Iteration 15's exact
-   1-NN / centroid-argmax measurement on physis-core's real ontology
-   using BGE-base-en-v1.5 instead of all-MiniLM-L6-v2. Feasibility
-   checked, not assumed: BGE's config/tokenizer are present in
-   `models/bge-base-en-v1.5/` but its ONNX weights are NOT — they need
-   pulling from HuggingFace first (a known, already-documented trap, see
-   memory `physis-engine-facts`). It is a standard `BertModel`
-   architecture, the same family as MiniLM, so once weights exist it
-   should load through the existing `OnnxEmbedder` with no code changes.
-   If BGE shows meaningfully higher 1-NN accuracy on the same task, the
-   embedding is a real bottleneck (supports item 8's premise and
-   prioritizes a fine-tune, item 12 below); if BGE is similarly weak, the
-   taxonomy itself is genuinely ambiguous and no embedding swap will fix
-   it — either answer is informative and this is cheap to get.
+9. **DONE (Iteration 18).** Cross-embedder real-domain separability
+   comparison. Pulled BGE-base-en-v1.5's ONNX weights (previously
+   absent) and tested BGE (mean AND CLS pooling — checked empirically,
+   not assumed: they perform almost identically, 0.488 vs 0.489 LOO-1NN)
+   against MiniLM on the identical real 730-entry task. Result: BGE wins
+   consistently but modestly (LOO-1NN +0.023, centroid-argmax +0.048) —
+   both still land in the same rough range (46-49% / 60-64%). A stronger
+   general-purpose embedder is not the fix; physis-core's 5-domain
+   taxonomy has genuine, largely model-independent conceptual overlap.
+   This tempers item 12's expected payoff (see below) without ruling it
+   out.
 10. **NEW — jina-clip-v2 as a second embedder, explicitly higher-risk.**
     Its ONNX weights (`model_fp16.onnx`) are already present locally, but
     it is a `JinaCLIPModel` (multimodal, matryoshka embeddings), not a
@@ -609,26 +606,28 @@ untested at adequate scale, not falsified — see Next Experiment 5.
     (verify output shape/pooling empirically before trusting any
     embedding it produces), not a drop-in swap — lower priority than
     item 9 given BGE is architecturally simpler and lower-risk.
-11. **NEW — cross-embedder agreement as a certification signal.** A
-    mechanism genuinely different from the four that failed (Iterations
-    9, 11, 13, 14 all analyzed ONE embedding's ONE clustering result):
-    rerun k-means with a second embedder (BGE, once available per item
-    9) on the same 6 known good/bad cases from Iterations 13-14, and
-    measure ARI between the two embedders' resulting partitions per
-    case. Hypothesis: a "balanced but wrong" split may be an artifact of
-    one specific embedding space and may not reproduce when a different
-    model does the clustering, even though no single-embedder statistic
-    catches it. Cheap once item 9's weights exist; directly reuses
-    established test infrastructure.
-12. **NEW — domain-specific embedding fine-tune (the higher-effort,
-    higher-leverage fix for item 8).** A legitimate supervised
+11. **READY TO RUN — BGE weights now available (Iteration 18).**
+    Cross-embedder agreement as a certification signal. A mechanism
+    genuinely different from the four that failed (Iterations 9, 11, 13,
+    14 all analyzed ONE embedding's ONE clustering result): rerun
+    k-means with BGE on the same 6 known good/bad cases from Iterations
+    13-14, and measure ARI between MiniLM's and BGE's resulting
+    partitions per case. Hypothesis: a "balanced but wrong" split may be
+    an artifact of one specific embedding space and may not reproduce
+    when a different model does the clustering, even though no
+    single-embedder statistic catches it. Directly reuses established
+    test infrastructure; nothing blocking this now.
+12. **Expectations tempered by Iteration 18, not ruled out.**
+    Domain-specific embedding fine-tune. A legitimate supervised
     contrastive fine-tune (or lightweight adapter/projection) on
     physis-core's own (domain,mode) labels — explicitly declared
-    supervised, unlike Iteration 3's mislabeled predictor. If items 9-10
-    show current embeddings are the bottleneck, this is the fix that
-    could improve calibration, certification, and recursion
-    simultaneously rather than patching each downstream symptom
-    separately. Higher cost than items 9-11; do those first.
+    supervised, unlike Iteration 3's mislabeled predictor. Iteration 18
+    showed a strong off-the-shelf embedder (BGE) only closes a modest
+    fraction of the gap, suggesting the taxonomy's overlap is largely
+    embedding-independent — a fine-tune might still help more than a
+    model swap (it optimizes directly for this task), but should not be
+    expected to produce near-perfect separability. Do item 11 first; it
+    is much cheaper and tests a more specific, more useful question.
 13. **NEW — finish Iteration 17's original proposal.** Iteration 17
     tested whether a JEPA-style predictor's held-out accuracy separates
     good from bad splits (inconclusive, sample-size limited). It did NOT
@@ -644,10 +643,12 @@ untested at adequate scale, not falsified — see Next Experiment 5.
     confirm the sibling threshold's recall works under a genuine
     trade-off, not just its zero-cost case.
 
-**Suggested priority order, cheapest-and-most-informative first**: 9 →
-11 → 13 → 14 → 10 → 12. Items 9 and 11 share the same setup cost (BGE
-weights) and together test both open threads (embedding adequacy,
-certification) from one download; 13 and 14 need no new infrastructure
-at all; 12 is the most valuable single result if 9 confirms the
-embedding is a real bottleneck, but is also the most expensive, so it
-should follow evidence rather than lead it.
+**Updated priority order after Iteration 18**: item 9 is done. Next:
+11 → 13 → 14 → 10 → 12. Item 11 (cross-embedder agreement as a
+certification signal) now has zero setup cost — BGE weights already
+exist — and directly tests the certification thread, which item 9's
+result did not resolve; 13 and 14 need no new infrastructure either. Item
+12 (the fine-tune) has moved down in expected payoff, not out of the
+plan — item 9 showed a strong off-the-shelf embedder only closes part of
+the gap, so a fine-tune's ceiling is now a more tempered bet than it
+looked before this evidence existed.
