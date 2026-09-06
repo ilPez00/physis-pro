@@ -62,6 +62,8 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment11_generalized_certification.rs` (Iteration 11)
 - `physis-core/examples/experiment12_integrated_synthesis.rs` (Iteration 12)
 - `physis-core/examples/experiment13_local_calibration_and_ensemble_gate.rs` (Iteration 13)
+- `physis-core/examples/experiment14_borderline_item_detector.rs` (Iteration 14)
+- `physis-core/examples/experiment15_real_ontology_prevalence.rs` (Iteration 15)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -381,6 +383,51 @@ few items wrong" from "genuinely correct but on an axis the embedding
 doesn't foreground" — a materially different, more specific signal is
 needed, not a combination of what exists.
 
+**Iteration 14 then targeted the wrong cases' specific character
+directly** — three margin-distribution-shape signals (misfit fraction,
+worst-item margin, margin std-dev) plus a structurally different
+sub-bisection-contamination signal, all tested against the same 6 real
+cases. All four fail. Misfit fraction is additionally shown to be
+mechanistically degenerate for this use case (measuring exactly 0.000 on
+every case): a margin computed against a split's OWN centroids can
+barely ever go negative for a converged k-means assignment, since
+non-negative margin IS what k-means's convergence criterion enforces.
+Sub-bisection contamination fails via its own base-rate artifact
+(smaller sub-clusters look artificially "tighter" almost by sampling
+size alone). **Four structurally distinct signal families have now been
+tried (Iterations 9, 11, 13, 14) and all fail on a confound tracing back
+to cluster size or tightness — reasonably strong evidence this specific
+problem is not solvable with a cheap unsupervised geometric statistic on
+data of this kind.** Recommend a non-geometric path instead (a small
+labeled calibration set, or human/LLM review gated on low-confidence
+splits) rather than continuing to search for a fifth metric.
+
+**Iteration 15 redirected to a different, higher-value open question**:
+does multi-membership even matter on physis-core's real data, or is it a
+toy-corpus artifact? Measuring (not calibrating — no ground truth exists)
+on the real 730-entry ontology: 40.5% of entries show negative margin at
+the 5-domain level, implying centroid-argmax accuracy of only ~59.5%;
+independently, Iteration 4's own 1-NN baseline on this exact task
+achieves only 40-46% (barely double the 20% chance rate for 5 classes).
+Real cross-domain overlap is far more widespread than any hand-built
+toy corpus in this track showed. Whether this reflects genuine conceptual
+multi-membership or a representation-quality limit of a general-purpose
+embedder on this specific taxonomy cannot be fully disambiguated here —
+the qualitative spot-check (entries like "Self-Awareness" and
+"Introspection" plausibly spanning HEAL/STUDY) leans toward at least
+partly genuine, but this is judgment, not proof. The domain-vs-cell
+granularity comparison from Iteration 12 partially, not cleanly,
+replicates: cell-level shows more overlap at tight thresholds but
+crosses over to less at looser ones — real data shows a more complex
+relationship than the clean synthetic result. **Practical implication**:
+if this level of overlap is real, multi-membership would need to be
+treated as the common case in physis-core's actual ontology, not an edge
+case — raising the stakes on Iteration 14's unresolved certification gap,
+and surfacing a more basic, previously untested question this track does
+not answer: whether the embedding model itself is adequate for
+physis-core's actual domain taxonomy, independent of any discovery
+mechanism.
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -397,11 +444,14 @@ needed, not a combination of what exists.
 ## Next experiments (only if justified — none started without a reason above)
 
 1. Datasets C/E/F, never built.
-2. Measure how common cross-cutting concepts actually are in physis-core's
-   real 730-entry ontology or real user corpora — Iteration 8 shows the
-   mechanism *can* carry multi-membership signal on a hand-built example;
-   whether it matters in practice depends on how often real data needs it,
-   which was not measured.
+2. **DONE (Iteration 15).** Measure how common cross-cutting concepts
+   actually are in physis-core's real 730-entry ontology. Finding: far
+   more widespread than any toy corpus in this track — 40.5% of entries
+   show negative margin at the domain level, and 1-NN accuracy on the
+   same task is only 40-46% (barely double chance). Genuinely ambiguous
+   whether this is real conceptual overlap or an embedding-quality limit
+   (see the new item below); the qualitative spot-check leans toward at
+   least partly real.
 3. Whether Iteration 5's context effect holds on physis-core's *real*
    ontology (Iteration 4's task uses `name + hints`, shorter than a full
    sentence) — untested combination.
@@ -415,27 +465,26 @@ needed, not a combination of what exists.
    attempted because building one properly is a materially larger
    undertaking than any single iteration here, not because it was judged
    unpromising.
-6. **STILL OPEN, now confirmed via exhaustive search, not just
-   suspected.** A certification signal that catches a well-balanced but
-   label-wrong split. Iteration 11 tested 5 single-signal candidates and
-   found none that resolve it alone. Iteration 13 tested the natural next
-   step — an ensemble (balance ratio AND adaptive size-adjusted
-   kNN-consistency) — via an exhaustive threshold sweep over all 6 known
-   real cases across five iterations (Dataset A, Iteration 10's bird
-   branch, the Iteration 11 vehicle control, Iteration 12's economic and
-   mechanical branches). No threshold combination achieves perfect
-   separation; best possible is 5/6, and the failure is structural: the
-   knn threshold needed to reject the known balanced-but-wrong cases
-   (knn≈0.200) also rejects the deliberately-imbalanced-but-correct
-   control (knn=0.164, lower than the cases it needs to exceed). This
-   rules out "just combine the two existing signals" as a fix. The next
-   attempt should target the specific character of the wrong cases
-   directly — a dedicated detector for "a small number of borderline
-   items in an otherwise-consistent cluster" (e.g. flag clusters where a
-   minority of members have anomalously low margin to the cluster
-   centroid while the majority have high margin, rather than any
-   single whole-cluster aggregate statistic) — not another whole-cluster
-   ensemble member.
+6. **LIKELY NOT SOLVABLE WITH A CHEAP GEOMETRIC SIGNAL — four attempts,
+   four structurally distinct failure mechanisms.** A certification
+   signal that catches a well-balanced but label-wrong split. Iteration 9
+   tried mean-margin (silhouette-like): backwards. Iteration 11 tried
+   kNN-consistency (raw, size-adjusted, adaptive-k): closest but still
+   fails. Iteration 13 tried an ensemble (balance AND adaptive
+   kNN-consistency) via exhaustive threshold sweep over 6 known real
+   cases: best possible is 5/6, structurally blocked (the threshold that
+   catches the wrong cases also rejects a genuinely correct control).
+   Iteration 14 tried signals targeting the wrong cases' specific
+   character directly (misfit fraction, worst-item margin, margin
+   std-dev, sub-bisection contamination): all fail, with misfit fraction
+   shown to be mechanistically degenerate (can't go negative for a
+   converged k-means split by construction) and sub-bisection showing its
+   own base-rate artifact (smaller sub-clusters look artificially
+   tighter). **Recommend stopping the search for a geometric signal and
+   pursuing a non-geometric path instead**: a small labeled calibration
+   set per domain, or gating low-confidence splits (by balance ratio
+   alone, which DOES work for the extreme-imbalance failure mode) for
+   human or LLM review rather than full automatic certification.
 7. **CLOSED.** A calibration strategy for multi-membership that doesn't
    degrade as sibling-category granularity increases. Iteration 13
    confirmed the cause (a single flat threshold conflates same-branch
@@ -448,3 +497,16 @@ needed, not a combination of what exists.
    check's recall was never tested under a real trade-off — worth
    re-testing on a dataset with at least one genuine same-branch
    cross-cutting concept before fully trusting the sibling threshold.
+8. **NEW (surfaced by Iteration 15).** Whether all-MiniLM-L6-v2 is an
+   adequate embedding model for physis-core's actual 5-domain semiotic
+   taxonomy at all — 1-NN accuracy of 40-46% on real production data
+   (barely double the 20% chance rate) is a more basic and previously
+   unmeasured question than anything else in this track: before
+   investing further in multi-membership/certification/recursion
+   mechanisms built on top of this embedding, it's worth checking whether
+   a different embedding model (e.g. a larger general-purpose model, or
+   one fine-tuned/prompted for this domain) achieves meaningfully higher
+   raw separability on the same 5-domain task — if so, some of Iteration
+   15's "widespread overlap" finding would be a representation artifact
+   rather than genuine multi-membership, changing how urgent the
+   certification problem (item 6) actually is in practice.

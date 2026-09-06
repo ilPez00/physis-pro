@@ -1229,6 +1229,140 @@ target case 3/5's specific character directly (a small number of
 borderline items in an otherwise-consistent cluster) rather than
 combining existing whole-cluster signals.
 
+## Iteration 14 — a dedicated borderline-item detector, and exhausting the cheap-signal search
+
+Directed by "any other experiments? proceed" — continuing directly on
+Iteration 13's own recommendation: target the wrong cases' specific
+character (a few borderline items in an otherwise-consistent cluster)
+with a dedicated signal, not another ensemble of existing ones.
+`physis-core/examples/experiment14_borderline_item_detector.rs`, tested
+against the same 6 real cases from Iteration 13.
+
+Three margin-distribution-SHAPE candidates:
+
+| signal | separates good from bad? |
+|---|---|
+| misfit fraction (items with negative margin vs. the split's own centroids) | NO |
+| worst-item margin (most negative single item) | NO |
+| margin standard deviation | NO (neither direction) |
+
+**Misfit fraction turned out to be mechanistically degenerate for this
+use case, not just empirically unhelpful**: it measured exactly 0.000 for
+ALL SIX cases. The reason is structural, not a bug — margin here is
+computed relative to the split's OWN centroids, and a converged k-means
+assignment's stopping criterion IS "every item is at least as close to
+its own centroid as to the other" — so a negative margin against a
+k-means-native partition is close to a contradiction. A useful lesson
+for any future signal design: don't compute a "wrongness" statistic
+relative to the same object whose correctness is in question.
+
+A fourth, genuinely different mechanism was tried: sub-bisection
+contamination (does forcibly bisecting each of the split's 2 clusters
+reveal a small, internally-TIGHT minority subgroup, which would indicate
+a distinguishable "few wrong items" pocket?). Also fails, and reveals its
+own base-rate artifact: the "tighter" flag fired true for all 6 cases
+regardless of correctness, because a smaller sub-cluster's average
+pairwise similarity is elevated almost by sampling-size alone (fewer
+pairs, more likely to look mutually similar) — the same family of
+size-driven bias found in Iteration 11's raw kNN-consistency, now showing
+up in a structurally unrelated metric.
+
+**Consolidated conclusion across four signal families and this whole
+sub-investigation (Iterations 9, 11, 13, 14 — mean-margin/silhouette,
+kNN-consistency in three variants, margin-distribution-shape in three
+variants, sub-bisection contamination): none separate "balanced but
+wrong" from "imbalanced but right" without a confound tracing back to
+cluster size or tightness.** This is not a failure of effort; it is now
+reasonably strong evidence that the "balanced but wrong" problem is not
+solvable with a cheap, unsupervised, embedding-similarity-derived
+statistic on data of this kind. If this needs solving for production,
+the more promising paths are non-geometric: a small labeled calibration
+set per domain (defeating the "no ground truth needed" premise of pure
+unsupervised certification, but tractable), or a human/LLM-in-the-loop
+spot-check gated specifically on low-balance-ratio-OR-borderline splits
+rather than full automation. Recommend NOT continuing to search for a
+fifth geometric signal without a genuinely new idea, not a variant of
+what's been tried.
+
+## Iteration 15 — real cross-cutting prevalence in physis-core's actual ontology (Next Experiment 2)
+
+Redirected to a different, higher-value open item rather than a fifth
+certification-signal attempt: does multi-membership even matter on real
+production data, or is it a toy-corpus phenomenon? Every dataset used in
+Iterations 8-14 was deliberately hand-built to contain cross-cutting
+concepts. `physis-core/examples/experiment15_real_ontology_prevalence.rs`
+measures this directly on physis-core's real 730-entry ontology (the same
+data used in Iteration 4), reusing `OntologyLoader::load_all()` and the
+`name + hints` text construction.
+
+This is explicitly a MEASUREMENT, not a calibration exercise — physis-core's
+real data has no "this entry genuinely belongs to two domains" ground
+truth, so there is nothing to compute precision/recall against. What
+was measured: for every entry, the margin between its own true
+domain/cell centroid similarity and the best OTHER class's similarity,
+at both the 5-DOMAIN (coarse) and cell (domain/mode, finer) level.
+
+**Headline finding: apparent cross-domain overlap is widespread on real
+data, far more than any toy corpus in this track showed.** At the DOMAIN
+level, 40.5% of all 730 entries have a NEGATIVE margin at delta=0 — their
+own true domain is not even their top-1 nearest centroid. By delta=0.03,
+93.0% of entries show some plausible secondary-domain signal. Mean margin
+is 0.005 — essentially zero, i.e. domain separation is barely better than
+chance on raw embedding similarity.
+
+**Grounded with an important accuracy fact not previously recorded in
+this track**: a negative margin at domain level directly implies the true
+domain isn't the centroid-argmax winner, so 40.5% negative margin implies
+centroid-argmax accuracy of only ~59.5% on this 5-class task. Separately
+re-running Iteration 4's own 1-NN baseline confirms this is not an
+artifact of the centroid method specifically: 1-NN raw-cosine accuracy on
+the same domain task is only 40-46% across folds — barely double the 20%
+chance rate for 5 classes. **physis-core's real 5 human-domains are hard
+to separate via this general-purpose sentence embedding at all**, not
+just "somewhat overlapping."
+
+**Honest interpretive caveat, stated explicitly rather than resolved by
+assertion**: this pattern is consistent with two different explanations
+that this experiment cannot fully distinguish — (a) genuine, pervasive
+conceptual multi-membership in physis-core's actual content (an AI
+cognitive/agentic ontology, where concepts like "Self-Awareness" or
+"Introspection" plausibly do span multiple human domains), or (b) a
+representation-quality limit: all-MiniLM-L6-v2 is a general-purpose
+sentence embedder never fine-tuned for this specific semiotic taxonomy,
+and may simply not capture the distinctions physis-core's domain
+boundaries rely on. The qualitative spot-check (top-15 lowest-margin
+entries, printed with full text) leans toward (a) being at least partly
+real: "Self-Awareness" (true=HEAL, arguable-second=STUDY), "Introspection"
+(true=HEAL, arguable-second=STUDY), "Counterfactual Reasoning"
+(true=FABRICATE, arguable-second=STUDY) all read as genuinely plausible
+dual-domain concepts to a human, not obvious noise — but this is
+qualitative judgment, not proof, and is recorded as such.
+
+**Granularity comparison (does Iteration 12's synthetic finding
+replicate on real data?): partially, not cleanly.** CELL-level (finer,
+31 cells with >=5 entries, n=685) shows MORE overlap than DOMAIN-level at
+tight thresholds (0.699 vs 0.616 at delta=0.01; 0.826 vs 0.799 at
+delta=0.02) — consistent with Iteration 12. But the pattern REVERSES at
+looser thresholds (0.888 vs 0.930 at delta=0.03; 0.942 vs 0.992 at
+delta=0.05) — cell-level saturates faster and ends up LOWER than
+domain-level by delta=0.05+. Real data shows a more complex relationship
+between granularity and overlap than the clean synthetic result; both
+granularities are highly overlapping in absolute terms, and the
+comparison between them is threshold-dependent, not a uniform
+"finer-is-always-worse" relationship. Reported honestly rather than
+forced into either "confirms" or "refutes."
+
+**Practical implication for the whole synthesis architecture
+investigation**: if physis-core's real ontology genuinely has this much
+apparent conceptual overlap, multi-membership is not an edge case to
+handle occasionally — it would need to be treated as the common case.
+This raises the stakes on Iteration 14's unresolved certification
+problem (a system this reliant on multi-membership needs a working
+certification gate even more), while also raising a prior, more basic
+question this track has not addressed: whether the embedding/model choice
+itself is adequate for physis-core's actual domain taxonomy, independent
+of any discovery mechanism tested in this whole track.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
