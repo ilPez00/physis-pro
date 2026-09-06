@@ -76,6 +76,9 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment23_wordnet_disambiguated.rs` (Iteration 23)
 - `physis-core/examples/experiment24_cross_embedder_split_agreement.rs` (Iteration 24)
 - `physis-core/examples/experiment25_capacity_constrained_loss_gate.rs` (Iteration 25)
+- `physis-core/examples/experiment26_persistent_registry.rs` (Iteration 26)
+- `physis-core/examples/probe_embedding_determinism.rs` (Iteration 26,
+  the probe that disproved this track's ONNX-nondeterminism claim)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -779,6 +782,13 @@ the calibration heuristic, being the dominant constraint.
     smaller than every prior instability in this track. A real fix
     exists (configurable thread count, default 1) but requires editing
     production code; flagged as recommended, not done without asking.
+
+    **CORRECTED (Iteration 26)**: the ONNX-threading cause cited above
+    is wrong — embeddings were measured bit-identical across runs and
+    thread counts. The item-level flips came from `HashMap`-randomized
+    entry order in `classification_domains()` plus an untied sort in the
+    experiment itself. Both fixed (physis-core `041b401`); runs are now
+    byte-identical. See Iteration 26 in RESEARCH_LOG.md.
 20. **DONE (Iteration 22), promising but not yet trustworthy.** Word
     discovery vs. Princeton WordNet 3.1 (pulled from a GitHub mirror,
     new `wordnet-db`/`wordnet-types` dependencies), embedder used only
@@ -810,3 +820,62 @@ the calibration heuristic, being the dominant constraint.
     **Not ready for core**; would need verb-sense coverage plus a
     non-embedding disambiguation signal (e.g. lexical overlap with the
     gloss) for the harder cases.
+
+21. **DONE (Iteration 26) — the determinism bug, found and fixed in
+    production code.** This track claimed twice (Iterations 17, 21) that
+    run-to-run variation came from ONNX Runtime's multi-threaded float
+    reductions. It did not. A direct probe shows embeddings are
+    **bit-identical** across runs and thread counts. The real causes were
+    both local: `OntologyLoader::classification_domains()` chained
+    `HashMap::values()`, and Rust randomizes `HashMap` iteration order
+    per process, so every run saw the 730 entries in a different order;
+    and experiment 21's link sort was untied, so a stable sort preserved
+    that random order among equal counts. Both fixed (physis-core
+    `041b401`) — `classification_domains()` now sorts by
+    `(name, domain, mode)`. Three consecutive runs are byte-identical;
+    143 tests pass. `OnnxConfig::intra_threads` was also added as an
+    opt-in knob (default unchanged) with a doc comment stating it is NOT
+    the fix. **Process note worth keeping**: Iteration 21 observed that
+    forcing one thread didn't help and kept the hypothesis anyway. The
+    disconfirming test was already in hand.
+
+22. **DONE (Iteration 26) — persistence-by-identity (PermaTrack),
+    tested, and it answers two different questions differently.**
+    Iteration 20 concluded "stop discovering fixed points from geometry"
+    without testing the persistence alternative; this closes that gap.
+    *Model swap (MiniLM->BGE)*: persistence raises structure agreement
+    ARI 0.034 -> 0.102 — still near-random, with heavy per-slot churn
+    (one anchor 124 -> 48 members, 19 retained). Diagnosed: PermaTrack
+    assumes a stable sensor with intermittent observation; swapping
+    embedders swaps the metric space, so its precondition is absent.
+    Model-swap stability stays unsolved. *Corpus growth under a fixed
+    embedder* (physis-core's real situation): RE-DERIVED gives 58%
+    anchor overlap and ARI 0.198; PERSISTENT gives 100% and ARI 1.000 —
+    **the 1.000 being true by construction, and labeled as such in the
+    experiment's own output; the finding is the RE-DERIVED row**, i.e.
+    +25% new data silently replaces half the anchors and destroys ~80%
+    of the structure. That is the previously-unmeasured cost of the
+    re-derive-every-time approach used in Iterations 1-20.
+
+## Architectural conclusion (updated after Iteration 26)
+
+The user's ask — "some fixed points discovered in data, always the same,
+see how they link to each other" — is **achievable, and now demonstrated
+end-to-end**. It requires three things, none of which substitutes for
+another:
+
+1. **Deterministic ordering** in the pipeline. Was broken; fixed in
+   shipped code (Iteration 26a). This alone accounted for instability
+   this track had been attributing to embedding geometry.
+2. **A pinned embedder.** No persistence scheme tested recovers
+   cross-model stability (0.102 ARI). Treat the embedder as part of the
+   ontology's identity, not an interchangeable backend.
+3. **Persisted anchor identity**, not re-derivation (Iteration 26b).
+
+And separately, unchanged and now reinforced from an independent
+direction (ai-knowledge-graph's LLM-judgment approach): **certification
+of which splits are real needs a non-geometric signal.** Six
+structurally distinct geometric mechanisms have failed — Iterations 9,
+11, 19, 20, 24, 25. Adding LLM triple extraction was considered here and
+deliberately declined for now: it would reintroduce sampling
+nondeterminism into the exact property Iteration 26a just fixed.

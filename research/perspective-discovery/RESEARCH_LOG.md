@@ -1513,6 +1513,20 @@ Iteration 15 already found ~40% of real entries sit near a decision
 boundary. Worth pinning single-threaded ONNX execution for any future
 experiment where run-to-run reproducibility at this precision matters.
 
+> **CORRECTION (made in Iteration 26, this claim was WRONG).** The
+> ONNX-threading attribution above is disproven. A direct probe
+> (`physis-core/examples/probe_embedding_determinism.rs`) shows this
+> embedder's output is **bit-identical** across runs and across thread
+> counts, so multi-threaded float reductions cannot have caused the
+> 0.500-0.561 baseline swing. The real cause was entry ORDER:
+> `OntologyLoader::classification_domains()` chained `HashMap::values()`,
+> and Rust seeds `HashMap`'s hasher randomly per process, so every run
+> fed the pipeline the same 730 entries in a different order — which
+> shifts a train/test split and therefore the baseline. Fixed in
+> physis-core commit `041b401`; that fix retroactively explains this
+> variation. The original text is left standing above as what was
+> believed at the time.
+
 **Net implication for the brainstormed JEPA-binding proposal**: the
 self-supervised generalization mechanism itself remains untested at
 adequate scale (Test 1 was inconclusive by sample size, not falsified);
@@ -1769,6 +1783,27 @@ reproducibility-sensitive contexts) but requires editing production
 recommended, scoped, NOT-YET-MADE change rather than done without
 asking.**
 
+> **CORRECTION (made in Iteration 26, this diagnosis was WRONG).**
+> "Traced to a specific, identified cause" was not traced — it was
+> assumed, and the assumption was wrong. Setting `intra_threads: Some(1)`
+> did not fix the flips, which should have falsified the hypothesis on
+> the spot. A direct probe (`probe_embedding_determinism.rs`) then showed
+> embeddings are bit-identical across runs AND across thread counts:
+> ONNX Runtime was never the source. Two real causes, both in this
+> track's own code, both now fixed in physis-core `041b401`:
+> (1) `classification_domains()` iterated `HashMap`s, whose iteration
+> order Rust randomizes per process, so entry order — and therefore
+> centroids and the train/test split — changed every run;
+> (2) this experiment's link sort was untied, and a stable sort preserves
+> the random `HashMap` order among equal bridge counts.
+> After both fixes, three consecutive runs are byte-identical.
+> The production change flagged below as "recommended, not done without
+> asking" was made anyway (`OnnxConfig::intra_threads`, opt-in, default
+> unchanged), but its doc comment states plainly that threading was
+> measured NOT to be the culprit — it is a knob, not the fix.
+> Standing lesson for this log: a hypothesis that survives only because
+> its disconfirming test was explained away is not a diagnosis.
+
 ## Iteration 22 — word discovery vs. WordNet, binding to the embedder only afterward
 
 User proposal, tested directly: "word discovery compared to an owl
@@ -1969,6 +2004,143 @@ by breadth of evidence, not just repetition: this problem needs a
 non-geometric approach (a labeled calibration set, or human/LLM review
 gated on low-confidence splits), not another statistic computed from
 embeddings.
+
+## Iteration 26 — determinism root cause found (three prior write-ups corrected), and PermaTrack's insight applied
+
+Two pieces of user direction converged here: "fix and improve what you
+can", plus two references to consider — TRI-ML's **PermaTrack** and
+**ai-knowledge-graph**.
+
+### 26a. The determinism bug — found, and it was not where this log said
+
+Iterations 17 and 21 both reported run-to-run variation and both blamed
+ONNX Runtime's multi-threaded float reductions. **That was wrong**, and
+the way it went wrong is worth recording: Iteration 21 explicitly noted
+that forcing single-threaded execution did NOT fix the flips, then kept
+the hypothesis anyway by explaining the failure away (env vars being
+overridden by the session builder). A test that should have falsified
+the hypothesis was reinterpreted as a detail of the hypothesis.
+
+Tested directly instead — `physis-core/examples/probe_embedding_determinism.rs`
+embeds the same text repeatedly, under all-cores and under one thread,
+and prints exact dims plus a full checksum for cross-run diffing.
+Result: **bit-identical**, every combination, in-process and across
+processes. The embedder was never the source.
+
+The actual causes, both in this track's own code:
+
+1. `OntologyLoader::classification_domains()` chained
+   `human_domains.values()`, `machine_domains.values()`,
+   `custom_domains.values()` — three `HashMap`s. Rust seeds `HashMap`'s
+   hasher randomly per process, by design. So every run fed the same 730
+   entries to the pipeline in a **different order**, which changes
+   train/test splits, centroid accumulation order, and every
+   downstream near-tie.
+2. Experiment 21's link sort compared bridge counts only. `sort_by` is
+   stable, so among equal counts it faithfully preserved the random
+   `HashMap` iteration order it was handed.
+
+Both fixed in physis-core `041b401`: `classification_domains()` now
+sorts by `(name, domain, mode)` before returning; the link sort tiebreaks
+on the cell-pair key. **Three consecutive runs of experiment 21 are now
+byte-identical**, and 143 tests pass.
+
+This is a production fix, not a research-example fix — `ontology.rs` is
+shipped code, and any consumer iterating classification domains was
+silently getting a different order every process. `OnnxConfig` also
+gained an opt-in `intra_threads` (default `None`, behavior unchanged),
+with a doc comment stating outright that threading was measured NOT to
+be the determinism culprit, so the knob can't be mistaken for the fix.
+
+**This directly answers the user's standing ask** — "some fixed points
+discovered in data, always the same". The instability that had been
+attributed to deep properties of embedding geometry was, in this part,
+a random hash seed.
+
+### 26b. PermaTrack applied — `experiment26_persistent_registry.rs`
+
+PermaTrack's contribution is persistence-by-identity over
+tracking-by-detection: don't re-detect every frame and hope identity
+holds, carry state forward and let observations update it. Iteration 20
+was precisely the tracking-by-detection failure — re-derive anchors
+independently per embedding space, get 0% overlap — and it concluded
+"stop discovering fixed points from geometry" **without testing the
+alternative**. So the alternative was built: seed anchors once
+(density-peak with a minimum-separation constraint), then persist anchor
+identity and re-assign items to existing anchors instead of re-deriving.
+
+Measured in two settings, which answer differently:
+
+**Model swap (MiniLM -> BGE): persistence helps, does NOT solve it.**
+Structure agreement rises ARI 0.034 -> 0.102 — still near-random. The
+per-slot view (printed deliberately, so a tidy aggregate can't hide
+churn) shows why: one anchor goes 124 -> 48 members with 19 retained.
+Anchor identity persists trivially; the neighborhoods reorganize under
+it. **Diagnosis**: PermaTrack assumes a *stable sensor* with
+intermittent observation — occlusion. Swapping embedders swaps the
+metric space itself: a different camera with no calibration between
+them. There is no stable geometry to carry forward, so the technique's
+precondition is absent. Model-swap stability remains genuinely unsolved.
+
+**Corpus growth under a fixed embedder** — the faithful analogue of
+PermaTrack's setting, and also physis-core's actual situation (entries
+accumulate; the model doesn't change mid-life):
+
+| | anchor-identity overlap | seed-item assignment stability |
+|---|---|---|
+| RE-DERIVED | 7/12 (58%) | ARI 0.198 |
+| PERSISTENT | 12/12 (100%) | ARI 1.000 |
+
+Stated with the distinction made explicit in the experiment's own
+output: **the 1.000 is true BY CONSTRUCTION, not an empirical
+discovery** — an existing item's nearest anchor cannot change when
+unrelated items are added and anchors are held fixed. It is a design
+guarantee. The *measurement* is the RE-DERIVED row: **+25% new data
+silently replaces half the anchors and destroys ~80% of the structure.**
+That is the quantified cost of the re-derive-every-time approach used
+throughout Iterations 1-20, and it had never been measured.
+
+### 26c. ai-knowledge-graph — considered, deliberately not adopted
+
+The second reference (robert-mcdermott/ai-knowledge-graph) builds graphs
+by LLM triple extraction plus entity standardization and inferred
+relationships. Two of its ideas are relevant and two are not:
+
+- **Relevant, and already the standing recommendation**: it resolves the
+  problem this track failed at geometrically — deciding what is a real
+  entity/relation — by using a *language model's judgment*, not a
+  statistic over embeddings. That is exactly the "non-geometric
+  approach" six failed mechanisms (Iterations 9, 11, 19, 20, 24, 25)
+  have been pointing at. It is corroboration for that recommendation,
+  from an independent direction.
+- **Relevant, worth building later**: entity standardization is the same
+  operation as Iteration 22-23's WordNet lexical anchoring — collapse
+  surface forms to a canonical symbol *before* any embedding is
+  involved.
+- **Not adopted here**: LLM triple extraction would make results depend
+  on a model's sampling, which is a *worse* determinism story than the
+  one just fixed in 26a — and reproducibility is the whole point of this
+  track. Adding it now would trade a solved problem for an unsolved one.
+- **Not adopted here**: inferred relationships add edges no data
+  supports, which is the failure mode this log has been guarding against
+  since Iteration 12.
+
+### Net architectural answer
+
+"Fixed points, always the same, and how they link" is **achievable**,
+and now demonstrated end-to-end — but it requires all three of:
+
+1. **deterministic ordering** in the pipeline (26a — was broken, now
+   fixed in production code);
+2. **a pinned embedder** (26b — swapping models is not recoverable by
+   any persistence scheme tested; treat the embedder as part of the
+   ontology's identity, not an interchangeable backend);
+3. **persisted anchor identity** rather than re-derivation (26b — the
+   58%/ARI-0.198 row is what re-deriving costs).
+
+None of the three substitutes for another, and no cleverness in the
+*discovery statistic* substitutes for any of them. That, rather than a
+better clustering metric, is the architecture fix.
 
 ## Files
 
