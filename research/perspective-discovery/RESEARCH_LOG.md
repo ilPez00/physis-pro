@@ -1665,6 +1665,65 @@ before this iteration started, despite being correctly covered by
 untracked file. Re-downloaded and proceeded; cause not confidently
 identified.
 
+## Iteration 20 — fixed-point discovery via density peaks: an architectural redesign, decisively unstable
+
+User request, stated directly: stop trying to certify an unstable
+discovery mechanism after the fact (everything in Iterations 1-19).
+Find reference points that are stable BY CONSTRUCTION, then link them —
+"physis was able to do this." `physis-core/examples/experiment20_fixed_point_discovery.rs`.
+
+**Design**: a fixed point is a real data item (not a synthetic,
+shifting k-means centroid) whose density — mean cosine similarity to its
+M nearest neighbors, exactly physis-core's existing `coherence_score`
+concept, used throughout this track only once and arguably for the
+wrong job (Iteration 9: certifying a SPLIT's quality, where it failed) —
+is a local maximum among its own neighbors. No K to guess, no random
+initialization, no threshold sweep; deterministic given the embeddings.
+Linked via direct similarity and a bridge count (items close to both of
+two fixed points).
+
+**Result: decisively NOT stable**, tested directly rather than assumed:
+
+| test | overlap |
+|---|---:|
+| Dataset A, MiniLM vs BGE fixed points | 0% (dog/ostrich vs. lion) |
+| Vehicle ontology, MiniLM vs BGE fixed points | 0% (engine/trade_in_value vs. spark_plug/resale_value) |
+| Real ontology (n=730), MiniLM vs BGE, strict local-max rule | 15.4% (2 of 13) |
+| Real ontology, SOFTER top-K-by-raw-density (no peak requirement) | **0%** — worse than the strict rule |
+| Dataset A, odd vs even subsample (same embedder, MiniLM) | 0% (bear vs. ostrich) |
+
+The softer-criterion diagnostic is the important one: it rules out "the
+strict local-maximum rule is just brittle" as the explanation. A much
+more forgiving top-K-by-density comparison, with no peak requirement at
+all, is not more stable — it is less stable (0% vs. 15.4%). **The
+underlying density RANKING itself, not merely a threshold layered on
+top of it, differs by embedding architecture.** Two architecturally
+different, reasonably strong text embedders (Iteration 18 showed similar
+aggregate 1-NN/argmax accuracy) apparently do not agree on which items
+are locally dense hubs, even though they agree reasonably well on
+coarse classification accuracy — global classification quality and
+fine-grained local neighborhood structure are evidently different
+properties, and only the former was actually validated as similar
+between MiniLM and BGE.
+
+**This is preserved as a negative result per protocol, not discarded.**
+It does not solve the stated goal. The one genuinely stable reference
+structure identified anywhere in this entire 20-iteration track remains
+physis-core's existing, hand-authored 70-cell semiotic grid — fixed by
+design, not discovered, and therefore immune to the instability every
+data-driven discovery attempt in this track (k-means clustering,
+certification gates, calibration thresholds, and now density-peak
+discovery) has run into. The practical recommendation that follows: stop
+trying to discover NEW fixed points from raw embedding geometry — it has
+now failed under four different mechanisms (clustering, four
+certification-signal families, cross-embedder corroboration, and
+density-peak discovery). Use the EXISTING fixed cells as the fixed
+points (they already satisfy "always the same" by construction, with
+zero further engineering needed) and build the LINKAGE layer between
+them using the multi-membership machinery already validated across
+Iterations 8, 10, 12, and 13 — a well-posed, tractable problem, unlike
+discovering stable points from scratch.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

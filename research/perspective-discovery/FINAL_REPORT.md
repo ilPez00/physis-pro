@@ -70,6 +70,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment17_jepa_ontology_binding.rs` (Iteration 17)
 - `physis-core/examples/experiment18_multi_embedder_comparison.rs` (Iteration 18)
 - `physis-core/examples/experiment19_cross_embedder_corroboration.rs` (Iteration 19)
+- `physis-core/examples/experiment20_fixed_point_discovery.rs` (Iteration 20)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -721,3 +722,35 @@ two independent negative-to-mixed calibration results (Iterations 13's
 residual gap, 19's corroboration filter) plus item 9's modest
 embedder-swap gain all point toward the taxonomy, not the embedding or
 the calibration heuristic, being the dominant constraint.
+
+18. **NEW, user-directed, DONE (Iteration 20) — NOT SUPPORTED, but
+    resolves the architecture question.** Requested directly: stop
+    certifying unstable clustering after the fact; find reference points
+    stable BY CONSTRUCTION. Implemented density-peak discovery (a fixed
+    point is a real data item whose density — mean similarity to its M
+    nearest neighbors, physis-core's existing `coherence_score` concept —
+    is a local maximum among its neighbors; no K, no randomness,
+    deterministic given the embeddings). Result: decisively unstable
+    across embedders (0% overlap on both toy datasets, 15.4% on real
+    data) — and a follow-up diagnostic ruled out "the strict peak rule is
+    just brittle": a SOFTER top-K-by-density criterion with no peak
+    requirement showed 0% overlap, worse than the strict rule. The
+    density RANKING itself, not a threshold on top of it, differs by
+    embedding architecture. **This closes the "discover new stable
+    points from raw embedding geometry" direction — it has now failed
+    under four different mechanisms across this track (clustering,
+    certification, cross-embedder corroboration, density-peak
+    discovery).**
+
+    **The resolution, not just the negative result**: the one genuinely
+    stable structure identified anywhere in this whole track is
+    physis-core's existing, hand-authored 70-cell semiotic grid — fixed
+    by design, immune to every instability found above because it isn't
+    discovered at all. **Recommended architecture going forward: stop
+    trying to discover new fixed points; use the existing cells as the
+    fixed points (already "always the same" by construction) and build
+    the LINKAGE layer between them using the multi-membership machinery
+    already validated across Iterations 8, 10, 12, and 13** (which
+    items span two or more cells, and how strongly) — a well-posed,
+    tractable problem, unlike discovering stable points from scratch.
+    This is the concrete next build, not a further experiment.
