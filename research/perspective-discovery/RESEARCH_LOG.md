@@ -1826,6 +1826,36 @@ trustworthy as-is because of the disambiguation and language-detection
 gaps found above; those are the next concrete steps, not a reason to
 abandon the approach.
 
+## Housekeeping — a real regression caught by actually running the test suite
+
+User-directed: "test, update docs, commit and push." Running
+`cargo test -p physis-core --release` (default features, no
+`embed-onnx`) for the first time since Iteration 18 revealed the crate's
+default build had been broken since then: experiments 18-22 imported
+`physis_core::embed_onnx::{...}` at module scope instead of inside the
+`#[cfg(feature = "embed-onnx")]` block every earlier example (1-17)
+correctly used, and since `embed_onnx` is itself feature-gated in
+`lib.rs`, this failed to compile at all without the feature — nobody
+would have caught this without explicitly testing the non-`embed-onnx`
+path, which is exactly what surfaced it.
+
+Fixed by relocating each import inside its file's cfg-gated block.
+Experiment 19 needed an additional fix: two free functions
+(`run_vehicle_test`, `run_real_ontology_test`) take `&OnnxEmbedder` in
+their signature at module scope, requiring a module-level
+`#[cfg(feature = "embed-onnx")] use ...` plus `#[cfg(feature =
+"embed-onnx")]` on both function definitions, not just a relocated
+import inside `main()`.
+
+Verified, not assumed: `cargo test -p physis-core --release` now passes
+cleanly (130 unit tests + integration + doc tests, 0 failures) on
+default features; `cargo build --features embed-onnx --release
+--examples` still builds all 22 examples; re-ran experiments 21 and 22
+post-fix and confirmed byte-identical output to before — this was
+purely a compilation-gating bug, not a behavioral change. Committed
+separately from any research finding (`physis-core` `bb4d0b7`), since it
+is a code-correctness fix, not a result.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
