@@ -2142,6 +2142,69 @@ None of the three substitutes for another, and no cleverness in the
 *discovery statistic* substitutes for any of them. That, rather than a
 better clustering metric, is the architecture fix.
 
+## Iteration 27 — re-auditing every negative result under deterministic ordering
+
+Iteration 26a fixed a bug that had randomized entry order on every run.
+That raises a question the track cannot leave unanswered: **all six
+failed certification-signal families were measured while that bug was
+live.** The standing recommendation — go non-geometric — rests entirely
+on those six results, and "six mechanisms failed" is a much weaker claim
+if the pipeline that judged them was itself unstable.
+
+So before building anything further on that conclusion, every one was
+re-run against the fixed code (physis-core `f4dd2a1`), twice each, and
+checked on two axes: is the output byte-reproducible now, and does the
+CONCLUSION still hold?
+
+| Iter | Family | Reproducible | Conclusion | Key figure on re-run |
+|---|---|---|---|---|
+| 9 | mean-margin / silhouette | byte-identical | **holds** | silhouette still ranks BAD above GOOD (0.089 vs 0.048) |
+| 11 | kNN-consistency x3 (+ balance, silhouette, confident-fraction) | byte-identical | **holds** | all six signals `false`, at every epsilon in [0.00, 0.30] |
+| 19 | cross-embedder multi-membership corroboration | byte-identical | **holds** | FPR unchanged 0.133 -> 0.133, recall drops 5/5 -> 4/5; 86.8-98.5% of flags survive corroboration at every delta |
+| 20 | density-peak fixed-point discovery | byte-identical | **holds** | 0.0% cross-embedder overlap (Dataset A, Vehicle); 15.4% on the real ontology, and 0/13 under the softer top-k criterion |
+| 24 | cross-embedder split agreement | byte-identical | **holds** | still fails BACKWARDS: max(bad)=1.000 vs min(good)=-0.069 |
+| 25 | capacity-constrained training loss | byte-identical | **holds** | no separation at any rank, rank=1 included |
+
+**6/6 now byte-reproducible across runs; 6/6 conclusions unchanged.**
+
+### What this establishes, and what it does not
+
+It establishes that the ordering bug did **not** manufacture the negative
+results. That was the live risk, and it is now closed with evidence
+rather than argument — which matters here specifically because the 26a
+correction existed precisely to punish an assumption that had never been
+tested.
+
+It does **not** newly validate the six experiments' designs. Re-running
+the same code against the same data tests reproducibility and the
+ordering confound; it does not re-examine whether each mechanism was
+operationalized well in the first place. Every design limitation recorded
+in Iterations 9-25 still stands exactly as written.
+
+One thing the re-audit changes in tone rather than substance: the
+negatives are now *citable*. Before this, any of those six numbers would
+have been different on a rerun, which makes a published claim
+("silhouette scores 0.048 here") indefensible. Now they are fixed
+quantities.
+
+### Incidental, worth recording
+
+BGE's 416MB ONNX weights had vanished from disk again (the directory was
+down to 708KB, tokenizer and config only) and were re-pulled from
+HuggingFace before Iterations 19/20/24 could run. This is the fourth
+occurrence. The three cross-embedder results above are therefore tied to
+a freshly-downloaded copy of `BAAI/bge-base-en-v1.5`, not to whatever was
+on disk during the original runs — and they reproduced the original
+conclusions anyway, which is a small independent check that those results
+were not artifacts of a corrupted local model file.
+
+### Standing recommendation after the re-audit
+
+Unchanged, and now resting on evidence that survives a reproducibility
+audit: this problem needs a non-geometric certification signal — a
+labeled calibration set, or human/LLM review gated on low-confidence
+splits — not a seventh statistic computed from embeddings.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

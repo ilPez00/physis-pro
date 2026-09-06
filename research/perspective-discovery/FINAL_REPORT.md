@@ -857,7 +857,25 @@ the calibration heuristic, being the dominant constraint.
     of the structure. That is the previously-unmeasured cost of the
     re-derive-every-time approach used in Iterations 1-20.
 
-## Architectural conclusion (updated after Iteration 26)
+23. **DONE (Iteration 27) — the six negative results re-audited, and they
+    hold.** Every failed certification family had been measured while the
+    Iteration 26a ordering bug was live, so the entire "go non-geometric"
+    recommendation rested on numbers from an unstable pipeline. All six
+    were re-run against fixed code (physis-core `f4dd2a1`), twice each:
+    **6/6 are now byte-reproducible, and 6/6 conclusions are unchanged**
+    — silhouette still ranks BAD above GOOD (0.089 vs 0.048); all six
+    signals in Iteration 11 still `false` at every epsilon; cross-embedder
+    corroboration still leaves FPR at 0.133 while costing recall; density
+    peaks still overlap 0.0% across embedders (0/13 under the softer
+    criterion); split agreement still fails *backwards* (max-bad 1.000 vs
+    min-good -0.069); capacity-constrained loss still separates at no
+    rank. This closes the live risk that the bug manufactured the
+    negatives. It does **not** re-validate the six designs — every
+    limitation recorded in Iterations 9-25 stands. What changes is that
+    the numbers are now fixed quantities and therefore citable, which
+    they were not before.
+
+## Architectural conclusion (updated after Iterations 26-27)
 
 The user's ask — "some fixed points discovered in data, always the same,
 see how they link to each other" — is **achievable, and now demonstrated
