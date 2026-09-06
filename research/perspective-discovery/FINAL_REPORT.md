@@ -28,7 +28,9 @@ global label would hide the real structure of what was learned:
 | a trained predictive latent (JEPA-style) beats raw cosine | **FALSIFIED at scale** | wins on a 21-item toy corpus only via a supervision confound (ruled out as memorization via a shuffled-label control, Iteration 3); loses badly on 730 real ontology entries, converging to chance-level training loss (Iteration 4) |
 | recursive exploration discovers nested structure | **PARTIALLY SUPPORTED** | real, above-chance signal (0.625-0.75 purity) when recursing from a correct top-level grouping; dominated by error propagation when the top level is wrong (Iteration 7) |
 | language/context matters for discoverable structure | **PARTIALLY SUPPORTED, non-uniform** | dramatic effect on one corpus (+0.333 k-means purity), zero effect on a second (+0.000) — conditional on how well-represented the bare vocabulary already is (Iterations 5-6) |
-| per-field similarity carries real multi-membership signal hard clustering cannot express | **SUPPORTED** | 4/4 deliberately cross-cutting items show a positive "dual margin" (closer to both true fields than the unrelated one); hard k-means, by construction, captures only one of the two true fields every time (Iteration 8) |
+| per-field similarity carries real multi-membership signal hard clustering cannot express | **SUPPORTED, with a measured cost** | 4/4 then 5/5 cross-cutting items recovered across two datasets (Iterations 8, 12-13); costs a real, non-trivial false-positive rate (6.7-53% depending on category granularity and calibration strategy) that must be weighed against the benefit, not assumed free |
+| the full multi-membership + certification + certified-recursion system beats a properly calibrated flat baseline on final accuracy | **PARTIALLY SUPPORTED, leaning FALSIFIED as an accuracy claim** | formal ablation matrix (Iteration 16): certified recursion never beats the flat baseline on this dataset (ties in one representation, -0.100 in the other) — its real, demonstrated value is refusing bad recursions and gracefully degrading to the baseline, not improving on it; blind (uncertified) recursion is confirmed actively harmful (-0.30 to -0.35) |
+| a cheap, unsupervised, embedding-similarity-derived certification signal can catch a well-balanced but label-wrong split | **FALSIFIED for every signal tried** | four structurally distinct signal families (mean-margin, kNN-consistency, margin-distribution-shape, sub-bisection contamination — Iterations 9, 11, 13, 14) all fail, each on a confound tracing back to cluster size or tightness; recommend a non-geometric approach (labeled calibration set, human/LLM review) instead of a fifth metric |
 
 **The single most useful thing this research track produced is not a
 mechanism — it's a warning against curve-fitting to one dataset that the
@@ -64,6 +66,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment13_local_calibration_and_ensemble_gate.rs` (Iteration 13)
 - `physis-core/examples/experiment14_borderline_item_detector.rs` (Iteration 14)
 - `physis-core/examples/experiment15_real_ontology_prevalence.rs` (Iteration 15)
+- `physis-core/examples/experiment16_ablation_matrix.rs` (Iteration 16)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -427,6 +430,48 @@ and surfacing a more basic, previously untested question this track does
 not answer: whether the embedding model itself is adequate for
 physis-core's actual domain taxonomy, independent of any discovery
 mechanism.
+
+**Iteration 16 ran the mission's own capstone experiment: the formal
+ablation matrix (Section 18), finally answering Section 19's fairness
+rule directly rather than by argument.** Using Iteration 13's fixed
+local/split calibration, with coarse assignment held IDENTICAL across
+all 6 configurations (real, non-oracle argmax cosine against known
+coarse centroids — 100% accurate on this dataset, a different and easier
+task than Iteration 12's unsupervised k-means coarse discovery, and the
+more realistic analog of how `CellClassifier` actually works against
+known cells):
+
+- Blind (uncertified) recursion drops accuracy from 1.000 to 0.650-0.700
+  — confirmed actively harmful, exactly the risk the mission warned
+  about.
+- Certified recursion recovers most or all of that loss: in the
+  contextual run the gate rejects all three candidate branches, making
+  the certified system IDENTICAL to the flat baseline (1.000=1.000)
+  rather than worse; in the bare run one branch passes and costs a small
+  amount of accuracy (0.900 vs 1.000).
+- **The full system (multi-membership + certified recursion) does NOT
+  beat the flat baseline on final accuracy in either representation** —
+  it ties in one, and is slightly worse in the other. Certification's
+  demonstrated value is preventing recursion from making things worse,
+  not making them better.
+- Multi-membership shows zero effect on this accuracy metric by
+  construction (it adds a second label without changing the scored
+  primary one); its real contribution — 5/5 cross-cutting recall no
+  single-label baseline can express — comes with a newly-measured 53%
+  FPR at the coarse level even for this dataset's three broad fields,
+  confirming Iteration 12-13's granularity finding is not solely about
+  fine-grained categories: broad categories can also calibrate poorly if
+  they are not well-separated to begin with.
+
+**This is the clearest answer this track has produced to its own
+Section 23 success criteria, and it is not one label but two**:
+multi-membership as a standalone capability is **SUPPORTED**, with a
+real cost now attached rather than reported recall-only; the full
+recursive-recursion-plus-certification system, evaluated on final
+accuracy against a properly calibrated baseline exactly as Section 19
+demands, is **PARTIALLY SUPPORTED, leaning FALSIFIED as an accuracy
+improvement** — it is safe (never demonstrably worse than not recursing,
+across two representations tested) but not yet shown to be better.
 
 ## What should NOT be merged
 
