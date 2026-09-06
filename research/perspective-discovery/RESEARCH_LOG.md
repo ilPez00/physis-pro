@@ -2339,6 +2339,102 @@ levels are not.
 
 Two runs byte-identical.
 
+## Iteration 30 — hold-out rediscovery: the first positive result in this track
+
+User's proposal, and it is structurally different from everything that
+failed: *"if I take an embedding as classifier and consider its correlates
+potential objects I have to search for, am I not discovering ontologies?"*
+
+Iterations 9-28 all asked a **closed** question — "is this partition of
+these items correct?" — which has no referent outside the geometry, so the
+only available judge was another statistic computed from the same
+geometry. That is why all seven failed the same way. This asks an **open**
+question — "does something exist near here that I don't have?" — which has
+an external referent. The embedder becomes a **search heuristic**, not a
+truth criterion, and its cross-embedder instability (ARI ~0.10, Iteration
+26b) stops being fatal: a bad heuristic wastes a query, it cannot corrupt
+an ontology, because nothing is admitted until the external check passes.
+
+### Method
+
+Stratified hold-out — 73 of 730 entries (10%) removed, ~10% per cell,
+never emptying a cell. Build only from the 90%. Propose midpoints between
+known entries. Measure how often a proposal's nearest entry (excluding its
+own two parents) is one we removed. Chance = 0.100.
+
+| generator | points at a missing concept | z vs control |
+|---|---|---|
+| near-neighbour midpoints (ranks 1-5) | **0.132** | **+4.87** |
+| medium-distance midpoints (ranks 20-40) | 0.105 | +2.49 |
+| random-pair midpoints (control) | 0.092 | — |
+
+**SUPPORTED.** Proximity carries real information about where concepts are
+absent: 1.44x the manifold-matched control, p < 1e-5. Three runs
+byte-identical.
+
+### Read the size honestly
+
+~87% of proposals still point at nothing missing, so the external check
+does most of the work. And **recall runs the other way** — near-neighbour
+proposals reach 0.548 of the distinct missing concepts against 0.699 for
+random ones, because they cluster. A practical loop needs proximity for
+precision and spread for coverage; neither alone is enough.
+
+### Two methodology errors, both of which produced a false negative
+
+Recorded because in both cases the first answer was "NOT SUPPORTED" and
+the honest reading was "the measurement is broken":
+
+1. **A fixed-tau hit rate saturated.** At tau=0.70 both arms sat at ~0.93 —
+   in a 384-d MiniLM manifold nearly every point is "near" something, so
+   the test could not discriminate at all. Replaced with a
+   nearest-neighbour competition, which cannot saturate because it is
+   normalised by construction.
+2. **The competition included the proposal's own parents.** A midpoint is
+   adjacent to the two entries that generated it BY CONSTRUCTION, so a
+   held-out entry could essentially never win, and every generator scored
+   0.000. Excluding the parents is the whole difference between 0.000 and
+   0.132.
+
+The verdict is now a two-proportion z-test. The first version used an
+eyeballed "lift > 1.3x control" cutoff and reported NOT SUPPORTED at 1.32
+vs 1.02 — an arbitrary line deciding a real question.
+
+### A third determinism bug, found by this experiment
+
+Consecutive runs produced different proposal counts (1581 vs 1541), which
+should have been impossible after 0.1.15. Two causes, in order of
+discovery: the working tree had silently reverted to a pre-0.1.15 commit
+mid-session; and, genuinely, **0.1.15's ordering key was not a total
+order.** Six built-in entries collide on (name, domain, mode) while
+differing in `hints`, so for those the comparator returned Equal and the
+stable sort preserved `HashMap` order — the exact thing the sort existed
+to defeat. 730 entries, only 724 distinct keys. Fixed in physis-core
+`b08aa7a`; the key now covers every field feeding a classification text,
+and the regression test calls `order_key` rather than restating it, so
+shrinking the key fails the test. Verified by sabotage after two earlier
+versions of that test passed against the buggy key.
+
+### What this licenses, and what it does not
+
+It licenses building the outward loop: **embedding proposes, external
+source disposes, confirmations become authored entries.** That composes
+with everything else measured here — confirmed finds become hand-authored
+cells, and hand-authored cells are the one thing this track found to be
+stable.
+
+It does not license trusting the proposals. At 13.2% precision the
+external check is the system, not a formality. And the check must be
+**causally independent of the embedder**: confirming MiniLM's proposals
+with an LLM trained on overlapping web text asks the same distributional
+statistics twice, which is exactly how Iteration 19 failed (FPR 0.133 ->
+0.133).
+
+Caveats stated in the experiment's output: held-out entries are concepts
+of the same authored style, so a found-in-the-wild concept may be harder;
+one corpus, one embedder; per Iteration 26b none of it transfers across a
+model swap.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

@@ -960,7 +960,25 @@ the calibration heuristic, being the dominant constraint.
     both failed on the same cases for a diagnosed reason, plus a
     verb-sense scope gap).
 
-## Architectural conclusion (updated after Iterations 26-27)
+27. **DONE (Iteration 30) — SUPPORTED. The first positive result in this
+    track, and it reopens discovery.** User-proposed: treat an embedding's
+    correlates as objects to go *search for*. Structurally unlike the seven
+    failures — they asked a closed question with no referent outside the
+    geometry; this asks an open one with an external referent, making the
+    embedder a search heuristic rather than a truth criterion. Stratified
+    10% hold-out, 73 of 730: near-neighbour midpoints point at a genuinely
+    missing concept **13.2%** of the time vs **9.2%** for manifold-matched
+    random pairs — **1.44x, z = +4.87, p < 1e-5**. Three runs byte-identical.
+    Honest limits: ~87% of proposals point at nothing, so the external check
+    is the system; and recall runs the other way (0.548 vs 0.699) because
+    proximity-chosen proposals cluster. Two measurement bugs each produced a
+    false negative first (a saturating fixed-tau metric; then a competition
+    that included the proposal's own parents, adjacent by construction).
+    **Next: build the outward loop — propose, check against a source
+    causally independent of the embedder, commit confirmations as authored
+    entries.**
+
+## Architectural conclusion (updated after Iteration 30)
 
 The user's ask — "some fixed points discovered in data, always the same,
 see how they link to each other" — is **achievable, and now demonstrated
