@@ -1145,6 +1145,90 @@ independently-designed datasets, which is stronger evidence than either
 alone. Not recommended for production as a complete system without
 addressing at least one of these two open problems.
 
+## Iteration 13 — the two next-experiments from Iteration 12, tested directly
+
+Directed by the user ("go with the next experiments") to attempt both
+open problems flagged in FINAL_REPORT.md's Next Experiments 6 and 7.
+`physis-core/examples/experiment13_local_calibration_and_ensemble_gate.rs`.
+
+### Part A — local/split calibration (Next Experiment 7): SUCCESS
+
+Hypothesis: Iteration 12's single flat delta over all 6 fine cells
+conflated two different-scale problems — same-branch sibling confusion
+(close together, needs a tight threshold) and cross-branch detection
+(further apart, can tolerate a looser threshold) — forcing one shared
+number to serve both is what produced the bad FPR. Split into two
+separately-calibrated checks on the same vehicle dataset:
+
+| | GLOBAL (Iteration 12) | LOCAL sibling-only | LOCAL cross-branch-only | LOCAL combined (union bound) |
+|---|---:|---:|---:|---:|
+| bare | delta=0.03, FPR=0.267 | delta=0.00, FPR=0.000 | delta=0.03, FPR=0.067 | **≤0.067** |
+| contextual | delta=0.07, FPR=0.533 | delta=0.00, FPR=0.000 | delta=0.07, FPR=0.133 | **≤0.133** |
+
+Full 5/5 recall preserved in both representations. The sibling-confusion
+check needs delta=0.00 for zero FPR with no recall cost at all, because
+none of this dataset's 5 cross-cutting items happen to be same-branch
+sibling pairs (all 5 span two different coarse branches) — there is
+nothing to trade off. The cross-branch-only check, once the irrelevant
+same-branch sibling is excluded from the comparison, achieves the same
+full recall at roughly a quarter (bare) to a quarter (contextual) of the
+flat approach's FPR. **This confirms the diagnosis and is a real,
+substantial, recommendable fix**: don't calibrate one threshold against
+the full flat cell set; separate same-branch-sibling confusion from
+cross-branch membership detection, since they operate at genuinely
+different similarity scales.
+
+Caveat: this dataset happens to have zero same-branch cross-cutting
+pairs, so sibling recall was never actually tested under a real
+trade-off — a dataset with a genuine same-branch cross-cutting item
+(e.g., a concept spanning both Propulsion and Energy under Mechanical)
+would be needed to confirm sibling calibration also works when there is
+something real to detect, not just something to avoid.
+
+### Part B — ensemble certification gate (Next Experiment 6): still open
+
+Tested whether requiring BOTH balance ratio AND Iteration 11's adaptive
+size-adjusted kNN-consistency to pass (an AND-gate) resolves the
+"balanced but wrong" problem, across all 6 now-known real cases spanning
+five iterations (2 good — one balanced, one deliberately imbalanced; 4
+bad — two imbalanced sanity checks, two independently-discovered
+balanced-but-wrong instances from Iterations 10 and 12):
+
+| case | balance | knn-adaptive |
+|---|---:|---:|
+| 1: GOOD-balanced (Dataset A true 8v7) | 0.875 | 0.244 |
+| 2: BAD-imbalanced (Dataset A real, 13v2) | 0.154 | 0.092 |
+| 3: BAD-balanced (Iter.10 bird branch, 6v4) | 0.667 | 0.200 |
+| 4: GOOD-imbalanced (true wheel count, 2v10) | 0.200 | 0.164 |
+| 5: BAD-balanced (Iter.12 economic branch) | 0.500 | 0.200 |
+| 6: BAD-imbalanced (Iter.12 mechanical branch) | 0.167 | 0.143 |
+
+Exhaustive sweep over both thresholds (balance in [0,1] step 0.1, knn in
+[-0.10,0.30] step 0.01) finds **no combination perfectly separates good
+from bad**. Best achievable: 5/6 correct decisions, and the failure is
+diagnostic, not incidental — rejecting both balanced-but-wrong cases (3
+and 5, knn≈0.200) requires a knn threshold above 0.164, which also
+rejects case 4, the deliberately-imbalanced-but-CORRECT control
+(knn=0.164, lower than the wrong cases it needs to be threshold below).
+**This is the exact same ordering problem Iteration 11 found on 4
+constructed cases, now confirmed with an exhaustive sweep across 6
+independently-sourced real cases**: kNN-consistency's ambiguity about
+"mostly right, a few items wrong" (case 3/5's actual character) versus
+"correct but the ground-truth axis isn't the embedding's dominant
+semantic gradient" (case 4's actual character) is not something a
+balance-ratio-AND-knn ensemble can resolve, because both failure types
+land in the same knn score range for reasons that have nothing to do
+with balance.
+
+**Conclusion**: Part A is ready to carry forward into any production
+calibration strategy. Part B is confirmed, not just suspected, to need a
+genuinely different signal — not an ensemble of the two candidates
+tested so far — before "balanced but wrong" can be caught without also
+breaking "imbalanced but right." The next attempt at this problem should
+target case 3/5's specific character directly (a small number of
+borderline items in an otherwise-consistent cluster) rather than
+combining existing whole-cluster signals.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

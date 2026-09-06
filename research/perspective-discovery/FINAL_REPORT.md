@@ -61,6 +61,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment10_integration.rs` (Iteration 10)
 - `physis-core/examples/experiment11_generalized_certification.rs` (Iteration 11)
 - `physis-core/examples/experiment12_integrated_synthesis.rs` (Iteration 12)
+- `physis-core/examples/experiment13_local_calibration_and_ensemble_gate.rs` (Iteration 13)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -353,6 +354,33 @@ pipeline answers (discovering fine cells that do not yet exist), so
 there is no clean "baseline wins" verdict, only the two specific
 technical gaps above.
 
+**Iteration 13 directly attempted both gaps.** Result: one closed, one
+confirmed still open, not just suspected.
+
+*Calibration-degrades-with-granularity (closed)*: splitting Iteration
+12's single flat delta into two separately-calibrated checks — same-
+branch sibling confusion (needs a tight threshold, delta=0.00 achieves
+FPR=0.0 here since this dataset has no genuine same-branch cross-cutting
+pair to trade off) and cross-branch detection (can tolerate a looser
+threshold since different-domain categories sit further apart) — cut
+FPR from 0.267/0.533 (bare/contextual) to ≤0.067/≤0.133 while preserving
+full 5/5 recall in both. **Recommend this split-calibration strategy for
+any production implementation.**
+
+*Balanced-but-wrong (still open, now more rigorously confirmed)*: an
+ensemble gate (balance ratio AND Iteration 11's adaptive kNN-consistency)
+was tested against an exhaustive threshold sweep over all 6 known real
+cases spanning five iterations. No combination achieves perfect
+separation; best possible is 5/6, and the failure is structural — the
+knn threshold needed to reject both known balanced-but-wrong cases
+(knn≈0.200) also rejects the deliberately-imbalanced-but-correct control
+(knn=0.164, which is LOWER than the wrong cases it would need to sit
+above). This is not an ensemble-tuning problem; it means kNN-consistency
+and balance ratio jointly carry no signal that separates "mostly right, a
+few items wrong" from "genuinely correct but on an axis the embedding
+doesn't foreground" — a materially different, more specific signal is
+needed, not a combination of what exists.
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -387,27 +415,36 @@ technical gaps above.
    attempted because building one properly is a materially larger
    undertaking than any single iteration here, not because it was judged
    unpromising.
-6. A certification signal that catches a well-balanced but label-wrong
-   split (Iteration 10's bird depth-2 case: 6-vs-4, balance ratio 0.667,
-   passes the gate, still mislabels two flightless birds as flying) —
-   the concrete blocker for recommending the multi-membership +
-   certified-recursion synthesis architecture as production code.
-   Iteration 11 tested 5 single-signal candidates and found none that
-   resolve it alone; the next attempt should be an ensemble (adaptive
-   size-adjusted kNN-consistency + balance ratio, or a dedicated
-   few-borderline-items detector specifically targeting "mostly right,
-   a small number of items wrong" splits) rather than another lone
-   metric. Iteration 12 reproduced this exact failure mode a third time
-   on an independently-designed dataset (bare economic branch,
-   balance=0.500, ARI=-0.250) — this is now the single most
-   well-evidenced open problem in the whole track.
-7. A calibration strategy for multi-membership that doesn't degrade as
-   sibling-category granularity increases (Iteration 12): delta=0.03
-   gave FPR=0.0 on Dataset D's 3 coarse fields but FPR=0.267-0.533 on
-   this track's 6 finer sibling fields at the same or a similarly
-   minimal delta. Since recursion inherently produces progressively
-   finer siblings at each depth, a fixed or globally-tuned delta should
-   be expected to fail deeper in any real recursion tree; per-depth or
-   per-branch recalibration (using the local siblings' own similarity
-   spread, not a single global threshold) is the natural next thing to
-   try, untested here.
+6. **STILL OPEN, now confirmed via exhaustive search, not just
+   suspected.** A certification signal that catches a well-balanced but
+   label-wrong split. Iteration 11 tested 5 single-signal candidates and
+   found none that resolve it alone. Iteration 13 tested the natural next
+   step — an ensemble (balance ratio AND adaptive size-adjusted
+   kNN-consistency) — via an exhaustive threshold sweep over all 6 known
+   real cases across five iterations (Dataset A, Iteration 10's bird
+   branch, the Iteration 11 vehicle control, Iteration 12's economic and
+   mechanical branches). No threshold combination achieves perfect
+   separation; best possible is 5/6, and the failure is structural: the
+   knn threshold needed to reject the known balanced-but-wrong cases
+   (knn≈0.200) also rejects the deliberately-imbalanced-but-correct
+   control (knn=0.164, lower than the cases it needs to exceed). This
+   rules out "just combine the two existing signals" as a fix. The next
+   attempt should target the specific character of the wrong cases
+   directly — a dedicated detector for "a small number of borderline
+   items in an otherwise-consistent cluster" (e.g. flag clusters where a
+   minority of members have anomalously low margin to the cluster
+   centroid while the majority have high margin, rather than any
+   single whole-cluster aggregate statistic) — not another whole-cluster
+   ensemble member.
+7. **CLOSED.** A calibration strategy for multi-membership that doesn't
+   degrade as sibling-category granularity increases. Iteration 13
+   confirmed the cause (a single flat threshold conflates same-branch
+   sibling confusion, which needs a tight threshold, with cross-branch
+   detection, which can tolerate a looser one) and fixed it by splitting
+   into two separately-calibrated checks: FPR dropped from 0.267/0.533
+   to ≤0.067/≤0.133 (bare/contextual) at full recall. Recommended for any
+   production implementation. Residual gap: this dataset happened to
+   have zero genuine same-branch cross-cutting items, so the sibling
+   check's recall was never tested under a real trade-off — worth
+   re-testing on a dataset with at least one genuine same-branch
+   cross-cutting concept before fully trusting the sibling threshold.
