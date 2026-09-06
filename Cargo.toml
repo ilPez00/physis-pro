@@ -46,7 +46,7 @@ llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2"
 
 # The lean core engine — embed/classify/quality/discovery now live here, and
 # physis_pro delegates to it (see src/classify.rs, src/quality.rs).
-physis-core = { path = "physis-core", version = "0.1.14", default-features = false }
+physis-core = { path = "physis-core", version = "0.1.15", default-features = false }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
