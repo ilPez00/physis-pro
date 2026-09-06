@@ -3296,6 +3296,8 @@ dependencies = [
  "tokenizers",
  "tokio",
  "uuid",
+ "wordnet-db",
+ "wordnet-types",
 ]
 
 [[package]]
@@ -6113,6 +6115,23 @@ dependencies = [
  "unicode-xid",
  "wasmparser",
 ]
+
+[[package]]
+name = "wordnet-db"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e3efa64eea0a0d9710bfe74eb45bd43d3f06381ab21675345a64ecc3f3fa105"
+dependencies = [
+ "anyhow",
+ "memmap2",
+ "wordnet-types",
+]
+
+[[package]]
+name = "wordnet-types"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99cdc77ac580700f64d314e2c30d2e8ec1c93ce981f66a62a894a671d1036af3"
 
 [[package]]
 name = "writeable"

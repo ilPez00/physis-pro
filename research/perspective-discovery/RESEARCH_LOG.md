@@ -1724,6 +1724,108 @@ them using the multi-membership machinery already validated across
 Iterations 8, 10, 12, and 13 — a well-posed, tractable problem, unlike
 discovering stable points from scratch.
 
+## Iteration 21 — the linkage layer, built (user-directed: "if not, build the linkage layer and test")
+
+`physis-core/examples/experiment21_fixed_cell_linkage.rs`. Uses
+physis-core's existing 31 well-populated (domain,mode) cells (>=5
+entries each, Iteration 4's filter) as fixed points and links them by
+bridge count on the real 730-entry ontology.
+
+**First version reused Iteration 13's local/split calibration verbatim
+and it degenerated.** The search for a same-domain ("sibling") delta
+achieving a low flag rate found none in [0, 0.30] and silently fell back
+to an arbitrary default (0.10), which flagged 98.0% of entries — a
+near-universal rate carries no discriminative signal, it just restates
+"domains are broad and internally overlapping" (already established in
+Iterations 15/18/19). Caught by inspecting the actual numbers before
+trusting the graph, not after.
+
+**Fix: replaced threshold-guessing with a deterministic, threshold-free
+rule** — every entry's membership is its own assigned cell plus exactly
+its single next-best-scoring OTHER cell, always one extra, regardless of
+similarity magnitude. No delta to calibrate against ground truth that
+doesn't exist for this dataset. Result: sparse (215 of 465 possible cell
+pairs bridged) and semantically plausible — top links include
+`CONSTRUCT/WORK <-> HEAL/WORK` (bridged by home-security/maintenance
+entries) and `BOND/REST <-> HEAL/REST` (bridged by "Mindfulness", "Quiet
+Together" — genuinely related concepts).
+
+**Stability, tested directly rather than assumed**: ran the pipeline
+twice. Aggregate structure and most bridge counts match EXACTLY across
+runs; a handful of items flip between near-tied cells. Traced to a
+specific, identified cause — physis-core's own `embed_onnx.rs` hardcodes
+`.with_intra_threads(available_parallelism())`, and ONNX Runtime's
+multi-threaded execution is not bit-exact across runs (confirmed:
+`OMP_NUM_THREADS=1`/`ORT_NUM_THREADS=1` env vars did NOT fix it, because
+the session builder's explicit `with_intra_threads` call overrides any
+env-based default). This is NOT a flaw in the new discovery logic — it
+has no K, no threshold, and no randomness of its own — it is a small,
+specific, already-identified residual from the embedder's own inference
+non-determinism, qualitatively different from and much smaller than the
+0%-overlap instabilities found in Iterations 18-20. **A real fix exists
+(make intra-op thread count configurable, default to 1 for
+reproducibility-sensitive contexts) but requires editing production
+`src/embed_onnx.rs`, not left to a research example — flagged as a
+recommended, scoped, NOT-YET-MADE change rather than done without
+asking.**
+
+## Iteration 22 — word discovery vs. WordNet, binding to the embedder only afterward
+
+User proposal, tested directly: "word discovery compared to an owl
+database, that only then binds to the embedder." `physis-core/examples/experiment22_wordnet_discovery.rs`.
+Princeton WordNet 3.1 (noun data, ~25MB) pulled from a GitHub mirror
+(`extjwnl/extjwnl-data-wn31`) and parsed via the `wordnet-db`/
+`wordnet-types` crates — new physis-core dependencies, added and
+verified to build cleanly. A full OWL/DL reasoner (also available,
+checked: `rustdl`/`owl-dl-reasoner`) was not needed for term matching
+against a controlled vocabulary plus a hypernym hierarchy, which is all
+this task requires.
+
+**Coverage**: 97.9% of the real 730 entries have at least one
+WordNet-recognized noun with a resolvable hypernym parent — a genuinely
+fixed, symbolic anchor, the same word forever mapping to the same
+parent category regardless of embedder or run. Only 2.1% (15 entries)
+show zero lexical match.
+
+**The embedder is used only afterward, in a bounded role**: for the 15
+entries with no WordNet anchor, find their nearest neighbor (by
+embedding similarity) among entries that DO have one, extending
+symbolic coverage rather than asking the embedder to discover structure
+from scratch. This inverts every prior iteration's division of labor —
+embedding geometry is the primary discovery tool nowhere in this design.
+
+**A real flaw, found by reading the actual output (this track's standing
+discipline), not glossed over**: naive first-sense lookup (no word-sense
+disambiguation) produces wrong anchors for genuinely ambiguous words —
+"give" -> "elasticity" (a very obscure noun sense beating the intended
+"donation" sense purely on WordNet's default synset ordering), "log" ->
+"wood" (should be "logbook" in a tracking context). **Worse**: the 15
+"jargon" entries with zero match are not really jargon — they are
+**Italian-language text** (only English WordNet was loaded), and several
+Italian words accidentally collide with unrelated English WordNet
+entries: "con" (Italian "with") matched English "con" -> "argument";
+"piano" (Italian "plan") matched English "piano" -> "keyboard
+instrument"; "trave" (Italian "beam", correctly, coincidentally) and
+"studio" (Italian "study/research") both drew genuine-looking but
+accidental English matches. **Not fixed in this iteration.** Two
+concrete, scoped fixes for a future pass: (1) language-detect entries
+before lookup, skip or route non-English text to an Italian WordNet
+instead of forcing an English match; (2) disambiguate senses instead of
+blindly taking the first — a natural design is to score each candidate
+synset's gloss against the entry's own embedding and pick the
+best-matching sense, which would ALSO be "binding to the embedder," just
+for disambiguation rather than coverage-extension — a second, distinct
+role for the embedder worth testing once the language-filtering issue is
+fixed first.
+
+**Honest assessment**: the core proposal — symbolic structure for
+primary anchoring, embeddings for a narrow secondary role — is sound and
+gives genuinely fixed points (WordNet doesn't move, unlike anything
+discovered in Iterations 1-20). The current implementation is not yet
+trustworthy as-is because of the disambiguation and language-detection
+gaps found above; those are the next concrete steps, not a reason to
+abandon the approach.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

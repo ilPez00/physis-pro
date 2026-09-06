@@ -71,6 +71,8 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment18_multi_embedder_comparison.rs` (Iteration 18)
 - `physis-core/examples/experiment19_cross_embedder_corroboration.rs` (Iteration 19)
 - `physis-core/examples/experiment20_fixed_point_discovery.rs` (Iteration 20)
+- `physis-core/examples/experiment21_fixed_cell_linkage.rs` (Iteration 21)
+- `physis-core/examples/experiment22_wordnet_discovery.rs` (Iteration 22)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -754,3 +756,32 @@ the calibration heuristic, being the dominant constraint.
     items span two or more cells, and how strongly) — a well-posed,
     tractable problem, unlike discovering stable points from scratch.
     This is the concrete next build, not a further experiment.
+
+19. **DONE (Iteration 21) — the linkage layer, built.** Uses the
+    existing 31 well-populated cells as fixed points, links them by
+    bridge count on real data. First version reused Iteration 13's
+    calibration and degenerated (98% flag rate — no discriminative
+    signal); fixed with a deterministic, threshold-free rule (own cell +
+    single next-best cell, always). Result: sparse (215/465 cell pairs),
+    semantically plausible. Stability tested directly (ran twice):
+    aggregate structure matches exactly; small item-level flips traced
+    to a specific, identified cause (physis-core's own `embed_onnx.rs`
+    hardcodes ONNX intra-op threads to all cores, and multi-threaded
+    inference isn't bit-exact) — not a flaw in the new logic, and much
+    smaller than every prior instability in this track. A real fix
+    exists (configurable thread count, default 1) but requires editing
+    production code; flagged as recommended, not done without asking.
+20. **DONE (Iteration 22), promising but not yet trustworthy.** Word
+    discovery vs. Princeton WordNet 3.1 (pulled from a GitHub mirror,
+    new `wordnet-db`/`wordnet-types` dependencies), embedder used only
+    afterward to bind unmatched jargon to its nearest lexically-anchored
+    neighbor — inverting every prior iteration's division of labor.
+    97.9% coverage. But naive first-sense lookup (no disambiguation)
+    produces wrong anchors for ambiguous words, and several "jargon"
+    entries are actually Italian text whose words accidentally collide
+    with unrelated English WordNet entries ("con"->"argument",
+    "piano"->"keyboard instrument"). Not fixed here. Next: language
+    detection before lookup, and sense disambiguation via embedding
+    similarity between the entry and each candidate synset's gloss (a
+    second, different role for "binding to the embedder" — disambiguation,
+    not coverage-extension).

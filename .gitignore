@@ -19,3 +19,4 @@ shots/*.png
 shots/*.html
 shots/index.html
 models/model.onnx
+models/wordnet/
