@@ -2205,6 +2205,94 @@ audit: this problem needs a non-geometric certification signal — a
 labeled calibration set, or human/LLM review gated on low-confidence
 splits — not a seventh statistic computed from embeddings.
 
+## Iteration 28 — attacking the last surviving mechanism (roadmap item 24)
+
+FINAL_REPORT.md's "worth carrying forward" list opens with plain
+unsupervised clustering, described as "the one mechanism this track never
+found a way to make lose on exclusive-membership data", and recommends
+prototyping it in `discovery.rs`. It is also the only mechanism in this
+track never actually prototyped. That combination is exactly the shape of
+claim Iteration 26a exists to warn about: a standing that was never
+earned because it was never tested.
+
+Method: deterministic spherical k-means, k-means++ seeded with a fixed
+RNG, every argmax breaking ties on the lower index — no reliance on
+iteration order anywhere, which is the trap 26a found in production code.
+Three consecutive runs byte-identical.
+
+The suspicion going in was that **it never lost because it was always
+handed the correct k** — every prior appearance (Iterations 5, 7, 10, 12)
+supplied the cluster count from ground truth, and choosing k is the
+certification problem wearing a different hat.
+
+### Part 0 — the control
+
+Dataset A, 15 items, mammal/bird: the kind of set the claim was
+established on. Oracle k=2:
+
+- ARI **0.051**, purity 0.667, sizes 10/5 (true split is 8/7)
+- the split: {dog cat lion tiger eagle sparrow owl penguin ostrich kiwi}
+  vs {horse sheep wolf bear swan}
+
+That is not the taxonomy. Clustering does not recover mammal/bird even on
+the curated 15-item set.
+
+### Part A — real corpus, oracle k
+
+730 entries, k=5 (the true domain count, supplied from ground truth):
+
+| | ARI | NMI | purity |
+|---|---|---|---|
+| k-means, oracle k | 0.022 | 0.030 | 0.292 |
+| random partition | 0.003 | 0.011 | 0.251 |
+| single cluster | 0.000 | 0.000 | 0.232 |
+
+"Beats random on ARI: true" — which is what every earlier comparison in
+this track reported — is technically correct and worth **+0.019 ARI and
++6.0 purity points over labelling everything one class**.
+
+### Part B — choosing k from the data
+
+Sweeping k=2..20: silhouette picks **k=2** (ARI 0.001, *below* the random
+floor); the elbow/knee in inertia picks **k=6** (ARI 0.021, above it).
+Neither recovers true k=5. Best ARI anywhere in the sweep is 0.041, at
+k=12. Reported per-criterion, deliberately: a single boolean would hide
+that the two internal criteria disagree sharply, which is itself part of
+the result — and consistent with Iterations 9/11/27, where silhouette
+could not rank a good split above a bad one.
+
+### The finding, which is not the one expected
+
+The going-in suspicion was wrong in an informative way. **k-selection was
+never the binding constraint — the oracle result was already
+near-worthless.** ARI < 0.10 at every k tested, with or without an
+oracle. Handing the algorithm the right answer for k buys almost nothing
+because there is almost nothing there to recover at the coarse-domain
+level in this embedding space.
+
+### Caveats, stated in the experiment's own output
+
+This is a fresh implementation, not a reproduction of Iteration 7's
+k-means: the purity figure matches (0.667) but the split shape differs
+(10/5 here vs 13/2 there), so it corroborates the earlier finding rather
+than replicating it. It tests the 5 COARSE domains, on one corpus, with
+one embedder — it says nothing about the 70-cell fine structure, and per
+Iteration 26b none of it transfers across a model swap.
+
+### Consequence
+
+The report's first "worth carrying forward" recommendation is demoted to
+falsified, and the tally becomes **seven** structurally distinct failed
+mechanisms, not six: mean-margin/silhouette (9), three kNN-consistency
+variants (11), cross-embedder corroboration (19), density-peak discovery
+(20), cross-embedder split agreement (24), capacity-constrained training
+loss (25), and now plain unsupervised clustering (28).
+
+This makes the standing recommendation stronger rather than merely
+repeated: the last geometric mechanism with an unblemished record turned
+out to have an unblemished record only because nobody had tested it on
+real data.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

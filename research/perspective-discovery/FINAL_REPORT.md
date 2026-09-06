@@ -248,10 +248,16 @@ become part of physis-core's production discovery path.** Two things ARE
 worth carrying forward, both low-risk and both already close to existing
 primitives rather than requiring new architecture:
 
-1. **Plain unsupervised clustering** — the one mechanism this track never
-   found a way to make lose on exclusive-membership data. If anything is
-   worth prototyping in `discovery.rs`, it's a from-scratch
-   (non-grid-anchored) clustering mode.
+1. ~~**Plain unsupervised clustering**~~ — **FALSIFIED (Iteration 28).**
+   This was recommended as "the one mechanism this track never found a
+   way to make lose on exclusive-membership data". It was also the only
+   mechanism never prototyped, so that standing was never earned against
+   real data. Iteration 28 tested it directly: on the real 730-entry
+   corpus, oracle k=5 gives ARI 0.022 against a random-partition floor of
+   0.003, and no k in 2..20 exceeds ARI 0.041. Even the 15-item control
+   set the claim came from yields ARI 0.051 and a split that is not the
+   taxonomy. **Do not prototype this in `discovery.rs`** on the strength
+   of this report — see roadmap item 24.
 2. **Surfacing `CellClassifier`'s existing per-cell similarity scores
    instead of collapsing to one winning `(domain, mode)` per entry** —
    directly motivated by Iteration 8. `OntologyEntry` (`src/models.rs`)
@@ -874,6 +880,64 @@ the calibration heuristic, being the dominant constraint.
     limitation recorded in Iterations 9-25 stands. What changes is that
     the numbers are now fixed quantities and therefore citable, which
     they were not before.
+
+24. **DONE (Iteration 28) — NOT SUPPORTED. The last surviving mechanism
+    does not survive.** Carried from the "worth
+    carrying forward" list at the top of this report, where it is
+    described as "the one mechanism this track never found a way to make
+    lose on exclusive-membership data." Twenty-seven iterations have
+    tried to certify splits and failed six times; the one mechanism that
+    never failed is also the one never actually prototyped. The suspicion
+    to test head-on is that **it never lost because it was always handed
+    the correct k.** Choosing k is the certification problem wearing a
+    different hat, and Iterations 9 and 11 already showed silhouette
+    cannot rank a good split above a bad one. So the experiment is not
+    "does clustering work" but "does it still work when nobody tells it
+    how many clusters there are" — with random-partition and
+    single-cluster baselines, and a deliberate attempt to make it lose.
+
+
+    **Result.** Deterministic spherical k-means (k-means++ seeded, fixed
+    RNG, ties to the lower index), three runs byte-identical.
+    *Control (Dataset A, 15 items — the kind of set the claim was
+    established on)*: oracle k=2 gives ARI 0.051, purity 0.667, and a
+    10/5 split that is not the taxonomy at all — {dog cat lion tiger
+    eagle sparrow owl penguin ostrich kiwi} vs {horse sheep wolf bear
+    swan}. *Real corpus, oracle k=5*: ARI 0.022 vs a 0.003 random floor;
+    purity 0.292 vs 0.232 for labelling everything one class. "Beats
+    random: true" — which is what every earlier comparison reported — is
+    worth **+0.019 ARI and +6.0 purity points**. *Choosing k from the
+    data*: silhouette picks k=2 (ARI 0.001, **below** the random floor),
+    elbow picks k=6 (ARI 0.021, above it); neither recovers true k=5.
+    Best ARI anywhere in k=2..20 is 0.041.
+
+    The suspicion going in was that k-selection was the weak point. It
+    is not: **the oracle result was already near-worthless, so k was
+    never the binding constraint.** Recorded per-criterion rather than as
+    one verdict, because silhouette and elbow disagreeing sharply is part
+    of the finding. Caveat stated in the experiment's own output: this is
+    a fresh implementation rather than a reproduction of Iteration 7 (the
+    purity match, 0.667, comes with a different split shape — 10/5 here
+    vs 13/2 there), it covers the 5 coarse domains on one corpus and one
+    embedder, and per Iteration 26b none of it transfers across a model
+    swap.
+25. **NEXT, low-risk — surface `CellClassifier`'s per-cell similarity
+    scores** instead of collapsing to one winning `(domain, mode)`.
+    Motivated by Iteration 8: `OntologyEntry` (`src/models.rs`) stores
+    exactly one domain and one mode, Test 1 showed that loses real
+    information for concepts spanning two fields, and Test 2 showed the
+    embedding space already carries it. `classify.rs` computes per-cell
+    scores internally before picking a winner, so this exposes existing
+    information rather than adding a mechanism — and unlike everything in
+    the certification thread, it requires no threshold to be trustworthy.
+
+26. **OPEN, awaiting owner decision — what gets promoted into
+    physis-core.** Ready: language detection (Iteration 23, the WordNet
+    coverage-fraction heuristic, 96.4% pass) and the fixed-cell linkage
+    layer (Iteration 21, deterministic, no k and no threshold). NOT
+    recommended: WordNet sense disambiguation (Iteration 23 — two designs
+    both failed on the same cases for a diagnosed reason, plus a
+    verb-sense scope gap).
 
 ## Architectural conclusion (updated after Iterations 26-27)
 
