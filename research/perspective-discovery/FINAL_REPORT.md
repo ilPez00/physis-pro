@@ -584,3 +584,70 @@ untested at adequate scale, not falsified — see Next Experiment 5.
    15's "widespread overlap" finding would be a representation artifact
    rather than genuine multi-membership, changing how urgent the
    certification problem (item 6) actually is in practice.
+9. **NEW — cross-embedder real-domain separability comparison (directly
+   tests item 8, cheaper than a fine-tune).** Rerun Iteration 15's exact
+   1-NN / centroid-argmax measurement on physis-core's real ontology
+   using BGE-base-en-v1.5 instead of all-MiniLM-L6-v2. Feasibility
+   checked, not assumed: BGE's config/tokenizer are present in
+   `models/bge-base-en-v1.5/` but its ONNX weights are NOT — they need
+   pulling from HuggingFace first (a known, already-documented trap, see
+   memory `physis-engine-facts`). It is a standard `BertModel`
+   architecture, the same family as MiniLM, so once weights exist it
+   should load through the existing `OnnxEmbedder` with no code changes.
+   If BGE shows meaningfully higher 1-NN accuracy on the same task, the
+   embedding is a real bottleneck (supports item 8's premise and
+   prioritizes a fine-tune, item 12 below); if BGE is similarly weak, the
+   taxonomy itself is genuinely ambiguous and no embedding swap will fix
+   it — either answer is informative and this is cheap to get.
+10. **NEW — jina-clip-v2 as a second embedder, explicitly higher-risk.**
+    Its ONNX weights (`model_fp16.onnx`) are already present locally, but
+    it is a `JinaCLIPModel` (multimodal, matryoshka embeddings), not a
+    plain sentence-transformer — the existing `OnnxEmbedder` looks for a
+    file literally named `model.onnx` and assumes a standard
+    input_ids/attention_mask → last_hidden_state pooling convention that
+    may not match CLIP's text tower. Treat as a real integration task
+    (verify output shape/pooling empirically before trusting any
+    embedding it produces), not a drop-in swap — lower priority than
+    item 9 given BGE is architecturally simpler and lower-risk.
+11. **NEW — cross-embedder agreement as a certification signal.** A
+    mechanism genuinely different from the four that failed (Iterations
+    9, 11, 13, 14 all analyzed ONE embedding's ONE clustering result):
+    rerun k-means with a second embedder (BGE, once available per item
+    9) on the same 6 known good/bad cases from Iterations 13-14, and
+    measure ARI between the two embedders' resulting partitions per
+    case. Hypothesis: a "balanced but wrong" split may be an artifact of
+    one specific embedding space and may not reproduce when a different
+    model does the clustering, even though no single-embedder statistic
+    catches it. Cheap once item 9's weights exist; directly reuses
+    established test infrastructure.
+12. **NEW — domain-specific embedding fine-tune (the higher-effort,
+    higher-leverage fix for item 8).** A legitimate supervised
+    contrastive fine-tune (or lightweight adapter/projection) on
+    physis-core's own (domain,mode) labels — explicitly declared
+    supervised, unlike Iteration 3's mislabeled predictor. If items 9-10
+    show current embeddings are the bottleneck, this is the fix that
+    could improve calibration, certification, and recursion
+    simultaneously rather than patching each downstream symptom
+    separately. Higher cost than items 9-11; do those first.
+13. **NEW — finish Iteration 17's original proposal.** Iteration 17
+    tested whether a JEPA-style predictor's held-out accuracy separates
+    good from bad splits (inconclusive, sample-size limited). It did NOT
+    test the original hook: whether TRAINING LOSS itself (does a "bad"
+    node resist being learned, converging slower or to a higher floor
+    than a "good" node?) serves as a certification signal — cheap to add
+    on the same 6-case infrastructure already built, no new data needed.
+14. **NEW — close the residual gap from Iteration 13.** The local/split
+    calibration fix (sibling vs. cross-branch, validated, recommended for
+    production) was never tested against a real same-branch cross-cutting
+    item, because none existed in the Vehicle ontology dataset — add one
+    (e.g. a concept spanning Propulsion and Energy within Mechanical) and
+    confirm the sibling threshold's recall works under a genuine
+    trade-off, not just its zero-cost case.
+
+**Suggested priority order, cheapest-and-most-informative first**: 9 →
+11 → 13 → 14 → 10 → 12. Items 9 and 11 share the same setup cost (BGE
+weights) and together test both open threads (embedding adequacy,
+certification) from one download; 13 and 14 need no new infrastructure
+at all; 12 is the most valuable single result if 9 confirms the
+embedding is a real bottleneck, but is also the most expensive, so it
+should follow evidence rather than lead it.
