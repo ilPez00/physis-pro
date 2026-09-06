@@ -785,7 +785,8 @@ real but separate, larger follow-up.
 
 ## Remaining gaps before this synthesis architecture should be built for real
 
-Flagged, not attempted, in the interest of not overclaiming readiness:
+Flagged after Iteration 9; all three closed by Iteration 10 below (with
+honest caveats, not clean wins across the board).
 
 1. **Membership-vector threshold calibration and false-positive rate.**
    Iteration 8 tested recall on 4 hand-picked cross-cutting items only —
@@ -807,6 +808,95 @@ Flagged, not attempted, in the interest of not overclaiming readiness:
    built) or recursion could re-expand the same node once per membership
    path, multiplying branching factor by however many fields a node
    belongs to.
+
+## Iteration 10: closing gaps 1-3 on one corpus with both hierarchy and cross-cutting structure
+
+`physis-core/examples/experiment10_integration.rs`. New corpus: Dataset A's
+15-item animal taxonomy (Iteration 6/7's real two-level ground truth) plus
+4 NEW cross-cutting animals, each spanning two fine categories, written
+with the same no-keyword-leakage discipline as Dataset D:
+
+- `police_dog` — domestic + predator (both mammal-branch categories)
+- `farm_duck` — domestic + flying (a *bird* pulling toward the
+  mammal-branch "domestic" category — genuinely crosses the coarse split)
+- `cassowary` — predator + flightless
+- `farm_chicken` — domestic + flightless (also crosses the coarse split)
+
+**Gap 1 — threshold calibration.** Swept a membership-tolerance delta
+(a category counts as "also a member" if its similarity is within delta
+of the item's own top similarity) from 0.00 to 0.20 against fine-category
+centroids built from the 15 pure items only. Result:
+
+| delta | FPR on 15 pure | recall/4 (both true fields present) |
+|---|---:|---:|
+| 0.00 | 0.000 | 0/4 |
+| 0.02 | 0.000 | 2/4 |
+| **0.03** | **0.000** | **4/4** |
+| 0.04 | 0.133 | 4/4 |
+| 0.10+ | 1.000 | 4/4 |
+
+delta=0.03 is the calibrated threshold: zero false positives on pure
+items, full recall on cross items. **Caveat, not swept under the rug**:
+average membership count on the 4 cross items at this delta is 2.76, not
+2.0 — the calibration achieves "both true fields present with no false
+positives on pure items" but is not crisp; cross items pick up a spurious
+third category on average about as often as not. Good enough to unblock
+gap 2 and 3; not a finished, production-grade threshold.
+
+**Gap 2 — end-to-end integration.** Ran multi-membership (at the
+calibrated delta) and the Iteration 9 balance-ratio gate (threshold 0.5)
+together on the full 19-item corpus:
+
+- REAL (unconstrained) depth-1 k-means: 17-vs-2 split, balance ratio
+  0.118 — **gate correctly rejects**, does not recurse. (Worse imbalance
+  than Iteration 7's 13-vs-2 on the 15-item corpus alone — the added
+  cross-cutting items make naive top-level clustering even less reliable,
+  which is exactly the scenario certification is for.)
+- ORACLE depth-1 (true mammal=9/bird=10): balance ratio 0.900 — gate
+  passes, recurses.
+- ORACLE→REAL depth-2 within `mammal` (n=9): 7-vs-2 split, balance ratio
+  0.286 — **gate correctly rejects** (predator cluster absorbed dog, cat,
+  and police_dog).
+- ORACLE→REAL depth-2 within `bird` (n=10): 6-vs-4 split, balance ratio
+  0.667 — gate passes, **but the split is not label-correct**: ostrich and
+  cassowary (both true flightless) land in the cluster later labeled
+  "flying." **This is the gate's real limitation, stated plainly: balance
+  ratio checks size, not correctness — a confidently balanced but wrong
+  split sails through.** Certification is necessary, not sufficient.
+- Cross-links (multi-membership pointing outside an item's home leaf) show
+  up on real, not hypothetical, data: `police_dog`, `cassowary`,
+  `farm_duck`, and `farm_chicken` all get at least one **cross-branch**
+  link (e.g. `farm_duck`, physically placed under `bird.flightless`, also
+  links to `mammal.domestic`) — confirming the DAG case Iteration 9's
+  write-up predicted actually occurs, not just in principle.
+
+**Gap 3 — DAG cycle protection.** Built the adjacency graph directly from
+gap 2's discovered cross-links (6 nodes: 2 coarse branches + 4 fine
+leaves) and compared naive vs. visited-set expansion from a
+cross-linked leaf:
+
+- WITHOUT a visited-set: pure DFS never backtracks out of the cycle here
+  (it dives into the first neighbor repeatedly), so a call-budget cap of
+  200,000 was exhausted while recursion depth was still climbing (reached
+  199,999) — run on a dedicated thread with a 512MB stack specifically
+  because the first attempt at this test overflowed the default 8MB stack
+  before the budget cap could even be checked. **No natural base case —
+  confirmed, not assumed.**
+- WITH a trivial visited-set: terminates in exactly 6 calls, matching the
+  graph's 6 distinct nodes exactly, each expanded once.
+- **Verdict: CONFIRMED.** A visited-node cache is required, not optional,
+  once multi-membership makes the structure a DAG.
+
+**Net assessment of the user's proposed synthesis architecture**
+(multi-membership + coherence gating + certified recursion): the pieces
+compose without a fundamental incompatibility, and the balance-ratio gate
+earns its keep on real combined data (correctly rejecting two bad splits
+here). But it is not yet a system that reliably recovers a correct nested
+ontology — the surviving failure mode is a split that is well-balanced
+AND wrong (the bird depth-2 case above), which no signal tested in this
+track catches. That is the next thing to solve before recommending this
+architecture be built as production code, not a blocking defect in the
+architecture's shape.
 
 ## Files
 

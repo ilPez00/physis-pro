@@ -56,6 +56,9 @@ experimentation — none did, unconditionally.
   (Iteration 5)
 - `physis-core/examples/experiment6_dataset_a_hierarchy.rs` (Iteration 6)
 - `physis-core/examples/experiment7_recursion.rs` (Iteration 7)
+- `physis-core/examples/experiment8_dataset_d_crosscutting.rs` (Iteration 8)
+- `physis-core/examples/experiment9_certification_gate.rs` (Iteration 9)
+- `physis-core/examples/experiment10_integration.rs` (Iteration 10)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -240,6 +243,44 @@ primitives rather than requiring new architecture:
    *exposing* an existing signal than building a new one. Not implemented
    here — a scoped follow-up, not a code change this track made.
 
+**Iterations 9-10, prompted directly by a user proposal to combine
+multi-membership + coherence gating + certified recursion, checked three
+things before that combination could be recommended as a system, not just
+as three separately-validated pieces:**
+
+- A cheap **certification signal for recursion** exists and is validated:
+  size-balance ratio (min/max cluster size) correctly ranks Iteration 7's
+  known-good 8-vs-7 split above its known-bad 13-vs-2 split (0.875 vs
+  0.154). The naive alternative — silhouette-style cohesion-minus-
+  separation scoring — gets it **backwards** (0.048 vs 0.089) because a
+  large wrong cluster's centroid drifts toward the corpus average and
+  looks deceptively cohesive. Use balance ratio; do not use naive
+  cohesion scoring as a gate.
+- Multi-membership needs **zero schema changes** to represent today —
+  `CoherenceNode.properties` (restored in PH-014 as an open extension
+  point) can hold a full per-cell membership vector; a literal graph
+  "member-of" edge would need one new `RelationType` variant if graph
+  traversal over memberships is wanted later.
+- Run together on one 19-item corpus with real hierarchy AND
+  cross-cutting structure (Iteration 10): the balance-ratio gate
+  correctly rejects two bad automatic splits on real data, multi-
+  membership correctly produces cross-branch DAG links that are real, not
+  hypothetical, and a visited-node cache is **confirmed required** —
+  naive expansion of those cross-links does not terminate. But the gate
+  also lets through one split that is well-balanced (0.667) and still
+  **wrong** (mislabels two flightless birds as flying) — balance checks
+  size, not correctness, and nothing tested in this track catches that
+  failure mode yet. The threshold calibrated for multi-membership
+  (delta=0.03: zero false positives on 15 pure items, full recall on 4
+  cross-cutting items) is usable but not crisp — cross items average 2.76
+  memberships, not 2.0.
+
+**Net verdict on the proposed synthesis architecture: the pieces compose
+without a fundamental incompatibility, and each validated component earns
+its keep on real combined data. It is not yet ready to recommend as
+production code** — the open problem is a certification signal that
+catches "balanced but wrong," not just "imbalanced."
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -274,3 +315,8 @@ primitives rather than requiring new architecture:
    attempted because building one properly is a materially larger
    undertaking than any single iteration here, not because it was judged
    unpromising.
+6. A certification signal that catches a well-balanced but label-wrong
+   split (Iteration 10's bird depth-2 case: 6-vs-4, balance ratio 0.667,
+   passes the gate, still mislabels two flightless birds as flying) —
+   the concrete blocker for recommending the multi-membership +
+   certified-recursion synthesis architecture as production code.
