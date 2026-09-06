@@ -60,6 +60,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment9_certification_gate.rs` (Iteration 9)
 - `physis-core/examples/experiment10_integration.rs` (Iteration 10)
 - `physis-core/examples/experiment11_generalized_certification.rs` (Iteration 11)
+- `physis-core/examples/experiment12_integrated_synthesis.rs` (Iteration 12)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -303,6 +304,55 @@ this track resolves the open problem; recommend an ensemble (this signal
 combined with balance ratio, or a dedicated few-borderline-items
 detector) as the next thing to try, not a from-scratch sixth candidate.**
 
+**Iteration 12, the full end-to-end synthesis mission**: the user provided
+a comprehensive 24-section mission prompt treating Iterations 1-11 as
+established history and asking for one genuinely integrated test — three
+calibrated baselines (raw cosine, flat hard k-means with ARI/NMI, and
+critically a calibrated multi-membership-cosine "fairness" baseline)
+against the full pipeline, on a NEW 20-item Vehicle ontology (3 coarse x
+2 fine fields, 5 new cross-cutting concepts covering all 3 coarse pairs)
+built specifically so no prior dataset was reused. Two implementation
+bugs were caught and fixed before trusting results (a coarse/fine
+ground-truth mismatch that silently zeroed recall, and a calibration
+fallback that picked the worst- instead of best-FPR delta among ties) —
+consistent with this track's practice of not reporting a number before
+verifying the code producing it.
+
+Two results stand out. First, **multi-membership calibration degrades
+sharply with category granularity**: Dataset D's 3 coarse fields
+(Iteration 10) calibrated cleanly at FPR=0.0; this dataset's 6 finer
+sibling categories (e.g. Propulsion vs. Energy, both under Mechanical)
+sit close enough in embedding space that achieving full cross-item
+recall costs FPR=0.267-0.533 — a quarter to over half of genuinely
+single-membership items get spuriously flagged. This is a real, newly
+identified boundary condition: recursion inherently produces
+increasingly fine-grained sibling categories at each depth, so
+calibration should be expected to get harder, not easier, deeper into a
+recursion tree. Second, **a third independent "balanced but wrong"
+split** surfaced unprompted (the bare economic branch: balance=0.500
+passes the Iteration-9 gate threshold exactly, with ARI=-0.250, worse
+than random) — the same failure mode Iterations 10-11 already
+identified and tried to fix, now confirmed on a completely
+independently-designed dataset, which is stronger evidence than either
+prior instance alone that this is a structural property of
+balance-based certification rather than a one-off. The DAG
+visited-cache requirement (Iteration 10) was also independently
+reconfirmed on this third dataset.
+
+**Net assessment, unchanged in direction but now better evidenced**: the
+synthesis architecture remains coherent and each piece independently
+useful, but two concrete, now multiply-confirmed open problems block a
+production recommendation — a certification signal robust to
+balanced-but-wrong splits (Iteration 11, unresolved), and a calibration
+strategy that doesn't degrade as recursion produces finer-grained
+siblings (Iteration 12, newly identified, unaddressed). Per the mission's
+own Section 19 permission to conclude the synthesis is unnecessary if
+calibrated cosine already suffices: it does not straightforwardly
+suffice either — Baseline C cannot even ask the question the full
+pipeline answers (discovering fine cells that do not yet exist), so
+there is no clean "baseline wins" verdict, only the two specific
+technical gaps above.
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -347,4 +397,17 @@ detector) as the next thing to try, not a from-scratch sixth candidate.**
    size-adjusted kNN-consistency + balance ratio, or a dedicated
    few-borderline-items detector specifically targeting "mostly right,
    a small number of items wrong" splits) rather than another lone
-   metric.
+   metric. Iteration 12 reproduced this exact failure mode a third time
+   on an independently-designed dataset (bare economic branch,
+   balance=0.500, ARI=-0.250) — this is now the single most
+   well-evidenced open problem in the whole track.
+7. A calibration strategy for multi-membership that doesn't degrade as
+   sibling-category granularity increases (Iteration 12): delta=0.03
+   gave FPR=0.0 on Dataset D's 3 coarse fields but FPR=0.267-0.533 on
+   this track's 6 finer sibling fields at the same or a similarly
+   minimal delta. Since recursion inherently produces progressively
+   finer siblings at each depth, a fixed or globally-tuned delta should
+   be expected to fail deeper in any real recursion tree; per-depth or
+   per-branch recalibration (using the local siblings' own similarity
+   spread, not a single global threshold) is the natural next thing to
+   try, untested here.

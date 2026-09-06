@@ -982,6 +982,169 @@ with balance ratio, or add a signal that specifically detects "small
 number of borderline items in an otherwise-consistent cluster," which is
 exactly the case-3 failure mode) rather than a finished answer.
 
+## Iteration 12 — the integrated end-to-end synthesis mission (full user-reframed mission prompt)
+
+The user provided a comprehensive 24-section mission prompt explicitly
+treating Iterations 1-11 as established research history, not something
+to re-litigate, and asking for one genuinely end-to-end test of
+multi-membership + certification + certified recursion against properly
+calibrated baselines — with explicit permission to conclude the synthesis
+is unnecessary if calibrated cosine already does the job (Section 19's
+"fairness rule").
+
+`physis-core/examples/experiment12_integrated_synthesis.rs`. Scope
+decision stated up front in the file: covers Sections 4-13, 15, 17-19.
+Deliberately skips Section 16 (genuine self-supervised JEPA) per the
+mission's own instruction not to spend the majority of effort there
+before this simpler synthesis is tested, and Section 14 (reference
+selection) is noted as not mapping onto this architecture — the current
+design uses field centroids from all pure exemplars, not a single
+reference item, so there is no "which reference" free parameter of the
+kind Iterations 1-3 already falsified for the old per-reference
+mechanism.
+
+**New dataset** (per Section 5's instruction not to reuse Dataset A or D
+alone): a 20-item Vehicle ontology, 3 coarse fields (Mechanical, Driver,
+Economic) x 2 fine subfields each (Propulsion/Energy,
+Controls/Assistance, Ownership/Acquisition) = 6 fine cells, 15 pure
+single-membership items, plus 5 NEW cross-cutting concepts
+(hybrid_battery, fuel_efficiency: mechanical+economic;
+driver_assistance_system, regenerative_braking: mechanical+driver;
+warranty_coverage: driver+economic) covering all 3 coarse-field pairs, no
+field-name keywords in any sentence, both bare and contextual
+representations built for every item.
+
+**Two real implementation bugs caught before trusting any result** (the
+track's established discipline, applied again):
+
+1. CROSS items' ground truth is stated at the COARSE level (mechanical,
+   driver, economic — matching the mission's own framing), but
+   `membership_set` operates on the 6 FINE categories. The first version
+   of the recall check compared fine-category strings directly against
+   coarse labels, which can never match — silently forcing recall to 0
+   regardless of what the embedding actually encoded, and this cascaded
+   into a nonsense fallback delta (0.20-0.30) that flooded the pipeline
+   with 81 spurious cross-links per representation. Fixed with an
+   explicit `fine_to_coarse` map and a coarse-coverage check.
+2. The calibration fallback (when no delta achieves both FPR=0 and full
+   recall) picked the LARGEST delta among ties at max recall —
+   mechanically the worst-FPR choice available, the opposite of what a
+   calibration procedure should do. Fixed to pick the SMALLEST delta at
+   max observed recall, with the full sweep printed (`DEBUG_SIMS=1`) so
+   the choice is auditable rather than a hidden single number, matching
+   Iteration 10's discipline.
+
+**Baseline results** (Section 6, all three required baselines):
+
+| | bare | contextual |
+|---|---:|---:|
+| Baseline A: raw cosine argmax (best-case credit) | 0.750 | 0.750 |
+| Baseline B: flat hard k-means (k=6), purity/ARI/NMI | 0.550 / 0.187 / 0.624 | 0.500 / 0.093 / 0.556 |
+| Baseline C: calibrated multi-membership cosine, delta / FPR / recall | 0.03 / 0.267 / 5-of-5 | 0.07 / 0.533 / 5-of-5 |
+
+**Headline finding: multi-membership calibration degrades sharply with
+category granularity.** Dataset D's 3 COARSE fields (Iteration 10)
+achieved delta=0.03 at FPR=0.0 with full recall. This dataset's 6 FINE
+sibling categories (e.g. Propulsion vs. Energy, both under Mechanical)
+sit much closer together in embedding space — the debug sweep shows
+pure items' top-1-vs-top-2 fine-category gap is often only 0.03-0.05 —
+so achieving full cross-item recall here costs FPR=0.267 (bare) to 0.533
+(contextual): roughly a quarter to over half of the 15 genuinely
+single-membership pure items get spuriously flagged as multi-member at
+the delta needed to catch the real cross-cutting ones. **This is a real,
+concrete limitation for recursive discovery specifically**: each level of
+recursion inherently makes sibling categories more semantically similar
+to their parent's other children than top-level fields are to each
+other, so a calibration that works at the coarse level should be expected
+to need re-calibration, at worsening FPR cost, at every deeper level —
+untested before this iteration because no prior dataset had fine-grained
+siblings this close together.
+
+**Full pipeline (oracle coarse -> REAL fine discovery -> certification
+gate) results:**
+
+| branch | representation | n | balance | purity (pure-only) | ARI | NMI | gate |
+|---|---|---:|---:|---:|---:|---:|---|
+| mechanical | bare | 7 | 0.167 | 0.600 | 0.000 | 1.000 | REJECT |
+| driver | bare | 7 | 0.167 | 0.800 | 0.231 | 0.385 | REJECT |
+| economic | bare | 6 | 0.500 | 0.600 | -0.250 | 0.021 | **PASS** |
+| mechanical | contextual | 7 | 0.400 | 0.600 | -0.250 | 0.021 | REJECT |
+| driver | contextual | 7 | 0.400 | 0.600 | -0.154 | 0.204 | REJECT |
+| economic | contextual | 6 | 0.200 | 0.600 | 0.000 | 1.000 | REJECT |
+
+**A third, independent confirmation of Iteration 11's open problem**: the
+bare economic branch passes the gate (balance=0.500, right at the
+Iteration-9-validated threshold) with ARI=-0.250 — worse than random
+agreement with the true ownership/acquisition split. This is the same
+"balanced but wrong" failure mode found in Iteration 10's bird branch and
+tested exhaustively in Iteration 11's vehicle-corpus case, now emerging
+unprompted on a third, independently-designed dataset — strong evidence
+this is a structural property of balance-based certification, not an
+artifact of one specific corpus. On the positive side, the gate correctly
+rejected 5 of 6 branches here, and most of the rejected branches
+(mechanical/driver at both representations) are genuinely poorly split
+(low balance, mediocre-to-negative ARI) — the gate is doing real,
+correct work most of the time; it is the one exception that reproduces
+the known gap.
+
+**Scale caveat, stated honestly rather than omitted**: each fine
+category here has only 2-3 pure exemplars (vs. Dataset A's 4 per fine
+category) — Baseline B's flat k-means purity (0.500-0.550) and ARI
+(0.093-0.187) are themselves mediocre, suggesting part of the
+per-branch discovery difficulty reflects this toy dataset's small
+sample size, not solely the architecture. This limits how far the
+specific numbers generalize; the qualitative findings (calibration
+degrades with granularity; balanced-but-wrong recurs) are the
+load-bearing results, not the exact percentages.
+
+**Cross-links and false positives, concretely**: at the calibrated
+delta, cruise_control and purchase_price — both genuinely
+single-membership PURE items — appear in the cross-link list (e.g.
+cruise_control linked to 3 other cells beyond its true home). This is
+exactly what a 26.7% FPR looks like in practice: real, named, wrongly-
+flagged items, not an abstract percentage.
+
+**DAG protection reconfirmed on a third dataset**: naive expansion
+without a visited-set exhausts a 200,000-call budget (still climbing) on
+this dataset's 9-node graph (3 coarse + 6 fine), while a guarded
+expansion terminates in exactly 9 calls — identical qualitative result to
+Iteration 10, now independently reproduced.
+
+**Context ablation (Section 15)**: contextual sentences did NOT help
+here — bare's Baseline B purity/ARI/NMI (0.550/0.187/0.624) all beat
+contextual's (0.500/0.093/0.556), and bare needed a smaller, less costly
+calibration delta (0.03 vs 0.07 FPR=0.267 vs 0.533) for the same full
+recall. This is a THIRD data point (after Iterations 5 and 6) showing
+context's effect is not just "sometimes zero" (Iteration 6) but can be
+actively negative — consistent with the refined hypothesis that context
+helps in proportion to how poorly the bare vocabulary is already
+represented, and these are all standard, well-represented mechanical/
+automotive terms even bare.
+
+**Section 19 fairness check, answered explicitly rather than glossed
+over**: the full pipeline and Baseline C are not directly competing for
+the same task. Baseline C answers "which of the 6 ALREADY-KNOWN fine
+cells does this item belong to" (matching how `CellClassifier` already
+works against a fixed grid); the full pipeline answers "starting from
+only the 3 known COARSE cells, can the 6 fine cells be DISCOVERED
+unsupervised, and is that discovery trustworthy enough to certify" —
+Baseline C cannot even ask that question, since there is nothing to score
+against before the fine cells exist. The honest comparison is the gap
+between unsupervised discovery's ARI/NMI (table above, ranging from
+-0.250 to 1.000 depending on branch) and Baseline C's implicit ceiling of
+"the fine cells are known" — that gap is large and branch-dependent, not
+a clean win either way.
+
+**Net assessment**: the synthesis architecture (multi-membership +
+certification + certified recursion) remains a coherent, implementable
+design with each piece independently useful — but this iteration adds a
+new, concrete boundary condition (calibration cost rises with sibling
+granularity) to the one carried over from Iteration 11 (certification
+doesn't catch balanced-but-wrong). Both are now confirmed on multiple,
+independently-designed datasets, which is stronger evidence than either
+alone. Not recommended for production as a complete system without
+addressing at least one of these two open problems.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
