@@ -2293,6 +2293,52 @@ repeated: the last geometric mechanism with an unblemished record turned
 out to have an unblemished record only because nobody had tested it on
 real data.
 
+## Iteration 29 — roadmap item 25: the report was wrong about the code
+
+Item 25 recommended surfacing `CellClassifier`'s per-cell similarity
+scores "instead of collapsing to one winning (domain, mode)". Reading
+`classify.rs` before writing anything changed the question: **it does not
+collapse.** `classify()` returns `Vec<CellScore>` with every populated
+cell scored and ranked — 70.0 results per query on the real ontology —
+and `studio.rs`, `studio_lab.rs` and `main.rs` all take the whole vector.
+Only `classify_with_metadata` takes a top result, and that is its
+documented job.
+
+The recommendation was therefore already implemented, and what needed
+fixing was this report. What *is* single-valued is storage:
+`OntologyEntry` (`src/models.rs`) holds one `domain` and one `mode`. That
+is an authoring limit — an entry that genuinely spans two fields can only
+be written into one cell — not a query limit.
+
+So the useful measurement is what the ranked list carries beyond its
+argmax. Over all 730 real entries:
+
+| | top-1 | top-2 | top-3 | top-5 | top-10 |
+|---|---|---|---|---|---|
+| entry's own authored cell found at | 0.874 | 0.886 | 0.897 | 0.923 | 0.958 |
+
+Ranks 2-5 recover **+0.049** over the argmax alone (6% relative), and
+nothing is ever unranked. That is **marginal**: on this corpus, reading
+past rank 1 buys little for recovering where an entry was authored.
+
+The one figure that bears on Iteration 8's cross-cutting claim: the
+2nd-ranked cell is in a **different domain for 169/730 entries (23.2%)**,
+with a mean rank-1-to-rank-2 score margin of 0.1072. Reported as a
+measurement and not as evidence — Iterations 13, 15 and 19 each
+established that flags of this kind cannot be validated without labels
+this dataset does not have, and 23.2% is exactly the sort of
+plausible-looking rate that Iteration 21's degenerate 98% flag rate
+should make us slow to interpret.
+
+**Caveat, stated in the experiment's own output rather than buried**:
+entries are classified against an ontology built from them, so an entry's
+own text is a member of its own cell and top-1 = 0.874 is an upper bound,
+not held-out accuracy. The inflation applies at every rank, so the GAIN
+figures — which are differences — are the trustworthy part; the absolute
+levels are not.
+
+Two runs byte-identical.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

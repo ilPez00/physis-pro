@@ -921,7 +921,8 @@ the calibration heuristic, being the dominant constraint.
     vs 13/2 there), it covers the 5 coarse domains on one corpus and one
     embedder, and per Iteration 26b none of it transfers across a model
     swap.
-25. **NEXT, low-risk — surface `CellClassifier`'s per-cell similarity
+25. **DONE (Iteration 29) — NO CODE CHANGE NEEDED; this report described
+    the code wrongly.** Surface `CellClassifier`'s per-cell similarity
     scores** instead of collapsing to one winning `(domain, mode)`.
     Motivated by Iteration 8: `OntologyEntry` (`src/models.rs`) stores
     exactly one domain and one mode, Test 1 showed that loses real
@@ -931,6 +932,26 @@ the calibration heuristic, being the dominant constraint.
     information rather than adding a mechanism — and unlike everything in
     the certification thread, it requires no threshold to be trustworthy.
 
+
+    **Correction.** `classify()` does **not** collapse to a winner. It
+    returns `Vec<CellScore>` with every populated cell scored and ranked
+    (70.0 per query on the real ontology), and `studio.rs`,
+    `studio_lab.rs` and `main.rs` all already receive the full vector.
+    What is single-valued is *storage* — `OntologyEntry` holds one domain
+    and one mode — which is an authoring limit, not a query limit.
+
+    **So the measurable question became what the ranked list carries
+    beyond its argmax**, over all 730 entries: top-1 0.874, top-2 0.886,
+    top-3 0.897, top-5 0.923, top-10 0.958. Ranks 2-5 recover **+0.049**
+    over the argmax (6% relative) — marginal. The 2nd-ranked cell is in a
+    different domain for **169/730 (23.2%)**, mean rank-1-to-rank-2
+    margin 0.1072; that figure bears on Iteration 8's cross-cutting
+    claim, but Iterations 13/15/19 established three times that such
+    flags cannot be validated without labels, so it is a measurement, not
+    evidence of genuine multi-membership. Caveat stated in the output:
+    entries are classified against an ontology built from them, so top-1
+    is an upper bound, not held-out accuracy — the gains (differences)
+    are trustworthy, the absolute levels are not.
 26. **OPEN, awaiting owner decision — what gets promoted into
     physis-core.** Ready: language detection (Iteration 23, the WordNet
     coverage-fraction heuristic, 96.4% pass) and the fixed-cell linkage
