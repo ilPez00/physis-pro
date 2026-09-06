@@ -782,6 +782,64 @@ in the search layer but is NOT surfaced at the ontology-node level.
 
 ---
 
+### Phase 22 — Epistemic integrity: make the engine's claims true, and publish the ones that are (2026-09-06)
+
+Source: `docs/EPISTEMIC_AUDIT_2026-09-06.md` — full audit of physis-pro `13d8cdf` with
+physis-core pinned at `9d43821` (v0.1.14), built and tested with real bge-base weights.
+
+**State.** The build is clean (956 pass / 1 known PH-015 flake in physis-pro; 143/0 in
+physis-core) and classification is genuinely measurable: CORE top-1 domain **0.873** (48/55),
+cell **0.727** (40/55); ITALIAN 0.867 / 0.800 on the 79 labelled fixtures under bge-base. That
+number is real and is the anchor for every claim this project makes.
+
+**The gap.** The epistemic machinery does not do what the thesis says it does:
+
+1. Contradiction detection is cosine similarity (`src/ai/harness.rs:199`, `:216`;
+   `physis-core/src/core.rs:606`, `:378`) — the exact error `PHYSIS_THESIS.md` §1.1 names as
+   "The Cosine Fallacy" and exists to correct.
+2. Multidimensional coherence is three cosine variants plus three untouched 0.5 defaults, and
+   the ontological score is **silently discarded**: `harness.rs:252` calls
+   `profile.set("ontological", …)` but `CoherenceProfile` has no such field and `set()` falls
+   through to `_ => {}`.
+3. `predictive_success: 0.70` and `outcome_success: 0.70` are hardcoded literals on the product
+   path (`harness.rs:295`), so whether an interpretation worked never enters its score.
+4. `PHYSIS_THESIS.md` §8's seven "VERIFIED" rows rest on one test using a 64-dimension
+   random-projection hash embedder, and report a cosine of 1.088.
+5. SECOM's correctness predicate compares classifier *confidence* to 0.5 and never compares the
+   predicted class (`src/industrial_benchmark/secom.rs:541`); measured accuracy was 0.70 before
+   feedback and 0.70 after, `top1_changed = 0`, on 21 synthetic rows.
+
+**The correction — and the opportunity.** `physis-core` origin/master (`f4dd2a1`, v0.1.15) is
+**28 commits ahead of the pin** and carries 22 experiment programs implementing 26 numbered
+iterations: a formal ablation matrix with coarse assignment held constant across configurations,
+cross-embedder Adjusted Rand Index controls with blind partitions, and **five signal families
+tried and abandoned with the failures recorded as failures**. That is the experimental discipline
+the thesis lacks. It is unreachable from physis-pro's submodule pin, nothing in this repo points
+at it, and its results live only in commit messages and program stdout.
+
+**That series is the publishable artefact** — a negative-results paper on unsupervised ontology
+certification is defensible today and needs a write-up, not more code. The broad
+epistemic-architecture thesis is not publishable until items 1–5 are fixed and measured.
+
+| # | Deliverable | Packet | Est. Effort | Notes |
+|---|-------------|--------|-------------|-------|
+| 22.1 | `CoherenceProfile` gains `ontological`; `set()` can no longer drop a dimension silently | PH-017 | Small | Breaking change to a public physis-core type; bump + push submodule first. Rung 1 — everything else measures nothing until this lands |
+| 22.2 | Remove the two hardcoded fitness literals; wire `resolve_prediction` into the product path; represent "unmeasured" distinctly from 0.5 | PH-018 | Med | Also fixes `delta_engine.rs:407` composite overwrite, `core.rs:750` empirical 0.2, and the 0.60/0.5 neutral split |
+| 22.3 | Real contradiction detector (structural/ontological first); cosine demoted to candidate prefilter | PH-019 | Med-High | Needs a ≥ 20-pair labelled fixture set incl. high-cosine negations *and* high-cosine corroborations; report precision/recall old vs new |
+| 22.4 | Record the 26-iteration experiment series: `--json` per experiment, `physis-core/docs/EXPERIMENTS.md`, reachable from physis-pro; decide the submodule pin; draft the paper | PH-020 | High | **Read the series before writing anything.** Note `041b401` fixes non-deterministic ontology ordering — results from before it may not reproduce |
+| 22.5 | SECOM: compare predicted class not confidence; report balanced accuracy + minority P/R/F1 + confusion matrix + majority baseline; implement the promised UCI download | PH-021 | Med | Skeleton (seeded split, train-only feedback, `--no-feedback`) is sound and must be preserved |
+| 22.6 | `docs/CLAIMS.md` claim audit (`measured`/`demonstrated`/`aspirational`); rewrite thesis §8; rename mislabelled tests; CI claim-drift guard | PH-022 | Med | Customer-facing; human review before merge per PROTOCOL §7 |
+| 22.7 | Smallest viable neural→Physis evidence adapter: provenance and instrumentation before optimisation | PH-023 | High | Phase 2. Blocked on 22.1–22.4 — attaching evidence to a broken composite measures nothing |
+
+**Order.** 22.1 → 22.2 → 22.3 are rung 1–2 and gate everything else. 22.4 and 22.5 are
+independent of them and can run in parallel. 22.6 depends on 22.4. 22.7 is last, deliberately.
+
+**Architecture constraint added by this phase:** a score that cannot be measured must be
+*representable as unmeasured*. Replacing a missing measurement with a plausible constant is the
+defect this whole phase exists to remove — see PH-018.
+
+---
+
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by
@@ -790,6 +848,16 @@ in the search layer but is NOT surfaced at the ontology-node level.
 
 > **Embedder consistency:** nodes must be embedded with the **same** embedder
 > that embeds queries, or cosine recall is meaningless.
+
+> **No fabricated scores:** a quantity that cannot be measured yet must be *representable as
+> unmeasured*, never filled with a plausible constant. `predictive_success: 0.70` looked like data,
+> carried 0.25 of composite fitness, and made "retains interpretations that continue to work"
+> false on the path customers run. See Phase 22 / PH-018.
+
+> **Similarity is not contradiction:** cosine may prefilter candidate pairs; it may never itself
+> produce a `Contradiction`. A claim and its negation share high cosine — that is the premise of
+> `PHYSIS_THESIS.md` §1.1, so a cosine threshold flags corroboration and misses negation. See
+> Phase 22 / PH-019.
 
 > **Tenant isolation:** tenant-scoped handlers use `AppCtx::with_user(uid, |rt| …)`.
 > Shared immutable infra stays global in `SharedCtx`.
