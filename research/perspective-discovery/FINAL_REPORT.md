@@ -652,3 +652,52 @@ result did not resolve; 13 and 14 need no new infrastructure either. Item
 plan — item 9 showed a strong off-the-shelf embedder only closes part of
 the gap, so a fine-tune's ceiling is now a more tempered bet than it
 looked before this evidence existed.
+
+15. **NEW, user-proposed — cross-embedder DISAGREEMENT as a
+    multi-membership filter (sharper than item 11, and a direct fix
+    attempt for the still-open calibration-FPR problem).** Item 11 uses
+    embedder agreement to decide whether to trust ONE clustering
+    decision; this instead uses DISAGREEMENT as its own positive signal.
+    Concrete, testable design: for every real ontology entry, compute
+    (a) within-model margin (MiniLM's own top-1 vs. top-2 domain gap,
+    already computed in Iteration 18) and (b) whether MiniLM's and BGE's
+    top-1 domain picks DIFFER. Hypothesis: requiring BOTH — small
+    within-model margin AND cross-model top-1 disagreement — should cut
+    the false-positive rate that plagued Iterations 10, 12, 13, and 18's
+    flat/local calibration, because a false positive driven by one
+    model's idiosyncrasy is unlikely to be independently reproduced by a
+    differently-trained architecture, while a genuine cross-cutting
+    concept should trip both signals. Zero new setup cost (reuses
+    Iteration 18's exact embeddings and margins); the natural next
+    experiment given BGE weights now exist.
+16. **NEW, user-proposed — data-driven taxonomy expansion.** If two
+    architecturally different, generally strong embedders (Iteration 18:
+    MiniLM and BGE) both find the same domain pairs hard to separate,
+    that is evidence about the TAXONOMY, not just the embedding. Use the
+    entries with persistently negative margins ACROSS BOTH embedders
+    (robust to model choice, not a MiniLM artifact) as candidates for
+    where the domain/mode grid may need a new cell, a split, or a merge.
+    Explicit caution, from this track's own discipline (mission Section
+    20, "do not confuse semantic similarity with ontological validity"):
+    this identifies WHERE a human should look, it does not decide WHAT
+    the right taxonomy is — physis-core's domain boundaries may
+    deliberately separate concepts that are semantically close for
+    reasons embeddings can't see (downstream business logic, not
+    semantic salience). Treat this as a diagnostic report to a human
+    curator, not an automated taxonomy-editing pipeline.
+17. **NEW, user-proposed, longer-range — graph connectivity as a third,
+    non-geometric signal.** physis-core already has a relation layer
+    (`TypedEdge`/`RelationType`, `src/relation.rs`) — if a real entry has
+    existing causal/epistemic edges to entries in a DIFFERENT domain,
+    that graph connectivity is independent evidence for cross-domain
+    relevance, orthogonal to embedding geometry entirely. Untested
+    whether the real 730-entry ontology currently has enough such edges
+    to be useful — check this before investing further; if edges are
+    sparse or domain-homogeneous, this signal has nothing to contribute
+    yet.
+
+**Recommended next action**: item 15 (cross-embedder disagreement as a
+multi-membership filter) — it is the cheapest of the three (reuses data
+already computed, no new embeddings needed), and it is a direct attempt
+at the one problem this track has not yet solved on the calibration side
+(FPR), rather than another measurement of how big the problem is.
