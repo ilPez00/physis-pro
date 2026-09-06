@@ -898,6 +898,90 @@ track catches. That is the next thing to solve before recommending this
 architecture be built as production code, not a blocking defect in the
 architecture's shape.
 
+## Iteration 11 — hunting for a certification signal robust to balance (user-directed follow-up)
+
+Directly targets the open problem left by Iteration 10: find a signal
+that catches "balanced but wrong" without also incorrectly rejecting
+"unbalanced but right." Every test up to this point varied only ONE axis
+(correctness OR balance) per comparison, so no candidate had actually been
+checked against both failure directions at once.
+`physis-core/examples/experiment11_generalized_certification.rs` builds a
+proper 2x2 using real/established ground truth in every cell — no
+synthetic "obviously wrong" split invented just to make a point:
+
+| | balanced | imbalanced |
+|---|---|---|
+| **correct** | Case 1: Dataset A true mammal/bird (8v7) | Case 4: NEW vehicle corpus, true wheel-count split (2v10) |
+| **wrong** | Case 3: Iteration 10's bird depth-2 real k-means (6v4) | Case 2: Dataset A real depth-1 k-means (13v2) |
+
+Case 4 is new: 12 vehicles, ground truth is literal wheel count (2
+two-wheelers: motorcycle, bicycle; 10 four-or-more-wheelers: car, truck,
+bus, van, SUV, pickup, minivan, tractor, forklift, golf cart) — objectively
+correct by definition, deliberately imbalanced (ratio 0.2), no
+"two-wheeled"/"four-wheeled" keywords in any sentence.
+
+**Five candidate signals tested, pass criterion = min(score over both
+correct cases) > max(score over both wrong cases):**
+
+| signal | case1 (good/bal) | case2 (bad/imbal) | case3 (bad/bal) | case4 (good/imbal) | separates? |
+|---|---:|---:|---:|---:|---|
+| balance ratio | 0.875 | 0.154 | 0.667 | 0.200 | **NO** |
+| silhouette-like | 0.048 | 0.089 | 0.087 | 0.086 | **NO** (doesn't discriminate at all here) |
+| kNN-consistency, raw (k=3) | 0.711 | 0.867 | 0.667 | 0.750 | **NO** (bad case 2 scores *highest* of all four) |
+| kNN-consistency, size-adjusted, fixed k=3 | 0.244 | 0.114 | 0.200 | 0.053 | **NO** |
+| kNN-consistency, size-adjusted, adaptive k | 0.244 | 0.092 | 0.200 | 0.164 | **NO — but closest** |
+| confident-item fraction (epsilon swept 0.00-0.30) | — | — | — | — | **NO at every epsilon tested** |
+
+**Diagnosed mechanism behind each failure, not just the failure itself:**
+
+- Raw kNN-consistency mechanically favors majority clusters: with a fixed
+  k=3, a large cluster has more candidate same-cluster neighbors
+  available purely by base rate, independent of correctness — exactly why
+  case 2 (the classic bad 13-vs-2 split) scores highest.
+- The size-adjustment (subtracting the base-rate-expected same-cluster
+  rate) fixes that specific bias — case 2 drops to the *lowest* score of
+  all four once adjusted, correctly. But with a fixed k=3, a 2-item
+  cluster (case 4's two-wheelers) can have at most 1 real same-cluster
+  neighbor, so the metric is forced to count 2 off-cluster items as
+  "neighbors" for the remaining slots regardless of embedding quality — a
+  size-driven ceiling having nothing to do with correctness. Making k
+  adaptive per item (`k = min(3, own_cluster_size - 1)`) removes this
+  ceiling and lifts case 4 from 0.053 to 0.164 — a real improvement in
+  the right direction, confirming the diagnosis — but it's still below
+  case 3's 0.200.
+- The remaining gap has its own mechanism, also diagnosed rather than
+  left as an unexplained miss: case 3's split is only "20% wrong" (2 of
+  10 birds mislabeled — ostrich and cassowary), so the other 8 items
+  still have entirely correct local neighborhoods and the metric
+  reasonably scores it as fairly consistent. Case 4's ground-truth axis
+  (wheel count) is not necessarily the *dominant* semantic gradient the
+  embedding space encodes for those sentences — a golf cart may sit
+  closer to a bicycle via shared recreational context than to a dump
+  truck via shared wheel count — so even the objectively correct split
+  scores lower on a pure similarity-consistency metric. This suggests a
+  structural limit for any single-embedding-similarity signal: it can
+  confuse "the intended classification axis" with "the dominant semantic
+  axis," and those are not guaranteed to coincide.
+- Confident-item fraction was epsilon-swept (0.00 to 0.30 in steps of
+  0.01) rather than assumed at one value — the fixed epsilon=0.02 used
+  when this signal was first proposed saturated at 1.000 for every case,
+  which is not calibration, it's an unexamined default. The full sweep
+  shows no epsilon separates the four cases either; case 1 collapses
+  toward 0 fastest as epsilon rises (it has the most gradually-varying
+  margins of the four), the opposite of what a useful signal should show.
+
+**Honest bottom line**: no cheap, single, universal certification signal
+found in this track (5 candidates, 2 design iterations on the most
+promising one) cleanly separates correctness from size across all four
+quadrants. Adaptive+size-adjusted kNN-consistency is the strongest lead —
+it is the only signal that correctly demotes the classic bad-imbalanced
+case to the bottom — but is not yet sufficient on its own. Not
+recommended for production certification as-is; flagged as a partial
+result and a plausible foundation for a future ensemble (e.g. combine it
+with balance ratio, or add a signal that specifically detects "small
+number of borderline items in an otherwise-consistent cluster," which is
+exactly the case-3 failure mode) rather than a finished answer.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

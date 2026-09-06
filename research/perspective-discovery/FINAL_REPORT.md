@@ -59,6 +59,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment8_dataset_d_crosscutting.rs` (Iteration 8)
 - `physis-core/examples/experiment9_certification_gate.rs` (Iteration 9)
 - `physis-core/examples/experiment10_integration.rs` (Iteration 10)
+- `physis-core/examples/experiment11_generalized_certification.rs` (Iteration 11)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -281,6 +282,27 @@ its keep on real combined data. It is not yet ready to recommend as
 production code** — the open problem is a certification signal that
 catches "balanced but wrong," not just "imbalanced."
 
+**Iteration 11, directly hunting for that signal**: built a proper 2x2
+(correct x balanced) with real/established ground truth in every cell —
+every prior comparison had varied only one axis at a time. Five candidate
+signals tested (balance ratio, silhouette-like, raw kNN-consistency,
+size-adjusted kNN-consistency at fixed k, the same adjusted for adaptive
+per-item k), plus an epsilon sweep for confident-item fraction rather
+than an assumed threshold. **None cleanly separate correct from wrong
+independent of balance.** Adaptive+size-adjusted kNN-consistency is the
+closest: it is the only signal that correctly demotes the classic
+bad-imbalanced case (13-vs-2) to the lowest score of all four (fixing a
+diagnosed base-rate bias in the raw version), but it still scores
+Iteration 10's balanced-but-wrong bird split (0.200) above a
+deliberately-imbalanced-but-correct vehicle split (0.164) — because that
+"wrong" split is only 20% wrong (2 of 10 items mislabeled, the rest
+locally correct), while the correct vehicle split's ground-truth axis
+(wheel count) is not necessarily the dominant semantic gradient the
+embedding space encodes. **No single embedding-similarity signal found in
+this track resolves the open problem; recommend an ensemble (this signal
+combined with balance ratio, or a dedicated few-borderline-items
+detector) as the next thing to try, not a from-scratch sixth candidate.**
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -320,3 +342,9 @@ catches "balanced but wrong," not just "imbalanced."
    passes the gate, still mislabels two flightless birds as flying) —
    the concrete blocker for recommending the multi-membership +
    certified-recursion synthesis architecture as production code.
+   Iteration 11 tested 5 single-signal candidates and found none that
+   resolve it alone; the next attempt should be an ensemble (adaptive
+   size-adjusted kNN-consistency + balance ratio, or a dedicated
+   few-borderline-items detector specifically targeting "mostly right,
+   a small number of items wrong" splits) rather than another lone
+   metric.
