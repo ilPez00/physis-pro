@@ -1583,6 +1583,88 @@ directly for this task, unlike either general-purpose model tested
 here), but "swap to a better off-the-shelf embedder" alone is not the
 fix Iteration 15 might have suggested in isolation.
 
+## Iteration 19 — cross-embedder corroboration for multi-membership (roadmap item 15), an honest negative-to-mixed result
+
+User-proposed: don't treat a second embedder as a horse race (Iteration
+18) — use it to CORROBORATE specific multi-membership candidates.
+Refined from the roadmap's "top-1 disagreement" framing to a sharper
+test: for every candidate secondary category MiniLM's local/split
+calibration (Iteration 13) flags, check whether BGE's own independently-
+computed ranking for that item ALSO contains that specific category.
+`physis-core/examples/experiment19_cross_embedder_corroboration.rs`.
+
+### Part A — Vehicle ontology (ground truth known): no improvement, and a real cost
+
+| | MiniLM alone (FPR, recall) | + BGE corroboration (FPR, recall) |
+|---|---|---|
+| bare | 0.067 (1/15), 5/5 | 0.067 (1/15), 5/5 |
+| contextual | 0.133 (2/15), 5/5 | 0.133 (2/15), **4/5** |
+
+**Zero aggregate FPR improvement in either representation.** The
+corroboration filter did narrow WHICH specific categories stayed flagged
+on the false-positive items (`cruise_control`'s flagged set shrank from
+5 categories to 2) but didn't clear the false positive entirely, because
+`propulsion` survived corroboration — BOTH embedders independently
+perceive the same spurious cruise-control-to-propulsion signal, which is
+not unreasonable on reflection (cruise control does involve engine-speed
+regulation) but means it isn't model-specific noise the filter can catch.
+**Worse: recall dropped to 4/5 in the contextual run** — the filter can
+and did discard a genuine true-positive candidate along with the noise,
+not just noise. This is the exact risk flagged before implementing:
+requiring cross-model corroboration is a strictly harder bar, and there
+is no guarantee a true cross-cutting signal clears it in both
+independently-trained embedding spaces.
+
+### Part B — real 730-entry ontology (descriptive, no ground truth): informative but not in the hoped-for direction
+
+At delta=0.03, MiniLM flags 666/730 entries (91.2%) as multi-domain
+candidates; **92.6% of those survive BGE corroboration** — the filter
+barely reduces the flagged set at all on real data. This is itself a
+real finding, just not the one item 15 was hoping to produce: it means
+the widespread apparent overlap found in Iterations 15 and 18 is **not
+primarily model-specific noise** (which corroboration would have
+filtered out) — both architecturally different models see nearly the
+same ambiguity, which further supports the genuine-taxonomy-overlap
+interpretation over an embedding-artifact one, on top of Iteration 18's
+already-similar conclusion. Corroboration as a noise filter does not
+work here because the "noise" is not model-specific.
+
+**A specific, actionable pattern surfaced by the qualitative spot-check**
+(this track's standing discipline: read the actual text, don't just
+trust the aggregate number): for broad lifestyle/activity entries —
+"Gaming & Esports" (true=STUDY), "Music & Performance" (true=FABRICATE),
+"Wealth & Assets" (true=FABRICATE) — MiniLM flags all or nearly all 5
+domains as plausible, and BGE corroborates most of them, but **the
+entry's own assigned true domain is often the LEAST corroborated label
+of the set**, not the most. This suggests the widespread overlap finding
+is not uniformly distributed across all 730 entries — it may be
+concentrated in a specific class of broad, inherently multi-domain
+"life activity" categories (gaming, music, investing, hobbies) that
+genuinely touch several of physis-core's 5 abstract domains
+(Bond/Study/Fabricate/Construct/Heal) at once, rather than being evenly
+spread ambiguity across the whole taxonomy. This is a concrete lead for
+roadmap item 16 (data-driven taxonomy expansion): the fix may not be
+"refine domain boundaries everywhere" but "explicitly model certain
+lifestyle-category entries as inherently multi-domain," which is exactly
+what the multi-membership mechanism (Iteration 8 onward) already
+supports — surfacing the signal rather than needing a new mechanism.
+
+**Honest bottom line**: item 15's specific hypothesis (cross-embedder
+corroboration reduces false-positive multi-membership flags) is not
+supported by this test — it did not help on the toy dataset and barely
+changes anything on real data, though the REASON it doesn't help (the
+ambiguity is shared across architectures, not model-specific) is itself
+useful evidence for a different, adjacent conclusion. Do not present this
+as a working fix; the corroboration approach as implemented should not
+be carried into production calibration.
+
+**Side incident, flagged not chased further**: BGE's ONNX weights
+(pulled in Iteration 18, 416MB) had disappeared entirely from disk
+before this iteration started, despite being correctly covered by
+`.gitignore` — a plain git checkout/reset should not remove an ignored,
+untracked file. Re-downloaded and proceeded; cause not confidently
+identified.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

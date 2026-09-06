@@ -69,6 +69,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment16_ablation_matrix.rs` (Iteration 16)
 - `physis-core/examples/experiment17_jepa_ontology_binding.rs` (Iteration 17)
 - `physis-core/examples/experiment18_multi_embedder_comparison.rs` (Iteration 18)
+- `physis-core/examples/experiment19_cross_embedder_corroboration.rs` (Iteration 19)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -653,23 +654,26 @@ plan — item 9 showed a strong off-the-shelf embedder only closes part of
 the gap, so a fine-tune's ceiling is now a more tempered bet than it
 looked before this evidence existed.
 
-15. **NEW, user-proposed — cross-embedder DISAGREEMENT as a
-    multi-membership filter (sharper than item 11, and a direct fix
-    attempt for the still-open calibration-FPR problem).** Item 11 uses
-    embedder agreement to decide whether to trust ONE clustering
-    decision; this instead uses DISAGREEMENT as its own positive signal.
-    Concrete, testable design: for every real ontology entry, compute
-    (a) within-model margin (MiniLM's own top-1 vs. top-2 domain gap,
-    already computed in Iteration 18) and (b) whether MiniLM's and BGE's
-    top-1 domain picks DIFFER. Hypothesis: requiring BOTH — small
-    within-model margin AND cross-model top-1 disagreement — should cut
-    the false-positive rate that plagued Iterations 10, 12, 13, and 18's
-    flat/local calibration, because a false positive driven by one
-    model's idiosyncrasy is unlikely to be independently reproduced by a
-    differently-trained architecture, while a genuine cross-cutting
-    concept should trip both signals. Zero new setup cost (reuses
-    Iteration 18's exact embeddings and margins); the natural next
-    experiment given BGE weights now exist.
+15. **DONE (Iteration 19) — NOT SUPPORTED.** Cross-embedder
+    corroboration as a multi-membership filter (refined from
+    "disagreement" to the sharper "does BGE independently corroborate
+    the SPECIFIC category MiniLM flagged"). On the Vehicle ontology
+    (ground truth known): zero aggregate FPR improvement over Iteration
+    13's local/split calibration, AND recall dropped from 5/5 to 4/5 in
+    the contextual representation — the filter discarded a true positive
+    along with noise. On the real 730-entry ontology: 92.6% of
+    MiniLM-flagged entries survive BGE corroboration at delta=0.03 —
+    barely filters anything, because the ambiguity is NOT primarily
+    model-specific (both architecturally different models perceive
+    nearly the same overlap), which is itself evidence for the
+    genuine-taxonomy-overlap interpretation (reinforcing item 9's
+    finding) even though it doesn't solve the FPR problem. Do not carry
+    this specific corroboration design into production calibration.
+    Byproduct worth keeping: the qualitative spot-check found that broad
+    lifestyle/activity entries (Gaming & Esports, Music & Performance,
+    Wealth & Assets) show their OWN true domain as the LEAST corroborated
+    label across both models — a specific, actionable lead for item 16
+    below, not a uniform ontology-wide problem.
 16. **NEW, user-proposed — data-driven taxonomy expansion.** If two
     architecturally different, generally strong embedders (Iteration 18:
     MiniLM and BGE) both find the same domain pairs hard to separate,
@@ -684,7 +688,17 @@ looked before this evidence existed.
     deliberately separate concepts that are semantically close for
     reasons embeddings can't see (downstream business logic, not
     semantic salience). Treat this as a diagnostic report to a human
-    curator, not an automated taxonomy-editing pipeline.
+    curator, not an automated taxonomy-editing pipeline. **Sharpened by
+    Iteration 19's qualitative finding**: the overlap is not uniform
+    across the ontology — broad lifestyle/activity entries (gaming,
+    music, investing, hobbies) show their own assigned domain as the
+    LEAST corroborated label across two independent models, suggesting a
+    specific, identifiable class of entries drives a meaningful share of
+    the overlap. Starting point: pull every entry whose true domain is
+    the least-corroborated of its flagged set (both embedders agree on
+    this, per Iteration 19's method) and hand that specific, bounded
+    list to a human curator, rather than treating item 16 as "review all
+    666 flagged entries."
 17. **NEW, user-proposed, longer-range — graph connectivity as a third,
     non-geometric signal.** physis-core already has a relation layer
     (`TypedEdge`/`RelationType`, `src/relation.rs`) — if a real entry has
@@ -696,8 +710,14 @@ looked before this evidence existed.
     sparse or domain-homogeneous, this signal has nothing to contribute
     yet.
 
-**Recommended next action**: item 15 (cross-embedder disagreement as a
-multi-membership filter) — it is the cheapest of the three (reuses data
-already computed, no new embeddings needed), and it is a direct attempt
-at the one problem this track has not yet solved on the calibration side
-(FPR), rather than another measurement of how big the problem is.
+**Recommended next action, updated after Iteration 19**: item 15 is done
+(not supported as a fix). Next: item 16, narrowed to the specific,
+bounded list of least-corroborated-true-domain entries Iteration 19's
+qualitative pass surfaced — a concrete, small, human-reviewable list
+rather than an open-ended "review the taxonomy" task. Item 17 (graph
+connectivity) remains a real but unstarted precondition-check. Item 12
+(fine-tune) remains the most expensive option, now further tempered:
+two independent negative-to-mixed calibration results (Iterations 13's
+residual gap, 19's corroboration filter) plus item 9's modest
+embedder-swap gain all point toward the taxonomy, not the embedding or
+the calibration heuristic, being the dominant constraint.
