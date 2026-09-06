@@ -713,6 +713,101 @@ label cannot — a small, low-risk enhancement to consider even though it
 was discovered as a side effect of falsifying everything else in this
 track, not as its original goal.
 
+## Iteration 9 — does a certification signal actually distinguish a good split from a bad one?
+
+Prompted by the user's proposed synthesis architecture (multi-membership +
+coherence gating + certified recursion, built directly on Iterations 7-8's
+surviving findings). "Certified recursion" means only recursing when an
+internal signal predicts a split is trustworthy — untested until now.
+physis-core's existing `coherence_score` is a node-level density metric
+(mean cosine to nearest neighbours), not a split-quality metric, so it
+cannot be assumed to transfer to "should I recurse into this cluster"
+without checking. File:
+`physis-core/examples/experiment9_certification_gate.rs`.
+
+Tested two cheap candidate signals against the exact two splits Iteration 7
+already scored against ground truth (the real 13-vs-2 k-means split vs the
+true 8-vs-7 mammal/bird partition):
+
+| signal | GOOD split (8-vs-7, purity 1.000) | BAD split (13-vs-2, purity 0.667) | ranks GOOD above BAD? |
+|---|---:|---:|---|
+| size-balance ratio (min/max cluster size) | **0.875** | 0.154 | **yes** |
+| silhouette-like (within-cohesion minus between-separation) | 0.048 | **0.089** | **no — backwards** |
+
+**Balance ratio is a real, cheap, validated certification signal** for the
+exact failure mode Iteration 7 found — it directly measures cluster-size
+imbalance, so of course it catches a 13-vs-2 split, but that is precisely
+the failure mode this architecture needs to guard against, and it does so
+with a large, unambiguous margin.
+
+**Silhouette-style coherence gets it backwards, and the mechanism why is
+worth stating plainly:** a large, heterogeneous 13-item cluster's centroid
+drifts toward the corpus-wide average, so most of its members still score
+reasonably close to it on average even though the cluster is semantically
+wrong; the correct 8-vs-7 split has more genuine internal variation (a lion
+and a sheep are both "mammal" but not very similar to each other) and
+scores *worse* on a naive cohesion-minus-separation metric despite being
+right. **If "coherence gating" means silhouette-style scoring, wiring it in
+as originally proposed would certify the wrong split and reject the right
+one — the opposite of the intended effect.** This is not a reason to drop
+certification gating; it is a reason not to trust the first plausible
+metric without the same scrutiny every other result in this track has
+gotten.
+
+**Recommendation, refining rather than rejecting the user's proposal:**
+use size-balance ratio (thresholded, e.g. reject/don't-recurse below ~0.5)
+as the near-term certification gate — it is validated, cheap, and directly
+targets the observed failure mode. Do not use naive silhouette/cohesion
+scoring as a gate without further investigation; it failed the one test
+run against it here.
+
+## Data model check: does multi-membership fit physis-core's existing structures?
+
+Checked before recommending any schema change. `TypedEdge`/`RelationType`
+(`src/relation.rs`) are entirely epistemic/causal relations (Supports,
+Contradicts, Causes, Precedes, DependsOn, ...) — no "member-of" or
+"classified-as" relation exists, so representing multi-membership as
+literal graph edges with per-edge provenance (mission Section 11: "D
+discovered from A" and "D discovered from B" as separate relation records)
+would need a new `RelationType` variant, a small additive enum change, not
+a redesign.
+
+**Lower-risk path, needing zero schema changes**: `CoherenceNode.properties`
+(`serde_json::Map<String, Value>`, restored during PH-014 specifically to
+be an open extension point) can hold a full per-cell membership vector
+today — e.g. `properties["cell_memberships"] = [{"domain":..., "mode":...,
+"score":...}, ...]`. This is the "surface an existing signal" path the
+Final Report already recommended, now confirmed concretely buildable
+without touching `CoherenceNode`'s native fields or `TypedEdge` at all.
+Graph-level member-of edges (useful later for traversal, e.g. "show me
+every node connected to both the mechanical and economic fields") remain a
+real but separate, larger follow-up.
+
+## Remaining gaps before this synthesis architecture should be built for real
+
+Flagged, not attempted, in the interest of not overclaiming readiness:
+
+1. **Membership-vector threshold calibration and false-positive rate.**
+   Iteration 8 tested recall on 4 hand-picked cross-cutting items only —
+   it never checked whether the 21 *pure*, single-membership items also
+   trigger spurious "dual membership" signals above whatever threshold
+   gets chosen. A threshold that looks good on 4 positive examples and
+   was never checked against negatives is not calibrated.
+2. **No end-to-end integration test.** Multi-membership (Iteration 8),
+   conditional recursion (Iteration 7), and now a balance-based
+   certification gate (Iteration 9) have each been validated in isolation,
+   on different slices of data. Nothing in this track has run all three
+   together on one corpus that has both real hierarchy AND cross-cutting
+   concepts (no dataset built so far has both at once) and checked whether
+   the composed system recovers a structure that matches a combined
+   ground truth.
+3. **Multi-membership turns the recursion tree into a DAG** — a node
+   reachable via two different parent memberships needs revisit/cycle
+   protection (mission Section 10's "visited-reference cache," never
+   built) or recursion could re-expand the same node once per membership
+   path, multiplying branching factor by however many fields a node
+   belongs to.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

@@ -261,14 +261,14 @@ primitives rather than requiring new architecture:
    mechanism *can* carry multi-membership signal on a hand-built example;
    whether it matters in practice depends on how often real data needs it,
    which was not measured.
-2. Whether Iteration 5's context effect holds on physis-core's *real*
+3. Whether Iteration 5's context effect holds on physis-core's *real*
    ontology (Iteration 4's task uses `name + hints`, shorter than a full
    sentence) — untested combination.
-3. A properly hyperparameter-tuned (validation-split-gated, not
+4. A properly hyperparameter-tuned (validation-split-gated, not
    toy-corpus-carried-over) rerun of Iteration 4's predictor, since its
    chance-level loss is consistent with undertraining and not fully
    excluded as the explanation for its loss.
-4. A genuinely self-supervised JEPA test (predict context from natural
+5. A genuinely self-supervised JEPA test (predict context from natural
    co-occurrence, no category labels anywhere) — needs a corpus with real
    contextual structure, which none built in this track provide; not
    attempted because building one properly is a materially larger
