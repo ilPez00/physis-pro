@@ -1440,6 +1440,89 @@ claims:
   from Iteration 8's original finding, now with an honest, measured cost
   (FPR) attached rather than reported recall-only.
 
+## Iteration 17 — genuine JEPA-style ontology binding, and closing Next Experiment 4
+
+User-directed brainstorm ("think of how to use jepa to bind discovered
+ontologies to underlying representations"), then implemented directly
+("write plan and go"). `physis-core/examples/experiment17_jepa_ontology_binding.rs`.
+The proposal: fix Iteration 3's mistake (a supervised predictor that used
+perspective labels and was never a genuine JEPA test) by training a
+low-rank predictor toward the DISCOVERED structure's own train-only
+centroids (stop-gradient) instead of a human label — self-supervision
+that comes from the discovery pipeline itself, not external annotation.
+Two genuinely different questions, tested carefully separately to avoid
+conflating supervised and self-supervised claims:
+
+### Test 1 — does binding generalize to held-out items? (genuinely self-supervised, the 6 known toy cases)
+
+Rank-8 low-rank predictor `pred(x) = V(Uᵀx)`, hand-derived gradients,
+2-class contrastive loss (own train-centroid vs. other train-centroid,
+both stop-gradient), tested on the same 6 real cases from Iterations
+13-14 with a held-out split. **Result: INCONCLUSIVE, not a clean
+failure.** Held-out sets are only 2-5 items (these are 6-15 item toy
+datasets), giving accuracy 20-50% resolution per single item — far too
+coarse to detect a subtle generalization signal. None of the 4 candidate
+metrics (raw baseline, trained held-out accuracy, final loss,
+generalization gap) separate good from bad, but this result cannot
+distinguish "no real signal" from "signal too fine-grained to see at
+this sample size." Collapse diagnostics were clean (predicted pairwise
+cosine not collapsed toward 1.0 in any case). **This specific mechanism
+needs a larger-scale test with matched good/bad real splits before any
+verdict is possible** — none currently exists at production scale (the
+real ontology has no ground-truth-labeled "known-bad split" to test
+against, only true domain labels).
+
+### Test 2 — real-data extension: closes Next Experiment 4 (explicitly SUPERVISED, not a self-supervised claim)
+
+Extended the same predictor to physis-core's real 730-entry ontology,
+generalized to N-way softmax cross-entropy — but using TRUE domain
+labels as targets. **This is supervised metric learning, stated plainly
+as such, not a JEPA test** — conflating the two would repeat exactly
+Iteration 3's mistake. This directly fulfills FINAL_REPORT's Next
+Experiment 4: "a properly hyperparameter-tuned rerun of Iteration 4's
+predictor, since its chance-level loss was consistent with undertraining
+and not fully excluded as the explanation."
+
+Three attempts, in order, each diagnosed before moving to the next
+(the track's standing discipline):
+1. 150 epochs, lr=0.5: loss barely moved (1.6094→1.4991, chance floor is
+   ln(5)=1.609), held-out accuracy (0.365) WORSE than raw cosine
+   (0.561) — reproduces Iteration 4's exact undertrained pattern.
+2. 1500 epochs, lr=2.0 (too aggressive): loss diverged to 18.42 and
+   NaN'd, crashed on a NaN comparison — textbook gradient explosion, not
+   evidence about the underlying question.
+3. 800 epochs, lr=0.3: loss converges cleanly, chance (1.609) to 0.558,
+   train accuracy reaches 0.811 — properly trained this time, no more
+   undertraining ambiguity.
+
+**Even properly trained, held-out accuracy is only 0.534 — barely above
+the (noisy, see below) raw-cosine baseline of ~0.50-0.56 — with a large
+0.277 generalization gap indicating substantial overfitting to the
+training set.** This CLOSES Next Experiment 4 with a real, specific
+answer: Iteration 4's original chance-level result was NOT primarily an
+undertraining artifact. A properly-trained version of this predictor
+design fits its training data far better than raw cosine but does not
+meaningfully generalize past it on physis-core's real ontology.
+
+**Side finding, flagged not chased further**: raw-cosine baseline
+accuracy varied 0.500-0.561 across otherwise-identical reruns of the
+same deterministic pipeline — consistent with ONNX Runtime's
+multi-threaded execution introducing tiny floating-point
+non-determinism that flips near-tie classifications, plausible given
+Iteration 15 already found ~40% of real entries sit near a decision
+boundary. Worth pinning single-threaded ONNX execution for any future
+experiment where run-to-run reproducibility at this precision matters.
+
+**Net implication for the brainstormed JEPA-binding proposal**: the
+self-supervised generalization mechanism itself remains untested at
+adequate scale (Test 1 was inconclusive by sample size, not falsified);
+the closest real-scale data point available (Test 2, supervised, a
+different question) suggests this general predictor architecture — a
+low-rank bottleneck fit by gradient descent toward class centroids — has
+a real ceiling on physis-core's real ontology that more training doesn't
+overcome, which is at least a cautionary prior for how much to expect
+from the self-supervised version if it were tested at real scale.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,

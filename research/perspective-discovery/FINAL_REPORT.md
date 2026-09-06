@@ -67,6 +67,7 @@ experimentation — none did, unconditionally.
 - `physis-core/examples/experiment14_borderline_item_detector.rs` (Iteration 14)
 - `physis-core/examples/experiment15_real_ontology_prevalence.rs` (Iteration 15)
 - `physis-core/examples/experiment16_ablation_matrix.rs` (Iteration 16)
+- `physis-core/examples/experiment17_jepa_ontology_binding.rs` (Iteration 17)
 - `research/perspective-discovery/RESEARCH_LOG.md` (this track's full
   reasoning trail) + this file
 
@@ -473,6 +474,23 @@ demands, is **PARTIALLY SUPPORTED, leaning FALSIFIED as an accuracy
 improvement** — it is safe (never demonstrably worse than not recursing,
 across two representations tested) but not yet shown to be better.
 
+**Iteration 17, user-directed, asked whether JEPA could be reframed to
+bind discovered ontology structure to the embedding space, fixing
+Iteration 3's mislabeling** by targeting the discovery pipeline's own
+train-only centroids (stop-gradient) instead of a human label. Two
+results, kept carefully separate: the genuinely self-supervised version
+(targets = discovered/oracle centroids) is **INCONCLUSIVE** on the 6
+known toy cases — held-out sets of 2-5 items give far too little
+resolution to detect a subtle generalization signal, a sample-size limit
+rather than a finding. The real-scale extension is explicitly
+**supervised** metric learning (true domain labels), not a JEPA claim,
+and closes Next Experiment 4: a properly-converged version (loss
+1.609→0.558) still only reaches 0.534 held-out accuracy versus ~0.50-0.56
+raw cosine, with a 0.277 generalization gap — the original chance-level
+result was not primarily undertraining; this architecture has a real
+ceiling on real data. The self-supervised binding proposal itself remains
+untested at adequate scale, not falsified — see Next Experiment 5.
+
 ## What should NOT be merged
 
 - Δ-direction clustering or any geometric transform of a frozen embedding
@@ -500,16 +518,27 @@ across two representations tested) but not yet shown to be better.
 3. Whether Iteration 5's context effect holds on physis-core's *real*
    ontology (Iteration 4's task uses `name + hints`, shorter than a full
    sentence) — untested combination.
-4. A properly hyperparameter-tuned (validation-split-gated, not
-   toy-corpus-carried-over) rerun of Iteration 4's predictor, since its
-   chance-level loss is consistent with undertraining and not fully
-   excluded as the explanation for its loss.
-5. A genuinely self-supervised JEPA test (predict context from natural
-   co-occurrence, no category labels anywhere) — needs a corpus with real
-   contextual structure, which none built in this track provide; not
-   attempted because building one properly is a materially larger
-   undertaking than any single iteration here, not because it was judged
-   unpromising.
+4. **DONE (Iteration 17).** A properly hyperparameter-tuned rerun of
+   Iteration 4's predictor. Result: after diagnosing and fixing an
+   undertrained first attempt and a diverged (too-aggressive-lr) second
+   attempt, a properly converged version (loss 1.609→0.558, train
+   accuracy 0.811) still only reaches 0.534 held-out accuracy — barely
+   above raw cosine (~0.50-0.56) — with a 0.277 generalization gap. The
+   original chance-level result was NOT primarily an undertraining
+   artifact; this predictor architecture has a real ceiling on
+   physis-core's real ontology that more training doesn't overcome.
+5. **PARTIALLY ATTEMPTED (Iteration 17), genuinely self-supervised this
+   time** (targets = discovered/oracle cluster centroids, never a human
+   label) — tested for held-out generalization across the 6 known toy
+   cases from Iterations 13-14. Result: INCONCLUSIVE, not falsified —
+   held-out sets are only 2-5 items per case, giving far too little
+   resolution to detect a subtle signal. Needs a larger-scale test with
+   matched good/bad splits, which does not currently exist at production
+   scale (physis-core's real ontology has true domain labels but no
+   ground-truth "known-bad split" to test generalization against). A
+   corpus with real contextual co-occurrence structure (the original
+   framing of this item) remains a separate, larger undertaking, not
+   attempted.
 6. **LIKELY NOT SOLVABLE WITH A CHEAP GEOMETRIC SIGNAL — four attempts,
    four structurally distinct failure mechanisms.** A certification
    signal that catches a well-balanced but label-wrong split. Iteration 9
