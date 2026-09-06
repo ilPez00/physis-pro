@@ -1,30 +1,34 @@
 # Final report — perspective-conditioned ontology discovery + JEPA
 
-Seven iterations, two datasets, real production data, and one caught NaN
+Eight iterations, three datasets, real production data, and one caught NaN
 bug later. This is the mission's Section 31 report. All raw code, commits,
 and the full iteration-by-iteration reasoning are in `RESEARCH_LOG.md` in
 this directory and on branch `research/perspective-discovery-v2`
-(physis-pro) / `master` (physis-core, commits `e91aaab`..`17369ef`); this
-document is the synthesis, not a replacement for that trail.
+(physis-pro) / `master` (physis-core, commits `e91aaab`..the Dataset D
+commit); this document is the synthesis, not a replacement for that trail.
 
 ## Executive conclusion
 
 The hypothesis, as stated, is **FALSIFIED for the two concrete mechanisms
-tested** (geometric reference-conditioning; a JEPA-style trained
-predictor), **with one PARTIALLY SUPPORTED exception** (recursion, tested
-independently of the falsified mechanisms) **and one well-evidenced
-finding the mission did not ask about but that turned out to dominate
-every other result** (input-representation quality). Broken out by
-sub-claim, because a single global label would hide the real structure of
-what was learned:
+tested on exclusive-membership data** (geometric reference-conditioning; a
+JEPA-style trained predictor), **PARTIALLY SUPPORTED for recursion**
+(tested independently of the falsified mechanisms), **PARTIALLY SUPPORTED,
+non-uniformly, for input-representation quality** (a finding the mission
+did not ask about but that dominated the early iterations), **and
+SUPPORTED for one specific, narrower claim tested last**: that
+reference-conditioned (non-hard-clustering) representations can carry
+real multi-field membership signal that a single-cluster assignment
+structurally cannot express. Broken out by sub-claim, because a single
+global label would hide the real structure of what was learned:
 
 | sub-hypothesis | verdict | evidence |
 |---|---|---|
 | Δ(x,r) magnitude reveals reference-conditioned structure | **FALSIFIED** | proven mathematically identical to cosine ranking for unit vectors (Iteration 1) |
-| Δ-direction clustering beats naive similarity search | **FALSIFIED** | loses on mean F1 at both granularities, n=21, both label granularities (Iteration 2) |
+| Δ-direction clustering beats naive similarity search (exclusive membership) | **FALSIFIED** | loses on mean F1 at both granularities, n=21 (Iteration 2) |
 | a trained predictive latent (JEPA-style) beats raw cosine | **FALSIFIED at scale** | wins on a 21-item toy corpus only via a supervision confound (ruled out as memorization via a shuffled-label control, Iteration 3); loses badly on 730 real ontology entries, converging to chance-level training loss (Iteration 4) |
 | recursive exploration discovers nested structure | **PARTIALLY SUPPORTED** | real, above-chance signal (0.625-0.75 purity) when recursing from a correct top-level grouping; dominated by error propagation when the top level is wrong (Iteration 7) |
 | language/context matters for discoverable structure | **PARTIALLY SUPPORTED, non-uniform** | dramatic effect on one corpus (+0.333 k-means purity), zero effect on a second (+0.000) — conditional on how well-represented the bare vocabulary already is (Iterations 5-6) |
+| per-field similarity carries real multi-membership signal hard clustering cannot express | **SUPPORTED** | 4/4 deliberately cross-cutting items show a positive "dual margin" (closer to both true fields than the unrelated one); hard k-means, by construction, captures only one of the two true fields every time (Iteration 8) |
 
 **The single most useful thing this research track produced is not a
 mechanism — it's a warning against curve-fitting to one dataset that the
@@ -128,7 +132,7 @@ hyperparameters and scale tested, with the training dynamics ruling out
 the two most likely "it's secretly broken" explanations (memorization,
 collapse) rather than leaving them open.
 
-## Benchmarks (datasets actually built — 2 of the mission's proposed 6)
+## Benchmarks (datasets actually built — 3 of the mission's proposed 6)
 
 - **Dataset B** (mission's own example): CAR, 21 items, 3 coarse
   perspectives (mechanical/driver/economic) x 2 fine sub-groups each = 6
@@ -136,14 +140,18 @@ collapse) rather than leaving them open.
 - **Dataset A** (mission's own example): 15 animals, 2 coarse classes
   (mammal/bird) x 2 fine sub-groups each = 4 fine labels, genuine
   taxonomic hierarchy. Used for Iterations 6, 7.
+- **Dataset D** (mission's own example, "fuel belongs to CAR, ENGINE,
+  ECONOMICS, ENVIRONMENT"): the 21-item CAR corpus plus 4 deliberately
+  cross-cutting items spanning two fields each. Used in Iteration 8 — the
+  one dataset in this track that produced a clean positive result, because
+  it is the one dataset whose structure (multi-membership) hard clustering
+  cannot represent by construction, unlike A and B's exclusive membership.
 - **Real production data**: physis-core's actual 70-cell ontology, 730
-  entries, used in Iteration 4 — the only benchmark in this track that is
-  not a hand-built toy corpus.
-- **Not built**: Dataset C (distractors), D (cross-cutting concepts — the
-  mission's own "fuel belongs to CAR, ENGINE, ECONOMICS, ENVIRONMENT"
-  example was never tested), E (noisy corpus), F (deep synthetic
-  hierarchy). Genuine gaps, not oversights papered over — flagged in Next
-  Experiments below.
+  entries, used in Iteration 4 — the only benchmark in this track built
+  from real product data rather than a hand-built toy corpus.
+- **Not built**: Dataset C (distractors), E (noisy corpus), F (deep
+  synthetic hierarchy). Genuine gaps, not oversights papered over — flagged
+  in Next Experiments below.
 
 ## Results
 
@@ -190,6 +198,15 @@ that investment.
    depth-1 k-means purity (0.667) looked like "a reasonable 2-way split"
    but was a 13-vs-2 imbalance, not the true ~8-vs-7. Caught by printing
    cluster sizes, which nothing in Iterations 5-6 had done.
+6. (Not a failure, included for symmetry with the above): **Iteration 8's
+   positive result was checked for the inverse problem** — a metric that
+   looks good because it's trivially satisfiable. The "dual margin" metric
+   requires beating the *unrelated* field, not just scoring positively in
+   absolute terms, and was computed against centroids built only from the
+   21 exclusive-membership items (the 4 cross-cutting items never
+   contribute to the centroids they're scored against) — ruling out the
+   analogous confound to Iteration 3's supervision leak before reporting
+   4/4 as a real result.
 
 ## Computational cost
 
@@ -203,13 +220,25 @@ result in this track; correctness of the evaluation was.
 
 ## Recommended architecture
 
-**None of the tested mechanisms should become part of physis-core's
-production discovery path.** The one component with genuine, real,
-non-artifactual signal — plain unsupervised clustering (k-means) — is
-already representable with existing primitives and does not need new
-architecture; if anything is worth prototyping next it is `discovery.rs`
-itself gaining a from-scratch (non-grid-anchored) clustering mode, since
-that is the one mechanism this track never found a way to make lose.
+**No falsified mechanism (Δ-direction, the trained predictor) should
+become part of physis-core's production discovery path.** Two things ARE
+worth carrying forward, both low-risk and both already close to existing
+primitives rather than requiring new architecture:
+
+1. **Plain unsupervised clustering** — the one mechanism this track never
+   found a way to make lose on exclusive-membership data. If anything is
+   worth prototyping in `discovery.rs`, it's a from-scratch
+   (non-grid-anchored) clustering mode.
+2. **Surfacing `CellClassifier`'s existing per-cell similarity scores
+   instead of collapsing to one winning `(domain, mode)` per entry** —
+   directly motivated by Iteration 8. `OntologyEntry` (`src/models.rs`)
+   stores exactly one domain and one mode per entry; Test 1 in Iteration 8
+   demonstrates that this loses real information for any concept that
+   genuinely spans two fields, and Test 2 shows the embedding space
+   already carries that information — `classify.rs` computes per-cell
+   scores internally before picking a winner, so this is closer to
+   *exposing* an existing signal than building a new one. Not implemented
+   here — a scoped follow-up, not a code change this track made.
 
 ## What should NOT be merged
 
@@ -220,14 +249,18 @@ that is the one mechanism this track never found a way to make lose.
   data, and its one apparent win elsewhere was a supervision artifact.
 - Any "coherence visualization" combining these signals for the Studio
   (the idea raised mid-track) — would visualize a mechanism with no
-  demonstrated value as though it were validated.
+  demonstrated value as though it were validated. Iteration 8's positive
+  result changes this only for the specific multi-membership display idea
+  above, not for JEPA/Δ-conditioning-based visualizations.
 
 ## Next experiments (only if justified — none started without a reason above)
 
-1. Datasets C/D/E/F, never built — Dataset D (cross-cutting concepts) in
-   particular tests something no experiment here touched: shared/multi-
-   field membership, which none of Datasets A or B's exclusive-membership
-   structure could reveal either way.
+1. Datasets C/E/F, never built.
+2. Measure how common cross-cutting concepts actually are in physis-core's
+   real 730-entry ontology or real user corpora — Iteration 8 shows the
+   mechanism *can* carry multi-membership signal on a hand-built example;
+   whether it matters in practice depends on how often real data needs it,
+   which was not measured.
 2. Whether Iteration 5's context effect holds on physis-core's *real*
    ontology (Iteration 4's task uses `name + hints`, shorter than a full
    sentence) — untested combination.

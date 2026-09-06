@@ -641,6 +641,78 @@ rather than re-run cosmetically:
 | reference selection strategy (fixed vs random vs uncertainty-based) | not tested | genuine gap — flagged, not attempted |
 | coherence/novelty/boundary-detection scoring | not tested | genuine gap — flagged, not attempted (no boundary-detection mechanism was ever built; Section 12 of the mission was skipped entirely given the underlying per-reference mechanism it would have gated was already falsified) |
 
+## Iteration 8 — Dataset D (cross-cutting concepts): the first unambiguous win
+
+Every dataset used so far (A, B) assumed exclusive membership — one true
+field per item. That assumption happens to be exactly what hard clustering
+(k-means) is built for, and exactly the structural precondition that made
+every earlier "does a fancier mechanism beat plain clustering" comparison
+fair to plain clustering specifically. Mission Dataset D (Section 5) tests
+the case the mission explicitly names ("fuel: CAR, ENGINE, ECONOMICS,
+ENVIRONMENT") — concepts genuinely belonging to more than one field. File:
+`physis-core/examples/experiment8_dataset_d_crosscutting.rs`.
+
+Corpus: the 21-item CAR corpus (Iteration 5 contextual sentences, exclusive
+membership) plus 4 new items deliberately written to span two fields each,
+again with no field-name keyword leakage: *fuel efficiency* and *hybrid
+battery* (mechanical+economic), *driver assistance system*
+(mechanical+driver), *warranty coverage* (driver+economic).
+
+**Test 1 — hard clustering's structural ceiling, demonstrated not just
+asserted:** k-means (k=3) over all 25 items assigns every cross-cutting
+item to exactly one cluster, 4/4 times matching *one* of its two true
+fields and silently discarding the other. This is true by construction —
+the point of running it was to confirm the demonstration is real, not
+theoretical, and it is.
+
+**Test 2 — does the embedding itself carry dual-membership signal at
+all?** For each cross-cutting item, computed cosine similarity to the
+centroid of each of the 3 pure fields (built from the 21 exclusive-
+membership items only, never seeing the cross-cutting items). "Dual
+margin" = similarity to the *weaker* of its two true fields, minus
+similarity to the one unrelated field.
+
+| item | true fields | sim(field 1) | sim(field 2) | sim(unrelated) | dual margin |
+|---|---|---:|---:|---:|---:|
+| fuel efficiency | mechanical, economic | 0.804 | 0.826 | 0.767 | **+0.037** |
+| hybrid battery | mechanical, economic | 0.821 | 0.809 | 0.795 | **+0.013** |
+| driver assistance system | mechanical, driver | 0.832 | 0.876 | 0.803 | **+0.028** |
+| warranty coverage | driver, economic | 0.784 | 0.841 | 0.766 | **+0.018** |
+
+**All 4 of 4 cross-cutting items show a positive dual margin.** The
+embedding is, on its own, placing every one of them closer to *both* of its
+true fields than to the field it doesn't belong to — modest margins
+(+0.013 to +0.037), but consistently positive, not a coin flip. This is
+real, non-trivial dual-membership signal that a hard-assignment mechanism
+cannot express *by construction*, independent of whether the signal is
+present in the underlying embedding.
+
+**This is the first clean, unambiguous positive result for
+reference-conditioning (broadly construed) in this entire research
+track**, and it earns that status differently than Iterations 1-4 tried
+to: not by beating a baseline on the SAME task the baseline is built for,
+but by testing a task (multi-membership) the baseline is structurally
+unable to attempt at all. It does not resurrect Δ-direction clustering or
+the trained predictor — both remain falsified on the exclusive-membership
+tasks they were tested on — but it does mean abandoning single-cluster
+hard assignment in favor of a per-field (or per-reference) similarity
+score is genuinely justified wherever cross-cutting concepts are expected,
+which is a real architectural implication.
+
+**Direct relevance to physis-core specifically:** `OntologyEntry` (in
+`src/models.rs`) has exactly one `domain: String` and one `mode: String`
+field per entry — the same single-membership structural limitation as
+k-means, already present in the actual production ontology model, not
+just in this experiment's toy baseline. If cross-cutting concepts are
+common in real corpora (plausible; not measured here), the production
+system has the same blind spot Test 1 demonstrates, and a per-field
+similarity score (which `classify.rs` already computes internally via
+`CellClassifier::classify` before collapsing to a single winning cell)
+could recover multi-membership information the stored `(domain, mode)`
+label cannot — a small, low-risk enhancement to consider even though it
+was discovered as a side effect of falsifying everything else in this
+track, not as its original goal.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
