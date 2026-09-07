@@ -1392,3 +1392,144 @@ structurally distinct geometric mechanisms have failed — Iterations 9,
 11, 19, 20, 24, 25. Adding LLM triple extraction was considered here and
 deliberately declined for now: it would reintroduce sampling
 nondeterminism into the exact property Iteration 26a just fixed.
+
+---
+
+## The refined plan, executed (Stages 0-6)
+
+Run 2026-09-07. Three gates passed, two killed, one untestable, one moot. The
+plan's own kill criteria were applied as written rather than renegotiated after
+seeing the numbers.
+
+| stage | what it asked | result |
+|---|---|---|
+| 0 | >= 30 terms, ground truth nobody here authored | **PASSED** — 37 |
+| 1 | median recurrence >= 50% under backoff | **PASSED** — 92.0% vs 34.6% |
+| 2 | families form, no giant component | **PASSED** — largest 21.1%, 35/37 |
+| 3 | beat the majority baseline on gold | **KILLED** — 51.4% vs 56.8% |
+| 4 | distinct periods per family | **UNTESTABLE** — no timestamps |
+| 5 | recover `dual()`'s oppositions unaided | **KILLED** — 0/12, chance 1.0 |
+| 6 | close the PDCA loop | downstream of 3; not attempted |
+
+### Stage 0 — the evaluation, fixed first
+
+The previous corpus was this project's own documentation, eight terms I chose,
+no real polysemy, ground truth I wrote. Every result on it was unfalsifiable,
+which is how Iterations 39-40 went wrong. Replaced with **SemEval-2020 Task 1
+English**: 37 lemmas, 16 changed / 21 stable, annotated by the task organisers,
+over CCOHA1 (1810-1860) and CCOHA2 (1960-2010). Not vendored — ~61MB, fetched
+to `~/datasets`, located by `SEMEVAL_DIR`.
+
+Published state of the art on this set is 66.5% accuracy / 0.518 Spearman. Every
+number below is against that, not against an impression.
+
+### Stage 1 — backoff works, and its control takes back the headline
+
+Longest-window-with-support, per infini-gram, support counted within a term's
+own occurrences:
+
+    median recurrence, fixed n = 3 : 34.6%
+    median recurrence, backoff     : 92.0%     gate wanted >= 50%
+
+Then the standing rule — treat a positive as artifact until a
+**construction-matched** control says otherwise, after three positives in this
+track died exactly there. The control resamples each context token independently
+from the term's own pooled context distribution: same occurrences, same window
+geometry, same token frequencies, collocation destroyed, differing in one way.
+
+It reaches **78.7%**. So 85% of the headline is explained without any
+collocation structure at all, and recurrence *rate* is largely a frequency
+artifact. What survives is signature **length**:
+
+    median length         3.0 real vs 2.0 shuffled
+    share of length >= 4  41.4% real vs 2.6% shuffled
+
+That 16x separation is the real Stage 1 result, and it set the constraint the
+next stage had to respect.
+
+### Stage 2 — families form; the predicted collapse does not happen
+
+Two signatures are one family when they share length and target offset and
+differ in exactly one context position; families are the connected components.
+A set operation — no cosine, no embedder, no threshold, nothing a model swap
+can move.
+
+The expected failure was transitive collapse through a promiscuous frame
+("the _ of" chaining everything into one component). It did not occur: median
+largest-family share **21.1%**, median 3 families above 10%, 35/37 terms forming
+at least two. The synonym layer is real.
+
+### Stage 3 — killed, and the diagnosis is the useful part
+
+| arm | accuracy | baseline | Spearman(JSD, gold graded) |
+|---|---|---|---|
+| signatures len >= 2 | 48.6% | 56.8% | 0.140 |
+| signatures len >= 4 | 51.4% | 56.8% | 0.183 |
+| SemEval published | 66.5% | | 0.518 |
+
+The len>=4 arm was not a tuning pass: Stage 1's control had already concluded
+"build families from the long signatures", and the first cut ignored it.
+Applying it moved both numbers in the predicted direction — corroborating
+Stage 1 — and still did not reach a majority-class baseline.
+
+**Why**, which matters more than the score. The verdict is degenerate:
+
+    trajectory distribution   {Split: 31, Becoming: 6}   len >= 4
+    median families per term  57
+    share seen by the top 2   28.7%
+
+`Stable` never fires. `classify_labeled` reads only the two leading labels, so
+with 57 families it judges a term on under a third of the evidence, on two
+labels arbitrarily drawn from a long tail. Every term looks interleaved.
+
+So neither half failed. The runs test is sound and unit-tested; the families
+survive their own gate. What fails is the **interface**: `classify_labeled`
+wants labels on the order of the *sense* count, substitutability delivers labels
+on the order of the *collocation* count, two orders of magnitude apart. The
+missing piece is an aggregation step between them — and inventing one is the
+sense-induction problem that has now failed in ten distinct forms.
+
+### Stage 4 — untestable on this data, stated rather than skipped
+
+CCOHA sentences are **randomly shuffled within each period**. The only real
+order is the C1 -> C2 block, which is enough for a runs test and useless for
+`chronos`, whose primitives are inter-arrival times. No timestamps exist to
+read. A dataset with finer time bins (RuShiftEval, or COHA by decade) would be
+needed; nothing about Stage 4 was disproved here.
+
+### Stage 5 — killed at chance, and the wall is not geometric
+
+Tested against `SemioticGrid::dual()`'s seven hand-authored mode oppositions —
+written by a person into a match arm, independent of every corpus statistic, on
+a corpus (CCOHA) that has nothing to do with this project.
+
+    dual ranked 1st : 0/12 = 0.0%    (chance 8.3%, expected 1.0)
+    dual in top 3   : 4/12 = 33.3%   (chance 25.0%)
+
+Zero, on the primary measure. `move`, `play` and `work` head nearly every
+ranking regardless of the query: Jaccard normalises set size but not the fact
+that frequent verbs fill more distinct frames, so the ranking tracks frequency
+and genre. Only create<->destroy (rank 2 both ways) and walk<->work (3 and 2)
+show bidirectional signal, and even for `create`, `maintain` outranks `destroy`.
+
+This was the **second symbolic** mechanism to fail, after nine geometric ones,
+so the wall is not a property of embeddings. Substitutability finds words that
+fill the same slot; near-synonyms, frequency peers and antonyms all fill the
+same slot, and nothing in the distribution says which is which.
+
+### What this changes
+
+The plan was built on the claim that each component's failure mode is covered by
+another's strength — n-grams supply the exact partition `becoming` cannot
+induce. That claim was **half right**. n-grams do supply an exact partition
+(Stage 2), and it is not the partition `becoming` needs (Stage 3): exactness was
+never the missing property, *granularity* was.
+
+The standing conclusion is unchanged and now reached from a third direction:
+**certification of which distinctions are semantic needs a non-geometric,
+non-distributional signal.** Ten mechanisms across two families have failed at
+it. The two things in this track that survived their controls — `coverage`
+(operational: does a candidate make records classifiable that were not) and
+independent-source substructure (corroboration from a source the embedder never
+read) — are both *external* checks. That is the pattern, and it is the only one
+with a positive result behind it.
