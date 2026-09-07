@@ -1966,3 +1966,59 @@ control added along the way — train/test split, resampled injection,
 corpus-derived load list — improved the precision of a measurement whose labels
 were wrong, which is the most expensive way to be careful.
 
+
+## Stage 9 — could physis have predicted this? Measured: no.
+
+The obvious hope after Stage 7 is that physis triages its own corpus: rank all
+659 entries by how badly each fits its assigned cell, and hand the disposer the
+worst 150 instead of all 659. The machinery exists — `coverage::uncovered()` is
+built for exactly this, and the audit's cosine scorer reaches AUC ~0.650 on
+injected misfilings.
+
+The 60 Stage 7 adjudications are a labelled validation set, so this is testable
+rather than arguable. Injection disabled (`PHYSIS_AUDIT_STRIDE=0`), every entry
+scored against its assigned cell, joined to the verdicts (50 of 60 are in the
+scored population; the rest lack WordNet anchoring). Per-entry scores in
+`corpus_fit.tsv`.
+
+| scorer | AUC detecting REAL misfilings | 95% CI |
+|---|---|---|
+| **COSINE fit to assigned cell** | **0.410** | [0.251, 0.569] |
+| CONSTRAINT | 0.525 | — |
+| ANCESTRY | 0.493 | — |
+
+**Chance sits inside the interval. Physis cannot find its own misfilings.** The
+point estimate is below chance and the direction is backwards — mean fit is
+**0.196 for correctly-filed entries and 0.213 for misfiled ones** — and the
+single worst-fitting entry in the entire corpus is `Companionship` in BOND/REST
+("keep company, sit together, shared silence"), which is filed exactly right.
+
+**The most useful number here is the gap: 0.650 on injected misfilings, 0.410 on
+real ones.** The same scorer, the same corpus, the same cells. Synthetic
+misfilings are detectable; real ones are not.
+
+This report predicted that and then ignored it. From the Iteration 38 footnote,
+written weeks before Stage 7:
+
+> *"A synthetic perturbation is a lower bound on difficulty — real misfilings are
+> the ones a careful author already thought were right."*
+
+That is now measured, and the effect is large enough to invert a scorer. An
+injected misfiling moves an entry to a random cell, producing an obvious
+mismatch. A real misfiling is a plausible-looking judgement someone made on
+purpose — "Collaboration" in BOND/WORK, "DevOps" in CONSTRUCT/WORK — and
+plausible is precisely what embeddings score highly.
+
+**Consequences for Stage 8.** Gate 0 cannot be automated. Options 1 and 3
+(hand-adjudicate, or regenerate with the disposer in the loop) are the only
+routes; there is no cheap machine triage to shrink the queue, and the ranking
+must not be used to prioritise review because it is anti-correlated with being
+wrong. Option 2 (restrict to coherent cells) survives, since it is judged by
+cell rather than by entry.
+
+**And it answers the standing question about the disposer directly.** The
+disposer was kept human on principle. It turns out to be required in fact: on
+this data the machine's judgement of "does this belong here" is at chance, while
+a human pass over sixty rows found the defect that twelve mechanisms and four
+days of controlled experiments had missed.
+
