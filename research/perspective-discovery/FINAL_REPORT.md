@@ -1005,7 +1005,21 @@ the calibration heuristic, being the dominant constraint.
     The geometry can say where to look. Nothing tried so far can say whether
     what is found is worth having.
 
-## Architectural conclusion (updated after Iteration 32)
+29. **DONE (Iteration 33) — the disposer can be a machine. SHIPPED as
+    `physis_core::coverage` in 0.1.17.** physis-pro's `planner.rs` already
+    implements the check (`ImpactAnalysis::newly_covered`); this validated it
+    and put the narrow primitive in core, where `discovery.rs` proposes entries
+    but could not say which were worth keeping. 5-fold CV, 691 records, 2000
+    candidates/arm: re-adding an existing entry rescues **0/2000** (correctly),
+    interpolations 0.073, **Welch t = +12.11** — 2000 candidates cut to 141.
+    But it does **not** prefer Iteration 30's proposer: near-neighbour 0.073 vs
+    medium-rank 0.070, t = +0.29. The first pass, using only Iteration 30's
+    weak random-pair control, reported +3.34; construction-matched controls
+    collapsed it. **Coverage is not correctness** — a candidate swallowing
+    records into a wrong cell scores like one capturing a real gap. A filter,
+    not an approver.
+
+## Architectural conclusion (updated after Iteration 33)
 
 The user's ask — "some fixed points discovered in data, always the same,
 see how they link to each other" — is **achievable, and now demonstrated

@@ -2531,6 +2531,77 @@ That is the same wall the seven closed-question mechanisms hit, reached from
 the open-question direction. It is a narrower wall — the proposer works — but
 it is the same one.
 
+## Iteration 33 — the disposer CAN be a machine; the proposer's edge cannot
+
+User's question: could the human disposer, in pro, be replaced by a
+compiler/machine? **physis-pro already contains the machine.** `src/planner.rs`
+— "compares the live classifier with a candidate ontology over a bounded
+corpus, returns an impact diff, never mutates live state" — with
+`ImpactAnalysis::newly_covered` = "records the candidate newly classifies with
+acceptable confidence".
+
+That is an OPERATIONAL check, not a representational one, which is why it is
+different in kind from the nine failures: a candidate earns its place by making
+records classifiable that were not, measured against a corpus the proposer
+never saw and cannot influence.
+
+5-fold stratified CV, 691 pooled held-out records, threshold at the median live
+score so ~50% start uncovered, 2000 candidates per arm.
+
+| arm | mean rescued | rescues >=1 |
+|---|---|---|
+| proposals (near-neighbour, ranks 1-5) | 0.073 | 141/2000 |
+| medium-rank midpoints (ranks 20-40) | 0.070 | 135/2000 |
+| **existing entry verbatim** | **0.000** | **0/2000** |
+| random-pair midpoints | 0.046 | 85/2000 |
+
+### Two questions, opposite answers
+
+**1. Does the machine disposer discriminate? Yes, decisively.** Re-adding an
+entry the ontology already has rescues exactly zero records out of 2000 —
+correctly, since records near it were already covered — against 0.073 for
+interpolations (Welch t = **+12.11**). It is not fooled by a candidate that
+adds nothing, with no human and no lexicon involved. It cuts 2000 candidates to
+141: a **14x reduction** in what a person must read.
+
+**2. Does it prefer Iteration 30's proposer? No.** Near-neighbour midpoints
+0.073 vs medium-rank midpoints 0.070 (1.04x, t = **+0.29**). Only
+*unrelated*-pair midpoints do worse (0.046). What carries operational value is
+interpolating between related content at all — not the near-neighbour
+specificity Iteration 30 measured.
+
+### The control that decided it
+
+The first version used only Iteration 30's random-pair control and reported a
+clean positive: t = +3.34, z = +3.83, 1.57x. **That control is weak.** The mean
+of two unrelated unit vectors lands near the global centroid — close to
+everything, near nothing — so almost any point sitting on real content beats
+it. Two controls matched on CONSTRUCTION rather than only on manifold (a
+medium-rank midpoint; an existing entry verbatim) collapse the margin to
+t = +0.29.
+
+Third time in this track a positive has died to a stronger control, and the
+second to this same class. Standing rule from here: treat any positive as
+artifact until a construction-matched control says otherwise.
+
+### Shipped
+
+`physis_core::coverage` in **0.1.17** — `uncovered`, `candidate_gain`,
+`rank_candidates`. This is the narrow half `discovery.rs` was missing: it
+proposes entries but had no way to say which proposals are worth keeping.
+
+**Coverage is not correctness**, stated in the module docs, README and
+CHANGELOG rather than buried. A candidate that swallows records into a wrong
+cell scores exactly like one capturing a real gap — both make the records
+classifiable. Distinguishing them needs labels, which is the question the nine
+representational mechanisms failed to answer. It is a filter, not an approver.
+
+### Where the disposer question lands
+
+A machine can stand where the human was, but not to judge whether a concept is
+good — only to throw away the 93% of candidates that provably change nothing.
+The compiler analogy holds exactly: it type-checks, it does not design.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
