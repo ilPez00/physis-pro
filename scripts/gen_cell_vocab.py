@@ -178,7 +178,7 @@ def vocab_generated(train, anchors, k=25, model="qwen3:4b"):
 
     schema = CellVocab.model_json_schema()
 
-    def ask(prompt, timeout=300):
+    def ask(prompt, timeout=900):
         body = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -202,7 +202,7 @@ def vocab_generated(train, anchors, k=25, model="qwen3:4b"):
         es = train[cell]
         anchor = anchors.get(cell, {})
         hints = ", ".join(anchor.get("hints", [])[:6])
-        examples = "; ".join(text_of(e)[:90] for e in es[:8])
+        examples = "; ".join(text_of(e)[:70] for e in es[:5])
         prompt = (
             f"Ontology cell {cell[0]}/{cell[1]} of a work-activity ontology.\n"
             f"Defined by: {hints}\n"

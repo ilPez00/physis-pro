@@ -1702,3 +1702,37 @@ only as trustworthy as the agreement between the thing that generates and the
 thing that scores.** The split was principled, the statistic was sound, the
 control was real — and a glob pattern quietly made them describe different data.
 
+
+### Stage 6d — the sweep re-run on the corrected corpus
+
+Everything in Stage 6 was re-measured after the corpus fix, on 659 entries with
+a 321-name held-out set. The conclusions do not change; two of the numbers do,
+and one of them is a correction to this report rather than a refinement.
+
+| population | scorer | mean Δ vs cosine | wins | paired t |
+|---|---|---|---|---|
+| held-out | CONSTRAINT | −0.056 | 1/11 | −3.08 |
+| held-out | VOCAB-FREQ (A) | −0.009 (sd 0.017) | 4/11 | −1.81 |
+| all entries | CONSTRAINT | −0.059 | 1/11 | −6.06 |
+| all entries | VOCAB-FREQ (A) | **+0.121** | **11/11** | **+12.97** |
+
+CONSTRAINT is now 1/11 on *both* populations and significantly worse than plain
+cosine on both (t = −3.08 held-out, t = −6.06 overall). On the mismatched corpus
+it had been −1.77 on the held-out half, i.e. not significant. **Fixing the
+corpus strengthened the refutation.** Iteration 38's structural soundness check
+is not merely unsupported; it is measurably worse than distance.
+
+Arm A's held-out null is unusually clean: sd 0.017 across eleven perturbations,
+clustered on zero. The same vocabulary scored against the entries it was built
+from reads +0.121 at t = +12.97. **A 0.130 swing produced by nothing but which
+rows you score.**
+
+**Correction to Stage 6.** That section reported the harness noise floor as
+0.121, from the cosine baseline ranging 0.565–0.686. That range was measured on
+the mismatched corpus and is wrong. On the corrected corpus the baseline spans
+0.621–0.695 held-out and 0.607–0.682 overall: **a noise floor of 0.074**. The
+qualitative claim is unchanged and still governs — Iteration 38's 0.599-vs-0.650
+and 0.654-vs-0.619 both sit inside 0.074 — but the figure to carry forward is
+0.074, and single-run margins below roughly 0.05 in this harness remain
+uninterpretable.
+
