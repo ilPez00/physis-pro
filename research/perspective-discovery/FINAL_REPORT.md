@@ -1112,6 +1112,152 @@ the calibration heuristic, being the dominant constraint.
        global ones". Multi-scale periodicity is untried and is the only part of
        this item needing new statistics.
 
+## What actually worked
+
+Everything in this section survived a control designed to kill it. Results that
+merely produced a pleasing number are in the failure list below, because five
+positives died to stronger controls in this track and the distinction is the
+only thing that makes the rest trustworthy.
+
+### Shipped, and load-bearing
+
+| what | evidence | where |
+|---|---|---|
+| **Deterministic ontology iteration** | `classification_domains()` iterated `HashMap`s — order randomized per process, so every run saw the corpus differently. Fixed; then found the fix INCOMPLETE (the key was not a total order: 6 built-ins collide on `(name, domain, mode)`). Regression test verified by sabotage. | `ontology.rs`, 0.1.15 + `b08aa7a` |
+| **`linkage`** | Which cells real data bridges, via which items. No threshold, no k, no seed; ties break on cell key. Byte-identical across runs; reproduces Iteration 21's qualitative result. | `linkage.rs`, 0.1.16 |
+| **`coverage` — the machine disposer** | Re-adding an entry the ontology already has rescues **exactly 0 of 2000** trials (correctly — those records were already covered); interpolations 0.073, **Welch t = +12.11**. Cuts 2000 candidates to 141 with no human and no lexicon. | `coverage.rs`, 0.1.17 |
+| **`becoming` — the runs test** | Separates `AAAAAABBBBBB` from `ABABBABAABAB`: identical partitions, identical counts, distinguishable only by order. No clusterer can do this. Unit-proven; no RNG. | `becoming.rs` |
+| **`chronos`** (pre-existing, validated here) | Plausible periods on real data — 5.1d `key`, 6.7d `coverage`, 6.9d `core` — with confidence 0.35-0.61 for regular terms against **0.12 for `test`**, which genuinely is irregular. | `machines/chronos.rs` |
+
+### Measured findings that hold
+
+1. **Re-derivation destroys structure; persistence preserves it.** +25% corpus
+   data replaced half the anchors (58% identity overlap) and destroyed ~80% of
+   the structure (ARI 0.198). *Stated honestly*: the persistent arm's ARI 1.000
+   is true BY CONSTRUCTION and is not the finding — the re-derived row is.
+2. **Nothing survives an embedder swap.** MiniLM vs BGE agreement on the same
+   corpus is near-random (ARI ~0.10) even holding cluster identity fixed. The
+   embedder is part of the ontology's identity, not a swappable backend.
+3. **Independent-source substructure corroborates links** (Iteration 35).
+   z = **+6.64** same-cell from WordNet glosses versus **+0.62** from
+   hint-derived substructure the embedder had already read. It *strengthened*
+   under tighter control (+6.31 → +6.64) and survived strict pairwise
+   independence — the opposite of how the five artifacts behaved.
+4. **Interpolation beats random pairs; the specific pair choice does not
+   matter.** Iteration 30's proposer beat a manifold-matched control 1.44x
+   (z = +4.87), but Iteration 33 showed near-neighbour ≈ medium-rank
+   (t = +0.29). What carries value is interpolating between *related* content
+   at all.
+5. **The six negative results are reproducible.** All re-run under fixed
+   ordering: 6/6 byte-identical, 6/6 conclusions unchanged. The ordering bug
+   did not manufacture them.
+6. **n-gram discretization separates what geometry could not** *(promising,
+   not yet validated)*. Exact 3-gram recurrence 11-83% by term; signatures
+   semantically coherent; and `coverage` shows BOTH families symbolically —
+   `warranty_coverage_driver` beside the module sense. Also measured: a naive
+   variation allowance makes it **worse** (skip-grams below exact adjacency on
+   every term).
+
+### What did not work, in one line each
+
+Nine geometric certification mechanisms (margin/silhouette, three
+kNN-consistency variants, cross-embedder corroboration, density peaks,
+cross-embedder split agreement, capacity-constrained loss, plain k-means);
+non-lattice auditing (physis's grid is not a taxonomy — real cells are
+indistinguishable from a size-matched shuffle); and sense induction three ways
+(document genre / breadth of use / label scatter).
+
+---
+
+## The refined plan: n-grams + becoming + chronos
+
+### Why the combination is coherent rather than hopeful
+
+Each component's known failure mode is covered by another's known strength:
+
+```
+  becoming   runs test WORKS, needs a partition it cannot produce
+  n-grams    produce an EXACT partition, no induction, no embedder
+  chronos    works on LABELS, needs no induction — signatures ARE labels
+```
+
+n-grams supply the label vocabulary that both of the others need. That is the
+whole join, and it is why this is worth building rather than a fourth variation
+on a statistic that has failed three times.
+
+### Staged, with a kill criterion at every gate
+
+Each stage is cheap relative to the one after it, and each has a number that
+stops the work rather than an impression that continues it.
+
+**Stage 0 — fix the evaluation before building anything.**
+SemEval-2020 Task 1's organisers name evaluation as the field's most pressing
+problem, and this track currently has eight terms chosen by me on a corpus of
+one project's own documentation with no real polysemy. Use the public
+SemEval-2020 English data (annotated, four languages, gold standard) or the
+DIACR-Ita set.
+*Gate*: ≥30 terms with ground truth nobody in this project authored.
+*Kill*: if no external gold standard can be obtained, stop — every result after
+this would be unfalsifiable, which is the failure mode of Iterations 39-40.
+
+**Stage 1 — signature extraction with backoff.**
+Suffix array over the corpus (infini-gram, arXiv 2401.17377); per occurrence
+take the **longest** n-gram with support ≥ k rather than fixing n = 3.
+*Gate*: median recurrence ≥ 50% across evaluation terms (fixed n = 3 gives 21%
+on `coverage`, 14% on `commit`).
+*Kill*: if backoff cannot lift recurrence above fixed-n, the sparsity is
+structural and the whole line ends here.
+
+**Stage 2 — signature families by SUBSTITUTABILITY, not similarity.**
+Two signatures belong to one family when they occur in the same slots. This is
+the synonym layer, and it is the step measured to be load-bearing: without it
+exact n-grams are too sparse, and loosening the match naively made things worse.
+*Gate*: `coverage` separates into ≥2 families recovering the warranty/module
+split that is already visible in the raw signatures.
+*Kill*: if families do not form, n-grams are a vocabulary and not a sense
+inventory; report and stop.
+
+**Stage 3 — `becoming` over family labels.**
+`classify_labeled` already takes discrete labels; Stage 2 supplies them.
+*Gate*: ≥5/8 on the known terms (current: 1/8 with induced clusters, 1/8 with
+cell labels).
+*Kill*: below 3/8, the partition is still not the problem and the trajectory
+question should be abandoned rather than tuned.
+
+**Stage 4 — `chronos` over family labels.**
+Per-family rhythm rather than per-cell. No new statistic; this is the natural
+join of Stages 1 and 3.
+*Gate*: distinct periods per family where the senses are known to differ in
+cadence.
+
+**Stage 5 — relation typing, and the Greimas gap.**
+Co-varying in the same slot = **synonym**; same slot but never together =
+**contrary**; partial overlap = **simile**. Substitutability becomes a table
+lookup rather than a cosine, and the relations are *stored* rather than
+recomputed — the transferable idea from Qwen3.8-Flash-Next's addressable n-gram
+table, not its scale.
+*Gate*: recovers `dual()`'s existing oppositions (CREATE↔DESTROY,
+LEARN↔GUIDE, SENSE↔BRAINSTORM) **without being given them**. That is a real
+held-out test, since those pairs are hand-authored and independent of any
+corpus statistic.
+*Kill*: if it cannot recover known oppositions, it will not find unknown ones.
+
+**Stage 6 — close the PDCA loop.**
+`becoming::deviations` already decides mistake-vs-variation by uptake.
+`process.rs` already models PLAN → ACTION → OBSERVATION → DEVIATION →
+INTERVENTION → OUTCOME. Wiring `chronos::slipping()` into `ProcessDeviation`
+closes it with machinery that exists; `process_cycles` is currently 0.
+
+### The three standing constraints any of this must respect
+
+1. **Pin the embedder** — nothing transfers across a model swap (ARI ~0.10).
+   Where a stage uses one at all, it is part of the artifact's identity.
+2. **Persist, never re-derive** — re-derivation costs ~80% of the structure on
+   +25% new data.
+3. **Construction-matched controls, not manifold-matched.** Three positives
+   died to this distinction. A control must differ from the treatment in
+   exactly one way; matching only the manifold is not enough.
+
 ## Architectural conclusion (updated after Iteration 40)
 
 The user's ask — "some fixed points discovered in data, always the same,
