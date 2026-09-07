@@ -24,6 +24,15 @@
 //! patch the binary can bypass it. It stops honest misuse, casual copying and
 //! silent seat growth — which is what licence enforcement is actually for.
 //! Do not represent it to customers as tamper-proof.
+//!
+//! # Development builds
+//!
+//! A binary built without `PHYSIS_LICENSE_PUBKEY` carries the all-zeros-seed
+//! dev key, whose private half is public knowledge — any licence can be forged
+//! for it. Such builds exit code 2 on startup unless
+//! `PHYSIS_ALLOW_DEV_LICENCE=1` is set (see [`DEV_KEY_BUILD`]), and print a
+//! development banner on every run even when allowed. Official packages stamp
+//! the vendor key and are unaffected.
 
 use std::path::{Path, PathBuf};
 
@@ -43,16 +52,38 @@ pub const LICENSE_FILE_ENV: &str = "PHYSIS_LICENSE_FILE";
 /// file the vendor ships; see [`check_revoked`].
 pub const REVOCATIONS_ENV: &str = "PHYSIS_REVOCATIONS_FILE";
 
+/// True when this binary was built **without** a vendor public key stamped in.
+///
+/// The fallback key is the Ed25519 public key of the all-zeros seed, so its
+/// private half is guessable by anyone without repository access — a licence
+/// for it can be forged in seconds (PLAN.md H1 demonstrates exactly that).
+/// Official packages stamp the real key (`scripts/package.sh` requires it), but
+/// a plain `cargo build` does not. A dev-key build must never pretend to
+/// enforce: [`enforce`] refuses to start unless
+/// [`ALLOW_DEV_LICENCE_ENV`] is set, which makes shipping one by accident a
+/// visible failure instead of a silent gate removal.
+pub const DEV_KEY_BUILD: bool = option_env!("PHYSIS_LICENSE_PUBKEY").is_none();
+
+/// Environment escape hatch making a [`DEV_KEY_BUILD`] binary runnable.
+///
+/// Value must be exactly `1`. It is an explicit opt-in for local development,
+/// tests and demo hosts — never something a shipped package sets.
+pub const ALLOW_DEV_LICENCE_ENV: &str = "PHYSIS_ALLOW_DEV_LICENCE";
+
+/// The development fallback key: Ed25519 public half of the all-zeros seed.
+/// Known outside the repository by construction; see [`DEV_KEY_BUILD`].
+const DEV_FALLBACK_PUBKEY_HEX: &str =
+    "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29";
+
 /// Vendor public key, hex-encoded (32 bytes).
 ///
 /// Overridden at build time with `PHYSIS_LICENSE_PUBKEY=<hex>` so the release
 /// pipeline can stamp in the production key without it living in git. The
-/// fallback below is the **development** key — builds carrying it can only
-/// validate licences signed by the matching development private key, which is
-/// exactly what you want for tests and local runs.
+/// fallback is the **development** key — see [`DEV_KEY_BUILD`] for why a build
+/// carrying it refuses to enforce licences without the dev opt-in.
 const PUBKEY_HEX: &str = match option_env!("PHYSIS_LICENSE_PUBKEY") {
     Some(k) => k,
-    None => "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+    None => DEV_FALLBACK_PUBKEY_HEX,
 };
 
 /// Date this binary was built, stamped by `build.rs`. Compared against the
@@ -519,12 +550,49 @@ fn check_clock_rollback(license_path: &Path) -> Result<(), LicenseError> {
     Ok(())
 }
 
+/// Pure decision for whether a dev-key build may run its licence path.
+///
+/// Deliberately strict: only the exact string `1` opts in, so a value that
+/// happens to look truthy elsewhere (`true`, `yes`) does not open the gate.
+fn dev_licence_allowed(env_value: Option<&str>) -> bool {
+    env_value == Some("1")
+}
+
+/// The unmistakable banner a development build prints on every run.
+fn dev_build_banner() -> String {
+    "DEVELOPMENT BUILD — licence gate disabled (no vendor key was stamped in; \
+     licences for this binary can be forged by anyone)"
+        .to_string()
+}
+
 /// Startup gate for binaries: verify or exit with an actionable message.
 ///
 /// Returns the licence so callers can gate features on it. Exits with code 2
 /// (distinct from 1) so operators can tell a licensing stop from a crash in
 /// their process supervisor.
+///
+/// A [`DEV_KEY_BUILD`] binary exits code 2 outright unless
+/// `PHYSIS_ALLOW_DEV_LICENCE=1` — with it set, it still runs (and prints the
+/// dev banner on every run), and licences are still signature-verified against
+/// the embedded dev key.
 pub fn enforce() -> License {
+    if DEV_KEY_BUILD {
+        let opt = std::env::var(ALLOW_DEV_LICENCE_ENV).ok();
+        if !dev_licence_allowed(opt.as_deref()) {
+            eprintln!("physis: {}", dev_build_banner());
+            eprintln!(
+                "physis: refusing to enforce licences: this binary was built without \
+                 PHYSIS_LICENSE_PUBKEY, so its embedded key's private half is public."
+            );
+            eprintln!(
+                "physis: for local development only, set {ALLOW_DEV_LICENCE_ENV}=1. \
+                 To ship or demo this tool, rebuild with the vendor key stamped in \
+                 (scripts/package.sh does this)."
+            );
+            std::process::exit(2);
+        }
+        eprintln!("physis: {}", dev_build_banner());
+    }
     match load() {
         Ok(license) => {
             eprintln!("physis: {}", license.banner());
@@ -809,6 +877,26 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("PX-EVOTEC-20270101"));
         assert!(msg.contains("revoked"));
+    }
+
+    #[test]
+    fn dev_licence_gate_is_strictly_the_exact_one() {
+        // "1" is the only opt-in; anything truthy-adjacent must stay closed.
+        assert!(dev_licence_allowed(Some("1")));
+        assert!(!dev_licence_allowed(Some("0")));
+        assert!(!dev_licence_allowed(Some("true")));
+        assert!(!dev_licence_allowed(Some("yes")));
+        assert!(!dev_licence_allowed(Some("")));
+        assert!(!dev_licence_allowed(None));
+    }
+
+    #[test]
+    fn dev_build_banner_is_unmistakable() {
+        let banner = dev_build_banner();
+        assert!(banner.contains("DEVELOPMENT BUILD"));
+        assert!(banner.contains("licence gate disabled"));
+        // The failure must explain itself without reading the source.
+        assert!(banner.contains("forged"));
     }
 
     /// Deterministic-ish per-thread tag for temp dirs. Collision-safe enough
