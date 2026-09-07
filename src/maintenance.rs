@@ -19,6 +19,7 @@
 
 use std::collections::BTreeMap;
 
+use physis_core::process::ProcessDeviation;
 use serde::{Deserialize, Serialize};
 
 use crate::industrial::MachineReading;
@@ -215,6 +216,57 @@ impl AnomalyScore {
         )
     }
 }
+
+impl AnomalyScore {
+    /// This score as a core [`ProcessDeviation`], expressed in sigma.
+    ///
+    /// The statistics are NOT unified with `industrial::detect_deviations` and
+    /// should not be: that detector compares a measurement to an authored
+    /// bound, this one compares it to a learned per-machine baseline. They
+    /// answer different questions and collapsing them would lose the
+    /// distinction.
+    ///
+    /// What is unified is the OUTPUT — both detectors hand downstream consumers
+    /// the same `physis_core::process` type, so a deviation is a deviation
+    /// whether a threshold or a baseline found it.
+    ///
+    /// The record is written in **sigma**, not raw units: `expected_value` is
+    /// 0.0 and `observed_value` is the worst feature's signed z. `AnomalyScore`
+    /// does not carry the baseline mean, so reporting a raw expected value
+    /// would mean inventing one. The feature's raw reading stays available in
+    /// `per_feature` and in `description`.
+    ///
+    /// Severity saturates |z| at 6 sigma — past that the z keeps climbing but
+    /// "as bad as it gets" does not. `None` when the score is not anomalous or
+    /// the baseline is still warming up, since withholding a verdict from an
+    /// unready baseline is what `baseline_ready` is for.
+    pub fn to_deviation(
+        &self,
+        detected_at: chrono::DateTime<chrono::Utc>,
+    ) -> Option<ProcessDeviation> {
+        if !self.is_anomaly || !self.baseline_ready {
+            return None;
+        }
+        let z = self
+            .per_feature
+            .iter()
+            .find(|f| f.feature == self.worst_feature)
+            .map(|f| f64::from(f.z))
+            .unwrap_or_else(|| f64::from(self.max_abs_z));
+        Some(ProcessDeviation {
+            id: format!("{}-baseline-{}", self.machine_id, detected_at.timestamp()),
+            task_or_process_id: self.machine_id.clone(),
+            metric: format!("{} (sigma)", self.worst_feature),
+            expected_value: 0.0,
+            observed_value: z,
+            severity: (self.max_abs_z.abs() / 6.0).min(1.0),
+            detected_at,
+            description: self.describe(),
+        })
+    }
+
+}
+
 
 /// A timestamped scalar sample for trend projection.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -529,5 +581,37 @@ mod tests {
         let est = mon.rul("m1", "vibration", 1000.0);
         // ring capped at 5 → still projects, just on recent window.
         assert!(est.is_some());
+    }
+
+    /// A baseline anomaly must be expressible in the core process vocabulary,
+    /// and must stay silent whenever the baseline itself would.
+    #[test]
+    fn anomaly_score_converts_to_a_core_deviation() {
+        let mut b = HealthBaseline::new("m1");
+        for i in 0..MIN_BASELINE_N {
+            // Slight jitter so std > 0 and z is computable.
+            b.observe(&reading("m1", 50.0 + (i % 3) as f32, 2.0));
+        }
+        let now = chrono::Utc::now();
+
+        let hot = b.score(&reading("m1", 900.0, 2.0), DEFAULT_SIGMA_THRESHOLD);
+        assert!(hot.is_anomaly && hot.baseline_ready);
+        let d = hot
+            .to_deviation(now)
+            .expect("a ready, anomalous score converts");
+        assert_eq!(d.task_or_process_id, "m1");
+        assert!(d.metric.ends_with("(sigma)"), "reported in sigma: {}", d.metric);
+        assert_eq!(d.expected_value, 0.0, "baseline mean is not invented");
+        assert!(d.severity > 0.0 && d.severity <= 1.0);
+
+        // Not anomalous → nothing to report.
+        let calm = b.score(&reading("m1", 51.0, 2.0), DEFAULT_SIGMA_THRESHOLD);
+        assert!(calm.to_deviation(now).is_none());
+
+        // Unready baseline withholds its verdict here too.
+        let mut cold = HealthBaseline::new("m2");
+        cold.observe(&reading("m2", 50.0, 2.0));
+        let s = cold.score(&reading("m2", 999.0, 999.0), DEFAULT_SIGMA_THRESHOLD);
+        assert!(s.to_deviation(now).is_none());
     }
 }

@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::operational::OperationalEvent;
+use physis_core::process::{ProcessConstraint, ProcessDeviation, ProcessMeasurement};
 
 /// A health reading from an industrial machine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +49,10 @@ pub struct ProcessAnomaly {
     pub reading: MachineReading,
     pub reason: String,
     pub severity: f32,
+    /// The same finding in the core process vocabulary. Carried so a consumer
+    /// can work in `physis_core::process` terms without this module having to
+    /// break its own shape to get there.
+    pub deviation: ProcessDeviation,
 }
 
 /// Trait for industrial protocol adapters.
@@ -66,36 +71,164 @@ pub trait MachineAdapter: Send {
     }
 }
 
+/// Bridge to the core process model.
+///
+/// `physis_core::process` already models
+/// PLAN -> ACTION -> OBSERVATION -> DEVIATION -> INTERVENTION -> OUTCOME, and
+/// `ProcessMeasurement::deviation_against` already compares a measurement to a
+/// `ProcessConstraint`. This module used to reimplement that comparison with its
+/// own `ProcessAnomaly` type and its own severity formula, so the industrial
+/// stack ran *beside* the core process model rather than on it.
+///
+/// It now runs on it. The two severity formulas turn out to be the same one:
+/// this module scored a temperature overshoot as `(value - limit) / limit`, and
+/// core scores it as `overshoot / span` where `span = max - min`. Expressing
+/// "temp_max = L" as the constraint `[0, L]` makes `span == L`, so
+/// `overshoot / span == (value - limit) / limit` exactly. The ad-hoc formula was
+/// core's formula with an implied zero floor; nothing had to be approximated to
+/// unify them.
+impl MachineReading {
+    /// This reading as core `ProcessMeasurement`s — one per metric present.
+    ///
+    /// Ordering is fixed (the four named metrics, then `raw` sorted by key) so
+    /// deviations come out in a stable order regardless of `HashMap` iteration.
+    pub fn measurements(&self) -> Vec<ProcessMeasurement> {
+        let mut out = Vec::new();
+        let nominal = self.status == MachineStatus::Online;
+        let mut push = |metric: &str, value: f32, unit: &str| {
+            out.push(ProcessMeasurement {
+                id: format!("{}-{}-{}", self.machine_id, metric, self.timestamp.timestamp()),
+                metric: metric.to_string(),
+                value: value as f64,
+                unit: unit.to_string(),
+                machine_or_source: self.machine_id.clone(),
+                timestamp: self.timestamp,
+                is_nominal: nominal,
+            });
+        };
+        if let Some(v) = self.temperature {
+            push("temperature", v, "C");
+        }
+        if let Some(v) = self.pressure {
+            push("pressure", v, "bar");
+        }
+        if let Some(v) = self.vibration {
+            push("vibration", v, "mm/s");
+        }
+        if let Some(v) = self.rpm {
+            push("rpm", v, "rpm");
+        }
+        let mut raw: Vec<(&String, &f32)> = self.raw.iter().collect();
+        raw.sort_by(|a, b| a.0.cmp(b.0));
+        for (k, v) in raw {
+            push(k, *v, "");
+        }
+        out
+    }
+}
+
+/// Threshold map -> core constraints.
+///
+/// Keys are `<metric>_max` / `<metric>_min`; `temp` is accepted as an alias for
+/// `temperature` because that is the key the adapter config has always used.
+/// A `_max` bound gets an implied minimum of zero, which is what makes core's
+/// severity identical to the formula this module used to carry (see the module
+/// note above). Output is sorted by id so it is order-independent.
+pub fn thresholds_to_constraints(thresholds: &HashMap<String, f32>) -> Vec<ProcessConstraint> {
+    let mut out: Vec<ProcessConstraint> = thresholds
+        .iter()
+        .filter_map(|(key, limit)| {
+            let (stem, is_max) = if let Some(s) = key.strip_suffix("_max") {
+                (s, true)
+            } else if let Some(s) = key.strip_suffix("_min") {
+                (s, false)
+            } else {
+                return None;
+            };
+            let metric = if stem == "temp" { "temperature" } else { stem };
+            Some(ProcessConstraint {
+                id: key.clone(),
+                name: format!("{metric} {}", if is_max { "maximum" } else { "minimum" }),
+                metric: metric.to_string(),
+                min_value: if is_max { Some(0.0) } else { Some(*limit as f64) },
+                max_value: if is_max { Some(*limit as f64) } else { None },
+                is_hard_constraint: true,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.id.cmp(&b.id));
+    out
+}
+
+/// Detect deviations in a stream of readings, in the core process vocabulary.
+///
+/// This is the primary detector; [`detect_anomalies`] is a compatibility
+/// wrapper over it. A machine reporting Offline or Critical yields a deviation
+/// with severity 1.0 and no threshold: it is a state, not an overshoot, and
+/// core's constraint model has nothing to compare it against.
+pub fn detect_deviations(
+    machine_id: &str,
+    readings: &[MachineReading],
+    thresholds: &HashMap<String, f32>,
+) -> Vec<ProcessDeviation> {
+    let constraints = thresholds_to_constraints(thresholds);
+    let mut out = Vec::new();
+    for reading in readings {
+        for m in reading.measurements() {
+            for c in constraints.iter().filter(|c| c.metric == m.metric) {
+                if let Some(d) = m.deviation_against(c, machine_id) {
+                    out.push(d);
+                }
+            }
+        }
+        if reading.status == MachineStatus::Offline || reading.status == MachineStatus::Critical {
+            out.push(ProcessDeviation {
+                id: format!("{}-status-{}", machine_id, reading.timestamp.timestamp()),
+                task_or_process_id: machine_id.to_string(),
+                metric: "status".to_string(),
+                expected_value: 0.0,
+                observed_value: 1.0,
+                severity: 1.0,
+                detected_at: reading.timestamp,
+                description: format!("machine status: {:?}", reading.status),
+            });
+        }
+    }
+    out
+}
+
 /// Detect anomalies in a stream of readings for a machine.
+///
+/// Retained shape and behaviour; the detection itself is now
+/// [`detect_deviations`] on the core process model. The reason text and
+/// severity are unchanged — see the module note on why the two severity
+/// formulas coincide.
 pub fn detect_anomalies(
     machine_id: &str,
     readings: &[MachineReading],
     thresholds: &HashMap<String, f32>,
 ) -> Vec<ProcessAnomaly> {
-    let mut anomalies = Vec::new();
+    let mut out = Vec::new();
     for reading in readings {
-        if let Some(t) = reading.temperature {
-            if let Some(limit) = thresholds.get("temp_max") {
-                if t > *limit {
-                    anomalies.push(ProcessAnomaly {
-                        machine_id: machine_id.to_string(),
-                        reading: reading.clone(),
-                        reason: format!("temperature {t} exceeds limit {limit}"),
-                        severity: ((t - limit) / limit).min(1.0),
-                    });
-                }
-            }
-        }
-        if reading.status == MachineStatus::Offline || reading.status == MachineStatus::Critical {
-            anomalies.push(ProcessAnomaly {
+        for d in detect_deviations(machine_id, std::slice::from_ref(reading), thresholds) {
+            let reason = if d.metric == "status" {
+                d.description.clone()
+            } else {
+                format!(
+                    "{} {} exceeds limit {}",
+                    d.metric, d.observed_value, d.expected_value
+                )
+            };
+            out.push(ProcessAnomaly {
                 machine_id: machine_id.to_string(),
                 reading: reading.clone(),
-                reason: format!("machine status: {:?}", reading.status),
-                severity: 1.0,
+                reason,
+                severity: d.severity,
+                deviation: d,
             });
         }
     }
-    anomalies
+    out
 }
 
 /// Stub MQTT adapter (requires rumqttc feature).
@@ -734,5 +867,58 @@ mod tests {
         };
         let r = run_loop(adapter, &opts).await;
         assert!(r.is_ok());
+    }
+
+    /// The unification must not have moved any number.
+    ///
+    /// Pins the claim in the module note: scoring a `temp_max = L` overshoot
+    /// through core's `[0, L]` constraint reproduces the old
+    /// `(value - limit) / limit` exactly, not approximately.
+    #[test]
+    fn core_severity_reproduces_the_old_formula() {
+        let mut thresholds = HashMap::new();
+        thresholds.insert("temp_max".to_string(), 100.0_f32);
+        let reading = MachineReading {
+            machine_id: "press-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(150.0),
+            pressure: None,
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Online,
+            raw: HashMap::new(),
+        };
+        let got = detect_anomalies("press-01", std::slice::from_ref(&reading), &thresholds);
+        assert_eq!(got.len(), 1);
+        let expected = ((150.0_f32 - 100.0) / 100.0).min(1.0);
+        assert!(
+            (got[0].severity - expected).abs() < 1e-6,
+            "severity {} != legacy formula {expected}",
+            got[0].severity
+        );
+        // And the same finding is available in core's vocabulary.
+        assert_eq!(got[0].deviation.metric, "temperature");
+        assert_eq!(got[0].deviation.expected_value, 100.0);
+        assert_eq!(got[0].deviation.observed_value, 150.0);
+    }
+
+    /// A reading becomes core measurements, one per metric actually present.
+    #[test]
+    fn readings_become_core_measurements() {
+        let reading = MachineReading {
+            machine_id: "m1".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(20.0),
+            pressure: None,
+            vibration: Some(1.5),
+            rpm: None,
+            status: MachineStatus::Online,
+            raw: HashMap::new(),
+        };
+        let ms = reading.measurements();
+        assert_eq!(ms.len(), 2, "only the metrics that are present");
+        assert_eq!(ms[0].metric, "temperature");
+        assert_eq!(ms[1].metric, "vibration");
+        assert!(ms.iter().all(|m| m.machine_or_source == "m1"));
     }
 }

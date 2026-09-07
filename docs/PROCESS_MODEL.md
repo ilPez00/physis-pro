@@ -51,7 +51,11 @@ Physis integrates process semantics directly underneath its semantic reasoning a
 
 ---
 
-## 3. Core Process Entities (`process.rs`)
+## 3. Core Process Entities (`physis-core/src/process.rs`)
+
+> These types live in **physis-core** and are the single vocabulary for
+> deviations. Pro's industrial stack builds on them rather than beside them —
+> see §3.6.
 
 ### 1. Goal & Plan
 - **`ProcessGoal`**: Target outcome (e.g. "Maintain OEE > 85%", "Produce 500 units without scrap").
@@ -74,6 +78,37 @@ Physis integrates process semantics directly underneath its semantic reasoning a
 - **`ProcessIntervention`**: Human or automated action taken to correct a deviation.
 - **`ProcessOutcome`**: Final recorded verdict, scrap count, and duration.
 - **`ProcessCycle`**: Full execution record linking Plan $\rightarrow$ Action $\rightarrow$ Measurement $\rightarrow$ Deviation $\rightarrow$ Intervention $\rightarrow$ Outcome.
+
+### 6. How the industrial stack uses them
+
+`physis_pro::industrial` used to carry its own parallel detector: a
+`ProcessAnomaly` type and a hand-rolled severity formula, running beside this
+model instead of on it. It now runs on it.
+
+- `MachineReading::measurements()` turns one telemetry reading into
+  `ProcessMeasurement`s — one per metric actually present, in fixed order.
+- `industrial::thresholds_to_constraints()` turns the adapter's
+  `temp_max`-style threshold map into `ProcessConstraint`s.
+- `industrial::detect_deviations()` is the primary detector and returns
+  `ProcessDeviation` directly. `detect_anomalies()` remains as a
+  compatibility wrapper with its original shape and numbers.
+
+The two severity formulas turned out to be one formula. The industrial code
+scored an overshoot as `(value − limit) / limit`; core scores it as
+`overshoot / span` for `span = max − min`. Writing `temp_max = L` as the
+constraint `[0, L]` makes `span = L`, so the two are equal — the ad-hoc formula
+was core's with an implied zero floor. `core_severity_reproduces_the_old_formula`
+pins this, so the unification is verified rather than asserted.
+
+**What is deliberately not unified**: `maintenance::AnomalyScore` keeps its own
+statistics. It scores against a *learned per-machine baseline* in units of
+sigma, where the threshold detector scores against an *authored bound*; those
+answer different questions and collapsing them would lose the distinction. Only
+the output is unified — `AnomalyScore::to_deviation()` emits a
+`ProcessDeviation` in sigma (`expected_value` 0.0, `observed_value` the signed
+z), so downstream consumers see one deviation type whichever detector found it.
+It reports in sigma rather than raw units because `AnomalyScore` does not carry
+the baseline mean, and inventing one would be worse than saying so.
 
 ---
 
