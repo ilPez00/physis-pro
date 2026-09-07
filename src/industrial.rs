@@ -97,7 +97,12 @@ impl MachineReading {
         let nominal = self.status == MachineStatus::Online;
         let mut push = |metric: &str, value: f32, unit: &str| {
             out.push(ProcessMeasurement {
-                id: format!("{}-{}-{}", self.machine_id, metric, self.timestamp.timestamp()),
+                id: format!(
+                    "{}-{}-{}",
+                    self.machine_id,
+                    metric,
+                    self.timestamp.timestamp()
+                ),
                 metric: metric.to_string(),
                 value: value as f64,
                 unit: unit.to_string(),
@@ -138,19 +143,20 @@ pub fn thresholds_to_constraints(thresholds: &HashMap<String, f32>) -> Vec<Proce
     let mut out: Vec<ProcessConstraint> = thresholds
         .iter()
         .filter_map(|(key, limit)| {
-            let (stem, is_max) = if let Some(s) = key.strip_suffix("_max") {
-                (s, true)
-            } else if let Some(s) = key.strip_suffix("_min") {
-                (s, false)
-            } else {
-                return None;
+            let (stem, is_max) = match key.strip_suffix("_max") {
+                Some(s) => (s, true),
+                None => (key.strip_suffix("_min")?, false),
             };
             let metric = if stem == "temp" { "temperature" } else { stem };
             Some(ProcessConstraint {
                 id: key.clone(),
                 name: format!("{metric} {}", if is_max { "maximum" } else { "minimum" }),
                 metric: metric.to_string(),
-                min_value: if is_max { Some(0.0) } else { Some(*limit as f64) },
+                min_value: if is_max {
+                    Some(0.0)
+                } else {
+                    Some(*limit as f64)
+                },
                 max_value: if is_max { Some(*limit as f64) } else { None },
                 is_hard_constraint: true,
             })
@@ -458,7 +464,10 @@ pub mod modbus {
             self.slave = slave;
         }
 
-        async fn resolve(endpoint: &str, default_port: u16) -> anyhow::Result<std::net::SocketAddr> {
+        async fn resolve(
+            endpoint: &str,
+            default_port: u16,
+        ) -> anyhow::Result<std::net::SocketAddr> {
             let ep = if endpoint.contains(':') {
                 endpoint.to_string()
             } else {
@@ -810,7 +819,12 @@ mod tests {
     fn test_modbus_map_default_has_four_registers() {
         let m = ModbusMap::default();
         assert_eq!(m.scale, 10.0);
-        assert!(m.temperature.is_some() && m.pressure.is_some() && m.vibration.is_some() && m.rpm.is_some());
+        assert!(
+            m.temperature.is_some()
+                && m.pressure.is_some()
+                && m.vibration.is_some()
+                && m.rpm.is_some()
+        );
     }
 
     // With `once`, the loop emits exactly one event from an in-memory adapter and

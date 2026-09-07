@@ -1252,10 +1252,8 @@ mod tests {
             .filter(|n| {
                 let stem = n.trim_end_matches(".json");
                 physis_core::ontology::ontology_source(stem).is_some()
-                    || physis_core::ontology::ontology_source(
-                        stem.trim_end_matches("_ontology"),
-                    )
-                    .is_some()
+                    || physis_core::ontology::ontology_source(stem.trim_end_matches("_ontology"))
+                        .is_some()
             })
             .collect();
         assert!(

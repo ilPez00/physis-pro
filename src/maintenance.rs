@@ -264,9 +264,7 @@ impl AnomalyScore {
             description: self.describe(),
         })
     }
-
 }
-
 
 /// A timestamped scalar sample for trend projection.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -600,7 +598,11 @@ mod tests {
             .to_deviation(now)
             .expect("a ready, anomalous score converts");
         assert_eq!(d.task_or_process_id, "m1");
-        assert!(d.metric.ends_with("(sigma)"), "reported in sigma: {}", d.metric);
+        assert!(
+            d.metric.ends_with("(sigma)"),
+            "reported in sigma: {}",
+            d.metric
+        );
         assert_eq!(d.expected_value, 0.0, "baseline mean is not invented");
         assert!(d.severity > 0.0 && d.severity <= 1.0);
 
