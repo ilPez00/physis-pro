@@ -478,7 +478,8 @@ fn extract_ocr(path: &Path) -> anyhow::Result<(String, DocMeta)> {
 /// Feature-gated behind `ingest` (uses calamine).
 #[cfg(feature = "ingest")]
 fn extract_spreadsheet(path: &Path) -> anyhow::Result<(String, DocMeta)> {
-    use calamine::{open_workbook_auto, DataType, Reader};
+    // calamine 0.24: `DataType` is the trait; `Data` is the cell enum.
+    use calamine::{open_workbook_auto, Reader};
 
     let mut wb = open_workbook_auto(path)?;
     let sheet_name = wb.sheet_names().get(0)
@@ -525,13 +526,14 @@ fn extract_spreadsheet(path: &Path) -> anyhow::Result<(String, DocMeta)> {
 }
 
 #[cfg(feature = "ingest")]
-fn cell_to_string(cell: &DataType) -> String {
+fn cell_to_string(cell: &calamine::Data) -> String {
+    use calamine::Data;
     match cell {
-        DataType::String(s) => s.clone(),
-        DataType::Float(f) => format!("{}", f),
-        DataType::Int(i) => format!("{}", i),
-        DataType::Bool(b) => format!("{}", b),
-        DataType::Empty => String::new(),
+        Data::String(s) => s.clone(),
+        Data::Float(f) => format!("{}", f),
+        Data::Int(i) => format!("{}", i),
+        Data::Bool(b) => format!("{}", b),
+        Data::Empty => String::new(),
         _ => format!("{:?}", cell),
     }
 }
@@ -540,13 +542,11 @@ fn cell_to_string(cell: &DataType) -> String {
 /// Feature-gated behind `audio`.
 #[cfg(feature = "audio")]
 fn extract_audio_transcript(path: &Path) -> anyhow::Result<(String, DocMeta)> {
-    use crate::ai::provider::ProviderCascade;
-
     let db = crate::config::PhysisConfig::default();
     let config = crate::config::PhysisConfig::default();
     let _ = (db, config);
 
-    // In a real implementation this would create a ProviderCascade and call
+    // A real implementation would create a ProviderCascade and call
     // transcribe. For now, return empty — the audio feature is wired but needs
     // an active provider configuration.
     let _ = path;
