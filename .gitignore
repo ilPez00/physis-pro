@@ -20,3 +20,6 @@ shots/*.html
 shots/index.html
 models/model.onnx
 models/wordnet/
+
+# Generated operational corpus (rebuild with: cargo run --release --example populate_operational)
+/operational_corpus.json
