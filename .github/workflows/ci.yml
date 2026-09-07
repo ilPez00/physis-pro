@@ -27,7 +27,13 @@ jobs:
         run: cargo check
       - name: cargo check (full)
         run: cargo check --features full
-      - name: cargo check (industrial)
+      # `industrial` is a no-op feature since the MQTT/Modbus stack became
+      # unconditional. Kept as a check so the alias keeps resolving for the
+      # scripts and docs that still pass it; the real coverage of
+      # src/industrial.rs is now the default-feature clippy step below, which
+      # is what PH-016 asked for — a feature gate nothing clippied was how two
+      # warnings accumulated there invisibly.
+      - name: cargo check (industrial alias still resolves)
         run: cargo check --features industrial,cli
       - name: cargo check (spanner)
         run: cargo check --features spanner
@@ -45,7 +51,10 @@ jobs:
         run: cargo check --workspace
       - name: cargo build (examples — machine demos)
         run: cargo build --examples
-      - name: clippy
+      # Default features now include the industrial stack, so this single
+      # step covers src/industrial.rs. Do not re-gate it behind a feature
+      # without adding a matching clippy step (PH-016).
+      - name: clippy (default — includes the industrial stack)
         run: cargo clippy --all-targets -- -D warnings
 
   # PH-014 Item C: refuse any tracked blob over 25MB. Catches the case the

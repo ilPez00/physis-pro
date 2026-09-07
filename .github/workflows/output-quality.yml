@@ -21,6 +21,12 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+      # full → ingest → tesseract; without the system libraries the build
+      # script for leptonica-sys fails before any probe runs (the daily
+      # failures on 09-05/06/07).
+      - name: install OCR system libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libtesseract-dev libleptonica-dev
+      - uses: Swatinem/rust-cache@v2
       # Cache the ~400MB model across runs — keyed on the script so a model
       # change busts the cache (same contract as the accuracy-floor job).
       - name: cache BGE-base model

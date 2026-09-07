@@ -13,6 +13,11 @@ on:
     paths:
       - "physis-core/**"
       - ".github/workflows/physis-core.yml"
+  # Submodule pointer bumps do NOT match the "physis-core/**" pathspec (the
+  # gitlink path is the directory itself, not a descendant), so the gate would
+  # only ever run on release tag pushes. Dispatch makes it runnable on demand:
+  #   gh workflow run "physis-core CI" --ref research/perspective-discovery-v2
+  workflow_dispatch:
 
 jobs:
   check:
