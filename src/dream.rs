@@ -50,6 +50,16 @@ impl DreamEngine {
         }
     }
 
+    /// Engine with a fixed seed: which generator fires and which goal it
+    /// draws is RNG-driven, so tests (and reproducible demos) pin it.
+    pub fn new_seeded(seed: u64) -> Self {
+        Self {
+            dreams: Vec::new(),
+            dream_contexts: Vec::new(),
+            rng: StdRng::seed_from_u64(seed),
+        }
+    }
+
     pub fn generate_dreams(&mut self, goals: &[Goal], batch_size: usize) -> Vec<Dream> {
         self.generate_dreams_with_context(goals, batch_size, None, None)
     }
@@ -718,7 +728,11 @@ mod tests {
     #[test]
     fn contract_mixed_goals_split_accurately() {
         let classifier = audit_fixture();
-        let mut engine = DreamEngine::new();
+        // Seeded: which goal each generator draws is RNG-driven, and an
+        // OS-seeded engine can (CI proved it, seed-space ~2%) draw only
+        // on-grid goals for the whole batch, making `rejected > 0` flaky.
+        // Seed 3 draws both kinds deterministically (6 accepted / 9 rejected).
+        let mut engine = DreamEngine::new_seeded(3);
         let mut goals = goals_along([1.0, 0.0, 0.0, 0.0], 3);
         goals.extend(goals_along([0.0, 0.0, 1.0, 0.0], 2));
         let contract = DreamContract::new(&classifier, 0.5, 2);
@@ -781,3 +795,4 @@ mod tests {
         assert_eq!(review.cosine, 0.9);
     }
 }
+
