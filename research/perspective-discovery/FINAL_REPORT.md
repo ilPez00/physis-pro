@@ -1736,3 +1736,54 @@ and 0.654-vs-0.619 both sit inside 0.074 — but the figure to carry forward is
 0.074, and single-run margins below roughly 0.05 in this harness remain
 uninterpretable.
 
+
+### Stage 6e — arm B completed: the LLM's contribution is zero, and structurally so
+
+Arm B ran to completion over all 35 cells: 450 terms, temperature 0,
+`think=False`, ollama native structured output under the Pydantic `CellVocab`
+contract. Arms A and B share a byte-identical split and an identical
+`frequency` vocabulary, so the comparison isolates the model.
+
+**The generator's own measurement, before any scoring.** Echo rate — the
+fraction of proposed terms that appeared verbatim in the prompt that requested
+them — is **0.951 overall (428/450), median 1.00, with 19 of 34 cells at
+exactly 1.00**. Each cell's prompt supplied its anchor and five real entries and
+asked for words appearing in OTHER entries, explicitly forbidding repetition.
+In the majority of cells the model returned its input unchanged.
+
+**Scored, 11 perturbations, identical rows:**
+
+| comparison | population | mean Δ | wins | paired t |
+|---|---|---|---|---|
+| B vs A | held-out | −0.062 | 0/11 | −6.50 |
+| B vs A | all | −0.185 | 0/11 | −39.18 |
+| B vs cosine | held-out | −0.071 | 0/11 | −9.00 |
+| B vs cosine | all | −0.064 | 0/11 | −6.89 |
+
+Arm B loses every trial to arm A on both populations, and loses to plain cosine
+as well: it is worse than not scoring at all. **The question the design was
+built to answer — "does B beat A" — has the cleanest possible answer, 0/22.**
+
+**A second, independent confirmation of the mechanism.** On the contaminated
+`half=all` population arm A gains +0.121 while arm B gains −0.064. A vocabulary
+genuinely derived from the training half would inherit A's contamination
+advantage. B does not, because B only ever saw *five* examples per cell and
+echoed them: it recognises five training entries where A's IDF ranks 338. The
+absence of the contamination signature measures how little the model added.
+
+**What this closes.** The Iteration 38c prerequisite was a controlled vocabulary
+in the entries' own idiom. Both ways of building one have now been tested. Arm A
+(no LLM) is at chance on held-out data. Arm B (LLM) is significantly worse than
+both A and cosine. The prerequisite is not merely unmet — the two available
+routes to meeting it are measured and closed. CONSTRAINT does not become viable
+by being given a better vocabulary.
+
+**The honest caveat.** This is one 4B model on local hardware, and its failure
+mode is entangled with its deployment: qwen3:4b does not terminate under a JSON
+schema with reasoning enabled, and disabling reasoning is what produces the
+echo. On this hardware those are not separable, so the finding is "the locally
+available model contributes zero", not "no LLM could". A larger model that can
+hold a schema while reasoning has not been tested and is the only untried
+variant of this arm. Given eleven prior mechanism failures and a 0.074 noise
+floor, it is not obviously worth the attempt.
+
