@@ -2312,10 +2312,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     };
     let embed_dim = embedder.dimension();
 
-    // Semantic self-test (PREMORTEM.md P4): a model can load yet silently emit
+    // Semantic self-test (PREMORTEM.md P4): a model can load but silently emit
     // garbage (opset/quant mismatch → inference falls back to random vectors).
-    // Verify dog≈puppy lands clearly closer than dog≈tax-spreadsheet; if not,
-    // the embedder is non-semantic regardless of which kind "loaded".
+    // Lexically-disjoint synonym pairs (car/automobile, dog/puppy, a machine
+    // fault) must each land clearly closer than their distractors; a
+    // bag-of-words embedder passes the old token-overlapping pair, so the
+    // disjoint probe is the gate. If it fails, the embedder is non-semantic
+    // regardless of which kind "loaded" (PLAN.md H2).
     let self_test_ok = embedder_self_test(embedder.as_ref());
     // Explicit operator override (PHYSIS_EMBEDDER=random-projection / rp): the
     // fast-start path at the top of this function. This selects the deterministic,

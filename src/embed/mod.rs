@@ -69,20 +69,57 @@ pub trait VectorEmbed: Send + Sync {
     fn dimension(&self) -> usize;
 }
 
+/// Version tag of the semantic probe. The [`SelfTestCache`] keys verdicts on
+/// path + mtime only, so any change to the probe itself must bump this —
+/// otherwise a model recorded as passing under an older, laxer probe keeps
+/// skipping re-test forever.
+pub(crate) const SEMANTIC_PROBE_VERSION: &str = "v2";
+
+/// (related A, related B, unrelated distractor) — A and B share no token.
+pub(crate) const SEMANTIC_PROBES: [(&str, &str, &str); 3] = [
+    ("car", "automobile", "banana"),
+    ("dog", "puppy", "spreadsheet"),
+    (
+        "spindle motor overheated and tripped",
+        "thermal fault shut down the drive",
+        "invoice payment terms net thirty days",
+    ),
+];
+
 /// Semantic self-test (PREMORTEM P0/P4): a model can load yet emit garbage
-/// (fp16 outputs read as f32, opset drift, truncated dims). A related pair
-/// must clearly out-score an unrelated pair, all vectors finite. Every
-/// cascade that selects an embedder must gate candidates with this — the
-/// CLI shipped without it and silently ran on Jina noise.
+/// (fp16 outputs read as f32, opset drift, truncated dims). Every cascade that
+/// selects an embedder must gate candidates with this — the CLI shipped
+/// without it and silently ran on Jina noise.
+///
+/// The probe uses **lexically disjoint** pairs: the two members of a related
+/// pair share no common token, so a bag-of-words or feature-hashing embedder
+/// cannot pass by token overlap (the original dog/puppy pair shared 4 of 5
+/// tokens and passed under the random-projection embedder, reporting
+/// `"semantic": true` for a non-semantic engine — PLAN.md H2). Each related
+/// pair must also beat a fixed margin over its distractor, over several
+/// domains, so one lucky pair cannot carry a garbage model through.
 pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
-    let a = e.embed("a photograph of a dog");
-    let related = e.embed("a photograph of a puppy");
-    let unrelated = e.embed("quarterly corporate tax accounting spreadsheet");
+    /// Required margin between the related-pair similarity and the
+    /// distractor-pair similarity. Generous enough for real semantic models,
+    /// tight enough that token-overlap hashers (which score lexical noise at
+    /// roughly the same level for everything) cannot clear it.
+    const MARGIN: f32 = 0.05;
+
     let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
-    if !(finite(&a) && finite(&related) && finite(&unrelated)) {
-        return false;
+    for (a_text, b_text, d_text) in SEMANTIC_PROBES {
+        let a = e.embed(a_text);
+        let b = e.embed(b_text);
+        let d = e.embed(d_text);
+        if !(finite(&a) && finite(&b) && finite(&d)) {
+            return false;
+        }
+        let related = crate::models::cosine_sim(&a, &b);
+        let unrelated = crate::models::cosine_sim(&a, &d);
+        if related <= unrelated + MARGIN {
+            return false;
+        }
     }
-    crate::models::cosine_sim(&a, &related) > crate::models::cosine_sim(&a, &unrelated) + 0.05
+    true
 }
 
 /// Persistent cache of embedder self-test verdicts.
@@ -115,7 +152,9 @@ impl SelfTestCache {
     }
 
     /// Key by the resolved model file (flat `model.onnx`, else `onnx/model.onnx`,
-    /// matching OnnxEmbedder) plus its mtime, so a changed model re-tests.
+    /// matching OnnxEmbedder) plus its mtime, so a changed model re-tests. The
+    /// probe version prefixes the key: hardening [`semantic_self_test`] must
+    /// invalidate verdicts recorded under the older, laxer probe.
     fn key(&self, label: &str, model_dir: &str) -> String {
         let flat = std::path::Path::new(model_dir).join("model.onnx");
         let nested = std::path::Path::new(model_dir).join("onnx/model.onnx");
@@ -126,7 +165,10 @@ impl SelfTestCache {
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        format!("{label}:{}:{mtime}", file.display())
+        format!(
+            "{SEMANTIC_PROBE_VERSION}:{label}:{}:{mtime}",
+            file.display()
+        )
     }
 
     /// Build + self-test an embedder, but skip the (eager, possibly multi-GB)
@@ -516,5 +558,38 @@ mod tests {
             let single = embedder.embed(text);
             assert_eq!(batch[i], single, "batch[{i}] must match single embed");
         }
+    }
+
+    /// The probe's design contract: a related pair must never share a token,
+    /// or a bag-of-words embedder can pass by overlap again (the original
+    /// dog/puppy pair shared 4 of 5 tokens — PLAN.md H2).
+    #[test]
+    fn probe_pairs_are_lexically_disjoint() {
+        let tokenize = |s: &str| -> Vec<String> {
+            s.split(|c: char| !c.is_alphanumeric())
+                .filter(|t| !t.is_empty())
+                .map(|t| t.to_ascii_lowercase())
+                .collect()
+        };
+        for (a, b, _) in SEMANTIC_PROBES {
+            let (ta, tb) = (tokenize(a), tokenize(b));
+            let shared: Vec<&String> = ta.iter().filter(|t| tb.contains(t)).collect();
+            assert!(
+                shared.is_empty(),
+                "probe pair {a:?}/{b:?} shares tokens {shared:?} — a hash embedder could pass by overlap"
+            );
+        }
+    }
+
+    /// The feature-hashing embedder is non-semantic by design — under the lax
+    /// dog/puppy probe it reported `semantic: true` on every health surface
+    /// (PLAN.md H2). It must fail the disjoint-synonym probe.
+    #[test]
+    fn random_projection_fails_the_semantic_probe() {
+        let e = RandomProjectionEmbedder::new(384);
+        assert!(
+            !semantic_self_test(&e),
+            "random projection must not pass the semantic self-test"
+        );
     }
 }
