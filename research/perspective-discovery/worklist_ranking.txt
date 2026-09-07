@@ -16,10 +16,15 @@ ground truth: 217/1638 proposals are hits (base rate 0.132)
   record 3117: live 0.742 (e409) / 0.735 (e700), mutual 0.849, midpoint-in-set true -> its score Some(0.76803064); best proposal 0.769
   record 6233: live 0.803 (e688) / 0.796 (e413), mutual 0.735, midpoint-in-set false -> its score None; best proposal 0.824
 
+=== shipped-API parity: physis_core::coverage::rank_candidates ===
+  max |shipped lift - inline lift| over 1638 candidates: 1.40e-3
+  top-100 agreement: 100/100 identical members
+
 === precision@k: share of hits in the top k, per ranking arm ===
 
   arm           k=25    k=50   k=100   k=200   k=400    p(k=25)   (base 0.132)
   LIFT          0.480   0.400   0.360   0.285   0.193    2.33e-5   operational: total score lift over the record pile
+  SHIPPED       0.480   0.400   0.360   0.285   0.193    2.33e-5   the same, through coverage::rank_candidates
   ISOLATION     0.120   0.140   0.160   0.215   0.195    6.64e-1   ontology-only emptiness — the construction-matched control
   TRAFFIC       0.160   0.140   0.180   0.200   0.172    4.27e-1   max cosine to any record — popularity control
   P25-GAIN      0.320   0.300   0.200   0.155   0.140    1.20e-2   planner rule at the p25 threshold
@@ -49,4 +54,3 @@ ground truth: 217/1638 proposals are hits (base rate 0.132)
  from the entries alone and the records are decoration. Equal to RANDOM means the
  disposer filters but does not rank, and the worklist is worth reading only as a
  set, not in order.)
-

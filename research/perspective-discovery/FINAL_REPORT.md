@@ -1258,7 +1258,7 @@ only thing that makes the rest trustworthy.
 |---|---|---|
 | **Deterministic ontology iteration** | `classification_domains()` iterated `HashMap`s — order randomized per process, so every run saw the corpus differently. Fixed; then found the fix INCOMPLETE (the key was not a total order: 6 built-ins collide on `(name, domain, mode)`). Regression test verified by sabotage. | `ontology.rs`, 0.1.15 + `b08aa7a` |
 | **`linkage`** | Which cells real data bridges, via which items. No threshold, no k, no seed; ties break on cell key. Byte-identical across runs; reproduces Iteration 21's qualitative result. | `linkage.rs`, 0.1.16 |
-| **`coverage` — the machine disposer** | Re-adding an entry the ontology already has rescues **exactly 0 of 2000** trials (correctly — those records were already covered); interpolations 0.073, **Welch t = +12.11**. Cuts 2000 candidates to 141 with no human and no lexicon. | `coverage.rs`, 0.1.17 |
+| **`coverage` — the machine disposer** | **Filters:** re-adding an entry the ontology already has rescues **exactly 0 of 2000** trials (correctly — those records were already covered); interpolations 0.073, **Welch t = +12.11**. Cuts 2000 candidates to 141 with no human and no lexicon. **Ranks** (Stage 10): ordering by continuous lift puts 12 real gaps in the first 25 rows, 0.480 against a 0.132 base rate, p = 2.3e-5, with four controls on the random floor there. | `coverage.rs`, 0.1.17; `CandidateGain::lift` + lift-ordered `rank_candidates` in **0.1.20** |
 | **`becoming` — the runs test** | Separates `AAAAAABBBBBB` from `ABABBABAABAB`: identical partitions, identical counts, distinguishable only by order. No clusterer can do this. Unit-proven; no RNG. | `becoming.rs` |
 | **`chronos`** (pre-existing, validated here) | Plausible periods on real data — 5.1d `key`, 6.7d `coverage`, 6.9d `core` — with confidence 0.35-0.61 for regular terms against **0.12 for `test`**, which genuinely is irregular. | `machines/chronos.rs` |
 
@@ -1296,7 +1296,9 @@ only thing that makes the rest trustworthy.
    p = 2.3e-5 — while four controls (popularity, the proposer's own geometry,
    parent similarity, and ontology-only isolation) all sit at the random floor
    there. The ordering signal is operational: the ontology's own geometry ranks
-   its holes at chance. Label-free, so Stage 7 does not touch it.
+   its holes at chance. Label-free, so Stage 7 does not touch it. Shipped as
+   `CandidateGain::lift` in 0.1.20 and re-measured through the shipped API,
+   which reproduces the result exactly.
 
 ### What did not work, in one line each
 
@@ -2060,7 +2062,8 @@ it.
 | arm | k=25 | k=50 | k=100 | k=200 | k=400 | p (k=25) |
 |---|---|---|---|---|---|---|
 | **LIFT** — total score raised over the record pile | **0.480** | **0.400** | **0.360** | **0.285** | 0.193 | **2.3e-5** |
-| P25-GAIN — the shipped binarized rule, p25 threshold | 0.320 | 0.300 | 0.200 | 0.155 | 0.140 | 1.2e-2 |
+| SHIPPED — the same, through `coverage::rank_candidates` | 0.480 | 0.400 | 0.360 | 0.285 | 0.193 | 2.3e-5 |
+| P25-GAIN — the old binarized rule, p25 threshold | 0.320 | 0.300 | 0.200 | 0.155 | 0.140 | 1.2e-2 |
 | GEOMETRY — max cosine to known (the proposer's own preference) | 0.200 | 0.140 | 0.120 | 0.115 | 0.128 | 0.23 |
 | PAIR-SIM — parents' mutual cosine | 0.200 | 0.140 | 0.120 | 0.115 | 0.128 | 0.23 |
 | TRAFFIC — max cosine to any record (popularity control) | 0.160 | 0.140 | 0.180 | 0.200 | 0.172 | 0.43 |
@@ -2129,12 +2132,11 @@ The useful worklist is also short. Precision decays 0.480 → 0.360 → 0.193
 across k = 25 → 100 → 400, and is within noise of the base rate by k = 400.
 This buys a person the first hundred, not a sorted pile of 1,638.
 
-### The shipped code implements the weaker half of this
+### The shipped code implemented the weaker half — fixed in 0.1.20
 
-`coverage::rank_candidates` sorts on `CandidateGain::count()` — the binarized
+`coverage::rank_candidates` sorted on `CandidateGain::count()` — the binarized
 rule: how many records cross a confidence threshold. That is the **P25-GAIN**
-arm, 0.320@25 (p = 0.012). It works, and it is beaten by the continuous form
-(0.480) that is not implemented.
+arm, 0.320@25 (p = 0.012). It works, and it is beaten by the continuous form.
 
 Worse, the binarized rule is threshold-fragile in a way the continuous one is
 not. At the median threshold (0.741) only 272/1638 candidates rescue a single
@@ -2142,16 +2144,35 @@ record, and the DIAG explains why: operational text matches the live ontology
 strongly (median best-entry cosine 0.741), and a midpoint sandwiched between two
 entries can rarely beat all 657 known entries for any record. Iteration 33's
 records were held-out *entries* (median ~0.5), where the bar is reachable;
-operational *text* raises it out of reach. The rule is near-inert on exactly the
-data the product runs on, and nothing in the API says so.
+operational *text* raises it out of reach. The rule was near-inert on exactly
+the data the product runs on, and nothing in the API said so.
 
-**Recommendation:** add a continuous `CandidateGain::lift` (Σ over records of
-`max(0, cos(candidate, r) − live(r))`) and rank on it, keeping `count()` for
-reporting. This is a small change to `coverage.rs` and it is the difference
-between 0.320 and 0.480 at the top of the list. It is *not* a correctness claim
-— everything the module docs say about coverage-is-not-correctness still holds,
-and a candidate that swallows records into a wrong cell still ranks like one
-that captures a real gap.
+**Shipped in 0.1.20.** `CandidateGain::lift` (Σ over records of
+`max(0, cos(candidate, r) − live(r))`, threshold-free) is now a field, and
+`rank_candidates` orders on it. `count()` and `is_useful()` are unchanged and
+remain the *filter* — that is the half the t = +12.11 duplicate control
+validated. **Filter on `count()`, order on `lift`.** `CandidateGain` lost its
+`Eq` derive (it now holds a float); that and the changed ordering are the two
+breaking edges, both recorded in the crate CHANGELOG.
+
+The duplicate control survives the move to a continuous score, and exactly
+rather than approximately: `live` is already a maximum over every entry, so a
+copy of one cannot exceed it for any record, and its lift is `0.0` by
+construction. That is a unit test now, alongside the degenerate empty-ontology
+case (lift stays finite rather than becoming infinite).
+
+**Verified through the shipped path, not just asserted.** The experiment now
+runs a `SHIPPED` arm: the 657 known entries grouped into cells become a live
+`CellClassifier`, each of the 1,638 proposals becomes a one-entry candidate
+cell, and `coverage::rank_candidates` is called on the same 6,234 records. It
+reproduces the inline result **exactly at every k**, with 100/100 identical
+members in the top 100 and a maximum lift difference of 1.4e-3 (the shipped
+sum accumulates in f32, the experiment in f64). The number in the table above
+is the number the product computes.
+
+None of this is a correctness claim — everything the module docs say about
+coverage-is-not-correctness still holds, and a candidate that swallows records
+into a wrong cell still ranks like one that captures a real gap.
 
 ### What this does not show
 
