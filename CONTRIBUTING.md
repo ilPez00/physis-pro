@@ -42,6 +42,7 @@ src/
   license.rs       — Offline license enforcement
   ...
 physis-core/       — Library crate (classify, models, ontology)
+physis-core/config/ — THE ontology corpus (both crates read it; do not copy it back)
 src/bin/ui/        — Console, Demo, Study dashboards (HTML/JS)
 src/bin/voice.rs   — Voice binary (features: voice,web)
 ```

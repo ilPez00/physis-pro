@@ -468,8 +468,11 @@ stored. Lets each user bring (and pay for) their own model.
 }
 ```
 
-Default ontologies live in `config/` (`praxis_ontology.json`, human;
-`machine_ontology.json`, machine; plus the semiotic set below).
+Default ontologies live in **`physis-core/config/`** (`praxis_ontology.json`,
+human; `machine_ontology.json`, machine; plus the semiotic set below) and are
+baked into the binary at compile time. That directory is the single home for the
+corpus: Pro reaches it through `physis_core::ontology::ONTOLOGY_SOURCES` rather
+than keeping a second copy, so `config/` here holds no ontology JSON.
 
 ---
 

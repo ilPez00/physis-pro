@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 use crate::models::*;
@@ -15,157 +16,100 @@ use crate::ontology_nonhuman::MACHINE_ONTOLOGY_NAME;
 /// The named built-in ontologies, resolvable by `OntologyLoader::load_builtin`.
 /// To add one: drop a JSON file in `config/`, register its name constant, add a
 /// row here and (if it needs its own domain map) a `kind` arm in `load_all`.
-static BUILTIN_ONTOLOGIES: &[(&str, &str)] = &[
-    (
-        HUMAN_ONTOLOGY_NAME,
-        include_str!("../config/praxis_ontology.json"),
-    ),
-    (
-        MACHINE_ONTOLOGY_NAME,
-        include_str!("../config/machine_ontology.json"),
-    ),
-    (
-        SEMIOTIC_ONTOLOGY_NAME,
-        include_str!("../config/semiotic_ontology.json"),
-    ),
-    (
-        CATEGORY_ONTOLOGY_NAME,
-        include_str!("../config/category_ontology.json"),
-    ),
-    (
-        AGENT_ONTOLOGY_NAME,
-        include_str!("../config/agent_ontology.json"),
-    ),
-    (
-        NATURAL_ONTOLOGY_NAME,
-        include_str!("../config/natural_ontology.json"),
-    ),
-    (
-        SOCIAL_ONTOLOGY_NAME,
-        include_str!("../config/social_ontology.json"),
-    ),
-    (
-        ABSTRACT_ONTOLOGY_NAME,
-        include_str!("../config/abstract_ontology.json"),
-    ),
-    (
-        ENGINEERING_ONTOLOGY_NAME,
-        include_str!("../config/engineering_ontology.json"),
-    ),
-    (
-        OFFICE_ONTOLOGY_NAME,
-        include_str!("../config/office_ontology.json"),
-    ),
+/// The named built-in ontologies, resolvable by `OntologyLoader::load_builtin`.
+///
+/// The JSON no longer lives here. `physis-core` owns the ontology corpus as
+/// `physis_core::ontology::ONTOLOGY_SOURCES`, and this list selects from it by
+/// canonical name. Pro used to `include_str!` a byte-identical second copy of
+/// 33 files out of its own `config/`; three of them had silently drifted
+/// (health_fitness, machine and software_dev were missing the `interpretant`
+/// block Pro's own loader reads).
+///
+/// It has to cross as data rather than as a path: `include_str!` reaching into
+/// `../physis-core/config/` compiles in this working tree and breaks the
+/// published crate, where `physis-core` resolves from the registry and the
+/// submodule directory is not there.
+///
+/// To add one: add the file and a row to `ONTOLOGY_SOURCES` in physis-core,
+/// then add its name here and (if it needs its own domain map) a `kind` arm in
+/// `load_all`.
+static BUILTIN_ONTOLOGY_NAMES: &[&str] = &[
+    HUMAN_ONTOLOGY_NAME,
+    MACHINE_ONTOLOGY_NAME,
+    SEMIOTIC_ONTOLOGY_NAME,
+    CATEGORY_ONTOLOGY_NAME,
+    AGENT_ONTOLOGY_NAME,
+    NATURAL_ONTOLOGY_NAME,
+    SOCIAL_ONTOLOGY_NAME,
+    ABSTRACT_ONTOLOGY_NAME,
+    ENGINEERING_ONTOLOGY_NAME,
+    OFFICE_ONTOLOGY_NAME,
     // Phase 10 datawork: the space and time filing axes. Deliberately NOT
     // classification themes — files are not *about* "Warehouse" — so they get
     // their own domain maps and never join the classifier's centroids.
-    (
-        SPACE_ONTOLOGY_NAME,
-        include_str!("../config/space_ontology.json"),
-    ),
-    (
-        TIME_ONTOLOGY_NAME,
-        include_str!("../config/time_ontology.json"),
-    ),
+    SPACE_ONTOLOGY_NAME,
+    TIME_ONTOLOGY_NAME,
 ];
 
-/// Extra domain-specific ontologies, baked in at compile time. Each contributes
-/// entries to `custom_domains` and is always loaded (CWD-independent). To add a
-/// new ontology: drop a JSON file in `config/` (using the HEAL/CONSTRUCT/FABRICATE/
-/// BOND/STUDY × LIFT/REST/WALK/WORK/CREATE/LEARN vocabulary) and add one line here.
-static EXTRA_ONTOLOGIES: &[(&str, &str)] = &[
-    (
-        "software_dev",
-        include_str!("../config/software_dev_ontology.json"),
-    ),
-    ("devops", include_str!("../config/devops_ontology.json")),
-    (
-        "data_science",
-        include_str!("../config/data_science_ontology.json"),
-    ),
-    (
-        "cybersecurity",
-        include_str!("../config/cybersecurity_ontology.json"),
-    ),
-    (
-        "health_fitness",
-        include_str!("../config/health_fitness_ontology.json"),
-    ),
-    (
-        "nutrition_cooking",
-        include_str!("../config/nutrition_cooking_ontology.json"),
-    ),
-    (
-        "personal_finance",
-        include_str!("../config/personal_finance_ontology.json"),
-    ),
-    (
-        "learning_education",
-        include_str!("../config/learning_education_ontology.json"),
-    ),
-    (
-        "creative_writing",
-        include_str!("../config/creative_writing_ontology.json"),
-    ),
-    ("music", include_str!("../config/music_ontology.json")),
-    (
-        "visual_arts",
-        include_str!("../config/visual_arts_ontology.json"),
-    ),
-    (
-        "relationships",
-        include_str!("../config/relationships_ontology.json"),
-    ),
-    (
-        "productivity",
-        include_str!("../config/productivity_ontology.json"),
-    ),
-    ("travel", include_str!("../config/travel_ontology.json")),
-    (
-        "home_maintenance",
-        include_str!("../config/home_maintenance_ontology.json"),
-    ),
-    (
-        "mindfulness_spirituality",
-        include_str!("../config/mindfulness_spirituality_ontology.json"),
-    ),
-    (
-        "science_research",
-        include_str!("../config/science_research_ontology.json"),
-    ),
-    (
-        "business_entrepreneurship",
-        include_str!("../config/business_entrepreneurship_ontology.json"),
-    ),
-    (
-        "language_learning",
-        include_str!("../config/language_learning_ontology.json"),
-    ),
-    (
-        "outdoors_sports",
-        include_str!("../config/outdoors_sports_ontology.json"),
-    ),
-    // Targeted fill for the empty/thin DOMAIN×MODE cells (Phase 6F) so every
-    // grid cell is a reachable classification target.
-    (
-        "grid_fill",
-        include_str!("../config/grid_fill_ontology.json"),
-    ),
-    // One MODE-pure anchor per cell — sharpens the 6-mode axis (same-domain modes
-    // were noisy, e.g. heavy lifting leaking to WALK). Phase 6F.
-    (
-        "mode_anchors",
-        include_str!("../config/mode_anchors_ontology.json"),
-    ),
-    // Italian-language anchors: an Italian query against an Italian entry is
-    // same-language matching, which sidesteps the cross-lingual weakness of the
-    // English embedder (measured Italian tier 0.733 → see INDUSTRIAL_VERTICAL_PLAN
-    // step 4). Vocabulary only — never fixture sentences (held-out test honesty).
-    (
-        "italian",
-        include_str!("../config/italian_industrial_ontology.json"),
-    ),
+/// Resolve an ontology's JSON from the core registry, or fail loudly.
+///
+/// A miss means the name drifted apart from `ONTOLOGY_SOURCES`, which is a
+/// build-configuration bug rather than anything a user did; `every_registered_
+/// ontology_resolves` in the tests below turns it into a test failure instead
+/// of a first-run panic.
+fn source_or_panic(name: &str) -> &'static str {
+    physis_core::ontology::ontology_source(name).unwrap_or_else(|| {
+        panic!("ontology '{name}' is not in physis_core::ontology::ONTOLOGY_SOURCES")
+    })
+}
+
+static BUILTIN_ONTOLOGIES: Lazy<Vec<(&'static str, &'static str)>> = Lazy::new(|| {
+    BUILTIN_ONTOLOGY_NAMES
+        .iter()
+        .map(|n| (*n, source_or_panic(n)))
+        .collect()
+});
+
+/// Extra domain-specific ontologies, always loaded into `custom_domains`.
+///
+/// Rows are `(kind, registry name)`: the kind is Pro's key prefix and is NOT
+/// always the file's name — `italian` reads `italian_industrial_ontology.json`
+/// — so the mapping is explicit rather than derived.
+///
+/// To add a new ontology: add the file and a row to `ONTOLOGY_SOURCES` in
+/// physis-core, then add one line here.
+static EXTRA_ONTOLOGY_NAMES: &[(&str, &str)] = &[
+    ("software_dev", "software_dev"),
+    ("devops", "devops"),
+    ("data_science", "data_science"),
+    ("cybersecurity", "cybersecurity"),
+    ("health_fitness", "health_fitness"),
+    ("nutrition_cooking", "nutrition_cooking"),
+    ("personal_finance", "personal_finance"),
+    ("learning_education", "learning_education"),
+    ("creative_writing", "creative_writing"),
+    ("music", "music"),
+    ("visual_arts", "visual_arts"),
+    ("relationships", "relationships"),
+    ("productivity", "productivity"),
+    ("travel", "travel"),
+    ("home_maintenance", "home_maintenance"),
+    ("mindfulness_spirituality", "mindfulness_spirituality"),
+    ("science_research", "science_research"),
+    ("business_entrepreneurship", "business_entrepreneurship"),
+    ("language_learning", "language_learning"),
+    ("outdoors_sports", "outdoors_sports"),
+    ("grid_fill", "grid_fill"),
+    ("mode_anchors", "mode_anchors"),
+    ("italian", "italian_industrial"),
 ];
+
+static EXTRA_ONTOLOGIES: Lazy<Vec<(&'static str, &'static str)>> = Lazy::new(|| {
+    EXTRA_ONTOLOGY_NAMES
+        .iter()
+        .map(|(kind, src)| (*kind, source_or_panic(src)))
+        .collect()
+});
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
 
@@ -799,7 +743,7 @@ impl OntologyLoader {
 
         // Always-on extra domain-specific ontologies → custom_domains.
         // Keyed by "kind:name" so identical entry names across files don't collide.
-        for (kind, json) in EXTRA_ONTOLOGIES {
+        for (kind, json) in EXTRA_ONTOLOGIES.iter() {
             match Self::load_str(json, kind) {
                 Ok((interpretant, map)) => {
                     // Keyed by the extra ontology's own name, not by the
@@ -1262,6 +1206,63 @@ mod tests {
         assert!(
             map.contains_key("PDCA Cycle"),
             "should contain new QualityAssurance domains"
+        );
+    }
+
+    /// Every name this crate selects must exist in the core registry.
+    ///
+    /// The two lists live in different crates now, so a rename on either side
+    /// would otherwise surface as a panic on someone's first run. This turns
+    /// that into a test failure here.
+    #[test]
+    fn every_registered_ontology_resolves() {
+        for name in BUILTIN_ONTOLOGY_NAMES {
+            assert!(
+                physis_core::ontology::ontology_source(name).is_some(),
+                "built-in ontology '{name}' is missing from physis_core ONTOLOGY_SOURCES",
+            );
+        }
+        for (kind, src) in EXTRA_ONTOLOGY_NAMES {
+            assert!(
+                physis_core::ontology::ontology_source(src).is_some(),
+                "extra ontology '{kind}' -> '{src}' is missing from physis_core ONTOLOGY_SOURCES",
+            );
+        }
+        // Forcing the Lazy values proves resolution end to end, not just presence.
+        assert_eq!(BUILTIN_ONTOLOGIES.len(), BUILTIN_ONTOLOGY_NAMES.len());
+        assert_eq!(EXTRA_ONTOLOGIES.len(), EXTRA_ONTOLOGY_NAMES.len());
+    }
+
+    /// The corpus has one home; Pro must not grow a second copy again.
+    ///
+    /// Checks for DUPLICATES of the canonical corpus specifically, rather than
+    /// for any ontology JSON at all: a genuinely Pro-only ontology that is not
+    /// in the registry is legitimate, a second copy of one that is is the
+    /// drift this change removed.
+    #[test]
+    fn pro_config_holds_no_copy_of_the_core_corpus() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("config");
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            return; // no config/ at all is fine
+        };
+        let dupes: Vec<String> = entries
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".json"))
+            .filter(|n| {
+                let stem = n.trim_end_matches(".json");
+                physis_core::ontology::ontology_source(stem).is_some()
+                    || physis_core::ontology::ontology_source(
+                        stem.trim_end_matches("_ontology"),
+                    )
+                    .is_some()
+            })
+            .collect();
+        assert!(
+            dupes.is_empty(),
+            "config/ has a second copy of registry ontologies: {dupes:?} — the \
+             corpus lives in physis-core/config and is reached through \
+             ONTOLOGY_SOURCES",
         );
     }
 }
