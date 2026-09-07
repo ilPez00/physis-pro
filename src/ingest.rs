@@ -451,19 +451,16 @@ fn normalize_thread(subject: &str) -> String {
 /// Feature-gated behind `ocr`; falls back to empty body when disabled.
 #[cfg(feature = "ocr")]
 fn extract_ocr(path: &Path) -> anyhow::Result<(String, DocMeta)> {
-    use tesseract::prelude::*;
-    use tesseract::HasInnerMut;
-
-    let mut tess = Tesseract::new(None, Some("eng"));
-    tess.set_image_from_path(path.to_str().unwrap_or(""));
-    let text = tess.get_text()
+    // tesseract 0.14 has no `prelude` and no `HasInnerMut`; `new` is fallible
+    // and `set_image` is a consuming builder returning `Result<Self, _>`.
+    use tesseract::Tesseract;
+    let mut tess = Tesseract::new(None, Some("eng"))
+        .map_err(|e| anyhow::anyhow!("OCR init failed: {e}"))?
+        .set_image(path.to_str().unwrap_or(""))
+        .map_err(|e| anyhow::anyhow!("OCR image load failed: {e}"))?;
+    let text = tess
+        .get_text()
         .map_err(|e| anyhow::anyhow!("OCR failed: {e}"))?;
-
-    // Build a basic fragment from the first meaningful line.
-    let fragment = text
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .map(|l| l.trim().to_string());
 
     let meta = DocMeta {
         vendor: None,
@@ -488,9 +485,13 @@ fn extract_spreadsheet(path: &Path) -> anyhow::Result<(String, DocMeta)> {
         .cloned()
         .unwrap_or_else(|| "Sheet1".to_string());
 
+    // calamine 0.24: worksheet_range returns a plain Result<Range<Data>, _>
+    // — Range is neither Option nor Result, so no .ok_or_else on it.
     let range = wb.worksheet_range(&sheet_name)
-        .map_err(|e| anyhow::anyhow!("worksheet error: {e}"))?
-        .ok_or_else(|| anyhow::anyhow!("no data in sheet"))?;
+        .map_err(|e| anyhow::anyhow!("worksheet error: {e}"))?;
+    if range.is_empty() {
+        anyhow::bail!("no data in sheet");
+    }
 
     let headers: Vec<String> = range
         .rows()
