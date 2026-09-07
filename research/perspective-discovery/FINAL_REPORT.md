@@ -1619,3 +1619,86 @@ resolves through `BUILTIN_ONTOLOGIES` and `EXTRA_ONTOLOGIES`, and the newly adde
 `space_`/`time_ontology.json` are in neither. The 995 domain+mode entries now
 present across `config/*.json` are a count of files on disk, not of what Core
 classifies with. These figures survive the refactor.
+
+### Stage 6b — why arm B is not a dspy pipeline, measured
+
+Arm B was specified as dspy + a Pydantic `CellVocab` contract against local
+qwen3:4b. It produced nothing in two runs of 20+ minutes with no error, which is
+the worst possible failure mode: a silent stall. Probing ollama directly
+separates the causes.
+
+| configuration | result |
+|---|---|
+| `think` default (on), `format`=schema, num_predict 600 | **TimeoutError at 600s** — never terminates |
+| `think=False`, `format`=schema, num_predict 600 | 74.5s, valid parse, eval=56 tokens |
+
+qwen3:4b is a reasoning model. Under an imposed JSON schema with thinking
+enabled it does not converge, so dspy's adapter never receives parseable output
+and retries — at ~145s per attempt, indistinguishable from slow progress. The
+earlier latency probe pointed the same way: the `/no_think` *prompt tag* is
+ignored (144.7s, 417 reasoning chars emitted anyway); only the API-level
+`think=False` field suppresses it. Setting `think=False` at the ollama layer is
+what fixes it, and dspy 3.3.1 does not expose that field through `dspy.LM`.
+
+So arm B calls ollama's native structured output directly. **Pydantic is
+retained and is doing the real work** — it defines the schema constraining
+generation and validates every response; that was the part of the plan worth
+investigating, and it holds up. Only dspy's adapter negotiation is dropped.
+
+**The result that makes arm B doubtful before it runs.** With thinking
+disabled, the probe returned for HEAL/LIFT:
+
+    ['deadlift','squat','heavy','morning','barbell','session','press','overhead','5x5']
+
+The anchor hints were "deadlift, squat heavy" and the examples "morning barbell
+session; press overhead 5x5". All nine terms are copied verbatim from the
+prompt, against an explicit instruction to produce words for OTHER entries and
+not to restate the examples. Suppressing reasoning appears to cost exactly the
+capability this arm depends on.
+
+That is one cell, so the generator now records, per cell, what fraction of its
+terms appeared in its own prompt (`generated_echo`). If the echo rate is near
+1.0 across the grid, arm B is not a weaker result than arm A — it is a strictly
+worse arm A, since arm A at least ranks IDF over the whole train half rather
+than repeating eight examples. Measured, not asserted.
+
+
+### Stage 6c — the two corpora were not the same corpus
+
+Arm A's first artifact was built by globbing `physis-core/config/*.json`: 885
+entries over 38 cells. The Rust scorer loads 659 entries. The generator and the
+scorer were reading different corpora, and nothing in either would have said so.
+
+`load_all` resolves through `BUILTIN_ONTOLOGIES` and `EXTRA_ONTOLOGIES` — 29
+files. The glob picked up all of `config/`, including `space_ontology.json` and
+`time_ontology.json`, which appear in neither static and which the concurrent
+config refactor had just added. Those two files carry entries in cells that ARE
+loaded, so they did not merely add unscored rows: they changed the parity of the
+even/odd split on **12 of 33 shared cells**, and added a `STUDY/PLAN` cell that
+does not exist downstream.
+
+Two consequences, one procedural and one substantive.
+
+Procedurally, this would have silently invalidated the A-vs-B comparison. Arm A
+was generated before the refactor and arm B after, so the two arms would have
+been built from different train halves and scored against different held-out
+sets, while every label in the artifact claimed they matched. The comparison
+would have produced a number, and the number would have meant nothing. It was
+caught only by diffing the regenerated split against the committed one before
+trusting it.
+
+Substantively, arm A's reported −0.007 was measured with a vocabulary derived
+partly from entries the scorer never sees, holding out names absent from the
+scored corpus. It has been re-measured on the corrected corpus.
+
+`load_list()` now parses the two statics out of `src/ontology.rs`, so the
+generator's corpus is the loader's corpus by construction and stays correct if
+those lists change. Corrected figures: 659 entries, 35 cells, train 338 /
+test 321.
+
+The general form of this is worth stating, because it is the third distinct way
+the same experiment nearly produced a false positive today: **an evaluation is
+only as trustworthy as the agreement between the thing that generates and the
+thing that scores.** The split was principled, the statistic was sound, the
+control was real — and a glob pattern quietly made them describe different data.
+

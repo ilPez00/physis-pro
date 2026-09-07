@@ -54,11 +54,37 @@ import re
 import sys
 
 CONFIG_GLOB = "physis-core/config/*.json"
+ONTOLOGY_RS = "physis-core/src/ontology.rs"
 ANCHORS = "physis-core/config/mode_anchors_ontology.json"
 
 
 def words(s):
     return [w for w in re.findall(r"[a-z0-9]+", (s or "").lower()) if len(w) > 2]
+
+
+def load_list():
+    """The config files Core actually classifies with.
+
+    Globbing config/*.json is WRONG and was: `space_ontology.json` and
+    `time_ontology.json` exist on disk but appear in neither
+    `BUILTIN_ONTOLOGIES` nor `EXTRA_ONTOLOGIES`, so `load_all` never sees them
+    while a glob does. They carry entries in cells that ARE loaded, which
+    shifted the even/odd split on 12 of 33 cells -- silently giving arm B a
+    different train half from arm A and making the comparison meaningless.
+
+    `ONTOLOGY_SOURCES` is deliberately excluded: it is a file registry, not a
+    load list, and says so in its own doc comment.
+
+    So the load list is parsed from the two statics that define it, and stays
+    correct when they change.
+    """
+    src = open(ONTOLOGY_RS).read()
+    keep = set()
+    for name in ("BUILTIN_ONTOLOGIES", "EXTRA_ONTOLOGIES"):
+        i = src.index("pub static %s" % name)
+        j = src.index("\n];", i)
+        keep.update(re.findall(r'include_str!\("\.\./config/([^"]+)"\)', src[i:j]))
+    return keep
 
 
 def load():
@@ -69,8 +95,11 @@ def load():
             if e.get("domain") and e.get("mode"):
                 anchor_names.add(e["name"])
                 anchors[(e["domain"], e["mode"])] = e
+    loaded = load_list()
     entries = []
     for path in sorted(glob.glob(CONFIG_GLOB)):
+        if os.path.basename(path) not in loaded:
+            continue
         with open(path) as fh:
             try:
                 doc = json.load(fh)
@@ -119,10 +148,26 @@ def vocab_frequency(train, k=25):
 
 
 def vocab_generated(train, anchors, k=25, model="qwen3:4b"):
-    """Arm B: qwen3:4b proposes ADDITIONAL terms in the register the train
-    entries already use. Pydantic constrains the output shape -- the paper's
-    'ontology as validation contract' applied to the generator itself."""
-    import dspy
+    """Arm B: the model proposes ADDITIONAL terms in the register the train
+    entries already use.
+
+    NOT via dspy, and the reason is measured rather than assumed. qwen3:4b is a
+    reasoning model: with thinking enabled and a JSON schema imposed it never
+    terminates (probe: TimeoutError at 600s, num_predict=600). dspy's adapter
+    therefore never receives parseable output and retries at ~145s a go, which
+    presents as a silent stall -- two runs produced nothing in 20+ minutes.
+    Going straight at ollama's native structured output with think=False
+    returns a valid object in ~75s.
+
+    Pydantic is still the contract -- it is what constrains the shape and what
+    validates the response. Only dspy's adapter negotiation is dropped.
+
+    Also records how much of each response was COPIED from its own prompt. The
+    probe returned 9/9 input terms for HEAL/LIFT, so echo is the failure mode to
+    quantify, not a curiosity: a vocabulary that only repeats its train examples
+    is a strictly worse arm A.
+    """
+    import urllib.request
     from pydantic import BaseModel, Field
 
     class CellVocab(BaseModel):
@@ -131,48 +176,61 @@ def vocab_generated(train, anchors, k=25, model="qwen3:4b"):
             "write in this category. No punctuation, no phrases."
         )
 
-    class ProposeVocab(dspy.Signature):
-        """Propose vocabulary for one cell of a work-activity ontology.
+    schema = CellVocab.model_json_schema()
 
-        Match the register of the examples given. Produce words that would
-        plausibly occur in OTHER entries of the same cell -- not synonyms of the
-        examples, and not restatements of the cell name."""
+    def ask(prompt, timeout=300):
+        body = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "format": schema,
+            "think": False,
+            "options": {"temperature": 0.0, "num_predict": 600},
+        }
+        req = urllib.request.Request(
+            "http://localhost:11434/api/chat",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.load(r)
+        return CellVocab.model_validate_json(d["message"].get("content", ""))
 
-        domain: str = dspy.InputField(desc="what area of life this cell covers")
-        mode: str = dspy.InputField(desc="what kind of activity")
-        anchor_hints: str = dspy.InputField(desc="how the cell was defined")
-        examples: str = dspy.InputField(desc="real entries filed in this cell")
-        vocab: CellVocab = dspy.OutputField()
-
-    lm = dspy.LM(
-        f"ollama_chat/{model}",
-        api_base="http://localhost:11434",
-        api_key="",
-        temperature=0.0,
-        max_tokens=600,
-    )
-    dspy.configure(lm=lm)
-    propose = dspy.Predict(ProposeVocab)
-
-    out = {}
+    out, echo_stats = {}, {}
     cells = sorted(train.keys())
     for i, cell in enumerate(cells, 1):
         es = train[cell]
         anchor = anchors.get(cell, {})
+        hints = ", ".join(anchor.get("hints", [])[:6])
+        examples = "; ".join(text_of(e)[:90] for e in es[:8])
+        prompt = (
+            f"Ontology cell {cell[0]}/{cell[1]} of a work-activity ontology.\n"
+            f"Defined by: {hints}\n"
+            f"Real entries already filed here: {examples}\n\n"
+            "List single lowercase words that would plausibly occur in OTHER "
+            "entries of this same cell. Do NOT repeat any word above. Do not "
+            "restate the cell name."
+        )
+        # what the model was shown, for the echo measurement
+        shown = set(words(hints)) | set(words(examples)) | set(words(cell[0])) | set(words(cell[1]))
         try:
-            r = propose(
-                domain=cell[0],
-                mode=cell[1],
-                anchor_hints=", ".join(anchor.get("hints", [])[:6]),
-                examples="; ".join(text_of(e)[:90] for e in es[:8]),
-            )
-            terms = [w.lower().strip() for w in r.vocab.terms if w and w.isalpha()]
+            terms = [w.lower().strip() for w in ask(prompt).terms if w and w.isalpha()]
         except Exception as exc:  # a failed cell must not poison the artifact
             print(f"  [{i}/{len(cells)}] {cell} FAILED: {type(exc).__name__}", file=sys.stderr)
             terms = []
-        out["%s/%s" % cell] = sorted(set(terms))[:k]
-        print(f"  [{i}/{len(cells)}] {cell[0]}/{cell[1]}: {len(terms)} terms", file=sys.stderr)
-    return out
+        terms = sorted(set(terms))[:k]
+        copied = [w for w in terms if w in shown]
+        echo_stats["%s/%s" % cell] = {
+            "n_terms": len(terms),
+            "n_copied_from_prompt": len(copied),
+            "echo_rate": round(len(copied) / len(terms), 3) if terms else None,
+        }
+        out["%s/%s" % cell] = terms
+        print(
+            f"  [{i}/{len(cells)}] {cell[0]}/{cell[1]}: {len(terms)} terms, "
+            f"{len(copied)} echoed", file=sys.stderr, flush=True
+        )
+    return out, echo_stats
 
 
 def main():
@@ -202,8 +260,14 @@ def main():
         "frequency": vocab_frequency(train),
     }
     if not args.no_llm:
-        print("generating with", args.model, "(temperature 0)...")
-        artifact["generated"] = vocab_generated(train, anchors, model=args.model)
+        print("generating with", args.model, "(temperature 0, think=False)...")
+        gen, echo = vocab_generated(train, anchors, model=args.model)
+        artifact["generated"] = gen
+        artifact["generated_echo"] = echo
+        rates = [v["echo_rate"] for v in echo.values() if v["echo_rate"] is not None]
+        if rates:
+            artifact["generated_echo_mean"] = round(sum(rates) / len(rates), 3)
+            print(f"mean echo rate {artifact['generated_echo_mean']:.3f} over {len(rates)} cells")
 
     with open(args.out, "w") as fh:
         json.dump(artifact, fh, indent=1, sort_keys=True)
