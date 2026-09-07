@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       # Cache the ~400MB model across runs — keyed on the script so a model
       # change busts the cache (same contract as the accuracy-floor job).
