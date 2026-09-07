@@ -47,9 +47,14 @@ jobs:
         with:
           submodules: recursive
       - name: no tracked file over 25MB
+        # `git ls-files` also lists the physis-core *gitlink* — a directory,
+        # not a regular file. `test -f` on it fails, xargs reports 123, and
+        # the job red on every run regardless of file sizes. Skip non-regular
+        # paths instead of failing on them; only a genuinely oversized blob
+        # (stat output over the threshold) fails the job.
         run: |
           set -euo pipefail
-          big=$(git ls-files -z | xargs -0 -I{} sh -c 'test -f "{}" && stat -c "%s %n" "{}"' 2>/dev/null | awk '$1 > 25000000')
+          big=$(git ls-files -z | xargs -0 -I{} sh -c 'test -f "{}" || exit 0; stat -c "%s %n" "{}"' 2>/dev/null | awk '$1 > 25000000')
           if [ -n "$big" ]; then
             echo "tracked file(s) over 25MB:" >&2
             echo "$big" >&2
