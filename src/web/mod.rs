@@ -942,7 +942,6 @@ async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
     let mut features = vec![];
     #[cfg(feature = "web")]
     features.push("web");
-    #[cfg(feature = "industrial")]
     features.push("industrial");
     #[cfg(feature = "voice")]
     features.push("voice");

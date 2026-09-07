@@ -22,7 +22,7 @@ cargo build --bin physis-pro
 cargo test
 
 # Run with features
-cargo run --bin physis-pro --features web,industrial,voice -- scan /path/to/dir
+cargo run --bin physis-pro --features web,voice -- scan /path/to/dir
 ```
 
 ## Project Layout
@@ -51,7 +51,7 @@ src/bin/voice.rs   — Voice binary (features: voice,web)
 | Feature | What it enables |
 |---------|-----------------|
 | `web` | HTTP server + REST API |
-| `industrial` | OEE, maintenance, inventory, MQTT/Modbus adapters |
+| ~~`industrial`~~ | No-op alias. OEE, maintenance, inventory and the MQTT/Modbus adapters are always compiled. |
 | `voice` | Whisper + Llama voice pipeline |
 | `mcp` | MCP server (stdio or TCP) |
 | `spanner` | Google Spanner Graph sink |
@@ -72,8 +72,8 @@ cargo test
 # With web feature (includes http_surface)
 cargo test --features web
 
-# With industrial feature
-cargo test --features industrial
+# The industrial stack needs no feature — it is in the default build
+cargo test industrial
 
 # Specific test
 cargo test test_cli_parser_scan

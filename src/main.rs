@@ -607,8 +607,7 @@ pub enum ConnectSource {
     /// Generic industrial adapter (MQTT or Modbus) — the Phase 1.8 real-time loop.
     /// Polls a machine for telemetry, detects anomalies, emits normalized
     /// OperationalEvents as JSON lines, and optionally registers them into a
-    /// physis engine. Only built with the `industrial` feature.
-    #[cfg(feature = "industrial")]
+    /// physis engine.
     Adapter {
         /// Protocol: mqtt | modbus
         #[arg(long, default_value = "mqtt")]
@@ -1138,7 +1137,6 @@ fn main() -> anyhow::Result<()> {
                 let rt = tokio::runtime::Runtime::new()?;
                 rt.block_on(physis_pro::moonraker_connect::run(opts))?;
             }
-            #[cfg(feature = "industrial")]
             ConnectSource::Adapter {
                 protocol,
                 endpoint,
@@ -1290,7 +1288,6 @@ fn main() -> anyhow::Result<()> {
             run_ingest_pipeline(&config, "Ingested", true)?;
         }
         Commands::Process => {
-            #[cfg(feature = "industrial")]
             {
                 if config.industrial_endpoints.is_empty() {
                     println!("Process monitoring: no industrial endpoints configured.");
@@ -1327,20 +1324,6 @@ fn main() -> anyhow::Result<()> {
                         }
                     });
                 }
-            }
-            #[cfg(not(feature = "industrial"))]
-            {
-                println!("Process monitoring requires the 'industrial' feature.");
-                if !config.industrial_endpoints.is_empty() {
-                    println!(
-                        "  Configured endpoints: {}",
-                        config.industrial_endpoints.len()
-                    );
-                    for ep in &config.industrial_endpoints {
-                        println!("    - {ep}");
-                    }
-                }
-                println!("  Rebuild with: cargo build --features industrial");
             }
         }
         Commands::Inventory => match sled::open(&config.inventory_db) {

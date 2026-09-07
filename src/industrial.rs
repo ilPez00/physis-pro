@@ -2,7 +2,6 @@
 //! Each adapter implements the `MachineAdapter` trait for uniform health polling.
 
 use std::collections::HashMap;
-#[cfg(feature = "industrial")]
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -153,7 +152,6 @@ impl TelemetryPayload {
     }
 }
 
-#[cfg(feature = "industrial")]
 pub mod mqtt {
     use super::*;
     use rumqttc::{AsyncClient, Event, EventLoop, MqttOptions, Packet, QoS};
@@ -292,7 +290,6 @@ pub struct ModbusCommand {
 
 /// Modbus TCP adapter — the second half of Phase 1.8. Reads holding registers
 /// into a `MachineReading` and writes setpoints back via `publish`.
-#[cfg(feature = "industrial")]
 pub mod modbus {
     use super::*;
     use tokio_modbus::client::tcp::connect as mb_connect;
@@ -454,7 +451,6 @@ pub struct AdapterRunOptions {
 /// available via [`MachineAdapter::publish`]. Dedupe keeps an unchanged machine
 /// state from spamming the engine; a poll error never ends the loop, so a dropped
 /// connection recovers on its own.
-#[cfg(feature = "industrial")]
 pub async fn run_adapter(opts: AdapterRunOptions) -> anyhow::Result<()> {
     use modbus::ModbusTcpAdapter;
 
@@ -467,7 +463,12 @@ pub async fn run_adapter(opts: AdapterRunOptions) -> anyhow::Result<()> {
             }
             Box::new(a)
         }
-        "mqtt" | _ => {
+        // MQTT is the default, and deliberately also the fallback: the CLI
+        // already defaults `--protocol` to "mqtt", so this arm is reached only
+        // for an unrecognised value. Behaviour is unchanged from the
+        // `"mqtt" | _` pattern this replaces (note that a typo'd protocol is
+        // therefore treated as MQTT rather than rejected).
+        _ => {
             let mut a = mqtt::MqttAdapter::new(&opts.machine_id);
             if let Some(t) = &opts.topic {
                 a.set_topic(t.clone());
@@ -482,7 +483,6 @@ pub async fn run_adapter(opts: AdapterRunOptions) -> anyhow::Result<()> {
 
 /// The driver half of [`run_adapter`], separated so it can be exercised with an
 /// in-memory mock adapter (no broker/device needed). See the `mock_loop` test.
-#[cfg(feature = "industrial")]
 pub async fn run_loop(
     mut adapter: Box<dyn MachineAdapter>,
     opts: &AdapterRunOptions,
@@ -494,7 +494,7 @@ pub async fn run_loop(
             Ok(reading) => {
                 let anomalies = detect_anomalies(
                     &opts.machine_id,
-                    &[reading.clone()],
+                    std::slice::from_ref(&reading),
                     &opts.thresholds,
                 );
                 let event = OperationalEvent::from(&reading);
@@ -536,7 +536,6 @@ pub async fn run_loop(
 /// stable hash, records the causal-ledger entry, keeps the bounded event ring,
 /// and registers a graph node. Keeps adapters self-contained — emit one
 /// `OperationalEvent` and inherit everything.
-#[cfg(feature = "industrial")]
 async fn post_event(
     base: &str,
     user: &str,
@@ -685,7 +684,6 @@ mod tests {
     // then returns — exercising connect/poll/fingerprint/dedupe without any
     // broker or device. The offline `test_connect_invalid_endpoint_fails`
     // pattern is replaced here by a real (mock) end-to-end pass.
-    #[cfg(feature = "industrial")]
     #[tokio::test]
     async fn test_mock_loop_once_emits_event() {
         struct MockAdapter {

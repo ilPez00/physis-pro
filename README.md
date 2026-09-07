@@ -599,7 +599,7 @@ downloaded at boot from `MODEL_BASE_URL` unless baked in at build time via S3.
 | `life_os` | `LifeOSTracker` — goal/habit tracking layer |
 | `social` | `SocialAlgorithm` — engagement metrics × coherence scoring |
 | `quality` | `QualityTracker` — classify-failure feedback loop, persisted |
-| `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection (feature `industrial`) |
+| `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection — always built, no feature needed |
 | `ingest` | Document classification/ingest pipeline (feature `ingest`) |
 | `inventory` | Stock tracker — SMA-30 forecast + human-in-loop reorder |
 | `oee` | Overall Equipment Effectiveness — `OeeShift`/`OeeBoard`, A×P×Q, six-big-losses Pareto, plant rollup |
@@ -655,7 +655,7 @@ cargo build
 # Feature matrix
 cargo build --features mcp        # + MCP server
 cargo build --features network    # + directory watching
-cargo build --features full       # everything (industrial, ingest, pdf, email)
+cargo build --features full       # everything (ingest, pdf, email, ocr, mcp)
 
 # One-shot dependency installer (probes + installs rust, lean, voice deps, models)
 ./scripts/setup-physis.sh --full
@@ -672,8 +672,13 @@ cargo build --features full       # everything (industrial, ingest, pdf, email)
 
 ### Features
 
-`cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `industrial`
-· `ingest` · `spanner` · `wiki-embedded` · `full`. Default = `cli, voice, web, tui, embed-onnx`.
+`cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `ingest` ·
+`spanner` · `wiki-embedded` · `full`. Default =
+`cli, voice, web, tui, sql, postgres, email, embed-onnx`.
+
+The industrial stack (MQTT/Modbus adapters, OEE, maintenance) is **not** a
+feature — it is always compiled. `industrial` survives as a no-op alias so
+existing invocations keep working.
 
 ### Binaries
 

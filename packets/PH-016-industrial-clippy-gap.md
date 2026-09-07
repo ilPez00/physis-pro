@@ -2,10 +2,10 @@
 id: PH-016
 track: physis-pro
 phase: 0
-status: todo
+status: review
 rung: 1
 depends: [PH-000]
-gate: "cd ~/dev/physis-pro && cargo clippy --all-targets --features industrial,cli -- -D warnings"
+gate: "cd ~/dev/physis-pro && cargo clippy --all-targets -- -D warnings"
 commit: "branch agent/PH-016; conventional commits; per PROTOCOL §6"
 claimed_by:
 claimed_at:
@@ -68,3 +68,38 @@ Append `packets/reports/PH-016.md` per PROTOCOL §5.
 
 ## Never
 - `#[allow(...)]` to silence instead of fixing.
+
+---
+
+## Resolution (2026-09-07)
+
+Closed by removing the gap's cause rather than adding a step around it.
+
+`industrial` is no longer a feature: `rumqttc` and `tokio-modbus` are
+unconditional dependencies and all twelve `#[cfg(feature = "industrial")]`
+gates are gone, so `src/industrial.rs` is part of the default build. The
+existing default-feature clippy step in CI therefore covers it, which is why
+this packet's gate could be simplified to the plain
+`cargo clippy --all-targets -- -D warnings` above — that command now compiles
+the file this packet was written about.
+
+Both warnings were fixed as specified:
+
+- `src/industrial.rs` `"mqtt" | _` -> `_`, behaviour unchanged (the CLI already
+  defaults `--protocol` to mqtt, so the arm is reached only for an
+  unrecognised value; the comment records that a typo is treated as MQTT
+  rather than rejected, which this packet did not license changing).
+- `&[reading.clone()]` -> `std::slice::from_ref(&reading)`, the same fix
+  PH-000 applied in `src/operational.rs`.
+
+CI keeps a `cargo check --features industrial,cli` step so the no-op alias
+keeps resolving for `scripts/predeploy.sh` and CONTRIBUTING.md, with a comment
+saying not to re-gate the module without adding a matching clippy step.
+
+Not done, and deliberately: a `clippy --features full` step. `full` pulls
+tesseract/leptonica, which are not installed on this workstation, so it could
+not be verified locally and an unverified red CI step is worse than the gap
+it closes. Worth adding from a machine that can run it.
+
+Tests unchanged and passing: 15 lib `industrial`/`license` tests,
+`tests/industrial_demo.rs`, `tests/industrial_benchmark.rs`.
