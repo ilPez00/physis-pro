@@ -1533,3 +1533,89 @@ it. The two things in this track that survived their controls — `coverage`
 independent-source substructure (corroboration from a source the embedder never
 read) — are both *external* checks. That is the pattern, and it is the only one
 with a positive result behind it.
+
+### Stage 6 — the cell vocabulary, and a published verdict withdrawn
+
+Iteration 38c left one prerequisite: the CONSTRAINT scorer needs a controlled
+vocabulary that is *informative about the grid*. The hand-authored anchors
+(`config/mode_anchors_ontology.json`, 70 cells) scored AUC 0.532 against a 0.650
+cosine baseline, diagnosed as an idiom mismatch — the anchors say "deadlift" and
+"squat heavy" where corpus entries say something else, and lexical overlap
+between two independently-authored vocabularies is thin.
+
+So: build the vocabulary in the *entries'* idiom, and make the LLM falsifiable
+by running a no-LLM arm on identical inputs.
+
+  A  `vocab_frequency`  top-25 IDF-weighted terms from the cell's TRAIN entries
+  B  `vocab_generated`  qwen3:4b, same anchor + same TRAIN examples, asked for
+                        ADDITIONAL terms in the same register, shape-constrained
+                        by a Pydantic `CellVocab` contract, temperature 0
+
+`scripts/gen_cell_vocab.py` splits every cell deterministically (even/odd by
+sorted name), builds vocabulary from TRAIN only, and writes a committed JSON
+artifact the Rust scorer reads. The model is an authoring assistant whose output
+is reviewable, never a runtime dependency.
+
+**Two controls were added to the harness, and both mattered.**
+
+First, the scored population. `experiment38_soundness_audit` now honours
+`PHYSIS_AUDIT_HALF` (`test` / `train` / `all`), so a cell's vocabulary is never
+tested against the entries it was derived from.
+
+Second, and this is the one that changes a published claim: the injected
+misfilings were a *single* deterministic perturbation — every 7th anchored
+entry, target cell `f(i) = cell_names[(i*13+5) % N]`. That is one arbitrary
+sample from a large space of equally valid perturbations. `PHYSIS_AUDIT_STRIDE`
+and `PHYSIS_AUDIT_MULT` now resample it, holding the corpus fixed. Eleven
+perturbations, each scorer measured against cosine on the same rows:
+
+| population | scorer | mean Δ vs cosine | wins | paired t |
+|---|---|---|---|---|
+| held-out half | CONSTRAINT | −0.026 | 2/11 | −1.77 |
+| held-out half | VOCAB-FREQ (A) | −0.007 | 4/11 | −0.39 |
+| all entries | CONSTRAINT | −0.059 | 1/11 | −6.06 |
+| all entries | VOCAB-FREQ (A) | **+0.110** | **11/11** | **+10.46** |
+
+Three things follow, in ascending order of how much they cost.
+
+**1. Iteration 38's headline is withdrawn.** "The structural audit BEATS the
+geometric baseline (0.654 vs 0.619)" was the `stride=7 / half=test` cell — one
+of only two positives in eleven. `stride=13` yields +0.088 the same way and
+`stride=5` yields −0.072. Across the sweep CONSTRAINT loses to cosine, and on
+the full population it loses *significantly* (t = −6.06). There is no label-free
+structural soundness check here. The scorer is worse than distance.
+
+**2. Arm A is a textbook contamination artifact.** On `half=all` it wins 11/11
+perturbations at t = +10.46 — a result that, written up on its own, would read
+as a landmark. On the held-out half the same vocabulary, the same scorer and the
+same perturbations give −0.007 at t = −0.39: chance. The entire margin was the
+vocabulary recognising the entries it was built from. The train/test split is
+the only thing standing between that number and the report.
+
+**3. The noise floor is now measured, and it is large.** Changing nothing but
+the injection stride moves the *cosine baseline itself* from 0.565 to 0.686 —
+a spread of 0.121. Every margin this harness has ever reported (0.599 vs 0.650,
+0.654 vs 0.619, 0.532, 0.623) sits inside that band. Single-run AUC differences
+below roughly 0.06 in this harness carry no information, and earlier iterations
+read them as if they did.
+
+The general lesson is the same one that killed Iterations 32, 33, 34 and 38b,
+arriving from a new direction: **a positive result must survive resampling the
+thing the experimenter chose arbitrarily.** Previously that was the control
+construction. Here it was the ground truth itself. The injected perturbation felt
+objective — "there is no argument over what the right answer is", as this report
+put it — and that was true and irrelevant. Objective ground truth sampled once
+is still a sample of one.
+
+
+**Provenance of these numbers.** The sweep binary was built at 16:42:59 against
+`physis-core` at `cb4e89a`; `config/{machine,health_fitness,software_dev}_ontology.json`
+were then modified at 16:45:28 by concurrent work folding pro's duplicate config
+copies into core. Those configs are `include_str!`'d, so the corpus could have
+moved under the sweep. It did not: rebuilding after the change still loads 659
+entries, 572 anchored, and reproduces stride=7/half=test at 0.654 / 0.619 / 0.574
+exactly. `ONTOLOGY_SOURCES` is a file registry, not a load list — `load_all` still
+resolves through `BUILTIN_ONTOLOGIES` and `EXTRA_ONTOLOGIES`, and the newly added
+`space_`/`time_ontology.json` are in neither. The 995 domain+mode entries now
+present across `config/*.json` are a count of files on disk, not of what Core
+classifies with. These figures survive the refactor.
