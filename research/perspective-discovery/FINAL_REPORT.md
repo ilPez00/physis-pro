@@ -1787,3 +1787,83 @@ hold a schema while reasoning has not been tested and is the only untried
 variant of this arm. Given eleven prior mechanism failures and a 0.074 noise
 floor, it is not obviously worth the attempt.
 
+
+### Stage 7 — the corpus is the problem, and it was visible all along
+
+Arm C was going to be "a larger model plays the generator". Dumping the exact
+prompts arm B received made that unnecessary, because the prompts show the
+answer:
+
+    CONSTRUCT/WORK  = "pour concrete, frame the wall, lay bricks, do the build"
+      contains: Access Control, Booking & Logistics, Code (semiotics),
+                Database Engineering, Dicisign (Peirce)
+
+    BOND/WORK       = "resolve conflict, mediate, repair the bond"
+      contains: Account Management, Agent Versioning, Bus & Backplane
+
+    HEAL/REST       = "rest day, recover, sleep deeply, calm down"
+      contains: Firstness (Peirce), Power Regulation,
+                Semiconductor Cleanroom Environment
+
+Small cells are fine — CONSTRUCT/REST holds Build Platform, Fermo Impianto,
+Infrastructure Standby, Workshop Wind-Down, all genuinely about being idle. The
+large cells have become junk drawers.
+
+**Measured, not asserted.** Every 11th entry by (cell, name) — 60 of 659,
+deterministic, no cherry-picking — adjudicated against its own cell's anchor
+definition. Full verdicts in `cell_adjudication.tsv`.
+
+| verdict | n | share |
+|---|---|---|
+| YES — clearly belongs | 19 | 31.7% |
+| MARGINAL — defensible loosely | 15 | 25.0% |
+| **NO — clearly does not belong** | **26** | **43.3%** |
+
+**Why this ends the investigation.** The audit injects misfilings and asks each
+scorer to find them. At a 43.3% ambient rate, 572 scored entries contain ~248
+real misfilings that the ground truth labels CLEAN:
+
+| injected | as % of corpus | signal : ambient noise |
+|---|---|---|
+| 35 | 6.1% | 1 : 7.1 |
+| 81 | 14.2% | 1 : 3.1 |
+| 114 | 19.9% | 1 : 2.2 |
+
+**Every scorer was asked to find 35 planted misfilings while 248 real ones sat
+in the same cells, labelled correct.** A scorer that works — that genuinely
+detects a bad filing — is *penalised* for every ambient misfiling it flags,
+because the ground truth scores those as false positives. This is sufficient on
+its own to explain every null in this report, and it explains them better than
+any property of the mechanisms:
+
+- ANCHOR-VOCAB at 0.505: the anchors describe the cell; 43% of the entries are
+  about something else entirely.
+- Arm A at chance: IDF over a cell's entries cannot find shared vocabulary in a
+  cell whose members are Access Control, Booking & Logistics and Peirce.
+- CONSTRAINT below cosine: it reasons from cell co-membership, which is largely
+  arbitrary here.
+- The grid beating a size-matched shuffle by only 0.657 vs 0.642: exactly what a
+  mostly-arbitrary assignment with a coherent minority looks like.
+- The 0.074 noise floor: ambient misfilings move with the perturbation.
+
+**What this retracts and what it does not.** It does not rescue any mechanism —
+none has been shown to work. It does retract the *diagnosis*. Twelve mechanisms
+were rejected for failing to detect misfilings against a ground truth that was
+itself ~43% wrong. Those rejections are not safe: the experiment lacked the
+power to distinguish a working scorer from a broken one. **The honest status of
+Iterations 28–40 is UNTESTED, not REFUTED.** The 0.1.18 status notice stands —
+the crate does not do what it claims, and that is now better supported than
+before, since the labels it classifies against are themselves unreliable.
+
+**The methodological point, which is the day's real lesson.** Every control
+added today — the train/test split, the resampled injection, the corpus-derived
+load list — tightened the *measurement*. None of them questioned the *labels*,
+and the labels were the broken part. Three sophisticated controls on top of a
+43%-wrong ground truth produce precise, reproducible, well-controlled noise. The
+cheapest possible check — reading sixty rows of the input — outperformed all of
+them, and was not run until the very end of a multi-day investigation.
+
+**What to do next, if anything.** Not a thirteenth mechanism. Either fix the
+filing (hand-adjudicate the corpus, or regenerate it with the disposer in the
+loop) or stop. No scorer can be evaluated on this corpus as it stands.
+

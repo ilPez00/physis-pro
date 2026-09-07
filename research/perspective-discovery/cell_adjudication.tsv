@@ -1,0 +1,66 @@
+# Every 11th entry by (cell, name) from the 659-entry loaded corpus. Verdict is
+# whether the entry belongs in its cell AS THAT CELL'S OWN ANCHOR DEFINES IT.
+# Rater: Claude (single, non-blind, knew the hypothesis). All 60 published so
+# the judgements can be checked rather than trusted.
+# YES = clearly belongs. NO = clearly does not. MARGINAL = defensible loosely.
+n	cell	entry	verdict
+1	BOND/CREATE	API Design	NO
+2	BOND/CREATE	Exhibition & Sharing	MARGINAL
+3	BOND/CREATE	Parole	NO
+4	BOND/CREATE	Volunteering	MARGINAL
+5	BOND/LEARN	Relationship Counseling	YES
+6	BOND/REST	Companionship	YES
+7	BOND/WALK	Conative	NO
+8	BOND/WALK	Power Distribution	NO
+9	BOND/WORK	Collaboration	MARGINAL
+10	BOND/WORK	Riunioni di Lavoro	MARGINAL
+11	CONSTRUCT/CREATE	Automotive Engineering	YES
+12	CONSTRUCT/CREATE	Digital Workspace	NO
+13	CONSTRUCT/CREATE	Machine Design	YES
+14	CONSTRUCT/CREATE	Quarterly Planning	MARGINAL
+15	CONSTRUCT/CREATE	Tool Composition	NO
+16	CONSTRUCT/LIFT	Montaggio e Installazione	YES
+17	CONSTRUCT/REST	Workshop Wind-Down	YES
+18	CONSTRUCT/WALK	Syntagmatic	NO
+19	CONSTRUCT/WORK	DevOps	NO
+20	CONSTRUCT/WORK	Milestone Tracking	NO
+21	CONSTRUCT/WORK	Startup Sequence	NO
+22	FABRICATE/CREATE	Composition	YES
+23	FABRICATE/CREATE	Feature Engineering	MARGINAL
+24	FABRICATE/CREATE	Poetic	NO
+25	FABRICATE/CREATE	Storytelling	YES
+26	FABRICATE/LEARN	Apprenticeship	YES
+27	FABRICATE/LIFT	Propulsion & Thrust	NO
+28	FABRICATE/WALK	Agent Loop	MARGINAL
+29	FABRICATE/WALK	Hydraulic Engineering	NO
+30	FABRICATE/WALK	Supply Chain	MARGINAL
+31	FABRICATE/WORK	Clothing & Style	MARGINAL
+32	FABRICATE/WORK	Hydraulics	MARGINAL
+33	FABRICATE/WORK	Produzione Officina	YES
+34	FABRICATE/WORK	Water Sports	NO
+35	HEAL/LEARN	First Aid & Safety	MARGINAL
+36	HEAL/LIFT	Adventure	NO
+37	HEAL/LIFT	Strength Training	YES
+38	HEAL/REST	Firstness	NO
+39	HEAL/REST	Power Regulation	NO
+40	HEAL/REST	Semiconductor Cleanroom Environment	NO
+41	HEAL/WALK	Energy Management	MARGINAL
+42	HEAL/WALK	Mobility & Stretching	YES
+43	HEAL/WALK	Spaced Repetition	NO
+44	HEAL/WORK	Data Cleaning	NO
+45	HEAL/WORK	Hiking & Trekking	YES
+46	HEAL/WORK	Regulatory Compliance	NO
+47	STUDY/CREATE	Digital Twin	MARGINAL
+48	STUDY/CREATE	Sensor Fusion	NO
+49	STUDY/LEARN	Causal Reasoning	YES
+50	STUDY/LEARN	Grammar Study	YES
+51	STUDY/LEARN	Materials Science	YES
+52	STUDY/LEARN	Research	YES
+53	STUDY/LEARN	Threat Intelligence	MARGINAL
+54	STUDY/REST	Reading Break	YES
+55	STUDY/WALK	Audit Preparation	NO
+56	STUDY/WALK	Listening Practice	YES
+57	STUDY/WALK	Testing & QA	NO
+58	STUDY/WORK	Current & Voltage	NO
+59	STUDY/WORK	Legal Review	NO
+60	STUDY/WORK	SPC Quality	MARGINAL
