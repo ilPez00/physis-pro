@@ -1290,6 +1290,13 @@ only thing that makes the rest trustworthy.
    `warranty_coverage_driver` beside the module sense. Also measured: a naive
    variation allowance makes it **worse** (skip-grams below exact adjacency on
    every term).
+7. **The disposer ranks, not just filters** (Stage 10). Ordering the proposer's
+   1,638 candidates by continuous coverage lift over the operational corpus puts
+   **12 real gaps in the first 25** — 0.480 against a 0.132 base rate, exact
+   p = 2.3e-5 — while four controls (popularity, the proposer's own geometry,
+   parent similarity, and ontology-only isolation) all sit at the random floor
+   there. The ordering signal is operational: the ontology's own geometry ranks
+   its holes at chance. Label-free, so Stage 7 does not touch it.
 
 ### What did not work, in one line each
 
@@ -2022,3 +2029,154 @@ this data the machine's judgement of "does this belong here" is at chance, while
 a human pass over sixty rows found the defect that twelve mechanisms and four
 days of controlled experiments had missed.
 
+
+
+## Stage 10 — the disposer ranks, at the head of the list only
+
+Iteration 33 settled half of the disposer question and said so: `coverage`
+**filters** (2000 candidates → 141, existing-entry control t = +12.11) and
+"never tested whether it RANKS". That is the half that decides whether the
+composition is a PDCA loop or just a sieve — Plan proposes, Check ranks, the
+human Acts on the head of the list. A sieve hands you 141 unordered candidates;
+a ranker hands you the twenty-five worth reading first.
+
+`experiment44_worklist_ranking.rs`. 730 entries, stratified 10% hold-out (657
+known / 73 held). Iteration 30's near-neighbour midpoint proposer (ranks 1–5)
+over the known entries → **1,638 proposals**. Scored against the **6,234
+operational events** (telemetry, document paragraphs, git workflow) — external
+to the proposer, which is built and validated on the ontology alone and never
+sees them. A proposal is a HIT if its nearest held-out concept beats its nearest
+**non-parent** known entry (parents are adjacent to their own midpoint by
+construction; excluding them is the fix that voided two earlier metrics).
+217/1638 hits, **base rate 0.132**.
+
+**This result is not exposed to Stage 7.** No cell label appears anywhere in the
+proposer, the ranking signals, or the ground truth. The hold-out is over
+ontology *entries*; the records are raw text. A 43%-misfiled grid cannot reach
+it.
+
+### Arms, and the result
+
+| arm | k=25 | k=50 | k=100 | k=200 | k=400 | p (k=25) |
+|---|---|---|---|---|---|---|
+| **LIFT** — total score raised over the record pile | **0.480** | **0.400** | **0.360** | **0.285** | 0.193 | **2.3e-5** |
+| P25-GAIN — the shipped binarized rule, p25 threshold | 0.320 | 0.300 | 0.200 | 0.155 | 0.140 | 1.2e-2 |
+| GEOMETRY — max cosine to known (the proposer's own preference) | 0.200 | 0.140 | 0.120 | 0.115 | 0.128 | 0.23 |
+| PAIR-SIM — parents' mutual cosine | 0.200 | 0.140 | 0.120 | 0.115 | 0.128 | 0.23 |
+| TRAFFIC — max cosine to any record (popularity control) | 0.160 | 0.140 | 0.180 | 0.200 | 0.172 | 0.43 |
+| ISOLATION — nearest non-parent known, ascending | 0.120 | 0.140 | 0.160 | 0.215 | 0.195 | 0.66 |
+| RANDOM — seeded shuffle | 0.120 | 0.140 | 0.130 | 0.090 | 0.145 | 0.66 |
+
+Base rate 0.132. `p` is an exact hypergeometric tail — P(≥ the observed hits in
+25 drawn at random from 1,638 containing 217) — so the null is "this ordering
+carries no information", which RANDOM samples exactly once and this computes in
+closed form.
+
+**LIFT at k=25 is 3.6× the base rate, p = 2.3e-5.** Twelve of the first
+twenty-five proposals point at a real held-out concept, against 3.3 expected.
+
+Two independent runs, before and after the ISOLATION arm was added, produce
+**byte-identical precision at every k on every shared arm** — the ordering
+discipline from Iteration 26 holding on a new experiment, not asserted.
+
+### The four controls it had to beat, and one that was missing
+
+Three controls were already in the experiment. **GEOMETRY and PAIR-SIM return
+byte-identical precision at every k**, which is itself the diagnosis: for a
+midpoint, "max cosine to any known entry" is dominated by its own two parents,
+so the arm that was supposed to represent the proposer's geometry was a
+relabelled copy of PAIR-SIM. The control that mattered — *does the ontology
+already know where its own holes are, with no operational corpus at all?* — was
+not being run.
+
+**ISOLATION** is that control: rank by ascending cosine to the nearest
+**non-parent** known entry, i.e. how empty this region of the ontology is on its
+own terms. It is deliberately label-coupled — that quantity is literally one
+side of the HIT comparison — which makes it a hard control rather than a fair
+rival. At the head of the list it sits **exactly on the random floor: 0.120,
+p = 0.66.**
+
+So the operational signal is not explained by proposal popularity (TRAFFIC,
+p = 0.43), by the proposer's own geometric preference (p = 0.23), by parent
+similarity (p = 0.23), or by ontology-only emptiness (p = 0.66). Four attempts,
+including one built out of half the label.
+
+### The complication, which is the actual finding
+
+| signal | AUC over all 1,638 | precision@25 |
+|---|---|---|
+| ISOLATION | **0.638** | 0.120 (floor) |
+| LIFT | 0.577 | **0.480** |
+| TRAFFIC | 0.534 | 0.160 |
+| P25-GAIN | 0.519 | 0.320 |
+| GEOMETRY / PAIR-SIM | 0.476 | 0.200 |
+
+**As a classifier of hits over the whole population, the ontology-only signal
+beats the operational one — and it is useless at the top of the list.** The two
+statistics disagree because they answer different questions. AUC asks whether
+the ordering is globally sorted; precision@25 asks what a person reads first.
+ISOLATION is monotone through the bulk (emptier region → likelier gap) and
+inverts at its own extreme: the *most* isolated midpoints sit in regions empty
+of held-out concepts too — far from everything, including the answer. That is
+Iteration 33's random-pair failure mode reappearing as a ranking artifact.
+
+LIFT is the reverse shape: a modest global sort with the hits concentrated in
+the head. **For the workflow this experiment exists to test, the head is the
+deliverable and AUC is the wrong summary.** Reporting only AUC would have
+called ISOLATION the winner and shipped a worklist ordered at chance.
+
+The useful worklist is also short. Precision decays 0.480 → 0.360 → 0.193
+across k = 25 → 100 → 400, and is within noise of the base rate by k = 400.
+This buys a person the first hundred, not a sorted pile of 1,638.
+
+### The shipped code implements the weaker half of this
+
+`coverage::rank_candidates` sorts on `CandidateGain::count()` — the binarized
+rule: how many records cross a confidence threshold. That is the **P25-GAIN**
+arm, 0.320@25 (p = 0.012). It works, and it is beaten by the continuous form
+(0.480) that is not implemented.
+
+Worse, the binarized rule is threshold-fragile in a way the continuous one is
+not. At the median threshold (0.741) only 272/1638 candidates rescue a single
+record, and the DIAG explains why: operational text matches the live ontology
+strongly (median best-entry cosine 0.741), and a midpoint sandwiched between two
+entries can rarely beat all 657 known entries for any record. Iteration 33's
+records were held-out *entries* (median ~0.5), where the bar is reachable;
+operational *text* raises it out of reach. The rule is near-inert on exactly the
+data the product runs on, and nothing in the API says so.
+
+**Recommendation:** add a continuous `CandidateGain::lift` (Σ over records of
+`max(0, cos(candidate, r) − live(r))`) and rank on it, keeping `count()` for
+reporting. This is a small change to `coverage.rs` and it is the difference
+between 0.320 and 0.480 at the top of the list. It is *not* a correctness claim
+— everything the module docs say about coverage-is-not-correctness still holds,
+and a candidate that swallows records into a wrong cell still ranks like one
+that captures a real gap.
+
+### What this does not show
+
+- **The hold-out is a favourable simulation of a missing concept.** Held-out
+  concepts have heavy corpus traffic (median max-record-cosine 0.793, p90
+  0.847) — the operation writes about them constantly, which is why removing
+  them opens a measurable coverage hole. A genuinely missing concept the
+  operation never mentions is invisible to LIFT by construction. The claim is
+  bounded to **concepts the operation already talks about but the ontology has
+  not named**, which is the useful case and not the general one.
+- **Scope.** Only 1,236/1,638 proposals (75%) lift any record at all; the other
+  25% are unrankable by this signal and fall back to arbitrary order.
+- **Still not correctness.** A ranked worklist of gaps is not a set of approved
+  entries. The disposer got a second verified job — ordering — and still has no
+  ability to judge whether a proposed concept is *good*. Stage 9 measured the
+  same boundary from the other side: on real misfilings the machine's judgement
+  of "does this belong here" is at chance.
+
+### Where this leaves the disposer question
+
+Iteration 33: a machine can throw away the 93% of candidates that provably
+change nothing. Stage 10: it can also put the survivors in an order worth
+reading, and the ordering signal has to come from the operational corpus — the
+ontology's own geometry ranks its holes at chance. Stage 9: it cannot tell
+whether an entry belongs where it sits.
+
+Filter, rank, do not judge. That is now three measurements rather than a
+principle.
