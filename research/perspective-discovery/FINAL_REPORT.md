@@ -1112,8 +1112,47 @@ the calibration heuristic, being the dominant constraint.
        global ones". Multi-scale periodicity is untried and is the only part of
        this item needing new statistics.
 
-34. **NEXT — Pydantic-style executable constraints: the soundness check that
-    non-lattice auditing could not supply.**
+34. **DONE (Iteration 38b) — NOT SUPPORTED. Pydantic-style executable
+    constraints fail, and the reason is a DATA-MODEL gap, not a method gap.**
+
+    Tested at the gate this item specified, on the identical injected-misfiling
+    harness and against the identical baseline:
+
+      CONSTRAINT (axis_name/category unattested in domain)   AUC = 0.433
+      COSINE     (geometric baseline)                        AUC = 0.741
+
+    It does not beat chance, let alone 0.741.
+
+    **Diagnosed, not merely reported.** A constraint is a detector only if it
+    stays QUIET on correct data. Under the TRUE assignment this one fires on
+    **548/957 correctly-filed entries (57%)** for `axis_name` and 207/957 (22%)
+    for `category`. A rule that flags most correct cases cannot flag incorrect
+    ones. Root cause: `axis_name` has 553 distinct values over 957 entries,
+    `category` 155 — they are free text, not controlled vocabularies, and
+    Cheung's mechanism needs enums on BOTH sides of the dependency.
+
+    The one genuinely enum-like field fails the opposite way: `axis_kind` has
+    41 values (23.3 entries each) and fires on only **4%** of correct entries —
+    a well-formed constraint — but its purity toward domain is 0.331 against
+    0.304 for a cardinality-matched shuffle. **Controlled but uninformative.**
+
+    **So physis has no field that is both a controlled vocabulary AND
+    informative about the grid**, which is exactly what a dependency constraint
+    requires. The prerequisite is therefore authoring work, not an algorithm: an
+    `axis_kind`-style enum that actually correlates with domain or mode. Until
+    that exists, this route is closed — and it should be re-opened by writing
+    that vocabulary, not by trying another checker.
+
+    (Cardinality-matched shuffles were load-bearing throughout: `unit` shows
+    0.761 raw purity toward mode purely because 572 distinct values over 957
+    entries is a near-unique key. Also: dspy is NOT installed — what is on disk
+    is a Hermes skill with reference docs, no dist-info, and the local gateway
+    reports an empty model list. This gate never needed it.)
+
+    *Original proposal retained below for the reasoning that motivated it.*
+
+34b. **The original argument, kept because the reasoning was sound even though
+    the result was negative.**
 
     Iteration 33 shipped `coverage` with a stated hole: *coverage is not
     correctness*. A candidate that swallows records into the WRONG cell scores
