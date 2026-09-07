@@ -499,6 +499,15 @@ print an unmistakable "DEVELOPMENT BUILD — licence gate disabled" banner on
 every run. Keep the dev key usable for tests; make it impossible to ship by
 accident.
 
+**Status — CLOSED (2026-09-07).** `license.rs` compiles `DEV_KEY_BUILD`
+(`option_env!`-based) and `enforce()` exits 2 on a dev-key build unless
+`PHYSIS_ALLOW_DEV_LICENCE=1` (exact string; `true`/`yes` don't count), printing
+the dev banner on every allowed run. Licences are still signature-verified
+against the embedded key in dev mode — a minted-with-foreign-key licence is
+refused either way. Verified end-to-end with a local binary: zeros-key-signed
+"Enterprise" licence without the env → exit 2; with the env → runs with the
+dev banner; foreign-key licence → signature refused in both modes.
+
 ### H2 — Make the semantic self-test actually discriminate
 
 `embed::semantic_self_test` compares "a photograph of a dog" against "a
@@ -523,6 +532,18 @@ margin over a distractor set — for example `car`/`automobile` must beat
 must set `degraded: true` on every health surface. This is the guard PREMORTEM
 P4 was written for and it currently does not guard.
 
+**Status — CLOSED (2026-09-07).** The probe is now three lexically disjoint
+pairs (`car`/`automobile`, `dog`/`puppy`, spindle-overheat/thermal-fault) each
+required to beat its distractor by 0.05 (`SEMANTIC_PROBES`, embed/mod.rs).
+Unit tests pin both directions: the random-projection embedder must fail the
+probe, and a guard test keeps the pairs disjoint so the overlap bug can't
+return. The `SelfTestCache` key now carries a probe version
+(`SEMANTIC_PROBE_VERSION`), so verdicts recorded under the lax probe are
+invalidated. Verified against the real BGE model: the accuracy floor still
+passes (CORE 0.873 / cell 0.727 / ITALIAN 0.867, model=bge-base), and the web
+surfaces' existing `semantic`/`degraded` logic keeps its contract
+(offline-by-request → semantic=false, degraded=false).
+
 ### H3 — Never degrade the embedder silently
 
 `OnnxConfig::model_dir` defaults to the relative path `./models`, so the same
@@ -540,6 +561,13 @@ directory, not the working directory; add `PHYSIS_MODEL_DIR`; and make a
 downgrade to random-projection an error unless `PHYSIS_EMBEDDER` explicitly
 requested it. A silent fallback that produces confident nonsense is worse than
 a refusal.
+
+**Status — MOSTLY CLOSED.** `embed::model_dir` already searches
+`PHYSIS_MODELS` → `MODEL_DIR` → `./models/<name>` → `<data_dir>/models/<name>`
+(embed/mod.rs), and the web server aborts startup on an implicit RP downgrade
+unless `MODEL_BASE_URL` is set or the operator asked for offline mode
+(web/mod.rs). Remaining gap: the CLI still degrades to RP with only a warning
+instead of refusing; `PHYSIS_MODEL_DIR` is spelled `PHYSIS_MODELS` here.
 
 ### H4 — Stop the feedback loop inflating confidence without accuracy
 
