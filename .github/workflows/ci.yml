@@ -12,6 +12,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      # `full` (and `ingest`) pull the tesseract OCR crate, whose -sys build
+      # needs the system libraries; without these the `full` combo cannot
+      # even compile on a runner (leptonica-sys build script, 2026-09-07).
+      - name: install OCR system libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libtesseract-dev libleptonica-dev
+      - uses: Swatinem/rust-cache@v2
       - name: cargo check (default)
         run: cargo check
       - name: cargo check (full)
@@ -80,6 +86,10 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+      # full → ingest → tesseract; see the check job note.
+      - name: install OCR system libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libtesseract-dev libleptonica-dev
+      - uses: Swatinem/rust-cache@v2
       - name: cargo test
         run: cargo test --features full
 
@@ -96,6 +106,10 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+      # full → ingest → tesseract; see the check job note.
+      - name: install OCR system libraries
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libtesseract-dev libleptonica-dev
+      - uses: Swatinem/rust-cache@v2
       # Cache the ~400MB model across runs — keyed on the script so a model
       # change busts the cache.
       - name: cache BGE-base model
@@ -135,6 +149,7 @@ jobs:
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - uses: google-github-actions/setup-gcloud@v2
       - name: provision emulator (instance + db + WikiNode table)
         run: |
@@ -149,9 +164,12 @@ jobs:
           gcloud spanner databases ddl update test-db --instance=test-instance \
             --ddl="CREATE TABLE WikiEdge (source STRING(64) NOT NULL, target STRING(64) NOT NULL, weight FLOAT64) PRIMARY KEY (source, target)"
       - name: round-trip test
+        # --lib: the round-trip test lives in the lib test module; building
+        # every integration test binary too filled the runner's ~14 GB disk
+        # and killed the linker (collect2 SIGBUS = ENOSPC, 2026-09-07).
         env:
           SPANNER_REST_ENDPOINT: http://localhost:9020
           SPANNER_PROJECT: test-project
           SPANNER_INSTANCE: test-instance
           SPANNER_DATABASE: test-db
-        run: cargo test --features spanner -- --ignored --nocapture spanner_emulator_roundtrip
+        run: cargo test --lib --features spanner -- --ignored --nocapture spanner_emulator_roundtrip
