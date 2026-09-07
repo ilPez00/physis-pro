@@ -1,5 +1,26 @@
 # Final report — perspective-conditioned ontology discovery + JEPA
 
+> ## ⚠️ READ STAGE 7 BEFORE ANY VERDICT BELOW
+>
+> **Everything in this document that was evaluated against the 5×14 grid's cell
+> assignments is provisional.** Stage 7 (2026-09-07) adjudicated a deterministic
+> sample of the shipped corpus and found **43.3% of entries clearly filed in the
+> wrong cell**. Verdicts that treated those assignments as ground truth were
+> measured against labels that are ~43% wrong.
+>
+> **The triage principle is that label noise attenuates effects; it does not
+> fabricate them.** That makes the two directions of result fail differently:
+>
+> - **Negative verdicts below are UNSAFE.** "NOT SUPPORTED" against a 43%-wrong
+>   ground truth may mean the mechanism failed, or may mean the experiment
+>   could not see it. These need re-testing and are listed in Stage 8.
+> - **Positive results that survived controls are CONSERVATIVE.** They held
+>   *despite* the noise, which can only have weakened them. They stand, and
+>   several are probably understated.
+>
+> Nothing here is retracted for being wrong. It is marked for being **untested**.
+
+
 Eight iterations, three datasets, real production data, and one caught NaN
 bug later. This is the mission's Section 31 report. All raw code, commits,
 and the full iteration-by-iteration reasoning are in `RESEARCH_LOG.md` in
@@ -1866,4 +1887,82 @@ them, and was not run until the very end of a multi-day investigation.
 **What to do next, if anything.** Not a thirteenth mechanism. Either fix the
 filing (hand-adjudicate the corpus, or regenerate it with the disposer in the
 loop) or stop. No scorer can be evaluated on this corpus as it stands.
+
+
+## Stage 8 — the re-test plan
+
+Stage 7 invalidated the *evaluation*, not the *code*. Nothing below needs
+rebuilding; it needs re-running against labels that mean something. This section
+says which results are affected, in what order to redo them, and what must
+happen first.
+
+### Gate 0 — fix the filing, or stop. Nothing else runs before this.
+
+No scorer can be evaluated on a corpus that is 43.3% misfiled. Re-running any
+experiment before this gate reproduces the same underpowered result with more
+decimal places.
+
+Three options, in descending order of how much they'd be trusted:
+
+1. **Hand-adjudicate the 659 loaded entries.** At the Stage 7 rate (~60 entries
+   per pass) this is ~11 passes. The disposer stays human, per the standing
+   decision; `cell_adjudication.tsv` is the format and the first 60 rows are
+   already done. **Cost: hours. Value: an actual gold standard**, which this
+   project has never had for its own grid.
+2. **Restrict to the coherent subset.** Small cells adjudicate cleanly
+   (CONSTRUCT/REST, CONSTRUCT/LEARN, FABRICATE/REST, FABRICATE/LEARN). Evaluate
+   only on cells whose sampled entries are ≥80% YES. Cheap, but shrinks the
+   corpus and biases toward easy cells — a lower bound, and must be labelled as
+   one.
+3. **Regenerate the filing with the disposer in the loop.** Most work, and the
+   only option that also fixes the shipped product rather than just the
+   experiment.
+
+**Kill criterion for the whole track:** if hand-adjudication of a further 120
+entries puts the clear-misfiling rate above ~25%, the corpus is not repairable
+by editing and option 3 or abandonment are the only honest choices.
+
+### What must be re-tested (ground truth was the cell assignments)
+
+| # | result | current verdict | why it is unsafe |
+|---|---|---|---|
+| 1 | Nine geometric certification mechanisms | NOT SUPPORTED | all scored against cell labels |
+| 2 | Non-lattice auditing ("the grid is not a taxonomy") | NOT SUPPORTED | the shuffle control compares one noisy labelling to another; 0.657 vs 0.642 is what ~43% noise predicts |
+| 3 | Iteration 38 family: CONSTRAINT, ANCHOR-VOCAB, arms A and B | REFUTED / at chance | the injected-misfiling harness, signal:noise 1:7 |
+| 4 | Sense induction, three ways (Iterations 39–40) | killed | used cell labels as the sense inventory |
+| 5 | Re-derivation vs persistence (ARI 0.198) | holds | ARI is computed over the same suspect labels |
+| 6 | Iterations 32, 33, 34 convergence/interpolation controls | killed | evaluation population defined by cells |
+
+**Re-test order.** #3 first — it is fully automated, the harness already
+supports resampling and held-out scoring, and it is the only one with a
+measured noise floor (0.074) to beat. If CONSTRAINT still loses to cosine on a
+clean corpus, it is genuinely refuted and #1, #2 and #6 can be closed without
+re-running, since they are weaker versions of the same claim. If it wins,
+everything here reopens.
+
+### What stands, and is probably understated
+
+Label noise cannot manufacture a positive that survived a construction-matched
+control, so these need no re-test — but their effect sizes are lower bounds:
+
+- **The determinism fix.** A code-level fact, verified by sabotage. Unaffected.
+- **`becoming`'s runs test.** Unit-proven on synthetic sequences. Unaffected.
+- **`chronos` periods.** Measured from timestamps, not labels. Unaffected.
+- **Embedder swap destroys agreement (ARI ~0.10).** Label-free; it compares two
+  clusterings to each other.
+- **WordNet gloss corroboration, z = +6.64.** This one is *strengthened*: it
+  found same-cell corroboration from an independent source **through** 43% label
+  noise. On a clean corpus it should be larger.
+- **n-gram discretization** and the exact-vs-skip-gram result. Operates on the
+  operational corpus text, not the grid.
+- **`coverage`.** Evaluated by construction (re-adding an existing entry rescues
+  0 of 2000), not by cell correctness.
+
+### What the day cost, stated plainly
+
+Twelve mechanisms were built and rejected against a ground truth nobody checked.
+The check took one pass over sixty rows and could have run on day one. Every
+control added along the way — train/test split, resampled injection,
+corpus-derived load list — improved the precision of a measurement whose labels
+were wrong, which is the most expensive way to be careful.
 
