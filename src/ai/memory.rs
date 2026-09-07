@@ -229,8 +229,38 @@ mod tests {
     fn test_delete_before() {
         let (mem, _dir) = temp_memory();
         mem.store("keep", "t", "PLAN", HashMap::new()).unwrap();
-        let deleted = mem.delete_before(0).unwrap();
+        // A far-future day count pushes the cutoff before the epoch, so a
+        // just-stored entry cannot qualify. `delete_before(0)` with a
+        // now-stamped entry is a second-granularity flake: once the test
+        // runs across a second boundary, cutoff == now > timestamp and the
+        // "keep" entry is deleted after all (CI run 34127111710).
+        let deleted = mem.delete_before(50_000).unwrap();
         assert_eq!(deleted, 0);
+        assert_eq!(mem.count().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_delete_before_removes_old_entries() {
+        let (mem, _dir) = temp_memory();
+        mem.store("keep", "t", "PLAN", HashMap::new()).unwrap();
+        // A synthetic entry stamped two days ago: strictly older than the
+        // delete_before(1) cutoff for any now, so the positive path is
+        // deterministic too.
+        let old = MemoryEntry {
+            id: "old".to_string(),
+            text: "stale".to_string(),
+            kind: "chat".to_string(),
+            mode: "PLAN".to_string(),
+            timestamp: Utc::now().timestamp() - 2 * 86400,
+            extra: HashMap::new(),
+        };
+        mem.db
+            .insert(format!("mem:{}", old.id).as_bytes(), serde_json::to_vec(&old).unwrap())
+            .unwrap();
+        mem.db.flush().unwrap();
+        assert_eq!(mem.count().unwrap(), 2);
+        let deleted = mem.delete_before(1).unwrap();
+        assert_eq!(deleted, 1);
         assert_eq!(mem.count().unwrap(), 1);
     }
 
