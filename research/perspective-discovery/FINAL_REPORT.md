@@ -978,7 +978,34 @@ the calibration heuristic, being the dominant constraint.
     causally independent of the embedder, commit confirmations as authored
     entries.**
 
-## Architectural conclusion (updated after Iteration 30)
+28. **DONE (Iterations 31-32) — the outward loop built, then dismantled by its
+    own control. NOT SUPPORTED.** The check design (a list of known
+    ontologies; unmatched-but-coherent promoted as UNCANNY) was built against
+    WordNet — the right lexicon, being hand-built rather than web-trained and
+    so causally independent of MiniLM. Iteration 32 gave it 5-fold
+    cross-validation, 1616 pooled regions.
+
+    First pass: convergence **z = +5.05** with a monotone dose-response from
+    0.256 to 1.000. **That was an artifact of my own metric.** The hit test
+    excluded each region's parents, and parent count *is* convergence — so
+    high-convergence regions had more near competitors removed and a weaker
+    rival to beat. Under a FIXED-size exclusion swept over k (reading only the
+    unsaturated range, overall rate 0.10-0.90), the sign **flips**: mean
+    **z = -2.23**, with k=2,3,4 at -3.49, -3.80, -2.80. High-convergence
+    regions contain a removed concept *less* often. Plausibly because many
+    pairs converge where the ontology is already thick, and thick regions are
+    where least is missing. WordNet check at 5x sample: z = +1.33, still dead.
+
+    Also corrected here: the claim that "WordNet is nouns-only" was my loader,
+    not the lexicon (13,789 verb synsets ship with it), and loading verbs
+    barely moved the buckets — the UNCANNY head is Italian-language entries an
+    English lexicon cannot match, a coverage artifact rather than novelty.
+
+    **Net: Iteration 30's proposer stands; nothing built on top of it does.**
+    The geometry can say where to look. Nothing tried so far can say whether
+    what is found is worth having.
+
+## Architectural conclusion (updated after Iteration 32)
 
 The user's ask — "some fixed points discovered in data, always the same,
 see how they link to each other" — is **achievable, and now demonstrated

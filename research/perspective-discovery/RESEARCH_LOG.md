@@ -2435,6 +2435,102 @@ of the same authored style, so a found-in-the-wild concept may be harder;
 one corpus, one embedder; per Iteration 26b none of it transfers across a
 model swap.
 
+## Iterations 31-32 — the outward loop, built and then dismantled by its own control
+
+Iteration 30 licensed building this: the proposer carries signal (z = +4.87)
+but 87% of proposals point at nothing, so the external check is the system.
+The user's design for that check: a list of known ontologies, with proposals
+matching *nothing* known promoted as UNCANNY rather than discarded, on the
+grounds that unknown-but-coherent is the interesting case.
+
+WordNet was the right lexicon for it, for a reason that matters: it is
+hand-built by lexicographers rather than trained on web text, so it is
+causally independent of MiniLM in the way Iteration 19's second embedder was
+not.
+
+### Iteration 31 — the loop, and an underpowered pair of answers
+
+Pipeline: propose (1638 midpoints) -> converge into regions (keyed on
+DISTINCT parent entries, so five midpoints sharing a parent count once) ->
+check against 23,996 WordNet synsets -> triage on (known x converged).
+
+Two controlled comparisons, because the buckets differ on two axes at once
+and a raw bucket-vs-overall rate cannot say which axis did the work:
+
+| comparison | result | z |
+|---|---|---|
+| WordNet, convergence fixed | 5/22 = 0.227 vs 9/33 = 0.273 | -0.38 |
+| Convergence, WordNet fixed | 9/33 = 0.273 vs 20/119 = 0.168 | +1.35 |
+
+Neither n was large enough to decide anything.
+
+**Two measurement bugs, each of which produced a false answer first.** Every
+bucket first scored 0.000 — *including the overall rate*, which is the tell
+that a metric is void rather than a triage useless. The hit test compared
+each region against all known entries including its own parents, adjacent by
+construction: the same parent-adjacency artifact found and fixed in
+Iteration 30 and reintroduced here. Separately, the loader took nouns only
+and the write-up then blamed "WordNet is nouns-only" for process concepts
+piling up in UNCANNY. Wrong twice over: WordNet ships 13,789 verb synsets,
+and loading 3,448 of them barely moved the buckets. The residual UNCANNY head
+is **Italian-language entries**, which an English lexicon cannot match at any
+part of speech — a coverage artifact, not novelty.
+
+### Iteration 32 — the powered re-test, and the result that reversed
+
+5-fold stratified cross-validation, disjoint folds, every entry held out
+exactly once, **1616 pooled regions**. Parents excluded consistently in both
+bucketing and validation, fixing Iteration 31's density confound (which was a
+bug, not a property of the data: 31 bucketed with a parent-inclusive coverage
+test and validated with a parent-excluded hit test).
+
+First pass looked like a decisive positive:
+
+- convergence **z = +5.05**, 0.510 vs 0.262
+- and a clean monotone dose-response: 0.256 at 2 distinct parents, rising
+  through 0.345, 0.351, 0.615, 0.605, 0.522, 0.737, to **1.000 at 9**
+
+**That result is wrong, and how it is wrong is the finding.** The hit test
+excluded each region's own parents — and parent count *is* convergence. A
+high-convergence region therefore has more near neighbours removed from its
+comparison and a mechanically weaker rival to beat. The dose-response could
+be produced by the metric alone.
+
+**The control**: exclude a FIXED number k of nearest known entries from every
+region, uniform regardless of convergence. Swept over k rather than fixed at
+one value, because a single k can be floored (k=0 gives an overall rate of
+0.001) or saturated (k=16 gives 0.954) and neither can discriminate. The
+verdict is read only from k where the overall rate lies in 0.10-0.90.
+
+| k | high-conv | low-conv | z |
+|---|---|---|---|
+| 2 | 0.069 | 0.217 | **-3.49** |
+| 3 | 0.196 | 0.392 | **-3.80** |
+| 4 | 0.363 | 0.513 | **-2.80** |
+| 6 | 0.627 | 0.707 | -1.62 |
+| 8 | 0.824 | 0.800 | +0.54 |
+| | | mean | **-2.23** |
+
+**The sign flips.** Under uniform exclusion, high-convergence regions contain
+a removed concept *less* often, not more. A plausible reading: many entry
+pairs converge on a region precisely because it is already thickly populated,
+and a thickly populated region is where the ontology is least likely to be
+missing anything.
+
+WordNet, with 5x the sample: **z = +1.33**. Still not supported.
+
+### Where this leaves the outward loop
+
+Both discriminators it was built on are dead. Iteration 30's proposer still
+stands — that result had its own control (manifold-matched random pairs) and
+survives. Nothing built on top of it here does.
+
+The honest statement of the position: **the geometry can say where to look,
+but nothing tried so far can say whether what is found is worth having.**
+That is the same wall the seven closed-question mechanisms hit, reached from
+the open-question direction. It is a narrower wall — the proposer works — but
+it is the same one.
+
 ## Files
 
 - `physis-core/examples/perspective_discovery_experiment.rs` — Experiment 1,
