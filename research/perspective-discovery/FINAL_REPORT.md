@@ -1112,6 +1112,79 @@ the calibration heuristic, being the dominant constraint.
        global ones". Multi-scale periodicity is untried and is the only part of
        this item needing new statistics.
 
+34. **NEXT — Pydantic-style executable constraints: the soundness check that
+    non-lattice auditing could not supply.**
+
+    Iteration 33 shipped `coverage` with a stated hole: *coverage is not
+    correctness*. A candidate that swallows records into the WRONG cell scores
+    exactly like one capturing a real gap. Cheung's second paper names the
+    vocabulary — `coverage` is a **completeness** check (incomplete facets
+    reduce recall); the missing half is **soundness** (unsound facets reduce
+    precision). Iteration 38 then tried the mechanism that paper recommends,
+    non-lattice auditing, and it failed for a reason that is now measured
+    rather than guessed:
+
+    > physis's 5x14 grid is **not a taxonomy**. Real cells are indistinguishable
+    > from a size-matched shuffle (|MCA|=1 rate 0.653 vs 0.668; ancestor Jaccard
+    > 0.133 vs 0.117). Non-lattice auditing detects missing or redundant IS-A
+    > links in a subsumption hierarchy; a misfiled entry in a *functional* grid
+    > is simply not that kind of defect.
+
+    **Why the Pydantic route is the right next attempt, and not just the next
+    thing in the paper.** Cheung's §7.2 mechanism is a *dependency map* —
+    mechanism → required component, "deck building requires cards" — and it
+    flags an output that names a mechanism while lacking its component. That
+    constraint is **functional, not taxonomic**: it says "if X is present then Y
+    must be", which is exactly the shape of a grid that groups by function. The
+    thing that made non-lattice auditing inapplicable is the thing that makes
+    this applicable.
+
+    **The real design question is not which library — it is whether constraints
+    are CODE or DATA.** physis is Rust; typed validation functions need no
+    Python at all. Pydantic's actual contribution is that schemas are
+    *declarative and round-trippable through JSON Schema*, which would let
+    constraints be authored in `config/` and versioned alongside the ontology
+    they constrain, rather than compiled in. Given that hand-authored cells are
+    the one thing this entire track measured to be stable, constraints as
+    authored data is the option consistent with the evidence.
+
+    **Prior art already in-tree, and its limit.** physis-pro's `DreamContract`
+    (a0d28a4) implements the validation-contract idea on generated dreams — "an
+    output the grid cannot name is structure-shaped noise" — with rejection
+    accounting and a raw pool that keeps what the contract refuses. But it gates
+    on a **cosine threshold**, which Iteration 38 independently vindicated as
+    the right choice for this grid (cosine AUC 0.741 beat every structural
+    scorer tried). It is a *nameability* gate, not a *dependency* gate. The
+    constraint layer proposed here is the part that is missing.
+
+    **Staged, same discipline as items 31-33:**
+
+    a. **Author a dependency map.** Someone writes "mode WORK requires an
+       action-shaped facet", "domain HEAL requires a subject". This is
+       hand-authoring, and given the track record that is a feature rather than
+       a shortcut.
+       *Gate*: ≥20 constraints covering ≥50% of entries.
+       *Kill*: if no constraint can be stated that a competent author would
+       agree with, the grid has no functional semantics to check and this ends.
+    b. **Run it against the injected-misfiling harness from Iteration 38**,
+       which already exists: 91 entries deterministically moved to a wrong cell,
+       exact ground truth, and the geometric baseline (cosine AUC **0.741**)
+       already measured on the identical split.
+       *Gate*: constraint violations must beat **AUC 0.741**. Not "find
+       something" — beat the detector already shipped.
+       *Kill*: below 0.741 it adds nothing over `coverage` + cosine and should
+       not ship.
+    c. **Only if (b) passes: decide code vs data**, and only then whether
+       Python enters the build at all. pydantic 2.13.5 / pydantic-core 2.46.5
+       are installed; `dspy` is not, so the paper's generation pipeline is not
+       runnable as written and is out of scope here regardless.
+
+    **What this cannot do, stated up front.** A dependency constraint catches
+    *structural* incoherence — a mechanism without its component. It does not
+    catch a semantically wrong but structurally complete entry, which is the
+    harder half of soundness and remains open after nine geometric mechanisms,
+    non-lattice auditing, and this.
+
 ## What actually worked
 
 Everything in this section survived a control designed to kill it. Results that
