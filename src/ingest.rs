@@ -81,7 +81,15 @@ pub fn classify_file(path: &Path) -> DocKind {
         Some("mp4") | Some("avi") | Some("mov") | Some("mkv") | Some("webm") | Some("wmv") => DocKind::Video,
         Some("txt") | Some("md") => {
             let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            if name.contains("transcript") || name.contains("voice") || name.contains("call") {
+            // Token equality, not substring: "invoices" contains "voice" and a
+            // plant's "recalls" contains "call", so a substring test silently
+            // routed ordinary reports into the (empty-body) voice-transcript
+            // extractor — their text never reached any index. Split on the
+            // separators filenames actually use and compare whole words.
+            let is_voice = name
+                .split(['-', '_', ' ', '.'])
+                .any(|p| matches!(p, "transcript" | "voice" | "call"));
+            if is_voice {
                 DocKind::VoiceTranscript
             } else {
                 DocKind::Report
@@ -618,6 +626,34 @@ mod tests {
         assert!(matches!(
             classify_file(Path::new("data.csv")),
             DocKind::Spreadsheet
+        ));
+    }
+
+    #[test]
+    fn voice_detection_is_whole_word_not_substring() {
+        // "invoices" contains "voice" and "recalls" contains "call"; the old
+        // substring test misrouted such reports into the empty-body voice
+        // extractor, so their text never reached any index (found by the
+        // content-search corpus in tests/http_surface.rs).
+        assert!(matches!(
+            classify_file(Path::new("office/invoices.md")),
+            DocKind::Report
+        ));
+        assert!(matches!(
+            classify_file(Path::new("recalls.txt")),
+            DocKind::Report
+        ));
+        assert!(matches!(
+            classify_file(Path::new("meeting-transcript.txt")),
+            DocKind::VoiceTranscript
+        ));
+        assert!(matches!(
+            classify_file(Path::new("voice_memo.md")),
+            DocKind::VoiceTranscript
+        ));
+        assert!(matches!(
+            classify_file(Path::new("call-notes.txt")),
+            DocKind::VoiceTranscript
         ));
     }
 
