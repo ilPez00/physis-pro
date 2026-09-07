@@ -973,6 +973,69 @@ async fn dreams_return_a_readable_proposal_not_raw_vectors() {
 }
 
 #[tokio::test]
+async fn dream_generate_honours_the_validation_contract() {
+    // The Generative Ontology contract (`research_new`): with `min_cosine`
+    // set, only dreams the ontology grid can name are proposed, the response
+    // accounts for rejections, and every proposal carries its review verdict.
+    let (router, _dir, _env) = app().await;
+
+    send(
+        &router,
+        post(
+            "/api/v1/goals",
+            "c",
+            json!({"prompt": "reduce nozzle clogs before the next batch"}),
+        ),
+    )
+    .await;
+
+    // An impossible bar for the random-projection embedder: nothing the
+    // engine can dream will clear 0.95 against the 973-entry grid, so the
+    // contract must reject the whole batch rather than pretend the dreams
+    // are coherent. Rejection is information, not an error.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/dream/generate",
+            "c",
+            json!({"count": 2, "force": true, "min_cosine": 0.95}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["count"], 0, "nothing clears an impossible bar: {body}");
+    let contract = &body["contract"];
+    assert!(contract.is_object(), "contract accounting present: {body}");
+    assert!(
+        contract["rejected"].as_u64().unwrap_or(0) >= 2,
+        "the attempted dreams are accounted for: {contract}"
+    );
+
+    // A sane bar lets some dreams through, each carrying its verdict.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/dream/generate",
+            "c",
+            json!({"count": 3, "force": true, "min_cosine": 0.2}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let dreams = body["dreams"].as_array().expect("dreams array");
+    assert!(!dreams.is_empty(), "a sane bar admits dreams: {body}");
+    for d in dreams {
+        let review = &d["review"];
+        assert!(review["cosine"].is_number(), "verdict present: {d}");
+        assert!(
+            review["cosine"].as_f64().unwrap() >= 0.2,
+            "accepted dreams clear the bar: {d}"
+        );
+    }
+    assert!(body["contract"].is_object());
+}
+
+#[tokio::test]
 async fn dream_replay_names_failures_and_skips_successes() {
     // The thesis, over HTTP: replay what was reported broken, leave what was
     // reported working alone.

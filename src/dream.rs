@@ -1,8 +1,9 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+use crate::classify::CellClassifier;
 use crate::gantt::GanttScheduler;
-use crate::models::{cosine_sim, Dream, Experience, Goal};
+use crate::models::{cosine_sim, Dream, DreamReview, Experience, Goal};
 
 /// Keep a proposal on one line. A goal's label is whatever prompt created it,
 /// which can be a paragraph; a dream description is a headline.
@@ -135,10 +136,21 @@ impl DreamEngine {
         }
         let g = &goals[self.rng.random_range(0..goals.len())];
         let boost = proposal.expected_impact;
-        g.embedding
+        // Impact scales the DIRECTION, not the magnitude: embeddings are
+        // L2-normalized (VectorEmbed's documented invariant), so renormalize
+        // after scaling — cosine against an unnormalized vector is distorted.
+        let embedding: Vec<f32> = g
+            .embedding
             .iter()
             .map(|x| x * (1.0 + boost * 0.1))
-            .collect()
+            .collect();
+        let norm: f32 = embedding
+            .iter()
+            .map(|x| x * x)
+            .sum::<f32>()
+            .sqrt()
+            .max(1e-8);
+        embedding.iter().map(|x| x / norm).collect()
     }
 
     fn generate_countermeasure_dream(
@@ -338,7 +350,141 @@ impl DreamEngine {
             desc,
         )
     }
+}
 
+/// The ontological validation contract for generated dreams.
+///
+/// Applies the Generative Ontology method (`research_new`): the ontology is a
+/// validation contract, not only a classification vocabulary — an output that
+/// cannot be named by the grid is not a plan, it is structure-shaped noise.
+/// The dream generators interpolate and mutate goal embeddings freely, so a
+/// dream between a machine fault and an invoice can land where classification
+/// finds nothing. [`DreamContract::review`] names the closest ontology entry;
+/// [`DreamEngine::generate_dreams_contracted`] accepts only nameable dreams
+/// and retries the rest up to a bounded number of times. Rejections are
+/// counted in the result — a 100% rejection rate is the honest signal that
+/// the goals themselves sit outside the ontology, not something to hide.
+pub struct DreamContract<'a> {
+    classifier: &'a CellClassifier,
+    min_cosine: f32,
+    max_retries: usize,
+}
+
+/// What the contracted generator hands back: the accepted dreams (each with
+/// its review verdict attached), their parallel contexts, and the accounting
+/// that makes rejection visible.
+#[derive(Debug, Clone)]
+pub struct ContractedDreams {
+    pub dreams: Vec<Dream>,
+    pub contexts: Vec<DreamContext>,
+    /// How many generated dreams failed the review across all attempts.
+    pub rejected: usize,
+    /// Lowest accepted cosine — how much contract slack the batch used.
+    pub weakest_accepted: f32,
+}
+
+impl<'a> DreamContract<'a> {
+    /// `min_cosine` is the naming threshold (0.5 is a reasonable default:
+    /// clearly-related entries score 0.6+ under the production embedders,
+    /// unrelated text scores below 0.4). `max_retries` bounds regeneration.
+    pub fn new(classifier: &'a CellClassifier, min_cosine: f32, max_retries: usize) -> Self {
+        Self {
+            classifier,
+            min_cosine,
+            max_retries,
+        }
+    }
+
+    /// Name a generated embedding against the grid: closest entry, its cell,
+    /// and whether the pair clears the threshold. One pass over the cells —
+    /// the classifier's own entry walk, without the blended cell scoring,
+    /// because the contract is about *nameability*, not rank.
+    pub fn review(&self, embedding: &[f32]) -> DreamReview {
+        let mut best: Option<(String, String, f32)> = None;
+        for cell in &self.classifier.0.cells {
+            for (i, e) in cell.embeddings.iter().enumerate() {
+                let s = cosine_sim(embedding, e);
+                if best.as_ref().map(|(_, _, b)| s > *b).unwrap_or(true) {
+                    if let Some(name) = cell.entries.get(i) {
+                        best = Some((name.clone(), format!("{}\u{d7}{}", cell.domain, cell.mode), s));
+                    }
+                }
+            }
+        }
+        let (best_entry, best_cell, cosine) =
+            best.map(|(n, c, s)| (Some(n), Some(c), s)).unwrap_or((None, None, 0.0));
+        DreamReview {
+            accepted: cosine >= self.min_cosine,
+            best_entry,
+            best_cell,
+            cosine,
+            min_cosine: self.min_cosine,
+        }
+    }
+}
+
+impl DreamEngine {
+    /// Generate dreams under the contract: generate a batch, review every
+    /// dream against the ontology, keep the accepted ones, and regenerate the
+    /// shortfall up to `max_retries` times.
+    ///
+    /// The engine's raw pool (`self.dreams`) still records every generated
+    /// dream including rejected ones — the pool is the subconscious, the
+    /// contract governs what gets *proposed*. Callers serialize the returned
+    /// batch, not the pool.
+    pub fn generate_dreams_contracted(
+        &mut self,
+        goals: &[Goal],
+        batch_size: usize,
+        scheduler: Option<&GanttScheduler>,
+        experiences: Option<&[Experience]>,
+        contract: &DreamContract,
+    ) -> ContractedDreams {
+        let mut accepted: Vec<Dream> = Vec::new();
+        let mut contexts: Vec<DreamContext> = Vec::new();
+        let mut rejected = 0usize;
+        let mut weakest_accepted = f32::INFINITY;
+
+        for _attempt in 0..=contract.max_retries {
+            let need = batch_size.saturating_sub(accepted.len());
+            if need == 0 {
+                break;
+            }
+            let batch = self.generate_dreams_with_context(goals, need, scheduler, experiences);
+            let batch_len = batch.len();
+            // The engine extended its parallel pool with this batch; copy the
+            // fresh contexts out (never split them off — the pool's dream and
+            // context vectors must stay aligned, rejected dreams included).
+            let fresh: Vec<DreamContext> = self.dream_contexts
+                [self.dream_contexts.len().saturating_sub(batch_len)..]
+                .to_vec();
+            for (mut dream, context) in batch.into_iter().zip(fresh) {
+                let verdict = contract.review(&dream.embedding);
+                if verdict.accepted {
+                    weakest_accepted = weakest_accepted.min(verdict.cosine);
+                    dream.review = Some(verdict);
+                    accepted.push(dream);
+                    contexts.push(context);
+                } else {
+                    rejected += 1;
+                }
+            }
+        }
+
+        ContractedDreams {
+            dreams: accepted,
+            contexts,
+            rejected,
+            weakest_accepted: if weakest_accepted.is_finite() {
+                weakest_accepted
+            } else {
+                0.0
+            },
+        }
+    }
+}
+
+impl DreamEngine {
     pub fn evaluate_dream(&mut self, dream_id: &str, grade: f32) -> bool {
         if let Some(dream) = self.dreams.iter_mut().find(|d| d.id == dream_id) {
             dream.grade = Some(grade);
@@ -475,5 +621,163 @@ mod tests {
         let goals = test_goals(32);
         engine.generate_dreams(&goals, 5);
         assert_eq!(engine.ungraded_dreams().len(), 5);
+    }
+
+    // ── Ontological validation contract ─────────────────────────────────
+    //
+    // Fixture: two tight cells on orthogonal axes of a 4-d space. Cell A sits
+    // on +x, cell B on +y. A goal on +z is nameable by neither — everything
+    // generated from it must fail the contract, everything generated from
+    // cell-A goals must pass it.
+
+    use crate::models::Facets;
+
+    fn unit(v: [f32; 4]) -> Vec<f32> {
+        let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
+        v.iter().map(|x| x / norm).collect()
+    }
+
+    fn audit_fixture() -> CellClassifier {
+        let cell = |domain: &str, mode: &str, entries: Vec<Vec<f32>>| {
+            physis_core::classify::Cell::new(
+                domain.to_string(),
+                mode.to_string(),
+                entries.clone(),
+                (0..entries.len()).map(|i| format!("{domain}-{mode}-{i}")).collect(),
+                vec![Facets::default(); entries.len()],
+            )
+        };
+        crate::classify::from_cells(vec![
+            cell(
+                "MACHINE",
+                "WORK",
+                vec![unit([1.0, 0.0, 0.0, 0.0]), unit([0.95, 0.05, 0.0, 0.0])],
+            ),
+            cell(
+                "OFFICE",
+                "PLAN",
+                vec![unit([0.0, 1.0, 0.0, 0.0]), unit([0.05, 0.95, 0.0, 0.0])],
+            ),
+        ])
+    }
+
+    fn goals_along(v: [f32; 4], n: usize) -> Vec<Goal> {
+        let e = unit(v);
+        (0..n)
+            .map(|_| Goal::new(e.clone(), "test".to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn contract_accepts_dreams_the_grid_can_name() {
+        let classifier = audit_fixture();
+        // +x goals: every generator (mutate/jitter/extrapolate/interpolate)
+        // stays within ~0.2 of the goal direction, and cell A's nearest
+        // entries sit at cosine ≈ 0.95+ from there — comfortably above 0.5.
+        let mut engine = DreamEngine::new();
+        let goals = goals_along([1.0, 0.0, 0.0, 0.0], 5);
+        let contract = DreamContract::new(&classifier, 0.5, 2);
+        let result = engine.generate_dreams_contracted(&goals, 6, None, None, &contract);
+        assert_eq!(result.dreams.len(), 6, "all should clear: {:?}", result);
+        assert_eq!(result.rejected, 0);
+        assert!(result.weakest_accepted >= 0.5);
+        for d in &result.dreams {
+            let review = d.review.as_ref().expect("accepted dreams carry a verdict");
+            assert!(review.accepted);
+            assert_eq!(
+                review.best_cell.as_deref(),
+                Some("MACHINE\u{d7}WORK"),
+                "cell-A dreams must name cell A"
+            );
+        }
+        // Parallel invariants: contexts and dreams returned in lockstep, and
+        // the engine's raw pool still holds every dream (accepted AND the
+        // ones the first attempt produced), with its parallel contexts
+        // unbroken.
+        assert_eq!(result.contexts.len(), result.dreams.len());
+        assert_eq!(engine.dreams.len(), engine.dream_contexts.len());
+    }
+
+    #[test]
+    fn contract_rejects_dreams_the_grid_cannot_name() {
+        let classifier = audit_fixture();
+        let mut engine = DreamEngine::new();
+        // +z: orthogonal to both cells; no entry within 0.5 of anything
+        // generated from here.
+        let goals = goals_along([0.0, 0.0, 1.0, 0.0], 3);
+        let contract = DreamContract::new(&classifier, 0.5, 2);
+        let result = engine.generate_dreams_contracted(&goals, 4, None, None, &contract);
+        assert!(result.dreams.is_empty(), "nothing nameable: {:?}", result);
+        assert!(result.rejected >= 4, "every attempt rejected: {:?}", result);
+        assert_eq!(result.weakest_accepted, 0.0);
+        // The engine's raw pool still recorded the dreams (the subconscious
+        // keeps what the contract refuses to propose).
+        assert!(!engine.dreams.is_empty());
+    }
+
+    #[test]
+    fn contract_mixed_goals_split_accurately() {
+        let classifier = audit_fixture();
+        let mut engine = DreamEngine::new();
+        let mut goals = goals_along([1.0, 0.0, 0.0, 0.0], 3);
+        goals.extend(goals_along([0.0, 0.0, 1.0, 0.0], 2));
+        let contract = DreamContract::new(&classifier, 0.5, 2);
+        let result = engine.generate_dreams_contracted(&goals, 8, None, None, &contract);
+        // Interpolation between an on-grid and an off-grid goal can go either
+        // way; the contract's job is to SORT them, not to accept everything.
+        assert!(
+            result.rejected > 0,
+            "off-grid goals must produce some rejections: {:?}",
+            result
+        );
+        for d in &result.dreams {
+            let review = d.review.as_ref().expect("accepted dreams carry a verdict");
+            assert!(review.accepted);
+            assert!(review.cosine >= 0.5);
+        }
+    }
+
+    #[test]
+    fn review_names_the_closest_entry_and_cell() {
+        let classifier = audit_fixture();
+        let contract = DreamContract::new(&classifier, 0.5, 2);
+        let v = contract.review(&unit([1.0, 0.0, 0.0, 0.0]));
+        assert!(v.accepted, "{v:?}");
+        assert_eq!(v.best_entry.as_deref(), Some("MACHINE-WORK-0"));
+        assert_eq!(v.best_cell.as_deref(), Some("MACHINE\u{d7}WORK"));
+        let orthogonal = contract.review(&unit([0.0, 0.0, 1.0, 0.0]));
+        assert!(!orthogonal.accepted, "{orthogonal:?}");
+        assert!(orthogonal.cosine < 0.5);
+        // An empty grid names nothing and rejects everything, honestly.
+        let empty_classifier = crate::classify::from_cells(vec![]);
+        let empty = DreamContract::new(&empty_classifier, 0.5, 2);
+        let none = empty.review(&unit([1.0, 0.0, 0.0, 0.0]));
+        assert!(!none.accepted);
+        assert_eq!(none.best_entry, None);
+    }
+
+    #[test]
+    fn legacy_dreams_load_without_a_review() {
+        // Dreams persisted before the contract existed must deserialize with
+        // review = None (the field is serde-defaulted), and a reviewed dream
+        // round-trips its verdict.
+        let legacy = r#"{
+            "id": "d1", "source": [], "embedding": [],
+            "grade": null, "dream_type": "mutate", "description": "old"
+        }"#;
+        let d: Dream = serde_json::from_str(legacy).unwrap();
+        assert!(d.review.is_none());
+        let mut d2 = Dream::new(vec![], vec![], "mutate".into(), "new".into());
+        d2.review = Some(DreamReview {
+            accepted: true,
+            best_entry: Some("MACHINE-WORK-0".into()),
+            best_cell: Some("MACHINE\u{d7}WORK".into()),
+            cosine: 0.9,
+            min_cosine: 0.5,
+        });
+        let json = serde_json::to_string(&d2).unwrap();
+        let back: Dream = serde_json::from_str(&json).unwrap();
+        let review = back.review.expect("review survives the round trip");
+        assert_eq!(review.cosine, 0.9);
     }
 }

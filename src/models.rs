@@ -101,6 +101,34 @@ pub struct Dream {
     pub grade: Option<Score>,
     pub dream_type: String,
     pub description: String,
+    /// Ontological review verdict, set when the dream was generated under the
+    /// validation contract (see `dream::DreamContract`). Absent for legacy
+    /// dreams and uncontracted generation — a dream that was never reviewed
+    /// must stay distinguishable from one that was reviewed and accepted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<DreamReview>,
+}
+
+/// The ontological validation verdict for one generated dream.
+///
+/// Applies the Generative Ontology method (research_new): a generated output
+/// must be nameable by the domain's ontology to count as coherent. Here the
+/// grid is the schema — a dream whose embedding has no ontology entry within
+/// `min_cosine` is structure-shaped noise (interpolating a machine fault
+/// with an invoice lands where classification finds nothing), and a plan
+/// that names nothing is not a plan. Rejections are counted, never hidden.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DreamReview {
+    /// Whether the dream passed the contract (`cosine >= min_cosine`).
+    pub accepted: bool,
+    /// Closest ontology entry, if the grid had anything to say at all.
+    pub best_entry: Option<String>,
+    /// The owning cell of that entry, `DOMAIN×MODE`.
+    pub best_cell: Option<String>,
+    /// Best single-entry cosine found.
+    pub cosine: f32,
+    /// The contract threshold that was applied.
+    pub min_cosine: f32,
 }
 
 impl Dream {
@@ -117,6 +145,7 @@ impl Dream {
             grade: None,
             dream_type,
             description,
+            review: None,
         }
     }
 }

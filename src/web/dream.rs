@@ -36,12 +36,32 @@ pub async fn dream_generate_handler(
         // — the ones that produce an actionable proposal rather than "mutate
         // with noise_std=x" — could never fire over HTTP. Experiences are not
         // part of RuntimeState yet, so that source stays None honestly.
-        let dreams = s.dreams.generate_dreams_with_context(
-            &goals,
-            req.count,
-            Some(&s.scheduler),
-            None,
-        );
+        //
+        // `min_cosine` opts into the ontological validation contract: a dream
+        // must be nameable by the ontology grid (closest entry ≥ threshold) to
+        // be proposed, with bounded regeneration for the rest. Without it the
+        // raw batch is returned exactly as before, so existing callers see no
+        // behavior change.
+        let contracted = req.min_cosine.map(|min| {
+            crate::dream::DreamContract::new(&state.shared.classifier, min, 2)
+        });
+        let (dreams, contract_report) = if let Some(contract) = contracted {
+            let result = s.dreams.generate_dreams_contracted(
+                &goals,
+                req.count,
+                Some(&s.scheduler),
+                None,
+                &contract,
+            );
+            let report = serde_json::json!({
+                "rejected": result.rejected,
+                "weakest_accepted_cosine": result.weakest_accepted,
+                "min_cosine": req.min_cosine,
+            });
+            (result.dreams, Some(report))
+        } else {
+            (s.dreams.generate_dreams_with_context(&goals, req.count, Some(&s.scheduler), None), None)
+        };
         // Serialize what a human can act on. `dream_type` and `description`
         // have always been produced by the engine (schedule drift,
         // countermeasures, grafts) and were simply dropped here, while the two
@@ -57,6 +77,13 @@ pub async fn dream_generate_handler(
                     "proposal": d.description,
                     "grade": d.grade,
                 });
+                if let Some(review) = &d.review {
+                    obj["review"] = serde_json::json!({
+                        "best_entry": review.best_entry,
+                        "best_cell": review.best_cell,
+                        "cosine": review.cosine,
+                    });
+                }
                 if req.embeddings {
                     obj["source"] = serde_json::json!(d.source);
                     obj["embedding"] = serde_json::json!(d.embedding);
@@ -65,6 +92,7 @@ pub async fn dream_generate_handler(
             }).collect::<Vec<_>>(),
             "count": dreams.len(),
             "active": true,
+            "contract": contract_report,
         }))
     })
 }

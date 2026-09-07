@@ -549,6 +549,12 @@ pub struct DreamGenerateRequest {
     /// in a UI.
     #[serde(default)]
     embeddings: bool,
+    /// Opt into the ontological validation contract: a dream is proposed only
+    /// if the ontology grid can name it (closest entry cosine ≥ this
+    /// threshold), with bounded regeneration for the rest. Absent = the raw
+    /// batch, exactly as before (Generative Ontology method, research_new).
+    #[serde(default)]
+    min_cosine: Option<f32>,
 }
 pub(crate) fn default_dream_count() -> usize {
     5
