@@ -1019,7 +1019,100 @@ the calibration heuristic, being the dominant constraint.
     records into a wrong cell scores like one capturing a real gap. A filter,
     not an approver.
 
-## Architectural conclusion (updated after Iteration 33)
+30. **DONE (Iterations 34-40) — the substructure/becoming line, and where it
+    actually stops.** Seven iterations testing whether a term's *context*
+    corroborates a link or reveals a meaning-change. One robust positive
+    (Iteration 35: shared substructure from an INDEPENDENT source adds
+    predictive power beyond cosine, z = +6.64 same-cell, versus +0.62 for
+    hint-derived substructure the embedder had already read). Everything
+    downstream of it failed, and always at the SAME step — producing a sense
+    partition:
+
+    | attempt | partition from | failure |
+    |---|---|---|
+    | 39a | whole event text | clusters document GENRE |
+    | 39b | local window vectors | separation measures BREADTH of use |
+    | 40 | ontology cell labels | labels SCATTER (20 distinct / 88 occurrences) |
+
+    `physis_core::becoming` is shipped and sound — its runs test separates
+    `AAAAAABBBBBB` from `ABABBABAABAB`, which no clusterer can — but it is
+    **correct given a sense partition and cannot produce one**. Word sense
+    induction is the unsolved input. This is SemEval-2020 Task 1 territory
+    (arXiv 2007.11464); best published figures are 66.5% accuracy / 51.8
+    Spearman, so this is an open problem, not a tuning failure.
+
+31. **NEXT — n-gram signatures with BACKOFF, not fixed-n.** The user's
+    proposal, and the one remaining option that is symbolic rather than
+    geometric — which matters after nine geometric mechanisms failed while both
+    survivors (`coverage`, independent substructure) were not similarity
+    statistics. An n-gram is an *exact symbol*: broad use yields many
+    non-recurring signatures, two senses yield two RECURRING families. That is
+    precisely the distinction all three partition attempts above could not make.
+
+    **Measured viability (this session, on the 6234-event corpus)**: exact
+    3-gram recurrence ranges 11-83% by term (`disposer` 83%, `linkage` 61%,
+    `core` 56%, `test` 35%, `coverage` 21%, `commit` 14%). Signatures are
+    semantically coherent — `build_linkage_layer` x8, `iteration_disposer_
+    machine` x6, `cargo_test_features` x18 — and critically, `coverage` shows
+    BOTH families at signature level: `warranty_coverage_driver` (insurance)
+    alongside the module sense. The distinction is visible symbolically where it
+    was invisible geometrically.
+
+    **The load-bearing dependency, measured rather than assumed**: a naive
+    variation allowance makes it WORSE. Skip-grams over nearest content words
+    scored *below* exact adjacency on every term tested (coverage 18% vs 21%,
+    key 25% vs 27%). Loosening the match cost more precision than it bought.
+
+    So the variation layer must be principled, and infini-gram supplies the
+    mechanism: **suffix-array backoff over unbounded n** (arXiv 2401.17377;
+    FM-index variant 2506.12229 for scale). Rather than fixing n = 3 and
+    hoping, take the longest n with sufficient support and back off when it
+    runs out — which is exactly the sparsity problem measured above, solved
+    properly instead of by skipping words.
+
+32. **NEXT — an n-gram table as first-class addressable entries (Qwen-style).**
+    Qwen3.8-Flash-Next carries a 51B-parameter N-gram Embedding layer: a
+    20,000,000-entry bigram/trigram table at layer 2, where a lookup is a memory
+    read rather than a matrix multiply. The transferable idea is not the scale
+    but the *addressability* — n-grams as entries you can point at, annotate and
+    relate, instead of a similarity recomputed per query.
+
+    That is what the semiotic relations need in order to be stored rather than
+    inferred: two signatures co-varying in the same slot are SYNONYMS, occupying
+    the same slot but never together are CONTRARIES, partially overlapping are
+    SIMILES. Substitutability is a table lookup, not a cosine. It also gives the
+    Greimas relations a home — physis-pro's `dual()` currently implements only
+    contrariety, with contradiction and implication missing.
+
+33. **NEXT — rhythms: extend `chronos` from labels to signatures.**
+    `src/machines/chronos.rs` already reduces timestamped events to recurrence
+    primitives — `period_days` (median inter-arrival), `confidence` = regularity
+    (1 - CV of intervals) x evidence, and `slipping()` as the broken-beat flag.
+    Iteration 40 confirmed it works on real data where `becoming` could not:
+    plausible periods (5.1d `key`, 6.7d `coverage`, 6.9d `core`) and confidence
+    0.35-0.61 for regular terms against 0.12 for `test`, which genuinely is
+    irregular. Tempo detection over labels needs no sense induction — which is
+    exactly why it survived.
+
+    Three concrete extensions, in order of cheapness:
+
+    a. **Rhythm over SIGNATURES rather than cell labels.** Item 31 supplies a
+       label vocabulary that is exact instead of scattered; chronos then reads
+       each signature family's own beat. This is the natural join of items 31
+       and 33 and needs no new statistic.
+    b. **Mistake vs variation as a PDCA cycle.** `becoming::deviations` already
+       decides by uptake — a deviation that never recurs is noise, one that
+       recurs was taken up. `physis-core/src/process.rs` already models
+       PLAN -> ACTION -> OBSERVATION -> DEVIATION -> INTERVENTION -> OUTCOME.
+       Wiring `slipping()` into `ProcessDeviation` closes that loop with the
+       machinery already present; `process_cycles` is currently 0.
+    c. **Global vs local tempo.** chronos estimates one period per label. A
+       document has nested periods (a section rhythm inside a chapter rhythm),
+       which is the user's "for each note there is a period, and then there are
+       global ones". Multi-scale periodicity is untried and is the only part of
+       this item needing new statistics.
+
+## Architectural conclusion (updated after Iteration 40)
 
 The user's ask — "some fixed points discovered in data, always the same,
 see how they link to each other" — is **achievable, and now demonstrated
