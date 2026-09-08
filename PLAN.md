@@ -47,16 +47,52 @@ the roadmap needs:
 | Can it *rank* them? | **YES, shipped in 0.1.20** | continuous `CandidateGain::lift`, precision@25 = 0.480 vs 0.132 base, exact *p* = 2.3e-5 |
 | Can it judge whether an entry *belongs*? | **NO** | AUC 0.410 on real misfilings, chance inside the CI |
 | Should the grid be expanded by splitting crowded cells? | **NO** | apparent substructure was hint format; names-only embedding collapses separation 20–150×, no cell divides |
+| Does cross-model *disagreement* carry epistemic signal? | **NO — refuted (E1)** | \|Δ\| 0.602 vs 0.733 baseline, 0/22 configurations, paired *t* = −10.53; held-out `s1+D` 0.650 vs `s1` 0.725; conditioned on the stronger support, Δ falls to 0.423 — indistinguishable from a deranged-pairing null (0.422) |
+| Does a sign/magnitude decomposition rescue it? | **NO — but it fixed the arm (E1b/E1c)** | raw sign is +1 on 86% of rows (a scale artifact, AUC 0.513); standardising each support first lifts the family 0.584 → **0.775**, above the 0.739 baseline — but Δz = 8.40·s₁ − 20.41·s₂ is a *linear* reweighting of the two supports, so `s1+s2` still dominates it (0.866) and the real/null gap conditioned on support₂ is **+0.011** |
+| Then what does a second embedder buy? | **A better baseline** | BGE-base `support_2` alone 0.866, +0.132 over MiniLM, **22/22** configurations, *t* = +18.54; `support_1` adds nothing on top (0.554 within `support_2` strata) |
 
-**Standing rule for this track, earned six times:** treat any positive as
-artifact until a construction-matched control says otherwise.
+**Standing rule for this track, earned seven times:** treat any positive as
+artifact until a construction-matched control says otherwise. E1 is the seventh:
+\|Δ\| scored 0.698 within baseline strata — better than every structural scorer
+Stage 12 tested — and the control that killed it was conditioning on the *other*
+support instead of the baseline.
 
-**Open, and the next decision:** whether structured *disagreement* between
-independently generated representations carries information that agreement
-could not — the JEPA × Qwen thesis, evaluated in
-`research/perspective-discovery/THESIS_EVALUATION_JEPA_QWEN.md`. Nothing from
-that thesis is merged, and per the standing rule nothing should be until a
-delta experiment shows it beats the existing pipeline.
+**Closed by E1** (`research/perspective-discovery/E1_CROSS_MODEL_DIVERGENCE.md`,
+`physis-core/examples/experiment47_cross_model_divergence.rs`): the divergence
+hypothesis (H2) is **NOT SUPPORTED**, and the mechanism is known rather than
+merely observed — `D = |s1 - s2|` is a folded read-out of `support_2`, and the
+folding costs ~0.10 AUC. Per the brief's stopping rule this is the FAIL branch:
+E2–E5 were not implemented, and the JEPA/Qwen expansion is **stopped**.
+
+**Open, in priority order, and each is a configuration change rather than a new
+mechanism:**
+
+1. **Re-baseline Stage 12 on BGE.** Every structural scorer in this track was
+   measured against 0.733. The available baseline is 0.866. Several "close"
+   negatives are not close.
+2. **Control Stage 13's format confound inside the Stage 12 harness** — score
+   names alone, hints dropped, and see whether 0.733/0.866 survive. Currently
+   unknown.
+3. **Qwen n-gram dictionary (H5): not started, and not startable as specified.**
+   See `research/perspective-discovery/QWEN_NGRAM_DICTIONARY_AUDIT.md`. None of
+   the three existing "Qwen" artifacts is the intended component — they are
+   SHA-256 *character* n-grams in the fallback embedder, `qwen3:4b` generative
+   inference, and a vocabulary authored against pre-0.1.21 cells. The AUC 0.575
+   figure describes the third and is not evidence for the thesis.
+4. **H3 (Stage 13, within-model structural semantics)** remains the most
+   promising open direction, and E1 does not conflict with it — both findings
+   point at the instrument rather than at the geometry between instruments.
+5. **Human-as-reranker: built, not yet run.** The machine ranks a worklist and
+   cannot certify it (0.410 AUC on real misfilings, Stage 9), so the last filter
+   is a person. `human_rerank_export.rs` emits a 75-item worklist — the
+   machine's head-50 plus a 25-item uniform tail — with Stage 12's injected
+   misfilings mixed in blind as gold, the machine's score hidden by default, and
+   the labels held in a separate file the UI never reads.
+   `scripts/score_rerank.py` joins them back: exact recall on the injected,
+   human-vs-machine AUC on the same items, the precision lift from human
+   filtering, an anchoring check on revealed items, a repair check on named
+   destinations, and — the actual deliverable — the native filings a person
+   flagged, which this track has never had labelled.
 
 **Product consequence, stated plainly:** classification against the grid is the
 feature this track was trying to certify, and it still has no certified

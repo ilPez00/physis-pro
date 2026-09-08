@@ -2538,3 +2538,94 @@ not been re-tested since Iteration 17 and is the one part of the proposal this
 track has never evaluated on a clean corpus — which makes it the next
 experiment, and the only one of the three whose failure so far can be blamed on
 the corpus rather than on the instrument.
+
+## Stage 14 (E1) — cross-model divergence, refuted, and the baseline that moved
+
+Full report: `E1_CROSS_MODEL_DIVERGENCE.md`. Harness:
+`physis-core/examples/experiment47_cross_model_divergence.rs`.
+
+Agreement between embedders failed three times (Iterations 18, 19, 24). E1
+inverts the assumption and asks whether *disagreement* predicts an independently
+observable outcome, on the Stage 12 harness with nothing redesigned: same
+corpus, same WordNet-anchored gate, same injected ground truth, same held-out
+split, same rank-sum AUC, the same 22 configurations. All 22 baseline values
+reproduce `sweep_regenerated.txt` digit for digit, mean **0.733**.
+
+Two supports are kept separate, and neither is called certainty:
+`support_1 = cos(e_MiniLM, centroid)`, `support_2 = cos(e_BGE, centroid)`,
+`Δ = s1 − s2`, `D = |Δ|`.
+
+| arm | mean AUC | vs baseline | paired *t* | wins/22 |
+|---|---:|---:|---:|---:|
+| baseline `1−s1` | 0.733 | — | — | — |
+| **support_2** | **0.866** | **+0.132** | **+18.54** | **22** |
+| sum | 0.812 | +0.079 | +24.17 | 22 |
+| absolute D | 0.602 | −0.131 | −10.53 | **0** |
+| signed Δ | 0.574 | −0.159 | −10.01 | **0** |
+| random-paired Dr | 0.411 | −0.322 | −23.33 | 0 |
+
+Held out, fit on train and scored on test: `s1 + D` reaches **0.650** against
+`s1` alone at **0.725** — adding divergence makes the baseline *worse* — and
+`s1 + s2 + D` (0.859) is worse than `s1 + s2` (0.866).
+
+**The control that decided it, and it is the seventh positive in this track to
+die to one.** Within baseline strata — experiment38's own procedure, the one
+that scored ANCESTRY at 0.553 — `|D|` reaches **0.698** and signed Δ **0.764**.
+That looks like real incremental information. Condition on `support_2` instead
+of on the baseline and `|D|` falls to **0.423**, below chance, and becomes
+indistinguishable from a deranged-pairing null at 0.422.
+
+The mechanism is arithmetic. Within a stratum of nearly-constant `s1`,
+`D = |s1 − s2|` is a monotone folding of `s2`, and `Δ = s1 − s2` is nearly `−s2`
+plus a constant — which predicts signed Δ within `s1` strata should approach
+support_2's own 0.800, and it measures **0.764**. Divergence is not a signal. It
+is a lossy re-encoding of the second model's support, and the folding is what
+costs the 0.10 between 0.764 and 0.698.
+
+**Verdict: DIVERGENCE HYPOTHESIS NOT SUPPORTED.** Per the brief's stopping rule
+this is the FAIL branch — E2–E5 were not implemented and the JEPA/Qwen expansion
+is stopped.
+
+### The finding that was not the question
+
+**Swapping the embedder moves the baseline further than any mechanism this track
+invented.** BGE-base cosine reaches 0.866 mean AUC (0.881 at the published
+configuration) against MiniLM's 0.733, on 22 of 22 configurations. And it is not
+a second opinion: `support_1` contributes nothing on top of `support_2` — 0.554
+within its strata, and the fitted `s1 + s2` model reaches exactly the same
+held-out 0.866 as `s2` alone.
+
+Two consequences, in opposite directions.
+
+Stage 12's refutations get **stronger**. CONSTRAINT (0.685), ANCESTRY (0.604)
+and NON-LATTICE (0.459) were measured against 0.733. The gap they must close
+roughly doubles.
+
+And the honest summary of this track's certification effort needs one more
+clause. It was: *plain cosine to the cell centroid beat every structural
+alternative tried against it.* It is now: *and most of the distance still
+available was in the embedder, not in the mechanism.*
+
+### Two corrections to the thesis draft, verified in source
+
+**Multimodal grounding already exists.** `src/embed/clip.rs` (CLIP, 512-d) and
+`src/embed/jina.rs` (Jina CLIP v2, 1024-d, shared text+image space) are real,
+and `models/jina-clip-v2` is present locally. "JEPA vs nothing" is not the
+available comparison. Both live in `physis-pro/src/embed/` while the Stage 12
+harness is a `physis-core` example, so the multimodal path is not reachable from
+the certification harness without moving code — a real cost to count before
+scheduling E3 or E4.
+
+**The implemented coherence dimensions are six, and `Ontological` is not one of
+them**: `semantic`, `logical`, `temporal`, `causal`, `procedural`, `empirical`
+(`physis-core/src/coherence_dimensions.rs`).
+
+### What E1 did not test, stated rather than skipped
+
+Q2 (contradictions) and Q3 (hypothesis failure) are unanswerable here — Stage 12
+carries no proposition-level ground truth, and inventing one to fit the metric is
+the redesign the brief forbids. One model pair, both general-purpose English text
+encoders with mean pooling; a deliberately heterogeneous pair is the only version
+of H2 left standing, and the mechanism above is a weak prior for it. And E1
+inherited Stage 13's format confound without controlling for it: 13% of entries
+carry prose hints, and two models may simply agree on house style.

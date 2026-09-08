@@ -2615,3 +2615,176 @@ here is production code, no existing behavior touched, purely additive
 (`physis-core/examples/` + this log). Per PROTOCOL: negative results
 preserved, not discarded; the buggy first metric's exact failure is
 documented above rather than silently replaced.
+
+## Stage 14 (E1) — the divergence hypothesis, inverted from a failed assumption and refuted in one pass
+
+Post-evaluation brief, priority E1: agreement between embedders failed three
+times (Iterations 18, 19, 24), so test whether *disagreement* carries epistemic
+signal. `physis-core/examples/experiment47_cross_model_divergence.rs`; full
+write-up in `E1_CROSS_MODEL_DIVERGENCE.md`.
+
+**Harness discipline first.** The brief forbids redesigning the benchmark to
+make the new metric work, so experiment38's corpus, WordNet-anchored gate,
+injection, held-out split, peer rule, centroid rule, AUC and 22 configurations
+were lifted unchanged. All 22 baseline AUCs reproduce `sweep_regenerated.txt`
+exactly (mean 0.733; published config n = 558, inj = 74, cosine 0.739). Three
+additions and no others: a second embedder (BGE-base, **mean** pooling — the
+same as MiniLM, so model identity is the only variable), the sweep moved inside
+one process (the corpus does not vary across configurations, so embedding it 22
+times was pure waste; the exact baseline reproduction is the evidence nothing
+else changed), and a logistic combiner fit on train and scored on test for the
+joint arms only.
+
+**Result: refuted, and 0/22 is the honest headline.** `|Δ|` 0.602 and signed Δ
+0.574 against a 0.733 baseline, paired *t* = −10.53 and −10.01, zero wins in 22
+configurations, and every bootstrap CI on the baseline difference entirely below
+zero on both halves. Held out, `s1 + D` (0.650) is *worse* than `s1` alone
+(0.725); `s1 + s2 + D` (0.859) is worse than `s1 + s2` (0.866). The success
+criterion was Performance(Baseline + D) > Performance(Baseline). It is lower.
+
+**The control that decided it.** Within baseline strata — experiment38's own
+procedure — `|D|` scores 0.698 and signed Δ 0.764, better than every structural
+scorer Stage 12 tested. Taken alone that reads as real incremental information.
+Condition on `support_2` rather than on the baseline and `|D|` collapses to
+0.423, below chance, and equals the deranged-pairing null (0.422) to within a
+thousandth.
+
+**And the mechanism is arithmetic, which is why this one closes cleanly rather
+than lingering as "weak but maybe".** Within a stratum of nearly-constant `s1`,
+`D = |s1 − s2|` is a monotone folding of `s2`; `Δ` is nearly `−s2` plus a
+constant. That predicts signed Δ within `s1` strata ≈ support_2's own
+within-strata 0.800. Measured: 0.764. Divergence is a lossy re-encoding of the
+support it disagrees with, and the folding costs the 0.10 between 0.764 and
+0.698.
+
+**Controls that ran and what each says.** Model swap: `|D|` invariant (0.584 vs
+0.584) as it must be; signed Δ directional (0.588 → 0.412), so a signed arm is
+unstatable until a reference and a challenger are named, and this implementation
+has no canonical ordering. Random pairing: real pairs diverge *less* than
+deranged ones (mean 0.1000 vs 0.1378) and their divergence is 0.20 AUC more
+informative — so cross-model geometry is not noise, and Iteration 18's ARI ≈ 0.10
+understated the shared structure. It is just not structure that predicts filing
+errors.
+
+**The finding that was not the question, and it is the larger one.** BGE's own
+support reaches 0.866 against MiniLM's 0.733 — +0.132, 22/22 configurations,
+*t* = +18.54 — from a drop-in model swap with no new mechanism. Nothing invented
+across Stages 0–13 comes close. Worse for the weaker model: `support_1` adds
+nothing on top of `support_2` (0.554 within its strata; the fitted `s1 + s2`
+model lands on exactly `s2`'s held-out 0.866). On this task MiniLM is not a
+second opinion, it is redundant. Stage 12's refutations therefore get *stronger*
+— CONSTRAINT, ANCESTRY and NON-LATTICE were all scored against a baseline 0.13
+AUC below the one that was available.
+
+**Stopping rule honoured.** This is the brief's FAIL branch: E2–E5 not
+implemented, JEPA/Qwen expansion stopped, thesis reassessed around Stage 13. The
+two next items are configuration changes rather than mechanisms — re-baseline
+Stage 12 on BGE, and control Stage 13's format confound inside the Stage 12
+harness (names only, hints dropped), which E1 inherited without controlling for.
+
+**Qwen, audited rather than implemented** (`QWEN_NGRAM_DICTIONARY_AUDIT.md`).
+None of the three existing "Qwen" artifacts is the intended n-gram
+representation dictionary: `physis-core/src/embed.rs:34` hashes **character**
+uni/bigrams through SHA-256 into a seeded random basis (a hash is an address —
+no frequencies, no embeddings, no transition probabilities); `gen_cell_vocab.py`
+runs `qwen3:4b` **generative inference** for word lists; and `cell_vocab_AB.json`
+was authored against pre-0.1.21 cells that 77.6% of entries have since left. The
+AUC 0.575 figure describes the third and is not evidence for the thesis. The
+intended component does not exist, `qwen3:4b` is the only Qwen asset on this
+machine, and "Qwen3.8" itself has two readings (Qwen3-8B's BPE/tokenizer
+structure, ~11 MB and cheap; or n-gram statistics distilled from its weights)
+that lead to different experiments. Resolving that is step one if the track is
+authorized.
+
+**Also verified in source, correcting the thesis draft**: `src/embed/clip.rs`
+and `src/embed/jina.rs` are real contrastively-aligned text+image embedders
+(512-d and 1024-d) with Jina's weights present locally, so "JEPA vs nothing" is
+not the available comparison — though both sit in `physis-pro/src/embed/` while
+the Stage 12 harness is a `physis-core` example, which is an unbudgeted cost on
+any E3/E4. And the implemented coherence dimensions are six — `semantic`,
+`logical`, `temporal`, `causal`, `procedural`, `empirical` — with no
+`Ontological` among them.
+
+### Stage 14b/14c — the sign/magnitude decomposition, which was a real gap and a real correction
+
+User-raised, mid-run: *"adding divergence subtracts, but using a modulus with a
+separate sign study, ranked by coherence ±1."* This is not a restatement of E1.
+E1 tested `|Δ|`, signed Δ, and a **linear** combiner; a linear model spans signed
+Δ but cannot express "partition by which model is more supportive, then rank by
+how far apart they are" — and the conditional strata procedure is precisely where
+`|D|` had looked strongest. The gap was genuine.
+
+**E1b measured a scale artifact, and saying so is the finding.** `sign(s1 − s2)`
+is +1 on 478 of 558 rows — 86% — because BGE's cosines occupy a narrower band
+(sd 0.049) than MiniLM's (sd 0.119). The sign was reporting which model you are
+in, not whether the item is coherent. Every arm sat 0.15 below baseline
+(sign alone 0.513; lex 0.589), and rejecting the proposal on those numbers would
+have been the same mistake Stage 13 caught in the other direction.
+
+**E1c: standardise each support within its own distribution, and the proposal is
+right about E1's arm.** The split becomes 315/243, and the family lifts from
+0.584 to **0.775 — +0.034 above the 0.739 baseline**, the first divergence arm
+anywhere in this experiment to beat it. Held out, `|Δz| + z sign` goes 0.538 →
+0.761. Collapsing to `|Δ|` had thrown away real structure, exactly as the
+proposal claimed.
+
+**And the verdict still does not move, for the same arithmetic reason as E1.**
+With sd₁ = 0.119 and sd₂ = 0.049, `Δz = 8.40·s₁ − 20.41·s₂ + const` — the
+standardised divergence is a *linear* reweighting of the two supports, tilted
+2.4× toward support₂. It lives inside the span of the `s1 + s2` model by
+construction, which is why that model dominates it (0.866 vs 0.775) and why
+adding the decomposition to it still subtracts (0.861, paired *t* = −1.88, 4 wins
+in 22). Standardising did not find a second channel. It found better weights on
+the channel that was already there.
+
+The control that decided E1, applied here: conditioned on support₂, the z-sign
+scores 0.595 against a random-pairing null of **0.584**, and the z-modulus 0.449
+against 0.427. A +0.011 gap. (Incidentally the *raw* sign scored below its own
+null, 0.595 against 0.604 — the cleanest possible confirmation that E1b was
+measuring scale.) Directionality persists too: `+1 block first` 0.773,
+`−1 block first` 0.426, so a signed arm still needs a named reference and
+challenger.
+
+## Stage 15 — the instruments, because the last filter is a person
+
+Every automated certification mechanism in this track lost to plain cosine, and
+cosine scores 0.410 on the corpus's *real* misfilings (Stage 9) against 0.866 on
+injected ones (E1). The gap between those two numbers is not closable by ranking
+harder. Two tools, built to close it with a human in the loop.
+
+**The inspector.** A published page rendering E1 graphically: the 22-configuration
+sweep as a dot plot against the baseline band, the conditioning control as bars
+against chance, and — the one that earns its place — every scored entry plotted
+as support₁ against support₂ with the injected misfilings in ochre, plus overlays
+for what `|Δ|` separates (a diagonal band, slicing *across* the positives) and
+what support₂ separates (a horizontal cut, *under* them). The mechanism E1 stated
+in arithmetic is visible in one frame.
+
+**The bench.** `human_rerank_export.rs` + `scripts/score_rerank.py`. The exporter
+emits a 75-item worklist — the machine's head-50 by BGE suspicion plus a 25-item
+uniform tail — with Stage 12's injected misfilings mixed in blind. Three design
+decisions carry the experiment:
+
+- **The machine's score is hidden by default.** Reveal it and the rater anchors on
+  it, and the run stops measuring anything independent. Whether it was revealed
+  is recorded per item, and the scorer splits on it.
+- **The gold labels never enter the page.** They live in `rerank_gold.json`,
+  which the UI does not read; the task file carries no labels and is safe to
+  publish.
+- **The tail is the rater's own control.** A rater who flags everything scores
+  perfect recall on the injected; the uniformly-sampled tail catches that,
+  against the corpus's ~16.2% prior.
+
+The scorer reports exact recall on the injected, human-against-machine AUC on the
+same items, the precision lift from human filtering of the machine's head
+(machine precision@50 is 0.640 by construction), an anchoring split, and a repair
+check — when the rater named a destination, did it match the true cell, which is
+the harder half and the one that would let a human actually re-file rather than
+only reject.
+
+**What it deliberately does not report: a false-positive rate.** A rater flag on a
+native filing cannot be a false positive, because roughly 16% of native filings
+are expected to be wrong. Scoring those against the corpus would be the exact
+error Stage 7 caught — treating an unlabelled corpus as ground truth. So recall
+is measured, precision is bounded, and the native flags are *output*: the first
+labelled real misfilings this track has produced.
