@@ -30,6 +30,41 @@ plus MIT Core as the agent-directory distribution funnel (see
 
 ---
 
+## Research track — epistemic mechanisms (status 2026-09-08)
+
+A multi-day controlled program on `research/perspective-discovery/` tested
+whether embedding geometry can supply stable ontological structure and whether
+any cheap signal can certify it. **It cannot, and that is now a settled result
+rather than an open question.** Full trail in `FINAL_REPORT.md`; the short form
+the roadmap needs:
+
+| question | status | evidence |
+|---|---|---|
+| Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10; +25% corpus replaced half the anchors (ARI 0.198) |
+| Can a cheap signal certify discovered structure? | **NO — refuted, not untested** | CONSTRAINT loses to plain cosine 2 wins in 22, paired *t* = −5.58, on a corpus that is no longer 43% noise; non-lattice below chance (0.459) |
+| Was the shipped corpus itself sound? | **NO — fixed** | 43.3% misfiled; the domain axis had no written definition. Regenerated in physis-core 0.1.21 against `docs/GRID_AXES.md`; misfiling proxy 31.8% → 16.2% |
+| Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, duplicate control Welch *t* = +12.11; 2000 → 141 |
+| Can it *rank* them? | **YES, shipped in 0.1.20** | continuous `CandidateGain::lift`, precision@25 = 0.480 vs 0.132 base, exact *p* = 2.3e-5 |
+| Can it judge whether an entry *belongs*? | **NO** | AUC 0.410 on real misfilings, chance inside the CI |
+| Should the grid be expanded by splitting crowded cells? | **NO** | apparent substructure was hint format; names-only embedding collapses separation 20–150×, no cell divides |
+
+**Standing rule for this track, earned six times:** treat any positive as
+artifact until a construction-matched control says otherwise.
+
+**Open, and the next decision:** whether structured *disagreement* between
+independently generated representations carries information that agreement
+could not — the JEPA × Qwen thesis, evaluated in
+`research/perspective-discovery/THESIS_EVALUATION_JEPA_QWEN.md`. Nothing from
+that thesis is merged, and per the standing rule nothing should be until a
+delta experiment shows it beats the existing pipeline.
+
+**Product consequence, stated plainly:** classification against the grid is the
+feature this track was trying to certify, and it still has no certified
+soundness check. `coverage` filters and ranks discovery candidates; it does not
+verify that anything is filed correctly. Sell the filter, not the judgement.
+
+---
+
 ## Roadmap
 
 ### Phase 1 — Technical Perfection (In Progress)
