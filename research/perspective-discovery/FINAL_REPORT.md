@@ -2447,6 +2447,16 @@ this whole track's certification effort is that plain cosine distance to the
 cell centroid beat every structural alternative tried against it, on a clean
 corpus and a dirty one alike.
 
+> **INVALIDATED by E14–E18 (`research/mapper/`).** This comparison was decided
+> by the injection policy, not by the scorers. Stage 12 injects misfilings into a
+> *uniformly random* cell; under that policy cosine leads by 0.207, and under a
+> plausible near-miss it *trails* CONSTRAINT by 0.106 (E15). The sentence above
+> is true of the perturbation, not of the problem. On the corpus's **real**
+> misfilings every scorer is at chance — cosine 0.519, CONSTRAINT 0.536,
+> ANCESTRY 0.534 (E16) — so the refutations reach the right conclusion by an
+> invalid route. Stage 12's own header said a synthetic perturbation is "a lower
+> bound on difficulty"; the lower bound turned out to be the entire signal.
+
 **Not closed, and the numbers in the run are not evidence either way.** The
 ANCHOR-VOCAB arms A and B (VOCAB-FREQ 0.590, VOCAB-GEN 0.575 here) are scored
 against `cell_vocab_AB.json`, which was **authored against the old cell
@@ -2603,7 +2613,9 @@ roughly doubles.
 
 And the honest summary of this track's certification effort needs one more
 clause. It was: *plain cosine to the cell centroid beat every structural
-alternative tried against it.* It is now: *and most of the distance still
+alternative tried against it.* **(Since invalidated — see the E14–E18 note at
+Stage 12 above: that ranking is an artifact of random injection and reverses on
+plausible errors.)** It is now: *and most of the distance still
 available was in the embedder, not in the mechanism.*
 
 ### Two corrections to the thesis draft, verified in source

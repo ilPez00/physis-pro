@@ -2747,6 +2747,10 @@ challenger.
 
 ## Stage 15 — the instruments, because the last filter is a person
 
+**[E14–E18 note, added later: the ranking below is an artifact of the injection
+policy. Under a plausible near-miss cosine falls to 0.506 and trails CONSTRAINT;
+on real misfilings every scorer is at chance. See `research/mapper/`.]**
+
 Every automated certification mechanism in this track lost to plain cosine, and
 cosine scores 0.410 on the corpus's *real* misfilings (Stage 9) against 0.866 on
 injected ones (E1). The gap between those two numbers is not closable by ranking

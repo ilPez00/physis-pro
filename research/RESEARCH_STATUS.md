@@ -20,7 +20,7 @@ the roadmap needs:
 | question | status | evidence |
 |---|---|---|
 | Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10; +25% corpus replaced half the anchors (ARI 0.198) |
-| Can a cheap signal certify discovered structure? | **NO — refuted, not untested** | CONSTRAINT loses to plain cosine 2 wins in 22, paired *t* = −5.58, on a corpus that is no longer 43% noise; non-lattice below chance (0.459) |
+| Can a cheap signal certify discovered structure? | **NO — settled by E14–E18, and Stage 12's route to it was invalid** | Stage 12's refutation was decided by a random-injection policy that inverts the ranking; on **real** misfilings every scorer is at chance (cosine 0.519, CONSTRAINT 0.536, ANCESTRY 0.534) |
 | Was the shipped corpus itself sound? | **NO — fixed** | 43.3% misfiled; the domain axis had no written definition. Regenerated in physis-core 0.1.21 against `docs/GRID_AXES.md`; misfiling proxy 31.8% → 16.2% |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, duplicate control Welch *t* = +12.11; 2000 → 141 |
 | Can it *rank* them? | **YES, shipped in 0.1.20** | continuous `CandidateGain::lift`, precision@25 = 0.480 vs 0.132 base, exact *p* = 2.3e-5 |
@@ -551,4 +551,342 @@ soundness check. `coverage` filters and ranks discovery candidates; it does not
 verify that anything is filed correctly. Sell the filter, not the judgement.
 
 ---
+
+
+
+---
+
+# Detail: E12–E18 (moved from PLAN.md, 2026-09-08)
+
+## Research track — epistemic mechanisms (status 2026-09-08)
+
+Full record: **`research/RESEARCH_STATUS.md`**. Per-experiment reports sit with
+their code in `research/perspective-discovery/` (E1) and `research/mapper/`
+(E2–E10).
+
+### What is settled
+
+| question | answer | key evidence |
+|---|---|---|
+| Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10 |
+| Can a cheap signal certify discovered structure? | **NO — settled (E14–E18)** | On **real** misfilings every scorer is at chance: cosine 0.519, CONSTRAINT 0.536, ANCESTRY 0.534. ANCHORVOC's 0.664 was an entry-length artifact that fails replication |
+| Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
+| Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
+| Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
+| Can it judge whether an entry *belongs*? | **NO** | AUC 0.410 on real misfilings — and **E14 explains why**: 0.880 on randomly-injected errors, **0.506 on plausible ones** |
+| Does cross-model **divergence** carry signal? | **NO (E1)** | 0.602 vs 0.733, 0 wins in 22; equals its null once conditioned on the stronger support |
+| Can any weighting/non-linearity rescue the weak model? | **NO (E1d)** | 2-D non-parametric estimator bounds every combiner: 0.866 vs s₂'s 0.870 |
+| Can Qwen n-grams be a groundable **map**? | **NO (E2)** | no disproportionate sparse gain; propagation worse than ignoring the map |
+| Is it a **data** problem? | **NO (E3/E4)** | 24× the text made every level worse; density alone costs −0.030 |
+| Is the **70-cell grid** the constraint? | **NO (E5)** | 57→14 classes gains +0.014 kappa |
+| Is the mode axis weak from missing definition? | **PARTLY (E6/E7)** | population explains it: r = +0.718 with log class size |
+| Do ontologies propagate **hypertrophically**? | **YES (E8)** | hypertrophy index **−0.644**; WORK sits +0.003 above random |
+| Should the grid be **expanded**? | **NOT YET (E8)** | pre-flight STOPs on sparsity at every level |
+| Is there a discrete **signifier address** worth formalising in Lean? | **NOT YET (E9)** | best address 0.244 held-out vs geometry's 0.447 — though the space *is* self-similar |
+| Does **downstream viability** beat local correctness? | **NO (E10)** | +0.01 identity for −5.8 depth, −6.2 diversity |
+
+### E14 — a caveat that propagates backwards
+
+`research/mapper/E14_INJECTION_REALISM.md`. Stage 12 injects misfilings into a
+**uniformly random** cell. Re-running the same scorer on the same corpus while
+varying only *where* a misfiled entry lands:
+
+| injection policy | AUC |
+|---|---:|
+| random cell (Stage 12's original) | **0.880** |
+| same domain, different mode | 0.827 |
+| same mode, different domain | 0.771 |
+| **the entry's nearest alternative cell** | **0.506** |
+| *Stage 9, the corpus's real misfilings* | *0.410* |
+
+**Making the injected error plausible drops the scorer to chance**, and closes
+the 0.410/0.866 gap this track carried unexplained throughout. The scorer detects
+**distance moved, not wrongness**: random injection displaces an entry 0.125
+below its home similarity, a plausible error 0.029.
+
+**Consequences, stated rather than buried:**
+
+- *"Plain cosine at 0.866 is the best certification scorer here"* — written
+  repeatedly in this plan — should read **~0.51 on realistic errors. There is no
+  working certification scorer.**
+- **Stage 12's refutations need re-testing and are not hereby overturned.**
+  CONSTRAINT 0.685, ANCESTRY 0.604 and NON-LATTICE 0.459 were measured against
+  cosine's 0.733 under *random* injection. Under realistic injection cosine falls
+  to ~0.51; whether the structural scorers fall as far is **unmeasured**. This is
+  now the highest-value open re-test in the track.
+- **E1's absolute numbers are task-specific; its mechanism is not.** That
+  `D = |s1 − s2|` is a folded read-out of `s2` is arithmetic and policy-independent.
+- **The Disposer Bench's gold items are random-injected**, so its machine
+  precision@50 of 0.640 is inflated and a rater's measured recall overstates
+  practice.
+- **Unaffected:** E5, E7, E8, E13 measure prediction and retrieval, never used
+  injection. The corpus-sparsity conclusion stands.
+
+Stage 12's own header said *"a synthetic perturbation is a lower bound on
+difficulty"*. The caveat was written down at the start and never propagated;
+E14 quantifies it, and the lower bound turns out to be the entire signal.
+
+### E15 — and the refutations do not survive the correction
+
+`research/mapper/E15_STRUCTURE_SURVIVES.md`. Five scorers × four injection
+policies, one pass, no re-embedding.
+
+| scorer | random | **nearest** | drop |
+|---|---:|---:|---:|
+| **COSINE** | **0.882** | **0.506** | **−0.376** |
+| NAME-ONLY | 0.866 | 0.597 | −0.268 |
+| **CONSTRAINT** | 0.675 | **0.612** | **−0.063** |
+| ANCHORVOC | 0.654 | 0.584 | −0.070 |
+| ANCESTRY | 0.627 | 0.566 | −0.061 |
+
+**Under random injection cosine leads by 0.207; under realistic injection it
+trails CONSTRAINT by 0.106.** Bootstrap over entries, 2000 resamples:
+CONSTRAINT +0.106 [+0.029, +0.183], NAME-ONLY +0.091 [+0.034, +0.153],
+ANCHORVOC +0.078 [+0.007, +0.151] — all significant; ANCESTRY +0.035, not.
+
+**This does not show the structural scorers work** — the best is 0.612, not a
+usable certifier, and Stage 9 measured 0.410 on *real* misfilings. **It shows
+Stage 12's comparison was invalid.** *"Plain cosine beat every structural
+alternative tried against it"* has been this track's summary of the entire
+certification effort; it is true of the injection policy, not of the problem.
+
+**Why:** geometry scores *distance moved* and degrades as the error gets subtler
+(E14: displacement 0.125 → 0.029). CONSTRAINT asks whether a discrete field is
+attested elsewhere in the domain — a question that does not soften.
+
+**Second finding:** NAME-ONLY beats COSINE by +0.091. Hints help on easy errors
+and hurt on hard ones, which connects to Stage 13's authorial-format result.
+
+**Next, and it is the most valuable thing open:** score all five on the corpus's
+**real** misfilings using the Stage 11 adjudication artifacts
+(`cell_adjudication.tsv`, `refiling_gate0.tsv`) — the only non-synthetic ground
+truth in the project. If CONSTRAINT holds its margin there, this track has a
+certification signal it spent a year concluding it did not have.
+
+### E16 — the battery on REAL misfilings, and E15's reopening withdrawn
+
+`research/mapper/E16_REAL_MISFILINGS.md`. Ground truth: Stage 11's blind
+re-filing (`refiling_gate0.tsv`) — 582 entries a rater re-filed while blind to
+the existing cell, judging against `GRID_AXES.md`. MOVED = the old filing was
+rejected. Base rate 80.1%.
+
+| scorer | random inj. | nearest inj. | **real** | vs COSINE (95% CI) |
+|---|---:|---:|---:|---:|
+| COSINE | 0.882 | 0.506 | **0.519** | — |
+| NAME-ONLY | 0.866 | 0.597 | 0.508 | −0.010 [−0.067, +0.042] |
+| CONSTRAINT | 0.675 | **0.612** | 0.536 | +0.017 [−0.066, +0.097] **ns** |
+| **ANCHORVOC** | 0.654 | 0.584 | **0.664** | **+0.145 [+0.072, +0.219]** |
+| ANCESTRY | 0.627 | 0.566 | 0.534 | +0.025 [−0.069, +0.121] |
+
+**E15's conclusion is withdrawn.** CONSTRAINT won by +0.106 on plausible
+synthetic errors and gains +0.017 on real ones, CI straddling zero.
+Plausible-synthetic is closer to real than random-synthetic, and still not it.
+
+**Everything geometric is at chance on real misfilings** (0.508–0.519) —
+Stage 9's 0.410 reproduced on a larger, better-controlled sample. Confirmed
+three ways now.
+
+**The scorer that wins on real data won on neither synthetic task.** ANCHORVOC
+was fourth under both injections. Had the track only ever run injections it
+would have been discarded.
+
+**One confound blocks banking it.** ANCHORVOC measures lexical overlap with the
+cell's authored anchor hints — and the blind rater judged entries against those
+same anchors. It may be detecting "shares vocabulary with the text the rater
+read" rather than "is misfiled". Two cheap resolutions are specified in the
+report: the 76 flagged non-blind entries as a control, and a held-out-half-of-
+hints probe.
+
+**Net after E14–E16:** the track's central negative stands — no tested mechanism
+detects a real misfiling — but the reason it stood was wrong for years, and one
+candidate has surfaced that was never fairly tested.
+
+### E17 — ANCHORVOC's confound: three tests, two pass, one fails
+
+`research/mapper/E17_ANCHORVOC_CONFOUND.md`.
+
+| test | result | |
+|---|---|---|
+| **1.** does it predict the rater's *choice* of new cell? | **PASS** | rater's cell at median rank **17 of 70** (random 35); if the rater ran ANCHORVOC it would be 1–3. But 33% top-5 vs 7.9% random — shared information, not a shared procedure |
+| **2.** survives half the anchor's hints? | **PASS** | 0.664 → **0.598**, still +0.079 [+0.007, +0.150] over cosine |
+| **3.** behaves the same where blindness failed? | **FAIL** | ANCHORVOC **rises** 0.664 → **0.871** on the 56 hint-leaking entries while cosine falls. Fails the criterion the script pre-registered |
+
+**Net:** not circular in the strong sense, but hint-dependent in a way a
+filing-independent signal would not be. The account that fits all three: *an
+entry sharing no vocabulary with its cell's anchor really is more likely
+misfiled — and that is also part of what the rater used.* Real signal, not
+independent evidence. **A lead, not a validated certifier.**
+
+**The test that settles it:** one adjudication pass by a rater who sees only the
+axis definitions, never the anchor hints. The Disposer Bench already has the
+shape; it needs its display changed to withhold hints.
+
+*(This script's first verdict read only Test 1, found it passed, and declared the
+confound resolved — ignoring that Test 3 failed a criterion the same script had
+pre-registered. A confound check that stops at the first reassuring answer is
+not a check.)*
+
+### E18 — ANCHORVOC closed, and the port checked
+
+`research/mapper/E18_ANCHORVOC_CLOSED.md`. Three questions, one pass.
+
+**Port validation.** CONSTRAINT r = +0.943 and ANCESTRY r = +0.976 against
+experiment38's Rust values — faithful. **COSINE r = +0.197 — divergent, and
+expectedly so:** experiment38 embeds with MiniLM, this corpus with BGE.
+Structural scorers are embedder-independent; geometry is not. So E15/E16's
+COSINE is the **stronger** BGE baseline (E1: +0.132 over MiniLM), meaning the
+structural scorers were compared against a harder baseline than Stage 12 used.
+
+**ANCHORVOC is an entry-length artifact.**
+
+| arm | AUC | vs COSINE |
+|---|---:|---:|
+| COSINE | 0.519 | — |
+| ANCHORVOC (E16) | 0.664 | +0.145 sig |
+| **CONTROL — entry length only** | **0.619** | **+0.100 sig** |
+| CONTROL — random cell's anchor | 0.565 | +0.046 ns |
+| **normalised ANCHORVOC vs length-only** | — | **+0.048 [−0.019, +0.116] ns** |
+
+Entry length alone reaches 0.619 of the 0.664, and **no vocabulary effect
+survives controlling for it.**
+
+**It also fails to replicate** on `cell_adjudication.tsv` — the audit of a
+filing the rater did *not* produce — where cosine beats it 0.691 vs 0.544 (NO
+only) and 0.739 vs 0.662 (NO + MARGINAL).
+
+**Verdict: ANCHORVOC is not a certification signal.**
+
+### Where E14–E18 leave it
+
+*No tested mechanism detects a real misfiling.* The central negative stands and
+now stands for the right reason: before E14 it rested on a comparison decided by
+an injection policy that inverted the ranking; it now rests on three scorer
+families measured against two real ground truths with the length and vocabulary
+confounds separated. **The human-in-the-loop conclusion is the finding, not a
+fallback from a failed search.**
+
+*(The arc is kept in the reports because the process is the point: E15 reopened
+the question, E16 narrowed it to one scorer, E17 found its confound tests
+disagreed, E18 closed it. Four experiments each correcting the last, ending at
+the position the track held before E14 — for entirely different and much better
+reasons.)*
+
+### The one constraint everything converges on
+
+**The corpus is too small, and that is now measured rather than argued.**
+
+- E5: 22 of 57 cells hold fewer than 5 entries; macro-F1 0.318 against accuracy 0.447.
+- E7: a well-populated mode cut to 3 training entries scores **F1 0.06** — so the
+  F1 = 0.00 modes are empty, not ill-defined. The curve is a forecast:
+  **n ≈ 20 → F1 0.26–0.49**, and most of the gain is bought by the first 20.
+- E8: the pre-flight STOPs the *current* grid on sparsity — 35 of 57 classes
+  below 6 training entries. Much of this track has been measuring sparsity
+  rather than its stated hypothesis.
+- E10: the mechanism under test fired in under 3% of generations.
+
+**Order of operations: populate first, expand second.** See
+`research/mapper/EXPANSION_SPEC.md` for the deficit table, forecast and
+acceptance test, and `research/mapper/E11_CANDIDATE_MINER.md` for the worklist.
+
+**The worklist exists (E11).** WordNet noun synsets, filtered by lexicographer
+file to the categories a physis entry actually *is* (act, cognition, state,
+process, relation…) and dropping concrete taxa: 13,958 candidates. **Validated
+before its output was read** — hold out 30% of existing entries, hide them among
+the synsets, build each cell's target from train members and anchor only, and
+rank the pool of 14,155:
+
+| arm | r@25 | **r@100** |
+|---|---:|---:|
+| target from members + anchor | **0.325** | **0.497** |
+| CONTROL shuffled cell targets | 0.005 | 0.086 |
+| CONTROL random ranking | 0.000 | 0.025 |
+| *chance* | | *0.0071* |
+
+Half the held-out entries surface in the top 100 — 70× chance, 5.8× the shuffled
+control. Output is usable (`ideation`, `groupthink`, `divergent thinking` for
+BRAINSTORM; `guidance`, `leadership`, `fostering` for GUIDE).
+
+**Known weakness:** the CONSTRUCT domain pulls concrete artifacts (`crane`,
+`hoist` for CONSTRUCT/LIFT; `transporter`, `freight elevator` for
+CONSTRUCT/MOVE) — machines that lift and move, not the mode. **When mining
+WordNet for CONSTRUCT cells, filter concrete artifacts harder.** (E12 tested
+whether this meant the anchor itself was broken. It does not — see below.)
+
+### E12 — the anchor audit, which refuted the fix it was designed to prescribe
+
+`research/mapper/E12_ANCHOR_AUDIT.md`. E11's CONSTRUCT observation looked like
+Stage 11's problem, so the plan was Stage 11's fix: regenerate anchors from
+`docs/GRID_AXES.md`. **Both halves were wrong.**
+
+**Anchors work, unevenly.** Mean precision@n **0.306** over 45 measurable cells
+against chance under 0.11. Worst: STUDY/PLAY, STUDY/PLAN, HEAL/MOVE,
+STUDY/CREATE, FABRICATE/MAINTAIN all at **0.00**, and **STUDY/GUIDE puts its
+typical entry at rank 327 of 658** — worse than corpus median.
+
+**CONSTRUCT is not the weak domain — HEAL is.** HEAL 0.257 < STUDY 0.279 <
+CONSTRUCT 0.284 < FABRICATE 0.342 < BOND 0.371. E11's observation was about what
+the anchor retrieves *from WordNet*, not about anchor quality; correctly scoped
+it is a filter problem in the candidate pool.
+
+**The Stage 11 rewrite would have caused harm:**
+
+| probe | mean prec@n | mean median rank |
+|---|---:|---:|
+| authored anchor (name + hints) | **0.306** | **64** |
+| written axis definitions | 0.115 | 152 |
+
+Definitions win in 1 cell of 45 and lose in 31. **A definition is for the
+author; an anchor is for the index** — Stage 11 measured definitions helping
+*people file consistently* (misfiling 31.8% → 16.2%), which is a different job
+from helping a machine retrieve, where abstraction costs −0.19 precision.
+Conflating the two is what made the rewrite look obvious.
+
+### E13 — and the rewrite queue does not survive either
+
+`research/mapper/E13_ANCHOR_CEILING.md`. E12 ended by prescribing a hand-rewrite.
+E13 measured what a rewritten anchor could achieve, on held-out entries only:
+
+| arm | prec@n | median rank |
+|---|---:|---:|
+| authored anchor (ships today) | **0.350** | **25** |
+| written axis definitions | 0.122 | 58 |
+| **centroid of the cell's own entries** | **0.353** | 27 |
+| top TF-IDF terms of those entries | 0.275 | 35 |
+| authored anchor + those terms | 0.388 | 22 |
+
+**Headroom over a probe built from the cell's own entries is +0.004.** The
+centroid *is* "written in the entries' idiom", and the authored anchors already
+match it — so hand-rewriting is an exhausted move. **E12's queue should not be
+worked**, which cancels the recommendation made one experiment earlier.
+
+**The augmentation arm looked like the replacement finding and is not.** +0.038
+mean, but it **beats the anchor in 6 of 21 cells and loses in 10** — a mean
+carried by a few large gains over many small losses, nowhere near significant on
+a sign test. Shipped, it would read as an aggregate improvement while degrading
+half the cells it touched. Same shape as six earlier positives in this track.
+
+**Jointly established by E12+E13:** anchors are approximately as good as this
+representation allows. Three consecutive attempts to improve them — from
+definitions, by hand, by augmentation — are all refuted, two against the very
+evidence that suggested them. **Anchor work is finished** until something other
+than retrieval precision motivates it.
+
+**Where the error actually lives:** class sparsity (E5/E7/E8 — 35 of 57 cells
+below 6 training entries) and ~16% label noise (Stage 11). Both corpus problems.
+Neither is fixed by writing.
+
+### Standing rules, each earned
+
+1. **Treat any positive as artifact until a construction-matched control says
+   otherwise.** Seven positives have died to one, most recently E7 refuting E6's
+   "cluster" against random four-mode subsets.
+2. **Report kappa, never accuracy against a majority floor**, on any problem with
+   many unbalanced classes. Merging cells raises accuracy 0.431 → 0.645 while
+   kappa stays flat.
+3. **Run the pre-flight** (`research/mapper/preflight.py`) before an experiment,
+   and honour it. It refutes algebraically-redundant arms and underpowered
+   designs. It has been overridden once, by its own author, in E10 — recorded
+   there because a control the author ignores is not a control.
+4. **Coverage filters and ranks discovery candidates; it does not verify that a
+   candidate is correct.** Sell the filter, not the judgement.
 
