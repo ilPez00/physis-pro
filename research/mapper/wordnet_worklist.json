@@ -1,0 +1,2834 @@
+{
+ "note": "candidate ontology entries mined from WordNet; NOT verified",
+ "target_per_cell": 20,
+ "worklist": {
+  "BOND/BRAINSTORM": [
+   {
+    "lemma": "ideation",
+    "gloss": "the process of forming and relating ideas",
+    "sim": 0.7778
+   },
+   {
+    "lemma": "talk",
+    "gloss": "an exchange of ideas via conversation",
+    "sim": 0.761
+   },
+   {
+    "lemma": "groupthink",
+    "gloss": "decision making by a group (especially in a manner that discourages creativity or individual responsibility)",
+    "sim": 0.7589
+   },
+   {
+    "lemma": "free association",
+    "gloss": "a thought process in which ideas (words or images) suggest other ideas in a sequence",
+    "sim": 0.7538
+   },
+   {
+    "lemma": "association",
+    "gloss": "the process of bringing ideas or events together in memory or imagination",
+    "sim": 0.7524
+   },
+   {
+    "lemma": "divergent thinking",
+    "gloss": "thinking that moves away in diverging directions so as to involve a variety of aspects and which sometimes lead to novel ideas and solutions",
+    "sim": 0.749
+   },
+   {
+    "lemma": "lateral thinking",
+    "gloss": "a heuristic for solving problems",
+    "sim": 0.7269
+   },
+   {
+    "lemma": "notion",
+    "gloss": "an odd or fanciful or capricious idea",
+    "sim": 0.7244
+   },
+   {
+    "lemma": "rallying point",
+    "gloss": "a point or principle on which scattered or opposing groups can come together",
+    "sim": 0.7214
+   },
+   {
+    "lemma": "living arrangement",
+    "gloss": "an arrangement to allow people (or ideas) to coexist",
+    "sim": 0.716
+   },
+   {
+    "lemma": "originality",
+    "gloss": "the ability to think and act independently",
+    "sim": 0.7159
+   },
+   {
+    "lemma": "nonconformity",
+    "gloss": "lack of harmony or correspondence",
+    "sim": 0.7149
+   },
+   {
+    "lemma": "skull session",
+    "gloss": "a session (as of executives or advisors) to discuss policy or strategy or to solve problems or exchange ideas",
+    "sim": 0.7148
+   },
+   {
+    "lemma": "cogitation",
+    "gloss": "a carefully considered thought about something",
+    "sim": 0.7097
+   },
+   {
+    "lemma": "creativity",
+    "gloss": "the ability to create",
+    "sim": 0.709
+   },
+   {
+    "lemma": "unanimity",
+    "gloss": "everyone being of one mind",
+    "sim": 0.7078
+   },
+   {
+    "lemma": "idealization",
+    "gloss": "something that exists only as an idea",
+    "sim": 0.706
+   },
+   {
+    "lemma": "problem solving",
+    "gloss": "the thought processes involved in solving a problem",
+    "sim": 0.7054
+   },
+   {
+    "lemma": "line of thought",
+    "gloss": "a particular way of thinking that is characteristic of some individual or group",
+    "sim": 0.7041
+   },
+   {
+    "lemma": "blend",
+    "gloss": "a new word formed by joining two others and combining their meanings",
+    "sim": 0.7031
+   },
+   {
+    "lemma": "overlap",
+    "gloss": "a representation of common ground between theories or phenomena",
+    "sim": 0.7027
+   },
+   {
+    "lemma": "keynote",
+    "gloss": "a fundamental or central idea",
+    "sim": 0.7024
+   },
+   {
+    "lemma": "sharing",
+    "gloss": "using or enjoying something jointly with others",
+    "sim": 0.7021
+   },
+   {
+    "lemma": "confrontation",
+    "gloss": "discord resulting from a clash of ideas or opinions",
+    "sim": 0.7021
+   },
+   {
+    "lemma": "introduction",
+    "gloss": "a new proposal",
+    "sim": 0.702
+   },
+   {
+    "lemma": "glass",
+    "gloss": "glassware collectively",
+    "sim": 0.7009
+   },
+   {
+    "lemma": "chorus",
+    "gloss": "any utterance produced simultaneously by a group",
+    "sim": 0.7003
+   },
+   {
+    "lemma": "concretism",
+    "gloss": "a representation of an abstract idea in concrete terms",
+    "sim": 0.6982
+   },
+   {
+    "lemma": "deliberation",
+    "gloss": "careful consideration",
+    "sim": 0.6959
+   },
+   {
+    "lemma": "reaction",
+    "gloss": "an idea evoked by some experience",
+    "sim": 0.6952
+   },
+   {
+    "lemma": "inkling",
+    "gloss": "a slight suggestion or vague understanding",
+    "sim": 0.6949
+   },
+   {
+    "lemma": "experiment",
+    "gloss": "the testing of an idea",
+    "sim": 0.6945
+   },
+   {
+    "lemma": "proposal",
+    "gloss": "something proposed (such as a plan or assumption)",
+    "sim": 0.6936
+   },
+   {
+    "lemma": "overture",
+    "gloss": "a tentative suggestion designed to elicit the reactions of others",
+    "sim": 0.6933
+   },
+   {
+    "lemma": "impression",
+    "gloss": "a vague idea in which some confidence is placed",
+    "sim": 0.6922
+   },
+   {
+    "lemma": "ubiquity",
+    "gloss": "the state of being everywhere at once (or seeming to be everywhere at once)",
+    "sim": 0.6922
+   },
+   {
+    "lemma": "motion",
+    "gloss": "a formal proposal for action made to a deliberative assembly for discussion and vote",
+    "sim": 0.6919
+   },
+   {
+    "lemma": "experimentalism",
+    "gloss": "an orientation that favors experimentation and innovation",
+    "sim": 0.6916
+   },
+   {
+    "lemma": "representation",
+    "gloss": "a presentation to the mind in the form of an idea or image",
+    "sim": 0.6911
+   },
+   {
+    "lemma": "disjointedness",
+    "gloss": "lacking order or coherence",
+    "sim": 0.6904
+   }
+  ],
+  "CONSTRUCT/BRAINSTORM": [
+   {
+    "lemma": "configuration",
+    "gloss": "an arrangement of parts or elements",
+    "sim": 0.7803
+   },
+   {
+    "lemma": "structure",
+    "gloss": "a thing constructed",
+    "sim": 0.778
+   },
+   {
+    "lemma": "design",
+    "gloss": "an arrangement scheme",
+    "sim": 0.7665
+   },
+   {
+    "lemma": "strand",
+    "gloss": "a pattern forming a unity within a larger structural whole",
+    "sim": 0.7523
+   },
+   {
+    "lemma": "layout",
+    "gloss": "a plan or design of something that is laid out",
+    "sim": 0.7486
+   },
+   {
+    "lemma": "form",
+    "gloss": "an arrangement of the elements in a composition or discourse",
+    "sim": 0.7429
+   },
+   {
+    "lemma": "living arrangement",
+    "gloss": "an arrangement to allow people (or ideas) to coexist",
+    "sim": 0.7317
+   },
+   {
+    "lemma": "framework",
+    "gloss": "a structure supporting or containing something",
+    "sim": 0.7311
+   },
+   {
+    "lemma": "shape",
+    "gloss": "the spatial arrangement of something as distinct from its substance",
+    "sim": 0.7248
+   },
+   {
+    "lemma": "position",
+    "gloss": "a way of regarding situations or topics etc.",
+    "sim": 0.7228
+   },
+   {
+    "lemma": "housing",
+    "gloss": "structures collectively in which people are housed",
+    "sim": 0.7224
+   },
+   {
+    "lemma": "plan",
+    "gloss": "scale drawing of a structure",
+    "sim": 0.7218
+   },
+   {
+    "lemma": "boarding",
+    "gloss": "a structure of boards",
+    "sim": 0.7142
+   },
+   {
+    "lemma": "concretism",
+    "gloss": "a representation of an abstract idea in concrete terms",
+    "sim": 0.71
+   },
+   {
+    "lemma": "prefab",
+    "gloss": "a prefabricated structure",
+    "sim": 0.709
+   },
+   {
+    "lemma": "course",
+    "gloss": "(construction) a layer of masonry",
+    "sim": 0.7087
+   },
+   {
+    "lemma": "divergent thinking",
+    "gloss": "thinking that moves away in diverging directions so as to involve a variety of aspects and which sometimes lead to novel ideas and solutions",
+    "sim": 0.7077
+   },
+   {
+    "lemma": "indecision",
+    "gloss": "doubt concerning two or more possible alternatives or courses of action",
+    "sim": 0.7074
+   },
+   {
+    "lemma": "tangle",
+    "gloss": "something jumbled or confused",
+    "sim": 0.7061
+   },
+   {
+    "lemma": "compound",
+    "gloss": "an enclosure of residences and other building (especially in the Orient)",
+    "sim": 0.7056
+   },
+   {
+    "lemma": "formalism",
+    "gloss": "the doctrine that formal structure rather than content is what should be represented",
+    "sim": 0.7055
+   },
+   {
+    "lemma": "block",
+    "gloss": "housing in a large building that is divided into separate units",
+    "sim": 0.7048
+   },
+   {
+    "lemma": "reticulation",
+    "gloss": "an arrangement resembling a net or network",
+    "sim": 0.7039
+   },
+   {
+    "lemma": "proposal",
+    "gloss": "something proposed (such as a plan or assumption)",
+    "sim": 0.703
+   },
+   {
+    "lemma": "prearrangement",
+    "gloss": "something arranged in advance",
+    "sim": 0.7027
+   },
+   {
+    "lemma": "apartment building",
+    "gloss": "a building that is divided into apartments",
+    "sim": 0.701
+   },
+   {
+    "lemma": "diversification",
+    "gloss": "the condition of being varied",
+    "sim": 0.6992
+   },
+   {
+    "lemma": "afterthought",
+    "gloss": "an addition that was not included in the original plan",
+    "sim": 0.6983
+   },
+   {
+    "lemma": "lamination",
+    "gloss": "a layered structure",
+    "sim": 0.6956
+   },
+   {
+    "lemma": "introduction",
+    "gloss": "a new proposal",
+    "sim": 0.6925
+   },
+   {
+    "lemma": "scenario",
+    "gloss": "a postulated sequence of possible events",
+    "sim": 0.6924
+   },
+   {
+    "lemma": "place",
+    "gloss": "an abstract mental location",
+    "sim": 0.6921
+   },
+   {
+    "lemma": "outline",
+    "gloss": "a schematic or preliminary plan",
+    "sim": 0.692
+   },
+   {
+    "lemma": "junction",
+    "gloss": "the place where two or more things come together",
+    "sim": 0.6916
+   },
+   {
+    "lemma": "construction",
+    "gloss": "the creation of a construct",
+    "sim": 0.6916
+   },
+   {
+    "lemma": "bridge",
+    "gloss": "something resembling a bridge in form or function",
+    "sim": 0.6916
+   },
+   {
+    "lemma": "section",
+    "gloss": "one of several parts or pieces that fit with others to constitute a whole object",
+    "sim": 0.6911
+   },
+   {
+    "lemma": "complication",
+    "gloss": "a development that complicates a situation",
+    "sim": 0.691
+   },
+   {
+    "lemma": "truss",
+    "gloss": "a framework of beams (rafters, posts, struts) forming a rigid structure that supports a roof or bridge or other structure",
+    "sim": 0.6908
+   },
+   {
+    "lemma": "enclosure",
+    "gloss": "a structure consisting of an area that has been enclosed for some purpose",
+    "sim": 0.6901
+   }
+  ],
+  "BOND/DESTROY": [
+   {
+    "lemma": "fag end",
+    "gloss": "the frayed end of a length of cloth or rope",
+    "sim": 0.692
+   },
+   {
+    "lemma": "end",
+    "gloss": "the final stage or concluding parts of an event or occurrence",
+    "sim": 0.6804
+   },
+   {
+    "lemma": "passing",
+    "gloss": "the end of something",
+    "sim": 0.6742
+   },
+   {
+    "lemma": "bust-up",
+    "gloss": "a serious quarrel (especially one that ends a friendship)",
+    "sim": 0.6681
+   },
+   {
+    "lemma": "attachment",
+    "gloss": "a connection that fastens things together",
+    "sim": 0.6607
+   },
+   {
+    "lemma": "stopping point",
+    "gloss": "the temporal end",
+    "sim": 0.6498
+   },
+   {
+    "lemma": "interconnection",
+    "gloss": "a state of being connected reciprocally",
+    "sim": 0.6483
+   },
+   {
+    "lemma": "hawse",
+    "gloss": "the hole that an anchor rope passes through",
+    "sim": 0.6478
+   },
+   {
+    "lemma": "continuity",
+    "gloss": "uninterrupted connection or union",
+    "sim": 0.6466
+   },
+   {
+    "lemma": "endgame",
+    "gloss": "the final stages of an extended process of negotiation",
+    "sim": 0.646
+   },
+   {
+    "lemma": "dissuasion",
+    "gloss": "a communication that dissuades you",
+    "sim": 0.6449
+   },
+   {
+    "lemma": "coupling",
+    "gloss": "a mechanical device that serves to connect the ends of adjacent objects",
+    "sim": 0.6448
+   },
+   {
+    "lemma": "finishing touch",
+    "gloss": "a final touch",
+    "sim": 0.6445
+   },
+   {
+    "lemma": "end product",
+    "gloss": "final product",
+    "sim": 0.6445
+   },
+   {
+    "lemma": "connection",
+    "gloss": "a relation between things or events (as in the case of one causing the other or sharing features with it)",
+    "sim": 0.6445
+   },
+   {
+    "lemma": "telephone line",
+    "gloss": "a telephone connection",
+    "sim": 0.6444
+   },
+   {
+    "lemma": "bow",
+    "gloss": "a knot with two loops and loose ends",
+    "sim": 0.6434
+   },
+   {
+    "lemma": "release",
+    "gloss": "a process that liberates or discharges something",
+    "sim": 0.6432
+   },
+   {
+    "lemma": "cleavage",
+    "gloss": "the breaking of a chemical bond in a molecule resulting in smaller molecules",
+    "sim": 0.6423
+   },
+   {
+    "lemma": "splice",
+    "gloss": "a junction where two things (as paper or film or magnetic tape) have been joined together",
+    "sim": 0.6422
+   },
+   {
+    "lemma": "clevis",
+    "gloss": "a coupler shaped like the letter U with holes through each end so a bolt or pin can pass through the holes to complete the coupling",
+    "sim": 0.6417
+   },
+   {
+    "lemma": "backbone",
+    "gloss": "the part of a network that connects other networks together",
+    "sim": 0.6415
+   },
+   {
+    "lemma": "defeat",
+    "gloss": "an unsuccessful ending to a struggle or contest",
+    "sim": 0.6409
+   },
+   {
+    "lemma": "denouement",
+    "gloss": "the outcome of a complex sequence of events",
+    "sim": 0.6402
+   },
+   {
+    "lemma": "separation",
+    "gloss": "the termination of employment (by resignation or dismissal)",
+    "sim": 0.6401
+   },
+   {
+    "lemma": "disintegration",
+    "gloss": "a loss (or serious disruption) of organization in some system",
+    "sim": 0.64
+   },
+   {
+    "lemma": "stop",
+    "gloss": "the event of something ending",
+    "sim": 0.6389
+   },
+   {
+    "lemma": "unconnectedness",
+    "gloss": "the lack of a connection between things",
+    "sim": 0.6388
+   },
+   {
+    "lemma": "final cause",
+    "gloss": "(philosophy) the end or purpose of a thing or process",
+    "sim": 0.6386
+   },
+   {
+    "lemma": "fadeout",
+    "gloss": "a gradual temporary loss of a transmitted signal due to electrical disturbances",
+    "sim": 0.6368
+   },
+   {
+    "lemma": "fisherman's knot",
+    "gloss": "a knot for tying the ends of two lines together",
+    "sim": 0.6365
+   },
+   {
+    "lemma": "sheepshank",
+    "gloss": "a knot for shortening a line",
+    "sim": 0.6343
+   },
+   {
+    "lemma": "featheredge",
+    "gloss": "a thin tapering edge",
+    "sim": 0.6341
+   },
+   {
+    "lemma": "link",
+    "gloss": "a fastener that serves to join or connect",
+    "sim": 0.634
+   },
+   {
+    "lemma": "tie",
+    "gloss": "a cord (or string or ribbon or wire etc.) with which something is tied",
+    "sim": 0.6337
+   },
+   {
+    "lemma": "hang-up",
+    "gloss": "an emotional preoccupation",
+    "sim": 0.6326
+   },
+   {
+    "lemma": "notice",
+    "gloss": "advance notification (usually written) of the intention to withdraw from an arrangement of contract",
+    "sim": 0.6321
+   },
+   {
+    "lemma": "joint",
+    "gloss": "a disreputable place of entertainment",
+    "sim": 0.6308
+   },
+   {
+    "lemma": "closure",
+    "gloss": "a rule for limiting or ending debate in a deliberative body",
+    "sim": 0.6307
+   },
+   {
+    "lemma": "Rubicon",
+    "gloss": "a line that when crossed permits of no return and typically results in irrevocable commitment",
+    "sim": 0.6307
+   }
+  ],
+  "CONSTRUCT/DESTROY": [
+   {
+    "lemma": "wrack",
+    "gloss": "the destruction or collapse of something",
+    "sim": 0.7652
+   },
+   {
+    "lemma": "ruin",
+    "gloss": "a ruined building",
+    "sim": 0.7527
+   },
+   {
+    "lemma": "attrition",
+    "gloss": "a wearing down to weaken or destroy",
+    "sim": 0.7392
+   },
+   {
+    "lemma": "remainder",
+    "gloss": "something left after other parts have been taken away",
+    "sim": 0.7304
+   },
+   {
+    "lemma": "annihilation",
+    "gloss": "total destruction",
+    "sim": 0.7247
+   },
+   {
+    "lemma": "battering ram",
+    "gloss": "a ram used to break down doors of fortified buildings",
+    "sim": 0.7206
+   },
+   {
+    "lemma": "disintegration",
+    "gloss": "a loss (or serious disruption) of organization in some system",
+    "sim": 0.7205
+   },
+   {
+    "lemma": "ravage",
+    "gloss": "(usually plural) a destructive action",
+    "sim": 0.7114
+   },
+   {
+    "lemma": "thrashing",
+    "gloss": "a sound defeat",
+    "sim": 0.706
+   },
+   {
+    "lemma": "revetment",
+    "gloss": "a barrier against explosives",
+    "sim": 0.7046
+   },
+   {
+    "lemma": "debris surge",
+    "gloss": "the sudden spread of dust and debris from a collapsing building",
+    "sim": 0.7022
+   },
+   {
+    "lemma": "redoubt",
+    "gloss": "(military) a temporary or supplementary fortification",
+    "sim": 0.7022
+   },
+   {
+    "lemma": "dilapidation",
+    "gloss": "the process of becoming dilapidated",
+    "sim": 0.7007
+   },
+   {
+    "lemma": "rattrap",
+    "gloss": "filthy run-down dilapidated housing",
+    "sim": 0.6979
+   },
+   {
+    "lemma": "damage",
+    "gloss": "loss of military equipment",
+    "sim": 0.6942
+   },
+   {
+    "lemma": "retreat",
+    "gloss": "(military) a signal to begin a withdrawal from a dangerous position",
+    "sim": 0.6923
+   },
+   {
+    "lemma": "devastation",
+    "gloss": "the state of being decayed or destroyed",
+    "sim": 0.6902
+   },
+   {
+    "lemma": "retrenchment",
+    "gloss": "entrenchment consisting of an additional interior fortification to prolong the defense",
+    "sim": 0.6843
+   },
+   {
+    "lemma": "bomb",
+    "gloss": "an explosive device fused to explode under specific conditions",
+    "sim": 0.6821
+   },
+   {
+    "lemma": "dismemberment",
+    "gloss": "the removal of limbs",
+    "sim": 0.6808
+   },
+   {
+    "lemma": "desuetude",
+    "gloss": "a state of inactivity or disuse",
+    "sim": 0.68
+   },
+   {
+    "lemma": "demagnetization",
+    "gloss": "the process of removing magnetization",
+    "sim": 0.68
+   },
+   {
+    "lemma": "denazification",
+    "gloss": "social process of removing Nazis from official positions and giving up any allegiance to Nazism",
+    "sim": 0.6792
+   },
+   {
+    "lemma": "outwork",
+    "gloss": "subsidiary defensive structure lying outside the main fortified area",
+    "sim": 0.6773
+   },
+   {
+    "lemma": "blockhouse",
+    "gloss": "a stronghold that is reinforced for protection from enemy fire",
+    "sim": 0.677
+   },
+   {
+    "lemma": "wreck",
+    "gloss": "a ship that has been destroyed at sea",
+    "sim": 0.6757
+   },
+   {
+    "lemma": "drop",
+    "gloss": "a central depository where things can be left or picked up",
+    "sim": 0.6756
+   },
+   {
+    "lemma": "destalinization",
+    "gloss": "social process of neutralizing the influence of Joseph Stalin by revising his policies and removing monuments dedicated to him and renaming places named in his honor",
+    "sim": 0.6747
+   },
+   {
+    "lemma": "outbuilding",
+    "gloss": "a building that is subordinate to and separate from a main building",
+    "sim": 0.6745
+   },
+   {
+    "lemma": "erosion",
+    "gloss": "a gradual decline of something",
+    "sim": 0.6738
+   },
+   {
+    "lemma": "lunette",
+    "gloss": "temporary fortification like a detached bastion",
+    "sim": 0.6738
+   },
+   {
+    "lemma": "debilitation",
+    "gloss": "serious weakening and loss of energy",
+    "sim": 0.6723
+   },
+   {
+    "lemma": "parapet",
+    "gloss": "fortification consisting of a low wall",
+    "sim": 0.6714
+   },
+   {
+    "lemma": "reproach",
+    "gloss": "disgrace or shame",
+    "sim": 0.67
+   },
+   {
+    "lemma": "operational damage",
+    "gloss": "loss of military equipment in field operations",
+    "sim": 0.6699
+   },
+   {
+    "lemma": "blight",
+    "gloss": "a state or condition being blighted",
+    "sim": 0.6694
+   },
+   {
+    "lemma": "decay",
+    "gloss": "a gradual decrease",
+    "sim": 0.6688
+   },
+   {
+    "lemma": "damnation",
+    "gloss": "the act of damning",
+    "sim": 0.6683
+   },
+   {
+    "lemma": "extinction",
+    "gloss": "complete annihilation",
+    "sim": 0.6681
+   },
+   {
+    "lemma": "outhouse",
+    "gloss": "a small outbuilding with a bench having holes through which a user can defecate",
+    "sim": 0.6677
+   }
+  ],
+  "BOND/PLAY": [
+   {
+    "lemma": "sharing",
+    "gloss": "using or enjoying something jointly with others",
+    "sim": 0.8147
+   },
+   {
+    "lemma": "party",
+    "gloss": "an occasion on which people can assemble for social interaction and entertainment",
+    "sim": 0.8081
+   },
+   {
+    "lemma": "phatic speech",
+    "gloss": "conversational speech used to communicate sociability more than information",
+    "sim": 0.7717
+   },
+   {
+    "lemma": "cordial reception",
+    "gloss": "kindness in welcoming guests or strangers",
+    "sim": 0.7667
+   },
+   {
+    "lemma": "chat",
+    "gloss": "an informal conversation",
+    "sim": 0.7594
+   },
+   {
+    "lemma": "friendship",
+    "gloss": "the state of being friends (or friendly)",
+    "sim": 0.7562
+   },
+   {
+    "lemma": "guest night",
+    "gloss": "an evening when members of a club or college can bring their friends as guests",
+    "sim": 0.7553
+   },
+   {
+    "lemma": "dance",
+    "gloss": "a party for social dancing",
+    "sim": 0.7452
+   },
+   {
+    "lemma": "living arrangement",
+    "gloss": "an arrangement to allow people (or ideas) to coexist",
+    "sim": 0.7433
+   },
+   {
+    "lemma": "relations",
+    "gloss": "mutual dealings or connections or communications among persons or groups",
+    "sim": 0.7416
+   },
+   {
+    "lemma": "social event",
+    "gloss": "an event characteristic of persons forming groups",
+    "sim": 0.7412
+   },
+   {
+    "lemma": "fete",
+    "gloss": "an elaborate party (often outdoors)",
+    "sim": 0.7394
+   },
+   {
+    "lemma": "face time",
+    "gloss": "work time spent at the location of or in the presence of other people",
+    "sim": 0.7366
+   },
+   {
+    "lemma": "etiquette",
+    "gloss": "rules governing socially acceptable behavior",
+    "sim": 0.7348
+   },
+   {
+    "lemma": "call-board",
+    "gloss": "a bulletin board backstage in a theater",
+    "sim": 0.7331
+   },
+   {
+    "lemma": "place",
+    "gloss": "proper or designated social situation",
+    "sim": 0.7312
+   },
+   {
+    "lemma": "in-joke",
+    "gloss": "a joke that is appreciated only by members of some particular group of people",
+    "sim": 0.7299
+   },
+   {
+    "lemma": "gossiping",
+    "gloss": "a conversation that spreads personal information about other people",
+    "sim": 0.7295
+   },
+   {
+    "lemma": "talk",
+    "gloss": "an exchange of ideas via conversation",
+    "sim": 0.7294
+   },
+   {
+    "lemma": "cheering",
+    "gloss": "encouragement in the form of cheers from spectators",
+    "sim": 0.7286
+   },
+   {
+    "lemma": "liaison",
+    "gloss": "a channel for communication between groups",
+    "sim": 0.7281
+   },
+   {
+    "lemma": "colloquy",
+    "gloss": "a conversation especially a formal one",
+    "sim": 0.7271
+   },
+   {
+    "lemma": "address",
+    "gloss": "the manner of speaking to another individual",
+    "sim": 0.7235
+   },
+   {
+    "lemma": "discussion",
+    "gloss": "an extended communication (often interactive) dealing with some particular topic",
+    "sim": 0.7232
+   },
+   {
+    "lemma": "ceilidh",
+    "gloss": "an informal social gathering at which there is Scottish or Irish folk music and singing and folk dancing and story telling",
+    "sim": 0.7225
+   },
+   {
+    "lemma": "accompaniment",
+    "gloss": "an event or situation that happens at the same time as or in connection with another",
+    "sim": 0.7224
+   },
+   {
+    "lemma": "sociometry",
+    "gloss": "the quantitative study of social relationships",
+    "sim": 0.7224
+   },
+   {
+    "lemma": "meeting",
+    "gloss": "a casual or unexpected convergence",
+    "sim": 0.7223
+   },
+   {
+    "lemma": "mutual understanding",
+    "gloss": "sympathy of each person for the other",
+    "sim": 0.7208
+   },
+   {
+    "lemma": "fun",
+    "gloss": "verbal wit or mockery (often at another's expense but not to be taken seriously)",
+    "sim": 0.7201
+   },
+   {
+    "lemma": "glad hand",
+    "gloss": "a warm welcome",
+    "sim": 0.7177
+   },
+   {
+    "lemma": "relationship",
+    "gloss": "a relation between people",
+    "sim": 0.7175
+   },
+   {
+    "lemma": "plaything",
+    "gloss": "an artifact designed to be played with",
+    "sim": 0.7174
+   },
+   {
+    "lemma": "joint",
+    "gloss": "a disreputable place of entertainment",
+    "sim": 0.7172
+   },
+   {
+    "lemma": "hall",
+    "gloss": "a large room for gatherings or entertainment",
+    "sim": 0.7164
+   },
+   {
+    "lemma": "play reading",
+    "gloss": "performance of a play by a group of readers",
+    "sim": 0.7161
+   },
+   {
+    "lemma": "rapport",
+    "gloss": "a relationship of mutual understanding or trust and agreement between people",
+    "sim": 0.716
+   },
+   {
+    "lemma": "unfriendliness",
+    "gloss": "dislike experienced as an absence of friendliness",
+    "sim": 0.7149
+   },
+   {
+    "lemma": "calendar",
+    "gloss": "a list or register of events (appointments or social events or court cases etc)",
+    "sim": 0.7141
+   },
+   {
+    "lemma": "acquaintance",
+    "gloss": "a relationship less intimate than friendship",
+    "sim": 0.714
+   }
+  ],
+  "CONSTRUCT/PLAY": [
+   {
+    "lemma": "plaything",
+    "gloss": "an artifact designed to be played with",
+    "sim": 0.7597
+   },
+   {
+    "lemma": "experiment",
+    "gloss": "the testing of an idea",
+    "sim": 0.7429
+   },
+   {
+    "lemma": "playhouse",
+    "gloss": "plaything consisting of a small model of a house that children can play inside of",
+    "sim": 0.7332
+   },
+   {
+    "lemma": "blueprint",
+    "gloss": "something intended as a guide for making something else",
+    "sim": 0.7264
+   },
+   {
+    "lemma": "sandbox",
+    "gloss": "a plaything consisting of a pile of sand or a box filled with sand for children to play in",
+    "sim": 0.716
+   },
+   {
+    "lemma": "experimentalism",
+    "gloss": "an orientation that favors experimentation and innovation",
+    "sim": 0.7124
+   },
+   {
+    "lemma": "structure",
+    "gloss": "a thing constructed",
+    "sim": 0.7119
+   },
+   {
+    "lemma": "toy",
+    "gloss": "a nonfunctional replica of something else (frequently used as a modifier)",
+    "sim": 0.7098
+   },
+   {
+    "lemma": "introduction",
+    "gloss": "a new proposal",
+    "sim": 0.7059
+   },
+   {
+    "lemma": "Meccano",
+    "gloss": "a child's construction set for making mechanical models",
+    "sim": 0.7054
+   },
+   {
+    "lemma": "ball",
+    "gloss": "a spherical object used as a plaything",
+    "sim": 0.7051
+   },
+   {
+    "lemma": "roughcast",
+    "gloss": "a rough preliminary model",
+    "sim": 0.7047
+   },
+   {
+    "lemma": "design",
+    "gloss": "a preliminary sketch indicating the plan for something",
+    "sim": 0.7045
+   },
+   {
+    "lemma": "proving ground",
+    "gloss": "a workplace for testing new equipment or ideas",
+    "sim": 0.6986
+   },
+   {
+    "lemma": "dollhouse",
+    "gloss": "a house so small that it is likened to a child's plaything",
+    "sim": 0.6983
+   },
+   {
+    "lemma": "lattice",
+    "gloss": "framework consisting of an ornamental design made of strips of wood or metal",
+    "sim": 0.6962
+   },
+   {
+    "lemma": "slingshot",
+    "gloss": "a plaything consisting of a Y-shaped stick with elastic between the arms",
+    "sim": 0.6959
+   },
+   {
+    "lemma": "jack-in-the-box",
+    "gloss": "plaything consisting of a toy clown that jumps out of a box when the lid is opened",
+    "sim": 0.6943
+   },
+   {
+    "lemma": "object",
+    "gloss": "a tangible and visible entity",
+    "sim": 0.6913
+   },
+   {
+    "lemma": "pattern",
+    "gloss": "a model considered worthy of imitation",
+    "sim": 0.6908
+   },
+   {
+    "lemma": "system",
+    "gloss": "instrumentality that combines interrelated interacting artifacts designed to work as a coherent entity",
+    "sim": 0.6899
+   },
+   {
+    "lemma": "plan",
+    "gloss": "scale drawing of a structure",
+    "sim": 0.6894
+   },
+   {
+    "lemma": "concretism",
+    "gloss": "a representation of an abstract idea in concrete terms",
+    "sim": 0.6892
+   },
+   {
+    "lemma": "pretense",
+    "gloss": "imaginative intellectual play",
+    "sim": 0.6889
+   },
+   {
+    "lemma": "scaffolding",
+    "gloss": "a system of scaffolds",
+    "sim": 0.6883
+   },
+   {
+    "lemma": "wrinkle",
+    "gloss": "a clever method of doing something (especially something new and different)",
+    "sim": 0.6866
+   },
+   {
+    "lemma": "prefab",
+    "gloss": "a prefabricated structure",
+    "sim": 0.6851
+   },
+   {
+    "lemma": "train set",
+    "gloss": "a toy consisting of small models of railroad trains and the track for them to run on",
+    "sim": 0.6845
+   },
+   {
+    "lemma": "construction",
+    "gloss": "the creation of a construct",
+    "sim": 0.6844
+   },
+   {
+    "lemma": "model",
+    "gloss": "a type of product",
+    "sim": 0.6841
+   },
+   {
+    "lemma": "outline",
+    "gloss": "a schematic or preliminary plan",
+    "sim": 0.6832
+   },
+   {
+    "lemma": "seesaw",
+    "gloss": "a plaything consisting of a board balanced on a fulcrum",
+    "sim": 0.6829
+   },
+   {
+    "lemma": "walker",
+    "gloss": "a light enclosing framework (trade name Zimmer) with rubber castors or wheels and handles",
+    "sim": 0.6821
+   },
+   {
+    "lemma": "demonstration",
+    "gloss": "a visual presentation showing how something works",
+    "sim": 0.6818
+   },
+   {
+    "lemma": "simulation",
+    "gloss": "(computer science) the technique of representing the real world by a computer program",
+    "sim": 0.6812
+   },
+   {
+    "lemma": "opening",
+    "gloss": "a vacant or unobstructed space that is man-made",
+    "sim": 0.6812
+   },
+   {
+    "lemma": "hollowness",
+    "gloss": "the state of being hollow: having an empty space within",
+    "sim": 0.6811
+   },
+   {
+    "lemma": "pyrograph",
+    "gloss": "a design produced by pyrography",
+    "sim": 0.6805
+   },
+   {
+    "lemma": "penny arcade",
+    "gloss": "an arcade with coin-operated devices for entertainment",
+    "sim": 0.6799
+   },
+   {
+    "lemma": "rendering",
+    "gloss": "perspective drawing of an architect's design",
+    "sim": 0.6797
+   }
+  ],
+  "BOND/LIFT": [
+   {
+    "lemma": "sexual relationship",
+    "gloss": "a relationship involving sexual intimacy",
+    "sim": 0.7889
+   },
+   {
+    "lemma": "love",
+    "gloss": "a strong positive emotion of regard and affection",
+    "sim": 0.7815
+   },
+   {
+    "lemma": "attachment",
+    "gloss": "a connection that fastens things together",
+    "sim": 0.7768
+   },
+   {
+    "lemma": "closeness",
+    "gloss": "a feeling of being intimate and belonging together",
+    "sim": 0.7734
+   },
+   {
+    "lemma": "confidence",
+    "gloss": "a trustful relationship",
+    "sim": 0.7719
+   },
+   {
+    "lemma": "alliance",
+    "gloss": "a connection based on kinship or marriage or common interest",
+    "sim": 0.7713
+   },
+   {
+    "lemma": "female bonding",
+    "gloss": "the formation of a close personal relationship between women",
+    "sim": 0.7711
+   },
+   {
+    "lemma": "sexual desire",
+    "gloss": "a desire for sexual intimacy",
+    "sim": 0.7675
+   },
+   {
+    "lemma": "relationship",
+    "gloss": "a relation between people",
+    "sim": 0.759
+   },
+   {
+    "lemma": "bonding",
+    "gloss": "a close personal relationship that forms between people (as between husband and wife or parent and child)",
+    "sim": 0.7569
+   },
+   {
+    "lemma": "belonging",
+    "gloss": "happiness felt in a secure relationship",
+    "sim": 0.7561
+   },
+   {
+    "lemma": "rapport",
+    "gloss": "a relationship of mutual understanding or trust and agreement between people",
+    "sim": 0.7535
+   },
+   {
+    "lemma": "compatibility",
+    "gloss": "a feeling of sympathetic understanding",
+    "sim": 0.7508
+   },
+   {
+    "lemma": "marriage",
+    "gloss": "a close and intimate union",
+    "sim": 0.7442
+   },
+   {
+    "lemma": "embrace",
+    "gloss": "the state of taking in or encircling",
+    "sim": 0.7407
+   },
+   {
+    "lemma": "affection",
+    "gloss": "a positive feeling of liking",
+    "sim": 0.739
+   },
+   {
+    "lemma": "connection",
+    "gloss": "an instrumentality that connects",
+    "sim": 0.7364
+   },
+   {
+    "lemma": "acquaintance",
+    "gloss": "a relationship less intimate than friendship",
+    "sim": 0.7348
+   },
+   {
+    "lemma": "chemistry",
+    "gloss": "the way two individuals relate to each other",
+    "sim": 0.7332
+   },
+   {
+    "lemma": "soft spot",
+    "gloss": "a sentimental affection",
+    "sim": 0.7325
+   },
+   {
+    "lemma": "love affair",
+    "gloss": "a relationship between two lovers",
+    "sim": 0.7307
+   },
+   {
+    "lemma": "aphrodisia",
+    "gloss": "a desire for heterosexual intimacy",
+    "sim": 0.7291
+   },
+   {
+    "lemma": "heart",
+    "gloss": "the locus of feelings and intuitions",
+    "sim": 0.729
+   },
+   {
+    "lemma": "protectiveness",
+    "gloss": "a feeling of protective affection",
+    "sim": 0.7279
+   },
+   {
+    "lemma": "ligament",
+    "gloss": "any connection or unifying bond",
+    "sim": 0.7258
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "relevant relation or interconnection",
+    "sim": 0.7223
+   },
+   {
+    "lemma": "partner relation",
+    "gloss": "the responsibility of partners to act in one another's best interests",
+    "sim": 0.7221
+   },
+   {
+    "lemma": "affinity",
+    "gloss": "(anthropology) kinship by marriage or adoption",
+    "sim": 0.7219
+   },
+   {
+    "lemma": "courtly love",
+    "gloss": "(Middle Ages) a highly conventionalized code of conduct for lovers",
+    "sim": 0.7204
+   },
+   {
+    "lemma": "eye contact",
+    "gloss": "a meeting of the eyes between two people that expresses meaningful nonverbal communication",
+    "sim": 0.7204
+   },
+   {
+    "lemma": "gratefulness",
+    "gloss": "warm friendly feelings of gratitude",
+    "sim": 0.7192
+   },
+   {
+    "lemma": "worship",
+    "gloss": "a feeling of profound love and admiration",
+    "sim": 0.7186
+   },
+   {
+    "lemma": "implication",
+    "gloss": "a relation implicated by virtue of involvement or close connection (especially an incriminating involvement)",
+    "sim": 0.7185
+   },
+   {
+    "lemma": "kinship",
+    "gloss": "(anthropology) relatedness or connection by blood or marriage or adoption",
+    "sim": 0.7175
+   },
+   {
+    "lemma": "infatuation",
+    "gloss": "an object of extravagant short-lived passion",
+    "sim": 0.7175
+   },
+   {
+    "lemma": "common ground",
+    "gloss": "a basis agreed to by all parties for reaching a mutual understanding",
+    "sim": 0.7168
+   },
+   {
+    "lemma": "mutual understanding",
+    "gloss": "sympathy of each person for the other",
+    "sim": 0.7142
+   },
+   {
+    "lemma": "partnership",
+    "gloss": "a cooperative relationship between people or groups who agree to share responsibility for achieving some specific goal",
+    "sim": 0.714
+   },
+   {
+    "lemma": "meeting",
+    "gloss": "a casual or unexpected convergence",
+    "sim": 0.7139
+   },
+   {
+    "lemma": "passion",
+    "gloss": "a feeling of strong sexual desire",
+    "sim": 0.7139
+   }
+  ],
+  "CONSTRUCT/LIFT": [
+   {
+    "lemma": "crane",
+    "gloss": "lifts and moves heavy objects",
+    "sim": 0.8213
+   },
+   {
+    "lemma": "lifting device",
+    "gloss": "a device for lifting heavy loads",
+    "sim": 0.8115
+   },
+   {
+    "lemma": "hoist",
+    "gloss": "lifting device for raising heavy or cumbersome objects",
+    "sim": 0.8021
+   },
+   {
+    "lemma": "derrick",
+    "gloss": "a simple crane having lifting tackle slung from a boom",
+    "sim": 0.7915
+   },
+   {
+    "lemma": "structure",
+    "gloss": "a thing constructed",
+    "sim": 0.7726
+   },
+   {
+    "lemma": "beam",
+    "gloss": "long thick piece of wood or metal or concrete, etc., used in construction",
+    "sim": 0.7701
+   },
+   {
+    "lemma": "framework",
+    "gloss": "a structure supporting or containing something",
+    "sim": 0.7583
+   },
+   {
+    "lemma": "transporter",
+    "gloss": "a crane for moving material with dispatch as in loading and unloading ships",
+    "sim": 0.7537
+   },
+   {
+    "lemma": "freight elevator",
+    "gloss": "an elevator designed for carrying freight",
+    "sim": 0.7498
+   },
+   {
+    "lemma": "plant",
+    "gloss": "buildings for carrying on industrial labor",
+    "sim": 0.7449
+   },
+   {
+    "lemma": "gusset",
+    "gloss": "a metal plate used to strengthen a joist",
+    "sim": 0.7433
+   },
+   {
+    "lemma": "guide rope",
+    "gloss": "a rope used to guide the movement of the load of a crane",
+    "sim": 0.7428
+   },
+   {
+    "lemma": "support",
+    "gloss": "supporting structure that holds up or provides a foundation",
+    "sim": 0.739
+   },
+   {
+    "lemma": "brace",
+    "gloss": "a structural member used to stiffen a framework",
+    "sim": 0.7385
+   },
+   {
+    "lemma": "header",
+    "gloss": "a framing member crossing and supporting the ends of joists, studs, or rafters so as to transfer their weight to parallel joists, studs, or rafters",
+    "sim": 0.7375
+   },
+   {
+    "lemma": "strengthening",
+    "gloss": "becoming stronger",
+    "sim": 0.7351
+   },
+   {
+    "lemma": "elevator",
+    "gloss": "lifting device consisting of a platform or cage that is raised and lowered mechanically in a vertical shaft in order to move people from one floor to another in a building",
+    "sim": 0.7335
+   },
+   {
+    "lemma": "live load",
+    "gloss": "a variable load on a structure (e.g. a bridge) such as moving traffic",
+    "sim": 0.732
+   },
+   {
+    "lemma": "trestlework",
+    "gloss": "a supporting structure composed of a system of connected trestles",
+    "sim": 0.7318
+   },
+   {
+    "lemma": "course",
+    "gloss": "(construction) a layer of masonry",
+    "sim": 0.7308
+   },
+   {
+    "lemma": "truss bridge",
+    "gloss": "a bridge supported by trusses",
+    "sim": 0.73
+   },
+   {
+    "lemma": "truss",
+    "gloss": "a framework of beams (rafters, posts, struts) forming a rigid structure that supports a roof or bridge or other structure",
+    "sim": 0.7294
+   },
+   {
+    "lemma": "welt",
+    "gloss": "a raised or strengthened seam",
+    "sim": 0.729
+   },
+   {
+    "lemma": "joist",
+    "gloss": "beam used to support floors or roofs",
+    "sim": 0.7282
+   },
+   {
+    "lemma": "trestle bridge",
+    "gloss": "a bridge supported by trestlework",
+    "sim": 0.7262
+   },
+   {
+    "lemma": "upright",
+    "gloss": "a vertical structural member as a post or stake",
+    "sim": 0.7262
+   },
+   {
+    "lemma": "rise",
+    "gloss": "a growth in strength or number or importance",
+    "sim": 0.7259
+   },
+   {
+    "lemma": "trellis",
+    "gloss": "latticework used to support climbing plants",
+    "sim": 0.7254
+   },
+   {
+    "lemma": "scaling ladder",
+    "gloss": "a ladder used to scale walls (as in an attack)",
+    "sim": 0.7188
+   },
+   {
+    "lemma": "deck-house",
+    "gloss": "a superstructure on the upper deck of a ship",
+    "sim": 0.7177
+   },
+   {
+    "lemma": "block and tackle",
+    "gloss": "pulley blocks with associated rope or cable",
+    "sim": 0.7176
+   },
+   {
+    "lemma": "lug",
+    "gloss": "a projecting piece that is used to lift or support or turn something",
+    "sim": 0.7172
+   },
+   {
+    "lemma": "trailer",
+    "gloss": "a large transport conveyance designed to be pulled by a truck or tractor",
+    "sim": 0.7153
+   },
+   {
+    "lemma": "hitch",
+    "gloss": "a connection between a vehicle and the load that it pulls",
+    "sim": 0.7148
+   },
+   {
+    "lemma": "construction",
+    "gloss": "the creation of a construct",
+    "sim": 0.7131
+   },
+   {
+    "lemma": "stamp",
+    "gloss": "machine consisting of a heavy bar that moves vertically for pounding or crushing ores",
+    "sim": 0.7128
+   },
+   {
+    "lemma": "supporting tower",
+    "gloss": "a tower that serves to support something",
+    "sim": 0.7125
+   },
+   {
+    "lemma": "shovel",
+    "gloss": "a hand tool for lifting loose material",
+    "sim": 0.7122
+   },
+   {
+    "lemma": "pontoon bridge",
+    "gloss": "a temporary bridge built over a series of pontoons",
+    "sim": 0.7112
+   },
+   {
+    "lemma": "pull",
+    "gloss": "the force used in pulling",
+    "sim": 0.7105
+   }
+  ],
+  "BOND/GUIDE": [
+   {
+    "lemma": "dictate",
+    "gloss": "a guiding principle",
+    "sim": 0.7783
+   },
+   {
+    "lemma": "guidance",
+    "gloss": "something that provides direction or advice as to a decision or course of action",
+    "sim": 0.7706
+   },
+   {
+    "lemma": "leadership",
+    "gloss": "the ability to lead",
+    "sim": 0.7591
+   },
+   {
+    "lemma": "fostering",
+    "gloss": "encouragement",
+    "sim": 0.7567
+   },
+   {
+    "lemma": "guidepost",
+    "gloss": "a rule or principle that provides guidance to appropriate behavior",
+    "sim": 0.7541
+   },
+   {
+    "lemma": "morale builder",
+    "gloss": "something or someone who influences by building or strengthening morale",
+    "sim": 0.7535
+   },
+   {
+    "lemma": "referral",
+    "gloss": "a recommendation to consult the (professional) person or group to whom one has been referred",
+    "sim": 0.745
+   },
+   {
+    "lemma": "liaison",
+    "gloss": "a channel for communication between groups",
+    "sim": 0.743
+   },
+   {
+    "lemma": "rule",
+    "gloss": "prescribed guide for conduct or action",
+    "sim": 0.7412
+   },
+   {
+    "lemma": "promotion system",
+    "gloss": "a system for advancing participants to higher-status positions",
+    "sim": 0.7399
+   },
+   {
+    "lemma": "supplication",
+    "gloss": "a humble request for help from someone in authority",
+    "sim": 0.7328
+   },
+   {
+    "lemma": "subordinateness",
+    "gloss": "secondary importance",
+    "sim": 0.7295
+   },
+   {
+    "lemma": "control",
+    "gloss": "a relation of constraint of one entity (thing or person or group) by another",
+    "sim": 0.7267
+   },
+   {
+    "lemma": "session",
+    "gloss": "a meeting for execution of a group's functions",
+    "sim": 0.726
+   },
+   {
+    "lemma": "pep talk",
+    "gloss": "a speech of exhortation attempting to instill enthusiasm and determination in a team or staff",
+    "sim": 0.726
+   },
+   {
+    "lemma": "guide",
+    "gloss": "a structure or marking that serves to direct the motion or positioning of something",
+    "sim": 0.7249
+   },
+   {
+    "lemma": "facilitation",
+    "gloss": "the condition of being made easy (or easier)",
+    "sim": 0.7245
+   },
+   {
+    "lemma": "basketball clinic",
+    "gloss": "a meeting at which basketball players receive special evaluation and instruction",
+    "sim": 0.7239
+   },
+   {
+    "lemma": "word",
+    "gloss": "a verbal command for action",
+    "sim": 0.7233
+   },
+   {
+    "lemma": "commandment",
+    "gloss": "something that is commanded",
+    "sim": 0.7206
+   },
+   {
+    "lemma": "support",
+    "gloss": "something providing immaterial assistance to a person or cause or interest",
+    "sim": 0.7203
+   },
+   {
+    "lemma": "trial",
+    "gloss": "(sports) a preliminary competition to determine qualifications",
+    "sim": 0.7201
+   },
+   {
+    "lemma": "backroom",
+    "gloss": "the meeting place of a group of leaders who make their decisions via private negotiations",
+    "sim": 0.7196
+   },
+   {
+    "lemma": "plan",
+    "gloss": "a series of steps to be carried out or goals to be accomplished",
+    "sim": 0.7179
+   },
+   {
+    "lemma": "clinic",
+    "gloss": "meeting for diagnosis of problems and instruction or remedial work in a particular activity",
+    "sim": 0.7168
+   },
+   {
+    "lemma": "hint",
+    "gloss": "an indirect suggestion",
+    "sim": 0.7164
+   },
+   {
+    "lemma": "lead",
+    "gloss": "evidence pointing to a possible solution",
+    "sim": 0.7147
+   },
+   {
+    "lemma": "hockey clinic",
+    "gloss": "a meeting at which hockey players receive special evaluation and instruction",
+    "sim": 0.7141
+   },
+   {
+    "lemma": "professional relation",
+    "gloss": "the relation that exists when one person requests and is granted professional help from a qualified source",
+    "sim": 0.7138
+   },
+   {
+    "lemma": "rooting",
+    "gloss": "the process of putting forth roots and beginning to grow",
+    "sim": 0.7119
+   },
+   {
+    "lemma": "rapport",
+    "gloss": "a relationship of mutual understanding or trust and agreement between people",
+    "sim": 0.7118
+   },
+   {
+    "lemma": "amen corner",
+    "gloss": "area reserved for persons leading the responsive `amens'",
+    "sim": 0.7117
+   },
+   {
+    "lemma": "partnership",
+    "gloss": "a cooperative relationship between people or groups who agree to share responsibility for achieving some specific goal",
+    "sim": 0.7099
+   },
+   {
+    "lemma": "coordination",
+    "gloss": "the skillful and effective interaction of movements",
+    "sim": 0.7097
+   },
+   {
+    "lemma": "fourth",
+    "gloss": "following the third position",
+    "sim": 0.7096
+   },
+   {
+    "lemma": "command",
+    "gloss": "a position of highest authority",
+    "sim": 0.7087
+   },
+   {
+    "lemma": "turning",
+    "gloss": "a movement in a new direction",
+    "sim": 0.7086
+   },
+   {
+    "lemma": "community",
+    "gloss": "agreement as to goals",
+    "sim": 0.7083
+   },
+   {
+    "lemma": "sales talk",
+    "gloss": "promotion by means of an argument and demonstration",
+    "sim": 0.7082
+   },
+   {
+    "lemma": "stage direction",
+    "gloss": "an instruction written as part of the script of a play",
+    "sim": 0.7075
+   }
+  ],
+  "CONSTRUCT/GUIDE": [
+   {
+    "lemma": "articles of agreement",
+    "gloss": "a contract between crew and captain of a ship",
+    "sim": 0.6732
+   },
+   {
+    "lemma": "drill site",
+    "gloss": "workplace that is the site of a drill hole",
+    "sim": 0.6722
+   },
+   {
+    "lemma": "building block",
+    "gloss": "a block of material used in construction work",
+    "sim": 0.6693
+   },
+   {
+    "lemma": "course",
+    "gloss": "(construction) a layer of masonry",
+    "sim": 0.6665
+   },
+   {
+    "lemma": "carpenter's rule",
+    "gloss": "a rule used by a carpenter",
+    "sim": 0.6663
+   },
+   {
+    "lemma": "construction",
+    "gloss": "the creation of a construct",
+    "sim": 0.666
+   },
+   {
+    "lemma": "trestlework",
+    "gloss": "a supporting structure composed of a system of connected trestles",
+    "sim": 0.6608
+   },
+   {
+    "lemma": "ground floor",
+    "gloss": "becoming part of a venture at the beginning (regarded as position of advantage)",
+    "sim": 0.6556
+   },
+   {
+    "lemma": "guide",
+    "gloss": "a structure or marking that serves to direct the motion or positioning of something",
+    "sim": 0.6545
+   },
+   {
+    "lemma": "header",
+    "gloss": "a framing member crossing and supporting the ends of joists, studs, or rafters so as to transfer their weight to parallel joists, studs, or rafters",
+    "sim": 0.6495
+   },
+   {
+    "lemma": "scaffold",
+    "gloss": "a temporary arrangement erected around a building for convenience of workers",
+    "sim": 0.6461
+   },
+   {
+    "lemma": "morale builder",
+    "gloss": "something or someone who influences by building or strengthening morale",
+    "sim": 0.6457
+   },
+   {
+    "lemma": "deck-house",
+    "gloss": "a superstructure on the upper deck of a ship",
+    "sim": 0.6456
+   },
+   {
+    "lemma": "staff line",
+    "gloss": "any of the 5 horizontal marks comprising a staff",
+    "sim": 0.6423
+   },
+   {
+    "lemma": "structure",
+    "gloss": "a thing constructed",
+    "sim": 0.6423
+   },
+   {
+    "lemma": "jig",
+    "gloss": "a device that holds a piece of machine work and guides the tools operating on it",
+    "sim": 0.6418
+   },
+   {
+    "lemma": "work camp",
+    "gloss": "a camp for trustworthy prisoners employed in government projects",
+    "sim": 0.6414
+   },
+   {
+    "lemma": "cleanup",
+    "gloss": "(baseball) the fourth position in the batting order (usually filled by the best batter on the team)",
+    "sim": 0.6414
+   },
+   {
+    "lemma": "workbench",
+    "gloss": "a strong worktable for a carpenter or mechanic",
+    "sim": 0.6405
+   },
+   {
+    "lemma": "working principle",
+    "gloss": "a rule that is adequate to permit work to be done",
+    "sim": 0.6404
+   },
+   {
+    "lemma": "bridge",
+    "gloss": "an upper deck where a ship is steered and the captain stands",
+    "sim": 0.6403
+   },
+   {
+    "lemma": "command",
+    "gloss": "a position of highest authority",
+    "sim": 0.6401
+   },
+   {
+    "lemma": "coordination",
+    "gloss": "the skillful and effective interaction of movements",
+    "sim": 0.6383
+   },
+   {
+    "lemma": "staff",
+    "gloss": "a strong rod or stick with a specialized utilitarian purpose",
+    "sim": 0.6383
+   },
+   {
+    "lemma": "plant",
+    "gloss": "buildings for carrying on industrial labor",
+    "sim": 0.6379
+   },
+   {
+    "lemma": "foretop",
+    "gloss": "a platform at the head of a foremast",
+    "sim": 0.6377
+   },
+   {
+    "lemma": "watch",
+    "gloss": "a period of time (4 or 2 hours) during which some of a ship's crew are on duty",
+    "sim": 0.6369
+   },
+   {
+    "lemma": "boarding",
+    "gloss": "a structure of boards",
+    "sim": 0.6355
+   },
+   {
+    "lemma": "promotion system",
+    "gloss": "a system for advancing participants to higher-status positions",
+    "sim": 0.6354
+   },
+   {
+    "lemma": "top",
+    "gloss": "platform surrounding the head of a lower mast",
+    "sim": 0.635
+   },
+   {
+    "lemma": "day nursery",
+    "gloss": "a nursery for the supervision of preschool children while the parents work",
+    "sim": 0.6349
+   },
+   {
+    "lemma": "tandem trailer",
+    "gloss": "trucking rig with two trailers in tandem",
+    "sim": 0.6346
+   },
+   {
+    "lemma": "supervisory program",
+    "gloss": "a program that controls the execution of other programs",
+    "sim": 0.6339
+   },
+   {
+    "lemma": "shipyard",
+    "gloss": "a workplace where ships are built or repaired",
+    "sim": 0.6338
+   },
+   {
+    "lemma": "commandment",
+    "gloss": "something that is commanded",
+    "sim": 0.6337
+   },
+   {
+    "lemma": "anchorage",
+    "gloss": "the condition of being secured to a base",
+    "sim": 0.633
+   },
+   {
+    "lemma": "roundhouse",
+    "gloss": "workplace consisting of a circular building for repairing locomotives",
+    "sim": 0.6329
+   },
+   {
+    "lemma": "rota",
+    "gloss": "a roster of names showing the order in which people should perform certain duties",
+    "sim": 0.6325
+   },
+   {
+    "lemma": "tradecraft",
+    "gloss": "skill acquired through experience in a trade",
+    "sim": 0.6323
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "a rotating support placed between moving parts to allow them to move easily",
+    "sim": 0.6315
+   }
+  ],
+  "BOND/MOVE": [
+   {
+    "lemma": "liaison",
+    "gloss": "a channel for communication between groups",
+    "sim": 0.8068
+   },
+   {
+    "lemma": "introduction",
+    "gloss": "the first section of a communication",
+    "sim": 0.7855
+   },
+   {
+    "lemma": "public speaking",
+    "gloss": "delivering an address to a public audience",
+    "sim": 0.7748
+   },
+   {
+    "lemma": "address",
+    "gloss": "the act of delivering a formal spoken communication to an audience",
+    "sim": 0.7656
+   },
+   {
+    "lemma": "promotion system",
+    "gloss": "a system for advancing participants to higher-status positions",
+    "sim": 0.7607
+   },
+   {
+    "lemma": "correspondence",
+    "gloss": "communication by the exchange of letters",
+    "sim": 0.7607
+   },
+   {
+    "lemma": "opening",
+    "gloss": "a ceremony accompanying the start of some enterprise",
+    "sim": 0.7562
+   },
+   {
+    "lemma": "distribution list",
+    "gloss": "list of names to whom a communication should be sent",
+    "sim": 0.7554
+   },
+   {
+    "lemma": "relations",
+    "gloss": "mutual dealings or connections or communications among persons or groups",
+    "sim": 0.7538
+   },
+   {
+    "lemma": "sales talk",
+    "gloss": "promotion by means of an argument and demonstration",
+    "sim": 0.7535
+   },
+   {
+    "lemma": "topology",
+    "gloss": "the configuration of a communication network",
+    "sim": 0.7495
+   },
+   {
+    "lemma": "party line",
+    "gloss": "a telephone line serving two or more subscribers",
+    "sim": 0.7461
+   },
+   {
+    "lemma": "conveyance",
+    "gloss": "the transmission of information",
+    "sim": 0.7459
+   },
+   {
+    "lemma": "transition",
+    "gloss": "a passage that connects a topic to one that follows",
+    "sim": 0.7456
+   },
+   {
+    "lemma": "talk",
+    "gloss": "an exchange of ideas via conversation",
+    "sim": 0.7453
+   },
+   {
+    "lemma": "gossiping",
+    "gloss": "a conversation that spreads personal information about other people",
+    "sim": 0.7447
+   },
+   {
+    "lemma": "overture",
+    "gloss": "a tentative suggestion designed to elicit the reactions of others",
+    "sim": 0.7437
+   },
+   {
+    "lemma": "glad hand",
+    "gloss": "a warm welcome",
+    "sim": 0.7435
+   },
+   {
+    "lemma": "broadcast medium",
+    "gloss": "a medium that disseminates via telecommunications",
+    "sim": 0.7431
+   },
+   {
+    "lemma": "cordial reception",
+    "gloss": "kindness in welcoming guests or strangers",
+    "sim": 0.7409
+   },
+   {
+    "lemma": "gambit",
+    "gloss": "an opening remark intended to secure an advantage for the speaker",
+    "sim": 0.7407
+   },
+   {
+    "lemma": "grapevine",
+    "gloss": "gossip spread by spoken communication",
+    "sim": 0.7378
+   },
+   {
+    "lemma": "discussion",
+    "gloss": "an extended communication (often interactive) dealing with some particular topic",
+    "sim": 0.7364
+   },
+   {
+    "lemma": "phatic speech",
+    "gloss": "conversational speech used to communicate sociability more than information",
+    "sim": 0.7351
+   },
+   {
+    "lemma": "bidding",
+    "gloss": "a request to be present",
+    "sim": 0.7343
+   },
+   {
+    "lemma": "rapport",
+    "gloss": "a relationship of mutual understanding or trust and agreement between people",
+    "sim": 0.7337
+   },
+   {
+    "lemma": "cheering",
+    "gloss": "encouragement in the form of cheers from spectators",
+    "sim": 0.733
+   },
+   {
+    "lemma": "distributor point",
+    "gloss": "a contact in the distributor",
+    "sim": 0.7323
+   },
+   {
+    "lemma": "social event",
+    "gloss": "an event characteristic of persons forming groups",
+    "sim": 0.732
+   },
+   {
+    "lemma": "electioneering",
+    "gloss": "persuasion of voters in a political campaign",
+    "sim": 0.7313
+   },
+   {
+    "lemma": "handshake",
+    "gloss": "grasping and shaking a person's hand (as to acknowledge an introduction or to agree on a contract)",
+    "sim": 0.7312
+   },
+   {
+    "lemma": "preliminary",
+    "gloss": "something that serves as a preceding event or introduces what follows",
+    "sim": 0.7298
+   },
+   {
+    "lemma": "backbone",
+    "gloss": "the part of a network that connects other networks together",
+    "sim": 0.7293
+   },
+   {
+    "lemma": "chain letter",
+    "gloss": "a letter that is sent successively to several people",
+    "sim": 0.7284
+   },
+   {
+    "lemma": "promotion",
+    "gloss": "a message issued in behalf of some product or cause or idea or person or institution",
+    "sim": 0.7277
+   },
+   {
+    "lemma": "welcome wagon",
+    "gloss": "a wheeled vehicle carrying information and gifts from local merchants for new residents in an area",
+    "sim": 0.7269
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "relevant relation or interconnection",
+    "sim": 0.7269
+   },
+   {
+    "lemma": "local area network",
+    "gloss": "a local computer network for communication between computers",
+    "sim": 0.7265
+   },
+   {
+    "lemma": "exhortation",
+    "gloss": "a communication intended to urge or persuade the recipients to take some action",
+    "sim": 0.7261
+   },
+   {
+    "lemma": "interconnection",
+    "gloss": "a state of being connected reciprocally",
+    "sim": 0.7257
+   }
+  ],
+  "CONSTRUCT/MOVE": [
+   {
+    "lemma": "transporter",
+    "gloss": "a crane for moving material with dispatch as in loading and unloading ships",
+    "sim": 0.8084
+   },
+   {
+    "lemma": "conveyance",
+    "gloss": "something that serves as a means of transportation",
+    "sim": 0.7728
+   },
+   {
+    "lemma": "freight elevator",
+    "gloss": "an elevator designed for carrying freight",
+    "sim": 0.7653
+   },
+   {
+    "lemma": "dock",
+    "gloss": "a platform where trucks or trains can be loaded or unloaded",
+    "sim": 0.7635
+   },
+   {
+    "lemma": "crane",
+    "gloss": "lifts and moves heavy objects",
+    "sim": 0.756
+   },
+   {
+    "lemma": "trailer",
+    "gloss": "a large transport conveyance designed to be pulled by a truck or tractor",
+    "sim": 0.7522
+   },
+   {
+    "lemma": "pallet",
+    "gloss": "a portable platform for storing or moving goods that are stacked on it",
+    "sim": 0.7493
+   },
+   {
+    "lemma": "cattleship",
+    "gloss": "a cargo ship for the transport of livestock",
+    "sim": 0.744
+   },
+   {
+    "lemma": "public transport",
+    "gloss": "conveyance for passengers or mail or freight",
+    "sim": 0.7426
+   },
+   {
+    "lemma": "tandem trailer",
+    "gloss": "trucking rig with two trailers in tandem",
+    "sim": 0.7409
+   },
+   {
+    "lemma": "milk wagon",
+    "gloss": "wagon for delivering milk",
+    "sim": 0.7405
+   },
+   {
+    "lemma": "plant",
+    "gloss": "buildings for carrying on industrial labor",
+    "sim": 0.7401
+   },
+   {
+    "lemma": "lifting device",
+    "gloss": "a device for lifting heavy loads",
+    "sim": 0.7346
+   },
+   {
+    "lemma": "cattle car",
+    "gloss": "a freight car for transporting cattle",
+    "sim": 0.7336
+   },
+   {
+    "lemma": "tramway",
+    "gloss": "a conveyance that transports passengers or freight in carriers suspended from cables and supported by a series of towers",
+    "sim": 0.7329
+   },
+   {
+    "lemma": "railway station",
+    "gloss": "terminal where trains load or unload passengers or goods",
+    "sim": 0.7314
+   },
+   {
+    "lemma": "fire engine",
+    "gloss": "any of various large trucks that carry firemen and equipment to the site of a fire",
+    "sim": 0.7311
+   },
+   {
+    "lemma": "elevator",
+    "gloss": "lifting device consisting of a platform or cage that is raised and lowered mechanically in a vertical shaft in order to move people from one floor to another in a building",
+    "sim": 0.7283
+   },
+   {
+    "lemma": "Dumpster",
+    "gloss": "a container designed to receive and transport and dump waste",
+    "sim": 0.7276
+   },
+   {
+    "lemma": "translocation",
+    "gloss": "the transport of dissolved material within a plant",
+    "sim": 0.7272
+   },
+   {
+    "lemma": "cargo ship",
+    "gloss": "a ship designed to carry cargo",
+    "sim": 0.7266
+   },
+   {
+    "lemma": "shipping",
+    "gloss": "conveyance provided by the ships belonging to one country or industry",
+    "sim": 0.7261
+   },
+   {
+    "lemma": "troopship",
+    "gloss": "ship for transporting troops",
+    "sim": 0.7253
+   },
+   {
+    "lemma": "ski tow",
+    "gloss": "a powered conveyance that carries skiers up a hill",
+    "sim": 0.7247
+   },
+   {
+    "lemma": "carriage",
+    "gloss": "a machine part that carries something else",
+    "sim": 0.7245
+   },
+   {
+    "lemma": "car carrier",
+    "gloss": "a trailer that can be loaded with new cars for delivery to sales agencies",
+    "sim": 0.7234
+   },
+   {
+    "lemma": "horsebox",
+    "gloss": "a conveyance (railroad car or trailer) for transporting racehorses",
+    "sim": 0.7219
+   },
+   {
+    "lemma": "mail",
+    "gloss": "a conveyance that transports the letters and packages that are conveyed by the postal system",
+    "sim": 0.7204
+   },
+   {
+    "lemma": "railhead",
+    "gloss": "a railroad depot in a theater of operations where military supplies are unloaded for distribution",
+    "sim": 0.7194
+   },
+   {
+    "lemma": "carrier",
+    "gloss": "a rack attached to a vehicle",
+    "sim": 0.7186
+   },
+   {
+    "lemma": "guide rope",
+    "gloss": "a rope used to guide the movement of the load of a crane",
+    "sim": 0.7184
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "a rotating support placed between moving parts to allow them to move easily",
+    "sim": 0.718
+   },
+   {
+    "lemma": "transport ship",
+    "gloss": "a ship for carrying soldiers or military equipment",
+    "sim": 0.718
+   },
+   {
+    "lemma": "cargo door",
+    "gloss": "door used to load or unload cargo",
+    "sim": 0.7159
+   },
+   {
+    "lemma": "commodity exchange",
+    "gloss": "an exchange for buying and selling commodities for future delivery",
+    "sim": 0.7155
+   },
+   {
+    "lemma": "pavior",
+    "gloss": "a machine for laying pavement",
+    "sim": 0.715
+   },
+   {
+    "lemma": "litter",
+    "gloss": "conveyance consisting of a chair or bed carried on two poles by bearers",
+    "sim": 0.7132
+   },
+   {
+    "lemma": "tumbrel",
+    "gloss": "a farm dumpcart for carrying dung",
+    "sim": 0.7131
+   },
+   {
+    "lemma": "weapons carrier",
+    "gloss": "military vehicle that is a light truck designed to carry mortars or machine guns and their crews",
+    "sim": 0.7125
+   },
+   {
+    "lemma": "container ship",
+    "gloss": "a cargo ship designed to hold containerized cargoes",
+    "sim": 0.7122
+   }
+  ],
+  "BOND/WALK": [
+   {
+    "lemma": "traffic",
+    "gloss": "the amount of activity over a communication system during a given period of time",
+    "sim": 0.7762
+   },
+   {
+    "lemma": "liaison",
+    "gloss": "a channel for communication between groups",
+    "sim": 0.7641
+   },
+   {
+    "lemma": "telephone line",
+    "gloss": "a telephone connection",
+    "sim": 0.7559
+   },
+   {
+    "lemma": "contact",
+    "gloss": "the state or condition of touching or of being in immediate proximity",
+    "sim": 0.7555
+   },
+   {
+    "lemma": "voice mail",
+    "gloss": "a computerized system for answering and routing telephone calls",
+    "sim": 0.7549
+   },
+   {
+    "lemma": "toll line",
+    "gloss": "a telephone line for long-distance calls",
+    "sim": 0.754
+   },
+   {
+    "lemma": "correspondence",
+    "gloss": "communication by the exchange of letters",
+    "sim": 0.7511
+   },
+   {
+    "lemma": "lifeline",
+    "gloss": "support that enables people to survive or to continue doing something (often by providing an essential connection)",
+    "sim": 0.7498
+   },
+   {
+    "lemma": "continuity",
+    "gloss": "uninterrupted connection or union",
+    "sim": 0.7496
+   },
+   {
+    "lemma": "will",
+    "gloss": "a fixed and persistent intent or purpose",
+    "sim": 0.7459
+   },
+   {
+    "lemma": "discussion",
+    "gloss": "an extended communication (often interactive) dealing with some particular topic",
+    "sim": 0.7439
+   },
+   {
+    "lemma": "telephone conversation",
+    "gloss": "a conversation over the telephone",
+    "sim": 0.7425
+   },
+   {
+    "lemma": "interphone",
+    "gloss": "a telephonic intercommunication system linking different rooms in a building or ship etc",
+    "sim": 0.7422
+   },
+   {
+    "lemma": "Mayday",
+    "gloss": "an internationally recognized distress signal via radiotelephone (from the French m'aider)",
+    "sim": 0.7417
+   },
+   {
+    "lemma": "interconnection",
+    "gloss": "a state of being connected reciprocally",
+    "sim": 0.7404
+   },
+   {
+    "lemma": "information",
+    "gloss": "a message received and understood",
+    "sim": 0.7377
+   },
+   {
+    "lemma": "distribution list",
+    "gloss": "list of names to whom a communication should be sent",
+    "sim": 0.7362
+   },
+   {
+    "lemma": "WATS",
+    "gloss": "a telephone line",
+    "sim": 0.7337
+   },
+   {
+    "lemma": "importunity",
+    "gloss": "insistent solicitation and entreaty",
+    "sim": 0.7337
+   },
+   {
+    "lemma": "inherence",
+    "gloss": "the state of inhering",
+    "sim": 0.7329
+   },
+   {
+    "lemma": "running",
+    "gloss": "the state of being in operation",
+    "sim": 0.7305
+   },
+   {
+    "lemma": "amplitude modulation",
+    "gloss": "modulation of the amplitude of the (radio) carrier wave",
+    "sim": 0.7302
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "relevant relation or interconnection",
+    "sim": 0.7302
+   },
+   {
+    "lemma": "radio",
+    "gloss": "medium for communication",
+    "sim": 0.729
+   },
+   {
+    "lemma": "distributor point",
+    "gloss": "a contact in the distributor",
+    "sim": 0.7276
+   },
+   {
+    "lemma": "progress",
+    "gloss": "a movement forward",
+    "sim": 0.7271
+   },
+   {
+    "lemma": "call-board",
+    "gloss": "a bulletin board backstage in a theater",
+    "sim": 0.7265
+   },
+   {
+    "lemma": "attachment",
+    "gloss": "a connection that fastens things together",
+    "sim": 0.7262
+   },
+   {
+    "lemma": "party line",
+    "gloss": "a telephone line serving two or more subscribers",
+    "sim": 0.7259
+   },
+   {
+    "lemma": "indicator",
+    "gloss": "a signal for attracting attention",
+    "sim": 0.7257
+   },
+   {
+    "lemma": "rapport",
+    "gloss": "a relationship of mutual understanding or trust and agreement between people",
+    "sim": 0.7255
+   },
+   {
+    "lemma": "relations",
+    "gloss": "mutual dealings or connections or communications among persons or groups",
+    "sim": 0.7255
+   },
+   {
+    "lemma": "call waiting",
+    "gloss": "a way of letting you know that someone else is calling when you are using your telephone",
+    "sim": 0.7253
+   },
+   {
+    "lemma": "backbeat",
+    "gloss": "a loud steady beat",
+    "sim": 0.7248
+   },
+   {
+    "lemma": "phatic speech",
+    "gloss": "conversational speech used to communicate sociability more than information",
+    "sim": 0.7244
+   },
+   {
+    "lemma": "centrex",
+    "gloss": "(CENTRal EXchange) a kind of telephone exchange",
+    "sim": 0.7203
+   },
+   {
+    "lemma": "toll call",
+    "gloss": "a long-distance telephone call at charges above a local rate",
+    "sim": 0.7193
+   },
+   {
+    "lemma": "messaging",
+    "gloss": "the sending and processing of e-mail by computer",
+    "sim": 0.7185
+   },
+   {
+    "lemma": "grapevine",
+    "gloss": "gossip spread by spoken communication",
+    "sim": 0.7181
+   },
+   {
+    "lemma": "telephone system",
+    "gloss": "a communication system that transmits sound between distant points",
+    "sim": 0.7171
+   }
+  ],
+  "CONSTRUCT/WALK": [
+   {
+    "lemma": "support",
+    "gloss": "supporting structure that holds up or provides a foundation",
+    "sim": 0.7487
+   },
+   {
+    "lemma": "structure",
+    "gloss": "a thing constructed",
+    "sim": 0.7371
+   },
+   {
+    "lemma": "supporting tower",
+    "gloss": "a tower that serves to support something",
+    "sim": 0.7249
+   },
+   {
+    "lemma": "plant",
+    "gloss": "buildings for carrying on industrial labor",
+    "sim": 0.7229
+   },
+   {
+    "lemma": "trestlework",
+    "gloss": "a supporting structure composed of a system of connected trestles",
+    "sim": 0.7158
+   },
+   {
+    "lemma": "framework",
+    "gloss": "a structure supporting or containing something",
+    "sim": 0.7136
+   },
+   {
+    "lemma": "live load",
+    "gloss": "a variable load on a structure (e.g. a bridge) such as moving traffic",
+    "sim": 0.7104
+   },
+   {
+    "lemma": "column",
+    "gloss": "(architecture) a tall vertical cylindrical structure standing upright and used to support a structure",
+    "sim": 0.7017
+   },
+   {
+    "lemma": "station",
+    "gloss": "a facility equipped with special equipment and personnel for a particular purpose",
+    "sim": 0.7015
+   },
+   {
+    "lemma": "dock",
+    "gloss": "a platform where trucks or trains can be loaded or unloaded",
+    "sim": 0.7014
+   },
+   {
+    "lemma": "railway",
+    "gloss": "line that is the commercial organization responsible for operating a system of transportation for trains that pull passengers or freight",
+    "sim": 0.6975
+   },
+   {
+    "lemma": "tramway",
+    "gloss": "a conveyance that transports passengers or freight in carriers suspended from cables and supported by a series of towers",
+    "sim": 0.6956
+   },
+   {
+    "lemma": "housing",
+    "gloss": "structures collectively in which people are housed",
+    "sim": 0.6941
+   },
+   {
+    "lemma": "passenger ship",
+    "gloss": "a ship built to carry passengers",
+    "sim": 0.6926
+   },
+   {
+    "lemma": "container ship",
+    "gloss": "a cargo ship designed to hold containerized cargoes",
+    "sim": 0.6906
+   },
+   {
+    "lemma": "boarding",
+    "gloss": "a structure of boards",
+    "sim": 0.6901
+   },
+   {
+    "lemma": "gas system",
+    "gloss": "facility (plant and equipment) for providing natural-gas service",
+    "sim": 0.6893
+   },
+   {
+    "lemma": "cargo ship",
+    "gloss": "a ship designed to carry cargo",
+    "sim": 0.6881
+   },
+   {
+    "lemma": "airport",
+    "gloss": "an airfield equipped with control tower and hangars as well as accommodations for passengers and cargo",
+    "sim": 0.6874
+   },
+   {
+    "lemma": "shaft",
+    "gloss": "(architecture) upright consisting of the vertical part of a column",
+    "sim": 0.6869
+   },
+   {
+    "lemma": "body",
+    "gloss": "the external structure of a vehicle",
+    "sim": 0.6868
+   },
+   {
+    "lemma": "fire station",
+    "gloss": "a station housing fire apparatus and firemen",
+    "sim": 0.6847
+   },
+   {
+    "lemma": "anchorage",
+    "gloss": "the condition of being secured to a base",
+    "sim": 0.6844
+   },
+   {
+    "lemma": "conveyance",
+    "gloss": "something that serves as a means of transportation",
+    "sim": 0.6839
+   },
+   {
+    "lemma": "marshalling yard",
+    "gloss": "a railway yard in which trains are assembled and goods are loaded",
+    "sim": 0.6826
+   },
+   {
+    "lemma": "infrastructure",
+    "gloss": "the stock of basic facilities and capital equipment needed for the functioning of a country or area",
+    "sim": 0.6826
+   },
+   {
+    "lemma": "line",
+    "gloss": "a commercial organization serving as a common carrier",
+    "sim": 0.6817
+   },
+   {
+    "lemma": "mooring tower",
+    "gloss": "a tower for mooring airships",
+    "sim": 0.681
+   },
+   {
+    "lemma": "deck-house",
+    "gloss": "a superstructure on the upper deck of a ship",
+    "sim": 0.6801
+   },
+   {
+    "lemma": "roundhouse",
+    "gloss": "workplace consisting of a circular building for repairing locomotives",
+    "sim": 0.6792
+   },
+   {
+    "lemma": "bearing",
+    "gloss": "a rotating support placed between moving parts to allow them to move easily",
+    "sim": 0.6791
+   },
+   {
+    "lemma": "transporter",
+    "gloss": "a crane for moving material with dispatch as in loading and unloading ships",
+    "sim": 0.6779
+   },
+   {
+    "lemma": "header",
+    "gloss": "a framing member crossing and supporting the ends of joists, studs, or rafters so as to transfer their weight to parallel joists, studs, or rafters",
+    "sim": 0.6754
+   },
+   {
+    "lemma": "sternpost",
+    "gloss": "(nautical) the principal upright timber at the stern of a vessel",
+    "sim": 0.675
+   },
+   {
+    "lemma": "strand",
+    "gloss": "a pattern forming a unity within a larger structural whole",
+    "sim": 0.6737
+   },
+   {
+    "lemma": "steamship company",
+    "gloss": "a line responsible for the operation of a fleet of steamships",
+    "sim": 0.6732
+   },
+   {
+    "lemma": "riser",
+    "gloss": "structural member consisting of the vertical part of a stair or step",
+    "sim": 0.6726
+   },
+   {
+    "lemma": "service station",
+    "gloss": "a station where gasoline and oil are sold and facilities are available for repairing or maintaining automobiles",
+    "sim": 0.6724
+   },
+   {
+    "lemma": "truss",
+    "gloss": "a framework of beams (rafters, posts, struts) forming a rigid structure that supports a roof or bridge or other structure",
+    "sim": 0.6723
+   },
+   {
+    "lemma": "truss bridge",
+    "gloss": "a bridge supported by trusses",
+    "sim": 0.6718
+   }
+  ]
+ }
+}

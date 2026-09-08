@@ -71,7 +71,35 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 - E10: the mechanism under test fired in under 3% of generations.
 
 **Order of operations: populate first, expand second.** See
-`research/mapper/EXPANSION_SPEC.md`.
+`research/mapper/EXPANSION_SPEC.md` for the deficit table, forecast and
+acceptance test, and `research/mapper/E11_CANDIDATE_MINER.md` for the worklist.
+
+**The worklist exists (E11).** WordNet noun synsets, filtered by lexicographer
+file to the categories a physis entry actually *is* (act, cognition, state,
+process, relation…) and dropping concrete taxa: 13,958 candidates. **Validated
+before its output was read** — hold out 30% of existing entries, hide them among
+the synsets, build each cell's target from train members and anchor only, and
+rank the pool of 14,155:
+
+| arm | r@25 | **r@100** |
+|---|---:|---:|
+| target from members + anchor | **0.325** | **0.497** |
+| CONTROL shuffled cell targets | 0.005 | 0.086 |
+| CONTROL random ranking | 0.000 | 0.025 |
+| *chance* | | *0.0071* |
+
+Half the held-out entries surface in the top 100 — 70× chance, 5.8× the shuffled
+control. Output is usable (`ideation`, `groupthink`, `divergent thinking` for
+BRAINSTORM; `guidance`, `leadership`, `fostering` for GUIDE).
+
+**Known weakness, and it is a probe rather than only a fault:** the CONSTRUCT
+domain pulls concrete artifacts (`crane`, `hoist` for CONSTRUCT/LIFT;
+`transporter`, `freight elevator` for CONSTRUCT/MOVE) — machines that lift and
+move, not the mode. BOND returns relations throughout. `GRID_AXES.md` defines
+CONSTRUCT as *"the durable arrangement other work happens inside or on top of"*,
+but its anchor embeds toward a building site. Same gap E6 measured (anchors
+recover domain at 39.9% over chance, mode at 18.7%). **Read BOND/HEAL/STUDY/
+FABRICATE first; fix the CONSTRUCT anchor before reading its list.**
 
 ### Standing rules, each earned
 
