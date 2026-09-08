@@ -67,6 +67,11 @@ def main():
     ap.add_argument("--dim", type=int, default=256)
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--seed", type=int, default=17)
+    ap.add_argument("--max-features", type=int, default=8000)
+    ap.add_argument("--extra-nodes", type=int, default=4000,
+                    help="cap on unlabelled graph vertices in Leg B")
+    ap.add_argument("--docs", action="store_true",
+                    help="include the ~/Documenti library as background corpus")
     a = ap.parse_args()
 
     lab = json.load(open(os.path.join(HERE, "corpus.json")))["entries"]
@@ -83,6 +88,28 @@ def main():
     SV = np.fromfile(os.path.join(HERE, "selfcorpus_vecs.f32"), dtype=np.float32)
     SV = l2(SV.reshape(len(sc), -1))
 
+    # ── optional: the document library, for corpus density and VARIATION ──
+    # The codebase is one register written by one team. A library of
+    # philosophy, sociology and semiotics is the variation test: if the mapper
+    # mechanism needs a broad linguistic map, this is what a broad one looks
+    # like. Text is read from the gitignored working file; the committed
+    # artifact carries no text and no filenames.
+    dtexts, DV = [], None
+    dpath = os.path.join(HERE, "docs_corpus.json")
+    dchunks = os.path.join(HERE, ".docs_chunks.jsonl")
+    if a.docs and os.path.exists(dpath):
+        dmeta = json.load(open(dpath))["chunks"]
+        DV = np.fromfile(os.path.join(HERE, "docs_vecs.f32"), dtype=np.float32)
+        DV = l2(DV.reshape(len(dmeta), -1))
+        if os.path.exists(dchunks):
+            raw = [json.loads(l) for l in open(dchunks)]
+            if len(raw) != len(dmeta):          # the exporter may have strided
+                stride = len(raw) // len(dmeta) + 1
+                raw = raw[::stride][: len(dmeta)]
+            dtexts = [r["text"] for r in raw]
+        print(f"  document library              : {len(dmeta)} chunks"
+              f"{' (text available for n-grams)' if dtexts else ' (vectors only)'}")
+
     print("E3 — density, measured rather than argued\n")
     print(f"  labelled entries (evaluation) : {n}")
     print(f"  codebase chunks (substrate)   : {len(sc)}")
@@ -96,11 +123,17 @@ def main():
     D = QwenDictionary(a.tokenizer)
     tk = Tokenizer.from_file(a.tokenizer)
     q_lab = [tk.encode(t).ids for t in texts]
-    q_all = q_lab + [tk.encode(t).ids for t in stexts]
+    bg_texts = stexts + dtexts
+    q_all = q_lab + [tk.encode(t).ids for t in bg_texts]
+    print(f"\n  background text units for PPMI: {len(bg_texts)} "
+          f"({len(stexts)} codebase + {len(dtexts)} documents)")
 
     hdr("LEG A — relational density: PPMI estimated on the union corpus")
     M_small, keep_s, _ = build_counts(q_lab, min_df=2)
-    M_big_all, keep_b, _ = build_counts(q_all, min_df=2)
+    M_big_all, keep_b, _ = build_counts(q_all, min_df=2, max_features=a.max_features)
+    if len(keep_b) >= a.max_features:
+        print(f"  NOTE: union vocabulary capped at {a.max_features:,} most-frequent "
+              f"tokens (PPMI is V x V; uncapped would not fit in memory)")
     M_big = M_big_all[:n]                      # the same 658 entries, big vocabulary
     print(f"  L0 vocabulary at df>=2 : {len(keep_s):,} (658 entries) -> "
           f"{len(keep_b):,} (union)   {len(keep_b)/max(len(keep_s),1):.1f}x")
@@ -158,10 +191,18 @@ def main():
     print("  Anchors are drawn only from the labelled train pool. The extra")
     print("  vertices are substrate the labels may diffuse through.\n")
     print(f"  {'arm':<38}" + "".join(f"{k:>7}" for k in ks))
-    for name, rep_lab, rep_extra in [
-        ("BGE, 658 nodes only",      BGE, None),
-        ("BGE + codebase nodes",     BGE, SV),
-    ]:
+    legb = [("BGE, 658 nodes only", BGE, None),
+            ("BGE + codebase nodes", BGE, SV)]
+    if DV is not None:
+        legb.append(("BGE + documents", BGE, DV))
+        legb.append(("BGE + codebase + documents", BGE, np.vstack([SV, DV])))
+    def sub(v):
+        if v is None or len(v) <= a.extra_nodes:
+            return v
+        step = len(v) // a.extra_nodes + 1
+        return v[::step][: a.extra_nodes]
+    legb = [(nm, rl, sub(re_)) for nm, rl, re_ in legb]
+    for name, rep_lab, rep_extra in legb:
         if rep_extra is None:
             rows = propagation_curve(rep_lab, labels, train_pool, test_idx, ks, classes,
                                      reps=a.reps, knn=10, seed=a.seed)
@@ -176,6 +217,9 @@ def main():
     # union-vocabulary Qwen representation for the codebase chunks, so the
     # extra nodes live in the same space as the labelled ones
     M_chunks = M_big_all[n:]
+    if len(M_chunks) > a.extra_nodes:
+        step = len(M_chunks) // a.extra_nodes + 1
+        M_chunks = M_chunks[::step][: a.extra_nodes]
     q_extra = l2(svd_reduce(l2((M_chunks*wb) @ P1b), a.dim, a.seed))
     for name, rep_lab, rep_extra in [
         ("L1 Qwen union, 658 nodes only", qb, None),

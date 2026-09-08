@@ -119,13 +119,22 @@ def l2(m):
     return m / np.maximum(n, 1e-9)
 
 
-def build_counts(token_lists, min_df=2):
-    """entry x token count matrix, pruned to tokens seen in >= min_df entries."""
+def build_counts(token_lists, min_df=2, max_features=None):
+    """entry x token count matrix, pruned to tokens seen in >= min_df entries.
+
+    `max_features` caps the vocabulary at the most frequent tokens. It exists
+    for tractability, not for tuning: PPMI is V x V, so an uncapped vocabulary
+    over a 16k-document corpus would be tens of gigabytes. The cap is stated
+    with the result whenever it binds.
+    """
     df = {}
     for toks in token_lists:
         for t in set(toks):
             df[t] = df.get(t, 0) + 1
-    keep = sorted(t for t, c in df.items() if c >= min_df)
+    keep = [t for t, c in df.items() if c >= min_df]
+    if max_features and len(keep) > max_features:
+        keep = sorted(keep, key=lambda t: -df[t])[:max_features]
+    keep = sorted(keep)
     idx = {t: j for j, t in enumerate(keep)}
     M = np.zeros((len(token_lists), len(keep)), dtype=np.float32)
     for i, toks in enumerate(token_lists):

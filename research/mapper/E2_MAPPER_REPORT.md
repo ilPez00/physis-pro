@@ -298,13 +298,132 @@ mechanism did not appear.**
 
 ## Next
 
-Not a rescue of this design. The two facts worth carrying forward are that
-**BGE-base remains the strongest representation this repo has for grid
-prediction** (0.447 against every constructed alternative), and that the
-propagation result says something general: on a 658-entry corpus spread over 70
-cells, structure-based diffusion has too little density to work. Any future
-version of this hypothesis needs a corpus large enough for L1 and L2 to be
-estimated, and that is a data problem before it is an architecture problem.
+Not a rescue of this design. **BGE-base remains the strongest representation
+this repo has for grid prediction** (0.447 against every constructed
+alternative).
+
+*The paragraph that stood here claimed the failure was a data problem and that a
+larger corpus was the fix. E3/E4 tested that with 24× the text and refuted it —
+see the section above. The claim is left struck rather than deleted, because a
+diagnosis that survives one round and dies in the next is worth being able to
+find later.*
+
+---
+
+## E3 / E4 — the density diagnosis, tested and REFUTED
+
+E2 closed with a diagnosis rather than a measurement:
+
+> *"on a 658-entry corpus spread over 70 cells, structure-based diffusion has
+> too little density to work. Any future version of this hypothesis needs a
+> corpus large enough for L1 and L2 to be estimated, and that is a data problem
+> before it is an architecture problem."*
+
+**That was wrong, and this section is the test that shows it.**
+
+### What was added
+
+| corpus | units | how |
+|---|---:|---|
+| labelled entries (evaluation, unchanged) | 658 | human-authored cells |
+| physis codebase | 5,237 | chunked, embedded, classified by physis's **own** `CellClassifier` |
+| document library (`~/Documenti`) | 10,167 | 342 files, 21.1 M characters — philosophy, ebooks, sociology, semiotics, phenomenology |
+
+Volume rose 24×, and the *variation* rose far more: the codebase is one register
+written by one team; the library is natural prose across a dozen subjects.
+
+**Privacy, applied not assumed.** Directories that are personal, financial,
+medical or private correspondence were excluded by default, with a filename
+filter for WhatsApp exports, invoices, contracts, CVs, ID and bank documents.
+No document text and no filenames are committed: the artifact carries only a
+machine-assigned cell, its score, a coarse top-level tag, and the vector.
+
+**Circularity avoided.** The cells physis assigns to the codebase and the
+documents are MACHINE-PRODUCED. They are never evaluated against and never used
+as anchors. The evaluation set stays the 658 human-authored cells on E2's
+identical split.
+
+### Leg A — denser relations made every level worse
+
+L1 positive edges went from 170,944 to **21,268,718 (124×)**; matrix density
+0.031 → 0.332. The relations really did get denser.
+
+| level | PPMI from 658 entries | PPMI from the union | Δ |
+|---|---:|---:|---:|
+| C Qwen L0 | 0.340 | 0.203 | **−0.137** |
+| L1 Qwen + PPMI | 0.355 | 0.183 | **−0.173** |
+| L2 relations-of-relations | 0.279 | **0.066** | **−0.213** |
+
+L2 on the union corpus scores **0.066, below the 0.102 majority floor** — worse
+than guessing the largest cell.
+
+### The two confounds, separated before attributing anything
+
+The union arm changed two things at once: relations got denser, and the
+vocabulary changed (2,357 ontology-drawn tokens → the 8,000 most frequent over a
+corpus of philosophy and Rust). Holding the vocabulary **fixed** at the original
+tokens and estimating PPMI on the union isolates them:
+
+| arm | k=20 | k=80 | k=320 | full |
+|---|---:|---:|---:|---:|
+| (a) original vocabulary, PPMI from 658 | 0.080 | 0.128 | 0.210 | **0.218** |
+| (b) original vocabulary, PPMI from union | 0.068 | 0.118 | 0.157 | 0.188 |
+| (c) union vocabulary, PPMI from union | 0.075 | 0.110 | 0.142 | 0.183 |
+
+**(a) → (b) is density alone: −0.030.** Same features, relations estimated from
+24× more text, and it gets worse. **(b) → (c) is vocabulary displacement:
+−0.005.** So the collapse is primarily *density*, not the vocabulary cap. This
+is the opposite of the E2 diagnosis, measured on the arm the diagnosis named.
+
+### Leg B — node density, and why one arm could not benefit
+
+| arm | k=20 | k=160 | full |
+|---|---:|---:|---:|
+| BGE, 658 nodes only | 0.133 | 0.248 | 0.299 |
+| BGE + codebase nodes | 0.129 | 0.289 | **0.350** |
+| BGE + documents | 0.129 | 0.260 | 0.315 |
+| BGE + codebase + documents | 0.127 | 0.280 | 0.345 |
+| L1 Qwen union, 658 nodes only | 0.090 | 0.142 | 0.168 |
+| L1 Qwen union + codebase nodes | 0.090 | 0.142 | **0.168** |
+
+Two things here.
+
+**BGE gains from unlabelled substrate, but only where anchors are already
+plentiful** — +0.051 at full supervision, **nothing at k=20** (0.133 → 0.129).
+Extra nodes help a dense problem, not a sparse one. That is the opposite of what
+the mapper hypothesis needs.
+
+**The Qwen rows are byte-identical with and without the extra nodes**, which
+looked like a bug and is not. Counting edges in the 10-NN graph:
+
+| representation | labelled→extra edges | labelled→labelled | cross share |
+|---|---:|---:|---:|
+| BGE | 1,293 | 7,296 | **15.1%** |
+| Qwen L1 union | **10** | 12,000 | **0.1%** |
+
+The Qwen n-gram map places ontology entries and prose chunks in effectively
+disjoint regions. Labels cannot diffuse through vertices nothing connects to, so
+the null for that arm is a **property of the representation**, not a wiring
+error — and it is a sharper statement of E2's finding than E2 managed.
+
+### What this changes
+
+**E2's verdict stands and its caveat is now closed.** The verdict was
+`MAPPER HYPOTHESIS NOT SUPPORTED`; the caveat was that it might be a data
+problem. It is not. 24× the text, from a corpus vastly more varied than the
+original, estimated 124× more relations — and every level got worse, with the
+highest-order level falling below the trivial floor.
+
+**The replacement explanation, which the data supports and the old one did
+not:** the relations that help are the ones estimated *within the target
+domain*. PPMI over 21 M characters of philosophy and Rust encodes the
+co-occurrence structure of philosophy and Rust, which is orthogonal to what
+distinguishes `HEAL/LIFT` from `STUDY/SENSE`. **Domain-matched sparse statistics
+beat domain-mismatched dense ones**, and adding text from outside the domain
+actively dilutes the signal rather than sharpening it.
+
+The pre-registered caveat that the L2 null was "sample-size bound" also does not
+survive: given 24× the sample, L2 did not recover, it collapsed further.
 
 ---
 
@@ -314,7 +433,9 @@ estimated, and that is a data problem before it is an architecture problem.
 |---|---|
 | `corpus.json` | 658 labelled entries: name, hints, human-authored cell, category/axis, BGE vector, and a name-only BGE vector for the format control |
 | `e2_curves.json` | every grounding curve in this report — both propagation rules, all arms, all anchor counts, with the majority floor |
-| `e3_curves.json` | the E3 density re-test (see below) |
+| `e3_curves.json` | the E3/E4 density re-test |
+| `docs_corpus.json` | document-library chunks — **no text, no filenames**: machine cell, score, coarse tag, length |
+| `docs_vecs.f32` | raw f32, 768 per document chunk |
 | `selfcorpus.json` | physis's own cell assignment for each codebase chunk — **machine-produced, not ground truth** |
 | `selfcorpus_vecs.f32` | raw little-endian f32, 768 per chunk, in chunk order |
 

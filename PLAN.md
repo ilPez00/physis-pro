@@ -215,11 +215,51 @@ format confound did *not* reproduce: names-only beats hints-included for the
 Qwen arm (0.279 vs 0.254) and for BGE (0.320 vs 0.299). The plateau is not on a
 house-style axis; it is simply lower than the hypothesis needs.
 
+### E3/E4 — the density diagnosis, tested with 24x the text and REFUTED
+
+E2 closed by blaming the corpus: *"a data problem before it is an architecture
+problem."* That was a diagnosis, not a measurement. It has now been measured and
+it is **wrong**.
+
+Added: the physis codebase through physis's own `CellClassifier` (5,237 chunks)
+and the `~/Documenti` library (10,167 chunks, 342 files, 21.1 M characters of
+philosophy, ebooks, sociology, semiotics). Volume 24x; variation far more than
+that. Evaluation unchanged -- the 658 human-authored cells, E2's split.
+Machine-assigned cells on the new corpora are never scored and never anchored.
+
+| level | PPMI from 658 | PPMI from union | delta |
+|---|---:|---:|---:|
+| C Qwen L0 | 0.340 | 0.203 | **-0.137** |
+| L1 Qwen + PPMI | 0.355 | 0.183 | **-0.173** |
+| L2 relations-of-relations | 0.279 | **0.066** | **-0.213** |
+
+L1 edges rose 124x (170,944 -> 21,268,718) and every level got worse; L2 on the
+union falls **below the 0.102 majority floor**.
+
+**The two confounds were separated before attributing anything.** Holding the
+vocabulary fixed and re-estimating PPMI on the union: 0.218 -> 0.188, so
+**density alone costs -0.030**; vocabulary displacement costs a further -0.005.
+The collapse is density, on the exact arm the diagnosis named.
+
+**Leg B, node density:** BGE gains +0.051 at full supervision from unlabelled
+substrate but **nothing at k=20** -- extra nodes help a dense problem, not a
+sparse one, which is the opposite of what the mapper needs. The Qwen arm gains
+exactly zero, and edge counts say why: 10 labelled->extra edges against 12,000
+labelled->labelled (0.1% cross share, versus BGE's 15.1%). The Qwen n-gram map
+puts ontology entries and prose in disjoint regions, so labels cannot diffuse
+through substrate nothing connects to. Property of the representation, not a bug.
+
+**Replacement explanation, supported where the old one was not:** the relations
+that help are estimated *within the target domain*. PPMI over 21 M characters of
+philosophy and Rust encodes the structure of philosophy and Rust, which is
+orthogonal to what separates `HEAL/LIFT` from `STUDY/SENSE`. **Domain-matched
+sparse statistics beat domain-mismatched dense ones.** The pre-registered
+"L2 null is sample-size bound" caveat also dies: given 24x the sample, L2
+collapsed further rather than recovering.
+
 **Carried forward:** BGE-base remains the strongest representation this repo has
-for grid prediction (0.447 against every constructed alternative), and the
-propagation result generalizes — on 658 entries over 70 cells, structure-based
-diffusion has too little density to work. Any future version of this hypothesis
-is a data problem before it is an architecture problem.
+for grid prediction (0.447 against every constructed alternative). The
+"needs more data" escape hatch is closed by measurement.
 
 ### Two risks this track has already measured, carried into the design
 
