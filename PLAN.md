@@ -417,6 +417,53 @@ final class balance, which is a decision rather than a measurement.
 
 ---
 
+## E8 — a pre-flight checker, and hypertrophic propagation confirmed
+
+`research/mapper/E8_PREFLIGHT_AND_HYPERTROPHY.md`, `preflight.py`.
+
+**A feasibility checker for the deductively-decidable failures** — span,
+metric well-posedness, power, leakage, class sparsity. Validated against arms
+whose outcome is already known: it **REFUTES** signed Δz (R² = 1.0000 on the
+baseline; it lost), **passes** support₂ (R² = 0.117; it won 22/22), and **cannot
+kill** \|D\| (R² = 0.866; it carries real variance and merely turned out weak).
+That is the honest boundary — it catches algebraic redundancy, not weak signal.
+On Lean specifically: the span lemmas are a few lines and a rank computation
+answers them with less ceremony, so they are implemented directly.
+
+**Hypertrophy — asked, and confirmed.** Differentiation = intra-cell similarity
+minus a size-matched random control; hypertrophy = r(log size, differentiation).
+
+**HYPERTROPHY INDEX = −0.644.** The bigger a mode gets, the *less* it
+differentiates. WORK (150) sits **+0.003** above a random sample of the corpus,
+CREATE (117) +0.003, MAINTAIN (77) +0.003, WALK (28) +0.002 — as groups of
+meanings they are barely groups. The small modes are the differentiated ones
+(DESTROY +0.150, BRAINSTORM +0.073). **And the periphery is where it happens:**
+every large mode is 4–10× better differentiated once its outer quarter is
+removed, which turns "WORK is too broad" into a reviewable list of entries.
+
+**Grid expansion — refuted before running.** The checker STOPs at every level:
+the current grid already has 35 of 57 classes below 6 training entries
+(forecast F1 0.07); a 2× expansion starves **140 of 140** even assuming perfect
+balance, a 4× expansion 280 of 280. The retrospective sting: **the current grid
+already fails this check**, so a good deal of this track has been measuring
+sparsity rather than the hypothesis under test.
+
+**"Machines categorize better" — half-supported.** k-means partitions must
+survive resampling to be taxonomies. ARI across disjoint 80% resamples: k=5
+**0.463** (moderately stable), k=14 0.277, k=57 **0.213**, k=140 0.202. For
+scale, Iteration 18's cross-embedder ARI of 0.10 was treated as fatal. Machines
+can carve at coarse granularity; at the resolution the grid uses they cannot,
+not on 658 entries.
+
+**Synthesis — the corpus is the bottleneck, not the grid.** E5 (collapsing never
+helps), E7 (the failing modes are the empty ones), E8 (expansion refuted on
+sparsity, machine partitions unstable when fine) converge. **Populate first,
+expand second:** a 140-cell grid needs on the order of **2,800 entries** against
+the current 658. Available today without touching the grid's shape: the outer
+quarter of WORK / CREATE / MAINTAIN / WALK, worth ~+0.043 kappa.
+
+---
+
 **Product consequence, stated plainly:** classification against the grid is the
 feature this track was trying to certify, and it still has no certified
 soundness check. `coverage` filters and ranks discovery candidates; it does not
