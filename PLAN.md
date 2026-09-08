@@ -127,9 +127,39 @@ author; an anchor is for the index** — Stage 11 measured definitions helping
 from helping a machine retrieve, where abstraction costs −0.19 precision.
 Conflating the two is what made the rewrite look obvious.
 
-**Do instead:** rewrite the eight worst anchors by hand in the entries' idiom
-(STUDY/GUIDE first); leave `GRID_AXES.md` out of it; and look at HEAL, which is
-the weakest domain and which nobody had examined.
+### E13 — and the rewrite queue does not survive either
+
+`research/mapper/E13_ANCHOR_CEILING.md`. E12 ended by prescribing a hand-rewrite.
+E13 measured what a rewritten anchor could achieve, on held-out entries only:
+
+| arm | prec@n | median rank |
+|---|---:|---:|
+| authored anchor (ships today) | **0.350** | **25** |
+| written axis definitions | 0.122 | 58 |
+| **centroid of the cell's own entries** | **0.353** | 27 |
+| top TF-IDF terms of those entries | 0.275 | 35 |
+| authored anchor + those terms | 0.388 | 22 |
+
+**Headroom over a probe built from the cell's own entries is +0.004.** The
+centroid *is* "written in the entries' idiom", and the authored anchors already
+match it — so hand-rewriting is an exhausted move. **E12's queue should not be
+worked**, which cancels the recommendation made one experiment earlier.
+
+**The augmentation arm looked like the replacement finding and is not.** +0.038
+mean, but it **beats the anchor in 6 of 21 cells and loses in 10** — a mean
+carried by a few large gains over many small losses, nowhere near significant on
+a sign test. Shipped, it would read as an aggregate improvement while degrading
+half the cells it touched. Same shape as six earlier positives in this track.
+
+**Jointly established by E12+E13:** anchors are approximately as good as this
+representation allows. Three consecutive attempts to improve them — from
+definitions, by hand, by augmentation — are all refuted, two against the very
+evidence that suggested them. **Anchor work is finished** until something other
+than retrieval precision motivates it.
+
+**Where the error actually lives:** class sparsity (E5/E7/E8 — 35 of 57 cells
+below 6 training entries) and ~16% label noise (Stage 11). Both corpus problems.
+Neither is fixed by writing.
 
 ### Standing rules, each earned
 
