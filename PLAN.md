@@ -374,9 +374,46 @@ SENSE/MAINTAIN/LEARN/PLAN cluster, remembering E5 showed merging cells does not
 help — if those four are truly one thing that is a finding about the grid's
 design, not a licence to merge.
 
-**Not established:** that either fix would raise mode kappa. Both are plausible
-and neither is tested. The measured claims are the correlation, the anchor gap,
-and the concentration.
+---
+
+## E7 — do E6's fixes hold up? One confirmed, one shrunk, one refuted
+
+`research/mapper/E7_FIX_TESTS_REPORT.md`.
+
+**1. Population — confirmed and quantified.** Subsampling well-populated modes'
+training entries reads the F1(n) curve off modes that have data:
+
+| mode | n | k=3 | 6 | 10 | 20 | 40 | all |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| WORK | 150 | 0.02 | 0.07 | 0.13 | 0.26 | 0.38 | 0.49 |
+| CREATE | 117 | 0.04 | 0.11 | 0.16 | 0.34 | 0.45 | 0.55 |
+| SENSE | 93 | 0.04 | 0.18 | 0.29 | 0.49 | 0.56 | 0.59 |
+
+A well-populated mode cut to three training entries scores **F1 0.06 on
+average** — WORK, with 150 entries of concept behind it, manages 0.02. So
+BRAINSTORM/DESTROY/GUIDE scoring 0.00 is what three entries produces, not
+evidence they are ill-defined. **The curve is a forecast:** populating a starved
+mode to n≈20 should reach **F1 0.26–0.49**, and most of the gain is bought by
+the first twenty.
+
+**2. The WORK sink — real, a third of what E6 implied.** Removing WORK from the
+label space lifts the other 13 modes from kappa 0.441 to **0.484 (+0.043)**;
+WORK captures 7.8% of non-WORK held-out entries. Worth fixing, not transformative.
+
+**3. The SENSE/MAINTAIN/LEARN/PLAN cluster — refuted.** Restricted kappa 0.605
+against a size-matched random-four-mode control of mean 0.629, range 0.454–0.800.
+The cluster sits *inside* the control range. E6 was pattern-matching on raw
+confusion counts, which are dominated by class size. **Seventh positive in this
+track to die to a size-matched control** — and this one needed no new mechanism
+to catch, only asking what four arbitrary modes would have scored.
+
+**Revised actions:** (1) populate BRAINSTORM, DESTROY, GUIDE, PLAY, LIFT to ~20
+entries each — a corpus task with a quantified payoff; (2) define WORK by
+exclusion, worth ~+0.04 kappa; (3) dropped.
+
+**Still not established:** that (1) raises *overall* mode kappa by any particular
+amount. The curve predicts each mode's own F1; the axis-level effect depends on
+final class balance, which is a decision rather than a measurement.
 
 ---
 

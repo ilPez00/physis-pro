@@ -78,7 +78,10 @@ evenly spread across the axis — which is what D shows.
 | MAINTAIN ↔ REST | 3 |
 
 **WORK is a sink.** It appears in four of the top five confusion pairs and
-absorbs 30 of the errors listed. Its definition in `docs/GRID_AXES.md` is
+absorbs 30 of the errors listed. *(E7 sized the effect: removing WORK from the
+label space lifts the other thirteen modes by **+0.043 kappa**, and WORK
+captures 7.8% of non-WORK held-out entries. Real, and worth fixing — but a third
+of what the junk-drawer comparison below implies.)* Its definition in `docs/GRID_AXES.md` is
 *"execute, labour, do the routine doing"* — which excludes almost nothing.
 Creating something is doing something; maintaining something is doing something;
 sensing something is doing something. WORK has the junk-drawer shape Stage 13
@@ -89,6 +92,13 @@ PLAN form a cluster of observation-and-upkeep modes that shade into each other.
 That pattern — a few semantically adjacent pairs swapping repeatedly — is the
 signature of a definition problem rather than a representation problem.
 
+> **Refuted by E7.** Restricting the problem to those four modes gives kappa
+> 0.605, against a size-matched random-four-mode control whose range is
+> 0.454–0.800 with mean 0.629. The cluster sits *inside* the control range and
+> slightly below its mean: those four are no less separable than any arbitrary
+> four. The reading above was pattern-matching on raw confusion counts, which
+> are dominated by class size. See `E7_FIX_TESTS_REPORT.md`.
+
 ## What follows, ranked by the evidence behind it
 
 1. **Populate the starved modes.** BRAINSTORM (3), DESTROY (4), GUIDE (14),
@@ -98,12 +108,10 @@ signature of a definition problem rather than a representation problem.
 2. **Define WORK by exclusion.** Not "what counts as WORK" but "what does *not*
    count, and where it goes instead." A definition that does not exclude cannot
    stop a sink from filling. This is one mode, not the axis.
-3. **Then re-test the SENSE/MAINTAIN/LEARN/PLAN cluster.** It may be a genuine
-   conceptual overlap rather than a fixable one, and E5's evidence says
-   collapsing cells does not help — so if these four are truly one thing, that
-   is a finding about the grid's design, not a licence to merge them.
+3. ~~**Then re-test the SENSE/MAINTAIN/LEARN/PLAN cluster.**~~ **Dropped.** E7
+   tested it against a random-four-mode control and it is not a cluster.
 
-**What E6 does not establish:** that fixing WORK and populating the small modes
-would raise mode kappa. Both are plausible from this evidence and neither has
-been tested. The measured claims are the correlation, the anchor gap, and the
-concentration of confusion.
+**What E6 did not establish, and E7 then measured:** whether either fix would
+help. E7 confirms the population diagnosis and turns it into a forecast (a mode
+at n≈20 should reach F1 0.26–0.49), sizes the WORK fix at +0.043 kappa, and
+refutes the cluster. See `E7_FIX_TESTS_REPORT.md`.
