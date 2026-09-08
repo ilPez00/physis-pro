@@ -41,7 +41,7 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | question | answer | key evidence |
 |---|---|---|
 | Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10 |
-| Can a cheap signal certify discovered structure? | **NO** | CONSTRAINT 2 wins in 22, paired *t* = −5.58 |
+| Can a cheap signal certify discovered structure? | **REOPENED (E15)** | Stage 12's refutation was measured under random injection; under realistic injection CONSTRAINT **beats** cosine 0.612 vs 0.506, CI [+0.029, +0.183] |
 | Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
 | Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
@@ -97,6 +97,43 @@ below its home similarity, a plausible error 0.029.
 Stage 12's own header said *"a synthetic perturbation is a lower bound on
 difficulty"*. The caveat was written down at the start and never propagated;
 E14 quantifies it, and the lower bound turns out to be the entire signal.
+
+### E15 — and the refutations do not survive the correction
+
+`research/mapper/E15_STRUCTURE_SURVIVES.md`. Five scorers × four injection
+policies, one pass, no re-embedding.
+
+| scorer | random | **nearest** | drop |
+|---|---:|---:|---:|
+| **COSINE** | **0.882** | **0.506** | **−0.376** |
+| NAME-ONLY | 0.866 | 0.597 | −0.268 |
+| **CONSTRAINT** | 0.675 | **0.612** | **−0.063** |
+| ANCHORVOC | 0.654 | 0.584 | −0.070 |
+| ANCESTRY | 0.627 | 0.566 | −0.061 |
+
+**Under random injection cosine leads by 0.207; under realistic injection it
+trails CONSTRAINT by 0.106.** Bootstrap over entries, 2000 resamples:
+CONSTRAINT +0.106 [+0.029, +0.183], NAME-ONLY +0.091 [+0.034, +0.153],
+ANCHORVOC +0.078 [+0.007, +0.151] — all significant; ANCESTRY +0.035, not.
+
+**This does not show the structural scorers work** — the best is 0.612, not a
+usable certifier, and Stage 9 measured 0.410 on *real* misfilings. **It shows
+Stage 12's comparison was invalid.** *"Plain cosine beat every structural
+alternative tried against it"* has been this track's summary of the entire
+certification effort; it is true of the injection policy, not of the problem.
+
+**Why:** geometry scores *distance moved* and degrades as the error gets subtler
+(E14: displacement 0.125 → 0.029). CONSTRAINT asks whether a discrete field is
+attested elsewhere in the domain — a question that does not soften.
+
+**Second finding:** NAME-ONLY beats COSINE by +0.091. Hints help on easy errors
+and hurt on hard ones, which connects to Stage 13's authorial-format result.
+
+**Next, and it is the most valuable thing open:** score all five on the corpus's
+**real** misfilings using the Stage 11 adjudication artifacts
+(`cell_adjudication.tsv`, `refiling_gate0.tsv`) — the only non-synthetic ground
+truth in the project. If CONSTRAINT holds its margin there, this track has a
+certification signal it spent a year concluding it did not have.
 
 ### The one constraint everything converges on
 
