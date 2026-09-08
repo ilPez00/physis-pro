@@ -23,7 +23,3 @@ models/wordnet/
 
 # Generated operational corpus (rebuild with: cargo run --release --example populate_operational)
 /operational_corpus.json
-
-# E2 mapper experiment: regenerable artifacts (mapper_corpus_export.rs + run_e2.py)
-research/mapper/corpus.json
-research/mapper/e2_curves.json

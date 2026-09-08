@@ -305,3 +305,18 @@ propagation result says something general: on a 658-entry corpus spread over 70
 cells, structure-based diffusion has too little density to work. Any future
 version of this hypothesis needs a corpus large enough for L1 and L2 to be
 estimated, and that is a data problem before it is an architecture problem.
+
+---
+
+## Artifacts (for the physis webview)
+
+| file | what it holds |
+|---|---|
+| `corpus.json` | 658 labelled entries: name, hints, human-authored cell, category/axis, BGE vector, and a name-only BGE vector for the format control |
+| `e2_curves.json` | every grounding curve in this report — both propagation rules, all arms, all anchor counts, with the majority floor |
+| `e3_curves.json` | the E3 density re-test (see below) |
+| `selfcorpus.json` | physis's own cell assignment for each codebase chunk — **machine-produced, not ground truth** |
+| `selfcorpus_vecs.f32` | raw little-endian f32, 768 per chunk, in chunk order |
+
+Published pages: **Mapper Ladder** (this experiment) and **E1 Divergence Inspector**
+(the preceding one).
