@@ -1,0 +1,668 @@
+# Gate 0 regeneration: every entry's cell before and after the blind re-filing.
+# The rater (Claude) saw name, category and hints only -- the old cell was
+# withheld. Exception, stated because it matters: 76 entries (all 44 semiotic
+# ones, 17 grid_fill, and 15 others) carry a hint that narrates their old cell
+# ("What rest restores: ..."), so blindness fails for those and they are marked.
+# Contract the filing was judged against: physis-core/docs/GRID_AXES.md
+n	source	entry	old_cell	new_cell	moved	blind
+1	agent	Abductive Reasoning	CONSTRUCT/CREATE	STUDY/WORK	MOVED	blind
+2	agent	Active Learning	CONSTRUCT/WALK	STUDY/LEARN	MOVED	blind
+3	agent	Agent Communication	BOND/CREATE	BOND/WORK	MOVED	blind
+4	agent	Agent Coordination	BOND/WORK	BOND/PLAN	MOVED	blind
+5	agent	Agent Loop	FABRICATE/WALK	FABRICATE/WALK	same	blind
+6	agent	Agent Negotiation	BOND/WALK	BOND/WORK	MOVED	blind
+7	agent	Agent Organization	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	blind
+8	agent	Agent State	HEAL/REST	HEAL/SENSE	MOVED	blind
+9	agent	Agent Versioning	BOND/WORK	FABRICATE/WORK	MOVED	blind
+10	agent	Analogical Reasoning	BOND/WALK	STUDY/MOVE	MOVED	blind
+11	agent	Assistant Response	CONSTRUCT/CREATE	FABRICATE/WORK	MOVED	blind
+12	agent	Causal Reasoning	STUDY/LEARN	STUDY/WORK	MOVED	blind
+13	agent	Coalition Formation	BOND/CREATE	BOND/CREATE	same	blind
+14	agent	Communicator	BOND/CREATE	BOND/WORK	MOVED	blind
+15	agent	Confidence Estimation	STUDY/WORK	STUDY/SENSE	MOVED	blind
+16	agent	Confidence Threshold	STUDY/WORK	STUDY/SENSE	MOVED	blind
+17	agent	Context Window	STUDY/WORK	STUDY/MAINTAIN	MOVED	blind
+18	agent	Counterfactual Reasoning	FABRICATE/CREATE	STUDY/PLAY	MOVED	HINT-LEAKS-CELL
+19	agent	Deductive Reasoning	STUDY/WORK	STUDY/WORK	same	blind
+20	agent	Deliberative Agent	STUDY/CREATE	CONSTRUCT/CREATE	MOVED	blind
+21	agent	Emergent Agent	CONSTRUCT/WALK	CONSTRUCT/CREATE	MOVED	blind
+22	agent	Episodic Memory	HEAL/REST	STUDY/MAINTAIN	MOVED	blind
+23	agent	Error Detection	STUDY/WALK	HEAL/SENSE	MOVED	blind
+24	agent	Error Recovery	HEAL/WALK	HEAL/WORK	MOVED	blind
+25	agent	Executor	FABRICATE/WORK	FABRICATE/WORK	same	blind
+26	agent	Goal-oriented Agent	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+27	agent	Human Escalation	BOND/WALK	BOND/MOVE	MOVED	blind
+28	agent	Hybrid Agent	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+29	agent	Inductive Reasoning	STUDY/LEARN	STUDY/WORK	MOVED	blind
+30	agent	Introspection	HEAL/REST	STUDY/SENSE	MOVED	blind
+31	agent	Learner	STUDY/LEARN	STUDY/LEARN	same	blind
+32	agent	Learning Agent	STUDY/LEARN	CONSTRUCT/CREATE	MOVED	blind
+33	agent	Memorizer	HEAL/REST	STUDY/MAINTAIN	MOVED	blind
+34	agent	Meta-Learning	HEAL/LEARN	STUDY/LEARN	MOVED	blind
+35	agent	Modal Reasoning	HEAL/LEARN	STUDY/WORK	MOVED	blind
+36	agent	Monitor	STUDY/WALK	HEAL/SENSE	MOVED	blind
+37	agent	Negotiator	BOND/WALK	BOND/WORK	MOVED	blind
+38	agent	Non-monotonic Reasoning	STUDY/CREATE	STUDY/WORK	MOVED	blind
+39	agent	Observer	STUDY/WALK	STUDY/SENSE	MOVED	blind
+40	agent	Output Publishing	FABRICATE/WORK	FABRICATE/WORK	same	blind
+41	agent	PDCA Cycle	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+42	agent	Planner	STUDY/CREATE	FABRICATE/PLAN	MOVED	blind
+43	agent	Prompt Template	STUDY/CREATE	CONSTRUCT/CREATE	MOVED	blind
+44	agent	Quality Check	HEAL/LEARN	FABRICATE/SENSE	MOVED	blind
+45	agent	Reactive Agent	HEAL/WALK	CONSTRUCT/CREATE	MOVED	blind
+46	agent	Reasoner	STUDY/LEARN	STUDY/WORK	MOVED	blind
+47	agent	Reflector	HEAL/LEARN	STUDY/REST	MOVED	blind
+48	agent	Reinforcement Learning	FABRICATE/WALK	STUDY/LEARN	MOVED	blind
+49	agent	Resource Management	CONSTRUCT/WORK	FABRICATE/PLAN	MOVED	blind
+50	agent	Self-Awareness	HEAL/LEARN	STUDY/SENSE	MOVED	blind
+51	agent	Semantic Memory	HEAL/REST	STUDY/MAINTAIN	MOVED	blind
+52	agent	Social Agent	BOND/CREATE	CONSTRUCT/CREATE	MOVED	blind
+53	agent	Strategy Selection	STUDY/CREATE	STUDY/PLAN	MOVED	blind
+54	agent	Supervised Learning	STUDY/LEARN	STUDY/LEARN	same	blind
+55	agent	Swarm Intelligence	FABRICATE/WALK	BOND/WALK	MOVED	blind
+56	agent	System Prompt	STUDY/CREATE	BOND/GUIDE	MOVED	blind
+57	agent	Telemetry & Log	STUDY/WALK	STUDY/SENSE	MOVED	blind
+58	agent	Tool Application	FABRICATE/WORK	FABRICATE/WORK	same	blind
+59	agent	Tool Composition	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+60	agent	Tool Creation	CONSTRUCT/CREATE	FABRICATE/CREATE	MOVED	blind
+61	agent	Tool Invocation	FABRICATE/WORK	FABRICATE/WORK	same	blind
+62	agent	Tool Result	CONSTRUCT/WORK	FABRICATE/SENSE	MOVED	blind
+63	agent	Tool Selection	STUDY/CREATE	STUDY/PLAN	MOVED	blind
+64	agent	Transfer Learning	BOND/WALK	STUDY/MOVE	MOVED	blind
+65	agent	Unsupervised Learning	STUDY/WALK	STUDY/LEARN	MOVED	blind
+66	agent	User Input	FABRICATE/WORK	BOND/SENSE	MOVED	blind
+67	agent	Utility-based Agent	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+68	agent	Workflow Chain	CONSTRUCT/WORK	FABRICATE/PLAN	MOVED	blind
+69	agent	Working Memory	HEAL/REST	STUDY/MAINTAIN	MOVED	blind
+70	business_entrepreneurship	Finance & Fundraising	CONSTRUCT/LIFT	BOND/WORK	MOVED	blind
+71	business_entrepreneurship	Idea Validation	STUDY/LEARN	STUDY/WORK	MOVED	blind
+72	business_entrepreneurship	Marketing	BOND/CREATE	BOND/MOVE	MOVED	blind
+73	business_entrepreneurship	Operations	CONSTRUCT/WALK	FABRICATE/WALK	MOVED	blind
+74	business_entrepreneurship	Product Development	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+75	business_entrepreneurship	Sales	BOND/WORK	BOND/WORK	same	blind
+76	business_entrepreneurship	Strategy	STUDY/WORK	CONSTRUCT/PLAN	MOVED	blind
+77	business_entrepreneurship	Team Building	BOND/LIFT	BOND/CREATE	MOVED	blind
+78	creative_writing	Character Development	BOND/CREATE	FABRICATE/CREATE	MOVED	blind
+79	creative_writing	Drafting	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+80	creative_writing	Editing & Revision	HEAL/WORK	FABRICATE/WORK	MOVED	blind
+81	creative_writing	Plot Structure	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	blind
+82	creative_writing	Publishing & Sharing	BOND/WORK	FABRICATE/WORK	MOVED	blind
+83	creative_writing	Reading the Craft	STUDY/WALK	STUDY/LEARN	MOVED	HINT-LEAKS-CELL
+84	creative_writing	Research	STUDY/LEARN	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+85	creative_writing	Worldbuilding	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+86	cybersecurity	Access Control	CONSTRUCT/WORK	BOND/CREATE	MOVED	blind
+87	cybersecurity	Compliance & Governance	BOND/WALK	CONSTRUCT/SENSE	MOVED	blind
+88	cybersecurity	Cryptography	CONSTRUCT/CREATE	FABRICATE/WORK	MOVED	blind
+89	cybersecurity	Incident Detection	HEAL/WALK	HEAL/SENSE	MOVED	blind
+90	cybersecurity	Incident Response	HEAL/LIFT	HEAL/WORK	MOVED	blind
+91	cybersecurity	Penetration Testing	STUDY/LIFT	CONSTRUCT/SENSE	MOVED	blind
+92	cybersecurity	Secure Coding	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+93	cybersecurity	Security Hardening	HEAL/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+94	cybersecurity	Threat Intelligence	STUDY/LEARN	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+95	cybersecurity	Vulnerability Assessment	STUDY/WORK	CONSTRUCT/SENSE	MOVED	blind
+96	data_science	Data Cleaning	HEAL/WORK	STUDY/WORK	MOVED	blind
+97	data_science	Data Pipelines	CONSTRUCT/WALK	FABRICATE/WALK	MOVED	blind
+98	data_science	Deployment & Serving	FABRICATE/WORK	FABRICATE/WORK	same	blind
+99	data_science	Experiment Tracking	STUDY/WALK	STUDY/SENSE	MOVED	blind
+100	data_science	Exploratory Analysis	STUDY/LEARN	STUDY/WORK	MOVED	blind
+101	data_science	Feature Engineering	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+102	data_science	Model Evaluation	CONSTRUCT/WORK	STUDY/SENSE	MOVED	blind
+103	data_science	Model Training	FABRICATE/LIFT	STUDY/LEARN	MOVED	blind
+104	data_science	Statistical Inference	STUDY/WORK	STUDY/WORK	same	blind
+105	data_science	Visualization	BOND/CREATE	STUDY/GUIDE	MOVED	blind
+106	devops	Backup & Recovery	HEAL/REST	HEAL/MAINTAIN	MOVED	blind
+107	devops	CI/CD Pipelines	FABRICATE/WORK	FABRICATE/WALK	MOVED	blind
+108	devops	Cloud Resource Management	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+109	devops	Containerization	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+110	devops	Deployment	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+111	devops	Incident Response	HEAL/LIFT	HEAL/WORK	MOVED	blind
+112	devops	Infrastructure as Code	CONSTRUCT/CREATE	CONSTRUCT/WORK	MOVED	blind
+113	devops	Monitoring & Observability	HEAL/WALK	HEAL/SENSE	MOVED	blind
+114	devops	Networking	BOND/WORK	BOND/CREATE	MOVED	blind
+115	devops	Scaling	FABRICATE/LIFT	FABRICATE/PLAN	MOVED	blind
+116	devops	Secrets Management	HEAL/WALK	BOND/MAINTAIN	MOVED	blind
+117	engineering	API Design	BOND/CREATE	BOND/CREATE	same	blind
+118	engineering	Additive Manufacturing	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+119	engineering	Aerodynamics	STUDY/LEARN	STUDY/WORK	MOVED	blind
+120	engineering	Architecture Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+121	engineering	Automotive Engineering	CONSTRUCT/CREATE	FABRICATE/CREATE	MOVED	blind
+122	engineering	Avionics	BOND/CREATE	CONSTRUCT/CREATE	MOVED	blind
+123	engineering	Biomaterials	HEAL/CREATE	STUDY/WORK	MOVED	blind
+124	engineering	Biomechanics	FABRICATE/WALK	STUDY/WORK	MOVED	blind
+125	engineering	Circuit Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+126	engineering	Control Systems	HEAL/WALK	CONSTRUCT/CREATE	MOVED	blind
+127	engineering	Data Engineering	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+128	engineering	Database Engineering	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	blind
+129	engineering	DevOps	CONSTRUCT/WORK	FABRICATE/WALK	MOVED	blind
+130	engineering	Distributed Systems	BOND/WALK	CONSTRUCT/CREATE	MOVED	blind
+131	engineering	Drug Delivery	HEAL/WORK	FABRICATE/CREATE	MOVED	blind
+132	engineering	Embedded Systems	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+133	engineering	Environmental Engineering	HEAL/WORK	HEAL/WORK	same	blind
+134	engineering	Finite Element Analysis	STUDY/WORK	STUDY/WORK	same	blind
+135	engineering	Flight Mechanics	FABRICATE/WALK	STUDY/WORK	MOVED	blind
+136	engineering	Fluid Mechanics	FABRICATE/WALK	STUDY/WORK	MOVED	blind
+137	engineering	Geotechnical Engineering	STUDY/WALK	CONSTRUCT/SENSE	MOVED	blind
+138	engineering	Human Factors	BOND/LEARN	STUDY/WORK	MOVED	blind
+139	engineering	Hydraulic Engineering	FABRICATE/WALK	CONSTRUCT/CREATE	MOVED	blind
+140	engineering	Machine Design	CONSTRUCT/CREATE	FABRICATE/CREATE	MOVED	blind
+141	engineering	Manufacturing Processes	FABRICATE/WORK	FABRICATE/WORK	same	blind
+142	engineering	Materials Science	STUDY/LEARN	STUDY/WORK	MOVED	blind
+143	engineering	Medical Imaging	STUDY/WALK	STUDY/SENSE	MOVED	blind
+144	engineering	Microelectronics	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+145	engineering	Microservices	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+146	engineering	Nanotechnology	FABRICATE/CREATE	STUDY/WORK	MOVED	blind
+147	engineering	Neural Engineering	BOND/CREATE	STUDY/WORK	MOVED	blind
+148	engineering	Ocean Engineering	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+149	engineering	Operations Research	CONSTRUCT/WORK	STUDY/WORK	MOVED	blind
+150	engineering	Orbital Mechanics	STUDY/LEARN	STUDY/WORK	MOVED	blind
+151	engineering	Performance Engineering	STUDY/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+152	engineering	Photonics	BOND/CREATE	STUDY/WORK	MOVED	blind
+153	engineering	Plant Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+154	engineering	Power Engineering	HEAL/WORK	CONSTRUCT/CREATE	MOVED	blind
+155	engineering	Process Control	HEAL/WALK	HEAL/WALK	same	blind
+156	engineering	Process Safety	HEAL/WORK	HEAL/MAINTAIN	MOVED	blind
+157	engineering	Project Management	BOND/WORK	CONSTRUCT/PLAN	MOVED	blind
+158	engineering	Propulsion	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+159	engineering	Quality Engineering	STUDY/WORK	FABRICATE/SENSE	MOVED	blind
+160	engineering	Quantum Engineering	CONSTRUCT/CREATE	STUDY/WORK	MOVED	blind
+161	engineering	RF Engineering	BOND/WALK	CONSTRUCT/CREATE	MOVED	blind
+162	engineering	Reaction Engineering	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+163	engineering	Renewable Energy	HEAL/WORK	CONSTRUCT/CREATE	MOVED	blind
+164	engineering	Requirements Engineering	STUDY/CREATE	CONSTRUCT/PLAN	MOVED	blind
+165	engineering	Robotics	FABRICATE/CREATE	CONSTRUCT/CREATE	MOVED	blind
+166	engineering	Security Engineering	HEAL/WORK	CONSTRUCT/CREATE	MOVED	blind
+167	engineering	Separation Processes	FABRICATE/WORK	FABRICATE/WORK	same	blind
+168	engineering	Signal Processing	STUDY/WORK	STUDY/WORK	same	blind
+169	engineering	Structural Engineering	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+170	engineering	Structures & Materials	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+171	engineering	Supply Chain	FABRICATE/WALK	FABRICATE/MOVE	MOVED	blind
+172	engineering	Surveying	STUDY/WORK	CONSTRUCT/SENSE	MOVED	blind
+173	engineering	Synthetic Biology	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+174	engineering	Systems Engineering	CONSTRUCT/CREATE	CONSTRUCT/PLAN	MOVED	blind
+175	engineering	Telecommunications	BOND/CREATE	BOND/MOVE	MOVED	blind
+176	engineering	Testing & QA	STUDY/WALK	FABRICATE/SENSE	MOVED	blind
+177	engineering	Thermodynamics	HEAL/WALK	STUDY/WORK	MOVED	blind
+178	engineering	Transport Phenomena	STUDY/LEARN	STUDY/WORK	MOVED	blind
+179	engineering	Transportation Engineering	FABRICATE/WALK	CONSTRUCT/CREATE	MOVED	blind
+180	engineering	User Interface Engineering	FABRICATE/CREATE	BOND/CREATE	MOVED	blind
+181	engineering	Vibrations	HEAL/LEARN	STUDY/WORK	MOVED	blind
+182	grid_fill	Active Listening	BOND/LEARN	BOND/LEARN	same	blind
+183	grid_fill	Apprenticeship	FABRICATE/LEARN	FABRICATE/LEARN	same	blind
+184	grid_fill	Assembly Line Flow	FABRICATE/WALK	FABRICATE/WALK	same	blind
+185	grid_fill	Cognitive Training	STUDY/LIFT	STUDY/LIFT	same	blind
+186	grid_fill	Companionship	BOND/REST	BOND/REST	same	HINT-LEAKS-CELL
+187	grid_fill	Construction Training	CONSTRUCT/LEARN	CONSTRUCT/LEARN	same	HINT-LEAKS-CELL
+188	grid_fill	Craft Reset	FABRICATE/REST	FABRICATE/REST	same	HINT-LEAKS-CELL
+189	grid_fill	Curing & Setting	FABRICATE/REST	FABRICATE/REST	same	blind
+190	grid_fill	DIY Tutorial	CONSTRUCT/LEARN	CONSTRUCT/LEARN	same	HINT-LEAKS-CELL
+191	grid_fill	Decluttering Pause	CONSTRUCT/REST	CONSTRUCT/REST	same	blind
+192	grid_fill	Deep Focus Study	STUDY/LIFT	STUDY/LIFT	same	HINT-LEAKS-CELL
+193	grid_fill	Fitness Form Learning	HEAL/LEARN	HEAL/LEARN	same	HINT-LEAKS-CELL
+194	grid_fill	Health Education	HEAL/LEARN	HEAL/LEARN	same	HINT-LEAKS-CELL
+195	grid_fill	Healthy Meal Creation	HEAL/CREATE	HEAL/CREATE	same	blind
+196	grid_fill	Hoisting & Rigging	CONSTRUCT/LIFT	CONSTRUCT/LIFT	same	blind
+197	grid_fill	Idea Incubation	STUDY/REST	STUDY/REST	same	HINT-LEAKS-CELL
+198	grid_fill	Idle Maintenance	CONSTRUCT/REST	CONSTRUCT/REST	same	HINT-LEAKS-CELL
+199	grid_fill	Infrastructure Standby	CONSTRUCT/REST	CONSTRUCT/REST	same	blind
+200	grid_fill	Maker Tutorial	FABRICATE/LEARN	FABRICATE/LEARN	same	HINT-LEAKS-CELL
+201	grid_fill	Material Handling	CONSTRUCT/LIFT	CONSTRUCT/MOVE	MOVED	blind
+202	grid_fill	Material Resting	FABRICATE/REST	FABRICATE/REST	same	HINT-LEAKS-CELL
+203	grid_fill	Material Transport	FABRICATE/WALK	FABRICATE/MOVE	MOVED	blind
+204	grid_fill	Production Downtime	FABRICATE/REST	FABRICATE/REST	same	blind
+205	grid_fill	Quality Time	BOND/REST	BOND/REST	same	blind
+206	grid_fill	Reading Break	STUDY/REST	STUDY/REST	same	HINT-LEAKS-CELL
+207	grid_fill	Recipe Study	FABRICATE/LEARN	FABRICATE/LEARN	same	HINT-LEAKS-CELL
+208	grid_fill	Reflective Pause	STUDY/REST	STUDY/REST	same	blind
+209	grid_fill	Relationship Counseling	BOND/LEARN	BOND/LEARN	same	HINT-LEAKS-CELL
+210	grid_fill	Research Sprint	STUDY/LIFT	STUDY/LIFT	same	blind
+211	grid_fill	Sabbatical & Retreat	STUDY/REST	STUDY/REST	same	HINT-LEAKS-CELL
+212	grid_fill	Structural Lifting	CONSTRUCT/LIFT	CONSTRUCT/LIFT	same	blind
+213	grid_fill	Studio Errand	FABRICATE/WALK	FABRICATE/MOVE	MOVED	blind
+214	grid_fill	Systems Design Study	CONSTRUCT/LEARN	CONSTRUCT/LEARN	same	HINT-LEAKS-CELL
+215	grid_fill	Technique Practice	FABRICATE/LEARN	FABRICATE/LEARN	same	blind
+216	grid_fill	Wellness Ritual	HEAL/CREATE	HEAL/CREATE	same	blind
+217	grid_fill	Winterizing & Storage	CONSTRUCT/REST	CONSTRUCT/REST	same	blind
+218	grid_fill	Workshop Wind-Down	CONSTRUCT/REST	FABRICATE/REST	MOVED	HINT-LEAKS-CELL
+219	health_fitness	Cardio	HEAL/WORK	HEAL/WALK	MOVED	blind
+220	health_fitness	Habit Building	CONSTRUCT/WALK	HEAL/MAINTAIN	MOVED	blind
+221	health_fitness	Medical Care	HEAL/WORK	HEAL/WORK	same	blind
+222	health_fitness	Mental Wellbeing	HEAL/REST	HEAL/REST	same	blind
+223	health_fitness	Mobility & Stretching	HEAL/WALK	HEAL/MAINTAIN	MOVED	blind
+224	health_fitness	Nutrition Tracking	FABRICATE/WALK	HEAL/SENSE	MOVED	blind
+225	health_fitness	Recovery & Sleep	HEAL/REST	HEAL/REST	same	HINT-LEAKS-CELL
+226	health_fitness	Skill Acquisition	STUDY/LEARN	HEAL/LEARN	MOVED	blind
+227	health_fitness	Strength Training	HEAL/LIFT	HEAL/LIFT	same	blind
+228	home_maintenance	Cleaning	HEAL/WALK	CONSTRUCT/MAINTAIN	MOVED	blind
+229	home_maintenance	DIY Projects	FABRICATE/CREATE	CONSTRUCT/WORK	MOVED	blind
+230	home_maintenance	Energy & Sustainability	STUDY/LEARN	CONSTRUCT/MAINTAIN	MOVED	blind
+231	home_maintenance	Gardening	FABRICATE/WALK	HEAL/MAINTAIN	MOVED	blind
+232	home_maintenance	Home Improvement	FABRICATE/LIFT	CONSTRUCT/WORK	MOVED	blind
+233	home_maintenance	Organization	CONSTRUCT/CREATE	CONSTRUCT/MAINTAIN	MOVED	blind
+234	home_maintenance	Repairs	HEAL/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+235	home_maintenance	Seasonal Maintenance	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+236	industrial_semiconductor	Depressed Process Parameter	STUDY/SENSE	HEAL/SENSE	MOVED	blind
+237	industrial_semiconductor	Elevated Process Parameter	STUDY/SENSE	HEAL/SENSE	MOVED	blind
+238	industrial_semiconductor	Environmental Condition	HEAL/REST	STUDY/SENSE	MOVED	blind
+239	industrial_semiconductor	Equipment Anomaly	HEAL/MAINTAIN	HEAL/DESTROY	MOVED	blind
+240	industrial_semiconductor	Equipment Performance Anomaly	HEAL/MAINTAIN	HEAL/SENSE	MOVED	blind
+241	industrial_semiconductor	Manufacturing Defect	FABRICATE/DESTROY	FABRICATE/SENSE	MOVED	blind
+242	industrial_semiconductor	Multi-Parameter Process Anomaly	STUDY/SENSE	HEAL/SENSE	MOVED	blind
+243	industrial_semiconductor	Normal Process Operation	HEAL/REST	FABRICATE/WALK	MOVED	blind
+244	industrial_semiconductor	Normal Semiconductor Process	HEAL/REST	FABRICATE/WALK	MOVED	blind
+245	industrial_semiconductor	Process Anomaly	STUDY/SENSE	HEAL/SENSE	MOVED	blind
+246	industrial_semiconductor	Process Control	STUDY/GUIDE	HEAL/WALK	MOVED	blind
+247	industrial_semiconductor	Process Degradation	HEAL/WALK	HEAL/DESTROY	MOVED	blind
+248	industrial_semiconductor	Process Failure	HEAL/DESTROY	FABRICATE/DESTROY	MOVED	blind
+249	industrial_semiconductor	Process Measurement	STUDY/WORK	STUDY/SENSE	MOVED	blind
+250	industrial_semiconductor	Process Parameter Drift	HEAL/WALK	HEAL/SENSE	MOVED	blind
+251	industrial_semiconductor	Process Yield Loss	STUDY/LEARN	FABRICATE/DESTROY	MOVED	blind
+252	industrial_semiconductor	Quality & Yield	STUDY/LEARN	FABRICATE/SENSE	MOVED	blind
+253	industrial_semiconductor	Semiconductor Cleanroom Environment	HEAL/REST	HEAL/MAINTAIN	MOVED	blind
+254	industrial_semiconductor	Semiconductor Equipment	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+255	industrial_semiconductor	Semiconductor Manufacturing	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+256	industrial_semiconductor	Semiconductor Manufacturing Defect	FABRICATE/DESTROY	FABRICATE/SENSE	MOVED	blind
+257	industrial_semiconductor	Semiconductor Material	CONSTRUCT/CREATE	FABRICATE/WORK	MOVED	blind
+258	industrial_semiconductor	Semiconductor Process	FABRICATE/WORK	FABRICATE/WORK	same	blind
+259	industrial_semiconductor	Semiconductor Sensor	STUDY/SENSE	STUDY/SENSE	same	blind
+260	industrial_semiconductor	Sensor Data Gap	STUDY/SENSE	STUDY/SENSE	same	blind
+261	italian_industrial	Affiancamento e Mentoring	BOND/LEARN	BOND/GUIDE	MOVED	blind
+262	italian_industrial	Alimentazione Sana	HEAL/LIFT	HEAL/MAINTAIN	MOVED	blind
+263	italian_industrial	Allenamento Fisico	HEAL/LIFT	HEAL/LIFT	same	blind
+264	italian_industrial	Amministrazione e Contabilità	FABRICATE/WORK	FABRICATE/WORK	same	blind
+265	italian_industrial	Analisi e Reportistica	STUDY/WORK	STUDY/WORK	same	blind
+266	italian_industrial	Apprendistato di Mestiere	FABRICATE/LEARN	FABRICATE/LEARN	same	blind
+267	italian_industrial	Attesa di Produzione	FABRICATE/REST	FABRICATE/REST	same	blind
+268	italian_industrial	Camminata Salutare	HEAL/WALK	HEAL/WALK	same	blind
+269	italian_industrial	Creazione Artigianale	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+270	italian_industrial	Cura e Terapia	HEAL/WORK	HEAL/WORK	same	blind
+271	italian_industrial	Fermo Impianto	CONSTRUCT/REST	CONSTRUCT/REST	same	blind
+272	italian_industrial	Impiantistica	CONSTRUCT/WORK	CONSTRUCT/WORK	same	blind
+273	italian_industrial	Manutenzione Industriale	CONSTRUCT/WORK	HEAL/MAINTAIN	MOVED	blind
+274	italian_industrial	Montaggio e Installazione	CONSTRUCT/LIFT	CONSTRUCT/WORK	MOVED	blind
+275	italian_industrial	Networking Professionale	BOND/WALK	BOND/MOVE	MOVED	blind
+276	italian_industrial	Organizzazione Spazi	CONSTRUCT/CREATE	CONSTRUCT/MAINTAIN	MOVED	blind
+277	italian_industrial	Pianificazione Strategica	STUDY/WORK	CONSTRUCT/PLAN	MOVED	blind
+278	italian_industrial	Produzione Officina	FABRICATE/WORK	FABRICATE/WORK	same	blind
+279	italian_industrial	Riflessione e Incubazione	STUDY/REST	STUDY/REST	same	blind
+280	italian_industrial	Riposo e Recupero	HEAL/REST	HEAL/REST	same	blind
+281	italian_industrial	Riunioni di Lavoro	BOND/WORK	BOND/PLAN	MOVED	blind
+282	italian_industrial	Socialità e Amicizia	BOND/REST	BOND/PLAY	MOVED	blind
+283	italian_industrial	Studio e Formazione	STUDY/LEARN	STUDY/LEARN	same	blind
+284	italian_industrial	Tempo in Famiglia	BOND/CREATE	BOND/REST	MOVED	blind
+285	italian_industrial	Trasferta e Sopralluogo	CONSTRUCT/WALK	CONSTRUCT/MOVE	MOVED	blind
+286	italian_industrial	Viaggio ed Esplorazione	STUDY/WALK	HEAL/MOVE	MOVED	blind
+287	language_learning	Grammar Study	STUDY/LEARN	STUDY/LEARN	same	blind
+288	language_learning	Immersion	BOND/LIFT	STUDY/LEARN	MOVED	blind
+289	language_learning	Listening Practice	STUDY/WALK	STUDY/LEARN	MOVED	blind
+290	language_learning	Reading	STUDY/WORK	STUDY/WALK	MOVED	blind
+291	language_learning	Speaking Practice	BOND/WORK	STUDY/LEARN	MOVED	blind
+292	language_learning	Vocabulary Building	HEAL/WALK	STUDY/MAINTAIN	MOVED	blind
+293	language_learning	Writing Practice	FABRICATE/CREATE	STUDY/LEARN	MOVED	blind
+294	learning_education	Active Reading	STUDY/LEARN	STUDY/LEARN	same	blind
+295	learning_education	Course Completion	CONSTRUCT/WORK	STUDY/LEARN	MOVED	blind
+296	learning_education	Deep Focus Study	STUDY/LIFT	STUDY/LIFT	same	HINT-LEAKS-CELL
+297	learning_education	Note-Taking	CONSTRUCT/CREATE	STUDY/CREATE	MOVED	blind
+298	learning_education	Reflection & Synthesis	HEAL/REST	STUDY/REST	MOVED	blind
+299	learning_education	Skill Practice	FABRICATE/WORK	STUDY/LEARN	MOVED	blind
+300	learning_education	Spaced Repetition	HEAL/WALK	STUDY/MAINTAIN	MOVED	blind
+301	learning_education	Teaching & Explaining	BOND/CREATE	STUDY/GUIDE	MOVED	blind
+302	machine	Actuator Systems	FABRICATE/LIFT	FABRICATE/WORK	MOVED	blind
+303	machine	Alarm Categorization	HEAL/WORK	HEAL/SENSE	MOVED	blind
+304	machine	Anomaly Detection	STUDY/WALK	HEAL/SENSE	MOVED	blind
+305	machine	Array & Vector	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+306	machine	Axis & Positioning	FABRICATE/WALK	FABRICATE/WORK	MOVED	blind
+307	machine	Batch Tracking	BOND/WORK	FABRICATE/SENSE	MOVED	blind
+308	machine	Battery Management	HEAL/WALK	HEAL/MAINTAIN	MOVED	blind
+309	machine	Build Platform & Bed	CONSTRUCT/REST	CONSTRUCT/CREATE	MOVED	blind
+310	machine	Bus & Backplane	BOND/WORK	BOND/CREATE	MOVED	blind
+311	machine	Cable & Routing	BOND/WALK	CONSTRUCT/WORK	MOVED	blind
+312	machine	Cache & Buffer	HEAL/WORK	CONSTRUCT/CREATE	MOVED	blind
+313	machine	Calibration	STUDY/WORK	HEAL/MAINTAIN	MOVED	blind
+314	machine	Changeover	HEAL/WALK	FABRICATE/MAINTAIN	MOVED	blind
+315	machine	Chassis & Suspension	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+316	machine	Chip Management	HEAL/WALK	FABRICATE/MAINTAIN	MOVED	blind
+317	machine	Collaborative Robots	BOND/CREATE	FABRICATE/WORK	MOVED	blind
+318	machine	Condition Monitoring	STUDY/WALK	HEAL/SENSE	MOVED	blind
+319	machine	Control & Motion Planner	STUDY/LEARN	FABRICATE/PLAN	MOVED	blind
+320	machine	Conveyors & Material Handling	FABRICATE/WALK	FABRICATE/MOVE	MOVED	blind
+321	machine	Coolant & Lubrication	HEAL/REST	HEAL/WALK	MOVED	blind
+322	machine	Current & Voltage	STUDY/WORK	STUDY/SENSE	MOVED	blind
+323	machine	Cycle Time	FABRICATE/WORK	FABRICATE/SENSE	MOVED	blind
+324	machine	Digital Twin	STUDY/CREATE	STUDY/CREATE	same	blind
+325	machine	EDM Machining	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+326	machine	EMC & Shielding	HEAL/REST	CONSTRUCT/CREATE	MOVED	blind
+327	machine	Energy Storage	HEAL/REST	CONSTRUCT/CREATE	MOVED	blind
+328	machine	Environmental	STUDY/WALK	STUDY/SENSE	MOVED	blind
+329	machine	Environmental Condition	HEAL/WORK	STUDY/SENSE	MOVED	blind
+330	machine	Extrusion & Deposition	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+331	machine	Fastener & Joint	BOND/LIFT	CONSTRUCT/WORK	MOVED	blind
+332	machine	Firmware Engineering	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	blind
+333	machine	Flight Controller	STUDY/LEARN	HEAL/WALK	MOVED	blind
+334	machine	Flow Monitoring	HEAL/WALK	STUDY/SENSE	MOVED	blind
+335	machine	Frame & Chassis	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+336	machine	Gantry & Kinematics	FABRICATE/WALK	CONSTRUCT/CREATE	MOVED	blind
+337	machine	Graph & Network	BOND/CREATE	CONSTRUCT/CREATE	MOVED	blind
+338	machine	Ground Control Station	BOND/WORK	BOND/GUIDE	MOVED	blind
+339	machine	Harvesting & Scavenging	FABRICATE/WALK	FABRICATE/WORK	MOVED	blind
+340	machine	Hash & Map	STUDY/WORK	CONSTRUCT/CREATE	MOVED	blind
+341	machine	Hydraulics	FABRICATE/WORK	FABRICATE/WORK	same	blind
+342	machine	Industrial IoT	BOND/CREATE	BOND/CREATE	same	blind
+343	machine	Industrial Robotics	FABRICATE/WORK	FABRICATE/WORK	same	blind
+344	machine	Inertial & Motion	STUDY/WALK	STUDY/SENSE	MOVED	blind
+345	machine	Inspection & Metrology	STUDY/WORK	FABRICATE/SENSE	MOVED	blind
+346	machine	Laser Processing	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+347	machine	Level Monitoring	HEAL/WALK	STUDY/SENSE	MOVED	blind
+348	machine	Linear Actuator	FABRICATE/WALK	FABRICATE/WORK	MOVED	blind
+349	machine	Linked Structure	BOND/CREATE	CONSTRUCT/CREATE	MOVED	blind
+350	machine	Lock & Concurrency	HEAL/REST	CONSTRUCT/CREATE	MOVED	blind
+351	machine	Log & Journal	HEAL/WALK	STUDY/SENSE	MOVED	blind
+352	machine	Machine Health State	HEAL/WORK	HEAL/SENSE	MOVED	blind
+353	machine	Machine Mode	FABRICATE/WALK	HEAL/SENSE	MOVED	blind
+354	machine	Machine Vision	STUDY/LEARN	FABRICATE/SENSE	MOVED	blind
+355	machine	Material Feed	CONSTRUCT/WORK	FABRICATE/MOVE	MOVED	blind
+356	machine	Mesh & Topology	BOND/WALK	BOND/CREATE	MOVED	blind
+357	machine	Motor Control	FABRICATE/WALK	FABRICATE/WORK	MOVED	blind
+358	machine	Navigation & Guidance	STUDY/WALK	HEAL/MOVE	MOVED	blind
+359	machine	OEE Metrics	FABRICATE/WORK	FABRICATE/SENSE	MOVED	blind
+360	machine	PCB Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+361	machine	PLC & Industrial Control	HEAL/WALK	FABRICATE/WORK	MOVED	blind
+362	machine	Packaging Machinery	FABRICATE/WORK	FABRICATE/WORK	same	blind
+363	machine	Payload & Cargo	CONSTRUCT/LIFT	FABRICATE/MOVE	MOVED	blind
+364	machine	Persistence & Index	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	blind
+365	machine	Plasma Cutting	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+366	machine	Pneumatics	FABRICATE/WALK	FABRICATE/WORK	MOVED	blind
+367	machine	Power Distribution	BOND/WALK	CONSTRUCT/CREATE	MOVED	blind
+368	machine	Power Draw	HEAL/WORK	STUDY/SENSE	MOVED	blind
+369	machine	Power Electronics	HEAL/WORK	CONSTRUCT/CREATE	MOVED	blind
+370	machine	Power Regulation	HEAL/REST	HEAL/WALK	MOVED	blind
+371	machine	Power Source	FABRICATE/CREATE	CONSTRUCT/CREATE	MOVED	blind
+372	machine	Predictive Maintenance	HEAL/LEARN	HEAL/MAINTAIN	MOVED	blind
+373	machine	Pressure Regulation	HEAL/WORK	HEAL/WALK	MOVED	blind
+374	machine	Production Throughput	FABRICATE/WORK	FABRICATE/SENSE	MOVED	blind
+375	machine	Propulsion & Thrust	FABRICATE/LIFT	FABRICATE/WORK	MOVED	blind
+376	machine	Protocol Stack	BOND/CREATE	BOND/CREATE	same	blind
+377	machine	Proximity & Range	STUDY/WALK	STUDY/SENSE	MOVED	blind
+378	machine	Real-Time Systems	HEAL/WALK	CONSTRUCT/CREATE	MOVED	blind
+379	machine	Remaining Useful Life	STUDY/LEARN	HEAL/SENSE	MOVED	blind
+380	machine	Rotary Actuator	FABRICATE/LIFT	FABRICATE/WORK	MOVED	blind
+381	machine	SCADA & Monitoring	STUDY/WALK	HEAL/SENSE	MOVED	blind
+382	machine	SPC Quality	STUDY/WORK	FABRICATE/SENSE	MOVED	blind
+383	machine	Safety Interlock	HEAL/WORK	HEAL/MAINTAIN	MOVED	blind
+384	machine	Safety Systems	HEAL/WORK	HEAL/MAINTAIN	MOVED	blind
+385	machine	Sealing & Protection	HEAL/REST	CONSTRUCT/MAINTAIN	MOVED	blind
+386	machine	Sense & Avoid	STUDY/WALK	STUDY/SENSE	MOVED	blind
+387	machine	Sensor Fusion	STUDY/CREATE	STUDY/SENSE	MOVED	blind
+388	machine	Sort & Search	STUDY/LEARN	STUDY/WORK	MOVED	blind
+389	machine	Speed Monitoring	FABRICATE/WALK	STUDY/SENSE	MOVED	blind
+390	machine	Spindle & Tooling	FABRICATE/WORK	FABRICATE/WORK	same	blind
+391	machine	Stack & Queue	FABRICATE/REST	CONSTRUCT/CREATE	MOVED	blind
+392	machine	Startup Sequence	CONSTRUCT/WORK	FABRICATE/PLAN	MOVED	blind
+393	machine	Switch & Router	CONSTRUCT/WORK	BOND/CREATE	MOVED	blind
+394	machine	Telemetry & Link	BOND/CREATE	BOND/WALK	MOVED	blind
+395	machine	Thermal Management	HEAL/REST	HEAL/MAINTAIN	MOVED	blind
+396	machine	Thermal Zone Monitoring	HEAL/WALK	STUDY/SENSE	MOVED	blind
+397	machine	Tool Change & Carousel	CONSTRUCT/CREATE	FABRICATE/MAINTAIN	MOVED	blind
+398	machine	Torque & Force	FABRICATE/LIFT	STUDY/SENSE	MOVED	blind
+399	machine	Tree & Hierarchy	STUDY/CREATE	CONSTRUCT/CREATE	MOVED	blind
+400	machine	Valve & Regulator	HEAL/REST	FABRICATE/WORK	MOVED	blind
+401	machine	Vibration Analysis	STUDY/LEARN	HEAL/SENSE	MOVED	blind
+402	machine	Vibro-Acoustic	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+403	machine	Vision & Imaging	STUDY/LEARN	STUDY/SENSE	MOVED	blind
+404	machine	Waterjet Cutting	FABRICATE/WORK	FABRICATE/WORK	same	blind
+405	machine	Welding Systems	BOND/CREATE	FABRICATE/WORK	MOVED	blind
+406	machine	Wireless Link	BOND/WALK	BOND/CREATE	MOVED	blind
+407	machine	Workpiece Fixturing	CONSTRUCT/LIFT	FABRICATE/WORK	MOVED	blind
+408	machine	Yield & Scrap Rate	STUDY/WORK	FABRICATE/SENSE	MOVED	blind
+409	music	Composition	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+410	music	Ear Training	STUDY/WALK	STUDY/LEARN	MOVED	blind
+411	music	Instrument Practice	FABRICATE/WORK	FABRICATE/LEARN	MOVED	blind
+412	music	Listening & Analysis	HEAL/REST	STUDY/LEARN	MOVED	blind
+413	music	Music Theory	STUDY/LEARN	STUDY/LEARN	same	blind
+414	music	Performance	BOND/LIFT	FABRICATE/WORK	MOVED	blind
+415	music	Production & Mixing	CONSTRUCT/WORK	FABRICATE/WORK	MOVED	blind
+416	nutrition_cooking	Baking	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+417	nutrition_cooking	Cooking Techniques	FABRICATE/WORK	FABRICATE/WORK	same	blind
+418	nutrition_cooking	Hosting & Sharing	BOND/CREATE	BOND/PLAY	MOVED	blind
+419	nutrition_cooking	Kitchen Organization	CONSTRUCT/WALK	CONSTRUCT/MAINTAIN	MOVED	blind
+420	nutrition_cooking	Meal Planning	CONSTRUCT/CREATE	FABRICATE/PLAN	MOVED	blind
+421	nutrition_cooking	Nutrition Knowledge	STUDY/LEARN	HEAL/LEARN	MOVED	blind
+422	nutrition_cooking	Preservation	HEAL/WALK	FABRICATE/WORK	MOVED	blind
+423	nutrition_cooking	Recipe Development	STUDY/CREATE	FABRICATE/CREATE	MOVED	blind
+424	office	Access Management	HEAL/WORK	BOND/MAINTAIN	MOVED	blind
+425	office	Account Management	BOND/WORK	BOND/MAINTAIN	MOVED	blind
+426	office	Ad-hoc Analysis	STUDY/LEARN	STUDY/WORK	MOVED	blind
+427	office	Annual Report	BOND/CREATE	STUDY/GUIDE	MOVED	blind
+428	office	Asset Management	STUDY/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+429	office	Audit Preparation	STUDY/WALK	CONSTRUCT/SENSE	MOVED	blind
+430	office	Backup & Recovery	HEAL/REST	HEAL/MAINTAIN	MOVED	blind
+431	office	Brand Management	CONSTRUCT/CREATE	BOND/MAINTAIN	MOVED	blind
+432	office	Budget Planning	CONSTRUCT/CREATE	CONSTRUCT/PLAN	MOVED	blind
+433	office	Budget Variance	STUDY/LEARN	STUDY/SENSE	MOVED	blind
+434	office	Campaign Management	FABRICATE/WORK	BOND/MOVE	MOVED	blind
+435	office	Compensation	FABRICATE/WORK	BOND/MAINTAIN	MOVED	blind
+436	office	Content Creation	CONSTRUCT/CREATE	FABRICATE/CREATE	MOVED	blind
+437	office	Contract Management	CONSTRUCT/CREATE	BOND/MAINTAIN	MOVED	blind
+438	office	Cost Analysis	STUDY/LEARN	STUDY/WORK	MOVED	blind
+439	office	Customer Feedback	STUDY/LEARN	BOND/SENSE	MOVED	blind
+440	office	Customer Onboarding	CONSTRUCT/CREATE	BOND/CREATE	MOVED	blind
+441	office	Daily Operations	STUDY/WORK	STUDY/SENSE	MOVED	blind
+442	office	Data Privacy	HEAL/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+443	office	Document Collaboration	CONSTRUCT/CREATE	BOND/WORK	MOVED	blind
+444	office	Email Management	BOND/WORK	BOND/WALK	MOVED	blind
+445	office	Employee Onboarding	CONSTRUCT/CREATE	BOND/CREATE	MOVED	blind
+446	office	Escalation Handling	HEAL/WALK	BOND/MOVE	MOVED	blind
+447	office	Expense Management	HEAL/WORK	FABRICATE/WORK	MOVED	blind
+448	office	Expense Report	HEAL/WORK	FABRICATE/WORK	MOVED	blind
+449	office	Financial Report	STUDY/WORK	STUDY/GUIDE	MOVED	blind
+450	office	Goods Receiving	HEAL/WALK	FABRICATE/MOVE	MOVED	blind
+451	office	Help Desk	HEAL/WORK	HEAL/WORK	same	blind
+452	office	Hiring & Recruiting	BOND/WALK	BOND/CREATE	MOVED	blind
+453	office	IP Management	CONSTRUCT/WORK	STUDY/MAINTAIN	MOVED	blind
+454	office	Incident Response	HEAL/WALK	HEAL/WORK	MOVED	blind
+455	office	Instant Messaging	BOND/WALK	BOND/WALK	same	blind
+456	office	Inventory Control	HEAL/REST	FABRICATE/MAINTAIN	MOVED	blind
+457	office	Invoicing	CONSTRUCT/WORK	FABRICATE/WORK	MOVED	blind
+458	office	Lab Management	HEAL/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+459	office	Lead Management	BOND/WORK	BOND/MAINTAIN	MOVED	blind
+460	office	Learning & Development	STUDY/LEARN	STUDY/LEARN	same	blind
+461	office	Legal Review	STUDY/WORK	STUDY/SENSE	MOVED	blind
+462	office	Maintenance Request	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+463	office	Market Research	STUDY/LEARN	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+464	office	Meeting Management	BOND/CREATE	BOND/PLAN	MOVED	blind
+465	office	Milestone Tracking	CONSTRUCT/WORK	STUDY/SENSE	MOVED	blind
+466	office	Monthly Business Review	BOND/CREATE	STUDY/GUIDE	MOVED	blind
+467	office	Org Structure	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+468	office	Payroll	HEAL/WORK	FABRICATE/WORK	MOVED	blind
+469	office	Performance Review	STUDY/LEARN	BOND/GUIDE	MOVED	blind
+470	office	Phone & Calls	BOND/WORK	BOND/WALK	MOVED	blind
+471	office	Policy Management	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+472	office	Presentation	CONSTRUCT/CREATE	STUDY/GUIDE	MOVED	blind
+473	office	Project Retrospective	HEAL/LEARN	STUDY/REST	MOVED	blind
+474	office	Prototype Development	FABRICATE/CREATE	FABRICATE/PLAY	MOVED	blind
+475	office	Purchase Order	CONSTRUCT/WORK	BOND/WORK	MOVED	blind
+476	office	Purchase Requisition	BOND/WORK	BOND/WORK	same	blind
+477	office	Quarterly Planning	CONSTRUCT/CREATE	CONSTRUCT/PLAN	MOVED	blind
+478	office	Regulatory Compliance	HEAL/WORK	CONSTRUCT/SENSE	MOVED	blind
+479	office	Research Project	STUDY/WORK	STUDY/WORK	same	HINT-LEAKS-CELL
+480	office	Resource Planning	CONSTRUCT/CREATE	FABRICATE/PLAN	MOVED	blind
+481	office	Revenue Tracking	FABRICATE/WORK	STUDY/SENSE	MOVED	blind
+482	office	Risk & Issue Tracking	STUDY/LEARN	STUDY/SENSE	MOVED	blind
+483	office	SLA Management	STUDY/WORK	BOND/MAINTAIN	MOVED	blind
+484	office	Security & Access	HEAL/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+485	office	Sprint Planning	FABRICATE/WORK	FABRICATE/PLAN	MOVED	blind
+486	office	Stakeholder Comms	BOND/WORK	BOND/WALK	MOVED	blind
+487	office	Status Update	BOND/WORK	BOND/WALK	MOVED	blind
+488	office	Supply Forecast	STUDY/LEARN	FABRICATE/PLAN	MOVED	blind
+489	office	Support Ticket	HEAL/WORK	HEAL/WORK	same	blind
+490	office	System Updates	FABRICATE/WALK	CONSTRUCT/MAINTAIN	MOVED	blind
+491	office	Task Management	CONSTRUCT/WORK	FABRICATE/PLAN	MOVED	blind
+492	office	Technical Review	STUDY/LEARN	CONSTRUCT/SENSE	MOVED	blind
+493	office	Time & Attendance	HEAL/WORK	STUDY/SENSE	MOVED	blind
+494	office	Timeline & Schedule	FABRICATE/WALK	CONSTRUCT/PLAN	MOVED	blind
+495	office	Travel Booking	CONSTRUCT/WORK	HEAL/MOVE	MOVED	blind
+496	office	Trip Planning	CONSTRUCT/CREATE	HEAL/PLAN	MOVED	blind
+497	office	Vendor Management	BOND/WORK	BOND/MAINTAIN	MOVED	blind
+498	office	Weekly Review	STUDY/LEARN	STUDY/SENSE	MOVED	blind
+499	outdoors_sports	Climbing	FABRICATE/LIFT	HEAL/LIFT	MOVED	blind
+500	outdoors_sports	Endurance Sports	HEAL/LIFT	HEAL/WALK	MOVED	blind
+501	outdoors_sports	Hiking & Trekking	HEAL/WORK	HEAL/MOVE	MOVED	blind
+502	outdoors_sports	Skill & Conditioning	STUDY/LEARN	HEAL/LEARN	MOVED	blind
+503	outdoors_sports	Team Sports	BOND/LIFT	HEAL/PLAY	MOVED	blind
+504	outdoors_sports	Water Sports	FABRICATE/WORK	HEAL/PLAY	MOVED	blind
+505	outdoors_sports	Winter Sports	HEAL/WALK	HEAL/PLAY	MOVED	blind
+506	personal_finance	Budgeting	CONSTRUCT/WALK	CONSTRUCT/PLAN	MOVED	blind
+507	personal_finance	Debt Management	HEAL/WORK	HEAL/WORK	same	blind
+508	personal_finance	Financial Literacy	STUDY/LEARN	STUDY/LEARN	same	blind
+509	personal_finance	Income & Career	FABRICATE/WORK	BOND/WORK	MOVED	blind
+510	personal_finance	Investing	FABRICATE/LIFT	CONSTRUCT/CREATE	MOVED	blind
+511	personal_finance	Retirement Planning	CONSTRUCT/CREATE	CONSTRUCT/PLAN	MOVED	blind
+512	personal_finance	Saving	HEAL/REST	HEAL/MAINTAIN	MOVED	blind
+513	personal_finance	Tax Planning	STUDY/WORK	CONSTRUCT/PLAN	MOVED	blind
+514	praxis	Adventure & Risk	CONSTRUCT/WALK	HEAL/PLAY	MOVED	blind
+515	praxis	Body & Fitness	HEAL/LIFT	HEAL/LIFT	same	blind
+516	praxis	Career & Craft	FABRICATE/WORK	FABRICATE/WORK	same	blind
+517	praxis	Ceremony & Ritual	BOND/REST	BOND/MAINTAIN	MOVED	blind
+518	praxis	Clothing & Style	FABRICATE/WORK	FABRICATE/CREATE	MOVED	blind
+519	praxis	Collaboration & Teamwork	BOND/WORK	BOND/WORK	same	blind
+520	praxis	Community & Contribution	BOND/CREATE	BOND/GUIDE	MOVED	blind
+521	praxis	Conflict Resolution	BOND/LEARN	BOND/WORK	MOVED	blind
+522	praxis	Cooking & Meal Prep	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+523	praxis	Culinary Arts	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+524	praxis	Digital Workspace	CONSTRUCT/CREATE	CONSTRUCT/MAINTAIN	MOVED	blind
+525	praxis	Education & Learning	STUDY/LEARN	STUDY/LEARN	same	HINT-LEAKS-CELL
+526	praxis	Entrepreneurship	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+527	praxis	Environment & Home	CONSTRUCT/CREATE	CONSTRUCT/MAINTAIN	MOVED	blind
+528	praxis	Experimentation	STUDY/CREATE	STUDY/WORK	MOVED	blind
+529	praxis	Family & Parenting	BOND/CREATE	BOND/MAINTAIN	MOVED	blind
+530	praxis	Financial Security	FABRICATE/WORK	HEAL/MAINTAIN	MOVED	blind
+531	praxis	First Aid & Safety	HEAL/LEARN	HEAL/WORK	MOVED	blind
+532	praxis	Friendship & Social	BOND/REST	BOND/WALK	MOVED	blind
+533	praxis	Gaming & Esports	STUDY/CREATE	STUDY/PLAY	MOVED	blind
+534	praxis	Gardening & Nature	HEAL/CREATE	HEAL/MAINTAIN	MOVED	blind
+535	praxis	Goal Setting	STUDY/WORK	CONSTRUCT/PLAN	MOVED	blind
+536	praxis	Health & Longevity	HEAL/WALK	HEAL/MAINTAIN	MOVED	blind
+537	praxis	Hobbies & Crafts	FABRICATE/CREATE	FABRICATE/PLAY	MOVED	blind
+538	praxis	Home Infrastructure	CONSTRUCT/WORK	CONSTRUCT/MAINTAIN	MOVED	blind
+539	praxis	Hydration & Metabolism	HEAL/WORK	HEAL/MAINTAIN	MOVED	blind
+540	praxis	Impact & Legacy	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+541	praxis	Injury Rehab	HEAL/WALK	HEAL/WORK	MOVED	blind
+542	praxis	Language Learning	STUDY/LEARN	STUDY/LEARN	same	blind
+543	praxis	Mental Balance	HEAL/REST	HEAL/REST	same	blind
+544	praxis	Mentoring & Teaching	BOND/LEARN	BOND/GUIDE	MOVED	blind
+545	praxis	Mindfulness & Meditation	HEAL/REST	HEAL/REST	same	blind
+546	praxis	Music & Performance	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+547	praxis	Negotiation	BOND/WALK	BOND/WORK	MOVED	blind
+548	praxis	Networking	BOND/WALK	BOND/MOVE	MOVED	blind
+549	praxis	Nutrition & Diet	HEAL/LIFT	HEAL/MAINTAIN	MOVED	blind
+550	praxis	Personal Hygiene	HEAL/CREATE	HEAL/MAINTAIN	MOVED	blind
+551	praxis	Pets & Animals	BOND/CREATE	HEAL/MAINTAIN	MOVED	blind
+552	praxis	Play & Recreation	BOND/LIFT	HEAL/PLAY	MOVED	blind
+553	praxis	Research & Analysis	STUDY/WORK	STUDY/WORK	same	HINT-LEAKS-CELL
+554	praxis	Rest & Recovery	HEAL/REST	HEAL/REST	same	HINT-LEAKS-CELL
+555	praxis	Romance & Intimacy	BOND/REST	BOND/LIFT	MOVED	blind
+556	praxis	Self-Tracking & Quantified Self	STUDY/WORK	HEAL/SENSE	MOVED	blind
+557	praxis	Space Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+558	praxis	Spirit & Purpose	STUDY/LEARN	STUDY/REST	MOVED	blind
+559	praxis	Storytelling	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+560	praxis	Strategy & Planning	STUDY/WORK	CONSTRUCT/PLAN	MOVED	blind
+561	praxis	Systems Building	CONSTRUCT/LEARN	CONSTRUCT/CREATE	MOVED	blind
+562	praxis	Travel & Exploration	STUDY/WALK	HEAL/MOVE	MOVED	blind
+563	praxis	Visual Arts	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+564	praxis	Volunteering	BOND/CREATE	BOND/WORK	MOVED	blind
+565	praxis	Wealth & Assets	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+566	praxis	Workshop & Tools	CONSTRUCT/WORK	FABRICATE/WORK	MOVED	blind
+567	praxis	Writing & Expression	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+568	productivity	Automation & Systems	FABRICATE/WORK	CONSTRUCT/CREATE	MOVED	blind
+569	productivity	Decision Making	STUDY/WORK	STUDY/PLAN	MOVED	blind
+570	productivity	Deep Work	FABRICATE/LIFT	STUDY/LIFT	MOVED	blind
+571	productivity	Energy Management	HEAL/WALK	HEAL/MAINTAIN	MOVED	HINT-LEAKS-CELL
+572	productivity	Goal Setting	STUDY/CREATE	CONSTRUCT/PLAN	MOVED	blind
+573	productivity	Review & Reflection	HEAL/REST	STUDY/REST	MOVED	blind
+574	productivity	Task Management	CONSTRUCT/WALK	FABRICATE/PLAN	MOVED	blind
+575	productivity	Time Blocking	CONSTRUCT/CREATE	CONSTRUCT/PLAN	MOVED	blind
+576	relationships	Acts of Service	FABRICATE/CREATE	BOND/WORK	MOVED	blind
+577	relationships	Building New Connections	BOND/CREATE	BOND/MOVE	MOVED	blind
+578	relationships	Communication	BOND/WORK	BOND/WALK	MOVED	blind
+579	relationships	Conflict Resolution	HEAL/WORK	BOND/WORK	MOVED	blind
+580	relationships	Family Bonds	BOND/LIFT	BOND/MAINTAIN	MOVED	blind
+581	relationships	Quality Time	BOND/WALK	BOND/REST	MOVED	blind
+582	relationships	Romance & Intimacy	HEAL/CREATE	BOND/LIFT	MOVED	blind
+583	relationships	Self-Reflection in Relating	HEAL/REST	BOND/LEARN	MOVED	blind
+584	science_research	Analysis & Interpretation	STUDY/WORK	STUDY/WORK	same	blind
+585	science_research	Collaboration	BOND/WORK	BOND/WORK	same	blind
+586	science_research	Data Collection	FABRICATE/WORK	STUDY/SENSE	MOVED	blind
+587	science_research	Experiment Design	CONSTRUCT/CREATE	STUDY/PLAN	MOVED	blind
+588	science_research	Hypothesis Formation	STUDY/CREATE	STUDY/BRAINSTORM	MOVED	blind
+589	science_research	Literature Review	STUDY/LEARN	STUDY/LEARN	same	blind
+590	science_research	Replication & Validation	HEAL/WALK	STUDY/WORK	MOVED	blind
+591	science_research	Writing & Publishing	BOND/CREATE	STUDY/CREATE	MOVED	blind
+592	semiotic	Aberrant Decoding	STUDY/WALK	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+593	semiotic	Actantial Model	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	HINT-LEAKS-CELL
+594	semiotic	Argument	STUDY/LEARN	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+595	semiotic	Code	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	HINT-LEAKS-CELL
+596	semiotic	Conative	BOND/WALK	BOND/GUIDE	MOVED	HINT-LEAKS-CELL
+597	semiotic	Connotation	FABRICATE/CREATE	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+598	semiotic	Denotation	STUDY/WORK	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+599	semiotic	Diachronic	FABRICATE/WALK	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+600	semiotic	Dicisign	CONSTRUCT/WORK	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+601	semiotic	Emotive	HEAL/LIFT	BOND/CREATE	MOVED	HINT-LEAKS-CELL
+602	semiotic	Encyclopedia	STUDY/LEARN	STUDY/MAINTAIN	MOVED	HINT-LEAKS-CELL
+603	semiotic	Firstness	HEAL/REST	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+604	semiotic	Icon	FABRICATE/CREATE	STUDY/LEARN	MOVED	HINT-LEAKS-CELL
+605	semiotic	Iconism	FABRICATE/CREATE	STUDY/LEARN	MOVED	HINT-LEAKS-CELL
+606	semiotic	Index	STUDY/WALK	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+607	semiotic	Intentio Operis	FABRICATE/WORK	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+608	semiotic	Isotopy	STUDY/WORK	STUDY/WORK	same	HINT-LEAKS-CELL
+609	semiotic	Langue	CONSTRUCT/WORK	CONSTRUCT/CREATE	MOVED	HINT-LEAKS-CELL
+610	semiotic	Legisign	BOND/CREATE	CONSTRUCT/CREATE	MOVED	HINT-LEAKS-CELL
+611	semiotic	Metalingual	STUDY/LEARN	STUDY/LEARN	same	HINT-LEAKS-CELL
+612	semiotic	Myth	BOND/LEARN	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+613	semiotic	Narrative Program	FABRICATE/WALK	FABRICATE/PLAN	MOVED	HINT-LEAKS-CELL
+614	semiotic	Paradigmatic	STUDY/WORK	STUDY/BRAINSTORM	MOVED	HINT-LEAKS-CELL
+615	semiotic	Parole	BOND/CREATE	BOND/WORK	MOVED	HINT-LEAKS-CELL
+616	semiotic	Phatic	BOND/REST	BOND/MAINTAIN	MOVED	HINT-LEAKS-CELL
+617	semiotic	Poetic	FABRICATE/CREATE	FABRICATE/CREATE	same	HINT-LEAKS-CELL
+618	semiotic	Punctum	HEAL/LIFT	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+619	semiotic	Qualisign	HEAL/LIFT	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+620	semiotic	Ratio Facilis	CONSTRUCT/CREATE	FABRICATE/WORK	MOVED	HINT-LEAKS-CELL
+621	semiotic	Readerly Text	STUDY/LEARN	STUDY/LEARN	same	HINT-LEAKS-CELL
+622	semiotic	Referential	STUDY/WORK	STUDY/WORK	same	HINT-LEAKS-CELL
+623	semiotic	Rheme	FABRICATE/LIFT	STUDY/BRAINSTORM	MOVED	HINT-LEAKS-CELL
+624	semiotic	Secondness	CONSTRUCT/LIFT	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+625	semiotic	Semiotic Square	BOND/LEARN	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+626	semiotic	Signified	STUDY/LEARN	STUDY/LEARN	same	HINT-LEAKS-CELL
+627	semiotic	Signifier	FABRICATE/CREATE	FABRICATE/CREATE	same	HINT-LEAKS-CELL
+628	semiotic	Sinsign	CONSTRUCT/WALK	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+629	semiotic	Studium	STUDY/WALK	STUDY/LEARN	MOVED	HINT-LEAKS-CELL
+630	semiotic	Symbol	BOND/LEARN	BOND/MAINTAIN	MOVED	HINT-LEAKS-CELL
+631	semiotic	Synchronic	HEAL/REST	STUDY/SENSE	MOVED	HINT-LEAKS-CELL
+632	semiotic	Syntagmatic	CONSTRUCT/WALK	CONSTRUCT/CREATE	MOVED	HINT-LEAKS-CELL
+633	semiotic	Thirdness	BOND/REST	STUDY/WORK	MOVED	HINT-LEAKS-CELL
+634	semiotic	Unlimited Semiosis	BOND/CREATE	STUDY/WALK	MOVED	HINT-LEAKS-CELL
+635	semiotic	Writerly Text	BOND/CREATE	FABRICATE/CREATE	MOVED	HINT-LEAKS-CELL
+636	software_dev	API Integration	BOND/CREATE	BOND/CREATE	same	HINT-LEAKS-CELL
+637	software_dev	Architecture Design	CONSTRUCT/CREATE	CONSTRUCT/CREATE	same	blind
+638	software_dev	Code Review	BOND/WORK	CONSTRUCT/SENSE	MOVED	blind
+639	software_dev	Debugging	HEAL/WORK	HEAL/WORK	same	blind
+640	software_dev	Dependency Management	CONSTRUCT/WALK	CONSTRUCT/MAINTAIN	MOVED	blind
+641	software_dev	Documentation	STUDY/CREATE	STUDY/GUIDE	MOVED	blind
+642	software_dev	Feature Implementation	FABRICATE/CREATE	FABRICATE/WORK	MOVED	blind
+643	software_dev	Learning a Codebase	STUDY/LEARN	CONSTRUCT/LEARN	MOVED	blind
+644	software_dev	Performance Optimization	FABRICATE/LIFT	CONSTRUCT/MAINTAIN	MOVED	blind
+645	software_dev	Refactoring	HEAL/CREATE	CONSTRUCT/MAINTAIN	MOVED	blind
+646	software_dev	Testing	CONSTRUCT/WORK	FABRICATE/SENSE	MOVED	blind
+647	software_dev	Version Control	CONSTRUCT/WALK	CONSTRUCT/MAINTAIN	MOVED	blind
+648	travel	Adventure	HEAL/LIFT	HEAL/PLAY	MOVED	blind
+649	travel	Booking & Logistics	CONSTRUCT/WORK	HEAL/MOVE	MOVED	blind
+650	travel	Cultural Immersion	BOND/LEARN	STUDY/LEARN	MOVED	blind
+651	travel	Exploration	STUDY/WALK	STUDY/PLAY	MOVED	blind
+652	travel	Relaxation Travel	HEAL/REST	HEAL/REST	same	blind
+653	travel	Travel Documentation	FABRICATE/CREATE	STUDY/CREATE	MOVED	blind
+654	travel	Trip Planning	CONSTRUCT/CREATE	HEAL/PLAN	MOVED	HINT-LEAKS-CELL
+655	visual_arts	Composition & Theory	STUDY/LEARN	STUDY/LEARN	same	blind
+656	visual_arts	Critique & Reference	STUDY/WALK	STUDY/LEARN	MOVED	blind
+657	visual_arts	Digital Art	CONSTRUCT/CREATE	FABRICATE/CREATE	MOVED	blind
+658	visual_arts	Drawing Practice	FABRICATE/WORK	FABRICATE/LEARN	MOVED	HINT-LEAKS-CELL
+659	visual_arts	Exhibition & Sharing	BOND/CREATE	BOND/MOVE	MOVED	blind
+660	visual_arts	Painting	FABRICATE/CREATE	FABRICATE/CREATE	same	blind
+661	visual_arts	Photography	BOND/WALK	FABRICATE/CREATE	MOVED	blind

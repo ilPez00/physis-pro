@@ -19,6 +19,15 @@
 >   several are probably understated.
 >
 > Nothing here is retracted for being wrong. It is marked for being **untested**.
+>
+> **Update (Stage 11): the corpus has been regenerated and Gate 0 is closed.**
+> The domain axis had no written definition anywhere — that was the root cause —
+> and all 70 anchors spoke in one register each. `docs/GRID_AXES.md` now defines
+> the axis, the anchors were rewritten, and all 661 entries were re-filed blind
+> against it; 77.6% moved and the rater-independent misfiling proxy halved
+> (31.8% → 16.2%). **This does not un-mark anything below.** The twelve
+> mechanisms remain UNTESTED because they have not been re-run — only the corpus
+> they would be re-run against has changed.
 
 
 Eight iterations, three datasets, real production data, and one caught NaN
@@ -2201,3 +2210,187 @@ whether an entry belongs where it sits.
 
 Filter, rank, do not judge. That is now three measurements rather than a
 principle.
+
+
+## Stage 11 — Gate 0, closed by regeneration: the domain axis had no definition
+
+Stage 8 named three ways past Gate 0 and Stage 9 killed the cheap one. What
+remained was hand-adjudication or regeneration with the disposer in the loop.
+This is the regeneration, and it began by finding that the corpus was not the
+only thing wrong.
+
+### The root cause: five words nobody defined
+
+The fourteen **modes** have been documented since they were designed — the
+activity-energy axis, DESTROY completing the Greimas opposition against CREATE,
+PLAN converging against BRAINSTORM's diverge. The five **domains** are defined
+nowhere in the codebase. Not in `ontology.rs`, not in either README, not in
+`docs/`. 730 entries had been filed against five words — HEAL, CONSTRUCT,
+FABRICATE, BOND, STUDY — whose meaning was never written down.
+
+What stood in for a definition was the 70 anchors, and each domain's fourteen
+anchors sat in exactly one register:
+
+| domain | anchor category | register |
+|---|---|---|
+| HEAL | `Body` | human physical |
+| CONSTRUCT | `Build` | construction site |
+| FABRICATE | `Make` | workshop / factory |
+| BOND | `Connect` | human social |
+| STUDY | `Mind` | human intellectual |
+
+That is a human-daily-life ontology. It serves personal-history classification
+well and cannot serve machine telemetry, agent architectures, office documents
+or semiotics — which is most of the corpus and all of what the product is sold
+to classify.
+
+**This reframes Stage 7's 43.3%.** `Coolant & Lubrication` in HEAL/REST is not
+obviously wrong. It is wrong against an anchor that says *"rest day, recover,
+sleep deeply"*, and right against the idea those words were standing in for.
+Stage 7 adjudicated every entry against the anchor **as written**, so it was
+measuring two defects at once: entries in genuinely arbitrary cells, and entries
+filed correctly under a reading of the grid the anchors did not express. 76
+entries even carry a written rationale for their cell — `Firstness` in HEAL/REST
+has the hint *"What rest restores: contact with being before relation"*.
+
+Re-filing against the old anchors would have resolved the second defect by
+deleting the product's subject matter: most of `semiotic` (44) and much of
+`machine` (107) have no home on a grid that means human sleep by HEAL. So the
+definition had to come first. **That ordering was the user's call, taken
+explicitly** — the alternative, taking the literal anchors as ground truth and
+dropping 150-200 entries, was offered and declined.
+
+### What was written
+
+`physis-core/docs/GRID_AXES.md` — the missing contract. The domain axis says
+**what is acted on**; the mode axis says **what act**.
+
+| domain | the object | human | machine | organisation |
+|---|---|---|---|---|
+| **HEAL** | condition — the state and capacity of something already running | sleep, injury | wear, coolant, condition monitoring | burnout, service health |
+| **CONSTRUCT** | structure — the durable arrangement other work happens inside | a house | a rig, a platform, a schema | a department, a process |
+| **FABRICATE** | output — discrete artifacts and throughput a process emits | a meal | parts, batches, builds | deliverables, reports |
+| **BOND** | relation — coupling between agents or components | friendship | bus, protocol, interface | contracts, accounts |
+| **STUDY** | knowledge — acquiring and reasoning about information | learning | telemetry analysis | research, audit |
+
+It also separates two modes the old anchors had made near-synonyms:
+`CONSTRUCT/WALK` ("Steady Upkeep") and `CONSTRUCT/MAINTAIN` ("Building
+Maintenance") shared almost all their meaning and sat at cosine 0.9287, the most
+confusable pair in the grid. WALK is now the rhythm of normal operation;
+MAINTAIN is work done against decay.
+
+All 70 anchors were rewritten to that contract, each spanning the three
+registers, hints kept mode-pure and domain-pure — the register varies in the
+noun, never the verb.
+
+### The anchor rewrite, measured
+
+Removing the register cheat — cells partly told apart by vocabulary rather than
+by meaning — could only make anchors more alike. It did the opposite:
+
+| | old | new |
+|---|---|---|
+| mean off-diagonal cosine (2,415 pairs) | 0.6885 | **0.6631** |
+| pairs above 0.85 | 25 | **10** |
+| pairs above 0.90 | 5 | **0** |
+| mean nearest-neighbour cosine | 0.8489 | **0.8207** |
+| worst pair | BOND/WALK ↔ BOND/MAINTAIN 0.9287 | CONSTRUCT/GUIDE ↔ FABRICATE/GUIDE 0.8983 |
+
+`examples/anchor_separation.rs`.
+
+### The blind re-filing
+
+All 661 non-anchor entries, judged from name, category and hints with the
+existing assignment **withheld**, in deterministic order. Every verdict is in
+`refiling_gate0.tsv` — 661 rows, before and after — so the judgements can be
+checked rather than trusted.
+
+**513 entries (77.6%) moved.** Occupied cells went **35/70 → 57/70**.
+
+The agreement pattern is the first validity check, and it is the one that would
+have exposed the pass as noise:
+
+| source | blind pass agrees with the original | what that source is |
+|---|---|---|
+| **grid_fill** | **89.2%** | written deliberately to fill named empty cells |
+| italian_industrial | 53.8% | |
+| praxis | 29.6% | the original human-life ontology |
+| engineering | 24.6% | |
+| semiotic | 18.2% | |
+| machine | 10.3% | |
+| office | 9.3% | |
+| **cybersecurity** | **0%** | |
+
+Where the original filing was made deliberately against cell meaning, the blind
+pass reproduces it almost exactly. Where it was not, the pass disagrees almost
+completely. A rater producing noise would not have that shape.
+
+### Does the new filing actually fit better? Measured without the rater
+
+Neither filing was made with embeddings — both are judgements over text — so the
+embedder is an independent instrument. For each entry, its cell anchor's rank
+among all 70; the misfiling proxy is the share whose own anchor lands in the
+worse half. `examples/refiling_fit.rs`.
+
+| misfiling proxy | old anchors | new anchors |
+|---|---|---|
+| **old filing** | 31.8% | 31.8% |
+| **new filing** | **18.2%** | **16.2%** |
+
+**The new filing wins even judged against the old anchors**, which is the
+stronger test — it is not merely matching definitions the same author wrote.
+Scoring both filings against the *same* anchors is what makes the comparison
+fair; scoring each against its own would be rigged.
+
+| | old filing | new filing |
+|---|---|---|
+| its own anchor is nearest of 70 | 8.0% | **17.4%** |
+| within the nearest 5 | 25.0% | **43.6%** |
+| mean rank of its own anchor | 25.3 | **15.9** |
+
+**And the table says something about my own work that I am not going to bury:
+the anchor rewrite contributes essentially nothing to fit** (31.8% → 31.8%).
+Its value is separation and register coverage, both real and both measured
+above. The re-filing does all of this work.
+
+**Contamination, and the check for it.** 76 entries carry a hint narrating their
+old cell, so blindness fails for those. Excluding them leaves 585 truly blind
+entries, and the result is *stronger* there, not weaker: misfiling proxy
+**34.5% → 16.9%**, own-anchor-nearest **6.0% → 16.8%**, mean rank 27.0 → 16.3.
+The contaminated entries were not driving the effect.
+
+### The re-audit, and why it is the weakest number here
+
+Same protocol as Stage 7 — every 11th entry by (cell, name), 61 rows,
+adjudicated against each cell's own anchor. `cell_adjudication_regenerated.tsv`.
+
+| verdict | Stage 7 (old corpus) | Stage 11 (regenerated) |
+|---|---|---|
+| YES — clearly belongs | 31.7% | **70.5%** |
+| MARGINAL | 25.0% | 23.0% |
+| **NO — clearly does not** | **43.3%** | **6.6%** |
+
+**This is a self-grade and should be read as one.** The rater who scored it also
+produced the filing. Stage 7's number was an audit of someone else's work; this
+one is not, and no amount of protocol-matching fixes that. It is published so it
+can be checked. The evidence that does not depend on this rater is the geometric
+proxy and the grid_fill agreement, above, and those are what the claim rests on.
+
+### What this does and does not close
+
+**Closed.** Gate 0. There is now a written definition of the domain axis, anchors
+that implement it in three registers, and a corpus filed against it — with the
+before/after of all 661 entries published. Shipped as physis-core **0.1.21**.
+
+**Not closed, and not to be quietly assumed.** The twelve mechanisms of Stage 8's
+re-test list are still **UNTESTED**. They have not been re-run on the regenerated
+corpus. Stage 8's re-test order stands: Iteration 38's CONSTRAINT family first,
+since it is fully automated and has a measured noise floor (0.074 AUC) to beat.
+If CONSTRAINT still loses to cosine on a corpus that is no longer 43% noise, it
+is genuinely refuted and the weaker claims can be closed with it.
+
+**Also unresolved:** 13 of 70 cells are still empty, and `CONSTRUCT/CREATE` now
+holds 69 entries — the same junk-drawer shape Stage 7 diagnosed, in a new place.
+A cell that large is a sign the domain contract is under-specified for design
+work, not a sign the filing is wrong, but it is the obvious next thing to look
+at.

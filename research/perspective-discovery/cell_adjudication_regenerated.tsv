@@ -1,0 +1,75 @@
+# Gate 0 re-audit. Same rule as cell_adjudication.tsv: every 11th entry by
+# (cell, name) from the loaded 661-entry corpus, adjudicated against its cell's
+# own anchor definition. Deterministic, no cherry-picking.
+#
+# RATER CAVEAT, STATED UP FRONT: the rater (Claude) also produced this filing,
+# so this is a SELF-GRADE and is not independent evidence the way Stage 7's
+# audit of someone else's filing was. It is published so it can be checked, and
+# it is reported alongside two measurements that do NOT depend on this rater:
+# the geometric fit proxy (31.8% -> 16.2% in the worse half of 70 cells) and
+# the 89.2% agreement with grid_fill, the one source whose original filing was
+# made deliberately against cell meaning.
+#
+# YES = clearly belongs. NO = clearly does not. MARGINAL = defensible loosely.
+n	cell	entry	verdict
+1	BOND/CREATE	API Design	YES
+2	BOND/CREATE	Networking	YES
+3	BOND/GUIDE	Performance Review	YES
+4	BOND/MAINTAIN	Compensation	MARGINAL
+5	BOND/MOVE	Campaign Management	MARGINAL
+6	BOND/PLAY	Hosting & Sharing	YES
+7	BOND/WALK	Instant Messaging	YES
+8	BOND/WORK	Communicator	MARGINAL
+9	BOND/WORK	Sales	YES
+10	CONSTRUCT/CREATE	Chassis & Suspension	YES
+11	CONSTRUCT/CREATE	Emergent Agent	NO
+12	CONSTRUCT/CREATE	Impact & Legacy	MARGINAL
+13	CONSTRUCT/CREATE	Persistence & Index	YES
+14	CONSTRUCT/CREATE	Renewable Energy	MARGINAL
+15	CONSTRUCT/CREATE	Transportation Engineering	YES
+16	CONSTRUCT/MAINTAIN	Asset Management	MARGINAL
+17	CONSTRUCT/MAINTAIN	Maintenance Request	YES
+18	CONSTRUCT/MAINTAIN	Security & Access	NO
+19	CONSTRUCT/PLAN	Project Management	YES
+20	CONSTRUCT/REST	Fermo Impianto	YES
+21	CONSTRUCT/SENSE	Technical Review	YES
+22	FABRICATE/CREATE	Clothing & Style	YES
+23	FABRICATE/CREATE	Photography	YES
+24	FABRICATE/CREATE	Writing & Expression	YES
+25	FABRICATE/MAINTAIN	Chip Management	YES
+26	FABRICATE/PLAN	Meal Planning	MARGINAL
+27	FABRICATE/PLAN	Workflow Chain	YES
+28	FABRICATE/SENSE	Inspection & Metrology	YES
+29	FABRICATE/SENSE	Testing & QA	YES
+30	FABRICATE/WORK	Actuator Systems	MARGINAL
+31	FABRICATE/WORK	Cryptography	NO
+32	FABRICATE/WORK	Hydraulics	MARGINAL
+33	FABRICATE/WORK	Packaging Machinery	YES
+34	FABRICATE/WORK	Reaction Engineering	YES
+35	FABRICATE/WORK	Valve & Regulator	MARGINAL
+36	HEAL/LEARN	Health Education	YES
+37	HEAL/MAINTAIN	Battery Management	YES
+38	HEAL/MAINTAIN	Nutrition & Diet	YES
+39	HEAL/MOVE	Hiking & Trekking	YES
+40	HEAL/PLAY	Water Sports	YES
+41	HEAL/SENSE	Anomaly Detection	YES
+42	HEAL/SENSE	Multi-Parameter Process Anomaly	YES
+43	HEAL/WALK	Endurance Sports	YES
+44	HEAL/WORK	First Aid & Safety	YES
+45	STUDY/CREATE	Digital Twin	YES
+46	STUDY/LEARN	Active Learning	YES
+47	STUDY/LEARN	Iconism	MARGINAL
+48	STUDY/LEARN	Music Theory	YES
+49	STUDY/LEARN	Writing Practice	YES
+50	STUDY/MAINTAIN	Semantic Memory	YES
+51	STUDY/PLAY	Exploration	NO
+52	STUDY/REST	Spirit & Purpose	YES
+53	STUDY/SENSE	Experiment Tracking	YES
+54	STUDY/SENSE	Model Evaluation	YES
+55	STUDY/SENSE	Semiconductor Sensor	YES
+56	STUDY/SENSE	Torque & Force	YES
+57	STUDY/WORK	Argument	MARGINAL
+58	STUDY/WORK	Exploratory Analysis	YES
+59	STUDY/WORK	Modal Reasoning	MARGINAL
+60	STUDY/WORK	Replication & Validation	YES
+61	STUDY/WORK	Vibrations	MARGINAL
