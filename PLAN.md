@@ -41,7 +41,7 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | question | answer | key evidence |
 |---|---|---|
 | Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10 |
-| Can a cheap signal certify discovered structure? | **NO — one lead, not validated (E16/E17)** | On **real** misfilings everything is at chance (cosine 0.519, CONSTRAINT 0.536 ns). **ANCHORVOC 0.664** is significant and survives 2 of 3 confound tests: real but partly vocabulary-mediated, not independent evidence |
+| Can a cheap signal certify discovered structure? | **NO — settled (E14–E18)** | On **real** misfilings every scorer is at chance: cosine 0.519, CONSTRAINT 0.536, ANCESTRY 0.534. ANCHORVOC's 0.664 was an entry-length artifact that fails replication |
 | Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
 | Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
@@ -197,6 +197,51 @@ shape; it needs its display changed to withhold hints.
 confound resolved — ignoring that Test 3 failed a criterion the same script had
 pre-registered. A confound check that stops at the first reassuring answer is
 not a check.)*
+
+### E18 — ANCHORVOC closed, and the port checked
+
+`research/mapper/E18_ANCHORVOC_CLOSED.md`. Three questions, one pass.
+
+**Port validation.** CONSTRAINT r = +0.943 and ANCESTRY r = +0.976 against
+experiment38's Rust values — faithful. **COSINE r = +0.197 — divergent, and
+expectedly so:** experiment38 embeds with MiniLM, this corpus with BGE.
+Structural scorers are embedder-independent; geometry is not. So E15/E16's
+COSINE is the **stronger** BGE baseline (E1: +0.132 over MiniLM), meaning the
+structural scorers were compared against a harder baseline than Stage 12 used.
+
+**ANCHORVOC is an entry-length artifact.**
+
+| arm | AUC | vs COSINE |
+|---|---:|---:|
+| COSINE | 0.519 | — |
+| ANCHORVOC (E16) | 0.664 | +0.145 sig |
+| **CONTROL — entry length only** | **0.619** | **+0.100 sig** |
+| CONTROL — random cell's anchor | 0.565 | +0.046 ns |
+| **normalised ANCHORVOC vs length-only** | — | **+0.048 [−0.019, +0.116] ns** |
+
+Entry length alone reaches 0.619 of the 0.664, and **no vocabulary effect
+survives controlling for it.**
+
+**It also fails to replicate** on `cell_adjudication.tsv` — the audit of a
+filing the rater did *not* produce — where cosine beats it 0.691 vs 0.544 (NO
+only) and 0.739 vs 0.662 (NO + MARGINAL).
+
+**Verdict: ANCHORVOC is not a certification signal.**
+
+### Where E14–E18 leave it
+
+*No tested mechanism detects a real misfiling.* The central negative stands and
+now stands for the right reason: before E14 it rested on a comparison decided by
+an injection policy that inverted the ranking; it now rests on three scorer
+families measured against two real ground truths with the length and vocabulary
+confounds separated. **The human-in-the-loop conclusion is the finding, not a
+fallback from a failed search.**
+
+*(The arc is kept in the reports because the process is the point: E15 reopened
+the question, E16 narrowed it to one scorer, E17 found its confound tests
+disagreed, E18 closed it. Four experiments each correcting the last, ending at
+the position the track held before E14 — for entirely different and much better
+reasons.)*
 
 ### The one constraint everything converges on
 
