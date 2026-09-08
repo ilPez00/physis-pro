@@ -379,6 +379,84 @@ The lex arms also confirm E1's directionality finding: `+1 block first` scores
 0.773 and `−1 block first` 0.426. The sign axis is directional, so it remains
 unstatable until a reference model and a challenger are named.
 
+## 9c. Follow-up: can asymmetric weighting or non-linearity preserve an edge from the weaker model? (E1d)
+
+E1 reported that `support_1` adds nothing on top of `support_2`, on the evidence
+of a **linear** logistic plus `min`, `max` and `mean`. That is not the general
+claim, and the objection is fair: a gated combination — consult the weak model
+only where the strong one is ambiguous — was never tested, and the 0.554 figure
+for `s1` within `support_2` strata is eight coarse bins averaged over the whole
+range, which could hide a band.
+
+Three tests, in increasing strength. All fit on TRAIN, scored on TEST, mean over
+the 22 configurations. Held-out `support_2` alone = **0.870**.
+
+### 1. Asymmetric weighting sweep
+
+`score = −(α·z₂ + (1−α)·z₁)`, standardised on train statistics:
+
+| α | 0.0 | 0.3 | 0.5 | 0.7 | 0.8 | 0.9 | **1.0** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| held-out AUC | 0.740 | 0.818 | 0.847 | 0.862 | 0.866 | 0.869 | **0.870** |
+
+**Monotone in α, maximised exactly at α = 1.** The best weighting is the one
+that discards the weak model entirely; every mixture is worse. No asymmetric
+weighting preserves an edge.
+
+### 2. Is there a band where the weak model helps?
+
+AUC of `−s1` inside each `support_2` decile of the held-out half, pooled across
+all 22 configurations:
+
+| decile | 1 (lowest s₂) | 2 | 3 | 4 | 5 | **6** | **7** | 8 | 9 | 10 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| AUC of s₁ | 0.471 | 0.564 | 0.522 | 0.572 | 0.587 | **0.680** | **0.662** | 0.420 | 0.803 | 0.655 |
+| injected in bin | 176 | 126 | 49 | 35 | 32 | **14** | **22** | 2 | 3 | 1 |
+
+**There is a hint, and it is honest to report it.** In deciles 6–7 — where
+support_2 says the filing is moderately good — `s1` reaches 0.66–0.68. Deciles
+9 and 10 look higher still but carry 3 and 1 positives across all 22
+configurations and are noise. The real band is deciles 6–7, holding **36 of
+roughly 460 positives, about 8%**. Even perfect discrimination there moves the
+overall figure very little, which is why it does not survive into the next test.
+
+### 3. The general answer: the best possible combiner of the two features
+
+A 2-D non-parametric estimator of `P(injected | s1, s2)` — Gaussian-kernel
+Nadaraya-Watson over the train points — can express *any* gating, *any*
+asymmetric weight and *any* non-linearity. It bounds the whole family at once
+rather than testing one more hand-picked formula.
+
+| estimator | held-out AUC | vs support_2 alone |
+|---|---:|---:|
+| **support_2 alone** | **0.870** | — |
+| linear logistic (s1, s2) | 0.866 | −0.004 |
+| 2-D kernel, bandwidth 0.15 | 0.782 | −0.089 |
+| 2-D kernel, bandwidth 0.30 | 0.811 | −0.059 |
+| 2-D kernel, bandwidth 0.60 | 0.833 | −0.038 |
+| 2-D kernel, bandwidth 1.20 | 0.853 | −0.017 |
+| 2-D kernel, bandwidth 2.40 | 0.866 | −0.005 |
+
+**No function of (s1, s2) beats support_2 alone on held-out data.** And the
+bandwidth column is the diagnostic: performance rises *monotonically* as the
+kernel widens, converging on 0.866 — the linear solution — as h → ∞. The more
+the estimator is forced to ignore the two-dimensional structure, the better it
+does. If there were exploitable structure in the (s1, s2) plane, the curve would
+peak at some intermediate bandwidth. It does not.
+
+### What this establishes, stated at the right width
+
+The answer is **no**, but not because `support_1` is information-free — decile
+6–7 says it is not. It is because the information is **too small and too
+localised to survive the cost of estimating where to use it**. Roughly 8% of the
+positives sit in a band where the weak model carries an AUC around 0.67, and
+learning that band from ~460 training rows with ~60 positives costs more in
+variance than the band pays back.
+
+That is a claim about this benchmark at this sample size, not a general law
+about weak models. A larger labelled set could change it, and the decile table
+says exactly where to look if anyone wants to try.
+
 ## 10. Thesis consequence
 
 ```
