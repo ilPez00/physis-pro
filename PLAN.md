@@ -94,6 +94,157 @@ mechanism:**
    destinations, and — the actual deliverable — the native filings a person
    flagged, which this track has never had labelled.
 
+---
+
+## E2 — the mapper hypothesis: **NOT SUPPORTED**
+
+**Hypothesis, independent of E1 and not predicted by it:**
+
+> Can Qwen3-8B n-gram structure be distilled into a relational representation
+> dictionary that acts as an initial linguistic map, which Physis can
+> progressively ground, correct and reorganize through human/environmental
+> feedback?
+
+Restated as the thesis claim to be tested: *language can be treated initially as
+a relational representational topology rather than a fixed semantic ontology;
+sparse grounding and corrective interaction can progressively constrain that
+topology into a more useful map of externally observable phenomena.*
+
+**The decisive criterion, fixed before running:** not whether the map becomes
+internally coherent, but whether **progressive grounding makes the map
+increasingly predictive of things outside the map**. A map that produces
+aesthetically coherent clusters is not validated. The evidence required is
+`sparse grounding + successful propagation + successful correction + external
+predictive improvement`.
+
+### Ladder, with a stop condition at each rung
+
+| # | step | stop if |
+|---|---|---|
+| 0 | audit every Qwen/n-gram/tokenizer artifact, label each CURRENT / LEGACY / UNINTERPRETABLE / UNRELATED / REQUIRES REGENERATION | — (done, see below) |
+| 1 | define the dictionary precisely: alphabet, unit, context, entry contents, lookup return | the definition is arbitrary rather than derived from Qwen |
+| 2 | build the map — L0 n-grams, L1 pairwise relations, L2 relations between relations | a level has no principled definition or pruning criterion |
+| 3 | ablate: tokenizer-only vs ordinary n-gram vs Qwen dictionary vs +Physis vs existing embedding | Qwen n-grams do no better than tokenizer-only |
+| 4 | higher-order ablation, level by level | correlations-of-correlations add nothing |
+| 5 | sparse-grounding curve: 0 / few / many anchors, external held-out prediction | grounding does not improve prediction, or only memorizes labels |
+| 6 | emendation: inject wrong interpretations, correct one, measure repair and collateral damage | corrections do not propagate, or destroy unrelated structure |
+
+**Terminology discipline (§4, §19 of the brief).** The map is a *relational
+linguistic structure* / *representational topology*. Not meaning, truth, world
+structure, causality or ontology until grounding demonstrates otherwise. Do not
+write "the system learns meaning", "the map represents the world", or "human
+feedback teaches the ontology".
+
+**Three levels kept separate throughout:** LANGUAGE FORM (tokenizer, n-grams,
+the Qwen dictionary) / INTERNAL REPRESENTATION (relations, correlations, map
+topology) / WORLD GROUNDING (anchors, observations, corrections). Physis sits at
+the boundary between representation and grounding.
+
+**E1 does not justify this and does not predict it.** Separate hypothesis,
+separate question. JEPA stays out until there is a concrete experimental reason,
+and when it enters the comparison is JEPA vs the existing CLIP/Jina, never JEPA
+vs nothing.
+
+### Audit result (step 0, complete)
+
+`Qwen/Qwen3-8B/tokenizer.json` fetched — 11.4 MB, tokenizer only, no weights and
+no inference. **Byte-level BPE, 151,643 vocabulary entries, 151,387 merge
+rules.** The merge list is the find: every token above the 256 byte roots was
+*constructed* by merging two earlier tokens, and merge order encodes frequency
+in Qwen's training corpus. That derivation DAG is what makes a dictionary
+"Qwen-derived" rather than generic — a tokenizer-only baseline has the
+vocabulary but not the merge structure, and a corpus-local n-gram model has
+neither.
+
+| artifact | label | what it actually is |
+|---|---|---|
+| `Qwen/Qwen3-8B/tokenizer.json` | **CURRENT / VALID** | the intended source; BPE vocab + merge DAG |
+| `physis-core/src/embed.rs:34` `hash_ngrams` | **UNRELATED** | SHA-256 of *character* uni/bigrams into a seeded random basis; a hash is an address, carries no frequency, embedding or transition probability |
+| `scripts/gen_cell_vocab.py` generated arm | **UNRELATED** | `qwen3:4b` generative inference producing word lists — a different model and a different mechanism |
+| `cell_vocab_AB.json` (AUC ≈ 0.575) | **LEGACY / UNINTERPRETABLE** | authored against pre-0.1.21 cells; 77.6% of entries have since moved. Not evidence for or against the dictionary |
+| `mode_anchors_ontology.json` | **CURRENT / VALID** | 70 hand-authored cell definitions, usable as grounding anchors |
+
+**The AUC ≈ 0.575 figure is not relevant to this hypothesis.** It measures a
+generative-LLM word list against a stale cell schema. Do not merge it in.
+
+### Result (ladder run, stop conditions fired at rungs 3–5)
+
+`research/mapper/E2_MAPPER_REPORT.md`. Verdict: **MAPPER HYPOTHESIS NOT
+SUPPORTED**. Held-out prediction of the human-authored grid cell, 658 entries,
+70 cells, 30% held out, majority floor 0.102.
+
+| arm | k-NN | propagation |
+|---|---:|---:|
+| A tokenizer-only (Qwen vocab, no merges) | 0.315 | 0.193 |
+| B ordinary char 3–5 gram (**no Qwen**) | **0.355** | 0.228 |
+| C Qwen dictionary, L0 rank-weighted | 0.340 | 0.254 |
+| C+ Qwen dictionary + merge-DAG ancestors | 0.228 | 0.147 |
+| L1 Qwen + PPMI relations | **0.355** | **0.274** |
+| L2 relations between relations | 0.279 | 0.188 |
+| **E existing embedding (BGE-base)** | **0.447** | **0.299** |
+| CONTROL shuffled / random map | 0.056 / 0.051 | 0.117 / 0.091 |
+
+Four measurements carry the verdict:
+
+1. **No disproportionate sparse gain.** 4.3% of the labels buy 3.2% of the gain
+   for the best Qwen arm, 15.2% for BGE. At 20 anchors every Qwen arm is at or
+   below the majority-class floor. The hypothesis's decisive prediction is not
+   observed.
+2. **The map's topology does not carry labels.** Diffusing through it is worse
+   than ignoring it for every arm with signal (−0.081 to −0.147) and *better*
+   than nothing only for the structureless controls.
+3. **Corrections do not propagate** — 0.05–0.31 held-out entries repaired per
+   correction, corrupted regions stay corrupted until touched individually. That
+   is relabelling, not emendation. No collateral damage either, but only because
+   nothing travels.
+4. **The Qwen structure does not clear its own baselines.** +0.025 over
+   tokenizer-only, −0.015 against ordinary character n-grams, and the merge DAG —
+   the most Qwen-specific element — costs −0.112.
+
+**Two caveats kept rather than dropped.** The L2 null is *sample-size bound*: at
+658 short entries L1 is already sparse and L2 sparser by roughly a square, so it
+does not show that second-order structure cannot help. And ablation D, *Qwen
+dictionary + Physis*, was **not run** — the map was never passed into the
+hypothesis/coherence/provenance machinery, so what is reported is representation
+quality, not Physis. It was skipped because the stop conditions had already
+fired, and adding an interpretive layer to a null is the move the brief forbids.
+
+**One pre-registered prediction was wrong, and that is recorded.** Stage 13's
+format confound did *not* reproduce: names-only beats hints-included for the
+Qwen arm (0.279 vs 0.254) and for BGE (0.320 vs 0.299). The plateau is not on a
+house-style axis; it is simply lower than the hypothesis needs.
+
+**Carried forward:** BGE-base remains the strongest representation this repo has
+for grid prediction (0.447 against every constructed alternative), and the
+propagation result generalizes — on 658 entries over 70 cells, structure-based
+diffusion has too little density to work. Any future version of this hypothesis
+is a data problem before it is an architecture problem.
+
+### Two risks this track has already measured, carried into the design
+
+1. **Stage 13.** A single embedder read two authors' hint-formatting conventions
+   as a semantic stratum; separations collapsed 20–150× when hints were dropped.
+   A distributional map will encode *who wrote an entry* as if it were
+   structure, and sparse grounding would then anchor onto the format axis and
+   look like it is working. The names-only format control belongs in E2 from the
+   start, not added after a positive.
+2. **Stage 9.** Physis scored AUC 0.410 on real misfilings — internal coherence
+   was uninformative about correctness. That is the concrete form of the brief's
+   own stop condition, *self-consistent without becoming externally predictive*.
+
+**Pre-registered prediction, recorded so it can be wrong:** the grounding curve
+rises steeply and then plateaus at whatever axis the distributional map most
+strongly encodes — and on this corpus part of that axis is house style rather
+than meaning.
+
+**Power constraint, stated up front rather than discovered as a null:** the
+corpus is 658 short entries. Level-1 pairwise n-gram statistics off that are
+already sparse and level-2 is sparser by roughly a square, so a null on
+higher-order relations would be a *sample-size* result, not evidence that
+higher-order structure cannot help. Report it as such.
+
+---
+
 **Product consequence, stated plainly:** classification against the grid is the
 feature this track was trying to certify, and it still has no certified
 soundness check. `coverage` filters and ranks discovery candidates; it does not
