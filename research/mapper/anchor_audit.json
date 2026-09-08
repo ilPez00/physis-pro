@@ -1,0 +1,276 @@
+{
+ "mean_precision_anchor": 0.3064711006162308,
+ "mean_precision_definition": 0.11511994947820839,
+ "rewrite_queue": [
+  {
+   "cell": "HEAL/REST",
+   "anchor_prec": 0.2857142857142857,
+   "definition_prec": 0.42857142857142855,
+   "gain": 0.14285714285714285
+  },
+  {
+   "cell": "BOND/PLAN",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.3333333333333333,
+   "gain": 0.0
+  },
+  {
+   "cell": "FABRICATE/MAINTAIN",
+   "anchor_prec": 0.0,
+   "definition_prec": 0.0,
+   "gain": 0.0
+  },
+  {
+   "cell": "FABRICATE/REST",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.3333333333333333,
+   "gain": 0.0
+  },
+  {
+   "cell": "FABRICATE/WALK",
+   "anchor_prec": 0.375,
+   "definition_prec": 0.375,
+   "gain": 0.0
+  },
+  {
+   "cell": "FABRICATE/WORK",
+   "anchor_prec": 0.2459016393442623,
+   "definition_prec": 0.2459016393442623,
+   "gain": 0.0
+  },
+  {
+   "cell": "HEAL/LEARN",
+   "anchor_prec": 0.4,
+   "definition_prec": 0.4,
+   "gain": 0.0
+  },
+  {
+   "cell": "HEAL/MOVE",
+   "anchor_prec": 0.0,
+   "definition_prec": 0.0,
+   "gain": 0.0
+  },
+  {
+   "cell": "HEAL/WALK",
+   "anchor_prec": 0.1111111111111111,
+   "definition_prec": 0.1111111111111111,
+   "gain": 0.0
+  },
+  {
+   "cell": "HEAL/WORK",
+   "anchor_prec": 0.15384615384615385,
+   "definition_prec": 0.15384615384615385,
+   "gain": 0.0
+  },
+  {
+   "cell": "STUDY/CREATE",
+   "anchor_prec": 0.0,
+   "definition_prec": 0.0,
+   "gain": 0.0
+  },
+  {
+   "cell": "STUDY/GUIDE",
+   "anchor_prec": 0.14285714285714285,
+   "definition_prec": 0.14285714285714285,
+   "gain": 0.0
+  },
+  {
+   "cell": "STUDY/PLAN",
+   "anchor_prec": 0.0,
+   "definition_prec": 0.0,
+   "gain": 0.0
+  },
+  {
+   "cell": "STUDY/PLAY",
+   "anchor_prec": 0.0,
+   "definition_prec": 0.0,
+   "gain": 0.0
+  },
+  {
+   "cell": "BOND/CREATE",
+   "anchor_prec": 0.058823529411764705,
+   "definition_prec": 0.0,
+   "gain": -0.058823529411764705
+  },
+  {
+   "cell": "BOND/MAINTAIN",
+   "anchor_prec": 0.21428571428571427,
+   "definition_prec": 0.14285714285714285,
+   "gain": -0.07142857142857142
+  },
+  {
+   "cell": "CONSTRUCT/SENSE",
+   "anchor_prec": 0.1111111111111111,
+   "definition_prec": 0.0,
+   "gain": -0.1111111111111111
+  },
+  {
+   "cell": "STUDY/WORK",
+   "anchor_prec": 0.2549019607843137,
+   "definition_prec": 0.13725490196078433,
+   "gain": -0.11764705882352938
+  },
+  {
+   "cell": "CONSTRUCT/CREATE",
+   "anchor_prec": 0.2608695652173913,
+   "definition_prec": 0.11594202898550725,
+   "gain": -0.14492753623188404
+  },
+  {
+   "cell": "STUDY/LEARN",
+   "anchor_prec": 0.4117647058823529,
+   "definition_prec": 0.2647058823529412,
+   "gain": -0.14705882352941174
+  },
+  {
+   "cell": "STUDY/SENSE",
+   "anchor_prec": 0.2391304347826087,
+   "definition_prec": 0.08695652173913043,
+   "gain": -0.15217391304347827
+  },
+  {
+   "cell": "CONSTRUCT/MAINTAIN",
+   "anchor_prec": 0.23076923076923078,
+   "definition_prec": 0.07692307692307693,
+   "gain": -0.15384615384615385
+  },
+  {
+   "cell": "HEAL/PLAY",
+   "anchor_prec": 0.16666666666666666,
+   "definition_prec": 0.0,
+   "gain": -0.16666666666666666
+  },
+  {
+   "cell": "FABRICATE/CREATE",
+   "anchor_prec": 0.24,
+   "definition_prec": 0.04,
+   "gain": -0.19999999999999998
+  },
+  {
+   "cell": "CONSTRUCT/PLAN",
+   "anchor_prec": 0.2,
+   "definition_prec": 0.0,
+   "gain": -0.2
+  },
+  {
+   "cell": "HEAL/MAINTAIN",
+   "anchor_prec": 0.2916666666666667,
+   "definition_prec": 0.08333333333333333,
+   "gain": -0.20833333333333337
+  },
+  {
+   "cell": "BOND/WALK",
+   "anchor_prec": 0.2222222222222222,
+   "definition_prec": 0.0,
+   "gain": -0.2222222222222222
+  },
+  {
+   "cell": "STUDY/MAINTAIN",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.1111111111111111,
+   "gain": -0.2222222222222222
+  },
+  {
+   "cell": "STUDY/REST",
+   "anchor_prec": 0.5555555555555556,
+   "definition_prec": 0.3333333333333333,
+   "gain": -0.22222222222222227
+  },
+  {
+   "cell": "FABRICATE/PLAN",
+   "anchor_prec": 0.3076923076923077,
+   "definition_prec": 0.07692307692307693,
+   "gain": -0.23076923076923078
+  },
+  {
+   "cell": "CONSTRUCT/LEARN",
+   "anchor_prec": 0.5,
+   "definition_prec": 0.25,
+   "gain": -0.25
+  },
+  {
+   "cell": "BOND/WORK",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.05555555555555555,
+   "gain": -0.2777777777777778
+  },
+  {
+   "cell": "CONSTRUCT/WORK",
+   "anchor_prec": 0.2857142857142857,
+   "definition_prec": 0.0,
+   "gain": -0.2857142857142857
+  },
+  {
+   "cell": "BOND/LEARN",
+   "anchor_prec": 0.6666666666666666,
+   "definition_prec": 0.3333333333333333,
+   "gain": -0.3333333333333333
+  },
+  {
+   "cell": "BOND/MOVE",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.0,
+   "gain": -0.3333333333333333
+  },
+  {
+   "cell": "STUDY/BRAINSTORM",
+   "anchor_prec": 0.3333333333333333,
+   "definition_prec": 0.0,
+   "gain": -0.3333333333333333
+  },
+  {
+   "cell": "FABRICATE/SENSE",
+   "anchor_prec": 0.4375,
+   "definition_prec": 0.0625,
+   "gain": -0.375
+  },
+  {
+   "cell": "CONSTRUCT/REST",
+   "anchor_prec": 0.4,
+   "definition_prec": 0.0,
+   "gain": -0.4
+  },
+  {
+   "cell": "HEAL/SENSE",
+   "anchor_prec": 0.4,
+   "definition_prec": 0.0,
+   "gain": -0.4
+  },
+  {
+   "cell": "BOND/GUIDE",
+   "anchor_prec": 0.42857142857142855,
+   "definition_prec": 0.0,
+   "gain": -0.42857142857142855
+  },
+  {
+   "cell": "FABRICATE/LEARN",
+   "anchor_prec": 0.5714285714285714,
+   "definition_prec": 0.14285714285714285,
+   "gain": -0.42857142857142855
+  },
+  {
+   "cell": "FABRICATE/MOVE",
+   "anchor_prec": 0.5714285714285714,
+   "definition_prec": 0.14285714285714285,
+   "gain": -0.42857142857142855
+  },
+  {
+   "cell": "HEAL/LIFT",
+   "anchor_prec": 0.5,
+   "definition_prec": 0.0,
+   "gain": -0.5
+  },
+  {
+   "cell": "STUDY/LIFT",
+   "anchor_prec": 0.8,
+   "definition_prec": 0.2,
+   "gain": -0.6000000000000001
+  },
+  {
+   "cell": "BOND/REST",
+   "anchor_prec": 0.75,
+   "definition_prec": 0.0,
+   "gain": -0.75
+  }
+ ]
+}

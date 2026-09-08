@@ -92,14 +92,44 @@ Half the held-out entries surface in the top 100 — 70× chance, 5.8× the shuf
 control. Output is usable (`ideation`, `groupthink`, `divergent thinking` for
 BRAINSTORM; `guidance`, `leadership`, `fostering` for GUIDE).
 
-**Known weakness, and it is a probe rather than only a fault:** the CONSTRUCT
-domain pulls concrete artifacts (`crane`, `hoist` for CONSTRUCT/LIFT;
-`transporter`, `freight elevator` for CONSTRUCT/MOVE) — machines that lift and
-move, not the mode. BOND returns relations throughout. `GRID_AXES.md` defines
-CONSTRUCT as *"the durable arrangement other work happens inside or on top of"*,
-but its anchor embeds toward a building site. Same gap E6 measured (anchors
-recover domain at 39.9% over chance, mode at 18.7%). **Read BOND/HEAL/STUDY/
-FABRICATE first; fix the CONSTRUCT anchor before reading its list.**
+**Known weakness:** the CONSTRUCT domain pulls concrete artifacts (`crane`,
+`hoist` for CONSTRUCT/LIFT; `transporter`, `freight elevator` for
+CONSTRUCT/MOVE) — machines that lift and move, not the mode. **When mining
+WordNet for CONSTRUCT cells, filter concrete artifacts harder.** (E12 tested
+whether this meant the anchor itself was broken. It does not — see below.)
+
+### E12 — the anchor audit, which refuted the fix it was designed to prescribe
+
+`research/mapper/E12_ANCHOR_AUDIT.md`. E11's CONSTRUCT observation looked like
+Stage 11's problem, so the plan was Stage 11's fix: regenerate anchors from
+`docs/GRID_AXES.md`. **Both halves were wrong.**
+
+**Anchors work, unevenly.** Mean precision@n **0.306** over 45 measurable cells
+against chance under 0.11. Worst: STUDY/PLAY, STUDY/PLAN, HEAL/MOVE,
+STUDY/CREATE, FABRICATE/MAINTAIN all at **0.00**, and **STUDY/GUIDE puts its
+typical entry at rank 327 of 658** — worse than corpus median.
+
+**CONSTRUCT is not the weak domain — HEAL is.** HEAL 0.257 < STUDY 0.279 <
+CONSTRUCT 0.284 < FABRICATE 0.342 < BOND 0.371. E11's observation was about what
+the anchor retrieves *from WordNet*, not about anchor quality; correctly scoped
+it is a filter problem in the candidate pool.
+
+**The Stage 11 rewrite would have caused harm:**
+
+| probe | mean prec@n | mean median rank |
+|---|---:|---:|
+| authored anchor (name + hints) | **0.306** | **64** |
+| written axis definitions | 0.115 | 152 |
+
+Definitions win in 1 cell of 45 and lose in 31. **A definition is for the
+author; an anchor is for the index** — Stage 11 measured definitions helping
+*people file consistently* (misfiling 31.8% → 16.2%), which is a different job
+from helping a machine retrieve, where abstraction costs −0.19 precision.
+Conflating the two is what made the rewrite look obvious.
+
+**Do instead:** rewrite the eight worst anchors by hand in the entries' idiom
+(STUDY/GUIDE first); leave `GRID_AXES.md` out of it; and look at HEAL, which is
+the weakest domain and which nobody had examined.
 
 ### Standing rules, each earned
 
