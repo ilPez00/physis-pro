@@ -455,6 +455,56 @@ scale, Iteration 18's cross-embedder ARI of 0.10 was treated as fatal. Machines
 can carve at coarse granularity; at the resolution the grid uses they cannot,
 not on 658 entries.
 
+---
+
+## E9 — a discrete signifier address, and whether Lean has anything to hold
+
+`research/mapper/E9_SIGNIFIER_ADDRESS.md`. Proposal: replace geometric
+membership with a **value** per entry; membership becomes a decidable predicate;
+the value is a signifier, not the thing; tokens are the alphabet. Lean would then
+earn its keep — consistency of the assignment is machine-checkable. But
+formalising noise is worse than not formalising, so the prior question is whether
+a discrete address carries the ontology at all. **Standard to beat: geometry's
+0.447 held-out cell accuracy.**
+
+**The fractal guess is SUPPORTED.** A dyadic address (recursive bisection on each
+node's own principal direction; membership is a prefix test) gains bits per level
+of `0.30 0.34 0.30 0.49 0.55 0.65 0.72 0.67` over its eight unsaturated depths —
+first half 0.356, second half 0.648, **ratio 1.82**. Information per level is
+constant-to-rising, which is what self-similar structure looks like, and it beats
+a random address at matched granularity (4.017 vs 3.436 at depth 8).
+
+*(This experiment's first automated verdict said the opposite. It was wrong: my
+splitter stops dividing nodes below four members, so past depth 8 the gain is
+structurally zero, and averaging those zeros in measured the stopping rule. Bits
+per level are now computed only over unsaturated depths.)*
+
+**But no address tested generalises as well as geometry:**
+
+| scheme | held-out cell accuracy |
+|---|---:|
+| geometry (BGE k-NN) | **0.447** |
+| best dyadic address (depth 6, 64 groups) | 0.244 |
+| token address, k=1 rarest | 0.091 |
+| token address, k>=3 | 0.000 |
+
+**"Use tokens directly" fails on alphabet resolution.** At k=2 the code produces
+**653 groups for 658 entries** — it names each entry, so in-sample normalised MI
+reads a perfect 1.000 while held-out accuracy is 0.010 and 99% of held-out codes
+were never seen in training. Qwen's 151,643-symbol vocabulary over ~22-token
+entries makes any exact rare-token conjunction a fingerprint.
+
+**Recommendation: do not build the Lean layer yet, and the direction is not
+refuted.** A decidable address currently carries about half of what the geometry
+it would replace carries, so formalising one today would guarantee the
+consistency of a half-wrong assignment. But the space *is* hierarchically
+structured with roughly constant information per level, which is the property an
+address scheme needs to be worth having. **The corrective is coarsening**:
+merge-rank bins rather than token identities, or the dyadic path truncated where
+held-out accuracy peaks. The bar is 0.447.
+
+---
+
 **Synthesis — the corpus is the bottleneck, not the grid.** E5 (collapsing never
 helps), E7 (the failing modes are the empty ones), E8 (expansion refuted on
 sparsity, machine partitions unstable when fine) converge. **Populate first,
