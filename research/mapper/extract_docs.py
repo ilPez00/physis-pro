@@ -9,7 +9,10 @@ downstream enforces them:
   1. DIRECTORIES that are obviously personal, financial, medical or private
      correspondence are EXCLUDED by default (see SKIP_DIRS). Widening the scope
      is the owner's call, not this script's.
-  2. NO TEXT AND NO FILENAMES ARE EVER COMMITTED. This script writes chunks to
+  2. CONTENT-level exclusion catches personal documents stored outside the
+     obvious directories -- consent boilerplate, CVs, fiscal and bank
+     identifiers -- because a filename rule cannot.
+  3. NO TEXT AND NO FILENAMES ARE EVER COMMITTED. This script writes chunks to
      a gitignored working file. The committed artifact downstream carries only
      vectors, a machine-assigned cell, and a coarse top-level directory tag.
 
@@ -32,6 +35,18 @@ SKIP_PAT = re.compile(r"whatsapp|chat con|fattur|invoice|contratt|cv[_ ]|curricu
                       re.IGNORECASE)
 
 EXTS = {".pdf", ".txt", ".tex", ".md", ".epub", ".odt", ".docx", ".html"}
+
+# CONTENT-level exclusion, added after a CV filed under Philosophy_and_Books
+# reached the working file. Directory and filename rules cannot catch a personal
+# document stored somewhere unexpected; the text itself can. Chunks matching
+# these are dropped regardless of where they live.
+CONTENT_SKIP = re.compile(
+    r"autorizzo\s+il\s+trattamento|trattamento\s+dei\s+dati\s+personali|"
+    r"curriculum\s+vitae|codice\s+fiscale|partita\s+iva|"
+    r"data\s+di\s+nascita|luogo\s+di\s+nascita|"
+    r"\bIBAN\b|\bBIC\b|sort\s*code|account\s+number|"
+    r"social\s+security|passport\s+n|carta\s+d'identit",
+    re.IGNORECASE)
 
 
 def clean(t):
@@ -121,6 +136,8 @@ def main():
                     continue
                 seen.add(key)
                 # ASCII-letter ratio filter: drops OCR garbage and formula dumps
+                if CONTENT_SKIP.search(c):
+                    continue
                 letters = sum(ch.isalpha() for ch in c)
                 if letters / max(len(c), 1) < 0.62:
                     continue

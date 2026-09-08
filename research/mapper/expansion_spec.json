@@ -1,0 +1,79 @@
+{
+ "generated": "expansion_spec.py",
+ "current_entries": 658,
+ "target_per_cell": 20,
+ "total_deficit": 918,
+ "by_mode": [
+  {
+   "mode": "BRAINSTORM",
+   "entries": 3,
+   "deficit": 97
+  },
+  {
+   "mode": "DESTROY",
+   "entries": 4,
+   "deficit": 96
+  },
+  {
+   "mode": "PLAY",
+   "entries": 13,
+   "deficit": 87
+  },
+  {
+   "mode": "LIFT",
+   "entries": 13,
+   "deficit": 87
+  },
+  {
+   "mode": "GUIDE",
+   "entries": 14,
+   "deficit": 86
+  },
+  {
+   "mode": "MOVE",
+   "entries": 25,
+   "deficit": 75
+  },
+  {
+   "mode": "WALK",
+   "entries": 28,
+   "deficit": 72
+  },
+  {
+   "mode": "REST",
+   "entries": 31,
+   "deficit": 69
+  },
+  {
+   "mode": "PLAN",
+   "entries": 37,
+   "deficit": 63
+  },
+  {
+   "mode": "LEARN",
+   "entries": 53,
+   "deficit": 61
+  },
+  {
+   "mode": "MAINTAIN",
+   "entries": 77,
+   "deficit": 33
+  },
+  {
+   "mode": "SENSE",
+   "entries": 93,
+   "deficit": 33
+  },
+  {
+   "mode": "CREATE",
+   "entries": 117,
+   "deficit": 37
+  },
+  {
+   "mode": "WORK",
+   "entries": 150,
+   "deficit": 22
+  }
+ ],
+ "forecast_note": "per-mode F1 from E7's measured curve; n~20 -> 0.26-0.49"
+}
