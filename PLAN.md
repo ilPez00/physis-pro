@@ -286,6 +286,59 @@ higher-order structure cannot help. Report it as such.
 
 ---
 
+---
+
+## E5 — is the 70-cell grid the constraint? **NOT SUPPORTED**
+
+`research/mapper/E5_TAXONOMY_REPORT.md`. FINAL_REPORT.md's conclusion that
+"the taxonomy, not the embedding or the calibration heuristic, [is] the dominant
+constraint" partly rested on the embedder swap being modest — which E1 revised
+(BGE beat MiniLM 22/22, +0.132). So it was tested on its own.
+
+**Proper supervision, kappa rather than the majority floor** (57 classes, 197
+held out): k-NN k=5 accuracy 0.447 / **kappa 0.416**; nearest centroid 0.431 /
+0.404; softmax 0.437 / 0.399; floor 0.102 / 0.000. Label-noise ceiling ≈ 0.84
+(Stage 11's 16.2% misfiling proxy), so the representation reaches about half the
+achievable accuracy. Accuracy 0.447 against macro-F1 0.318 says performance is
+very uneven across classes.
+
+**Granularity — the decisive test:**
+
+| level | classes | kappa | gain over floor |
+|---|---:|---:|---:|
+| cell (domain × mode) | 57 | 0.404 | 36.7% |
+| mode | 14 | 0.418 | 34.4% |
+| domain | 5 | **0.552** | 51.7% |
+
+Collapsing 57 classes to 14 gains **+0.014 kappa**. If granularity were binding,
+it would gain far more. Merging confusable cells (average linkage) peaks at
+kappa 0.444 and then declines to 0.237. **The grid's fineness is not the
+constraint.**
+
+**The asymmetry that is actionable: domain kappa 0.552 vs mode 0.418.** Stage 11
+gave the *domain* axis a written definition in `docs/GRID_AXES.md` and
+regenerated the corpus against it. **The mode axis never got that treatment**,
+and it is measurably the weaker half.
+
+**Physis integration (`mapper_physis_feedback.rs`).** The correction loop run
+through the shipped `QualityTracker` on the production path
+(`penalize_cell` at `PIN_DISSENT_SEVERITY` = 0.25, `report_success`,
+`adjust_score` over `classify`'s CellScores). Scored only on entries not
+themselves corrected: naive re-seeding costs −0.005 to −0.082; **the
+QualityTracker path costs −0.23 to −0.27**. `penalize_cell` applies a global
+per-cell penalty, and the cells chosen wrongly most often are the largest ones,
+so penalizing them damages the entries that genuinely belong there. Stated
+fairly: QualityTracker was built for slow interactive pin dissent, not batched
+correction; the finding is that **the existing machinery is not a
+correction-propagation mechanism**, not that the shipped feature is broken.
+
+**Where this leaves the constraint**, in order of support: (1) the undefined
+mode axis; (2) ~16% label noise; (3) cell *sparsity* — 22 of 57 cells hold fewer
+than 5 entries — which prescribes populating those cells, the opposite of
+merging.
+
+---
+
 **Product consequence, stated plainly:** classification against the grid is the
 feature this track was trying to certify, and it still has no certified
 soundness check. `coverage` filters and ranks discovery candidates; it does not
