@@ -41,7 +41,7 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | question | answer | key evidence |
 |---|---|---|
 | Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10 |
-| Can a cheap signal certify discovered structure? | **REOPENED (E15)** | Stage 12's refutation was measured under random injection; under realistic injection CONSTRAINT **beats** cosine 0.612 vs 0.506, CI [+0.029, +0.183] |
+| Can a cheap signal certify discovered structure? | **NO, but for a new reason (E16)** | Stage 12's refutation was invalid (wrong injection policy), yet on **real** misfilings everything is at chance: cosine 0.519, CONSTRAINT 0.536 (ns). One exception: **ANCHORVOC 0.664**, significant, with an unresolved circularity |
 | Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
 | Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
@@ -134,6 +134,44 @@ and hurt on hard ones, which connects to Stage 13's authorial-format result.
 (`cell_adjudication.tsv`, `refiling_gate0.tsv`) — the only non-synthetic ground
 truth in the project. If CONSTRAINT holds its margin there, this track has a
 certification signal it spent a year concluding it did not have.
+
+### E16 — the battery on REAL misfilings, and E15's reopening withdrawn
+
+`research/mapper/E16_REAL_MISFILINGS.md`. Ground truth: Stage 11's blind
+re-filing (`refiling_gate0.tsv`) — 582 entries a rater re-filed while blind to
+the existing cell, judging against `GRID_AXES.md`. MOVED = the old filing was
+rejected. Base rate 80.1%.
+
+| scorer | random inj. | nearest inj. | **real** | vs COSINE (95% CI) |
+|---|---:|---:|---:|---:|
+| COSINE | 0.882 | 0.506 | **0.519** | — |
+| NAME-ONLY | 0.866 | 0.597 | 0.508 | −0.010 [−0.067, +0.042] |
+| CONSTRAINT | 0.675 | **0.612** | 0.536 | +0.017 [−0.066, +0.097] **ns** |
+| **ANCHORVOC** | 0.654 | 0.584 | **0.664** | **+0.145 [+0.072, +0.219]** |
+| ANCESTRY | 0.627 | 0.566 | 0.534 | +0.025 [−0.069, +0.121] |
+
+**E15's conclusion is withdrawn.** CONSTRAINT won by +0.106 on plausible
+synthetic errors and gains +0.017 on real ones, CI straddling zero.
+Plausible-synthetic is closer to real than random-synthetic, and still not it.
+
+**Everything geometric is at chance on real misfilings** (0.508–0.519) —
+Stage 9's 0.410 reproduced on a larger, better-controlled sample. Confirmed
+three ways now.
+
+**The scorer that wins on real data won on neither synthetic task.** ANCHORVOC
+was fourth under both injections. Had the track only ever run injections it
+would have been discarded.
+
+**One confound blocks banking it.** ANCHORVOC measures lexical overlap with the
+cell's authored anchor hints — and the blind rater judged entries against those
+same anchors. It may be detecting "shares vocabulary with the text the rater
+read" rather than "is misfiled". Two cheap resolutions are specified in the
+report: the 76 flagged non-blind entries as a control, and a held-out-half-of-
+hints probe.
+
+**Net after E14–E16:** the track's central negative stands — no tested mechanism
+detects a real misfiling — but the reason it stood was wrong for years, and one
+candidate has surfaced that was never fairly tested.
 
 ### The one constraint everything converges on
 
