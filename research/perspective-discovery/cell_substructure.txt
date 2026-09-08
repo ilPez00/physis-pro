@@ -1,0 +1,85 @@
+### Experiment 46 — arm 1: name + hints (the published corpus text)
+corpus: 731 entries, 97 with prose hints (13%) — the format confound
+
+cell                    n      sep  z(perm) stability z(mixture)  balance   verdict
+----------------------------------------------------------------------------------------------------------------
+CONSTRUCT/CREATE       70   0.2888   105.72     1.000     138.10      21%   large, not divided — homogeneous next to the mixture scale
+FABRICATE/WORK         62   0.2266   108.68     0.840     121.91       6%   PEEL-OFF — a minority breaks away; look at what it is, do not split
+STUDY/WORK             52   0.3969    62.84     0.913     122.77      21%   large, not divided — homogeneous next to the mixture scale
+STUDY/SENSE            47   0.4120    82.31     1.000      81.15      17%   PEEL-OFF — a minority breaks away; look at what it is, do not split
+STUDY/LEARN            35   0.2624    28.79     0.868      72.40      34%   large, not divided — homogeneous next to the mixture scale
+CONSTRUCT/MAINTAIN     27   0.0695    14.61     0.814      49.67      11%   PEEL-OFF — a minority breaks away; look at what it is, do not split
+FABRICATE/CREATE       26   0.4017    44.02     0.982      60.78      12%   PEEL-OFF — a minority breaks away; look at what it is, do not split
+HEAL/MAINTAIN          25   0.0380     7.63     0.782      54.53      28%   large, not divided — homogeneous next to the mixture scale
+
+=== what each side actually is, for a person to name (or reject) ===
+
+--- CONSTRUCT/CREATE ---
+  A (15)  prose-hints 100%   sources: agent_ontology 67%, semiotic_ontology 33%
+        Actantial Model, Agent Organization, Code, Deliberative Agent, Emergent Agent, Goal-oriented Agent, Hybrid Agent, Langue, Learning Agent, Legisign, Reactive Agent, Social Agent, Syntagmatic, Tool Composition, Utility-based Agent
+  B (55)  prose-hints 0%   sources: engineering_ontology 38%, machine_ontology 38%, praxis_ontology 9%, creative_writing 4%
+        Architecture Design, Architecture Design, Array & Vector, Automation & Systems, Avionics, Build Platform & Bed, Cache & Buffer, Chassis & Suspension, Circuit Design, Containerization, Control Systems, Data Engineering, Database Engineering, Design the Structure, Distributed Systems, EMC & Shielding, Embedded Systems, Energy Storage, Entrepreneurship, Firmware Engineering, Frame & Chassis, Gantry & Kinematics, Graph & Network, Hash & Map, Hydraulic Engineering, Impact & Legacy, Investing, Linked Structure, Lock & Concurrency, Microservices, Ocean Engineering, Org Structure, PCB Design, Persistence & Index, Plant Design, Plot Structure, Power Distribution, Power Electronics, Power Engineering, Power Source, Prompt Template, RF Engineering, Real-Time Systems, Renewable Energy, Robotics, Security Engineering, Space Design, Stack & Queue, Structural Engineering, Structures & Materials, Systems Building, Transportation Engineering, Tree & Hierarchy, Wealth & Assets, Worldbuilding
+
+--- FABRICATE/WORK ---
+  A (58)  prose-hints 2%   sources: machine_ontology 40%, agent_ontology 9%, engineering_ontology 9%, industrial_semiconductor 7%
+        Actuator Systems, Additive Manufacturing, Agent Versioning, Assistant Response, Axis & Positioning, Baking, Career & Craft, Collaborative Robots, Cooking & Meal Prep, Cooking Techniques, Cryptography, Deployment, Deployment & Serving, EDM Machining, Editing & Revision, Executor, Expense Management, Expense Report, Extrusion & Deposition, Feature Implementation, Harvesting & Scavenging, Hydraulics, Industrial Robotics, Invoicing, Laser Processing, Linear Actuator, Manufacturing Processes, Microelectronics, Motor Control, Music & Performance, Output Publishing, PLC & Industrial Control, Packaging Machinery, Payroll, Performance, Plasma Cutting, Pneumatics, Preservation, Produce & Ship, Production & Mixing, Propulsion & Thrust, Publishing & Sharing, Reaction Engineering, Rotary Actuator, Secure Coding, Semiconductor Equipment, Semiconductor Manufacturing, Semiconductor Material, Semiconductor Process, Separation Processes, Spindle & Tooling, Tool Invocation, Valve & Regulator, Vibro-Acoustic, Waterjet Cutting, Welding Systems, Workpiece Fixturing, Workshop & Tools
+  B ( 4)  prose-hints 50%   sources: italian_industrial 50%, agent_ontology 25%, semiotic_ontology 25%
+        Amministrazione e Contabilità, Produzione Officina, Ratio Facilis, Tool Application
+
+--- STUDY/WORK ---
+  A (11)  prose-hints 100%   sources: semiotic_ontology 100%
+        Aberrant Decoding, Argument, Connotation, Diachronic, Dicisign, Intentio Operis, Isotopy, Myth, Referential, Semiotic Square, Thirdness
+  B (41)  prose-hints 17%   sources: engineering_ontology 41%, agent_ontology 17%, office_ontology 10%, data_science 7%
+        Abductive Reasoning, Ad-hoc Analysis, Aerodynamics, Analisi e Reportistica, Analysis & Interpretation, Analysis Execution, Biomaterials, Biomechanics, Causal Reasoning, Cost Analysis, Data Cleaning, Deductive Reasoning, Experimentation, Exploratory Analysis, Finite Element Analysis, Flight Mechanics, Fluid Mechanics, Human Factors, Idea Validation, Inductive Reasoning, Market Research, Materials Science, Modal Reasoning, Nanotechnology, Neural Engineering, Non-monotonic Reasoning, Operations Research, Orbital Mechanics, Photonics, Quantum Engineering, Reasoner, Replication & Validation, Research, Research & Analysis, Research Project, Signal Processing, Sort & Search, Statistical Inference, Thermodynamics, Transport Phenomena, Vibrations
+
+--- STUDY/SENSE ---
+  A ( 8)  prose-hints 100%   sources: semiotic_ontology 100%
+        Denotation, Firstness, Index, Punctum, Qualisign, Secondness, Sinsign, Synchronic
+  B (39)  prose-hints 10%   sources: machine_ontology 41%, office_ontology 21%, agent_ontology 15%, industrial_semiconductor 8%
+        Budget Variance, Confidence Estimation, Confidence Threshold, Current & Voltage, Daily Operations, Data Collection, Environmental, Environmental Condition, Environmental Condition, Experiment Tracking, Flow Monitoring, Inertial & Motion, Introspection, Legal Review, Level Monitoring, Log & Journal, Medical Imaging, Milestone Tracking, Model Evaluation, Observe & Measure, Observer, Power Draw, Process Measurement, Proximity & Range, Revenue Tracking, Risk & Issue Tracking, Self-Awareness, Semiconductor Sensor, Sense & Avoid, Sensor Data Gap, Sensor Fusion, Speed Monitoring, Telemetry & Log, Thermal Zone Monitoring, Threat Intelligence, Time & Attendance, Torque & Force, Vision & Imaging, Weekly Review
+
+--- STUDY/LEARN ---
+  A (23)  prose-hints 0%   sources: language_learning 22%, learning_education 13%, music 13%, praxis_ontology 9%
+        Active Reading, Composition & Theory, Course Completion, Critique & Reference, Cultural Immersion, Deep Learning, Ear Training, Education & Learning, Financial Literacy, Grammar Study, Immersion, Language Learning, Learning & Development, Listening & Analysis, Listening Practice, Literature Review, Model Training, Music Theory, Reading the Craft, Skill Practice, Speaking Practice, Studio e Formazione, Writing Practice
+  B (12)  prose-hints 100%   sources: agent_ontology 50%, semiotic_ontology 50%
+        Active Learning, Icon, Iconism, Learner, Meta-Learning, Metalingual, Readerly Text, Reinforcement Learning, Signified, Studium, Supervised Learning, Unsupervised Learning
+
+--- CONSTRUCT/MAINTAIN ---
+  A ( 3)  prose-hints 0%   sources: devops 33%, engineering_ontology 33%, software_dev 33%
+        Cloud Resource Management, Performance Engineering, Performance Optimization
+  B (24)  prose-hints 0%   sources: office_ontology 29%, home_maintenance 21%, praxis_ontology 12%, software_dev 12%
+        Asset Management, Cleaning, Data Privacy, Dependency Management, Digital Workspace, Energy & Sustainability, Environment & Home, Home Infrastructure, Kitchen Organization, Lab Management, Maintenance Request, Organization, Organizzazione Spazi, PDCA Cycle, Policy Management, Refactoring, Repairs, Sealing & Protection, Seasonal Maintenance, Security & Access, Security Hardening, Structural Upkeep, System Updates, Version Control
+
+--- FABRICATE/CREATE ---
+  A (23)  prose-hints 4%   sources: engineering_ontology 22%, praxis_ontology 22%, visual_arts 13%, creative_writing 9%
+        Automotive Engineering, Character Development, Clothing & Style, Composition, Content Creation, Creazione Artigianale, Culinary Arts, Digital Art, Drafting, Drug Delivery, Feature Engineering, Machine Design, Make Something New, Painting, Photography, Product Development, Propulsion, Recipe Development, Storytelling, Synthetic Biology, Tool Creation, Visual Arts, Writing & Expression
+  B ( 3)  prose-hints 100%   sources: semiotic_ontology 100%
+        Poetic, Signifier, Writerly Text
+
+--- HEAL/MAINTAIN ---
+  A ( 7)  prose-hints 0%   sources: praxis_ontology 71%, home_maintenance 14%, italian_industrial 14%
+        Alimentazione Sana, Gardening, Gardening & Nature, Hydration & Metabolism, Nutrition & Diet, Personal Hygiene, Pets & Animals
+  B (18)  prose-hints 0%   sources: machine_ontology 33%, health_fitness 11%, office_ontology 11%, praxis_ontology 11%
+        Backup & Recovery, Backup & Recovery, Battery Management, Calibration, Energy Management, Financial Security, Habit Building, Health & Longevity, Manutenzione Industriale, Mobility & Stretching, Predictive Maintenance, Preventive Upkeep, Process Safety, Safety Interlock, Safety Systems, Saving, Semiconductor Cleanroom Environment, Thermal Management
+
+### Experiment 46 — arm 2: NAME ONLY (hints dropped, format confound removed)
+corpus: 731 entries, 97 with prose hints (13%) — the format confound
+
+cell                    n      sep  z(perm) stability z(mixture)  balance   verdict
+----------------------------------------------------------------------------------------------------------------
+CONSTRUCT/CREATE       70   0.0137    22.23     0.740      18.99      46%   no — separation is negligible in absolute terms, whatever its z
+FABRICATE/WORK         62   0.0636    74.88     0.894      27.63       6%   PEEL-OFF — a minority breaks away; look at what it is, do not split
+STUDY/WORK             52   0.0152    18.66     0.855      53.92      37%   no — separation is negligible in absolute terms, whatever its z
+STUDY/SENSE            47   0.0028     2.87     0.756      31.81      40%   no — separation is negligible in absolute terms, whatever its z
+STUDY/LEARN            35   0.0128     9.20     0.832      27.59      46%   no — separation is negligible in absolute terms, whatever its z
+CONSTRUCT/MAINTAIN     27   0.0166     9.54     0.725      28.82      15%   no — separation is negligible in absolute terms, whatever its z
+FABRICATE/CREATE       26   0.0110     5.97     0.766       4.30      50%   no — separation is negligible in absolute terms, whatever its z
+HEAL/MAINTAIN          25   0.0239    12.19     0.796      13.93      16%   no — separation is negligible in absolute terms, whatever its z
+
+=== what each side actually is, for a person to name (or reject) ===
+
+--- FABRICATE/WORK ---
+  A (58)  prose-hints 5%   sources: machine_ontology 40%, agent_ontology 10%, engineering_ontology 9%, office_ontology 7%
+        Actuator Systems, Additive Manufacturing, Agent Versioning, Amministrazione e Contabilità, Assistant Response, Axis & Positioning, Baking, Career & Craft, Collaborative Robots, Cooking & Meal Prep, Cooking Techniques, Cryptography, Deployment, Deployment & Serving, EDM Machining, Editing & Revision, Executor, Expense Management, Expense Report, Extrusion & Deposition, Feature Implementation, Harvesting & Scavenging, Hydraulics, Industrial Robotics, Invoicing, Laser Processing, Linear Actuator, Manufacturing Processes, Microelectronics, Motor Control, Music & Performance, Output Publishing, PLC & Industrial Control, Packaging Machinery, Payroll, Performance, Plasma Cutting, Pneumatics, Preservation, Produce & Ship, Production & Mixing, Produzione Officina, Propulsion & Thrust, Publishing & Sharing, Ratio Facilis, Reaction Engineering, Rotary Actuator, Secure Coding, Separation Processes, Spindle & Tooling, Tool Application, Tool Invocation, Valve & Regulator, Vibro-Acoustic, Waterjet Cutting, Welding Systems, Workpiece Fixturing, Workshop & Tools
+  B ( 4)  prose-hints 0%   sources: industrial_semiconductor 100%
+        Semiconductor Equipment, Semiconductor Manufacturing, Semiconductor Material, Semiconductor Process

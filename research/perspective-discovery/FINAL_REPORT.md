@@ -28,6 +28,13 @@
 > (31.8% → 16.2%). **This does not un-mark anything below.** The twelve
 > mechanisms remain UNTESTED because they have not been re-run — only the corpus
 > they would be re-run against has changed.
+>
+> **Update (Stage 12): they have now been re-run, and most are REFUTED.** On the
+> regenerated corpus CONSTRAINT still loses to plain cosine — 2 wins in 22,
+> paired *t* = −5.58 — although both scorers gain ~0.085 AUC, which confirms
+> Stage 7's diagnosis without rescuing the mechanism. Re-test items #1, #2 and
+> #3 are closed as genuinely refuted. The ANCHOR-VOCAB arms remain untestable
+> until their per-cell vocabulary is re-authored against the new filing.
 
 
 Eight iterations, three datasets, real production data, and one caught NaN
@@ -2394,3 +2401,140 @@ holds 69 entries — the same junk-drawer shape Stage 7 diagnosed, in a new plac
 A cell that large is a sign the domain contract is under-specified for design
 work, not a sign the filing is wrong, but it is the obvious next thing to look
 at.
+
+
+## Stage 12 — the re-test, on a corpus that is no longer 43% noise
+
+Stage 8 set the order and the stopping rule: re-run the Iteration 38 family
+first, because it is fully automated and has a measured noise floor (0.074 AUC)
+to beat; *"if CONSTRAINT still loses to cosine on a clean corpus, it is
+genuinely refuted and #1, #2 and #6 can be closed without re-running."*
+
+It still loses. Same harness, same 11 injection configurations × 2 halves, only
+the corpus underneath has changed. `sweep_regenerated.txt`.
+
+| | old corpus (43% misfiled) | regenerated |
+|---|---|---|
+| CONSTRAINT mean AUC | 0.587 | **0.670** |
+| COSINE mean AUC | 0.645 | **0.733** |
+| CONSTRAINT wins | 2 / 22 | **2 / 22** |
+| mean delta (CONSTRAINT − COSINE) | −0.058 | **−0.063** |
+| paired *t*, both halves | −5.69 | **−5.58** |
+| paired *t*, held-out only | −3.06 | **−4.36** |
+
+**Stage 7's diagnosis is confirmed quantitatively, and it does not rescue the
+mechanism.** Both scorers gain about +0.085 AUC on the clean corpus — the
+ambient misfilings really were suppressing detection, exactly as predicted, and
+that prediction is now measured rather than argued. But they gain *together*.
+The gap is unchanged, and ten of the twenty-two losses exceed the 0.074 noise
+floor. CONSTRAINT's best result anywhere on the clean corpus is +0.058.
+
+Per-scorer, at the published configuration, all recomputed from the corpus
+itself:
+
+| scorer | AUC | AUC within cosine strata |
+|---|---|---|
+| COSINE — the baseline | **0.739** | — |
+| CONSTRAINT | 0.685 | — |
+| ANCESTRY (WordNet, structural) | 0.604 | 0.553 |
+| NON-LATTICE (structural) | **0.459** | 0.480 |
+
+**Closed by this.** Re-test items **#1** (nine geometric certification
+mechanisms), **#2** (non-lattice auditing) and **#3** (the Iteration 38 family)
+are now genuinely **REFUTED**, not untested. Non-lattice scores *below* chance
+and adds nothing once cosine is held constant (0.480). The honest summary of
+this whole track's certification effort is that plain cosine distance to the
+cell centroid beat every structural alternative tried against it, on a clean
+corpus and a dirty one alike.
+
+**Not closed, and the numbers in the run are not evidence either way.** The
+ANCHOR-VOCAB arms A and B (VOCAB-FREQ 0.590, VOCAB-GEN 0.575 here) are scored
+against `cell_vocab_AB.json`, which was **authored against the old cell
+composition**. 77.6% of entries have since moved, so those vocabularies no
+longer describe the cells they are being tested on. Re-testing arms A and B
+needs the vocabulary re-authored first. Their apparent collapse from 0.701 to
+0.577 is that staleness, not a finding.
+
+## Stage 13 — should the grid be expanded? The sixth positive dies to a control
+
+The regeneration left seven cells holding 43% of the corpus — `CONSTRUCT/CREATE`
+at 69, `FABRICATE/WORK` at 61 — while BRAINSTORM holds 3 entries across all five
+domains, DESTROY 4, PLAY 13. That is the junk-drawer shape at a new address, and
+it is the concrete form of the standing proposal to expand the grid.
+
+`experiment46_cell_substructure.rs`. For each cell with ≥25 entries: a
+deterministic 2-means split, its separation against a **200-permutation null**
+of same-sized random partitions, subsample **stability** across 25 replicates at
+80%, and a size-matched **mixture** of entries drawn from across the corpus as
+the scale — a mixture contains entries from many real cells, so it should split
+cleanly, and a cell that divides as sharply as a mixture has a real case for
+splitting.
+
+**The first result looked strong and was false.** Every crowded cell split at
+z = 7 to 108 against its permutation null, several with perfect stability, and
+the sides were interpretable: `STUDY/WORK` peeled off 11 entries that were
+**100% `semiotic_ontology`**, `STUDY/SENSE` 8 more, `FABRICATE/CREATE` 3. The
+reading writes itself — the semiotic vocabulary is a separate stratum wherever
+you file it, so it wants its own axis.
+
+**It was house style.** Only `semiotic_ontology` and `agent_ontology` write
+prose hints (*"A sign that denotes by virtue of resemblance"*); the other 26
+sources write keyword lists (*"bolt | screw | nut"*). 97 of 731 entries, 13%.
+The embedder separates those two shapes on sight, and the peel-offs line up with
+format exactly:
+
+| cell | side A prose-hints | side B prose-hints |
+|---|---|---|
+| CONSTRUCT/CREATE | 100% | 0% |
+| STUDY/WORK | 100% | 17% |
+| STUDY/SENSE | 100% | 10% |
+| STUDY/LEARN | 0% | 100% |
+| FABRICATE/CREATE | 4% | 100% |
+
+Drop the hints and embed the entry names alone, and the structure evaporates:
+
+| cell | separation with hints | name only |
+|---|---|---|
+| CONSTRUCT/CREATE | 0.2888 | **0.0137** |
+| STUDY/SENSE | 0.4120 | **0.0028** |
+| STUDY/WORK | 0.3969 | 0.0152 |
+| FABRICATE/CREATE | 0.4017 | 0.0110 |
+
+Separations fall by 20× to 150×, the sides stop sorting by format (100%/0%
+becomes 37%/33%), and **no crowded cell divides**. Seven of eight are negligible
+in absolute terms whatever their z; the eighth is four entries peeling off 58.
+
+**Verdict on expansion: not by splitting these cells.** The crowding is size,
+not internal division. Adding activity cells here would invent a distinction the
+data does not carry — and the one that looked real was a difference in how two
+authors wrote their hint lists.
+
+*(A defect in this experiment's own verdict rule, found and fixed mid-run: it
+first called a separation of 0.011 a "SPLIT CANDIDATE" because it compared only
+z-scores, and with 200 permutations a negligible margin can sit many sigma out.
+It now requires an absolute floor as well.)*
+
+### What this says about instruments, which is the real finding
+
+**A single embedder cannot adjudicate ontology structure, because it reads
+authorial style as if it were meaning.** That is the sixth positive in this
+track to die to a control, and the first to die to one this specific.
+
+The standing architectural proposal — **one ordinary embedder, one JEPA, and a
+dictionary** — is the direct answer to that failure mode, and part of it is
+already instantiated in the audit harness: WordNet ancestry is a *format-blind*
+instrument, immune to whether a hint is prose or a keyword list. Two things
+follow, and they point in opposite directions.
+
+In its favour: nothing else in this track would have caught the format
+confound, and the fix that did catch it (drop the hints) is a crude version of
+the same idea — deny the instrument the channel you suspect.
+
+Against it: on the regenerated corpus the dictionary leg **does not currently
+carry signal**. WordNet ANCESTRY reaches 0.604 alone and **0.553 within cosine
+strata**; NON-LATTICE is at 0.459. So the format-blind instrument is real but
+weak, and today it does not add to what cosine already knows. The JEPA leg has
+not been re-tested since Iteration 17 and is the one part of the proposal this
+track has never evaluated on a clean corpus — which makes it the next
+experiment, and the only one of the three whose failure so far can be blamed on
+the corpus rather than on the instrument.
