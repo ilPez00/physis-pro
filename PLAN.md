@@ -41,7 +41,7 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | question | answer | key evidence |
 |---|---|---|
 | Can embedding geometry give stable ontology structure? | **NO** | cross-embedder ARI ≈ 0.10 |
-| Can a cheap signal certify discovered structure? | **NO, but for a new reason (E16)** | Stage 12's refutation was invalid (wrong injection policy), yet on **real** misfilings everything is at chance: cosine 0.519, CONSTRAINT 0.536 (ns). One exception: **ANCHORVOC 0.664**, significant, with an unresolved circularity |
+| Can a cheap signal certify discovered structure? | **NO — one lead, not validated (E16/E17)** | On **real** misfilings everything is at chance (cosine 0.519, CONSTRAINT 0.536 ns). **ANCHORVOC 0.664** is significant and survives 2 of 3 confound tests: real but partly vocabulary-mediated, not independent evidence |
 | Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
 | Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
@@ -172,6 +172,31 @@ hints probe.
 **Net after E14–E16:** the track's central negative stands — no tested mechanism
 detects a real misfiling — but the reason it stood was wrong for years, and one
 candidate has surfaced that was never fairly tested.
+
+### E17 — ANCHORVOC's confound: three tests, two pass, one fails
+
+`research/mapper/E17_ANCHORVOC_CONFOUND.md`.
+
+| test | result | |
+|---|---|---|
+| **1.** does it predict the rater's *choice* of new cell? | **PASS** | rater's cell at median rank **17 of 70** (random 35); if the rater ran ANCHORVOC it would be 1–3. But 33% top-5 vs 7.9% random — shared information, not a shared procedure |
+| **2.** survives half the anchor's hints? | **PASS** | 0.664 → **0.598**, still +0.079 [+0.007, +0.150] over cosine |
+| **3.** behaves the same where blindness failed? | **FAIL** | ANCHORVOC **rises** 0.664 → **0.871** on the 56 hint-leaking entries while cosine falls. Fails the criterion the script pre-registered |
+
+**Net:** not circular in the strong sense, but hint-dependent in a way a
+filing-independent signal would not be. The account that fits all three: *an
+entry sharing no vocabulary with its cell's anchor really is more likely
+misfiled — and that is also part of what the rater used.* Real signal, not
+independent evidence. **A lead, not a validated certifier.**
+
+**The test that settles it:** one adjudication pass by a rater who sees only the
+axis definitions, never the anchor hints. The Disposer Bench already has the
+shape; it needs its display changed to withhold hints.
+
+*(This script's first verdict read only Test 1, found it passed, and declared the
+confound resolved — ignoring that Test 3 failed a criterion the same script had
+pre-registered. A confound check that stops at the first reassuring answer is
+not a check.)*
 
 ### The one constraint everything converges on
 
