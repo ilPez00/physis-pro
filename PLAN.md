@@ -514,6 +514,58 @@ quarter of WORK / CREATE / MAINTAIN / WALK, worth ~+0.043 kappa.
 
 ---
 
+---
+
+## E10 — form through selective error: **NOT SUPPORTED in this instantiation**
+
+`research/mapper/E10_SELECTIVE_ERROR.md`. Hypothesis: systems maintain form by
+discriminating deviations by their *consequences* — those preventing viable
+continuation are abandoned, non-handicapping ones persist and become part of the
+form. Tested through the brief's own test case (music), where identity separates
+from attributes without argument: **a motif's identity is its interval contour,
+not its pitches.**
+
+**§8's register formalism is coherent.** `I(Tr(O)) = I(O)` with `A(Tr(O)) ≠ A(O)`
+holds for 24/24 motifs under transposition — a definition holding, not an
+empirical finding, and recorded as such.
+
+**40 replicates × 240 generations:**
+
+| arm | depth | identity | diversity | corrections | neutral used |
+|---|---:|---:|---:|---:|---:|
+| A reject every deviation | **172** | n/a | **171** | 240 | 0 |
+| B accept every deviation | 137 | 0.13 | 123 | 132 | 5 |
+| C select on **local** correctness | 132 | 0.13 | 125 | 181 | 7 |
+| D select on **downstream** viability | 126 | **0.15** | 119 | 187 | **8** |
+
+**Downstream beats local by +0.01 identity and loses 5.8 depth and 6.2
+diversity.** The trade is bad. Two of the brief's own falsification targets are
+met: downstream viability *is* worse than immediate correctness here, while
+neutral variation does *not* cause combinatorial growth (accept-all diversity 123
+against downstream's 119) — so it fails for a different reason than predicted.
+
+**What survived:** register. Arm A — reject everything novel, fall back to a
+small transposition — reaches the greatest depth and diversity. Partly an
+artifact (the fallback is itself a productive move, and it is flagged), but the
+reading holds: in this system the deviation that preserves identity while
+changing attributes is *register*, exactly as §7 proposes, and the exotic
+deviations mostly break the invariant.
+
+**Honest limit:** the mechanism barely fires. Identity-preserving-and-viable
+deviations occur 5–8 times in 240 generations, under 3%. The arm comparison had
+power; the phenomenon's rate inside the system did not. A real test needs a
+deviation set where identity-preserving moves are common and a viability horizon
+longer than six steps.
+
+**Process note, recorded because it matters:** the first run had three faults —
+`dev_transpose` drew a fresh offset per note (scrambling the contour instead of
+transposing, leaving identity 0.00 everywhere), the downstream filter never bound
+(arms C and D byte-identical), and **the pre-flight returned STOP on power and
+the run proceeded anyway.** The third is the serious one. A checker overridden by
+the person who built it is not a control.
+
+---
+
 **Product consequence, stated plainly:** classification against the grid is the
 feature this track was trying to certify, and it still has no certified
 soundness check. `coverage` filters and ranks discovery candidates; it does not
