@@ -45,7 +45,7 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | Was the shipped corpus sound? | **NO — fixed** | 43.3% misfiled; regenerated in 0.1.21 |
 | Can the machine *filter* discovery candidates? | **YES, shipped** | `coverage`, Welch *t* = +12.11 |
 | Can it *rank* them? | **YES, shipped 0.1.20** | precision@25 0.480 vs 0.132 base |
-| Can it judge whether an entry *belongs*? | **NO** | AUC 0.410 on real misfilings |
+| Can it judge whether an entry *belongs*? | **NO** | AUC 0.410 on real misfilings — and **E14 explains why**: 0.880 on randomly-injected errors, **0.506 on plausible ones** |
 | Does cross-model **divergence** carry signal? | **NO (E1)** | 0.602 vs 0.733, 0 wins in 22; equals its null once conditioned on the stronger support |
 | Can any weighting/non-linearity rescue the weak model? | **NO (E1d)** | 2-D non-parametric estimator bounds every combiner: 0.866 vs s₂'s 0.870 |
 | Can Qwen n-grams be a groundable **map**? | **NO (E2)** | no disproportionate sparse gain; propagation worse than ignoring the map |
@@ -56,6 +56,47 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | Should the grid be **expanded**? | **NOT YET (E8)** | pre-flight STOPs on sparsity at every level |
 | Is there a discrete **signifier address** worth formalising in Lean? | **NOT YET (E9)** | best address 0.244 held-out vs geometry's 0.447 — though the space *is* self-similar |
 | Does **downstream viability** beat local correctness? | **NO (E10)** | +0.01 identity for −5.8 depth, −6.2 diversity |
+
+### E14 — a caveat that propagates backwards
+
+`research/mapper/E14_INJECTION_REALISM.md`. Stage 12 injects misfilings into a
+**uniformly random** cell. Re-running the same scorer on the same corpus while
+varying only *where* a misfiled entry lands:
+
+| injection policy | AUC |
+|---|---:|
+| random cell (Stage 12's original) | **0.880** |
+| same domain, different mode | 0.827 |
+| same mode, different domain | 0.771 |
+| **the entry's nearest alternative cell** | **0.506** |
+| *Stage 9, the corpus's real misfilings* | *0.410* |
+
+**Making the injected error plausible drops the scorer to chance**, and closes
+the 0.410/0.866 gap this track carried unexplained throughout. The scorer detects
+**distance moved, not wrongness**: random injection displaces an entry 0.125
+below its home similarity, a plausible error 0.029.
+
+**Consequences, stated rather than buried:**
+
+- *"Plain cosine at 0.866 is the best certification scorer here"* — written
+  repeatedly in this plan — should read **~0.51 on realistic errors. There is no
+  working certification scorer.**
+- **Stage 12's refutations need re-testing and are not hereby overturned.**
+  CONSTRAINT 0.685, ANCESTRY 0.604 and NON-LATTICE 0.459 were measured against
+  cosine's 0.733 under *random* injection. Under realistic injection cosine falls
+  to ~0.51; whether the structural scorers fall as far is **unmeasured**. This is
+  now the highest-value open re-test in the track.
+- **E1's absolute numbers are task-specific; its mechanism is not.** That
+  `D = |s1 − s2|` is a folded read-out of `s2` is arithmetic and policy-independent.
+- **The Disposer Bench's gold items are random-injected**, so its machine
+  precision@50 of 0.640 is inflated and a rater's measured recall overstates
+  practice.
+- **Unaffected:** E5, E7, E8, E13 measure prediction and retrieval, never used
+  injection. The corpus-sparsity conclusion stands.
+
+Stage 12's own header said *"a synthetic perturbation is a lower bound on
+difficulty"*. The caveat was written down at the start and never propagated;
+E14 quantifies it, and the lower bound turns out to be the entire signal.
 
 ### The one constraint everything converges on
 
