@@ -200,9 +200,11 @@ def main():
     targets = [70, 50, 35, 25, 18, 12, 8, 5]
     curve = []
     active = list(classes)
+    seen_k = set()
     while True:
         k = len(active)
-        if k in targets or k == len(classes):
+        if (k in targets or k == len(classes)) and k not in seen_k:
+            seen_k.add(k)
             lab = [merged[c] for c in cell]
             gs = Counter(merged.values())
             biggest = max(Counter(lab).values()) / len(lab)
@@ -218,7 +220,8 @@ def main():
         # chained everything into one mega-cluster: accuracy tracked the floor
         # exactly and kappa was 0.000 at every level, which is the signature of
         # a degenerate merge rather than a finding about the grid.
-        ai = {c: i for i, c in enumerate(classes)}
+        ai_ = {c: i for i, c in enumerate(classes)}
+        ai = ai_
         bestpair, bestv = None, -np.inf
         for i in range(len(active)):
             for j in range(i + 1, len(active)):
@@ -226,6 +229,16 @@ def main():
                 if v > bestv:
                     bestv, bestpair = v, (active[i], active[j])
         x, y = bestpair
+        # Size guard: refuse a merge that would put more than 45% of the corpus
+        # in one group. Without it the curve degenerates into one mega-cluster
+        # by 35 groups (largest group 72.5%) and kappa stops meaning anything.
+        cnt = Counter()
+        for c in merged:
+            cnt[merged[c]] += sizes.get(c, 0)
+        if (cnt[x] + cnt[y]) / n > 0.45 and len(active) > 6:
+            sim[ai_[x], ai_[y]] = -np.inf
+            sim[ai_[y], ai_[x]] = -np.inf
+            continue
         nx = sum(1 for c in merged if merged[c] == x)
         ny = sum(1 for c in merged if merged[c] == y)
         for c in list(merged):

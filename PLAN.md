@@ -315,10 +315,10 @@ it would gain far more. Merging confusable cells (average linkage) peaks at
 kappa 0.444 and then declines to 0.237. **The grid's fineness is not the
 constraint.**
 
-**The asymmetry that is actionable: domain kappa 0.552 vs mode 0.418.** Stage 11
-gave the *domain* axis a written definition in `docs/GRID_AXES.md` and
-regenerated the corpus against it. **The mode axis never got that treatment**,
-and it is measurably the weaker half.
+**The asymmetry: domain kappa 0.552 vs mode 0.418.** Stage 11 gave the *domain*
+axis a written definition in `docs/GRID_AXES.md` and regenerated the corpus
+against it; the mode axis never got that treatment. **E6 then localized it —
+see below — and corrected the recommendation this line originally carried.**
 
 **Physis integration (`mapper_physis_feedback.rs`).** The correction loop run
 through the shipped `QualityTracker` on the production path
@@ -332,10 +332,51 @@ fairly: QualityTracker was built for slow interactive pin dissent, not batched
 correction; the finding is that **the existing machinery is not a
 correction-propagation mechanism**, not that the shipped feature is broken.
 
-**Where this leaves the constraint**, in order of support: (1) the undefined
-mode axis; (2) ~16% label noise; (3) cell *sparsity* — 22 of 57 cells hold fewer
-than 5 entries — which prescribes populating those cells, the opposite of
-merging.
+**Where this leaves the constraint**, in order of support: (1) class *sparsity*;
+(2) ~16% label noise; (3) a real but narrower definition gap on the mode axis.
+
+---
+
+## E6 — where the mode axis is weak, and why
+
+`research/mapper/E6_MODE_AXIS_REPORT.md`. E5 called the missing mode-axis
+definition "the most actionable finding". **E6 measured it and that was
+overstated.**
+
+**Population explains most of it.** Pearson r(log class size, F1) = **+0.718**
+across the 14 modes. The three modes scoring **F1 = 0.00** are BRAINSTORM (n=3),
+DESTROY (n=4) and GUIDE (n=14). A mode with three entries cannot survive a 70/30
+split however well its definition is written.
+
+**The definition gap is real but half the size implied.** Stage 11's own test —
+does the nearest authored anchor recover the entry's axis value? — with the
+domain axis as the control because it *has* a written definition:
+
+| axis | recovered | chance | gain |
+|---|---:|---:|---:|
+| domain | 0.562 | 0.272 | **39.9%** |
+| mode | 0.372 | 0.228 | **18.7%** |
+
+Unchanged when cell names are stripped and only the authored hints are used.
+
+**And the confusion is concentrated, with a sink.** WORK appears in four of the
+top five confusion pairs and absorbs 30 errors: CREATE↔WORK 11, SENSE↔WORK 8,
+MAINTAIN↔WORK 7, WALK↔WORK 4. Its definition — *"execute, labour, do the routine
+doing"* — excludes almost nothing. That is the junk-drawer shape Stage 13 found
+at `CONSTRUCT/CREATE`, one axis up. The remainder clusters in
+SENSE↔MAINTAIN↔LEARN↔PLAN, which is the signature of a definition problem rather
+than a representation one.
+
+**What follows, ranked by evidence:** (1) populate the starved modes — five
+modes hold 47 entries between them, a corpus task not a writing task; (2) define
+WORK **by exclusion**, one mode rather than the axis; (3) re-test the
+SENSE/MAINTAIN/LEARN/PLAN cluster, remembering E5 showed merging cells does not
+help — if those four are truly one thing that is a finding about the grid's
+design, not a licence to merge.
+
+**Not established:** that either fix would raise mode kappa. Both are plausible
+and neither is tested. The measured claims are the correlation, the anchor gap,
+and the concentration.
 
 ---
 
