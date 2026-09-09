@@ -32,3 +32,6 @@
 - Episode trail + point-in-time queries — PLAN.md Phase 22 (G3/G6) + integration plan §2
 - Hybrid BM25+RRF vs frozen cosine baseline — PLAN.md Phase 22 (G5) + integration plan §§2/5
 - Monster-benchmark mapping + falsifiers per take — PLAN.md Phase 22 (22.5) + integration plan §5
+- Formal semantics: Γ/R operator separation + additive-construction invariant + provisional fixed point — PLAN.md Phase 23 (23.1–23.3) + physis_resources.txt
+- Replay/dream candidates from failed/inert/contradicted structures — PLAN.md Phase 23 (23.4)
+- Critical experiment: RAG vs AGM vs TMS/ATMS vs Atlas/Ripple vs Physis, numbers only with nulls — PLAN.md Phase 23 (23.5) + physis_resources.txt

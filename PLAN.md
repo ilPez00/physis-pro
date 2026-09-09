@@ -1150,6 +1150,82 @@ G7 states a retention/compaction story before data gets large.
 
 ---
 
+## Phase 23 — Formal semantics track: Triune Continuum × Kripke × Physis (2026-09-09)
+
+> Source: `physis_resources.txt` §"Formal semantics track" (the section that
+> opens the file, repeated before the closing prior-art list) and the
+> `PHYSIS_STEP` protocol. This is the research framing Phase 22's machinery
+> was built for; it adds no endpoints and touches no Phase 1–7 contract.
+
+### 23.0 Research hypothesis + the standing non-claim
+
+Tarski supplies the grounding relation between domain/model and representation
+(`G: U → M` — in Physis terms, the embedder + ontology classify step);
+Kripke supplies the model for progressively extending a *partial*
+interpretation; Physis adds empirical outcome, temporal state, contradiction
+preservation, and revision as constraints on successive semantic states.
+
+**Non-claim (never drop this):** Physis is *not* a Kripke truth theory.
+Kripke's construction concerns semantic truth/fixed points; Physis concerns an
+open-world epistemic state. "Fixed point" always means **locally stable under
+currently available evidence and context**, never metaphysical truth — this is
+the existing scope note, now with a formal vocabulary.
+
+### 23.1 The operator model, mapped to symbols that exist
+
+The track's crucial separation — **semantic construction ≠ epistemic
+acceptance ≠ truth** — is two operators:
+
+```
+I_{t+1} = Γ(I_t, O_t)                 semantic construction (additive)
+S_{t+1} = R(S_t, I_{t+1}, V_t, C_t)   epistemic revision
+```
+
+| Operator | Physis symbol today | Status |
+|---|---|---|
+| Γ — extend partial interpretation | `embed.rs` + `classify.rs` (`CellClassifier`) + `propose.rs` (propose-does-not-verify) | exists; partial interpretation = proposals, never forced TRUE/FALSE (Kripke leg) |
+| R — revise epistemic state | `epistemic.rs` (`EpistemicAuditTrail`, `StatusTransition`) + `hypothesis.rs` (`transition_to`, `recompute_fitness`) + `contradiction.rs` | exists; A2/A5/P1 separate the judgment from the write |
+| Wave/walk between them | `delta_engine.rs` (`evaluate_mutation`, `depends_on_walk`) | the one place Γ and R still share a function — see 23.3 |
+
+### 23.2 The semantic object `h = ⟨e, τ, π, σ, ρ, κ⟩` — audit
+
+| Component | Meaning | Physis symbol | Gap |
+|---|---|---|---|
+| e | representation | embedding (`Hypothesis.embedding`, node `embedding`) | none |
+| τ | type/ontology position | `ontology_refs`, `cell_pin`, the 5×14 grid | none |
+| π | provenance | `provenance.rs` + `Revision` | G4 intake ids (P2) |
+| σ | epistemic state | `HypothesisStatus` ×9 + `fitness` | none |
+| ρ | revision history | `revision_history` | G3 episode/watermark trail (P2) |
+| κ | context/validity conditions | `TemporalValidity` (`valid_from`/`valid_until`/`expired_at`) | G6 query semantics (P2) |
+
+Every component of the tuple already has a home; the P2 items close the two
+gaps. No new struct is planned — the tuple is an audit lens, not a type.
+
+### 23.3 Deliverables (each with its gate)
+
+| # | Deliverable | Effort | Gate / falsifier |
+|---|---|---|---|
+| 23.1 | **Operator-separation invariant:** Γ never writes status — `evaluate_mutation`'s semantic proposals ride the report; status changes are derivable only through the R-side trail (`StatusTransition`). Split or assert the distinction inside `delta_engine.rs`. | M | `gamma_report_carries_no_status_writes` — passes only if a naive "evaluate_mutation mutates status directly" implementation fails it |
+| 23.2 | **Additive-construction invariant:** `I_t ⊆ I_{t+1}` — semantic construction never erases; deprecation is state/provenance (the Γ-side face of G7's invalidate-don't-delete). Interpretations retire via κ/σ, not deletion. | S | `interpretations_never_shrink_on_ingest` over a seeded ingest sequence |
+| 23.3 | **Provisional fixed-point test:** status `locally stable` vs `revised` reported when `S_t` and `S_{t+1}` are equivalent under current evidence (the PHYSIS_STEP stage 10). Distinct from E20's geometric fixed points (density maxima) — same word, different object; cross-reference, do not merge. | S–M | `stable_status_matches_zero_delta_and_evidence_window`; falsifier: status claims stability while any κ-window evidence is unresolved |
+| 23.4 | **Replay/dream hook (stage 11):** failed/inert/contradictory structures feed `SELECT_REPLAY_CANDIDATES` → counterfactual proposals — the Physis-vs-Atlas divergence the resources file calls "exactly where to concentrate research" (continuous empirical representation + belief maintenance, with failure memory and replay). | M | proposals cite the ledger events that motivated them; no deletion of replayed items |
+| 23.5 | **The critical experiment** (extends 22.5): same belief-update benchmark under **(1)** monotonic/vector retrieval (current cosine propose path), **(2)** AGM revision (Atlas), **(3)** TMS/ATMS (`ATMS-in-Python` as the small reference), **(4)** Atlas/Ripple, **(5)** Physis. Metrics: contradiction retention, downstream revision, temporal validity, provenance preservation, recovery after false evidence, hypothesis generation. | L | every number cited with its null; the claim is about the *additional behavior produced by coupling semantic representation to empirical epistemic revision* — not about inventing belief revision |
+
+Standing baselines for 23.5 (per the resources file): Atlas, Graphiti, and an
+ATMS implementation are the first three external baselines. Study-only (no
+dep): `Nous` (persistent epistemic substrate — what the modern memory
+ecosystem is converging toward), `Agent_Memory_Techniques` (map),
+ontology-embedding implementations (OWL2Vec/DL2Vec/RDF2Vec/PyKEEN) for the
+symbolic-scaffold ↔ semantic-space constraint question.
+
+### 23.4 Order
+
+23.1–23.3 land with/after P2 (they need G3/G6 vocabulary to be honest);
+23.4 needs the P1 ingest protocol; 23.5 is last — it is the paper, and it
+consumes everything before it. Nothing in this phase may weaken the honesty
+constraints of 22.5: cosine 0.519 / propose top-3 0.712 stand.
+
+
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by
@@ -1178,10 +1254,11 @@ Phase 1 ──┬──> Phase 2 ──> Phase 3
 Phase 22 (epistemic revision, after §21) ──> depends on classify/holarchy endpoints (Phases 1–2, 7)
 ```
 
-Phase 6 is mostly independent of Phases 1–5. Phase 7 depends on classify/reconstruct/holarchy endpoints. Phase 22 (epistemic revision, after §21) depends on the classify/holarchy endpoints (Phases 1–2, 7) and constrains them; it needs nothing from Phases 4–6.
+Phase 6 is mostly independent of Phases 1–5. Phase 7 depends on classify/reconstruct/holarchy endpoints. Phase 22 (epistemic revision, after §21) depends on the classify/holarchy endpoints (Phases 1–2, 7) and constrains them; it needs nothing from Phases 4–6. Phase 23 (formal semantics) is the research framing over Phase 22's machinery: 23.1–23.3 land with/after P2, 23.4 after the P1 ingest protocol, 23.5 last.
 
 
 ## Scope note: what Physis does not claim
 Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.
 - Phase 22 still does not claim that revision cascades, hybrid retrieval, or provenance hardening certify a filing — cosine 0.519 / propose top-3 0.712 stand; the takes propose, carry and defer, they do not verify.
+- Phase 23 fixes the formal vocabulary and its non-claims: Physis is not a Kripke truth theory; "fixed point" means locally stable under currently available evidence and context, never metaphysical truth; the 23.5 benchmark claims only the additional behavior produced by coupling semantic representation to empirical epistemic revision — not the invention of belief revision.
 todo: investigate tmg/ntmg/graphiti/atlas as codebases in /home/gio/dev, and 

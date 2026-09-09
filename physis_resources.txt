@@ -1,3 +1,241 @@
+### Formal semantics track: Triune Continuum × Kripke × Physis
+
+Investigate whether Physis can be formalized as an **empirically driven extension of a Tarskian/Triune semantic architecture by Kripke-style partial interpretation and fixed-point construction**. Naumenko's Triune Continuum Paradigm explicitly grounds system modeling in Tarski's theory of truth, Russellian type discipline, and the Triune Continuum; it was developed in an EPFL doctoral thesis and applied to RM-ODP/UML metamodeling.
+
+**Research hypothesis:** Tarski supplies the grounding relation between domain/model and representation; Kripke supplies a formal model for progressively extending a partial interpretation; Physis adds **empirical outcome, temporal state, contradiction preservation, and revision** as constraints on successive semantic states. Do not claim that Physis is a Kripke truth theory: Kripke's construction concerns semantic truth/fixed points, whereas Physis concerns an open-world epistemic state.
+
+A useful abstraction is:
+
+$$
+G:U\rightarrow M
+$$
+
+grounding observations/domain \(U\) into a model \(M\);
+
+$$
+\Gamma(I_t,O_t,V_t,C_t)\rightarrow I_{t+1}
+$$
+
+where \(\Gamma\) expands a partial interpretation using observations \(O\), outcome/verdict \(V\), and context \(C\);
+
+$$
+I_t\subseteq I_{t+1}
+$$
+
+for **additive semantic construction**, while revision/deprecation is represented as state/provenance rather than destructive erasure.
+
+The important Physis departure is:
+
+$$
+\boxed{
+\text{denotation}
+\rightarrow
+\text{representation}
+\rightarrow
+\text{semantic construction}
+\rightarrow
+\text{empirical constraint}
+\rightarrow
+\text{revised state}
+}
+$$
+
+A “fixed point” should therefore mean **locally stable under currently available evidence/context**, not metaphysical truth. New observations may legitimately move the system out of that state.
+
+### Formal implementation target
+
+Represent each semantic object as:
+
+$$
+h=\langle e,\tau,\pi,\sigma,\rho,\kappa\rangle
+$$
+
+where \(e\)=representation, \(\tau\)=type/ontology position, \(\pi\)=provenance, \(\sigma\)=epistemic state, \(\rho\)=revision history, and \(\kappa\)=context/validity conditions.
+
+Implement the semantic operator separately from the epistemic revision operator:
+
+$$
+I_{t+1}=\Gamma(I_t,O_t)
+$$
+
+$$
+S_{t+1}=R(S_t,I_{t+1},V_t,C_t)
+$$
+
+This preserves the crucial distinction:
+
+**semantic construction ≠ epistemic acceptance ≠ truth.**
+
+### Exhaustive pseudocode sketch
+
+```text
+function PHYSIS_STEP(state S_t, observation O_t, outcome V_t, context C_t):
+
+    # ------------------------------------------------------------
+    # 1. OBSERVATION / GROUNDING
+    # ------------------------------------------------------------
+    # O_t is an external observation, action result, document,
+    # sensor event, human assertion, image, etc.
+    #
+    # Do NOT assume that the observation is already a proposition.
+    # First construct a representation of what was encountered.
+    e = EMBED(O_t)
+
+    # Ground the observation against the current ontology/model.
+    # This is the Tarskian/Triune-inspired grounding interface:
+    # representation is related to a modeled domain rather than
+    # treated as free-floating semantic similarity.
+    candidates = CLASSIFY_AGAINST_ONTOLOGY(e, S_t.ontology)
+
+    # ------------------------------------------------------------
+    # 2. PARTIAL INTERPRETATION
+    # ------------------------------------------------------------
+    # Construct only what is licensed by current evidence.
+    # Unknown / undecidable material remains undefined.
+    #
+    # This is the Kripke-inspired principle:
+    # do not force every proposition into TRUE/FALSE merely because
+    # the system lacks sufficient information.
+    I_partial = EXTEND_PARTIAL_INTERPRETATION(
+        S_t.interpretation,
+        candidates,
+        O_t
+    )
+
+    # ------------------------------------------------------------
+    # 3. HYPOTHESIS GENERATION
+    # ------------------------------------------------------------
+    # Convert candidate interpretations into explicit hypotheses.
+    # Multiple incompatible hypotheses may coexist.
+    hypotheses = GENERATE_HYPOTHESES(
+        I_partial,
+        O_t,
+        S_t.context
+    )
+
+    # ------------------------------------------------------------
+    # 4. SEMANTIC COHERENCE
+    # ------------------------------------------------------------
+    # Measure semantic/ontological compatibility.
+    # IMPORTANT: this is NOT truth.
+    for h in hypotheses:
+        h.semantic_score = SEMANTIC_COHERENCE(h, S_t)
+        h.ontology_score = ONTOLOGICAL_COHERENCE(h, S_t)
+
+    # ------------------------------------------------------------
+    # 5. CONTRADICTION DETECTION
+    # ------------------------------------------------------------
+    # Detect conflicts without deleting either side.
+    #
+    # Contradiction is a relation in the state, not an instruction
+    # to erase one proposition immediately.
+    conflicts = FIND_CONTRADICTIONS(hypotheses, S_t)
+
+    for (A, B) in conflicts:
+        RECORD_CONTRADICTION(
+            A,
+            B,
+            provenance = O_t,
+            context = C_t,
+            timestamp = NOW()
+        )
+
+    # ------------------------------------------------------------
+    # 6. EMPIRICAL / OPERATIONAL UPDATE
+    # ------------------------------------------------------------
+    # V_t records what happened when the relevant hypothesis/action
+    # encountered the world.
+    #
+    # This is the specifically Physis layer:
+    # semantic plausibility and empirical success remain separate.
+    for h in hypotheses:
+        h.empirical_score = UPDATE_EMPIRICAL_SUPPORT(
+            h,
+            V_t
+        )
+
+    # ------------------------------------------------------------
+    # 7. EPISTEMIC REVISION
+    # ------------------------------------------------------------
+    # Revise preference/status without destroying historical states.
+    #
+    # A failed hypothesis can remain historically important while
+    # becoming dispreferred under the current context.
+    S_next = REVISE_EPISTEMIC_STATE(
+        S_t,
+        hypotheses,
+        conflicts,
+        V_t,
+        C_t
+    )
+
+    # ------------------------------------------------------------
+    # 8. TEMPORALIZATION
+    # ------------------------------------------------------------
+    # Attach validity intervals/context conditions.
+    # A proposition can be preferred at t1 and superseded at t2
+    # without retroactively becoming "never true."
+    S_next = UPDATE_TEMPORAL_VALIDITY(
+        S_next,
+        V_t,
+        C_t
+    )
+
+    # ------------------------------------------------------------
+    # 9. PROVENANCE
+    # ------------------------------------------------------------
+    # Preserve why every transition occurred.
+    # The ledger is append-only; current preference is not history.
+    S_next.ledger.append(
+        EVENT(
+            observation = O_t,
+            interpretation = I_partial,
+            hypotheses = hypotheses,
+            conflicts = conflicts,
+            outcome = V_t,
+            context = C_t
+        )
+    )
+
+    # ------------------------------------------------------------
+    # 10. PROVISIONAL FIXED-POINT TEST
+    # ------------------------------------------------------------
+    # "Fixed point" means that, under CURRENT information and
+    # CURRENT transformation rules, no further revision occurs.
+    #
+    # It does NOT mean metaphysical truth.
+    stable = EQUIVALENT_UNDER_CURRENT_EVIDENCE(S_t, S_next)
+
+    if stable:
+        S_next.status = "locally stable"
+    else:
+        S_next.status = "revised"
+
+    # ------------------------------------------------------------
+    # 11. OFFLINE REPLAY / DREAM
+    # ------------------------------------------------------------
+    # Failed, inert, unresolved, or contradictory structures are
+    # candidates for counterfactual exploration rather than deletion.
+    #
+    # This is where Physis can potentially extend the classical
+    # semantic framework toward empirical hypothesis generation.
+    queue = SELECT_REPLAY_CANDIDATES(S_next)
+
+    for h in queue:
+        proposal = COUNTERFACTUAL_REPLAY(h, S_next)
+        S_next.proposals.append(proposal)
+
+    return S_next
+```
+
+### Prior-art / resources to add
+
+* **Triune Continuum Enterprise / Naumenko:** primary source for the paradigm and its Tarski/Russell foundations.
+* **Doyle, “A Truth Maintenance System” (1979):** foundational computational belief revision/TMS lineage.
+* **Almeida & Casals, “From Doyle to AGM” (2026):** particularly useful current survey connecting computational TMS history to formal belief revision.
+* **Atlas:** open-source AGM implementation + dependency-propagating belief revision; use as an implementation/reference baseline, not as evidence of Physis novelty.
+
+**Critical experiment:** implement the same belief-update benchmark under (1) monotonic/vector retrieval, (2) AGM revision, (3) TMS/ATMS, (4) Atlas/Ripple, and (5) Physis. Measure contradiction retention, downstream revision, temporal validity, provenance preservation, recovery after false evidence, and hypothesis generation. The scientific claim should be about the *additional behavior produced by coupling semantic representation to empirical epistemic revision*, not about inventing belief revision itself.
 
 
 ## 1. Truth Maintenance Systems — the ancestral core
@@ -418,3 +656,241 @@ And I would absolutely use **Atlas + Graphiti + an ATMS implementation as your f
 [10]: https://github.com/bio-ontology-research-group/machine-learning-with-ontologies "https://github.com/bio-ontology-research-group/machine-learning-with-ontologies"
 [11]: https://github.com/NirDiamant/Agent_Memory_Techniques "https://github.com/NirDiamant/Agent_Memory_Techniques"
 [12]: https://github.com/base76-research-lab/Nous "https://github.com/base76-research-lab/Nous"
+### Formal semantics track: Triune Continuum × Kripke × Physis
+
+Investigate whether Physis can be formalized as an **empirically driven extension of a Tarskian/Triune semantic architecture by Kripke-style partial interpretation and fixed-point construction**. Naumenko's Triune Continuum Paradigm explicitly grounds system modeling in Tarski's theory of truth, Russellian type discipline, and the Triune Continuum; it was developed in an EPFL doctoral thesis and applied to RM-ODP/UML metamodeling.
+
+**Research hypothesis:** Tarski supplies the grounding relation between domain/model and representation; Kripke supplies a formal model for progressively extending a partial interpretation; Physis adds **empirical outcome, temporal state, contradiction preservation, and revision** as constraints on successive semantic states. Do not claim that Physis is a Kripke truth theory: Kripke's construction concerns semantic truth/fixed points, whereas Physis concerns an open-world epistemic state.
+
+A useful abstraction is:
+
+$$
+G:U\rightarrow M
+$$
+
+grounding observations/domain \(U\) into a model \(M\);
+
+$$
+\Gamma(I_t,O_t,V_t,C_t)\rightarrow I_{t+1}
+$$
+
+where \(\Gamma\) expands a partial interpretation using observations \(O\), outcome/verdict \(V\), and context \(C\);
+
+$$
+I_t\subseteq I_{t+1}
+$$
+
+for **additive semantic construction**, while revision/deprecation is represented as state/provenance rather than destructive erasure.
+
+The important Physis departure is:
+
+$$
+\boxed{
+\text{denotation}
+\rightarrow
+\text{representation}
+\rightarrow
+\text{semantic construction}
+\rightarrow
+\text{empirical constraint}
+\rightarrow
+\text{revised state}
+}
+$$
+
+A “fixed point” should therefore mean **locally stable under currently available evidence/context**, not metaphysical truth. New observations may legitimately move the system out of that state.
+
+### Formal implementation target
+
+Represent each semantic object as:
+
+$$
+h=\langle e,\tau,\pi,\sigma,\rho,\kappa\rangle
+$$
+
+where \(e\)=representation, \(\tau\)=type/ontology position, \(\pi\)=provenance, \(\sigma\)=epistemic state, \(\rho\)=revision history, and \(\kappa\)=context/validity conditions.
+
+Implement the semantic operator separately from the epistemic revision operator:
+
+$$
+I_{t+1}=\Gamma(I_t,O_t)
+$$
+
+$$
+S_{t+1}=R(S_t,I_{t+1},V_t,C_t)
+$$
+
+This preserves the crucial distinction:
+
+**semantic construction ≠ epistemic acceptance ≠ truth.**
+
+### Exhaustive pseudocode sketch
+
+```text
+function PHYSIS_STEP(state S_t, observation O_t, outcome V_t, context C_t):
+
+    # ------------------------------------------------------------
+    # 1. OBSERVATION / GROUNDING
+    # ------------------------------------------------------------
+    # O_t is an external observation, action result, document,
+    # sensor event, human assertion, image, etc.
+    #
+    # Do NOT assume that the observation is already a proposition.
+    # First construct a representation of what was encountered.
+    e = EMBED(O_t)
+
+    # Ground the observation against the current ontology/model.
+    # This is the Tarskian/Triune-inspired grounding interface:
+    # representation is related to a modeled domain rather than
+    # treated as free-floating semantic similarity.
+    candidates = CLASSIFY_AGAINST_ONTOLOGY(e, S_t.ontology)
+
+    # ------------------------------------------------------------
+    # 2. PARTIAL INTERPRETATION
+    # ------------------------------------------------------------
+    # Construct only what is licensed by current evidence.
+    # Unknown / undecidable material remains undefined.
+    #
+    # This is the Kripke-inspired principle:
+    # do not force every proposition into TRUE/FALSE merely because
+    # the system lacks sufficient information.
+    I_partial = EXTEND_PARTIAL_INTERPRETATION(
+        S_t.interpretation,
+        candidates,
+        O_t
+    )
+
+    # ------------------------------------------------------------
+    # 3. HYPOTHESIS GENERATION
+    # ------------------------------------------------------------
+    # Convert candidate interpretations into explicit hypotheses.
+    # Multiple incompatible hypotheses may coexist.
+    hypotheses = GENERATE_HYPOTHESES(
+        I_partial,
+        O_t,
+        S_t.context
+    )
+
+    # ------------------------------------------------------------
+    # 4. SEMANTIC COHERENCE
+    # ------------------------------------------------------------
+    # Measure semantic/ontological compatibility.
+    # IMPORTANT: this is NOT truth.
+    for h in hypotheses:
+        h.semantic_score = SEMANTIC_COHERENCE(h, S_t)
+        h.ontology_score = ONTOLOGICAL_COHERENCE(h, S_t)
+
+    # ------------------------------------------------------------
+    # 5. CONTRADICTION DETECTION
+    # ------------------------------------------------------------
+    # Detect conflicts without deleting either side.
+    #
+    # Contradiction is a relation in the state, not an instruction
+    # to erase one proposition immediately.
+    conflicts = FIND_CONTRADICTIONS(hypotheses, S_t)
+
+    for (A, B) in conflicts:
+        RECORD_CONTRADICTION(
+            A,
+            B,
+            provenance = O_t,
+            context = C_t,
+            timestamp = NOW()
+        )
+
+    # ------------------------------------------------------------
+    # 6. EMPIRICAL / OPERATIONAL UPDATE
+    # ------------------------------------------------------------
+    # V_t records what happened when the relevant hypothesis/action
+    # encountered the world.
+    #
+    # This is the specifically Physis layer:
+    # semantic plausibility and empirical success remain separate.
+    for h in hypotheses:
+        h.empirical_score = UPDATE_EMPIRICAL_SUPPORT(
+            h,
+            V_t
+        )
+
+    # ------------------------------------------------------------
+    # 7. EPISTEMIC REVISION
+    # ------------------------------------------------------------
+    # Revise preference/status without destroying historical states.
+    #
+    # A failed hypothesis can remain historically important while
+    # becoming dispreferred under the current context.
+    S_next = REVISE_EPISTEMIC_STATE(
+        S_t,
+        hypotheses,
+        conflicts,
+        V_t,
+        C_t
+    )
+
+    # ------------------------------------------------------------
+    # 8. TEMPORALIZATION
+    # ------------------------------------------------------------
+    # Attach validity intervals/context conditions.
+    # A proposition can be preferred at t1 and superseded at t2
+    # without retroactively becoming "never true."
+    S_next = UPDATE_TEMPORAL_VALIDITY(
+        S_next,
+        V_t,
+        C_t
+    )
+
+    # ------------------------------------------------------------
+    # 9. PROVENANCE
+    # ------------------------------------------------------------
+    # Preserve why every transition occurred.
+    # The ledger is append-only; current preference is not history.
+    S_next.ledger.append(
+        EVENT(
+            observation = O_t,
+            interpretation = I_partial,
+            hypotheses = hypotheses,
+            conflicts = conflicts,
+            outcome = V_t,
+            context = C_t
+        )
+    )
+
+    # ------------------------------------------------------------
+    # 10. PROVISIONAL FIXED-POINT TEST
+    # ------------------------------------------------------------
+    # "Fixed point" means that, under CURRENT information and
+    # CURRENT transformation rules, no further revision occurs.
+    #
+    # It does NOT mean metaphysical truth.
+    stable = EQUIVALENT_UNDER_CURRENT_EVIDENCE(S_t, S_next)
+
+    if stable:
+        S_next.status = "locally stable"
+    else:
+        S_next.status = "revised"
+
+    # ------------------------------------------------------------
+    # 11. OFFLINE REPLAY / DREAM
+    # ------------------------------------------------------------
+    # Failed, inert, unresolved, or contradictory structures are
+    # candidates for counterfactual exploration rather than deletion.
+    #
+    # This is where Physis can potentially extend the classical
+    # semantic framework toward empirical hypothesis generation.
+    queue = SELECT_REPLAY_CANDIDATES(S_next)
+
+    for h in queue:
+        proposal = COUNTERFACTUAL_REPLAY(h, S_next)
+        S_next.proposals.append(proposal)
+
+    return S_next
+```
+
+### Prior-art / resources to add
+
+* **Triune Continuum Enterprise / Naumenko:** primary source for the paradigm and its Tarski/Russell foundations.
+* **Doyle, “A Truth Maintenance System” (1979):** foundational computational belief revision/TMS lineage.
+* **Almeida & Casals, “From Doyle to AGM” (2026):** particularly useful current survey connecting computational TMS history to formal belief revision.
+* **Atlas:** open-source AGM implementation + dependency-propagating belief revision; use as an implementation/reference baseline, not as evidence of Physis novelty.
+
+**Critical experiment:** implement the same belief-update benchmark under (1) monotonic/vector retrieval, (2) AGM revision, (3) TMS/ATMS, (4) Atlas/Ripple, and (5) Physis. Measure contradiction retention, downstream revision, temporal validity, provenance preservation, recovery after false evidence, and hypothesis generation. The scientific claim should be about the *additional behavior produced by coupling semantic representation to empirical epistemic revision*, not about inventing belief revision itself.
