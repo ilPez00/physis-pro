@@ -166,6 +166,27 @@ This is the stance the whole negative record argues for. Every attempt to make
 the machine adjudicate lost; the one thing that worked was making it propose and
 letting a rater decide.
 
+**The vector may collapse a structure; the interface need not.** E25: an additive
+embedding space cannot distinguish `dog + tooth` from `dog-modulus|tooth|`, so a
+compositional ontology has to be **carried explicitly** rather than hoped for in
+geometry. E26 says which structures are worth carrying, and the answer is
+measured rather than chosen:
+
+| | domain | mode |
+|---|---|---|
+| own-subspace compression | **4-d, lossless** (−0.003) | not a subspace (−0.034) |
+| proposer top-2 | **0.837**, saturated | 0.678, still moving |
+| confusion structure | one symmetric merge pair | a four-way blur over 68% of the corpus |
+
+Three methods, none aware of the others: **domain is a small well-formed object;
+`mode` as currently defined is not a coherent one.** So the interface carries
+domain as a four-number coordinate and **defers mode to the person** — and no
+reweighting or projection will change that, because mode fails to compress for
+lack of linear structure rather than for lack of a better embedder. Domain and
+mode are also **not perpendicular** (principal angles 35.8–54.5°, mean 46.1°) and
+orthogonalising them *hurts both*, so the overlap is shared signal, not
+interference.
+
 **Corollary, and it is a hard rule: causes are user-assessed unless an exact
 error log is provided.** Where the signal is explicit — a compiler error, an
 exit code, a stack trace — take it literally. Where it is not, hand it to the
