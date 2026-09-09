@@ -1,0 +1,21 @@
+  embedding 0/427
+  embedding 100/427
+  embedding 200/427
+  embedding 300/427
+  embedding 400/427
+E23 — activity text -> activity label.  528 commits, 6 types (n >= 14)
+  feat:238  docs:86  fix:76  research:70  chore:44  test:14
+  majority floor 0.451
+
+  scorer                            top-1    top-2
+  EMBEDDING (nomic-embed-text) 0.575 +/- 0.037      0.822
+  TF-IDF (lexical)       0.628 +/- 0.026      0.803
+  PERMUTED (null)        0.222 +/- 0.059      0.452
+  MAJORITY               0.451
+
+READING
+  If EMBEDDING clears PERMUTED and MAJORITY, activity text does carry an
+  activity label, and a trace of what a system DID can supervise a mode-like
+  axis. If TF-IDF matches EMBEDDING, the signal is lexical convention rather
+  than activity semantics, and the result does not transfer to entries that
+  carry no such convention.

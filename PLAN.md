@@ -30,11 +30,11 @@ plus MIT Core as the agent-directory distribution funnel (see
 
 ---
 
-## Research track — epistemic mechanisms (status 2026-09-08)
+## Research track — epistemic mechanisms (status 2026-09-09)
 
 Full record: **`research/RESEARCH_STATUS.md`**. Per-experiment reports sit with
-their code in `research/perspective-discovery/` (E1) and `research/mapper/`
-(E2–E18).
+their code in `research/perspective-discovery/` (E1), `research/mapper/`
+(E2–E18, E21–E23) and `research/convergence/` (E19–E20).
 
 ### Settled
 
@@ -55,8 +55,11 @@ their code in `research/perspective-discovery/` (E1) and `research/mapper/`
 | Is a discrete **signifier address** worth formalising in Lean? | **NOT YET (E9)** | best address 0.244 held-out vs geometry's 0.447 |
 | Does **downstream viability** beat local correctness? | **NO (E10)** | +0.01 identity for −5.8 depth |
 | Can the **anchors** be improved? | **NO (E12/E13)** | three attempts refuted; headroom over a probe built from the cell's own entries is **+0.004** |
+| Does presenting several *structurally congruent* domains improve abstraction? | **NO (E19)** | C5 +0.467 vs one domain +0.400 and a token-matched +0.450; replicated at 4B, 7.6B and 9.2B |
+| Is that a small-model artifact? | **NO (E19b)** | the ceiling does not climb with scale — ORACLE +0.667 at 4B, +0.500 at 7.6B, +0.750 at 9.2B, and C5 never separates from one domain |
+| Can geometry *propose* a filing, given human decisions? | **YES (E21)** | top-3 **0.667** against a permuted null of 0.136 and a lookup table of 0.368 |
 
-### Two things that reversed under scrutiny, kept because the process is the point
+### Three things that reversed under scrutiny, kept because the process is the point
 
 **Stage 12's certification refutations were reached by an invalid route (E14).**
 Its injection moves an entry to a *uniformly random* cell. Cosine leads by 0.207
@@ -71,6 +74,17 @@ scored 0.619, no vocabulary effect survived controlling for it (+0.048, ns), and
 it failed to replicate on the audit of a filing the rater had not produced.
 Four experiments, each correcting the last, ending where the track stood before
 E14 for much better reasons.
+
+**E19's "decisive test" was not a control at all (E19b).** S5 was described as
+C5's tokens with congruence destroyed. Its five bodies are C5's, **byte-identical,
+cyclically shifted against five identical headings** — tf-cosine 1.000 — and the
+generation prompt tells the model to discard exactly the part that moved. `C5 ≈
+S5` is near-tautological. Two rebuilds followed and both are recorded: **B5b's
+falsifier fired at 4B, 7B and 9B** (all five schemas converged on ¬C1), and
+**B5c's fires at 4B and not at 9B**. The verdict is unchanged and now rests on
+A1 and A5, which are valid. **The transferable finding: a control arm's validity
+is a property of the stimulus *and the model* together, and must be checked per
+model rather than assumed from the design.**
 
 ### The one constraint everything converges on
 
@@ -100,14 +114,111 @@ recall@100 = 0.497 against a 0.086 shuffled control).
    overridden once, by its own author, in E10.
 5. **Coverage filters and ranks discovery candidates; it does not verify that a
    candidate is correct.** Sell the filter, not the judgement.
+6. **Ask the machine to propose, not to judge.** Earned by E21: the same
+   geometry is a failed judge at 0.45 top-1 and a usable proposer at 0.667
+   top-3. **Change the question before changing the representation.**
+7. **Causes are user-assessed unless an exact error log is provided.** E23: on
+   activity text, lexical convention (0.628) beats semantics (0.575). A label
+   that was written down can be read; a cause that was not written down must be
+   asked for, not inferred.
+
+### The turn (2026-09-09): stop asking the machine to judge
+
+Every refutation above refuted **unsupervised, zero-shot judgement**. COSINE,
+NAME-ONLY, CONSTRAINT, ANCESTRY and ANCHORVOC are fixed formulas with nothing
+fitted to a human decision. The supervised, human-in-the-loop version had never
+been measured, and the question a person filing 582 entries actually has is not
+*"is the machine right"* but *"can it narrow 57 cells to 3 so I choose instead
+of search."*
+
+**E21 — geometry as a proposer. The first positive here that survives its
+construction-matched null.** `research/mapper/E21_PROPOSER.md`. Ground truth is
+the rater's revised cell in `refiling_gate0.tsv`, 582 blind entries, 57 targets.
+
+| at 436 decisions seen | top-1 | top-3 | top-5 |
+|---|---:|---:|---:|
+| **geometry** | **0.438** | **0.667** | **0.755** |
+| prior `old`→`new` lookup | 0.184 | 0.368 | 0.474 |
+| majority | 0.089 | 0.255 | 0.359 |
+| **permuted (the null)** | 0.036 | 0.136 | 0.233 |
+| length only (E18's confound) | 0.010 | 0.036 | 0.071 |
+
+**Top-1 0.438 essentially reproduces E5's 0.447. The geometry did not get
+better.** A number filed as a failure is the same number that makes a usable
+proposer once the output is three candidates instead of one. The learning curve
+is still climbing at 436 (top-3: 0.385 → 0.508 → 0.595 → 0.667).
+
+**Division of labour, measured.** `domain` 5 classes, top-2 **0.837**; `mode`
+14 classes, top-2 0.678. **The machine proposes the domain and defers the
+mode.** A stronger embedder moves mode (+0.065 top-1) and not domain top-2
+(+0.003, saturated), so what limits domain is label noise, not encoding.
+
+### Architecture: Physis does not adjudicate meaning
+
+**It proposes, carries and defers.** Interpretations arrive as tokens from a
+trusted source — human or another machine — and the job is to make them cheap to
+produce and to propagate, not to verify them. Physis does not need qualia. It
+needs a trust relation and an exchange currency, and the currency is tokens.
+Trust runs both ways: Physis accepts a human's or a peer machine's reading, and
+offers its own to be accepted on the same terms.
+
+This is the stance the whole negative record argues for. Every attempt to make
+the machine adjudicate lost; the one thing that worked was making it propose and
+letting a rater decide.
+
+**Corollary, and it is a hard rule: causes are user-assessed unless an exact
+error log is provided.** Where the signal is explicit — a compiler error, an
+exit code, a stack trace — take it literally. Where it is not, hand it to the
+person and do not infer. **E23 is the evidence** (`research/mapper/run_e23.py`):
+on 528 conventional-commit subjects, predicting the activity label from the
+activity text gives TF-IDF **0.628** and an embedding **0.575** against a 0.451
+majority floor and a 0.222 permuted null. **Lexical convention beats semantics.**
+So machine-generated supervision is real where a convention or an exact log
+carries the label, and is not a route to inferring causes that were never
+written down.
 
 ### Open, and what each needs
 
 | question | needs |
 |---|---|
-| Does ANCHORVOC survive a rater who never sees the anchor hints? | one adjudication pass — a person, not compute |
+| **Does E21's proposer learn a policy or the corpus?** | **a second rater on a sample. This decides whether the positive is worth building on** |
+| Which grid revision? | a human call on E22's brief, below |
 | Will populating the starved modes raise mode kappa? | the entries themselves |
-| Does anything detect a real misfiling? | a mechanism nobody has proposed yet |
+| Does anything detect a real misfiling? | a mechanism nobody has proposed yet — and E21 says stop looking for a judge |
+
+### The axis re-brainstorm, briefed from the corpus rather than a blank page
+
+`research/mapper/E22_AXIS_STRUCTURE.md`. **Proposals only; no script touches
+`GRID_AXES.md`.** Same human/machine split as E21, one level up.
+
+**The finding that reframes it.** `corpus.json` ships a name-only and a
+name+hints vector. Paired over 40 identical splits: hints help `domain`
+(**+0.022**, *t* = +3.13) and **hurt `mode`** (**−0.034**, *t* = −5.39, better in
+6/40). Hints are subject-matter vocabulary, so they pull entries toward what
+they are *about* and away from what is being *done*. E6/E7's population account
+stands but is not the whole story, and **adding entries would never have found
+this**. A cheap follow-up killed the obvious fix: entries whose *names* name an
+activity are no better predicted on mode (−0.009, null).
+
+**Mode is three problems, not one:**
+
+1. **The core blur — 68% of the corpus.** WORK/CREATE/MAINTAIN/SENSE hold 397 of
+   582 entries and are mutually confusable; WORK 0.44 and MAINTAIN 0.39 **with
+   ample population**. Not sparsity — four definitions that carve nothing apart.
+   **Start here; everything else is smaller.**
+2. **A definition failure, not a population failure.** WALK has n = 27 — like
+   LEARN (36, 0.66) and PLAN (35, 0.64) — and scores **0.18**. The corpus gave it
+   a fair trial and it failed. Redefine or retire.
+3. **Genuinely unmeasured — do not judge these.** GUIDE 13, PLAY 12, LIFT 11,
+   DESTROY 4, BRAINSTORM **1**. E7: a mode cut to 3 entries scores F1 0.06.
+   Populate to n ≈ 20 or drop. One real signal survives the sparsity: **GUIDE →
+   LEARN is 0.48 one-way with 0.01 back** — as written, GUIDE is a kind of LEARN.
+
+**Domain:** **FABRICATE ↔ CONSTRUCT confuse at 0.22/0.21, symmetric** — one
+distinction wearing two names, the cleanest merge candidate in the grid. CONSTRUCT
+is also the sink BOND leaks into one-way (0.14/0.03), which reads as a definition
+too broad. **BOND at 0.76 is the best-defined class on either axis** and is the
+model for the rest.
 
 ## Roadmap
 
