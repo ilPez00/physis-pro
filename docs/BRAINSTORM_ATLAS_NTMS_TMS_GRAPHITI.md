@@ -164,3 +164,169 @@ filters and ranks, never verifies), and 22.5's honesty constraints carry
   falsifier 22.5 already assigns A5/G7 ("recovery after false evidence"),
   now with a concrete mechanism.
 
+
+## 7. Second pass — Atlas subsystems the A-list never touched (2026-09-09)
+
+- **T8 — decision lineage + foundation-weakening alerts**
+  (`lineage/walker.py`, `lineage/contradiction.py`). Walk a *decision* back
+  through its SUPPORTS chain (max depth 5) to answer "why did we decide X?"
+  and — the part worth taking — **flag the decision when a supporting
+  belief's standing weakens**. Physis mapping: `explanation.rs`
+  (`provenance_chain`) already surfaces the chain; the new behavior is the
+  alert: an A2 walk *inverted* (justification edges, upward) whose report
+  flags downstream decisions whose foundation dropped.
+  Gate: `weakened_foundation_flags_dependent_decision` — degrading a chain
+  member flags the decision; a naive implementation that only checks the
+  mutated node fails it.
+- **T9 — alias registry, tier-1 entity resolution**
+  (`resolution/aliases.py`, `fuzzy.py`; `llm_fallback.py` NOT taken). Surface
+  forms ("Sarah", "@sarah") → canonical node id, resolved by a human-edited
+  YAML first, fuzzy match second, never an LLM. Physis ingest has no identity
+  resolution — every surface form risks a duplicate node, which then dilutes
+  the DependsOn graph T3/A2 walk on.
+  Gate: `alias_resolution_precedes_fuzzy_never_merges` — aliases merge
+  deterministically; fuzzy matches *propose* merges, G2 discipline.
+- **T10 — per-stream confidence floors**
+  (`ingestion/confidence.py`: `STREAM_CONFIDENCE_FLOORS`). Noisy streams
+  (OCR) start at 0.30, deliberate edits at 0.70 — starting confidence is a
+  property of the *source*, named constants. Physis mapping: `DocKind`
+  (Invoice/Email/VoiceTranscript/Report/Unknown) gets a floor per kind,
+  feeding `Evidence.confidence` at intake and T5's quarantine threshold.
+  Gate: `stream_floor_lowers_initial_confidence` + A6 discipline (frozen
+  named constants, tuning as scored configs).
+- **T11 — authority as a registry, not a field**
+  (`people/registry.py`, tiered `people.yaml`). A5 says high-authority
+  parties never auto-resolve; Atlas makes authority a *registry* with tiers
+  that `route_proposal` consults. Physis mapping: `contradiction.rs` parties
+  gain an authority tier from a config registry; CORE_PROTECTED semantics for
+  Certified beliefs ride the same registry.
+  Gate: `authority_tier_blocks_auto_resolve` — a Contradicted belief with a
+  tier-1 counterparty stays Open regardless of Δ.
+- **T12 — federated adjudication**
+  (`multi_tenant/federated.py`). When one tenant's assertion contradicts
+  another tenant's belief, the adjudication entry routes to **both** queues;
+  resolution needs both to agree, or an explicit override with audit.
+  Physis already scopes tenants (`X-Physis-User`) — which makes
+  cross-tenant contradictions currently *invisible*. This take is the
+  exception path, not shared state: tenants stay isolated, only the
+  contradiction entry is federated.
+  Gate: `cross_tenant_contradiction_routes_to_both_queues`; no belief
+  content crosses the boundary, ever.
+- **T13 — activity stream derived from the trail**
+  (`api/events.py`: `EventBroadcaster`, replay-on-connect buffer of the last
+  200 events). Ripple cascades, adjudication changes, ledger SUPERSEDE
+  events are *pushed* to subscribers (Obsidian plugin, live visualization);
+
+## 8. Second pass — Graphiti beyond the temporal legs (2026-09-09)
+
+- **T16 — group-id namespaces + fan-out** (`namespaces/` +
+  `decorators.py: handle_multiple_group_ids`). Every operation is
+  group-scoped by default; one call fans deterministically across group ids
+  where a caller explicitly asks. Physis mapping: physis-core is
+  tenant-agnostic today (scoping lives in physis-pro handlers); the take is
+  **operation-level scoping inside the crate** — tenant id on the sled key
+  prefix, with an explicit fan-out used by T12's federated contradiction
+  routing. Default-deny reads across tenants; fan-out is the only door.
+  Gate: `operations_are_group_scoped_by_default` — a query without an
+  explicit scope answers from one group only; the fan-out enumerates what it
+  touched.
+- **T17 — driver operation-trait layering** (`driver/driver.py`,
+  `query_executor.py`, per-store operation interfaces). Graphiti separates
+  *what* graph operations exist from *how* a store executes them. NOT taken:
+  pluggable backends (N1 stands — sled-only by contract). Taken: the
+  **internal trait boundary** — store operations behind one trait so tests
+  run against an in-memory double and the sled implementation stays swappable
+  without touching call sites. This is the testability pattern, not a
+  portability bet.
+  Gate: `store_ops_trait_serves_in_memory_double` — the existing epistemic
+  gate tests run unchanged against the in-memory double, same results.
+- **T18 — the two-clock watermark, on the summary object**
+  (`nodes.py: SagaNode`). Graphiti's saga summaries carry **both** clocks:
+  `last_summarized_at` (wall clock / transaction time) and
+  `last_summarized_episode_valid_at` (episode reference time / valid time).
+  This is G1's backfill-vs-arrival distinction, already living on the object
+  that needs it — the summary watermark. Physis mapping: G3's per-stream
+  high-water mark carries both clocks from day one, and the existing gate
+  gains the assertion.
+  Gate: extend `late_evidence_replays_to_same_state` — a backfilled episode
+  older than the watermark replays to the same state while *both* recorded
+  clocks advance correctly. Cost: S, folded into G3.
+
+## 9. Inspection — opencode-orchestrator (2026-09-09)
+
+What it is: a mature multi-agent mission control for OpenCode (TS + Rust;
+Commander/Planner/Worker/Reviewer, verification gates before concluding,
+session recovery, task queues, 119 test files / 1109 tests, strict coverage
+ratchets). Read as a peer system, not a dependency source. Four things:
+
+- **O1 — the honest headline: it *retired* its own hybrid-RAG memory.**
+  ADR-0019 decommissioned the Knowledge RAG subsystem — 14 modules including
+  `hybrid-search.ts`, `memory-scoring.ts`, `memory-promotion.ts`,
+  `retrieval-weights.ts`, and the **Ebbinghaus decay model** — ~2,000 lines
+  deleted after a successful migration to markdown-native, self-contained
+  mission memory (`scratchpad.md`, `knowledge-map.canvas`, episodic notes).
+  Reading: the parts of that architecture that did not survive contact are
+  precisely the ones Physis is most suspicious of (retrieval weights as
+  context curation, decay curves as relevance, scoring as verification).
+  **Do not import what the source project itself deleted.** This is external
+  evidence for §2b's posture, worth citing in the paper's related-work.
+- **O2 — ADR supersession chains** (`docs/adr/README.md`, statuses
+  Promoted/Superseded, decision records 0001–0020). Documentation-level
+  invalidate-don't-delete: superseded ADRs stay readable with forward
+  pointers; the index is the query surface. Take for physis-pro: adopt ADRs
+  for standing architectural decisions (0001 no-LLM-in-verdicts, 0002
+  sled-only, 0003 patterns-not-dependencies would formalize what AGENTS.md
+  and the plans state in prose). Gate: `superseded_adrs_stay_readable` —
+  trivially, by convention.
+- **O3 — structured session handoff** (`AGENT_MEMORY.md`: current task /
+  last completed step / next exact step / key decisions / known risks /
+  files to open first). The shape works — this session and the research
+  track already approximate it via `RESEARCH_STATUS.md`. Take: adopt the
+  shape explicitly for physis-pro/physis-core handoffs (a fixed template,
+  updated at session end), not a new tool.
+- **O4 — verification gates before task conclusion + risk-graded coverage
+  ratchets** (`docs/adr/0020`, thresholds 85/72/88/85 in CI). Same family as
+  A5 (human/verification gates before state change) and A3's
+  mutation-testing discipline. Study note: a coverage ratchet for
+  physis-core CI is cheap and in character; the agent-council roles are NOT
+  a take (physis's dream loop already has its own loop shape, and adding
+  LLM roles would violate N2).
+
+## 10. Effect on the plan (wave 2)
+
+- Order slots: T8 after A1/A2 (walk inversion); T9/T10 beside G2; T11 with
+  A5; T12/T16 together (both are tenant work, P2); T13 whenever the web/MCP
+  surface is touched next (it is presentation-layer over existing events);
+  T14 with the physis-pro ingest path; T15 with 23.4's replay hook; T17
+  opportunistic refactor behind the existing gates; T18 folded into G3.
+- The 23.5 arm list gains nothing new — but the *paper* gains two citations
+  from O1: an independent system that converged on, then retracted,
+  decay-scored retrieval memory, and the ADR/agent-memory pattern as
+  operational evidence that handoff state wants to be small and honest.
+
+  new subscribers replay the last N. Physis mapping: the web UI and MCP
+  surface already sit on `epistemic.rs` events — the take is the **transport
+  discipline**: the stream is the trail being written, 1:1, with a replay
+  buffer; it is not a second reporting state assembled alongside it
+  (interface-mimics-nature rule).
+  Gate: `sse_stream_is_the_trail_with_replay` — every stream event carries
+  the epistemic event id; a subscriber reconnect replays exactly the last N
+  trail events.
+- **T14 — bounded ingest cycle + health rows**
+  (`daemon/cycle.py`, `daemon/health.py`). Ingest runs as one bounded cycle
+  (wire extractors → orchestrate → write a health row → exit, exit code
+  0/≠0); the scheduler re-fires. Crash-isolated by construction; the health
+  row lands on failure too. Physis's interest daemon is long-running; the
+  take is the *cycle shape* for the batch ingest path (physis-pro ingest
+  currently runs per-invocation with no health record).
+  Gate: `ingest_cycle_writes_health_row_on_failure`.
+- **T15 — working memory with summarization pressure**
+  (`working/blocks.py`: `MemoryBlock.estimated_tokens`, `utilization()`,
+  `needs_summarization()` + `auto_summarizer.py`). A working set with an
+  explicit token capacity and a pressure signal when summarization is due.
+  Physis mapping: the dream loop gets a trigger — consolidation runs when
+  the propose/working context exceeds capacity, replaying Inert/Failed
+  structures (23.4's replay hook) into summaries derived from members.
+  Gate: `working_set_pressure_fires_consolidation_at_capacity`; summaries
+  cite the blocks they compress.
+

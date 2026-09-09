@@ -1067,11 +1067,14 @@ in the search layer but is NOT surfaced at the ontology-node level.
   §2 G1–G7, §3 NOT-taking, §4 P0/P1/P2, §5 gates + falsifiers, §6 questions).
 - Background: `docs/resources.md` §§9–11 (Atlas v0.1.0-alpha.1 Ripple/AGM;
   Graphiti v0.30.2 tri-temporal/hybrid; comparison table + monster benchmark).
-- Extension: `docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md` (T1–T7: the TMS
+- Extension: `docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md` (T1–T18: the TMS
   family — ATMS environment labels, NATMS negated justifications, JTMS
-  retraction cascade — plus Atlas trust quarantine/promotion, Graphiti
-  communities and graph-distance search; normative for T items, cross-checks
-  A/G boundaries).
+  retraction cascade — plus Atlas trust quarantine/promotion, decision
+  lineage, alias resolution, stream floors, authority registry, federated
+  adjudication, SSE trail stream, bounded ingest cycles, working-memory
+  pressure; Graphiti namespaces, driver trait layer, two-clock watermarks;
+  and the opencode-orchestrator inspection O1–O4; normative for T items,
+  cross-checks A/G boundaries).
 - Rule (§0): patterns, protocols, test shapes only — never dependencies. No
   graph DB, no LLM service, no Python runtime. Offline Rust over sled +
   in-process embeddings. Any item not statable as observable behavior of a named

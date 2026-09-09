@@ -36,3 +36,5 @@
 - Replay/dream candidates from failed/inert/contradicted structures — PLAN.md Phase 23 (23.4)
 - Critical experiment: RAG vs AGM vs TMS/ATMS vs Atlas/Ripple vs Physis, numbers only with nulls — PLAN.md Phase 23 (23.5) + physis_resources.txt
 - TMS-family takes: ATMS environment labels, NATMS negated justifications, JTMS retraction cascade, Nixon-Diamond scenario, Atlas quarantine/promotion, Graphiti graph-distance leg + community rollups — BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (T1–T7)
+- Wave 2: decision lineage + foundation-weakening alerts, alias resolution, per-stream confidence floors, authority registry, federated adjudication, SSE trail stream, bounded ingest cycles, working-memory pressure, group-id namespaces, driver trait layer, two-clock watermark — BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (T8–T18)
+- opencode-orchestrator inspection: it retired its own hybrid-RAG + decay memory (ADR-0019) — external evidence for §2b; ADR supersession chains + structured session handoff adopted as conventions — BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (O1–O4)
