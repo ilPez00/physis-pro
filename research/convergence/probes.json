@@ -1,0 +1,180 @@
+{
+ "note": "Matched-pair design. Each negative shares subject matter and vocabulary with its positive and differs only in which clause of T fails, so lexical overlap cannot carry the label and a within-pair forced choice is available as the primary metric. Ground truth fixed before any model was run.",
+ "clauses": {
+  "C1": "coupling",
+  "C2": "modification",
+  "C3": "invariance",
+  "C4": "differentiation",
+  "C5": "emergent order"
+ },
+ "probes": [
+  {
+   "id": "P01",
+   "pair": "finches",
+   "label": 1,
+   "violates": null,
+   "text": "On islands where two ground-finch species live side by side, their beak depths are pushed apart, each ending up further from the other than it is where it lives alone. Both stay plain ground finches, courting and nesting as before, and the pair between them works a wider spread of seed sizes than either does by itself."
+  },
+  {
+   "id": "N01",
+   "pair": "finches",
+   "label": 0,
+   "violates": "C4",
+   "text": "On islands where two ground-finch species live side by side, a run of dry years leaves one seed size abundant, and the beaks of both are pushed toward it, each ending up closer to the other than it is where it lives alone. Both stay plain ground finches, courting and nesting as before, and the pair between them works a narrower spread of seed sizes than either does by itself."
+  },
+  {
+   "id": "P02",
+   "pair": "bats",
+   "label": 1,
+   "violates": null,
+   "text": "Several bat species hunting one stretch of night air shift the pitch of their calls away from one another, each ending up in a band the others are not shouting into. Each keeps its own hunting style and body plan, and the valley's bats between them sweep a broader slice of the range than any one of them covers alone."
+  },
+  {
+   "id": "N02",
+   "pair": "bats",
+   "label": 0,
+   "violates": "C1",
+   "text": "Two bat species on separate continents, which never share a stretch of night air, settle on much the same call pitch, each ending up in a band the other also uses. Each keeps its own hunting style and body plan, and neither is ever shaped by the other, since the same moth hearing presses on each of them alone."
+  },
+  {
+   "id": "P03",
+   "pair": "bacteria",
+   "label": 1,
+   "violates": null,
+   "text": "Two bacterial strains grown together each lose the knack of making one amino acid the other gives off, each coming to depend on what the other sheds. Each stays a lineage that can be cultured out alone, and the flask between them holds two populations growing on a broth for which no cell sets a ratio."
+  },
+  {
+   "id": "N03",
+   "pair": "bacteria",
+   "label": 0,
+   "violates": "C3",
+   "text": "Two bacterial strains grown together swap plasmids so freely that the markers telling them apart are gone, each coming to carry what the other carries. Neither stays a lineage that can be cultured out alone, and the flask between them holds one mixed population growing on a broth for which no cell sets a ratio."
+  },
+  {
+   "id": "P04",
+   "pair": "cortex",
+   "label": 1,
+   "violates": null,
+   "text": "Neighbouring cells in visual cortex damp one another, and over development each comes to answer a narrower and less overlapping patch of the field than it would if it had grown up alone. Each stays a cell of the same type with the same machinery, and the sheet between them tiles the visual field with very little wasted overlap."
+  },
+  {
+   "id": "N04",
+   "pair": "cortex",
+   "label": 0,
+   "violates": "C4",
+   "text": "Neighbouring cells in visual cortex are joined by gap junctions that pass current, and over development each comes to answer a patch of the field that overlaps its neighbours more than it would if it had grown up alone. Each stays a cell of the same type with the same machinery, and the sheet between them covers the visual field many times over."
+  },
+  {
+   "id": "P05",
+   "pair": "workshops",
+   "label": 1,
+   "violates": null,
+   "text": "Craft workshops crowded into one town narrow what each of them makes, one taking blades, one locks, one nails, where a workshop off in a village makes all three itself. Each shop keeps its master and its mark, any can be commissioned alone, and the town between them fills orders under all of those names."
+  },
+  {
+   "id": "N05",
+   "pair": "workshops",
+   "label": 0,
+   "violates": "C3",
+   "text": "Craft workshops crowded into one town are bought up into a single manufactory, which stamps blades, locks and nails alike with one mark, where a workshop off in a village makes all three itself. Neither shop keeps its master or its mark, none can be commissioned alone, and the town between them fills its orders under that one name."
+  },
+  {
+   "id": "P06",
+   "pair": "courts",
+   "label": 1,
+   "violates": null,
+   "text": "Where two lines of court decisions meet on similar facts, judges draw finer boundaries until each test states what one line alone is said to have meant. Each line stays a doctrine cited for matters the other does not cover, and the law between them holds two rules where one stands alone."
+  },
+  {
+   "id": "N06",
+   "pair": "courts",
+   "label": 0,
+   "violates": "C4",
+   "text": "Where two lines of court decisions meet on similar facts, judges read across from one to the other until a single test states what both lines are said to have meant all along. Neither line stays a doctrine cited for anything the other does not cover, and the law between them holds one rule where two stand alone."
+  },
+  {
+   "id": "P07",
+   "pair": "broadcasters",
+   "label": 1,
+   "violates": null,
+   "text": "Two broadcasters whose signals reach one valley move their carrier frequencies apart and shape their masks more tightly than either would bother to do alone. Each keeps its own call sign, its own schedule and its own audience, and the valley between them ends up with clear reception across a band that would otherwise be noise."
+  },
+  {
+   "id": "N07",
+   "pair": "broadcasters",
+   "label": 0,
+   "violates": "C2",
+   "text": "Two broadcasters whose signals reach one valley take carrier frequencies far apart, as the regulator's plan assigns them at licensing, before either builds a mast. Each keeps its own call sign, its own schedule and its own audience, and neither alters its frequency or its mask thereafter, the plan between them being drawn up once alone."
+  },
+  {
+   "id": "P08",
+   "pair": "fields",
+   "label": 1,
+   "violates": null,
+   "text": "Where two fields have begun asking the same questions, each tightens what counts as a fair method on its own side, more sharply at that shared border than anywhere else. Both go on training students and running journals as themselves, and between them the border question gets hit from angles neither field would have taken alone."
+  },
+  {
+   "id": "N08",
+   "pair": "fields",
+   "label": 0,
+   "violates": "C1",
+   "text": "Two fields working in different countries, whose journals do not cite one another and whose conferences never meet, each tighten what counts as a fair method at much the same time and in much the same way. Both go on training students and running journals as themselves, the same funding rules pressing on each of them alone."
+  },
+  {
+   "id": "P09",
+   "pair": "cichlids",
+   "label": 1,
+   "violates": null,
+   "text": "Cichlid fishes sharing one lake, where clear water lets them see each other's colours, spawn within the old lines until the scrapers, crushers and plankton-takers are distinct. Each stays a breeding population that can be netted out alone, and the lake between them holds several stocks feeding on what each takes."
+  },
+  {
+   "id": "N09",
+   "pair": "cichlids",
+   "label": 0,
+   "violates": "C3",
+   "text": "Cichlid fishes sharing one lake, where clouded water keeps them from seeing each other's colours, spawn across the old lines until the scrapers, crushers and plankton-takers are gone. Neither stays a breeding population that can be netted out alone, and the lake between them holds one mixed stock feeding on whatever comes."
+  },
+  {
+   "id": "P10",
+   "pair": "forks",
+   "label": 1,
+   "violates": null,
+   "text": "Two teams maintaining forks of one library take them apart, one toward very large inputs and the other toward streaming ones. Each fork stays something a caller can depend on alone, either can be swapped for the other against the original suite, and users between them take coverage that the single original trunk never carries."
+  },
+  {
+   "id": "N10",
+   "pair": "forks",
+   "label": 0,
+   "violates": "C3",
+   "text": "Two teams maintaining forks of one library merge them back, folding both histories into a single trunk and dropping the old branches. Neither fork stays something a caller can depend on alone, none can be swapped for the other, and users between them take whatever the single surviving trunk happens to carry."
+  },
+  {
+   "id": "P11",
+   "pair": "ants",
+   "label": 1,
+   "violates": null,
+   "text": "Ant workers in one nest settle into different jobs because a worker who keeps meeting others already on a task lowers the stimulus it needs to take up a different one. Each stays an ordinary worker of the same caste, no different in body, and the nest between them ends up with a division of work no ant decides."
+  },
+  {
+   "id": "N11",
+   "pair": "ants",
+   "label": 0,
+   "violates": "C5",
+   "text": "Two ant workers that meet over one seed too heavy for either grip it at opposite ends and carry it back to the nest together. Each stays an ordinary worker of the same caste, no different in body, and between them they move a load that neither shifts alone. Nothing else in the nest turns on that one pairing."
+  },
+  {
+   "id": "P12",
+   "pair": "roots",
+   "label": 1,
+   "violates": null,
+   "text": "Where two related plants grow together, their roots take different soil depths than either does in a pure stand, one going shallow and the other running deep beneath it. Each keeps its own growth habit and its own flowering time, and the mixed stand between them draws water from a column that neither pure stand reaches."
+  },
+  {
+   "id": "N12",
+   "pair": "roots",
+   "label": 0,
+   "violates": "C1",
+   "text": "Two related plants raised in separate pots on one bench both put their roots deep, each going deeper than it does in the open ground outside. Each keeps its own growth habit and its own flowering time, and neither root ever meets the other, the same daily surface watering drying the top of both pots alone."
+  }
+ ]
+}

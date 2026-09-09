@@ -1,0 +1,1466 @@
+{
+ "model": "qwen3:4b",
+ "runs": [
+  {
+   "arm": "NULL",
+   "seed": 0,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "P09": true,
+    "P12": true,
+    "P11": true,
+    "P10": true,
+    "P05": true,
+    "N09": true,
+    "N07": false,
+    "N12": false,
+    "P03": true,
+    "P04": true,
+    "N02": false,
+    "P02": true,
+    "N01": true,
+    "N04": true,
+    "P07": true,
+    "N05": true,
+    "N10": true,
+    "P08": true,
+    "P01": true,
+    "N06": true,
+    "N11": true,
+    "N03": true,
+    "N08": false
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 0,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "P10": true,
+    "P04": true,
+    "P11": true,
+    "N11": false,
+    "N06": true,
+    "N02": false,
+    "P03": true,
+    "P09": true,
+    "N10": false,
+    "N03": false,
+    "P02": true,
+    "N05": false,
+    "P08": true,
+    "P05": false,
+    "P12": true,
+    "N04": true,
+    "N08": false,
+    "P07": true,
+    "N09": false,
+    "P01": true,
+    "N01": true,
+    "P06": true,
+    "N12": true,
+    "N07": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "actor",
+     "partner"
+    ],
+    "conditions": [
+     "The system involves two distinct entities that maintain a mutual, non-merging interaction",
+     "Each entity retains its own internal autonomy and independent functioning",
+     "The interaction results in a stable, distributed pattern of connections that emerges across the system without being physically represented by either entity"
+    ],
+    "excludes": [
+     "Systems where entities merge or become indistinguishable from each other",
+     "Systems where the interaction is not mutual or where one entity dominates the other",
+     "Systems with a central controller or hierarchical structure that dictates the pattern of connections",
+     "Systems where the pattern of connections is physically represented by one of the entities"
+    ]
+   },
+   "verdicts": {
+    "N11": true,
+    "P11": false,
+    "P09": true,
+    "P07": true,
+    "P10": true,
+    "N05": false,
+    "P05": true,
+    "P12": true,
+    "N07": true,
+    "N12": true,
+    "N02": true,
+    "P04": false,
+    "N01": true,
+    "N09": true,
+    "P02": true,
+    "N10": false,
+    "N03": false,
+    "P03": true,
+    "P06": true,
+    "P08": true,
+    "N06": false,
+    "P01": true,
+    "N08": true,
+    "N04": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "participant",
+     "cooperative partner"
+    ],
+    "conditions": [
+     "The system involves two distinct entities that maintain mutual dependencies through reciprocal exchanges.",
+     "Each entity persists as a distinct identity within the system, retaining its own internal processes and reproductive mechanisms.",
+     "The exchanges between entities are not one-sided; each entity provides something the other requires while receiving something the other provides.",
+     "The system's overall structure emerges from the networked relationships between entities, not from a single entity or a centralized control.",
+     "The system does not involve hierarchical control or dominance over one entity by another."
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other, such as in predator-prey relationships or hierarchical organizations.",
+     "Systems where exchanges are one-sided, such as in parasitism where one entity benefits at the expense of the other.",
+     "Systems where entities lose their distinct identities or merge into a single entity through the exchange process.",
+     "Systems where the overall structure is dictated by a single entity rather than by the network of relationships between entities."
+    ]
+   },
+   "verdicts": {
+    "N12": false,
+    "P11": false,
+    "N02": false,
+    "N01": true,
+    "N04": true,
+    "P07": true,
+    "P03": true,
+    "P12": true,
+    "P05": true,
+    "N10": false,
+    "P06": true,
+    "P10": true,
+    "N05": false,
+    "N03": false,
+    "N07": false,
+    "P08": true,
+    "P02": true,
+    "P09": true,
+    "N08": false,
+    "P01": true,
+    "N11": true,
+    "N06": true,
+    "N09": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 2,
+   "schema": {
+    "name": "Tree and Mycorrhizal Fungus Interaction Pattern",
+    "roles": [
+     "Entity A",
+     "Entity B"
+    ],
+    "conditions": [
+     "Entity A and Entity B are distinct, self-sustaining units",
+     "A system of mutual exchange exists where Entity A provides a resource and Entity B provides a different resource",
+     "The exchange leads to a reduction in the intensity of both entities' individual resource allocation mechanisms",
+     "The entities maintain their independent reproductive and developmental cycles"
+    ],
+    "excludes": [
+     "Systems where the exchange causes fusion or absorption of one entity by another",
+     "Systems where the exchange is unidirectional or lacks mutual dependency",
+     "Systems where the entities do not maintain distinct identities despite the exchange"
+    ]
+   },
+   "verdicts": {
+    "N05": false,
+    "P08": true,
+    "P12": true,
+    "N07": false,
+    "P02": false,
+    "N02": false,
+    "P10": false,
+    "N04": false,
+    "P06": true,
+    "N08": true,
+    "P09": true,
+    "N10": false,
+    "N01": true,
+    "P01": false,
+    "N11": false,
+    "P03": true,
+    "N09": false,
+    "N12": false,
+    "P04": true,
+    "N03": false,
+    "P07": true,
+    "P11": false,
+    "N06": false,
+    "P05": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "participant",
+     "participant"
+    ],
+    "conditions": [
+     "Each participant maintains an independent identity and reproducing mechanism distinct from the other participant.",
+     "The participants engage in a mutual exchange of resources or benefits that is not contingent on the participants' physical or structural integration.",
+     "The exchange results in a reduction of one or more attributes in each participant compared to a state of no exchange.",
+     "The participants form a stable, non-physical network of connections that is not represented by any single participant's internal structure or physical manifestation."
+    ],
+    "excludes": [
+     "Systems where participants are physically integrated into a single entity.",
+     "Systems where the exchange is contingent upon the participants' physical or structural integration.",
+     "Systems where the and the exchange does not result in a reduction of attributes for either participant.",
+     "Systems where the network of connections is fully represented by the internal structure of one participant."
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "N11": false,
+    "P08": true,
+    "N08": false,
+    "N09": true,
+    "N06": true,
+    "P11": false,
+    "P03": false,
+    "P04": false,
+    "N01": true,
+    "P07": true,
+    "N10": false,
+    "N04": false,
+    "P12": true,
+    "P01": true,
+    "P09": true,
+    "N07": false,
+    "P02": true,
+    "N02": false,
+    "N12": false,
+    "N05": false,
+    "P05": true,
+    "N03": false,
+    "P10": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 4,
+   "schema": {
+    "name": "The Tree-Fungus Exchange Pattern",
+    "roles": [
+     "participant",
+     "complementary entity"
+    ],
+    "conditions": [
+     "Two distinct entities maintain a stable, mutual exchange of essential resources or services",
+     "Each entity's growth and development is constrained by the exchange, resulting in reduced investment in self-replicating structures",
+     "The exchange forms a decentralized, non-hierarchical network where connections are determined by functional compatibility rather than physical proximity",
+     "The identities of the entities remain distinct and self-sustaining within the exchange"
+    ],
+    "excludes": [
+     "Systems where the exchange is unilateral or one-sided",
+     "Systems where entities lose their distinct identities through the exchange",
+     "Systems with hierarchical control or central authority directing the exchange",
+     "Systems where entities invest more in self-replicating structures than in the exchange",
+     "Systems where the exchange is not a stable, long-term relationship"
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "N03": true,
+    "N01": true,
+    "P02": true,
+    "P03": true,
+    "N07": true,
+    "P06": false,
+    "P11": false,
+    "P10": false,
+    "N09": false,
+    "P08": true,
+    "N05": false,
+    "N02": false,
+    "P04": true,
+    "N06": true,
+    "P05": true,
+    "N12": false,
+    "N11": false,
+    "N10": false,
+    "N04": true,
+    "P07": true,
+    "P01": true,
+    "P09": true,
+    "P12": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Actor",
+     "Partner"
+    ],
+    "conditions": [
+     "The system involves two distinct entities that maintain mutual dependencies without being subsumed by each other",
+     "The dependencies are structured such that each entity’s behavior is dynamically adjusted in response to the other’s state and needs",
+     "The system exhibits localized, distributed negotiation of exchange rates without centralized control",
+     "The system’s structural configuration is maintained by the relationship rather than being fixed by initial conditions",
+     "The relationship has a non-trivial temporal dimension: changes in the relationship influence outcomes over time, with effects that may be delayed",
+     "The system shows differential resource flow that is not fixed in quantity but is regulated by the relative needs and states of the partners",
+     "The system has a clear pattern of connection that emerges at scale and is not encoded within either entity’s internal structure",
+     "The system demonstrates a clear, non-arbitrary pairing of entities where the identity of one entity determines the type of partner it will engage with"
+    ],
+    "excludes": [
+     "Systems where one entity completely dominates or subsumes the other",
+     "Systems with fixed, predetermined exchange rates or resource flows",
+     "Systems where structural configuration is fixed by initial conditions and does not respond to the relationship",
+     "Systems where the relationship lacks a temporal dimension and changes do not influence outcomes over time",
+     "Systems with centralized control of exchange rates or resource flows",
+     "Systems where the pairing is arbitrary and not determined by the identity of the entities",
+     "Systems where resource flows are matched in quantity and occur in a barter-like fashion"
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "N10": false,
+    "N07": false,
+    "N11": false,
+    "N05": false,
+    "P02": true,
+    "N06": false,
+    "N04": true,
+    "P11": false,
+    "P05": true,
+    "P10": true,
+    "N08": true,
+    "P07": true,
+    "P08": true,
+    "N09": true,
+    "N01": true,
+    "P06": true,
+    "N03": true,
+    "P09": true,
+    "N12": false,
+    "P12": true,
+    "N02": false,
+    "P01": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Actor",
+     "Partner"
+    ],
+    "conditions": [
+     "The system must involve two distinct entities that maintain a relationship through a physical or abstract interface",
+     "The relationship must be dynamically maintained, not static or one-time",
+     "The relationship must influence the structural or functional properties of both entities in a measurable way",
+     "The relationship must be locally optimized rather than centrally coordinated",
+     "The relationship must establish a network structure with hubs and peripheries that neither entity encodes",
+     "The relationship must be species-specific or identity-dependent, not arbitrary",
+     "The relationship must have asynchronous flow rates for different resources or signals",
+     "The relationship must be reversible in a time scale that affects the system's state",
+     "The relationship must produce measurable differences in outcomes under varying environmental conditions"
+    ],
+    "excludes": [
+     "Systems where the relationship is static or one-time (e.g., a single transaction or fixed connection)",
+     "Systems where the relationship is centrally coordinated (e.g., a single control point managing all interactions)",
+     "Systems where the relationship is not identity-dependent (e.g., random or universal connections)",
+     "Systems where the flow rates for different resources are synchronized (e.g., matched parcels of exchange)",
+     "Systems where the relationship is not reversible within a meaningful time scale (e.g., permanent or irreversible connections)",
+     "Systems where the differences in outcomes are not measurable or context-dependent (e.g., negligible or uniform effects)"
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "N11": true,
+    "P04": true,
+    "N02": false,
+    "N10": false,
+    "P03": true,
+    "N06": true,
+    "N09": true,
+    "N12": false,
+    "P01": true,
+    "N07": false,
+    "P12": true,
+    "N01": true,
+    "P06": true,
+    "P05": false,
+    "N04": true,
+    "P08": true,
+    "N03": true,
+    "P07": true,
+    "N05": false,
+    "P09": true,
+    "P10": false,
+    "P02": true,
+    "P11": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Structure",
+    "roles": [
+     "participant",
+     "partner"
+    ],
+    "conditions": [
+     "the system has two distinct participants that interact",
+     "the exchange between participants has a localized rate determined by the relative needs and conditions of each participant",
+     "the structure of the relationship evolves over time based on the interaction and is not fixed at establishment",
+     "the participants maintain their individual identities and reproductive autonomy",
+     "the structure of connections forms a distributed network with hubs and peripheries that neither participant encodes",
+     "the pattern of who is connected to whom is not arbitrary but depends on the identity of the participants"
+    ],
+    "excludes": [
+     "systems where the exchange is centralized and controlled by a single entity",
+     "systems where the participants are subsumed into a single entity or lose their individual identities",
+     "systems where the structure of connections is fixed at establishment and does not evolve based on interaction",
+     "systems where the exchange is a direct barter of matched parcels rather than a titrated exchange",
+     "systems where the participants do not maintain reproductive autonomy"
+    ]
+   },
+   "verdicts": {
+    "P05": true,
+    "P12": false,
+    "P01": true,
+    "N01": false,
+    "P03": false,
+    "N03": false,
+    "N07": false,
+    "N12": false,
+    "P06": false,
+    "N10": false,
+    "N06": false,
+    "P10": false,
+    "N08": false,
+    "P09": true,
+    "N02": false,
+    "N11": false,
+    "N04": false,
+    "N09": true,
+    "P04": false,
+    "N05": false,
+    "P07": true,
+    "P02": true,
+    "P11": false,
+    "P08": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Actor",
+     "Partner",
+     "Network"
+    ],
+    "conditions": [
+     "The system must involve two distinct entities that maintain a dynamic, reciprocal relationship with each other, where the relationship's structure is not fixed but evolves through interaction.",
+     "The system must have a mechanism where each entity's behavior or state is influenced by the relationship, but neither entity is subsumed by the other.",
+     "The system must exhibit a pattern of connections that forms a network with specific hubs and peripheries, where the connections are not predetermined but emerge from interactions between entities.",
+     "The system must show that the relationship has a local, distributed nature: the exchange or influence of resources, information, or effects occurs at multiple interfaces rather than through a central authority.",
+     "The system must demonstrate that changes in the relationship affect the entities' states or behaviors in a way that is not permanent but reversible over time.",
+     "The system must have a mechanism for the relationship to be established between entities that are otherwise independent, allowing for the transfer of resources or effects that benefit both entities without direct exchange of fixed quantities.",
+     "The system must show that the relationship creates a measurable difference in the entities' structures or behaviors compared to when they are unconnected, but this difference is maintained through the relationship rather than being a fixed trait.",
+     "The system must have a mechanism for the relationship to be extended to new entities without requiring direct interaction with the existing relationship, allowing for the transfer of benefits from previously established connections."
+    ],
+    "excludes": [
+     "Systems where the relationship is a one-way influence or control, where one entity is subsumed by the other, or where the relationship is predetermined by inherent properties rather than emerging from interaction.",
+     "Systems where the exchange of resources or effects is fixed and centralized, rather than distributed and localized.",
+     "Systems where the relationship's effects are permanent and cannot be reversed without external intervention.",
+     "Systems where the relationship is established through direct, immediate interaction rather than through the emergence of a network over time.",
+     "Systems where the difference in structure or behavior between connected and unconnected entities is not maintained through the relationship but is a fixed trait once established.",
+     "Systems where the relationship is not a dynamic, evolving process but a static configuration."
+    ]
+   },
+   "verdicts": {
+    "P12": true,
+    "N09": true,
+    "N06": true,
+    "P08": true,
+    "N08": false,
+    "P09": true,
+    "P05": true,
+    "P02": true,
+    "P10": true,
+    "P07": true,
+    "N03": true,
+    "N10": false,
+    "P04": true,
+    "N07": false,
+    "N12": false,
+    "N04": true,
+    "N02": false,
+    "N05": false,
+    "P01": true,
+    "P11": true,
+    "P06": true,
+    "P03": true,
+    "N11": false,
+    "N01": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Actor",
+     "Partner"
+    ],
+    "conditions": [
+     "The system involves two distinct entities that maintain a dynamic, non-hierarchical relationship with each other.",
+     "Each entity actively participates in the relationship by contributing and receiving resources or services in a way that affects their internal state.",
+     "The relationship forms a distributed structure across the system, with no single entity controlling the overall pattern.",
+     "The relationship is established through a process that is not predetermined but triggered by the system's own activity.",
+     "The relationship has a time-dependent component: the exchange of resources occurs over different temporal scales, and the system responds to changes in the relationship over time.",
+     "The relationship affects the internal architecture of each entity, but this change is not permanent and can be reversed upon disruption of the relationship.",
+     "The relationship creates a network effect: entities that have not directly interacted can still benefit from the relationship through connections within the network.",
+     "The relationship is not a simple exchange of matched parcels but involves a dynamic titration of resources based on local conditions."
+    ],
+    "excludes": [
+     "Systems where one entity completely dominates or controls the other entity.",
+     "Systems where the relationship is static and does not change over time.",
+     "Systems where the relationship is a one-time event rather than an ongoing, dynamic process.",
+     "Systems where the relationship is defined by a single, centralized mechanism rather than a distributed structure.",
+     "Systems where the exchange of resources is a simple, fixed ratio without any dynamic adjustment.",
+     "Systems where entities do not experience a measurable change in their internal state due to the relationship, or where this change is permanent and irreversible."
+    ]
+   },
+   "verdicts": {
+    "P08": true,
+    "P02": true,
+    "P01": true,
+    "P07": true,
+    "P11": false,
+    "N10": false,
+    "P12": true,
+    "N11": false,
+    "P09": true,
+    "N06": true,
+    "P10": true,
+    "P06": true,
+    "N07": false,
+    "N02": false,
+    "P05": true,
+    "N05": false,
+    "N01": true,
+    "N09": true,
+    "N04": true,
+    "N12": false,
+    "N03": true,
+    "P04": false,
+    "N08": false,
+    "P03": true
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "actor",
+     "resource",
+     "consequence"
+    ],
+    "conditions": [
+     "The actor interacts with the resource to produce a consequence",
+     "The relationship between the actor and resource is defined by specific constraints",
+     "The consequence is a direct result of the interaction, not a separate process"
+    ],
+    "excludes": [
+     "systems where the consequence is not a direct result of the interaction",
+     "systems where the resource is not transformed by the actor",
+     "systems where the actor does not have agency over the resource"
+    ]
+   },
+   "verdicts": {
+    "N05": false,
+    "P09": false,
+    "N01": true,
+    "N07": false,
+    "P03": false,
+    "P06": true,
+    "N03": false,
+    "N04": true,
+    "N12": false,
+    "P05": false,
+    "P04": false,
+    "N02": false,
+    "P11": false,
+    "P02": true,
+    "P08": false,
+    "N08": false,
+    "P10": false,
+    "P12": false,
+    "N10": false,
+    "N09": false,
+    "N06": false,
+    "N11": true,
+    "P01": true,
+    "P07": true
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 1,
+   "schema": {
+    "name": "The pattern",
+    "roles": [
+     "primary agent",
+     "secondary agent",
+     "resource",
+     "resource transformation mechanism"
+    ],
+    "conditions": [
+     "The primary agent initiates the process by interacting with the resource.",
+     "The secondary agent is a distinct entity that acts upon the resource in a way that transforms it without direct interaction with the primary agent.",
+     "The resource undergoes a transformation that is irreversible or irreversible in nature, and the transformation process does not involve the secondary agent altering the primary agent.",
+     "The transformation process is governed by a mechanism that operates independently of the primary agent's actions and is not affected by the primary agent's presence.",
+     "The resource is consumed or significantly altered by the process, with no reciprocal effect on the primary agent.",
+     "The transformation results in a new state that is distinct from the original resource state, and the new state does not interact with the primary agent in a way that would reverse the transformation."
+    ],
+    "excludes": [
+     "Systems where the primary and secondary agents directly interact with each other to influence the same resource",
+     "Systems where the transformation process is reversible and the resource can return to its original state without external intervention",
+     "Systems where the resource is not significantly altered by the process, or where the transformation does not result in a new state",
+     "Systems where the secondary agent's actions are dependent on the primary agent's actions in a way that the mechanism is not independent",
+     "Systems where the transformation process involves the primary agent directly altering the resource without a distinct transformation mechanism"
+    ]
+   },
+   "verdicts": {
+    "N01": false,
+    "P05": false,
+    "N11": false,
+    "P12": true,
+    "P10": false,
+    "P08": false,
+    "P06": false,
+    "N04": false,
+    "N03": false,
+    "N10": false,
+    "P09": false,
+    "P11": false,
+    "N05": false,
+    "P04": false,
+    "N08": false,
+    "P01": true,
+    "N12": false,
+    "P03": false,
+    "N06": false,
+    "P02": true,
+    "P07": false,
+    "N09": false,
+    "N02": false,
+    "N07": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 2,
+   "schema": {
+    "name": "System with hierarchical resource allocation",
+    "roles": [
+     "Resource provider",
+     "Resource consumer",
+     "Resource allocator"
+    ],
+    "conditions": [
+     "There exists a distinct resource that the consumer must take from the provider",
+     "The consumer does not create or destroy the resource",
+     "The allocation process is constrained by the provider's state or capacity",
+     "The consumer's activity has a threshold effect: low activity does not impact the provider's state, but high activity does cause significant change",
+     "The resource is allocated through a process that maintains the provider's integrity under normal conditions",
+     "The allocation mechanism is defined by the provider, not the consumer"
+    ],
+    "excludes": [
+     "Systems where the resource is created or destroyed by the consumer",
+     "Systems where the provider's state is not constrained by the consumer's activity",
+     "Systems where the allocation mechanism is defined by the consumer",
+     "Systems with no threshold effect"
+    ]
+   },
+   "verdicts": {
+    "P08": false,
+    "N05": true,
+    "N11": true,
+    "N07": false,
+    "N03": false,
+    "P07": false,
+    "N08": false,
+    "P01": true,
+    "N09": false,
+    "N06": true,
+    "P06": false,
+    "P03": false,
+    "P09": false,
+    "N04": false,
+    "P11": false,
+    "N01": true,
+    "N02": false,
+    "P04": true,
+    "P05": false,
+    "N12": false,
+    "P10": false,
+    "P12": false,
+    "N10": false,
+    "P02": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 3,
+   "schema": {
+    "name": "The pattern",
+    "roles": [
+     "first_agent",
+     "second_agent",
+     "resource",
+     "process",
+     "outcome"
+    ],
+    "conditions": [
+     "the first_agent acts on the resource to create an outcome",
+     "the second_agent acts on the resource to create an outcome",
+     "the resource is modified by the first_agent's process",
+     "the resource is modified by the second_agent's process",
+     "the outcomes are distinct and the process of the second_agent depends on the process of the first_agent",
+     "the processes are distinct and the first_agent is not altered by the second_agent's action"
+    ],
+    "excludes": [
+     "systems where the first_agent and second_agent act on the same resource in parallel without dependency",
+     "systems where the outcomes of the first_agent and second_agent are the same or the resource is not modified by both processes",
+     "systems where the second_agent acts on the first_agent rather than the resource"
+    ]
+   },
+   "verdicts": {
+    "P09": false,
+    "P05": false,
+    "P02": false,
+    "N04": false,
+    "N05": false,
+    "N01": false,
+    "N12": false,
+    "P01": true,
+    "P12": false,
+    "P03": false,
+    "N07": false,
+    "N11": false,
+    "P04": false,
+    "N02": false,
+    "P07": false,
+    "N06": true,
+    "P10": false,
+    "N09": false,
+    "P11": false,
+    "N08": false,
+    "P08": false,
+    "P06": true,
+    "N03": false,
+    "N10": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 4,
+   "schema": {
+    "name": "Structural Pattern for Resource-Dependent Systems",
+    "roles": [
+     "resource",
+     "depositor",
+     "consumer",
+     "transformer"
+    ],
+    "conditions": [
+     "A resource is consumed by a consumer to create a transformed product",
+     "The consumer's transformation of the resource is irreversible for the resource",
+     "The depositor maintains the resource in a stable, accessible state for the consumer",
+     "The transformer's activity is constrained by the depositor's capacity to maintain the resource",
+     "The resource's state changes over time due to the consumer's activity, but the depositor's role does not change until the resource is depleted"
+    ],
+    "excludes": [
+     "Systems where the transformer creates a new resource rather than transforming an existing one",
+     "Systems where the depositor and consumer are the same entity",
+     "Systems where the consumer's activity does not alter the resource's properties",
+     "Systems where the depositor's maintenance is not dependent on the resource's state",
+     "Systems where the resource is created by the consumer"
+    ]
+   },
+   "verdicts": {
+    "N12": false,
+    "N04": false,
+    "P07": false,
+    "N10": false,
+    "P08": false,
+    "N06": true,
+    "P12": false,
+    "N03": false,
+    "P11": false,
+    "N05": false,
+    "N07": false,
+    "P05": false,
+    "P01": true,
+    "P10": false,
+    "P03": false,
+    "N08": false,
+    "P09": false,
+    "P04": true,
+    "N09": false,
+    "N11": false,
+    "N02": false,
+    "P06": false,
+    "P02": false,
+    "N01": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Actor",
+     "Partner"
+    ],
+    "conditions": [
+     "1. Each actor maintains its own identity and internal state, and does not alter its essential characteristics through interaction with the partner.\n2. The actor and partner engage in a reciprocal, bounded exchange that defines their relationship but does not merge or create new entities.\n3. The exchange produces a narrowing of each actor's operational scope within the shared space, such that each becomes less capable of addressing the overlapping region with the partner.\n4. The pattern operates at a scale where the interaction between actors is localized and does not propagate across the entire system.\n5. The outcome across the system is a partitioned space where the actors' contributions to the shared space create a structure that is not explicitly designed by any single actor but emerges from the interactions.",
+     "excludes"
+    ],
+    "excludes": [
+     "systems where actors merge or alter their identity through interaction",
+     "systems where the exchange leads to the creation of new entities or entities that are not the original actors",
+     "systems where the interaction is global and affects the entire system uniformly",
+     "systems where the outcome is designed by a single actor or a central authority",
+     "systems where actors maintain their scope without narrowing through interaction"
+    ]
+   },
+   "verdicts": {
+    "N04": true,
+    "P03": false,
+    "P01": true,
+    "P05": true,
+    "N11": true,
+    "P06": true,
+    "P07": true,
+    "N10": false,
+    "N06": true,
+    "N07": true,
+    "N12": true,
+    "N03": false,
+    "N09": true,
+    "P12": true,
+    "P02": true,
+    "P09": true,
+    "P11": true,
+    "P10": false,
+    "N02": true,
+    "N01": false,
+    "P04": true,
+    "P08": true,
+    "N08": true,
+    "N05": false
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "Agent",
+     "Partner"
+    ],
+    "conditions": [
+     "1. Each agent maintains a distinct identity and internal state, unaltered by the partner.",
+     "2. Interaction between agents creates a localized adaptation, narrowing the agent's scope of action relative to a state without interaction.",
+     "3. The adaptation is irreversible and self-reinforcing, with each agent acting as if it remains a single unit.",
+     "4. Across the system, the collective behavior forms a partitioned space that neither agent individually defines or computes.",
+     "5. The partitioning is a result of the interaction, not a pre-existing structure."
+    ],
+    "excludes": [
+     "Systems where the interaction is mutualistic (both benefit), systems where the interaction is adversarial (one benefits at the other's expense), systems where the partitioning is predefined by external factors, systems where agents share a single state or identity, systems where the partitioning is a direct result of one agent's action on the other."
+    ]
+   },
+   "verdicts": {
+    "P08": true,
+    "N01": true,
+    "N08": true,
+    "N06": true,
+    "N04": true,
+    "P04": false,
+    "P07": true,
+    "N10": false,
+    "P12": true,
+    "N03": false,
+    "N02": true,
+    "N12": true,
+    "P06": true,
+    "P01": true,
+    "N09": true,
+    "N07": false,
+    "P05": true,
+    "P10": true,
+    "P09": true,
+    "P02": true,
+    "N11": true,
+    "N05": false,
+    "P11": true,
+    "P03": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "entity",
+     "relational partner"
+    ],
+    "conditions": [
+     "Each entity maintains its own internal state and identity through interactions with the relational partner.",
+     "Interactions between entities lead to a narrowing of each entity's scope of action or influence within the shared space.",
+     "The narrowing of scope occurs without any central coordination or communication between entities.",
+     "The system as a whole exhibits a pattern of coverage or distribution that is the result of individual entities' actions, not a single entity or collective decision.",
+     "The pattern emerges across the system without any entity representing the overall structure."
+    ],
+    "excludes": [
+     "Systems where entities have a single, unified identity or purpose that governs the interactions.",
+     "Systems where the pattern of coverage or distribution is the result of explicit coordination, communication, or central control.",
+     "Systems where the narrowing of scope is due to external forces rather than internal entity dynamics.",
+     "Systems where the system's structure is defined by a single entity that represents the overall pattern."
+    ]
+   },
+   "verdicts": {
+    "P07": true,
+    "N10": false,
+    "N01": true,
+    "N07": false,
+    "N12": true,
+    "P12": false,
+    "N08": true,
+    "N06": false,
+    "P08": true,
+    "N05": false,
+    "P05": true,
+    "N11": false,
+    "N03": false,
+    "P03": true,
+    "P10": true,
+    "N04": true,
+    "P06": true,
+    "N09": true,
+    "P01": true,
+    "N02": false,
+    "P04": true,
+    "P09": true,
+    "P11": true,
+    "P02": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "entity",
+     "partner"
+    ],
+    "conditions": [
+     "Each entity and partner maintain their own independent identity and properties within the relationship.",
+     "The relationship causes each entity to adjust their scope or focus to avoid direct overlap with the partner, resulting in narrower operational boundaries than they would have if alone.",
+     "The adjustment is not a conscious or computational process for the entities, but rather a result of their interaction.",
+     "The relationship creates a distributed pattern across the system that is not directly controlled or represented by any individual entity.",
+     "The system's overall structure emerges from the interactions without requiring a central authority or coordination mechanism."
+    ],
+    "excludes": [
+     "Systems where entities actively coordinate or communicate to define boundaries.",
+     "Systems where the relationship results in increased or unchanged operational boundaries for the entities.",
+     "Systems where the distributed pattern is explicitly controlled or represented by an individual entity.",
+     "Systems where the entities' adjustments are the result of conscious design or planning by the entities themselves."
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "P07": true,
+    "P05": true,
+    "N05": false,
+    "P12": true,
+    "N03": true,
+    "N09": true,
+    "N01": true,
+    "P08": true,
+    "N02": false,
+    "N04": true,
+    "P01": true,
+    "P06": true,
+    "N11": true,
+    "P11": true,
+    "P02": true,
+    "P03": true,
+    "N10": false,
+    "N07": false,
+    "N12": true,
+    "P10": true,
+    "P04": true,
+    "N06": false,
+    "P09": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "actor",
+     "partner"
+    ],
+    "conditions": [
+     "Each actor and partner maintain their own internal state and identity independently",
+     "The interaction between actors and partners creates a mutual narrowing of their respective operational scope",
+     "The mutual narrowing results in a functional partitioning of the space they collectively cover",
+     "The partitioning is an emergent property of the interaction, not a pre-existing or deliberate division"
+    ],
+    "excludes": [
+     "Systems where the actors and partners merge or lose their individual identity",
+     "Systems where the partitioning is imposed by external rules or authority",
+     "Systems where the interaction does not cause functional narrowing",
+     "Systems where the partitioning is a result of random chance rather than a stable, mutual process"
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "N10": false,
+    "N11": true,
+    "N07": false,
+    "N06": true,
+    "N12": false,
+    "N03": false,
+    "N02": false,
+    "P08": true,
+    "N01": true,
+    "P02": true,
+    "P05": true,
+    "P07": true,
+    "P11": true,
+    "N09": true,
+    "P12": true,
+    "N05": false,
+    "N04": true,
+    "N08": true,
+    "P06": true,
+    "P03": true,
+    "P04": true,
+    "P10": true,
+    "P01": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "entity",
+     "complementary entity"
+    ],
+    "conditions": [
+     "Each entity interacts with a complementary entity in a specific, bounded way, resulting in a mutual reduction of their effective scope.",
+     "The interaction is defined by a shared context that constrains both entities' actions and outcomes.",
+     "The entities maintain their internal autonomy and identity despite the interaction.",
+     "The interaction produces a structural pattern across the system that is not explicitly defined by any individual entity."
+    ],
+    "excludes": [
+     "Systems where interaction leads to fusion or loss of identity between entities",
+     "Systems where the interaction results in a single unified entity or outcome",
+     "Systems where the interaction is not bounded by a shared context or results in a mutual reduction",
+     "Systems where the structural pattern is explicitly defined by individual entities"
+    ]
+   },
+   "verdicts": {
+    "P01": true,
+    "N08": false,
+    "N05": false,
+    "N12": true,
+    "P11": true,
+    "N09": false,
+    "N03": false,
+    "P03": true,
+    "P06": true,
+    "P05": true,
+    "N02": true,
+    "N10": false,
+    "P09": true,
+    "P08": true,
+    "P02": true,
+    "P07": true,
+    "P04": true,
+    "N04": false,
+    "N06": false,
+    "P12": true,
+    "N01": true,
+    "N11": true,
+    "P10": true,
+    "N07": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "entity",
+     "relational partner"
+    ],
+    "conditions": [
+     "Two entities interact in a way that creates mutual constraints on their development",
+     "Each entity's behavior is steered by the interaction but remains distinct and self-contained",
+     "The interaction causes each entity to narrow its scope of action relative to what it would do in isolation",
+     "The pattern emerges across the system without explicit coordination or planning by any entity",
+     "The resulting structure is a partitioning of the space where entities operate, with no single entity defining the boundaries of the partition"
+    ],
+    "excludes": [
+     "Systems where entities interact to merge or eliminate each other's distinct identities",
+     "Systems where the partitioning is defined by a central authority or explicit coordination",
+     "Systems where the interaction leads to uniformity or convergence rather than divergence",
+     "Systems where the partitioning is a result of external forces rather than internal relational dynamics",
+     "Systems where entities are identical or indistinguishable in their responses to the interaction"
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "P04": true,
+    "N11": true,
+    "N07": false,
+    "P11": true,
+    "N08": true,
+    "N06": false,
+    "P10": true,
+    "P09": true,
+    "P06": true,
+    "N02": false,
+    "N05": false,
+    "N10": false,
+    "N09": false,
+    "N03": false,
+    "P01": true,
+    "N04": true,
+    "P02": true,
+    "P08": true,
+    "N12": true,
+    "P05": true,
+    "P07": true,
+    "N01": true,
+    "P12": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "entity",
+     "partner"
+    ],
+    "conditions": [
+     "Each entity and partner interact to create a narrower scope of action than they would operate alone",
+     "The interaction results in each maintaining its own identity and internal mechanisms",
+     "The interaction produces a collective structure that emerges across the system without any single entity computing or planning it",
+     "The interaction is reversible and self-stabilizing under the condition that the partners remain in the interaction"
+    ],
+    "excludes": [
+     "Systems where one entity modifies or controls the partner",
+     "Systems where the collective structure is explicitly designed or computed by one entity",
+     "Systems where the interaction leads to the elimination of one partner",
+     "Systems where the interaction causes the partners to merge into a single entity"
+    ]
+   },
+   "verdicts": {
+    "P12": true,
+    "N12": false,
+    "N11": true,
+    "P07": true,
+    "N01": true,
+    "P08": true,
+    "N08": false,
+    "P06": true,
+    "P11": true,
+    "P03": true,
+    "N09": true,
+    "P10": true,
+    "P05": true,
+    "N06": false,
+    "P02": true,
+    "N04": true,
+    "N07": false,
+    "N02": true,
+    "P04": true,
+    "N10": false,
+    "N03": true,
+    "N05": false,
+    "P01": true,
+    "P09": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Structure Pattern",
+    "roles": [
+     "actor",
+     "partner"
+    ],
+    "conditions": [
+     "1. Actors interact through a medium that constrains their mutual influence",
+     "2. Each actor modifies their own behavior in response to the partner, narrowing their scope of action",
+     "3. Each actor maintains their own identity and autonomy",
+     "4. The system exhibits a distributed pattern of organization that emerges from local interactions, not from central planning"
+    ],
+    "excludes": [
+     "systems where one actor dominates the other",
+     "systems with no mutual interaction",
+     "systems that require external intervention to maintain structure",
+     "systems where the pattern of organization is deliberately created by a central authority"
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "P08": true,
+    "P05": true,
+    "N11": true,
+    "N05": false,
+    "N02": true,
+    "N06": false,
+    "P12": true,
+    "N01": true,
+    "P09": true,
+    "N03": false,
+    "P11": true,
+    "N09": true,
+    "P04": true,
+    "P01": true,
+    "P03": true,
+    "P10": true,
+    "N04": true,
+    "P06": true,
+    "P02": true,
+    "P07": true,
+    "N12": true,
+    "N07": false,
+    "N10": false
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 1,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N06": true,
+    "P11": true,
+    "P10": true,
+    "P02": true,
+    "N11": true,
+    "N12": false,
+    "N01": true,
+    "P09": true,
+    "N10": false,
+    "N04": true,
+    "P04": true,
+    "P08": true,
+    "N05": true,
+    "N07": false,
+    "P12": true,
+    "P05": true,
+    "P06": true,
+    "N03": true,
+    "N08": false,
+    "P07": true,
+    "N09": false,
+    "P03": true,
+    "P01": true,
+    "N02": false
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 1,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "N04": true,
+    "N03": false,
+    "P01": true,
+    "N09": false,
+    "N06": true,
+    "P07": true,
+    "P12": true,
+    "N02": false,
+    "P05": false,
+    "P03": true,
+    "N07": false,
+    "P06": true,
+    "P10": true,
+    "P04": true,
+    "P09": true,
+    "N01": false,
+    "N05": false,
+    "N12": false,
+    "N10": false,
+    "P11": true,
+    "P08": true,
+    "P02": true,
+    "N08": false,
+    "N11": true
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 2,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "P10": true,
+    "N10": false,
+    "N03": true,
+    "P04": true,
+    "P07": true,
+    "P08": true,
+    "P06": true,
+    "P01": true,
+    "P03": true,
+    "N02": false,
+    "P02": true,
+    "N09": true,
+    "P09": true,
+    "P05": false,
+    "N05": true,
+    "P11": false,
+    "N06": true,
+    "N04": true,
+    "N08": false,
+    "N07": false,
+    "N12": false,
+    "P12": true,
+    "N01": true,
+    "N11": true
+   }
+  }
+ ]
+}

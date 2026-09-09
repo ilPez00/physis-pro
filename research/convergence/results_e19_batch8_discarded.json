@@ -1,0 +1,102 @@
+{
+ "model": "qwen3:4b",
+ "runs": [
+  {
+   "arm": "NULL",
+   "seed": 0,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N05": true,
+    "P05": false,
+    "N08": false,
+    "N07": false,
+    "P03": true,
+    "P04": true,
+    "P11": true,
+    "N04": false,
+    "P12": true,
+    "P02": true,
+    "N09": true,
+    "N03": true,
+    "P09": false,
+    "P06": true,
+    "P07": true,
+    "N06": false,
+    "N11": true,
+    "N12": false,
+    "P01": true,
+    "N10": true,
+    "N01": true,
+    "P08": true,
+    "P10": true,
+    "N02": false
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 0,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "N11": true,
+    "N08": true,
+    "P05": true,
+    "N10": false,
+    "N04": true,
+    "N02": true,
+    "N05": false,
+    "N12": true,
+    "P11": true,
+    "P09": true,
+    "N03": false,
+    "N07": true,
+    "P06": true,
+    "N01": false,
+    "P02": true,
+    "P07": true,
+    "P04": true,
+    "P03": true,
+    "P10": true,
+    "P01": true,
+    "N06": false,
+    "P12": true,
+    "N09": false,
+    "P08": true
+   }
+  }
+ ]
+}
