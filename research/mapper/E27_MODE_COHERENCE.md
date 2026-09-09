@@ -71,14 +71,36 @@ weight sweep, now in the geometry.
 Mode at −0.024 is still three to four times less coherent than domain at
 +0.006. **Improved, not solved.**
 
+> ### CORRECTION 2026-09-09 (E28): coherence is not predictive power
+>
+> This section's result stands — head-only genuinely *is* a more coherent mode
+> space. **The prescription drawn from it below was wrong.** Built into a
+> proposer, head-only mode costs **−0.091 top-3** against using the whole entry
+> (E28, variant E vs D). Compression measures whether an axis is a linear
+> *object*; it does not measure how well a representation *predicts*. Dropping
+> the modifier makes mode tidier and worse.
+>
+> **E25's own limits section already said this** — *"not a prescription to drop
+> the modifier; head-only mode (0.460) is still worse than the full compound
+> (0.526)"* — and §4.2 below contradicted it. The error was mine, one experiment
+> later, and the two criteria have to be kept apart:
+>
+> | criterion | question it answers | verdict on head-only |
+> |---|---|---|
+> | compression (E26/E27) | is this axis a linear object? | **better** (−0.061 → −0.024) |
+> | held-out top-k (E25/E28) | does this representation predict? | **worse** (−0.091 top-3) |
+
 ## 4. So: can mode be made coherent?
 
 **The route is representation and redefinition, not granularity.**
 
 1. **Do not merge modes to fix this.** It makes the axis less of an object, and
    the kappa gain that suggests otherwise is the free kind.
-2. **Build the mode axis from the head/verb, not the whole entry.** Measured:
-   more than halves the incoherence at no cost to domain.
+2. ~~**Build the mode axis from the head/verb, not the whole entry.**~~
+   **RETRACTED by E28** — see the correction above. Head-only more than halves
+   the *incoherence* and costs −0.091 top-3 in *prediction*. Keep the whole entry
+   for the proposer; the coherence result is diagnostic about the axis, not a
+   recipe for the representation.
 3. **The remaining work is definitional, not computational.** E22 localised it:
    WORK/CREATE/MAINTAIN/SENSE hold 68% of the corpus with ample population and do
    not separate. No representation fixes four definitions that carve nothing
