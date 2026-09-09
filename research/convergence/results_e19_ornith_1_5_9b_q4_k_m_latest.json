@@ -1,0 +1,1507 @@
+{
+ "model": "ornith-1.5-9b-q4_k_m:latest",
+ "runs": [
+  {
+   "arm": "NULL",
+   "seed": 0,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N07": true,
+    "P12": true,
+    "P09": true,
+    "N04": true,
+    "N08": true,
+    "P06": true,
+    "P07": true,
+    "N06": true,
+    "P04": true,
+    "P01": true,
+    "P02": false,
+    "N01": false,
+    "P11": true,
+    "N12": false,
+    "N11": true,
+    "P10": true,
+    "P08": true,
+    "P03": true,
+    "P05": true,
+    "N02": false,
+    "N03": true,
+    "N09": true,
+    "N10": true,
+    "N05": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 0,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "N09": false,
+    "P06": true,
+    "P12": true,
+    "N11": false,
+    "P01": true,
+    "P07": true,
+    "P05": true,
+    "N07": true,
+    "N04": true,
+    "P04": true,
+    "N06": true,
+    "P09": true,
+    "N08": false,
+    "P08": true,
+    "P02": true,
+    "N03": false,
+    "N12": false,
+    "N05": false,
+    "P03": false,
+    "N01": false,
+    "N10": false,
+    "P11": true,
+    "P10": true,
+    "N02": false
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 1,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N11": true,
+    "P05": true,
+    "N09": true,
+    "P01": true,
+    "N02": false,
+    "N07": false,
+    "N10": true,
+    "P12": true,
+    "P10": true,
+    "P02": true,
+    "N05": true,
+    "N03": true,
+    "P07": true,
+    "P08": true,
+    "P04": true,
+    "N06": true,
+    "P09": true,
+    "P06": true,
+    "N08": false,
+    "N12": false,
+    "N04": true,
+    "P03": true,
+    "N01": true,
+    "P11": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 1,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "P11": true,
+    "N07": false,
+    "P12": true,
+    "P01": true,
+    "N08": false,
+    "P03": true,
+    "N12": false,
+    "P08": true,
+    "P07": false,
+    "N11": false,
+    "N01": false,
+    "N06": false,
+    "P02": true,
+    "P04": true,
+    "P05": true,
+    "N05": false,
+    "N10": false,
+    "N09": false,
+    "P09": true,
+    "N04": true,
+    "P10": true,
+    "N02": false,
+    "P06": true,
+    "N03": false
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 2,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N10": true,
+    "P06": true,
+    "N02": false,
+    "P02": true,
+    "P12": true,
+    "N05": true,
+    "N04": true,
+    "P01": true,
+    "N07": true,
+    "N11": true,
+    "P07": true,
+    "P03": true,
+    "N09": true,
+    "P09": false,
+    "N12": true,
+    "P05": true,
+    "P10": true,
+    "N08": true,
+    "P08": true,
+    "N03": false,
+    "P11": true,
+    "N01": true,
+    "P04": true,
+    "N06": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 2,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "N04": true,
+    "N05": false,
+    "N01": false,
+    "N09": false,
+    "P12": true,
+    "P05": true,
+    "N06": true,
+    "P04": true,
+    "N03": false,
+    "P08": true,
+    "N08": false,
+    "P01": true,
+    "N10": false,
+    "N07": false,
+    "P02": true,
+    "P06": true,
+    "N02": false,
+    "P07": true,
+    "P09": false,
+    "N11": false,
+    "P03": true,
+    "P10": true,
+    "P11": true,
+    "N12": false
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "exactly two distinct units exist within the system",
+     "the relationship between those two units is mutual rather than one-directional",
+     "each unit's state changes as a consequence of that relationship (it cannot be determined from its own internal conditions alone)",
+     "no stable, identifiable boundary exists at which the two units become fully separable while both persist",
+     "the system does not contain any larger collection or grouping of multiple such pairs",
+     "there is no single third party that governs, decides, or arbitrates the relationship between the two units"
+    ],
+    "excludes": [
+     "a system in which one unit influences the other but remains unaffected and fully self-contained (one-directional causation)",
+     "a system of more than two interacting units whose pairwise relationships can be decomposed into independent pairs",
+     "two units that interact only with each other's outputs while remaining entirely independent internally, such that each could in principle exist without the other and retain its full identity",
+     "a triad or larger group where a third element mediates, judges, or standardizes the relationship between two elements"
+    ],
+    "name": "binary coupling with mutual dependence and no separability or external governance",
+    "roles": [
+     "couple A",
+     "couple B"
+    ]
+   },
+   "verdicts": {
+    "P02": true,
+    "P07": true,
+    "N06": true,
+    "P04": false,
+    "N12": false,
+    "P09": false,
+    "N07": false,
+    "N02": false,
+    "N03": true,
+    "P03": false,
+    "N10": false,
+    "P10": false,
+    "N08": true,
+    "N05": true,
+    "N09": true,
+    "P05": false,
+    "P06": true,
+    "N11": true,
+    "P11": true,
+    "P12": true,
+    "P01": true,
+    "P08": true,
+    "N01": true,
+    "N04": true
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "The relation is *irreversible without cost* — one party cannot exit and re-enter on its own terms; the whole relationship must be reconstructed from scratch if it breaks.",
+     "The relation produces *emergent capability* — some function or outcome exists only while they are coupled together, unavailable to either in isolation.",
+     "Each party's behaviour is *path-dependent on the other* — where each goes next depends minute-by-minute on what the other does right now; neither follows a fixed plan that ignores the partner."
+    ],
+    "excludes": [
+     "The relation is *reversible without cost*: parties can detach and reattach freely, with no memory of prior encounters, so they are not truly coupled. (A relationship where each side remains fully free to go its own way and restart identically — like a handshake that leaves both hands unchanged — does NOT fit.)",
+     "The relation yields *only additive outcomes*: what the pair produces is just the sum of what each would produce alone, so no new capability emerges from their coupling. (A partnership whose combined output equals the simple addition of its parts does NOT fit.)",
+     "The relation can be *dissolved with no reconstruction cost* — one party simply leaves and resumes an independent course while the other remains whole and capable on its own. (This is a shared market or competitive arrangement between otherwise-free agents, which does NOT fit; here each keeps its own books, name, and standing.)",
+     "The relation's *spacing or configuration is fixed by an external authority*: a third body decides how far apart the parties must be and can move them at will. (A relationship governed from outside — where some committee sets the terms of separation and revises them arbitrarily — does NOT fit; here what holds between the two is determined only by their mutual arrangement.)"
+    ],
+    "name": "Coupled-Continuant Relation",
+    "roles": [
+     "Party A: a continuing entity that cannot independently reconstruct its shared state with B once they part.",
+     "Party B: a continuing entity that cannot independently reconstruct its shared state with A once they part."
+    ]
+   },
+   "verdicts": {
+    "P08": true,
+    "N10": false,
+    "N05": false,
+    "N07": false,
+    "N08": false,
+    "P06": false,
+    "N03": false,
+    "P04": false,
+    "N09": true,
+    "N06": true,
+    "P10": false,
+    "P02": false,
+    "N11": false,
+    "P07": true,
+    "P05": false,
+    "P11": true,
+    "P03": true,
+    "P01": true,
+    "N12": false,
+    "P12": true,
+    "N01": true,
+    "N04": true,
+    "N02": false,
+    "P09": false
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "The structure is a relation between two parts that co-exist within one larger whole; neither part qualifies as an independent instance of the type on its own.",
+     "There exists at least one boundary (spatial, informational, or functional) beyond which each part ceases to depend on the other for existence and may be removed.",
+     "There exists a region outside that boundary—another instance of the same type or a wider environment—so that both parts are embedded within something else rather than being terminal."
+    ],
+    "excludes": [
+     "Two separate agents that merely interact (e.g., two firms pricing against each other) because each can persist without the other and neither is confined to a shared whole.",
+     "A hierarchy of three or more levels where one level both contains and is contained by another (e.g., a market containing firms, each firm containing workers), since containment runs in opposite directions rather than nesting one inside the other at a single level.",
+     "Two parts bound together with no separating boundary possible (e.g., root and fungus fused into a chimeric whole that cannot be split apart or grown independently), because there is no region where they are free."
+    ],
+    "name": "Nested Boundary",
+    "roles": [
+     "a part contained within another instance of the same type",
+     "another instance of the same type (or wider environment) in which it is embedded"
+    ]
+   },
+   "verdicts": {
+    "N05": true,
+    "N12": false,
+    "N11": true,
+    "P06": true,
+    "N10": false,
+    "P02": false,
+    "P03": true,
+    "P09": true,
+    "P12": true,
+    "P07": true,
+    "N02": false,
+    "P10": true,
+    "N01": true,
+    "N09": true,
+    "P04": true,
+    "P08": true,
+    "N07": true,
+    "P11": true,
+    "N03": true,
+    "P05": true,
+    "P01": true,
+    "N06": true,
+    "N04": true,
+    "N08": false
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "The system contains two distinct parts.",
+     "There is a reciprocal dependency: each part's behavior depends on the other."
+    ],
+    "excludes": [
+     "Systems with only one part, even if that single part internally regulates itself.",
+     "Systems in which one part affects the other but not vice versa (one-directional influence).",
+     "Systems whose two parts are independent and each behaves identically regardless of the other's presence or state."
+    ],
+    "name": "Reciprocal Dependency",
+    "roles": [
+     "Part A",
+     "Part B"
+    ]
+   },
+   "verdicts": {
+    "P02": true,
+    "N12": false,
+    "N01": true,
+    "N07": false,
+    "P06": true,
+    "N02": false,
+    "P09": true,
+    "P01": true,
+    "N03": true,
+    "P11": true,
+    "P08": true,
+    "P07": true,
+    "N08": false,
+    "N11": true,
+    "P05": true,
+    "N10": false,
+    "P12": true,
+    "N04": true,
+    "P03": true,
+    "P04": true,
+    "P10": true,
+    "N05": true,
+    "N09": true,
+    "N06": true
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "There are at least two distinct entities in a shared system.",
+     "The entities interact and each one's behaviour depends on the other over time; an individual cannot be described without reference to its counterpart(s).",
+     "The mutual dependence is produced by their being together, not by some external mechanism that acts on each of them independently — so splitting the system apart destroys or changes the relationship.",
+     "The two entities stay recognisably different from one another; they do not merge into a single unit."
+    ],
+    "excludes": [
+     "A collection of things held together only by an external rule or force that acts on each member separately — e.g., any group where the members could be pulled apart and each kept as it was, with nothing lost.",
+     "Two things whose similarity or coordination comes from being copied from a common origin (e.g., two trees grown from the same parent stock) rather than from interacting directly with one another."
+    ],
+    "name": "coupling",
+    "roles": [
+     "a system of at least two distinct entities",
+     "each entity whose behaviour depends on the others over time"
+    ]
+   },
+   "verdicts": {
+    "P01": true,
+    "N01": false,
+    "N11": true,
+    "P12": true,
+    "P11": true,
+    "N06": true,
+    "P03": true,
+    "P04": false,
+    "N10": false,
+    "N12": false,
+    "P10": true,
+    "N09": true,
+    "N05": true,
+    "P02": true,
+    "P07": true,
+    "P05": true,
+    "N03": true,
+    "N02": false,
+    "P06": true,
+    "N08": false,
+    "P09": true,
+    "N07": false,
+    "P08": true,
+    "N04": true
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "There exist two distinct elements in a system: an originator and a recipient.",
+     "The recipient's form is produced by following the originator's structure with no direct causal input from the originator itself; transmission travels through a rule, convention, or shared procedure rather than through a direct interaction between the two entities",
+     "Both elements arrive at the same configuration (or an equivalent one) via that rule without any of the recipient's state depending on the originator's current state",
+     "The originator is invariant with respect to the recipient; its state, output, or behaviour changes nothing about itself whether or not it has a recipient following it",
+     "Neither element acts upon the other in either direction; there is no feedback, signalling, or mutual influence between them (the relationship is strictly unidirectional and passive)",
+     "The likeness shared between them is fully determined by an external mechanism rather than by any inherent property of either element alone"
+    ],
+    "excludes": [
+     "Any system in which the recipient's state causally depends on signals, inputs, or outputs from the originator (i.e. a causal feedback loop) at all",
+     "Any system in which either element modifies its own structure because of knowledge that it is being imitated or copied by another",
+     "Any system whose resemblance arises from an internal shared property rather than from following an external rule or convention"
+    ],
+    "name": "Rule-based structural mimicry without causal coupling",
+    "roles": [
+     "originator: the entity that establishes a structure, form, procedure, or pattern",
+     "recipient: the entity that acquires the same structure by following the originator's rule through some shared medium (a rule, convention, standard, weighting scheme, environmental force, or spelling agreement)"
+    ]
+   },
+   "verdicts": {
+    "P10": false,
+    "N11": false,
+    "P03": false,
+    "P11": false,
+    "P01": false,
+    "N02": true,
+    "P09": false,
+    "N12": false,
+    "N04": false,
+    "N06": false,
+    "N07": false,
+    "P02": false,
+    "P05": false,
+    "N01": false,
+    "N03": false,
+    "N08": false,
+    "N10": false,
+    "P06": false,
+    "P12": false,
+    "P08": false,
+    "N05": false,
+    "P04": false,
+    "P07": false,
+    "N09": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "\"role1\" moves."
+    ],
+    "excludes": [],
+    "name": "Independent-Parallel-Duplicate",
+    "roles": [
+     "agentA",
+     "agentB"
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "P08": true,
+    "N02": true,
+    "N08": true,
+    "P05": true,
+    "N07": true,
+    "N12": true,
+    "N10": false,
+    "N04": true,
+    "P10": true,
+    "N03": true,
+    "N05": true,
+    "N01": true,
+    "P07": true,
+    "P03": true,
+    "P02": true,
+    "P04": true,
+    "N11": true,
+    "P12": true,
+    "P11": true,
+    "N06": true,
+    "P01": true,
+    "N09": true,
+    "P09": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "The system has at least one part that is a stable carrier of structure — an entity whose identity is fixed by form alone and that persists across interactions.",
+     "That structure is reproduced in the output as an exact copy or near-identical form, not merely echoed qualitatively.",
+     "The carrier's own state, composition, or trajectory remains unchanged (or changes only incidentally) by virtue of having been copied; it does not depend on or respond to its copies.",
+     "A single independent instance replicates the structure without reference to any other instance — remove all copies and each original stands in unaltered form.",
+     "The similarity among instances is a consequence of sharing a common template, not of mutual influence, signaling, feedback, or selection pressure between them.",
+     "No instance modifies another; there is no information flowing back from copy to carrier that would change the carrier's behavior or structure."
+    ],
+    "excludes": [
+     "Systems in which copies are functionally interdependent — e.g., two components that must cooperate for either to operate.",
+     "Systems governed by feedback loops, where outputs loop back to alter inputs and thus shape subsequent instances.",
+     "Systems with evolutionary selection or adaptation, where variants are filtered by fitness and the population changes over time in response to environment.",
+     "Systems where the resemblance between members arises from convergent optimization or shared environmental pressure rather than from a copied template."
+    ],
+    "name": "template reproduction",
+    "roles": [
+     "carrier: a stable entity that embodies a fixed form or structure",
+     "copy: an output that reproduces the carrier's form without altering it",
+     "template: the invariant from which copies are derived and by which they remain identical to the source"
+    ]
+   },
+   "verdicts": {
+    "N10": false,
+    "P12": false,
+    "P10": false,
+    "P06": false,
+    "P09": false,
+    "N05": false,
+    "P08": false,
+    "P11": false,
+    "P05": true,
+    "N07": true,
+    "N11": false,
+    "N12": false,
+    "N08": false,
+    "N02": false,
+    "P04": false,
+    "P07": false,
+    "N06": false,
+    "N03": false,
+    "P03": false,
+    "N04": false,
+    "N01": false,
+    "P02": false,
+    "P01": false,
+    "N09": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "Roles are fixed and distinct: at least two named parts A and B exist structurally within the system.",
+     "A stable relation R holds between A and B (a coupling, dependency, or correspondence that persists across time).",
+     "The system produces a single emergent entity E — a figure, shape, form, practice name, or written token — whose identity is defined by that relation rather than by either part.",
+     "E does not act back on A or B: neither part changes its behavior in response to E's existence; E is passively constituted and then inert toward the parts it summarizes.",
+     "A and B remain autonomous with respect to each other: they do not signal, coordinate, or adapt to one another to maintain R. E exists because of their passive coexistence or stable coupling, not because of mutual causation.",
+     "The mapping from A/B into E is defined by an external convention (weighting, standard form, established spelling rule) rather than by the intrinsic nature of A or B; the relation encodes a stipulation that holds regardless of how the parts evolve independently."
+    ],
+    "excludes": [
+     "Systems where part A directly causes change in part B — mutual causation (both act back on each other).",
+     "Systems where E has agency: feedback loops, regulation, or adaptation by E toward its source.",
+     "Intrinsic properties of a single self-contained component considered in isolation, with no relation to another named part.",
+     "Relations that are the product of active coordination or communication between parts."
+    ],
+    "name": "The Emergent Correspondence",
+    "roles": [
+     "A",
+     "B",
+     "E"
+    ]
+   },
+   "verdicts": {
+    "P09": false,
+    "P07": false,
+    "N09": false,
+    "N12": false,
+    "N03": false,
+    "N02": false,
+    "N05": true,
+    "N11": false,
+    "P08": false,
+    "P04": false,
+    "P03": true,
+    "P06": true,
+    "P02": false,
+    "N10": false,
+    "N06": true,
+    "N07": true,
+    "N01": true,
+    "N04": true,
+    "P12": true,
+    "P05": true,
+    "P01": true,
+    "N08": true,
+    "P10": true,
+    "P11": true
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "There are at least two distinct roles in the system.",
+     "Each role produces a stable feature of the whole that is independent of other roles."
+    ],
+    "excludes": [
+     "A system where one role actively shapes another, so the resulting feature depends on their interaction."
+    ],
+    "name": "Independent parallel duplication",
+    "roles": [
+     "Two or more independently reproducing elements within a shared whole.",
+     "The stable pattern each element contributes."
+    ]
+   },
+   "verdicts": {
+    "N05": true,
+    "N02": true,
+    "P04": false,
+    "P05": true,
+    "N10": false,
+    "P08": true,
+    "P07": true,
+    "N11": false,
+    "N01": true,
+    "P06": true,
+    "N08": true,
+    "N09": false,
+    "P02": true,
+    "N07": true,
+    "P09": true,
+    "P11": false,
+    "P03": false,
+    "N04": true,
+    "N03": false,
+    "P01": true,
+    "N06": false,
+    "N12": false,
+    "P10": true,
+    "P12": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "The parts are real constituents of the system (things that exist), and they keep their identity through interaction.",
+     "Each part changes its own traits in response to meeting other specific parts, but no change is imposed on another part by virtue of that encounter.",
+     "Every part stays recognizably what it was before; none loses its individuality or merges into a bigger unit.",
+     "Each part becomes narrower: its range over something (its options, targets, values) shrinks after the interaction.",
+     "The narrowing is driven by mutual constraint on that single dimension — proximity to other parts pushes each one toward an extreme of it.",
+     "A stable configuration results in which no remaining movement along that dimension reduces tension among the parts.",
+     "No central authority or external designer sets the resulting pattern; it emerges only from the pairwise interactions of the parts."
+    ],
+    "excludes": [
+     "Systems where a leader, controller, or designer assigns roles and determines positions.",
+     "Systems where one part directly manipulates another (physical force or direct control) rather than merely constraining each other's choices.",
+     "Systems whose result is dominated by external factors instead of mutual interaction."
+    ],
+    "name": "Competing Narrowing",
+    "roles": [
+     "Two or more self-maintaining parts",
+     "A single dimension of choice that constrains their interactions"
+    ]
+   },
+   "verdicts": {
+    "P12": true,
+    "P05": true,
+    "N04": true,
+    "N11": false,
+    "N07": false,
+    "P07": true,
+    "P02": true,
+    "N08": false,
+    "P04": true,
+    "P11": true,
+    "P08": true,
+    "N02": false,
+    "P10": true,
+    "N05": false,
+    "N01": true,
+    "N06": true,
+    "P06": false,
+    "N12": false,
+    "N09": false,
+    "P03": true,
+    "N10": false,
+    "P09": true,
+    "N03": false,
+    "P01": false
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "The system decomposes into distinct agents, each internally whole and independently persistent.",
+     "Each agent's local environment is the aggregate effect of all other agents acting on it.",
+     "No single agent can predict or compute that collective aggregate; it exists only from outside."
+    ],
+    "excludes": [
+     "A system where one part can fully compute the global outcome and steer itself to match.",
+     "A system whose whole is reducible to a sum of pre-existing, fixed parts with no emergent order.",
+     "A system governed by an external authority that assigns each agent its role."
+    ],
+    "name": "Emergent Structural Partition",
+    "roles": [
+     "agents",
+     "local environment"
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "N05": false,
+    "P04": true,
+    "N08": true,
+    "P02": true,
+    "N02": false,
+    "P01": true,
+    "N11": false,
+    "P11": true,
+    "N01": true,
+    "N04": true,
+    "P05": true,
+    "P06": true,
+    "P12": true,
+    "N03": false,
+    "N07": false,
+    "P10": true,
+    "N10": false,
+    "N09": true,
+    "P08": true,
+    "N06": true,
+    "P07": true,
+    "P09": true,
+    "N12": false
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "There are at least two distinct kinds of actor in the system.",
+     "Each kind of actor has its own machinery that lets it reproduce on its own terms — so a change to one actor does not automatically produce a change in another.",
+     "The actors interact by sharing resources or signals rather than by inheriting changes from each other directly.",
+     "Actors respond only when something specific comes their way; nothing drives them simply for being present next to others.",
+     "When they act, the response is geared toward keeping their own function and their ability to reproduce on their own terms."
+    ],
+    "excludes": [
+     "A system where one part literally carries another — that inherits changes wholesale cannot shrink its own repertoire by making a deal.",
+     "A system where every component acts as if it has no independent identity, so nothing needs to stay itself while it adapts.",
+     "A single actor reacting alone to an external force with no other kind of participant; the pattern needs two kinds of actor that each keep their own machinery."
+    ],
+    "name": "Adaptive Partition",
+    "roles": [
+     "Actor kind A — one distinct type in the system.",
+     "Actor kind B — a second, distinct type in the system"
+    ]
+   },
+   "verdicts": {
+    "P08": true,
+    "P09": true,
+    "P06": true,
+    "N05": false,
+    "P03": true,
+    "N08": false,
+    "N12": false,
+    "N03": false,
+    "N09": false,
+    "P04": true,
+    "N01": false,
+    "N02": false,
+    "P10": true,
+    "N07": false,
+    "P01": true,
+    "P07": true,
+    "N04": true,
+    "P02": true,
+    "P05": true,
+    "P11": false,
+    "P12": true,
+    "N06": false,
+    "N11": false,
+    "N10": false
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "The candidate consists of N distinct kinds of element (N >= 2), where a kind is defined by what it does and how it interacts, not by its label.",
+     "Each kind can operate as an isolated singleton: take any one kind alone in isolation and specify that it remains unchanged over time (no growth, no shrinking, no switching to another kind). Call this property 'self-stability'.",
+     "For at least one pair of kinds A and B that both exist simultaneously in the candidate, their interaction produces a state change: either they transform into new kinds, or they remain the same kinds but each is altered from its pre-interaction state. This transformation must occur to make room for another transformation.",
+     "There exists a specific kind C such that (a) C cannot self-stabilize as an isolated singleton — it transforms when alone — yet (b) C persists in some stable, untransformed form within the multi-kind configuration.",
+     "The set of kinds present is stable under the system's dynamics: no kind appears or disappears over time; only their arrangement shifts."
+    ],
+    "excludes": [
+     "A single kind that transforms in isolation and produces a new kind by consuming itself (e.g., a cell dividing, a firm splitting — where each survivor is an identical copy of the original). Excluded because there is no second kind to transform into; only one kind exists.",
+     "Any system with fewer than two distinct kinds. For example: a population of identical agents competing, or a single entity that evolves into variants of itself but remains within its own kind — these have no second kind to balance the first's transformation.",
+     "A set where every pair transforms into an entirely different new kind (e.g., A becomes X and B becomes Y). Excluded because there is no C that survives; all kinds are consumed by every interaction, leaving nothing persistent to anchor a stable configuration."
+    ],
+    "name": "Balanced Transformation",
+    "roles": [
+     "Kinds: the distinct types of element present (each defined by its behavior and interactions).",
+     "Transformations: irreversible state changes that occur between coexisting kinds.",
+     "Singletons: any kind considered as an isolated unit within the set."
+    ]
+   },
+   "verdicts": {
+    "P11": true,
+    "P05": true,
+    "P04": true,
+    "N09": false,
+    "N03": false,
+    "N05": false,
+    "P09": true,
+    "P08": true,
+    "N07": true,
+    "P10": true,
+    "N01": false,
+    "N12": false,
+    "N10": false,
+    "P01": true,
+    "N06": true,
+    "P06": false,
+    "N04": true,
+    "N02": false,
+    "P02": false,
+    "N11": false,
+    "N08": false,
+    "P07": false,
+    "P12": true,
+    "P03": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "there are at least two distinct roles present in the system",
+     "each role possesses some resource, property, capacity, or position that can be exchanged, modified, or reconfigured through interaction with another role"
+    ],
+    "excludes": [
+     "a single role acting alone without any other role to interact with",
+     "an equilibrium state where the roles' properties remain unchanged after interaction (no narrowing occurs)"
+    ],
+    "name": "Complementary Narrowing under Coexistence",
+    "roles": [
+     "Two or more distinct roles that engage in a recurring mutual interaction, each holding some exchangeable resource, property, position, or capacity",
+     "A shared environment or market into which these interacting roles collectively provide coverage of some demand space"
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "P04": true,
+    "N11": true,
+    "N02": false,
+    "N06": true,
+    "P03": true,
+    "N10": false,
+    "P06": true,
+    "N07": false,
+    "P01": true,
+    "N01": true,
+    "N04": true,
+    "P02": true,
+    "P11": false,
+    "N09": true,
+    "N08": false,
+    "N03": false,
+    "N12": false,
+    "P08": true,
+    "P10": true,
+    "P05": true,
+    "P12": true,
+    "P07": true,
+    "N05": false
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "the system contains at least two components that remain distinct entities over time; merging them into one unit is not how the outcome arises",
+     "each component retains its own identity, form, rules of reproduction or renewal, and internal machinery throughout"
+    ],
+    "excludes": [
+     "a single agent acting alone to optimise itself and reshape its surroundings at will; this pattern requires two parties that can neither fully control nor simply ignore each other",
+     "a centrally governed outcome produced by a planner or shared model of the whole system, because here no component represents the global result"
+    ],
+    "name": "Emergent structural complementarity in a multi-part system with persistent distinct identities",
+    "roles": [
+     "two or more components that remain recognisable and autonomous throughout (e.g., two entities with separate identity, form, reproduction, resources)",
+     "a shared environment each component is embedded in"
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "N10": false,
+    "N07": true,
+    "N09": false,
+    "N04": true,
+    "N12": true,
+    "P01": true,
+    "N08": true,
+    "N01": true,
+    "P10": true,
+    "N03": false,
+    "N06": false,
+    "P08": true,
+    "P09": true,
+    "N02": false,
+    "N05": false,
+    "N11": true,
+    "P04": true,
+    "P11": true,
+    "P05": true,
+    "P07": true,
+    "P02": true,
+    "P12": true,
+    "P03": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "The system decomposes into a plurality of self-contained agents; each is internally coherent and retains its own identity, machinery, goals, and ability to persist on its own terms.",
+     "Each agent's optimal standalone state (what it would do if alone) requires occupying a broader domain than the region actually available once all others are present.",
+     "Adjacent agents exert mutual pressure on one another: each adjusts its behavior toward another partly in response to that other's adjustments, and neither can complete this adjustment unilaterally without the other.",
+     "Each agent's adjustment narrows or specializes it relative to its standalone baseline (it gives up part of what it would otherwise do), yet keeps enough of itself that it remains recognizably the same kind of thing.",
+     "The adjustments are self-reinforcing and mutually consistent: each step of adjustment makes the other's corresponding step more necessary, so neither agent can hold its original broader position while all others have narrowed toward it.",
+     "No single agent (or any external coordinator) computes or represents the final arrangement; the pattern only exists once every agent has acted on all the others and settled."
+    ],
+    "excludes": [
+     "Systems where agents interact but each keeps its full standalone range regardless of others' presence, so no pressure to narrow arises.",
+     "Systems with a central coordinator that computes positions for everyone (e.g., a planner, an auctioneer, or any authority), because the arrangement is then designed rather than emergent.",
+     "Systems where agents specialize only as a by-product of pursuing their own independent goals without mutual responsiveness, so no narrowing pressure exists between them.",
+     "Competitive systems in which each agent shrinks its scope purely to maximize its own outcome (profit, fitness) while leaving the other's scope unchanged and with no reciprocal adjustment."
+    ],
+    "name": "Complementary Partitioning",
+    "roles": [
+     "A plurality of self-contained agents (each internally coherent)",
+     "The shared domain over which they compete",
+     "Mutual responsiveness between adjacent agents"
+    ]
+   },
+   "verdicts": {
+    "P02": true,
+    "N09": false,
+    "P01": true,
+    "N07": false,
+    "N01": true,
+    "P05": true,
+    "P06": true,
+    "P09": true,
+    "P03": true,
+    "N10": false,
+    "N11": true,
+    "N02": false,
+    "N06": true,
+    "N05": true,
+    "P04": true,
+    "P11": true,
+    "N03": false,
+    "N12": false,
+    "N08": false,
+    "P08": true,
+    "P12": true,
+    "N04": true,
+    "P07": true,
+    "P10": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "There exist at least two distinct roles that relate to one another.",
+     "Each role has a distinct way of persisting and reproducing (i.e., it is stable in its own right).",
+     "The contact between the two roles produces an outcome each role does not intend but accepts."
+    ],
+    "excludes": [
+     "Any system with only one role or no relationship between the roles.",
+     "A hierarchy where a higher unit controls, commands, or owns a lower unit (i.e., dominance without mutual exchange).",
+     "An internal whole/part composition where components are merely assembled (e.g., a machine built from parts)."
+    ],
+    "name": "Cooperation under division of labor",
+    "roles": [
+     "Two or more distinct roles, each with its own way of persisting and reproducing.",
+     "A relationship between these roles involving mutual exchange (e.g., resources, services, information).",
+     "An outcome that emerges from the interaction but is not intended by any role."
+    ]
+   },
+   "verdicts": {
+    "P02": true,
+    "N05": false,
+    "P12": true,
+    "N08": true,
+    "N11": true,
+    "P06": true,
+    "N07": true,
+    "N06": false,
+    "P03": true,
+    "N01": true,
+    "P04": true,
+    "N12": false,
+    "P09": true,
+    "P07": true,
+    "P05": true,
+    "P10": true,
+    "N09": true,
+    "P08": true,
+    "P11": true,
+    "P01": true,
+    "N03": false,
+    "N10": false,
+    "N04": true,
+    "N02": false
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "The system has at least two persisting roles that keep their own identity across time.",
+     "The interaction between the roles makes each role more specialised than it would be in isolation.",
+     "No single agent represents or plans the emergent outcome."
+    ],
+    "excludes": [
+     "Systems where one party is destroyed or absorbed by the other, so no identity survives to persist.",
+     "Systems where the interaction yields a shared capability but leaves each role exactly as specialised as it would have been alone."
+    ],
+    "name": "emergent",
+    "roles": [
+     "A1",
+     "B1"
+    ]
+   },
+   "verdicts": {
+    "N06": false,
+    "P08": true,
+    "N11": true,
+    "P02": true,
+    "P12": true,
+    "P04": true,
+    "P07": true,
+    "N07": false,
+    "N08": true,
+    "P01": true,
+    "N02": false,
+    "P05": true,
+    "P09": true,
+    "P11": true,
+    "N10": false,
+    "N09": false,
+    "N12": false,
+    "N05": false,
+    "N03": false,
+    "P06": true,
+    "P03": true,
+    "N01": true,
+    "P10": true,
+    "N04": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "The system is composed of two or more entities that are each self-contained: individually they retain their own mechanisms for maintenance, replication, and identity.",
+     "Each entity's behaviour in the relationship is reactive rather than designed toward the other; nothing computes the resulting arrangement, sets it as a goal, draws the partition, or coordinates with others to produce it.",
+     "When two entities are brought into interaction (by proximity, by binding, by price and product positioning, by acoustic similarity), each makes local adjustments that narrow its own range of what it does in relation to the other: fewer specialised structures, a more limited line of offering, a narrower recognition scope, or greater separation from a confusable partner.",
+     "Each entity remains recognisably itself after this adjustment — it still uses its own machinery and keeps its original identity; the change is a constraint on expression, not a takeover by the other.",
+     "The resulting configuration covers the relevant space (the environment's resources, an antigenic repertoire, market demand, or acoustic contrast) in a partitioned arrangement, but no single entity represents that total coverage as belonging to it.",
+     "The pattern emerges across many such pairs and settles into a stable structure — a mosaic of gaps, a repertoire of clones, a division of demand, a spread-out inventory, or an allocation network — none of which any participant computes or plans."
+    ],
+    "excludes": [
+     "A single entity that alone maintains everything the system needs; with no counterpart to react against there is nothing to adjust toward.",
+     "Any arrangement that some agent has deliberately designed, computed centrally, or coordinated among themselves as a plan — including a central controller laying out the layout and distributing roles to others.",
+     "Cooperation achieved by design in which each participant's action is aimed at a shared goal rather than being an incidental consequence of local responses."
+    ],
+    "name": "Emergent Relational Structure",
+    "roles": [
+     "self-contained entity with its own machinery for identity and reproduction",
+     "interaction partner that provokes reactive adjustment in the first role's range of behaviour"
+    ]
+   },
+   "verdicts": {
+    "P10": true,
+    "P05": true,
+    "P09": true,
+    "N03": false,
+    "N05": false,
+    "N02": false,
+    "P04": true,
+    "P07": true,
+    "P03": true,
+    "N11": false,
+    "P11": true,
+    "N07": false,
+    "P08": true,
+    "N10": false,
+    "P01": true,
+    "P06": true,
+    "N12": false,
+    "N08": false,
+    "N06": false,
+    "P02": true,
+    "N09": true,
+    "N01": true,
+    "N04": true,
+    "P12": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "The system contains at least two distinct entities (call them A and B) that are fundamentally different in kind.",
+     "Entity A gives entity B a resource that only A can produce, and entity B gives back to A a resource that only B can provide. The exchange is mutually beneficial: each keeps something it needs more than the other offers.",
+     "Each entity remains independent and self-sustaining after giving; neither becomes dependent on the other for its reproduction or existence.",
+     "Entity A responds to being paired with B by reducing its own independent capacity to acquire what it gives (its 'own way' of doing the same thing lessens), yet stays fully capable.",
+     "Entity B, in turn, narrows some part of its original repertoire—trading away a capability or range while retaining its core identity—and remains capable on its own terms.",
+     "The arrangement does not produce a single merged entity; both A and B keep their separate identities and reproduce independently.",
+     "Over time the specific pairings settle into a pattern where how entities are linked cannot be captured by looking only at any one member's local connections."
+    ],
+    "excludes": [
+     "A system in which both parties become dependent on each other for reproduction, identity, or existence—where losing the partner means ceasing to function as that entity.",
+     "An exchange where neither party gives up part of its own independent capacity, so the pairing changes nothing about how either operates alone.",
+     "A system in which one party is consumed, destroyed, or permanently altered by the exchange rather than remaining itself after giving.",
+     "A single fused entity that emerges from and depends on two original parts—there is no 'both stay separate' because there is only the whole.",
+     "Purely competitive systems where parties gain at each other's expense through one party's decline, with no mutual benefit arising from pairing."
+    ],
+    "name": "Mutual partial-dependence",
+    "roles": [
+     "A: an entity that produces a resource uniquely available to it and trades it away while remaining itself.",
+     "B: an entity that gains something only A can offer and gives back something only B can provide, narrowing part of its own repertoire while staying itself."
+    ]
+   },
+   "verdicts": {
+    "P12": true,
+    "N11": false,
+    "N07": false,
+    "N12": false,
+    "N05": false,
+    "N04": true,
+    "N03": false,
+    "N09": false,
+    "P06": true,
+    "N08": false,
+    "P09": true,
+    "N10": false,
+    "P11": false,
+    "P04": false,
+    "P08": false,
+    "P07": false,
+    "P05": true,
+    "N02": false,
+    "P03": false,
+    "N01": false,
+    "P02": true,
+    "N06": false,
+    "P10": true,
+    "P01": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "the exchange is mutual: each part gains something it lacks (A needs what B supplies; B needs what A supplies).",
+     "the exchange is continuous and self-sustaining, not a one-time transaction.",
+     "each part keeps its own identity and can persist/reproduce on its own terms — no part dissolves into the other to form a single new thing.",
+     "neither part gives up its whole repertoire in order to join: each retains capacity for what it does outside the exchange (its non-partner functions remain available).",
+     "each part's contributions are modulated by partnership, not erased: being joined changes how much of each capability is expressed, but does not remove the underlying capability.",
+     "the arrangement is emergent and distributed: it cannot be reduced to a single central controller or a fixed one-to-one pairing that fully accounts for who connects to whom.",
+     "no part is purely subordinate: both sides are active contributors (both give), so neither relation reads as simple exploitation."
+    ],
+    "excludes": [
+     "a predator-prey relationship, where one gains at the other's expense and the exchange is not mutual.",
+     "an owner-employee or buyer-supplier transaction, where terms are fixed in advance by contract rather than emerging through ongoing reciprocal adjustment.",
+     "two parts fusing into a single new entity (merger), where neither retains its own separate identity.",
+     "a relationship of pure domination or parasitism, where one side gains without the other gaining anything in return."
+    ],
+    "name": "Mutual Symbiotic Network",
+    "roles": [
+     "Part A: a self-sustaining entity that lacks something and can supply another thing.",
+     "Part B: a self-sustaining entity that lacks what A supplies and can supply what A needs."
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "N07": false,
+    "P08": true,
+    "P07": true,
+    "N10": false,
+    "N06": false,
+    "N05": false,
+    "P12": true,
+    "P09": true,
+    "N09": false,
+    "N11": false,
+    "N01": false,
+    "N04": true,
+    "P11": true,
+    "N08": true,
+    "P01": true,
+    "P10": true,
+    "N12": true,
+    "N03": false,
+    "P05": true,
+    "P06": true,
+    "P02": true,
+    "P04": false,
+    "N02": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "The system contains at least two distinct parts (call them A and B) that each contribute something the other lacks.",
+     "Each part provides a resource or capability to the other: A supplies one thing it possesses, while B supplies a different thing it possesses, so both directions of exchange are real.",
+     "Receiving this foreign input causes each part to reduce some quantity it would otherwise produce on its own—A produces less of its normally-generated version of that very resource (the same category), and B does likewise for its own."
+    ],
+    "excludes": [
+     "Systems where A's gain in efficiency means B simply stops or is bypassed, rather than both sides continuing to produce their native goods more poorly.",
+     "A partnership whose outcome is a single new entity, hybrid, or merged structure instead of two parts that persist unchanged in kind.",
+     "An exchange in which only one side gives and the other merely receives without reciprocating—there must be mutual contribution for both directions to exist."
+    ],
+    "name": "Mutual partial-optimization through cross-supply",
+    "roles": [
+     "A: a part capable of producing at least one good or capability independently.",
+     "B: a second distinct part capable of producing a different good or capability independently."
+    ]
+   },
+   "verdicts": {
+    "N02": false,
+    "P10": true,
+    "N01": true,
+    "P07": true,
+    "P09": true,
+    "P06": true,
+    "P04": true,
+    "N04": false,
+    "P11": true,
+    "P03": true,
+    "P02": true,
+    "P01": true,
+    "N12": false,
+    "P08": false,
+    "N11": false,
+    "N06": false,
+    "N07": false,
+    "N03": false,
+    "P05": true,
+    "N08": false,
+    "N10": false,
+    "P12": true,
+    "N05": false,
+    "N09": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "The system has at least two distinct parts (roles), where each part is self-identifiable and retains a stable identity across the interaction.",
+     "Each part contributes something the other lacks or needs: there exists an asymmetry in which role A provides a resource/function that role B cannot obtain on its own, while role B provides a different resource/function that role A cannot obtain on its own.",
+     "The relationship is mutual and ongoing rather than one-way: each part receives more (a net gain) from the exchange than it gives up, such that neither party's presence makes the other strictly worse off.",
+     "The interaction produces a coupling or coordination between the parts: their behaviors, states, or outcomes become interdependent in some recognizable pattern.",
+     "Each part continues to operate according to its own internal principles and goals; participation is not equivalent to assimilation (neither part loses its identity)."
+    ],
+    "excludes": [
+     "Systems where one party only takes without giving back, or gives without receiving a distinct return."
+    ],
+    "name": "mutual-coupling",
+    "roles": [
+     "a provider of X that lacks Y",
+     "a provider of Y that lacks X"
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "N10": false,
+    "N08": false,
+    "P03": true,
+    "N02": false,
+    "N01": false,
+    "N06": true,
+    "N04": true,
+    "N09": true,
+    "P04": true,
+    "N11": true,
+    "N05": false,
+    "P05": true,
+    "N12": false,
+    "N03": false,
+    "P01": true,
+    "P12": true,
+    "P07": true,
+    "P08": true,
+    "P09": true,
+    "P10": true,
+    "N07": true,
+    "P02": true,
+    "P11": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "Two or more distinct roles exist within the system.",
+     "Each role provides something that another role needs or values.",
+     "The exchange of goods/services between roles is mutual and ongoing, not one-directional.",
+     "At least one role reduces its own independent capacity as a result of participating in the relationship.",
+     "This reduction persists across multiple interaction cycles, indicating structural change rather than a temporary adjustment.",
+     "Each role retains its fundamental identity and can operate independently when removed from the relationship."
+    ],
+    "excludes": [
+     "Systems where one party benefits without reciprocating or reducing their own capacity.",
+     "Temporary or transient interactions that do not lead to lasting structural change.",
+     "Relationships where roles are fully merged into a single entity with no independent operation possible.",
+     "Hierarchical structures where authority flows in one direction rather than through mutual exchange."
+    ],
+    "name": "Reciprocal Capacity Reduction",
+    "roles": [
+     "A system consisting of two or more distinct functional roles that engage in sustained reciprocal exchange",
+     "Each role must provide value to another role while receiving complementary value in return"
+    ]
+   },
+   "verdicts": {
+    "P11": true,
+    "N06": true,
+    "N05": true,
+    "P04": true,
+    "P01": true,
+    "N03": false,
+    "P06": true,
+    "N01": true,
+    "P07": true,
+    "N12": true,
+    "P03": true,
+    "P08": true,
+    "N11": true,
+    "P05": true,
+    "N04": true,
+    "P12": true,
+    "P02": true,
+    "N07": false,
+    "N10": false,
+    "P09": true,
+    "P10": true,
+    "N08": false,
+    "N02": false,
+    "N09": false
+   }
+  }
+ ]
+}

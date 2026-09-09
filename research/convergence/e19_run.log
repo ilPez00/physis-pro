@@ -44,3 +44,14 @@ SUPERVISOR: attempt 1 died (exit 0), restarting in 30s
 [9/36] B5b seed 2  (7m elapsed)
 [10/36] B5b seed 3  (9m elapsed)
 [11/36] B5b seed 4  (12m elapsed)
+[21/36] S5 seed 4  (14m elapsed)
+done in 16.9 min -> /home/gio/dev/physis-pro/research/convergence/results_e19.json
+SUPERVISOR: clean exit on attempt 1
+model=qwen3:4b host=http://localhost:11434 seeds=5 -> /home/gio/dev/physis-pro/research/convergence/results_e19.json
+[7/41] B5c seed 0  (0m elapsed)
+[8/41] B5c seed 1  (3m elapsed)
+[9/41] B5c seed 2  (5m elapsed)
+[10/41] B5c seed 3  (7m elapsed)
+[11/41] B5c seed 4  (9m elapsed)
+done in 11.2 min -> /home/gio/dev/physis-pro/research/convergence/results_e19.json
+SUPERVISOR: clean exit on attempt 1
