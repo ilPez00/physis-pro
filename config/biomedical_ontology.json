@@ -1,0 +1,65 @@
+{
+  "kind": "biomedical",
+  "domains": [
+    {
+      "name": "Symptomatology",
+      "category": "Physiology",
+      "domain": "STUDY",
+      "mode": "OBSERVE",
+      "axis_kind": "biomedical",
+      "axis_name": "severity",
+      "unit": "grade",
+      "hints": ["acute", "chronic", "remitting", "progressive", "resolved", "exacerbation"]
+    },
+    {
+      "name": "Medication Classification",
+      "category": "Pharmacology",
+      "domain": "CONSTRUCT",
+      "mode": "INJECT",
+      "axis_kind": "biomedical",
+      "axis_name": "drug_class",
+      "unit": "category",
+      "hints": ["psychiatric", "antidepressant", "antipsychotic", "anxiolytic", "mood stabilizer", "stimulant", "tapering"]
+    },
+    {
+      "name": "Physiological Metrics",
+      "category": "Biometrics",
+      "domain": "STUDY",
+      "mode": "TRACK",
+      "axis_kind": "biomedical",
+      "axis_name": "metric_value",
+      "unit": "standard",
+      "hints": ["heart_rate", "blood_pressure", "resting_hr", "hrv", "spo2", "temperature", "weight", "bmi"]
+    },
+    {
+      "name": "Withdrawal State",
+      "category": "Pharmacology",
+      "domain": "STUDY",
+      "mode": "OBSERVE",
+      "axis_kind": "biomedical",
+      "axis_name": "withdrawal_phase",
+      "unit": "days",
+      "hints": ["acute_withdrawal", "post-acute", "stabilized", "reduction_step", "titration"]
+    },
+    {
+      "name": "Body Composition",
+      "category": "Biometrics",
+      "domain": "CONSTRUCT",
+      "mode": "TRACK",
+      "axis_kind": "biomedical",
+      "axis_name": "composition",
+      "unit": "kg_or_percent",
+      "hints": ["body_fat_percentage", "lean_mass", "water_weight", "weight_change"]
+    },
+    {
+      "name": "Training Load",
+      "category": "Physiology",
+      "domain": "CONSTRUCT",
+      "mode": "TRACK",
+      "axis_kind": "biomedical",
+      "axis_name": "intensity",
+      "unit": "arbitrary",
+      "hints": ["chin_up_max", "training_volume", "recovery_status", "DOMS_level"]
+    }
+  ]
+}

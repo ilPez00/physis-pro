@@ -1,0 +1,833 @@
+
+Generative Ontology: When Structured Knowledge Learns to Create
+Benny Cheung Dynamind Research btscheung@dynamindresearch.com
+Abstract
+
+Traditional ontologies excel at describing domain structure but cannot generate novel artifacts. Large language models generate fluently but produce outputs that lack structural validity, hallucinating mechanisms without components, goals without end conditions. We introduce Generative Ontology, a framework that synthesizes these complementary strengths: ontology provides the grammar; the LLM provides the creativity.
+
+Generative Ontology encodes domain knowledge as executable Pydantic schemas that constrain LLM generation via DSPy signatures. A multi-agent pipeline assigns specialized roles to different ontology domains: a Mechanics Architect designs game systems, a Theme Weaver integrates narrative, a Balance Critic identifies exploits. Each agent carrying a professional “anxiety” that prevents shallow, agreeable outputs. Retrieval-augmented generation grounds novel designs in precedents from existing exemplars, while iterative validation ensures coherence between mechanisms and components.
+
+We demonstrate the framework through GameGrammar, a system for generating complete tabletop game designs. Given a thematic prompt (“bioluminescent fungi competing in a cave ecosystem”), the pipeline produces structurally complete, playable game specifications with mechanisms, components, victory conditions, and setup instructions. These outputs satisfy ontological constraints while remaining genuinely creative.
+
+The pattern generalizes beyond games. Any domain with expert vocabulary, validity constraints, and accumulated exemplars (music composition, software architecture, culinary arts) is a candidate for Generative Ontology. We argue that constraints do not limit creativity but enable it: just as grammar makes poetry possible, ontology makes structured generation possible.
+1  Introduction
+
+Ontologies describe what is. They define concepts, relationships, and constraints that codify expert understanding of a domain. In our earlier work on tabletop game ontology [5], we built a structured vocabulary that could decompose Catan into mechanisms (resource trading, modular board, dice-driven production), components (hex tiles, resource cards, settlements), and player dynamics (competitive, negotiation-heavy, variable player count). That ontology gave us a precise language for analysis.
+
+But analysis is not creation.
+
+Understanding the structure of sonnets does not make one a poet. Knowing the rules of chess does not generate new games. A traditional ontology, for all its precision, remains passive, a tool for describing what already exists, not for imagining what could be. We ask: what happens when we transform that passive vocabulary into an active grammar?
+1.1  The Problem: Structural Hallucination
+
+Large language models (LLMs) excel at fluent generation. Ask an LLM to “design a deck-building game set in a haunted mansion” and it will produce paragraphs of creative output: themes, mechanisms, components, and victory conditions flowing freely. Yet this fluency hides a deeper problem: LLMs generate without understanding structure.
+
+Consider the output for such a prompt: “Players explore Ravenshollow Manor, collecting ghost cards and building their decks. The game features a unique ‘fear mechanic’ where players manage their sanity. Victory goes to whoever escapes with the most treasure…” This sounds plausible. But what cards exist in the starting deck? How do players acquire new cards? What triggers the end of the game? How does the “fear mechanic” interact with deck composition? The LLM has generated the appearance of a game design without the substance. Handed to a playtester, it would collapse into confusion. This is the hallucination problem applied to creative domains: just as LLMs hallucinate facts, they hallucinate structures, producing outputs that sound valid without being valid.
+Refer to caption
+Figure 1: A sample Game Ontology expressed as an OntoUML class diagram. The Game root entity decomposes into Player, Mechanism, and Component aggregates, each with typed relationships (hasPlayer, hasMechanism, hasComponent) that mirror the domain structure a Generative Ontology must capture and enforce.
+1.2  Complementary Limitations
+
+Table 1 summarizes the impasse. Traditional ontology has structure without creativity; the LLM has creativity without structure. Neither alone solves the problem of generating novel, valid designs.
+Table 1: Traditional ontology versus pure LLM generation.
+	Strength 	Weakness
+Ontology 	Precise, structured, validated 	Cannot generate novel outputs
+LLM 	Creative, fluent, abundant 	Unstructured, hallucinated
+
+The insight of Generative Ontology is that these limitations are complementary. What ontology lacks, LLMs provide. What LLMs lack, ontology provides. The synthesis, structured generation guided by ontological schemas, produces outputs that are both creative and valid.
+1.3  Related Work
+
+Ontology development has a well-established methodology [14], but recent research at the intersection of ontologies and LLMs proceeds primarily in the opposite direction from our approach. DRAGON-AI uses retrieval-augmented LLM generation to construct biomedical ontologies from text corpora [15], and OLLM demonstrates end-to-end ontology learning with language models. These systems use LLMs to generate ontologies; we use ontologies to guide generation.
+
+Mehenni and Zouaq [12] demonstrate ontology-constrained generation for clinical summaries, the closest methodological precedent to our work. However, their goal is hallucination reduction in summarization, whereas we target structured creativity. In game generation, Gallotta et al. [9] survey LLM applications in games broadly, while Becker et al. [4] present Boardwalk, a framework for generating board game code from existing rules, generating implementations, not designs. Maleki and Zhao [11] survey procedural content generation methods, noting emerging LLM integration but without ontological constraints. Cooper [7] provides foundational work on constrained decoding that underpins our structured output approach.
+
+Our contribution fills a specific gap: using ontology as a generative grammar for structured creative output, operationalized through executable schemas, multi-agent pipelines, and retrieval augmentation.
+1.4  Paper Overview
+
+We introduce Generative Ontology and develop it through the domain of tabletop game design. Section 2 defines the framework and its philosophical grounding. Section 3 transforms ontology classes into executable Pydantic schemas. Section 4 operationalizes generation with DSPy signatures. Section 5 introduces multi-agent specialization with professional anxieties. Section 6 adds retrieval-augmented grounding. Section 7 develops the ontology as a validation contract. Section 8 presents a complete case study. Section 9 argues the pattern generalizes beyond games. Section 10 concludes with future directions.
+2  Generative Ontology: The Synthesis
+
+If traditional ontology is a map, Generative Ontology is a map that knows how to build new cities.
+
+    Generative Ontology is the practice of encoding domain knowledge as executable schemas that constrain and guide AI generation, transforming static knowledge representation into a creative engine.
+
+When we built our tabletop game ontology [5], we created a structured vocabulary: game types, mechanisms, components, player interactions. This vocabulary enabled analysis of games such as Catan and Dune: Imperium with precision. The insight of Generative Ontology is that the same structure enabling understanding can enable creation. The categories that constrain analysis become the scaffolding for generation.
+2.1  The Grammar of Games
+
+A poet does not experience grammar as a limitation. Grammar is not what prevents poetry; it is what makes poetry possible. Without the structure of syntax, semantics, and form, there would be no sonnets, no haiku, no free verse pushing against convention. The rules are not the enemy of creativity; they are its condition of possibility.
+
+The same principle applies to game design. When we ask an unconstrained LLM to “design a board game about space exploration,” we receive verbose descriptions that sound plausible but collapse under scrutiny. The AI might describe a “resource management mechanic” without specifying what resources exist, how they flow, or what makes acquiring them interesting. Generative Ontology provides the grammar. When we encode the game ontology as a schema, we give the LLM the structural vocabulary to be creative coherently. The schema declares: every game must have a goal, an end condition, mechanisms that create player choices, components that instantiate those mechanisms. Within those constraints, infinitely many games are possible. Without them, no valid game emerges.
+Refer to caption
+Figure 2: LLM potential plus ontology constraints yields valid design. Generative Ontology transforms a passive vocabulary for description into an active grammar for creation.
+
+Table 2 illustrates the difference concretely.
+Table 2: Generation without versus with Generative Ontology.
+Without Ontology 	With Generative Ontology
+“Players collect resources and build things” 	Goal: first to 10 VP via settlements
+“There’s some kind of trading” 	Mechanism: resource trading with 4:1 bank or negotiated rates
+“The game ends eventually” 	End Condition: when any player reaches 10 VP or development deck exhausts
+Fluent but vague 	Structured and playable
+2.2  Philosophical Grounding
+
+For readers familiar with our earlier exploration of process philosophy for AI agent design [6], Generative Ontology has a natural grounding in Alfred North Whitehead’s metaphysics [16]. Whitehead distinguished between eternal objects (pure forms, patterns, and structures that exist as potentials) and actual occasions (the concrete events where eternal objects find expression). Our game ontology is a collection of eternal objects: the abstract patterns of worker placement, deck building, area control. These patterns have no reality until they are instantiated in actual games: in Catan’s modular hex board, in Dune: Imperium’s faction tracks. Generative Ontology is the process of moving from eternal objects to actual occasions: the ontology provides the forms; generation produces the instances. Creativity, in Whitehead’s view, is precisely this novel synthesis of eternal objects into actual occasions that have never existed before [3]. The forms constrain but do not determine. Each generated game is a genuine novelty.
+3  From Ontology to Executable Schema
+
+Philosophy illuminates the path; engineering builds the road. The key insight is surprisingly direct: ontology classes map naturally to schema definitions, and schema definitions become the structured outputs that constrain LLM generation.
+3.1  The Transformation
+
+Our tabletop game ontology [5, 8] defined four core concepts: Game (the container with goal and end condition), Mechanism (turn structure, actions, resolution, uncertainty), Component (board, cards, tokens), and Player (roles and interactions). Each of these ontology classes becomes a Pydantic BaseModel, a typed, validated structure that LLMs must conform to when generating output.
+
+Listing 1 shows the abbreviated GameOntology schema. The MechanismType enumeration reflects ontological categories developed over decades of game design taxonomy [8]. By encoding these as an enum, we ensure the LLM can only reference mechanisms within our shared vocabulary. Every field in GameOntology corresponds to an ontology concept. The goal and end_condition are required strings with minimum lengths, preventing vague outputs. The nested ComponentSet and PlayerDynamics models enforce structure at every level.
+
+              1
+              
+              
+              
+            from enum import Enum
+
+              2
+              
+              
+              
+            from typing import List, Literal, Optional
+
+              3
+              
+              
+              
+            from pydantic import BaseModel, Field
+
+              4
+              
+              
+              
+            
+
+              5
+              
+              
+              
+            class MechanismType(str, Enum):
+
+              6
+              
+              
+              
+                WORKER_PLACEMENT = "worker_placement"
+
+              7
+              
+              
+              
+                ACTION_POINTS    = "action_points"
+
+              8
+              
+              
+              
+                DECK_BUILDING    = "deck_building"
+
+              9
+              
+              
+              
+                RESOURCE_MGMT    = "resource_management"
+
+              10
+              
+              
+              
+                AREA_CONTROL     = "area_control"
+
+              11
+              
+              
+              
+                ENGINE_BUILDING  = "engine_building"
+
+              12
+              
+              
+              
+                SET_COLLECTION   = "set_collection"
+
+              13
+              
+              
+              
+                HIDDEN_INFO      = "hidden_information"
+
+              14
+              
+              
+              
+            
+
+              15
+              
+              
+              
+            class GameOntology(BaseModel):
+
+              16
+              
+              
+              
+                title: str = Field(description="Name of the game")
+
+              17
+              
+              
+              
+                theme: str = Field(description="Setting and narrative")
+
+              18
+              
+              
+              
+                game_type: Literal["cooperative","competitive",
+
+              19
+              
+              
+              
+                                    "semi-cooperative"]
+
+              20
+              
+              
+              
+                goal: str = Field(min_length=20,
+
+              21
+              
+              
+              
+                    description="Victory condition")
+
+              22
+              
+              
+              
+                end_condition: str = Field(min_length=10,
+
+              23
+              
+              
+              
+                    description="What triggers game end")
+
+              24
+              
+              
+              
+                primary_mechanisms: List[MechanismType] = Field(
+
+              25
+              
+              
+              
+                    min_length=2, max_length=4)
+
+              26
+              
+              
+              
+                turn_structure: str
+
+              27
+              
+              
+              
+                uncertainty_source: str
+
+              28
+              
+              
+              
+                components: ComponentSet  # nested model
+
+              29
+              
+              
+              
+                players: PlayerDynamics   # nested model
+
+              30
+              
+              
+              
+                setup: str
+
+              31
+              
+              
+              
+                core_loop: str
+
+              32
+              
+              
+              
+                strategic_depth: str
+Listing 1: Abbreviated GameOntology Pydantic schema. Each field corresponds to an ontology concept; enums constrain the LLM to recognized mechanisms.
+3.2  Ontology-to-Schema Correspondence
+
+Table 3 formalizes the mapping. The correspondence is not accidental: every ontology class finds expression in the schema, and every ontological relationship (Game has Mechanisms, Game uses Components) becomes a nested field or list. The schema is the ontology made executable.
+Table 3: Ontology-to-schema correspondence.
+Concept 	Schema Type 	Purpose
+Game Types 	Literal[...] 	Valid modes
+Mechanisms 	List[Mechanism] 	Mechanics
+Components 	ComponentSet 	Physical parts
+Goal / End 	str (required) 	Playability
+Players 	PlayerDynamics 	Interactions
+3.3  Why Pydantic?
+
+The choice of Pydantic [2] is deliberate. Declaring GameOntology as a BaseModel provides four critical capabilities: (1) type validation, where the LLM’s output is automatically validated against the schema; (2) self-documentation, where each Field description becomes part of the prompt context; (3) nested structure, where hierarchical ontologies map naturally to nested models; and (4) enum constraints, where the LLM operates within the ontological vocabulary and cannot invent mechanisms outside the taxonomy.
+
+The original ontology was a tool for analysis: we could take Catan and decompose it into ontology terms. The schema flips this relationship. Now the ontology becomes a tool for synthesis: we provide a theme, and the constrained generation produces a complete game that satisfies every ontological requirement.
+4  Operationalizing with DSPy
+
+We have the ontology encoded as Pydantic schemas. Now we need an engine to drive generation. DSPy (Declarative Self-improving Python) [10] treats LLM interactions as composable, typed operations rather than monolithic prompt templates. This philosophy aligns with Generative Ontology: DSPy signatures are ontological contracts.
+4.1  Signatures as Ontological Contracts
+
+A DSPy signature declares inputs, outputs, and a docstring that establishes the LLM’s persona. Listing 2 shows the core generation signature. The docstring becomes the system prompt; the input fields capture what the user provides; the output field declares that the result must conform to our GameOntology schema.
+
+              1
+              
+              
+              
+            import dspy
+
+              2
+              
+              
+              
+            from game_ontology import GameOntology
+
+              3
+              
+              
+              
+            
+
+              4
+              
+              
+              
+            class GenerativeOntologySignature(dspy.Signature):
+
+              5
+              
+              
+              
+                """You are an expert tabletop game designer
+
+              6
+              
+              
+              
+                with deep knowledge of mechanisms, player
+
+              7
+              
+              
+              
+                dynamics, and component design. Design a
+
+              8
+              
+              
+              
+                complete, playable game based on the theme.
+
+              9
+              
+              
+              
+                Every field must be specific, not vague."""
+
+              10
+              
+              
+              
+            
+
+              11
+              
+              
+              
+                theme = dspy.InputField(
+
+              12
+              
+              
+              
+                    desc="Thematic concept for the game")
+
+              13
+              
+              
+              
+                design_constraints = dspy.InputField(
+
+              14
+              
+              
+              
+                    desc="Player count, complexity, time",
+
+              15
+              
+              
+              
+                    default="")
+
+              16
+              
+              
+              
+                game_design: GameOntology = dspy.OutputField(
+
+              17
+              
+              
+              
+                    desc="Complete game design per schema")
+Listing 2: DSPy GenerativeOntologySignature. The typed output field binds generation to the ontological schema.
+4.2  Execution Flow
+
+When we execute this signature, DSPy performs the following sequence: (1) constructs a prompt incorporating the docstring, field descriptions, and the full Pydantic schema structure; (2) sends the prompt to the configured LLM; (3) parses the response into the GameOntology model; (4) validates that all required fields are present and correctly typed; and (5) returns the validated result or raises an error for retry.
+
+DSPy’s ChainOfThought module extends this by instructing the model to reason through the design before committing to structured output. The reasoning captures why the system chose worker placement over deck building, how the theme informed the end condition, and what creates tension in the player dynamics. This reasoning is not merely debugging output; it documents the design rationale.
+
+Encapsulating logic in a DSPy Module enables composition of multiple generation steps, post-generation validation, and retry logic. The module adds a layer of semantic validation beyond what Pydantic provides: the schema ensures structural correctness (all fields present, correct types), while the module ensures coherence: that mechanisms match components and that game type aligns with player dynamics. This layered architecture (schema for structure, module for semantics) is central to the reliability of Generative Ontology.
+5  Multi-Agent Ontology Pipeline
+
+A single LLM call, even with our ontology schema, carries the entire burden of game design: it must simultaneously consider mechanisms, theme, components, balance, and player experience. Human design teams do not work this way. A designer sketches mechanics while an artist develops visual language while a playtester identifies broken interactions. Generative Ontology enables the same division of labor by decomposing the ontology into domains and assigning specialized agents to each.
+5.1  Agent Roster and Professional Anxieties
+
+Table 4 lists the five agents. The “Anxiety” column is crucial: each agent is not merely assigned a domain but is given a concern, a professional worry that shapes its generation and critique. The Mechanics Architect does not just produce mechanisms; it worries about whether those mechanisms create meaningful choices. This anxiety-driven design prevents the “yes-man” tendency of LLMs to produce plausible but shallow output.
+Table 4: Agent roster with ontology domains and professional anxieties.
+Agent 	Domain 	Anxiety
+Mechanics Architect 	Mechanisms, turn structure 	“Is there meaningful player agency?”
+Theme Weaver 	Narrative, setting 	“Does the theme feel alive in every mechanism?”
+Component Designer 	Cards, tokens, board 	“Can players manipulate this smoothly?”
+Balance Critic 	Cross-domain analysis 	“What breaks when optimized?”
+Fun Factor Judge 	Player experience 	“Would I want to play this again?”
+
+Each agent receives a DSPy signature tailored to its domain, with the docstring encoding its persona and anxiety. The Mechanics Architect’s signature begins: “You are a veteran game mechanics designer who has studied hundreds of tabletop games. You obsess over player agency…” The Balance Critic’s opens: “You are a competitive player and game breaker. Your job is to find what’s broken…” These personas are not decorative; they shape the distribution of generated outputs toward domain-appropriate rigor.
+5.2  Pipeline Architecture
+Refer to caption
+Figure 3: Multi-agent pipeline architecture. Generative agents build sequentially (Mechanics → Theme → Components); critic agents evaluate in parallel; refinement addresses identified issues before final assessment.
+
+The pipeline, illustrated in Figure 3, proceeds in four phases:
+
+    1.
+
+    Sequential Generation. The Mechanics Architect produces core systems given the theme and constraints. The Theme Weaver receives these mechanics and integrates narrative. The Component Designer receives both and specifies physical elements. Each agent builds on the previous, with information flowing through typed Pydantic schemas.
+    2.
+
+    Critical Evaluation. The Balance Critic examines the assembled design for exploits, dominant strategies, and interaction gaps. Issues are tagged with severity levels (minor, moderate, severe).
+    3.
+
+    Refinement. If moderate or severe issues are found, a refinement agent addresses specific recommendations while preserving the design’s strengths.
+    4.
+
+    Experience Assessment. The Fun Factor Judge evaluates engagement hooks, tension moments, satisfaction sources, and replayability, producing a 1–10 rating and improvement suggestions.
+
+5.3  Why Multi-Agent Outperforms Single-Pass
+
+The multi-agent approach offers five advantages: (1) focused expertise, where each agent optimizes for its domain without distraction; (2) built-in tension, where agents have different anxieties, mirroring real design team dynamics; (3) explicit handoffs, where information flows through defined schema interfaces; (4) iterative refinement, where critics identify issues that refiners address; and (5) observability, where when something fails, we know which agent to adjust.
+6  Retrieval-Augmented Generation
+
+Our Generative Ontology can create novel game designs, but creativity without context risks reinventing solutions that already exist, or repeating mistakes that experienced designers have learned to avoid. The most interesting creative work happens not in a vacuum but in conversation with what has come before.
+Refer to caption
+Figure 4: Knowledge System architecture. A unified Retriever Service dispatches queries to ChromaDB (semantic vector search) or SQLite (structured fallback), drawing on a BGG corpus of 2,000 games with 384-dimensional embeddings, mechanism types, and filterable metadata.
+6.1  Two-Phase Retrieval
+
+BoardGameGeek [1] contains data on over 100,000 tabletop games. We structure this corpus according to our ontology and employ a two-phase retrieval strategy: (1) ontology filtering, which narrows candidates to games sharing target mechanisms from the MechanismType taxonomy; then (2) semantic ranking, which ranks the filtered set by embedding similarity to the thematic query. This ensures retrieved games are both mechanically relevant and thematically resonant.
+
+As a concrete example, for the prompt “trading empires in the ancient Mediterranean” with target mechanisms [TRADING, AREA_CONTROL, RESOURCE_MANAGEMENT], the system retrieves Concordia (card-driven trading networks across the Roman Empire), Cyclades (Greek island control with auction-based resource competition), and Tigris & Euphrates (civilization building with multi-dimensional area control scoring). The generated design synthesizes insights from Concordia’s card mechanism and Tigris & Euphrates’ balanced scoring into something novel that explicitly acknowledges its lineage in a design rationale field.
+6.2  Grounded Creativity
+
+RAG transforms Generative Ontology from invention to informed invention. The system knows what mechanisms have been successfully combined, how similar themes have been approached, and what design patterns work for given player counts and complexity levels. When retrieval returns few results for a mechanism–theme combination, we have discovered an unexplored design space. The absence of precedent is itself information. The ontology provides the grammar; the retrieved examples provide the vocabulary. Together, they enable generation that speaks the language of game design fluently.
+7  Ontology as Validation Contract
+
+Generation is not enough. LLMs are notoriously agreeable: they produce output that looks valid without ensuring it is valid. The ontology serves not only as a generation schema but as a validation contract: a set of constraints that generated designs must satisfy to count as coherent.
+7.1  The Yes-Man Problem
+
+An LLM asked to generate a deck-building game may mention deck_building as a mechanism yet include no cards in the components, producing structurally incoherent output that sounds like a deck-building game without being one. Pydantic validation catches type errors and missing fields, but semantic coherence (the relationship between mechanisms and components) requires deeper validation.
+7.2  Ontological Constraint Checking
+
+We encode mechanism–component dependencies as validation functions. Listing 3 shows the core checker: a dictionary maps each mechanism to the component field it requires (deck building → cards, area control → board, worker placement → tokens). When a mechanism is present but its required component is absent, the validator flags the incoherence.
+
+              1
+              
+              
+              
+            def _check_mechanism_requirements(
+
+              2
+              
+              
+              
+                self, design: GameOntology
+
+              3
+              
+              
+              
+            ) -> List[str]:
+
+              4
+              
+              
+              
+                issues = []
+
+              5
+              
+              
+              
+                requirements = {
+
+              6
+              
+              
+              
+                    MechanismType.DECK_BUILDING:
+
+              7
+              
+              
+              
+                        ("card_types",
+
+              8
+              
+              
+              
+                         "Deck building needs cards"),
+
+              9
+              
+              
+              
+                    MechanismType.AREA_CONTROL:
+
+              10
+              
+              
+              
+                        ("board_description",
+
+              11
+              
+              
+              
+                         "Area control needs board"),
+
+              12
+              
+              
+              
+                    MechanismType.WORKER_PLACEMENT:
+
+              13
+              
+              
+              
+                        ("tokens",
+
+              14
+              
+              
+              
+                         "Workers need tokens"),
+
+              15
+              
+              
+              
+                }
+
+              16
+              
+              
+              
+                for mech in design.primary_mechanisms:
+
+              17
+              
+              
+              
+                    if mech in requirements:
+
+              18
+              
+              
+              
+                        field, msg = requirements[mech]
+
+              19
+              
+              
+              
+                        val = getattr(
+
+              20
+              
+              
+              
+                            design.components, field, None)
+
+              21
+              
+              
+              
+                        if not val:
+
+              22
+              
+              
+              
+                            issues.append(msg)
+
+              23
+              
+              
+              
+                return issues
+Listing 3: Ontology validator excerpt checking mechanism–component coherence.
+7.3  Iterative Refinement
+
+DSPy’s Assert mechanism enables inline validation: when dspy.Assert(is_valid, error_message) fails, DSPy automatically retries generation with the error message included as feedback. For complex validation requiring multiple attempts, we implement an explicit refinement loop: generate, validate, refine with specific issue descriptions, and repeat up to a configurable maximum. The validator returns both a boolean and a list of specific issues, enabling targeted correction rather than wholesale regeneration.
+
+This architecture treats the ontology as a contract between the generation system and downstream consumers. Downstream systems (whether human designers reviewing output, automated balancing tools, or game engines instantiating the design) can rely on structural guarantees: a deck-building game will have cards; a cooperative game will not have direct conflict; the end condition will be specified.
+8  Case Study: Mycelium: The Deep
+
+Theory is persuasive; demonstration is convincing. We trace a complete generation through the Generative Ontology pipeline, from initial theme to playable game design.
+8.1  Input
+
+We provide a theme chosen to be unusual enough that retrieval finds no direct precedents, forcing the system to synthesize rather than imitate:
+
+    Theme: “Bioluminescent fungi competing for dominance in a deep cave ecosystem”
+    Constraints: 2–4 players, medium complexity, cooperative, 60–90 minutes
+
+8.2  Phase 1: Mechanics Architect
+
+The Mechanics Architect analyzes the theme and selects three core mechanisms: RESOURCE_MANAGEMENT (spore allocation across growth opportunities), AREA_CONTROL (territory expansion through the cave network), and ENGINE_BUILDING (specialized fungal structures providing ongoing benefits). The turn structure uses simultaneous planning (players place spore tokens secretly) followed by sequential resolution. The agency justification notes that players must balance short-term growth against long-term network health, with engine choices creating divergent strategies even in cooperative play.
+8.3  Phase 2: Theme Weaver
+
+The Theme Weaver integrates narrative, titling the game Mycelium: The Deep. The setting is an ancient limestone cave system where bioluminescent fungi are the only light source, slowly flooding as underground rivers shift. Thematic integration maps each mechanism to its fictional counterpart: spore placement is reproductive strategy; area control is securing nutrient pathways; engine building is developing specialized structures (fruiting bodies for points, rhizomorphs for fast movement, symbiotic bacteria for defense). The antagonist is the rising water table, creating cooperative tension without player-versus-player conflict.
+8.4  Phase 3: Component Designer
+
+The Component Designer specifies 30 modular hex cave tiles arranged vertically (deeper at the bottom), three card types (Event, Structure, Objective), example cards (“Flash Flood: Water rises 2 levels this round”; “Fruiting Body: Costs 3 growth, produces 1 VP per round”), and tokens including fungal growth cubes (15 per player in 4 colors), spore tokens (3 per player, regenerating each round), and flood markers (20 blue cubes advancing upward).
+Refer to caption
+Figure 5: Case study: the design conversation. Each agent builds on the previous, with critics providing feedback that drives refinement before final assessment.
+8.5  Phase 4: Balance Critic
+
+The Balance Critic identifies three issues. First, a runaway leader problem in cooperative play: if one player’s strain grows faster, they dominate decisions (severity: moderate; recommendation: add a network synergy rule so connected strains share benefits). Second, arbitrary flood timing: random event cards determining flood speed leaves players with no agency over the core tension (severity: moderate; recommendation: make flood a predictable escalation of one level per round, with events as modifiers). Third, engine building as a potential trap: structures costing growth may cause builders to fall behind (severity: minor; recommendation: structures should provide an immediate small benefit plus an ongoing ability).
+8.6  Phase 5: Refinement
+
+The refinement agent addresses both moderate-severity issues: it adds a Network Synergy rule (adjacent strains share engine abilities), changes flood timing to a predictable one-level-per-round baseline with event modifiers, and rebalances structures to provide an immediate 1 VP plus their ongoing ability.
+8.7  Phase 6: Fun Factor Judge
+
+The Fun Factor Judge rates the refined design 7/10. Engagement hooks include persistent tension (“Will we reach the surface in time?”), simultaneous placement creating reveal anticipation, and structure building as achievement. Tension moments include the visible flood countdown, event card reveals, and decisions about saving endangered colonies versus abandoning them. Replayability stems from modular board setup, different strain combinations (4!=24 team configurations), and event deck variability.
+8.8  Output Summary
+
+Table 5 presents key fields of the generated design.
+Table 5: Abbreviated output: Mycelium: The Deep.
+Field 	Value
+Title 	Mycelium: The Deep
+Type 	Cooperative
+Goal 	Grow fungal network from cave depths to surface before flood reaches highest colony
+End 	Victory: growth cube reaches surface tile. Defeat: flood reaches highest cube row
+Mechanisms 	Resource management, area control, engine building
+Turn loop 	Place spores → Reveal → Grow → Event → Flood rises
+Players 	2–4, role-differentiated (Spreader, Rooted, Lumens, Toxic)
+Components 	30 hex tiles, 3 card types, 60 growth cubes, 12 spore tokens, 20 flood markers
+8.9  Analysis
+
+Without the ontology schema, an LLM generating “a cooperative game about bioluminescent fungi” would likely produce vague victory conditions (“escape the cave somehow”), inconsistent mechanisms (mentioning deck-building without specifying cards), missing components, unbalanced elements, and disconnected theme. Generative Ontology enforced complete goal specification via minimum-length constraints, coherent mechanism–component alignment via the validation function, thematic integration via the Theme Weaver’s explicit mapping, playability basics via required fields for turn structure and end condition, and balance review via the critic agent’s adversarial posture. The output is not merely plausible; it is playable. A designer could take this output, build a prototype, and begin playtesting immediately.
+9  Generalizability
+
+We developed Generative Ontology through tabletop games because games have rich ontological structure and connect to our previous work. But the pattern extends to any domain with coherent structure, where experts share vocabulary, where valid outputs satisfy definable constraints, and where knowledge accumulates in exemplars.
+Refer to caption
+Figure 6: Beyond games: any domain with a “validity grammar” is a candidate for Generative Ontology.
+9.1  Cross-Domain Application
+
+Table 6 illustrates eight domains where Generative Ontology applies, each with its ontological components, generation outputs, and validation criteria.
+Table 6: Cross-domain applicability of Generative Ontology.
+Domain 	Ontology Elements 	Generation Output 	Validation Criteria
+Tabletop Games 	Mechanisms, components, dynamics 	Novel game designs 	Playability, balance, coherence
+Music Composition 	Scales, progressions, forms 	Original compositions 	Harmonic validity, structure
+Architecture 	Spaces, materials, flows, codes 	Building designs 	Structural integrity, compliance
+Culinary Arts 	Ingredients, techniques, flavors 	Novel recipes 	Flavor balance, feasibility
+Narrative 	Characters, arcs, themes 	Stories and plots 	Narrative coherence, pacing
+Software Design 	Patterns, components, interfaces 	System architectures 	Consistency, coupling, coverage
+Legal Documents 	Clauses, parties, obligations 	Contracts 	Legal validity, completeness
+Scientific Protocols 	Methods, materials, controls 	Experimental designs 	Reproducibility, validity
+
+The methodology follows a consistent six-step pattern regardless of domain: (1) domain analysis, identifying expert concepts, relationships, and validity criteria; (2) ontology encoding, mapping concepts to Pydantic models with validators; (3) generation signatures, defining typed input/output contracts with expert personas; (4) retrieval augmentation, indexing exemplars by ontology structure; (5) validation loop with structural, semantic, and adversarial checks plus iterative refinement; and (6) multi-agent specialization, assigning focused expertise and concerns per ontology subdomain.
+9.2  When to Use Generative Ontology
+
+The pattern is most valuable when four conditions hold: (1) the domain has structure: experts can articulate what makes outputs valid; (2) exemplars exist: a corpus of successful examples enables RAG and grounds generation; (3) validity is checkable: constraints can be encoded as validation functions; and (4) generation is valuable: the effort of building the ontology is justified by repeated generation needs. Game design exemplifies all four criteria: rich structure, thousands of documented games [1], clear validity criteria, and ongoing need for novel designs.
+10  Conclusion and Future Work
+
+We began with a question: what happens when ontology learns to create? The answer is Generative Ontology, a synthesis combining the structural precision of knowledge representation with the creative power of large language models [13].
+10.1  Key Insights
+
+Four insights emerged from this work:
+The Grammar Paradox.
+
+Constraints enable creativity. A poet needs grammar not because grammar limits poetry but because grammar makes poetry possible. Our ontology schema, with its required fields, enum constraints, and validation rules, does not restrict the LLM’s creativity but provides the scaffolding within which meaningful creativity occurs.
+Neither Alone Suffices.
+
+Traditional ontology without generation is static, a map that cannot build cities. LLM generation without ontology is unconstrained, fluent outputs that collapse under scrutiny. The synthesis produces outputs that are both creative and valid, both novel and coherent.
+The Whiteheadian Connection.
+
+Generative Ontology offers a concrete instantiation of Whitehead’s metaphysics [16, 6]. The ontology provides eternal objects, abstract patterns existing as potentials. Generation produces actual occasions, concrete instantiations where form meets matter. Creativity is the movement from potentiality to actuality.
+The Pattern Generalizes.
+
+Although we developed Generative Ontology through games, the pattern applies wherever structured domains exist. Music, architecture, cooking, narrative, software design: each has its grammar, its ontology, its space of valid outputs.
+10.2  Future Directions
+
+This work opens several paths for exploration. Optimization: DSPy’s optimization capabilities [10] (BootstrapFewShot, MIPRO) can improve generation quality over time by learning from successful outputs; the ontology validation function we defined enables principled optimization via reward shaping. Interactive design: a human designer could collaborate with the system, providing high-level creative direction while the system handles structural completeness, with the ontology serving as a shared language between human and AI. Cross-domain transfer: ontologies developed for one domain may inform generation in related domains; game mechanisms and narrative structures share conceptual space, and the abstraction of Generative Ontology may enable cross-pollination. Ontology learning: we assumed the ontology is given, but AI systems could learn ontologies from corpora of successful examples; the induction of generative grammars from exemplars is a compelling research direction.
+
+The grammar does not write the poem. But without grammar, there is no poem to write. Generative Ontology gives AI the grammar it needs to create meaningfully within any structured domain. The GameGrammar system is available at https://github.com/bennycheung/GameGrammarCLI.
+References
+
+    [1] BoardGameGeek. https://boardgamegeek.com/, 2024.
+    [2] DSPy: Programming with foundation models. https://dspy.ai/, 2024.
+    [3] Timothy Barker. Artificial creativity: A process philosophy of technology perspective. Journal of Continental Philosophy, 2024. URL https://eprints.gla.ac.uk/327708/1/327708.pdf.
+    [4] Álvaro Guglielmin Becker, Gabriel Bauer de Oliveira, Lana Bertoldo Rossato, and Anderson Rocha Tavares. Boardwalk: Towards a framework for creating board games with LLMs. arXiv preprint arXiv:2508.16447, 2025. URL https://arxiv.org/abs/2508.16447.
+    [5] Benny Cheung. Unlocking the secrets of tabletop games ontology. https://bennycheung.github.io/unlocking-secrets-of-tabletop-games-ontology, 2025.
+    [6] Benny Cheung. Process philosophy for AI agent design. https://bennycheung.github.io/process-philosophy-for-ai-agent-design, 2026.
+    [7] Aidan Cooper. A guide to structured generation using constrained decoding. https://www.aidancooper.co.uk/constrained-decoding/, 2024.
+    [8] Geoffrey Engelstein and Isaac Shalev. Building Blocks of Tabletop Game Design: An Encyclopedia of Mechanisms. CRC Press, 2020.
+    [9] Roberto Gallotta et al. Large language models and games: A survey and roadmap. arXiv preprint arXiv:2402.18659, 2024. URL https://arxiv.org/abs/2402.18659.
+    [10] Omar Khattab et al. DSPy: Compiling declarative language model calls into self-improving pipelines. In International Conference on Learning Representations (ICLR), 2024. URL https://openreview.net/pdf?id=sY5N0zY5Od.
+    [11] Mahdi Farrokhi Maleki and Richard Zhao. Procedural content generation in games: A survey with insights on emerging LLM integration. arXiv preprint arXiv:2410.15644, 2024. URL https://arxiv.org/abs/2410.15644.
+    [12] Gaya Mehenni and Amal Zouaq. Ontology-constrained generation of domain-specific clinical summaries. arXiv preprint arXiv:2411.15666, 2024. URL https://arxiv.org/abs/2411.15666.
+    [13] Lingrui Mei et al. A survey of context engineering for large language models. arXiv preprint arXiv:2507.13334, 2025. URL https://arxiv.org/abs/2507.13334.
+    [14] Natalya F. Noy and Deborah L. McGuinness. Ontology development 101: A guide to creating your first ontology. Technical report, Stanford University, 2001. URL https://protege.stanford.edu/publications/ontology_development/ontology101.pdf.
+    [15] Sabrina Toro et al. DRAGON-AI: Dynamic retrieval augmented generation of ontologies using AI. Journal of Biomedical Semantics, 2024. URL https://jbiomedsem.biomedcentral.com/articles/10.1186/s13326-024-00320-3.
+    [16] Alfred North Whitehead. Process and Reality. Free Press, 1929. Corrected edition, 1978.
+
+PDF/EPUB
+More
+Abstract
+Irrespective of data size and complexity, query and exploration tools for accessing data resources remain a central linkage for human–data interaction. A fundamental barrier in making query interfaces easier to use, ultimately as easy as online shopping, is the lack of faceted, interactive capabilities. We propose to repurpose existing ontologies by transforming them into nested facet systems (NFS) to support human–data interaction. Two basic issues need to be addressed for this to happen: one is that the structure and quality of ontologies need to be examined and elevated for the purpose of NFS; the second is that mappings from data-source specific metadata to a corresponding NFS need to be developed to support this new generation of NFS-enabled web-interfaces. The purpose of this paper is to introduce the concept of NFS and outline opportunities involved in using ontologies as NFS for querying and exploring data, especially in the biomedical domain.
+1. Introduction
+When it comes to exploring and accessing biomedical data, often is the question asked: “Why can’t it be as easy as shopping on Amazon?”
+To answer this question, we need to identify the core technologies that made online-shopping experience “pleasant,” and then hope to be able to apply a similar strategy for exploring and accessing biomedical data, big or small. Among many drivers of online-shopping [24], faceted search [23,37] capability is perhaps one of the most ubiquitously applied information-retrieval techniques. Indeed, studies show that faceted search can help enhance user experience in a variety of settings [10,18,21,27,47].
+Semantic labeling is the missing link between an entity (such as consumer goods for online shopping or study subjects in a clinical data warehouse) and ways to identify and accessing it through means such as a web-based user interface. This is well-articulated in a recent article by Balog [5] and in information organization as tags for folder and menu hierarchies [6,46,48].
+Semantic labeling enables facets, such as size, color, make, price to be annotated for entities such as shoes in an online store. Faceted organization and presentation of metadata on products is the key mechanism that allowed consumers of web-sites to quickly narrow down from millions of products to items of interest using such simple facets. The entities for biomedical data, however, are highly complex and there does not exist a corresponding small set of semantic labels to support faceted search. For example, clinical data, captured as a part of patient care, are highly complex, and includes demographics, medical history, lab reports, diagnosis, medication, and discharge summaries.
+Biomedical ontologies are suitable as semantic labels for biomedical entities. However, these ontologies, intended to model and capture concepts and their relations in the biomedical domain, are broad and complex. For example, SNOMED CT [17], the largest clinical terminology used worldwide, contains over 300,000 concepts and over 1.5 million relations. The National Cancer Institute thesaurus (NCIt) [15,32], on the other hand, is a biomedical terminology managed by NCI Enterprise Vocabulary Services, containing more than 140,000 concepts related to cancer. Such size and complexity raise basic questions related to their potential role as facets for web-based user interfaces: What, if any, structural transformations are needed for ontologies to play the role of facets for information retrieval? Is it feasible to have ontologies to play the role of facets? What kind of desirable properties are required for ontologies to support facet-oriented user interaction? How to measure and evaluate the performance of this approach?
+In this paper we propose the concept of nested facet system (NFS), outline a strategy to transform existing ontologies into NFS to support human–data interaction, and identify exemplar research questions related to the use of NFS to enhance user experience in human–data interaction. Unlike traditional faceted search, the intended users of interfaces supported by NFS are those equipped with some levels of knowledge in specific domains. Our motivation for NFS is to facilitate information retrieval in such specific domains, but NFS can also be readily implemented as a navigation interface for the corresponding underlying ontologies [45].
+2. Nested facet system
+A facet is a semantic label of an entity along multiple possible axes or dimensions. Facets correspond to properties of the entity of interests. For example, online vendors use facets to label their product using readily available information about their type, brand, price, and support consumer shopping experience through faceted search [37].
+A nested facet, or higher-order facet, is a facet that includes a (finite) collection of other facets as its components. In this context, traditional facets are primitive facets, those that are not made of other facets. A nested facet system is a set of nested facets (we call them facets from now on) with a taxonomy relation (i.e., subclass, subsumption, or hierarchical relation) among them.
+Definition 1.
+A nested facet system
+is a finite set P (with its element called facet) and a collection of refinements , with (called the “head” of the refinement) and for each (called the “body” of the refinement), such that
+1.
+Each element
+is the head of at most one refinement;
+2.
+The head of any refinement is not a part of the body of the same refinement.
+With respect to each refinement ,
+s are called sub-facets of p, and p is called a nested facet. Elements of P that do not have any sub-facets are called primitive facets.
+The intuition for a refinement
+is that a complex facet p can be captured by a collection of sub-facets . Alternatively, if we think of p as a “query,” then the logical disjunction of
+is a “query expansion” for p.
+Each NFS
+induces a partial order in the following way. When , we write
+. We write ⪯ for the reflexive, transitive closure of ≺, which is a partial order on P (taking account for the equivalence class induced by ≺ when necessary).
+To endow NFS’ with their intended meaning, we treat facets as generalized semantic labels as follows. Given a set of entities E, a facet p with value space
+is a collection of parameterized semantic labels , such that for each member and for each , e can be classified as having property or not. For each , we write ⊧ if entity e has facet p with value t. We write for the set ⊧ for t, and for the set ⊧. In extreme cases, we allow to be empty, and p can be specified without a parameter. For a refinement , we write
+for , where
+.
+Definition 2.
+When
+is defined for each facet of an NFS , the triple ⊧ is called an interpretation of . A refinement of is sound with respect to an interpretation if for each . An NFS
+is sound with respect to an interpretation if each of the NFS’ refinement is sound.
+Proposition 1.
+If ⊧
+is a sound interpretation for , then we have whenever
+.
+Definition 3.
+We call
+complete with respect to ⊧, when it is the case that with respect to any refinement in , we have the property that for any , if ⊧, then for some i, ⊧ with
+.
+Proposition 2.
+If ⊧
+is a complete interpretation for , then we have
+for each refinement in
+.
+Note that the notation ⊢ is deliberatively suggestive of a potential connection with “Information Systems” [31,40], part of domain theory [2] as a mathematical foundation for programming languages [38]. There appears to be potential formal connection to the notion of disjunctive information systems [39,40].
+3. Ontologies as nested facet systems
+Biomedical ontologies serve as the semantic scaffolding for us to fully capitalize on the transformative opportunities of the increasingly large amounts of digital data produced by the biomedical research enterprise. For example, BioPortal [28], the world’s most comprehensive repository, contains over 600 ontologies and over 7 billion concepts that have been used to support a wide spectrum of scientific projects. Biomedical ontologies provide the basis for scientific rigor during the process of data collection, annotation, management, analysis, and sharing in biomedicine. They not only serve as metadata standards, but also play a vital role in down-stream systems as a declarative knowledge source [7]. For example, SNOMED CT [17], the most comprehensive and precise clinical health terminology product in the world, facilitates the clear exchange of health information in Electronic Health Records (EHRs), leading to higher quality, consistency and safety in healthcare delivery [14,33].
+Ontological systems are not designed a priori as nested facet systems. But what if we attempt to reuse them as facets to support user interfaces? An intuitive idea is to leverage the hierarchical or is-a relation, the structural backbone of most ontologies and simply treat Ontological Concepts as Facets.
+For a given ontology such as SNOMED CT, we can treat each concept c as a facet p, and build a nested facet system by letting
+if the concepts corresponding to the ’s are the (immediate) lower neighbors of p. In other words, if p is the facet corresponding to c, and ’s are the facets corresponding to all the (immediate) lower neighbors of c with respect to the hierarchical relation, then make p a nested facet with
+s its components.
+For this (very reasonable) intuition to work, the following questions must be answered:
+1.
+Does this construction obey the soundness property mentioned at the end of the previous section?
+2.
+Does this construction obey the completeness property, mentioned at the end of the previous section?
+Intuitively, soundness means that all items below each facet are relevant to the facet. Completeness means that any items or facets relevant to a specific facet are already contained in and accessible through the facet. The soundness and completeness properties of NFS directly affect query performance in terms of precision and recall. Incomplete facets will reduce recall, while unsound facets will reduce precision. Top of Fig. 1 contains an incomplete facet, in that concept node 5 as a facet missed the sub-facet represented by concept node 6.
+Fig. 1. Two example NCI Thesaurus fragments. Above: a fragment containing a bug. Below: fragment with the bug fixed by redirecting node 5 as a direct parent of node 6.
+Interestingly, similar properties of soundness and completeness have been studied in the area called Ontology Quality Research (OQR [11]) encompassing ontology quality auditing, assurance, and evaluation [3,50]. For example, OQR method can identify a missing is-a relation (incompleteness) in the top fragment of Fig. 1 and automatically suggest the addition of is-a in the lower part of Fig. 1. The addition of this is-a edge makes the facet represented by node 5 “more complete” because it now includes node 6 as a sub-facet (as it should be). The goal of OQR is to develop methods and tools to detect [41,42], identify [13], and address [1,9,49] quality issues in ontologies. This is a particularly important area in the biomedical domain, because of the significance, scope, complexity, manual involvement and evolving nature of biomedical ontologies that are intended to serve as terminology standards, as well as to codify knowledge at the same time.
+Identifying quality issues in ontologies such as unsoundness or incompleteness is a task similar to finding bugs in software. Just as there is no single “recipe” to catch and fix all software bugs, no single method is expected to exist that addresses all ontology quality issues all at once. Similarly, for NFS, a single method to ensure and allow us to formally prove its soundness and completeness is unlikely. Instead, we see the development of methods to “improve” soundness and completeness of NFS’ derived from ontological systems, leading to meaningful enhancement of the performance of NFS for information retrieval tasks.
+In the following sections we discuss such questions in more depth using biomedical ontologies and clinical data resources as examples, and provide use cases to demonstrate the feasibility and work involved to implement this approach.
+4. Data resources and related ontologies
+An array of biomedical datasets in the context of human health exists but there is a general lack of faceted interfaces to facilitate data exploration and information retrieval. In most of the cases, ontological systems have already been used for annotating or labeling the backend data but their interface roles have not been fully exploited. This state of affairs represents a ripe and rich setting for developing and implementing NFS to facilitate cohort discovery and sub-group analysis. This section provides a brief synopsis of these data resources and the associated ontological systems as an illustration of a targeted application area for NFS.
+4.1. Clinical data warehouse
+The entity E for clinical data consists of patients. Clinical data from EHRs are critical for analyses to improve health care delivery. Clinical data warehouses are EHR data made available for research. Examples include i2b2 data warehouses [20,25], PCORnet – the National Patient-Centered Clinical Research Network [19], and Observational Health Data Sciences and Informatics (OHDSI) research network [22] with an open, community data standard called the Observational Medical Outcomes Partnership (OMOP) Common Data Model. SNOMED CT is a common ontological component of all these data sources.
+4.2. Health claims data
+Health claims data (also called administrative data) such as Cerner Health Facts, IBM Market Analytics, and Optum Health Data and Analytics, are those collected for the purpose of health insurance claims. They include information at the patient encounter level regarding diagnoses, treatments and billed and paid amounts. This is a valuable data source for research aimed at driving improvements in population health to address issues related to cost, quality and outcomes. The use of administrative data can complement EHR data by providing a regional or national scale view. Because of the health claims context, main vocabularies for health claims data involve diagnosis (ICD 9 and ICD 10), procedure code (CPT), and medication (RxNorm).
+Clinical data and health claims data are domain-agnostic: they cover the entire spectrum of disorders and disease domains. Domain-specific data resources, however, are those cover a signal medical specialty, but with greater depth. We highlight several such resources next.
+4.3. The National Sleep Research Resource – NSRR
+The gold standard for sleep diagnosis is polysomnography (PSG), which monitors physiological processes including electroencephalogram (EEG – brain waves), electromyogram (EMG – muscle tone), and electro-occulogram (EOG – eye movements). The recorded polysomnograms provide comprehensive data about biophysical changes that occur during sleep and characterize the association between sleep and other public health related problems. The NSRR [16,44] is a retrospectively annotated repository of 30,000 overnight sleep recordings. The NSRR offers free and open web access to large collections of de-identified, well-annotated national repository of sleep data, including PSGs which are linked to risk factor and outcome data for participants in major NIH studies. Since its launching in 2014, 282TB of data have been shared by over 3,000 users around the world through the NSRR portal sleepdata.org.
+NSRR uses the Sleep Domain Ontology [4] as the canonical vocabulary for across-study data mapping.
+4.4. The Center for SUDEP Research – CSR
+The Center for Sudden Unexpected Death in Epilepsy (SUDEP) Research [8] manages another domain-specific clinical research data resource. The CSR has prospectively collected high grade multimodal data including high-resolution electroencephalographic signal, research-grade brain MRI, biochemical and DNA samples together with detailed phenotypic data for more than 3,000 epilepsy patients. Similar to NSRR, a disease-specific ontology called Epilepsy and Seizure Ontology [30] has been created as a part of the CSR informatics infrastructure process.
+4.5. Cancer registries
+For cancer research, the US National Cancer Institute’s Surveillance Epidemiology and End Results (SEER) program [34] coordinates a collection of state-based SEER registries. These state-centered cancer registry receiving data about new cancer cases from healthcare facilities and physicians within the state. Typically, five aspects of data are captured: patient data, case data, follow-up, therapy data and pathology reports. Patient data consists of variables including various patient-related information such as demographics, race, ethnicity, smoking, and clinical trial participation information. Case data captures variables for diagnosis, morphology, staging, biomarkers, and other categories. Follow up information contains variables including follow-up physician, date of last contact, survival status, and cancer status. Therapy data records variables with information on surgery, chemotherapy, radiation, and other treatment modalities.
+In general, SEER data are considered to be among the most accurate and complete population-based cancer registries in the world that includes stage of cancer at the time of diagnosis and patient survival data. Cancer registries uses NAACCR data dictionary [26] for variable definition, and is only partially mapped to NCIt. This is where work on primitive facets is needed in order to use NCIt as NFS.
+5. Implementation strategy
+The following steps are typically involved in developing an NFS-based query engine for a data source (see Fig. 2 for a functional architecture).
+1.
+Identify or develop a domain ontology covering the conceptual scope of the data source. If multiple ontologies are used, ontology merging would be a necessary step involved in developing such a domain ontology.
+2.
+Construct a mapping from the data dictionary for the data source to concept of the domain ontology.
+3.
+Convert the domain ontology to NFS and implement NFS-based query interface by systematically extracting the “refinement” structure of nested facets from the hierarchical relationships of the ontology following the method given in Section 3.
+4.
+Implement an appropriate query optimization strategy dedicated to the data source as a database. Transformation to a NoSQL database such as MongoDB may be desirable depending on the data source.
+Fig. 2. High level functional architecture of an NFS-based system.
+Model-View-Controller [29], a well-established and popular web-based application development paradigm, is a suitable approach for developing an NFS-based system, particularly for the clinical informatics domain [36].
+6. Opportunities and challenges
+For disease-specific domains such as sleep and epilepsy, we have developed NFS query interfaces such as x-search [12] and Multi-Modality Epilepsy Data Capture and Integration System (MEDCIS [43]). x-search is a cross-cohort query and exploration system to enable researchers to query patient cohort counts across a growing number of completed, NIH funded studies in the NSRR. x-search is public available at https://x-search.net covering over 26,000 unique subjects. The canonical data dictionary, Sleep Domain Ontology [4], covers over 900 common data elements across a dozen cohort studies in NSRR. x-search has received over 2,300 queries by users from 16 countries since its initial launch [12]. For epilepsy, the MEDCIS interface uses a dedicated Epilepsy and Seizure Ontology [30] to drive an NFS-based query interface. MEDCIS is the main query interface for CSR data, integrating curated multi-modality clinical data of 2,000 epilepsy patients from 8 medical centers.
+Based on our experience, benefits of an NFS-based query interface include:
+1.
+It provides an intuitive interface for users to navigate to a specific concept of interest and specify the corresponding query criterion in a menu-driven, templated style.
+2.
+The same boolean query can be constructed in a more efficient manner, usually involving only half of the time than that is needed for alternative interfaces without involving NFS.
+3.
+A query optimization strategy can be readily implemented by precomputing queries corresponding to primitive facets and ordering the query execution sequence based on the result sizes for primitive facets.
+Such benefits have been studied in the clinical data warehouse setting [35] but we also encountered challenges that seem to be typical in developing an NFS-based query interface:
+1.
+There is no clear and efficient way to guarantee the soundness and completeness properties of NFS in general. For example, even though SNOMED CT and NCIt satisfy the soundness and completeness properties “for the most part” using the NFS refinements specified in Section 3, enough facet instances exist where such properties are violated [41]. Such violations affect the soundness and completeness properties of facets, leading to reduced precision and recall for query interfaces using NFS. Interestingly, non-lattice auditing methods can precisely identify and potentially fix such issues [1,9,13,42,49].
+2.
+Primitive facets are not always specified and ready for use. For example, for Cancer Registries, the common data dictionary exists (i.e. NAACCR), but not all of its variables have been structurally mapped to appropriate NCIt terms both in value type and value range. Effort is needed to construct such a mapping (once only, though) before data dictionary variables can be used as primitive facets.
+3.
+When a domain ontology is large and deep (e.g. SNOMED CT), interface response can be sluggish if the hierarchical (sub-facet) interface widget rendering algorithm is not optimized.
+7. Conclusion
+We outlined a general approach for constructing nested facet systems from ontologies. We highlighted use cases for clinical data, and discussed progress and remaining challenges. Given the importance of faceted search, our proposed approach deserves further study. Efforts in developing experimental interfaces supporting NFS will be highly desirable and impactful for accessing biomedical data for research.
+https://github.com/bennycheung/FoodInsight
+https://github.com/bennycheung/PyDeepDream
+https://github.com/bennycheung/PyDeepStyle
+pydantic; pydantic-core

@@ -25,3 +25,6 @@ models/wordnet/
 /operational_corpus.json
 research/mapper/.docs_chunks.jsonl
 research/mapper/.expansion_candidates.json
+
+# Python bytecode
+__pycache__/

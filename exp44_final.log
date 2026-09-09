@@ -1,0 +1,47 @@
+Experiment 44: does the coverage disposer RANK the proposer's output?
+
+physis: 730 entries, embedding...
+hold-out: 657 known / 73 held out
+proposals: 1638 near-neighbour midpoints (ranks 1-5)
+
+records: 6234 operational events, embedding...
+coverage: threshold 0.741 (median) — 2747/6234 records uncovered (44%)
+
+planner-rule check: candidates rescuing >=1 record — p25 threshold 0.564: 98/1638, p50 (median) 0.741: 272/1638
+ground truth: 217/1638 proposals are hits (base rate 0.132)
+
+=== DIAG: rescue reachability on sampled records ===
+  record 0: live 0.683 (e464) / 0.683 (e666), mutual 0.776, midpoint-in-set false -> its score None; best proposal 0.709
+  record 1558: live 0.741 (e641) / 0.704 (e26), mutual 0.872, midpoint-in-set true -> its score Some(0.74680734); best proposal 0.747
+  record 3117: live 0.742 (e409) / 0.735 (e700), mutual 0.849, midpoint-in-set true -> its score Some(0.76803064); best proposal 0.769
+  record 6233: live 0.803 (e688) / 0.796 (e413), mutual 0.735, midpoint-in-set false -> its score None; best proposal 0.824
+
+=== precision@k: share of hits in the top k, per ranking arm ===
+
+  arm           k=25    k=50   k=100   k=200   k=400   (base 0.132)
+  LIFT          0.480   0.400   0.360   0.285   0.193   operational: total score lift over the record pile
+  TRAFFIC       0.160   0.140   0.180   0.200   0.172   max cosine to any record — popularity control
+  P25-GAIN      0.320   0.300   0.200   0.155   0.140   planner rule at the p25 threshold
+  GEOMETRY      0.200   0.140   0.120   0.115   0.128   max cosine to known — the proposer's own preference
+  PAIR-SIM      0.200   0.140   0.120   0.115   0.128   parents' mutual cosine
+  RANDOM        0.120   0.140   0.130   0.090   0.145   seeded shuffle — the floor
+
+=== AUC of each signal as a hit classifier (0.5 = chance) ===
+  LIFT: 0.577
+  TRAFFIC: 0.534
+  P25-GAIN: 0.519
+  GEOMETRY: 0.476
+  PAIR-SIM: 0.476
+
+=== operational scope ===
+  proposals with any lift: 1236/1638 (75%)
+
+  within that worklist: 174 hits, conditional base rate 0.141
+  top 50 of the worklist by lift: 20 hits (0.400 vs 0.141 conditional, 0.132 overall)
+
+  corpus traffic per held-out concept (max record cosine): median 0.793, p90 0.847
+
+(Read: COVERAGE arm > GEOMETRY arm at equal k means the operational signal adds
+ ranking information the proposer's own geometry does not already carry — that is
+ the composition working. Equal means the disposer filters but does not rank, and
+ the worklist is worth reading only as a set, not in order.)
