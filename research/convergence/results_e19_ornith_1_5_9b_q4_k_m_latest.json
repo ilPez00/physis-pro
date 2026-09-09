@@ -1554,6 +1554,344 @@
     "P09": true,
     "N02": false
    }
+  },
+  {
+   "arm": "A5",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "There are two distinct kinds of participants that exchange a resource each holds in surplus for a resource the other holds in surplus.",
+     "Each participant can also operate without its partner, and actually does so from time to time (it is not permanently dependent).",
+     "Neither participant changes into or becomes part of the other; each keeps recognisable as what it was after an interaction. The change may be a reduction, but there must remain something continuous.",
+     "The two partners interact repeatedly over time and at many contact points rather than once. The relationship is distributed across these contacts rather than decided by one central authority or planner."
+    ],
+    "excludes": [
+     "A single thing made of parts that cannot exist independently — the whole depends on each part to function, so there is no 'without partner' state.",
+     "A temporary transaction between strangers with no expectation of future exchange and nothing to carry it forward."
+    ],
+    "name": "Relational equilibrium",
+    "roles": [
+     "A holder of a resource that the other needs",
+     "A provider of a resource that the first needs"
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "N04": true,
+    "P11": true,
+    "P09": true,
+    "P06": true,
+    "P05": true,
+    "N10": false,
+    "P02": true,
+    "P10": true,
+    "N08": true,
+    "P08": true,
+    "N11": false,
+    "N12": true,
+    "N06": true,
+    "P01": true,
+    "N09": false,
+    "P04": true,
+    "N03": false,
+    "N07": false,
+    "P12": true,
+    "N05": false,
+    "N02": false,
+    "P07": true,
+    "N01": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "The two roles exchange a resource each possesses and needs from the other: role A supplies what it can produce at low cost to itself; role B supplies what it cannot reach otherwise.",
+     "Each role receives exactly one counterflow of equal value, so neither keeps a surplus nor suffers a net loss (the flows balance by amount, not by matching parcels).",
+     "The relationship is bidirectional and mutually obligatory: both roles depend on the exchange for something they lack; dropping either role degrades or disables that partner.",
+     "Each role preserves its own identity while participating: it can still function as an independent unit when the link is broken, so neither becomes dependent only in form but also in substance."
+    ],
+    "excludes": [
+     "Systems with unequal exchange where one party gains a net surplus at the other's expense (a dominant role that keeps more than it gives).",
+     "Hierarchical systems where influence or authority flows from top to bottom, rather than being distributed as an interdependent network.",
+     "Communal pooling without distinct roles: resources and burdens shared equally among interchangeable members with no specialisation."
+    ],
+    "name": "Symbiotic Exchange Structure",
+    "roles": [
+     "A role that generates a resource (e.g., something it produces or fixes) but lacks access to another's resource.",
+     "B role that supplies a different resource (e.g., something it cannot reach alone) but depends on A for its own output."
+    ]
+   },
+   "verdicts": {
+    "P10": true,
+    "P08": true,
+    "P02": true,
+    "P05": true,
+    "N08": true,
+    "P06": true,
+    "N05": true,
+    "P03": true,
+    "N06": true,
+    "P12": true,
+    "N09": false,
+    "N01": false,
+    "N10": false,
+    "N07": false,
+    "P11": false,
+    "N12": false,
+    "P01": true,
+    "N03": false,
+    "N04": true,
+    "N11": false,
+    "P07": true,
+    "P04": true,
+    "P09": true,
+    "N02": false
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 4,
+   "schema": {
+    "conditions": [
+     "Each role is identifiable by its position in a flow rather than by any intrinsic nature it carries.",
+     "The flow passes from one part to another and back; the parts are defined as the nodes where that exchange occurs, not as free-standing things that merely happen to be present.",
+     "There is no central authority or plan. The pattern of who connects to whom emerges from pairwise local decisions about what each side gives in return for what it gets.",
+     "The arrangement is maintained only while the connection exists; break the links and the structure relaxes back toward a form that did not require them.",
+     "Each part keeps its own independent capacity and reproductive path. Neither part becomes dependent on the other to persist or to multiply."
+    ],
+    "excludes": [
+     "A system in which one part must convert, transform, or be absorbed into another (the joined parts stop being able to exist apart).",
+     "A system held together by a shared plan, schedule, or central decision-maker that assigns who connects with whom.",
+     "A loose coexistence of independent units that do not exchange anything and so have no pattern shaping which ones touch."
+    ],
+    "name": "Emergent Exchange Web",
+    "roles": [
+     "Provider: the part that supplies one kind of resource along a flow.",
+     "Receiver: the part that takes that same resource in return for something it offers back.",
+     "Bridge: any intervening role whose position is defined only by where the two flows meet."
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "P11": true,
+    "N01": false,
+    "P02": false,
+    "P01": true,
+    "P10": true,
+    "P03": true,
+    "N10": false,
+    "P05": true,
+    "N03": false,
+    "N06": false,
+    "P08": true,
+    "P09": true,
+    "N09": false,
+    "N11": false,
+    "N02": false,
+    "N12": false,
+    "N05": false,
+    "P04": true,
+    "P12": true,
+    "P07": true,
+    "N07": false,
+    "P06": true,
+    "N04": true
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 0,
+   "schema": {
+    "conditions": [
+     "The relationship is fundamentally asymmetric: one part (the dependent) benefits from interaction with another part (the provider), while the other part's response to that benefit remains negligible for a sustained period.",
+     "There exists an initial window in which the recipient receives support or access without any detectable cost imposed on the source. The interaction must be non-reciprocal during this phase—not merely unequal, but directionally one-way.",
+     "The relationship is real and functional rather than incidental: it consistently produces a measurable effect (growth, acquisition, binding) in at least one system and remains quiescent or neutral in the other until some accumulated threshold of use is crossed.",
+     "There exists an identifiable tipping point where sustained use by the recipient eventually imposes load on the source. The transition from free to costly must be describable and checkable against the system's history.",
+     "The provider does not visibly change as a result of being used, at least within its own frame: it shows no awareness, retaliation, refusal, or adaptive response to the demand placed upon it, even though external observers may later note that its capacity has eroded."
+    ],
+    "excludes": [
+     "Systems in which the dependency is mutual and continuous—the provider receives an equal and ongoing benefit from every exchange, so there is no one-way window. (Example of exclusion: a symbiosis where both parties depend on each other equally at all times.)",
+     "Relationships that are merely incidental or opportunistic—where contact happens to occur but produces no consistent functional effect in either system, because the interaction does not reliably yield anything usable.",
+     "Structures where the source demonstrably and immediately resists the demand—refusing outright, punishing the taker as soon as a threshold is passed, or withdrawing its support before any real benefit has been extracted. In such cases there is no sustained window of uncosted access to establish the pattern."
+    ],
+    "name": "asymmetric dependency with delayed cost",
+    "roles": [
+     "the dependent: a component that gains something—access, support, binding capacity—by drawing on another system without initially paying for it",
+     "the provider: a component whose resources are drawn upon by the dependent and which does not reciprocate during the early phase of use"
+    ]
+   },
+   "verdicts": {
+    "N11": false,
+    "N09": false,
+    "P04": false,
+    "P06": false,
+    "N07": false,
+    "P12": false,
+    "N04": false,
+    "P09": false,
+    "N12": false,
+    "N10": false,
+    "N08": false,
+    "P05": false,
+    "P07": false,
+    "N02": false,
+    "P08": true,
+    "P10": true,
+    "N03": false,
+    "N01": false,
+    "P01": false,
+    "N05": false,
+    "N06": false,
+    "P03": false,
+    "P11": false,
+    "P02": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 1,
+   "schema": {
+    "conditions": [
+     "The relationship is directional: a signal flows one way from source to target and produces an effect on the target's state.",
+     "The target exists independently of the source; it does not require the source in order to exist or function as its own entity.",
+     "At typical operating levels, applying the source makes little or no measurable difference to the target; the relationship is effectively inert over a wide range.",
+     "When applied beyond that wide range—large enough quantity, intensity, duration, size, load, density, or strength—the source does alter the target's state in a graded way (the effect increases with how much of it there is).",
+     "The system can be described as having this structure without reference to any particular kind of substance, process, material, or entity.",
+     "No feedback loop carries an influence from the target back onto the source."
+    ],
+    "excludes": [
+     "A relationship in which both participants depend on each other and neither can be defined apart from the other; such a pairing has no independent baseline state to perturb, so it cannot have an inert range.",
+     "A relationship that includes a return path of influence: if changes made by one party feed back to modify the other's behaviour or state, both parties are active participants rather than source and target."
+    ],
+    "name": "Perturbable baseline",
+    "roles": [
+     "source (the thing supplied)",
+     "target (the thing affected)"
+    ]
+   },
+   "verdicts": {
+    "N10": false,
+    "N04": false,
+    "N06": true,
+    "N09": true,
+    "P03": false,
+    "P09": false,
+    "P08": false,
+    "P02": false,
+    "N02": false,
+    "P06": false,
+    "N11": false,
+    "N07": true,
+    "P05": false,
+    "P01": false,
+    "N08": false,
+    "N05": false,
+    "P10": false,
+    "N01": false,
+    "P04": false,
+    "P07": false,
+    "N12": false,
+    "P12": true,
+    "P11": false,
+    "N03": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 2,
+   "schema": {
+    "conditions": [
+     "A single primary actor exists (the 'resource-holder') that possesses an asset and is largely unaffected by its presence or absence.",
+     "An external agent extracts value from the asset without reciprocating anything in return for that extraction.",
+     "The interaction produces a persistent change to the resource-holder — either depletion of material, structural degradation, suppression of growth/output, or loss of integrity — such that it cannot fully recover over time.",
+     "There is an asymmetry between who bears the cost and who gains: one party loses, the other gains at no corresponding expense.",
+     "The system persists over repeated exchanges rather than as a single one-off transaction."
+    ],
+    "excludes": [
+     "A relationship in which both parties receive reciprocal benefit for each contribution (e.g., mutual support where the scaffold also depends on and benefits from the climber).",
+     "An exchange with no net harm to either party, even if one side is more passive than the other.",
+     "Cooperation or cooperation-adjacent systems where costs are shared and returns are distributed among contributors."
+    ],
+    "name": "Asymmetric Extraction",
+    "roles": [
+     "Resource-holder: possesses an asset (material, structural capacity, a binding site, a price level, or a lexical item) that can be drawn upon.",
+     "Extractor: gains value by consuming the holder's asset."
+    ]
+   },
+   "verdicts": {
+    "N03": false,
+    "N07": false,
+    "N06": false,
+    "P01": false,
+    "N01": false,
+    "P03": false,
+    "P11": false,
+    "P10": false,
+    "N12": false,
+    "P08": false,
+    "N08": false,
+    "P12": false,
+    "P04": false,
+    "N04": false,
+    "N02": false,
+    "P06": false,
+    "P09": false,
+    "P05": false,
+    "N11": false,
+    "N10": false,
+    "N09": false,
+    "N05": false,
+    "P07": false,
+    "P02": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 3,
+   "schema": {
+    "conditions": [
+     "There are two role-classes in the system.",
+     "Each element of one class provides a resource to another element of the other class, and that provision is the primary reason the recipient depends on the provider.",
+     "The recipient can obtain its resource from many alternative providers within the same role-class; it does not require any particular individual provider."
+    ],
+    "excludes": [
+     "Systems in which one side cannot substitute another partner for itself (i.e., the two parties are unique or irreplaceable, so the recipient depends on a specific individual rather than on its role).",
+     "Systems whose relationship is defined by an exclusive pairing or contract between designated individuals."
+    ],
+    "name": "Generic-Pool Dependency Structure",
+    "roles": [
+     "Provider: possesses or generates a resource that others require.",
+     "Consumer: requires the resource and can draw on many alternative providers within its own role-class."
+    ]
+   },
+   "verdicts": {
+    "P04": true,
+    "P08": true,
+    "N05": true,
+    "P05": false,
+    "N03": true,
+    "N09": true,
+    "P11": true,
+    "N10": false,
+    "N02": false,
+    "P02": true,
+    "P06": true,
+    "N12": true,
+    "N11": true,
+    "N01": true,
+    "P01": true,
+    "P09": true,
+    "P07": true,
+    "P03": false,
+    "N04": true,
+    "N07": false,
+    "P12": true,
+    "N08": true,
+    "N06": true,
+    "P10": true
+   }
   }
  ]
 }

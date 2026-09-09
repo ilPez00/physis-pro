@@ -34,3 +34,10 @@ model=ornith-1.5-9b-q4_k_m:latest host=http://100.116.39.57:11434 seeds=5 -> /ho
 [33/41] A5 seed 1  (25m elapsed)
     ! generation failed: JSONDecodeError
 [34/41] A5 seed 2  (25m elapsed)
+[35/41] A5 seed 3  (26m elapsed)
+[36/41] A5 seed 4  (27m elapsed)
+[37/41] B5 seed 0  (28m elapsed)
+[38/41] B5 seed 1  (29m elapsed)
+[39/41] B5 seed 2  (30m elapsed)
+[40/41] B5 seed 3  (31m elapsed)
+[41/41] B5 seed 4  (32m elapsed)

@@ -11,6 +11,10 @@ on it means anything.
 
   LEN-WORDS / LEN-CHARS   the E18 confound: entry length alone scored AUC 0.619
                           on real misfilings and buried a whole hypothesis.
+  NOT CHECKED HERE, AND IT SHOULD BE: a dense sentence embedding reaches 0.917
+  leave-one-pair-out forced choice on this same probe set (E20_FLOORS.md), against
+  the 0.750 tf-idf figure declared below. tf-idf under-reports how separable these
+  probes are. Add an embedding row before authoring another probe set.
   TFIDF-CENTROID          leave-one-out nearest class centroid over tf-idf.
                           Detects a vocabulary tell -- if the positives all say
                           "species" and the negatives all say "single", the task
