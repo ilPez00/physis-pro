@@ -214,3 +214,107 @@ controls until one yields a publishable comparison is precisely how a garden of
 forking paths is built. If B5c's falsifier also fires, the honest conclusion is
 that this control cannot be constructed at this corpus scale, and the brief's
 central claim is **untestable by this design** rather than refuted by it.
+
+---
+
+## 7. B5c's result: the falsifier is model-dependent
+
+**This was not among the anticipated outcomes.** §6 named two: the schemas
+converge on something more specific than coupling (arm fails), or they converge
+on coupling alone (arm works). What happened is that **which one occurs depends
+on the model**.
+
+### `qwen3:4b` — FIRES
+
+All five schemas converge on *coupling without transfer or permanent change* —
+that is ¬C2, one of the four clauses §6 named:
+
+| seed | in the schema's own words |
+|---|---|
+| 0 | excludes "systems where components transfer resources, information, or state between each other"; excludes "permanent change in state due to interaction" |
+| 1 | "without transfer of material, information, or identity between the entities"; "without any permanent change to either entity" |
+| 2 | "reversible state where both units maintain identical properties before and after interaction cycles, with no permanent change or record" |
+| 3 | excludes "systems with information transfer", "systems with irreversible interactions", "permanent state change" |
+| 4 | "does not transfer physical or information resources between the entities" |
+
+Five of five. **B5c is not cited at 4B.**
+
+**Why, and it is the same mechanism as B5b at a different address.** Domain 3
+(lymphocyte/antigen, reversible binding) is the one domain whose positive
+description is carried by negations — *"both are exactly as they were: no bond
+is broken in either, nothing is transferred, and neither carries any record."*
+The 4B model generalised those negations across the whole set. So the model does
+not extract what five heterogeneous cases *share*; it builds their intersection,
+and an intersection inherits whichever exclusions are most saliently written.
+**Designing for heterogeneity produced over-specification, not vagueness.**
+
+### `ornith-1.5-9b` — DOES NOT FIRE
+
+The same five stimuli at 9.2B scatter, and *contradict each other*:
+
+| seed | schema | what it commits to beyond coupling |
+|---|---|---|
+| 3 | "Reciprocal Dependency" | nothing — two parts, each depends on the other. **The intended trivial universal.** |
+| 4 | "coupling" | coupling, not from an external mechanism, entities "stay recognisably different" |
+| 0 | "binary coupling with mutual dependence and no separability…" | requires **no separable boundary**, no larger collection, no third-party governance |
+| 1 | "Coupled-Continuant Relation" | irreversibility, emergent capability |
+| 2 | "Nested Boundary" | containment — and **explicitly excludes** "root and fungus fused … that cannot be split apart" |
+
+Seeds 0 and 2 assert opposite things about separability, so there is no shared
+commitment beyond mutual coupling. By §6's criterion **the arm is valid at 9B**.
+
+**And this is not the 9B model simply failing to converge on anything.** Run
+`B5b` through the same model and it converges as hard as ever — seed 0
+"Rule-based structural mimicry **without causal coupling**", seed 2 "template
+reproduction … the carrier's own state … remains unchanged", seed 3 "E does not
+act back on A or B", seed 4 "each role produces a stable feature … independent
+of other roles", every one excluding mutual causation. **Same model, same
+prompt, same seeds: B5b converges and B5c does not.** The difference is in the
+stimulus, which is what makes B5c's validity at 9B a fact about the design and
+not about the model's laxity.
+
+### What the valid comparison says
+
+At 9B, with the control admissible:
+
+| | kappa |
+|---|---|
+| C5 | +0.600 ± 0.137 |
+| B5c | +0.233 ± 0.207 |
+| difference | **+0.367** |
+| instrument band NULL→ORACLE | **0.556** |
+
+**+0.367 is inside the band, so P1c is not supported.** C5 does not beat
+congruence-around-the-trivial-part by more than the smallest difference this
+instrument is held to.
+
+### A methodological objection to the band, recorded rather than used
+
+The band rule ("no difference smaller than NULL→ORACLE is interpretable") was
+inherited from E19 and applied here unchanged, because changing a criterion
+after seeing the number it governs is exactly what pre-registration is for.
+But it behaves perversely across models: the 9B has the *widest* band (0.556)
+precisely because it is the *best* instrument — its ORACLE is highest and its
+NULL lowest. So a better instrument makes every effect harder to call
+significant. As an effect-size normalisation +0.367/0.556 = **66% of the full
+vacuous-to-hand-authored range**, which is not nothing.
+
+**The honest statement is therefore narrower than "refuted":** at the one scale
+where a valid control exists, C5's advantage over it is large as a fraction of
+range but does not clear the pre-registered bar, on n = 5 seeds. This is the
+comparison to repeat first if the track ever returns to the brief.
+
+### Where three attempts leave the control
+
+| attempt | design | outcome |
+|---|---|---|
+| `B5` | five domains chosen to share nothing | confounded — all five were asymmetric one-way relations |
+| `B5b` | five surface-matched, structurally heterogeneous | falsifier fired at **4B, 7B and 9B** — converged on ¬C1 at every scale |
+| `B5c` | five coupled, each failing a different clause | fires at 4B (¬C2), **valid at 9B** |
+
+The control is constructible, but only at a scale where the model stops
+over-generalising from the most salient negation. That is a finding about
+**what it takes to run this experiment at all**, and it is the most transferable
+thing in E19b: *a control arm's validity is not a property of the stimulus
+alone. It is a property of the stimulus and the model together, and it has to be
+checked per model rather than assumed from the design.*

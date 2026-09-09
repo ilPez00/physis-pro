@@ -87,7 +87,9 @@ not a worry someone has to remember to check.
 | `A5` | the same one domain at C5's token count — **token control** |
 | `B5` | five surface-matched, structurally *unrelated* domains (brief §9B) |
 | `C5` | five structurally congruent domains (brief §9C/D) — **the claim** |
-| `S5` | C5's exact tokens, congruence destroyed by permuting bodies across settings — **construction-matched control** |
+| `S5` | C5's exact tokens with bodies permuted across headings — **NOT a control; withdrawn, see E19b** |
+| `B5b` | rebuilt heterogeneous arm — **falsifier fired, not cited (E19b)** |
+| `B5c` | five coupled domains each failing a different clause — **valid at 9B, falsifier fires at 4B (E19b)** |
 | `ORACLE` | T hand-authored. **The ceiling.** |
 
 ### Pre-registered hypotheses
@@ -98,6 +100,8 @@ not a worry someone has to remember to check.
   negatives; acceptance rises, kappa does not.
 - **H0c** (no instrument resolution): ORACLE itself at chance ⇒ the result is
   about a 4B model, not about the hypothesis. **Checked first.**
+  *(2026-09-09: settled by replication at 7.6B and 9.2B — the ceiling does not
+  climb with scale and C5 never separates from one domain. Not a 4B artifact.)*
 
 ---
 
@@ -116,18 +120,23 @@ Full write-up: `E19_CROSS_DOMAIN_CONVERGENCE.md`. Re-score any time with
 | **C5** | 5 | 419 | 5 | **+0.467 ± 0.126** | 0.97 | 0.50 |
 | ORACLE | – | – | 1 | +0.583 | 0.92 | 0.33 |
 
-**C5 vs A1 t=+0.89, vs A5 t=+0.24, vs S5 t=+0.27 — no difference on any.**
-S5 is the construction-matched control: token-identical to C5 with the
-relational bodies permuted across settings, i.e. congruence destroyed. C5 and S5
-are indistinguishable on every measure. **The positive died to the
-construction-matched control, exactly as house rule 1 predicts.**
+**C5 vs A1 t=+0.89, vs A5 t=+0.24 — no difference on either.** A5 is the token
+control: one domain at C5's word count. The verdict rests on these two.
 
-**The mechanism is item multiplicity, not congruence and not text volume.**
-A5 holds items at 1 while quadrupling words: acceptance barely moves. C5 vs S5
-holds words and item count fixed and varies only congruence: nothing moves.
-Going 1 item → 5 items raises POS acceptance ~0.19 and NEG acceptance ~0.14
-whether or not the items share structure. Five cases make the model generalise
-*wider*, not *deeper*.
+> **CORRECTED 2026-09-09 (E19b).** This block originally added *"vs S5 t=+0.27"*
+> and called S5 "the construction-matched control ... congruence destroyed",
+> concluding *"the positive died to the construction-matched control."*
+> **Withdrawn.** S5's five bodies are C5's, byte-identical, cyclically shifted
+> against five identical headings (tf-cos 1.000); their mutual congruence is
+> intact, and the generation prompt tells the model to discard exactly the part
+> that moved. `C5 ≈ S5` is near-tautological. Two rebuilt controls followed:
+> B5b's falsifier fired at both scales, and B5c's fires at 4B but not at 9B.
+> **Read `E19b_CONTROL_REBUILD.md` before citing any control in this file.**
+
+**The mechanism is item multiplicity, not text volume.** A5 holds items at 1
+while quadrupling words: acceptance barely moves. Going 1 item → 5 items raises
+POS acceptance ~0.19 and NEG acceptance ~0.14. Whether congruence adds anything
+on top is what the control was meant to answer, and did not.
 
 **C4 — differentiation, the brief's entire novel claim — is the worst clause for
 every arm**, ORACLE included (1.00 false accepts: it takes every synchronising
@@ -144,17 +153,35 @@ exclusion in writing does not fix it.
 2. **The generate/apply split.** It makes "abstraction quality" a measured
    quantity rather than a judgement. Portable to other questions in this track.
 3. **The Qwen3.8-Flash-Next n-gram embedding table (E20, not started).**
-   The user is downloading it (~51 GB quantized) onto omo/pansa. **A table read,
-   not inference** — so it is affordable on modest hardware, unlike everything
-   else here. See §6.
+   **A table read, not inference** — so it is affordable on modest hardware,
+   unlike everything else here. See §6. *(2026-09-09: omo and pansa were both at
+   100% disk, which blocked the download; space has since been freed — omo 157G,
+   pansa 114G.)*
 
 ---
 
 ## 5. What is broken, and what was tried and abandoned
 
-**Local compute is the binding constraint.** Ryzen 5 4500U, 6 cores, **no GPU**.
-`qwen3:4b` runs at ~4.4 tok/s. A 45s call is normal. Budget accordingly; do not
-design anything needing thousands of generations on this machine.
+**Local compute is the binding constraint — on *feather*, and only there.**
+Feather is a Ryzen 5 4500U, 6 cores, no GPU; `qwen3:4b` runs at ~4.4 tok/s and a
+45s call is normal.
+
+> **CORRECTED 2026-09-09.** This paragraph read "no GPU" full stop and shaped
+> every design decision above it. **The fleet has one.** `omo`
+> (192.168.1.7 / 100.116.39.57, `alias omo` in `~/.zshrc`) has an RX 6650 XT and
+> its ollama serves on `0.0.0.0:11434` with `OLLAMA_VULKAN=1` and
+> `HSA_OVERRIDE_GFX_VERSION=10.3.0`, reporting **100% GPU** and ~38 tok/s on a
+> 9B — roughly 50x feather. A full 36-job E19 grid takes ~12 minutes there
+> against ~3 hours locally. Drive it remotely with
+> `E19_MODEL=... E19_HOST=http://100.116.39.57:11434 ./supervise_e19_remote.sh`;
+> `run_e19.py` writes one results file per model and refuses to mix models.
+>
+> **omo has 8GB VRAM — never run two grids at once**, they evict each other on
+> every call. `orchestrate_omo.sh` serialises them.
+>
+> **Do not use `pansa` for inference.** It has 15GB RAM and hosts Praxis
+> production; loading the 17GB `qwen3.8-27b-q4` drove it to load 8+ with swap at
+> 15.5/17.5GB and it had to be cleared by hand. Confirmed the hard way.
 
 **Four probe-set drafts died to the pre-flight.** Recorded because the failures
 are the useful part:

@@ -126,7 +126,7 @@ recall@100 = 0.497 against a 0.086 shuffled control).
 | 1.9 | BGE-base embedder + self-test gate | ✅ Done | — | 768-d, MiniLM→RP fallback |
 | 1.10 | Automated ontology discovery | ✅ Done | — | `discover` + `--ai` legacy path |
 | 1.11 | Config dedup (`BUILTIN_ONTOLOGIES` table) | ✅ Done | — | 10 fns → 1 lookup |
-| 1.12 | GPU support investigation | ✅ Done | — | ROCm dead, MIGraphX/WebGPU deferred |
+| 1.12 | GPU support investigation | ✅ Done | — | ROCm EP dead *for ONNX Runtime* (2026-08-13). Not a fleet-wide fact: **omo does GPU inference today** via ollama/Vulkan (`OLLAMA_VULKAN=1`, `HSA_OVERRIDE_GFX_VERSION=10.3.0`, gfx1032 / RX 6650 XT), ~38 tok/s on a 9B against feather's 4.4 CPU-only. Research compute should go there — see `research/convergence/HANDOFF.md` §5 |
 | 1.13 | Goals carry text + persist | ✅ Done | — | `label` field + sled per tenant |
 | 1.14 | HTTP router test suite | ✅ Done | — | 11 in-process tests via oneshot |
 | 1.15 | Live product demo (`/demo`) | ✅ Done | — | Seed+watch+classify, 11 HTTP tests |
