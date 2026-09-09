@@ -58,6 +58,7 @@ their code in `research/perspective-discovery/` (E1), `research/mapper/`
 | Does presenting several *structurally congruent* domains improve abstraction? | **NO (E19)** | C5 +0.467 vs one domain +0.400 and a token-matched +0.450; replicated at 4B, 7.6B and 9.2B |
 | Is that a small-model artifact? | **NO (E19b)** | the ceiling does not climb with scale — ORACLE +0.667 at 4B, +0.500 at 7.6B, +0.750 at 9.2B, and C5 never separates from one domain |
 | Can geometry *propose* a filing, given human decisions? | **YES (E21)** | top-3 **0.667** against a permuted null of 0.136 and a lookup table of 0.368 |
+| Can the **mode axis** be made coherent? | **NOT FROM THIS CORPUS (E27–E29)** | merging, head-only representation, factorised decoding, a stronger embedder and unsupervised discovery all fail — mode is *absent from the representation*, not underdetermined by its labels |
 
 ### Three things that reversed under scrutiny, kept because the process is the point
 
@@ -121,6 +122,11 @@ recall@100 = 0.497 against a 0.086 shuffled control).
    activity text, lexical convention (0.628) beats semantics (0.575). A label
    that was written down can be read; a cause that was not written down must be
    asked for, not inferred.
+8. **A diagnostic criterion is not an objective function.** Earned by E27→E28:
+   head-only made the mode axis measurably *more coherent* (−0.061 → −0.024) and
+   **−0.091 worse at predicting**. Compression answers "is this an object";
+   held-out top-k answers "does this predict". Do not optimise the first and ship
+   the second.
 
 ### The turn (2026-09-09): stop asking the machine to judge
 
@@ -203,9 +209,11 @@ written down.
 | question | needs |
 |---|---|
 | **Does E21's proposer learn a policy or the corpus?** | **a second rater on a sample. This decides whether the positive is worth building on** |
-| Which grid revision? | a human call on E22's brief, below |
+| Which grid revision? | a human call on E22's brief, below. The machine has nothing further to offer (E29) |
+| Can the mode axis be rescued at all? | entries **observed in use** — an activity trace. Every route from static description is closed (E27–E29) |
 | Will populating the starved modes raise mode kappa? | the entries themselves |
 | Does anything detect a real misfiling? | a mechanism nobody has proposed yet — and E21 says stop looking for a judge |
+| Why does **C4 / differentiation** defeat everything? | open from two directions: the worst clause for every arm in E19 even when stated outright, and the one clause a dense embedding cannot split in E20 |
 
 ### The axis re-brainstorm, briefed from the corpus rather than a blank page
 
@@ -240,6 +248,32 @@ distinction wearing two names, the cleanest merge candidate in the grid. CONSTRU
 is also the sink BOND leaks into one-way (0.14/0.03), which reads as a definition
 too broad. **BOND at 0.76 is the best-defined class on either axis** and is the
 model for the rest.
+
+### What was tried on the mode axis, and what ships (E24–E29)
+
+| route | result |
+|---|---|
+| merge the confused modes (E27) | **worse.** At matched granularity, mode-merged-to-5 scores −0.187 against domain's −0.007 |
+| build mode from the head word (E28) | **worse by −0.091 top-3.** Retracted — see the correction below |
+| factorise the cell into domain × mode (E28) | **worse by −0.028.** The axes share signal and are not independent (E26) |
+| a stronger embedder (E21) | mode +0.065, domain top-2 +0.003 (saturated). Helps, does not close |
+| discover a better carve (E29) | **none exists here.** Clustering the blur recovers *subject matter*; the current four beat every discovered partition |
+| **halve the hints, one joint proposer (E24/E28)** | **SHIPS. Top-3 0.705 vs 0.651, *t* = +12.13, better in 24/24 paired splits** |
+
+**A correction kept visible, because it cost an experiment.** E27 recommended
+building the mode axis from the head, since head-only halves mode's
+*incoherence*. E28 measured the cost in *prediction*: −0.091. E25's own limits
+had already said *"not a prescription to drop the modifier."*
+
+> **Compression asks whether an axis is a coherent object. Held-out top-k asks
+> whether a representation predicts. A diagnostic criterion is not an objective
+> function.**
+
+**Where mode stands.** An entry is a name plus subject-matter hints — what
+something is *about*. Mode asks what is being *done*, and nothing in the corpus
+ever observed anything being done. So the four definitions cannot be repaired
+*from this corpus*, and the route left standing is the one that motivated the
+supervision question: **entries observed in use, not described.**
 
 ## Roadmap
 
