@@ -66,7 +66,7 @@ pub fn last_n_for(db: &Db, model: &str, task: &str, n: usize) -> Result<Vec<Hist
         .filter_map(|r| r.ok())
         .filter_map(|(_, v)| serde_json::from_slice::<HistoryEntry>(&v).ok())
         .collect();
-    out.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    out.sort_by_key(|e| std::cmp::Reverse(e.created_at));
     out.truncate(n);
     Ok(out)
 }
@@ -82,7 +82,7 @@ pub fn latest_other_model_for_prompt(
         .filter_map(|(_, v)| serde_json::from_slice::<HistoryEntry>(&v).ok())
         .filter(|e| e.model != model && e.prompt_hash == *prompt_hash)
         .collect();
-    out.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    out.sort_by_key(|e| std::cmp::Reverse(e.created_at));
     Ok(out.into_iter().next())
 }
 
