@@ -41,3 +41,5 @@ model=ornith-1.5-9b-q4_k_m:latest host=http://100.116.39.57:11434 seeds=5 -> /ho
 [39/41] B5 seed 2  (30m elapsed)
 [40/41] B5 seed 3  (31m elapsed)
 [41/41] B5 seed 4  (32m elapsed)
+done in 36.3 min -> /home/gio/dev/physis-pro/research/convergence/results_e19_ornith_1_5_9b_q4_k_m_latest.json
+SUPERVISOR(ornith-1.5-9b-q4_k_m:latest): clean exit on attempt 1

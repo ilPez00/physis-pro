@@ -37,3 +37,11 @@ model=qwen2.5:7b-instruct-q4_K_M host=http://100.116.39.57:11434 seeds=5 -> /hom
 [36/36] B5 seed 4  (16m elapsed)
 done in 16.8 min -> /home/gio/dev/physis-pro/research/convergence/results_e19_qwen2_5_7b_instruct_q4_k_m.json
 SUPERVISOR(qwen2.5:7b-instruct-q4_K_M): clean exit on attempt 1
+model=qwen2.5:7b-instruct-q4_K_M host=http://100.116.39.57:11434 seeds=5 -> /home/gio/dev/physis-pro/research/convergence/results_e19_qwen2_5_7b_instruct_q4_k_m.json
+[7/41] B5c seed 0  (0m elapsed)
+[8/41] B5c seed 1  (0m elapsed)
+[9/41] B5c seed 2  (1m elapsed)
+[10/41] B5c seed 3  (1m elapsed)
+[11/41] B5c seed 4  (1m elapsed)
+done in 1.6 min -> /home/gio/dev/physis-pro/research/convergence/results_e19_qwen2_5_7b_instruct_q4_k_m.json
+SUPERVISOR(qwen2.5:7b-instruct-q4_K_M): clean exit on attempt 1

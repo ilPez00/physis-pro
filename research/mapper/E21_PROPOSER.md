@@ -102,5 +102,32 @@ picks the mode.**
 - **The mode axis is the constraint, again.** Every route into it has landed on
   population (E7: n ≈ 20 → F1 0.26–0.49). A proposer that carries domain and
   defers mode is deployable *now* and does not wait on that.
-- **Does a stronger embedder move it?** Measured separately — see the nomic
-  comparison below.
+- **Does a stronger embedder move it?** Yes, and unevenly:
+
+| | BGE-base (shipped) | nomic-embed-text | Δ |
+|---|---:|---:|---:|
+| overall top-1, 436 seen | 0.438 | 0.452 | +0.014 |
+| **mode top-1** | 0.460 | **0.525** | **+0.065** |
+| domain top-1 | 0.626 | 0.660 | +0.034 |
+| **domain top-2** | 0.837 | 0.840 | **+0.003 — saturated** |
+
+  Domain top-2 does not move: what limits it is label noise or real ambiguity,
+  not encoding. Mode does move, so mode still had representational headroom —
+  which E24–E29 then spent, without closing it.
+
+---
+
+## What came after this, and what it changed
+
+| | result | effect on this report |
+|---|---|---|
+| **E24** | hints halved (α = 0.5) beats the shipped vector | **supersedes the numbers above.** Top-3 rises 0.651 → **0.705**, *t* = +12.13, better in 24/24 paired splits (E28) |
+| **E22** | hints are domain-loaded; the mode axis is three separate problems | explains the domain/mode gap found here |
+| **E26** | domain compresses to 4-d losslessly; mode is not a subspace | gives the gap a mechanism — domain is a linear object, mode is not |
+| **E27** | merging modes makes the axis *less* coherent | closes the obvious fix |
+| **E28** | the split proposer loses 0.119; **coherence ≠ predictive power** | corrects a wrong prescription in E27 |
+| **E29** | clustering the mode blur recovers *subject matter*, and the current labels beat every discovered carve | mode is **absent from the representation**, not underdetermined by its labels |
+
+**The shipping configuration is E28's variant B**: one joint proposer over cells,
+on the α = 0.5 vector. The split-by-axis design proposed in this report's own
+"where it goes" section was built and **failed**.

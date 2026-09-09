@@ -1,0 +1,2164 @@
+{
+ "model": "qwen3:8b",
+ "runs": [
+  {
+   "arm": "NULL",
+   "seed": 0,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "P01": true,
+    "P07": true,
+    "N07": false,
+    "N08": false,
+    "P05": true,
+    "N06": true,
+    "P09": true,
+    "P11": true,
+    "N12": true,
+    "N09": true,
+    "N11": true,
+    "P06": true,
+    "P02": true,
+    "N10": true,
+    "P03": true,
+    "P04": true,
+    "N03": true,
+    "N05": true,
+    "P10": true,
+    "P08": true,
+    "P12": true,
+    "N04": true,
+    "N02": false,
+    "N01": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 0,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "P04": true,
+    "P06": true,
+    "N12": true,
+    "N11": false,
+    "N01": false,
+    "N02": false,
+    "N04": true,
+    "N08": false,
+    "P01": true,
+    "N07": false,
+    "P05": true,
+    "P08": true,
+    "N09": false,
+    "P03": false,
+    "N10": false,
+    "P02": true,
+    "P11": true,
+    "P10": true,
+    "P09": true,
+    "P07": true,
+    "P12": true,
+    "N06": false,
+    "N05": false,
+    "N03": false
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 1,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "N10": true,
+    "P03": true,
+    "N01": true,
+    "N07": false,
+    "P10": true,
+    "N06": true,
+    "P07": true,
+    "N05": true,
+    "N11": true,
+    "P09": false,
+    "N03": true,
+    "P12": true,
+    "N04": true,
+    "P02": true,
+    "P11": true,
+    "P08": true,
+    "N09": true,
+    "P06": true,
+    "P05": true,
+    "N12": false,
+    "N08": false,
+    "N02": false,
+    "P01": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 1,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "P02": true,
+    "P11": false,
+    "P04": false,
+    "N05": true,
+    "N06": true,
+    "N03": false,
+    "P12": true,
+    "P07": true,
+    "N07": false,
+    "N01": false,
+    "N02": false,
+    "P03": true,
+    "N09": false,
+    "P05": true,
+    "N11": false,
+    "P09": true,
+    "N12": true,
+    "N04": true,
+    "P10": true,
+    "P01": true,
+    "P08": true,
+    "N08": true,
+    "N10": false
+   }
+  },
+  {
+   "arm": "NULL",
+   "seed": 2,
+   "schema": {
+    "name": "Interacting system",
+    "roles": [
+     "one part",
+     "another part"
+    ],
+    "conditions": [
+     "the system has two or more parts",
+     "the parts interact with one another",
+     "something happens at the level of the whole"
+    ],
+    "excludes": [
+     "systems with only one part"
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "N03": true,
+    "P07": true,
+    "N11": true,
+    "N08": false,
+    "P10": false,
+    "P01": true,
+    "P12": true,
+    "N02": false,
+    "P02": true,
+    "N05": true,
+    "N10": true,
+    "N07": false,
+    "P05": false,
+    "N04": true,
+    "P04": true,
+    "P08": true,
+    "N01": true,
+    "N12": true,
+    "P06": true,
+    "P03": true,
+    "P11": true,
+    "N06": true,
+    "N09": true
+   }
+  },
+  {
+   "arm": "ORACLE",
+   "seed": 2,
+   "schema": {
+    "name": "Differentiation sustained by relation",
+    "roles": [
+     "entity A",
+     "entity B",
+     "the relation coupling them"
+    ],
+    "conditions": [
+     "COUPLING: each entity's course depends on the other's; a shared external cause acting separately on both does not count",
+     "MODIFICATION: the coupling changes what at least one entity actually becomes, compared with what it would be uncoupled",
+     "INVARIANCE: each entity remains individuable afterwards as the same kind of thing it was, and can still be picked out on its own",
+     "DIFFERENTIATION: the change makes the entities LESS alike, or each less like its own uncoupled counterpart; a change that makes them more alike fails this",
+     "ENSEMBLE ORDER: a regularity holds over the collection that no single entity carries, represents or decides"
+    ],
+    "excludes": [
+     "entities that merge, dissolve or fuse so that they can no longer be told apart or handled separately",
+     "entities that come to resemble one another more closely through the interaction, such as synchronising or levelling",
+     "entities that resemble one another through a common external cause without acting on each other",
+     "entities unaltered by the relation, having been made to fit beforehand",
+     "a single pair whose interaction produces nothing beyond that pair"
+    ]
+   },
+   "verdicts": {
+    "N10": false,
+    "N08": false,
+    "N02": false,
+    "P03": true,
+    "N09": false,
+    "P09": true,
+    "P02": true,
+    "P05": true,
+    "P06": true,
+    "P01": true,
+    "N12": true,
+    "N07": true,
+    "P07": true,
+    "N04": true,
+    "N01": false,
+    "P04": false,
+    "N03": false,
+    "N05": false,
+    "P10": true,
+    "P12": true,
+    "N11": false,
+    "N06": true,
+    "P11": false,
+    "P08": true
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 0,
+   "schema": {
+    "name": "Interdependent Pairing",
+    "roles": [
+     "A and B",
+     "Two distinct entities that interact in a way that their properties are mutually influenced."
+    ],
+    "conditions": [
+     "The entities are separate in identity but function as a unified system in their interaction.",
+     "Their interaction creates a new emergent property that neither can achieve independently.",
+     "Each entity remains individually identifiable and retains its own structure and function, even as it is part of a unified system.",
+     "The interaction is dynamic and ongoing, with the properties of each entity depending on the state of the other at any given moment.",
+     "The system as a whole persists through replication or transmission, carrying both entities together in a consistent relationship."
+    ],
+    "excludes": [
+     "Systems where one entity is entirely dependent on the other for survival or function (e.g., parasitic relationships).",
+     "Systems where the interaction is one-sided or asymmetric in effect (e.g., predator-prey).",
+     "Systems where the entities merge permanently or irreversibly into a single entity (e.g., fusion or absorption).",
+     "Systems where the interaction does not influence the identity or function of the individual entities (e.g., independent coexistence)."
+    ]
+   },
+   "verdicts": {
+    "P10": true,
+    "N08": true,
+    "P12": true,
+    "N12": false,
+    "N02": false,
+    "P08": true,
+    "N11": true,
+    "N10": false,
+    "P09": true,
+    "N06": true,
+    "P02": true,
+    "N09": true,
+    "N05": false,
+    "P11": false,
+    "N04": true,
+    "P03": true,
+    "P07": true,
+    "N07": false,
+    "P05": true,
+    "P06": true,
+    "P04": true,
+    "N03": false,
+    "N01": true,
+    "P01": true
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 1,
+   "schema": {
+    "name": "Mutual Co-Regulation",
+    "roles": [
+     "A and B",
+     "Two distinct entities that are functionally integrated"
+    ],
+    "conditions": [
+     "A and B are distinct and separate entities in origin",
+     "A and B interact in a way that their behavior depends on each other in real time",
+     "The interaction creates a shared functional outcome that neither could achieve alone",
+     "The interaction is stable over time, with no third-party mediation at the level of the system",
+     "Each maintains its own identity and autonomy, yet their interaction defines a new functional unit",
+     "The system as a whole does not emerge from a single entity, but from the sustained interaction between two",
+     "Reproduction or continuation of the system requires the recombination of the two interacting parts"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other",
+     "Systems where the interaction is mediated by a third party or external structure",
+     "Systems where the outcome is a fusion or merging of the two entities into a single entity",
+     "Systems where the interaction is transient or incidental, not sustained or functional",
+     "Systems where the entities maintain no functional dependency on each other"
+    ]
+   },
+   "verdicts": {
+    "N05": false,
+    "N03": false,
+    "P11": false,
+    "P08": true,
+    "N04": true,
+    "P01": true,
+    "N08": false,
+    "N02": false,
+    "P12": true,
+    "N12": false,
+    "P09": true,
+    "N01": true,
+    "N07": false,
+    "P06": false,
+    "P07": true,
+    "N10": false,
+    "P05": true,
+    "P02": true,
+    "N11": true,
+    "P03": true,
+    "N06": true,
+    "P10": true,
+    "N09": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 2,
+   "schema": {
+    "name": "Interdependent Unit Formation",
+    "roles": [
+     "Partner A",
+     "Partner B",
+     "Shared Interface",
+     "Collective Identity"
+    ],
+    "conditions": [
+     "Partner A and Partner B must be distinct entities with their own internal structure and function.",
+     "The Shared Interface is a boundaryless or permeable region where Partner A and Partner B interact continuously and mutually influence each other's behavior.",
+     "The Collective Identity emerges as a single functional unit, capable of performing roles or functions that neither Partner A nor Partner B can achieve independently.",
+     "The interaction between Partner A and Partner B is essential for the formation and maintenance of the Collective Identity; neither can exist or function independently in that role.",
+     "Reproduction or propagation of the Collective Identity involves both Partner A and Partner B being passed on together as an integrated unit.",
+     "The system must not allow for the isolation or reconstitution of Partner A or Partner B outside the Collective Identity."
+    ],
+    "excludes": [
+     "Systems where components can be separated without losing function or identity.",
+     "Systems where interaction is temporary or incidental, not essential to the formation of a new functional unit.",
+     "Systems where the roles or identities of components are not merged or shared in a way that creates a unified structure or function.",
+     "Systems where the components retain their original autonomy and do not form a new integrated entity.",
+     "Systems where the interaction does not lead to the emergence of a new, unified identity or function beyond the sum of the parts."
+    ]
+   },
+   "verdicts": {
+    "P10": false,
+    "N09": false,
+    "P04": false,
+    "P08": false,
+    "N08": false,
+    "N05": false,
+    "P01": true,
+    "N03": true,
+    "P05": false,
+    "P09": false,
+    "N12": false,
+    "P06": false,
+    "N02": false,
+    "P07": false,
+    "N04": true,
+    "N07": false,
+    "N10": true,
+    "P12": true,
+    "N06": false,
+    "P02": false,
+    "N11": true,
+    "P03": false,
+    "N01": false,
+    "P11": false
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 3,
+   "schema": {
+    "name": "Interdependent Pair",
+    "roles": [
+     "A and B",
+     "Two distinct entities that interact in a structured, mutual way"
+    ],
+    "conditions": [
+     "A and B are separate entities with distinct identities and functions",
+     "A and B are in continuous, dynamic interaction that affects the behavior and development of both",
+     "The interaction is such that the system as a whole exhibits properties or behaviors that neither A nor B can achieve alone",
+     "The interaction is symmetric: each entity influences the other in a way that is reciprocal and balanced",
+     "The system does not form a new, singular entity, but remains as two distinct entities that retain their individuality and autonomy",
+     "The interaction is maintained through a continuous, ongoing process rather than a one-time event",
+     "The system operates within a closed or bounded environment where external factors do not interfere with the interaction"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other",
+     "Systems where the interaction results in the creation of a new, unified entity or structure",
+     "Systems where the interaction is one-sided or unidirectional",
+     "Systems where the interaction is external or imposed by an external authority",
+     "Systems where the entities are not continuously or dynamically interacting",
+     "Systems where the interaction is not symmetric or balanced",
+     "Systems where the entities are merged or fused into a single entity"
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "P04": true,
+    "N10": false,
+    "P02": true,
+    "P08": true,
+    "P10": true,
+    "P05": true,
+    "N09": true,
+    "N03": false,
+    "P11": false,
+    "P01": true,
+    "P03": true,
+    "N07": false,
+    "N11": true,
+    "P06": true,
+    "P12": true,
+    "P07": true,
+    "N02": false,
+    "N06": true,
+    "N08": false,
+    "N01": true,
+    "N04": true,
+    "N05": false,
+    "N12": false
+   }
+  },
+  {
+   "arm": "B5c",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Integration",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities",
+     "A and B interact dynamically",
+     "A and B form a unified function or behavior"
+    ],
+    "conditions": [
+     "A and B are distinct and separate in origin or identity",
+     "A and B merge in function or purpose in a way that neither can achieve alone",
+     "The interaction between A and B creates a new structure or behavior that is not reducible to either alone",
+     "The interaction is continuous and mutual, with each influencing the other in real-time",
+     "A and B remain individually identifiable, yet their interaction is inseparable from their function",
+     "The system as a whole operates under a unified mechanism or rule that governs their interaction"
+    ],
+    "excludes": [
+     "Systems where A and B are simply aggregated without mutual influence",
+     "Systems where A or B can function independently without the other",
+     "Systems where the interaction is one-sided or unidirectional",
+     "Systems where the combined entity is just the sum of A and B, not a new emergent structure",
+     "Systems where the relationship is governed by an external authority or rule that dictates the interaction rather than an emergent property"
+    ]
+   },
+   "verdicts": {
+    "P08": true,
+    "P07": true,
+    "P03": true,
+    "N05": false,
+    "P05": true,
+    "N03": true,
+    "N08": false,
+    "N11": true,
+    "N06": true,
+    "P02": true,
+    "P10": true,
+    "N10": false,
+    "P12": true,
+    "P09": false,
+    "N09": true,
+    "P06": false,
+    "N07": false,
+    "N01": true,
+    "P01": true,
+    "N02": false,
+    "N04": true,
+    "N12": false,
+    "P11": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 0,
+   "schema": {
+    "name": "Independent Transformation and Passive Integration",
+    "roles": [
+     "A transformer: an entity that alters or modifies a structure or process through internal means.",
+     "A container: a system that holds or contains the transformed structure or process without active interaction.",
+     "A stabilizer: a mechanism or rule that determines the outcome of the transformation without reciprocation."
+    ],
+    "conditions": [
+     "The transformer acts independently on the container without awareness or response to the container’s state.",
+     "The transformation is dictated by an internal rule or structure, not by the container or external signals.",
+     "The container remains passive, maintaining its form or state without altering the transformer’s action.",
+     "The outcome of the transformation is fixed by the stabilizer, which operates separately from the transformer and container.",
+     "The stabilizer is external to the transformer and container, and its influence is not mutual or reciprocal."
+    ],
+    "excludes": [
+     "Systems where the transformer and container actively interact or influence each other.",
+     "Systems where the transformation is driven by the container's state or feedback.",
+     "Systems where the stabilizer is internal to the transformer or container.",
+     "Systems where the outcome depends on mutual adjustment or negotiation between components.",
+     "Systems where the transformation is a result of external control or communication between entities."
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "N03": false,
+    "N10": true,
+    "P09": false,
+    "P11": false,
+    "P10": false,
+    "P01": true,
+    "N05": false,
+    "N06": true,
+    "P03": false,
+    "P12": true,
+    "P04": true,
+    "P05": false,
+    "N01": false,
+    "N04": false,
+    "P07": false,
+    "P02": true,
+    "N07": true,
+    "N12": true,
+    "N08": true,
+    "N09": false,
+    "N11": false,
+    "N02": true,
+    "P08": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Through Passive Transmission",
+    "roles": [
+     "A system that is transformed or influenced by another system",
+     "A system that remains unchanged by the influence",
+     "A system that retains a structural or functional form based on an external model",
+     "A system that operates independently of the influence"
+    ],
+    "conditions": [
+     "One system (the source) exerts an influence on another system (the target) without the target acting back on the source.",
+     "The target system incorporates or adopts elements of the source system, but does so in a way that is not reciprocal or interactive.",
+     "The source system remains unaffected by the influence it has exerted on the target.",
+     "The transformation of the target system is not due to internal dynamics or feedback mechanisms, but rather to the passive reception and reconfiguration of an external model.",
+     "The structural or functional outcome of the target system is a result of the source system's form or function, not of any direct interaction or communication between the two."
+    ],
+    "excludes": [
+     "Systems where the influence is mutual or involves direct communication between the two entities.",
+     "Systems where the target system modifies the source system in response.",
+     "Systems where the transformation is driven by internal feedback or adaptive mechanisms.",
+     "Systems where the source and target are part of a single, integrated system with shared control or interaction.",
+     "Systems where the form or function of the target is determined by internal rules or internal change rather than by external modeling."
+    ]
+   },
+   "verdicts": {
+    "P03": false,
+    "N09": false,
+    "N04": false,
+    "N06": true,
+    "N05": true,
+    "P08": false,
+    "P11": false,
+    "P12": false,
+    "P06": true,
+    "N07": true,
+    "P10": false,
+    "P05": false,
+    "N08": true,
+    "P01": false,
+    "P07": false,
+    "N11": false,
+    "N01": false,
+    "P02": false,
+    "P09": true,
+    "N03": false,
+    "P04": false,
+    "N02": false,
+    "N12": false,
+    "N10": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 2,
+   "schema": {
+    "name": "Independent Agent and Dependent Medium",
+    "roles": [
+     "agent",
+     "medium"
+    ],
+    "conditions": [
+     "The agent acts independently and autonomously, exerting influence on the medium without direct reciprocal action from the medium.",
+     "The medium undergoes change as a result of the agent's activity, but does not itself initiate or modify the agent's behavior.",
+     "The agent's activity is not guided by the state or properties of the medium, but rather by internal dynamics or external triggers independent of the medium.",
+     "The medium's transformation is irreversible or cumulative, leading to a gradual loss of original form or structure.",
+     "The agent operates in a way that is not directly perceived or responded to by the medium, even as the medium is being altered.",
+     "The agent persists or continues its activity regardless of the medium's state, and the medium's change is not a reaction to the agent’s presence or actions."
+    ],
+    "excludes": [
+     "Systems where the medium actively resists, responds to, or influences the agent’s behavior.",
+     "Systems where the agent and medium are mutually dependent or co-evolve in tandem.",
+     "Systems where the agent's behavior is directly informed by the medium’s state or feedback.",
+     "Systems where the transformation of the medium is not gradual or cumulative, but sudden or reversible.",
+     "Systems where the agent's identity or function is altered by the medium’s properties or changes."
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "P03": false,
+    "P07": true,
+    "N02": true,
+    "N10": false,
+    "N01": false,
+    "N05": false,
+    "P02": false,
+    "N04": false,
+    "P06": false,
+    "P08": false,
+    "N03": false,
+    "N06": false,
+    "N07": false,
+    "P04": false,
+    "N09": false,
+    "P12": true,
+    "P10": false,
+    "N11": false,
+    "N12": false,
+    "N08": true,
+    "P11": false,
+    "P01": false,
+    "P05": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 3,
+   "schema": {
+    "name": "Independent Transformation with Shared Outcome",
+    "roles": [
+     "A transformer: an entity that alters a material or structure through internal processes.",
+     "A target: an entity whose form or state is changed by the transformer.",
+     "A recorder or observer: an entity that perceives or interprets the outcome of the transformation, but does not influence it.",
+     "A rule or convention: a fixed, external framework that defines how the transformation is interpreted or represented."
+    ],
+    "conditions": [
+     "The transformer operates independently of the target and does not respond to it.",
+     "The target undergoes a change that is entirely the result of the transformer's action, without reciprocal influence.",
+     "The recorder or observer perceives the outcome solely based on the transformed state of the target, not on any interaction between the transformer and the target.",
+     "The rule or convention is external and static, not derived from the interaction between the transformer and the target.",
+     "The rule or convention determines how the transformed state is interpreted or represented, not how the transformation occurs."
+    ],
+    "excludes": [
+     "Systems where the transformer and target influence each other reciprocally.",
+     "Systems where the rule or convention is dynamic or derived from the interaction between the transformer and the target.",
+     "Systems where the recorder or observer plays an active role in shaping the transformation or outcome.",
+     "Systems where the transformation is guided or adjusted by the target's feedback.",
+     "Systems where the rule or convention is flexible and changes in response to the transformation."
+    ]
+   },
+   "verdicts": {
+    "P01": true,
+    "P12": true,
+    "N05": false,
+    "P02": false,
+    "P05": false,
+    "N08": false,
+    "N10": true,
+    "N06": true,
+    "P03": false,
+    "N09": false,
+    "N03": false,
+    "N11": false,
+    "P08": false,
+    "N12": false,
+    "P11": false,
+    "N07": true,
+    "P10": false,
+    "P04": false,
+    "P07": true,
+    "N02": true,
+    "P06": false,
+    "P09": false,
+    "N04": false,
+    "N01": false
+   }
+  },
+  {
+   "arm": "B5b",
+   "seed": 4,
+   "schema": {
+    "name": "Independent Interaction Without Reciprocal Influence",
+    "roles": [
+     "A: An entity that undergoes transformation or change over time",
+     "B: An entity that initiates or enables the transformation of A",
+     "C: A mechanism or process that mediates the effect of B on A",
+     "D: An observer or recorder of the transformation of A"
+    ],
+    "conditions": [
+     "A does not respond directly to B, but is affected by it in a passive or indirect way",
+     "B does not act on A directly, but influences it through C",
+     "C operates independently of A and B, and determines the nature of their interaction",
+     "A’s transformation is not driven by feedback from A itself or from B",
+     "The system is characterized by a lack of reciprocal causality between A and B"
+    ],
+    "excludes": [
+     "Systems where A and B interact in a bidirectional or feedback loop",
+     "Systems where A actively regulates or controls B",
+     "Systems where B is a direct cause of A’s change, without mediation",
+     "Systems where the transformation of A is driven by internal processes of A itself",
+     "Systems where the mechanism C is not distinct or separable from A or B"
+    ]
+   },
+   "verdicts": {
+    "N07": true,
+    "N03": false,
+    "N01": true,
+    "N09": true,
+    "P11": false,
+    "P04": false,
+    "P07": true,
+    "N05": true,
+    "N10": true,
+    "N04": false,
+    "P01": true,
+    "N06": true,
+    "P09": true,
+    "P05": true,
+    "P03": false,
+    "P08": false,
+    "N08": true,
+    "P10": false,
+    "N02": true,
+    "P02": false,
+    "N12": true,
+    "N11": false,
+    "P12": true,
+    "P06": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Structure through Mutual Adaptation",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities",
+     "A and B are capable of interaction",
+     "A and B are capable of change as a result of interaction"
+    ],
+    "conditions": [
+     "Each entity (A and B) must have a mechanism for sensing or responding to the presence of the other.",
+     "Each entity must have a mechanism for altering its own properties in response to the presence of the other, without merging or losing identity.",
+     "The interaction must lead to a reduction in the range or diversity of the entity's own characteristics or behaviors, relative to what it would be in isolation.",
+     "The interaction must result in a stable, distinguishable outcome for each entity, such that each remains distinguishable from the other.",
+     "Across a collection of such pairs, the system must exhibit a structured pattern of relationships that emerges from the interactions, without any central coordination or planning by any individual entity."
+    ],
+    "excludes": [
+     "Systems where one entity absorbs or replaces the other",
+     "Systems where entities merge or lose their distinct identity",
+     "Systems where interaction leads to a loss of structure or pattern across the whole",
+     "Systems where the outcome is dictated by a central authority or external planning",
+     "Systems where change in one entity does not influence the other in a bidirectional way"
+    ]
+   },
+   "verdicts": {
+    "P09": true,
+    "N03": false,
+    "P08": true,
+    "N06": true,
+    "P02": true,
+    "P07": true,
+    "P05": true,
+    "N08": true,
+    "P06": true,
+    "P11": true,
+    "N09": false,
+    "N11": false,
+    "P10": true,
+    "N02": false,
+    "N04": true,
+    "P03": true,
+    "N05": false,
+    "N01": true,
+    "N10": false,
+    "N12": true,
+    "P12": true,
+    "P04": true,
+    "P01": true,
+    "N07": false
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Coevolution Schema",
+    "roles": [
+     "Partner A",
+     "Partner B"
+    ],
+    "conditions": [
+     "Each Partner has a mechanism for sensing or responding to the presence or state of the other.",
+     "Each Partner modifies its own behavior or structure in response to the other, narrowing its range of activity or expression.",
+     "The change in each Partner is driven by the interaction with the other, not by internal or external factors alone.",
+     "The interaction leads to a stable configuration where both Partners are altered but remain distinct entities.",
+     "Across a collection of such interactions, the overall system exhibits a structured pattern or arrangement that no single Partner individually creates."
+    ],
+    "excludes": [
+     "Systems where one partner dominates or controls the other without mutual adaptation.",
+     "Systems where the change in one partner is entirely independent of the other.",
+     "Systems where the outcome is pre-determined or externally imposed, rather than emerging from the interaction.",
+     "Systems where the partners do not maintain their distinct identities or roles after the interaction.",
+     "Systems where the overall pattern is not a result of multiple local interactions but is instead externally designed or imposed."
+    ]
+   },
+   "verdicts": {
+    "P06": true,
+    "P12": true,
+    "P01": true,
+    "N10": false,
+    "N03": false,
+    "N11": false,
+    "P11": true,
+    "P08": true,
+    "N09": true,
+    "P04": true,
+    "N06": false,
+    "P09": true,
+    "N07": false,
+    "N05": false,
+    "N04": true,
+    "N12": false,
+    "P03": true,
+    "N08": false,
+    "N02": false,
+    "P10": false,
+    "P07": true,
+    "N01": true,
+    "P05": true,
+    "P02": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Structure through Adaptive Partitioning",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities with independent agency",
+     "A and B are capable of interaction and mutual influence",
+     "A and B are components of a larger system or environment"
+    ],
+    "conditions": [
+     "Each entity (A and B) modifies its own behavior or structure in response to the presence of the other",
+     "The modification leads to a narrowing of the entity's scope or range of action relative to its state in isolation",
+     "The interaction results in a stable, partitioned arrangement between A and B, such that the system as a whole covers a broader space or set of possibilities than either could achieve alone",
+     "The resulting partition is not planned or designed by either A or B, but emerges from their mutual interaction",
+     "Each entity remains fundamentally unchanged in type or function, despite the structural shift",
+     "The overall structure is maintained without any central coordination or representation of the whole by any single entity"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other",
+     "Systems where the interaction results in fusion or identity of the two entities",
+     "Systems where the outcome is predetermined or designed by an external agent",
+     "Systems where the entities do not change in response to each other",
+     "Systems where the overall structure is not a product of the interaction but an external imposition"
+    ]
+   },
+   "verdicts": {
+    "N09": true,
+    "P04": true,
+    "N05": false,
+    "N08": true,
+    "P07": true,
+    "P10": true,
+    "P11": true,
+    "P01": true,
+    "N03": false,
+    "P12": true,
+    "N02": false,
+    "P09": false,
+    "P02": true,
+    "N07": false,
+    "N10": false,
+    "P03": true,
+    "P06": true,
+    "N06": false,
+    "N12": true,
+    "N04": true,
+    "P08": true,
+    "N11": false,
+    "P05": true,
+    "N01": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Structure through Differential Adaptation",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities with autonomous identity",
+     "A and B interact in a dynamic, bidirectional way",
+     "A and B each have a mechanism for sensing and responding to the other"
+    ],
+    "conditions": [
+     "Each entity has a mechanism for sensing the presence or state of the other.",
+     "Each entity adapts in response to the other, narrowing its scope or focus as a result.",
+     "The adaptation of each entity reduces the overlap or interference with the other.",
+     "The adaptation leads to a new stable configuration for each entity, distinct from its original state.",
+     "The system as a whole exhibits a structured pattern of relations that no single entity can fully represent or control.",
+     "The interactions are not hierarchical or one-sided; both entities are equally involved in shaping the outcome."
+    ],
+    "excludes": [
+     "One-sided or unidirectional interactions (e.g., predator-prey, host-parasite).",
+     "Systems where one entity dominates or controls the other without reciprocal adaptation.",
+     "Systems where the outcome is predetermined or externally imposed (e.g., programmed behavior, external design).",
+     "Systems where adaptation leads to integration or fusion of the entities rather than differentiation.",
+     "Systems where the adaptation process results in loss of identity or function of one or both entities."
+    ]
+   },
+   "verdicts": {
+    "N09": true,
+    "P01": true,
+    "N06": false,
+    "P02": true,
+    "N11": false,
+    "P06": true,
+    "P05": true,
+    "P03": true,
+    "P09": true,
+    "N12": true,
+    "P08": true,
+    "P10": true,
+    "P11": false,
+    "P04": false,
+    "N02": false,
+    "N01": true,
+    "N03": false,
+    "N10": false,
+    "P07": true,
+    "N07": false,
+    "N04": false,
+    "N05": false,
+    "P12": true,
+    "N08": true
+   }
+  },
+  {
+   "arm": "C5",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Structuring Through Competitive Differentiation",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities",
+     "A and B interact in a way that affects their internal state",
+     "A and B are part of a larger system or field"
+    ],
+    "conditions": [
+     "Each entity has a domain of influence or function that can be altered by interaction",
+     "The interaction leads to a narrowing or specialization of each entity's function or expression",
+     "The entities remain distinct and retain their individual identities and structures",
+     "The overall system achieves a configuration that neither entity individually controls or computes",
+     "The resulting structure emerges from the interaction pattern, not from a centralized plan or directive"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other",
+     "Systems where the interaction does not lead to structural or functional change in either entity",
+     "Systems where the outcome is predetermined or externally imposed",
+     "Systems where the entities lose their individuality or merge into a single entity",
+     "Systems where the structure arises from a single agent's plan rather than from mutual interaction"
+    ]
+   },
+   "verdicts": {
+    "P05": true,
+    "P01": true,
+    "N04": true,
+    "N03": false,
+    "N01": true,
+    "P04": true,
+    "N09": true,
+    "P11": true,
+    "N05": false,
+    "N02": false,
+    "N08": false,
+    "N11": false,
+    "N07": false,
+    "P02": true,
+    "P12": true,
+    "N06": false,
+    "P03": true,
+    "N12": true,
+    "N10": false,
+    "P10": false,
+    "P08": true,
+    "P07": true,
+    "P09": true,
+    "P06": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Restructuring through Competitive Interdependence",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities within a shared space or system",
+     "A and B have means of sensing or perceiving each other's presence or state",
+     "A and B have mechanisms for adjusting their own properties in response to the other",
+     "A and B retain their own intrinsic identity and functionality"
+    ],
+    "conditions": [
+     "Two distinct entities (A and B) interact within a shared environment or system",
+     "Each entity can detect or perceive the presence or state of the other",
+     "Each entity modifies its own characteristics or behavior in response to the other, narrowing its range or focus",
+     "The modification is not complete assimilation or annihilation of one by the other",
+     "The change in each is guided by the presence and response of the other, not by internal programming or pre-defined rules",
+     "The overall structure that emerges from the interaction is a stable configuration that neither entity individually creates",
+     "The emergent structure is distributed across the system and not represented by any single entity"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or eliminates the other",
+     "Systems where interaction is purely additive or one-sided",
+     "Systems where the change is dictated by internal logic or pre-set rules, not by the presence of the other",
+     "Systems where the entities lose their individual identity or functionality",
+     "Systems where the outcome is predetermined or planned by an external agent"
+    ]
+   },
+   "verdicts": {
+    "N12": true,
+    "P05": false,
+    "P11": true,
+    "P08": true,
+    "N08": false,
+    "P12": true,
+    "P10": true,
+    "N05": false,
+    "P01": true,
+    "N10": false,
+    "P06": true,
+    "P09": true,
+    "N04": true,
+    "N02": false,
+    "N01": true,
+    "P03": true,
+    "P04": true,
+    "P07": true,
+    "P02": true,
+    "N07": false,
+    "N09": true,
+    "N03": true,
+    "N11": true,
+    "N06": false
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Partitioning",
+    "roles": [
+     "A and B",
+     "Two distinct entities or components that are not identical but interact in a way that affects their form or function",
+     "Each must be able to sense or respond to the presence of the other"
+    ],
+    "conditions": [
+     "Each entity maintains its own identity and core functionality, but modifies it in response to the presence of the other",
+     "The modification leads to a narrowing or restriction of the entity's range or capacity, as compared to if it existed alone",
+     "The interaction causes a spatial or functional partitioning between the two entities, such that their combined behavior covers a broader space than either could alone",
+     "The partitioning emerges from the interaction, not from pre-existing design or planning",
+     "The outcome is a stable configuration that persists across a system of multiple such pairs, forming a structured whole that no single entity can represent"
+    ],
+    "excludes": [
+     "Systems where one entity dominates or suppresses the other",
+     "Systems where the interaction leads to fusion or loss of identity",
+     "Systems where the outcome is predetermined or planned by a central authority",
+     "Systems where the change is not a narrowing but an expansion or enhancement of capabilities",
+     "Systems where the entities do not interact in a way that affects their form or function"
+    ]
+   },
+   "verdicts": {
+    "N11": true,
+    "P02": true,
+    "N03": false,
+    "P04": true,
+    "N02": false,
+    "N07": false,
+    "N04": true,
+    "N10": false,
+    "P11": true,
+    "P06": true,
+    "N05": true,
+    "N01": true,
+    "P07": true,
+    "P10": true,
+    "N08": false,
+    "N06": false,
+    "P12": true,
+    "P09": true,
+    "N12": false,
+    "P08": true,
+    "P03": true,
+    "P01": true,
+    "N09": true,
+    "P05": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Adaptation through Competitive Constraint",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities with independent identities and functions",
+     "A and B interact in a shared space or domain",
+     "A and B respond to each other's presence through a mechanism of adjustment"
+    ],
+    "conditions": [
+     "Each entity (A and B) modifies its own behavior or structure in response to the presence of the other.",
+     "The modification results in a narrowing or restriction of the entity’s original range or capacity.",
+     "The change is not directed at the other entity directly, but at the shared space or domain where they coexist.",
+     "The outcome is a new configuration where both entities persist as distinct entities, but with reduced overlap or interference.",
+     "The overall pattern across a system of such interactions leads to a structured, non-random arrangement that emerges without central control or planning."
+    ],
+    "excludes": [
+     "Systems where one entity dominates or suppresses the other, rather than both adapting.",
+     "Systems where the interaction leads to complete fusion or loss of identity between the entities.",
+     "Systems where the adjustment is not a narrowing of capacity, but an expansion or reinforcement of existing traits.",
+     "Systems where the outcome is not a structured pattern but a chaotic or random distribution.",
+     "Systems where the interaction is one-sided, with only one entity responding to the presence of the other."
+    ]
+   },
+   "verdicts": {
+    "N05": false,
+    "N08": false,
+    "N04": true,
+    "N01": true,
+    "P09": true,
+    "P06": true,
+    "P03": true,
+    "N12": true,
+    "N06": true,
+    "P12": true,
+    "P05": true,
+    "P07": true,
+    "N03": false,
+    "P04": true,
+    "P02": true,
+    "P10": true,
+    "N02": false,
+    "P01": true,
+    "N09": true,
+    "N11": false,
+    "N10": false,
+    "N07": true,
+    "P08": true,
+    "P11": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Adaptation and Partitioning",
+    "roles": [
+     "A and B",
+     "A and B are distinct entities with their own intrinsic properties and functions",
+     "A and B are in a dynamic interaction that affects their development or behavior",
+     "A and B are part of a larger system where their interaction leads to a structured outcome"
+    ],
+    "conditions": [
+     "Each entity (A and B) must independently have a potential trajectory or form that would be taken in isolation.",
+     "The interaction between A and B must lead to a modification of each entity's trajectory or form, resulting in a narrower scope or specialization than it would have had alone.",
+     "The modification must be mutual and reciprocal, with each entity responding to the other in a way that limits overlap or competition.",
+     "The outcome of the interaction must create a structured partitioning or separation between the two entities across a broader system, without any central planning or representation by either entity.",
+     "The resulting configuration must be stable and persistent, with each entity maintaining its identity and functional role, but in a new, constrained arrangement."
+    ],
+    "excludes": [
+     "Systems where one entity dominates or suppresses the other without mutual adaptation.",
+     "Systems where the interaction results in fusion or loss of identity between the two entities.",
+     "Systems where the outcome is pre-determined or centrally controlled by an external agent.",
+     "Systems where the entities do not modify their own behavior or structure in response to the presence of the other.",
+     "Systems where the partitioning is not emergent but imposed by an external structure or rule."
+    ]
+   },
+   "verdicts": {
+    "N10": true,
+    "P06": true,
+    "N04": true,
+    "P03": true,
+    "P08": true,
+    "N06": true,
+    "P09": true,
+    "N05": false,
+    "P10": true,
+    "P01": true,
+    "N03": false,
+    "N11": false,
+    "N01": true,
+    "P05": true,
+    "N02": false,
+    "P12": false,
+    "P02": true,
+    "N12": true,
+    "N07": false,
+    "P07": true,
+    "N09": true,
+    "N08": false,
+    "P11": true,
+    "P04": true
+   }
+  },
+  {
+   "arm": "S5",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Structuring Through Competitive Avoidance",
+    "roles": [
+     "A and B",
+     "Two entities that interact within a shared space or domain"
+    ],
+    "conditions": [
+     "Each entity independently senses or perceives the presence of the other.",
+     "The interaction leads each entity to modify its own behavior or structure in response to the other.",
+     "The modification results in a narrowing or restriction of the entity's original range, form, or capacity.",
+     "The change is not driven by direct control or command from one entity over the other.",
+     "The entities retain their individual identities, functions, and boundaries.",
+     "Across the system as a whole, the changes in each entity lead to a structured, partitioned, or differentiated configuration that emerges collectively."
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other directly.",
+     "Systems where the interaction results in merging or elimination of one entity.",
+     "Systems where the change is imposed by an external force rather than arising from mutual perception and response.",
+     "Systems where the outcome is predetermined or planned by a central authority or organizer.",
+     "Systems where the entities do not retain their individual roles or identities after the interaction."
+    ]
+   },
+   "verdicts": {
+    "N04": true,
+    "N02": false,
+    "P07": true,
+    "P09": true,
+    "P06": true,
+    "N06": false,
+    "N05": false,
+    "N03": false,
+    "N08": true,
+    "P12": true,
+    "N12": true,
+    "P05": true,
+    "N01": true,
+    "P02": true,
+    "N10": false,
+    "P04": true,
+    "N09": false,
+    "P10": true,
+    "P08": true,
+    "P03": true,
+    "N07": false,
+    "P11": true,
+    "P01": true,
+    "N11": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 0,
+   "schema": {
+    "name": "Exchange-Based Reciprocal Dependency",
+    "roles": [
+     "A provider",
+     "A recipient",
+     "A network coordinator"
+    ],
+    "conditions": [
+     "There are at least two distinct entities that exchange resources or information.",
+     "Each entity maintains a degree of autonomy and does not merge into a single entity.",
+     "The exchange is mutual and based on the specific capabilities of each entity.",
+     "The entities reduce their own independent capacity as a result of the exchange.",
+     "The relationship forms a structured network where each entity has a defined connection to others, and the network as a whole is more than the sum of its parts.",
+     "The network is not represented directly by the physical structures of the individual entities."
+    ],
+    "excludes": [
+     "Systems where one entity completely absorbs or subsumes the other.",
+     "Systems where the exchange is one-sided or unreciprocated.",
+     "Systems where the network is simply a physical aggregation without structured interdependence.",
+     "Systems where the entities lose their distinct identities or functions entirely.",
+     "Systems where the network is not emergent from the relationships between entities."
+    ]
+   },
+   "verdicts": {
+    "N08": true,
+    "N04": false,
+    "N12": true,
+    "P11": false,
+    "N10": false,
+    "P07": true,
+    "P05": true,
+    "P03": true,
+    "P06": true,
+    "P02": true,
+    "N07": true,
+    "P10": true,
+    "N01": true,
+    "P04": true,
+    "P09": true,
+    "N11": true,
+    "P12": true,
+    "N09": true,
+    "P01": true,
+    "P08": true,
+    "N05": false,
+    "N02": false,
+    "N06": false,
+    "N03": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 1,
+   "schema": {
+    "name": "mutual resource exchange with adaptive dependency",
+    "roles": [
+     "provider",
+     "recipient",
+     "network facilitator"
+    ],
+    "conditions": [
+     "Two or more entities engage in a reciprocal exchange of essential resources, where each entity supplies a resource that the other cannot obtain independently.",
+     "Each entity reduces its own independent capacity to produce or access the resource it receives, indicating a form of adaptive dependency.",
+     "The exchange leads to a structural transformation in the system, forming a networked configuration that is neither fully centralized nor fully decentralized, but instead emergent and distributed.",
+     "The network configuration cannot be represented by the individual components alone, but arises from their interaction."
+    ],
+    "excludes": [
+     "Unidirectional resource transfer without reciprocal benefit",
+     "Systems where one party completely replaces the function of the other",
+     "Structures that are pre-determined or externally imposed rather than emergent from interaction",
+     "Systems where the network configuration is entirely reducible to the sum of its parts"
+    ]
+   },
+   "verdicts": {
+    "P03": true,
+    "P02": true,
+    "P01": true,
+    "N01": false,
+    "P09": true,
+    "P08": true,
+    "N05": false,
+    "P04": false,
+    "P06": false,
+    "N06": false,
+    "P07": true,
+    "P12": true,
+    "N11": true,
+    "N10": true,
+    "N03": true,
+    "N12": false,
+    "N02": false,
+    "N09": false,
+    "N07": false,
+    "N04": false,
+    "P11": false,
+    "P05": false,
+    "P10": false,
+    "N08": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 2,
+   "schema": {
+    "name": "Mutual Dependency with Resource Exchange and Structural Adaptation",
+    "roles": [
+     "A provider",
+     "A beneficiary",
+     "A network organizer"
+    ],
+    "conditions": [
+     "Two or more entities must engage in a reciprocal exchange of distinct resources, where each entity provides something the other cannot produce independently.",
+     "Each entity must adapt its internal structure or behavior in response to the relationship, reducing reliance on certain functions or mechanisms.",
+     "The relationship must result in a broader, distributed structure or pattern that transcends the individual components, forming an emergent organization.",
+     "The components must retain their individual identity and ability to function autonomously outside the relationship."
+    ],
+    "excludes": [
+     "One-sided dependency where only one party benefits without reciprocal exchange.",
+     "Systems where the structural adaptation is not a consequence of the relationship but an inherent trait.",
+     "Systems where the emergent structure is not a distributed network but a centralized or hierarchical control system.",
+     "Systems where the components lose their autonomy or identity through the relationship."
+    ]
+   },
+   "verdicts": {
+    "N07": false,
+    "N11": false,
+    "P06": true,
+    "P12": true,
+    "N06": false,
+    "N02": false,
+    "N04": true,
+    "P10": true,
+    "N03": true,
+    "N10": false,
+    "N12": true,
+    "P05": false,
+    "N08": true,
+    "P09": true,
+    "P11": false,
+    "P04": false,
+    "N01": true,
+    "P07": true,
+    "N09": true,
+    "P03": true,
+    "P02": true,
+    "P08": true,
+    "N05": true,
+    "P01": true
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 3,
+   "schema": {
+    "name": "Mutualistic Exchange with Reciprocal Reduction",
+    "roles": [
+     "A",
+     "B"
+    ],
+    "conditions": [
+     "A and B are distinct entities capable of independent reproduction.",
+     "A and B engage in a bidirectional exchange of resources, where A provides one type of resource to B and B provides another type of resource to A.",
+     "The exchange leads to a reduction in the capacity of A to produce one type of resource, and a reduction in the capacity of B to produce another type of resource.",
+     "The system is characterized by a stable, non-representational network of interactions that persists across a population or group of entities.",
+     "The interactions are not hierarchical or centralised, but rather distributed and emergent."
+    ],
+    "excludes": [
+     "Systems where one entity dominates or controls the other.",
+     "Systems where the exchange is one-sided or unidirectional.",
+     "Systems where the reduction in capacity is not a direct result of the exchange.",
+     "Systems where the network is represented by a single entity or structure.",
+     "Systems where the entities are not independent or capable of autonomous reproduction."
+    ]
+   },
+   "verdicts": {
+    "N09": true,
+    "P03": true,
+    "P10": false,
+    "N04": false,
+    "N12": false,
+    "N11": false,
+    "N01": true,
+    "P01": false,
+    "P05": true,
+    "P07": true,
+    "N08": false,
+    "P06": false,
+    "N02": false,
+    "P09": false,
+    "P12": true,
+    "N07": false,
+    "P11": false,
+    "P08": false,
+    "P04": true,
+    "N03": true,
+    "N10": false,
+    "P02": false,
+    "N06": false,
+    "N05": false
+   }
+  },
+  {
+   "arm": "A1",
+   "seed": 4,
+   "schema": {
+    "name": "Interdependent Exchange Network",
+    "roles": [
+     "Party A",
+     "Party B",
+     "Network"
+    ],
+    "conditions": [
+     "Party A provides a resource that Party B cannot produce independently.",
+     "Party B provides a resource that Party A cannot produce independently.",
+     "The exchange of resources leads to a reduction in the direct production capacity of each party.",
+     "The network emerges as a stable configuration across multiple instances of Party A and Party B.",
+     "Each party maintains its own distinct identity and functional autonomy.",
+     "The network is not represented by the physical structures of either party."
+    ],
+    "excludes": [
+     "One-sided exchange where only one party benefits.",
+     "Systems where one party completely absorbs or replaces the other.",
+     "Physical structures that represent the network (e.g., direct physical connections).",
+     "Systems where the network is not emergent but pre-defined or externally imposed.",
+     "Systems where identity or autonomy of the parties is not preserved through the exchange."
+    ]
+   },
+   "verdicts": {
+    "N08": true,
+    "P03": false,
+    "N11": true,
+    "P01": true,
+    "N12": true,
+    "P05": false,
+    "P11": false,
+    "N07": false,
+    "N01": true,
+    "N05": false,
+    "N10": false,
+    "P02": true,
+    "N02": false,
+    "P12": false,
+    "N06": false,
+    "P04": false,
+    "P09": true,
+    "P08": true,
+    "P06": true,
+    "N04": true,
+    "N03": false,
+    "P10": true,
+    "P07": true,
+    "N09": true
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 0,
+   "schema": {
+    "name": "Relational Exchange with Asymmetric Resource Flow and Adaptive Architecture",
+    "roles": [
+     "sender",
+     "receiver",
+     "network",
+     "modulator"
+    ],
+    "conditions": [
+     "There are at least two distinct entities that interact in a sustained, bidirectional exchange of resources.",
+     "Each entity contributes a distinct type of resource, and the exchange is not symmetric in terms of quantity or timing.",
+     "The exchange is mediated through a third-party structure that connects the entities, forming a network that is more complex than the sum of its parts.",
+     "The entities retain their individual identities and functions, even as they participate in the exchange.",
+     "The network structure emerges and stabilizes over time, with patterns of connection that are not predetermined by any single entity.",
+     "The exchange operates on different temporal scales, with one resource moving more quickly than the other.",
+     "The system includes a mechanism for feedback and adjustment in the exchange, such that the flow of resources can be modulated by the relative needs or contributions of the entities.",
+     "The relationship is dynamic and can be disrupted, with observable changes in the structure and behavior of the entities as a result.",
+     "The presence or absence of the network has a measurable impact on the survival or function of the entities."
+    ],
+    "excludes": [
+     "Systems where the exchange is fully symmetric or static, with no feedback or temporal variation.",
+     "Systems where one entity dominates or controls the other, rather than maintaining mutual autonomy.",
+     "Systems where the network is pre-existing or pre-determined, rather than emergent and adaptive.",
+     "Systems where the entities lose their distinct identity or function as a result of the relationship.",
+     "Systems where the exchange is immediate and complete, rather than ongoing and mediated.",
+     "Systems where the network has no influence on the structure or function of the entities involved."
+    ]
+   },
+   "verdicts": {
+    "N02": false,
+    "N08": false,
+    "N05": false,
+    "P01": false,
+    "N09": true,
+    "P12": true,
+    "P10": true,
+    "P05": true,
+    "P07": true,
+    "P06": true,
+    "P09": true,
+    "P08": true,
+    "P03": true,
+    "N01": true,
+    "P04": false,
+    "N11": false,
+    "N12": false,
+    "N07": false,
+    "N06": false,
+    "N10": false,
+    "N04": false,
+    "N03": false,
+    "P11": false,
+    "P02": false
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure Through Mutual Adaptive Exchange",
+    "roles": [
+     "A: A provider of a resource that can be exchanged",
+     "B: A recipient of that resource, with the capacity to offer a complementary resource in return",
+     "C: A network structure that integrates A and B across multiple nodes, without being encoded in any single node"
+    ],
+    "conditions": [
+     "There are two distinct entities that engage in a bidirectional exchange of resources, where each entity's contribution is conditional on the other's.",
+     "The exchange occurs at multiple localized interfaces, with the rate of exchange adjusting dynamically based on the relative value of the resources exchanged.",
+     "The system includes a network that connects multiple instances of A and B, where the connections are not pre-determined by any single participant but emerge through interaction.",
+     "The network structure includes hubs and peripheries, where some nodes are more central in the flow of resources than others.",
+     "The relationship between A and B is not fixed at the beginning but evolves over time, with changes in one affecting the structure and function of the other.",
+     "The system allows for the incorporation of new participants into the network, with the new participant immediately accessing the resources of the existing network.",
+     "The presence or absence of the network has a measurable effect on the development and survival of individual participants, especially under stress or resource limitation.",
+     "The exchange operates on different temporal scales, with one flow happening quickly and the other more slowly, indicating a non-synchronous or asynchronous interaction."
+    ],
+    "excludes": [
+     "Systems where the exchange is one-sided or unidirectional, without reciprocal adjustment.",
+     "Systems where the network structure is pre-encoded in any individual participant.",
+     "Systems where the network is static and does not evolve with the participants.",
+     "Systems where the integration of new participants does not affect the existing network or its function.",
+     "Systems where the temporal dynamics of exchange are synchronized or operate on the same time scale.",
+     "Systems where the relationship between participants is fixed or predetermined without interaction."
+    ]
+   },
+   "verdicts": {
+    "P06": false,
+    "P07": false,
+    "N03": true,
+    "N01": true,
+    "P12": true,
+    "N11": false,
+    "N09": true,
+    "N12": false,
+    "N10": false,
+    "N07": false,
+    "P04": false,
+    "N02": false,
+    "P10": true,
+    "N06": false,
+    "P03": true,
+    "N05": false,
+    "P08": true,
+    "P09": false,
+    "N08": false,
+    "P11": false,
+    "P02": true,
+    "N04": false,
+    "P01": true,
+    "P05": false
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Exchange with Differential Timing and Adaptive Feedback",
+    "roles": [
+     "Sender",
+     "Receiver",
+     "Network",
+     "Interface",
+     "Temporal Regulator"
+    ],
+    "conditions": [
+     "There are at least two distinct entities that exchange resources, each with a distinct role in the exchange process.",
+     "The exchange is not fixed or symmetric; it is dynamically adjusted based on the relative value of the resources exchanged.",
+     "The exchange occurs across a network that is not inherent to either entity but emerges through interaction.",
+     "Each entity contributes to the network's structure through localized interactions that are not pre-programmed or centralised.",
+     "The network has a structure with hubs and peripheries, which is not encoded in the individual entities.",
+     "The exchange operates on different temporal scales: one resource moves quickly, another more slowly, and they are not matched in timing.",
+     "There is a feedback mechanism that allows the structure of the network and the behavior of the entities to be responsive to the state of the exchange.",
+     "The relationship is reversible: severing the connection leads to a reversion in the state of the entities.",
+     "The presence of an external network significantly affects the survival or success of new entities entering the system."
+    ],
+    "excludes": [
+     "Systems where the exchange is fixed, symmetric, or pre-programmed.",
+     "Systems where the network structure is inherent to one or both entities.",
+     "Systems where resources are exchanged on the same temporal scale.",
+     "Systems where the relationship is irreversible or where feedback is absent.",
+     "Systems where the presence of an external network has no impact on the success of new entities."
+    ]
+   },
+   "verdicts": {
+    "P11": false,
+    "N09": false,
+    "P03": true,
+    "N12": false,
+    "P12": true,
+    "P05": false,
+    "N07": false,
+    "N04": false,
+    "P10": false,
+    "N05": false,
+    "N08": false,
+    "N06": false,
+    "N01": true,
+    "N02": false,
+    "P02": true,
+    "P08": true,
+    "N11": false,
+    "N10": false,
+    "P09": true,
+    "P01": true,
+    "N03": false,
+    "P06": false,
+    "P04": false,
+    "P07": false
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 3,
+   "schema": {
+    "name": "Relational Exchange with Adaptive Resource Partitioning",
+    "roles": [
+     "A sender",
+     "A receiver",
+     "A network",
+     "A temporal mechanism"
+    ],
+    "conditions": [
+     "There are at least two distinct entities that interact in a bidirectional exchange of resources, where each entity provides a resource that the other cannot produce or obtain independently.",
+     "The exchange is not static but dynamically adjusted based on the relative value or availability of the resources exchanged, with each entity modifying its contribution in response to the other’s needs or supply.",
+     "The interaction forms a network structure that is not encoded in the individual entities but emerges from their relationship, with nodes and pathways that are not inherent to either participant.",
+     "The network includes new participants that can join or be integrated into the structure, with the ability to access shared resources without direct prior connection.",
+     "The system has a temporal dimension: the exchange of one resource occurs more rapidly than the exchange of another, and the timing of these exchanges influences the overall dynamic of the system.",
+     "The relationship can be disrupted, and the system responds to this disruption by altering its structure or function, indicating that the adaptation is dependent on the ongoing relationship rather than a fixed state.",
+     "The presence or absence of a network significantly affects the function or survival of the participants, especially under stress or suboptimal conditions."
+    ],
+    "excludes": [
+     "Systems where the exchange is one-sided or unidirectional",
+     "Systems where the network structure is pre-programmed or genetically encoded in the participants",
+     "Systems where the exchange is a fixed or static contract, not dynamically adjusted",
+     "Systems where resources are exchanged at the same rate and on the same temporal scale",
+     "Systems where the participants are fully autonomous and do not modify their behavior or structure in response to the relationship"
+    ]
+   },
+   "verdicts": {
+    "N07": false,
+    "P09": false,
+    "N01": true,
+    "P05": false,
+    "N04": false,
+    "N06": false,
+    "P11": false,
+    "P06": false,
+    "N08": false,
+    "P01": false,
+    "P03": true,
+    "N03": false,
+    "P07": true,
+    "N02": false,
+    "P10": false,
+    "P04": false,
+    "P12": true,
+    "N05": false,
+    "N09": true,
+    "P02": true,
+    "N11": false,
+    "N12": false,
+    "P08": true,
+    "N10": false
+   }
+  },
+  {
+   "arm": "A5",
+   "seed": 4,
+   "schema": {
+    "name": "Relational Exchange with Asymmetric Resource Flow and Adaptive Morphology",
+    "roles": [
+     "Sender",
+     "Receiver",
+     "Network",
+     "Interface"
+    ],
+    "conditions": [
+     "There are at least two distinct entities that engage in an exchange of resources, with one providing a form of energy or material and the other providing another, with no requirement for equal exchange.",
+     "The exchange is not centralized but occurs at multiple localized interfaces, with each interface having its own dynamic of resource allocation.",
+     "The flow of resources between entities is not static but varies in response to the relative value or need of each party.",
+     "The entities involved maintain their own autonomous identity and function, without merging or subsumption.",
+     "The entities are connected through a network that is not encoded in the individual entities themselves, but emerges from their interactions.",
+     "The network has a structure with hubs and peripheries, where some entities are more central or influential in the flow of resources.",
+     "The connection between entities can be severed, and this has measurable effects on the morphology or behavior of the entities.",
+     "New entities can integrate into the network, and their integration affects their morphology or resource allocation.",
+     "The exchange operates on different temporal scales, with some flows occurring rapidly and others taking longer to manifest.",
+     "The relationship is not fixed at the start but can change over time based on the dynamics of the exchange and environmental conditions."
+    ],
+    "excludes": [
+     "Systems where the exchange is fixed or reciprocal without variation.",
+     "Systems where the entities merge or lose their identity through the relationship.",
+     "Systems where the network structure is pre-defined or encoded within the entities themselves.",
+     "Systems where the exchange operates on a single, synchronized time scale.",
+     "Systems where the morphology or behavior of entities is fixed and not influenced by the presence or absence of a relationship.",
+     "Systems where new entities cannot integrate into the network or where integration has no measurable impact.",
+     "Systems where the relationship is arbitrary or not influenced by the identity of the entities involved."
+    ]
+   },
+   "verdicts": {
+    "P07": true,
+    "P04": false,
+    "P05": true,
+    "N09": true,
+    "N06": false,
+    "N08": false,
+    "P12": true,
+    "N03": false,
+    "N01": true,
+    "P11": true,
+    "P10": true,
+    "N07": false,
+    "N11": false,
+    "P01": false,
+    "N05": false,
+    "P02": true,
+    "P09": true,
+    "P03": true,
+    "P08": true,
+    "N02": false,
+    "N12": true,
+    "N04": false,
+    "N10": false,
+    "P06": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 0,
+   "schema": {
+    "name": "Competitive Resource Utilization and Temporal Priority",
+    "roles": [
+     "A resource consumer",
+     "A resource depleter",
+     "A resource defender",
+     "A resource indicator"
+    ],
+    "conditions": [
+     "The system contains a resource that can be consumed or modified over time.",
+     "There is a primary consumer that initiates the use of the resource and alters its form or availability.",
+     "The primary consumer has mechanisms to defend or limit access to the resource against secondary consumers.",
+     "The system includes an indicator that signals when the resource is becoming insufficient, triggering a response such as termination or shift in resource use.",
+     "The order of arrival or initiation of consumers determines the outcome or dominance in the system."
+    ],
+    "excludes": [
+     "Systems where the resource is not finite or not subject to change over time.",
+     "Systems where the order of arrival does not influence the outcome or resource allocation.",
+     "Systems where the resource is not actively consumed or transformed by the primary actor.",
+     "Systems where the primary consumer does not have defensive or exclusionary mechanisms.",
+     "Systems where the indicator of resource insufficiency is not a direct or measurable signal."
+    ]
+   },
+   "verdicts": {
+    "N08": false,
+    "P01": false,
+    "N04": false,
+    "N12": false,
+    "N10": false,
+    "P06": false,
+    "P07": false,
+    "P09": false,
+    "P08": false,
+    "P03": false,
+    "N02": false,
+    "N01": false,
+    "N09": false,
+    "N05": false,
+    "P10": false,
+    "P11": false,
+    "P04": false,
+    "P05": false,
+    "N07": false,
+    "P12": false,
+    "N03": false,
+    "P02": false,
+    "N06": false,
+    "N11": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 1,
+   "schema": {
+    "name": "Relational Structure with Dynamic Interaction and Resource Mediation",
+    "roles": [
+     "A **transformer** that alters a **substrate** by breaking it down into usable components.",
+     "A **competitor** that may be excluded or delayed by the transformer's actions.",
+     "A **supporter** that provides structural or functional scaffolding for another entity.",
+     "A **receptor** that interacts with a specific **target** through a defined interface.",
+     "A **metric** that aggregates and represents the value of a collection of elements."
+    ],
+    "conditions": [
+     "There is a **substrate** that is **modified** by a **transformer**, leading to its **depletion** or **transformation**.",
+     "A **competitor** may be **prevented** or **delayed** by the transformer's **chemical**, **physical**, or **functional** changes to the substrate.",
+     "A **supporter** provides **structure**, **access**, or **resources** without being **consumed** or **altered** in the process.",
+     "A **receptor** interacts with a **target** through a **specific interface** that determines the **strength** and **specificity** of the interaction.",
+     "A **metric** is derived from a **collection** of elements, and changes in those elements **directly affect** the metric's value.",
+     "The **metric** is **represented** as a **single value** or **unit**, and is used for **comparison**, **tracking**, or **decision-making**."
+    ],
+    "excludes": [
+     "Systems where the **transformer** does not alter the **substrate** or where the **substrate** remains unchanged.",
+     "Systems where the **supporter** is also **consumed** or **altered** by the process.",
+     "Systems where the **receptor** interacts with multiple **targets** without **specificity** or **interface**.",
+     "Systems where the **metric** is not **derived** from a **collection** or where the **metric** is not used for **comparison** or **tracking**.",
+     "Systems where the **competitor** is not **delayed** or **excluded** by the transformer's actions."
+    ]
+   },
+   "verdicts": {
+    "N09": false,
+    "P07": false,
+    "N12": false,
+    "P03": false,
+    "P01": true,
+    "P10": true,
+    "N01": true,
+    "N06": true,
+    "P09": true,
+    "P11": false,
+    "N03": false,
+    "N11": false,
+    "N02": false,
+    "P02": false,
+    "P08": false,
+    "N04": false,
+    "N05": false,
+    "P05": false,
+    "N10": true,
+    "P04": false,
+    "N08": false,
+    "P06": false,
+    "P12": true,
+    "N07": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 2,
+   "schema": {
+    "name": "Relational Resource Utilization",
+    "roles": [
+     "Resource Provider",
+     "Resource Consumer",
+     "Resource Transformer",
+     "Resource Indicator"
+    ],
+    "conditions": [
+     "There must be a resource that is consumed or transformed by an entity, and this resource is not replenished or regenerated within the system.",
+     "The consumer must alter the resource through a process that reduces its structure or utility, leading to its eventual depletion or transformation.",
+     "There must be a mechanism by which the consumer gains access to the resource, and this access may involve displacement or exclusion of other potential consumers.",
+     "The system includes an indicator or signal that reflects the state of the resource, signaling when it is nearly depleted and prompting a change in behavior or form.",
+     "The system must involve a dynamic where the presence of one entity affects the opportunity or ability of another entity to access the same resource."
+    ],
+    "excludes": [
+     "Systems where the resource is replenished or regenerated without external input.",
+     "Systems where the consumer does not fundamentally alter the resource's structure or utility.",
+     "Systems where the indicator does not correspond to the actual state of the resource or the actions of the consumer.",
+     "Systems where access to the resource is not contested or where there is no exclusion mechanism between consumers."
+    ]
+   },
+   "verdicts": {
+    "P05": false,
+    "N03": false,
+    "P01": true,
+    "P03": false,
+    "N10": true,
+    "P07": false,
+    "P11": false,
+    "N11": false,
+    "P06": false,
+    "N02": false,
+    "P08": false,
+    "N12": false,
+    "N04": false,
+    "P04": false,
+    "P09": true,
+    "N09": false,
+    "P10": false,
+    "N05": false,
+    "P02": false,
+    "N08": false,
+    "P12": true,
+    "N01": true,
+    "N06": false,
+    "N07": false
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 3,
+   "schema": {
+    "name": "Competitive Resource Utilization with Temporal Priority",
+    "roles": [
+     "Resource Consumer",
+     "Resource Transformer",
+     "Resource Indicator"
+    ],
+    "conditions": [
+     "There is a shared resource that can be altered by the consumer, leading to its depletion or transformation.",
+     "The consumer modifies the resource in a way that makes it less accessible or usable for other consumers.",
+     "There is a mechanism by which the consumer signals or indicates the state of the resource, often through changes in its properties or availability.",
+     "The consumer has a distinct mode of interaction with the resource, possibly involving specialized mechanisms or adaptations.",
+     "The system includes a temporal element where the order of interaction (who acts first) determines the outcome or access to the resource."
+    ],
+    "excludes": [
+     "Systems where the resource is not modified or consumed in a way that affects other users.",
+     "Systems where multiple actors interact with the resource simultaneously without affecting each other's access or transformation.",
+     "Systems where the resource is not a finite or depletable entity but rather a continuous or replenishing one.",
+     "Systems where the transformation of the resource does not serve as an indicator of its state or availability to others."
+    ]
+   },
+   "verdicts": {
+    "P02": false,
+    "N09": false,
+    "N08": false,
+    "N05": false,
+    "P04": false,
+    "N06": false,
+    "P05": false,
+    "N04": false,
+    "N02": false,
+    "N03": false,
+    "N01": true,
+    "P06": true,
+    "P01": true,
+    "N12": false,
+    "P03": true,
+    "P10": false,
+    "P07": false,
+    "N10": false,
+    "P09": true,
+    "P11": false,
+    "P08": false,
+    "N07": false,
+    "N11": true,
+    "P12": true
+   }
+  },
+  {
+   "arm": "B5",
+   "seed": 4,
+   "schema": {
+    "name": "Resource Utilization and Mutual Dependency",
+    "roles": [
+     "A primary actor that consumes or transforms a resource",
+     "A secondary actor that competes for or interacts with the resource",
+     "A mechanism that enables the primary actor to extract or modify the resource",
+     "A condition or state that signals resource depletion and triggers a response"
+    ],
+    "conditions": [
+     "The primary actor must have a method of transforming or utilizing the resource, often through a specific mechanism or process.",
+     "The secondary actor must be able to access or interact with the resource, either directly or through the primary actor’s activity.",
+     "The resource must be a shared or contested element, with the potential for competition between actors.",
+     "There must be a clear signal or threshold indicating when the resource is no longer sufficient to sustain the primary actor.",
+     "The system must involve an interaction where one actor’s action alters the availability or nature of the resource for others."
+    ],
+    "excludes": [
+     "Systems where the resource is not shared or contested",
+     "Systems where one actor does not significantly alter the resource for others",
+     "Systems where the signal for resource depletion is not present or not clearly defined",
+     "Systems where the primary and secondary actors do not have distinct roles or interactions",
+     "Systems where transformation of the resource is not a central part of the interaction"
+    ]
+   },
+   "verdicts": {
+    "N03": false,
+    "N04": false,
+    "P09": true,
+    "P06": true,
+    "N08": false,
+    "N02": false,
+    "N07": false,
+    "P05": false,
+    "P11": false,
+    "P03": false,
+    "N06": false,
+    "P12": true,
+    "P04": false,
+    "N12": false,
+    "P01": true,
+    "N11": false,
+    "P02": false,
+    "P10": false,
+    "P08": false,
+    "N09": false,
+    "N01": true,
+    "P07": true,
+    "N05": false,
+    "N10": false
+   }
+  }
+ ]
+}

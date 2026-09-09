@@ -890,3 +890,185 @@ Neither is fixed by writing.
 4. **Coverage filters and ranks discovery candidates; it does not verify that a
    candidate is correct.** Sell the filter, not the judgement.
 
+
+---
+
+# Detail: E19–E29 (added 2026-09-09)
+
+Two tracks ran on the same day. **E19–E20** in `research/convergence/` tested an
+external brief about cross-domain abstraction. **E21–E29** in `research/mapper/`
+turned the whole certification question around and got the first positive this
+project has recorded.
+
+## E19 — cross-domain structural convergence: **NOT SUPPORTED**
+
+`research/convergence/E19_CROSS_DOMAIN_CONVERGENCE.md`. Does presenting a model
+five structurally *congruent* domains improve its ability to abstract the shared
+relational pattern? Generate a schema from a stimulus, then apply it — blind to
+the arm — to 24 pre-labelled probes in 12 matched pairs.
+
+Replicated on **four models**, which closes the experiment's own first-listed limit:
+
+| model | NULL | ORACLE | band | C5 (five congruent) |
+|---|---:|---:|---:|---:|
+| qwen3:4b | +0.361 | +0.667 | 0.306 | +0.467 |
+| qwen2.5:7b | +0.250 | +0.500 | 0.250 | +0.450 |
+| qwen3:8b | +0.194 | +0.556 | 0.361 | +0.567 |
+| ornith-1.5-9b | +0.194 | +0.750 | 0.556 | +0.600 |
+
+**The ceiling does not climb with scale and C5 never separates from one domain**
+(4B: C5 − A1 = +0.067; 7B: +0.017). What five items buy is *permissiveness* —
+positive acceptance 0.77 → 0.97, negative 0.37 → 0.50 — the brief's own §17
+trivial universal.
+
+**The load-bearing finding needs no between-arm comparison.** C4, differentiation
+— that interaction can *produce* difference rather than erase it — is the worst
+clause for every arm. Four of five C5 schemas never state it, and ORACLE, handed
+the exclusion in writing, accepts **every** convergence decoy while rejecting all
+four identity-destruction decoys. The model detects interaction that *destroys*
+difference and fails on interaction that *reduces* it.
+
+### E19b — three controls, and a transferable finding about controls
+
+`research/convergence/E19b_CONTROL_REBUILD.md`.
+
+**S5 was never a control.** Described as "C5's tokens with congruence destroyed",
+it is C5's five bodies **byte-identical, cyclically shifted against five identical
+headings** (tf-cosine 1.000). Congruence among them is intact, and the generation
+prompt tells the model to discard exactly the part that moved. E19's "decisive
+test" is withdrawn; the verdict rests on A1 and A5, which are valid.
+
+Two rebuilds, both recorded:
+
+| arm | design | outcome |
+|---|---|---|
+| B5 | five domains chosen to share nothing | confounded — all five were asymmetric one-way relations |
+| B5b | five surface-matched, heterogeneous | **falsifier fired at 4B, 7B and 9B** — converged on ¬C1 every time |
+| B5c | five coupled, each failing a different clause | fires at 4B (¬C2), **valid at 9B** |
+
+At 9B, where the control is admissible, C5 +0.600 vs B5c +0.233 = +0.367 against
+a band of 0.556 — inside it, so the brief is not supported where a valid control
+exists.
+
+**Transferable: a control arm's validity is a property of the stimulus *and the
+model* together, and must be checked per model.** B5b converges at 9B while B5c
+scatters — same model, same prompt, same seeds.
+
+**Also recorded:** the negation space of a target structure is dominated by
+absence of coupling, so any set assembled to be "structurally unrelated" drifts
+into sharing ¬C1 unless coupling is held fixed deliberately.
+
+## E20 — the n-gram sieve's floors, measured before the table exists
+
+`research/convergence/E20_FLOORS.md`. **The 51GB Qwen3.8-Flash-Next n-gram table
+is not on the fleet** and E20 has not run. Its three declared controls need no
+table, so they were measured first.
+
+| scorer | forced choice | AUC |
+|---|---:|---:|
+| length (words / chars) | 0.250 / 0.417 | 0.378 / 0.420 |
+| frequency (mean / min / rare-n) | 0.583 / 0.333 / 0.250 | 0.535 / 0.521 / 0.427 |
+| **embedding LOPO** | **0.917** | **0.757** |
+
+Length and frequency are at chance — **the ANCHORVOC confound is absent from this
+probe set.** But an off-the-shelf embedding separates **C3 4/4 and C1 3/3**, so
+E20's "expected honest positive" (separating C3) is *already the floor*, and its
+pre-registered negative (C1 is causal, not lexical) is **false**. The only
+headroom is C4 at 0.67 — on three pairs. **The blocker on E20 is not the download;
+it is that the probe set needs more C4/C5 pairs.**
+
+## E21 — geometry as a proposer: the first positive that survives its null
+
+`research/mapper/E21_PROPOSER.md`. **Every refutation in this project refuted
+unsupervised, zero-shot judgement.** COSINE, NAME-ONLY, CONSTRAINT, ANCESTRY and
+ANCHORVOC are fixed formulas with nothing fitted to a human decision. The
+supervised, human-in-the-loop version had never been measured — and the question
+a person filing 582 entries has is not *"is the machine right"* but *"can it
+narrow 57 cells to 3 so I choose instead of search."*
+
+Ground truth: the rater's **revised** cell in `refiling_gate0.tsv`, 582 blind
+entries, 57 targets.
+
+| at 436 decisions seen | top-1 | top-3 | top-5 |
+|---|---:|---:|---:|
+| **geometry** | **0.438** | **0.667** | **0.755** |
+| prior `old`→`new` lookup | 0.184 | 0.368 | 0.474 |
+| majority | 0.089 | 0.255 | 0.359 |
+| **permuted (the null)** | 0.036 | 0.136 | 0.233 |
+| length only | 0.010 | 0.036 | 0.071 |
+
+**Top-1 0.438 essentially reproduces E5's 0.447. The geometry did not get
+better** — a number filed as a failure is the same number that makes a usable
+proposer once the output is three candidates instead of one. Learning curve still
+climbing at 436 (top-3: 0.385 → 0.508 → 0.595 → 0.667).
+
+**Open, and it decides whether this is worth building on: a second rater.** The
+Gate 0 rater was Claude, so this may have learned a policy or the corpus.
+
+## E22–E29 — the mode axis, closed from five directions
+
+| # | question | result |
+|---|---|---|
+| **E22** | what do the confusions say the axes should be? | domain: FABRICATE ↔ CONSTRUCT confuse **0.22/0.21 symmetric**, one distinction wearing two names. Mode is **three problems**: a four-way blur (WORK/CREATE/MAINTAIN/SENSE, 68% of entries, ample population), a definition failure (WALK, n = 27, top-1 **0.18**), and five genuinely unmeasured classes (BRAINSTORM n = 1) |
+| **E24** | how much should hints weigh? | **α = 0.5 beats both α = 0 and the shipped α = 1, on both axes.** Top-3 0.712 vs 0.658. Refutes a per-axis split: one unimodal curve, same peak |
+| **E25** | is a compound `M + H` or `T_M · H`? | **geometry is additive** — offset coherence +0.697 vs a +0.036 null, no head asymmetry. **But roles are asymmetric**: mode sits almost entirely in the head (+0.251 over floor vs the modifier's +0.054), and the true compound beats its own additive reconstruction |
+| **E26** | are domain and mode perpendicular? | **No** — 46.1° mean, and orthogonalising *hurts both*: the overlap is shared signal. **Domain compresses to 4-d losslessly (−0.003); mode is not a subspace (−0.034)** |
+| **E27** | can merging make mode coherent? | **No.** At matched granularity mode-merged-to-5 is −0.187 against domain's −0.007. Merging makes it *worse* |
+| **E28** | does the split proposer ship? | **No, −0.119.** Factorising costs −0.028 (the axes are not independent) and head-only a further −0.091 |
+| **E29** | is there a better carve to discover? | **No.** Clustering the blur recovers *subject matter*; the current four beat every discovered partition (−0.014 vs −0.049/−0.082/−0.073) |
+
+### Two corrections made in-flight, recorded rather than folded in
+
+**E22's axis asymmetry was a two-point artifact.** It measured hints helping
+domain (+0.022) and hurting mode (−0.034) and read an axis asymmetry into it.
+E24's full sweep shows one unimodal curve peaking at 0.5 for *both* — hints are
+simply over-weighted, more so for mode. The measurements stand; the prescription
+of two representations does not.
+
+**E27's prescription contradicted E25's own limits.** E27 recommended building
+the mode axis from the head, because head-only halves mode's *incoherence*. E28
+measured the cost in *prediction*: **−0.091 top-3**. E25's limits section had
+already said *"not a prescription to drop the modifier."*
+
+> **Compression asks whether an axis is a coherent object. Held-out top-k asks
+> whether a representation predicts. A diagnostic criterion is not an objective
+> function** — and this track has now conflated them once.
+
+### Where the mode axis stands
+
+**Mode is not underdetermined by its labels. It is absent from the
+representation.** Every computational route is closed, each for a different
+reason: coarser granularity (E27), better representation (E28), factorised
+decoding (E28), a stronger embedder (E21, +0.065 and no closure), unsupervised
+discovery (E29). An entry here is a name plus subject-matter hints — what
+something is *about*. Mode asks what is being *done*, and nothing in the corpus
+ever observed anything being done.
+
+### E23 — where supervision may come from
+
+`research/mapper/E23_SUPERVISION_SOURCES.md`. Testing whether machine-generated
+supervision could replace the human decisions E21 depends on. On 528
+conventional-commit subjects — the label *is* an activity, the text *is* about it,
+prefixes stripped:
+
+| scorer | top-1 |
+|---|---:|
+| **TF-IDF (lexical)** | **0.628** |
+| embedding | 0.575 |
+| majority | 0.451 |
+| permuted | 0.222 |
+
+The reading was fixed before the run: *if TF-IDF matches the embedder, the signal
+is lexical convention, not activity semantics.* **It beats it.**
+
+**So machine supervision is real where a convention or an exact log carries the
+label, and is not a route to inferring causes nobody wrote down.** Hence the
+standing rule: **causes are user-assessed unless an exact error log is provided.**
+An exact log needs no semantics — it *is* a structured label.
+
+## What ships from all of this
+
+**One line: halve the hints.** `v = normalise(v_name + 0.5·(v_hints − v_name))`,
+used by a single joint proposer over cells. Top-3 **0.705** against the shipped
+representation's 0.651, *t* = +12.13, better in **24 of 24** paired splits
+(E28 variant B). Every more elaborate design built on top of it lost.
