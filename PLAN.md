@@ -1067,6 +1067,11 @@ in the search layer but is NOT surfaced at the ontology-node level.
   §2 G1–G7, §3 NOT-taking, §4 P0/P1/P2, §5 gates + falsifiers, §6 questions).
 - Background: `docs/resources.md` §§9–11 (Atlas v0.1.0-alpha.1 Ripple/AGM;
   Graphiti v0.30.2 tri-temporal/hybrid; comparison table + monster benchmark).
+- Extension: `docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md` (T1–T7: the TMS
+  family — ATMS environment labels, NATMS negated justifications, JTMS
+  retraction cascade — plus Atlas trust quarantine/promotion, Graphiti
+  communities and graph-distance search; normative for T items, cross-checks
+  A/G boundaries).
 - Rule (§0): patterns, protocols, test shapes only — never dependencies. No
   graph DB, no LLM service, no Python runtime. Offline Rust over sled +
   in-process embeddings. Any item not statable as observable behavior of a named
@@ -1212,7 +1217,10 @@ gaps. No new struct is planned — the tuple is an audit lens, not a type.
 | 23.5 | **The critical experiment** (extends 22.5): same belief-update benchmark under **(1)** monotonic/vector retrieval (current cosine propose path), **(2)** AGM revision (Atlas), **(3)** TMS/ATMS (`ATMS-in-Python` as the small reference), **(4)** Atlas/Ripple, **(5)** Physis. Metrics: contradiction retention, downstream revision, temporal validity, provenance preservation, recovery after false evidence, hypothesis generation. | L | every number cited with its null; the claim is about the *additional behavior produced by coupling semantic representation to empirical epistemic revision* — not about inventing belief revision |
 
 Standing baselines for 23.5 (per the resources file): Atlas, Graphiti, and an
-ATMS implementation are the first three external baselines. Study-only (no
+ATMS implementation are the first three external baselines — the ATMS arm is
+concrete now: the label algorithm from `ATMS-in-Python`/`NATMS`, re-implemented
+in the benchmark harness, with the Nixon Diamond as the named cross-check
+scenario (`docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md` §2 T4). Study-only (no
 dep): `Nous` (persistent epistemic substrate — what the modern memory
 ecosystem is converging toward), `Agent_Memory_Techniques` (map),
 ontology-embedding implementations (OWL2Vec/DL2Vec/RDF2Vec/PyKEEN) for the
@@ -1261,4 +1269,4 @@ Phase 6 is mostly independent of Phases 1–5. Phase 7 depends on classify/recon
 Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.
 - Phase 22 still does not claim that revision cascades, hybrid retrieval, or provenance hardening certify a filing — cosine 0.519 / propose top-3 0.712 stand; the takes propose, carry and defer, they do not verify.
 - Phase 23 fixes the formal vocabulary and its non-claims: Physis is not a Kripke truth theory; "fixed point" means locally stable under currently available evidence and context, never metaphysical truth; the 23.5 benchmark claims only the additional behavior produced by coupling semantic representation to empirical epistemic revision — not the invention of belief revision.
-todo: investigate tmg/ntmg/graphiti/atlas as codebases in /home/gio/dev, and 
+todo: investigate tmg/ntmg/graphiti/atlas as codebases in /home/gio/dev — done 2026-09-09, see docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (T1–T7);

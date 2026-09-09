@@ -35,3 +35,4 @@
 - Formal semantics: Γ/R operator separation + additive-construction invariant + provisional fixed point — PLAN.md Phase 23 (23.1–23.3) + physis_resources.txt
 - Replay/dream candidates from failed/inert/contradicted structures — PLAN.md Phase 23 (23.4)
 - Critical experiment: RAG vs AGM vs TMS/ATMS vs Atlas/Ripple vs Physis, numbers only with nulls — PLAN.md Phase 23 (23.5) + physis_resources.txt
+- TMS-family takes: ATMS environment labels, NATMS negated justifications, JTMS retraction cascade, Nixon-Diamond scenario, Atlas quarantine/promotion, Graphiti graph-distance leg + community rollups — BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (T1–T7)
