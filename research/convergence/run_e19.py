@@ -24,6 +24,16 @@ ARMS
   A1      one congruent domain                              (brief 9A)
   A5      the same one domain at C5's token count           token control
   B5      five surface-matched, structurally unrelated       (brief 9B)
+          CONFOUNDED: all five are asymmetric one-way relations, so the model
+          abstracted THAT shared invariant rather than none. See E19b.
+  B5b     five surface-matched, meant to be heterogeneous      FAILED CONTROL
+          Its falsifier fired: all five schemas converged on non-reciprocity.
+  B5c     five surface-matched, all COUPLED, each failing a       control, 2nd try
+          different clause of T. Holds C1 true in all five so the set cannot
+          collapse onto shared non-coupling, which is what killed B5 and B5b.
+          Also the construction-matched control S5 turned out not to be: S5's
+          five bodies are C5's, byte-identical, shifted against identical
+          headings. E19b_CONTROL_REBUILD.md pre-registers this arm.
   C5      five structurally congruent domains                (brief 9C/9D) — the claim
   S5      C5's tokens, congruence destroyed by permutation   construction-matched control
   ORACLE  T hand-authored from target_structure.md. THE CEILING.
@@ -40,12 +50,18 @@ PRE-REGISTERED, BEFORE THE FIRST CALL
 DECLARED FLOORS the arms must beat (from preflight.py, run before authoring):
   length AUC 0.378/0.420 (chance) ; tf-idf leave-one-pair-out forced choice 0.750.
 """
-import json, os, random, sys, time, urllib.request
+import json, os, random, re, sys, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODEL = os.environ.get("E19_MODEL", "qwen3:4b")
 SEEDS = int(os.environ.get("E19_SEEDS", "6"))
 BATCH = 2
+HOST = os.environ.get("E19_HOST", "http://localhost:11434")
+# One results file per model, so a re-run on a larger model never merges rows
+# with the 4B run it is supposed to be checked against.
+OUT = os.environ.get("E19_OUT") or os.path.join(
+    HERE, "results_e19.json" if MODEL == "qwen3:4b"
+    else "results_e19_%s.json" % re.sub(r"[^a-z0-9]+", "_", MODEL.lower()).strip("_"))
 
 SCHEMA_FMT = {
     "type": "object",
@@ -65,7 +81,7 @@ def ask(prompt, fmt=None, temp=0.0, npred=420, seed=0):
             "options": {"temperature": temp, "num_predict": npred, "seed": seed}}
     if fmt:
         body["format"] = fmt
-    req = urllib.request.Request("http://localhost:11434/api/chat",
+    req = urllib.request.Request(HOST + "/api/chat",
                                  data=json.dumps(body).encode(),
                                  headers={"Content-Type": "application/json"})
     for attempt in range(3):
@@ -166,8 +182,11 @@ def judge(schema, probes, tag):
 def main():
     probes = json.load(open(os.path.join(HERE, "probes.json")))["probes"]
     stim = json.load(open(os.path.join(HERE, "stimuli.json")))["arms"]
-    outp = os.path.join(HERE, "results_e19.json")
+    outp = OUT
     res = json.load(open(outp)) if os.path.exists(outp) else {"model": MODEL, "runs": []}
+    if res.get("model") != MODEL:
+        sys.exit(f"refusing to write {MODEL} rows into {outp}, which holds {res.get('model')}")
+    print(f"model={MODEL} host={HOST} seeds={SEEDS} -> {outp}", file=sys.stderr)
     done = {(r["arm"], r["seed"]) for r in res["runs"]}
 
     # NULL and ORACLE use fixed schemas, so their only variation is the probe
@@ -179,7 +198,7 @@ def main():
         jobs.append(("NULL", s_, NULL_SCHEMA))
         jobs.append(("ORACLE", s_, ORACLE_SCHEMA))
     # C5 first: it is the hypothesis, and this box OOMs before the queue drains
-    for arm in ("C5", "S5", "A1", "A5", "B5"):
+    for arm in ("B5c", "B5b", "C5", "S5", "A1", "A5", "B5"):
         for s in range(SEEDS):
             jobs.append((arm, s, None))
 

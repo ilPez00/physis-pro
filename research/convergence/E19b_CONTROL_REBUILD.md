@@ -114,4 +114,103 @@ never actually been run in this track.
 
 ---
 ## RESULTS
-*(empty until the run completes)*
+
+## 5. B5b's falsifier fired. The arm is not cited.
+
+The pre-registered check in §4 was *"read all five B5b schemas; if they converge
+on one shared invariant the way B5 converged on `actor / resource / consequence`,
+B5b is broken in the same way and must not be cited."*
+
+**It converged, at both model scales, on ¬C1 — the absence of mutual influence.**
+
+`qwen2.5:7b-instruct` (omo, 5 seeds):
+
+| seed | schema name | the shared invariant, in the schema's own words |
+|---|---|---|
+| 0 | Passive Influence Structure | "the relationship … is one-way, with no mutual interaction" |
+| 1 | Interdependent Components | "interact without direct reciprocal action" |
+| 2 | Structural Absence and Indirect Influence | excludes "systems where interactions are reciprocal or bidirectional" |
+| 3 | Candidate System for Relational Structure | "neither actively responds to changes initiated by the other" |
+| 4 | Unilateral Non-interaction Pattern | "no direct feedback loop between entities" |
+
+`qwen3:4b` (feather): all four schemas are named **"Relational Structure
+Pattern"** and every one excludes mutual influence — seed 0 "systems where
+entities directly influence each other's properties", seed 2 "systems where the
+abstraction results from direct interaction between relational entities", seed 3
+"the Target does not respond to or influence the Agent".
+
+**B5b is therefore not cited, and no C5-vs-B5b comparison is reported.** P1 is
+not adjudicated. The verdict of E19 is unchanged and continues to rest on A1
+and A5.
+
+### Why this is a result and not a second careless design
+
+B5 and B5b were designed independently, months apart in reasoning, to have "no
+shared invariant". Both collapsed onto the *same* one: **the five domains all
+lacked mutual coupling.**
+
+That is structural, not accidental. T requires coupling (C1). The cheapest way
+to write a domain that is *not* T is to write one where the two entities do not
+act on each other — consumption, common cause, aggregation, transmission,
+stipulated fit are all such cases, and they were five of five in B5b. **The
+negation space of T is dominated by absence of coupling**, so a set assembled to
+be "structurally unrelated" drifts into sharing ¬C1 unless coupling is held
+fixed on purpose.
+
+So the finding is about the control, and it is worth more than the arm would
+have been: *a "no shared structure" arm may not be constructible by free
+choice.* Any five relational descriptions share something; the design question
+is only whether what they share is more specific than the trivial universal.
+
+## 6. B5c — pre-registered 2026-09-09, before any B5c call
+
+Written and committed before the first call, as §4 was.
+
+**The fix: hold C1 true in all five, and vary which of the remaining clauses
+fails.** Then the set cannot collapse onto shared non-coupling, because every
+domain has coupling.
+
+| domain | coupling? | clause that fails | how |
+|---|---|---|---|
+| 1 tree root / fungus | yes | **¬C3** invariance | tissues interleave into one organ; neither can be lifted out again |
+| 2 two trees | yes | **¬C4** differentiation | root-grafted, buffered, forms *converge* |
+| 3 lymphocyte / antigen | yes | **¬C2** modification | bind and release; both exactly as they were, nothing transferred |
+| 4 two firms | yes | **¬C5** ensemble | a closed duopoly: the arrangement is between the two and nothing holds above it |
+| 5 two phonemes | yes | **¬C5** ensemble, differently | the spacing is published and revised at will by one academy |
+
+Token match: **B5c 431 words / 2333 chars against C5's 419 / 2375.**
+
+### The falsifier, restated for what is now achievable
+
+B5c's five domains **will** share mutual coupling — that is the point of the
+design, and it is what T's own C1 asserts. So the check cannot be "share
+nothing":
+
+> **B5c fails if the five schemas converge on an invariant MORE SPECIFIC than
+> mutual coupling** — that is, if they agree on any of modification, invariance,
+> differentiation or ensemble order. Converging on "two things that mutually
+> affect each other" and nothing further is the *intended* outcome: it is §17's
+> trivial universal, which is exactly what a congruence control should leave the
+> model holding.
+
+**Pre-registered predictions.**
+
+- **P1c — the brief is right.** C5 beats B5c by more than the instrument band.
+  Congruence around the *full* structure T beats congruence around the *trivial*
+  part of it.
+- **P0c — E19's account.** C5 ≈ B5c: five items produce a permissive schema
+  whether the shared structure is T or only coupling, and kappa is flat between
+  them.
+
+**What B5c can and cannot settle.** It compares specific congruence against
+trivial congruence — not against *no* congruence, which §5 argues may be
+unconstructible. That is a narrower question than the brief poses, and it is
+stated here so it is not later reported as the broader one.
+
+**Third attempt, and every attempt is on the record.** B5 was confounded, B5b's
+falsifier fired, B5c is the third design of the same control. Recorded in full
+rather than presented as if the third had been the first, because iterating
+controls until one yields a publishable comparison is precisely how a garden of
+forking paths is built. If B5c's falsifier also fires, the honest conclusion is
+that this control cannot be constructed at this corpus scale, and the brief's
+central claim is **untestable by this design** rather than refuted by it.
