@@ -219,3 +219,7 @@ The thesis has been empirically verified via the automated test suite ([`physis-
 
 Physis demonstrates that artificial intelligence does not need to choose between the fluid generation of statistical language models and the formal rigor of epistemic truth maintenance. By treating knowledge as an evolving ecosystem of competing, grounded, and testable interpretations, Physis provides a dependable cognitive core for high-stakes autonomous reasoning.
 
+
+
+## Scope note: what Physis does not claim
+Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.

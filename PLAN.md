@@ -1,3 +1,5 @@
+read physis_resources.txt
+
 # Physis Pro — Master Plan
 
 ## Overview
@@ -1055,6 +1057,99 @@ in the search layer but is NOT surfaced at the ontology-node level.
 
 ---
 
+## Phase 22 — Epistemic revision: Atlas + Graphiti integration (2026-09-09)
+
+> Sequenced after §21; depends on the classify/holarchy endpoints. This section is an index — normative detail lives in the two docs named in 22.0, not here.
+
+### 22.0 Normative pointer
+
+- Detail: `docs/ATLAS_GRAPHITI_INTEGRATION_PLAN.md` (§0 principle, §1 A1–A7,
+  §2 G1–G7, §3 NOT-taking, §4 P0/P1/P2, §5 gates + falsifiers, §6 questions).
+- Background: `docs/resources.md` §§9–11 (Atlas v0.1.0-alpha.1 Ripple/AGM;
+  Graphiti v0.30.2 tri-temporal/hybrid; comparison table + monster benchmark).
+- Rule (§0): patterns, protocols, test shapes only — never dependencies. No
+  graph DB, no LLM service, no Python runtime. Offline Rust over sled +
+  in-process embeddings. Any item not statable as observable behavior of a named
+  physis symbol plus a cargo test name is out of scope.
+
+### 22.1 Atlas takes A1–A7
+
+| Take | Physis target symbol | Observable behavior | Cargo test | Benchmark metric moved |
+|---|---|---|---|---|
+| **A1** Ripple downstream reassessment pass | `delta_engine.rs` (`evaluate_mutation`, `OntologyDeltaReport`) + `hypothesis.rs` (`transition_to`, `recompute_fitness`) + `epistemic.rs` (`FitnessShifted`, `StatusTransition`) | after any `transition_to`, walk dependents and recompute fitness per dependent with one epistemic event per step; proposals first, writes only via the shadow-frame commit | `midchain_revision_revises_exact_dependents` | downstream revision accuracy |
+| **A2** DEPENDS_ON-only walk + edge taxonomy discipline | `relation.rs` (`TypedEdge`, `RelationType`) + `delta_engine.rs` (`find_neighbors`, `build_adjacency`, `dfs_collect`, `MAX_PROPAGATION_DEPTH=5`) | walk declared DependsOn edges only (not cell-pin/label-prefix adjacency); count justification hops; keep caps + cycle recording; proposals-are-not-writes | `midchain_revision_revises_exact_dependents` (BFS order, cycles recorded) | downstream revision accuracy + cost |
+| **A3** AGM 49-scenario gate over status transitions | `hypothesis.rs` (`HypothesisStatus` ×9, `transition_to`) + `epistemic.rs` (`StatusTransition`) | port shape taxonomy (simple 10 / multi 8 / chain 8 / temporal 8 / adversarial 15; K*2×12 / K*3×8 / K*4×1 / K*5×9 / K*6×3 + Relevance 7 + Core-Retainment 9) as tests over transitions, no Cypher; K*4/K*6 weak-form only | module `agm_shape_gate` (N/N per shape) | the revision-correctness score itself |
+| **A4** DERIVED_FROM + SHA-256 ledger → provenance hardening | `provenance.rs` (`ProvenanceLink`, `ProvenanceChain::summary`) + `explanation.rs` (`provenance_chain`, `human_readable_summary`) | each link carries content hash + previous-link hash; verify walk reports first break with sequence coordinates; explanation surfaces the chain, not the last link | `ledger_tamper_breaks_chain_at_sequence` | provenance completeness |
+| **A5** Adjudication proposal/approve flow | `contradiction.rs` (`Contradiction::new`, `ResolutionStatus::Open`) + `epistemic.rs` (`ContradictionDetected`) | small-Δ auto-recomputes; large-Δ/contradiction/high-authority stays Open with recorded rationale, resolves only via explicit approve/reject/adjust/synthesize; rationale record before any file/CLI surface | `large_delta_routes_to_open_with_rationale` | contradiction retention + recovery after false evidence |
+| **A6** ReassessWeights-style tunable propagation params | `delta_engine.rs` (GAMMA, DEGRADATION_THRESHOLD, MIN_IMPACT, MAX_PROPAGATION_DEPTH) + `hypothesis.rs` (`recompute_fitness` weights 0.20/0.15/0.15/0.25/0.25 + penalties) | one named documented parameter set + per-term contribution record on each recompute; defaults frozen, tuning as separate scored configs | `fitness_recompute_reports_term_breakdown` | cost + reproducibility |
+| **A7** No-perturbation invariant as regression test | `delta_engine.rs` (`evaluate_mutation`, `classify_delta`) + `hypothesis.rs` (`recompute_fitness`) | zero-shift wave leaves fitness bit-identical and emits no HypothesisTransition | `zero_shift_wave_leaves_fitness_untouched` | guards all (no phantom movement) |
+
+Notes: A1 needs the A6 governor or one revision degrades fitness everywhere.
+A2 kills the blind GAMMA=0.85 cosine wave; DependsOn-sparse graphs log a stated
+fallback breadth rule. A4 is corruption-detection, never a signature.
+
+### 22.2 Graphiti takes G1–G7
+
+| Take | Physis target symbol | Observable behavior | Cargo test | Benchmark metric moved |
+|---|---|---|---|---|
+| **G1** expired_at leg → TemporalValidity extension | `temporal.rs` (`TemporalValidity`, `permanent`/`from`/`during`, `is_valid_at`, `overlaps`) | add system-recorded invalidation leg + backfill-vs-arrival distinction for late/out-of-order evidence; P0 fields only, queries filter in P2 with G6 | `temporal_triple_serialises` (triple round-trips sled JSON) | temporal accuracy ("true then" vs "recorded then") |
+| **G2** (resolved, invalidated, new) ingest protocol | `delta_engine.rs` (`evaluate_mutation`, `OntologyMutation`, `OntologyDeltaReport`) + `hypothesis.rs` (`add_supporting_evidence`, `add_contradicting_evidence`) | ingest returns the triple with a deterministic judgment step (overlap+recency, every call logged) before fitness update; superseded keeps timestamps, stays queryable | `ingest_returns_resolved_invalidated_new` | stale-belief rate + recovery after false evidence |
+| **G3** Episode + watermark model → epistemic trail | `epistemic.rs` (`EpistemicAuditTrail`, `EpistemicEvent`, `history_for`) + `history.rs` | raw intake kept as ordered replayable records with arrival-vs-assertion times + per-stream high-water mark; watermarks split in types, not comments | `late_evidence_replays_to_same_state` | forgetting-resistance + hypothesis diversity + ingest-order replay |
+| **G4** Per-edge episodes[] → provenance chains | `provenance.rs` (`ProvenanceLink`, `ProvenanceChain`) + `explanation.rs` (`provenance_chain`) | every derived link records intake-record ids; explanations cite intake ids; stated newest-N + first-seen cap, never silent cut | intake-id citation in `human_readable_summary` + `ledger_tamper_breaks_chain_at_sequence` (chain leg) | link-level provenance completeness |
+| **G5** Hybrid BM25+RRF retrieval → rag/propose path | `rag.rs` (`TokenFixedRetriever`, `TokenCounter`, token-budget packing) + `propose.rs` (cosine-only today) | lexical leg beside cosine, RRF fusion, budget packing + propose-does-not-verify kept; cosine-only retained as named baseline | `hybrid_fusion_vs_cosine_baseline` (or ships disabled, negative recorded) | outcome prediction via better shortlists (propose only) |
+| **G6** Point-in-time queries → reconstruct_status_at | `epistemic.rs` (`reconstruct_status_at`) + `temporal.rs` (`is_valid_at`) | "believed at T?" / "valid during [a,b]?" answered from validity triple + audit trail; status encoding normalized inside this item | `point_in_time_matches_audit_trail` on seeded chains | temporal accuracy |
+| **G7** Invalidate-don't-delete discipline | `hypothesis.rs` (`Superseded`) + `contradiction.rs` + `temporal.rs` (`valid_until`) | revision stamps invalidation timestamps, keeps items history-readable and out of current queries; true deletion explicit + separately audited | `superseded_items_stay_queryable_for_history` | contradiction retention + temporal accuracy + auditability |
+
+Notes: G1 is dead weight until queries filter on it — paired with G6. G2 starts
+from overlap+recency rules with every judgment logged (LLM judging NOT taken).
+G7 states a retention/compaction story before data gets large.
+
+### 22.3 Explicitly NOT taking
+
+- **N1 — Graph DB substrate** (Neo4j 5.26, FalkorDB, Cypher, APOC): breaks the offline Rust + sled zero-service contract; TypedEdge adjacency expresses the walks.
+- **N2 — LLM extraction/judging/reranking** (extraction prompts + date-guessing, dedupe judgment, LLM reassessor, cross-encoders): nondeterministic, key-gated, the 0.519 failure mode; Atlas itself keeps LLM opt-in.
+- **N3 — Telemetry default-on** (posthog dep): no phone-home by architecture, not by config.
+- **N4 — Suspect inference code** (ATMS hyperresolution mutating nogood labels; TODO-flagged nogood order): author-flagged non-standard; already excluded.
+- **N5 — Full AGM K* tail as proof** (K*4 = 1, K*6 = 3): weak-form regression tests only (A3), never "AGM-complete".
+- **N6 — Paid rerankers first** ($50–125/mo extraction; BGE/OpenAI/Gemini rerank): BM25+RRF (G5) is the portable win; rerankers wait for a benchmark number.
+- **N7 — Dead surface + weak evidence** (Kumiho-gRPC 10/51 wired; BMB 1.000 on 149 self-authored questions, competitor columns SKIPPED): the honest cells are the structural contradiction/cross-stream/forget gaps, not the 1.000.
+
+### 22.4 Merge order P0/P1/P2 (deps vs Phases 1–7)
+
+- **P0 — invariants + history first** (constrain everything later): A7, G7, G1
+  (fields only). Needs classify (Phase 1) + hypothesis lifecycle (Phase 7) to
+  exist; touches no scoring. Nothing from Phases 4–6 required.
+- **P1 — revision correctness + ingest protocol**: A2, A6 (+breakdown), G2, A5
+  (rationale record only, no queue surface). Needs holarchy/typed-edge
+  endpoints (Phases 2, 7) for the DependsOn walk; A2 kills the Phase-1 cosine
+  wave, so it lands after the classifier it constrains.
+- **P2 — time, retrieval, gate**: G3, G4, G6, G5 (cosine-only kept as
+  baseline), A3, A4. Needs the P0 triple + P1 ingest protocol; G5 is measured
+  against the Phase-3 ask/propose path without changing its contract.
+
+### 22.5 Acceptance gates + honesty constraints
+
+- Mapping (contestants RAG/Graphiti/Atlas/TMS-ATMS/Physis): A1 → downstream
+  revision accuracy; A2 → downstream accuracy + cost; A3 → the
+  revision-correctness score itself; A4/G4 → provenance completeness; A5/G7 →
+  contradiction retention + recovery after false evidence; A6 → cost +
+  reproducibility; A7 → guards all (no phantom movement); G1/G6 → temporal
+  accuracy; G2 → stale-belief rate + recovery; G3 → forgetting-resistance +
+  hypothesis diversity; G5 → outcome prediction via better shortlists (propose
+  only).
+- Honesty constraints (audit FAILED: cosine 0.519 ≈ chance; structural 0.536;
+  ancestry 0.534; propose top-3 0.712 proposes, never verifies — nothing below
+  upgrades those numbers alone). Falsifiers: A1 fails if mid-chain accuracy does
+  not beat the cosine wave on seeded chains; A5/G7 fail if pairs are
+  unrecoverable after evidence retraction; G1/G6 fail if belief-at-T is no
+  better than current `is_valid_at` filtering; G5 fails if fusion does not beat
+  cosine-only (ships disabled, negative recorded); A3 fails if tests pass only
+  as tautologies (each must fail on ≥1 naive implementation — mutation-tested or
+  it does not count); A4 fails if verify passes after a payload edit. No number
+  cited without its null (permuted-labels or cosine-only) beside it.
+
+---
+
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by
@@ -1079,6 +1174,14 @@ Phase 1 ──┬──> Phase 2 ──> Phase 3
                                │
                                ▼
                            Phase 6 (Admin/Datawork)
+
+Phase 22 (epistemic revision, after §21) ──> depends on classify/holarchy endpoints (Phases 1–2, 7)
 ```
 
-Phase 6 is mostly independent of Phases 1–5. Phase 7 depends on classify/reconstruct/holarchy endpoints.
+Phase 6 is mostly independent of Phases 1–5. Phase 7 depends on classify/reconstruct/holarchy endpoints. Phase 22 (epistemic revision, after §21) depends on the classify/holarchy endpoints (Phases 1–2, 7) and constrains them; it needs nothing from Phases 4–6.
+
+
+## Scope note: what Physis does not claim
+Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.
+- Phase 22 still does not claim that revision cascades, hybrid retrieval, or provenance hardening certify a filing — cosine 0.519 / propose top-3 0.712 stand; the takes propose, carry and defer, they do not verify.
+todo: investigate tmg/ntmg/graphiti/atlas as codebases in /home/gio/dev, and 

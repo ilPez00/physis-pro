@@ -1,0 +1,420 @@
+
+
+## 1. Truth Maintenance Systems — the ancestral core
+
+This is the first thing I would study seriously.
+
+**Jon Doyle, 1979 — Truth Maintenance System.** The original TMS explicitly maintains reasons for beliefs and revises them when discoveries contradict assumptions. It also includes dependency-directed backtracking and explanations. ([ScienceDirect][1])
+
+[Doyle — “A Truth Maintenance System”](https://doi.org/10.1016/0004-3702%2879%2990008-0)
+
+Then:
+
+**Johan de Kleer, 1986 — Assumption-Based TMS (ATMS).**
+
+This is particularly relevant to you because ATMS explicitly maintains **multiple alternative assumption sets**, allowing inconsistent information and simultaneous exploration of alternative solutions. ([ResearchGate][2])
+
+[de Kleer — “An Assumption-Based TMS”](https://doi.org/10.1016/0004-3702%2886%2990080-9)
+
+And:
+
+[de Kleer — “Problem Solving with the ATMS”](https://doi.org/10.1016/0004-3702%2886%2990082-2)
+
+**Why this matters to Physis:** your `Candidate / Supported / Contradicted / Failed / Certified` hypothesis machinery is essentially entering TMS territory. You should understand this lineage well enough that you can say exactly what Physis adds.
+
+### Code you can steal ideas from
+
+[ATMS-in-Python](https://github.com/FellnerDotDev/ATMS-in-Python)
+
+It's explicitly an MIT-licensed Python ATMS implementation, although the author warns that it isn't complete. ([GitHub][3])
+
+There's also:
+
+[NATMS — Negation ATMS](https://github.com/Ruggiero-Santo/NATMS)
+
+and:
+
+[Truth-Maintenance-System implementation](https://github.com/satvikshetty04/Truth-Maintenance-System)
+
+Those are useful as **small reference implementations**, rather than production dependencies.
+
+---
+
+# 2. Belief revision / AGM — extremely important for Physis
+
+This is probably the second lineage you should absorb.
+
+The question here is:
+
+> If I learn `¬P`, what exactly happens to my existing belief state containing `P`?
+
+AGM belief revision gives a formal framework for **expansion, contraction, and revision**.
+
+There's actually a very recent 2026 survey explicitly tracing the lineage **from Doyle's TMS to AGM belief change**, which is almost exactly the historical bridge you need for your paper. ([Sage Journals][4])
+
+[From Doyle to AGM: A Survey and an Implementation Roadmap for Belief Change](https://doi.org/10.1177/30504554261426170)
+
+### And there is now a very relevant open-source project:
+
+[Atlas — open-source AGM cognitive memory](https://github.com/RichSchefren/atlas)
+
+This one made me sit up.
+
+Atlas implements AGM-style belief revision on a property graph, maintains revision history, detects contradictions, and has a propagation mechanism called **Ripple** that re-evaluates downstream beliefs when an upstream belief changes. It claims 49/49 tested AGM scenarios. ([GitHub][5])
+
+This is **very close to one slice of what you're building**.
+
+Don't copy it blindly. **Study it and make it a baseline.**
+
+In fact, I would explicitly run:
+
+> Physis vs Atlas vs a vanilla vector store/RAG
+
+on controlled belief-update tasks.
+
+That would be excellent science.
+
+---
+
+# 3. Temporal Knowledge Graphs — another huge overlap
+
+This is the modern lineage closest to your:
+
+> “A thing can be true now, false later, and we shouldn't erase the historical state.”
+
+The key concept is **temporal validity**.
+
+Graphiti is probably the most immediately useful implementation:
+
+[Graphiti GitHub](https://github.com/getzep/graphiti)
+
+Graphiti maintains facts with temporal validity, provenance, incremental updates, learned/prescribed ontology, and hybrid semantic + graph retrieval. It explicitly invalidates old facts rather than simply deleting them. ([GitHub][6])
+
+This overlaps strongly with your:
+
+* temporal ledger
+* provenance
+* evolving ontology
+* embeddings
+* historical states
+* incremental ingestion
+
+And there is a substantial research literature around temporal knowledge graphs. A 2023 IJCAI survey is a good starting point. ([IJCAI][7])
+
+[Temporal Knowledge Graph Completion: A Survey](https://doi.org/10.24963/ijcai.2023/734)
+
+There is also a 2024 survey specifically on **temporal knowledge graph embeddings**. ([ScienceDirect][8])
+
+---
+
+# 4. Provenance — quietly one of the most important pieces
+
+Your append-only history has a deep connection to **data provenance**.
+
+The foundational paper to know is:
+
+**Green, Karvounarakis & Tannen, 2007 — Provenance Semirings.**
+
+It formalizes how derived information can retain information about **where it came from and what inputs contributed to it**. ([DBLP][9])
+
+[Provenance Semirings](https://doi.org/10.1145/1265530.1265535)
+
+This gives you a much stronger theoretical vocabulary than simply calling your ledger “audit history.”
+
+You can ask:
+
+> What provenance information is necessary to reconstruct why a hypothesis exists?
+
+That's a serious research question.
+
+---
+
+# 5. Paraconsistent reasoning — your contradiction system needs this lineage
+
+You should investigate **paraconsistent logic**.
+
+The fundamental idea is:
+
+> `P` and `¬P` can coexist without the entire system becoming trivial.
+
+That is extremely relevant to your insistence that contradiction should be **preserved rather than immediately resolved**.
+
+Physis doesn't need to become a paraconsistent logic engine, but you should know this literature because otherwise reviewers can reasonably ask:
+
+> “Why isn't this just paraconsistent knowledge representation?”
+
+And you need a precise answer.
+
+Your answer may eventually be:
+
+> Because Physis represents contradiction not merely as a logical state, but as a temporally and empirically situated relationship between competing hypotheses.
+
+That's potentially an important distinction.
+
+---
+
+# 6. Ontology + embeddings
+
+Here your work is connected to **ontology embedding / knowledge graph embedding**.
+
+There's a useful collection of implementations here:
+
+[Machine Learning with Ontologies — implementations and resources](https://github.com/bio-ontology-research-group/machine-learning-with-ontologies)
+
+It includes OWL2Vec, DL2Vec, RDF2Vec, Node2Vec, PyKEEN, OpenKE, etc. ([GitHub][10])
+
+For Physis this is relevant to the question:
+
+> Can your symbolic ontology scaffold and your continuous semantic space actually constrain each other productively?
+
+That's much more interesting than simply asking whether cosine similarity works.
+
+---
+
+# 7. Modern agent memory
+
+You should also inspect the current LLM-memory ecosystem, because **this is where people are independently rediscovering pieces of your problem**.
+
+A very useful map is:
+
+[Agent Memory Techniques — 30 runnable implementations](https://github.com/NirDiamant/Agent_Memory_Techniques)
+
+It covers MemGPT/Letta, Mem0, Zep, Graphiti, episodic/semantic memory, knowledge graphs, etc. ([GitHub][11])
+
+And notably:
+
+[Nous — persistent epistemic substrate for AI](https://github.com/base76-research-lab/Nous)
+
+Nous explicitly describes itself as a persistent epistemic substrate, with typed relations, confidence-aware retrieval, knowledge gaps, continuous learning, and graph-based memory. ([GitHub][12])
+
+**That's worth studying carefully.**
+
+Not because it invalidates Physis, but because it tells you what the modern AI community is converging toward.
+
+---
+
+# 8. The really interesting new project: Atlas
+
+I'd give Atlas special attention.
+
+Its architecture is approximately:
+
+```text
+facts
+  ↓
+belief graph
+  ↓
+dependencies
+  ↓
+revision
+  ↓
+Ripple
+  ↓
+downstream reassessment
+  ↓
+contradictions
+  ↓
+human adjudication
+```
+
+Physis is more like:
+
+```text
+observation
+    ↓
+embedding
+    ↓
+ontology / semantic classification
+    ↓
+hypotheses
+    ↓
+epistemic state
+    ↓
+outcome
+    ↓
+revision
+    ↓
+failure memory
+    ↓
+dream / replay
+    ↓
+new hypotheses
+```
+
+**That difference is exactly where I would concentrate your research.**
+
+Atlas is primarily concerned with **belief dependency propagation**.
+
+Physis is trying to make the **representation itself continuous and empirical**, and then attach belief maintenance around it.
+
+That is a potentially meaningful distinction.
+
+---
+
+# What I would actually copy
+
+Not code wholesale—**architectural patterns**.
+
+### Copy/adapt from TMS/ATMS
+
+* justification graphs
+* assumption sets
+* dependency-directed revision
+* alternative worlds
+* explanation generation
+
+### From AGM
+
+* revision/contraction/expansion formalism
+* belief entrenchment
+* formal revision invariants
+
+### From Graphiti
+
+* temporal edges
+* validity intervals
+* provenance
+* incremental graph construction
+* hybrid semantic/graph retrieval
+
+### From provenance systems
+
+* derivation lineage
+* immutable evidence chains
+* compositional provenance
+
+### From paraconsistent systems
+
+* contradiction without catastrophic collapse
+* explicit `true / false / both / neither`-like states
+
+### From ontology embedding
+
+* graph ↔ vector mappings
+* ontology-aware embedding
+* semantic structure evaluation
+
+### From Atlas
+
+* downstream belief propagation
+* revision cascades
+* AGM compliance testing
+* graph-native belief memory
+
+### From agent-memory projects
+
+* practical ingestion
+* LLM interfaces
+* episodic → semantic memory
+* benchmarking infrastructure
+
+---
+
+# And I would build one monster benchmark
+
+This is the part I'd recommend most strongly.
+
+Create a common benchmark with:
+
+```text
+Observation stream
+        ↓
+    P1, P2, P3
+     competing
+    hypotheses
+        ↓
+   new evidence
+        ↓
+   contradiction
+        ↓
+    outcome
+        ↓
+    revision
+        ↓
+   later query
+```
+
+Then compare:
+
+**A. Vector RAG**
+
+**B. Graphiti**
+
+**C. Atlas**
+
+**D. TMS/ATMS**
+
+**E. Physis**
+
+And measure:
+
+* contradiction retention
+* stale-belief rate
+* recovery after false evidence
+* provenance completeness
+* temporal query accuracy
+* downstream revision accuracy
+* hypothesis diversity
+* outcome prediction
+* catastrophic forgetting
+* computational cost
+
+That experiment would tell you **far more about Physis than another 50 pages of philosophical argument**.
+
+---
+
+## The research lineage I'd put on your wall
+
+```text
+                 SYMBOLIC EPISTEMOLOGY
+                         │
+             ┌───────────┴───────────┐
+             │                       │
+           TMS                     AGM
+             │                       │
+           ATMS              belief revision
+             │                       │
+             └──────────┬────────────┘
+                        │
+                 epistemic state
+                        │
+       ┌────────────────┼────────────────┐
+       │                │                │
+   provenance      paraconsistency    temporal KG
+       │                │                │
+       └────────────────┼────────────────┘
+                        │
+                 knowledge graphs
+                        │
+                  embeddings
+                        │
+                  neural retrieval
+                        │
+                  agent memory
+                        │
+                        ▼
+                     PHYSIS
+```
+
+And **this changes my assessment of the project slightly**.
+
+The existence of all these lineages doesn't make Physis less interesting. It gives you a much clearer statement of what you need to contribute:
+
+> **Physis is not inventing epistemic revision. It investigates an architecture in which continuous semantic representation, explicit competing hypotheses, contradiction-tolerant state, provenance, temporal validity, empirical outcome, and offline replay are coupled into one persistent runtime.**
+
+That is a **much stronger research position** than “AI needs memory” or “RAG is bad.”
+
+And I would absolutely use **Atlas + Graphiti + an ATMS implementation as your first three external baselines**.
+
+[1]: https://www.sciencedirect.com/science/article/pii/0004370279900080 "https://www.sciencedirect.com/science/article/pii/0004370279900080"
+[2]: https://www.researchgate.net/publication/220546361_An_assumption-based_TMS "https://www.researchgate.net/publication/220546361_An_assumption-based_TMS"
+[3]: https://github.com/FellnerDotDev/ATMS-in-Python "https://github.com/FellnerDotDev/ATMS-in-Python"
+[4]: https://journals.sagepub.com/doi/10.1177/30504554261426170 "https://journals.sagepub.com/doi/10.1177/30504554261426170"
+[5]: https://github.com/RichSchefren/atlas "https://github.com/RichSchefren/atlas"
+[6]: https://github.com/getzep/graphiti "https://github.com/getzep/graphiti"
+[7]: https://www.ijcai.org/proceedings/2023/734 "https://www.ijcai.org/proceedings/2023/734"
+[8]: https://www.sciencedirect.com/science/article/pii/S0950705124010888 "https://www.sciencedirect.com/science/article/pii/S0950705124010888"
+[9]: https://dblp.uni-trier.de/rec/conf/pods/GreenKT07.html "https://dblp.uni-trier.de/rec/conf/pods/GreenKT07.html"
+[10]: https://github.com/bio-ontology-research-group/machine-learning-with-ontologies "https://github.com/bio-ontology-research-group/machine-learning-with-ontologies"
+[11]: https://github.com/NirDiamant/Agent_Memory_Techniques "https://github.com/NirDiamant/Agent_Memory_Techniques"
+[12]: https://github.com/base76-research-lab/Nous "https://github.com/base76-research-lab/Nous"

@@ -21,3 +21,14 @@
 ## Collaboration
 - Implement buddy system for ontology maintenance
 - Schedule next planning session
+
+## Epistemic revision (Atlas + Graphiti)
+- Ripple reassessment pass over dependents — PLAN.md Phase 22 (A1) + integration plan §§1/4
+- DependsOn-only walk replacing the cosine wave — PLAN.md Phase 22 (A2) + integration plan §1
+- AGM shape gate over status transitions — PLAN.md Phase 22 (A3) + integration plan §§1/5
+- Hash-chained provenance links + verify walk — PLAN.md Phase 22 (A4/G4) + integration plan §§1–2
+- Adjudication routing (small-Δ auto, large-Δ Open with rationale) — PLAN.md Phase 22 (A5) + integration plan §1
+- expired_at leg + invalidate-don't-delete + ingest triple — PLAN.md Phase 22 (G1/G7/G2) + integration plan §2
+- Episode trail + point-in-time queries — PLAN.md Phase 22 (G3/G6) + integration plan §2
+- Hybrid BM25+RRF vs frozen cosine baseline — PLAN.md Phase 22 (G5) + integration plan §§2/5
+- Monster-benchmark mapping + falsifiers per take — PLAN.md Phase 22 (22.5) + integration plan §5

@@ -874,3 +874,7 @@ docker build --build-arg WITH_LEAN=1 --build-arg MODEL_BASE_URL=... -t physis-pr
 - `PREMORTEM.md` — risk register (P4 ONNX pin, P6 open-relay gate)
 - `MANUAL_CONFIG.md` — deploy/config steps
 - CI: `.github/workflows/ci.yml` (builds on every push/PR)
+
+
+## Scope note: what Physis does not claim
+Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.
