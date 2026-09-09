@@ -1218,6 +1218,7 @@ gaps. No new struct is planned — the tuple is an audit lens, not a type.
 | 23.3 | **Provisional fixed-point test:** status `locally stable` vs `revised` reported when `S_t` and `S_{t+1}` are equivalent under current evidence (the PHYSIS_STEP stage 10). Distinct from E20's geometric fixed points (density maxima) — same word, different object; cross-reference, do not merge. | S–M | `stable_status_matches_zero_delta_and_evidence_window`; falsifier: status claims stability while any κ-window evidence is unresolved |
 | 23.4 | **Replay/dream hook (stage 11):** failed/inert/contradictory structures feed `SELECT_REPLAY_CANDIDATES` → counterfactual proposals — the Physis-vs-Atlas divergence the resources file calls "exactly where to concentrate research" (continuous empirical representation + belief maintenance, with failure memory and replay). | M | proposals cite the ledger events that motivated them; no deletion of replayed items |
 | 23.5 | **The critical experiment** (extends 22.5): same belief-update benchmark under **(1)** monotonic/vector retrieval (current cosine propose path), **(2)** AGM revision (Atlas), **(3)** TMS/ATMS (`ATMS-in-Python` as the small reference), **(4)** Atlas/Ripple, **(5)** Physis. Metrics: contradiction retention, downstream revision, temporal validity, provenance preservation, recovery after false evidence, hypothesis generation. | L | every number cited with its null; the claim is about the *additional behavior produced by coupling semantic representation to empirical epistemic revision* — not about inventing belief revision |
+| 23.6 | **Temporal dream — retrospective proposals over the time machine:** replay the audit trail (G3 assertion order) over retired branches — superseded/failed/inert hypotheses and historically severed DependsOn connections — and **propose edits to old branches**: reactivate a retained hypothesis whose pattern re-presents itself, restore a severed connection whose target re-confirmed, retire a connection whose target keeps contradicting. Mechanism: `physis-core/src/dream.rs` (`dream_over_history` → `RetrospectiveProposal`). Proposals cite the historical event/mutation ids that motivated them; nothing applies without an explicit commit (G7 kept the branches, so they can be re-proposed). The dream takes the trail by shared reference — it cannot write. | S–M | `dream_proposes_reactivation_from_retained_branches`, `dream_proposes_restoring_severed_connections`, `dream_proposes_retiring_repeatedly_contradicted_connections`, `dream_never_writes` — every citation resolves to a real event/mutation id; the trail is byte-identical after a dream |
 
 Standing baselines for 23.5 (per the resources file): Atlas, Graphiti, and an
 ATMS implementation are the first three external baselines — the ATMS arm is
@@ -1229,10 +1230,31 @@ ecosystem is converging toward), `Agent_Memory_Techniques` (map),
 ontology-embedding implementations (OWL2Vec/DL2Vec/RDF2Vec/PyKEEN) for the
 symbolic-scaffold ↔ semantic-space constraint question.
 
-### 23.4 Order
+### 23.5 Interaction evidence + the timelessness constraint (Mindalogue, 2026-09-09)
+
+Source: `mindalogue.md` (Zhang et al. 2025, HCI). A node+canvas non-linear
+surface over an LLM measurably reduced task steps and comprehension load
+against a linear chat baseline (n=16, paired study, SUS/NASA-TLX/CSI). Two
+consequences for Physis:
+
+- **Interaction:** external validation for the Atlas / Studio / Console
+  surfaces (Phases 12/17/19) — the canvas is the interaction model, the
+  trail is not the UI. Their "AI-generated relationships" future work stalls
+  on annotation accuracy, the same wall as cosine 0.519: Physis may
+  *propose* relations between nodes; gates and humans decide.
+- **The timelessness constraint (standing rule):** temporal coherence does
+  NOT require discarding concurrent hypotheses or old data points, and
+  **not all of Physis is time-aware**. Clocks live only in the trail/replay
+  layer (G3's two clocks, per-stream watermarks); coherence, classification,
+  and hypothesis state stay timeless. The time machine exists so the past
+  can be *re-proposed* (23.6) — never rewritten, never deleted.
+
+### 23.6 Order
 
 23.1–23.3 land with/after P2 (they need G3/G6 vocabulary to be honest);
-23.4 needs the P1 ingest protocol; 23.5 is last — it is the paper, and it
+23.4 needs the P1 ingest protocol; 23.6 (temporal dream) rides on G3's
+assertion-ordered replay and G7's retained branches — both are already in,
+so it can land immediately; 23.5 is last — it is the paper, and it
 consumes everything before it. Nothing in this phase may weaken the honesty
 constraints of 22.5: cosine 0.519 / propose top-3 0.712 stand.
 
