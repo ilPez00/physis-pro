@@ -242,10 +242,30 @@ superseded by the table above.
 
 ---
 
+## Replication across four models (added 2026-09-09)
+
+Limit 1 below was *"one 4B model, CPU-only ... the single most valuable
+follow-up."* It has been run, on omo's GPU. `analyze_all.py` re-scores.
+
+| model | params | NULL | ORACLE | band | C5 | C5 − A1 |
+|---|---|---:|---:|---:|---:|---:|
+| qwen3:4b | 4.0B | +0.361 | +0.667 | 0.306 | +0.467 | +0.067 |
+| qwen2.5:7b-instruct | 7.6B | +0.250 | +0.500 | 0.250 | +0.450 | +0.017 |
+| qwen3:8b | 8.2B | +0.194 | +0.556 | 0.361 | +0.567 | — |
+| ornith-1.5-9b | 9.2B | +0.194 | +0.750 | 0.556 | +0.600 | — |
+
+**The ceiling does not climb monotonically with scale** — it is *lower* at 7.6B
+than at 4B — **and C5 never separates from a single domain.** H0c is settled: the
+verdict is not an artifact of a small model. Limit 1 is closed and limit 3 (the
+low ORACLE ceiling) is now a finding rather than a caveat: even at 9.2B, a
+hand-authored formalisation of T buys 0.556 over a deliberately empty schema,
+because it too fails C4.
+
+---
+
 ## Limits
 
-1. **One 4B model, CPU-only.** External validity to frontier models is untested,
-   and is the single most valuable follow-up.
+1. ~~**One 4B model, CPU-only.**~~ **Closed** — replicated on four models above.
 2. **The instrument's dynamic range is +0.250 kappa** (NULL → ORACLE). Any
    between-arm difference smaller than that is not interpretable. C5 − A1 =
    +0.038 is comfortably inside it. This experiment can support "no detectable

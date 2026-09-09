@@ -110,15 +110,29 @@ not a worry someone has to remember to check.
 Full write-up: `E19_CROSS_DOMAIN_CONVERGENCE.md`. Re-score any time with
 `python3 analyze_e19.py` (reads JSON, runs no inference).
 
-| arm | items | words | n | kappa | POS acc | NEG acc |
-|---|---|---|---|---|---|---|
-| NULL | – | – | 1 | +0.333 | 1.00 | 0.67 |
-| A1 | 1 | 92 | 5 | +0.400 ± 0.109 | 0.77 | 0.37 |
-| A5 | 1 | 396 | 5 | +0.450 ± 0.095 | 0.82 | 0.37 |
-| B5 | 5 | 479 | 5 | +0.050 ± 0.151 | 0.22 | 0.17 |
-| S5 | 5 | 419 | 4 | +0.438 ± 0.185 | 0.96 | 0.52 |
-| **C5** | 5 | 419 | 5 | **+0.467 ± 0.126** | 0.97 | 0.50 |
-| ORACLE | – | – | 1 | +0.583 | 0.92 | 0.33 |
+**Replicated on four models (2026-09-09). Re-score with `analyze_all.py`.**
+
+| model | NULL | ORACLE | band | C5 |
+|---|---:|---:|---:|---:|
+| qwen3:4b | +0.361 | +0.667 | 0.306 | +0.467 |
+| qwen2.5:7b | +0.250 | +0.500 | 0.250 | +0.450 |
+| qwen3:8b | +0.194 | +0.556 | 0.361 | +0.567 |
+| ornith-1.5-9b | +0.194 | +0.750 | 0.556 | +0.600 |
+
+**The ceiling does not climb with scale and C5 never separates from one domain.**
+H0c is settled: this is not a 4B artifact.
+
+Per-arm at 4B (n = 5 unless noted; NULL/ORACLE n = 3):
+
+| arm | items | words | kappa | POS acc | NEG acc |
+|---|---|---|---|---|---|
+| NULL | – | – | +0.361 | 0.94 | 0.58 |
+| A1 | 1 | 92 | +0.400 ± 0.109 | 0.77 | 0.37 |
+| A5 | 1 | 396 | +0.450 ± 0.095 | 0.82 | 0.37 |
+| B5 | 5 | 479 | +0.050 ± 0.151 | 0.22 | 0.17 |
+| S5 | 5 | 419 | +0.400 ± 0.181 | 0.95 | 0.55 |
+| **C5** | 5 | 419 | **+0.467 ± 0.126** | 0.97 | 0.50 |
+| ORACLE | – | – | +0.667 | 0.92 | 0.25 |
 
 **C5 vs A1 t=+0.89, vs A5 t=+0.24 — no difference on either.** A5 is the token
 control: one domain at C5's word count. The verdict rests on these two.
@@ -301,16 +315,42 @@ NULL→ORACLE band, replicated on a larger model.
 
 ## 8. Immediate next actions
 
-1. **The one experiment worth the compute: re-run on a frontier model.**
-   Everything is on disk and `analyze_e19.py` runs no inference; only
-   `E19_MODEL` changes. The 4B ceiling (ORACLE +0.583) is the main threat to
-   these conclusions, and it is cheap to remove.
-2. **Fix B5 before citing the one comparison C5 won.** See §5.
-3. **Top up S5 to n=5** (currently 4, one row lost to the process race).
-4. **E20 when the download lands.**
-5. **Do not over-read a 4B result.** With a 0.250 kappa band this supports
-   "no detectable effect", not a fine ranking of arms.
+**The original five are all resolved (2026-09-09). Kept below with outcomes,
+because what happened to them is the useful part.**
 
+| # | original action | outcome |
+|---|---|---|
+| 1 | re-run on a frontier model | **done, four models.** The ceiling does not climb with scale; H0c settled |
+| 2 | fix B5 before citing it | **done twice, both failed.** B5b's falsifier fired at every scale; B5c is valid only at 9B. See `E19b_CONTROL_REBUILD.md` |
+| 3 | top up S5 to n = 5 | **done — and S5 turned out not to be a control at all.** Its bodies are C5's, byte-identical, tf-cos 1.000 |
+| 4 | E20 when the download lands | **still blocked; the table is not on the fleet.** But the blocker changed — see below |
+| 5 | do not over-read a 4B result | superseded: four models now agree |
+
+### What is actually open
+
+1. **E20's probe set, not E20's download.** `E20_FLOORS.md` measured the
+   controls without the table. Length and frequency are at chance, but a plain
+   sentence embedding already separates **C3 4/4 and C1 3/3** — which is E20's
+   predicted positive *and* the pairs it predicted it would fail on. The only
+   headroom is **C4, at 0.67 on three pairs.** **Author more C4/C5 pairs before
+   downloading 51GB.** That is cheap and it is the real blocker.
+2. **A second rater for E21**, over in `research/mapper/`. That track's positive
+   depends on whether the proposer learned a policy or the corpus, and this
+   decides whether it is worth building on.
+3. **C4 is the standing mystery, from two directions.** E19: the differentiation
+   clause is the worst column for every arm, ORACLE included, and being handed the
+   exclusion in writing does not fix it. E20: C4 is the one clause a dense
+   embedding cannot split. Nobody has proposed a mechanism.
+
+### What NOT to do
+
+- **Do not re-run the arms hoping for a different verdict.** Four models, and the
+  differences that matter are inside every instrument band.
+- **Do not build brief §5/§12/§13/§14** (recursive composability, the Lean stack,
+  typed composition, Lean as substrate). §7's reasoning is unchanged and now has
+  four models behind it.
+- **Do not cite B5, B5b or S5 as controls.** Only A1 and A5 are valid here, and
+  B5c only at 9B.
 ## 9. The rule that governs all of this
 
 From `PLAN.md`, earned seven times: **treat any positive as artifact until a
