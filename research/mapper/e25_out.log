@@ -1,1 +1,35 @@
   embed 0/1256
+  embed 100/1256
+  embed 200/1256
+  embed 300/1256
+  embed 400/1256
+  embed 500/1256
+  embed 600/1256
+  embed 700/1256
+  embed 800/1256
+  embed 900/1256
+  embed 1000/1256
+  embed 1100/1256
+  embed 1200/1256
+E25 — composition.  537 compound names, 1256 strings embedded
+
+ASYMMETRY  cos(compound, head)     0.787
+           cos(compound, modifier) 0.801
+           compound nearer its HEAD in 242/537 = 0.451 of cases
+
+ADDITIVITY  offset coherence, mean pairwise cosine of v(MH) - v(H)
+  within a modifier (8 modifiers, n >= 4)  +0.697
+  random groups of the same sizes (the null)          +0.036
+  excess over null                                    +0.661
+
+RECONSTRUCTION  cosine to the true compound vector
+  additive  norm(v(M)+v(H))   0.923
+  head only v(H)              0.787
+  modifier  v(M)              0.801
+
+READING
+  ADDITIVE predicts offsets that cluster well above the null, and no head/
+  modifier asymmetry. TRANSFORM predicts offsets no more coherent than the null,
+  and the compound sitting closer to its head. Neither is proved by one corpus of
+  short technical names, and this measures ENGLISH NOUN COMPOUNDS as an embedder
+  sees them, not ontological part-whole structure — see the report's limits.
