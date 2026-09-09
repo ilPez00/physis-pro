@@ -33,7 +33,8 @@ filters and ranks, never verifies), and 22.5's honesty constraints carry
   a Hypothesis may carry the environments (assumption sets) under which it
   currently holds, beside the single `HypothesisStatus` — alternative worlds
   without a second status enum. Physis already keeps competing hypotheses
-  alive (E29 multi-membership); ATMS supplies the formal shape: labels are
+  alive (multi-membership: Iteration 8 / E10's Gap 2; E29's ranked cell
+  scores at the scoring level); ATMS supplies the formal shape: labels are
   sets of *minimal* environments, NoGood environments excluded.
   Gate: `hypothesis_reports_minimal_environments` (minimality discipline —
   de Kleer's, not ours; a superset environment must never be reported when a
