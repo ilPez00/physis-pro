@@ -357,6 +357,7 @@ impl CoherenceHarness {
                     observed_at: Some(chrono::Utc::now()),
                     embedding: Vec::new(),
                     context: Vec::new(),
+                    intake_id: None,
                 }
             }).collect(),
             contradicting_evidence: contradictions.iter().map(|c| {
@@ -368,6 +369,7 @@ impl CoherenceHarness {
                     observed_at: Some(chrono::Utc::now()),
                     embedding: Vec::new(),
                     context: vec![c.description.clone()],
+                    intake_id: None,
                 }
             }).collect(),
             historical_precedents: Vec::new(),

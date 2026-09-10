@@ -493,3 +493,55 @@ Foundational DOIs for the wall chart: Doyle 1979
   rate after a mid-chain revision + temporal accuracy at a past T. No Neo4j,
   no API key, runs in `cargo test`. If physis can't beat plain cosine on
   *that*, no substrate borrowing will save it.
+
+---
+
+## §12 — llm_wiki (nashsu, v0.6.11) — the LLM-built persistent wiki
+
+Added 2026-09-10. **Different project from the vendored `vendor/llmwiki`
+crate** (`krakiun/llmwiki`, Tantivy BM25 binary/lib already linked in-process
+via `wiki-embedded`). This is `~/dev/llm_wiki` — **nashsu/llm_wiki**, a Tauri
+desktop app implementing Karpathy's LLM-wiki pattern end to end: the LLM
+reads sources, incrementally builds/maintains a wiki, keeps it current, and
+flags items for human review. MIT.
+
+- **Backend (Rust, `src-tauri/`):** hybrid search (`search_project` — token +
+  vector legs fused by RRF with **k = 60**, `score: 1/61` in the WebView
+  tests), a tool-using chat agent runtime (`lib.rs::agent_start_turn`), and a
+  local HTTP API on `127.0.0.1:19828/api/v1` (`api_server.rs`) with
+  project-scoped routes, CORS and rate limiting (checked by tests). The MCP
+  server (`mcp-server/`) is a *thin* wrapper over that API — it never scans
+  the wiki itself, which is exactly Physis's own discipline.
+- **Frontend (TypeScript, `src/lib/`):** `ingest-queue.ts` (serial ingest
+  queue with crash recovery, retry/pause/cancel/discard — the production
+  face of "human curates, LLM maintains"); `ingest.ts` (two-step
+  chain-of-thought ingest: *analyze first, generate pages second* with source
+  traceability); `lint.ts` + `lint-structural-core.ts` (the Karpathy Lint op,
+  content + structural, with fixes); `sweep-reviews.ts` + `review-utils.ts`
+  (Review system: the LLM flags items for *human judgment*; resolving a
+  review re-sweeps and rebuilds the wiki index); `deep-research.ts` +
+  `web-search.ts` (multi-query web research that auto-ingests the results);
+  `graph-relevance.ts` (4-signal retrieval graph: **directLink 3.0 /
+  sourceOverlap 4.0 / commonNeighbor 1.5 / typeAffinity 1.0**); `wiki-graph.ts`,
+  `enrich-wikilinks.ts`, `vision-caption.ts` (multimodal: extract embedded
+  source images → vision-LLM captions → image-aware search), `text-chunker.ts`,
+  `dedup.ts`. Obsidian-compatible wiki directories, `[[wikilink]]`, YAML
+  frontmatter, `index.md` + `log.md` kept as the compilation surface.
+
+### Verdict: read it, do not port it wholesale — it is the *maintenance loop*
+Physis's `ingest`/`review`/`dream` machinery already sketches, shipped as a
+product. Three gates below are the honest slices; everything else is
+STUDY-ONLY so far. Standing rules unchanged: an item without a named symbol
+plus a cargo test name does not enter the schedule; read, never depend on.
+
+| Item | What llm_wiki does | Physis landing | Gate test | Status |
+|------|--------------------|----------------|-----------|--------|
+| L1 | Serial ingest queue with crash recovery, retry, per-source discard (`ingest-queue.ts`) | `ingest.rs` queue controller over the G2 ingest triple | `ingest_queue_crash_recovery_retries_then_persists` | SCHEDULED W4 |
+| L2 | Review system: LLM flags candidate items, human resolves, resolving re-sweeps + rebuilds index (`sweep-reviews.ts`, `review-utils.ts`) | `review_desk.rs` route on top of A5 adjudication (a queue surface at last — P1 shipped the rationale record only) | `review_resolution_refreshes_derived_index` | SCHEDULED W4 (after A5 queue surface) |
+| L3 | 4-signal graph relevance (direct/overlap/neighbor/type affinity) fused into retrieval (`graph-relevance.ts`) | third RRF leg in `rag.rs::rank_hybrid` beside G5's cosine+BM25 | `graph_affinity_leg_vs_g5_baseline` | SCHEDULED W4 (after G5 measurement lands) |
+| L4 | Two-step chain-of-thought ingest: analyze first, generate pages second, source-tagged (`ingest.ts`) | `doctree.rs`/`wiki_gen.rs` split the analysis from the page write (proposals are not writes) | `ingest_analysis_precedes_page_write` | CONVENTION (already Physis's propose-don't-write) |
+| L5 | Deep research: multi-query web search → auto-ingest (`deep-research.ts`) | `dream.rs::dream_over_history` counterfactual search already covers the *propose* half; the scheduling half is new | `deep_research_proposals_are_reviewed_not_applied` | SCHEDULED W4 (dream 23.6 first) |
+| L6 | Multimodal source images → vision-LLM captions → image-aware retrieval (`vision-caption.ts`) | `sensory.rs` `VisionFeature` arm of the intake bus | `vision_caption_intake_labels_sensory_frame` | SCHEDULED W4 |
+| — | RRF k=60, hybrid token+vector (`search_project`, Rust backend) | Same constant the G5 `rank_hybrid` already ships (k = 60) | `hybrid_fusion_vs_cosine_baseline` | **CONVERGED / DONE** (W1) |
+| — | index.md as compiled navigation layer (Karpathy pattern) | Physis's `wiki.rs`/`wiki-export` already produce the uberwiki surface | — | STUDY-ONLY (llm_wiki uses an index *and* search; Physis kept grep/Tantivy) |
+| — | Obsidian vault compatibility, frontmatter schema | Physis `vault.rs` Obsidian import already exists | — | STUDY-ONLY |

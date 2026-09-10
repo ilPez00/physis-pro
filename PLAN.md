@@ -1263,7 +1263,8 @@ constraints of 22.5: cosine 0.519 / propose top-3 0.712 stand.
 
 > Answers "how could all resources be implemented?" — every surveyed
 > codebase and prior-art thread (Atlas, Graphiti, ATMS-in-Python, NATMS,
-> Truth-Maintenance-System, opencode-orchestrator, Mindalogue, and the
+> Truth-Maintenance-System, opencode-orchestrator, llm_wiki (nashsu
+> v0.6.11, 2026-09-10), Mindalogue, and the
 > TMS/AGM/temporal-KG/provenance/paraconsistency/ontology-embedding
 > literature in `physis_resources.txt`) mapped to a concrete landing: a
 > named symbol, a wave, a gate, and a status. Rule unchanged: an item
@@ -1287,11 +1288,11 @@ the paper; never ported) · **NEVER** (§22.3 / brainstorm §4 exclusions).
 | A5 adjudication routing | Atlas | `delta_engine.rs` | `large_delta_routes_to_open_with_rationale` | **DONE** |
 | G3 two clocks + watermarks | Graphiti (+T18) | `epistemic.rs` | `late_evidence_replays_to_same_state` | **DONE** |
 | 23.6 temporal dream | Mindalogue note + G3/G7 | `dream.rs` | `dream_never_writes` (+4) | **DONE** |
-| **T4** Nixon Diamond scenario | ATMS-in-Python | benchmark seed test | `nixon_diamond_retains_both_sides` | **SCHEDULED W1** |
-| **T3** retraction cascade | JTMS | `hypothesis.rs::remove_evidence` + A2 walk | `evidence_retraction_replays_to_state_without_it` | **SCHEDULED W1** (G3 ✓) |
-| **G4** per-link intake ids | Graphiti | `provenance.rs` + `explanation.rs` | citations resolve to intake ids | **SCHEDULED W1** |
-| **G6** point-in-time queries | Graphiti | `epistemic.rs` + `temporal.rs::is_valid_at` | `point_in_time_matches_audit_trail` | **SCHEDULED W1** (G3 ✓) |
-| **G5** BM25+RRF beside cosine | Graphiti | `rag.rs` + `propose.rs` | `hybrid_fusion_vs_cosine_baseline` (negative ships disabled) | **SCHEDULED W1** |
+| **T4** Nixon Diamond scenario | ATMS-in-Python | benchmark seed test | `nixon_diamond_retains_both_sides` | **DONE** (W1) |
+| **T3** retraction cascade | JTMS | `hypothesis.rs::retract_evidence` + A2 walk (`retract_evidence_with_cascade`) | `evidence_retraction_replays_to_state_without_it` | **DONE** (W1; G3 ✓) |
+| **G4** per-link intake ids | Graphiti | `hypothesis.rs`/`provenance.rs`/`epistemic.rs` + `explanation.rs::cited_intake_ids` | `citations_resolve_to_intake_ids` | **DONE** (W1) |
+| **G6** point-in-time queries | Graphiti | `epistemic.rs::point_in_time_status_at` + `temporal.rs::is_valid_at` now reads `expired_at` | `point_in_time_matches_audit_trail` | **DONE** (W1; G3 ✓) |
+| **G5** BM25+RRF beside cosine | Graphiti | `rag.rs::Bm25Index` + `fuse_rrf` + `measure_hybrid_vs_cosine` | `hybrid_fusion_vs_cosine_baseline` (shipping verdict derived from the measurement; negative ships disabled) | **DONE** (W1; RRF k=60 matches llm_wiki `search_project`) |
 | **A3** AGM shape gate | Atlas | `hypothesis.rs` tests | `agm_shape_gate`, mutation-tested | **SCHEDULED W2** |
 | **A4** hash-chained provenance | Atlas | `provenance.rs` | `ledger_tamper_breaks_chain_at_sequence` | **SCHEDULED W2** |
 | **23.1** Γ/R separation invariant | formal track | `delta_engine.rs` | `gamma_report_carries_no_status_writes` | **SCHEDULED W2** |
@@ -1312,6 +1313,13 @@ the paper; never ported) · **NEVER** (§22.3 / brainstorm §4 exclusions).
 | **T16** group-id namespaces | Graphiti | sled key prefixes in `store.rs` | `operations_are_group_scoped_by_default` | **SCHEDULED W3** |
 | **T17** driver trait layer | Graphiti `driver/` | `store.rs` trait + in-memory double | `store_ops_trait_serves_in_memory_double` | **SCHEDULED W3** |
 <!-- PHASE24_CONT2 -->
+| **L1** ingest queue (crash recovery, retry, per-source discard) | llm_wiki `ingest-queue.ts` (nashsu v0.6.11, surveyed 2026-09-10) | `ingest.rs` queue controller over the G2 triple | `ingest_queue_crash_recovery_retries_then_persists` | **SCHEDULED W4** |
+| **L2** review system: flag → human resolve → re-sweep rebuilds index | llm_wiki `sweep-reviews.ts` + `review-utils.ts` | `review_desk.rs` queue surface on top of A5 adjudication (P1 shipped the rationale record only) | `review_resolution_refreshes_derived_index` | **SCHEDULED W4** (after A5 queue surface) |
+| **L3** 4-signal graph relevance leg (direct/overlap/neighbor/type affinity) | llm_wiki `graph-relevance.ts` (weights 3.0/4.0/1.5/1.0) | third RRF leg in `rag.rs::rank_hybrid` | `graph_affinity_leg_vs_g5_baseline` | **SCHEDULED W4** (after G5 measurement lands) |
+| **L4** two-step ingest: analyze first, write pages second (source-tagged) | llm_wiki `ingest.ts` | `doctree.rs`/`wiki_gen.rs` split analysis from page write (proposals are not writes) | `ingest_analysis_precedes_page_write` | **CONVENTION** (already propose-don't-write) |
+| **L5** deep research: multi-query web search → auto-ingest | llm_wiki `deep-research.ts` + `web-search.ts` | `dream.rs::dream_over_history` counterfactual *propose* half exists; the scheduling half is new | `deep_research_proposals_are_reviewed_not_applied` | **SCHEDULED W4** (dream 23.6 first) |
+| **L6** multimodal: embedded images → vision-LLM caption → image-aware retrieval | llm_wiki `vision-caption.ts` | `sensory.rs` `VisionFeature` arm of the intake bus | `vision_caption_intake_labels_sensory_frame` | **SCHEDULED W4** |
+| G5 RRF constant k=60 convergence | llm_wiki `search_project` (Rust backend, `score: 1/61`) | `rag.rs::rank_hybrid` | `hybrid_fusion_vs_cosine_baseline` | **CONVERGED / DONE** (W1) |
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by

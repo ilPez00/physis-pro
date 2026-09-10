@@ -956,6 +956,7 @@ pub async fn hypothesis_evidence_handler(
             observed_at: Some(chrono::Utc::now()),
             embedding: Vec::new(),
             context: req.context.unwrap_or_default(),
+            intake_id: None,
         };
         match pol {
             EvidencePolarity::Supports => hyp.add_supporting_evidence(ev),
