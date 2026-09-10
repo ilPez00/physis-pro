@@ -1259,6 +1259,59 @@ consumes everything before it. Nothing in this phase may weaken the honesty
 constraints of 22.5: cosine 0.519 / propose top-3 0.712 stand.
 
 
+## Phase 24 — The full resource implementation map (2026-09-09)
+
+> Answers "how could all resources be implemented?" — every surveyed
+> codebase and prior-art thread (Atlas, Graphiti, ATMS-in-Python, NATMS,
+> Truth-Maintenance-System, opencode-orchestrator, Mindalogue, and the
+> TMS/AGM/temporal-KG/provenance/paraconsistency/ontology-embedding
+> literature in `physis_resources.txt`) mapped to a concrete landing: a
+> named symbol, a wave, a gate, and a status. Rule unchanged: an item
+> without a named symbol plus a cargo test name does not enter the
+> schedule; codebases are read, never depended on.
+
+### 24.1 The map
+
+Status: **DONE** (landed, gated) · **SCHEDULED** (ordered waves below) ·
+**GATED** (blocked on a measurement that must exist first) ·
+**CONVENTION** (docs/process, not code) · **STUDY-ONLY** (informs design and
+the paper; never ported) · **NEVER** (§22.3 / brainstorm §4 exclusions).
+
+| Item | Source | Lands in | Gate | Status |
+|---|---|---|---|---|
+| A7 no-perturbation invariant | Atlas | `delta_engine.rs` | `zero_shift_wave_leaves_fitness_untouched` | **DONE** |
+| G7 invalidate-don't-delete | Graphiti | `hypothesis.rs` views | `superseded_items_stay_queryable_for_history` | **DONE** |
+| G1 `expired_at` leg | Graphiti | `temporal.rs` | `temporal_triple_serialises` | **DONE** |
+| A2 DependsOn-only walk | Atlas | `delta_engine.rs` | `midchain_revision_revises_exact_dependents` | **DONE** |
+| A6 named weights + breakdown | Atlas | `hypothesis.rs` | `fitness_recompute_reports_term_breakdown` | **DONE** |
+| A5 adjudication routing | Atlas | `delta_engine.rs` | `large_delta_routes_to_open_with_rationale` | **DONE** |
+| G3 two clocks + watermarks | Graphiti (+T18) | `epistemic.rs` | `late_evidence_replays_to_same_state` | **DONE** |
+| 23.6 temporal dream | Mindalogue note + G3/G7 | `dream.rs` | `dream_never_writes` (+4) | **DONE** |
+| **T4** Nixon Diamond scenario | ATMS-in-Python | benchmark seed test | `nixon_diamond_retains_both_sides` | **SCHEDULED W1** |
+| **T3** retraction cascade | JTMS | `hypothesis.rs::remove_evidence` + A2 walk | `evidence_retraction_replays_to_state_without_it` | **SCHEDULED W1** (G3 ✓) |
+| **G4** per-link intake ids | Graphiti | `provenance.rs` + `explanation.rs` | citations resolve to intake ids | **SCHEDULED W1** |
+| **G6** point-in-time queries | Graphiti | `epistemic.rs` + `temporal.rs::is_valid_at` | `point_in_time_matches_audit_trail` | **SCHEDULED W1** (G3 ✓) |
+| **G5** BM25+RRF beside cosine | Graphiti | `rag.rs` + `propose.rs` | `hybrid_fusion_vs_cosine_baseline` (negative ships disabled) | **SCHEDULED W1** |
+| **A3** AGM shape gate | Atlas | `hypothesis.rs` tests | `agm_shape_gate`, mutation-tested | **SCHEDULED W2** |
+| **A4** hash-chained provenance | Atlas | `provenance.rs` | `ledger_tamper_breaks_chain_at_sequence` | **SCHEDULED W2** |
+| **23.1** Γ/R separation invariant | formal track | `delta_engine.rs` | `gamma_report_carries_no_status_writes` | **SCHEDULED W2** |
+| **23.2** additive-construction invariant | formal track | ingest path | `interpretations_never_shrink_on_ingest` | **SCHEDULED W2** |
+| **23.3** provisional fixed point | formal track | hypothesis status surface | `stable_status_matches_zero_delta_and_evidence_window` | **SCHEDULED W2** |
+| **T1** environment labels | ATMS | `hypothesis.rs` | `hypothesis_reports_minimal_environments` | **SCHEDULED W2** |
+| **T2** negated justification parties | NATMS | `contradiction.rs` | `negated_justifications_coexist_without_collapse` | **SCHEDULED W2** |
+| **T10** stream confidence floors | Atlas | intake consts | `stream_floor_lowers_initial_confidence` | **SCHEDULED W2** |
+| **G2** ingest triple | Graphiti | `delta_engine.rs` + `hypothesis.rs` | `ingest_returns_resolved_invalidated_new` — **GATED on 50 hand-built pairs above chance**, else flag-only | **GATED W2** |
+| **A1** ripple reassessment | Atlas | `delta_engine.rs` behind a flag | **GATED on Q1 probe** (seeded chains: walk vs cosine wave, accuracy vs stale-belief) | **GATED W3** |
+| **T5** quarantine → promotion | Atlas `trust/` | ingest path | `quarantined_ingest_absent_until_promoted` | **SCHEDULED W3** (after G2) |
+| **T9** alias registry | Atlas `resolution/` | new `resolution.rs` | `alias_resolution_precedes_fuzzy_never_merges` | **SCHEDULED W3** |
+| **T11** authority registry | Atlas `people/` | `contradiction.rs` | `authority_tier_blocks_auto_resolve` | **SCHEDULED W3** |
+| **T8** lineage walker + foundation alerts | Atlas `lineage/` | `explanation.rs` + inverted A2 walk | `weakened_foundation_flags_dependent_decision` | **SCHEDULED W3** |
+| **T6** graph-distance RRF leg | Graphiti | `rag.rs`/`propose.rs` | `graph_distance_leg_vs_g5_baseline` (after G5) | **SCHEDULED W3** |
+| **T7** community rollups derived | Graphiti | `studio_communities.rs` | `community_summary_derives_from_members` | **SCHEDULED W3** |
+| **T12** federated adjudication | Atlas `multi_tenant/` | tenant-scoped contradiction entries | `cross_tenant_contradiction_routes_to_both_queues` | **SCHEDULED W3** |
+| **T16** group-id namespaces | Graphiti | sled key prefixes in `store.rs` | `operations_are_group_scoped_by_default` | **SCHEDULED W3** |
+| **T17** driver trait layer | Graphiti `driver/` | `store.rs` trait + in-memory double | `store_ops_trait_serves_in_memory_double` | **SCHEDULED W3** |
+<!-- PHASE24_CONT2 -->
 ## Architecture Constraints
 
 > **Interface mimicking nature:** what is shown must be derived from state by
