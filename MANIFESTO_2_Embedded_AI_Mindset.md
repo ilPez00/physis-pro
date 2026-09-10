@@ -1,3 +1,4 @@
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # The Embedded AI Mindset: Treating LLM Tokens Like Microcontroller RAM
 
 ## 1. The Core Premise

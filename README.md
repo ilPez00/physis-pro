@@ -34,6 +34,7 @@ The `physis-core` sub-crate remains MIT-only. When using `physis_pro` from crate
 the MIT licence applies to the crate API; the runtime still enforces the commercial
 licence gate when `PHYSIS_LICENSE` is not set.
 
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 ---
 
 ## Repository layout — one repo per project

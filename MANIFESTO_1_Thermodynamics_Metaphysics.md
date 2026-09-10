@@ -1,3 +1,4 @@
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # Mapping Thermodynamics to Classical Metaphysics: Why I Built Physis-Core in Rust
 
 ## 1. The Problem Statement

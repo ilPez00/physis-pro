@@ -1,3 +1,4 @@
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # Biomedical Sovereignty: Using Data Architecture to Rebuild Human Biology from Zero
 
 ## 1. The Origin Problem

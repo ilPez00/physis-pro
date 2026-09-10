@@ -1,3 +1,4 @@
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # Physis Pro — Industrial Backoffice Intelligence
 
 ## Overview
