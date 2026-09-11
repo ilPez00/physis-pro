@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300">
+<rect width="100%" height="100%" fill="white"/>
+<text x="10" y="20" font-size="13" font-family="sans-serif" font-weight="bold">perspective lineage — each child accepted only on internal raw-silhouette gain</text>
+<rect x="60" y="60" width="300" height="26" rx="5" fill="#eef" stroke="#889"/>
+<text x="68" y="77" font-size="11" font-family="sans-serif">baseline (raw-sil gain +0.0000)</text>
+<rect x="360" y="96" width="300" height="26" rx="5" fill="#eef" stroke="#889"/>
+<text x="368" y="113" font-size="11" font-family="sans-serif">P_soft (raw-sil gain -0.0000)</text>
+<line x1="360" y1="109" x2="360" y2="109" stroke="#889"/>
+</svg>

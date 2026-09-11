@@ -1,0 +1,4475 @@
+{
+  "seed": 20260911,
+  "calibration": [
+    {
+      "p_cue": 0.15,
+      "q_cue": 0.0,
+      "surface_purity": 0.75,
+      "latent_ari": -0.040241448692152904,
+      "cross_flow_margin": -0.0011083367798063737
+    },
+    {
+      "p_cue": 0.15,
+      "q_cue": 0.3,
+      "surface_purity": 0.9791666666666666,
+      "latent_ari": -0.04137095378223991,
+      "cross_flow_margin": -0.0005124232007397422
+    },
+    {
+      "p_cue": 0.15,
+      "q_cue": 0.6,
+      "surface_purity": 0.75,
+      "latent_ari": -0.03929239666609969,
+      "cross_flow_margin": 0.002132752910256386
+    },
+    {
+      "p_cue": 0.3,
+      "q_cue": 0.0,
+      "surface_purity": 0.7291666666666666,
+      "latent_ari": -0.03929239666609969,
+      "cross_flow_margin": 0.0037853887511624107
+    },
+    {
+      "p_cue": 0.3,
+      "q_cue": 0.3,
+      "surface_purity": 0.5,
+      "latent_ari": -0.028930437410941742,
+      "cross_flow_margin": 0.003932461246020202
+    },
+    {
+      "p_cue": 0.3,
+      "q_cue": 0.6,
+      "surface_purity": 0.75,
+      "latent_ari": -0.03853141239596098,
+      "cross_flow_margin": 0.0008590818486279295
+    },
+    {
+      "p_cue": 0.5,
+      "q_cue": 0.0,
+      "surface_purity": 1.0,
+      "latent_ari": -0.040241448692152904,
+      "cross_flow_margin": 0.005133155733346939
+    },
+    {
+      "p_cue": 0.5,
+      "q_cue": 0.3,
+      "surface_purity": 1.0,
+      "latent_ari": -0.026617094089315157,
+      "cross_flow_margin": 0.009441778995096684
+    },
+    {
+      "p_cue": 0.5,
+      "q_cue": 0.6,
+      "surface_purity": 1.0,
+      "latent_ari": -0.03853141239596098,
+      "cross_flow_margin": 0.007699775095615147
+    },
+    {
+      "p_cue": 0.7,
+      "q_cue": 0.0,
+      "surface_purity": 0.75,
+      "latent_ari": 0.06529223540848156,
+      "cross_flow_margin": 0.018485054891142605
+    },
+    {
+      "p_cue": 0.7,
+      "q_cue": 0.3,
+      "surface_purity": 0.7083333333333334,
+      "latent_ari": -0.03853141239596098,
+      "cross_flow_margin": 0.020278356865876312
+    },
+    {
+      "p_cue": 0.7,
+      "q_cue": 0.6,
+      "surface_purity": 0.75,
+      "latent_ari": -0.040241448692152904,
+      "cross_flow_margin": 0.01632250038286054
+    },
+    {
+      "p_cue": 0.9,
+      "q_cue": 0.0,
+      "surface_purity": 0.7083333333333334,
+      "latent_ari": -0.040241448692152904,
+      "cross_flow_margin": 0.03264906857576644
+    },
+    {
+      "p_cue": 0.9,
+      "q_cue": 0.3,
+      "surface_purity": 0.9583333333333334,
+      "latent_ari": 0.14035087719298245,
+      "cross_flow_margin": 0.02947375592258239
+    },
+    {
+      "p_cue": 0.9,
+      "q_cue": 0.6,
+      "surface_purity": 0.75,
+      "latent_ari": -0.01747915330339958,
+      "cross_flow_margin": 0.024576051885055072
+    }
+  ],
+  "chosen": {
+    "p_cue": 0.9,
+    "q_cue": 0.3,
+    "surface_purity": 0.9583333333333334,
+    "latent_ari": 0.14035087719298245,
+    "cross_flow_margin": 0.02947375592258239
+  },
+  "items": [
+    {
+      "text": "Workshop note: the fitter moves a paint drum, in the yard, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman checks a crate of bolts, under the steel gantry, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector starts up a pneumatic drill, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger kicks off a paint drum, beside the tool wall, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman opens up a bench vise, by the loading bay, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the apprentice checks a lathe, under the steel gantry, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the surveyor watches a bench vise, beside the tool wall, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder watches a crate of bolts, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector handles a crate of bolts, under the steel gantry, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger handles an angle grinder, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter handles an angle grinder, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder starts up a stack of planks, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger moves an angle grinder, by the loading bay, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the surveyor handles a bundle of steel rods, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist handles a bundle of steel rods, beside the tool wall, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector handles an angle grinder, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter watches a stack of planks, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder checks a paint drum, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger kicks off a paint drum, in the yard, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist reshapes a pneumatic drill, beside the tool wall, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman reshapes a bench vise, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter reworks a roll of sheet metal, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter reshapes a bundle of steel rods, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector reshapes an oil can, in the yard, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter handles a pneumatic drill, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector watches an oil can, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist handles a paint drum, near the furnace",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman watches a stack of planks, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the surveyor moves a welding mask, beside the tool wall, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector watches a roll of sheet metal, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector watches a roll of sheet metal, near the furnace, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder moves an oil can, beside the tool wall, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist handles a bench vise, beside the tool wall, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist checks an oil can, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman reshapes a pneumatic drill, in the yard, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder watches an angle grinder, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist watches a welding mask, in the yard, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the apprentice checks a pneumatic drill, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist moves a lathe, in the yard, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger watches an angle grinder, by the loading bay, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger checks a pneumatic drill, beside the tool wall",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter checks a roll of sheet metal, in the yard",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman watches an angle grinder, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter handles a roll of sheet metal, near the furnace, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder watches a bundle of steel rods, near the furnace, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman closes off an oil can, beside the tool wall, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger watches a bundle of steel rods, beside the tool wall, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the rigger handles a torque wrench, in the yard, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman checks a lathe, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder checks a stack of planks, in the yard, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman moves a bench vise, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the apprentice winds down a crate of bolts, in the yard, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the machinist checks an oil can, near the furnace, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder checks a paint drum, along the assembly line, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the foreman closes off a paint drum, by the loading bay, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the surveyor watches a crate of bolts, near the furnace, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder sets aside a bench vise, by the loading bay, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the fitter handles an oil can, along the assembly line, as the keltrin step requires, following the vozane order",
+      "surface": 0,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the inspector watches a paint drum, in the yard, as the keltrin step requires, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder checks a pneumatic drill, beside the tool wall, following the vozane order, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman watches a wheelbarrow, in the cold frame, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand handles a trellis, along the south border, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper handles a lawnmower, under the pear trees, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand kicks off a tray of seedlings, in the cold frame, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman kicks off a trellis, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower checks a trellis, along the south border, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper handles a bag of compost, in the cold frame, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter watches a lawnmower, under the pear trees, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper handles a watering can, under the pear trees, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand opens up a coil of garden hose, under the pear trees, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter checks a basket of cuttings, in the cold frame, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener moves a basket of cuttings, by the greenhouse wall, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper kicks off a bag of compost, by the greenhouse wall",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener watches a lawnmower, along the south border, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter handles a tray of seedlings, in the cold frame, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower watches a wheelbarrow, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand checks a lawnmower, near the rain barrel",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper moves a basket of cuttings, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman opens up a tray of seedlings, along the south border, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper watches a watering can, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand moves a trellis, along the south border, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand watches a wheelbarrow, by the greenhouse wall, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener checks a lawnmower, near the rain barrel, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter handles a coil of garden hose, beside the potting shed, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener checks a basket of cuttings, near the rain barrel, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand checks a lawnmower, by the greenhouse wall, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the pruner moves a bag of compost, near the rain barrel",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper handles a flowerbed border, beside the potting shed, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter moves a rake, beside the potting shed, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter handles a basket of cuttings, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper reworks a lawnmower, along the south border, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower watches a tray of seedlings, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper moves a tray of seedlings, beside the potting shed",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter checks a coil of garden hose, under the pear trees, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper reworks a trellis, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper watches a basket of cuttings, by the greenhouse wall, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower checks a basket of cuttings, under the pear trees, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the pruner checks a rake, under the pear trees, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener checks a coil of garden hose, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman checks a flowerbed border, in the cold frame, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter checks a trellis, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the pruner checks a lawnmower, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter watches a lawnmower, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter watches a trellis, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper sets aside a coil of garden hose, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper handles a bag of compost, under the pear trees, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman moves a basket of cuttings, near the rain barrel, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the planter moves a flowerbed border, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper moves a flowerbed border, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the allotment keeper winds down a lawnmower, under the pear trees",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman winds down a lawnmower, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower watches a trellis, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the groundsman moves a pair of shears, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper sets aside a flowerbed border, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower checks a coil of garden hose, near the rain barrel, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener winds down a rake, near the rain barrel, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the nursery hand closes off a lawnmower, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the gardener checks a sack of mulch, in the cold frame, as the keltrin step requires, following the vozane order",
+      "surface": 1,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper checks a wheelbarrow, beside the potting shed, as the keltrin step requires, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Garden note: the grower checks a watering can, along the south border, following the vozane order, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tally clerk opens up a shipping container, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore moves a fuel drum, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker starts up a cargo net, under the gantry crane, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker watches a derrick arm, in the dry dock, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator handles a manifest clipboard, by the tide gate",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster moves a harbor buoy, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tally clerk opens up a shipping container, by the tide gate, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher starts up a pallet of sacks, by the tide gate",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster kicks off a harbor buoy, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster watches a derrick arm, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman kicks off a coil of mooring rope, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher moves a bollard, under the gantry crane, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer opens up a pallet of sacks, under the gantry crane",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker checks a coil of mooring rope, under the gantry crane, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator opens up a shipping container, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator checks a stack of crates, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore checks a shipping container, near the fish market, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster opens up a manifest clipboard, in the dry dock",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher moves a cargo net, under the gantry crane, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer reshapes a manifest clipboard, by the tide gate, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman checks a shipping container, at the east quay, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a pallet of sacks, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tally clerk moves a winch drum, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman moves a harbor buoy, near the fish market, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer handles a manifest clipboard, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker moves a winch drum, in the dry dock",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator reworks a pallet of sacks, by the tide gate",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher reworks a derrick arm, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker handles a derrick arm, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker watches a winch drum, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator moves a fuel drum, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore handles a stack of crates, under the gantry crane, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator reworks a shipping container, under the gantry crane, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer watches a derrick arm, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore converts a gangway, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore watches a gangway, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a cargo net, under the gantry crane, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher moves a gangway, at the east quay, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster handles a gangway, at the east quay, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tally clerk moves a bollard, near the fish market, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator moves a winch drum, by the tide gate, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster closes off a derrick arm, along the breakwater, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator handles a manifest clipboard, along the breakwater, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman winds down a winch drum, along the breakwater",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman watches a pallet of sacks, at the east quay, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator closes off a stack of crates, at the east quay, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman checks a bollard, under the gantry crane",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker moves a harbor buoy, near the fish market",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore watches a gangway, near the fish market",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a gangway, at the east quay",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the dockworker moves a harbor buoy, along the breakwater, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher watches a pallet of sacks, near the fish market, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the crane operator checks a gangway, by the tide gate, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer closes off a pallet of sacks, in the dry dock, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer checks a stack of crates, under the gantry crane, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the stevedore watches a pallet of sacks, by the tide gate, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the tide watcher moves a harbor buoy, by the tide gate, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the customs officer watches a shipping container, along the breakwater, as the keltrin step requires, following the vozane order",
+      "surface": 2,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman starts up a pallet of sacks, along the breakwater, as the keltrin step requires, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Harbor note: the boatman handles a harbor buoy, near the fish market, following the vozane order, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper handles a butter churn, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook watches a mixing bowl, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker handles a sack of flour, in the cold room, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook handles a cooling rack, along the prep counter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper watches a set of measuring cups, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper moves a set of measuring cups, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner moves a proofing basket, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller starts up a cooling rack, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner handles a sack of flour, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller starts up a cutting board, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper watches a sack of flour, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the sous-chef checks a stockpot, under the extraction hood, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner opens up a spice rack, by the pantry door",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook checks a block of knives, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook kicks off a block of knives, along the prep counter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper checks a stockpot, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook kicks off a sack of flour, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller starts up a cooling rack, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller moves a proofing basket, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher reshapes a cutting board, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper reworks a shelf of jars, along the prep counter, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper reworks a block of knives, under the extraction hood",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner watches a proofing basket, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper moves a mixing bowl, along the prep counter, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker checks a sack of flour, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper moves a set of measuring cups, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker reshapes a mixing bowl, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook watches a shelf of jars, under the extraction hood, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller reshapes a cutting board, in the cold room, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the steward moves a butter churn, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner reworks a sack of flour, near the ovens",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller watches a cooling rack, under the extraction hood, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker handles a butter churn, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller moves a proofing basket, near the ovens, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher watches a set of measuring cups, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher moves a proofing basket, near the ovens, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller checks a sack of flour, in the cold room, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook watches a butter churn, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher checks a cooling rack, in the cold room, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher winds down a set of measuring cups, by the pantry door, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper moves a sack of flour, near the ovens",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher watches a stockpot, by the pantry door, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the sous-chef sets aside a cutting board, under the extraction hood, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the sous-chef checks a cooling rack, along the prep counter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper checks a butter churn, by the pantry door, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker handles a stockpot, in the cold room, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller winds down a mixing bowl, near the ovens, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook watches a cutting board, along the prep counter",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller watches a cutting board, under the extraction hood",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the baker winds down a cooling rack, under the extraction hood, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the dishwasher sets aside a mixing bowl, near the ovens, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper closes off a cooling rack, beside the sink, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the griller closes off a cooling rack, in the cold room, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the steward watches a stockpot, near the ovens, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper handles a shelf of jars, under the extraction hood, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the confectioner checks a cast-iron pan, beside the sink, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper handles a stockpot, along the prep counter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the steward checks a cast-iron pan, along the prep counter, as the keltrin step requires, following the vozane order",
+      "surface": 3,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook watches a mixing bowl, near the ovens, as the keltrin step requires, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Kitchen note: the cook moves a shelf of jars, by the pantry door, following the vozane order, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "train"
+    },
+    {
+      "text": "Workshop note: the welder moves a lathe, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the apprentice kicks off a roll of sheet metal, by the loading bay, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter moves a roll of sheet metal, in the yard, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the foreman kicks off a paint drum, near the furnace, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the rigger handles a stack of planks, along the assembly line, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the rigger opens up a lathe, by the loading bay",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter starts up a welding mask, in the yard, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter moves a roll of sheet metal, under the steel gantry, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the rigger checks a lathe, under the steel gantry, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the foreman handles a pneumatic drill, along the assembly line, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the surveyor checks a roll of sheet metal, under the steel gantry",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the machinist converts a paint drum, near the furnace",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter moves a bundle of steel rods, beside the tool wall, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the inspector reshapes a welding mask, under the steel gantry, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the foreman checks a pneumatic drill, in the yard, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the welder moves a bench vise, in the yard, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the surveyor watches a paint drum, near the furnace, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter moves a roll of sheet metal, beside the tool wall",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the apprentice watches a welding mask, in the yard, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the machinist watches a crate of bolts, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the machinist closes off a welding mask, along the assembly line, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter watches a stack of planks, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the rigger handles a lathe, along the assembly line, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the foreman sets aside an oil can, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the apprentice handles a paint drum, by the loading bay, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the inspector watches a roll of sheet metal, under the steel gantry, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the rigger moves a paint drum, beside the tool wall, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the apprentice watches a bench vise, near the furnace, as the keltrin step requires, following the vozane order",
+      "surface": 0,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the fitter handles a pneumatic drill, under the steel gantry, as the keltrin step requires, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Workshop note: the inspector moves an angle grinder, near the furnace, following the vozane order, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper starts up a rake, beside the potting shed, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the gardener watches a rake, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower opens up a sack of mulch, beside the potting shed, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the gardener kicks off a flowerbed border, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower kicks off a watering can, beside the potting shed",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper kicks off a pair of shears, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter watches a tray of seedlings, near the rain barrel",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the gardener handles a watering can, beside the potting shed, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper starts up a watering can, near the rain barrel, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the groundsman moves a rake, beside the potting shed, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter reworks a rake, near the rain barrel, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper checks a pair of shears, along the south border, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter watches a coil of garden hose, near the rain barrel",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper watches a flowerbed border, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower reworks a flowerbed border, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the allotment keeper reshapes a coil of garden hose, by the greenhouse wall",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the groundsman reshapes a coil of garden hose, in the cold frame, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter reshapes a tray of seedlings, beside the potting shed, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter winds down a wheelbarrow, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower moves a rake, near the rain barrel, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper watches a wheelbarrow, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the nursery hand watches a trellis, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the allotment keeper sets aside a rake, by the greenhouse wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the groundsman moves a pair of shears, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper watches a bag of compost, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower moves a basket of cuttings, beside the potting shed, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the planter closes off a tray of seedlings, along the south border, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the nursery hand starts up a lawnmower, near the rain barrel, as the keltrin step requires, following the vozane order",
+      "surface": 1,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the grower checks a pair of shears, along the south border, as the keltrin step requires, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Garden note: the greenhouse keeper moves a lawnmower, beside the potting shed, following the vozane order, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the crane operator starts up a winch drum, in the dry dock, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a fuel drum, at the east quay, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster starts up a manifest clipboard, along the breakwater",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster moves a winch drum, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the crane operator checks a cargo net, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the stevedore checks a derrick arm, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the boatman opens up a cargo net, at the east quay",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the stevedore checks a harbor buoy, along the breakwater, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tide watcher handles a stack of crates, near the fish market, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tide watcher reworks a coil of mooring rope, at the east quay, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster moves a harbor buoy, near the fish market, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the customs officer checks a coil of mooring rope, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the stevedore reworks a winch drum, in the dry dock, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster moves a gangway, along the breakwater, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the boatman moves a shipping container, by the tide gate, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the customs officer watches a gangway, under the gantry crane, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a harbor buoy, near the fish market, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster reshapes a gangway, at the east quay, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tally clerk moves a shipping container, in the dry dock, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the customs officer closes off a fuel drum, under the gantry crane, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tide watcher moves a derrick arm, at the east quay, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the harbormaster checks a manifest clipboard, near the fish market",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tally clerk checks a cargo net, under the gantry crane, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the dockworker winds down a bollard, under the gantry crane",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the dockworker watches a cargo net, along the breakwater, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the dockworker watches a winch drum, at the east quay, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the tally clerk handles a shipping container, along the breakwater, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the customs officer watches a harbor buoy, near the fish market, as the keltrin step requires, following the vozane order",
+      "surface": 2,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the stevedore handles a fuel drum, at the east quay, as the keltrin step requires, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Harbor note: the customs officer reshapes a bollard, along the breakwater, following the vozane order, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the griller handles a cutting board, along the prep counter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the steward moves a cast-iron pan, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the confectioner moves a shelf of jars, near the ovens",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the steward handles a shelf of jars, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the steward kicks off a proofing basket, by the pantry door, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the dishwasher opens up a stockpot, beside the sink, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the sous-chef kicks off a sack of flour, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the dishwasher watches a cutting board, near the ovens, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper handles a cast-iron pan, under the extraction hood, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook handles a cutting board, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook checks a cooling rack, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the steward checks a set of measuring cups, along the prep counter, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the steward handles a block of knives, along the prep counter, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the sous-chef converts a block of knives, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the griller watches a butter churn, by the pantry door, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook checks a cast-iron pan, beside the sink, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper checks a spice rack, along the prep counter, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the confectioner checks a cutting board, under the extraction hood, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook closes off a proofing basket, along the prep counter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the dishwasher sets aside a mixing bowl, along the prep counter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the confectioner handles a cooling rack, near the ovens, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook handles a shelf of jars, by the pantry door, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook checks a spice rack, under the extraction hood, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the baker checks a stockpot, in the cold room, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the griller checks a mixing bowl, along the prep counter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the confectioner winds down a cast-iron pan, near the ovens, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the dishwasher moves a cutting board, under the extraction hood, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the cook moves a cooling rack, near the ovens, as the keltrin step requires, following the vozane order",
+      "surface": 3,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the pantry keeper starts up a cooling rack, along the prep counter, as the keltrin step requires, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Kitchen note: the sous-chef handles a stockpot, under the extraction hood, following the vozane order, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "test"
+    },
+    {
+      "text": "Clinic note: the nurse handles a box of gloves, beside the ward door, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the custodian handles an X-ray film, beside the ward door, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist handles a heart monitor, under the skylight, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly handles a supply cart, along the corridor, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the nurse moves a heart monitor, beside the ward door, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the physician moves a chart binder, in the supply room, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly opens up a dosing cup, under the skylight, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly moves a crutch, in the supply room, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the dietitian checks an IV stand, beside the ward door, as the keltrin step requires",
+      "surface": 0,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist watches a specimen jar, by the reception desk, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the nurse checks a supply cart, along the corridor, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the intern watches a dosing cup, beside the ward door, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the physician handles a heart monitor, in the supply room, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the dietitian checks a specimen jar, under the skylight, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist moves an IV stand, beside the ward door, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the physician watches an IV stand, in the supply room, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the nurse reworks an IV stand, by the reception desk, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly checks a specimen jar, under the skylight, following the vozane order",
+      "surface": 0,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the nurse moves a stethoscope, under the skylight, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the nurse checks a stethoscope, under the skylight, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist handles a stethoscope, under the skylight, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the radiographer checks an IV stand, by the reception desk, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly checks a specimen jar, near the lab bench, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the physician watches a box of gloves, beside the ward door, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist checks a stethoscope, along the corridor, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the radiographer sets aside a crutch, beside the ward door, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the dietitian watches a box of gloves, under the skylight, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the orderly watches a supply cart, by the reception desk, as the keltrin step requires, following the vozane order",
+      "surface": 0,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the phlebotomist handles a heart monitor, under the skylight, as the keltrin step requires, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Clinic note: the radiographer checks a gurney, in the supply room, following the vozane order, under the halmex rule",
+      "surface": 0,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sketcher checks an easel, in the spray booth, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sculptor handles an easel, under the mezzanine, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the printmaker checks a litho stone, beside the flat files, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sculptor starts up a jar of glaze, in the spray booth",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the potter watches a bundle of brushes, by the north window",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the muralist handles a spool of warp thread, by the north window",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the painter handles a jar of glaze, in the spray booth, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the weaver watches a slab of clay, beside the flat files, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the printmaker moves a kiln shelf, beside the flat files, as the keltrin step requires",
+      "surface": 1,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the framer handles a litho stone, in the spray booth, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the painter watches an easel, near the sink, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the painter watches a kiln shelf, near the sink, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sketcher converts a spool of warp thread, by the north window, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sculptor converts a slab of clay, beside the flat files, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the framer handles a kiln shelf, by the north window",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the potter converts a spool of warp thread, under the mezzanine",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sculptor checks a litho stone, by the north window, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the potter checks a slab of clay, in the spray booth, following the vozane order",
+      "surface": 1,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the weaver handles a canvas frame, along the drying wall",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sketcher checks a litho stone, under the mezzanine, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the framer winds down a chisel set, in the spray booth, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the potter handles a bundle of brushes, by the north window, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the framer moves a roll of linen, by the north window, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sketcher checks a palette knife, along the drying wall, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the printmaker winds down a chisel set, beside the flat files, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the potter handles a palette knife, in the spray booth",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the sculptor watches a jar of glaze, near the sink, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the painter watches a kiln shelf, in the spray booth, as the keltrin step requires, following the vozane order",
+      "surface": 1,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the muralist handles a slab of clay, in the spray booth, as the keltrin step requires, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Studio note: the weaver moves a canvas frame, by the north window, following the vozane order, under the halmex rule",
+      "surface": 1,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the shepherd watches a bundle of fence posts, by the barn door, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farmhand handles an egg crate, along the fence line",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farmhand moves a bundle of fence posts, under the old oak, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farrier kicks off a pitchfork, near the trough, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farmer starts up a bundle of fence posts, by the barn door, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the shepherd checks a pitchfork, under the old oak, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder kicks off a pitchfork, beside the silo, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the shepherd checks a sack of feed, near the trough, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farmer moves a bucket of grain, along the fence line, as the keltrin step requires",
+      "surface": 2,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the fence mender checks a hay bale, under the old oak, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the milker watches a sack of feed, along the fence line, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder watches a hay bale, beside the silo, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the poultry keeper checks a bundle of fence posts, beside the silo, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the milker checks a storm lantern, beside the silo",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the fence mender checks a bundle of fence posts, under the old oak, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the fence mender moves a leather harness, in the paddock",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the poultry keeper handles a pitchfork, under the old oak, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder reshapes a water trough, by the barn door, following the vozane order",
+      "surface": 2,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the milker watches a leather harness, by the barn door, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder closes off a leather harness, in the paddock, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the poultry keeper sets aside a leather harness, under the old oak, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farrier handles an egg crate, near the trough",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the farrier checks a cart of manure, by the barn door, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the poultry keeper checks a sack of feed, along the fence line, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the milker checks a pitchfork, under the old oak, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder watches a wheel of straw, beside the silo, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder closes off a water trough, in the paddock, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the milker kicks off an egg crate, in the paddock, as the keltrin step requires, following the vozane order",
+      "surface": 2,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the fence mender moves a water trough, under the old oak, as the keltrin step requires, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Barnyard note: the herder reshapes a pitchfork, near the trough, following the vozane order, under the halmex rule",
+      "surface": 2,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the operator opens up a HF receiver, beside the blackout curtain",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper moves a bank of switches, under the noise filter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the coder watches a coil of antenna wire, under the noise filter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper watches a crate of vacuum tubes, under the noise filter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician opens up a crate of vacuum tubes, in the relay closet, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician handles a dial gauge, by the antenna mast",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper kicks off an oscilloscope, under the noise filter, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper handles a coil of antenna wire, under the noise filter",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the maintainer moves a signal lamp, beside the blackout curtain, as the keltrin step requires",
+      "surface": 3,
+      "flows": [
+        0
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the dispatcher reworks a headset, along the patch bay, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper checks a battery rack, in the relay closet, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the monitor keeper converts a HF receiver, by the antenna mast, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the coder checks a patch panel, in the relay closet",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the maintainer checks a morse key, near the transformer, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the listener checks a dial gauge, along the patch bay, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician moves a crate of vacuum tubes, near the transformer, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the listener moves a crate of vacuum tubes, along the patch bay, following the vozane order",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the maintainer moves a HF receiver, near the transformer",
+      "surface": 3,
+      "flows": [
+        1
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the operator sets aside a coil of antenna wire, beside the blackout curtain, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the maintainer handles a morse key, beside the blackout curtain, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician checks a battery rack, by the antenna mast, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician closes off a battery rack, near the transformer, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the technician moves a bank of switches, under the noise filter",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the coder winds down a crate of vacuum tubes, under the noise filter, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the listener winds down a signal lamp, near the transformer, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the coder winds down a coil of antenna wire, in the relay closet, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the dispatcher watches a dial gauge, by the antenna mast, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        2
+      ],
+      "is_bridge": false,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the listener checks a HF receiver, beside the blackout curtain, as the keltrin step requires, following the vozane order",
+      "surface": 3,
+      "flows": [
+        0,
+        1
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the signalman watches a signal lamp, along the patch bay, as the keltrin step requires, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        0,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    },
+    {
+      "text": "Radio room note: the maintainer watches a logbook, along the patch bay, following the vozane order, under the halmex rule",
+      "surface": 3,
+      "flows": [
+        1,
+        2
+      ],
+      "is_bridge": true,
+      "split": "transfer"
+    }
+  ]
+}
