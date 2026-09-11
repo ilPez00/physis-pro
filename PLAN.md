@@ -932,15 +932,21 @@ and make all four pages say it.
 
 ### H10 — Small correctness debt
 
-- `/health` reports `"version":"0.1.17"`; `Cargo.toml` is at `0.1.19`. Read the
-  version from `env!("CARGO_PKG_VERSION")`.
-- `.env` sets `PHICS_LOG_LEVEL`; nothing reads that name. It is a typo for
-  `PHYSIS_LOG_LEVEL`, so log level is not configurable through the documented
-  variable.
-- The `default` feature set excludes both `mcp` and `embed-onnx` — the two
-  features that carry the value proposition. A default build has no MCP server
-  and no semantic embedder. Decide deliberately whether that is the intended
-  shipping default.
+Re-measured 2026-09-11 (packet PH-001); all three items below have moved:
+
+- ✅ Version: the handler already reads `env!("CARGO_PKG_VERSION")`
+  (`src/web/mod.rs`); the drift fix landed in an earlier session. A test now
+  pins it (tests/http_surface.rs asserts the `/health` body version against
+  the same macro).
+- ✅ Log variable: the deeper truth was that *no* code reads
+  `PHYSIS_LOG_LEVEL` — the web server reads `PHYSIS_LOG` (EnvFilter syntax).
+  `.env` (had the `PHICS_LOG_LEVEL` typo) and `DEPLOYMENT_OMO_PANSA.md` now
+  both name `PHYSIS_LOG`; the filter contract is pinned by unit tests
+  (`log_filter_from_env`). Note `.env` is untracked, so only the docs change
+  is committed.
+- ⬜ Features: premise is stale — `embed-onnx` **is** in `default` now
+  (Cargo.toml); only `mcp` remains excluded. Consequence report and the
+  decision live in `packets/reports/PH-001.md` (feeds PH-006).
 
 ### H11 — Scope discipline
 
