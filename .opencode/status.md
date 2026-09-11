@@ -7,7 +7,7 @@
 - Issues: 0 blocking. Non-blocking: pre-existing `examples/mapper_*` clippy errors under `--all-targets -D warnings` (out of scope, untouched)
 - Workers: 0 active
 - Verification Strategy: full `cargo test -p physis-core` (all targets) + clippy lib+tests -D warnings
-- Execution Status: pass
+- Execution Status: pass → SHIPPED 2026-09-11: physis-core 0.1.24 published (crates.io confirmed), tag v0.1.24 pushed, submodule 0dbf6bf + superproject pointer pushed to epistemic-revision-p0
 
 ## Verification Results (2026-09-11)
 - ✅ `cargo test -p physis-core`: 172 lib + e2e 1 + epistemic 3/7/4/4 + temporal_dream 5 + delta 7 + ngram 2 + transform_bench 4 + main 4 + doc-tests 4 — 0 failed everywhere
