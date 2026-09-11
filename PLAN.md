@@ -1356,3 +1356,70 @@ Physis does not determine metaphysical truth (it maintains operational validity)
 - Phase 22 still does not claim that revision cascades, hybrid retrieval, or provenance hardening certify a filing — cosine 0.519 / propose top-3 0.712 stand; the takes propose, carry and defer, they do not verify.
 - Phase 23 fixes the formal vocabulary and its non-claims: Physis is not a Kripke truth theory; "fixed point" means locally stable under currently available evidence and context, never metaphysical truth; the 23.5 benchmark claims only the additional behavior produced by coupling semantic representation to empirical epistemic revision — not the invention of belief revision.
 todo: investigate tmg/ntmg/graphiti/atlas as codebases in /home/gio/dev — done 2026-09-09, see docs/BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md (T1–T7);
+
+---
+
+## Consolidated Agent Todos (2026-09-11)
+
+Merged from every agent's todo file across `/home/gio/dev`. Each entry carries its
+source agent and file. Status reflects the last write, not necessarily the live
+state of the code.
+
+### physis-pro — `.opencode/todo.md`
+
+| Mission | Status | Notes |
+|---|---|---|
+| M1–M9 | ✅ Completed | Project discovery, core engine, web layer, ingest, benchmark, CLI, MCP, agent harness, verification |
+| M10 — Impossible Machine / RH attack | ✅ Shipped 2026-09-11 | Lean formalization + E48–E50 experiments; formal target recorded as OPEN |
+| M11 — Perspective Invention | ✅ Shipped 2026-09-11 | Tier 0 FAILED outcome, documented honestly |
+| M12 — Dashboard | ✅ Shipped 2026-09-11 | `dashboard.html` + `/dashboard` route + scoped gates |
+| M13 — Corrective Feedback Engine | ⛔ INTERRUPTED | ~50 tasks unchecked; full list in `physis_loop/.opencode/todo.md` below |
+
+### physis_loop — `physis_loop/.opencode/todo.md` (M13 full task list)
+
+All unchecked. Research prototype; not production-critical.
+
+| # | Module | Tasks |
+|---|---|---|
+| M1 | Core Type Definitions | S1.1.1–S1.4.2: `Artifact`, `Intent`, `Observation`, `Constraints` dataclasses + methods |
+| M2 | Environment Abstraction | S2.1.1–S2.2.6: `Environment` ABC + `PythonEnvironment` with subprocess, timeout, exception handling |
+| M3 | Diagnosis | S3.1.1–S3.1.3: `Diagnosis` dataclass + `is_high_confidence()` + `__str__` |
+| M4 | Mutation | S4.1.1–S4.2.4: `Mutation` dataclass + `apply()`/`_apply_recursive()` + `minimal_mutation()` with preservation rules |
+| M5 | Generator Interface | S5.1.1–S5.2.2: `Generator` ABC + `PlaceholderGenerator` |
+| M6 | Feedback History | S6.1.1–S6.1.9: `FeedbackHistory` with record/current_attempt/last diagnosis/observation/stagnation detection + (de)serialization |
+| M7 | CoherenceEngine | S7.1.1–S7.3.1: `__init__`, `run()` main loop, `_check_constraints`, `_diagnose`, stagnation break, `run_corrective_loop()` |
+| M8 | Integration Tests | S8.1.1–S8.6.1: valid artifact, broken correction, history recording, repeated failure, replaceable environment, preservation |
+| M9 | README and Demo | S9.1.1–S9.2.4: README + `main.py` runnable demo |
+| M10 | Final Verification | S10.1.1–S10.2.2: full suite, syntax check, import chain, mark all TODOs |
+
+### Root — `/home/gio/dev/.opencode/todo.md`
+
+| Mission | Status |
+|---|---|
+| M1 — Replace cavecrew interpolations with literals in `delegation.ts` | ✅ Completed (Worker + Reviewer) |
+
+### praxis_webapp — `praxis_webapp/.opencode/plans/opencode_plan.md`
+
+11-phase master plan to integrate all services from `/home/gio/.env` into Axiom.
+No checkboxes — tracked in `claude_steps.txt`. Phases: env alignment → multi-LLM
+provider layer → enhanced search → STT → TTS → image gen → translation/emotion/OCR →
+vector stores & memory → 3D + voice pipelines + Telegram → admin panel → DB migrations
+& docs.
+
+### praxis_webapp — `praxis_webapp/docs/notes/plan.md`
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Run pending Supabase migrations | ✅ Done 2026-06-01 |
+| 2 | Set `CREDENTIAL_ED25519_*` on Railway | ✅ Done |
+| 3 | **Deploy backend** — verify `auditEconomy()` OK | ⬜ Pending |
+| 4 | _(optional)_ Register GitHub OAuth App | ⬜ Pending |
+| 5 | Remaining genuinely-hard splits (deferred) | ⬜ Pending |
+| 6 | Deliberately left (atomic RPCs can't replicate 1:1) | ⬜ Parked |
+
+### Other agent directories
+
+No `.codex`, `.kilo`, or `.cline` todo files found. `.claude` directories exist in
+physis-pro, praxis_webapp, t3code, deepseek-harness-src, vellum-assistant — none
+contain todo files. `aion/plan.md`, `cyclops/PLAN.md`, `cyclops/plan.md` exist but
+contain no unchecked tasks.
