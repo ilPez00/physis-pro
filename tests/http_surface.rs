@@ -333,8 +333,17 @@ async fn health_and_embedder_are_public() {
     // embedder must admit when it is not semantic rather than look healthy.
     let (router, _dir, _env) = app().await;
 
-    let (status, _) = send(&router, get("/health", "_default")).await;
+    let (status, body) = send(&router, get("/health", "_default")).await;
     assert_eq!(status, StatusCode::OK);
+    // PH-001: /health once reported 0.1.17 while the manifest said 0.1.19+ —
+    // a hardcoded literal drifts. The handler now reads
+    // env!("CARGO_PKG_VERSION"); this test fails if anyone re-hardcodes it,
+    // because the test's copy comes from the same macro at build time.
+    assert_eq!(
+        body["version"],
+        env!("CARGO_PKG_VERSION"),
+        "/health version must derive from CARGO_PKG_VERSION, never a literal"
+    );
 
     let (status, body) = send(&router, get("/api/v1/embedder", "_default")).await;
     assert_eq!(status, StatusCode::OK);
