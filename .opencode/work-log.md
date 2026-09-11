@@ -37,3 +37,26 @@
 | src/web/mod.rs | MODIFY (/dashboard route) | done | ses_dash_ui | 2026-09-11T05:41Z | - |
 | .opencode/todo-dash.md | MODIFY (M3 done) | done | ses_dash_cli | 2026-09-11T05:44Z | - |
 | src/main.rs | MODIFY (Dashboard/Chat/Embed/Mcp) | done | ses_dash_cli | 2026-09-11T05:44Z | - |
+
+## Research Sessions (2026-09-10 → 2026-09-11, branch research/perspective-invention)
+| File | Action | Status | Session | Timestamp | Issue |
+|------|--------|--------|---------|-----------|-------|
+| research/impossible_machine/apodeixis/Chain.lean | CREATE | done | ses_impossible_machine | 2026-09-11T06:00Z | - |
+| research/impossible_machine/apodeixis/Target.lean | CREATE | done | ses_impossible_machine | 2026-09-11T06:05Z | - |
+| research/impossible_machine/apodeixis/Main.lean | CREATE | done | ses_impossible_machine | 2026-09-11T06:10Z | - |
+| physis-core/examples/experiment48_exponent_necessity.rs | CREATE | done | ses_impossible_machine | 2026-09-11T06:15Z | - |
+| physis-core/examples/experiment49_self_consistent_dimension.rs | CREATE | done | ses_impossible_machine | 2026-09-11T06:20Z | - |
+| physis-core/examples/experiment50_representation_equivalence.rs | CREATE | done | ses_impossible_machine | 2026-09-11T06:25Z | - |
+| research/perspective_invention/hypothesis.md | CREATE | done | ses_perspective_invention | 2026-09-11T06:30Z | - |
+| research/perspective_invention/methodology.md | CREATE | done | ses_perspective_invention | 2026-09-11T06:35Z | - |
+| research/perspective_invention/ARCHITECTURE.md | CREATE | done | ses_perspective_invention | 2026-09-11T06:40Z | - |
+| research/perspective_invention/visualizations/*.svg | CREATE (8 files) | done | ses_perspective_invention | 2026-09-11T06:45Z | - |
+| physis-core/examples/perspective_invention_experiment.rs | CREATE | done | ses_perspective_invention | 2026-09-11T06:50Z | - |
+| wiring/funding_draft_targets.md | CREATE | done | ses_wiring | 2026-09-11T07:00Z | - |
+| wiring/neurosemantic_wiring.md | CREATE | done | ses_wiring | 2026-09-11T07:05Z | - |
+| wiring/physis_rnd_assessment.md | CREATE | done | ses_wiring | 2026-09-11T07:10Z | - |
+
+## Interrupted Sessions (NOT yet committed)
+| File | Action | Status | Session | Timestamp | Issue |
+|------|--------|--------|---------|-----------|-------|
+| physis_loop/physis_corrective_engine.py | CREATE | INTERRUPTED | ses_corrective_engine | 2026-09-10T22:00Z | ~50 TODOs remaining, see physis_loop/.opencode/todo.md |

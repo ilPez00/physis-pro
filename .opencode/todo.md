@@ -169,3 +169,89 @@
 - [x] S9.3.1: Verify all TODO items marked [x]
 - [x] S9.3.2: Confirm no unresolved sync-issues.md entries
 - [x] S9.3.3: Confirm build and test suite passes
+
+---
+
+## M10: Impossible Machine / Riemann Hypothesis Attack (SHIPPED 2026-09-11)
+### T10.1: Lean Formalization
+- [x] S10.1.1: Build Chain.lean (classical reduction chain)
+- [x] S10.1.2: Build Target.lean (genuinely new formal target)
+- [x] S10.1.3: Build Main.lean (apodeixis executable)
+- [x] S10.1.4: Verify lake build passes
+
+### T10.2: Experimental Pipeline
+- [x] S10.2.1: Implement experiment48_exponent_necessity.rs
+- [x] S10.2.2: Implement experiment49_self_consistent_dimension.rs
+- [x] S10.2.3: Implement experiment50_representation_equivalence.rs
+- [x] S10.2.4: Run all three experiments and record results
+
+### T10.3: Results Analysis
+- [x] S10.3.1: Document E48 results (LEVEL 1 — no intrinsic dimension)
+- [x] S10.3.2: Document E49 results (REPRESENTATION-DEPENDENT)
+- [x] S10.3.3: Document E50 results (REPRESENTATION-EQUIVALENCE)
+- [x] S10.3.4: Record formal target as OPEN
+
+---
+
+## M11: Perspective Invention Experiment (SHIPPED 2026-09-11)
+### T11.1: Research Framework
+- [x] S11.1.1: Write hypothesis.md with pre-registered tiers
+- [x] S11.1.2: Write methodology.md with frozen pipeline
+- [x] S11.1.3: Write ARCHITECTURE.md with gap analysis
+- [x] S11.1.4: Generate datasets and calibration
+
+### T11.2: Experiment Execution
+- [x] S11.2.1: Run perspective_invention_experiment
+- [x] S11.2.2: Generate visualizations (8 SVGs)
+- [x] S11.2.3: Record results in experiments/results.json
+
+### T11.3: Analysis
+- [x] S11.3.1: Classify outcome as Tier 0 FAILED
+- [x] S11.3.2: Document failures honestly
+
+---
+
+## M12: Dashboard Mission (SHIPPED 2026-09-11)
+### T12.1: Dashboard UI
+- [x] S12.1.1: Create src/bin/ui/dashboard.html
+- [x] S12.1.2: Add dashboard_ui_handler in src/web/ui_chat.rs
+- [x] S12.1.3: Register /dashboard route
+
+### T12.2: CLI Wiring
+- [x] S12.2.1: Wire Dashboard/Chat/Embed/Mcp in src/main.rs
+- [x] S12.2.2: Verify scoped gates pass
+
+---
+
+## M13: Physis Corrective Feedback Engine (INTERRUPTED)
+### T13.1: Core Type Definitions
+- [ ] S13.1.1: Define Artifact dataclass with data and metadata fields | size:S
+- [ ] S13.1.2: Implement Artifact.get() and Artifact.set() methods | size:S
+- [ ] S13.1.3: Implement Artifact.to_dict() and Artifact.from_dict() | size:S
+- [ ] S13.1.4: Implement Artifact.__str__() and Artifact.__repr__() | size:S
+
+### T13.2: Intent and Observation
+- [ ] S13.2.1: Define Intent dataclass | size:S
+- [ ] S13.2.2: Define Observation dataclass | size:S
+- [ ] S13.2.3: Define Constraints dataclass | size:S
+
+### T13.3: Environment Abstraction
+- [ ] S13.3.1: Define Environment abstract base class | size:S
+- [ ] S13.3.2: Implement PythonEnvironment with subprocess | size:M
+
+### T13.4: Diagnosis and Mutation
+- [ ] S13.4.1: Define Diagnosis dataclass | size:S
+- [ ] S13.4.2: Implement minimal_mutation() function | size:M
+
+### T13.5: Generator and CoherenceEngine
+- [ ] S13.5.1: Define Generator abstract class | size:S
+- [ ] S13.5.2: Implement CoherenceEngine.run() main loop | size:M
+
+### T13.6: Tests and Demo
+- [ ] S13.6.1: Write integration tests | size:M
+- [ ] S13.6.2: Create runnable demonstration | size:M
+- [ ] S13.6.3: Write README | size:S
+
+> **Status**: INTERRUPTED — see `physis_loop/.opencode/todo.md` for full task list
+> **Location**: `/home/gio/dev/physis_loop/`
+> **Priority**: Medium — research prototype, not production-critical

@@ -25,3 +25,22 @@
 - Dashboard/CLI agent active (`.opencode/todo-dash.md` present) — their paths untouched, excluded from commits
 - `wiring/` untracked dir is foreign — excluded from commits
 - Loom MCP plan still broken (jieba); missions run via direct delegation
+
+## Recent Sessions (2026-09-10 → 2026-09-11)
+- **Impossible Machine / Riemann Hypothesis attack** (branch `research/perspective-invention`)
+  - Built Lean formalization: `research/impossible_machine/apodeixis/`
+  - Experiments E48/E49/E50 in physis-core/examples/
+  - Results: E48 LEVEL 1 (no intrinsic dimension), E49 REPRESENTATION-DEPENDENT, E50 REPRESENTATION-EQUIVALENCE
+  - Formal target `bound_implies_no_beta_gt_half` remains OPEN
+- **Perspective Invention experiment** (branch `research/perspective-invention`)
+  - Full research framework: hypothesis, methodology, datasets, experiments, visualizations
+  - Status: Tier 0 FAILED — no cross-perspective convergence
+- **Dashboard mission** (branch `research/perspective-invention`)
+  - Added unified dashboard, CLI wiring, MCP tools
+- **Physis Corrective Feedback Engine** (interrupted, in `physis_loop/`)
+  - Python implementation of generation→environment→observation→diagnosis→mutation loop
+  - TODO: ~50 tasks remaining, all unchecked
+
+## Current Branch
+- Active: `research/perspective-invention` (both physis-pro and physis-core)
+- Pushed to origin: Yes

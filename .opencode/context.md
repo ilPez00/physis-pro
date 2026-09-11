@@ -80,7 +80,18 @@
 - physis-core is a submodule: NO commits inside it; leave working tree uncommitted.
 - Loom MCP plan tool broken (jieba missing) — Commander runs missions via direct delegation.
 
+## Research Artifacts (committed 2026-09-11, branch research/perspective-invention)
+- **Impossible Machine / Apodeixis**: Lean formalization of Riemann Hypothesis attack
+  - `research/impossible_machine/apodeixis/` — Chain.lean, Target.lean, Main.lean
+  - Experiments E48 (geometry→spectral), E49 (self-consistent dimension), E50 (representation equivalence)
+  - Status: All three experiments completed; formal target remains OPEN
+- **Perspective Invention**: Testing whether Physis can discover coordinate systems
+  - `research/perspective_invention/` — hypothesis, methodology, architecture, datasets, experiments, visualizations
+  - Status: Tier 0 FAILED (no cross-perspective convergence)
+- **Wiring documents**: `wiring/funding_draft_targets.md`, `wiring/neurosemantic_wiring.md`, `wiring/physis_rnd_assessment.md`
+
 ## Known Issues
 - 9 clippy mechanical warnings (RED gate) - need to fix before CI green
 - output_quality.rs gated behind embed-onnx feature (needs model on disk)
 - Some test binaries carry full DWARF (CI disk limits issue, line-tables-only profile)
+- physis-core submodule has untracked research/ directory with experiment results
