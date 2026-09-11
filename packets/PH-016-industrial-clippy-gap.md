@@ -2,13 +2,15 @@
 id: PH-016
 track: physis-pro
 phase: 0
-status: review
+status: done
 rung: 1
 depends: [PH-000]
 gate: "cd ~/dev/physis-pro && cargo clippy --all-targets -- -D warnings"
 commit: "branch agent/PH-016; conventional commits; per PROTOCOL §6"
 claimed_by:
 claimed_at:
+reviewed_by: cline-feather-2026-09-11
+reviewed_at: 2026-09-11T12:10:00Z
 ---
 
 # Clippy is red under `--features industrial` and CI never checks it

@@ -2,13 +2,15 @@
 id: PH-000
 track: physis
 phase: 0
-status: review
+status: done
 rung: 1
 depends: []
 gate: "cargo clippy --all-targets -- -D warnings && git status --short | wc -l | awk '{exit ($1>2)?1:0}'"
 commit: "branch agent/PH-000; conventional commits; per PROTOCOL §6"
 claimed_by: claude-sonnet-5-session-01AX97EUNrXfUcXu6hN61anC
 claimed_at: 2026-09-05T18:35:00Z
+reviewed_by: cline-feather-2026-09-11
+reviewed_at: 2026-09-11T12:10:00Z
 ---
 
 # Baseline hygiene: clippy green, tree clean
