@@ -3476,13 +3476,20 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     Ok((state, app))
 }
 
+/// The web server's log filter comes from `PHYSIS_LOG` (EnvFilter syntax).
+/// The documented variables used to name nothing this code read — `.env` said
+/// `PHICS_LOG_LEVEL` (a typo) and the deployment docs said `PHYSIS_LOG_LEVEL`
+/// — so log verbosity was silently unconfigurable through documentation
+/// (packets/PH-001). Split into a pure function so the contract is testable
+/// without mutating process-global env state from a unit test.
+fn log_filter_from_env(env_value: Option<String>) -> String {
+    env_value.unwrap_or_else(|| "info,physis=info,tower_http=info".into())
+}
+
 /// Bind and serve. This is all `main` does.
 pub async fn serve() {
     tracing_subscriber::fmt()
-        .with_env_filter(
-            std::env::var("PHYSIS_LOG")
-                .unwrap_or_else(|_| "info,physis=info,tower_http=info".into()),
-        )
+        .with_env_filter(log_filter_from_env(std::env::var("PHYSIS_LOG").ok()))
         .with_target(false)
         .with_thread_ids(true)
         .with_file(true)
@@ -4012,4 +4019,32 @@ struct TraceWatchEvent {
 #[derive(serde::Serialize)]
 struct TraceResponse {
     trace: Trace,
+}
+
+#[cfg(test)]
+mod log_filter_tests {
+    use super::log_filter_from_env;
+
+    #[test]
+    fn default_filter_when_unset() {
+        // Behaviour preserved exactly from the pre-PH-001 inline default.
+        assert_eq!(
+            log_filter_from_env(None),
+            "info,physis=info,tower_http=info"
+        );
+    }
+
+    #[test]
+    fn operator_override_parses() {
+        // PHYSIS_LOG=debug (and any other EnvFilter directive list) must parse
+        // without error — this is the contract that makes log verbosity
+        // configurable through the variable the docs now actually name.
+        for filter in ["debug", "info", "physis=trace", "info,tower_http=warn"] {
+            let f = log_filter_from_env(Some(filter.into()));
+            assert!(
+                tracing_subscriber::EnvFilter::try_new(&f).is_ok(),
+                "filter must parse: {f}"
+            );
+        }
+    }
 }

@@ -58,7 +58,7 @@ PHYSIS_API_Support_Email=support@praxisweb.xyz
 
 AI_GEMINI_KEY=your_gemini_key_here
 AI_GROQ_KEY=your_groq_key_here
-PHYSIS_LOG_LEVEL=info
+PHYSIS_LOG=info
 ```
 
 ### pansa Node: `/home/gio/dev/pansa-ts/deploy/pansa/.env`
@@ -79,7 +79,7 @@ PHYSIS_API_Support_Email=support@praxisweb.xyz
 
 AI_GEMINI_KEY=your_gemini_key_here
 AI_GROQ_KEY=your_groq_key_here
-PHYSIS_LOG_LEVEL=info
+PHYSIS_LOG=info
 ```
 
 ### Shared docker-compose.yml
@@ -149,7 +149,7 @@ podman run -d \
   -e PHYSIS_API_Support_Email=support@praxisweb.xyz \
   -e AI_GEMINI_KEY=your_gemini_key_here \
   -e AI_GROQ_KEY=your_groq_key_here \
-  -e PHYSIS_LOG_LEVEL=info \
+  -e PHYSIS_LOG=info \
   physis-pro:latest
 ```
 
@@ -172,7 +172,7 @@ podman run -d \
   -e PHYSIS_API_Support_Email=support@praxisweb.xyz \
   -e AI_GEMINI_KEY=your_gemini_key_here \
   -e AI_GROQ_KEY=your_groq_key_here \
-  -e PHYSIS_LOG_LEVEL=info \
+  -e PHYSIS_LOG=info \
   physis-pro:latest
 ```
 
