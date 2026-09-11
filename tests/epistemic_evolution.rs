@@ -141,6 +141,7 @@ fn test_2_feedback_loop_and_ranking() {
         claim: "Flank wear exceeds 0.3mm".to_string(),
         observed_at: Some(chrono::Utc::now()),
         embedding: Vec::new(),
+        intake_id: None,
         context: vec!["machine_cnc_1".to_string()],
     });
     h1_mut.record_prediction(Prediction {
@@ -162,6 +163,7 @@ fn test_2_feedback_loop_and_ranking() {
         claim: "Alloy composition within 99.8% nominal tolerance".to_string(),
         observed_at: Some(chrono::Utc::now()),
         embedding: Vec::new(),
+        intake_id: None,
         context: vec!["lot_88".to_string()],
     });
     h2_mut.record_prediction(Prediction {
@@ -370,6 +372,7 @@ fn test_5_structured_explanation() {
         claim: "High frequency cavitation peak at 3.2 kHz".to_string(),
         observed_at: Some(chrono::Utc::now()),
         embedding: Vec::new(),
+        intake_id: None,
         context: vec!["coolant_loop_2".to_string()],
     });
 
@@ -575,6 +578,7 @@ fn test_peculiarity_benchmark_comparison() {
         claim: "Drill procedure violated safety cooldown buffer".to_string(),
         observed_at: Some(chrono::Utc::now()),
         embedding: Vec::new(),
+        intake_id: None,
         context: vec!["drill_zone_1".to_string()],
     });
 
