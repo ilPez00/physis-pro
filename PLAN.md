@@ -683,6 +683,41 @@ resizes, persisted per tenant in sled and shareable as JSON.
 
 ---
 
+## Work Packets — the multi-year skeleton (board 2026-09-11)
+
+The executable plan for this repo lives in **`packets/`** (canonical, versioned
+in git): `packets/PROTOCOL.md` governs how agents work (claim → gate → report →
+commit; one packet per agent; the gate is the spec), `packets/README.md` lists
+the repo red lines. `/home/gio/plans-staging/physis-pro/packets` is the
+2026-09-01 deployment snapshot from feather and is **superseded** by this
+directory — it lacks PH-014..PH-016 and carries a pre-claim PH-000.
+
+Status was re-measured 2026-09-11 on `research/perspective-invention`:
+
+| id | phase | status | one-line |
+|---|---|---|---|
+| PH-000 | 0 | review | baseline hygiene: clippy green, tree clean |
+| PH-001 | 0 | claimed | three one-line drift fixes: version, env typo, feature set |
+| PH-002 | 0 | todo | `install.sh` is broken as written |
+| PH-003 | 0 | todo | licence claims contradict each other (human decides) |
+| PH-004 | 0 | todo | semantic self-test does not discriminate |
+| PH-005 | 1 | todo | feedback loop inflates confidence without accuracy |
+| PH-006 | 1 | todo | pro-tier gating (decision packet) |
+| PH-007 | 1 | todo | `pack` incremental index (9m59s cold) |
+| PH-008 | 1 | todo | embedder registry: image slot vs active embedder |
+| PH-009 | 1 | todo | test-suite speed (790 s full gate) |
+| PH-010 | 1 | todo | release engineering: tag → signed package pipeline |
+| PH-011 | 1 | todo | docs staleness sweep |
+| PH-012 | 2 | todo | core API stability contract |
+| PH-013 | 2 | todo | security review pass |
+| PH-014 | 0 | done | release and build integrity |
+| PH-015 | 1 | todo | content-search flake under full-suite concurrency |
+| PH-016 | 0 | review | clippy gap under `--features industrial` (resolved by de-featuring) |
+| PH-100 | D | todo | discovery: write the next packets from evidence |
+
+Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
+(eats the known test flake that otherwise poisons every full gate).
+
 ## Plan Index & Reconciled Status
 
 Single entry point for *what* each planning document covers and *where it
