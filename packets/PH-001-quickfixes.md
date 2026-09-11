@@ -2,11 +2,13 @@
 id: PH-001
 track: physis
 phase: 0
-status: todo
+status: claimed
 rung: 1
 depends: [PH-000]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test && ! grep -rn 'PHICS_LOG_LEVEL' .env* && ! grep -rn '\"0\.1\.1[0-9]\"' src/ --include=*.rs | grep -i version"
 commit: "branch agent/PH-001; three separate commits, one per fix"
+claimed_by: cline-feather-2026-09-11
+claimed_at: 2026-09-11T11:55:00Z
 ---
 
 # Three one-line drift fixes: version, env typo, feature set
