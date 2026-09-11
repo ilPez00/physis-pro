@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "physis": {
+      "command": "cargo",
+      "args": [
+        "run",
+        "--quiet",
+        "--features",
+        "mcp",
+        "--bin",
+        "physis-pro",
+        "--",
+        "serve",
+        "--stdio"
+      ],
+      "env": {
+        "PHYSIS_SCAN_ROOT": ".",
+        "PHYSIS_DATA_DIR": ".physis"
+      }
+    }
+  }
+}

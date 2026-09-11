@@ -15,6 +15,13 @@ Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed
 on the pansa machine through the randomesh framework. See `today_pansa.log` for
 details on the omo vs pansa distinction.
 
+## Dogfooding (docs/PHYSIS_DEV_LOOP.md)
+Develop physis with physis: `just recall "<task>"` before work (verdict −1 =
+already tried and failed), `just dev-loop "<task>"` after (gate + note).
+Agents attach via `.mcp.json` (`serve --stdio`, 30 tools); session protocol is
+recall → pack/find/workflow → classify/route → remember+serve. Scripts use
+`note`/`node-search` (offline, same store) — never `fail`/`pass` for dev gates.
+
 ## Multi-Tenancy (Web API — `physis-pro-web`)
 
 The web server (`src/bin/web_server.rs`) is **per-user**. Session state

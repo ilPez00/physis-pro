@@ -76,6 +76,20 @@ version:
 clean:
     cargo clean
 
+# Dogfood loop: recall outcome-memory for a task, run the fast gate, feed
+# the result back as a verdict-stamped note. Offline, no server needed.
+# Usage: just dev-loop "fix clippy E0599 on coherence edit"
+dev-loop task:
+    ./scripts/physis-dev-loop.sh "{{ task }}"
+
+# Recall what the engine remembers about a task (read half of the loop).
+recall q:
+    cargo run --quiet --bin physis-pro -- node-search "{{ q }}"
+
+# Remember one outcome with a verdict (-1 failed, 0 inert, +1 worked).
+note text verdict="0.0":
+    cargo run --quiet --bin physis-pro -- note "{{ text }}" --verdict {{ verdict }}
+
 # Full CI check: fmt + clippy + tests
 ci: fmt-check lint test
     @echo "CI passed"

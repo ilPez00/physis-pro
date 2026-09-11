@@ -68,6 +68,21 @@ pub enum Commands {
         #[arg(long)]
         once: bool,
     },
+    /// Correct an artifact using the Physis corrective feedback loop.
+    ///
+    /// Generates code from an intent, observes it in the Python environment,
+    /// and makes minimal structural mutations based on environmental feedback
+    /// until the artifact coheres or max attempts is reached.
+    Correct {
+        /// Description of what the user wants
+        intent: String,
+        /// Maximum number of correction attempts
+        #[arg(long, default_value_t = 10)]
+        max_attempts: usize,
+        /// Timeout for Python execution in seconds
+        #[arg(long, default_value_t = 5.0)]
+        timeout: f64,
+    },
     /// Pack context for a query from a directory into a hard token budget,
     /// reporting the path and line range of every chunk selected. The shell
     /// equivalent of the `physis_pack` MCP tool — use it to benchmark against
@@ -271,6 +286,17 @@ pub enum Commands {
         /// Max results
         #[arg(long, default_value_t = 12)]
         top: usize,
+    },
+    /// Remember one labeled memory with an asserted outcome verdict
+    /// (−1 failed, 0 inert, +1 worked). CLI twin of the MCP
+    /// `physis_remember` tool — the write half of the dev loop
+    /// (`node-search` is the read half). Dedupes by label.
+    Note {
+        /// Text to remember; also becomes its searchable label
+        text: String,
+        /// Coherence verdict −1..1 (default: 0 inert)
+        #[arg(long, default_value_t = 0.0)]
+        verdict: f32,
     },
     /// Import a knowledge vault (Obsidian/markdown notes, plain text, git log)
     /// into the shared store as labeled core nodes
@@ -1108,6 +1134,55 @@ fn main() -> anyhow::Result<()> {
             let output = app.run_translate(&text, lense.as_deref());
             println!("{output}");
         }
+        Commands::Correct { intent, max_attempts, timeout } => {
+            let script_path = std::env::temp_dir().join("physis_correct.py");
+            let script_content = format!(
+                r#"import sys
+sys.path.insert(0, "/home/gio/dev/physis-pro/physis_loop")
+from physis_loop.artifact import Artifact, Intent
+from physis_loop.observation import Observation, Constraints
+from physis_loop.diagnosis import Diagnosis
+from physis_loop.mutation import minimal_mutation, Mutation
+from physis_loop.generator import PlaceholderGenerator
+from physis_loop.python_environment import PythonEnvironment
+from physis_loop.core import run_corrective_loop
+
+gen = PlaceholderGenerator()
+env = PythonEnvironment(timeout={timeout})
+
+final_artifact, history = run_corrective_loop(
+    "{intent}",
+    gen,
+    env,
+    max_attempts={max_attempts},
+)
+
+import json
+print(json.dumps({{
+    "intent": "{intent}",
+    "max_attempts": {max_attempts},
+    "timeout": {timeout},
+    "attempts": history.current_attempt(),
+    "source": final_artifact.data.get("source_code", "") if final_artifact else None,
+    "last_diagnosis": {{
+        "violated_constraint": last_diag.violated_constraint if last_diag else None,
+        "probable_cause": last_diag.probable_cause if last_diag else None,
+    }} if last_diag else None,
+    "history": history.current_attempt(),
+}}))
+"#
+            );
+            std::fs::write(&script_path, &script_content).expect("failed to write python script");
+            let output = std::process::Command::new("python3")
+                .arg(script_path.to_str().unwrap())
+                .output()
+                .expect("failed to run python3");
+            print!("{}", String::from_utf8_lossy(&output.stdout));
+            if !output.stderr.is_empty() {
+                eprintln!("Python stderr: {}", String::from_utf8_lossy(&output.stderr));
+            }
+            let _ = std::fs::remove_file(&script_path);
+        }
         Commands::Classify { file } => {
             let output = app.run_classify(&file)?;
             println!("{output}");
@@ -1206,6 +1281,9 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::NodeSearch { query, budget, top } => {
             print!("{}", app.run_node_search(&query, budget, top)?);
+        }
+        Commands::Note { text, verdict } => {
+            println!("{}", app.run_note(&text, verdict)?);
         }
         Commands::Vault { dir, git } => {
             println!("{}", app.run_vault_import(&dir, git)?);

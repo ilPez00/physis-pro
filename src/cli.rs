@@ -313,6 +313,28 @@ impl PhysisApp {
         Ok(id)
     }
 
+    /// CLI twin of the MCP `physis_remember` tool: remember one labeled
+    /// memory with an asserted outcome verdict (−1 failed, 0 inert, +1
+    /// worked) so scripts and harnesses can write outcome memory without a
+    /// running server. Dedupes by label like every other registration path.
+    pub fn run_note(&mut self, label: &str, verdict: f32) -> anyhow::Result<String> {
+        if label.trim().is_empty() {
+            anyhow::bail!("note text must not be empty");
+        }
+        let verdict = verdict.clamp(-1.0, 1.0);
+        let Some((db, mut core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let embedding = self.embedder.embed(label);
+        let id = core.register_node_vec_labeled(embedding, Some(label.to_string()));
+        core.assert_coherence(&id, verdict);
+        core.persist_node(&db, "_default", &id)?;
+        Ok(format!(
+            "note {id} remembered (verdict {verdict:+.1}, {} node(s))",
+            core.nodes.len(),
+        ))
+    }
+
     /// "Exchange parts" edit from the CLI: swap a node's content, preserving its
     /// structure. Pin a cell with `--domain`/`--mode` to override auto-derivation.
     pub fn run_node_edit(
@@ -2160,6 +2182,36 @@ mod tests {
         };
         let app = PhysisApp::new(config);
         assert!(app.run_query_nodes("anything", 5).is_empty());
+    }
+
+    /// `run_note` is the CLI twin of MCP `physis_remember`: the label lands
+    /// in the shared store with its verdict, recallable after "restart", and
+    /// empty text is rejected rather than persisted as an unlabeled node.
+    #[test]
+    fn test_run_note_remembers_with_verdict() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = PhysisConfig {
+            data_dir: dir.path().to_path_buf(),
+            ..PhysisConfig::default()
+        };
+        let mut app = PhysisApp::new(config.clone());
+        let out = app
+            .run_note("clippy lint E0599 on coherence edit", -1.0)
+            .unwrap();
+        assert!(out.contains("verdict -1.0"), "verdict echoed, got {out}");
+        assert!(app.run_note("   ", 0.0).is_err(), "empty note rejected");
+        // Drop before the "second process": the live sled handle holds an
+        // exclusive lock, so a second opener on the same dir would fail.
+        drop(app);
+
+        // Second process: the verdict survived the round-trip to sled.
+        let app = PhysisApp::new(config);
+        let hits = app.run_query_nodes("coherence edit", 5);
+        assert!(
+            hits.iter()
+                .any(|(_, l, _)| l == "clippy lint E0599 on coherence edit"),
+            "note recallable, got {hits:?}"
+        );
     }
 
     #[test]
