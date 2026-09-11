@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Dashboard — Unified</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{display:flex;flex-direction:column;min-height:100%}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 20px;background:rgba(4,7,15,.85);backdrop-filter:blur(14px);border-bottom:1px solid var(--shelf)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),var(--violet));display:flex;align-items:center;justify-content:center;font-weight:800;color:#04101f;font-size:14px}
+.brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+.brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+.spacer{flex:1}
+main{flex:1;width:100%;max-width:1440px;margin:0 auto;padding:18px 20px 46px}
+section{margin-bottom:24px}
+section>h2{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.22em;color:var(--brume);margin:0 0 10px;display:flex;align-items:center;gap:10px}
+section>h2::before{content:"";width:16px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px}
+.kpi{padding:13px 15px}
+.kpi .num{font-family:var(--mono);font-size:23px;font-weight:700;font-variant-numeric:tabular-nums}
+.kpi .lbl{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--brume);margin-top:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.panel{padding:14px 16px;min-width:0}
+.panel h3{font-size:13px;margin:0 0 8px}
+.panel .body{font-size:12.5px;color:var(--brume);line-height:1.55}
+.panel .body b{color:var(--ink);font-family:var(--mono)}
+.tools{display:flex;gap:5px;flex-wrap:wrap}
+.loading{color:var(--brume);font-size:12.5px;padding:8px 2px}
+.emptynote{font-size:12.5px;padding:10px 2px;line-height:1.55}
+footer{text-align:center;color:var(--brume);font-size:11px;padding:14px}
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+<header>
+<div class="brand"><div class="logo">P</div><div><h1>PHYSIS <span>· DASHBOARD</span></h1><div class="sub">Unified status — health, stats, quality, graph, providers, tools</div></div></div>
+<nav aria-label="Sections" style="display:flex;gap:2px;flex-wrap:wrap"><a href="#vitals">Vitals</a><a href="#quality">Quality</a><a href="#graph">Graph</a><a href="#system">System</a><a href="#tools">Tools</a></nav>
+<div class="spacer"></div>
+<span id="health" class="chip"><span id="healthTxt">checking…</span></span>
+<button id="btnRefresh" class="btn-primary">Refresh</button>
+<span id="status" class="chip" style="margin-left:8px"><span class="muted">ready</span></span>
+</header>
+<main>
+<section id="vitals"><h2>Vitals — health, stats, coherence</h2>
+<div class="kpis" id="kpis"><div class="loading">loading vitals…</div></div></section>
+<section id="quality"><h2>Quality — feedback loop</h2>
+<div class="grid"><div class="panel"><h3>Reports</h3><div class="body" id="quality">loading…</div></div>
+<div class="panel"><h3>Communities</h3><div class="body" id="comms">loading…</div></div></div></section>
+<section id="graph"><h2>Graph — coherence snapshot</h2>
+<div class="panel"><div class="body" id="snap">loading…</div></div></section>
+<section id="system"><h2>System — embedder, providers, license</h2>
+<div class="grid"><div class="panel"><h3>Embedder</h3><div class="body" id="embed">loading…</div></div>
+<div class="panel"><h3>Providers</h3><div class="body" id="prov">loading…</div></div>
+<div class="panel"><h3>License</h3><div class="body">Offline <b>Ed25519</b> key. No network call. Unlicensed builds run with limits; licensed runs unlock full features.</div></div></div></section>
+<section id="tools"><h2>MCP tools — static list</h2>
+<div class="panel"><div class="tools" id="tools">
+<span class="chip">health</span><span class="chip">stats</span><span class="chip">query</span><span class="chip">scan</span><span class="chip">ingest_prompt</span><span class="chip">dream_generate</span><span class="chip">dream_evaluate</span><span class="chip">coherence_snapshot</span><span class="chip">coherence_register</span><span class="chip">context_filter</span><span class="chip">compress_logs</span><span class="chip">pdca_plan</span><span class="chip">pdca_act</span><span class="chip">pdca_stats</span><span class="chip">reconstruct</span>
+</div></div></section>
+</main>
+<footer>dashboard · read-only, no mutations · offline-first, graceful degradation</footer>
+<div class="toast" id="toast"></div>
+<script src="ui-shell.js"></script>
+<script>
+"use strict";
+function fmt(x,d){return (x==null||isNaN(x))?'—':Number(x).toFixed(d==null?0:d);}
+function cell(id,fn){const el=$(id);try{const r=fn();if(r&&r.then)return r.catch(e=>{el.innerHTML='<div class="emptynote">offline: '+esc(String(e).slice(0,120))+'</div>';});}catch(e){el.innerHTML='<div class="emptynote">offline: '+esc(String(e).slice(0,120))+'</div>';}}
+async function loadVitals(){
+const k=$('kpis');
+try{
+const [h,s,c]=await Promise.all([getJSON('/health').catch(()=>null),getJSON('/api/v1/stats').catch(()=>null),getJSON('/api/v1/coherence/snapshot').catch(()=>null)]);
+const rows=[['STATUS',h?(h.status||'ok'):'offline',''],['NODES',fmt(c?c.total_nodes:(s?s.nodes:null)),''],['INDEX',fmt(c?c.coherence_index:null,2),''],['GOALS',fmt(s?s.goals:null),''],['CLUSTERS',fmt(c?c.cluster_count:null),''],['OUTLIERS',fmt(c?c.outlier_count:null),'']];
+k.innerHTML=rows.map(([l,v])=>'<div class="kpi panel"><div class="num">'+esc(String(v))+'</div><div class="lbl">'+esc(l)+'</div></div>').join('');
+}catch(e){k.innerHTML='<div class="emptynote">vitals offline: '+apiError(e)+'</div>';}
+}
+async function loadQuality(){
+cell('quality',async()=>{const q=await getJSON('/api/v1/quality');$('quality').innerHTML='open <b>'+(q.open??'—')+'</b> · resolved <b>'+(q.resolved??'—')+'</b> · mean severity <b>'+fmt(q.mean_severity,2)+'</b>';});
+cell('comms',async()=>{const r=await getJSON('/api/v1/communities');const n=(r.communities||[]).length;$('comms').innerHTML='<b>'+n+'</b> communit'+(n===1?'y':'ies')+' · largest <b>'+(((r.communities||[])[0]||{}).members||[]).length+'</b> members';});
+}
+async function loadSnap(){
+cell('snap',async()=>{const c=await getJSON('/api/v1/coherence/snapshot');$('snap').innerHTML='nodes <b>'+c.total_nodes+'</b> · index <b>'+fmt(c.coherence_index,2)+'</b> · success <b>'+c.asserted_success+'</b> · inert <b>'+c.asserted_inert+'</b> · failure <b>'+c.asserted_failure+'</b>';});
+}
+async function loadSys(){
+cell('embed',async()=>{const e=await getJSON('/api/v1/embedder');$('embed').innerHTML='kind <b>'+esc(e.kind||'?')+'</b> · dim <b>'+(e.dim??'—')+'</b>'+(e.degraded?' · <b>degraded</b>':'');});
+cell('prov',async()=>{const p=await getJSON('/api/v1/providers');const l=p.providers||p.chain||[];$('prov').innerHTML=l.length?esc(JSON.stringify(l).slice(0,180)):'no providers configured (offline ok)';});
+}
+function refresh(m){Promise.allSettled([loadVitals(),loadQuality(),loadSnap(),loadSys()]).then(()=>setStatus(m||'all panels live'));}
+$('btnRefresh').onclick=()=>refresh();
+loadHealth();refresh('boot complete');
+</script>
+</body>
+</html>

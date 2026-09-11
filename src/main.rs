@@ -575,6 +575,30 @@ pub enum Commands {
         #[arg(long, default_value = "_default")]
         user: String,
     },
+    /// Open the unified dashboard (physis-pro-web on :19876)
+    Dashboard {
+        /// Web port (default 19876)
+        #[arg(long, default_value_t = 19876)]
+        port: u16,
+        /// Print URL only, do not launch browser
+        #[arg(long)]
+        no_open: bool,
+    },
+    /// Chat via running physis-pro-web (/api/v1/chat)
+    Chat {
+        /// Prompt to send
+        prompt: String,
+    },
+    /// Embed text via running physis-pro-web (/api/v1/embed)
+    Embed {
+        /// Text to embed
+        text: String,
+    },
+    /// List MCP gateway tools + HTTP mapping; with name show mapping + live probe
+    Mcp {
+        /// Tool name (omit to list all 15)
+        tool: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -681,6 +705,65 @@ pub enum SpannerAction {
     },
     /// Pull durable rows back and re-embed them under the live embedder
     Hydrate,
+}
+
+/// Gateway tool -> (METHOD, HTTP path). Mirrors dashboard.html static list.
+fn mcp_tool_mapping(name: &str) -> Option<(&'static str, &'static str)> {
+    Some(match name {
+        "health" => ("GET", "/health"),
+        "stats" => ("GET", "/api/v1/stats"),
+        "query" => ("GET", "/api/v1/query"),
+        "scan" => ("POST", "/api/v1/scan"),
+        "ingest_prompt" => ("POST", "/api/v1/scan"),
+        "dream_generate" => ("POST", "/api/v1/dream/generate"),
+        "dream_evaluate" => ("POST", "/api/v1/dream/evaluate"),
+        "coherence_snapshot" => ("GET", "/api/v1/coherence/snapshot"),
+        "coherence_register" => ("POST", "/api/v1/coherence/register"),
+        "context_filter" => ("POST", "/api/v1/context/filter"),
+        "compress_logs" => ("POST", "/api/v1/compress/logs"),
+        "pdca_plan" => ("POST", "/api/v1/pdca/plan"),
+        "pdca_act" => ("POST", "/api/v1/pdca/act"),
+        "pdca_stats" => ("GET", "/api/v1/pdca/stats"),
+        "reconstruct" => ("POST", "/api/v1/reconstruct"),
+        _ => return None,
+    })
+}
+
+fn run_mcp_cli(tool: Option<&str>) -> anyhow::Result<()> {
+    const TOOLS: [&str; 15] = [
+        "health", "stats", "query", "scan", "ingest_prompt", "dream_generate",
+        "dream_evaluate", "coherence_snapshot", "coherence_register", "context_filter",
+        "compress_logs", "pdca_plan", "pdca_act", "pdca_stats", "reconstruct",
+    ];
+    let Some(name) = tool else {
+        for t in TOOLS {
+            let (m, p) = mcp_tool_mapping(t).unwrap();
+            println!("{t:20} {m:4} {p}");
+        }
+        return Ok(());
+    };
+    let Some((method, path)) = mcp_tool_mapping(name) else {
+        eprintln!("unknown tool: {name}");
+        std::process::exit(2);
+    };
+    println!("{name}: {method} {path}");
+    // Best-effort live probe if physis-pro-web is up.
+    let client = reqwest::blocking::Client::new();
+    let url = format!("http://127.0.0.1:19876{path}");
+    let res = if method == "GET" {
+        client.get(&url).send()
+    } else {
+        client.post(&url).json(&serde_json::json!({})).send()
+    };
+    match res {
+        Ok(r) => {
+            let body = r.text().unwrap_or_default();
+            let cut = body.chars().take(300).collect::<String>();
+            println!("{cut}");
+        }
+        Err(_) => println!("start physis-pro-web first"),
+    }
+    Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
@@ -910,6 +993,58 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Dashboard/Chat/Embed/Mcp are thin HTTP clients over physis-pro-web:
+    // dispatch before PhysisApp::new (no embedder/ontology needed). Licence
+    // gate above already ran — these REQUIRE a licence (not in bypass list).
+    if let Commands::Dashboard { port, no_open } = &cli.command {
+        let url = format!("http://127.0.0.1:{port}/dashboard");
+        println!("{url}");
+        if !no_open {
+            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+        }
+        return Ok(());
+    }
+    if let Commands::Chat { prompt } = &cli.command {
+        let client = reqwest::blocking::Client::new();
+        let body = serde_json::json!({ "messages": [{ "role": "user", "content": prompt }] });
+        match client
+            .post("http://127.0.0.1:19876/api/v1/chat")
+            .json(&body)
+            .send()
+        {
+            Ok(resp) => {
+                let v: serde_json::Value = resp.json().unwrap_or(serde_json::Value::Null);
+                println!("{}", v.get("content").and_then(|c| c.as_str()).unwrap_or("(empty)"));
+            }
+            Err(_) => println!("start physis-pro-web first"),
+        }
+        return Ok(());
+    }
+    if let Commands::Embed { text } = &cli.command {
+        let client = reqwest::blocking::Client::new();
+        match client
+            .post("http://127.0.0.1:19876/api/v1/embed")
+            .json(&serde_json::json!({ "text": text }))
+            .send()
+        {
+            Ok(resp) => {
+                let v: serde_json::Value = resp.json().unwrap_or(serde_json::Value::Null);
+                let dim = v.get("dim").and_then(|d| d.as_u64()).unwrap_or(0);
+                let vec: Vec<f32> = v
+                    .get("embedding")
+                    .and_then(|e| serde_json::from_value(e.clone()).ok())
+                    .unwrap_or_default();
+                let shown: Vec<String> = vec.iter().take(8).map(|x| format!("{x:.4}")).collect();
+                println!("dim={dim} [{}…]", shown.join(", "));
+            }
+            Err(_) => println!("start physis-pro-web first"),
+        }
+        return Ok(());
+    }
+    if let Commands::Mcp { tool } = &cli.command {
+        return run_mcp_cli(tool.as_deref());
+    }
+
     // Per-command entitlement. Kept as a single table rather than scattered
     // checks so that adding a paid capability means adding one line here, and
     // so the mapping between commands and SKUs stays auditable at a glance.
@@ -1000,6 +1135,10 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::License { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Dashboard { .. }
+        | Commands::Chat { .. }
+        | Commands::Embed { .. }
+        | Commands::Mcp { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Scan { dir, format } => {
             let output = app.run_scan(&dir, &format);
             println!("{output}");

@@ -2801,6 +2801,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         .route("/studio", get(ui_chat::studio_ui_handler))
         .route("/notebook", get(ui_chat::notebook_ui_handler))
         .route("/pulse", get(ui_chat::pulse_ui_handler))
+        .route("/dashboard", get(ui_chat::dashboard_ui_handler))
         .route("/demo", get(ui_chat::demo_ui_handler))
         .route("/study", get(ui_chat::study_ui_handler))
         .route("/api/v1/chat", post(ui_chat::chat_handler))

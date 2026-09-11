@@ -222,6 +222,12 @@ pub async fn pulse_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/pulse.html"))
 }
 
+/// GET /dashboard — the unified read-only dashboard: health, stats, quality,
+/// communities, coherence snapshot, embedder, providers, static MCP tool list.
+pub async fn dashboard_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/dashboard.html"))
+}
+
 /// GET /ui-shell.js — the runtime every dashboard page loads with a plain
 /// `<script src="ui-shell.js">`. It must stay on the PUBLIC router: a script
 /// tag cannot send the Bearer header the protected routes demand, so gating it
