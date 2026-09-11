@@ -74,6 +74,12 @@
 - Wiki-embedded: llmwiki_physis in-repo vendor
 - Spanner: jsonwebtoken for SA auth
 
+## Cross-agent coordination (2026-09-11)
+- Qwen n-gram agent owns: physis-core/src/embed_ngram.rs (untracked), physis-core/src/epistemic.rs (modified), physis-core/tests/test_ngram_embed.rs. DO NOT touch.
+- Structural-reasoning mission owns: physis-core/src/transform.rs (new), physis-core/tests/transform_bench.rs (new), docs/TRANSFORM_REASONING.md (new), physis-core/src/lib.rs (append-only export lines).
+- physis-core is a submodule: NO commits inside it; leave working tree uncommitted.
+- Loom MCP plan tool broken (jieba missing) — Commander runs missions via direct delegation.
+
 ## Known Issues
 - 9 clippy mechanical warnings (RED gate) - need to fix before CI green
 - output_quality.rs gated behind embed-onnx feature (needs model on disk)
