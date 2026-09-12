@@ -1,5 +1,15 @@
 # Physis, re-scoped
 
+
+> **Compression numbers restated 2026-09-12.** Earlier figures (220 → 165, 25%)
+> compared two different quantities: the baseline was a *sum of chunk tokens*
+> while the physis side counted the *assembled string*, which carries separators.
+> Both sides now count the string a model is actually handed. The corrected
+> measurement on the same corpus is **253 → 165 tokens, 35%** — the old number
+> understated it, because the baseline was undercounted. Caught by a chain test
+> asserting `context_tokens <= baseline_tokens`, which a three-document corpus
+> inverted.
+
 > **Superseded as a definition by `docs/WHAT_PHYSIS_IS.md`.** This file is the
 > record of a measurement pass and of three wrong compressions made during it
 > (§0 → §7 → §8). It is kept because the corrections are the useful part. For
@@ -37,7 +47,7 @@ confidently repeating what it already refuted — and that this is measurable.
 |---|---|
 | Token-fixed retrieval — context provably fits the window at any corpus size | `src/rag.rs`, `TokenFixedRetriever` |
 | Deterministic structural map — repeat families, differences, contradiction pairs | same corpus ⇒ same `structure_hash` |
-| Context compression | 220 → 165 tokens (25%) on ground truth; 284 → 197 (30.6%) on the demo corpus |
+| Context compression | 253 → 165 tokens (35%) on ground truth; 284 → 197 (30.6%) on the demo corpus |
 | Structure recovery on synthetic ground truth | repeat 100% (3/3), anomaly 100% (2/2), contradiction 50% (1/2) |
 | Interchangeable model and n-gram backends | `ModelProvider` + `NGramTable` traits, checksum registry, `PHYSISNG1` format, 338k lookups/s, 14.8 KB on disk |
 | Config-driven pipeline | `RunConfig` swaps model and table with no source edit |
@@ -97,8 +107,9 @@ run the same benchmark twice, once per embedder.
 | Repeat recovery | 1.00 | 1.00 |
 | Anomaly recall | 1.00 | 1.00 |
 | Contradiction recall | 0.50 | 0.50 |
-| Context reduction | 25.0% | 24.0% |
-| Baseline → physis tokens | 220 → 165 | 221 → 168 |
+| Context reduction | 35.0% | 35.0% |
+| Baseline → physis tokens | 253 → 165 | 254 → 165 |
+| *(restated — see the note at the top)* | | |
 
 Identical. The synthetic corpus's repeat families are lexically near-identical,
 so string overlap recovers them exactly as well as a sentence transformer does.
