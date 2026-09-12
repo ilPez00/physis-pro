@@ -133,9 +133,24 @@ structure (every scorer at chance on real misfilings) · cross-model disagreemen
 carries no epistemic signal (paired *t* = −10.53, 0/22) · the machine cannot
 judge whether an entry *belongs* (AUC 0.410).
 
-**Never put in front of a null:** `transform` (symbolic homomorphism,
-deterministic, **no embeddings** — inherits none of the above negatives) ·
-`transplant` · `structsim` · `becoming`.
+**Never put in front of a null:** ~~`transform`~~ (measured 2026-09-12, see
+below) · `transplant` · `structsim` · `becoming`.
+
+**`transform` — measured, positive, replicated (E53).** Link prediction over the
+`crate::X` dependency graph, top-3 containment:
+
+| corpus | ANALOGY | popularity | permuted null | random |
+|---|---|---|---|---|
+| physis-core/src (n=86) | **0.500** | 0.337 | 0.209 | 0.151 |
+| physis_pro/src (n=294) | **0.446** | 0.303 | 0.256 | 0.061 |
+
++0.291 / +0.189 over the degree-preserving control. On the permuted graph
+ANALOGY *loses* to popularity on both corpora — the arms behave as designed
+rather than drifting together. Report: `physis-core/research/E53_TRANSFORM_ANALOGY.md`.
+
+This licenses "measured against a control on **ranking**, positive". It does
+**not** license calling `transform` a generator; that needs a gate-passing
+output, which is the next experiment.
 
 ---
 
