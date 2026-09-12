@@ -1,0 +1,14 @@
+{
+  "name": "physis-singularity",
+  "role": "harness",
+  "tools": [
+    "classify", "ingest", "embed", "verify", "cohere", "contradict"
+  ],
+  "capabilities": {
+    "epistemic_coherence": true,
+    "semiotic_grid": true,
+    "contradiction_detection": true,
+    "multi_modal": true,
+    "quality_feedback": true
+  }
+}

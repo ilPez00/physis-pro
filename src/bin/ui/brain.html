@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Offline Brain Multiplier — Live Demo</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  *{box-sizing:border-box}
+  :root{--radius:16px}
+  html,body{height:100%}
+  body{
+    margin:0;font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--fg);
+    background:
+      radial-gradient(1100px 720px at 8% -8%, rgba(110,168,255,.16), transparent 55%),
+      radial-gradient(820px 560px at 96% 4%, rgba(98,230,212,.10), transparent 50%),
+      linear-gradient(180deg,var(--bg),var(--bg2));
+    display:flex;flex-direction:column;min-height:100%;
+  }
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  button,input,textarea{
+    background:rgba(10,17,32,.92);color:var(--fg);border:1px solid var(--line);
+    border-radius:10px;padding:9px 13px;font-size:13px;font-family:inherit;
+  }
+  button{cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+  button:hover{border-color:var(--accent);background:#13213d}
+  button:active{transform:translateY(1px)}
+  button.primary{
+    background:linear-gradient(135deg,rgba(110,168,255,.22),rgba(98,230,212,.14));
+    border-color:rgba(110,168,255,.55);
+  }
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;padding:6px 12px;
+    border:1px solid var(--line);border-radius:999px;font-size:12px;
+    color:var(--muted);background:rgba(10,17,32,.8);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+  .dot.ok{background:var(--green);box-shadow:0 0 8px rgba(61,220,132,.7)}
+  .dot.bad{background:var(--red);box-shadow:0 0 8px rgba(255,107,122,.7)}
+  .dot.warn{background:#ffb35c;box-shadow:0 0 8px rgba(255,179,92,.7)}
+  header{
+    position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:12px 20px;background:rgba(7,11,22,.82);backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(29,43,71,.8);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-weight:800;
+    color:#04101f;font-size:14px;box-shadow:0 0 22px rgba(110,168,255,.45);
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.12em;font-weight:700}
+  .brand .sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .spacer{flex:1}
+  main{flex:1;padding:18px 20px 50px;max-width:1200px;margin:0 auto;width:100%}
+  .section{
+    background:rgba(9,14,28,.72);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;margin:0 0 18px;
+  }
+  .section h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .card{background:rgba(12,20,38,.85);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .card .k{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+  .card .v{font-size:19px;font-weight:700;margin-top:4px}
+  .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid}
+  .badge.grounded{color:var(--green);border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.08)}
+  .badge.verbatim{color:var(--accent2);border-color:rgba(98,230,212,.5);background:rgba(98,230,212,.08)}
+  .badge.ungrounded{color:var(--red);border-color:rgba(255,107,122,.5);background:rgba(255,107,122,.08)}
+  .badge.llm{color:var(--accent);border-color:rgba(110,168,255,.5);background:rgba(110,168,255,.08)}
+  .badge.ngram{color:#c9b8ff;border-color:rgba(160,130,255,.5);background:rgba(160,130,255,.08)}
+  .quote{border-left:3px solid var(--accent2);padding:8px 12px;margin:10px 0;background:rgba(98,230,212,.05);border-radius:0 10px 10px 0;font-style:italic}
+  .quote.bad{border-color:var(--red);background:rgba(255,107,122,.05)}
+  .pair{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;background:rgba(12,20,38,.85)}
+  .pair.contra{border-color:rgba(255,107,122,.55);box-shadow:0 0 18px rgba(255,107,122,.08)}
+  .pair .h{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .pair .side{margin:6px 0;font-size:13px}
+  .pair .who{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:#13213d;border:1px solid var(--accent);border-radius:12px;
+    padding:10px 18px;font-size:13px;opacity:0;transition:opacity .25s;z-index:50;pointer-events:none;
+  }
+  .toast.show{opacity:1}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .chips button{font-size:12px;padding:6px 10px;border-radius:999px}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  .row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">Φ</div>
+    <div><h1>PHYSIS · BRAIN</h1><div class="sub">Offline document intelligence · large docs + embeddings + ngram tables · optional local small model</div></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="pill" id="modePill"><span class="dot" id="modeDot"></span><span id="modeText">checking…</span></span>
+  <span class="pill"><a href="/demo">← /demo</a></span>
+</header>
+
+<main>
+  <div class="section">
+    <h2>The corpus — two large contracts, one embedding space</h2>
+    <div class="cards" id="statusCards">
+      <div class="card"><div class="k">Documents</div><div class="v" id="stDocs">—</div></div>
+      <div class="card"><div class="k">Chunks embedded</div><div class="v" id="stChunks">—</div></div>
+      <div class="card"><div class="k">Ngram table cells</div><div class="v" id="stNgram">—</div></div>
+      <div class="card"><div class="k">Small-model floor</div><div class="v" id="stLlm" style="font-size:13px">—</div></div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="btnSeed">Seed demo corpus (offline)</button>
+      <span class="small muted">Bundles POMA-3.8B (~29 KB) and Supplier Standard D-14 (~29 KB), chunks + embeds them, builds the corpus n-gram table. No network is touched.</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Ask the corpus — grounded, cited, offline</h2>
+    <div class="row">
+      <textarea id="q" placeholder="e.g. What is the vibration alarm threshold and when must the machine be stopped?">What is the vibration alarm threshold and when must the machine be stopped?</textarea>
+      <button class="primary" id="btnAsk">Ask</button>
+    </div>
+    <div class="chips">
+      <button data-q="Which document governs a subcontracted line when the two disagree?">who prevails?</button>
+      <button data-q="Is fixed-interval lubrication mandatory or prohibited?">lubrication clash</button>
+      <button data-q="How many days before failure must a degrading bearing be detected?">bearing detection SLA</button>
+      <button data-q="How long must vibration raw data be retained?">data retention</button>
+    </div>
+    <div id="answer" style="margin-top:14px"></div>
+  </div>
+
+  <div class="section">
+    <h2>Face-off — agreements surfaced, contradictions never merged</h2>
+    <div class="row">
+      <button class="primary" id="btnFace">Run face-off</button>
+      <span class="small muted">Cross-document chunk pairs ranked by embedding similarity; negation and numeric clashes classify the tension.</span>
+    </div>
+    <div id="faceoff" style="margin-top:14px"></div>
+  </div>
+
+  <div class="section">
+    <h2>Why this is a brain multiplier</h2>
+    <div class="small muted">
+      A 3.8B-parameter model alone cannot know your contracts. Physis gives it
+      retrieval (one shared embedding space), a language floor (the corpus's own
+      n-gram tables — the same trick behind Qwen-3's ngram tables, here built in
+      ~1 s from your documents), and a grounding gate (a verbatim quote that does
+      not token-match the source is rejected, never shown). With the small local
+      model you get fluent grounded answers with zero cloud; without it you still
+      get exact verbatim answers — the page below is honest about which one spoke.
+    </div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(await r.text().catch(()=>'http '+r.status));return r.json();}
+async function postJSON(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!r.ok)throw new Error(await r.text().catch(()=>'http '+r.status));return r.json();}
+
+async function loadStatus(){
+  try{
+    const s=await getJSON('/api/v1/brain/status');
+    $('stDocs').textContent=s.docs.length||'—';
+    $('stChunks').textContent=s.chunks||'—';
+    $('stNgram').textContent=s.ngram_cells?s.ngram_cells.toLocaleString():'—';
+    $('stLlm').textContent=s.seeded?(s.llm_floor_configured?s.llm_floor_model+' (local floor)':'none · pure ngram'):'—';
+    const on=s.seeded;
+    $('modeDot').className='dot '+(on?'ok':'warn');
+    $('modeText').textContent=on?('ready · '+(s.llm_floor_configured?'small model + ngram floor':'ngram floor only (offline AI)')):'not seeded — click Seed';
+  }catch(e){ $('modeText').textContent='engine unreachable'; $('modeDot').className='dot bad'; }
+}
+
+async function seed(){
+  const b=$('btnSeed');b.disabled=true;b.textContent='seeding… embedding + ngram…';
+  try{
+    const r=await postJSON('/api/v1/brain/seed',{});
+    toast('seeded: '+r.docs.length+' docs · '+r.chunks+' chunks · '+r.ngram_cells.toLocaleString()+' ngram cells');
+    await loadStatus();
+  }catch(e){toast('seed failed: '+e,true);}
+  b.disabled=false;b.textContent='Seed demo corpus (offline)';
+}
+
+function esc(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+async function ask(){
+  const q=$('q').value.trim();if(!q)return;
+  const out=$('answer');out.innerHTML='<span class="muted small">retrieving… scoring… grounding…</span>';
+  try{
+    const r=await postJSON('/api/v1/brain/ask',{question:q});
+    const modeBadge=r.mode==='ollama-small-model'
+      ?`<span class="badge llm">small model: ${esc(r.model)}</span>`
+      :`<span class="badge ngram">offline · ngram-extractive</span>`;
+    const gBadge=r.grounding==='grounded'
+      ?'<span class="badge grounded">grounded ✓ verbatim quote verified</span>'
+      :r.grounding==='verbatim'?'<span class="badge verbatim">verbatim extract · cannot hallucinate</span>'
+      :'<span class="badge ungrounded">ungrounded — rejected, fell back</span>';
+    let html=`<div class="pair"><div class="h">${modeBadge} ${gBadge}<span class="small muted">sources: ${r.sources.map(esc).join(' · ')}</span></div>`;
+    html+=`<div style="font-size:15px;line-height:1.6">${esc(r.answer||'(no confident span found — try different words)')}</div>`;
+    if(r.quote)html+=`<div class="quote">“${esc(r.quote)}”</div>`;
+    if(r.answers&&r.answers.length>1){
+      html+='<div class="small muted" style="margin-top:8px">other top verbatim spans:</div>';
+      r.answers.slice(1).forEach(a=>{html+=`<div class="side small">· ${esc(a.text)} <span class="who">(${esc(a.doc)} — ${esc(a.section)}, score ${a.score.toFixed(2)})</span></div>`;});
+    }
+    html+='</div>';
+    out.innerHTML=html;
+  }catch(e){
+    if(String(e).includes('428')){out.innerHTML='<span class="small" style="color:var(--red)">corpus not seeded — click Seed first.</span>';}
+    else out.innerHTML='<span class="small" style="color:var(--red)">'+esc('ask failed: '+e)+'</span>';
+  }
+}
+
+async function faceoff(){
+  const out=$('faceoff');out.innerHTML='<span class="muted small">pairing chunks…</span>';
+  try{
+    const r=await postJSON('/api/v1/brain/faceoff',{});
+    let html=`<div class="small muted">${r.contradictions} contradictions · ${r.agreements} agreements across the two documents</div>`;
+    r.pairs.forEach(p=>{
+      const isC=p.kind==='contradiction';
+      html+=`<div class="pair ${isC?'contra':''}"><div class="h">`
+        +`<span class="badge ${isC?'ungrounded':'verbatim'}" style="${isC?'':'color:var(--green);border-color:rgba(61,220,132,.5)'}">${isC?'⚠ contradiction':'✓ agreement'}</span>`
+        +`<span class="small muted">similarity ${(p.similarity*100).toFixed(0)}% · token overlap ${(p.overlap*100).toFixed(0)}% · ${esc(p.note)}</span></div>`
+        +`<div class="side"><div class="who">${esc(p.a.doc)} — ${esc(p.a.section)}</div>${esc(p.a.quote)}</div>`
+        +`<div class="side"><div class="who">${esc(p.b.doc)} — ${esc(p.b.section)}</div>${esc(p.b.quote)}</div></div>`;
+    });
+    out.innerHTML=html;
+  }catch(e){out.innerHTML='<span class="small" style="color:var(--red)">'+esc('face-off failed: '+e)+'</span>';}
+}
+
+$('btnSeed').onclick=seed;
+$('btnAsk').onclick=ask;
+$('btnFace').onclick=faceoff;
+document.querySelectorAll('.chips button').forEach(b=>{b.onclick=()=>{$('q').value=b.dataset.q;ask();};});
+loadStatus();
+</script>
+</body>
+</html>

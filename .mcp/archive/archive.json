@@ -1,0 +1,13 @@
+{
+  "name": "physis-archive",
+  "role": "cli",
+  "tools": [
+    "scan", "query", "log", "status", "help", "version"
+  ],
+  "capabilities": {
+    "command_line_interface": true,
+    "session_management": true,
+    "historical_tracking": true,
+    "cross_session_continuity": true
+  }
+}

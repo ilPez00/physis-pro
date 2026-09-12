@@ -1,0 +1,15 @@
+{
+  "name": "physis-horizon",
+  "role": "orchestrator",
+  "tools": [
+    "scan", "query", "dream", "orchestrate", "monitor", "analyze"
+  ],
+  "capabilities": {
+    "full_stack": true,
+    "memory_persistence": true,
+    "multi_tenancy": true,
+    "cross_repo_orchestration": true,
+    "epistemic_harness": true,
+    "vfs_orchestration": true
+  }
+}
