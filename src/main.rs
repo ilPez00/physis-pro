@@ -14,6 +14,7 @@ use physis_pro::inventory::InventoryTracker;
 use physis_pro::models::{cosine_sim, DomainDef, Score};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
+use physis_pro::estimate::estimate_project;
 
 #[derive(Parser)]
 #[command(
@@ -113,6 +114,11 @@ pub enum Commands {
         /// Also pre-embed this directory's chunks, so the first `pack` of it
         /// is warm too. Omit to warm only the ontology seeds.
         #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Estimate token usage and scan/index time for a directory.
+    Estimate {
+        /// Directory to estimate (default: current directory)
         dir: Option<PathBuf>,
     },
     /// Show stats
@@ -786,6 +792,27 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Estimate token usage and scan/index time for a directory.
+    if let Commands::Estimate { dir } = cli.command
+    {
+        let dir = dir.unwrap_or_else(|| PathBuf::from("."));
+        match estimate_project(&dir) {
+            Ok(est) => {
+                println!("Estimate:");
+                println!("  baseline tokens: {}", est.baseline_tokens);
+                println!("  packed tokens: {}", est.packed_tokens);
+                println!("  saved: {:.1}%", est.saved_percent);
+                println!("  scan time: {:.2}s", est.scan_elapsed_secs);
+                println!("  model time estimate: {:.2}s", est.model_time_est_secs);
+            }
+            Err(e) => {
+                eprintln!("Error running estimate: {e}");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
     // Licence gate before any work. Placed after `Cli::parse()` so `--help` and
     // `--version` still answer on an unlicensed host: an evaluator has to be able
     // to see what the tool is before we demand a key, and support needs
@@ -1135,6 +1162,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::License { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Estimate { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }

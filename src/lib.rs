@@ -81,6 +81,7 @@ pub mod web;
 pub mod wiki;
 pub mod wiki_gen;
 pub mod workflow;
+pub mod estimate;
 
 #[cfg(feature = "spanner")]
 pub mod spanner;
