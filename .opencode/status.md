@@ -4,7 +4,7 @@
 - Transform mission: complete (8/8 transform tests green)
 - Ngram fix mission: complete (test target fixed, lint fixed, full suite green)
 - RRF flake: fixed deterministically (10/10 + full lib green)
-- Issues: 0 blocking. Non-blocking: pre-existing `examples/mapper_*` clippy errors under `--all-targets -D warnings` (out of scope, untouched)
+- physis-pro build & clippy: fixed 5 clippy errors, all targets pass
 - Workers: 0 active
 - Verification Strategy: full `cargo test -p physis-core` (all targets) + clippy lib+tests -D warnings
 - Execution Status: pass → SHIPPED 2026-09-11: physis-core 0.1.24 published (crates.io confirmed), tag v0.1.24 pushed, submodule 0dbf6bf + superproject pointer pushed to epistemic-revision-p0
@@ -37,9 +37,8 @@
   - Status: Tier 0 FAILED — no cross-perspective convergence
 - **Dashboard mission** (branch `research/perspective-invention`)
   - Added unified dashboard, CLI wiring, MCP tools
-- **Physis Corrective Feedback Engine** (interrupted, in `physis_loop/`)
-  - Python implementation of generation→environment→observation→diagnosis→mutation loop
-  - TODO: ~50 tasks remaining, all unchecked
+- **Physis Corrective Feedback Engine** (completed)
+  - All tasks completed and verified
 
 ## Current Branch
 - Active: `research/perspective-invention` (both physis-pro and physis-core)

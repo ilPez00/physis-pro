@@ -225,33 +225,30 @@
 
 ## M13: Physis Corrective Feedback Engine (INTERRUPTED)
 ### T13.1: Core Type Definitions
-- [ ] S13.1.1: Define Artifact dataclass with data and metadata fields | size:S
-- [ ] S13.1.2: Implement Artifact.get() and Artifact.set() methods | size:S
-- [ ] S13.1.3: Implement Artifact.to_dict() and Artifact.from_dict() | size:S
-- [ ] S13.1.4: Implement Artifact.__str__() and Artifact.__repr__() | size:S
+- [x] S13.1.1: Define Artifact dataclass with data and metadata fields | size:S
+- [x] S13.1.2: Implement Artifact.get() and Artifact.set() methods | size:S
+- [x] S13.1.3: Implement Artifact.to_dict() and Artifact.from_dict() | size:S
+- [x] S13.1.4: Implement Artifact.__str__() and Artifact.__repr__() | size:S
 
 ### T13.2: Intent and Observation
-- [ ] S13.2.1: Define Intent dataclass | size:S
-- [ ] S13.2.2: Define Observation dataclass | size:S
-- [ ] S13.2.3: Define Constraints dataclass | size:S
+- [x] S13.2.1: Define Intent dataclass | size:S
+- [x] S13.2.2: Define Observation dataclass | size:S
+- [x] S13.2.3: Define Constraints dataclass | size:S
 
 ### T13.3: Environment Abstraction
-- [ ] S13.3.1: Define Environment abstract base class | size:S
-- [ ] S13.3.2: Implement PythonEnvironment with subprocess | size:M
+- [x] S13.3.1: Define Environment abstract base class | size:S
+- [x] S13.3.2: Implement PythonEnvironment with subprocess | size:M
 
 ### T13.4: Diagnosis and Mutation
-- [ ] S13.4.1: Define Diagnosis dataclass | size:S
-- [ ] S13.4.2: Implement minimal_mutation() function | size:M
+- [x] S13.4.1: Define Diagnosis dataclass | size:S
+- [x] S13.4.2: Implement minimal_mutation() function | size:M
 
 ### T13.5: Generator and CoherenceEngine
-- [ ] S13.5.1: Define Generator abstract class | size:S
-- [ ] S13.5.2: Implement CoherenceEngine.run() main loop | size:M
+- [x] S13.5.1: Define Generator abstract class | size:S
+- [x] S13.5.2: Implement CoherenceEngine.run() main loop | size:M
 
 ### T13.6: Tests and Demo
-- [ ] S13.6.1: Write integration tests | size:M
-- [ ] S13.6.2: Create runnable demonstration | size:M
-- [ ] S13.6.3: Write README | size:S
-
-> **Status**: INTERRUPTED — see `physis_loop/.opencode/todo.md` for full task list
-> **Location**: `/home/gio/dev/physis_loop/`
+- [x] S13.6.1: Write integration tests | size:M
+- [x] S13.6.2: Create runnable demonstration | size:M
+- [x] S13.6.3: Write README | size:S
 > **Priority**: Medium — research prototype, not production-critical

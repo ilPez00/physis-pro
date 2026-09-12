@@ -62,7 +62,7 @@ pub fn estimate_project(dir: &Path) -> Result<EstimateResult> {
         &mut cache,
     );
 
-    let packed_tokens = pack_result.tokens as usize;
+    let packed_tokens = pack_result.tokens;
 
     // Rough model‑generation estimate: 1 token ≈ 0.02 s on a typical GPU‑less CPU.
     let model_time_est = (packed_tokens as f64) * 0.02;
