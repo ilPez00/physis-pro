@@ -1,0 +1,1 @@
+physis-core is Apache-2.0; physis_pro is proprietary (EULA in LICENSE.txt).
