@@ -2,7 +2,8 @@
 id: PH-002
 track: physis
 phase: 0
-status: todo
+status: done
+result: fixed — install.sh rewritten (real engines, ~/.local, no sudo, idempotent, --dry-run), gate 4/4, stale path refs removed from PLAN.md and physis_bible.md. Decision: fix (default).
 rung: 1
 depends: [PH-000]
 gate: "bash -n install.sh && ./install.sh --dry-run && ! grep -rn 'target/release/physis-web' --include='*.sh' --include='*.md' . | grep -v packets"

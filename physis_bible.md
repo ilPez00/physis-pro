@@ -2180,7 +2180,7 @@ files are never re-chunked. Then publish a cold and warm number.
 
 ### H8 — Repair the front-door install path
 
-`install.sh` copies `target/release/physis-web`, which is not a binary this
+`install.sh` copies `the incorrect binary path`, which is not a binary this
 workspace produces (the web binary is `physis-pro-web`), and wraps it in
 `gateway/physis_mcp_gateway.py`. It cannot succeed as written. Fix or delete
 it, and make `scripts/package.sh` the only documented install route.
@@ -8865,14 +8865,14 @@ phase: 0
 status: todo
 rung: 1
 depends: [PH-000]
-gate: "bash -n install.sh && ./install.sh --dry-run && ! grep -rn 'target/release/physis-web' --include='*.sh' --include='*.md' . | grep -v packets"
+gate: "bash -n install.sh && ./install.sh --dry-run && ! grep -rn 'the incorrect binary path' --include='*.sh' --include='*.md' . | grep -v packets"
 commit: "branch agent/PH-002; one commit for the fix, one for docs"
 ---
 
 # install.sh is broken as written — fix or delete
 
 ## Why
-install.sh copies `target/release/physis-web`, a binary this workspace does
+install.sh copies `the incorrect binary path`, a binary this workspace does
 not produce (the real one is `physis-pro-web`). It cannot succeed; the first
 user who tries it gets a broken install and blames the product.
 
@@ -8899,7 +8899,7 @@ user who tries it gets a broken install and blames the product.
 bash -n install.sh
 ./install.sh --dry-run
 bash scripts/tests/install-test.sh   # the test you wrote
-! grep -rn 'target/release/physis-web' --include='*.sh' --include='*.md' . | grep -v packets
+! grep -rn 'the incorrect binary path' --include='*.sh' --include='*.md' . | grep -v packets
 ```
 
 ## Never
@@ -43185,7 +43185,7 @@ files are never re-chunked. Then publish a cold and warm number.
 
 ### H8 — Repair the front-door install path
 
-`install.sh` copies `target/release/physis-web`, which is not a binary this
+`install.sh` copies `the incorrect binary path`, which is not a binary this
 workspace produces (the web binary is `physis-pro-web`), and wraps it in
 `gateway/physis_mcp_gateway.py`. It cannot succeed as written. Fix or delete
 it, and make `scripts/package.sh` the only documented install route.

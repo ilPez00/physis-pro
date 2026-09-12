@@ -920,10 +920,11 @@ files are never re-chunked. Then publish a cold and warm number.
 
 ### H8 — Repair the front-door install path
 
-`install.sh` copies `target/release/physis-web`, which is not a binary this
-workspace produces (the web binary is `physis-pro-web`), and wraps it in
-`gateway/physis_mcp_gateway.py`. It cannot succeed as written. Fix or delete
-it, and make `scripts/package.sh` the only documented install route.
+**RESOLVED by PH-002.** The script previously pointed at a non-existent web
+binary and wrapped it in the Python gateway; it could not succeed as written.
+`install.sh` now installs the real `physis-pro*` binaries to `~/.local/bin` and
+config to `~/.physis`, is idempotent, needs no sudo, and supports `--dry-run`.
+`scripts/package.sh` remains the documented signed customer-install route.
 
 ### H9 — Reconcile the licence claims on customer-facing pages
 
