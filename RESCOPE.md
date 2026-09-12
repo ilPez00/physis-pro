@@ -8,16 +8,18 @@ that wrote it. Claims without a run behind them are labelled as open.
 
 ## 0. The one-paragraph version
 
-Physis is a **context compiler**: corpus plus query in, the minimal token set
-that answers the query out, under a hard ceiling, deterministically. Everything
-else in this repository — the semiotic grid, the holarchy, the PDCA loop, the
-dream generator, the epistemic revision machinery — is either an application of
-that compiler or an experiment about it. The compiler is the asset. The thesis
-worth betting the next year on is that a *small* model reading a compiled
-context can match a *large* model reading everything, on the class of tasks
-where difficulty is knowledge-location rather than reasoning-depth. That thesis
-is currently **untested**, and this document says exactly what it would take to
-test it.
+**Revised 2026-09-12, later the same day. The first version of this section said
+"Physis is a context compiler." That was wrong, and the correction is the most
+useful thing in this document — see §7.**
+
+Physis is an **epistemic ledger for agent work**: a record of what was believed,
+when, on what evidence, what it predicted, and whether the prediction held —
+with point-in-time replay over that record. It contains a context compiler, and
+the compiler is the *commodity* half: several exist, one of them is MIT-licensed
+and beats physis on physis's own measured terms. The ledger is the half nothing
+else ships. The thesis worth betting the next year on is that an agent working
+against a ledger stops rediscovering what it already established and stops
+confidently repeating what it already refuted — and that this is measurable.
 
 ---
 
@@ -281,3 +283,116 @@ knowledge-location — which is precisely the class the thesis claims.
    (790 s suite) cannot even be measured until the suite finishes.
 5. **Contradiction recall 0.50.** One of two known pairs missed, unchanged by
    the embedder, so it is a map defect rather than a retrieval one.
+
+---
+
+## 7. Correction: the context compiler is the commodity
+
+Written after §0–§6, in response to the right question: *there are already a lot
+of context compilers — what makes physis special?*
+
+### 7.1 Concede the compiler
+
+`github.com/Emmimal/context-compiler` (MIT, pure Python, ~12 commits) does
+static import-graph reachability plus AST skeletonization: trace symbols, strip
+function bodies to signatures, sort files into full / skeletonized / excluded.
+Reported: **69–74% token reduction in 43–73 ms**.
+
+Physis, measured this week: **24–30% reduction**, ~12 s per query warm, 583 s
+cold. On Python source, a static reachability prior beats embedding retrieval on
+physis's own metric by a factor of roughly three, about four orders of magnitude
+faster, with no model, no weights and no cache.
+
+That is not a comparison physis wins by arguing. Two honest observations rather
+than a defence:
+
+- Its token count is a `chars ÷ 4` heuristic, and it reports reduction but never
+  whether the answer survived — the same hole as `benchmarks/ground-truth`
+  before `benchmarks/retrieval` existed. A physis contribution here is the
+  harness, not the compressor.
+- The two priors are **complementary, not competing**. Reachability answers
+  "what code does this touch" and is blind to prose, decisions, and history.
+  Embedding retrieval answers "what is this about" and is blind to call graphs.
+  A compiler that takes the static graph as a prior and re-ranks semantically
+  should beat both.
+
+**So: yes, copy it.** MIT, small, and the mechanism is orthogonal to what is
+here. That is Ring 0 work and it is the correct call. It is also not a moat, for
+physis or for them — it is 12 commits of AST walking, and anyone can write it.
+
+### 7.2 What is not copyable, demonstrated live
+
+While testing whether the epistemic modules were real machinery or another
+`OnnxEmbedder` — exported, never called — the graph answered the question by
+itself.
+
+A hypothesis registered **2026-09-05**, seven days before this session:
+
+> *Retrieval, not the write path, is the binding constraint on this loop:
+> random-projection relevance is too weak to surface the right prior claim, so
+> rediscovery will keep happening even once claims are registered.*
+
+Supporting evidence attached to it, same day: an unrelated query about *"stripe
+payment webhooks in the praxis backend"* scored 0.830 cosine against a claim
+about `OntologyDeltaReport` and ranked it **first of two**.
+
+This session, with no knowledge of that record, independently found: the CLI had
+never used a semantic embedder; random projection returns the wrong file at
+*higher* confidence than the right one (0.923 wrong vs 0.764 right);
+`hit@5` 0.14 → 0.57 when fixed.
+
+The same finding, seven days apart, rediscovered from scratch — which is
+precisely what the 2026-09-05 hypothesis predicted would keep happening.
+
+What the ledger then permitted, and what no context compiler can do:
+
+| action | result |
+|---|---|
+| Attach this session's measurement to the 7-day-old claim | fitness 0.587 → 0.603, empirical 0.85 → 0.91 |
+| Register a new hypothesis, then refute it with a construction-matched control | `Contradicted`, fitness 0.281 |
+| `replay --at 2026-09-12T16:13:30Z` | `Candidate` — the belief that held before the refutation |
+| `replay` now | `Contradicted` |
+| `hypothesis open` | a prediction from 2026-09-05 still pending: *"Across the first 20 tasks, rediscovery will be recorded true more often than plan_changed."* |
+
+A context compiler answers *what should the model read now*. This answers *what
+did we believe, when, on what evidence, what did it predict, and did the
+prediction hold* — and can be asked as of any past instant.
+
+### 7.3 Do not overclaim it either
+
+Truth-maintenance systems are 1980s AI — de Kleer's ATMS, Doyle's TMS. Temporal
+knowledge graphs ship today (Graphiti, Zep). The machinery is not new and the
+repository already knows this: `BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md` maps T1–T18.
+
+What is not shipped elsewhere, as far as this pass found: a TMS whose subject is
+**an agent's own development loop**, with predictions that get *resolved*, in a
+repository that runs itself against it. Every agent framework has RAG memory.
+None of them record a prediction and come back to score it. External evidence
+that RAG memory alone is insufficient: `opencode-orchestrator` retired its own
+hybrid-RAG + decay memory in ADR-0019.
+
+And the ledger has a real defect, found in the same hour: `list` reports a status
+derived from fitness while `replay` reconstructs it from the event log, and they
+**disagree on the live graph** — `Supported` versus `Candidate`, same hypothesis,
+same second. `FitnessShifted` and `OutcomeObserved` are declared in the event
+enum and emitted by nothing. Filed as `packets/PH-017`. A record that omits the
+transitions it did not personally perform returns a belief the system never held,
+which is the one failure a ledger may not have.
+
+### 7.4 The re-scope, re-scoped
+
+| ring | before | after |
+|---|---|---|
+| 0 | context compiler | context compiler — **absorb the static prior; stop treating it as the moat** |
+| 1 | the compiled/naive × small/large 2×2 | unchanged, and now instrumented by the ledger rather than by hand |
+| 2 | a model-tier router | **an agent memory that can be wrong and know it** |
+
+The maximal expression is not "physis imitates a big model." It is: *an agent
+that does not rediscover what it established last week, and does not repeat what
+it refuted.* The §3 2×2 stays — it is how you prove the compiler half is not
+losing answers — but it stops being the headline.
+
+The measurement changes accordingly. Not `hit@5` alone, but **rediscovery rate**:
+across N packets, how often does the agent re-derive a finding already in the
+ledger? The 2026-09-05 prediction already named the metric and is still open.
+This session is one data point for it, and the data point is: **rediscovered.**
