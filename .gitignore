@@ -29,3 +29,7 @@ research/mapper/.expansion_candidates.json
 # Python bytecode
 __pycache__/
 physis-dev-license/target/
+
+# Dev-only benchmark state: holds a licence key signed with the PUBLIC dev key.
+.physis-bench/
+benchmarks/retrieval/results.json

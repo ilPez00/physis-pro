@@ -1,21 +1,12 @@
 {
   "mcpServers": {
     "physis": {
-      "command": "cargo",
-      "args": [
-        "run",
-        "--quiet",
-        "--features",
-        "mcp",
-        "--bin",
-        "physis-pro",
-        "--",
-        "serve",
-        "--stdio"
-      ],
+      "command": "./target/release/physis-pro",
+      "args": ["serve", "--stdio"],
       "env": {
         "PHYSIS_SCAN_ROOT": ".",
-        "PHYSIS_DATA_DIR": ".physis"
+        "PHYSIS_DATA_DIR": ".physis",
+        "PHYSIS_ALLOW_DEV_LICENCE": "1"
       }
     }
   }

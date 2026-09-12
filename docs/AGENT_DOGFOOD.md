@@ -1,0 +1,116 @@
+# Physis develops physis
+
+The research case: physis is a context compiler, and the hardest available test
+of a context compiler is an agent doing real engineering work on a real
+repository. This repository is the corpus, `packets/` is the task suite, and
+each packet's `gate:` line is an objective pass/fail that no participant can
+argue with.
+
+## Why this repository is the right corpus
+
+A retrieval benchmark is only worth running if it can fail. `physis-core`'s
+`benchmarks/ground-truth` cannot: run it under a random-projection lexical hash
+and under a real ONNX model and every quality metric is identical — repeat
+100%, anomaly 100%, contradiction 50%, compression ~24% either way. Its repeat
+families are lexically near-identical, so string overlap recovers them
+perfectly.
+
+Source code with questions asked in a developer's words is the opposite. The
+question says "how does the engine refuse a model that loads but produces
+nonsense"; the answer says `semantic_self_test`, `is_available`, `MARGIN`.
+Almost no tokens are shared. That gap is what a lexical hash cannot cross.
+
+Measured, same query, same 657 candidate chunks under `physis-core/src`:
+
+| | top result | correct? |
+|---|---|---|
+| random-projection | `delta_engine.rs:401-440` (score 0.923) | no |
+| ONNX MiniLM | `embed.rs:321-360` (score 0.764) | **yes** |
+
+Note the scores. The wrong answer was returned with *higher* confidence. That is
+the failure shape this repository already named once (PLAN.md H2, the semantic
+self-test packet PH-004): more confident, no more correct.
+
+## Setup
+
+```bash
+# 1. Build the binary once. The MCP entry used to be `cargo run`, which
+#    recompiled on every agent start.
+cargo build --release --features mcp,cli --bin physis-pro
+
+# 2. Mint a dev licence for THIS build. The gate verifies signatures even in a
+#    dev build, so a licence signed by a different key is rejected.
+mkdir -p .physis-bench
+(cd physis-dev-license && cargo run -q) > .physis-bench/license.key
+
+# 3. Point an agent at .mcp.json. Claude Code and opencode both read it.
+```
+
+`.mcp.json` sets `PHYSIS_ALLOW_DEV_LICENCE=1`. That is correct for local
+development and wrong for anything shipped: a dev build's signing key is public,
+so its licences can be forged by anyone. Ship with the vendor key stamped in
+(`scripts/package.sh`).
+
+### Embedder
+
+By default the server resolves the ONNX cascade and the first startup pays for
+it (measured: 4.5 s to select the embedder, 929 ontology seeds served from
+`EmbedCache`). Set `PHYSIS_EMBEDDER=random-projection` for a fast, offline,
+**non-semantic** session — useful for exercising plumbing, useless for anything
+that depends on retrieval being correct.
+
+## The 30 tools
+
+`physis_pack` is the one that matters for this experiment: it packs the
+highest-value context for a query from a directory into a hard token ceiling and
+reports the path and line range of every chunk it chose. The rest cover
+classification (`physis_classify`, `physis_route`), memory (`physis_remember`,
+`physis_recall`, `physis_themes`), causal provenance (`physis_why`,
+`physis_causes`, `physis_serve`), goals and PDCA, discovery, and health.
+
+`physis-pro pack <dir> <query>` is the same retrieval from the shell, which is
+what the benchmark below drives.
+
+## The measurement
+
+```bash
+python3 benchmarks/retrieval/run.py --arms rp,semantic --at 5
+```
+
+Ten questions about this repository, each with the answering file established by
+reading the code. `hit@k` asks only whether an expected file appears in the
+first k retrieved paths — deliberately generous, because if even that cannot
+separate a semantic model from a string hash then nothing will. The runner
+prints `DISCRIMINATION: semantic - rp` and says so explicitly when the
+difference is zero or negative.
+
+Cases whose answer does not live under `--root` are skipped and named, not
+scored as misses: blaming the retriever for a corpus that never contained the
+answer is how a benchmark starts lying.
+
+## The arms worth running, and what each one would settle
+
+Only the first is built. The rest are the open experiment, written down so the
+claim and the control stay attached to each other.
+
+| arm | context | model | what it establishes |
+|---|---|---|---|
+| A | physis-packed | big (agent) | the current path — does compression lose the answer? |
+| B | naive (whole files) | big (agent) | the ceiling. **Without this, arm A has no denominator.** |
+| C | physis-packed | small (local 4B) | the actual thesis |
+| D | naive | small | the control that says whether physis helped or the task was easy |
+
+The thesis — "a small model plus a compiled context imitates a big model" — is
+the claim C ≈ B. It is **not supported by anything in this repository today**,
+because B and C have never been run and the oracle leg reports
+`not_configured`. Treat it as the hypothesis under test, not as a result.
+
+## Running the agent arms
+
+The task suite is `packets/`. Take one packet, run its `gate:` line, and record
+tokens spent and whether the gate passed. `packets/PROTOCOL.md` governs the rest
+(claim, gate, report, commit; one packet per agent; the gate is the spec).
+
+The standing rule of this repository's research track, earned seven times over
+in `research/RESEARCH_STATUS.md`: **treat any positive as an artifact until a
+construction-matched control says otherwise.**

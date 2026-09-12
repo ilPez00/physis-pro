@@ -233,6 +233,13 @@ pub enum Commands {
     },
     /// Run diagnostics: config, data dir, scan root, embedder, license
     Doctor,
+    /// Run the semantic embedder self-test over the cascade-selected embedder.
+    ///
+    /// PH-004: the packet gate runs this on CI. Exit 0 iff the selected
+    /// embedder passes `embed::semantic_self_test`; exit 1 with a per-probe
+    /// verdict otherwise. Under `PHYSIS_EMBEDDER=random-projection` the verdict
+    /// is expected to FAIL (that is the instrument working, not a bug).
+    Selftest,
     /// Print the licence on this host: SKU, org, seats, expiry, maintenance,
     /// feature list, revocation status. Bypasses the licence gate so an
     /// unlicensed host can still report its state. `--json` for scripts.
@@ -818,12 +825,16 @@ fn main() -> anyhow::Result<()> {
     // to see what the tool is before we demand a key, and support needs
     // `--version` to triage an install that refuses to run.
     //
-    // All commands except `doctor`, `benchmark` and `license` require a valid
-    // licence. These bypass the gate so they can run without a licence —
-    // useful for diagnostics, triage, and reporting the licence state itself.
+    // All commands except `doctor`, `benchmark`, `license` and `selftest`
+    // require a valid licence. These bypass the gate so they can run without a
+    // licence — useful for diagnostics, triage, and reporting the licence and
+    // embedder state itself.
     if !matches!(
         cli.command,
-        Commands::Doctor | Commands::Benchmark { .. } | Commands::License { .. }
+        Commands::Doctor
+            | Commands::Benchmark { .. }
+            | Commands::License { .. }
+            | Commands::Selftest
     ) {
         let _license = physis_pro::license::enforce();
     } else {
@@ -1075,6 +1086,8 @@ fn main() -> anyhow::Result<()> {
     // Per-command entitlement. Kept as a single table rather than scattered
     // checks so that adding a paid capability means adding one line here, and
     // so the mapping between commands and SKUs stays auditable at a glance.
+    // `selftest` reports on the embedder and must run unlicensed (same family
+    // as `doctor`); giving it an entitlement would make triage need a licence.
     let required_feature = match &cli.command {
         #[cfg(feature = "mcp")]
         Commands::Serve { .. } => Some("mcp"),
@@ -1082,7 +1095,10 @@ fn main() -> anyhow::Result<()> {
         _ => None,
     };
     if let Some(feature) = required_feature {
-        if !matches!(cli.command, Commands::Doctor) {
+        if !matches!(
+            cli.command,
+            Commands::Doctor | Commands::Selftest
+        ) {
             let license = physis_pro::license::enforce();
             if let Err(e) = license.require(feature) {
                 eprintln!("physis: {e}");
@@ -2087,9 +2103,47 @@ print(json.dumps({{
         Commands::Doctor => {
             run_doctor(&config)?;
         }
+        // PH-004: the packet gate runs this on CI. Dispatched early like
+        // `pack`/`warm`: it needs the cascade-selected embedder, not the
+        // ontology classifier, so it must not pay the ~650-entry startup pass.
+        Commands::Selftest => {
+            return run_selftest(&config);
+        }
     }
 
     Ok(())
+}
+
+fn run_selftest(config: &PhysisProConfig) -> anyhow::Result<()> {
+    // PH-004: the packet gate runs `physis-pro selftest` on CI. This reports on
+    // the cascade-selected embedder — the SAME cascade the server and CLI use —
+    // per the frozen probe contract in packets/reports/PH-004-design.md.
+    use physis_pro::embed::VectorEmbed as _;
+    let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+    println!("embedder: {kind} (dim={})", embedder.dimension());
+    let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
+    let mut all_pass = true;
+    for (a_text, b_text, d_text) in physis_pro::embed::SEMANTIC_PROBES {
+        let a = embedder.embed(a_text);
+        let b = embedder.embed(b_text);
+        let d = embedder.embed(d_text);
+        let (related, unrelated, ok) = if finite(&a) && finite(&b) && finite(&d) {
+            let r = physis_pro::models::cosine_sim(&a, &b);
+            let u = physis_pro::models::cosine_sim(&a, &d);
+            (r, u, r > u + physis_pro::embed::SEMANTIC_PROBE_MARGIN)
+        } else {
+            (f32::NAN, f32::NAN, false)
+        };
+        println!("  probe {a_text:?} ~ {b_text:?} vs {d_text:?}: related={related:.3} unrelated={unrelated:.3} {}", if ok { "PASS" } else { "FAIL" });
+        all_pass &= ok;
+    }
+    if all_pass {
+        println!("semantic self-test: PASS");
+        Ok(())
+    } else {
+        eprintln!("semantic self-test: FAIL");
+        std::process::exit(1);
+    }
 }
 
 fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {

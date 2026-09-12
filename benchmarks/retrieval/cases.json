@@ -1,0 +1,55 @@
+{
+  "comment": "Retrieval cases over THIS repository. Each query is a question a developer actually asks, and `expect` names the file(s) that answer it. Ground truth was established by reading the code, not by running the retriever — a benchmark scored by the thing it measures is not a benchmark. Unlike benchmarks/ground-truth in physis-core, these queries are deliberately LEXICALLY DISJOINT from their answers where possible: the question uses the words a person would use, the code uses the words a compiler needs. That gap is what a lexical hash cannot cross and a semantic model can.",
+  "cases": [
+    {
+      "id": "cascade-selection",
+      "query": "how does the engine pick which embedding model to use, and how does it refuse one that loads but produces nonsense",
+      "expect": ["physis-core/src/embed.rs"]
+    },
+    {
+      "id": "probe-discrimination",
+      "query": "what stops a word-counting fake from being mistaken for a model that understands meaning",
+      "expect": ["physis-core/src/embed.rs"]
+    },
+    {
+      "id": "licence-startup",
+      "query": "which subcommands are allowed to run on a machine that has not paid, and where is that decided",
+      "expect": ["src/license.rs", "src/main.rs"]
+    },
+    {
+      "id": "budget-packing",
+      "query": "how is the prompt kept from overflowing the window no matter how large the corpus grows",
+      "expect": ["physis-core/src/rag.rs"]
+    },
+    {
+      "id": "reference-model-absent",
+      "query": "what happens to the comparison against a larger reference system when nobody has supplied credentials for it",
+      "expect": ["physis-core/src/oracle.rs"]
+    },
+    {
+      "id": "structure-recovery",
+      "query": "how are near-duplicate documents grouped and statements that disagree with each other flagged",
+      "expect": ["physis-core/src/map.rs"]
+    },
+    {
+      "id": "sparse-counts",
+      "query": "when a phrase was never seen at full length, how is a probability still produced from shorter fragments",
+      "expect": ["physis-core/src/ngram_table.rs"]
+    },
+    {
+      "id": "artifact-integrity",
+      "query": "how does the system make sure a downloaded weights file was not tampered with before it is used",
+      "expect": ["physis-core/src/model_provider.rs"]
+    },
+    {
+      "id": "agent-surface",
+      "query": "how does an external coding assistant discover and invoke the capabilities this program offers",
+      "expect": ["src/mcp.rs"]
+    },
+    {
+      "id": "tamper-proof-entitlement",
+      "query": "how is a customer prevented from editing their own permissions file to unlock paid features",
+      "expect": ["src/license.rs"]
+    }
+  ]
+}

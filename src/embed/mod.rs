@@ -75,8 +75,21 @@ pub trait VectorEmbed: Send + Sync {
 /// skipping re-test forever.
 pub(crate) const SEMANTIC_PROBE_VERSION: &str = "v2";
 
+/// Required margin between the related-pair similarity and the
+/// distractor-pair similarity. Generous enough for real semantic models,
+/// tight enough that token-overlap hashers (which score lexical noise at
+/// roughly the same level for everything) cannot clear it.
+///
+/// Public (not `pub(crate)`) because the `physis-pro selftest` CLI command
+/// must apply exactly the same gate the library uses — duplicating the
+/// literal here and in `src/main.rs` is how gates like this drift apart.
+pub const SEMANTIC_PROBE_MARGIN: f32 = 0.05;
+
 /// (related A, related B, unrelated distractor) — A and B share no token.
-pub(crate) const SEMANTIC_PROBES: [(&str, &str, &str); 3] = [
+///
+/// Public for the same reason as [`SEMANTIC_PROBE_MARGIN`]: the CLI selftest
+/// subcommand walks the identical triples, so the probe set has one home.
+pub const SEMANTIC_PROBES: [(&str, &str, &str); 3] = [
     ("car", "automobile", "banana"),
     ("dog", "puppy", "spreadsheet"),
     (
@@ -99,12 +112,6 @@ pub(crate) const SEMANTIC_PROBES: [(&str, &str, &str); 3] = [
 /// pair must also beat a fixed margin over its distractor, over several
 /// domains, so one lucky pair cannot carry a garbage model through.
 pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
-    /// Required margin between the related-pair similarity and the
-    /// distractor-pair similarity. Generous enough for real semantic models,
-    /// tight enough that token-overlap hashers (which score lexical noise at
-    /// roughly the same level for everything) cannot clear it.
-    const MARGIN: f32 = 0.05;
-
     let finite = |v: &[f32]| !v.is_empty() && v.iter().all(|x| x.is_finite());
     for (a_text, b_text, d_text) in SEMANTIC_PROBES {
         let a = e.embed(a_text);
@@ -115,7 +122,7 @@ pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
         }
         let related = crate::models::cosine_sim(&a, &b);
         let unrelated = crate::models::cosine_sim(&a, &d);
-        if related <= unrelated + MARGIN {
+        if related <= unrelated + SEMANTIC_PROBE_MARGIN {
             return false;
         }
     }
