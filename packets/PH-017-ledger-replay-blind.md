@@ -2,7 +2,7 @@
 id: PH-017
 track: physis
 phase: 1
-status: todo
+status: done
 rung: 2
 depends: [PH-000]
 gate: "cargo test --lib epistemic:: && cargo test --lib hypothesis:: && cargo run --bin physis-core --features cli -- replay --subject <id> | grep -q Supported"
@@ -10,6 +10,23 @@ commit: "branch agent/PH-017; failing-test commit, then the emit commit"
 ---
 
 # The audit trail cannot see status changes it did not cause
+
+> **DONE 2026-09-12.** Root cause was narrower and worse than this packet
+> assumed. `Hypothesis::revise` read `self.status` for BOTH ends of the
+> transition, and every caller mutates `self.status` before revising — so every
+> revision recorded `previous == new`. The history asserted that nothing ever
+> changed. Events were not missing; the recorded transitions were no-ops.
+>
+> Fixed by making `revise` take the prior status as an argument, so the compiler
+> requires the caller to have captured it. `PhysisCore::project_revisions`
+> projects `revision_history` into the audit trail as a VIEW rather than keeping
+> two records in sync by discipline — discipline is what failed.
+>
+> Live store after the fix: 8 of 10 claims agree between `list` and `replay`.
+> The two that do not were created before the fix; their revisions are
+> permanently no-ops and cannot be reconstructed. Per this packet's own
+> `Never`, they are NOT backfilled — `replay` reports the disagreement and says
+> why instead.
 
 ## Why
 `replay --subject <id>` reconstructs belief state from the epistemic event log.
