@@ -2,7 +2,8 @@
 id: PH-003
 track: physis
 phase: 0
-status: todo
+status: done
+result: decision (Gio): physis-core is Apache-2.0; physis_pro is proprietary (EULA). Four pages + metadata aligned on that string; licence-consistency.sh gate green incl. negative test.
 rung: 3
 depends: [PH-000]
 gate: "bash scripts/tests/licence-consistency.sh"
