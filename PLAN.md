@@ -31,6 +31,8 @@ plus MIT Core as the agent-directory distribution funnel (see
 | Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping; two deployment nodes: omo and pansa (shared PostgreSQL + model volume, unique API tokens per node; `RAILWAY_PG_CONNECTION_URL` or direct PostgreSQL; ONNX weights from S3/Supabase via `MODEL_BASE_URL`) |
 
 ---
+| Model & N-Gram Infrastructure (`physis-core`) | **Completed (v0.1.26, 190/190 unit tests pass)**: Interchangeable `ModelProvider` & `NGramTable` traits, registry-managed checksum-verified models & tables, variable-order backoff n-gram tables (orders 1–5, add-$k$, stupid-backoff), lexical & structural table kinds, versioned `PHYSISNG1` compact binary format, tokenizer compatibility gates, and unified config-driven pipeline (`RunConfig`) allowing zero-source-change model/table hot-swapping. |
+
 
 ## Research track — epistemic mechanisms (status 2026-09-09)
 
