@@ -144,11 +144,17 @@ deterministic, **no embeddings** — inherits none of the above negatives) ·
 Five agent harnesses, all local, all writing into **one** coherence graph and
 **one** replayable `EpistemicAuditTrail` (`wiring/neurosemantic_wiring.md`):
 
-1. **Hermes** — native `.mcp.json` stdio + skills
-2. **OpenCode** — `auth.json` providers, routes via openrouter/deepseek/groq/nvidia
-3. **Cline** — `cline-delegate` skill, delegates with physis coherence context
-4. **Kilo** — provider via openrouter or direct
-5. **Claude Code** — `claude-code` SKILL.md, anthropic provider
+| # | harness | on disk 2026-09-12 |
+|---|---|---|
+| 1 | **Hermes** — native `.mcp.json` stdio + skills | `~/.hermes` ✓ |
+| 2 | **OpenCode** — `auth.json` providers, routes via openrouter/deepseek/groq/nvidia | `~/.config/opencode` ✓ |
+| 3 | **Cline** — `cline-delegate` skill, delegates with physis coherence context | `~/.cline` ✓ |
+| 4 | **Claude Code** — `claude-code` SKILL.md, anthropic provider | `~/.claude` ✓ |
+| — | **Kilo** — a *provider* (`.env` key, via openrouter or direct), **not a harness** | no config dir |
+
+Four harnesses, not five. `wiring/neurosemantic_wiring.md` numbers Kilo in the
+list while its own parenthetical says "no dedicated skill — treat as provider".
+Counted as a harness it inflates the trace-source count by 25%.
 
 Interfaces: harness (`.loom` / `.mcp.json` stdio / CLI) = internal · MCP stdio =
 primary external (local, no cloud, **30 tools**) · REST/`web_server` =
