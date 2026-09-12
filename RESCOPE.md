@@ -253,8 +253,9 @@ context compiler, which is a real product on its own.
 
 ### What to stop
 
-- Treating the semiotic grid as a discovery mechanism. E1–E18 settled that.
-  It is a useful *filing* structure; it is not an epistemic instrument.
+- ~~Treating the semiotic grid as a discovery mechanism.~~ **Struck. This was
+  my error, not a finding — see §8.** E1-E18 refuted *certification*, and
+  `propose.rs` had already recorded why that does not generalise.
 - Quoting `benchmarks/ground-truth` numbers as retrieval evidence until that
   corpus contains items semantically related and lexically disjoint.
 - New research branches while `main` sits 181 commits behind `agent/PH-001`.
@@ -396,3 +397,106 @@ The measurement changes accordingly. Not `hit@5` alone, but **rediscovery rate**
 across N packets, how often does the agent re-derive a finding already in the
 ledger? The 2026-09-05 prediction already named the metric and is still open.
 This session is one data point for it, and the data point is: **rediscovered.**
+
+---
+
+## 8. Correction: I compressed the system twice, and both were wrong
+
+§0 first said "Physis is a context compiler." §7 said "no — an epistemic
+ledger." Both were reductions of a **190-module, ~113k-line system**, made by
+reading part of it. The full inventory, taken after the second correction:
+
+### 8.1 physis-core — 46 modules, 22.7k lines, Apache-2.0
+
+| group | modules |
+|---|---|
+| Classification & ontology | `classify` `ontology` `models` `semiotic_grid` |
+| **Discovery** | `discovery` `coverage` `linkage` `becoming` |
+| **Proposal** | `propose` |
+| **Invariance & structure** | `transform` `transplant` `structsim` `map` |
+| Epistemics | `hypothesis` `contradiction` `epistemic` `provenance` `temporal` `relation` `explanation` `coherence_dimensions` `coherence_query` `delta_engine` `dream` |
+| Retrieval & models | `rag` `embed` `embed_onnx` `embed_ngram` `model_provider` `ngram_table` `tokenizer` |
+| Surfaces | `studio` `studio_lab` `studio_communities` `bench` `oracle` `quality` `store` `config_run` |
+| Importers | `vault` `history` `praxis` `process` |
+
+### 8.2 physis_pro — 140+ modules, ~90k lines, proprietary
+
+22 **philosophical machines** (`chronos` `topos` `techne` `euclid` `elenchus`
+`apodeixis` `empedocles` `krisis` `plutos` `polis` `lex` `pathos` `kinesis`
+`soma` `harmony` `chroma` `erosa` `erosp` …) · **industrial** (`oee`
+`maintenance` `industrial` `moonraker` `shifts` `report` `secom` benchmark) ·
+**backoffice** (`reconcile` `inventory` `batch_csv` `review_desk`
+`management_pack`) · **knowledge** (`wiki_gen` `corpus` `doctree` `communities`
+`decisions` `sessions` `grounding`) · **agent** (`mcp` `ai/provider`
+`ai/harness` `ai/agent` `ai/tools` `ai/memory` `routes` `extract`) ·
+**space·time·cause** (`address` `ledger` `mails` `audit` `operational`) ·
+**linguistic lenses** (`wenyan` `piraha` `sanskrit`) · **personal** (`life_os`
+`study` `interest` `monitor` `praxis`) · `pack` `content` `trie` `graph`
+`salience` `quantize` `planner` `axes` `context` `brain` `notebook`.
+
+### 8.3 The specific error
+
+I wrote "stop treating the semiotic grid as a discovery mechanism — E1–E18
+settled that." **E1–E18 refuted certification, not discovery**, and `propose.rs`
+had already written down why the two do not generalise to each other, in the
+module header, before this session started:
+
+> All of those asked the machine to **judge**: *does this entry belong here?*
+> This module asks it to **propose**: *which few cells should a person look at
+> first?* Same geometry, different question, and the second one works.
+
+Measured against the same blind re-filing, top-k containment of the cell a human
+actually chose, centroids built only from decisions already made (E21):
+
+| at 436 decisions seen | top-1 | top-3 | top-5 |
+|---|---|---|---|
+| **`propose`** | 0.447 | **0.712** | 0.791 |
+| `old_cell`→`new_cell` table | 0.184 | 0.368 | 0.474 |
+| majority cell | 0.089 | 0.255 | 0.359 |
+| **permuted labels (null)** | 0.036 | 0.136 | 0.233 |
+| entry length alone | 0.010 | 0.036 | 0.071 |
+
++0.531 top-3 over a construction-matched null, +0.299 over a lookup table, curve
+still climbing when the data ran out. And the sharpest line in the module:
+**top-1 ≈ 0.45 reproduces an accuracy this project had already recorded as a
+failure. The geometry did not improve. Returning three candidates instead of one
+is the entire difference.**
+
+That is the intellectual move the whole research track turns on, and I repeated
+a conclusion the codebase had already superseded.
+
+### 8.4 What else I under-weighted
+
+- **Invariance finding.** `transform.rs` is a symbolic token-level homomorphism
+  engine — deterministic, **no embeddings**, patterns matched by exact token
+  equality with variable binding, transforms gated by a coherence profile. It
+  does not inherit the embedding negatives at all. `transplant.rs` ports the
+  *shape* of one project onto another; `structsim.rs` compares JSON, DB schemas
+  and class hierarchies. This is a second, independent epistemic mechanism that
+  §0–§7 never mentioned.
+- **Discovery proper.** `discovery` proposes entries for uncovered texts;
+  `coverage` says which proposals change what the ontology can *place* (Welch
+  *t* = +12.11, 2000 → 141); `linkage` reports which cells real data bridges;
+  `becoming` separates "a term's meaning changed" from "one name covers two
+  things" by looking at *when* each occurrence happened — order-aware where
+  every other similarity method here is order-blind.
+- **Token savings on debugging.** Reported from real use, not measured here.
+  It belongs in `benchmarks/retrieval/` as a case class, not in a document as an
+  anecdote — and it is the concrete lead worth instrumenting next.
+
+### 8.5 The standing lesson
+
+A system this size cannot be summarised into one noun, and every attempt above
+produced a confident wrong answer. The honest description is structural, not
+sloganeering: **physis is a set of epistemic primitives over a semiotic
+coordinate system, plus the applications built on them, plus a research
+discipline that refuses each primitive until a construction-matched control
+survives.** The context compiler is one primitive. The ledger is another. So are
+proposal, coverage, becoming, transform and transplant.
+
+The re-scope question was "what is its maximal expression". The answer is not a
+smaller physis with a sharper slogan. It is: **which of these primitives already
+beat a construction-matched null, and which have never been asked?** Three
+already do — `propose` (+0.531 top-3), `coverage` (*t* = +12.11), discovery
+ranking (P@25 0.480 vs 0.132). `transform` and `transplant` have never been put
+in front of a null at all. That is the gap worth closing before any re-scope.
