@@ -31,7 +31,7 @@ plus MIT Core as the agent-directory distribution funnel (see
 | Multi-tenancy | Per-user tenant state in sled, `X-Physis-User` header scoping; two deployment nodes: omo and pansa (shared PostgreSQL + model volume, unique API tokens per node; `RAILWAY_PG_CONNECTION_URL` or direct PostgreSQL; ONNX weights from S3/Supabase via `MODEL_BASE_URL`) |
 
 ---
-| Model & N-Gram Infrastructure (`physis-core`) | **Completed (v0.1.26, 190/190 unit tests pass)**: Interchangeable `ModelProvider` & `NGramTable` traits, registry-managed checksum-verified models & tables, variable-order backoff n-gram tables (orders 1–5, add-$k$, stupid-backoff), lexical & structural table kinds, versioned `PHYSISNG1` compact binary format, tokenizer compatibility gates, and unified config-driven pipeline (`RunConfig`) allowing zero-source-change model/table hot-swapping. |
+| Model & N-Gram Infrastructure Layer | **Completed & Verified (v0.1.26, 190/190 unit tests pass)**: Interchangeable `ModelProvider` & `NGramTable` traits, registry-managed checksum-verified models & tables, variable-order backoff n-gram tables (orders 1–5, add-$k$, stupid-backoff), lexical & structural table kinds, versioned `PHYSISNG1` compact binary format, tokenizer compatibility gates, and unified config-driven pipeline (`RunConfig`) allowing zero-source-change model/table hot-swapping. |
 
 
 ## Research track — epistemic mechanisms (status 2026-09-09)
@@ -63,6 +63,8 @@ their code in `research/perspective-discovery/` (E1), `research/mapper/`
 | Is that a small-model artifact? | **NO (E19b)** | the ceiling does not climb with scale — ORACLE +0.667 at 4B, +0.500 at 7.6B, +0.750 at 9.2B, and C5 never separates from one domain |
 | Can geometry *propose* a filing, given human decisions? | **YES (E21)** | top-3 **0.667** against a permuted null of 0.136 and a lookup table of 0.368 |
 | Can the **mode axis** be made coherent? | **NOT FROM THIS CORPUS (E27–E29)** | merging, head-only representation, factorised decoding, a stronger embedder and unsupervised discovery all fail — mode is *absent from the representation*, not underdetermined by its labels |
+
+| **Does the underlying arithmetic object induce representation-invariant probability laws / statistical relations?** | **NO (E51)** | moving from geometry (E50 negative) to probability, return times, gap statistics, and relational invariance across independent representations ($\psi, \theta, \pi, M/\sqrt{x}$, blind held-out, three null controls). $0/5$ candidate laws clear transfer AND arithmetic-specificity AND held-out survival: what transfers is null-equivalent (generic cumulative-counting behaviour), what is prime-specific does not transfer. See `physis-core/research/impossible_machine/EXPERIMENT51_RESULTS.md` |
 
 ### Three things that reversed under scrutiny, kept because the process is the point
 
