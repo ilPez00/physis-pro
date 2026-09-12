@@ -1,5 +1,11 @@
 # Physis, re-scoped
 
+> **Superseded as a definition by `docs/WHAT_PHYSIS_IS.md`.** This file is the
+> record of a measurement pass and of three wrong compressions made during it
+> (§0 → §7 → §8). It is kept because the corrections are the useful part. For
+> what Physis *is*, read the canonical file, not §0.
+
+
 Written 2026-09-12, against the code as measured that day, not as documented.
 Every number here was produced by a command in this repository during the pass
 that wrote it. Claims without a run behind them are labelled as open.

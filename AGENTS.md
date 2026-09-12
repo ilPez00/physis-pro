@@ -1,6 +1,12 @@
 # I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # Physis Pro — Industrial Backoffice Intelligence
 
+> **Before summarising this project to anyone, read `docs/WHAT_PHYSIS_IS.md`.**
+> Three attempts in one session compressed these 190 modules to a single noun and
+> all three were wrong. The grid is **70 cells with subtables**, the operations
+> are **six**, and `propose` is not `judge`. That file carries the rules.
+
+
 ## Overview
 Physis Pro extends the core engine with **industrial backoffice intelligence**:
 - **Quality feedback loop** — embed failures against the semiotic grid, apply penalty, persist
