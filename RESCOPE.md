@@ -282,14 +282,32 @@ knowledge-location — which is precisely the class the thesis claims.
 
 ## 6. Open, ranked
 
-1. **Build arms B, C, D.** Nothing else changes what is known.
-2. **Pay the physis_pro padding tax.** 376 s per `pack` makes every agent arm
-   impractical; the fix is the one already applied in core.
-3. **Merge `agent/PH-001` into `main`.** 181 commits of work on one branch.
-4. **PH-015** — the content-search flake poisons every full gate, and PH-009
+Struck items were closed later the same day; kept visible so the list reads as a
+record rather than a tidy plan.
+
+1. ~~**Put `transform` in front of a null.**~~ **Done — E53, SUPPORTED,
+   replicated.** Link prediction over the `crate::` dependency graph: top-3
+   0.500 vs a degree-preserving null of 0.209 (core, n=86) and 0.446 vs 0.256
+   (pro, n=294). On the permuted graph analogy *loses* to popularity on both
+   corpora, which is the arms behaving as designed.
+   Licenses **ranking**, not generation — hence item 2.
+2. **Does the path GENERATE?** E54: delete a load-bearing `use crate::T::{…}`,
+   verify the build goes red, have the method supply `T`, and let `cargo check`
+   judge. Binary gate, external, no partial credit. This is the experiment that
+   decides whether draft-and-fill is a product or a demo.
+3. **Build arms B, C, D** of the §3 2×2. Nothing else changes what is known
+   about the small-model thesis.
+4. **Merge `agent/PH-001` into `main`.** Still the largest single-point-of-
+   failure in the repository.
+5. **PH-017** — `list` and `replay` disagree about hypothesis status; the ledger
+   is the differentiator and it currently contradicts itself.
+6. **PH-015** — the content-search flake poisons every full gate, and PH-009
    (790 s suite) cannot even be measured until the suite finishes.
-5. **Contradiction recall 0.50.** One of two known pairs missed, unchanged by
+7. **Contradiction recall 0.50.** One of two known pairs missed, unchanged by
    the embedder, so it is a map defect rather than a retrieval one.
+8. **403 unreferenced public items** in physis_pro, 112 in physis-core
+   (`docs/wiki/UNREFERENCED-2026-09-12.txt`). A maintenance-surface measurement,
+   not a defect count.
 
 ---
 
