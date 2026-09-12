@@ -124,6 +124,25 @@ Built this pass: `benchmarks/retrieval/` — ten such questions with the answeri
 file established by reading the code, scored `hit@k`, run per arm, printing
 `DISCRIMINATION: semantic − rp` and saying so when the difference is zero.
 
+**It discriminates.** Seven cases in scope under `physis-core/src`, budget 3000,
+top-k 30, hit@5:
+
+| arm | hit@5 | wall clock |
+|---|---|---|
+| random-projection | **0.14** (1/7) | 0.5 s |
+| ONNX MiniLM | **0.57** (4/7) | 657 s cold, 9.7–15.5 s per query warm |
+
+`DISCRIMINATION: semantic − rp = +0.43`. This is the first measurement in the
+repository whose value depends on retrieval quality. It is also the honest
+ceiling report: 0.57 is not good, and three of seven questions are still missed
+by a real model. That is a number worth improving against, which is more than
+the 100%/100%/24% row ever offered.
+
+The cost profile matters for every downstream arm: `pack` carries a persistent
+content-addressed `EmbedCache`, so the first pack over a tree pays for the whole
+corpus (583 s for 657 chunks) and subsequent queries pay ~12 s. Warm the cache
+once per corpus, not once per question.
+
 ### 2.4 The cost of being semantic was 6× larger than it needed to be
 
 - `max_length` was 512 where the documents are short: MiniLM measures 18.3
@@ -194,9 +213,15 @@ repository that visibly kills its own positives.
 The context compiler and the honesty machinery around it. `rag.rs`, `map.rs`,
 `embed.rs`, `bench.rs`, `oracle.rs`, `model_provider.rs`, `ngram_table.rs`.
 
-Work: pay the padding tax on the physis_pro side; make `benchmarks/retrieval/`
-the gate that must discriminate before any context claim ships; keep the
-`NOT MEASURED` label mandatory.
+Work: raise `hit@5` from 0.57; make `benchmarks/retrieval/` the gate that must
+discriminate before any context claim ships; keep the `NOT MEASURED` label
+mandatory.
+
+Note on the physis_pro padding tax: `src/embed/registry.rs` hardcodes
+`max_length: 512` for BGE where `config.rs` defaults to 128. Unlike the core
+fix, cutting it here is **not** free — pro packs source-code chunks that are
+genuinely long, so truncating to 128 tokens would drop content. The cost is
+already paid by `pack_cached`'s persistent cache. Leave it.
 
 ### Ring 1 — the experiment (the actual product of the next months)
 

@@ -1,0 +1,241 @@
+{
+  "budget": 3000,
+  "top_k": 30,
+  "at": 5,
+  "root": "physis-core/src",
+  "skipped": [
+    "licence-startup",
+    "agent-surface",
+    "tamper-proof-entitlement"
+  ],
+  "arms": {
+    "rp": {
+      "hit_at_k": 0.14285714285714285,
+      "hits": 1,
+      "cases": 7,
+      "seconds": 0.5,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/embed.rs"
+          ],
+          "top": [
+            "delta_engine.rs",
+            "bin/physis.rs"
+          ],
+          "seconds": 0.06
+        },
+        {
+          "id": "probe-discrimination",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/embed.rs"
+          ],
+          "top": [
+            "coverage.rs",
+            "tokenizer.rs",
+            "propose.rs",
+            "bin/physis.rs",
+            "bench.rs"
+          ],
+          "seconds": 0.08
+        },
+        {
+          "id": "budget-packing",
+          "hit": true,
+          "rank": 5,
+          "expect": [
+            "physis-core/src/rag.rs"
+          ],
+          "top": [
+            "edition.rs",
+            "dream.rs",
+            "bin/physis.rs",
+            "propose.rs",
+            "rag.rs"
+          ],
+          "seconds": 0.09
+        },
+        {
+          "id": "reference-model-absent",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/oracle.rs"
+          ],
+          "top": [
+            "transplant.rs",
+            "coverage.rs"
+          ],
+          "seconds": 0.06
+        },
+        {
+          "id": "structure-recovery",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/map.rs"
+          ],
+          "top": [
+            "transplant.rs",
+            "coverage.rs",
+            "delta_engine.rs",
+            "dream.rs",
+            "model_provider.rs"
+          ],
+          "seconds": 0.06
+        },
+        {
+          "id": "sparse-counts",
+          "hit": false,
+          "rank": 6,
+          "expect": [
+            "physis-core/src/ngram_table.rs"
+          ],
+          "top": [
+            "bin/physis.rs",
+            "coverage.rs",
+            "edition.rs",
+            "epistemic.rs",
+            "transplant.rs"
+          ],
+          "seconds": 0.07
+        },
+        {
+          "id": "artifact-integrity",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/model_provider.rs"
+          ],
+          "top": [
+            "delta_engine.rs",
+            "bin/physis.rs",
+            "hypothesis.rs"
+          ],
+          "seconds": 0.07
+        }
+      ]
+    },
+    "semantic": {
+      "hit_at_k": 0.5714285714285714,
+      "hits": 4,
+      "cases": 7,
+      "seconds": 657.2,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "hit": true,
+          "rank": 2,
+          "expect": [
+            "physis-core/src/embed.rs"
+          ],
+          "top": [
+            "embed_onnx.rs",
+            "embed.rs",
+            "rag.rs",
+            "studio_lab.rs"
+          ],
+          "seconds": 583.52
+        },
+        {
+          "id": "probe-discrimination",
+          "hit": true,
+          "rank": 5,
+          "expect": [
+            "physis-core/src/embed.rs"
+          ],
+          "top": [
+            "rag.rs",
+            "ontology.rs",
+            "studio_lab.rs",
+            "map.rs",
+            "embed.rs"
+          ],
+          "seconds": 15.49
+        },
+        {
+          "id": "budget-packing",
+          "hit": true,
+          "rank": 2,
+          "expect": [
+            "physis-core/src/rag.rs"
+          ],
+          "top": [
+            "studio.rs",
+            "rag.rs",
+            "main.rs"
+          ],
+          "seconds": 9.73
+        },
+        {
+          "id": "reference-model-absent",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/oracle.rs"
+          ],
+          "top": [
+            "edition.rs",
+            "core.rs",
+            "explanation.rs",
+            "main.rs",
+            "hypothesis.rs"
+          ],
+          "seconds": 10.49
+        },
+        {
+          "id": "structure-recovery",
+          "hit": true,
+          "rank": 1,
+          "expect": [
+            "physis-core/src/map.rs"
+          ],
+          "top": [
+            "map.rs",
+            "coherence_query.rs",
+            "ngram_table.rs",
+            "rag.rs"
+          ],
+          "seconds": 11.12
+        },
+        {
+          "id": "sparse-counts",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/ngram_table.rs"
+          ],
+          "top": [
+            "core.rs",
+            "rag.rs",
+            "studio.rs",
+            "main.rs",
+            "discovery.rs"
+          ],
+          "seconds": 13.42
+        },
+        {
+          "id": "artifact-integrity",
+          "hit": false,
+          "rank": null,
+          "expect": [
+            "physis-core/src/model_provider.rs"
+          ],
+          "top": [
+            "edition.rs",
+            "studio.rs",
+            "main.rs",
+            "store.rs",
+            "core.rs"
+          ],
+          "seconds": 13.39
+        }
+      ]
+    }
+  }
+}

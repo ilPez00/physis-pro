@@ -88,6 +88,21 @@ Cases whose answer does not live under `--root` are skipped and named, not
 scored as misses: blaming the retriever for a corpus that never contained the
 answer is how a benchmark starts lying.
 
+Measured 2026-09-12, seven cases in scope under `physis-core/src`, hit@5:
+
+| arm | hit@5 | wall clock |
+|---|---|---|
+| random-projection | 0.14 (1/7) | 0.5 s |
+| ONNX MiniLM | **0.57** (4/7) | 657 s cold, 9.7–15.5 s per query warm |
+
+`DISCRIMINATION: semantic − rp = +0.43`. The instrument works. 0.57 is also not
+good — three of seven questions are missed by a real model — and that is the
+point of having a number that can move.
+
+`pack` keeps a persistent content-addressed `EmbedCache` in `PHYSIS_DATA_DIR`,
+so the first pack over a tree pays for the whole corpus (583 s for 657 chunks)
+and later queries pay ~12 s. Warm it once per corpus before running any arm.
+
 ## The arms worth running, and what each one would settle
 
 Only the first is built. The rest are the open experiment, written down so the
