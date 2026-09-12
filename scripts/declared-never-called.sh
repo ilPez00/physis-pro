@@ -32,8 +32,13 @@ for dir in "${DIRS[@]}"; do
   [ -d "$dir" ] || continue
   echo "-- $dir"
   find "$dir" -name '*.rs' | sort | while read -r f; do
-    grep -hoE '^[[:space:]]*pub (fn|struct|enum) [A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null \
-      | awk '{print $NF}' | sort -u | grep -Ev "$SKIP" | while read -r sym; do
+    # Every stage needs `|| true`: grep exits 1 on no match, and under
+    # `set -e` + `pipefail` the first header-less or symbol-less file ends the
+    # whole sweep silently. It did — the first run stopped at `batch_csv.rs`
+    # and looked like a complete result.
+    { grep -hoE '^[[:space:]]*pub (fn|struct|enum) [A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null \
+      | awk '{print $NF}' | sort -u | grep -Ev "$SKIP" || true; } | while read -r sym; do
+      [ -z "$sym" ] && continue
       # `--include` MUST precede `--`, or `--` ends option parsing and the
       # flag is taken as a filename — which silently makes every symbol look
       # uncalled. This check reported 15 false positives that way.
