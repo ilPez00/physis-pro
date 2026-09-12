@@ -189,3 +189,13 @@ shape over an ontology; pointed at the crate graph it is a self-debugger.
 4. Do **not** claim a capability without grepping its call sites (§7).
 5. Say **70 tables with subtables**, never "70 symbols" (§2).
 6. When a measurement is absent, write `NOT MEASURED`. Never imply.
+
+These rules are installed as an agent skill — `docs/PHYSIS_SKILL.md`, which is
+the copy of record for `~/.claude/skills/physis/SKILL.md`. Mechanical checks:
+
+| rule | check |
+|---|---|
+| declared ≠ called | `./scripts/declared-never-called.sh [dirs]` |
+| does it discriminate? | `python3 benchmarks/retrieval/run.py --arms rp,semantic` |
+| which module does X? | `docs/wiki/MODULE_MAP.md` (regen: `./scripts/gen-wiki.sh`) |
+| already tried and failed? | `just recall "<task>"` |
