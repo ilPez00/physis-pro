@@ -1464,3 +1464,26 @@ No `.codex`, `.kilo`, or `.cline` todo files found. `.claude` directories exist 
 physis-pro, praxis_webapp, t3code, deepseek-harness-src, vellum-assistant — none
 contain todo files. `aion/plan.md`, `cyclops/PLAN.md`, `cyclops/plan.md` exist but
 contain no unchecked tasks.
+
+## Fourier Structural Basis Experiment (COMPLETE)
+
+**Status**: All 7 TODO items verified `[x]` (2026-09-12)
+
+**Experiment**: Fourier Structural Basis Experiment — diagnose experimental preconditions, execute hypothesis gate, verify and report
+
+**Code changes**:
+- Fixed `compare_node_lists()` embedder reference in `src/main.rs:1859` (`embedder.as_ref()`)
+- Added `#[derive(Debug)]` to `BenchmarkDataset` and `ConnectSource` enums
+- Added Fourier contexts note to `AGENTS.md`
+
+**Verification results**:
+- `cargo check --all-targets`: 0 errors, 0 warnings
+- `cargo test -p physis-core --lib`: 174/174 tests pass
+- Git commit: `ca0b15d` on `agent/PH-001`
+- Git push: pushed to `origin agent/PH-001`
+
+**Fourier contexts documented in AGENTS.md**:
+1. Fourier Structural Similarity — node-list comparison via cosine similarity
+2. Fourier Synthesis for fBm — fractional Brownian motion generation
+
+**Next falsifiable experiment**: None — experiment complete and closed.

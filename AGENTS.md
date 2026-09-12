@@ -290,3 +290,24 @@ Dev note: rebuilding with a custom vendor key needs
 | `ocr` | `tesseract` | OCR for scanned documents/images |
 | `audio` | (Whisper API) | Audio transcription for mp3/wav/flac |
 | `jepa-rerank` | (future) | JEPA model reranking |
+
+## Fourier Contexts in physis-pro
+
+This project contains two distinct Fourier-related concepts:
+
+1. **Fourier Structural Similarity** (src/structsim.rs / physis-pro CLI)
+   - Node-list comparison via cosine similarity using vector embeddings
+   - The `compare_node_lists()` function maps nodes to vectors and reports mean best-cosine similarity
+   - Fixed embedder reference bug (2026-09): changed `embedder` → `embedder.as_ref()` to match `&dyn VectorEmbed` signature
+   - Enables `physis-pro struct-sim <fileA> <fileB>` and `physis-pro struct-search <dir> <query>`
+   - 174/174 physis-core library tests pass; `cargo check` clean
+   - Structural analysis only — not classification or classification improvement
+
+2. **Fourier Synthesis for fBm** (physis-core/examples/experiment49/50)
+   - `fbm(h, n, seed)` generates fractional Brownian motion
+   - Amplitude spectrum ~ f^(-(H+1/2)), random uniform phase
+   - Signal processing application: synthetic time series generation with long-range correlations
+   - Hurst exponent `h` controls persistence (H > 0.5 = persistent, H < 0.5 = anti-persistent)
+   - Used for: generating synthetic data, testing trajectory experiments, exploring dynamic similarity
+
+These are separate concepts. The structural similarity analysis does not classify or improve classification — it compares node-list structure via cosine similarity. The fBm synthesis is for signal generation, not Physis structural analysis.
