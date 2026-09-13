@@ -28,6 +28,19 @@ that wrote it. Claims without a run behind them are labelled as open.
 "Physis is a context compiler." That was wrong, and the correction is the most
 useful thing in this document — see §7.**
 
+> **Superseded again, 2026-09-13 — and this note is the point.** The paragraph
+> below calls Physis "an epistemic ledger". `docs/WHAT_PHYSIS_IS.md` — written
+> after a session compressed a 190-module system into a noun three times and got
+> it wrong three times — lists *"No — an epistemic ledger"* as **wrong attempt
+> 2**. So this section leads with a definition its own successor retracted, and
+> it kept being cited as authoritative anyway, including by an agent working
+> through this repository all of 2026-09-13.
+>
+> **`docs/WHAT_PHYSIS_IS.md` is the definition.** Read it there. What follows is
+> kept because the paragraph's *argument* — which half is commodity and which is
+> the differentiator — is still load-bearing, and because deleting a retracted
+> definition hides that it was ever believed.
+
 Physis is an **epistemic ledger for agent work**: a record of what was believed,
 when, on what evidence, what it predicted, and whether the prediction held —
 with point-in-time replay over that record. It contains a context compiler, and

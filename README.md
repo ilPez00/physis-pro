@@ -2,6 +2,12 @@
 
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 
+> **What Physis *is* lives in [`docs/WHAT_PHYSIS_IS.md`](docs/WHAT_PHYSIS_IS.md).**
+> That file is canonical, and it exists because three attempts in one session to
+> compress this system into a single noun were all wrong. The paragraph below is
+> an *orientation* for a new reader, not a definition — if the two ever
+> disagree, the canonical file wins and this one is the bug.
+
 Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
 text, image, video, audio, a code log, a human action — to a vector in one shared
 embedding space, classifies it against a 70-cell semiotic grid, and tracks each
