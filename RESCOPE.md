@@ -306,8 +306,35 @@ record rather than a tidy plan.
    verify the build goes red, have the method supply `T`, and let `cargo check`
    judge. Binary gate, external, no partial credit. This is the experiment that
    decides whether draft-and-fill is a product or a demo.
-3. **Build arms B, C, D** of the §3 2×2. Nothing else changes what is known
-   about the small-model thesis.
+3. ~~**Build arms B, C, D** of the §3 2×2.~~ **Built and run 2026-09-13 — and
+   the 2×2 does not yet discriminate.** Record:
+   `docs/plans/2026-09-13-2x2-first-run.md`. bge-base packs, 3000-token budget
+   over `physis-core/src`, 7 gated cases, no errored cases: B 0/7, A 1/7,
+   D 0/7, C 0/7. The ceiling arm is on the floor with the rest, so `C - B = 0`
+   is two zeros and not "the small model matched the ceiling"; `A - B = +0.14`
+   is one case, on the one file this session had just edited, and is an
+   artifact by this track's own rule. A control — the exact expected file as
+   context — returns 5/7, so the gate is sound and the zeros belong to context
+   assembly at that budget. Running the thing is what found the three defects
+   below, any of which would have made an earlier number wrong. **Next: sweep
+   the budget on arm B alone and find where it leaves the floor.**
+   Found by running it:
+   - the packer returned 4 of 3000 tokens at the CLI's default `--diversity
+     0.3` (MMR counted already-selected chunks), in **two** copies of
+     `TokenFixedRetriever` — physis-core `a8da284`, physis-pro `3db5afa`;
+   - `chat_template_kwargs.enable_thinking=false`, believed inert because
+     ollama ignores it, is honoured by NVIDIA NIM and cost the oracle its
+     reasoning — `ffbcb28`;
+   - `models/bge-base-en-v1.5/` had no `model.onnx`, so every pack silently
+     ran on MiniLM, four steps down the cascade, and no result file said so. **Harness built 2026-09-13** —
+   `benchmarks/retrieval/answer.py`, gated on `must_mention` (the decisive
+   identifiers a correct answer must name, checked literally, the same rule as
+   `oracle::cites_evidence`), both context arms cut to equal character size,
+   naive built as round-robin file heads rather than an alphabetical prefix.
+   **No arm has a reported result yet** — built is not measured, and the harness
+   refuses to print a rate for an arm with any failed case. Large tier available
+   without a key: a 27B on the local mesh, which is a real tier gap beside a 4B
+   and must be labelled a local peer tier, never an oracle.
 4. **Merge `agent/PH-001` into `main`.** Still the largest single-point-of-
    failure in the repository.
 5. **PH-017** — `list` and `replay` disagree about hypothesis status; the ledger

@@ -105,8 +105,10 @@ and later queries pay ~12 s. Warm it once per corpus before running any arm.
 
 ## The arms worth running, and what each one would settle
 
-Only the first is built. The rest are the open experiment, written down so the
-claim and the control stay attached to each other.
+All four now have a harness — `benchmarks/retrieval/answer.py` — and none has a
+reported result yet. Built is not measured, and the harness says so itself: any
+arm without an endpoint prints `not_configured` and is not scored, any arm with
+a failed case prints `INCOMPLETE` and reports no rate at all.
 
 | arm | context | model | what it establishes |
 |---|---|---|---|
@@ -116,9 +118,46 @@ claim and the control stay attached to each other.
 | D | naive | small | the control that says whether physis helped or the task was easy |
 
 The thesis — "a small model plus a compiled context imitates a big model" — is
-the claim C ≈ B. It is **not supported by anything in this repository today**,
-because B and C have never been run and the oracle leg reports
-`not_configured`. Treat it as the hypothesis under test, not as a result.
+the claim C ≈ B. It is **not supported by anything in this repository today**:
+the harness exists, the arms have not been reported. Treat it as the hypothesis
+under test, not as a result.
+
+## Running the arms
+
+```bash
+# small tier (arms C, D) — defaults to a local ollama
+python3 benchmarks/retrieval/answer.py --arms C,D
+
+# large tier (arms A, B) — any OpenAI-compatible endpoint, same env names oracle.rs reads
+PHYSIS_ORACLE_URL=http://<host>:11434/v1 \
+PHYSIS_ORACLE_MODEL=qwen3.8-27b-q4:latest \
+PHYSIS_ORACLE_KEY=local \
+  python3 benchmarks/retrieval/answer.py --arms A,B
+```
+
+**The gate.** Each case in `cases.json` carries `must_mention`: the decisive
+identifiers a correct answer has to name, established by reading the code and
+checked literally, case-insensitively. Same rule as `oracle::cites_evidence`.
+No grading model, no partial credit. Seven of the ten cases are gated — the
+three whose answers live outside `physis-core/src` are skipped, not scored.
+
+**Equal-size comparison.** Both context arms are built to the same character
+budget per case, so what is compared is context *quality* at equal size. The
+naive arm is round-robin file heads across the whole tree — the shallow dump a
+developer actually pastes — not an alphabetical prefix, which would be a
+strawman that loses by construction.
+
+**On calling a local model the large tier.** A 27B beside a 4B is a real tier
+gap and a legitimate large-vs-small contrast. It is *not* a frontier oracle, and
+results from it must be labelled as a local peer tier. Pointing
+`PHYSIS_ORACLE_*` at a 4B and calling the output arm B is the exact dishonesty
+the gate exists to prevent.
+
+**Cost, measured.** qwen3:4b through ollama's OpenAI endpoint: 93 s on a
+one-word prompt, and its thinking cannot be turned off there — neither `think`
+nor `chat_template_kwargs` has any effect (verified). Harmless for the gate,
+since ollama returns reasoning in a separate field and only the answer is
+scored; not harmless for the clock, hence the 1800 s per-call timeout.
 
 ## Running the agent arms
 

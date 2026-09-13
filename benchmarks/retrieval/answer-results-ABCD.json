@@ -1,0 +1,385 @@
+{
+  "root": "physis-core/src",
+  "budget": 3000,
+  "pack_embedder": "bge-base",
+  "arms": {
+    "A": {
+      "status": "ok",
+      "context": "packed",
+      "tier": "large",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "passes": 1,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.14285714285714285,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11990,
+          "prompt_tokens": 3288,
+          "seconds": 16.1,
+          "answer": "The engine selects embedders via the `PHYSIS_EMBEDDER` environment variable (e.g., `random-projection` forces the offline `RandomProjectionEmbedder`); otherwise `OnnxEmbedder::new` attempts to load an ONNX MiniLM session via `load_onnx_session` and falls back to deterministic random projection when the model or tokenizer is missing. It refuses embeddings that load but produce nonsense by running `crate::embed::semantic_self_test` on the embedder \u2014 a disjoint probe set that lexical hashers (like `RandomProjectionEmbedder`) fail by design \u2014 and marks the result with `retention_is_lexical: !semantic_self_test(embedder)` so downstream code knows the scores are non-semantic. The test `random_projection_fails_the_semantic_probe` and `old_probe_is_not_the_semantic_criterion` codify this rejection."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES"
+          ],
+          "context_chars": 12740,
+          "prompt_tokens": 3352,
+          "seconds": 11.8,
+          "answer": "The codebase uses a **label-permuted control** (`CandidateGain::lift` in `coverage.rs`) that computes `max(0, cos(candidate, record) - live(record))` where neither term reads a label, making it \"provably invariant\" \u2014 a control that cannot move the statistic it controls. This control is run in the `chain` command and `studio_lab.rs` to verify the shortlist carries signal the permuted arm does not. Additionally, the `RandomProjectionEmbedder` (hashed bag-of-words, no trained weights) is explicitly flagged: its cosine is high between arbitrary sentences (\"unrelated text routinely scores >0.8\"), and the CLI prints a warning on every query that \"the NUMBER is not\" meaningful and \"absolute value as meaningless.\""
+        },
+        {
+          "id": "budget-packing",
+          "pass": true,
+          "missing": [],
+          "context_chars": 11389,
+          "prompt_tokens": 3240,
+          "seconds": 9.2,
+          "answer": "The prompt window is bounded by `TokenFixedRetriever`, which is constructed with a hard token budget (e.g., `TokenFixedRetriever::new(3000, 50)`) and returns only enough `RagChunk`s so that `retrieved.total_tokens \u2264 budget`. The retriever enforces this limit at query time, while `RagCorpus::total_tokens()` reports the full corpus size for reference."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 11601,
+          "prompt_tokens": 3096,
+          "seconds": 14.8,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11960,
+          "prompt_tokens": 3159,
+          "seconds": 8.7,
+          "answer": "Near-duplicate documents are grouped into **clusters** (referenced via `cluster.name`) and compared pairwise using **lexical_overlap** (threshold 0.5) and **cosine** similarity of **doc_embs** embeddings (threshold 0.55). A **ContradictionPair** is flagged when embedding similarity < 0.55, or when lexical overlap \u2265 0.5 combined with a **negation_hits** mismatch (`na != nb`) or a **decimal_number** clash (`number_clash`)."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12773,
+          "prompt_tokens": 3175,
+          "seconds": 6.9,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11977,
+          "prompt_tokens": 3195,
+          "seconds": 58.7,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    },
+    "B": {
+      "status": "ok",
+      "context": "naive",
+      "tier": "large",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11990,
+          "prompt_tokens": 3046,
+          "seconds": 35.8,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES",
+            "cosine"
+          ],
+          "context_chars": 12740,
+          "prompt_tokens": 3207,
+          "seconds": 10.9,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever"
+          ],
+          "context_chars": 11389,
+          "prompt_tokens": 2889,
+          "seconds": 18.9,
+          "answer": "The `rag.rs` module implements **Token-fixed RAG** with a **hard token budget** that guarantees the context handed to the model fits a fixed token window: chunks are ranked by relevance but truncated to stay within the budget, preventing overflow regardless of corpus size."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 11601,
+          "prompt_tokens": 2952,
+          "seconds": 3.5,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11960,
+          "prompt_tokens": 3024,
+          "seconds": 27.6,
+          "answer": "Based on the context, near-duplicate documents are grouped via **deterministic clustering** in [`crate::discovery`] (referenced in `map.rs`) using cosine similarity on embeddings from the [`VectorEmbed`] trait (implemented by [`RandomProjectionEmbedder`] or ONNX MiniLM in `embed.rs`/`embed_onnx.rs`). Contradicting statements are flagged as first-class [`Contradiction`] objects (from `contradiction.rs`) with sources and authority, tracked in [`Hypothesis`] as supporting/contradicting evidence (`hypothesis.rs`), and queryable via the [`CoherenceQuery`] API (`coherence_query.rs`) for \"what contradicts them\"."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12773,
+          "prompt_tokens": 3223,
+          "seconds": 5.9,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11977,
+          "prompt_tokens": 3031,
+          "seconds": 2.3,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    },
+    "C": {
+      "status": "ok",
+      "context": "packed",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11990,
+          "prompt_tokens": 3126,
+          "seconds": 45.2,
+          "answer": "Based on the context provided, I can answer the question about how the engine picks which embedding model to use and how it refuses one that loads but produces nonsense.\n\nThe engine picks which embedding model to use based on the environment variable `PHYSIS_EMBEDDER` and the availability of the model at the specified path. Specifically:\n\n1. The engine uses the environment variable `PHYSIS_EMBEDDER` to determine which embedding model to load (as shown in the `select_honours_the_random_projection_override` test)\n\n2. When the model is not available at the given path, the `OnnxEmbedder` falls back to deterministic random projection (as stated in the `OnnxEmbedder` struct definition)\n\nThe engine refuses models that produce nonsense by checking the `semantic_self_test` function. This function verifies if the embedding model produces meaningful semantic results. The context shows that:\n\n- The `RandomProjectionEmbedder` is specifically designed to fail the semantic self-test by design (as demonstrated in the `random_projection_fails_the_semantic_probe` test)\n- When the engine loads an embedding model, it checks if it passes the semantic self-test\n- If the model fails this test (produces nonsense), it's rejected as a valid semantic embedding model\n\nThe key identifiers involved in this process are:\n- `PHYSIS_EMBEDDER` (environment variable that determines which embedding model to use)\n- `semantic_self_test` (function that verifies if an embedding model produces meaningful results)\n- `OnnxEmbedder` (the ONNX embedding model)\n- `RandomProjectionEmbedder` (the fallback embedding model that produces \"nonsense\" but is used when the model isn't available)\n\nThis mechanism ensures that the engine only uses embedding models that produce meaningful semantic results, while providing a fallback option when the primary model isn't available."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES"
+          ],
+          "context_chars": 12740,
+          "prompt_tokens": 3235,
+          "seconds": 120.6,
+          "answer": "The answer is: **the system distinguishes between the ordering of embeddings (the ORDER) and the numerical similarity score (the NUMBER)**.\n\nThis is based on the context provided in the description of the RandomProjectionEmbedder, where it explicitly states: *\"The ORDER is usable; the NUMBER is not\"*. This means the system recognizes that the **ordering of embeddings** (the sequence or structure of embeddings) is meaningful for understanding meaning, while the **numerical similarity score** (e.g., cosine similarity) is not inherently meaningful in this context\u2014it may be a technical metric that doesn't directly capture semantic understanding. \n\nIn simpler terms:  \n- **ORDER** = The sequence or arrangement of embeddings (e.g., how embeddings are ordered in a vector space).  \n- **NUMBER** = The numerical value (e.g., cosine similarity score) that quantifies similarity between embeddings.  \n\nThe system uses the **ORDER** to understand meaning, but the **NUMBER** (a numerical metric) is not sufficient on its own to convey semantic understanding. This distinction helps prevent misinterpretation of word embeddings as purely mathematical constructs without contextual meaning."
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever",
+            "budget"
+          ],
+          "context_chars": 11389,
+          "prompt_tokens": 3132,
+          "seconds": 130.2,
+          "answer": "The prompt is kept from overflowing the window by using the `flowExtentFit()` function, which sets the canvas width to the client width of the parent element (`wrap.clientWidth`) and the height to a value that's between 400 and 540 pixels (`Math.max(400, Math.min(540, window.innerHeight - 430))`). This ensures the canvas always fits within the window dimensions, regardless of how large the corpus grows."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 11601,
+          "prompt_tokens": 2998,
+          "seconds": 17.4,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11960,
+          "prompt_tokens": 3048,
+          "seconds": 75.1,
+          "answer": "Near-duplicate documents are grouped into `map.repeats`. Statements that disagree are flagged as `ContradictionPair` entries in `map.contradictions`. The flagging condition checks for embedding similarity below 0.55 or lexical overlap at least 0.5 with either different negation hits or number clashes."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12773,
+          "prompt_tokens": 3066,
+          "seconds": 66.0,
+          "answer": "After carefully reviewing the entire context provided, I don't see any explicit information that directly answers the question about how a probability is produced from shorter fragments when a phrase was never seen at full length.\n\nThe context contains information about:\n- Tokenization processes (e.g., `bm25_terms` function)\n- Text chunking (`chunk_text` function)\n- Hypothesis ranking with fitness and confidence metrics\n- Epistemic query results\n\nHowever, there's no specific explanation in the context about:\n- How probabilities are calculated from shorter fragments\n- The mechanism for handling phrases that were never seen at full length\n- The specific probability production process when dealing with partial text matches\n\nThe context mentions \"fitness\" and \"confidence\" metrics for hypotheses, but doesn't explain the underlying probability calculation mechanism for the scenario described in the question.\n\nTherefore, the answer is: NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11977,
+          "prompt_tokens": 3068,
+          "seconds": 18.9,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    },
+    "D": {
+      "status": "ok",
+      "context": "naive",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11990,
+          "prompt_tokens": 2892,
+          "seconds": 60.9,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES"
+          ],
+          "context_chars": 12740,
+          "prompt_tokens": 3050,
+          "seconds": 126.0,
+          "answer": "Based on the context provided, the answer to what stops a word-counting fake from being mistaken for a model that understands meaning is **the semiotic grid classification system that embeds text and scores against ontology entries**.\n\nThis is derived from the description in `classify.rs`, where Physis uses a semiotic grid classification system that:\n- Embeds text\n- Scores against ontology entries\n- Uses \"nearest-entry (max cosine)\" scoring to determine meaningful patterns\n\nThis system prevents simple word counting from being mistaken for meaningful understanding because it requires semantic context through ontology-based classification rather than just counting words.\n\nThe specific identifiers from the context that support this answer are:\n- `semiotic grid` (from `classify.rs`)\n- `ontology entries` (from `classify.rs`)\n- `CellClassifier` (from `classify.rs`)\n- `CellScore` (from `classify.rs`)\n\nThis approach ensures that the system distinguishes between basic word counting and true semantic understanding by leveraging structured ontological relationships."
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever"
+          ],
+          "context_chars": 11389,
+          "prompt_tokens": 2741,
+          "seconds": 101.0,
+          "answer": "The question asks how the prompt is kept from overflowing the window no matter how large the corpus grows.\n\nLooking through the context, the relevant information is found in `physis-core/src/rag.rs`:\n\n\"Token-fixed RAG \u2014 retrieve chunks subject to a hard token budget. Unlike unbounded top-k retrieval, the context handed to the model is guaranteed to fit a fixed token window: chunks are ranked by\"\n\nThis indicates that the system uses token-fixed RAG with a hard token budget that guarantees the context fits within a fixed token window, regardless of corpus size. The key mechanism prevents prompt overflow by limiting the context to a fixed token window.\n\nThe exact identifiers involved in this answer are:\n- `rag` (the module)\n- `token window` (the concept)"
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 11601,
+          "prompt_tokens": 2800,
+          "seconds": 26.4,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11960,
+          "prompt_tokens": 2875,
+          "seconds": 177.4,
+          "answer": "Based on the context provided, I can identify the relevant identifiers for your question:\n\nFor near-duplicate documents grouping:\n- `semiotic-grid` (from `physis-core/src/classify.rs`)\n\nFor flagging statements that disagree:\n- `Contradiction` (from `physis-core/src/contradiction.rs`)\n\nThe context specifically mentions that \"semiotic-grid classification\" embeds text and scores against ontology entries, which could be used to find similar documents (near-duplicates). For statements that disagree, the system uses \"Contradiction\" handling to explicitly represent conflicting claims.\n\nNote: The context doesn't provide explicit details about how near-duplicate grouping is implemented in practice, but it does indicate that semiotic-grid classification is the mechanism used for this purpose. The `CoherenceQuery` (from `physis-core/src/coherence_query.rs`) is also relevant for identifying what contradicts statements, but the primary identifier for flagging disagreements is `Contradiction`."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12773,
+          "prompt_tokens": 3065,
+          "seconds": 68.6,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11977,
+          "prompt_tokens": 2883,
+          "seconds": 20.7,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    }
+  }
+}

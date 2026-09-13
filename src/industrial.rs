@@ -123,7 +123,33 @@ impl MachineReading {
         if let Some(v) = self.rpm {
             push("rpm", v, "rpm");
         }
-        let mut raw: Vec<(&String, &f32)> = self.raw.iter().collect();
+        // `raw` carries whatever else a sensor published, but it is not
+        // disjoint from the typed fields above: a caller that fills both — as
+        // `reading_from_event` does, parsing every scalar property into `raw`
+        // *and* lifting the four known ones into their own fields — would
+        // otherwise emit the same metric twice.
+        //
+        // Two measurements named `temperature` become two deviations against
+        // the one `temp_max` constraint, and one over-temperature reading was
+        // reported as two byte-identical anomalies while ingestion counted
+        // `accepted: 1, total: 1`. Skipping a raw key that a typed field
+        // already emitted fixes it for every caller rather than for the one
+        // that happened to be caught.
+        //
+        // A colliding key is dropped rather than overwriting: the typed field
+        // is the parsed, canonical value, and `raw` is the unstructured
+        // remainder.
+        let typed: [(&str, bool); 4] = [
+            ("temperature", self.temperature.is_some()),
+            ("pressure", self.pressure.is_some()),
+            ("vibration", self.vibration.is_some()),
+            ("rpm", self.rpm.is_some()),
+        ];
+        let mut raw: Vec<(&String, &f32)> = self
+            .raw
+            .iter()
+            .filter(|(k, _)| !typed.iter().any(|(t, present)| *present && t == k))
+            .collect();
         raw.sort_by(|a, b| a.0.cmp(b.0));
         for (k, v) in raw {
             push(k, *v, "");
@@ -739,6 +765,85 @@ mod payload_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// PH-018: a reading whose `raw` repeats a typed field must not report the
+    /// metric twice.
+    ///
+    /// `reading_from_event` fills both — every scalar property is parsed into
+    /// `raw`, and the four known ones are also lifted into their own fields —
+    /// so `{"temperature": "95"}` arrived as two measurements, became two
+    /// deviations against one `temp_max` constraint, and surfaced as two
+    /// byte-identical anomalies while ingestion reported `accepted: 1`.
+    #[test]
+    fn a_raw_key_that_repeats_a_typed_field_is_not_measured_twice() {
+        let mut raw = HashMap::new();
+        raw.insert("temperature".to_string(), 95.0);
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(95.0),
+            pressure: None,
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Warning,
+            raw,
+        };
+
+        let temps = reading
+            .measurements()
+            .into_iter()
+            .filter(|m| m.metric == "temperature")
+            .count();
+        assert_eq!(temps, 1, "one property must yield one measurement");
+
+        let mut thresholds = HashMap::new();
+        thresholds.insert("temp_max".to_string(), 90.0);
+        let anomalies = detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds);
+        assert_eq!(anomalies.len(), 1, "one breach, one anomaly: {anomalies:?}");
+    }
+
+    /// The fix must not be "cap it at one". A reading that genuinely breaches
+    /// two thresholds still reports two.
+    #[test]
+    fn two_breached_thresholds_still_report_two_anomalies() {
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(95.0),
+            pressure: Some(50.0),
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Warning,
+            raw: HashMap::new(),
+        };
+        let mut thresholds = HashMap::new();
+        thresholds.insert("temp_max".to_string(), 90.0);
+        thresholds.insert("pressure_max".to_string(), 20.0);
+
+        let anomalies = detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds);
+        assert_eq!(anomalies.len(), 2, "two breaches, two anomalies: {anomalies:?}");
+    }
+
+    /// A raw key that does *not* collide is still measured — the filter must
+    /// not drop the unstructured remainder it exists to carry.
+    #[test]
+    fn a_non_colliding_raw_key_is_still_measured() {
+        let mut raw = HashMap::new();
+        raw.insert("humidity".to_string(), 41.0);
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(20.0),
+            pressure: None,
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Online,
+            raw,
+        };
+        let metrics: Vec<String> = reading.measurements().into_iter().map(|m| m.metric).collect();
+        assert!(metrics.contains(&"humidity".to_string()), "got {metrics:?}");
+        assert!(metrics.contains(&"temperature".to_string()), "got {metrics:?}");
+    }
 
     fn sample_readings() -> Vec<MachineReading> {
         vec![
