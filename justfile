@@ -106,3 +106,11 @@ install-hooks:
 release-core:
     ./scripts/check-release-integrity.sh --crate-dir physis-core
     cd physis-core && cargo publish
+
+
+# Report whether this tree's copies of the physis skill still match the skill
+# repo. Body lives in scripts/ so it is runnable without `just` — which is not
+# installed on every machine that has this repo, including the one where this
+# recipe was written.
+skill-sync-check repo="":
+    ./scripts/skill-sync-check.sh {{ repo }}

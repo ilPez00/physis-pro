@@ -13,8 +13,12 @@ only externally visible difference between an agent that read this skill and one
 that ran it is the command output:
 
 ```bash
-physis-check all [dirs]     # the whole checklist — scripts/physis-check.sh
+physis-check all [dirs]     # the whole checklist
 ```
+
+`install.sh` links that onto `$PATH`. If the command is not found, it is
+`~/.claude/skills/physis/scripts/physis-check.sh` — run it by path rather than
+skipping the check.
 
 Engine-backed steps print `NOT MEASURED` when physis-core is absent rather than
 passing quietly. A check that silently skips is worse than no check.
@@ -189,10 +193,11 @@ caller to have captured it), and `PhysisCore::project_revisions` makes the audit
 trail a **view** over `revision_history` rather than a second record kept in sync
 by discipline — discipline is what failed.
 
-Live store: **8/10 claims agree** between `list` and `replay`. The two that do
-not predate the fix; their revisions are permanently no-ops. They are **not**
-backfilled — `replay` prints both values and the reason. A gap in the record is
-information; a fabricated record is not.
+Verified end to end 2026-09-13: a hypothesis transitioned to `Contradicted`
+reads `Contradicted` from both `list` and `replay`. Claims that predate the fix
+keep permanently no-op revisions and are **not** backfilled — `replay` prints
+both values and the reason. A gap in the record is information; a fabricated
+record is not.
 
 ## 6. Exit 0 is not a result
 

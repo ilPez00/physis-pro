@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the physis checklist instead of reciting it.
 #
-# The skill's four rules are mechanical, so an agent that "read the skill" and
+# The skill's seven rules are mechanical, so an agent that "read the skill" and
 # an agent that ran the checks are distinguishable only if the checks exist as
 # commands. These are those commands.
 #
@@ -200,9 +200,20 @@ cmd_verdict() {
       # message returns non-zero when the pattern misses, and `set -e` kills the
       # script before `fail` ever prints — which is how the first version of
       # this very fix stayed silent.
+      # Tested 2026-09-13 against a real dev build. There are three distinct
+      # licence failures here and they need different advice; the first version
+      # of this hint offered only one, and it was the one that does not apply.
+      # PHYSIS_ALLOW_DEV_LICENCE=1 disables the *gate*, not the *check*, so it
+      # never fixes a missing or mismatched licence on its own. A hint that does
+      # not resolve the failure is a silent failure one level up.
       local hint=""
       case "$out" in
-        *licence*|*license*) hint=" The licence gate refused: export PHYSIS_ALLOW_DEV_LICENCE=1." ;;
+        *"signature is not valid"*)
+          hint=" The licence in PHYSIS_DATA_DIR (default ~/.physis) is signed for a different vendor key. Point PHYSIS_LICENSE_FILE at one built for this binary." ;;
+        *"no licence found"*|*"no license found"*)
+          hint=" No licence: set PHYSIS_LICENSE_FILE=/path/to/license.key, or place one at .physis/license.key." ;;
+        *licence*|*license*)
+          hint=" Licence check failed; PHYSIS_ALLOW_DEV_LICENCE=1 disables the gate but does not supply a licence." ;;
       esac
       fail "verdict NOT recorded — '$PRO note' exited $rc.$hint"
       return 1
