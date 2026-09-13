@@ -222,6 +222,15 @@ decision. That is a licensing and strategy question, not a tidiness one.
 
 ---
 
+## The read-and-run list
+
+What is left of this file is now scheduled in
+`docs/plans/2026-09-13-research-agenda.md`: five items, each with a corpus, a
+control, and a result that can come back negative, ordered by information per
+hour. Problems 1 and 4 are closed there with what replaced them — the polarity
+inversion and the false-alarm rate, both larger than what was originally
+suspected.
+
 ## What this list is not
 
 It is not a plan, and none of the four is scheduled. Each names the measurement
