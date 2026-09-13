@@ -53,8 +53,16 @@ confidently repeating what it already refuted — and that this is measurable.
 | Config-driven pipeline | `RunConfig` swaps model and table with no source edit |
 | Discovery candidate *filtering* | duplicate control Welch *t* = +12.11; 2000 candidates → 141 |
 | Discovery candidate *ranking* | precision@25 = 0.480 vs 0.132 base, exact *p* = 2.3e-5 |
-| Agent surface | 30 MCP tools over stdio, verified live |
-| Test suite | physis-core 194 pass; clippy clean at `-D warnings` |
+| Agent surface | 30 MCP tools over stdio, verified live — **re-checked 2026-09-13: exactly 30 `physis_*` names in `src/mcp.rs`** |
+| Test suite | ~~physis-core 194 pass; clippy clean at `-D warnings`~~ **stale and partly wrong, corrected 2026-09-13:** physis-core lib is **270 pass**; clippy is clean for physis-pro `--all-targets` and for physis-core `src/`, but physis-core `--all-targets` is red on `examples/` and has been |
+
+> **Audit note, 2026-09-13.** Two rows above are not regenerable from any
+> command in this repository, which is what this document's own preamble
+> promises: `253 → 165` and `338k lookups/s` appear in no `.rs`, `.py` or `.sh`
+> in the tree. They may be true; nothing here can check them. See
+> `docs/plans/2026-09-13-claims-audit.md`. `transplant`, listed as a capability
+> in §8's table, has **zero call sites anywhere** — not src, not the CLI, not
+> examples, not tests.
 
 ### Settled negatives — earned, and not to be relitigated
 
