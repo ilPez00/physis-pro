@@ -47,7 +47,7 @@ candidate="$worktree/target/release/physis-pro-web"
 log "Building candidate with $BUILD_IMAGE ($FEATURES)"
 if ! docker run --rm --user "$(id -u):$(id -g)" \
     -v "$worktree":/app -w /app -v "$cargo_home":/cargo \
-    -e CARGO_HOME=/cargo "$BUILD_IMAGE" \
+    -e CARGO_HOME=/cargo -e PHYSIS_LICENSE_PUBKEY="$(cat /home/gio/.physis-vendor/verifying.key)" "$BUILD_IMAGE" \
     cargo build --release --no-default-features --features "$FEATURES" \
     --bin physis-pro-web >>"$LOG_FILE" 2>&1; then
   log "Build failed; running binary remains untouched."
@@ -88,9 +88,9 @@ if ! systemctl --user restart physis-engine.service; then
 fi
 
 healthy=false
-for _ in $(seq 1 30); do
+for _ in $(seq 1 90); do
   if curl -sf -m 3 "$HEALTH_URL" >/dev/null 2>&1; then healthy=true; break; fi
-  sleep 2
+  sleep 4
 done
 if [[ "$healthy" != true ]]; then
   log "Health check failed; restoring previous binary."
