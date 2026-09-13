@@ -29,7 +29,7 @@ An arm whose model has no endpoint reports `not_configured` and is NOT scored.
 A 4B model is a peer, not an oracle: do not point PHYSIS_ORACLE_* at one and
 call the result arm B.
 """
-import argparse, importlib.util, json, os, pathlib, re, subprocess, sys, time, urllib.request
+import argparse, importlib.util, json, os, pathlib, re, subprocess, sys, time, urllib.error, urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -64,25 +64,49 @@ def tier_config(tier):
     return (url, model, key) if key else None
 
 
+# A free endpoint drops requests under load, and one dropped case voids the
+# whole arm (a case that never reached the model reports no rate, by design).
+# Both large arms lost the SAME case to `HTTP 503 Service Unavailable` on the
+# first run, so this is load, not content. Retry only what is transient —
+# 429 and 5xx — and leave 4xx alone: a bad request retried five times is still
+# a bad request, and hiding it would be the failure this harness exists to
+# prevent.
+RETRY_STATUS = {429, 500, 502, 503, 504}
+RETRIES = 4
+
+
 def ask(cfg, prompt, timeout=1800):
     """One OpenAI-compatible chat completion. Returns (text, prompt_tokens)."""
     url, model, key = cfg
     body = json.dumps({
         "model": model, "temperature": 0, "stream": False,
         "messages": [{"role": "user", "content": prompt}],
-        # qwen3 and friends think by default and neither `think` nor
-        # `chat_template_kwargs` turns it off through ollama's OpenAI endpoint
-        # (measured). Harmless for the gate: ollama returns the reasoning in a
-        # separate `reasoning` field, so only the answer is scored. It is not
-        # harmless for the clock — hence the 1800 s timeout.
-        "chat_template_kwargs": {"enable_thinking": False},
+        # No `chat_template_kwargs`. It was here to stop qwen3 thinking, on the
+        # measurement that ollama ignores it — true, but the flag was sent to
+        # every tier, and NVIDIA NIM does NOT ignore it: nemotron-3-ultra ran
+        # with reasoning off, answered in 1.2 s instead of 5.3 s, and wrote
+        # "SHA-256" where the reasoning answer wrote "SHA256" — so the literal
+        # gate scored it a miss. Arms A and B came back 0/6 that way. A flag
+        # believed inert on one endpoint is not inert on the next; both tiers
+        # now run in their default mode, and reasoning is stripped where it
+        # arrives (`reasoning` field, or a <think> block) rather than
+        # suppressed at the source.
     }).encode()
     hdr = {"Content-Type": "application/json"}
     if key:
         hdr["Authorization"] = f"Bearer {key}"
     req = urllib.request.Request(url.rstrip("/") + "/chat/completions", body, hdr)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        d = json.loads(r.read())
+    for attempt in range(RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                d = json.loads(r.read())
+            break
+        except urllib.error.HTTPError as e:
+            if e.code not in RETRY_STATUS or attempt == RETRIES:
+                raise
+            wait = 5 * 2**attempt
+            print(f"    HTTP {e.code}; retry {attempt + 1}/{RETRIES} in {wait}s", flush=True)
+            time.sleep(wait)
     text = d["choices"][0]["message"]["content"] or ""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
     return text.strip(), d.get("usage", {}).get("prompt_tokens")
