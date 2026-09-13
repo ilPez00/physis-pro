@@ -102,20 +102,61 @@ the relations are computed on the one layer shown to be noise.
 
 ### The experiments
 
-**C1 — score against STALE instead of the ledger.** The strongest thing
-available and the least inventive. Everything measured today is on a corpus this
-project authored, which is a ceiling and not an estimate. STALE is external,
-expert-validated, and its probes line up with what physis claims. Run it, report
-the three probe scores, and stop quoting self-authored numbers as the headline.
-*This should be done before C2, not after: it is the baseline C2 has to beat.*
+**C1 — score against STALE. BLOCKED 2026-09-13: no public dataset found.**
+The paper is up (arXiv 2605.06527, HF papers page) and no dataset or code
+repository was findable by search. Until one appears, physis cannot score
+against it. Two things to carry anyway:
 
-**C2 — does structural identity change contradiction recall?** The pre-existing
-number is **0.50** — one of two known pairs missed, unchanged by the embedder,
-which RESCOPE §6 item 7 already calls a map defect rather than a retrieval one.
-Extract (subject, relation, object, interval) for each claim, compute
-contradiction on the tuple, and compare. The control is the current
-embedding-only path on the same corpus. If it does not move 0.50, the elegance
-argument is all that is left and it is not enough.
+- STALE's own headline is that **the best evaluated model reaches 55.2%
+  overall accuracy**, and its stated gap is "between retrieving updated
+  evidence and acting on it" — which is precisely the gap `act` sits in. That
+  number is the external context for anything physis reports here.
+- Recheck for a release before doing more self-authored corpus work. It is the
+  single highest-value unblock on this list. `MemoryAgentBench`
+  (github.com/HUST-AI-HYZ/MemoryAgentBench, arXiv 2507.05257) *is* public and
+  is the nearest substitute if STALE stays unavailable.
+
+**C2 — RUN 2026-09-13. The prose identity is wrong a third of the time it
+speaks.** `src/claim_identity.rs`, `examples/claim_identity`, artifact in
+`benchmarks/results/claim-identity.json`. Rather than the ground truth's two
+contradiction pairs, it uses the twin ledger's eight, plus eight *agreeing*
+restatements as the decisive negatives. 64 claims, 2016 pairs:
+
+| identity | found | false + | precision | recall | F1 |
+|---|---|---|---|---|---|
+| `embedding@0.90` | 8/8 | 4 | 0.667 | 1.000 | 0.800 |
+| `structural@0.30` | 3/8 | **0** | **1.000** | 0.375 | 0.545 |
+
+The embedding finds every contradiction *and* flags half the agreements as
+contradictions: similarity cannot separate "says the same thing about this"
+from "says the opposite thing about this". The structural identity — a bag of
+content words plus a scoped polarity, no parser — is **never wrong when it
+speaks** and silent on five of eight pairs.
+
+F1 says prose wins; F1 is the wrong number, because item B measured that
+`act`'s larger defect is warning when it should be silent.
+
+**Two things this run established that change what C2 means:**
+
+1. The first attempt had to be discarded. Without the agreeing restatements the
+   eight contradiction pairs are also the eight most *similar* pairs, so cosine
+   scored F1 1.000 for a reason unrelated to contradiction. Any future
+   contradiction corpus needs near-duplicate *agreements* as negatives or it
+   measures nothing.
+2. The structural ceiling is not the lexicon. Recall is capped at 0.375 because
+   five pairs negate a predicate no verdict lexicon contains — *"the release
+   build finishes … the LTO stage never runs out of memory"*. Scoping a
+   negation over an arbitrary predicate is what a parser is for. **So the
+   poorest structural identity already has perfect precision and its only limit
+   is exactly what the real design would supply.** That is the strongest
+   argument available for building the tuple — and it is an argument, not a
+   result.
+
+**What is still open:** the tuple itself. A bag has no subject/object asymmetry
+and carries no interval, so "A supersedes B" and "B supersedes A" are identical
+to it. Building the real (subject, relation, object, interval) needs an
+extractor, which needs an interpreter — and the moment there is one, C3 becomes
+runnable in the same pass.
 
 **C3 — the interpreter-swap test, run on the ledger rather than on graphiti.**
 Repeat the state-hash experiment against physis's own claims: same evidence,
