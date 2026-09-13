@@ -85,6 +85,40 @@ Recorded because the pattern matters more than any single item.
    that runs once per packet. *Fixed; the visibility problem is recorded in the
    report.*
 
+## 4b. The checking tool is itself duplicated, and the copies have drifted
+
+Found while looking for `physis-check` to run this audit. It exists twice:
+
+| copy | lines | `verdict` |
+|---|---|---|
+| `physis-pro/scripts/physis-check.sh` | 344 | **fixed** today (`main`) |
+| `ilPez00/physis-skill` `scripts/physis-check.sh` | 319 | **still broken** |
+
+27 diff lines between them, and the substance is one function. `physis-skill`
+is the *distributable* — `install.sh:40` copies `physis-check.sh` to wherever an
+agent installs the skill — so the broken copy is the one that actually reaches
+agents.
+
+The bug is that `verdict` silently records nothing. From the fix's own comment
+in the repaired copy:
+
+> without `PHYSIS_ALLOW_DEV_LICENCE` a dev build exits 2 on the licence gate,
+> `|| true` swallowed it, and `verdict` printed nothing and exited 0. **A
+> verdict that silently does not record is worse than none — the next session
+> repeats the work believing it was logged.**
+
+This is the audit's thesis in its sharpest form. The tool whose entire purpose
+is to stop an agent claiming what it did not verify **silently fails to
+record**, in the copy that ships, while the fixed copy sits in a different
+repository. It is also the third instance today of one defect: `rag.rs` in two
+crates (PH-012, where the MMR fix reached one copy and not the other), the
+structural machines duplicated between library and example (PH-021, avoided on
+purpose), and now this.
+
+Not fixed here: `physis-skill` is a separate repository and was not in scope
+for this session. It should be the next thing shipped, and the fix is a
+copy of one function.
+
 ## 5. What is actually causing this
 
 Not carelessness. Two mechanisms, both structural:
