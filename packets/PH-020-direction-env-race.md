@@ -2,7 +2,7 @@
 id: PH-020
 track: physis-core
 phase: 0
-status: review
+status: done
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro/physis-core && for i in 1 2 3 4 5; do cargo test --lib direction:: || exit 1; done && for i in 1 2 3; do cargo test --lib || exit 1; done"

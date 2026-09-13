@@ -2,7 +2,7 @@
 id: PH-019
 track: physis-core
 phase: 1
-status: review
+status: done
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro/physis-core && cargo test --lib temporal:: && cargo test --lib hypothesis:: && cargo clippy --lib --tests -- -D warnings"
