@@ -2,13 +2,13 @@
 id: PH-020
 track: physis-core
 phase: 0
-status: todo
+status: review
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro/physis-core && for i in 1 2 3 4 5; do cargo test --lib direction:: || exit 1; done && for i in 1 2 3; do cargo test --lib || exit 1; done"
 commit: "branch agent/PH-020; conventional commits; per PROTOCOL §6"
-claimed_by:
-claimed_at:
+claimed_by: claude-pansa-2026-09-13
+claimed_at: 2026-09-13
 ---
 
 # One test sets a process-global env var and the rest of `direction` fails around it

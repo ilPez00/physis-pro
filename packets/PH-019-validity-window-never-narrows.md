@@ -2,13 +2,13 @@
 id: PH-019
 track: physis-core
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro/physis-core && cargo test --lib temporal:: && cargo test --lib hypothesis:: && cargo clippy --lib --tests -- -D warnings"
 commit: "branch agent/PH-019; conventional commits; per PROTOCOL §6"
-claimed_by:
-claimed_at:
+claimed_by: claude-pansa-2026-09-13
+claimed_at: 2026-09-13
 ---
 
 # A validity window can be opened but never narrowed
