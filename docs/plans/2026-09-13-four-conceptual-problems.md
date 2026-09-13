@@ -142,6 +142,36 @@ each claimed capability, name the write path and the read path, and fail when
 either is absent. That is the same check, one level up, and it is the cheapest
 of the four items here.
 
+### Done, 2026-09-13 — and it found a fourth instance immediately
+
+`physis-check capabilities` plus `physis-core/.physis-capabilities`, which
+declares thirteen capabilities as a write symbol and a read symbol each. Twelve
+have both halves running. One does not:
+
+> **provenance chains** — `add_link` is called only by the test suite, so
+> `provenance_chains` is empty in the product and `full_explanation_report`
+> renders `unwrap_or_default()` — an empty chain — every time. The only writer
+> entry point, `PhysisCore::provenance_chain`, has exactly one call site and it
+> is inside `#[cfg(test)]`.
+
+Same shape as the three above, found in the first run rather than by accident,
+which is the whole point. The sweep is left red on that row rather than the row
+removed.
+
+Verified against the tree before PH-019/PH-021: bi-temporal validity and
+structural machines both FAIL there and PASS here, so the check discriminates
+rather than agreeing with whatever it is pointed at.
+
+The first run returned 14 of 14 — a green that came from two defects, both now
+fixed and both affecting `calls` and `sweep` as well:
+
+- the manifest names every symbol it asks about, so it was counting itself as a
+  use site: a capability deleted from the source still scored one. A check that
+  reads its own input as evidence cannot fail.
+- `impl Trait for Type` was treated as *declaring* the trait, so every
+  implementing file was dropped as a declaring file — a trait implemented seven
+  times in its one consumer read as dead. Only inherent `impl Foo {` declares.
+
 ---
 
 ## Lower priority, but real: the core/pro boundary is drifting

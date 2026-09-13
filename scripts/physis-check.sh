@@ -7,6 +7,8 @@
 #
 #   physis-check calls <Symbol> [dir ...]      rule 1 — is it ever called?
 #   physis-check sweep [dir ...]               rule 1 — whole tree
+#   physis-check capabilities [--manifest F] [dir ...]
+#                                              rule 1 — write path AND read path
 #   physis-check discriminate --a CMD --b CMD  rule 2 — does the number move?
 #   physis-check map [dir ...]                 rule 3/4 — structural summary
 #   physis-check flow [transcript.jsonl|session-id]  rule 6/7 — judge the session
@@ -78,8 +80,28 @@ engine() {  # engine <args...> — stderr kept, licence banner dropped
 }
 
 # ── rule 1 ──────────────────────────────────────────────────────────────────
-cmd_calls() {
-  local sym="${1:?usage: physis-check calls <Symbol> [dir ...]}"; shift
+# Scan one symbol and leave the counts in SYM_*. Split out of `cmd_calls` so the
+# capability sweep can ask the same question without printing a report per
+# symbol: a capability check that used a different definition of "called" than
+# rule 1 would be a second opinion, not a second level.
+#
+#   SYM_STATE  live | tests | dead
+#   SYM_N      use sites outside the declaring file(s)
+#   SYM_T      how many of those are tests
+#   SYM_DEFS / SYM_DECLFILES  declaration counts, for the dead case
+#
+# SCAN_EXCLUDE drops one file from the hits before anything is counted. It
+# exists because the capability manifest names the symbols it asks about, so the
+# first run of the sweep passed every row by reading its own manifest back: a
+# capability deleted from the source still had one "use site", the line claiming
+# it. A check that counts its own input is a check that cannot fail.
+SYM_STATE=""; SYM_N=0; SYM_T=0; SYM_DEFS=0; SYM_DECLFILES=0; SYM_USES=""
+# Defaulted, not empty: `calls` and `sweep` counted manifest lines as use sites
+# too, and a line declaring a capability is prose about a symbol, not a call to
+# it.
+SCAN_EXCLUDE=".physis-capabilities"
+_symbol_scan() {
+  local sym="$1"; shift
   local dirs=("${@:-.}")
   # -w so `Foo` does not match `FooBar`; the defining file is excluded by the
   # caller reading the list, not by the grep — a symbol can be used twice in
@@ -87,7 +109,19 @@ cmd_calls() {
   local hits defs decl_files uses
   hits=$(grep -rnw --exclude-dir={.git,node_modules,target,dist,build,vendor,__pycache__,.venv} \
          -- "$sym" "${dirs[@]}" 2>/dev/null || true)
-  defs=$(printf '%s\n' "$hits" | grep -E ":[0-9]+:[[:space:]]*(pub |export |func |def |class |type |const |impl )" || true)
+  # See SCAN_EXCLUDE above: the manifest is input, never evidence.
+  if [ -n "$SCAN_EXCLUDE" ]; then
+    hits=$(printf '%s\n' "$hits" | grep -vF "$SCAN_EXCLUDE:" || true)
+  fi
+  # `impl Trait for Type` DECLARES neither: it is a use of the trait and a use
+  # of the type. Counting it as a declaration marked every implementing file as
+  # a declaring file and dropped it from the count, so a trait implemented by
+  # six types in one consumer read as dead — which is how `StructuralMachine`
+  # scored dead on a tree where the example implements it seven times. Inherent
+  # `impl Foo {` still declares.
+  defs=$(printf '%s\n' "$hits" \
+         | grep -E ":[0-9]+:[[:space:]]*(pub |export |func |def |class |type |const |impl )" \
+         | grep -Ev ":[0-9]+:[[:space:]]*impl\\b.*\\bfor\\b" || true)
   # A symbol used only inside the file that declares it — its own unit tests,
   # typically — is not wired into anything. `OnnxEmbedder` had seven such
   # "uses" and every benchmark number still came from a lexical hash. Drop the
@@ -99,7 +133,6 @@ cmd_calls() {
   done <<< "$decl_files"
   uses=$(printf '%s\n' "$uses" | grep -v '^$' || true)
 
-  printf '%s\n' "$uses" | sed 's/^/  /' | head -30
   # Tests are evidence the code compiles, not evidence it is reached in
   # production. Counted separately, never as a call site.
   local n t
@@ -124,13 +157,139 @@ cmd_calls() {
       if (cut[$1] > 0 && $2+0 > cut[$1]) c++
     }
     END { print c+0 }')
-  if [ "${n:-0}" = "0" ]; then
-    fail "$sym: $(printf '%s\n' "$defs" | grep -c . || true) declaration(s) in $(printf '%s\n' "$decl_files" | grep -c . || true) file(s), 0 use sites elsewhere. It does not run — say so."
-  elif [ "$n" = "$t" ]; then
-    fail "$sym: all $n use site(s) are tests. It compiles and is exercised; nothing in the product calls it."
-  else
-    pass "$sym: $((n - t)) non-test use site(s) outside its declaring file(s) (+$t in tests)"
+  SYM_USES="$uses"
+  SYM_N=${n:-0}
+  SYM_T=${t:-0}
+  SYM_DEFS=$(printf '%s\n' "$defs" | grep -c . || true)
+  SYM_DECLFILES=$(printf '%s\n' "$decl_files" | grep -c . || true)
+  if [ "$SYM_N" = "0" ]; then SYM_STATE=dead
+  elif [ "$SYM_N" = "$SYM_T" ]; then SYM_STATE=tests
+  else SYM_STATE=live; fi
+}
+
+cmd_calls() {
+  local sym="${1:?usage: physis-check calls <Symbol> [dir ...]}"; shift
+  _symbol_scan "$sym" "$@"
+  printf '%s\n' "$SYM_USES" | sed 's/^/  /' | head -30
+  case "$SYM_STATE" in
+    dead)  fail "$sym: $SYM_DEFS declaration(s) in $SYM_DECLFILES file(s), 0 use sites elsewhere. It does not run — say so." ;;
+    tests) fail "$sym: all $SYM_N use site(s) are tests. It compiles and is exercised; nothing in the product calls it." ;;
+    live)  pass "$sym: $((SYM_N - SYM_T)) non-test use site(s) outside its declaring file(s) (+$SYM_T in tests)" ;;
+  esac
+}
+
+# ── rule 1, one level up — capabilities ─────────────────────────────────────
+# `calls` and `sweep` ask whether a SYMBOL runs. Nothing asked whether a
+# CAPABILITY runs, and three times in one day the answer was no: bi-temporal
+# validity had `valid_until` written only by a constructor; the structural
+# machine types existed inside one example and nowhere else; continuous
+# observation had a schema and no watcher. Each was found by accident, and each
+# read as present in every document that lists capabilities until it was.
+#
+# A capability is present when BOTH halves run: something writes it, and
+# something reads it. A write path with no read path is a field nobody consults;
+# a read path with no write path always returns the default. Either alone is a
+# schema, and the manifest is where the project states which symbols are which,
+# so the claim is checkable instead of narrative.
+#
+# Manifest (default `.physis-capabilities` at the root, override with --manifest):
+#
+#   # capability | write path | read path
+#   bi-temporal validity | narrow_until | is_valid_at
+#
+# `#` comments and blank lines are ignored. A field may list alternatives
+# separated by commas — any one of them being live satisfies that half, which is
+# how a capability with two entry points is declared without inventing a facade.
+cmd_capabilities() {
+  local manifest="" dirs=()
+  while (($#)); do case "$1" in
+    --manifest) manifest="$2"; shift 2 ;;
+    *) dirs+=("$1"); shift ;;
+  esac; done
+  [ ${#dirs[@]} -gt 0 ] || dirs=(.)
+  if [ -z "$manifest" ]; then
+    for c in "${dirs[0]}/.physis-capabilities" ".physis-capabilities"; do
+      [ -f "$c" ] && { manifest="$c"; break; }
+    done
   fi
+  if [ -z "$manifest" ] || [ ! -f "$manifest" ]; then
+    # Not a pass. A project with no manifest has not been checked, and saying
+    # so is the whole point of the NOT MEASURED state.
+    skip "no capability manifest (.physis-capabilities) — every capability this
+       project claims is unchecked. Create one: '# name | write symbol | read symbol'"
+    return
+  fi
+  printf '  manifest: %s\n' "$manifest"
+  # The manifest lists every symbol it asks about, so it must not be read as a
+  # use site of any of them. Basename, because the grep prints the path as the
+  # search root gave it and the manifest may have been reached by another.
+  SCAN_EXCLUDE="$(basename "$manifest")"
+
+  local n_ok=0 n_bad=0 line name w r
+  while IFS= read -r line; do
+    line="${line%%$'\r'}"
+    case "$line" in ''|'#'*) continue ;; esac
+    name=$(printf '%s' "$line" | cut -d'|' -f1 | sed 's/^ *//;s/ *$//')
+    w=$(printf '%s' "$line" | cut -d'|' -f2 | sed 's/^ *//;s/ *$//')
+    r=$(printf '%s' "$line" | cut -d'|' -f3 | sed 's/^ *//;s/ *$//')
+    if [ -z "$name" ] || [ -z "$w" ] || [ -z "$r" ]; then
+      fail "manifest line needs three fields (name | write | read): $line"
+      n_bad=$((n_bad + 1)); continue
+    fi
+    local wstate rstate
+    wstate=$(_capability_half "$w" "${dirs[@]}")
+    rstate=$(_capability_half "$r" "${dirs[@]}")
+    if [ "$wstate" = "live" ] && [ "$rstate" = "live" ]; then
+      pass "$name: write ($w) and read ($r) both run"
+      n_ok=$((n_ok + 1))
+    else
+      # Name which half is missing and how. "tests" is its own diagnosis: the
+      # path exists and only the suite walks it, which is exactly how a
+      # capability reads as shipped while nothing in the product reaches it.
+      fail "$name: write ($w) $wstate · read ($r) $rstate — $(_capability_verdict "$wstate" "$rstate")"
+      n_bad=$((n_bad + 1))
+    fi
+  done < "$manifest"
+
+  if [ "$((n_ok + n_bad))" = "0" ]; then
+    fail "manifest $manifest declares no capabilities — an empty check is not a clean one"
+  else
+    printf '  %s of %s capability(ies) have both halves running\n' "$n_ok" "$((n_ok + n_bad))"
+  fi
+  SCAN_EXCLUDE=".physis-capabilities"
+}
+
+# One half of a capability: live if ANY of the comma-separated alternatives is.
+# The best state wins, so a capability written from a live path and an example
+# is not marked by the example.
+_capability_half() {
+  local spec="$1"; shift
+  local best=dead sym
+  local IFS_SAVE="$IFS"; IFS=','
+  for sym in $spec; do
+    IFS="$IFS_SAVE"
+    sym=$(printf '%s' "$sym" | sed 's/^ *//;s/ *$//')
+    [ -n "$sym" ] || continue
+    _symbol_scan "$sym" "$@"
+    case "$SYM_STATE" in
+      live)  best=live; break ;;
+      tests) [ "$best" = dead ] && best=tests ;;
+    esac
+    IFS=','
+  done
+  IFS="$IFS_SAVE"
+  printf '%s' "$best"
+}
+
+_capability_verdict() {
+  case "$1/$2" in
+    live/dead)  printf 'written and never read — the field is set and nothing consults it' ;;
+    live/tests) printf 'only the suite reads it; in the product this write goes nowhere' ;;
+    dead/live)  printf 'read and never written — it always returns the default' ;;
+    tests/live) printf 'only the suite writes it; in the product this read always returns the default' ;;
+    dead/dead)  printf 'neither half runs. This is a schema, not a capability' ;;
+    *)          printf 'both halves are exercised only by tests' ;;
+  esac
 }
 
 # ── rule 2 ──────────────────────────────────────────────────────────────────
@@ -326,6 +485,8 @@ cmd_all() {
   local dirs=("${@:-.}")
   say "rule 1 — declared ≠ called"
   cmd_sweep "${dirs[@]}" || fail "sweep exited nonzero (see above)"
+  say "rule 1 — capabilities: does each claimed one have a write path AND a read path?"
+  cmd_capabilities "${dirs[@]}"
   say "rule 2 — does the measurement discriminate?"
   skip "only you know which arm your number should lose to. Run:
        physis-check discriminate --a '<real arm>' --b '<stupid control>'"
@@ -342,6 +503,7 @@ cmd_all() {
 case "${1:-}" in
   calls)         shift; cmd_calls "$@" ;;
   sweep)         shift; cmd_sweep "$@" ;;
+  capabilities)  shift; cmd_capabilities "$@" ;;
   discriminate)  shift; cmd_discriminate "$@" ;;
   map)           shift; cmd_map "$@" ;;
   flow)          shift; cmd_flow "$@" ;;
@@ -349,7 +511,7 @@ case "${1:-}" in
   recall)        shift; cmd_recall "$@" ;;
   verdict)       shift; cmd_verdict "$@" ;;
   all)           shift; cmd_all "$@" ;;
-  ""|-h|--help)  sed -n '2,20p' "$0" ;;
+  ""|-h|--help)  sed -n '2,22p' "$0" ;;
   *) echo "unknown subcommand: $1" >&2; exit 2 ;;
 esac
 exit "$FAILED"
