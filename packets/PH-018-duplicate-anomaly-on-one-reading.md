@@ -2,13 +2,13 @@
 id: PH-018
 track: physis-pro
 phase: 0
-status: todo
+status: review
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro && cargo test --test http_surface && cargo clippy --all-targets -- -D warnings"
 commit: "branch agent/PH-018; conventional commits; per PROTOCOL §6"
-claimed_by:
-claimed_at:
+claimed_by: claude-pansa-2026-09-13
+claimed_at: 2026-09-13
 ---
 
 # One machine reading raises two identical anomalies
