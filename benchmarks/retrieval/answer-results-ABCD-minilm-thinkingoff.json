@@ -1,0 +1,376 @@
+{
+  "root": "physis-core/src",
+  "budget": 3000,
+  "arms": {
+    "A": {
+      "status": "incomplete",
+      "context": "packed",
+      "tier": "large",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "passes": 0,
+      "scored": 6,
+      "errors": 1,
+      "cases": 7,
+      "rate": null,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 12022,
+          "prompt_tokens": 3353,
+          "seconds": 18.2,
+          "answer": "The engine uses the `VectorEmbed` trait as a seam where embedders like `RandomProjectionEmbedder` (default, deterministic, no model files) or ONNX-based implementations can plug in; selection occurs by constructing the desired implementor. There is no mechanism in the provided context for refusing an embedder that loads but produces nonsense vectors, though the trait requires implementors to guarantee determinism and L2-normalization."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": null,
+          "error": "HTTP Error 503: Service Unavailable"
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever",
+            "budget"
+          ],
+          "context_chars": 10302,
+          "prompt_tokens": 3435,
+          "seconds": 5.6,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12311,
+          "prompt_tokens": 3382,
+          "seconds": 6.2,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "build_map"
+          ],
+          "context_chars": 11107,
+          "prompt_tokens": 3148,
+          "seconds": 5.0,
+          "answer": "Near-duplicate documents are grouped into repeat clusters by `map.rs` using grid-based classification (`clf.best_entry_sim`) and median nearest-neighbour similarity (`median_nnd`) as a threshold, while contradictions are flagged in `relation.rs` by detecting negation markers (`NEGATION_MARKERS`) and lexical overlap between paired statements."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 11824,
+          "prompt_tokens": 3296,
+          "seconds": 3.9,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11135,
+          "prompt_tokens": 3218,
+          "seconds": 4.9,
+          "answer": "The system computes a SHA-256 hash of the downloaded file bytes and records it in the `ModelManifest` under `files` as a `(rel, sum)` pair, which is then written to `model-manifest.json` for later verification."
+        }
+      ]
+    },
+    "B": {
+      "status": "incomplete",
+      "context": "naive",
+      "tier": "large",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "passes": 0,
+      "scored": 6,
+      "errors": 1,
+      "cases": 7,
+      "rate": null,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 12022,
+          "prompt_tokens": 3054,
+          "seconds": 2.9,
+          "answer": "The engine uses a `dyn ModelProvider` trait (implemented by `NgramDecoderModel` and `RandomProjectionEmbedder`) so the pipeline never hardcodes a model. The ONNX MiniLM embedder (`embed_onnx.rs`) falls back to deterministic random projection when the model is unavailable, but the context does not describe a mechanism for refusing a model that loads yet produces nonsense embeddings."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": null,
+          "error": "HTTP Error 503: Service Unavailable"
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever"
+          ],
+          "context_chars": 10302,
+          "prompt_tokens": 2625,
+          "seconds": 15.6,
+          "answer": "The `rag.rs` module implements \"Token-fixed RAG\" that retrieves chunks subject to a hard token budget, guaranteeing the context handed to the model fits a fixed token window regardless of corpus size."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12311,
+          "prompt_tokens": 3112,
+          "seconds": 3.0,
+          "answer": "When no credentials are supplied for the oracle, the system falls back to deterministic random projection embeddings instead of using the larger reference model."
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11107,
+          "prompt_tokens": 2818,
+          "seconds": 1.9,
+          "answer": "Near-duplicate documents are grouped by the `discovery` module's deterministic clustering of corpus texts that the ontology fails to cover, while disagreeing statements are flagged as first-class `Contradiction` objects with sources, claims, and resolution status by the `contradiction` module. The `act` module records actions and checks them against existing beliefs to detect conflicts."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 11824,
+          "prompt_tokens": 2998,
+          "seconds": 5.8,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11135,
+          "prompt_tokens": 2825,
+          "seconds": 5.2,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    },
+    "C": {
+      "status": "ok",
+      "context": "packed",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 12022,
+          "prompt_tokens": 3214,
+          "seconds": 104.0,
+          "answer": ""
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES",
+            "cosine"
+          ],
+          "context_chars": 12236,
+          "prompt_tokens": 3260,
+          "seconds": 15.3,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever",
+            "budget"
+          ],
+          "context_chars": 10302,
+          "prompt_tokens": 3258,
+          "seconds": 42.8,
+          "answer": "Based on the context provided, the prompt is kept from overflowing the window no matter how large the corpus grows through a specific windowing mechanism that uses a `max_order` parameter to bound how much history is kept.\n\nThe relevant code snippet shows:\n\n```rust\n// The window ending at i, plus what follows, is this cell's\n// evidence. `max_order` bounds how much history is kept.\nlet lo = i.saturating_sub(cfg.max_order as usize);\nlet hi = (i + 2).min(seq.len());\nif hi > lo + 1 {\n    per_cell.entry(cell).or_default().push(seq[lo..hi].to_vec());\n}\n```\n\nThis mechanism prevents overflow by:\n1. Using `saturating_sub` for `lo` (the lower bound) to ensure we don't go below 0\n2. Using `min` for `hi` (the upper bound) to prevent going beyond the sequence length\n3. Having `max_order` as a parameter that bounds how much history is kept\n\nThe key identifiers involved in this solution are:\n- `max_order` (the parameter that bounds how much history is kept)\n- `cfg` (the configuration)\n- `i` (the current position)\n- `seq` (the sequence)\n- `lo` (lower bound of the window)\n- `hi` (upper bound of the window)\n- `per_cell` (the collection of sequences)\n- `cell` (the specific cell being processed)\n\nThis windowing approach ensures that even as the corpus grows, the system only keeps a limited amount of history (bounded by `max_order`), preventing the window from overflowing."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12311,
+          "prompt_tokens": 3284,
+          "seconds": 16.1,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11107,
+          "prompt_tokens": 3029,
+          "seconds": 107.8,
+          "answer": "Based on the context provided, near-duplicate documents are grouped into clusters (`repeats`), and statements that disagree are flagged through the `contradictions` list in the `map` structure.\n\nThe specific process involves:\n1. Using a classifier (`clf`) to calculate similarity between document embeddings\n2. Creating document embeddings through `embedder.embed`\n3. Grouping near-duplicates into clusters (`repeats`)\n4. Tracking disagreements through the `contradictions` list in the `map` structure\n\nThis system also uses negation markers to detect potential contradictions, as shown by the `negation_hits` function that counts how many negation markers appear in text.\n\nThe key identifiers involved in this process are:\n- `map` (the main structure that holds differences and contradictions)\n- `repeats` (clusters of near-duplicate documents)\n- `contradictions` (list of statements that disagree)\n- `clf` (classifier for similarity calculations)\n- `embedder` (for creating document embeddings)"
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 11824,
+          "prompt_tokens": 3189,
+          "seconds": 120.1,
+          "answer": "After carefully reviewing the context provided, I cannot find enough information to answer this specific question about how probability is produced from shorter fragments when a phrase is never seen at full length.\n\nThe context shows several code snippets related to text processing and embeddings (like the `embed` function, `worst_covered` function, and `RandomProjectionEmbedder`), but it doesn't explicitly explain the mechanism for probability production from shorter fragments. While there are references to text processing techniques and embedding functions, the context doesn't provide a clear explanation of how the system handles unseen phrases by breaking them into smaller fragments and calculating probabilities.\n\nThe question appears to be about a specific NLP concept (likely subword tokenization or similar techniques), but the context doesn't contain the relevant explanation or implementation details for this particular mechanism.\n\nTherefore, the context does not provide enough information to answer this question accurately."
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "checksum"
+          ],
+          "context_chars": 11135,
+          "prompt_tokens": 3103,
+          "seconds": 114.4,
+          "answer": "The system computes a SHA256 hash of the downloaded weights file and stores it in the model manifest file. When the weights file is used, the system compares the computed hash with the stored hash to verify it wasn't tampered with.\n\nThe exact identifiers involved are:\n- `Sha256` (the hashing algorithm)\n- `bytes` (the downloaded file content)\n- `digest` (the function that computes the hash)\n- `model-manifest.json` (the manifest file that stores the hash)"
+        }
+      ]
+    },
+    "D": {
+      "status": "ok",
+      "context": "naive",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 12022,
+          "prompt_tokens": 2900,
+          "seconds": 79.4,
+          "answer": "After carefully reviewing the provided context, I don't find specific information about how the engine picks which embedding model to use or how it refuses one that loads but produces nonsense.\n\nThe context mentions:\n- `VectorEmbed` trait as the interface where heavier embedders (ONNX/MiniLM) can plug in\n- Default embedding model is `RandomProjectionEmbedder` (which ships zero model files)\n- `embed_onnx.rs` mentions that ONNX MiniLM embedder falls back to deterministic random projection when the model is unavailable\n\nHowever, there's no explicit information about:\n1. The specific criteria or process for selecting which embedding model to use\n2. How the engine validates or refuses embedding models that load but produce nonsense outputs\n\nThe context does mention a quality feedback loop in `quality.rs` that captures negative signals when users say \"this is bad/wrong,\" but this is about general quality feedback rather than specific embedding model validation.\n\nTherefore, the answer is NOT IN CONTEXT."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES",
+            "cosine"
+          ],
+          "context_chars": 12236,
+          "prompt_tokens": 2942,
+          "seconds": 134.6,
+          "answer": "The context does not explicitly state what stops a word-counting fake from being mistaken for a model that understands meaning. However, based on the information provided in `physis-core/src/embed_ngram.rs`, Physis uses **n-grams as compositional lexical units (token \"molecules\")**. This approach allows for more sophisticated text analysis beyond simple word counting, as n-grams capture meaningful sequences of words that can be used to infer context and meaning, distinguishing Physis from basic word-counting systems.\n\nThis insight aligns with the description in the context: \"Confirms user insight: n-grams as token 'molecules' = compositional lexical units.\" This indicates that Physis leverages n-grams to build a more nuanced understanding of language, which helps differentiate it from simple word-counting mechanisms.\n\n\\boxed{n-grams as compositional lexical units (token \"molecules\")}"
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever"
+          ],
+          "context_chars": 10302,
+          "prompt_tokens": 2481,
+          "seconds": 104.5,
+          "answer": "After carefully reviewing the context, I found that the answer to the question about how the prompt is kept from overflowing the window no matter how large the corpus grows is addressed in the `physis-core/src/rag.rs` file.\n\nThe relevant information states: \"Token-fixed RAG \u2014 retrieve chunks subject to a hard token budget. Unlike unbounded top-k retrieval, the context handed to the model is guaranteed to fit a fixed token window: chunks.\"\n\nThis means that Physis uses a Token-fixed RAG approach with a hard token budget that guarantees the context (not the prompt itself) fits within a fixed token window, preventing overflow regardless of how large the corpus grows.\n\nThe exact identifiers involved in this solution are:\n- `rag` (the module)\n- `Token-fixed RAG` (the approach)\n- `token budget` (the constraint)"
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12311,
+          "prompt_tokens": 2958,
+          "seconds": 24.2,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11107,
+          "prompt_tokens": 2675,
+          "seconds": 120.0,
+          "answer": "Based on the context provided, near-duplicate documents are grouped through semiotic-grid classification (in `classify.rs`), and statements that disagree with each other are flagged through contradiction handling (in `contradiction.rs`).\n\nSpecifically:\n- `physis-core/src/classify.rs` describes \"Semiotic-grid classification: embed text, score against ontology entries, rank DOMAIN\u00d7MODE cells\" - this indicates that text is processed through semantic embeddings and scored against ontology entries to identify similar documents.\n- `physis-core/src/contradiction.rs` explicitly states \"Contradiction handling \u2014 explicit representation of conflicting claims. Physis must NOT silently overwrite conflicting information. A contradiction is a first-class object with: - sources\" - this shows how the system identifies and handles conflicting statements.\n\nThe context doesn't provide specific details about the exact near-duplicate grouping mechanism beyond the semiotic grid classification approach, but it clearly identifies contradiction handling as the system for flagging conflicting statements."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 11824,
+          "prompt_tokens": 2847,
+          "seconds": 32.4,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11135,
+          "prompt_tokens": 2680,
+          "seconds": 30.4,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    }
+  }
+}

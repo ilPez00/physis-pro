@@ -124,9 +124,20 @@ def pack_context(query, root, budget, top_k, data_dir):
                        cwd=ROOT, env=env, capture_output=True, text=True, timeout=1800)
     if p.returncode != 0:
         sys.exit(f"pack failed: {p.stderr.strip().splitlines()[-1:]}")
+    # Which embedder actually ran is the first thing that would invalidate a
+    # packed arm, and it was the one thing the results did not record. The
+    # cascade is BGE -> BGE-M3 -> CLIP -> MiniLM -> random-projection, silently,
+    # on whether each model file is present: the first run of this harness
+    # packed on `minilm` because `models/bge-base-en-v1.5/` holds a config and a
+    # tokenizer but no `model.onnx`, and nothing in the output said so. It is
+    # returned to the caller and written into the results file.
+    kind = "unknown"
+    for line in p.stderr.splitlines():
+        if line.startswith("[physis] pack embedder:"):
+            kind = line.split(":", 1)[1].strip()
     # Drop the licence/embedder chatter; keep the table and the context body.
     lines = [l for l in p.stdout.splitlines() if not l.startswith(("physis:", "[physis]"))]
-    return "\n".join(lines).strip()
+    return "\n".join(lines).strip(), kind
 
 
 def naive_context(root, char_budget):
@@ -188,13 +199,16 @@ def main():
     # Pack once per case: shared by every packed arm, and its length sets the
     # naive arm's budget so both sides are compared at equal size.
     packed = {}
+    embedder = None
     if any(ARMS[a][0] == "packed" for a in arms):
         for c in scoped:
             t0 = time.time()
-            packed[c["id"]] = pack_context(c["query"], args.root, args.budget,
-                                           args.top_k, data_dir)
-            print(f"  packed {c['id']} ({len(packed[c['id']])}c, {time.time()-t0:.1f}s)")
-    results = {"root": args.root, "budget": args.budget, "arms": {}}
+            packed[c["id"]], embedder = pack_context(c["query"], args.root, args.budget,
+                                                     args.top_k, data_dir)
+            print(f"  packed {c['id']} ({len(packed[c['id']])}c, {embedder}, "
+                  f"{time.time()-t0:.1f}s)")
+    results = {"root": args.root, "budget": args.budget,
+               "pack_embedder": embedder, "arms": {}}
     for arm in arms:
         ctx_kind, tier = ARMS[arm]
         cfg = tier_config(tier)
