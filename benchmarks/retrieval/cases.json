@@ -4,52 +4,102 @@
     {
       "id": "cascade-selection",
       "query": "how does the engine pick which embedding model to use, and how does it refuse one that loads but produces nonsense",
-      "expect": ["physis-core/src/embed.rs"]
+      "expect": [
+        "physis-core/src/embed.rs"
+      ],
+      "must_mention": [
+        "semantic_self_test",
+        "SEMANTIC_PROBE_MARGIN"
+      ]
     },
     {
       "id": "probe-discrimination",
       "query": "what stops a word-counting fake from being mistaken for a model that understands meaning",
-      "expect": ["physis-core/src/embed.rs"]
+      "expect": [
+        "physis-core/src/embed.rs"
+      ],
+      "must_mention": [
+        "SEMANTIC_PROBES",
+        "cosine"
+      ]
     },
     {
       "id": "licence-startup",
       "query": "which subcommands are allowed to run on a machine that has not paid, and where is that decided",
-      "expect": ["src/license.rs", "src/main.rs"]
+      "expect": [
+        "src/license.rs",
+        "src/main.rs"
+      ]
     },
     {
       "id": "budget-packing",
       "query": "how is the prompt kept from overflowing the window no matter how large the corpus grows",
-      "expect": ["physis-core/src/rag.rs"]
+      "expect": [
+        "physis-core/src/rag.rs"
+      ],
+      "must_mention": [
+        "TokenFixedRetriever",
+        "budget"
+      ]
     },
     {
       "id": "reference-model-absent",
       "query": "what happens to the comparison against a larger reference system when nobody has supplied credentials for it",
-      "expect": ["physis-core/src/oracle.rs"]
+      "expect": [
+        "physis-core/src/oracle.rs"
+      ],
+      "must_mention": [
+        "not_configured",
+        "from_env"
+      ]
     },
     {
       "id": "structure-recovery",
       "query": "how are near-duplicate documents grouped and statements that disagree with each other flagged",
-      "expect": ["physis-core/src/map.rs"]
+      "expect": [
+        "physis-core/src/map.rs"
+      ],
+      "must_mention": [
+        "NEGATION_MARKERS",
+        "build_map"
+      ]
     },
     {
       "id": "sparse-counts",
       "query": "when a phrase was never seen at full length, how is a probability still produced from shorter fragments",
-      "expect": ["physis-core/src/ngram_table.rs"]
+      "expect": [
+        "physis-core/src/ngram_table.rs"
+      ],
+      "must_mention": [
+        "backoff",
+        "alpha"
+      ]
     },
     {
       "id": "artifact-integrity",
       "query": "how does the system make sure a downloaded weights file was not tampered with before it is used",
-      "expect": ["physis-core/src/model_provider.rs"]
+      "expect": [
+        "physis-core/src/model_provider.rs"
+      ],
+      "must_mention": [
+        "sha256",
+        "checksum"
+      ]
     },
     {
       "id": "agent-surface",
       "query": "how does an external coding assistant discover and invoke the capabilities this program offers",
-      "expect": ["src/mcp.rs"]
+      "expect": [
+        "src/mcp.rs"
+      ]
     },
     {
       "id": "tamper-proof-entitlement",
       "query": "how is a customer prevented from editing their own permissions file to unlock paid features",
-      "expect": ["src/license.rs"]
+      "expect": [
+        "src/license.rs"
+      ]
     }
-  ]
+  ],
+  "must_mention_comment": "Gate for benchmarks/retrieval/answer.py (arms A-D): the decisive identifiers a correct answer must name, established by reading the code, checked literally and case-insensitively — the same rule as oracle::cites_evidence. Cases outside physis-core/src have no gate yet and are skipped by that harness rather than scored."
 }

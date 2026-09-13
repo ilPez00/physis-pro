@@ -307,7 +307,15 @@ record rather than a tidy plan.
    judge. Binary gate, external, no partial credit. This is the experiment that
    decides whether draft-and-fill is a product or a demo.
 3. **Build arms B, C, D** of the §3 2×2. Nothing else changes what is known
-   about the small-model thesis.
+   about the small-model thesis. **Harness built 2026-09-13** —
+   `benchmarks/retrieval/answer.py`, gated on `must_mention` (the decisive
+   identifiers a correct answer must name, checked literally, the same rule as
+   `oracle::cites_evidence`), both context arms cut to equal character size,
+   naive built as round-robin file heads rather than an alphabetical prefix.
+   **No arm has a reported result yet** — built is not measured, and the harness
+   refuses to print a rate for an arm with any failed case. Large tier available
+   without a key: a 27B on the local mesh, which is a real tier gap beside a 4B
+   and must be labelled a local peer tier, never an oracle.
 4. **Merge `agent/PH-001` into `main`.** Still the largest single-point-of-
    failure in the repository.
 5. **PH-017** — `list` and `replay` disagree about hypothesis status; the ledger
