@@ -183,68 +183,69 @@ impl TokenFixedRetriever {
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
+        // Greedy MMR: each round takes the best remaining chunk by effective
+        // score, then discounts what is left against what was just taken.
+        //
+        // The first version scanned, for each candidate, every higher-scoring
+        // chunk and skipped the candidate if any of them beat it once
+        // discounted — but it never excluded the chunks it had already
+        // selected. A selected chunk's self-similarity is 1.0, so it kept its
+        // full `base * (1 - diversity)` and permanently out-scored nearly
+        // everything below it: with the CLI default `--diversity 0.3`, a pack
+        // of physis-core/src returned 2 chunks and 4 of 3000 budgeted tokens,
+        // silently handing an agent an empty context instead of a packed one.
+        // Removing a chunk from `remaining` when it is selected is what makes
+        // the comparison mean "better than what is still on the table".
+        //
+        // `remaining` carries (chunk id, base score, max cosine to anything
+        // already selected). The discount is updated incrementally against the
+        // one new selection per round, so this is O(top_k * n) cosines rather
+        // than the O(n^2) per candidate the first version paid.
+        let mut remaining: Vec<(usize, f32, f32)> =
+            scored.into_iter().map(|(id, base)| (id, base, 0.0)).collect();
         let mut selected: Vec<RetrievedChunk> = Vec::new();
         let mut used = 0usize;
-        let mut truncated = false;
-        let mut selected_embs: Vec<&[f32]> = Vec::new();
 
-        for &(cid, base) in &scored {
-            if selected.len() >= self.top_k {
-                truncated = true;
-                break;
+        while selected.len() < self.top_k {
+            let mut best: Option<usize> = None;
+            let mut best_eff = f32::NEG_INFINITY;
+            for (pos, &(cid, base, discount)) in remaining.iter().enumerate() {
+                // A chunk that cannot fit the remaining budget is not a
+                // candidate this round; it stays in `remaining`, so it still
+                // counts as truncation below.
+                if used + corpus.chunks[cid].tokens > self.budget {
+                    continue;
+                }
+                let eff = base * (1.0 - self.diversity * discount);
+                if eff > best_eff {
+                    best_eff = eff;
+                    best = Some(pos);
+                }
             }
+            let Some(pos) = best else { break };
+
+            let (cid, base, _) = remaining.remove(pos);
             let chunk = &corpus.chunks[cid];
-            // MMR: discount by max cosine to already-selected chunks.
-            let mut discount = 0.0f32;
+            used += chunk.tokens;
+            selected.push(RetrievedChunk {
+                id: chunk.id,
+                text: chunk.text.clone(),
+                score: base,
+                tokens: chunk.tokens,
+            });
             if self.diversity > 0.0 {
-                for se in &selected_embs {
-                    let c = cosine_sim(&chunk.embedding, se);
-                    if c > discount {
-                        discount = c;
+                for entry in remaining.iter_mut() {
+                    let c = cosine_sim(&corpus.chunks[entry.0].embedding, &chunk.embedding);
+                    if c > entry.2 {
+                        entry.2 = c;
                     }
                 }
-            }
-            let eff = base * (1.0 - self.diversity * discount);
-            // Re-check ordering under effective score so MMR reordering is stable:
-            // only accept if no unselected candidate scores higher effectively.
-            // (Cheap: corpus sizes are small for RAG context assembly.)
-            let mut blocked = false;
-            if self.diversity > 0.0 {
-                for &(oid, obase) in &scored {
-                    if oid == cid {
-                        break;
-                    }
-                    let ochunk = &corpus.chunks[oid];
-                    let mut odisc = 0.0f32;
-                    for se in &selected_embs {
-                        let c = cosine_sim(&ochunk.embedding, se);
-                        if c > odisc {
-                            odisc = c;
-                        }
-                    }
-                    if obase * (1.0 - self.diversity * odisc) > eff + 1e-6 {
-                        blocked = true;
-                        break;
-                    }
-                }
-            }
-            if blocked {
-                continue;
-            }
-
-            if used + chunk.tokens <= self.budget {
-                used += chunk.tokens;
-                selected_embs.push(&chunk.embedding);
-                selected.push(RetrievedChunk {
-                    id: chunk.id,
-                    text: chunk.text.clone(),
-                    score: base,
-                    tokens: chunk.tokens,
-                });
-            } else {
-                truncated = true;
             }
         }
+
+        // Anything still on the table did not make it — because top_k was
+        // reached, or because nothing left fits the budget.
+        let truncated = !remaining.is_empty();
 
         RetrievalResult {
             chunks: selected,
@@ -290,6 +291,50 @@ mod tests {
 
     fn emb() -> RandomProjectionEmbedder {
         RandomProjectionEmbedder::new(64)
+    }
+
+    /// Regression: with `diversity > 0` the retriever selected two chunks and
+    /// stopped, whatever the budget. The old MMR filter compared each candidate
+    /// against the chunks it had already selected, whose self-similarity is 1.0,
+    /// so the first pick out-scored everything below it forever. The CLI default
+    /// is `--diversity 0.3`, so every packed context shipped that way: 4 of 3000
+    /// budgeted tokens on physis-core/src.
+    #[test]
+    fn diversity_does_not_starve_the_budget() {
+        // Long enough, and enough of them, that the budget is what binds —
+        // not top_k, which would hide a starved pack behind its own cap.
+        let texts: Vec<String> = (0..200)
+            .map(|i| {
+                format!(
+                    "chunk {i} about turbine rotor bearing vibration, maintenance \
+                     scheduling, lubrication intervals and the shift report that \
+                     records them for line {i}"
+                )
+            })
+            .collect();
+        let e = emb();
+        let corpus = RagCorpus::build(&texts, &e);
+        let q = e.embed("turbine bearing vibration");
+
+        let plain = TokenFixedRetriever::new(3000, 500).retrieve(&q, &corpus);
+        let diverse = TokenFixedRetriever::new(3000, 500)
+            .with_diversity(0.3)
+            .retrieve(&q, &corpus);
+
+        // Diversity re-orders what is picked; it must not decide how much is.
+        assert_eq!(
+            diverse.chunks.len(),
+            plain.chunks.len(),
+            "diversity 0.3 packed {} chunks where plain relevance packed {}",
+            diverse.chunks.len(),
+            plain.chunks.len()
+        );
+        assert!(
+            diverse.total_tokens > 3000 / 2,
+            "packed only {} of a 3000-token budget",
+            diverse.total_tokens
+        );
+        assert!(diverse.total_tokens <= 3000);
     }
 
     #[test]
