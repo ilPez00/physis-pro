@@ -7,8 +7,8 @@ This file exists because three separate attempts in one session compressed a
 
 | attempt | claim | why it was wrong |
 |---|---|---|
-| 1 | "Physis is a context compiler." | Context compiling is one operation out of six. MIT alternatives beat it on token reduction. |
-| 2 | "No — an epistemic ledger." | The ledger is a second operation out of six. |
+| 1 | "Physis is a context compiler." | Context compiling is one operation of many (§3). MIT alternatives beat it on token reduction. |
+| 2 | "No — an epistemic ledger." | The ledger is a second operation of many (§3, §3½). |
 | 3 | "70-symbol vocabulary, one n-gram table." | It is **70 tables with subtables**. See §2. |
 
 Each attempt sounded sharper than the last and was equally wrong. **The system
@@ -20,7 +20,11 @@ does not compress to a noun. Describe it structurally.**
 
 > Physis is a **coordinate system for meaning** — 5 domains × 14 modes = 70
 > cells, tree-nested by facets — **plus the operations that assign, revise and
-> audit coordinates**, plus the applications built on those operations.
+> audit coordinates**, plus the meta-tool that carries them: one belief state
+> (`PhysisCore` + the append-only `EpistemicAuditTrail`) that a **human** (CLI,
+> studio web), the **machine itself** (observation log, importers), and **AI
+> agents** (MCP stdio, `act`/`claim`, oracle transport) all write to through the
+> same commands. The applications built on those operations come last.
 
 Everything else is a consequence of that sentence.
 
@@ -33,8 +37,11 @@ DOMAINS: [HEAL, CONSTRUCT, FABRICATE, BOND, STUDY]                       //  5
 MODES:   [LIFT, REST, WALK, WORK, CREATE, LEARN, DESTROY, SENSE,
           GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN]                 // 14
 ```
-`src/semiotic_grid.rs` — **5 × 14 = 70 cells.** Stable public API; ontology packs
-add entries, never axes.
+The axes are code, not a grid file: `HumanDomain` / `HumanMode` enums in
+`physis-core/src/models.rs:597–700` with `DomainDef` entries in
+`ontology.rs`. **5 × 14 = 70 cells.** Axes are enums — nothing at runtime can
+add one; ontology packs add entries, never axes. (`physis_pro/src/
+semiotic_grid.rs` is the pro-side grid module; do not cite it for core.)
 
 Facets tree-nest *under* a cell **without enlarging the base grid**
 (`physis-core/src/models.rs`, `struct Facets`):
@@ -61,19 +68,25 @@ describe it as if it were.
 
 ---
 
-## 3. The six operations
+## 3. The operations
 
 Every module is one of these. When asked "what does physis do", answer with this
-table, not with one row of it.
+table, not with one row of it. Core/pro column: **a module listed under core
+exists in `physis-core/src`; one under pro exists only in `physis_pro/src`.**
 
-| operation | modules |
-|---|---|
-| **assign** a coordinate | `classify` · `propose` |
-| find where coordinates **fail** | `discovery` · `coverage` · `linkage` |
-| find structure-preserving **maps** between regions | `transform` · `transplant` · `structsim` |
-| detect **drift** vs. name collision | `becoming` |
-| **record** assignments over time, and whether they held | `hypothesis` · `contradiction` · `epistemic` · `provenance` · `temporal` · `relation` · `explanation` · `delta_engine` · `ledger` |
-| **select** which coordinates to read next | `rag` · `pack` · `map` |
+| operation | core (Apache) | pro only |
+|---|---|---|
+| **assign** a coordinate | `classify` · `propose` | — |
+| find where coordinates **fail** | `discovery` · `coverage` · `linkage` | — |
+| find structure-preserving **maps** between regions | `transform` · `transplant` | `structsim` |
+| detect **drift** vs. name collision | `becoming` | — |
+| **record** assignments over time, and whether they held | `hypothesis` · `contradiction` · `epistemic` · `provenance` · `temporal` · `relation` · `explanation` · `delta_engine` | `ledger` |
+| **select** which coordinates to read next | `rag` · `map` | `pack` |
+| **act**, with what is already believed put in front of the action | `act` (record-before-run, contradicted-claim stop) | `mcp` (30-tool stdio server) |
+| **observe** what the machine sees, append-only | `observe` · `watch` · `vault` · `history` · `praxis` · `process` | — |
+| **check the direction** of its own transformations against a null | `direction` · `oracle` · `bench` | — |
+| **compose** every measured mechanism, null included | `chain` · `notebook` · `ground` | — |
+| **propose self-healing** — shadow-frame deltas, dream re-proposals | `delta_engine` · `dream` · `quality` | — |
 
 Applications of the operations to a domain: 22 philosophical machines ·
 industrial (`oee` `maintenance` `secom` `moonraker` `shifts` `report`) ·
@@ -83,8 +96,64 @@ agent (`mcp` `ai/*` `routes` `extract`) · space·time·cause (`address` `ledger
 `mails` `audit` `operational`) · linguistic lenses (`wenyan` `piraha`
 `sanskrit`) · personal (`life_os` `study` `interest` `monitor` `praxis`).
 
-Counts: **physis-core 46 modules / 22.7k lines (Apache-2.0)** ·
-**physis_pro 140+ modules / ~90k lines (proprietary)**.
+Counts (measured 2026-09-13 by file walk): **physis-core 54 `.rs` files /
+27.5k lines / 46 `pub mod`s (Apache-2.0)** · **physis_pro 140+ modules /
+~90k lines (proprietary)**.
+
+Surfaces, as built: three binaries, not one. `physis-core` (the engine CLI,
+behind the `cli` feature), `physis` (`src/bin/physis.rs` — a feature-free
+**front door** that `exec`s core or pro and owns only `upgrade`/`web`/
+`console`), and the studio (a subcommand of the core CLI: axum + embedded SPA,
+43 routes in `studio.rs` plus 7 merged from `studio_lab.rs` and
+`studio_communities.rs` ≈ 51 endpoints). `Cargo.toml` default features are
+**empty** — `cli`, `studio`, `embed-onnx`, `http` are all opt-in so the engine
+lib stays dependency-free. **There is no TUI in physis-core**; the ratatui TUI
+is `physis_pro/src/bin/tui.rs` and talks HTTP.
+
+---
+
+## 3½. The loop — why "meta-tool" is the right noun
+
+The surfaces of §3 are not parallel features; they compose into one circuit,
+each stage grounded in a module that ships it:
+
+```text
+  observe  →  act      →  claim      →  predict   →  resolve
+  (watch,      (belief      (assert       (open        (fitness
+   importers)   check        what was      checkable    moves;
+                before       seen)         promises)    replay at
+                running)                                any t)
+                                     ↓
+              dream / delta_engine — PROPOSALS ONLY (re-proposal of retired
+              branches, shadow-frame cascades, adjudication routing);
+              nothing applies without an explicit commit
+```
+
+- **Tool calling with belief** (`act.rs`): records the intent as an observation
+  *before* the command runs (so a hanging action still leaves a record), records
+  the outcome with its real duration, then recalls what is already believed
+  (`Bearing`: status, relevance, open predictions) and stops when a claim is
+  already `Contradicted`. Not a sandbox — the contribution is that action and
+  belief live in one substrate, which is what lets the machine notice its own
+  mistake (Gap 8 of `computer-remake-research/`).
+- **Self-healing, never silent** (`delta_engine.rs`, `dream.rs`): mutations are
+  simulated in a shadow frame (γ = 0.85 propagation, revision selected by the
+  declared `DependsOn` closure, `Certified` beliefs protected); the dream pass
+  re-proposes retired branches. Everything is a proposal with cited evidence;
+  commit is always the caller's decision. Superseded beliefs are never deleted.
+- **Self-checking** (`direction.rs`, `oracle.rs`): every transformation can be
+  scored against a null that achieves the same magnitude stupidly (truncation
+  for "shorter"); the oracle leg reports `not_configured` rather than faking.
+  A verdict that cannot fail is not shipped.
+- **Human/machine shared state** (`ground.rs`): the common-ground render — what
+  is believed, what contradicts it, what was promised and never checked. Both
+  the human and the agent write through the same commands, so the view is
+  shared by construction, not synchronisation. No model involved; physis is
+  the ground, not another voice.
+
+The honest limits are the code's own: `act` relevance is cosine (misses a
+contradiction phrased differently), dreams do not apply themselves, and the
+oracle without a key measures nothing.
 
 ---
 
@@ -156,7 +225,8 @@ output, which is the next experiment.
 
 ## 6. The neurosemantic expansion
 
-Five agent harnesses, all local, all writing into **one** coherence graph and
+Four agent harnesses (Kilo is a provider, not a harness — see the note below
+the table), all local, all writing into **one** coherence graph and
 **one** replayable `EpistemicAuditTrail` (`wiring/neurosemantic_wiring.md`):
 
 | # | harness | on disk 2026-09-12 |
@@ -173,13 +243,15 @@ Counted as a harness it inflates the trace-source count by 25%.
 
 Interfaces: harness (`.loom` / `.mcp.json` stdio / CLI) = internal · MCP stdio =
 primary external (local, no cloud, **30 tools**) · REST/`web_server` =
-commercial/per-tenant.
+commercial/per-tenant. **The MCP server is physis_pro code** (`src/mcp.rs`,
+`PhysisMcpServer`); physis-core ships no MCP — grep `mcp` in `physis-core/src`
+and you get nothing.
 
 **This is the trace source.** "Extraction from agentic workflows (local)" means
-these five harnesses' traces, landing in the ledger, feeding the per-cell tables
-of §2. `ledger.rs` holds ordered causal event sequences; `build_structural`
-consumes documents. **Nothing connects them yet.** That join is the highest-value
-unbuilt thing in the repository.
+these four harnesses' traces, landing in the ledger, feeding the per-cell tables
+of §2. `ledger.rs` (pro) holds ordered causal event sequences;
+`build_structural` (core) consumes documents. **Nothing connects them yet.**
+That join is the highest-value unbuilt thing in the repository.
 
 ---
 
@@ -206,7 +278,8 @@ shape over an ontology; pointed at the crate graph it is a self-debugger.
 1. Do **not** reduce Physis to one noun. Use §1's sentence and §3's table.
 2. Do **not** confuse *judge* with *propose* (§4).
 3. Do **not** cite `benchmarks/ground-truth` as retrieval evidence — it scores
-   identically under a lexical hash and a real model. Use `benchmarks/retrieval/`.
+   identically under a lexical hash and a real model. Use `benchmarks/retrieval/`
+   (at the **repo root**, next to `scripts/`).
 4. Do **not** claim a capability without grepping its call sites (§7).
 5. Say **70 tables with subtables**, never "70 symbols" (§2).
 6. When a measurement is absent, write `NOT MEASURED`. Never imply.
