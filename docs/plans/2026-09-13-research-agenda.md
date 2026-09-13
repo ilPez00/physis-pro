@@ -239,7 +239,50 @@ was searched under the falsifiability framing rather than this one. Under
 
 ### The experiments
 
-**D1 — how far is the grid from a top-down ontology, today?** Before anything
+**D1 — RUN 2026-09-13. 62% of the grid is disputed.** `examples/grid_anchor`,
+artifact in `benchmarks/results/grid-anchor.json`. Reference is WordNet 3.1
+noun **supersenses** — offline, symbolic, fixed. Coherence comes from D4's
+per-cell null and concentration from a 200-permutation null of its own, so each
+of the plan's three states rests on a control:
+
+```text
+matched      14   coherent AND concentrated on one supersense
+DISPUTED     35   coherent, and WordNet has no such class
+unsupported   8   does not clear its own null, anchor or not
+```
+
+**The disputed set is the largest cells**, and that is the finding:
+
+| cell | n | top supersense | conc | null |
+|---|---|---|---|---|
+| `CONSTRUCT/CREATE` | 70 | `noun.artifact` | 0.17 | 0.18 |
+| `STUDY/WORK` | 52 | `noun.cognition` | 0.19 | 0.19 |
+| `STUDY/LEARN` | 35 | `noun.cognition` | 0.20 | 0.19 |
+| `FABRICATE/CREATE` | 26 | `noun.communication` | 0.21 | 0.19 |
+
+They sit *on* their null: coherent by D4, and spread across WordNet's carve
+exactly as a shuffled cell of the same size would. Physis's biggest cells cut
+across the lexical hierarchy rather than restating a slice of it.
+
+Two corrections, both caught by the number looking wrong rather than the code
+failing — and both worth remembering for D2:
+
+1. A fixed concentration threshold (0.34) scored **zero** cells as matched. It
+   was measuring cell size. Any threshold on a share-of-largest statistic will
+   do that; use the permutation null.
+2. The anchor was one hypernym hop, giving a seventy-entry cell four hundred
+   parents and a concentration of 0.02 against a null of 0.02 —
+   indistinguishable by arithmetic, not by evidence. Supersenses are WordNet's
+   own 26-way carve. **The finding survived the fix that could have removed
+   it**, which is the only reason it is quotable.
+
+**Still open on D1:** WordNet is a lexical hierarchy of common nouns and this
+grid is industrial, so "disputed" here is a weaker claim than "disputed against
+SUMO, DOLCE or schema.org". The protocol is the result; the number needs a
+domain reference before it is quoted as one. That is the next D1 pass, and
+DeepOnto is the harness for it.
+
+**D1 (original statement) — how far is the grid from a top-down ontology?** Before anything
 is made revisable, measure the anchor. Align the 5×14 grid against an
 established upper ontology (SUMO, DOLCE, or schema.org for the industrial
 cells) using the OAEI protocol, and report precision/recall/coherence plus the
