@@ -227,6 +227,16 @@ was searched under the falsifiability framing rather than this one. Under
 - **DeepOnto** (arXiv 2307.03067) is the Python package for ontology
   engineering with deep learning — matching, alignment, evaluation — and is the
   harness to borrow rather than write.
+  **Verdict after running D1 and D2a without it (2026-09-13):** not needed yet,
+  and worth being specific about why. DeepOnto's value is OWL/RDF handling,
+  standard OAEI scoring and published matcher baselines. Physis's grid is not
+  OWL, the anchor used so far is WordNet's own supersense partition rather than
+  an ontology to align against, and the null-based protocol built here does the
+  scoring. It becomes the right tool at the *domain reference* step — the
+  moment the anchor is SUMO, DOLCE or schema.org, the alignment stops being a
+  lookup and becomes matching, and reimplementing OAEI scoring at that point
+  would be the mistake. It is a Python dependency, so it lives in a research
+  script, never in the crate.
 - **Open Ontologies: Tool-Augmented Ontology Engineering with Stable Matching
   Alignment** (arXiv 2605.09184) is the closest recent system.
 - On the approval leg: LLM-supported collaborative ontology design reports the
@@ -291,6 +301,83 @@ matters: it is how much of physis's grid is variance rather than error. If it is
 near zero the grid is a re-labelling of something standard and the interesting
 claim is gone. If it is large, that is the differentiator, stated in a metric
 someone else defined.
+
+**D2a — THE MODE AXIS EXPANDS ITSELF. RUN 2026-09-13.**
+`examples/mode_inventory`, artifact in `benchmarks/results/mode-inventory.json`.
+
+The question asked directly: *are `CREATE`, `WORK` and `SENSE` the modes there
+are, or the modes someone wrote down?* WordNet partitions the whole English
+verb lexicon into fifteen **verb supersenses** — a carve by lexicographers with
+no idea physis exists. That is the top-down inventory for the mode axis.
+
+**Eight of fourteen modes carve. Six do not.**
+
+| mode | n | dominant supersense | share | null | carves? |
+|---|---|---|---|---|---|
+| `WORK` | 155 | **`verb.communication`** | 0.19 | 0.14 | yes |
+| `CREATE` | 122 | **`verb.contact`** | 0.16 | 0.15 | **NO** |
+| `SENSE` | 99 | `verb.communication` | 0.16 | 0.15 | **NO** |
+| `MAINTAIN` | 82 | `verb.change` | 0.18 | 0.15 | yes |
+| `LEARN` | 58 | `verb.cognition` | 0.27 | 0.15 | yes |
+| `PLAN` | 42 | `verb.cognition` | 0.24 | 0.16 | yes |
+| `REST` | 37 | `verb.contact` | 0.22 | 0.16 | yes |
+| `WALK` | 33 | `verb.change` | 0.17 | 0.17 | **NO** |
+| `MOVE` | 31 | `verb.motion` | 0.25 | 0.16 | yes |
+| `GUIDE` | 19 | `verb.communication` | 0.36 | 0.18 | yes |
+| `LIFT` | 18 | `verb.motion` | 0.24 | 0.18 | **NO** |
+| `PLAY` | 18 | `verb.motion` | 0.25 | 0.18 | yes |
+| `DESTROY` | 9 | `verb.change` | 0.18 | 0.22 | **NO** |
+| `BRAINSTORM` | 8 | `verb.communication` | 0.18 | 0.22 | **NO** |
+
+So the answer is **no**. `CREATE` is the second-largest mode, its verbs are
+dominantly about *contact*, and a permutation of the entries reproduces its
+distribution. `SENSE` fails and its dominant supersense is communication, not
+perception. `WORK` carves — **but not as work**; its dominant supersense is
+communication, so whatever the largest mode picks out, it is not labour.
+
+**This reproduces E22 from a direction that shares no machinery with it.** E22
+found `WORK`/`CREATE`/`MAINTAIN`/`SENSE` holding 68% of entries and failing to
+separate, using confusion between physis's own classes. This uses an external
+inventory and no classifier — two of those four fail outright, a third is
+mislabelled, and `WALK` collects its third independent verdict.
+
+**Ten of fifteen supersenses are unowned**, and `verb.creation` is one of them
+— unowned *while a mode named `CREATE` exists*, because `CREATE` carves nothing
+and so owns nothing. That single line is the argument for the whole proposal
+framing.
+
+Three outputs, all proposals, none applied:
+
+- **EXPAND** — `verb.body`, `verb.competition`, `verb.consumption`,
+  `verb.creation`, `verb.emotion`, `verb.perception`, `verb.possession`,
+  `verb.social`, `verb.stative`, `verb.weather`
+- **MERGE** — `LEARN`+`PLAN` (cognition), `GUIDE`+`WORK` (communication),
+  `MOVE`+`PLAY` (motion)
+- **RETIRE** — the six that do not clear their null
+
+### And PLANNING.md §1's blocked list now has evidence
+
+§1 proposes ten modes and its own gate blocks them for lacking a measurement.
+This is one, and it splits them:
+
+| proposed | lands in | reading |
+|---|---|---|
+| `DECIDE`, `REASON`, `REMEMBER`, `IMAGINE` | `verb.cognition` | **already owned** by `LEARN`/`PLAN` |
+| `TEACH`, `PERSUADE` | `verb.communication` | already owned by `GUIDE`/`WORK` |
+| `MEASURE` | `verb.perception` | **unowned — supported** |
+| `SHARE` | `verb.possession` | **unowned — supported** |
+| `CELEBRATE` | `verb.social` | **unowned — supported** |
+| `PROTEST` | `verb.emotion` | **unowned — supported** |
+
+Six of ten are redundant against the grid's existing coverage; four fill real
+gaps. §1 is half right and not in the half it argues hardest for. **Nothing is
+approved by this** — a lexical gap is not a business case, and the approval
+step is the human half of the design.
+
+**Next on D2a:** the same run against a *domain* verb inventory rather than a
+lexical one. `verb.weather` is certainly irrelevant to an industrial
+backoffice; `verb.possession` and `verb.perception` probably are not. WordNet
+cannot tell those apart and a domain reference can.
 
 **D2 — proposals from the corpus, scored against the anchor.** Cluster the
 corpus into candidate cells (the LKD-KGC move — schema emerging from data,
