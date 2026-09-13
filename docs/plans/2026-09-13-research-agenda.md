@@ -264,14 +264,50 @@ between them** before either is trusted. The 0.97-versus-0.68 result above says
 neither is the oracle. If the two adjudicators disagree more than the proposals
 vary, the loop is a coin flip with a person in it.
 
-**D4 — the null, and it is not optional.** A grid that revises itself needs a
-**label-permuted replay**: the same evidence against shuffled cell labels. If
-fitness falls the same way under permutation, the mechanism is responding to
-volume and not to fit. Run this before D2 ships anything.
+**D4 — RUN 2026-09-13, and the grid passes its own null 11.5x.**
+`src/grid_fitness.rs`, `examples/grid_fitness`, artifact in
+`benchmarks/results/grid-fitness.json`. Fitness is leave-one-out
+self-recovery; the null reassigns every entry at random, keeping every cell's
+size exactly. 70 cells, 731 entries, 200 permutations, bge-base-en-v1.5:
+
+```text
+overall self-recovery 0.438   permuted 0.038   (11.5x the null)
+  49 of 70 cells clear their own null
+   8 fail it with two or more entries
+  13 have fewer than two entries: unmeasurable
+```
+
+**The grid is not an arbitrary carve**, and this is the first time that has
+been checked against anything. It matters for D as a whole: the thing being
+made revisable is worth keeping.
+
+The eight populated failures are the result, and one of them is new:
+
+| cell | n | fitness | null | z |
+|---|---|---|---|---|
+| **`BOND/MAINTAIN`** | **15** | **0.067** | 0.015 | **+1.40** |
+| `STUDY/PLAN` | 5 | 0.000 | 0.008 | −0.14 |
+| `STUDY/PLAY` | 4 | 0.000 | 0.006 | −0.13 |
+| `BOND/PLAY`, `BOND/SENSE`, `FABRICATE/PLAY`, `HEAL/DESTROY`, `STUDY/WALK` | 3 | 0.000 | ~0.002 | ~−0.08 |
+
+`BOND/MAINTAIN` has fifteen entries and recovers 6.7% of them. Not starved, and
+it does not carve. E22 named `FABRICATE`↔`CONSTRUCT` and `WALK`; this is a
+third case, and only a null surfaces it — 0.067 reads as a small number rather
+than a verdict until the null sits on the line beside it. **It is D2's first
+concrete target.**
+
+The 13 singletons are unmeasurable rather than failing: leave-one-out empties a
+one-entry cell, so 0.000 there is arithmetic. Counting them as failures would
+be E7's starved-class error one level up.
+
+**What it does not license:** self-recovery over ontology *entries* is not
+classification accuracy over documents, and the entries are the grid's own seed
+text — this is internal coherence, not fit to anything outside it. Which is
+precisely the leg D1 supplies.
 
 **Cost:** D1 a week (mostly getting a reference ontology and the alignment
-harness up — DeepOnto shortens it). D2 two weeks. D3 depends on how many
-proposals D2 emits. D4 two days and it gates the rest.
+harness up — DeepOnto shortens it). D2 two weeks, now with a concrete first
+target. D3 depends on how many proposals D2 emits. D4 is done.
 
 **The mechanism physis already has:** `TemporalValidity`, `narrow_until` and
 the revision history. A proposal is a hypothesis with a validity window; the
