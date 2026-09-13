@@ -43,6 +43,43 @@ N claims, issue commands that contradict k of them, and count how many
 contradictions are surfaced. There is a construction-matched null available —
 surface k random claims of the same age — so the result can fail.
 
+### Done, 2026-09-13 — and the verdict above is withdrawn, then replaced by a worse one
+
+`physis-core act-recall` (`src/act_recall.rs`). Eight commands, a 48-claim
+ledger of one age, two nulls: k random claims, and k random *contradicted*
+claims. On bge-base-en-v1.5, recall@5 is **1.000** when the command shares the
+claim's words and **0.875** when it paraphrases — both clear both nulls at top
+1, 3 and 5. So "in the normal case `act` does not find the contradiction" does
+not survive a direct measurement and is withdrawn; it came from the 2×2, which
+scored a different task on a different corpus. The true statement is narrower:
+this is a property of the embedder. On the random-projection fallback the
+paraphrase case scores **0.000**, below both nulls, so offline Gap 8 is open.
+
+Then a second arm, added after two papers named a defect in that corpus (arXiv
+2603.17580, 2609.01556 — see `computer-remake-research/literature-2026.md` §1):
+every distractor differed from its target by *topic*, none by *polarity*. Add
+each target's affirmed twin and ask which of the pair ranks first, null 0.500
+by construction:
+
+| embedder | arm | refutation first | reassured at top 1 |
+|---|---|---|---|
+| bge-base-en-v1.5 | lexical | **0.250** | 5 of 8 |
+| bge-base-en-v1.5 | paraphrase | **0.125** | 3 of 8 |
+| random-projection | lexical | 0.750 | 0 of 8 |
+
+Not a coin flip — inverted. The endorsement is the better match for a command
+that asks to *do* the thing, so it outranks the refutation in six of eight
+pairs. `is_warning` reads status, so the wrong one is surfaced wearing
+`Supported`. At top 5 the list rescues the operator; at `--top 1`, in five of
+eight lexical pairs the only claim printed is a reassurance about the exact
+thing a Contradicted claim refutes.
+
+**So problem 1's real shape is not recall.** `act` finds the right topic and
+cannot read the verdict, and the fallback embedder is the one that *can* read
+the verdict (0.750) while failing to find the topic at all. Neither dominates.
+The open experiment is a hybrid, and it is ahead of the reranking fix the
+literature offers.
+
 ---
 
 ## 2. A claim's identity is its prose, and prose is the layer measured as noise
