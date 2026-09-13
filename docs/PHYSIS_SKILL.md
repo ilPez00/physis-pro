@@ -178,9 +178,21 @@ physis-core hypothesis open                                # predictions never r
 This is how a 7-day-old hypothesis about retrieval was found already predicting
 a finding being independently rediscovered from scratch.
 
-**Known defect:** `list`/`explain` report a status *derived* from fitness while
-`replay` reconstructs it from the event log, and they disagree. See
-`packets/PH-017`. Do not cite `replay` as authoritative until that closes.
+**PH-017 closed 2026-09-12.** `Hypothesis::revise` read `self.status` for both
+ends of every transition, and every caller mutates status *before* revising — so
+each revision recorded `previous == new` and the history asserted nothing ever
+changed. `replay` was blind by construction while `list` derived standing from
+fitness. Events were not missing; the recorded transitions were no-ops.
+
+`revise` now takes the prior status as an argument (the compiler requires the
+caller to have captured it), and `PhysisCore::project_revisions` makes the audit
+trail a **view** over `revision_history` rather than a second record kept in sync
+by discipline — discipline is what failed.
+
+Live store: **8/10 claims agree** between `list` and `replay`. The two that do
+not predate the fix; their revisions are permanently no-ops. They are **not**
+backfilled — `replay` prints both values and the reason. A gap in the record is
+information; a fabricated record is not.
 
 ## 6. Exit 0 is not a result
 
@@ -196,6 +208,7 @@ Observed, all of them while building the checks in this file:
 | `decisions-mine` parsed 622 events and mined 0 decisions | a working pipeline, exit 0 |
 | `note --verdict -1` was read by clap as a flag, not a value | verdict recording worked — for `success` and `inert` only |
 | a verification grep searched `*.go` for symbols declared in `sample.py` | three findings "disproved" — the check was wrong, not the tool |
+| `calls` armed its Rust `#[cfg(test)]` rule on a shell script that *mentions* `#[cfg(test)]` in a comment | a live dispatch table reported as test-only dead code |
 
 **Every measurement prints its denominator.** "0 problems over 0 files scanned"
 is not a pass; the checks here exit 2 on it and say so. When you add a check,
@@ -232,14 +245,40 @@ Read the control line first, and the embedder line before that:
 - `NOT ABOVE THE NULL` ⇒ shape, not knowledge. Report nothing from the cells.
 - `CONTROL not run` ⇒ `NOT MEASURED`, never a pass.
 
-**Measured, and negative:** across five corpora the discovery arm has never
-cleared the Δ>0.02 threshold — session claims (28 docs) +0.0000, `docs/` (86)
-+0.0005, `research/` (92) +0.0007, `packets/` (32) control not run, this
-session's claims (4) +0.0000. Two orders of magnitude short, consistently. So
-treat `chain`'s **shortlist** as unproven and read only the halves the control
-does not gate: structure (repeats, differences, contradictions), token
-compression, and which records the ontology cannot place. Those are
-deterministic, not discovery.
+**Measured.** On every *prose* corpus tried, the discovery arm sat at the null:
+session claims (28 docs) +0.0000, `docs/` (86) +0.0005, `research/` (92)
++0.0007, `packets/` (32) control not run. Several were identical to four
+decimals, which looks exactly like an invariant statistic — the failure mode
+this control's own source documents twice.
+
+It is not invariant. On corpora whose topics share no content word it clears
+the bar every time there is anything to score:
+
+| topics | docs | candidates | real | null | Δ |
+|---:|---:|---:|---:|---:|---:|
+| 2 | 12 | 1 | 0.0000 | 0.0000 | — nothing to score |
+| 3 | 24 | 2 | 0.0655 | 0.0000 | **+0.0655** |
+| 4 | 24 | 2 | 0.0976 | 0.0017 | **+0.0959** |
+| 8 | 48 | 2 | 0.0710 | 0.0000 | **+0.0710** |
+
+Verdict line on all three: `The shortlist carries signal the permuted arm does
+not.` The 2-topic row is the vacuous case, correctly reported as `CONTROL not
+run` rather than as a loss.
+
+What separates the two regimes is shared vocabulary, not corpus size: an earlier
+version of the 3-topic corpus differed only by one boilerplate sentence repeated
+in every document, and it scored real 0.0223 vs null 0.0223 — bit-identical in
+f32.
+
+So the honest reading of a Δ≈0 on prose is **"this corpus has no grouping this
+method can find"**, not "the method cannot find groupings". Treat the shortlist
+as unproven on that corpus and read the halves the control does not gate —
+structure, token compression, unplaced records — which are deterministic rather
+than discovered.
+
+A first pass here published the negative as a property of the method after five
+prose corpora. One constructed positive refuted it. **Five agreeing corpora are
+five samples from one regime, not a law.**
 
 The winning branch of that control had no test at all until this was checked —
 `discriminates() == true` was indistinguishable from unreachable code. It is
