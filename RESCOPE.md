@@ -343,6 +343,22 @@ record rather than a tidy plan.
    (790 s suite) cannot even be measured until the suite finishes.
 7. **Contradiction recall 0.50.** One of two known pairs missed, unchanged by
    the embedder, so it is a map defect rather than a retrieval one.
+   **2026-09-13:** this is now the baseline for conceptual problem 2 — a claim
+   is identified by its prose, and prose is the layer measured as
+   interpreter-noise. See `docs/plans/2026-09-13-four-conceptual-problems.md`.
+
+7b. **The ledger reaches its data through the compiler.** §0 settles that the
+   compiler is the commodity half and the ledger is the differentiator. That is
+   true about the market and false about the build order: `act.rs` — the only
+   implementation anywhere of acting-while-checking-belief — finds prior belief
+   by cosine over claim statements, which is the commodity half, measured at
+   0–1/7 by the 2×2 on the same day. The differentiator has a hard dependency
+   on the commodity, and §0 does not say so. Conceptual problem 1.
+
+7c. **The grid is the one belief that cannot be contradicted.** Everything else
+   in this engine can be supported, contradicted, superseded and replayed; the
+   70-cell ontology cannot, and E5 already found 57→14 gains kappa. Conceptual
+   problem 3.
 8. **403 unreferenced public items** in physis_pro, 112 in physis-core
    (`docs/wiki/UNREFERENCED-2026-09-12.txt`). A maintenance-surface measurement,
    not a defect count.
