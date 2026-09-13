@@ -158,7 +158,34 @@ to it. Building the real (subject, relation, object, interval) needs an
 extractor, which needs an interpreter — and the moment there is one, C3 becomes
 runnable in the same pass.
 
-**C3 — the interpreter-swap test, run on the ledger rather than on graphiti.**
+**C3 — RUNNING 2026-09-13, first result withdrawn for a harness bug.**
+`research/c3_interpreter_swap.py`. Eight ground-truth documents, qwen2.5-7b on
+omo against nemotron-3-ultra-550b, four cumulative layers hashed after
+normalisation, with a same-model control.
+
+The first run reported **every layer CHANGED by the interpreter** on 4 usable
+documents, with the control 4/4 stable at every layer — the opposite of
+graphiti, which found L1–L3 byte-identical and only prose moving. That would be
+a serious weakening of problem 2's premise.
+
+It is **not reported as a result**, because the diagnostic found why 4 of 8
+documents were unusable: NIM's nemotron returns its answer in
+`reasoning_content` and leaves `content` empty, and the harness read only
+`content`. That is a harness bug charged to the model. Fixed; re-running.
+
+Two things to hold when the number lands:
+
+- The control being perfectly stable means greedy decoding is deterministic
+  here, so **any** layer that differs differs because of the interpreter. That
+  half of the design works.
+- Graphiti's pipeline normalises entities before hashing and this one does not.
+  If the layers still diverge after the fix, the honest reading may be that
+  **graphiti's stability was graphiti's normalisation rather than the models'**
+  — which would move the work from "adopt the tuple" to "build the
+  normaliser", and is a different conclusion from either the plan's or
+  graphiti's.
+
+**C3 (original statement) — the interpreter-swap test on the ledger.**
 Repeat the state-hash experiment against physis's own claims: same evidence,
 two interpreters, hash the entity set, the edge topology, the intervals, and the
 prose. The graphiti result predicts the first three are stable and the fourth is
@@ -348,9 +375,28 @@ framing.
 
 Three outputs, all proposals, none applied:
 
-- **EXPAND** — `verb.body`, `verb.competition`, `verb.consumption`,
-  `verb.creation`, `verb.emotion`, `verb.perception`, `verb.possession`,
-  `verb.social`, `verb.stative`, `verb.weather`
+- **EXPAND** — ten unowned supersenses, **ranked by how much of the corpus's
+  verb mass each already carries**. WordNet cannot tell `verb.weather` from
+  `verb.possession` in relevance terms; the corpus can, and that share is what
+  separates *a kind of verb this work has no word for* from *a kind of verb
+  this work never does*:
+
+  | supersense | share of all verb uses | reading |
+  |---|---|---|
+  | `verb.social` | **12.2%** (503) | **real gap** |
+  | `verb.creation` | **7.9%** (325) | **real gap** |
+  | `verb.possession` | **5.6%** (229) | **real gap** |
+  | `verb.stative` | **5.3%** (219) | **real gap** |
+  | `verb.perception` | 3.2% (133) | worth asking about |
+  | `verb.competition` | 2.4% (98) | worth asking about |
+  | `verb.consumption` | 2.1% (85) | worth asking about |
+  | `verb.emotion` | 1.4% (57) | worth asking about |
+  | `verb.body` | 1.2% (49) | worth asking about |
+  | `verb.weather` | 0.2% (7) | not a gap |
+
+  `verb.social` is the largest hole in the grid: an eighth of every verb the
+  ontology uses, and no mode owns it. `verb.creation` is second — unowned while
+  a mode named `CREATE` exists and carves nothing.
 - **MERGE** — `LEARN`+`PLAN` (cognition), `GUIDE`+`WORK` (communication),
   `MOVE`+`PLAY` (motion)
 - **RETIRE** — the six that do not clear their null
@@ -364,10 +410,10 @@ This is one, and it splits them:
 |---|---|---|
 | `DECIDE`, `REASON`, `REMEMBER`, `IMAGINE` | `verb.cognition` | **already owned** by `LEARN`/`PLAN` |
 | `TEACH`, `PERSUADE` | `verb.communication` | already owned by `GUIDE`/`WORK` |
-| `MEASURE` | `verb.perception` | **unowned — supported** |
-| `SHARE` | `verb.possession` | **unowned — supported** |
-| `CELEBRATE` | `verb.social` | **unowned — supported** |
-| `PROTEST` | `verb.emotion` | **unowned — supported** |
+| `CELEBRATE`, `PERSUADE` | `verb.social` **12.2%** | **unowned and heavy — the strongest of the ten** |
+| `SHARE` | `verb.possession` **5.6%** | **unowned and heavy — supported** |
+| `MEASURE` | `verb.perception` 3.2% | unowned, moderate — worth asking about |
+| `PROTEST` | `verb.emotion` 1.4% | unowned, light — weakest of the four |
 
 Six of ten are redundant against the grid's existing coverage; four fill real
 gaps. §1 is half right and not in the half it argues hardest for. **Nothing is
