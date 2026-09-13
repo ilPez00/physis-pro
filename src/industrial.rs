@@ -123,9 +123,29 @@ impl MachineReading {
         if let Some(v) = self.rpm {
             push("rpm", v, "rpm");
         }
+        // `raw` is the complete property bag, so a metric that also has a typed
+        // field above appears in both — `reading_from_event` copies every
+        // parseable property into it by design. Pushing it twice gave one
+        // reading two identical measurements, which matched the one threshold
+        // twice and reported a single over-temperature as two anomalies
+        // (PH-018). The typed field wins; `raw` keeps the value either way, so
+        // nothing downstream loses a property. A metric present only in `raw`
+        // is still measured, which is what `raw` is for.
         let mut raw: Vec<(&String, &f32)> = self.raw.iter().collect();
         raw.sort_by(|a, b| a.0.cmp(b.0));
         for (k, v) in raw {
+            // Checked against the typed fields rather than against `out`, which
+            // `push` holds borrowed for the whole function.
+            let already_measured = match k.as_str() {
+                "temperature" => self.temperature.is_some(),
+                "pressure" => self.pressure.is_some(),
+                "vibration" => self.vibration.is_some(),
+                "rpm" => self.rpm.is_some(),
+                _ => false,
+            };
+            if already_measured {
+                continue;
+            }
             push(k, *v, "");
         }
         out
@@ -773,6 +793,92 @@ mod tests {
         let anomalies = detect_anomalies("press-01", &readings, &thresholds);
         assert_eq!(anomalies.len(), 1);
         assert!(anomalies[0].reason.contains("120"));
+    }
+
+    /// PH-018: one reading that breaches one threshold is ONE anomaly, even when
+    /// the breaching metric appears in both a typed field and `raw`.
+    ///
+    /// `reading_from_event` fills `raw` from every parseable property, so a
+    /// temperature arrives in `temperature` AND in `raw["temperature"]`. Each
+    /// copy became its own measurement, each matched the single `temp_max`
+    /// constraint, and one hot reading was reported twice — byte-identical, so
+    /// nothing downstream could tell the two apart.
+    #[test]
+    fn a_metric_in_both_raw_and_a_typed_field_is_measured_once() {
+        let mut raw = HashMap::new();
+        raw.insert("temperature".to_string(), 95.0);
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(95.0),
+            pressure: None,
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Warning,
+            raw,
+        };
+        assert_eq!(
+            reading
+                .measurements()
+                .iter()
+                .filter(|m| m.metric == "temperature")
+                .count(),
+            1,
+            "the typed field and the raw copy are one measurement"
+        );
+
+        let mut thresholds = HashMap::new();
+        thresholds.insert("temp_max".to_string(), 90.0);
+        assert_eq!(
+            detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds).len(),
+            1
+        );
+    }
+
+    /// The other half of PH-018: the fix must not be "cap it at one". A reading
+    /// that breaches two different thresholds still yields two anomalies.
+    #[test]
+    fn two_breached_thresholds_still_yield_two_anomalies() {
+        let mut raw = HashMap::new();
+        raw.insert("temperature".to_string(), 95.0);
+        raw.insert("pressure".to_string(), 20.0);
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: Some(95.0),
+            pressure: Some(20.0),
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Warning,
+            raw,
+        };
+        let mut thresholds = HashMap::new();
+        thresholds.insert("temp_max".to_string(), 90.0);
+        thresholds.insert("pressure_max".to_string(), 15.0);
+        let anomalies = detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds);
+        assert_eq!(anomalies.len(), 2, "two breaches, two anomalies: {anomalies:?}");
+    }
+
+    /// A metric that exists ONLY in `raw` must still be measured — that is what
+    /// `raw` is for, and skipping shadowed keys must not skip unshadowed ones.
+    #[test]
+    fn a_raw_only_metric_is_still_measured() {
+        let mut raw = HashMap::new();
+        raw.insert("torque".to_string(), 42.0);
+        let reading = MachineReading {
+            machine_id: "cnc-01".into(),
+            timestamp: chrono::Utc::now(),
+            temperature: None,
+            pressure: None,
+            vibration: None,
+            rpm: None,
+            status: MachineStatus::Online,
+            raw,
+        };
+        let mut thresholds = HashMap::new();
+        thresholds.insert("torque_max".to_string(), 10.0);
+        let anomalies = detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds);
+        assert_eq!(anomalies.len(), 1, "raw-only metric still checked: {anomalies:?}");
     }
 
     #[test]
