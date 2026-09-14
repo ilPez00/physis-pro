@@ -18,9 +18,14 @@ does not compress to a noun. Describe it structurally.**
 
 ## 1. The one true sentence
 
-> Physis is a **coordinate system for meaning** — 5 domains × 14 modes = 70
-> cells, tree-nested by facets — **plus the operations that assign, revise and
-> audit coordinates**, plus the applications built on those operations.
+> Physis is a **coordinate system for meaning** — *n* domains × 14 modes,
+> tree-nested by facets — **plus the operations that assign, revise and audit
+> coordinates**, plus the applications built on those operations.
+
+**Revised 2026-09-14: the domain axis is open, and "70" was never measured as
+70.** The default pack is still 5 × 14, and `PHYSIS_DOMAINS` replaces the domain
+list per deployment (`src/semiotic_grid.rs`, `domains()` / `cell_count()`). See
+§2 for what the axes are measured to be and what they are not.
 
 Everything else is a consequence of that sentence.
 
@@ -29,12 +34,34 @@ Everything else is a consequence of that sentence.
 ## 2. The coordinate system
 
 ```rust
-DOMAINS: [HEAL, CONSTRUCT, FABRICATE, BOND, STUDY]                       //  5
-MODES:   [LIFT, REST, WALK, WORK, CREATE, LEARN, DESTROY, SENSE,
-          GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN]                 // 14
+DEFAULT_DOMAINS: [HEAL, CONSTRUCT, FABRICATE, BOND, STUDY]   // the default pack
+MODES:           [LIFT, REST, WALK, WORK, CREATE, LEARN, DESTROY, SENSE,
+                  GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN]         // 14
 ```
-`src/semiotic_grid.rs` — **5 × 14 = 70 cells.** Stable public API; ontology packs
-add entries, never axes.
+`src/semiotic_grid.rs` — **`domains().len()` × 14 cells; 70 with the default
+pack.** The domain axis is content-side (*what the work is about*) and is
+replaceable via `PHYSIS_DOMAINS`; the mode axis is operative (*tool use, method,
+workflow*) and is not currently overridable.
+
+**Why the counts are a pack and not a law (E66, 2026-09-14).** Both axes were put
+in front of D4's size-preserving permutation null, same 731 entries, same
+embeddings:
+
+| axis | classes | self-recovery | null | normalised (f−n)/(1−n) | classes failing |
+|---|---|---|---|---|---|
+| DOMAIN/MODE | 70 | 0.438 | 0.038 | 0.416 | 8 |
+| DOMAIN only | 5 | 0.672 | 0.209 | **0.585** | 0 |
+| MODE only | 14 | 0.536 | 0.121 | 0.472 | 0 |
+
+**Both axes carve — every class on both clears its own null**, so neither is
+merely written down, and the domain axis is if anything the *more* recoverable
+of the two. What no row supports is *five* or *fourteen*. External anchors cut
+the other way: 35 of 70 cells are `disputed` against WordNet noun supersenses
+(D1), and 6 of 14 modes fail against its verb supersenses while `verb.social`
+— 12.2% of the corpus's verb mass — is owned by no mode (D2a). Internal
+coherence says the axes are real; external anchors say the *counts* are
+convention. Hence: domains open, modes fixed until Track D's proposals are
+adjudicated.
 
 Facets tree-nest *under* a cell **without enlarging the base grid**
 (`physis-core/src/models.rs`, `struct Facets`):
@@ -73,7 +100,7 @@ table, not with one row of it.
 | find structure-preserving **maps** between regions | `transform` · `transplant` · `structsim` |
 | detect **drift** vs. name collision | `becoming` |
 | **record** assignments over time, and whether they held | `hypothesis` · `contradiction` · `epistemic` · `provenance` · `temporal` · `relation` · `explanation` · `delta_engine` · `ledger` |
-| **select** which coordinates to read next | `rag` · `pack` · `map` |
+| **select** which coordinates to read next | `rag` · `pack` · `map` · `system` |
 
 Applications of the operations to a domain: 22 philosophical machines ·
 industrial (`oee` `maintenance` `secom` `moonraker` `shifts` `report`) ·
@@ -82,6 +109,16 @@ knowledge (`wiki_gen` `corpus` `doctree` `communities` `decisions` `grounding`) 
 agent (`mcp` `ai/*` `routes` `extract`) · space·time·cause (`address` `ledger`
 `mails` `audit` `operational`) · linguistic lenses (`wenyan` `piraha`
 `sanskrit`) · personal (`life_os` `study` `interest` `monitor` `praxis`).
+
+The **select** row is the one an outside caller touches first.
+`system` (Core, `docs/SYSTEM_INTERFACE.md`) is that row made addressable: one
+`Workspace` service — `inspect · list · find · pack · read · history · remember ·
+run · export` — behind a CLI, a versioned JSON contract, a folder snapshot and a
+terminal UI. `pack` is `rag`'s token-fixed retrieval applied to a workspace: it
+ranks 40-line windows and fills a token budget, so the answer is the context
+rather than a pointer to it. Measured against the shell an agent would otherwise
+run, that is 6051 tokens at 5/5 answers-in-context against 14179 at 5/5 for
+`grep … | head` then `cat`.
 
 Counts: **physis-core 46 modules / 22.7k lines (Apache-2.0)** ·
 **physis_pro 140+ modules / ~90k lines (proprietary)**.
@@ -208,7 +245,8 @@ shape over an ontology; pointed at the crate graph it is a self-debugger.
 3. Do **not** cite `benchmarks/ground-truth` as retrieval evidence — it scores
    identically under a lexical hash and a real model. Use `benchmarks/retrieval/`.
 4. Do **not** claim a capability without grepping its call sites (§7).
-5. Say **70 tables with subtables**, never "70 symbols" (§2).
+5. Say **tables with subtables — 70 under the default pack**, never "70 symbols",
+   and never "the five domains" as if five were measured (§2).
 6. When a measurement is absent, write `NOT MEASURED`. Never imply.
 
 These rules are installed as an agent skill — `docs/PHYSIS_SKILL.md`, which is

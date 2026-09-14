@@ -1,0 +1,87 @@
+[
+ {
+  "task": "rag bridge",
+  "workspace": "/home/gio/dev/randomesh",
+  "truth": "def test_physis_offload",
+  "pack": {
+   "tokens": 1121,
+   "hit": true
+  },
+  "grep+cat": {
+   "tokens": 1461,
+   "hit": true
+  },
+  "grep -C5": {
+   "tokens": 2773,
+   "hit": false
+  }
+ },
+ {
+  "task": "mcp gateway",
+  "workspace": "/home/gio/dev/physis-global",
+  "truth": "def start_sidecar",
+  "pack": {
+   "tokens": 1187,
+   "hit": true
+  },
+  "grep+cat": {
+   "tokens": 3869,
+   "hit": true
+  },
+  "grep -C5": {
+   "tokens": 2057,
+   "hit": false
+  }
+ },
+ {
+  "task": "android login",
+  "workspace": "/home/gio/dev/praxis",
+  "truth": "onAuthenticationSucceeded",
+  "pack": {
+   "tokens": 1273,
+   "hit": true
+  },
+  "grep+cat": {
+   "tokens": 1285,
+   "hit": true
+  },
+  "grep -C5": {
+   "tokens": 2150,
+   "hit": true
+  }
+ },
+ {
+  "task": "systemd timer",
+  "workspace": "/home/gio/dev/randomesh",
+  "truth": "Persistent=true",
+  "pack": {
+   "tokens": 1291,
+   "hit": true
+  },
+  "grep+cat": {
+   "tokens": 434,
+   "hit": true
+  },
+  "grep -C5": {
+   "tokens": 2110,
+   "hit": false
+  }
+ },
+ {
+  "task": "token counter",
+  "workspace": "/home/gio/dev/physis-pro",
+  "truth": "pub fn count_tokens",
+  "pack": {
+   "tokens": 1179,
+   "hit": true
+  },
+  "grep+cat": {
+   "tokens": 7130,
+   "hit": true
+  },
+  "grep -C5": {
+   "tokens": 1580,
+   "hit": false
+  }
+ }
+]

@@ -1,0 +1,83 @@
+[
+ {
+  "task": "orient randomesh",
+  "workspace": "/home/gio/dev/randomesh",
+  "interface_tokens": 84,
+  "shell_tokens": 833,
+  "truth": null,
+  "interface_hit": null,
+  "shell_hit": null
+ },
+ {
+  "task": "orient praxis",
+  "workspace": "/home/gio/dev/praxis",
+  "interface_tokens": 85,
+  "shell_tokens": 102,
+  "truth": null,
+  "interface_hit": null,
+  "shell_hit": null
+ },
+ {
+  "task": "list 100 files",
+  "workspace": "/home/gio/dev/physis-global",
+  "interface_tokens": 1735,
+  "shell_tokens": 729,
+  "truth": null,
+  "interface_hit": null,
+  "shell_hit": null
+ },
+ {
+  "task": "find rag bridge",
+  "workspace": "/home/gio/dev/randomesh",
+  "interface_tokens": 207,
+  "shell_tokens": 411,
+  "truth": "physis_rag_bridge.py",
+  "interface_hit": true,
+  "shell_hit": true
+ },
+ {
+  "task": "find mcp gateway",
+  "workspace": "/home/gio/dev/physis-global",
+  "interface_tokens": 138,
+  "shell_tokens": 262,
+  "truth": "physis_mcp_gateway.py",
+  "interface_hit": true,
+  "shell_hit": true
+ },
+ {
+  "task": "find auth",
+  "workspace": "/home/gio/dev/praxis",
+  "interface_tokens": 213,
+  "shell_tokens": 760,
+  "truth": "auth/",
+  "interface_hit": true,
+  "shell_hit": true
+ },
+ {
+  "task": "find sidecar",
+  "workspace": "/home/gio/dev/physis-global",
+  "interface_tokens": 211,
+  "shell_tokens": 610,
+  "truth": "physis-sidecar",
+  "interface_hit": false,
+  "shell_hit": false
+ },
+ {
+  "task": "find systemd timer",
+  "workspace": "/home/gio/dev/randomesh",
+  "interface_tokens": 240,
+  "shell_tokens": 842,
+  "truth": "randomesh-physis-sync",
+  "interface_hit": false,
+  "shell_hit": true
+ },
+ {
+  "task": "find android login",
+  "workspace": "/home/gio/dev/praxis",
+  "interface_tokens": 139,
+  "shell_tokens": 90,
+  "truth": "LoginActivity.kt",
+  "interface_hit": false,
+  "shell_hit": true
+ }
+]
