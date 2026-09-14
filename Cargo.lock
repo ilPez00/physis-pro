@@ -3288,6 +3288,7 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
+ "libc",
  "ort",
  "rand 0.8.6",
  "ratatui",
