@@ -1,0 +1,15 @@
+{
+ "precision": 0.0,
+ "recall": 0.0,
+ "by_class": {},
+ "fired": {
+  "antonym": 1,
+  "domain": 1,
+  "negation": 0,
+  "numeric": 0,
+  "comparative": 1,
+  "modal": 0,
+  "quantifier": 2,
+  "roles": 0
+ }
+}

@@ -1,0 +1,20 @@
+{
+ "note": "E85 — adversarial fixture: pairs designed to make each E84 rule fire WRONGLY. Every pair is consistent (contradiction=false). Same surface shapes as the holdout contradictions: same measurement frame with different numbers, opposed comparison words around a shared quantity, same modal with opposed polarity, universal against negative-universal, swapped predicate-argument order, dictionary antonyms spanning the pair, one side negating what the other asserts. None contradicts.",
+ "pairs": [
+  {"class": "numeric-adv", "contradiction": false, "a": "The batch weighed 200 kg before drying.", "b": "The batch weighed 176 kg after drying."},
+  {"class": "numeric-adv", "contradiction": false, "a": "Line A produced 412 units today.", "b": "Line B produced 398 units today."},
+  {"class": "numeric-adv", "contradiction": false, "a": "The inlet gauge reads 3.2 bar at startup.", "b": "The inlet gauge reads 2.9 bar at shutdown."},
+  {"class": "comparative-adv", "contradiction": false, "a": "The older press runs slower than the new one.", "b": "The new press runs faster than the older one."},
+  {"class": "comparative-adv", "contradiction": false, "a": "The standby generator is louder than the main unit.", "b": "The main unit runs more quietly than the standby generator."},
+  {"class": "modal-adv", "contradiction": false, "a": "Operators may stop the line for a jam.", "b": "Operators may keep the line running when it is clear."},
+  {"class": "modal-adv", "contradiction": false, "a": "The valve must stay open during transfer.", "b": "The drain valve must stay closed during transfer."},
+  {"class": "quantifier-adv", "contradiction": false, "a": "All sensors passed calibration this morning.", "b": "No sensor failed calibration this morning."},
+  {"class": "quantifier-adv", "contradiction": false, "a": "Every pallet was scanned at the dock.", "b": "No pallet left the dock unscanned."},
+  {"class": "roles-adv", "contradiction": false, "a": "The technician inspects the valve daily.", "b": "The valve is inspected by the technician daily."},
+  {"class": "roles-adv", "contradiction": false, "a": "The pump feeds the boiler during startup.", "b": "During startup, the boiler is fed by the pump."},
+  {"class": "antonym-adv", "contradiction": false, "a": "Morning shift heats the material.", "b": "Afternoon shift cools it."},
+  {"class": "antonym-adv", "contradiction": false, "a": "The system switches from heating to cooling at noon.", "b": "Cooling starts when heating ends at noon."},
+  {"class": "negation-adv", "contradiction": false, "a": "The pump must not run dry.", "b": "Running the pump dry is prohibited."},
+  {"class": "negation-adv", "contradiction": false, "a": "Do not open the panel while energized.", "b": "Opening the energized panel is forbidden."}
+ ]
+}
