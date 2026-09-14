@@ -20,6 +20,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Semantic retrieval beats lexical on the honest benchmark | hit@5 0.57 vs 0.14 | `benchmarks/retrieval/` |
 | Deforming on mismatch beats **starting from nothing**, and beats denying the observation | MRR +0.063 [+0.031, +0.099] vs uniform-frozen, +0.063 [+0.024, +0.110] vs deny (E70); Brier −0.0027 vs base-rate, −0.0018 vs deny, −0.0150 vs cold start (E71) | E70, E71 |
 | Whether an action will fail is predictable above chance, from the kind of action | AUC 0.645 (fitted) / 0.620 (kind prior alone) vs 0.500 | E71 |
+| That prior **transfers between machines** as well as each machine's own history | feather→pansa 0.644 [0.612, 0.676] vs in-corpus 0.642; pansa→feather 0.677 [0.600, 0.754] vs 0.612; synced duplicate sessions removed first | E73 |
+| Coverage predicts whether a transferred prior works | every transferring pair at 0.93–0.96 of target actions in a seen kind; every failing pair at 0.24–0.64 | E73 |
 
 ## Wrong — settled negatives, not to be relitigated
 
@@ -49,6 +51,7 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 - **The `ledger` → `build_structural` join.** Both halves exist, still three call sites, none the log.
 - **Adversarial corpus.** 4 of 15 required pairs; navigation work is blocked until re-frozen (E57).
 - **Everything rests on one machine's log, one week, mostly one repo.** Every interval in the series overlaps its neighbour.
+- **Cross-harness transfer.** Claude Code's prior scores Codex's failures at 0.635 [0.606, 0.664] on the broad label while Codex's own 3 sessions manage 0.494 — but the clean label gives 0.559 [0.464, 0.654], which includes chance. One replication, one not.
 - **Whether a real state signal (compile status, test status, whether a port answers) beats the prior.** E72 tested only proxies read off the action stream and was underpowered: ±0.06 AUC on 27 sessions, so resolving a +0.04 needs about four times the data.
 - **Whether cross-session priors, accumulated in the log and read back at prediction time, keep improving.** E71 says the prior carries the signal; nothing yet reads the observation log back when a prediction is made.
 - **Whether a richer choice space changes E67's answer.** File touches are dominated by directory structure; actions with outcomes (intent → argv → exit) have not been scored, and that is where a wrong prediction has a consequence the tree cannot explain.

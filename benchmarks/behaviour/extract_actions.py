@@ -55,6 +55,10 @@ def main():
     ap.add_argument("--root", default=os.path.expanduser("~/.claude/projects"))
     ap.add_argument("--out", default="benchmarks/behaviour/actions.json")
     ap.add_argument("--min", type=int, default=20)
+    # Which machine (or harness) these transcripts came from. Every session
+    # carries it, so a pooled file can still be split by origin and a prior
+    # fitted on one corpus can be tested on another.
+    ap.add_argument("--corpus", default=os.uname().nodename)
     args = ap.parse_args()
 
     files = sorted(glob.glob(os.path.join(args.root, "*", "*.jsonl")))
@@ -100,6 +104,7 @@ def main():
             {
                 "session": os.path.basename(path)[:-6],
                 "project": os.path.basename(os.path.dirname(path)),
+                "corpus": args.corpus,
                 "actions": actions,
             }
         )
@@ -121,6 +126,7 @@ def main():
         "harness_error_rate": harness / total,
         "marker_error_rate": marker / total,
         "distinct_action_kinds": len(kinds),
+        "corpus": args.corpus,
         "sessions": sessions,
     }
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
