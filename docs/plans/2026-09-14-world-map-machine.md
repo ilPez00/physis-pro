@@ -175,3 +175,171 @@ from one machine's log, one week, mostly one repository
   belief with a validity interval; append the record that narrows it; re-run.
   The control is the same query against the same store with the record withheld.
   Until that fires, "continuously revisable" is a design word, not a property.
+
+---
+
+# Part II — the full form, then subtraction
+
+Part I worked upward from what runs. That is the safe direction and it has a
+failure mode: it describes a better version of what exists. This part starts at
+the other end. Describe the whole machine, then strike everything that is not
+load-bearing for its core, and see what is left that can be executed this week.
+
+## 8. What kind of thing Physis is
+
+Physis is not a language model, an embedding store, a retriever, an ontology, a
+ledger or an agent. Each of those is a *part*, and naming the machine after one
+of its parts is the specific error `WHAT_PHYSIS_IS.md` §1 was written to stop.
+
+It is the structure that decides **how the parts change**. A machine for
+becoming: its subject matter is not the world's current state but the world's
+revision — what deforms, in response to what, and what that deformation makes
+possible next.
+
+Five invariants define it. They are stated so that a build can violate them,
+because an invariant that cannot be violated is decoration.
+
+- **I1 — Reality has authority.** No answer may outrank the record that
+  contradicts it. Precedence is not a heuristic: the later, better-grounded
+  record wins, and the machine's job is to say *what changed because of it*.
+- **I2 — Mismatch deforms, it does not deny.** A contradiction must alter a
+  parameter of the representation. Discarding the datum, or lowering its weight
+  to zero, is denial. Cells already carry a fitness rather than a truth flag
+  (`grid_fitness.rs`, D4) precisely so that being wrong has somewhere to land.
+- **I3 — Nothing is deleted.** Superseded structure stays readable, and a
+  retired branch can be re-proposed later when the surroundings change
+  (`dream.rs`, G7 invalidate-don't-delete). Failures are inventory.
+- **I4 — Aim at stable futures, not next states.** A one-step prediction is a
+  reflex. The object of interest is the set of configurations the world can
+  settle into, ranked by how stable they are under further evidence — which is
+  what a shadow-frame cascade already computes for a single mutation
+  (`delta_engine.rs`).
+- **I5 — Growth is measured or it is not growth.** Error over time must fall
+  faster than a frozen copy of the same machine. Without that comparison,
+  "learning from mistakes" is a slogan attached to a random walk.
+
+And one stance rather than an invariant: **human and machine share one
+neurosemantic layer.** The same log, the same primitives, the same provenance.
+A person's note and an agent's tool call are the same kind of record, written by
+different actors — which is already literally true of `physis system remember`
+and `clients/opencode-physis-observer`. Language is the control surface over
+that layer, not a second, private world.
+
+## 9. The full form, as organs
+
+Six organs, each of which exists in some form today. This is the maximal
+machine; §10 subtracts from it.
+
+| organ | what it does | exists as |
+|---|---|---|
+| **Intake** | positions every observation, action and outcome in one append-only log, with the actor named | `observe.rs`, `system run`, the OpenCode observer |
+| **Commitment** | every answer leaves a prediction behind, with a validity interval and a confidence that can be wrong | `hypothesis.rs`, `temporal.rs` |
+| **Confrontation** | reality arrives; the mismatch against the standing commitment is computed and kept | `contradiction.rs`, `grid_fitness.rs` |
+| **Deformation** | the mismatch edits the representation: a cell's fitness shifts, a link rewires, a counted table updates, a term's sense splits because one became another rather than two coexisting | `grid_fitness.rs`, `becoming.rs`, `ngram_table.rs` |
+| **Futures** | simulates cascades in shadow frames and keeps the reachable configurations, ranked by stability under further evidence, not by one-step likelihood | `delta_engine.rs`, `transform.rs` |
+| **Reproposal** | brings retired structure back when the surroundings have changed enough to make it live again | `dream.rs` |
+
+The organs are wired in a cycle, and the cycle is the machine:
+
+```text
+   intake → commitment → confrontation → deformation → futures ↴
+      ↑                                                        │
+      └──────────────── reproposal ←───────────────────────────┘
+```
+
+What is missing is not an organ. It is the **circulation**: nothing today
+carries a mismatch from confrontation into deformation automatically, so the
+cycle is six organs on a table. `WHAT_WE_KNOW.md` says this plainly under
+*Open*: the revision loop exists as parts and revises nothing while you work.
+
+## 10. Subtraction
+
+Strike everything not load-bearing for the invariants, in order:
+
+- **Strike the ontology grid as a fixed coordinate system.** I2 needs *a*
+  deformable parameter, not fourteen modes and five domains. A single weighted
+  graph over workspace objects deforms just as falsifiably, and D2a already
+  says 6 of 14 modes fail an external inventory.
+- **Strike embeddings.** E63/E64 bought the right to: a counted table matched a
+  7B interpreter at 1/2400th the cost. The core needs a ranking, not a
+  semantics.
+- **Strike the LLM entirely.** Nothing in I1–I5 requires generation. An
+  interpreter can be added later as an arm that must beat the cheap one.
+- **Strike multi-agent orchestration.** One actor is enough to test whether
+  mismatch deforms; the shared layer is tested by a second actor writing to the
+  same log, which the observer already does.
+- **Strike possible-worlds simulation down to one step.** I4 needs *a* notion of
+  stability that beats one-step likelihood — the end-state of a session is one,
+  and it is observable without any simulator.
+- **Keep:** the log, one deformable structure, one prediction with an error
+  signal, one deformation rule, and the controls that can kill each.
+
+What survives is four functions and a loop:
+
+```text
+  predict(state, prefix)  → ranking
+  mismatch(ranking, what actually happened) → error
+  deform(state, error)    → state'          # I2, and the arm under test
+  settle(state, prefix)   → the configuration this is heading for   # I4
+```
+
+## 11. E70 — the smallest executable machine for becoming
+
+E67 (§5) asks whether behaviour carries a geometry *at all*, with the geometry
+held still. E70 is E67 with the geometry allowed to move, which is the first
+test of the actual thesis. Same data, no new subsystem: 165 transcripts, 25
+sessions with ≥ 10 file touches, 1938 touches.
+
+**State.** One weighted graph over the files of a project. Edges start from
+what is free: co-access within a session, directory distance, lexical overlap
+(`rag.rs`). No embeddings, no model.
+
+**The loop.** Walk a session's touches in order. At each step, rank candidates
+(`predict`), record the rank of the file actually touched (`mismatch`), then
+update edge weights in proportion to that error (`deform`) — a one-line rule,
+deliberately, so that the experiment is about *whether deformation helps*, not
+about which clever rule.
+
+**Arms, each a control that can fire.**
+
+| arm | what it isolates |
+|---|---|
+| `frozen` | the same graph, never updated — **I5's control**: if deformation does not beat this, the growth function is decoration |
+| `random-deform` | same magnitude of update, random target — isolates "changing helps" from "changing *this way* helps" |
+| `deny` | on a mismatch, drop the offending observation instead of updating — **I2's control**, the denial policy stated as a rival |
+| `shuffled` | prefixes in random order — kills any result that is sequence shape |
+| `recency+frequency` | the trivial predictor from E67, still the arm to beat |
+
+**Three measurements, one per invariant that can be reached at this size.**
+
+1. **I5, growth.** Cumulative rank error over the session, deformed against
+   frozen. Pre-registered: a ≥ 10% reduction in mean reciprocal rank error, with
+   a bootstrap CI over the 25 sessions excluding zero. Smaller is *underpowered*,
+   not a trend.
+2. **I2, deform beats deny.** The `deny` arm on the same sessions. If denial
+   ties or wins, invariant I2 is wrong as stated and the design changes, which
+   is the outcome most worth having.
+3. **I4, stable futures.** From the first 25% of a session, predict the *final
+   working set* — the files touched in its last 25% — rather than the next
+   touch. Nulls: frequency prior, and the deformed graph's own one-step
+   prediction rolled forward. A machine that aims at attractors should beat a
+   machine that aims at next states on this question specifically; if it does
+   not, I4 is a preference, not a property.
+
+**What failure buys.** Each arm that wins against the thesis names the next
+primitive to extract: `frozen` winning says the error signal is too weak and the
+loop needs outcomes (the observer log's intent → exit records) rather than mere
+choices; `deny` winning says fitness-lowering is the wrong deformation and the
+right one is structural (split the node, as `becoming.rs` splits a sense);
+`shuffled` winning says the whole result was sequence shape. None of those are
+dead ends, and all of them are cheap to reach. **Keep the failure, extract the
+primitive, repeat** — and the record of it goes in the log the machine is built
+on, `physis-check claim` first, `physis-check verdict` after, so that Physis is
+the instrument by which Physis is measured.
+
+**What E70 still does not test.** Reproposal (`dream.rs`) needs a longer
+horizon than one week of one machine's log. Multi-actor shared layer needs the
+observer running in anger. Full possible-worlds ranking needs a simulator, and
+`delta_engine.rs` computes cascades for one mutation, not a frontier. Those are
+named here so that the smallest system is not mistaken for the full form it was
+subtracted from.
