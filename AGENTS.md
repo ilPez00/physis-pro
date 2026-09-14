@@ -22,6 +22,17 @@ on the pansa machine through the randomesh framework. See `today_pansa.log` for
 details on the omo vs pansa distinction.
 
 ## Dogfooding (docs/PHYSIS_DEV_LOOP.md)
+Codex and OpenCode expose the Core workspace service as MCP server
+`physis_system` (configuration in `.codex/config.toml` and
+`.opencode/opencode.json`). Start engineering tasks with `physis_history`, then
+use `physis_pack` and `physis_read` for relevant source evidence. After checks,
+call `physis_remember` with a concise outcome, evidence references, and actor
+`codex` or `opencode`. These tools use the same `.physis/system` store as
+`physis system`; Core MCP needs no Pro licence. If tools are absent, use
+`./target/debug/physis system` and report the missing connection.
+`physis_tasks`/`physis_task` expose delegation plans; reservations do not start
+workers. Existing Pro MCP tools and their store remain separate.
+
 Develop physis with physis: `just recall "<task>"` before work (verdict −1 =
 already tried and failed), `just dev-loop "<task>"` after (gate + note).
 Agents attach via `.mcp.json` (`serve --stdio`, 30 tools); session protocol is

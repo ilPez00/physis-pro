@@ -54,6 +54,11 @@ composition infrastructure, but it is not the specification for this Notebook.
 This document plans that outcome. It does not claim the complete system exists,
 authorize hardware operation, or report new experimental results.
 
+The concrete worker-pool and Cline/OpenCode integration plan is in
+[Agent delegation through Physis](2026-09-14-agent-delegation.md). It is a
+dependency of the shared system interface, not a replacement for the Source
+Notebook or the later machine console.
+
 ## 1. Product thesis and boundaries
 
 Physis provides a coordinate system for meaning, operations over those

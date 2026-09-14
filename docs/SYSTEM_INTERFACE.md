@@ -1,5 +1,8 @@
 # Physis system interface
 
+Codex/OpenCode MCP wiring and delegation commands are documented in
+[System delegation](SYSTEM_DELEGATION.md).
+
 The first shared interface for people and agents is `physis system`. It exposes
 workspace files and recorded work through readable CLI output, a versioned JSON
 contract, and an ordinary folder snapshot. It reuses Core's BM25 retrieval and

@@ -1,0 +1,44 @@
+{
+ "precision": 1.0,
+ "recall": 0.84,
+ "by_class": {
+  "numeric": [
+   5,
+   5
+  ],
+  "comparative": [
+   3,
+   3
+  ],
+  "modal": [
+   4,
+   4
+  ],
+  "quantifier": [
+   3,
+   3
+  ],
+  "roles": [
+   3,
+   3
+  ],
+  "implication": [
+   0,
+   3
+  ],
+  "antonym": [
+   3,
+   4
+  ]
+ },
+ "fired": {
+  "antonym": 2,
+  "domain": 2,
+  "negation": 1,
+  "numeric": 5,
+  "comparative": 3,
+  "modal": 5,
+  "quantifier": 3,
+  "roles": 3
+ }
+}

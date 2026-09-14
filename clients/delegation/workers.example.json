@@ -1,0 +1,25 @@
+{
+  "schema": "physis.workers.v1",
+  "workers": [{
+    "id": "opencode-free",
+    "kind": "opencode",
+    "program": "/home/gio/.local/bin/opencode",
+    "provider": "opencode",
+    "model": "opencode/mimo-v2.5-free",
+    "cost": "free_tier",
+    "remote_model": true,
+    "modes": ["read", "plan", "write"],
+    "max_parallel": 2,
+    "server": "http://127.0.0.1:4096"
+  }, {
+    "id": "cline-free",
+    "kind": "cline",
+    "program": "/home/gio/.npm-global/bin/cline",
+    "provider": "cline",
+    "model": "cline-free/muse-spark-1.3-contributor",
+    "cost": "free_tier",
+    "remote_model": true,
+    "modes": ["read", "plan", "write"],
+    "max_parallel": 1
+  }]
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "physis.task.v1",
+  "intent": "review workspace MCP argument validation",
+  "paths": ["src/system_mcp.rs", "tests/system_mcp.rs"],
+  "mode": "read",
+  "acceptance": ["Cite findings by file and line; make no edits"],
+  "checks": [
+    ["cargo", "test", "--offline", "--no-default-features", "--features", "cli", "--test", "system_mcp"]
+  ],
+  "worker": "opencode-free",
+  "budget": 1200,
+  "policy": {
+    "costs": ["free_tier"],
+    "allow_remote_model": true,
+    "timeout_seconds": 300
+  }
+}

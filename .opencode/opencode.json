@@ -4,6 +4,14 @@
   "small_model": "anthropic/claude-3-5-haiku-20241022",
   "default_agent": "physis",
   "instructions": ["AGENTS.md"],
+  "mcp": {
+    "physis_system": {
+      "type": "local",
+      "command": ["bash", "/home/gio/dev/physis-pro/scripts/physis-system-mcp.sh"],
+      "enabled": true,
+      "timeout": 60000
+    }
+  },
   "agent": {
     "physis": {
       "description": "Primary agent for the Physis Pro Rust engine, CLI, MCP server, and docs.",
