@@ -1,0 +1,7 @@
+{
+  "name": "opencode-physis-observer",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "plugin.js",
+  "description": "Record OpenCode tool calls and turns into a Physis workspace observation log."
+}

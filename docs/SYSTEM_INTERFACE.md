@@ -129,6 +129,38 @@ unscoped git/model events are not guessed into a workspace. This store is separa
 from Pro's licensed graph store; sharing it with Core does not imply Pro recall
 has been repaired.
 
+## One log for several agents
+
+The same workspace is usually worked by more than one agent — several harnesses,
+or one harness running several roles (with `opencode-orchestrator`: Commander,
+Planner, Worker, Reviewer). Each keeps its own transcript, so "has anyone
+already tried this?" costs a transcript read, and cannot be asked across
+harnesses at all.
+
+`remember` and `history` are that question's cheap form, and
+`clients/opencode-physis-observer/` is an OpenCode plugin that fills the log
+without anyone remembering to: one observation per tool call
+(`tool.execute.after` — tool, session, duration, target, a 240-character
+summary) and one per turn (`chat.message` — agent, session, request), written
+through `physis system remember` so the cooperative lock is respected.
+
+```sh
+physis system history 'cargo test'    # what has anyone run here, newest first
+physis system find 'calibration'      # files and recorded work, ranked together
+```
+
+Reading 20 records of that history costs 1051 tokens. It cost 2620 until the
+display stopped reprinting each note's JSON payload beside the note — the
+payload repeats the subject verbatim, so every recall paid for the text twice.
+The second line now carries only the fields the subject does not (`actor=…`,
+`outcome=…`).
+
+Two limits worth stating. Outcomes recorded by the plugin are `unverified` —
+a tool's exit condition is not a claim that the agent's goal was met. And
+whether a Commander consulting `history` before dispatch actually reduces
+duplicated work is **NOT MEASURED**: the mechanism exists, the effect does not
+have a number.
+
 ## Folder representation
 
 An export contains:
