@@ -1,0 +1,19 @@
+{
+ "note": "E86 validation fixture — written BEFORE the participant-binding repair was run against it. Same adversarial shapes as adversarial-consistent.json, different content, plus six genuine contradictions (contradiction=true) of the repaired classes to check the binding does not kill recall. Rules were tuned on adversarial-consistent.json and the contradiction-holdout.json only.",
+ "pairs": [
+  {"class": "quantifier-adv", "contradiction": false, "a": "Every cylinder was pressure-tested today.", "b": "No cylinder was left untested today."},
+  {"class": "quantifier-adv", "contradiction": false, "a": "All bearings passed the vibration check.", "b": "No bearing failed the vibration check."},
+  {"class": "modal-adv", "contradiction": false, "a": "The compressor must run during filling.", "b": "The exhaust fan must stay off during filling."},
+  {"class": "comparative-adv", "contradiction": false, "a": "The hydraulic line is longer than the return line.", "b": "The return line runs shorter than the supply line."},
+  {"class": "antonym-adv", "contradiction": false, "a": "During warmup the inlet warms the gas.", "b": "During cooldown the outlet chills it."},
+  {"class": "negation-adv", "contradiction": false, "a": "The scrubber must not be bypassed.", "b": "Bypassing the scrubber is not allowed."},
+  {"class": "numeric-adv", "contradiction": false, "a": "The reactor held 40 bar at noon.", "b": "The reactor held 37 bar by evening."},
+  {"class": "roles-adv", "contradiction": false, "a": "The sensor tracks the rotor continuously.", "b": "The rotor is tracked by the sensor continuously."},
+  {"class": "modal", "contradiction": true, "a": "The kiln must be vented between cycles.", "b": "The kiln must never be vented between cycles."},
+  {"class": "modal", "contradiction": true, "a": "Supervisors may approve overtime.", "b": "Supervisors may not approve overtime."},
+  {"class": "quantifier", "contradiction": true, "a": "Every shipment cleared customs.", "b": "No shipment cleared customs."},
+  {"class": "quantifier", "contradiction": true, "a": "All valves were stroked yesterday.", "b": "Some valves were never stroked yesterday."},
+  {"class": "comparative", "contradiction": true, "a": "Reservoir level stayed above 60 percent.", "b": "Reservoir level stayed below 60 percent."},
+  {"class": "antonym", "contradiction": true, "a": "The filter was clogged after the run.", "b": "The filter was clear after the run."}
+ ]
+}
