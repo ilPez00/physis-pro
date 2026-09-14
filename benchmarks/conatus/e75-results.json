@@ -1,0 +1,140 @@
+{
+ "ordered": {
+  "fitness": 0.33125,
+  "composite": null,
+  "status": "Contradicted",
+  "evidence_count": 0,
+  "breakdown": {
+   "semantic_fit": 0.5,
+   "ontological_fit": 0.5,
+   "logical_consistency": 0.5,
+   "empirical_support": 0.625,
+   "predictive_success": 0.5,
+   "outcome_success": 0.5,
+   "contradiction_penalty": 0.2,
+   "failed_prediction_penalty": 0.0,
+   "composite_fitness": 0.33125
+  }
+ },
+ "shuffled": [
+  {
+   "fitness": 0.33125,
+   "composite": null,
+   "status": "Contradicted",
+   "evidence_count": 0,
+   "breakdown": {
+    "semantic_fit": 0.5,
+    "ontological_fit": 0.5,
+    "logical_consistency": 0.5,
+    "empirical_support": 0.625,
+    "predictive_success": 0.5,
+    "outcome_success": 0.5,
+    "contradiction_penalty": 0.2,
+    "failed_prediction_penalty": 0.0,
+    "composite_fitness": 0.33125
+   }
+  },
+  {
+   "fitness": 0.33125,
+   "composite": null,
+   "status": "Contradicted",
+   "evidence_count": 0,
+   "breakdown": {
+    "semantic_fit": 0.5,
+    "ontological_fit": 0.5,
+    "logical_consistency": 0.5,
+    "empirical_support": 0.625,
+    "predictive_success": 0.5,
+    "outcome_success": 0.5,
+    "contradiction_penalty": 0.2,
+    "failed_prediction_penalty": 0.0,
+    "composite_fitness": 0.33125
+   }
+  },
+  {
+   "fitness": 0.33125,
+   "composite": null,
+   "status": "Contradicted",
+   "evidence_count": 0,
+   "breakdown": {
+    "semantic_fit": 0.5,
+    "ontological_fit": 0.5,
+    "logical_consistency": 0.5,
+    "empirical_support": 0.625,
+    "predictive_success": 0.5,
+    "outcome_success": 0.5,
+    "contradiction_penalty": 0.2,
+    "failed_prediction_penalty": 0.0,
+    "composite_fitness": 0.33125
+   }
+  },
+  {
+   "fitness": 0.33125,
+   "composite": null,
+   "status": "Contradicted",
+   "evidence_count": 0,
+   "breakdown": {
+    "semantic_fit": 0.5,
+    "ontological_fit": 0.5,
+    "logical_consistency": 0.5,
+    "empirical_support": 0.625,
+    "predictive_success": 0.5,
+    "outcome_success": 0.5,
+    "contradiction_penalty": 0.2,
+    "failed_prediction_penalty": 0.0,
+    "composite_fitness": 0.33125
+   }
+  },
+  {
+   "fitness": 0.33125,
+   "composite": null,
+   "status": "Contradicted",
+   "evidence_count": 0,
+   "breakdown": {
+    "semantic_fit": 0.5,
+    "ontological_fit": 0.5,
+    "logical_consistency": 0.5,
+    "empirical_support": 0.625,
+    "predictive_success": 0.5,
+    "outcome_success": 0.5,
+    "contradiction_penalty": 0.2,
+    "failed_prediction_penalty": 0.0,
+    "composite_fitness": 0.33125
+   }
+  }
+ ],
+ "erased": {
+  "fitness": 0.5,
+  "composite": null,
+  "status": "Candidate",
+  "evidence_count": 0,
+  "breakdown": {
+   "semantic_fit": 0.5,
+   "ontological_fit": 0.5,
+   "logical_consistency": 0.5,
+   "empirical_support": 0.5,
+   "predictive_success": 0.5,
+   "outcome_success": 0.5,
+   "contradiction_penalty": 0.0,
+   "failed_prediction_penalty": 0.0,
+   "composite_fitness": 0.5
+  }
+ },
+ "blocked": {
+  "fitness": 0.33125,
+  "composite": null,
+  "status": "Contradicted",
+  "evidence_count": 0,
+  "breakdown": {
+   "semantic_fit": 0.5,
+   "ontological_fit": 0.5,
+   "logical_consistency": 0.5,
+   "empirical_support": 0.625,
+   "predictive_success": 0.5,
+   "outcome_success": 0.5,
+   "contradiction_penalty": 0.2,
+   "failed_prediction_penalty": 0.0,
+   "composite_fitness": 0.33125
+  }
+ }
+}

@@ -1,0 +1,66 @@
+{
+ "S0": {
+  "coherence": 0.923,
+  "nodes": 4,
+  "raw": [
+   "Coherence snapshot:",
+   "  nodes:            4",
+   "  coherence index:  0.923",
+   "  high/mid/low:     4/0/0",
+   "  certified branches: 0",
+   "  isolated branches:  0"
+  ]
+ },
+ "S1_after_perturbation": {
+  "coherence": 0.917,
+  "nodes": 5,
+  "raw": [
+   "Coherence snapshot:",
+   "  nodes:            5",
+   "  coherence index:  0.917",
+   "  high/mid/low:     5/0/0",
+   "  certified branches: 0",
+   "  isolated branches:  0"
+  ]
+ },
+ "maintenance": {
+  "dream": [
+   "No nodes need replaying right now."
+  ],
+  "quality": [
+   "Quality feedback loop",
+   "",
+   "Usage: physis-core quality <COMMAND>",
+   ""
+  ]
+ },
+ "S2_after_maintenance": {
+  "coherence": 0.917,
+  "nodes": 5,
+  "raw": [
+   "Coherence snapshot:",
+   "  nodes:            5",
+   "  coherence index:  0.917",
+   "  high/mid/low:     5/0/0",
+   "  certified branches: 0",
+   "  isolated branches:  0"
+  ]
+ },
+ "nodes_before": 4,
+ "nodes_unchanged_after_the_whole_cycle": 4,
+ "new_nodes_added_by_the_perturbation": 1,
+ "labels_before": [
+  "/tmp/e76-2dih57du/tmpb699n0y1/pump.md: The feed pump is rated for 3 bar inlet pressure. Below 2 bar it stalls.\nMaintenance replaced the impeller in March after a stall.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/shift.md: Night shift reported two stalls in the same week as the valve wear.\nDay shift reported none.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/spec.md: Specification: inlet pressure must stay above 2 bar at all times.\nOperators log pressure hourly.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/valve.md: The inlet valve is checked weekly. A sticking valve starves the pump.\nValve seat wear was recorded twice this year."
+ ],
+ "labels_after": [
+  "/tmp/e76-2dih57du/tmpb699n0y1/pump.md: Cake recipes require 200g of flour and a warm oven.\nWhisk the eggs before folding in the sugar.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/pump.md: The feed pump is rated for 3 bar inlet pressure. Below 2 bar it stalls.\nMaintenance replaced the impeller in March after a stall.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/shift.md: Night shift reported two stalls in the same week as the valve wear.\nDay shift reported none.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/spec.md: Specification: inlet pressure must stay above 2 bar at all times.\nOperators log pressure hourly.",
+  "/tmp/e76-2dih57du/tmpb699n0y1/valve.md: The inlet valve is checked weekly. A sticking valve starves the pump.\nValve seat wear was recorded twice this year."
+ ],
+ "content_restoration": "NOT MEASURABLE: node records store no content"
+}
