@@ -1,0 +1,15 @@
+{
+  "_comment": "Static rule dictionary: surface cues -> physis RelationType (physis-core/src/relation.rs). Cues are matched as regular expressions over a sentence, with the subject taken as the text before the cue and the object as the text after. Deliberately small and explicit: every entry is a claim about language that the null test can embarrass.",
+  "Causes": ["\\bcauses?\\b", "\\bcaused by\\b", "\\bleads? to\\b", "\\bresults? in\\b", "\\btriggers?\\b", "\\bmakes? (?:it|the|a|an)\\b"],
+  "Explains": ["\\bbecause\\b", "\\bsince\\b", "\\bthe reason (?:is|was)\\b", "\\bwhich is why\\b", "\\bexplains?\\b"],
+  "Precedes": ["\\bbefore\\b", "\\bprior to\\b", "\\bearlier than\\b", "\\bthen\\b"],
+  "Follows": ["\\bafter\\b", "\\bfollows?\\b", "\\bsubsequent to\\b", "\\blater than\\b"],
+  "DependsOn": ["\\bdepends? on\\b", "\\brequires?\\b", "\\bneeds?\\b", "\\brelies on\\b"],
+  "Produces": ["\\bproduces?\\b", "\\bgenerates?\\b", "\\bemits?\\b", "\\bwrites?\\b", "\\breturns?\\b"],
+  "Measures": ["\\bmeasures?\\b", "\\bscores?\\b", "\\bcounts?\\b", "\\breports?\\b"],
+  "Observes": ["\\bobserved?\\b", "\\brecords?\\b", "\\blogs?\\b", "\\bsaw\\b"],
+  "Contradicts": ["\\bcontradicts?\\b", "\\bdisagrees? with\\b", "\\brefutes?\\b", "\\bbut not\\b"],
+  "Supports": ["\\bsupports?\\b", "\\bconfirms?\\b", "\\bagrees? with\\b", "\\bcorroborates?\\b"],
+  "Invalidates": ["\\binvalidates?\\b", "\\bbreaks?\\b", "\\bfails?\\b", "\\bstops?\\b"],
+  "Predicts": ["\\bpredicts?\\b", "\\bimplies\\b", "\\bshould\\b", "\\bwill\\b"]
+}

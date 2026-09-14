@@ -1,0 +1,2551 @@
+{
+ "root": "docs",
+ "seen": 103,
+ "records": [
+  {
+   "path": "ADMINISTRATION_DATAWORK_PLAN.md",
+   "media": "text",
+   "bytes": 7358,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7334,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "same engine is valuable",
+     "object": "can classify by meaning,"
+    },
+    {
+     "type": "Supports",
+     "cue": "confirms the",
+     "subject": "A human",
+     "object": "routing."
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "should be procurement/invoice administration",
+     "object": "input is common, the"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "Discount only",
+     "object": "customer has supplied a"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "AGENT_DEMO.md",
+   "media": "text",
+   "bytes": 4608,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4572,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "The **coherence gate ran",
+     "object": "loop**: the final answer"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "AGENT_DOGFOOD.md",
+   "media": "text",
+   "bytes": 7999,
+   "modified": "2026-09-13T06:10:33Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7961,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "useless for anything that",
+     "object": "retrieval being correct."
+    },
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "hard token ceiling and",
+     "object": "path and line range"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "because the"
+   ]
+  },
+  {
+   "path": "AGENT_WORKFLOWS.md",
+   "media": "text",
+   "bytes": 11013,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10927,
+   "relations": [
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "stream, and the client",
+     "object": "server as broken with"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs an",
+     "subject": "(xAI) \u2014 not MCP,",
+     "object": "adapter Grok exposes an"
+    },
+    {
+     "type": "Contradicts",
+     "cue": "contradicts the",
+     "subject": "to the xAI API",
+     "object": "air-gapped pitch."
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "at Evotec and Leonardo,",
+     "object": "is the only one"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "none beyond stdio |",
+     "object": "model | | Grok"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "a recorded terminal session",
+     "object": "sales call."
+    },
+    {
+     "type": "Produces",
+     "cue": "generates a",
+     "subject": "Hermes",
+     "object": "review from the packed"
+    },
+    {
+     "type": "Observes",
+     "cue": "logs the",
+     "subject": "1: task fails, `physis_record`",
+     "object": "failure and cell."
+    },
+    {
+     "type": "Produces",
+     "cue": "returns a",
+     "subject": "for a similar query",
+     "object": "different, better set."
+    },
+    {
+     "type": "Contradicts",
+     "cue": "contradicts the",
+     "subject": "that pays least and",
+     "object": "positioning that pays most."
+    },
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "spawn, so the agent",
+     "object": "server as unavailable rather"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "ARCHITECTURAL_REPORT.md",
+   "media": "text",
+   "bytes": 10842,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10769,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "ARCHITECTURE_COMPARISON.md",
+   "media": "text",
+   "bytes": 7666,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7645,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "ATLAS_GRAPHITI_INTEGRATION_PLAN.md",
+   "media": "text",
+   "bytes": 15553,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 15419,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "needs the",
+     "subject": "Risk: churn \u2014",
+     "object": "A6 governor or one"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "yield empty walks \u2014",
+     "object": "logged fallback breadth rule."
+    },
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "hash; a verify walk",
+     "object": "first break with sequence"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "ship the rationale record",
+     "object": "file/CLI surface."
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "Change: ingest",
+     "object": "triple with a deterministic"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "Risk: judgment",
+     "object": "deterministic rule first (LLM"
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "terms (test: fitness_recompute_reports_term_breakdown); ingest",
+     "object": "triple with logged judgments"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "BRAINSTORM_ATLAS_NTMS_TMS_GRAPHITI.md",
+   "media": "text",
+   "bytes": 22286,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 22088,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "the frozen probe set",
+     "object": "propose surface changes; negative"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "CLASSIFIER_PLAN.md",
+   "media": "text",
+   "bytes": 2026,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2025,
+   "relations": [
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "The response",
+     "object": "context and number of"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "COHERENCE.md",
+   "media": "text",
+   "bytes": 4726,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4725,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "COMMERCIAL_MODEL.md",
+   "media": "text",
+   "bytes": 7933,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7847,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "Each gate must close",
+     "object": "tier above it is"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "after the"
+   ]
+  },
+  {
+   "path": "CONTEXTUAL_MEANING.md",
+   "media": "text",
+   "bytes": 11468,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 11412,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "two that were added",
+     "object": "first: | Leg |"
+    },
+    {
+     "type": "Supports",
+     "cue": "confirms the",
+     "subject": "that found nothing still",
+     "object": "routine\" }, \"domains\": ["
+    },
+    {
+     "type": "Supports",
+     "cue": "confirms the",
+     "subject": "that found nothing still",
+     "object": "routine."
+    },
+    {
+     "type": "Measures",
+     "cue": "reports an",
+     "subject": "on purpose: the studio",
+     "object": "undeclared interpretant as an"
+    },
+    {
+     "type": "Supports",
+     "cue": "confirms the",
+     "subject": "inspection that found nothing",
+     "object": "routine; the software ontology"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "DECISION_PLANNER.md",
+   "media": "text",
+   "bytes": 1461,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1457,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "produces an",
+     "subject": "on a snapshot and",
+     "object": "impact diff."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "returns the"
+   ]
+  },
+  {
+   "path": "EMPEDOCLES_DYAD.md",
+   "media": "text",
+   "bytes": 10770,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10691,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "ENGINE_PERFORMANCE_PLAN.md",
+   "media": "text",
+   "bytes": 2681,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2667,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "FITNESS.md",
+   "media": "text",
+   "bytes": 4544,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4544,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "FLEET_NOTE_2026-08-31.md",
+   "media": "text",
+   "bytes": 1343,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1337,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "FLEET_WORKFLOW_AUDIT_2026-08-31.md",
+   "media": "text",
+   "bytes": 2760,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2740,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "- **`physis_workflow` over MCP**:",
+     "object": "audit report (total, by_audience,"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "Fourier_Structural_Basis_Experiment.md",
+   "media": "text",
+   "bytes": 7494,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7482,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "GO_TO_MARKET_AND_EMAIL.md",
+   "media": "text",
+   "bytes": 9611,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9562,
+   "relations": [
+    {
+     "type": "Observes",
+     "cue": "records the",
+     "subject": "business email This document",
+     "object": "current acquisition experiment for"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "requires an",
+     "subject": "from the custom address",
+     "object": "SMTP/mailbox provider and correct"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "HYPOTHESES.md",
+   "media": "text",
+   "bytes": 6026,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5368,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "INCREMENTAL_SCANNING.md",
+   "media": "text",
+   "bytes": 3475,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3469,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "ORCHESTRATOR_AGENT_INTEGRATION.md",
+   "media": "text",
+   "bytes": 6760,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6664,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "retrieval \u2014 measured, it",
+     "object": "wrong file with higher"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PHYSIS_ATTENTION_ARCHITECTURE.md",
+   "media": "text",
+   "bytes": 5396,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5170,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PHYSIS_DEV_LOOP.md",
+   "media": "text",
+   "bytes": 2133,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2125,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PHYSIS_MODEL.md",
+   "media": "text",
+   "bytes": 6464,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5996,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PHYSIS_SKILL.md",
+   "media": "text",
+   "bytes": 15475,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 15353,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "at real token cost",
+     "object": "was not on disk."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "requires the",
+     "subject": "an argument (the compiler",
+     "object": "caller to have captured"
+    }
+   ],
+   "relations_shuffled": 4,
+   "shuffled_by_cue": [
+    "scores a",
+    "before it",
+    "before the",
+    "after a"
+   ]
+  },
+  {
+   "path": "PIPELINE_DIAGRAMS.md",
+   "media": "text",
+   "bytes": 8008,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6828,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "Re-ingesting the same label",
+     "object": "existing node id; idempotent"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "returns a"
+   ]
+  },
+  {
+   "path": "PLAN_11.md",
+   "media": "text",
+   "bytes": 7857,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7721,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PROCESS_MODEL.md",
+   "media": "text",
+   "bytes": 6999,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6558,
+   "relations": [
+    {
+     "type": "Measures",
+     "cue": "scores it",
+     "subject": "limit) / limit`; core",
+     "object": "as `overshoot / span`"
+    },
+    {
+     "type": "Produces",
+     "cue": "emits a",
+     "subject": "is unified \u2014 `AnomalyScore::to_deviation()`",
+     "object": "`ProcessDeviation` in sigma (`expected_value`"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PRODUCT_MARKETING.md",
+   "media": "text",
+   "bytes": 3887,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3857,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "or Admin Backlog Review",
+     "object": "report and an exception"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before a",
+     "subject": "shows the blast radius",
+     "object": "customer changes routing, metrics,"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "and machine protocol only",
+     "object": "pilot is paid."
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "a recurring plant license",
+     "object": "buyer uses it in"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "differentiation and expansion surfaces",
+     "object": "buyer believes the loss"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PROVENANCE.md",
+   "media": "text",
+   "bytes": 3975,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3953,
+   "relations": [
+    {
+     "type": "Contradicts",
+     "cue": "contradicts it",
+     "subject": "**What evidence supports or",
+     "object": "(Sensor readings, inspection photos,"
+    },
+    {
+     "type": "Explains",
+     "cue": "explains why",
+     "subject": "A third unifying hypothesis",
+     "object": "both observations occurred."
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "transition to belief $B$?\"**",
+     "object": "exact `EpistemicEvent` with trigger"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "PUBLIC_ARCHITECTURE.md",
+   "media": "text",
+   "bytes": 6553,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5679,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "redeploy for backend-only changes",
+     "object": "`/api/*` rewrite is static."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "writes an"
+   ]
+  },
+  {
+   "path": "QA_VERDICT_2026-08-24.md",
+   "media": "text",
+   "bytes": 11232,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 11019,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "RELEASING.md",
+   "media": "text",
+   "bytes": 4137,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4115,
+   "relations": [],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "because the",
+    "before an"
+   ]
+  },
+  {
+   "path": "SEMIOTIC_EDITING.md",
+   "media": "text",
+   "bytes": 6641,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6581,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "cost of the answer",
+     "object": "is asked."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "reports a"
+   ]
+  },
+  {
+   "path": "SYSTEM_INTERFACE.md",
+   "media": "text",
+   "bytes": 20478,
+   "modified": "2026-09-14T15:37:19Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 20412,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after an",
+     "subject": "may appear before or",
+     "object": "operation."
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "61 run(s)) ``` It",
+     "object": "Laplace-smoothed failure rate of"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "\u2014 below chance \u2014",
+     "object": "held out the single"
+    },
+    {
+     "type": "Explains",
+     "cue": "which is why",
+     "subject": "do what was wanted,",
+     "object": "the output says so"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "a pass that runs",
+     "object": "budget is spent never"
+    },
+    {
+     "type": "Measures",
+     "cue": "reports its",
+     "subject": "A stale `system-write.lock`",
+     "object": "path and owner PID;"
+    }
+   ],
+   "relations_shuffled": 3,
+   "shuffled_by_cue": [
+    "returns the",
+    "follows the",
+    "before the"
+   ]
+  },
+  {
+   "path": "TRANSFORM_REASONING.md",
+   "media": "text",
+   "bytes": 9663,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9565,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "`stripped.incoherent_after()` returns `[\"exchange required\"]`",
+     "object": "relation it depended on"
+    },
+    {
+     "type": "Measures",
+     "cue": "scores the",
+     "subject": "5 describes: similarity still",
+     "object": "stripped world as \"close\""
+    },
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "\u2014 an accepted `apply()`",
+     "object": "triple absent from `before`."
+    }
+   ],
+   "relations_shuffled": 3,
+   "shuffled_by_cue": [
+    "after it",
+    "returns the",
+    "produces a"
+   ]
+  },
+  {
+   "path": "UMBRELLAPEDIA_GUIDE.md",
+   "media": "text",
+   "bytes": 6357,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5947,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "re-registering the same label",
+     "object": "existing id."
+    },
+    {
+     "type": "Follows",
+     "cue": "after an",
+     "subject": "-",
+     "object": "embedder swap: `physis-pro spanner"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "WHAT_PHYSIS_IS.md",
+   "media": "text",
+   "bytes": 12370,
+   "modified": "2026-09-14T13:53:23Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 12235,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "and well estimated precisely",
+     "object": "70-way partition makes its"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "`transform` a generator; that",
+     "object": "gate-passing output, which is"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "WHAT_WE_KNOW.md",
+   "media": "text",
+   "bytes": 7490,
+   "modified": "2026-09-14T16:03:36Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7400,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "WORLD_SHELL.md",
+   "media": "text",
+   "bytes": 4806,
+   "modified": "2026-09-14T07:02:56Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4772,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "on the second `observe`**,",
+     "object": "takes no `known` list."
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "a reader trusts precisely",
+     "object": "tool printed it."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "returns the"
+   ]
+  },
+  {
+   "path": "best_features_investigation_2026-09-02.md",
+   "media": "text",
+   "bytes": 6308,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6285,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns a",
+     "subject": "it's best:** `GET /api/v1/atlas/graph`",
+     "object": "single payload with nodes,"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "openapi.yaml",
+   "media": "text",
+   "bytes": 9343,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9341,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "resources.md",
+   "media": "text",
+   "bytes": 41625,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 41076,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "**Infra cost \u2014 what",
+     "object": "graph DB:** everything durable."
+    },
+    {
+     "type": "Follows",
+     "cue": "after a",
+     "subject": "Score: stale-belief rate",
+     "object": "mid-chain revision + temporal"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "returns the"
+   ]
+  },
+  {
+   "path": "plans/2026-07-15-phase8-engine-readback.md",
+   "media": "text",
+   "bytes": 9907,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9863,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "a script machine's `reduce()`",
+     "object": "primitive(s) and delegates elaboration"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "graph is still read+write",
+     "object": "move (Phase 5 contract)."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-07-16-ecosystem-next.md",
+   "media": "text",
+   "bytes": 4809,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4757,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-08-26-space-time-cause-datawork.md",
+   "media": "text",
+   "bytes": 6292,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6253,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "follows the",
+     "subject": "> Framing",
+     "object": "repo's semiotic lineage: Aristotle's"
+    },
+    {
+     "type": "Produces",
+     "cue": "writes a",
+     "subject": "to a goal/workflow node",
+     "object": "`serves` event, so purpose"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-08-29-notebook-dashboard-editor.md",
+   "media": "text",
+   "bytes": 10031,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9981,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because we",
+     "subject": "is where it belongs,",
+     "object": "do not know their"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs an",
+     "subject": "If a widget",
+     "object": "endpoint that does not"
+    },
+    {
+     "type": "Follows",
+     "cue": "after it",
+     "subject": "document that silently changes",
+     "object": "was circulated."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-08-30-monitor-mode.md",
+   "media": "text",
+   "bytes": 7928,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7884,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "build \"a tracking app\"",
+     "object": "second product with its"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "One correction worth recording,",
+     "object": "changes what the decision"
+    },
+    {
+     "type": "Explains",
+     "cue": "because they",
+     "subject": "for F-Droid's sake, but",
+     "object": "buy nothing here."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-08-30-productization.md",
+   "media": "text",
+   "bytes": 16080,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 15926,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "is genuinely useful, not",
+     "object": "is crippled."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-09-01-hardening-recheck.md",
+   "media": "text",
+   "bytes": 2466,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2444,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "requires a",
+     "subject": "or `src/web/mod.rs` degraded logic",
+     "object": "re-run of the 3"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "before the"
+   ]
+  },
+  {
+   "path": "plans/2026-09-10-handoff-pointer.md",
+   "media": "text",
+   "bytes": 706,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 700,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-09-13-2x2-first-run.md",
+   "media": "text",
+   "bytes": 12405,
+   "modified": "2026-09-13T06:10:33Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 12324,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "`answer.py` now",
+     "object": "embedder from `pack` and"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "It is reported",
+     "object": "is what ran, not"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "requires two",
+     "subject": "the gate) Each case",
+     "object": "identifiers, so 14 per"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "It is here",
+     "object": "points at where to"
+    },
+    {
+     "type": "Produces",
+     "cue": "produces two",
+     "subject": "One reading",
+     "object": "byte-identical anomalies."
+    }
+   ],
+   "relations_shuffled": 3,
+   "shuffled_by_cue": [
+    "returns the",
+    "because it",
+    "scores a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-13-claims-audit.md",
+   "media": "text",
+   "bytes": 9101,
+   "modified": "2026-09-13T07:47:54Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9044,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "produced or exposed Recorded",
+     "object": "pattern matters more than"
+    },
+    {
+     "type": "Invalidates",
+     "cue": "fails to",
+     "subject": "did not verify **silently",
+     "object": "record**, in the copy"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-09-13-documentation-inventory.md",
+   "media": "text",
+   "bytes": 7111,
+   "modified": "2026-09-13T09:23:36Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7065,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "corpus as a whole,",
+     "object": "reported problem was not"
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "who consults the \"bible\"",
+     "object": "name implies canonicity gets"
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "because a",
+    "implies a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-13-four-conceptual-problems.md",
+   "media": "text",
+   "bytes": 11659,
+   "modified": "2026-09-13T12:46:59Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 11575,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after a",
+     "subject": "exposed it Written 2026-09-13,",
+     "object": "session that ran the"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "**Direction:** a claim",
+     "object": "structural identity \u2014 subject,"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "is a coherence problem",
+     "object": "is a performance problem:"
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "scores the",
+    "needs a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-13-next-steps.md",
+   "media": "text",
+   "bytes": 19858,
+   "modified": "2026-09-13T20:20:20Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 19695,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after a",
+     "subject": "neurosemantic interface Written 2026-09-13,",
+     "object": "literature pass (searches logged"
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "predicts per-region conditioning wins",
+     "object": "70-way partition makes traces"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before a",
+     "subject": "stated as a requirement",
+     "object": "line is written**, because"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "B) over the ledger",
+     "object": "action executes."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "Three weeks, and it",
+     "object": "NS2."
+    },
+    {
+     "type": "Follows",
+     "cue": "after a",
+     "subject": "**Control.** Query the ledger",
+     "object": "revocation and count how"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs an",
+     "subject": "*\"the tuple itself \u2026",
+     "object": "extractor, which needs an"
+    },
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "deterministic supersession rule, and",
+     "object": "same embedding failure physis"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "needs a domain reference",
+     "object": "is quotable."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "result while the number",
+     "object": "domain reference before it"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "**Falsifier, restated",
+     "object": "is the one that"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "That still",
+     "object": "gate-passing output (E53's stated"
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "predicts a",
+    "because of"
+   ]
+  },
+  {
+   "path": "plans/2026-09-13-nli-vs-cosine-contradiction.md",
+   "media": "text",
+   "bytes": 5715,
+   "modified": "2026-09-13T09:14:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5681,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "plans/2026-09-13-note-markets-as-a-domain.md",
+   "media": "text",
+   "bytes": 9296,
+   "modified": "2026-09-13T06:27:07Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9240,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "rather than quietly deleted,",
+     "object": "corrected version is the"
+    },
+    {
+     "type": "Measures",
+     "cue": "measures a",
+     "subject": "a scaling-exponent estimator.** It",
+     "object": "deviation across scales and"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "makes the decay legible",
+     "object": "fact."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "before a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-13-research-agenda.md",
+   "media": "text",
+   "bytes": 30665,
+   "modified": "2026-09-13T18:02:23Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 30466,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "does **nothing** at 0.80/0.90/0.95,",
+     "object": "leader is high for"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs an",
+     "subject": "(subject, relation, object, interval)",
+     "object": "extractor, which needs an"
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "reported as a result**,",
+     "object": "diagnostic found why 4"
+    },
+    {
+     "type": "Produces",
+     "cue": "returns its",
+     "subject": "were unusable: NIM's nemotron",
+     "object": "answer in `reasoning_content` and"
+    },
+    {
+     "type": "Explains",
+     "cue": "because of",
+     "subject": "layer that differs differs",
+     "object": "the interpreter."
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "the layers still diverge",
+     "object": "fix, the honest reading"
+    },
+    {
+     "type": "Predicts",
+     "cue": "predicts the",
+     "subject": "The graphiti result",
+     "object": "first three are stable"
+    },
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "LLM-supported collaborative ontology design",
+     "object": "split cleanly \u2014 machines"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs its",
+     "subject": "Whatever adjudicates",
+     "object": "own agreement measured."
+    },
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "needs a domain reference",
+     "object": "is quoted as one."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "the result; the number",
+     "object": "domain reference before it"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "D3",
+     "object": "how many proposals D2"
+    }
+   ],
+   "relations_shuffled": 3,
+   "shuffled_by_cue": [
+    "before the",
+    "reports the",
+    "because a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-14-neurosemantic-interface.md",
+   "media": "text",
+   "bytes": 58852,
+   "modified": "2026-09-14T13:08:17Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 58696,
+   "relations": [
+    {
+     "type": "Supports",
+     "cue": "supports a",
+     "subject": "The first release",
+     "object": "bounded set of formats;"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "and produce source-based material",
+     "object": "machine executor or application"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before a",
+     "subject": "object and interpreted action",
+     "object": "mutating operation."
+    },
+    {
+     "type": "Produces",
+     "cue": "produces an",
+     "subject": "Unknown phrasing",
+     "object": "explicit gap and a"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "\u201cI selected run 42",
+     "object": "used this part revision"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "\u201cWait for the measurement",
+     "object": "next step.\u201d Changes a"
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "mark a plan successful",
+     "object": "adapter returned success."
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "linked app panels |",
+     "object": "first two apps demonstrate"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "parameter binding and review",
+     "object": "becomes executable."
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "### 9.4 User-built applications",
+     "object": "starter suite works, add"
+    },
+    {
+     "type": "Causes",
+     "cue": "triggers a",
+     "subject": "refresh, or interpretation call",
+     "object": "device write."
+    },
+    {
+     "type": "Measures",
+     "cue": "reports its",
+     "subject": "the non-LLM language arm",
+     "object": "own success independently of"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "requires a",
+     "subject": "Physical pilot acceptance also",
+     "object": "concrete device, allowed operation"
+    },
+    {
+     "type": "Follows",
+     "cue": "follows the",
+     "subject": "The device-specific pilot",
+     "object": "execution gates."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "after a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-14-world-map-machine.md",
+   "media": "text",
+   "bytes": 19301,
+   "modified": "2026-09-14T14:31:09Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 19075,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because of",
+     "subject": "later answer differs *because",
+     "object": "it* \u2014 traceably, with"
+    },
+    {
+     "type": "Explains",
+     "cue": "because it",
+     "subject": "the right north star",
+     "object": "is the only test"
+    },
+    {
+     "type": "Predicts",
+     "cue": "predicts the",
+     "subject": "A map that **predicts",
+     "object": "next choice** is graded"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on a",
+     "subject": "a query whose answer",
+     "object": "belief with a validity"
+    },
+    {
+     "type": "Explains",
+     "cue": "because an",
+     "subject": "build can violate them,",
+     "object": "invariant that cannot be"
+    },
+    {
+     "type": "Explains",
+     "cue": "because of",
+     "subject": "to say *what changed",
+     "object": "it*."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "The core",
+     "object": "ranking, not a semantics."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "not test.** Reproposal (`dream.rs`)",
+     "object": "longer horizon than one"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs the",
+     "subject": "Multi-actor shared layer",
+     "object": "observer running in anger."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "Full possible-worlds ranking",
+     "object": "simulator, and `delta_engine.rs` computes"
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "because a",
+    "needs a"
+   ]
+  },
+  {
+   "path": "plans/2026-09-14-worldstate-program.md",
+   "media": "text",
+   "bytes": 22812,
+   "modified": "2026-09-13T22:43:24Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 22622,
+   "relations": [
+    {
+     "type": "Measures",
+     "cue": "reports the",
+     "subject": "External context: STALE",
+     "object": "best evaluated model at"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "Corpus `benchmarks/worldstate/corpus.jsonl` \u2014 **frozen",
+     "object": "evaluation run**, hash recorded"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "No metric is added",
+     "object": "first evaluation run."
+    },
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "**Pass condition, stated",
+     "object": "run.** `structural` beats `cosine`"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/ADOPTION.md",
+   "media": "text",
+   "bytes": 5556,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5512,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "depends on the",
+     "subject": "pilot hypothesis (PLAN 5.4)",
+     "object": "current licence."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/BUSINESS_PLAN.md",
+   "media": "text",
+   "bytes": 7990,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 7869,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before a",
+     "subject": "(sell a measurable result",
+     "object": "platform), WEALTH_PLAN (first-euro doctrine),"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/CLIENT_PITCHES.md",
+   "media": "text",
+   "bytes": 10969,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10886,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after every",
+     "subject": "> Update this table",
+     "object": "send."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/DEMO_AND_CONNECTORS.md",
+   "media": "text",
+   "bytes": 8592,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 8536,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before the",
+     "subject": "what should we do",
+     "object": "next job?\u201d The demo"
+    },
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "is successful when it",
+     "object": "short timeline, an OEE-style"
+    },
+    {
+     "type": "Supports",
+     "cue": "supports the",
+     "subject": "than expected, what evidence",
+     "object": "> diagnosis, and what"
+    },
+    {
+     "type": "Produces",
+     "cue": "emits a",
+     "subject": "\u2014 **done**: the adapter",
+     "object": "normalized `OperationalEvent` with `machine_id`,"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "Add IMAP/Graph/Gmail only",
+     "object": "local `.eml` workflow proves"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "supports it"
+   ]
+  },
+  {
+   "path": "business/DEPLOY.md",
+   "media": "text",
+   "bytes": 4517,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4507,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "generates a",
+     "subject": "One-shot installer `scripts/install-physis.sh` builds,",
+     "object": "token table, and installs"
+    },
+    {
+     "type": "Produces",
+     "cue": "writes a",
+     "subject": "is present it also",
+     "object": "LAN-only Caddyfile (TLS on"
+    },
+    {
+     "type": "Observes",
+     "cue": "records the",
+     "subject": "service and the log",
+     "object": "skipped update."
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "records the"
+   ]
+  },
+  {
+   "path": "business/DISTRIBUTION_LISTS.md",
+   "media": "text",
+   "bytes": 4922,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4895,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/PRODUCT_RETHINK.md",
+   "media": "text",
+   "bytes": 9869,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9819,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "Inverse traversal for \"what",
+     "object": "this machine.\" 3."
+    },
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "tenant isolation + RBAC",
+     "object": "multi-customer SaaS."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/PROSPECT_LIST_EXPANDED.csv",
+   "media": "text",
+   "bytes": 3717,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3717,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/STUDIO.md",
+   "media": "text",
+   "bytes": 4082,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4050,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "needs the",
+     "subject": "## Build (needs",
+     "object": "optional ingestion backends) ```bash"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/demo-shift.json",
+   "media": "text",
+   "bytes": 2562,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2560,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/followup-generalmecannica.md",
+   "media": "text",
+   "bytes": 1438,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1422,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/mcp-server-submission.md",
+   "media": "text",
+   "bytes": 3854,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3819,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "and a `failures` entry",
+     "object": "repeats the mistake."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/outreach_moro_cbmec.md",
+   "media": "text",
+   "bytes": 2634,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2605,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/outreach_queue_week1.md",
+   "media": "text",
+   "bytes": 10258,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10155,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "needs the",
+     "subject": "Gmail account still >",
+     "object": "one-time OAuth consent (see"
+    },
+    {
+     "type": "Follows",
+     "cue": "after every",
+     "subject": "in CLIENT_PITCHES.md status column",
+     "object": "send/reply."
+    },
+    {
+     "type": "Precedes",
+     "cue": "before a",
+     "subject": "Never claim ROI",
+     "object": "measured pilot."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/proposta-generalmecannica.md",
+   "media": "text",
+   "bytes": 15045,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 14629,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/sample-outputs.md",
+   "media": "text",
+   "bytes": 9821,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 9740,
+   "relations": [
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "text touches multiple cells",
+     "object": "activity itself involves organization,"
+    },
+    {
+     "type": "Explains",
+     "cue": "because a",
+     "subject": "tight (0.60 to 0.45)",
+     "object": "board meeting genuinely lives"
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "confirms the",
+    "observed the"
+   ]
+  },
+  {
+   "path": "business/sample-shift-report.html",
+   "media": "text",
+   "bytes": 3406,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3385,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/sample-shift-report.md",
+   "media": "text",
+   "bytes": 1579,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1560,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "business/usage-guide.md",
+   "media": "text",
+   "bytes": 10204,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 10148,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "examples/logistics_pack.json",
+   "media": "text",
+   "bytes": 2093,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2093,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "benchmarks/secom/README.md",
+   "media": "text",
+   "bytes": 4048,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 4030,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "produces the",
+     "subject": "limit + train-ratio always",
+     "object": "same train/test split and"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "scores the"
+   ]
+  },
+  {
+   "path": "archive/DEVELOPMENT_PLAN.md",
+   "media": "text",
+   "bytes": 50124,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 49190,
+   "relations": [
+    {
+     "type": "Invalidates",
+     "cue": "fails to",
+     "subject": "to the node then",
+     "object": "compile until someone decides"
+    },
+    {
+     "type": "Contradicts",
+     "cue": "disagrees with the",
+     "subject": "pin either agrees or",
+     "object": "classifier, and a disagreement"
+    },
+    {
+     "type": "Contradicts",
+     "cue": "disagrees with",
+     "subject": "&centroids, None) // pin",
+     "object": "auto quality.report_success(&cell) // pin"
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "as f32 \u2192 silently",
+     "object": "random fallback (0.154, below"
+    },
+    {
+     "type": "Explains",
+     "cue": "because the",
+     "subject": "is small on MiniLM",
+     "object": "embedder, not the structure,"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before any",
+     "subject": "matching `embed`; lock dropped",
+     "object": "fallback."
+    },
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "re-registering a seen label",
+     "object": "existing id, so re-scanning"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "Only",
+     "object": "Phase 2's centroid +"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "depends on"
+   ]
+  },
+  {
+   "path": "archive/DEVPLAN.md",
+   "media": "text",
+   "bytes": 5800,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5734,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "archive/INDUSTRIAL_VERTICAL_PLAN.md",
+   "media": "text",
+   "bytes": 12828,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 12702,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "needs the",
+     "subject": "deferred until a customer",
+     "object": "file generated."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "is stateful; the pilot",
+     "object": "durable shift/plant key before"
+    },
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "customer's shift data, Physis",
+     "object": "report for every shift,"
+    },
+    {
+     "type": "Observes",
+     "cue": "records the",
+     "subject": "is versioned, reversible, and",
+     "object": "approving user."
+    },
+    {
+     "type": "Follows",
+     "cue": "after it",
+     "subject": "Gate the Italian tier",
+     "object": "survives a few runs"
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "loops (PLAN 1C) \u2014",
+     "object": "meeting names protocols."
+    },
+    {
+     "type": "Follows",
+     "cue": "after the",
+     "subject": "Edge agent binary \u2014",
+     "object": "meeting names the network"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "needs the"
+   ]
+  },
+  {
+   "path": "archive/LEAN_I40_PLAN.md",
+   "media": "text",
+   "bytes": 3259,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 3214,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "archive/ONTOLOGY_EXPANSION_PLAN.md",
+   "media": "text",
+   "bytes": 28858,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 28661,
+   "relations": [
+    {
+     "type": "Contradicts",
+     "cue": "contradicts the",
+     "subject": "**Constructive refutation**: \"The Interpretant",
+     "object": "Final Interpretant of sibling"
+    },
+    {
+     "type": "DependsOn",
+     "cue": "needs a",
+     "subject": "the classifier consults) and",
+     "object": "writable axis store (sled)"
+    }
+   ],
+   "relations_shuffled": 1,
+   "shuffled_by_cue": [
+    "contradicts the"
+   ]
+  },
+  {
+   "path": "machines/MACHINES_BUILD_PLAN.md",
+   "media": "text",
+   "bytes": 6913,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6772,
+   "relations": [
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "rhythm about to break",
+     "object": "does."
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/PHILOSOPHICAL_MACHINES.md",
+   "media": "text",
+   "bytes": 7013,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6927,
+   "relations": [
+    {
+     "type": "Follows",
+     "cue": "after it",
+     "subject": "polygon is recognized only",
+     "object": "survives point-topology)."
+    },
+    {
+     "type": "Produces",
+     "cue": "produces a",
+     "subject": "`+1.0` only when it",
+     "object": "real, detected effect; euclid:"
+    },
+    {
+     "type": "Precedes",
+     "cue": "before it",
+     "subject": "surfaces a broken rhythm",
+     "object": "breaks."
+    }
+   ],
+   "relations_shuffled": 2,
+   "shuffled_by_cue": [
+    "after the",
+    "produces a"
+   ]
+  },
+  {
+   "path": "machines/PIKA_HERMES_PLAN.md",
+   "media": "text",
+   "bytes": 6012,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5948,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/chronos.md",
+   "media": "text",
+   "bytes": 2016,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1973,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/elenchus.md",
+   "media": "text",
+   "bytes": 1008,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 984,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/harmony.md",
+   "media": "text",
+   "bytes": 881,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 869,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/lex.md",
+   "media": "text",
+   "bytes": 828,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 812,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/polis.md",
+   "media": "text",
+   "bytes": 1012,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 974,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/soma.md",
+   "media": "text",
+   "bytes": 1103,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 1073,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "machines/samples/techne.md",
+   "media": "text",
+   "bytes": 2411,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 2323,
+   "relations": [
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "and graph-walkable; a \"what",
+     "object": "X\" query is then"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "reference/repowise-adaptation.md",
+   "media": "text",
+   "bytes": 6891,
+   "modified": "2026-09-03T10:55:21Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 6811,
+   "relations": [
+    {
+     "type": "Produces",
+     "cue": "returns the",
+     "subject": "regular content (\"why Redis?\"",
+     "object": "decision record)."
+    },
+    {
+     "type": "DependsOn",
+     "cue": "depends on",
+     "subject": "leverage) \u2192 P4 (decisions,",
+     "object": "P2/P3) \u2192 P5 (communities)"
+    }
+   ],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "wiki/MODULE_MAP.md",
+   "media": "text",
+   "bytes": 5977,
+   "modified": "2026-09-14T14:18:15Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 5904,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  },
+  {
+   "path": "wiki/UNREFERENCED-2026-09-12.txt",
+   "media": "text",
+   "bytes": 22348,
+   "modified": "2026-09-13T03:28:02Z",
+   "has_text": true,
+   "reason": null,
+   "chars": 22348,
+   "relations": [],
+   "relations_shuffled": 0,
+   "shuffled_by_cue": []
+  }
+ ],
+ "triples": 195,
+ "null_triples": 47
+}

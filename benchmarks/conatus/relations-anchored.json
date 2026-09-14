@@ -1,0 +1,15 @@
+{
+  "_comment": "Dictionary v2. Measured lesson from v1: single-word cues fire as often on word-shuffled text as on real text (ratio 0.92), multi-word cues do not (15.00). Every cue here therefore spans at least two tokens, usually by anchoring the verb to the determiner or preposition that must follow it in running text. Shuffling separates them; a parser is not needed for that.",
+  "Causes": ["\\bcauses (?:the|a|an|it|this)\\b", "\\bcaused by (?:the|a|an)\\b", "\\bleads to (?:the|a|an)?\\b", "\\bresults in (?:the|a|an)?\\b", "\\btriggers (?:the|a|an)\\b"],
+  "Explains": ["\\bbecause (?:the|a|an|it|they|we|of)\\b", "\\bthe reason (?:is|was)\\b", "\\bwhich is why\\b", "\\bexplains (?:the|a|an|why)\\b"],
+  "Precedes": ["\\bbefore (?:the|a|an|it|any)\\b", "\\bprior to (?:the|a|an)?\\b", "\\bearlier than (?:the|a|an)?\\b"],
+  "Follows": ["\\bafter (?:the|a|an|it|every)\\b", "\\bfollows (?:the|a|an|from)\\b", "\\bsubsequent to\\b"],
+  "DependsOn": ["\\bdepends on (?:the|a|an|its|what|whether)?\\b", "\\brequires (?:the|a|an|its|two|three)\\b", "\\brelies on (?:the|a|an)?\\b", "\\bneeds (?:the|a|an|its|to)\\b"],
+  "Produces": ["\\bproduces (?:the|a|an|one|two)\\b", "\\bgenerates (?:the|a|an)\\b", "\\bwrites (?:the|a|an|to)\\b", "\\breturns (?:the|a|an|its)\\b", "\\bemits (?:the|a|an)\\b"],
+  "Measures": ["\\bmeasures (?:the|a|an|how)\\b", "\\bscores (?:the|a|an|it)\\b", "\\breports (?:the|a|an|its|that)\\b", "\\bcounts (?:the|a|an)\\b"],
+  "Observes": ["\\bobserved (?:the|a|an|that|in)\\b", "\\brecords (?:the|a|an|every|what)\\b", "\\blogs (?:the|a|an|every)\\b"],
+  "Contradicts": ["\\bcontradicts (?:the|a|an|it)\\b", "\\bdisagrees with (?:the|a|an)?\\b", "\\brefutes (?:the|a|an|it)\\b"],
+  "Supports": ["\\bsupports (?:the|a|an|it)\\b", "\\bconfirms (?:the|a|an|that)\\b", "\\bcorroborates (?:the|a|an)\\b"],
+  "Invalidates": ["\\binvalidates (?:the|a|an|it)\\b", "\\bbreaks (?:the|a|an|it)\\b", "\\bfails (?:the|a|an|to|when)\\b"],
+  "Predicts": ["\\bpredicts (?:the|a|an|that)\\b", "\\bimplies (?:the|a|an|that)\\b"]
+}
