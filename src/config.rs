@@ -224,6 +224,33 @@ pub enum EmbedderKindConfig {
     /// reason it exists here. Text-only.
     #[serde(rename = "bge-m3")]
     BgeM3,
+    /// Any sentence-transformers model exported to ONNX
+    /// (`optimum-cli export onnx -m sentence-transformers/<model> models/<dir>/`).
+    /// Dimension and pooling are resolved from the directory name — see
+    /// [`st_layout`]. Text-only; runs through the same `OnnxEmbedder` engine
+    /// and self-test gate as the BGE kinds.
+    #[serde(rename = "sentence-transformers")]
+    SentenceTransformers,
+}
+
+/// Resolve dimension and pooling for a sentence-transformers export from its
+/// model directory name. Known ST exports are mean-pooled; the map below is
+/// the single place to extend when a new layout is adopted.
+pub fn st_layout(model_dir: &str) -> (usize, PoolingStrategy) {
+    let name = model_dir
+        .rsplit('/')
+        .next()
+        .unwrap_or(model_dir)
+        .to_ascii_lowercase();
+    if name.contains("mpnet") || name.contains("bge") {
+        (768, PoolingStrategy::Mean)
+    } else if name.contains("distiluse") || name.contains("distilbert") {
+        (512, PoolingStrategy::Mean)
+    } else {
+        // all-MiniLM*, paraphrase-multilingual-MiniLM*, and any unlisted
+        // transformer-style export default to 384-d mean pooling.
+        (384, PoolingStrategy::Mean)
+    }
 }
 
 /// Configuration for a single embedder.
@@ -885,6 +912,40 @@ mod tests {
             "expected at least 14 human domains, got {}",
             map.len()
         );
+    }
+
+    #[test]
+    fn st_layout_resolves_known_export_names() {
+        // Multilingual MiniLM: the Italian-gap candidate, 384-d mean.
+        assert_eq!(
+            st_layout("models/paraphrase-multilingual-MiniLM-L12-v2"),
+            (384, PoolingStrategy::Mean)
+        );
+        assert_eq!(
+            st_layout("models/all-MiniLM-L6-v2"),
+            (384, PoolingStrategy::Mean)
+        );
+        // mpnet-family exports are 768-d.
+        assert_eq!(
+            st_layout("models/all-mpnet-base-v2"),
+            (768, PoolingStrategy::Mean)
+        );
+        // DistilUSE is 512-d.
+        assert_eq!(
+            st_layout("models/distiluse-base-multilingual-cased-v2"),
+            (512, PoolingStrategy::Mean)
+        );
+        // Unlisted transformer exports default to 384-d mean.
+        assert_eq!(st_layout("models/some-new-export"), (384, PoolingStrategy::Mean));
+    }
+
+    #[test]
+    fn st_kind_round_trips_through_config_json() {
+        let json = r#"{"kind": "sentence-transformers", "model_dir": "models/all-MiniLM-L6-v2"}"#;
+        let ec: EmbedderConfig = serde_json::from_str(json).expect("parse");
+        assert!(matches!(ec.kind, EmbedderKindConfig::SentenceTransformers));
+        let back = serde_json::to_string(&ec.kind).unwrap();
+        assert_eq!(back, r#""sentence-transformers""#);
     }
 
     #[test]

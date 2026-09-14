@@ -365,6 +365,19 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                     b.is_available()
                         .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
                 }
+                EmbedderKindConfig::SentenceTransformers => {
+                    let (dim, pooling) = crate::config::st_layout(&ec.model_dir);
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some(ec.model_dir.clone()),
+                        dim,
+                        max_length: 512,
+                        pooling,
+                    };
+                    let s = OnnxEmbedder::with_config(&cfg);
+                    s.is_available()
+                        .then(|| (Box::new(s) as Box<dyn VectorEmbed>, "sentence-transformers"))
+                }
                 EmbedderKindConfig::RandomProjection => Some((
                     Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
                     "random-projection",

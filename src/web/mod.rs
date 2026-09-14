@@ -2267,6 +2267,19 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                     }
                     EmbedderKindConfig::BgeBase => make_bge(),
                     EmbedderKindConfig::BgeM3 => make_bge_m3(),
+                    EmbedderKindConfig::SentenceTransformers => {
+                        let (dim, pooling) = crate::config::st_layout(&ec.model_dir);
+                        let cfg = crate::config::OnnxConfig {
+                            enabled: true,
+                            model_dir: Some(ec.model_dir.clone()),
+                            dim,
+                            max_length: 512,
+                            pooling,
+                        };
+                        let s = OnnxEmbedder::with_config(&cfg);
+                        s.is_available()
+                            .then(|| (Box::new(s) as Box<dyn VectorEmbed>, "sentence-transformers"))
+                    }
                     EmbedderKindConfig::RandomProjection => Some((
                         Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
                         "random-projection",

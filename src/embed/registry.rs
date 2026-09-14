@@ -87,6 +87,22 @@ impl EmbedderRegistry {
                     }
                 }
                 EmbedderKindConfig::MiniLM => Self::fallback_onnx(onnx_cfg),
+                EmbedderKindConfig::SentenceTransformers => {
+                    let (dim, pooling) = crate::config::st_layout(&ec.model_dir);
+                    let cfg = OnnxConfig {
+                        enabled: true,
+                        model_dir: Some(ec.model_dir.clone()),
+                        dim,
+                        max_length: 512,
+                        pooling,
+                    };
+                    let st = OnnxEmbedder::with_config(&cfg);
+                    if st.is_available() {
+                        (Box::new(st), None)
+                    } else {
+                        Self::fallback_onnx(onnx_cfg)
+                    }
+                }
                 EmbedderKindConfig::RandomProjection => Self::fallback_rp(onnx_cfg.dim),
             };
         }

@@ -34,6 +34,155 @@ plus MIT Core as the agent-directory distribution funnel (see
 | Model & N-Gram Infrastructure Layer | **Completed & Verified (v0.1.26, 190/190 unit tests pass)**: Interchangeable `ModelProvider` & `NGramTable` traits, registry-managed checksum-verified models & tables, variable-order backoff n-gram tables (orders 1–5, add-$k$, stupid-backoff), lexical & structural table kinds, versioned `PHYSISNG1` compact binary format, tokenizer compatibility gates, and unified config-driven pipeline (`RunConfig`) allowing zero-source-change model/table hot-swapping. |
 
 
+
+## Embedder expansion — sentence-transformers · jina/clip · jepa (added 2026-09-14)
+
+> Context: the `VectorEmbed` registry already ships BGE-base (768-d), BGE-M3
+> (1024-d), ONNX MiniLM (384-d), Jina-clip-v2 (1024-d text+image), CLIP and the
+> random-projection last resort, all behind the self-test gate
+> (`src/embed/registry.rs`, `src/embed/mod.rs` cascade, `src/web/mod.rs`). What
+> follows is the plan to widen the model surface without touching callers.
+
+### E1 — Sentence-Transformers as a first-class kind ✅ Done (2026-09-14)
+
+Any [sentence-transformers](https://www.sbert.net) model exported to ONNX
+(`optimum-cli export onnx -m sentence-transformers/<model> models/<dir>/`) becomes
+selectable via config, reusing the proven `OnnxEmbedder` engine:
+
+- `EmbedderKindConfig::SentenceTransformers` (`"sentence-transformers"` in
+  `config.json`) added in `src/config.rs`.
+- Dimension and pooling resolved from the model directory name
+  (`st_layout()` in `src/config.rs`): `all-MiniLM*`/`paraphrase-multilingual-MiniLM*`
+  → 384 mean, `all-mpnet*`/`bge-*` → 768 mean, `distiluse*` → 512 mean,
+  `paraphrase-multilingual-mpnet*` → 768 mean, unknown → 384 mean. Known ST
+  exports use mean pooling; the layout table is the single place to extend.
+- Wired into all three selection sites (`src/embed/mod.rs` CLI cascade,
+  `src/web/mod.rs` server cascade, `src/embed/registry.rs` registry): as
+  `embedders.primary` it participates in the same self-test-gated chain and
+  falls back exactly like the other kinds when the export is missing.
+- Config example:
+  ```json
+  "embedders": { "primary": { "kind": "sentence-transformers",
+                               "model_dir": "models/paraphrase-multilingual-MiniLM-L12-v2",
+                               "enabled": true } }
+  ```
+- Rationale: the multilingual MiniLM exports close the measured Italian gap
+  (tier 0.733 with the English embedder) at 384-d cost, without BGE-M3's 2.2 GB.
+
+### E2 — Jina / CLIP hardening (next)
+
+Status: both embedders exist (`src/embed/jina.rs`, `src/embed/clip.rs`) but the
+bundled jina-clip-v2 fp16 export fails the self-test (~0.06 top score) and is
+deliberately excluded from the auto-fallback cascade. Remaining work:
+
+1. Re-export jina-clip-v2 in fp32 (or q8) and verify against the semantic
+   probe; a passing export is opted back into the fallback chain after BGE-M3.
+2. CLIP vision weights are optional; wire `embedders.image` through
+   `EmbedderRegistry.image` so video (`src/video.rs`) uses CLIP when Jina
+   vision is absent — currently `image` is parsed but only the Clip branch
+   populates it.
+3. Measure jina-clip-v2 text vs bge-base on the cell-classification fixture
+   (`tests/classification.rs` accuracy floor) before any promotion.
+
+### E3 — JEPA (later, research-gated)
+
+Two distinct tracks, mirroring the Fourier precedent (keep them named apart):
+
+- **JEPA reranker** (Phase 11D, feature `jepa-rerank`): lightweight predictor
+  trained on *this corpus's* classify decisions, re-ranking top-k cell
+  candidates from `CellClassifier::classify`; falls back to pure cosine when
+  the feature is off. Admission test: must beat the construction-matched null
+  (permuted labels) on the E21 blind re-filing protocol before it ships.
+- **V-JEPA video encoder** (research only, behind `embed-jepa`): frame-patch
+  target representations as an alternative to the CLIP mean-pool clip vector.
+  Do not promote without the same null-gated protocol.
+
+> House rule inherited from the research track: no embedder/reranker ships
+> without a measurement against a construction-matched control. `propose`
+> (+0.531 top-3) and `coverage` (*t* = +12.11) set the bar for what "works"
+> means here.
+
+
+### E4 — Literature sweep: resources, links, and reframed failures (2026-09-14)
+
+Full memo with reasoning per entry: **`research/RELATED_WORK_2026-09-14.md`**.
+Everything below was pulled from arXiv on 2026-09-14 and mapped to a physis
+primitive or a failed experiment.
+
+| # | Paper (link) | Feeds into | What it changes |
+|---|---|---|---|
+| R1 | [Anisotropy Decides Cosine vs. Rank Metrics](https://arxiv.org/abs/2606.29571) | E1–E18 geometry refutation | Anisotropy is the covariate that decides when cosine fails → retest ARI with anisotropy measured; rank metrics as fallback |
+| R2 | [Positional Artefacts Propagate Through MLM Embeddings](https://arxiv.org/abs/2011.04393) | same | Outlier-neuron clipping as a candidate fix; mechanism for why embedders disagree |
+| R3 | [Beyond Cosine: Antonym Intrusion in Synonym Graphs](https://arxiv.org/abs/2601.13251) | E83 antonym rule (14% recall, dead) | Three-way synonym/antonym/co-hyponym discriminator (90% F1) replaces the pair-firing rule; buildable on the in-tree WordNet reader |
+| R4 | [Explainable Phrasal Reasoning with Neural Fuzzy Logic](https://arxiv.org/abs/2109.08927) | contradiction rule (retired, lost to NLI) | Phrase-aligned NLI emits per-phrase evidence — ledger records *why*, not just *what* |
+| R5 | [The LSCD Benchmark](https://arxiv.org/abs/2404.00176) · [Semantic Distance Metric Learning for LSCD](https://arxiv.org/abs/2403.00226) | `becoming` | External benchmark (WiC → WSI → graded change) for an internal-only primitive; shuffle-timestamps null is trivial to build |
+| R6 | [Hyperbolic Residual Quantization](https://arxiv.org/abs/2505.12404) | `propose` / grid | Grid is a latent hierarchy Euclidean cosine flattens; HRQ gives a legitimate second chance for geometry under the same E21 protocol |
+| R7 | [REVA: Reusable Evidence View Aggregation](https://arxiv.org/abs/2609.11209) | context compiler | Compressor gains are unstable vs truncation → add truncation-at-budget null to the 35% claim; attention-trace score store matches the embed cache design |
+| R8 | [Diagnosing JEPA World Models (ACPC)](https://arxiv.org/abs/2608.12939) | JEPA reranker (E3) | Pre-register Invariance Radius / Separation Rate as the falsifiable admission test before any training |
+| R9 | [Evidence Tracing & Execution Provenance survey](https://arxiv.org/abs/2606.04990) | epistemic ledger | Field-standard vocabulary (typed provenance graph, claim support, memory lineage) for the differentiator's public docs |
+| R10 | [MemLineage](https://arxiv.org/abs/2605.14421) | epistemic ledger | Tamper-evident entries (RFC-6962 Merkle log + Ed25519) and refusal on untrusted ancestry — the integrity half the ledger lacks |
+| R11 | [ProPlay](https://arxiv.org/abs/2606.12780) | predict-then-record loop | Per-transition reliability records = lighter-weight prior art for the shipped predictor |
+
+**Failed experiments this reopens (nothing settled is overturned):**
+
+- E1–E18 (geometry cannot certify) → reframe as *anisotropy-conditioned*
+  geometry (R1, R2); and R6 shows only Euclidean-cosine geometry was ever
+  excluded.
+- E83 (antonym rule, 14% recall) → reframe as *relation-type* classification
+  (R3).
+- Shipped contradiction rule (beaten by NLI) → stays retired, but R4's
+  phrase-aligned variant adds the evidence granularity the ledger needs.
+- 35% compression (chain test only) → truncation-at-budget null missing (R7).
+- `transform` / `transplant` (never null-tested, RESCOPE §8.5) → unchanged;
+  still the open gap, unaffected by this sweep.
+
+**What this gives us (the honest ledger):**
+
+1. **Mechanisms where we had verdicts.** "Geometry doesn't certify" and "the
+   antonym rule is dead" become *conditional* claims with named causes —
+   which is the difference between a refutation and a physics.
+2. **External benchmarks for internal primitives.** `becoming` (R5) and
+   `propose`-under-HRQ (R6) can be scored against public fixtures — a win is
+   evidence a stranger can check; a loss is information we don't have to pay
+   for twice.
+3. **Falsifiable gates before spend.** R8 lets us write down what failure of
+   the JEPA reranker looks like *before* training it; R7 adds the null that
+   protects the compression claim from the same critique REVA levels at the
+   field.
+4. **A recognized design space for the differentiator.** The provenance
+   survey (R9) means the ledger can be positioned in the literature instead
+   of alone, and R10 shows its missing enforcement half is deterministic and
+   buildable — strengthening the bet RESCOPE §8.5 already endorsed.
+5. **Cheap queue.** Items R1 (anisotropy covariate), R3 (WordNet
+   discriminator), R5 (LSCD export), R7 (truncation null) all reuse existing
+   harnesses, corpora, or models already in the tree — no new infrastructure
+   to buy before the next measurement.
+
+### E5 — Literature for future experiments (added 2026-09-14, second pass)
+
+Memo §9–10 (`research/RELATED_WORK_2026-09-14.md`). Design inputs for the
+experiments that have *not run yet*, keyed to the open agenda:
+
+| future experiment | paper(s) | design change it dictates |
+|---|---|---|
+| `transform`/`transplant` null tests (RESCOPE §8.5 gap) | [Cross-Domain Mapping in Humans and LLMs](https://arxiv.org/abs/2603.19087) | Null must be structure-preserving/function-scrambled (LLMs transfer structure, not surface); record semantic distance as covariate |
+| E19/E20 un-splittable clause | [SSR-GRPO](https://arxiv.org/abs/2512.12678), [GENRE](https://arxiv.org/abs/2010.00904) | Hard-negative fixture ladder with cosine-band ceilings to localize the failure before choosing a fix |
+| E80 pooling destroys file-level content | [ColBERT](https://arxiv.org/abs/2004.12832), [MoganColBERT-TR](https://arxiv.org/abs/2608.26344) | MaxSim-over-cached-chunks A/B — no new model, no re-embedding |
+| E77 temporal semantics / state restoration | [THBKG](https://arxiv.org/abs/2608.05982), [AnoT](https://arxiv.org/abs/2408.00872), [NS-ST-GraphRAG](https://arxiv.org/abs/2609.05139) | Valid-time *intervals* on evidence edges (field converged on intervals, not timestamps); detector/updater/monitor split |
+| midchain revision propagation (A2/A5) | [ChainEdit](https://arxiv.org/abs/2507.08427), [Bilinear representations & reversal curse](https://arxiv.org/abs/2509.21993) | Revision accuracy is a function of store geometry — one experiment ties A2's metric to the R1 anisotropy covariate |
+| retrospective dream (`dream_over_history`, 23.6) | — (no hit; nearest: ProPlay R11, MemLineage R10) | **Recorded gap = proprietary territory**; nothing commodity to benchmark against |
+
+Priority merge (memo §10): MaxSim A/B and anisotropy covariate are free wins;
+transform/transplant null design comes next (highest value, needs the most
+careful control); valid-time intervals are a schema change cheap now, expensive
+to retrofit. E15 realistic-error retest and second-rater agreement remain
+un-anchored (F7).
+
+---
+
+---
+
+
 ## Research track — epistemic mechanisms (status 2026-09-09)
 
 Full record: **`research/RESEARCH_STATUS.md`**. Per-experiment reports sit with
