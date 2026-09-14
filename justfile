@@ -90,8 +90,17 @@ recall q:
 note text verdict="0.0":
     cargo run --quiet --bin physis-pro -- note "{{ text }}" --verdict {{ verdict }}
 
-# Full CI check: fmt + clippy + tests
-ci: fmt-check lint test
+# Are the capabilities this crate claims actually wired at both ends?
+# Reads physis-core/.physis-capabilities: a capability passes only when
+# something writes it AND something reads it. NOT MEASURED (exit 2) when the
+# skill is not installed — never a silent pass.
+capabilities:
+    @test -x ~/.claude/skills/physis/scripts/physis-check.sh \
+      || { echo "NOT MEASURED: physis-skill not installed (github.com/ilPez00/physis-skill)"; exit 2; }
+    @cd physis-core && ~/.claude/skills/physis/scripts/physis-check.sh capabilities src tests
+
+# Full CI check: fmt + clippy + tests + the capability manifest
+ci: fmt-check lint test capabilities
     @echo "CI passed"
 
 # Install the repo's git hooks into this clone (hooks are per-clone, not
