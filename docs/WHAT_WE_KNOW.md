@@ -18,7 +18,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Structure-derived analogy beats a degree-preserving control | +0.291 / +0.189 top-3 | E53 |
 | Coverage and discovery ranking beat their nulls | Welch *t* = +12.11; P@25 0.480 vs 0.132 | RESCOPE §1 |
 | Semantic retrieval beats lexical on the honest benchmark | hit@5 0.57 vs 0.14 | `benchmarks/retrieval/` |
-| Deforming a predictor on its own mismatch beats freezing it, and beats denying the observation | MRR +0.063 [+0.031, +0.099] vs frozen; +0.063 [+0.024, +0.110] vs deny; +0.072 vs random-deform | E70 |
+| Deforming on mismatch beats **starting from nothing**, and beats denying the observation | MRR +0.063 [+0.031, +0.099] vs uniform-frozen, +0.063 [+0.024, +0.110] vs deny (E70); Brier −0.0027 vs base-rate, −0.0018 vs deny, −0.0150 vs cold start (E71) | E70, E71 |
+| Whether an action will fail is predictable above chance, from the kind of action | AUC 0.645 (fitted) / 0.620 (kind prior alone) vs 0.500 | E71 |
 
 ## Wrong — settled negatives, not to be relitigated
 
@@ -36,6 +37,7 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | The mode axis expands on proposal alone | 6 of 14 fail an external verb inventory | D2a |
 | An agent's file-touch **order** carries recoverable geometry | structure ties its own order-shuffled tables (+0.011 [−0.014, +0.036]) and ties the directory tree alone; the predictor is where files sit, not the trace | E67 |
 | Aiming at a stable future beats rolling the next step forward | attractor 0.176 vs one-step 0.172, +0.004 [−0.023, +0.027] | E70 |
+| Online deformation beats a model already fitted on other sessions | ties on Brier and loses on AUC at every step size tried (−0.029 to −0.070) | E71 |
 
 ## Open — believed, not measured
 
@@ -46,6 +48,7 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 - **The `ledger` → `build_structural` join.** Both halves exist, still three call sites, none the log.
 - **Adversarial corpus.** 4 of 15 required pairs; navigation work is blocked until re-frozen (E57).
 - **Everything rests on one machine's log, one week, mostly one repo.** Every interval in the series overlaps its neighbour.
+- **Whether cross-session priors, accumulated in the log and read back at prediction time, keep improving.** E71 says the prior carries the signal; nothing yet reads the observation log back when a prediction is made.
 - **Whether a richer choice space changes E67's answer.** File touches are dominated by directory structure; actions with outcomes (intent → argv → exit) have not been scored, and that is where a wrong prediction has a consequence the tree cannot explain.
 - **Why deformation decays within a session.** Every arm loses ~0.04 MRR from first half to second (E70). Converging and then holding while the task drifts is what `dream.rs` reproposal exists for, and nothing calls it from that loop.
 
