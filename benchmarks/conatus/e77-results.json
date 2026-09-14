@@ -1,0 +1,33 @@
+{
+ "status_now": "Contradicted",
+ "fitness_now": 0.26666665,
+ "forward": {
+  "2026-01-01T00:00:00Z": {
+   "status": null,
+   "said": "[63e892fa-3be4-4054-9a73-0e03c900910c] is known but had no recorded belief at 2026-01-01 00:00:00 UTC"
+  },
+  "2026-06-01T00:00:00Z": {
+   "status": null,
+   "said": "[63e892fa-3be4-4054-9a73-0e03c900910c] is known but had no recorded belief at 2026-06-01 00:00:00 UTC"
+  },
+  "2026-12-01T00:00:00Z": {
+   "status": "Contradicted",
+   "said": "Belief at 2026-12-01 00:00:00 UTC for [63e892fa-3be4-4054-9a73-0e03c900910c]: Contradicted"
+  }
+ },
+ "reverse_status_now": "Contradicted",
+ "reverse": {
+  "2026-01-01T00:00:00Z": {
+   "status": null,
+   "said": "[f625230a-a4dd-4a51-9817-46c0201cbb9d] is known but had no recorded belief at 2026-01-01 00:00:00 UTC"
+  },
+  "2026-06-01T00:00:00Z": {
+   "status": null,
+   "said": "[f625230a-a4dd-4a51-9817-46c0201cbb9d] is known but had no recorded belief at 2026-06-01 00:00:00 UTC"
+  },
+  "2026-12-01T00:00:00Z": {
+   "status": "Contradicted",
+   "said": "Belief at 2026-12-01 00:00:00 UTC for [f625230a-a4dd-4a51-9817-46c0201cbb9d]: Contradicted"
+  }
+ }
+}
