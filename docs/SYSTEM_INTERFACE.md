@@ -167,6 +167,19 @@ the single most failure-heavy session and reported it. One session, chosen for
 being extreme, is a sample of one; the harness now does leave-one-out and says
 so in its own source.
 
+`run` reads the same prior before it executes and prints it beside the outcome,
+so a defied expectation is visible at the moment it is defied and lands in one
+record rather than two:
+
+```text
+prior: false has failed 3 of 3 run(s) here (p 0.84)
+run ecb5decd… · exit 1 · 0 ms
+intent obs:11 → outcome obs:12
+```
+
+That is the whole loop: the thing that writes outcomes is the thing that reads
+them back, and the next prediction is made from a store one record longer.
+
 Two limits, stated where they are easy to hit. `cargo test` and `cargo build`
 are different kinds while `ls -la` is one, so the granularity is the program
 plus a subcommand for the handful of tools that take one. And the label is
