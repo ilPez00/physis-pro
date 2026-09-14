@@ -1,0 +1,26 @@
+{
+ "embedder": "onnx-explicit",
+ "files": 140,
+ "pooled_accuracy": 0.2,
+ "pooled_null": [
+  0.0,
+  0.5
+ ],
+ "maxsim_accuracy": 0.4,
+ "maxsim_null": [
+  0.0,
+  0.6
+ ],
+ "projects": {
+  "praxis/praxis-android": "android",
+  "agora": "android",
+  "physis-pro/physis-core": "rust",
+  "physis-global": "rust",
+  "aion": "python",
+  "llm-wiki-rag": "python",
+  "trustgraph": "python",
+  "multiagent": "python",
+  "praxis/praxis_webapp": "webapp",
+  "repowise": "webapp"
+ }
+}
