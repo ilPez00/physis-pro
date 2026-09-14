@@ -1,0 +1,19 @@
+{
+ "bge namehints": {
+  "anisotropy": 0.5576014518737793,
+  "fit_ari": 0.06170887826077112
+ },
+ "bge nameonly": {
+  "anisotropy": 0.5619531869888306,
+  "fit_ari": 0.06566675474333848
+ },
+ "nomic-embed": {
+  "anisotropy": 0.5272061228752136,
+  "fit_ari": 0.0802256622642328
+ },
+ "cross_ari": {
+  "bge namehints vs bge nameonly": 0.10807096390270489,
+  "bge namehints vs nomic-embed": 0.1647054471659344,
+  "bge nameonly vs nomic-embed": 0.17766786479363603
+ }
+}
