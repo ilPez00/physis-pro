@@ -36,6 +36,7 @@ directory is the default. The root must exist; queries do not create a state sto
 | List | `physis system list --limit 100` | Returns paths, IDs, sizes, and modification times. |
 | Find | `physis system find 'pressure calibration'` | Ranks file prefixes and workspace observations with Physis BM25. |
 | Pack | `physis system pack 'pressure calibration' --budget 1200 [--include-dir dist]` | Assembles a token-budgeted bundle of line windows: the context itself, with `path:start-end` on every chunk. |
+| Predict | `physis system predict -- cargo test` | Reads this workspace's own record of how this kind of action has gone, with the counts behind it. |
 | Read | `physis system read src/main.rs` | Reads a current file, one region with `src/main.rs:120-180`, a returned `file:...` ID or any unambiguous prefix of one, or an `obs:...` reference. |
 | Recall | `physis system history 'calibration'` | Reads matching workspace notes and runs, newest first. |
 | Remember | `physis system remember 'Probe disconnected during calibration' --outcome failure --actor operator` | Appends an explicitly reported outcome. |
@@ -128,6 +129,49 @@ also appear in interface history/search. Legacy relative-path observations and
 unscoped git/model events are not guessed into a workspace. This store is separate
 from Pro's licensed graph store; sharing it with Core does not imply Pro recall
 has been repaired.
+
+## Reading the record back before acting
+
+The log already held every `run` this interface executed, with the exit status
+reality gave it, and nothing read those back at the moment a decision was made —
+a write with no read, one level up from the symbols rule 1 checks.
+
+```sh
+physis system predict -- cargo test
+# cargo test  failure probability 0.18  (2 of 9 run(s) of this kind failed;
+#                                        workspace rate 0.07 over 61 run(s))
+```
+
+It returns the Laplace-smoothed failure rate of *this kind of action* in this
+workspace, the counts behind it, and the last few runs of that kind. An empty
+log returns `NOT MEASURED`, never a confident zero: a store nobody has written
+to and a workspace where nothing ever fails are the same JSON otherwise.
+
+**Why the per-kind rate and nothing cleverer.** Measured on 9466 recorded
+actions from agent transcripts (`research/E71_ANTICIPATING_OUTCOMES.md`): the
+cross-session prior over action kinds separates failures from successes at AUC
+0.620 against a 0.500 base rate, and online within-session adaptation did not
+improve on it — it tied on Brier and lost on ranking at every step size tried.
+So the interface ships the prior and claims nothing else.
+
+**The shipped code was then measured, not assumed.**
+`benchmarks/behaviour/validate_predict.py` replays real recorded actions into a
+real store and asks the binary itself, one subprocess per prediction,
+leave-one-session-out: **mean AUC 0.589 over 8 held-out sessions, 570
+predictions, Brier better than the base rate in 5 of 8.** Close to the 0.620 the
+idea scored in Python, which is what "the implementation reproduces the
+experiment" should look like.
+
+A first run of that validation read 0.419 — below chance — because it held out
+the single most failure-heavy session and reported it. One session, chosen for
+being extreme, is a sample of one; the harness now does leave-one-out and says
+so in its own source.
+
+Two limits, stated where they are easy to hit. `cargo test` and `cargo build`
+are different kinds while `ls -la` is one, so the granularity is the program
+plus a subcommand for the handful of tools that take one. And the label is
+process exit: a command can exit 0 and still not do what was wanted, which is
+why the output says so on every call.
 
 ## One log for several agents
 
