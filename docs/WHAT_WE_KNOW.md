@@ -20,6 +20,7 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Semantic retrieval beats lexical on the honest benchmark | hit@5 0.57 vs 0.14 | `benchmarks/retrieval/` |
 | Deforming on mismatch beats **starting from nothing**, and beats denying the observation | MRR +0.063 [+0.031, +0.099] vs uniform-frozen, +0.063 [+0.024, +0.110] vs deny (E70); Brier −0.0027 vs base-rate, −0.0018 vs deny, −0.0150 vs cold start (E71) | E70, E71 |
 | Whether an action will fail is predictable above chance, from the kind of action | AUC 0.645 (fitted) / 0.620 (kind prior alone) vs 0.500 | E71 |
+| Bare embedding distance tells related from unrelated but not which relation | synonym 0.2978 vs antonym 0.3041, AUC 0.488; both vs random 0.910 / 0.964; a sentence frame lifts it only to 0.59–0.69 and is frame-dependent | E82 |
 | That prior **transfers between machines** as well as each machine's own history | feather→pansa 0.644 [0.612, 0.676] vs in-corpus 0.642; pansa→feather 0.677 [0.600, 0.754] vs 0.612; synced duplicate sessions removed first | E73 |
 | Coverage predicts whether a transferred prior works | every transferring pair at 0.93–0.96 of target actions in a seen kind; every failing pair at 0.24–0.64 | E73 |
 | A borrowed prior beats your own when your record is **thin**, and loses when it is **thick** | Codex (3 sessions, own AUC 0.494) is predicted at 0.635–0.654 by three other agents; cline's own 0.786 and opencode's own 0.695 are never matched by an import | E74 |
@@ -33,7 +34,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Structure can be *certified* cheaply | every scorer at chance on real misfilings (0.519/0.536/0.534) | E14–E18 |
 | Cross-model disagreement carries epistemic signal | paired *t* = −10.53, 0/22 | E1 |
 | The machine can judge whether an entry belongs | AUC 0.410 | RESEARCH_STATUS |
-| Cosine separates agreement from contradiction | precision 0.667 with perfect recall; MemStrata AUROC 0.59 | C2, arXiv 2606.26511 |
+| Cosine separates agreement from contradiction | precision 0.667 with perfect recall; MemStrata AUROC 0.59 (C2); reproduced from the other direction in E83 at AUROC **0.336** — below chance, because a contradiction is the same sentence with one word changed | C2, E83 |
+| A WordNet antonym+negation rule detects contradiction | precision 1.000 but recall **0.143** on pairs not built from antonyms; five of seven misses turn on number, modality, quantifier scope or argument order | E83 |
 | Independent structure transfers across representations | matcher at its null (0.014 vs 0.028) | E55 |
 | Call the model only where cheap rules fail | 0.326 vs 0.488 full coverage | E61, narrowed by E62 |
 | A high-recall link rule is safe | 0.700 → 0.013 under redundancy | E58, narrowed by E59 |
