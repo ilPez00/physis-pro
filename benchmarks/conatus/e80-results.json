@@ -1,0 +1,27 @@
+{
+ "embedder": "onnx-explicit",
+ "projects": {
+  "praxis/praxis-android": "android",
+  "agora": "android",
+  "physis-pro/physis-core": "rust",
+  "physis-global": "rust",
+  "aion": "python",
+  "llm-wiki-rag": "python",
+  "trustgraph": "python",
+  "multiagent": "python",
+  "praxis/praxis_webapp": "webapp",
+  "repowise": "webapp"
+ },
+ "vote_accuracy": 0.6,
+ "project_accuracy": 0.4,
+ "project_null": [
+  0.0,
+  0.5
+ ],
+ "file_accuracy": 0.6428571428571429,
+ "file_null": [
+  0.20714285714285716,
+  0.37142857142857144
+ ],
+ "files": 140
+}
