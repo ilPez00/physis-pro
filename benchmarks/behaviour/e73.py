@@ -21,11 +21,18 @@ failure rate (the transferable base rate, which needs no kinds at all).
 A pair with too few sessions or no failures is reported as NOT MEASURED, never
 as a tie.
 """
-import argparse, collections, itertools, json, os, random, sys
+import argparse, gzip, collections, itertools, json, os, random, sys
 
 BOOTSTRAP = 2000
 
 MIN_SESSIONS = 2
+
+
+def load_corpus(path):
+    """Read a corpus file, gzipped or not."""
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def priors(sessions, label):
@@ -102,7 +109,11 @@ def groups(data):
         if len(s["seen_on"]) == 1:
             by_machine[f"machine:{s['seen_on'][0]}"].append(s)
     out = {k: v for k, v in by_machine.items() if len(v) >= MIN_SESSIONS}
-    for harness in ("claude-code", "codex"):
+    # Every harness present in the file, not a hardcoded pair: cline and
+    # opencode were silently absent from this list while their sessions were in
+    # the corpus, so the transfer table answered a smaller question than the
+    # data supported.
+    for harness in sorted({s["harness"] for s in data["sessions"]}):
         sessions = [s for s in data["sessions"] if s["harness"] == harness]
         if len(sessions) >= MIN_SESSIONS:
             out[f"harness:{harness}"] = sessions
@@ -116,7 +127,7 @@ def main():
     ap.add_argument("--label", choices=["harness", "markers"], default="markers")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
-    data = json.load(open(args.actions))
+    data = load_corpus(args.actions)
     label = "harness_error" if args.label == "harness" else "marker_error"
 
     sets = groups(data)

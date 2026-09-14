@@ -23,7 +23,7 @@ Arms, each a control that can fire:
 
     python3 benchmarks/behaviour/e71.py [--label harness|markers] [--out f.json]
 """
-import argparse, collections, json, math, random, sys
+import argparse, gzip, collections, json, math, random, sys
 
 BOOTSTRAP = 2000
 LR = 0.30           # online step size
@@ -40,6 +40,14 @@ FEATURES = [
     "first_time",        # first appearance of this kind in this session
     "position",          # how far into the session we are
 ]
+
+
+def load_corpus(path):
+    """Read a corpus file, gzipped or not. The committed corpus is gzipped and
+    redacted; the raw extracts stay on the machines that produced them."""
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def sigmoid(z):
@@ -197,8 +205,25 @@ def main():
     # Reported as a sweep, never tuned to taste: an online step size chosen by
     # looking at the answer is the measurement choosing its own result.
     ap.add_argument("--lr", type=float, default=0.30)
+    # Leave-one-session-out refits per held-out session, so the cost is
+    # sessions x actions. On the full multi-harness corpus that is hours; a
+    # stratified sample keeps it minutes and says which sample it used.
+    ap.add_argument("--sample", type=int, default=0, help="sessions per harness (0 = all)")
     args = ap.parse_args()
-    data = json.load(open(args.actions))
+    data = load_corpus(args.actions)
+    if args.sample:
+        rng = random.Random(0)
+        by_harness = collections.defaultdict(list)
+        for s in data["sessions"]:
+            by_harness[s.get("harness", "?")].append(s)
+        picked = []
+        for harness, group in sorted(by_harness.items()):
+            rng.shuffle(group)
+            picked.extend(group[: args.sample])
+        data = dict(data, sessions=picked)
+        print(f"stratified sample: {len(picked)} session(s), "
+              f"{sum(len(s['actions']) for s in picked)} actions, "
+              f"<= {args.sample} per harness")
     label = "harness_error" if args.label == "harness" else "marker_error"
 
     briers = {a: [] for a in ARMS}

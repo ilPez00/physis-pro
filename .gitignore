@@ -34,3 +34,9 @@ physis-dev-license/target/
 .physis-bench/
 benchmarks/retrieval/results.json
 models/wordnet/
+
+# Raw agent-action extracts. They contain real recorded commands — a scan of the
+# merged corpus found an API key and a bearer token inside them — so only the
+# redacted, digest-target corpus is committed (benchmarks/behaviour/corpus-redacted.json.gz).
+benchmarks/behaviour/actions-*.json
+benchmarks/behaviour/sessions.json

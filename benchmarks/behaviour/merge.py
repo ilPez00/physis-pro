@@ -10,13 +10,19 @@ carries one wins, and every session keeps the list of machines it was found on.
     python3 benchmarks/behaviour/merge.py benchmarks/behaviour/actions-*.json \
         --out benchmarks/behaviour/actions-merged.json
 """
-import argparse, collections, json, os, sys
+import argparse, collections, hashlib, json, os, sys
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
     ap.add_argument("--out", default="benchmarks/behaviour/actions-merged.json")
+    # Recorded commands are real commands, and a scan of the merged corpus found
+    # an API key and a bearer token inside them. Redaction replaces every target
+    # with a salted digest: `target_failed` still means "this exact target failed
+    # before", and nothing readable leaves the machine.
+    ap.add_argument("--redact", action="store_true",
+                    help="replace action targets with a digest (required before committing a corpus)")
     args = ap.parse_args()
 
     merged, seen_on, duplicates = {}, collections.defaultdict(set), 0
@@ -37,7 +43,22 @@ def main():
 
     for sid, session in merged.items():
         session["seen_on"] = sorted(seen_on[sid])
-        session["harness"] = "codex" if session.get("project") == "codex" else "claude-code"
+        # The harness is the corpus prefix the extractor stamped
+        # (`cline:pansa`, `opencode:omo`, `codex:pansa`); a bare machine name is
+        # a Claude Code transcript. Deriving it from `project` instead labelled
+        # every cline and opencode session as claude-code.
+        origin = session.get("corpus", "")
+        session["harness"] = origin.split(":")[0] if ":" in origin else "claude-code"
+        session["machine"] = origin.split(":")[-1] if origin else "?"
+
+    if args.redact:
+        salt = os.urandom(16).hex()
+        for session in merged.values():
+            for action in session["actions"]:
+                target = action.get("target") or ""
+                action["target"] = (
+                    hashlib.sha256((salt + target).encode()).hexdigest()[:12] if target else ""
+                )
 
     sessions = list(merged.values())
     total = sum(len(s["actions"]) for s in sessions)
@@ -54,6 +75,7 @@ def main():
         "marker_error_rate": marker_fail / total,
         "distinct_action_kinds": len(kinds),
         "sessions_by_harness": dict(by_harness),
+        "targets_redacted": bool(args.redact),
         "sessions": sessions,
     }
     json.dump(payload, open(args.out, "w"), indent=1)

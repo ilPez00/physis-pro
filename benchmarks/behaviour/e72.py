@@ -20,7 +20,7 @@ Pre-registered: `predict` gains the state features only if `fitted+edits` beats
 
     python3 benchmarks/behaviour/e72.py [--label harness|markers]
 """
-import argparse, collections, json, math, os, random, sys
+import argparse, gzip, collections, json, math, os, random, sys
 
 BOOTSTRAP = 2000
 EPOCHS = 4
@@ -39,6 +39,14 @@ ARMS = {
     "fitted+edits": BASE_FEATURES + STATE_FEATURES + EDIT_FEATURES,
     "edits-only": ["bias"] + EDIT_FEATURES,
 }
+
+
+def load_corpus(path):
+    """Read a corpus file, gzipped or not. The committed corpus is gzipped and
+    redacted; the raw extracts stay on the machines that produced them."""
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def sigmoid(z):
@@ -152,7 +160,7 @@ def main():
     ap.add_argument("--label", choices=["harness", "markers"], default="harness")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
-    data = json.load(open(args.actions))
+    data = load_corpus(args.actions)
     label = "harness_error" if args.label == "harness" else "marker_error"
 
     aucs = {a: [] for a in ARMS}

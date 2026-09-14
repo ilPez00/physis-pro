@@ -22,6 +22,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Whether an action will fail is predictable above chance, from the kind of action | AUC 0.645 (fitted) / 0.620 (kind prior alone) vs 0.500 | E71 |
 | That prior **transfers between machines** as well as each machine's own history | feather→pansa 0.644 [0.612, 0.676] vs in-corpus 0.642; pansa→feather 0.677 [0.600, 0.754] vs 0.612; synced duplicate sessions removed first | E73 |
 | Coverage predicts whether a transferred prior works | every transferring pair at 0.93–0.96 of target actions in a seen kind; every failing pair at 0.24–0.64 | E73 |
+| A borrowed prior beats your own when your record is **thin**, and loses when it is **thick** | Codex (3 sessions, own AUC 0.494) is predicted at 0.635–0.654 by three other agents; cline's own 0.786 and opencode's own 0.695 are never matched by an import | E74 |
+| `deny` loses and `shuffled` ties, across four independent agents | 4th and 5th replication over 75933 actions from Claude Code, Codex, Cline and OpenCode | E74 |
 
 ## Wrong — settled negatives, not to be relitigated
 

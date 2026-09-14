@@ -1,0 +1,308 @@
+[
+ {
+  "source": "machine:pansa",
+  "target": "machine:omo",
+  "auc": 0.49714285714285716,
+  "in_corpus": 0.42857142857142855,
+  "base_auc": 0.5,
+  "brier": 0.05629808916640323,
+  "base_brier": 0.06222473134804089,
+  "coverage": 0.8266666666666667,
+  "target_actions": 75,
+  "target_failures": 5,
+  "per_session_auc": 0.5310173697270472,
+  "ci": [
+   0.38461538461538464,
+   0.6774193548387096
+  ]
+ },
+ {
+  "source": "machine:pansa",
+  "target": "machine:feather",
+  "auc": 0.6259653699926844,
+  "in_corpus": 0.6122808087077967,
+  "base_auc": 0.5,
+  "brier": 0.05775238993636364,
+  "base_brier": 0.06051498253085406,
+  "coverage": 0.9291564291564292,
+  "target_actions": 4884,
+  "target_failures": 316,
+  "per_session_auc": 0.6773959986642542,
+  "ci": [
+   0.6002042569791742,
+   0.7538007825589182
+  ]
+ },
+ {
+  "source": "machine:omo",
+  "target": "machine:pansa",
+  "auc": 0.4834780320968166,
+  "in_corpus": 0.641539507147242,
+  "base_auc": 0.5,
+  "brier": 0.06553711864102658,
+  "base_brier": 0.0608494031221304,
+  "coverage": 0.6358471074380165,
+  "target_actions": 1936,
+  "target_failures": 126,
+  "per_session_auc": 0.4910641536945202,
+  "ci": [
+   0.4678199777663978,
+   0.512874431171836
+  ]
+ },
+ {
+  "source": "machine:omo",
+  "target": "machine:feather",
+  "auc": 0.5096997688931255,
+  "in_corpus": 0.6122808087077967,
+  "base_auc": 0.5,
+  "brier": 0.0639312364044755,
+  "base_brier": 0.060518700518700515,
+  "coverage": 0.6412776412776413,
+  "target_actions": 4884,
+  "target_failures": 316,
+  "per_session_auc": 0.4784779365832067,
+  "ci": [
+   0.39710712359700123,
+   0.5431334767844798
+  ]
+ },
+ {
+  "source": "machine:feather",
+  "target": "machine:pansa",
+  "auc": 0.6508572305533632,
+  "in_corpus": 0.641539507147242,
+  "base_auc": 0.5,
+  "brier": 0.058467953594863176,
+  "base_brier": 0.06084703959955244,
+  "coverage": 0.9643595041322314,
+  "target_actions": 1936,
+  "target_failures": 126,
+  "per_session_auc": 0.6440072167628902,
+  "ci": [
+   0.6122124292622377,
+   0.6762628668023968
+  ]
+ },
+ {
+  "source": "machine:feather",
+  "target": "machine:omo",
+  "auc": 0.42428571428571427,
+  "in_corpus": 0.42857142857142855,
+  "base_auc": 0.5,
+  "brier": 0.05982896042367225,
+  "base_brier": 0.06222608581330939,
+  "coverage": 0.96,
+  "target_actions": 75,
+  "target_failures": 5,
+  "per_session_auc": 0.4719120485249517,
+  "ci": [
+   0.2905982905982906,
+   0.6532258064516129
+  ]
+ },
+ {
+  "source": "harness:claude-code",
+  "target": "harness:cline",
+  "auc": 0.637693139737724,
+  "in_corpus": 0.7862440417897201,
+  "base_auc": 0.5,
+  "brier": 0.07165277787273416,
+  "base_brier": 0.06866999368517276,
+  "coverage": 0.6448923425611138,
+  "target_actions": 12354,
+  "target_failures": 914,
+  "per_session_auc": 0.547737670942829,
+  "ci": [
+   0.47954043051165496,
+   0.6138957761627095
+  ]
+ },
+ {
+  "source": "harness:claude-code",
+  "target": "harness:codex",
+  "auc": 0.6203453689167975,
+  "in_corpus": 0.4937519623233909,
+  "base_auc": 0.5,
+  "brier": 0.03851697923605631,
+  "base_brier": 0.03689469289548712,
+  "coverage": 0.4697885196374622,
+  "target_actions": 662,
+  "target_failures": 25,
+  "per_session_auc": 0.6349551414768806,
+  "ci": [
+   0.6060213940648723,
+   0.6638888888888889
+  ]
+ },
+ {
+  "source": "harness:claude-code",
+  "target": "harness:opencode",
+  "auc": 0.6243809959721441,
+  "in_corpus": 0.6949886540213813,
+  "base_auc": 0.5,
+  "brier": 0.04809426343063828,
+  "base_brier": 0.046053924796435906,
+  "coverage": 0.3982253404869996,
+  "target_actions": 48460,
+  "target_failures": 2336,
+  "per_session_auc": 0.5296419488107957,
+  "ci": [
+   0.5070234568125324,
+   0.552434734295349
+  ]
+ },
+ {
+  "source": "harness:cline",
+  "target": "harness:claude-code",
+  "auc": 0.5163085641365204,
+  "in_corpus": 0.6305294522784277,
+  "base_auc": 0.5,
+  "brier": 0.06150847261571255,
+  "base_brier": 0.05774951474798582,
+  "coverage": 0.3920592100712458,
+  "target_actions": 14457,
+  "target_failures": 887,
+  "per_session_auc": 0.5187842538992106,
+  "ci": [
+   0.4761527642518505,
+   0.5620562837019375
+  ]
+ },
+ {
+  "source": "harness:cline",
+  "target": "harness:codex",
+  "auc": 0.6277864992150707,
+  "in_corpus": 0.4937519623233909,
+  "base_auc": 0.5,
+  "brier": 0.050517255994062954,
+  "base_brier": 0.03765007705841758,
+  "coverage": 0.4637462235649547,
+  "target_actions": 662,
+  "target_failures": 25,
+  "per_session_auc": 0.6403856107660455,
+  "ci": [
+   0.6391045548654244,
+   0.6416666666666667
+  ]
+ },
+ {
+  "source": "harness:cline",
+  "target": "harness:opencode",
+  "auc": 0.6558568240852829,
+  "in_corpus": 0.6949886540213813,
+  "base_auc": 0.5,
+  "brier": 0.045436154688929996,
+  "base_brier": 0.04654559033556717,
+  "coverage": 0.37486586875773836,
+  "target_actions": 48460,
+  "target_failures": 2336,
+  "per_session_auc": 0.5758510816394148,
+  "ci": [
+   0.553679791185831,
+   0.5979471406607079
+  ]
+ },
+ {
+  "source": "harness:codex",
+  "target": "harness:claude-code",
+  "auc": 0.5298149642049783,
+  "in_corpus": 0.6305294522784277,
+  "base_auc": 0.5,
+  "brier": 0.05943630688599963,
+  "base_brier": 0.05814649217719072,
+  "coverage": 0.24085218233381753,
+  "target_actions": 14457,
+  "target_failures": 887,
+  "per_session_auc": 0.5460971965169151,
+  "ci": [
+   0.5208252118501531,
+   0.5710045110554388
+  ]
+ },
+ {
+  "source": "harness:codex",
+  "target": "harness:cline",
+  "auc": 0.4436905135346054,
+  "in_corpus": 0.7862440417897201,
+  "base_auc": 0.5,
+  "brier": 0.07019644389156936,
+  "base_brier": 0.06982235527730812,
+  "coverage": 0.35292213048405374,
+  "target_actions": 12354,
+  "target_failures": 914,
+  "per_session_auc": 0.5276830639622909,
+  "ci": [
+   0.47917949724371,
+   0.5789297754840109
+  ]
+ },
+ {
+  "source": "harness:codex",
+  "target": "harness:opencode",
+  "auc": 0.5600582080036186,
+  "in_corpus": 0.6949886540213813,
+  "base_auc": 0.5,
+  "brier": 0.04633969204836906,
+  "base_brier": 0.045990012336895356,
+  "coverage": 0.17214197276104004,
+  "target_actions": 48460,
+  "target_failures": 2336,
+  "per_session_auc": 0.5235982462735367,
+  "ci": [
+   0.5060816476329948,
+   0.5411838997042693
+  ]
+ },
+ {
+  "source": "harness:opencode",
+  "target": "harness:claude-code",
+  "auc": 0.5150459972467285,
+  "in_corpus": 0.6305294522784277,
+  "base_auc": 0.5,
+  "brier": 0.05848902716979399,
+  "base_brier": 0.057762917030477,
+  "coverage": 0.4020197828041779,
+  "target_actions": 14457,
+  "target_failures": 887,
+  "per_session_auc": 0.5095851135682842,
+  "ci": [
+   0.4635444584076681,
+   0.557406933555465
+  ]
+ },
+ {
+  "source": "harness:opencode",
+  "target": "harness:cline",
+  "auc": 0.6982152625820569,
+  "in_corpus": 0.7862440417897201,
+  "base_auc": 0.5,
+  "brier": 0.10570500068745861,
+  "base_brier": 0.06917506150679521,
+  "coverage": 0.7425125465436296,
+  "target_actions": 12354,
+  "target_failures": 914,
+  "per_session_auc": 0.6478525476057667,
+  "ci": [
+   0.5833413870651338,
+   0.7074817498198401
+  ]
+ },
+ {
+  "source": "harness:opencode",
+  "target": "harness:codex",
+  "auc": 0.6603453689167975,
+  "in_corpus": 0.4937519623233909,
+  "base_auc": 0.5,
+  "brier": 0.0422857130616757,
+  "base_brier": 0.036447205289232856,
+  "coverage": 0.5,
+  "target_actions": 662,
+  "target_failures": 25,
+  "per_session_auc": 0.6541537267080746,
+  "ci": [
+   0.6305555555555555,
+   0.6777518978605935
+  ]
+ }
+]
