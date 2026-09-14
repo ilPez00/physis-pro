@@ -18,6 +18,7 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | Structure-derived analogy beats a degree-preserving control | +0.291 / +0.189 top-3 | E53 |
 | Coverage and discovery ranking beat their nulls | Welch *t* = +12.11; P@25 0.480 vs 0.132 | RESCOPE §1 |
 | Semantic retrieval beats lexical on the honest benchmark | hit@5 0.57 vs 0.14 | `benchmarks/retrieval/` |
+| Deforming a predictor on its own mismatch beats freezing it, and beats denying the observation | MRR +0.063 [+0.031, +0.099] vs frozen; +0.063 [+0.024, +0.110] vs deny; +0.072 vs random-deform | E70 |
 
 ## Wrong — settled negatives, not to be relitigated
 
@@ -33,6 +34,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 | A high-recall link rule is safe | 0.700 → 0.013 under redundancy | E58, narrowed by E59 |
 | Merging modes fixes the mode axis | −0.187 at matched granularity | E27 |
 | The mode axis expands on proposal alone | 6 of 14 fail an external verb inventory | D2a |
+| An agent's file-touch **order** carries recoverable geometry | structure ties its own order-shuffled tables (+0.011 [−0.014, +0.036]) and ties the directory tree alone; the predictor is where files sit, not the trace | E67 |
+| Aiming at a stable future beats rolling the next step forward | attractor 0.176 vs one-step 0.172, +0.004 [−0.023, +0.027] | E70 |
 
 ## Open — believed, not measured
 
@@ -43,6 +46,8 @@ Longer records: `physis-core/research/E*.md`, `research/RESEARCH_STATUS.md`,
 - **The `ledger` → `build_structural` join.** Both halves exist, still three call sites, none the log.
 - **Adversarial corpus.** 4 of 15 required pairs; navigation work is blocked until re-frozen (E57).
 - **Everything rests on one machine's log, one week, mostly one repo.** Every interval in the series overlaps its neighbour.
+- **Whether a richer choice space changes E67's answer.** File touches are dominated by directory structure; actions with outcomes (intent → argv → exit) have not been scored, and that is where a wrong prediction has a consequence the tree cannot explain.
+- **Why deformation decays within a session.** Every arm loses ~0.04 MRR from first half to second (E70). Converging and then holding while the task drifts is what `dream.rs` reproposal exists for, and nothing calls it from that loop.
 
 ## Working — running now
 
