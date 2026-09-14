@@ -1,0 +1,28 @@
+{
+ "bare words": {
+  "means": {
+   "synonym": 0.2978113490913591,
+   "antonym": 0.3041188157213733,
+   "hypernym": 0.3777230195261774,
+   "random": 0.46822048605901034
+  },
+  "auc_syn_anto": 0.48755,
+  "auc_syn_random": 0.91045,
+  "auc_anto_random": 0.964125,
+  "embedder": "onnx-explicit"
+ },
+ "in a sentence frame": {
+  "means": {
+   "synonym": 0.08401924364114348,
+   "antonym": 0.11525249887625659,
+   "hypernym": 0.11267540343156024,
+   "random": 0.15246578677979358
+  },
+  "auc_syn_anto": 0.690525,
+  "auc_syn_random": 0.864775,
+  "auc_anto_random": 0.762275,
+  "embedder": "onnx-explicit"
+ },
+ "second_frame_auc": 0.586075,
+ "mispaired_auc": 0.53605
+}

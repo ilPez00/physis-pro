@@ -1,0 +1,89 @@
+{
+ "_comment": "Dictionary v3: v2's anchored cues plus WordNet synonyms of each cue verb, anchored the same way. The anchor is what E81 measured as the difference between matching structure (ratio 3.57-4.15) and matching vocabulary (0.96); the synonyms are recall, and the shuffle null says whether recall cost precision.",
+ "Causes": [
+  "\\bcauses (?:the|a|an|it|this)\\b",
+  "\\bcaused by (?:the|a|an)\\b",
+  "\\bleads to (?:the|a|an)?\\b",
+  "\\bresults in (?:the|a|an)?\\b",
+  "\\btriggers (?:the|a|an)\\b"
+ ],
+ "Explains": [
+  "\\bbecause (?:the|a|an|it|they|we|of)\\b",
+  "\\bthe reason (?:is|was)\\b",
+  "\\bwhich is why\\b",
+  "\\bexplains (?:the|a|an|why)\\b"
+ ],
+ "Precedes": [
+  "\\bbefore (?:the|a|an|it|any)\\b",
+  "\\bprior to (?:the|a|an)?\\b",
+  "\\bearlier than (?:the|a|an)?\\b",
+  "\\baheads? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bearliers? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bbefores? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bearliests? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\boriginallys? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bsooners? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b"
+ ],
+ "Follows": [
+  "\\bafter (?:the|a|an|it|every)\\b",
+  "\\bfollows (?:the|a|an|from)\\b",
+  "\\bsubsequent to\\b",
+  "\\bafterwards? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bafterwardss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\blaters? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bsubsequentlys? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b"
+ ],
+ "DependsOn": [
+  "\\bdepends on (?:the|a|an|its|what|whether)?\\b",
+  "\\brequires (?:the|a|an|its|two|three)\\b",
+  "\\brelies on (?:the|a|an)?\\b",
+  "\\bneeds (?:the|a|an|its|to)\\b",
+  "\\binevitablys? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bnecessarilys? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b"
+ ],
+ "Produces": [
+  "\\bproduces (?:the|a|an|one|two)\\b",
+  "\\bgenerates (?:the|a|an)\\b",
+  "\\bwrites (?:the|a|an|to)\\b",
+  "\\breturns (?:the|a|an|its)\\b",
+  "\\bemits (?:the|a|an)\\b"
+ ],
+ "Measures": [
+  "\\bmeasures (?:the|a|an|how)\\b",
+  "\\bscores (?:the|a|an|it)\\b",
+  "\\breports (?:the|a|an|its|that)\\b",
+  "\\bcounts (?:the|a|an)\\b",
+  "\\bdozenss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bgobss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bheapss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\blashingss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bloadss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\blotss? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b"
+ ],
+ "Observes": [
+  "\\bobserved (?:the|a|an|that|in)\\b",
+  "\\brecords (?:the|a|an|every|what)\\b",
+  "\\blogs (?:the|a|an|every)\\b",
+  "\\bascertaineds? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b",
+  "\\bdiscovereds? (?:the|a|an|its|it|this|that|two|three|of|to|from|that|why|how|what|whether)\\b"
+ ],
+ "Contradicts": [
+  "\\bcontradicts (?:the|a|an|it)\\b",
+  "\\bdisagrees with (?:the|a|an)?\\b",
+  "\\brefutes (?:the|a|an|it)\\b"
+ ],
+ "Supports": [
+  "\\bsupports (?:the|a|an|it)\\b",
+  "\\bconfirms (?:the|a|an|that)\\b",
+  "\\bcorroborates (?:the|a|an)\\b"
+ ],
+ "Invalidates": [
+  "\\binvalidates (?:the|a|an|it)\\b",
+  "\\bbreaks (?:the|a|an|it)\\b",
+  "\\bfails (?:the|a|an|to|when)\\b"
+ ],
+ "Predicts": [
+  "\\bpredicts (?:the|a|an|that)\\b",
+  "\\bimplies (?:the|a|an|that)\\b"
+ ]
+}
