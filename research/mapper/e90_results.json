@@ -1,0 +1,22 @@
+{
+ "cosine (E88)": {
+  "bge namehints": 0.062,
+  "bge nameonly": 0.065,
+  "nomic-embed": 0.08,
+  "cross": {
+   "bge namehints vs bge nameonly": 0.108,
+   "bge namehints vs nomic-embed": 0.165,
+   "bge nameonly vs nomic-embed": 0.178
+  }
+ },
+ "rank (E90)": {
+  "bge namehints": 0.06,
+  "bge nameonly": 0.063,
+  "nomic-embed": 0.074,
+  "cross": {
+   "bge namehints vs bge nameonly": 0.133,
+   "bge namehints vs nomic-embed": 0.175,
+   "bge nameonly vs nomic-embed": 0.161
+  }
+ }
+}
