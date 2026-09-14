@@ -13,6 +13,12 @@ models/**/*.onnx
 # the embedder fallback chain and silently swaps the primary embedder if
 # merely present on disk.
 models/jina-clip-v2/
+# NLI cross-encoder weights (pulled 2026-09-14 for the E89 arm; same policy as
+# the embedder weights — instruments, not source).
+models/nli-deberta-v3-xsmall/
+# Dev-only venv for the NLI arm (onnxruntime + tokenizers), kept out of the
+# main dependency tree, same as the conatus scripts.
+.venv-nli/
 models/**/tokenizer_config.json
 *.env
 shots/*.png

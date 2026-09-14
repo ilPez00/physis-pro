@@ -1,0 +1,35 @@
+{
+ "model": "cross-encoder/nli-deberta-v3-xsmall (22M, MNLI, fp32 ONNX)",
+ "threshold": 0.5,
+ "holdout (E84)": {
+  "precision": 1.0,
+  "recall": 0.96,
+  "tp": 24,
+  "fp": 0,
+  "fn": 1,
+  "ms_per_pair": 9.0,
+  "implication_scores": [
+   0.02,
+   0.989,
+   0.994
+  ]
+ },
+ "adversarial (E85)": {
+  "precision": 0.0,
+  "recall": 0.0,
+  "tp": 0,
+  "fp": 3,
+  "fn": 0,
+  "ms_per_pair": 10.4,
+  "implication_scores": []
+ },
+ "validation (E86)": {
+  "precision": 0.75,
+  "recall": 1.0,
+  "tp": 6,
+  "fp": 2,
+  "fn": 0,
+  "ms_per_pair": 10.2,
+  "implication_scores": []
+ }
+}
