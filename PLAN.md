@@ -1493,3 +1493,834 @@ contain no unchecked tasks.
 2. Fourier Synthesis for fBm — fractional Brownian motion generation
 
 **Next falsifiable experiment**: None — experiment complete and closed.
+
+## Phase 25 — WorldState: structure before mapping (2026-09-14)
+
+Full statement in `docs/plans/2026-09-14-worldstate-program.md`; this section is
+the plan-of-record extract, with the numbers and the kill conditions inline so
+nobody has to open the other file to know whether an item is allowed to ship.
+
+### 25.0 The research question, stated so it can fail
+
+> Can a computer be organised around navigable world-state representations
+> rather than files, folders, keywords and application-specific interfaces?
+
+Operationalised: **does explicit structural/world-state representation give a
+measurable advantage over ordinary embedding similarity** for navigation,
+retrieval, temporal reasoning, contradiction detection and cross-representation
+agreement? This is a hypothesis under test, not a premise. The immediate goal is
+**not** an operating system; it is the smallest prototype that demonstrates the
+primitive plus a paper made from what survives.
+
+The pipeline under test, replacing `files → folders → applications → commands →
+search`:
+
+```text
+observations → representations → structures → world state → temporal
+trajectories → retrieval/navigation → actions
+```
+
+### 25.1 Audit result — what is reused unchanged
+
+Phase 1 of the brief was run against commit `31eeded`. **Two thirds of the
+machinery exists.**
+
+| layer | implementation | verdict |
+|---|---|---|
+| observations | `physis-core/src/observe.rs` (1007 lines; append-only `Observation`; `watch_fs` `watch_git` `watch_shell` `watch_agent`) | reuse unchanged |
+| representations | `embed.rs` (`RandomProjectionEmbedder`, `MemoEmbedder`), `embed_onnx.rs`, `embed_ngram.rs`, `model_provider.rs`; Pro `src/embed/{registry,onnx,clip,jina}.rs` | reuse; **add no embedder** |
+| entity carrier | `CoherenceNode` (`physis-core/src/models.rs:48`) — embedding, derived `coherence_score`, `asserted`, `cell_pin`, **`embedder` provenance**, `previous_coherence_state` | reuse |
+| relations | `relation.rs` `TypedEdge` + `RelationType`, each edge carrying provenance, confidence, `TemporalValidity` | reuse |
+| **world state** | **already exists** — `physis-core/src/transform.rs:252`: `{facts, constraints}`, `triples()`, `without_relation()`, `substitution_invariants()`, `incoherent_after()` | **extend; a second `WorldState` is forbidden** |
+| structural mapping | `transform.rs` symbolic homomorphism (`find_homomorphisms`, backtracking join, no embeddings) + `structsim.rs` (node-level, one space) | reuse — the two halves of "structure first" |
+| temporal | `temporal.rs` `TemporalValidity`/`narrow_until`, `epistemic.rs` replay, `becoming.rs` runs-test | **thinnest real layer; new code goes here** |
+| retrieval | `rag.rs` `TokenFixedRetriever`, `Bm25Index`, `fuse_rrf`, `Selection::CascadeRerank`, floor 0.66, `act::bearing_on` | reuse as the baseline arm |
+| harness | `examples/experimentNN_*.rs`, `benchmarks/retrieval/run.py`, `benchmarks/results/*.json`, `scripts/declared-never-called.sh`, `just recall` | reuse the convention exactly |
+
+**Missing, and therefore the whole of the new work:**
+
+1. a temporal *sequence* of world states (`TemporalValidity` marks when a fact
+   holds; nothing holds `state_t0 → state_t1 → …`);
+2. structure derived independently per representation and then compared — all
+   prior cross-representation work compared **clusterings**, not structures;
+3. navigation (traversal from a current state) as opposed to ranked selection;
+4. a shell over the world (`locate/neighbors/history/changed/compare/trace/why`);
+5. the observation → representation join (`ngram_table::build_structural` has
+   three call sites — `physis-core/src/main.rs:1902`, its definition, one test —
+   and none is the log).
+
+**Dead or unproven, do not build on:** `transplant` (zero call sites anywhere) ·
+`OnnxEmbedder` (was exported-and-uncalled once; every benchmark number of that
+era came from a lexical hash — grep call sites first) · `structsim`, `becoming`
+(never put in front of a null).
+
+### 25.2 The prior negatives that constrain the design
+
+Not background. These already refute several obvious designs, and Phase 25 is
+built so as not to re-run them.
+
+| finding | number | consequence |
+|---|---|---|
+| embedding geometry gives no stable ontology structure | **cross-embedder ARI ≈ 0.10**; +25% corpus replaced half the anchors (ARI 0.198) | "cluster A, cluster B, compare partitions" is measured and negative. **ARI 0.10 is the null E55 must beat, using relations rather than partitions.** |
+| no cheap signal certifies structure | every scorer at chance on real misfilings (cosine 0.519, CONSTRAINT 0.536, ANCESTRY 0.534) | do not score correspondences and call that validation; test by held-out prediction |
+| cross-model disagreement carries no epistemic signal | paired *t* = −10.53, 0/22 | two embedders disagreeing is not evidence of anything |
+| the machine cannot judge belonging | AUC 0.410 | correspondence is proposal, adjudication is separate and measured |
+| `propose` works where `judge` failed | top-3 **0.712** vs null 0.136 | φ emits a **ranked candidate list**, never a verdict |
+| embeddings cannot separate agreement from contradiction | C2: embedding@0.90 precision 0.667/recall 1.000 vs structural 1.000/0.375; MemStrata **AUROC 0.59** (arXiv 2606.26511) | contradiction detection in E58 must not be cosine-based |
+| `transform` ANALOGY beats a degree-preserving control | top-3 0.500 (n=86) / 0.446 (n=294) vs popularity 0.337/0.303, permuted null 0.209/0.256 | the one arm with prior positive evidence; E55 is its generalisation |
+
+### 25.3 Hypotheses, each with its null
+
+- **H1 (main).** Structure derived independently in two representation spaces,
+  followed by *tested* correspondence, beats raw geometry, random
+  correspondence and cosine correspondence — on held-out items and under a
+  third representation. *Null:* no better than cosine; agreement stays at
+  ARI ≈ 0.10.
+- **H2 (temporal).** An ordered sequence of world states improves retrieval and
+  state reconstruction over order-blind similarity. *Null:* shuffling state
+  order leaves every metric within noise. **Run this null first** — it is cheap,
+  and order-blindness is the exact defect `becoming.rs` was written against.
+- **H3 (invariants).** Which relations survive a change of representation is
+  predictable. *Null:* survival is indistinguishable from a degree-preserving
+  random subset.
+- **H4 (navigation).** Traversal retrieves what ranked similarity misses on
+  adversarial cases. *Null:* navigation is a slower `TokenFixedRetriever`.
+- **H5 (downstream).** An LLM given a world-state region beats the same LLM
+  given top-k text on relational and temporal questions. *Null:* equal. External
+  context: STALE reports the best evaluated model at **55.2%** overall.
+
+### 25.4 Formulation (minimal, every symbol maps to existing code)
+
+`O` observations (`observe::Observation`) · `R_i : O → ℝ^{d_i}` one per embedder,
+identified by the `embedder` tag already on `CoherenceNode` · `Γ_i = Γ(R_i(O))`
+a **graph** (mutual-kNN ∪ typed relations ∪ symbolic triples), computed **per
+space with no reference to the other space**.
+
+```text
+W_t = ( E entities · F facts · C constraints          [existing transform::WorldState]
+        X_i coordinates per representation             [NEW field]
+        N structural neighborhood (Γ_i | E)            [NEW field]
+        p ordinal position     [POSITION IN TEXT — sentence index, not a clock]
+        P provenance           [observation seq ids]
+        κ coherence/confidence [coherence_score, asserted]
+        T transitions          [NEW mechanism — the only one] )
+```
+
+`τ : W_p → W_{p+1}` decomposes into five set-operations over `E`/`F`:
+**persistence, change, emergence, disappearance, recurrence**. No causal claim —
+the word is *temporal transition*; `RelationType::Causes` is used only when a
+causal test supports it.
+
+`φ : Γ_A → Γ_B` = ranked candidates. `A(Γ_A, Γ_B, φ)` reported as **four**
+numbers, never one: mutual-kNN preservation@k, typed-edge Jaccard, ARI (for
+continuity with the 0.10 prior), relation-type confusion. The quantity under
+test is `Δ = A(φ_structure) − A(φ_baseline)` with bootstrap CI, on held-out
+items, then again under representation C.
+
+**Traceability is a hard requirement:** every derived edge stores
+`observation seq → representation id → operator → derived edge`. An edge without
+that chain is a bug.
+
+### 25.5 Benchmark, frozen before evaluation
+
+`benchmarks/worldstate/corpus.jsonl` — 60–100 sentences, one small evolving
+world, 8–12 entities; per sentence: `pos` (its ordinal index in the text), entities,
+gold typed relation, gold transition label. **Mandatory:** ≥15 adversarial pairs where
+lexical overlap is high and structural relevance low, ≥15 the reverse, and
+agreeing near-duplicates as negatives (without them a contradiction metric
+measures similarity — the C2 lesson, learned by discarding a run). Held-out
+split 70/30 **by entity**. Corpus hash, seeds, embedder checksums, crate commit
+recorded in every artifact.
+
+Arms: `baseline` (no alignment) · `random` (degree-preserving) · `cosine` ·
+`supervised` (**explicitly labelled a supervised condition**, an upper reference
+not a competitor) · `structural` (the hypothesis).
+
+### 25.6 E55 — the first experiment
+
+`physis-core/examples/experiment55_structure_before_mapping.rs`, artifact
+`benchmarks/results/worldstate-e55.json`.
+
+A = `bge-base-en-v1.5` (D4's embedder), B = character n-gram /
+`SyntheticNGramEmbedder`, C = jina/CLIP held back for transfer. **Verify both A
+and B are actually called before trusting a number.**
+
+**Pass condition, fixed before the run:** `structural` beats `cosine` and
+`random` on ≥3 of 4 metrics, non-overlapping bootstrap CI on the primary metric
+(mutual-kNN preservation@10), and held-out plus third-embedder runs keep the
+sign.
+
+**Kill conditions:** `structural ≈ cosine` ⇒ stop, record next to E53 in
+`transform.rs`'s header, and re-examine whether E53's positive was
+corpus-specific · wins on the training split only ⇒ report as overfitting ·
+all arms near ARI 0.10 ⇒ the prior negative generalises, publish the negative
+and pivot to H2, which does not depend on cross-space agreement.
+
+Cost: 3–5 days, mostly corpus authoring and metric plumbing.
+
+### 25.6a E55 RESULT (2026-09-14) — NEGATIVE, kill condition fired
+
+Run the day it was specified. Corpus `benchmarks/worldstate/corpus.jsonl`
+sha256 `264c40a07303…`, 72 sentences, frozen before any arm. A =
+`bge-base-en-v1.5` (ONNX, `PHYSIS_MODEL_DIR=../models/bge-base-en-v1.5`),
+B = `RandomProjectionEmbedder(384)`. Seed 20260914. Artifacts
+`benchmarks/results/worldstate-e55-{all,train,heldout}.json` (+ `-sweep`).
+Record: `physis-core/research/E55_STRUCTURE_BEFORE_MAPPING.md`.
+
+Top-1 correspondence accuracy, identity as gold, never shown to a matcher:
+
+| split | random (null) | anchor (8 known pairs) | supervised (gold labels) | **structural** |
+|---|---|---|---|---|
+| all (72) | 0.028 | 0.236 | 0.083 | **0.014** |
+| train (49) | 0.020 | 0.306 | 0.082 | **0.020** |
+| heldout (23) | 0.130 | 0.609 | 0.174 | **0.043** |
+
+ARI with no mapping: 0.287 / 0.278 / 0.000.
+
+**The hypothesis arm is at its null in every split.** A six-point sweep
+(k ∈ {3,5,10} × profile ∈ {6,24}) holds it in 0.014–0.056 against a null of
+0.028, so it is not a hyperparameter. It is also not a broken descriptor: the
+same code recovers identity at top-1 > 0.99 when both spaces are the same space
+(`identical_spaces_recover_identity`).
+
+Three things the run does establish: **(1)** the cross-space information exists
+— eight known anchor pairs lift top-1 from 0.028 to 0.236 (0.609 held out), so
+the failure is specific to recovering correspondence *without* seeds; **(2)**
+sorted-neighbourhood descriptors are what fails; **(3)** the gold transition
+label is too coarse to identify a sentence (supervised 0.083), which is a fact
+about the label, not about supervision. The 0.287 ARI is **not** an improvement
+on the settled ARI ≈ 0.10 — it is a one-topic 72-sentence corpus, and quoting it
+as progress would be the error this plan exists to prevent.
+
+**Consequences, applied:** H1 is not pursued with this descriptor; the next
+legitimate attempt is a seeded propagation matcher (IsoRank-style), pre-registered
+as a new experiment, never as a retune of this one. **The program pivots to H2**
+(states ordered by position in text), which does not depend on cross-space
+agreement and whose null is exact. The negative is carried in
+`src/worldstate.rs`'s module header.
+
+**Corpus shortfall, recorded not hidden:** the spec asks for ≥15 adversarial
+pairs of each kind; the frozen corpus has 4 `adv_lex` + 4 `adv_struct` (2 pairs
+each) and 5 `agree_dup`. Sufficient for E55, which uses none of them.
+**Insufficient for E57**, which is built on exactly those cases — E57 does not
+run until the corpus is extended and re-frozen with a new sha256.
+
+### 25.6b E56 RESULT (2026-09-14) — H2 survives: order carries structure, geometry alone does not
+
+Same frozen corpus (`264c40a07303…`), bge-base-en-v1.5, seed 20260914.
+Artifacts `benchmarks/results/worldstate-e56{,-gap3,-gap5}.json`; record
+`physis-core/research/E56_POSITION_FIRST.md`. **No timestamp is read anywhere:
+the coordinate is ordinal position (25.7b).**
+
+**L1 — transition derivation vs the shuffled-order null.** Set operations over
+the state sequence (first mention · repeated fact · changed predicate over the
+same subject/object pair · re-mention after `RECUR_GAP` = 6) derive a label per
+position without ever reading the gold label. The null re-runs the *entire
+derivation* on a permuted reading order:
+
+```text
+accuracy 0.486 · majority floor 0.333 · shuffled null 0.291 ± 0.040 · z = +4.88
+emerge 0.700 (n=20) · persist 0.444 (9) · change 0.375 (24) · recur 0.214 (14) · disappear 1.000 (5)
+```
+
+`disappear` 1.000 is **a six-word cue list, not a finding** — it is declared in
+`worldstate.rs` and it is what that row measures. `recur` 0.214 rests on an
+unswept constant and is NOT MEASURED until `RECUR_GAP` is swept.
+
+**L2 — position locality.** Mean |Δpos| over mutual-kNN edges 16.82 vs a
+random-pair null of 24.19, ratio 0.695. Descriptive, no arm.
+
+**L3 — "what preceded this?"** Gold is mechanical (nearest earlier sentence
+sharing an entity). All 61 queries: cosine-blind 0.098 · cosine+position 0.311 ·
+**position-only 0.475** · shuffled null 0.115. That ranking is a **corpus
+artifact**: the gold is *the nearest* earlier mention, so answering `p−1, p−2,
+p−3` is handed a large share for free. Dropping every query whose antecedent is
+nearer than a gap:
+
+| gap | n | cosine blind | cosine + position | position only | shuffled null |
+|---|---|---|---|---|---|
+| ≥3 | 28 | 0.071 | **0.286** | **0.000** | 0.107 |
+| ≥5 | 23 | 0.087 | **0.304** | **0.000** | 0.130 |
+
+Position-only collapses to exactly zero; order-blind cosine stays at its null;
+**only the combined arm answers the question**. Same shape as item A's result
+that retrieval and ranking are different problems. Intervals overlap
+([0.143, 0.464] vs [0.000, 0.250]) at n = 28 — directional, not settled.
+
+**Verdict on H2:** state reconstruction supported (z = +4.88); retrieval
+supported in direction only. Read with E55: **the ordering of a representation
+carries recoverable structure, while its geometry alone does not transfer across
+representations.**
+
+**Consequences, applied:** (1) build the five transition predicates into
+`WorldState` as `T` — the derivation beats its null; (2) rebuild the "what
+preceded" gold without recency bias before E57 — the gap filter is a patch, not
+the fix; (3) sweep `RECUR_GAP`, which currently decides a whole label; (4) the
+1000-sentence corpus moves onto the critical path, because at n = 28 the L3
+interval cannot close.
+
+### 25.6c RECUR_GAP swept, and E57 — the world-model arm (2026-09-14)
+
+**`RECUR_GAP` swept (E56 follow-up).** The constant that decides the whole
+`recur` label, run at 2/3/4/6/8/10/12/16, 500 permutations each:
+
+| gap | accuracy | shuffled null | z | recur recall |
+|---|---|---|---|---|
+| 2 | 0.500 | 0.286 ± 0.040 | +5.34 | 0.429 |
+| 3 | 0.486 | 0.288 ± 0.041 | +4.84 | 0.357 |
+| 6 (pre-registered) | 0.486 | 0.291 ± 0.040 | +4.88 | 0.214 |
+| 10 | 0.472 | 0.293 ± 0.038 | +4.73 | 0.071 |
+| 16 | 0.472 | 0.293 ± 0.034 | +5.33 | 0.071 |
+
+**L1's headline is insensitive to the constant** — accuracy 0.472–0.500 and
+z ≈ +4.7 to +5.3 everywhere — so the effect is not an artifact of the gap. The
+`recur` label itself is entirely gap-determined and tops out at 0.429; it is now
+measured, and it is the weakest real label at every setting. The headline stays
+at the pre-registered gap 6; gap 2 is not adopted, because adopting the
+maximising setting after seeing the sweep is the tuning this plan forbids.
+
+**E57 — "what does this supersede?"** New generated corpus
+`benchmarks/worldstate/corpus-large.jsonl` (seed 20260914, sha256
+`2eaff7bb33d7…`, 1320 sentences, 150 queries), gold = the planted fact the query
+supersedes **in different words**, distractors between them (two per cycle are
+near-paraphrases of the gold about another attribute). Record
+`physis-core/research/E57_SUPERSESSION_RETRIEVAL.md`, artifact
+`benchmarks/results/worldstate-e57.json`.
+
+| arm | top1 | top3 | 95% CI |
+|---|---|---|---|
+| cosine (order-blind) | 0.000 | 0.000 | [0.000, 0.000] |
+| cosine + position | 0.013 | 0.060 | [0.000, 0.033] |
+| recency only | 0.000 | 0.207 | [0.000, 0.000] |
+| **entity + position + cosine** | **0.700** | **0.993** | **[0.627, 0.773]** |
+| shuffled-position null | 0.000 | 0.007 | [0.000, 0.007] |
+
+Flat across distance: 0.710 / 0.727 / 0.600 / 0.688 / 0.792 at gaps 3–11.
+Order-blind cosine is at **exactly zero** because 150 near-identical planted
+facts exist and global similarity retrieves the wrong machine's copy every time
+— entity disambiguation in its purest form. **Only structure + order + geometry
+together answer the question**; every single leg and the null are at ~0. Same
+shape as E56 L3 and item A's cascade: the legs are complementary and must not be
+collapsed into one score.
+
+**Limits, stated with the number:** the corpus is generated, so this closes an
+interval on a retrieval arm and is not evidence about real text; and the arm is
+**handed gold entity links**, so 0.700 is an upper bound on a pipeline whose
+extraction step has not been measured. Extraction is the next experiment.
+
+**Two discarded runs, kept because they are the method.** The first two versions
+scored **1.000 at every distance** and were thrown away: run 1's distractors had
+no lexical overlap with the gold, and run 2 still let the query reuse the gold's
+exact wording, so both were near-duplicate matching. Only after the query was
+paraphrased did the arm fall to 0.700 and the benchmark become able to fail.
+**A 1.000 is a bug report about the benchmark, not a result.**
+
+### 25.6d E58 RESULT (2026-09-14) — extraction costs nothing, or everything, depending on one rule
+
+`src/worldstate.rs` (extraction), `examples/experiment58_extraction.rs`,
+artifact `benchmarks/results/worldstate-e58.json`, record
+`physis-core/research/E58_EXTRACTION.md`. E57's arm read **gold entity links**;
+E58 replaces them with links extracted by three declared model-free rules —
+`id` (identifier-shaped token), `cap` (capitalised mid-sentence), `df` (content
+token repeated in ≥ 3 sentences).
+
+**End-to-end, 150 queries:**
+
+| link source | top1 | top3 | vs gold |
+|---|---|---|---|
+| gold links | 0.700 | 0.993 | — |
+| extracted, all three rules | 0.013 | 0.060 | **−0.687** |
+| **extracted, `id` only** | **0.700** | **0.993** | **+0.000** |
+| extracted, `id`+`cap` | 0.700 | 0.993 | +0.000 |
+
+**The finding: adding a high-recall rule destroyed the task it fed.** `df` takes
+entity recall to 0.966 and precision to 0.163 — it admits `pressure`,
+`tolerance`, `line`, which every cycle shares — so the entity filter links
+everything to everything and the arm collapses to plain cosine+position, landing
+on exactly the 0.013 that arm scored in E57. The downstream step does not want a
+good extractor in the F1 sense; it wants a **specific** one. F1 0.277 vs 0.947
+reads as a moderate gap and is the difference between 0.013 and 0.700. Third
+independent arrival at the same lesson as item B's false-alarm accounting and
+C2's F1 caveat: **the aggregate metric is not the operational one.**
+
+**Licensed:** on the generated corpus the pipeline is end-to-end complete with
+no gold annotation and no model in extraction — E57's "0.700 is an upper bound"
+caveat is lifted *for this corpus*.
+
+**Not licensed:** it does not transfer to the hand corpus, where `id` has
+precision 0.969 and recall **0.304**, because real text says `the coolant pump`,
+`Filter-A`, `Rossi`. The generated corpus's entities are identifier-shaped by
+construction, so `id` nearly reads the generator's mind — which is why 0.947 is
+only ever quoted beside the hand corpus's 0.304. `min_df` was not swept.
+
+**Next on this line:** noun-phrase extraction on the hand corpus — the case
+where identifiers do not exist — scored the same way with the end-to-end arm
+beside it.
+
+### 25.6e E59 RESULT (2026-09-14) — noun-phrase links carry the arm, and E58's lesson needed narrowing
+
+`src/worldstate.rs` (`extract_noun_phrases`), `examples/experiment59_noun_phrases.rs`,
+artifact `benchmarks/results/worldstate-e59.json`, record
+`physis-core/research/E59_NOUN_PHRASES.md`. Hand corpus (72 sentences), no POS
+tagger: determiner + up to three tokens that are not stopwords, not `-ing`/`-ed`,
+and not a trailing `-s` **after** the phrase has a head. Each phrase emits the
+full key and its head (`coolant-pump` and `pump`), which is what lets a later
+`the pump` link with no coreference model.
+
+| extractor | P | R | F1 | downstream top1 (28 queries, gap ≥ 3) |
+|---|---|---|---|---|
+| gold links | — | — | — | **0.393** [0.214, 0.571] |
+| **noun phrase** | 0.488 | 0.699 | **0.575** | **0.357** [0.179, 0.536] |
+| df only | 0.420 | 0.804 | 0.551 | 0.321 |
+| id+cap only | 0.972 | 0.343 | 0.507 | 0.214 |
+| cosine (blind) | — | — | — | 0.071 |
+
+Noun-phrase links recover most of the gold-link arm and every link arm beats
+order-blind cosine. **n = 28, intervals overlap heavily — directional only.**
+Top-3 is where gold still separates (0.714 vs 0.393): the chunker's links find
+the right candidate first often enough, and keep it in a short list rarely
+enough. `np + id+cap` is identical to `np` — the chunker already emits both —
+so the merge arm is redundant and is recorded as such.
+
+**Correction to 25.6d.** E58 said a high-recall low-precision link rule destroys
+the downstream task (`df`: 0.700 → 0.013). Here the same rule scores 0.321, third
+of six. The corrected statement: **high-recall generic links collapse the entity
+filter when the corpus contains many near-identical cycles** — exactly when
+disambiguation is what the filter is for. The generated corpus has 150 sentences
+of one template, so a link on `pressure` joins all of them; the hand corpus tells
+one story once, so a generic link is loose rather than fatal. Both runs stand;
+the mechanism is corpus redundancy, not recall as such.
+
+**Licensed:** a model-free chunker carries the link layer on hand-written prose
+— the world-model arm does not need an annotated corpus.
+**Not licensed:** n = 28; precision 0.488 means half the keys are not entities;
+and the chunker was written beside this corpus and has never been run on text it
+was not authored against. That last one is the next task on this line.
+
+### 25.6f E60 RESULT (2026-09-14) — the chunker does not transfer, and a wrong link layer is worse than none
+
+Corpus `benchmarks/worldstate/corpus-docs.jsonl` (sha256 `f19c1cb4d264…`, 168
+sentences from this repo's own docs), built by `make_corpus_docs.py`. **Gold is
+the author's backticked spans** — an entity annotation written by someone
+documenting code, with no knowledge of this extractor; the chunker never sees
+the backticks. Record `physis-core/research/E60_UNSEEN_PROSE.md`, artifacts
+`worldstate-e59-docs.json` and `worldstate-e59.json`.
+
+| extractor | docs F1 | hand F1 |
+|---|---|---|
+| noun phrase (E59) | **0.159** | **0.575** |
+| id+cap | 0.144 | 0.507 |
+| df | 0.168 | 0.551 |
+| **code ids** (added in E60) | **0.520** (P 0.832) | 0.000 |
+
+**The chunker does not transfer**: F1 0.575 where it was authored, 0.159 where
+it was not. The `code ids` rule was added after seeing that failure, so it is
+scored on both corpora on purpose — best on docs, **emits nothing** on the hand
+corpus, so `np + code` is identical to `np` there. Additive-safe.
+
+Downstream, antecedent at gap ≥ 3:
+
+| links | docs top1 (43 q) | hand top1 (28 q) |
+|---|---|---|
+| gold links | **0.698** | 0.393 |
+| **cosine (blind, no links)** | **0.349** | 0.071 |
+| df only | 0.302 | 0.321 |
+| code ids | 0.209 | 0.000 |
+| noun phrase | 0.093 | 0.357 |
+
+**On unseen prose every extracted-link arm loses to using no links at all**, and
+on the hand corpus the ordering reverses. Gold links reach **0.698** — the
+highest world-model number in the series, on prose written for humans — so the
+ceiling is fine and the extractor is the bottleneck.
+
+**Third revision of the link-quality statement** (25.6d said precision, 25.6e
+narrowed it to redundancy; this adds the other half):
+
+> An entity filter helps only when it is specific enough not to link everything
+> **and** complete enough not to hide the answer. Redundancy punishes low
+> precision (E58: 0.700 → 0.013); sparsity punishes low recall (E60: `code ids`
+> at precision 0.832 still scores 0.209, because recall 0.379 means the filter
+> never admits the answer). When neither holds, **no filter beats a bad filter**
+> and plain similarity is the safer default.
+
+**Not licensed:** 43 queries with overlapping intervals; the backtick gold is an
+annotation of *code* entities, so sentences about "the grid" or "the null" have
+no gold and are excluded; `min_df`, `max_len` and the code rule are unswept.
+
+### 25.6g `physis-world` SHIPPED (2026-09-14) — the navigational layer, running on this machine
+
+`physis-core/src/bin/world.rs`, binary `physis-world`, quickstart
+`docs/WORLD_SHELL.md`. Built on E55–E60, no new mechanism: the shell is the
+measured arm plus E56's derivation, wrapped in verbs, over `observe.rs`'s log.
+**The filesystem is untouched** — `observe` appends and writes nothing else, and
+the whole world model can be deleted without losing a file.
+
+First real run over `~/dev`: **3232 observations** (2580 fs, 400 git, 252
+terminal), 93% carrying at least one extracted link, 3805 mutual-kNN edges, 919
+components, derived transitions emerge=2767 / none=212 / recur=128 /
+persist=119 / disappear=6. `retrieve "which experiment measured the null for the
+grid"` returns the E21, E19 and E19b commits — the three places in the history
+where that null was actually built.
+
+Verbs: `observe · inspect · locate · neighbors · history · changed · compare ·
+trace · why · retrieve`.
+
+**Three rules the interface obeys.** (1) Every answer prints its chain —
+observation seq → representation → operator → position. (2) **"No link" is never
+printed as "not here"**: on a miss the shell falls back to string match and
+labels the fallback, because the link layer's recall is the measured bottleneck
+(E60) and hiding it would reintroduce Gap 3. (3) `why` prints the linked arm and
+the blind arm side by side and does not choose — which wins is corpus-dependent
+and measured (0.700 vs 0.013 on generated text; 0.209 vs 0.349 on this repo's
+prose).
+
+**Two defects found by using it, both fixed.** `watch_git` takes no `known`
+list, so a second `observe` re-appended every commit — visible as `why 1650`
+answering with position 570 at cosine 1.000. Fixed at the writer (drop
+already-recorded `(source, subject)`) and at the reader (collapse duplicates for
+ranking); **the log is not rewritten**, because it is append-only and tidying
+history for a display is the move this architecture refuses. And
+`observe::append` returns `(first_seq, last_seq)`, not a count — the first
+version printed "1733 new, 1732 in log".
+
+**Not claimed:** not an operating system, no understanding, no new measurement.
+The shell's numbers are the experiments' numbers, printed where they can be
+checked.
+
+### 25.6h E61 RESULT (2026-09-14) — the interpreter flips E60's sign, and "call the model only on misses" is refuted
+
+`research/e61_interpreter_extraction.py` + `PHYSIS_E59_EXTRA` scoring. Docs
+corpus (168 sentences, gold = author's backticks). Interpreter
+**`qwen2.5:7b-instruct-q4_K_M`, local on omo, temperature 0**. Artifacts
+`worldstate-e59-docs-llm.json`, `…-llmfb.json`. Record
+`physis-core/research/E61_INTERPRETER_EXTRACTION.md`. First experiment in the
+series where a model takes part, and it takes part at one step: naming what a
+sentence is about.
+
+| links | top1 | top3 | 95% CI |
+|---|---|---|---|
+| gold links | 0.698 | 0.977 | [0.558, 0.837] |
+| **rules + interpreter (all sentences)** | **0.488** | **0.698** | [0.349, 0.628] |
+| interpreter alone (all sentences) | 0.465 | 0.558 | [0.326, 0.605] |
+| cosine (blind, no links) | 0.349 | 0.581 | [0.209, 0.488] |
+| rules + interpreter (**fallback only**) | 0.326 | 0.488 | [0.186, 0.465] |
+| np + code (best rule arm, E60) | 0.209 | 0.279 | [0.093, 0.326] |
+| interpreter, fallback only | 0.093 | 0.093 | [0.023, 0.186] |
+
+Extraction: interpreter F1 0.524, rules+interpreter **0.563** (recall 0.823) vs
+the best rule's 0.520.
+
+**1. The sign flips.** For the first time on prose the extractor was not written
+against, a link arm beats using no links at all — 0.488 vs 0.349 — closing 57%
+of the rules-to-gold gap, with top-3 (0.698) equal to gold's top-1. Intervals
+overlap at n = 43: a direction with a mechanism, not a magnitude.
+
+**2. Model-only-on-misses is refuted, and this is the keeper.** The fallback
+condition scores **0.326, below blind cosine** and 0.162 below calling the model
+everywhere. The rules' defect is not only the 29 sentences where they produce
+nothing — it is the wrong links they produce everywhere else, which patching
+leaves in place. A filter is only as good as its worst links. **If the model is
+called at all, it must be called on everything** — the opposite of what a
+cost-conscious design assumes.
+
+**Determinism:** temperature 0, fixed prompt, model+endpoint stored beside the
+artifact; re-running the first 15 sentences gave **15/15 identical**. The scorer
+reads the saved file, so every number is regenerable with the endpoint down.
+
+**Not licensed:** n = 43 with overlapping CIs; one corpus, one model, one prompt;
+extraction precision *fell* (0.480 → 0.428) while F1 rose, and E58 measured a
+corpus where that trade is fatal; and **cost is unmeasured** — 168 local calls
+took minutes against microseconds for rules, while `physis-world` runs over 3232
+observations.
+
+**Next:** wire an explicit, off-by-default `--interp` into `physis-world` that
+states its cost, and measure the same two scores on the machine log — 94%
+filenames and commit messages, a third text regime, neither of the two measured
+so far.
+
+### 25.6i E62 RESULT (2026-09-14) — the machine log as a third regime; the interpreter result replicates, one claim narrows
+
+Corpus `benchmarks/worldstate/corpus-log.jsonl` (sha256 `90539ad9baa8…`) built
+from `~/.physis-core/observations.jsonl`: **388 observations (234 git, 154
+terminal), 159 scored queries — the largest n in the series**. Gold is what each
+source already carries: the conventional-commit scope (`fix(ci):` → `ci`) plus
+dotted filenames, and for terminal the program invoked plus path arguments. `fs`
+observations are **excluded on purpose** — their subject is a path, so a
+path-derived gold would be the string `code ids` already extracts. Record
+`physis-core/research/E62_MACHINE_LOG.md`.
+
+| links | top1 | top3 | 95% CI |
+|---|---|---|---|
+| gold links | 0.528 | 0.730 | [0.447, 0.604] |
+| **rules + interpreter** | **0.465** | 0.629 | [0.390, 0.541] |
+| interpreter alone | 0.459 | 0.623 | [0.384, 0.535] |
+| df only | 0.403 | 0.579 | [0.327, 0.478] |
+| rules + interpreter (fallback only) | 0.377 | 0.453 | [0.308, 0.453] |
+| cosine (blind) | 0.340 | 0.472 | [0.270, 0.415] |
+| np + code (best rule arm) | 0.296 | 0.321 | [0.233, 0.371] |
+
+**Replicates:** interpreter links beat no links (0.465 vs 0.340) and land within
+one interval of gold (0.528) — second regime, second gold, tighter interval.
+**Replicates:** partial coverage loses to full (0.377 vs 0.465).
+**Does not replicate:** on docs, partial was worse than *no links at all* (0.326
+vs 0.349); on the log it beats blind. E61's strong form was regime-specific. The
+surviving claim: **partial interpreter coverage always loses to full; whether it
+also loses to no links depends on the corpus.** 25.6h is narrowed accordingly.
+
+**New:** `df` — repeated content tokens, the crudest rule — is the best
+non-interpreter arm on the log (0.403 > blind 0.340), while E58 measured the same
+rule as fatal on a redundant generated corpus. Three regimes, three different
+best rules: **there is no corpus-independent extractor in this series**, now
+measured rather than suspected.
+
+**Shipped with it:** `physis-world` reads an interpreter cache via
+`PHYSIS_WORLD_INTERP` (off by default), keyed by observation `seq` because
+positions shift as a log grows and seqs do not; converter
+`benchmarks/worldstate/links_to_cache.py`. Under half coverage it prints the
+measured warning instead of silently running a configuration both experiments
+scored as worse. On the 3232-observation log the cache covers 377, the warning
+fires correctly, and `locate ontology` gains the `refactor(ontology):` commit the
+rules miss entirely.
+
+**Not licensed:** overlapping intervals between rules+interpreter and gold; one
+machine's log, one week, mostly one repository; and **cost is still unmeasured**
+— 388 calls ≈ eight minutes on omo, so covering 3232 observations is roughly an
+hour and the log grows.
+
+### 25.6j E63 RESULT (2026-09-14) — the entity abstraction is unnecessary on real text and decisive under near-duplicate load
+
+Direct test of the challenge *"maybe it is a problem of scale, and linking with
+a search function, word per word, is good enough."* Three free arms added:
+`bm25 + position` (`rag::Bm25Index` over earlier positions only), `shared word +
+cos`, `rare word + cos`. Record `physis-core/research/E63_LEXICAL_SEARCH.md`;
+artifacts `worldstate-e59-{docs,log}-lex.json`, `worldstate-e57.json`.
+
+**Documentation, 43 queries:** gold 0.698 · **bm25+position 0.535 (top3 0.744)**
+· rare word 0.488 · rules+interpreter 0.488 · shared word 0.465 · interpreter
+0.465 · blind 0.349 · best rule arm 0.209. **BM25 beats every extraction arm,
+including the interpreter, at zero marginal cost.**
+
+**Machine log, 159 queries:** gold 0.528 · rules+interpreter 0.465 · interpreter
+0.459 · **bm25+position 0.447** · shared word 0.434 · df 0.403 · blind 0.340.
+BM25 is **statistically indistinguishable** from the interpreter
+([0.371, 0.522] vs [0.390, 0.541]) and costs nothing.
+
+**Generated supersession corpus, 150 queries — the hypothesis breaks:**
+entity+position+cosine **0.700** · cosine+position 0.013 · **bm25+position
+0.013** · shared word 0.013 · blind 0.000. Fifty-fold.
+
+**Mechanism, and it is in the corpora rather than the method.** Docs and the log
+are lexically diverse, so what distinguishes the right antecedent *is* which
+words occur — a search function reads that signal better than a 7B naming
+entities, because the model's names are lossy and the words are not. The
+generated corpus is 150 near-identical cycles where every sentence shares nearly
+all its vocabulary and the near-paraphrase distractors share **more** words with
+the query than the true gold does; BM25 therefore ranks a distractor first,
+exactly as cosine does. The entity link wins there because it removes 149 cycles
+*before* ranking, leaving the embedder to read pressure-vs-temperature inside the
+one that remains. **The entity abstraction is doing partitioning under
+redundancy, not understanding.**
+
+**Consequences, applied:** (1) the interpreter is **not justified** by these
+measurements — E61/E62 stand as measurements, their practical conclusion is
+superseded; (2) the shipped default is lexical — `physis-world why` now prints
+the lexical arm alongside linked and blind, with the measured reason; (3)
+redundancy is the deciding property and is cheaply measurable in advance (mean
+pairwise term overlap), which is the next experiment.
+
+**Not licensed:** the redundant corpus is synthetic and extreme by construction
+(real analogues — log lines, templated alerts, ticket text — are unmeasured); 43
+and 159 queries with overlapping intervals; and **nothing here tests corpus
+size** — "scale" in the question turned out to mean redundancy, a different axis,
+which is itself the finding.
+
+### 25.6k E64 RESULT (2026-09-14) — a counted word table replaces the embedder on every arm the shell uses
+
+`src/worldstate.rs` (`word_table_count`, `sentence_from_table`), selected by
+`PHYSIS_E64_REP`. Record `physis-core/research/E64_WORD_TABLE.md`. Three
+representations: `model` (embedder per sentence), `table-model` (embedder once
+per vocabulary word, sentence = mean), **`table-count`** (random indexing with
+PPMI over a co-occurrence window — **no neural inference at any point**).
+
+| arm | model | table-model | table-count |
+|---|---|---|---|
+| log, gold links (159 q) | 0.528 | 0.516 | **0.497** |
+| log, gold links top3 | 0.730 | 0.755 | **0.742** |
+| log, blind cosine | 0.340 | 0.321 | 0.333 |
+| docs, gold links (43 q) | 0.698 | 0.674 | **0.674** |
+| docs, gold links top3 | 0.977 | 0.953 | **0.953** |
+| docs, blind cosine | 0.349 | 0.279 | 0.279 |
+| bm25 + position (control) | 0.447 / 0.535 | identical | identical |
+| **build time** | 12.15 s / 7.79 s | 47.06 s / 36.44 s | **6.0 ms / 3.3 ms** |
+
+**Counting matches the transformer on filtered arms** — gold-link top-1 within
+0.031 and 0.024, top-3 within 0.012 and 0.024, intervals overlapping — at
+roughly **2400× lower build cost**, and the gap grows with corpus size. **The
+model is genuinely better at unfiltered similarity** (blind 0.349 vs 0.279):
+encoding earns its cost when ranking everything against everything, not when
+ranking inside a candidate set. **`table-model` is the worst of both** — costlier
+to build than the model itself (47 s vs 12 s) and no better than counting;
+averaging a transformer's word vectors discards what the transformer is for. The
+BM25 row is identical across all three by construction, which is the control
+proving the harness changed only what it claimed.
+
+**Found by shipping it.** Defaulting `physis-world` to `table-count` broke
+free-text queries — "which experiment measured the null for the grid" returned
+`strings.xml` and two i18n YAMLs, the exact unfiltered case the table is weakest
+on. The fix was not restoring the model but dropping the vector space from the
+query path: `retrieve` now ranks by **BM25** (E63's best arm on real text) and
+returns the E20, research-agenda and E2 commits. `PHYSIS_WORLD_QUERY=model`
+remains as the one defensible model call in the shell.
+
+**Architecture consequence:** the navigational layer now runs with **no neural
+inference anywhere** — counts for vectors, BM25 for filtering and queries,
+position for order, entity links only where redundancy forces partitioning
+(E63). A 3232-observation world loads and answers in ~2 s with no model on disk
+required. Not "a model is unnecessary in general", but **navigating one's own
+machine does not need one**.
+
+**Not licensed:** two corpora with overlapping intervals; the table is built on
+the corpus being navigated and cross-corpus transfer is untested; `window = 4`,
+`dim = 512`, PPMI floor unswept; the near-duplicate corpus was not re-run under
+the table representations.
+
+### 25.6l E65 RESULT (2026-09-14) — the filter picks itself, once the right thing is measured
+
+`src/worldstate.rs` (`redundancy`, `lexical_margin`, `filter_from_margin`),
+`examples/experiment65_redundancy.rs`, artifact `worldstate-e65.json`, record
+`physis-core/research/E65_FILTER_CHOICE.md`.
+
+**The obvious statistic fails.** Raw term overlap calls the machine log 0.786 —
+as redundant as the generated templates at 0.802 — and the lexical filter wins
+on the log anyway. Log records are file paths sharing long common prefixes, so
+overlap is huge while **BM25's IDF discards exactly those shared tokens**.
+Overlap measures what the filter already ignores.
+
+**Ambiguity after weighting works.** `lexical_margin` = mean
+`(score1 − score2) / score1` over the best two other documents:
+
+| corpus | margin | bm25+pos | entity link | predicted | correct? |
+|---|---|---|---|---|---|
+| generated templates | **0.044** | 0.013 | **0.700** | entity link | ✓ |
+| documentation | 0.235 | **0.535** | 0.209 | bm25 | ✓ |
+| machine log | 0.520 | **0.447** | 0.296 | bm25 | ✓ |
+| hand-written (n=28) | 0.265 | 0.286 | 0.357 | bm25 | ✗ (arms tie) |
+
+Right on all three corpora where the arms differ by 0.151–0.687; wrong only
+where they are 0.071 apart with overlapping intervals. Boundary set at **0.15**,
+in the empty gap between 0.044 and 0.235 — **four corpora is four points**, and a
+finer threshold would be false precision.
+
+**Shipped:** `physis-world inspect` prints the statistic and the recommendation;
+`why` marks the favoured arm. This machine's 3232-observation world measures
+**0.157**, barely above the boundary — shown rather than hidden, which is why the
+shell prints all three arms.
+
+### 25.6m E66 + the open domain axis + copy/paste (2026-09-14)
+
+**Copy/paste — the first verb in this shell that puts something out.**
+`physis-world copy <term|position>` moves the text **with its provenance**: a
+JSON envelope carrying `seq`, source, timestamp and extracted links, to the
+system clipboard (`wl-copy` / `xclip` / `xsel` / `pbcopy`) or, when none exists —
+headless, ssh, this machine — to `~/.physis-core/clipboard.json`, **reporting
+which**, because a copy that silently goes nowhere is worse than a refusal.
+`physis-world paste` prints it with its provenance and writes nothing;
+`paste --into FILE` appends the text plus a `<!-- physis: seq … -->` line, never
+truncates, and is the only file write in the shell. Both verbs append an
+observation, so the log records what was handed over, not only what was asked.
+
+**E66 — why 70 and not n.** `examples/experiment66_axis_fitness.rs`, artifact
+`worldstate-e66-axes.json`, record `physis-core/research/E66_AXIS_FITNESS.md`.
+Same 731 entries, same embeddings, D4's size-preserving permutation null,
+relabelled three ways:
+
+| axis | classes | fitness | null | normalised (f−n)/(1−n) | failing |
+|---|---|---|---|---|---|
+| DOMAIN/MODE | 70 | 0.438 | 0.038 | 0.416 | 8 |
+| DOMAIN only | 5 | 0.672 | 0.209 | **0.585** | 0 |
+| MODE only | 14 | 0.536 | 0.121 | 0.472 | 0 |
+
+Read the normalised column — a null scales with 1/k, so ratios flatter small
+axes. **Both axes carve: every class on both clears its own null**, and the
+domain axis is the *more* recoverable of the two, which does **not** support the
+intuition that domains are convention and modes are structure. What nothing here
+supports is **five** or **fourteen**: the external anchors say 35 of 70 cells are
+`disputed` against WordNet noun supersenses (D1) and 6 of 14 modes fail against
+verb supersenses with `verb.social` (12.2% of verb mass) owned by no mode (D2a).
+Internal coherence says the axes are real; external anchors say the counts are
+convention.
+
+**Applied.** `src/semiotic_grid.rs`: `DEFAULT_DOMAINS` is a pack, `domains()` is
+the axis in force (`PHYSIS_DOMAINS`, comma-separated), `cell_count()` replaces
+the hard 70, `is_canonical` and `fallback_anchors` follow the active axis,
+`DOMAINS` kept as an alias. Modes stay fixed — the operative axis — until Track
+D's EXPAND/MERGE/RETIRE proposals are adjudicated by a person.
+`docs/WHAT_PHYSIS_IS.md` §1, §2 and rule 5 rewritten: "70 tables" becomes "70
+under the default pack".
+
+### 25.7 Then, in order
+
+- **E56 positional** — build `T` and the five predicates over **position in
+  text**; **shuffled-order null first** (see 25.7b).
+- **E57 navigation** — traversal vs `TokenFixedRetriever` + cascade on the
+  adversarial subset; the baseline is the shipped cascade, not a strawman.
+- **E58 downstream** — LLM + top-k vs LLM + world-state region on the local
+  fleet; contradiction detection not cosine-based.
+- **E59 falsification suite** — one harness for the cases designed to kill the
+  thesis, including where ordinary embeddings win.
+- **Shell** — `physis world locate|neighbors|history|changed|compare|trace|why|
+  retrieve|inspect`, thin, over machinery already measured. **The filesystem is
+  overlaid, never replaced** (Gap 5: 34 years of semantic filesystems died in
+  the write path). No shell before E55 and E56 have numbers.
+- **Visualisation** — every figure generated from a `benchmarks/results/*.json`
+  artifact by a script in the repository, artifact hash printed on the figure.
+  No hand-drawn ontology diagrams in the paper.
+- **Paper** — *Structure Before Mapping: Testing Cross-Representation World
+  Models for Semantic Navigation*. Claims tagged demonstrated / measured /
+  hypothesised / speculative; `NOT MEASURED` legal in every table; failures kept
+  as a section.
+
+### 25.7b Position in text, not wall-clock time (decision, 2026-09-14)
+
+**The temporal dimension of Phase 25 is ordinal position in the text, not a
+timestamp.** `W_p` is the state after reading sentence `p`; the sequence is the
+reading order of the corpus.
+
+Why this is the stronger choice, and not merely the cheaper one:
+
+1. **It is always available.** Every document, transcript, log and source file
+   has an order. Wall-clock metadata is missing, wrong or coarse for most of
+   them, and a corpus with real timestamps would have to be authored, which
+   makes the clock a property of the author rather than of the data.
+2. **It is deterministic and re-derivable.** Position needs no parsing, no
+   timezone, no extraction step and no interpreter — so H2's null (shuffle the
+   order) is exact, and the whole temporal arm stays reproducible from the
+   corpus file alone.
+3. **It isolates the variable actually under test.** The claim is that *order*
+   carries structure that order-blind similarity discards. Position tests
+   exactly that. A clock adds duration, gaps and rate, none of which H2 claims.
+4. **`becoming.rs` already works this way.** Its Wald–Wolfowitz runs test
+   separates "one thing changed" from "two things share a name" from the
+   *sequence* of occurrences, not from their timestamps. Phase 25 inherits a
+   measured mechanism instead of inventing one.
+5. **It composes with the clock later.** `TemporalValidity` stays exactly where
+   it is, for facts that genuinely carry valid-time; position and clock are
+   different coordinates on the same object and E56 can add the second one
+   after the first has a number.
+
+Consequences, applied throughout Phase 25: the corpus field is `pos`, states are
+`W_p`, the five transition predicates are computed between adjacent **positions**,
+H2's null shuffles sentence order, and the shell verb is `trace <obj> <pos-range>`.
+Nothing in this phase claims a duration, a rate or a cause.
+
+### 25.8 Standing constraints
+
+1. No second `WorldState` — extend `transform.rs:252`.
+2. No new embedder; verify call sites before trusting an existing one.
+3. No `transplant` (zero call sites); never cite `benchmarks/ground-truth` as
+   retrieval evidence (identical score under a lexical hash).
+4. Correspondences are ranked proposals, never verdicts.
+5. Contradiction is not cosine.
+6. Freeze corpus and metrics before evaluation; record seeds, hashes, versions.
+7. Every relation traces to an observation, or it is a bug.
+8. A negative goes into the module header of the code it constrains, and stays.

@@ -33,3 +33,4 @@ physis-dev-license/target/
 # Dev-only benchmark state: holds a licence key signed with the PUBLIC dev key.
 .physis-bench/
 benchmarks/retrieval/results.json
+models/wordnet/
