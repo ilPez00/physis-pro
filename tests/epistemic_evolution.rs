@@ -17,7 +17,7 @@ use physis_core::hypothesis::{
 };
 use physis_core::ontology::OntologyLoader;
 use physis_core::provenance::ProvenanceLink;
-use physis_core::quality::{ContextualQualityTracker, FitnessContext};
+use physis_pro::ported::quality::{ContextualQualityTracker, FitnessContext};
 use physis_core::relation::{RelationType, TypedEdge};
 
 fn fixture_embedder() -> RandomProjectionEmbedder {

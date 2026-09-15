@@ -1,0 +1,27 @@
+=== cargo test --lib notebook:: ===
+
+running 22 tests
+test notebook::tests::every_catalogue_widget_reads_an_absolute_api_path ... ok
+test notebook::tests::numeric_widgets_declare_the_fields_they_plot ... ok
+test notebook::tests::every_problem_is_reported_at_once ... ok
+test notebook::tests::a_required_parameter_is_required ... ok
+test notebook::tests::geometry_is_a_closed_set ... ok
+test notebook::tests::parameters_are_checked_against_the_widget_that_declares_them ... ok
+test notebook::tests::one_query_widget_covers_what_monitor_mode_writes ... ok
+test notebook::tests::refresh_intervals_have_a_floor ... ok
+test notebook::tests::ids_that_would_escape_their_key_space_are_refused ... ok
+test notebook::tests::the_cell_cap_is_enforced ... ok
+test notebook::tests::the_starter_notebook_is_valid ... ok
+test notebook::tests::unknown_widgets_are_refused_not_stored ... ok
+test ported::notebook::tests::an_empty_corpus_is_an_error_not_an_empty_answer ... ok
+test notebook::tests::the_page_never_interpolates_a_cell_field_into_an_attribute_raw ... ok
+test notebook::tests::the_registry_serializes_what_the_editor_needs ... ok
+test ported::notebook::tests::drafting_always_terminates_within_max_tokens ... ok
+test ported::notebook::tests::a_looping_draft_scores_zero_not_one ... ok
+test ported::notebook::tests::a_query_outside_the_corpus_opens_a_gap_instead_of_inventing ... ok
+test ported::notebook::tests::drafting_over_observed_material_leaves_the_model_little_to_do ... ok
+test ported::notebook::tests::budgeted_context_never_exceeds_the_baseline ... ok
+test ported::notebook::tests::every_source_is_a_real_document ... ok
+test ported::notebook::tests::without_a_generator_it_degrades_loudly_not_silently ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 945 filtered out; finished in 0.02s

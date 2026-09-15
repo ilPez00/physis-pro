@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use physis_core::embed::RandomProjectionEmbedder;
-use physis_core::quality::QualityTracker;
+use physis_pro::ported::quality::QualityTracker;
 use physis_pro::industrial_benchmark::secom::*;
 
 #[test]

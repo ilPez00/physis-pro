@@ -15,6 +15,9 @@ use physis_pro::models::{cosine_sim, DomainDef, Score};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
 use physis_pro::estimate::estimate_project;
+use physis_pro::ported::system_cli::SystemArgs;
+use physis_pro::ported::act::{run as act_run, bearing_on_with, Selection};
+
 
 #[derive(Parser)]
 #[command(
@@ -405,6 +408,19 @@ pub enum Commands {
         #[arg(long)]
         demo: bool,
     },
+    /// Run the live Ontology Studio web server (axum) for interactive browsing,
+    /// editing, and feedback on the semiotic grid. This is the moved `physis-core
+    /// studio` server, gated behind the `web` feature.
+    #[cfg(feature = "web")]
+    StudioServer {
+        /// Port to listen on (default 3000)
+        #[arg(long, default_value_t = 3000)]
+        port: u16,
+        /// ONNX model directory (model.onnx + tokenizer.json). Optional — falls
+        /// back to deterministic random projection when absent or unloadable.
+        #[arg(long)]
+        model: Option<String>,
+    },
     /// The 10-minute demo (Phase 17 U5): turn a prospect folder into a shift
     /// report + an ontology studio in one command. Reads every `*.csv` of shift
     /// records (or `--demo` seeds a sample), renders `report.html`/`report.md`
@@ -612,6 +628,45 @@ pub enum Commands {
         /// Tool name (omit to list all 15)
         tool: Option<String>,
     },
+    /// Shared workspace interface: inspect, list, find, pack, read, history,
+    /// delegation, remember, run, export, and `serve` (MCP stdio). No licence
+    /// or model is required; see `physis-pro system capabilities`.
+    System(SystemArgs),
+    /// Grounded question-answering over a document directory, with citations.
+    /// Uses an oracle endpoint when configured (`PHYSIS_ORACLE_*`), falling
+    /// back to an extractive tier otherwise; the answer always says which.
+    Notebook {
+        /// Directory of documents to answer from.
+        dir: PathBuf,
+        /// Question to answer from those documents.
+        query: String,
+        /// Hard token ceiling for the packed context.
+        #[arg(long, default_value_t = 2000)]
+        budget: usize,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run a command, record it, and say what is already believed about it —
+    /// moved from physis-core's `act` (see `src/ported/act.rs`).
+    ///
+    /// Not a sandbox — `sh -c` already runs things. The contribution is that
+    /// the intent is recorded BEFORE the command runs (so an action that
+    /// hangs still leaves a record), the outcome is recorded with its real
+    /// duration, and claims bearing on it are surfaced first — especially
+    /// ones already Contradicted, which is the machine saying you
+    /// established this does not work.
+    #[command(name = "act")]
+    Act {
+        /// The command, as you would type it into a shell.
+        command: String,
+        /// Show what is already believed and STOP, without running anything.
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -780,6 +835,13 @@ fn run_mcp_cli(tool: Option<&str>) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
+    // Rust ignores SIGPIPE before main; without this, `physis-pro ... | head`
+    // prints a "Broken pipe" panic after the output the user asked for, which
+    // reads like a crash. Core's own main() and the `physis` front door both
+    // do this; product commands (`system` included, since the 2026-09-14
+    // split) need the same fix here rather than relying on a caller that no
+    // longer exists.
+    physis_core::unbreak_pipes();
     let cli = Cli::parse();
 
     // QA 8.7: schema discovery is documentation, not operation — answer it
@@ -835,6 +897,9 @@ fn main() -> anyhow::Result<()> {
             | Commands::Benchmark { .. }
             | Commands::License { .. }
             | Commands::Selftest
+            | Commands::System(..)
+            | Commands::Act { .. }
+            | Commands::StudioServer { .. }
     ) {
         let _license = physis_pro::license::enforce();
     } else {
@@ -842,6 +907,14 @@ fn main() -> anyhow::Result<()> {
         // binary at least has a valid key embedded; we just don't enforce dates/
         // features for these help-of-last-resort commands.
         let _license = physis_pro::license::load().ok();
+    }
+
+    // The shared workspace interface (`system`) needs only the filesystem and
+    // its own observation log: no licence, no ontology, no embedder. Dispatch
+    // it before building the heavy PhysisApp, matching Core's former
+    // `physis-core system` behaviour exactly (same Workspace, same contract).
+    if let Commands::System(args) = &cli.command {
+        return args.run();
     }
 
     // The `index` subcommand needs the filesystem and sled and nothing else:
@@ -1172,6 +1245,50 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // `notebook` answers from its own corpus, embedder and citation index — it
+    // never touches the ontology/classifier PhysisApp builds, so it is
+    // dispatched here rather than paying that startup cost.
+    if let Commands::Notebook { dir, query, budget, json } = &cli.command {
+        let docs = physis_pro::ingest::ingest_all(std::slice::from_ref(dir));
+        if docs.is_empty() {
+            eprintln!("no documents found under {}", dir.display());
+            std::process::exit(1);
+        }
+        let pairs: Vec<(String, String)> =
+            docs.into_iter().map(|d| (d.title, d.body)).collect();
+        // Was hard-coded to RandomProjectionEmbedder (lexical hash, not
+        // meaning) — the same defect already fixed for the `rag` command
+        // below (see its own comment), and for the MCP server, via a
+        // self-test-gated selector: a real semantic embedder when one is
+        // configured and passes the probe, `"random-projection"` labelled as
+        // such otherwise, never silently claimed. `physis_core::embed::select`
+        // (not Pro's `select_embedder`, which returns a different, Pro-only
+        // `VectorEmbed` trait object `notebook::answer` cannot take) matches
+        // the `&dyn physis_core::embed::VectorEmbed` this module already
+        // expects, and needs no config — just the dimension already used here.
+        let (embedder, embedder_kind) = physis_core::embed::select(384);
+        let answer = physis_pro::ported::notebook::answer(
+            &pairs,
+            query,
+            embedder.as_ref(),
+            *budget,
+            embedder_kind,
+        )?;
+        if *json {
+            println!("{}", serde_json::to_string_pretty(&answer)?);
+        } else {
+            println!("{}", answer.render());
+        }
+        return Ok(());
+    }
+
+    // `act` needs only the claims ledger and the observation log — like
+    // `notebook`, dispatched here rather than paying `PhysisApp::new()`'s
+    // ontology/classifier startup cost.
+    if let Commands::Act { command, dry_run, top, json } = &cli.command {
+        return cmd_act(command, *dry_run, *top, *json);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1179,6 +1296,9 @@ fn main() -> anyhow::Result<()> {
         Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::License { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Estimate { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::System(..) => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -1241,6 +1361,11 @@ fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|| dir.join("studio.html"));
             let report = app.run_studio(&dir, &out, demo)?;
             println!("{report}");
+        }
+        #[cfg(feature = "web")]
+        Commands::StudioServer { port, model } => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(physis_pro::ported::studio::run_with_model(port, model))?;
         }
         Commands::Demo { dir, demo } => {
             run_demo(&mut app, &dir, demo)?;
@@ -2112,6 +2237,60 @@ print(json.dumps({{
     }
 
     Ok(())
+}
+
+fn cmd_act(command: &str, dry_run: bool, top: usize, json: bool) -> anyhow::Result<()> {
+    let (embedder, embedder_kind) = physis_core::embed::select(384);
+    let core = load_core();
+
+    const SEMANTIC_FLOOR: f32 = 0.66;
+    let selection = if embedder_kind == "random-projection" {
+        Selection::CascadeRerank { pool: top.max(5) }
+    } else {
+        Selection::CascadeFloor { pool: top.max(5), floor: SEMANTIC_FLOOR }
+    };
+    let bearing = bearing_on_with(&core, command, embedder.as_ref(), top, selection);
+
+    let floor = if embedder_kind == "random-projection" {
+        "\n  (random-projection: a lexical hash, not meaning. `act-recall` measures\n   this leg at recall 0.000 for a paraphrased command. Set PHYSIS_MODEL_DIR.)"
+    } else {
+        ""
+    };
+
+    if dry_run {
+        let warnings: Vec<_> = bearing.iter().filter(|b| b.is_warning()).collect();
+        if warnings.is_empty() {
+            println!("nothing already established bears on this. {} claim(s) checked.{floor}", core.hypotheses.len());
+        } else {
+            println!("── ALREADY ESTABLISHED ──");
+            for b in warnings {
+                println!("  [{}] {:<13} rel {:.3}\n      {}", b.id, b.status, b.relevance, b.statement);
+            }
+        }
+        println!("\n(not run — drop --dry-run to execute)");
+        return Ok(());
+    }
+
+    physis_core::store::ensure_data_dir()?;
+    let a = act_run(command, bearing, &physis_core::observe::log_path())?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&a)?);
+    } else {
+        print!("{}", a.render());
+    }
+    if a.exit_code != Some(0) {
+        std::process::exit(a.exit_code.unwrap_or(1));
+    }
+    Ok(())
+}
+
+fn load_core() -> physis_core::core::PhysisCore {
+    let json = physis_core::store::read_optional(&physis_core::store::nodes_path());
+    if json.trim().is_empty() {
+        physis_core::core::PhysisCore::new()
+    } else {
+        physis_core::core::PhysisCore::from_json(&json).unwrap_or_else(|_| physis_core::core::PhysisCore::new())
+    }
 }
 
 fn run_selftest(config: &PhysisProConfig) -> anyhow::Result<()> {

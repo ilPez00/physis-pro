@@ -1,0 +1,34 @@
+=== grep for ported:: in src/main.rs ===
+18:use physis_pro::ported::system_cli::SystemArgs;
+19:use physis_pro::ported::act::{run as act_run, bearing_on_with, Selection};
+1270:        let answer = physis_pro::ported::notebook::answer(
+1368:            rt.block_on(physis_pro::ported::studio::run_with_model(port, model))?;
+
+=== grep for ported:: in tests/ ===
+tests/industrial_benchmark.rs:7:use physis_pro::ported::quality::QualityTracker;
+tests/system_interface.rs:5:use physis_pro::ported::observe_adapters::watch_fs;
+tests/system_interface.rs:6:use physis_pro::ported::system::Workspace;
+tests/ported_quality_penalty.rs:8:use physis_pro::ported::quality::QualityTracker;
+tests/epistemic_evolution.rs:20:use physis_pro::ported::quality::{ContextualQualityTracker, FitnessContext};
+
+=== grep for ported:: in examples/ ===
+examples/claim_identity.rs:13:    let (claims, truth) = physis_pro::ported::act_recall::twin_pairs_corpus(embedder.as_ref());
+examples/floor_spread.rs:11:    let core = physis_pro::ported::act_recall::demo_ledger(embedder.as_ref());
+examples/floor_spread.rs:15:            let b = physis_pro::ported::act::bearing_on(&core, c, embedder.as_ref(), 5);
+examples/floor_spread.rs:30:    show("with", &physis_pro::ported::act_recall::pair_commands());
+examples/floor_spread.rs:32:    show("without", &physis_pro::ported::act_recall::unrelated_commands());
+examples/mapper_physis_feedback.rs:35:use physis_pro::ported::quality::QualityTracker;
+
+=== grep for ported:: in src/cli.rs ===
+
+=== grep for ported:: in src/quality.rs ===
+14:pub use crate::ported::quality::QualityFailure;
+33:/// over `crate::ported::quality::QualityTracker`; the core's public fields let
+35:pub struct QualityTracker(pub crate::ported::quality::QualityTracker);
+38:    type Target = crate::ported::quality::QualityTracker;
+52:        Self(crate::ported::quality::QualityTracker::new(Box::new(
+59:        crate::ported::quality::QualityTracker::load(path)
+65:    QualityTracker(crate::ported::quality::QualityTracker::load_or_new(path))
+
+=== grep for ported:: in src/web/ ===
+src/web/coherence.rs:792:use crate::ported::quality::FitnessContext;

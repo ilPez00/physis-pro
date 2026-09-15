@@ -1,0 +1,33 @@
+=== act --dry-run ===
+nothing already established bears on this. 4 claim(s) checked.
+
+(not run — drop --dry-run to execute)
+
+=== act live ===
+── RAN ──
+echo hello
+exit 0 · 0.0s · 1 line(s) out
+
+recorded as observation(s) #3241, #3242
+
+=== act exit code propagation (false) ===
+── RAN ──
+false
+exit 1 · 0.0s · 0 line(s) out
+
+recorded as observation(s) #3243, #3244
+Exit code: 1
+
+=== act --json ===
+{
+  "command": "echo hello",
+  "exit_code": 0,
+  "duration_ms": 0,
+  "stdout_lines": 1,
+  "stderr_tail": "",
+  "bearing": [],
+  "observed": [
+    3245,
+    3246
+  ]
+}

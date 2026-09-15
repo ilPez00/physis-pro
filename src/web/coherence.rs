@@ -702,7 +702,7 @@ pub async fn quality_handler(State(state): State<SharedState>) -> Json<QualityRe
 pub(crate) fn quality_response(
     penalties: HashMap<String, f32>,
     boosts: HashMap<String, f32>,
-    failures: &[physis_core::quality::QualityFailure],
+    failures: &[crate::quality::QualityFailure],
 ) -> QualityResponse {
     let resolved = failures.iter().filter(|f| f.resolved).count();
     let mean_severity = if failures.is_empty() {
@@ -711,7 +711,7 @@ pub(crate) fn quality_response(
         failures.iter().map(|f| f.severity).sum::<f32>() / failures.len() as f32
     };
     // Newest first: the dashboard reads the recent window, not the archive.
-    let mut ordered: Vec<&physis_core::quality::QualityFailure> = failures.iter().collect();
+    let mut ordered: Vec<&crate::quality::QualityFailure> = failures.iter().collect();
     ordered.sort_by_key(|f| std::cmp::Reverse(f.timestamp));
     let records = ordered
         .into_iter()
@@ -789,7 +789,7 @@ use physis_core::explanation::ExplanationReport;
 use physis_core::hypothesis::{
     Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction,
 };
-use physis_core::quality::FitnessContext;
+use crate::ported::quality::FitnessContext;
 
 #[derive(Debug, Deserialize)]
 pub struct HypothesesQueryParams {
@@ -1478,8 +1478,8 @@ mod quality_tests {
         hours_ago: i64,
         severity: f32,
         resolved: bool,
-    ) -> physis_core::quality::QualityFailure {
-        physis_core::quality::QualityFailure {
+    ) -> crate::quality::QualityFailure {
+        crate::quality::QualityFailure {
             id: id.into(),
             timestamp: chrono::Utc::now() - chrono::Duration::hours(hours_ago),
             feedback: format!("feedback {id}"),

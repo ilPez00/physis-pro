@@ -16,9 +16,9 @@ use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use serde::{Deserialize, Serialize};
 
 use physis_core::classify::{CellClassifier, CellScore, EntrySeed};
-use physis_core::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_core::ontology::OntologyLoader;
-use physis_core::quality::QualityTracker;
+use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
+use crate::quality::QualityTracker;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -517,8 +517,10 @@ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
 
     let classifier = CellClassifier::build_seeds(seeds, &embed_fn);
 
-    let mut quality =
-        QualityTracker::new(Box::new(RandomProjectionEmbedder::new(config.embed_dim)));
+    let mut quality = QualityTracker::new(
+        Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+        crate::config::OntologyLoader::new(),
+    );
 
     // Stage A: baseline classification on test set
     let mut baseline_results = Vec::new();

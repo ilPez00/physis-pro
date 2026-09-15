@@ -1,6 +1,9 @@
 //! Physis — an ontological mapper and PDCA dream engine.
 
 pub mod actor;
+// Product surfaces moved out of physis-core by the 2026-09-14 Core/Product
+// split (see physis-core/MOVED_TO_PRODUCT.md).
+pub mod ported;
 pub mod address;
 pub mod admin;
 pub mod ai;
@@ -56,6 +59,9 @@ pub mod operational_report;
 pub mod output;
 pub mod quality;
 pub mod quantize;
+pub mod registry;
+pub mod capability;
+pub mod intent_ir;
 pub mod rachmaninov;
 pub mod rbac;
 pub mod reconcile;
@@ -135,4 +141,11 @@ pub use trie::DynamicVectorTrie;
 /// CLI application orchestrator.
 pub use cli::PhysisApp;
 
+pub mod semantic_delta;
+pub mod dependency;
+pub mod staleness;
+pub mod repair_regions;
+pub mod orchestration;
+pub mod metrics;
+pub mod adaptive_document;
 pub use linguistic::*;

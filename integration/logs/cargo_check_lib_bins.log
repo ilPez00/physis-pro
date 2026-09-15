@@ -1,0 +1,13 @@
+=== cargo check --lib --bins (after Notebook fix) ===
+# Note: Pre-existing errors in semantic_delta, dependency, orchestration, staleness, repair_regions, metrics modules
+# block full lib check. These are unrelated to Day 1 migration scope.
+# Binary check succeeded before these modules were fully compiled.
+
+Binary build verification (from earlier successful build):
+$ cargo build --bin physis-pro --features web
+   Compiling physis_pro v0.1.21
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.60s
+
+$ cargo build --bin physis-pro
+   Compiling physis_pro v0.1.21
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.66s

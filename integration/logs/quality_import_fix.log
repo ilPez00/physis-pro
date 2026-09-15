@@ -1,0 +1,413 @@
+=== cargo check --test industrial_benchmark ===
+warning: struct `Row` is never constructed
+  --> src/ported/tui.rs:51:8
+   |
+51 | struct Row {
+   |        ^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: enum `Focus` is never used
+  --> src/ported/tui.rs:58:6
+   |
+58 | enum Focus {
+   |      ^^^^^
+
+warning: struct `App` is never constructed
+  --> src/ported/tui.rs:64:8
+   |
+64 | struct App {
+   |        ^^^
+
+warning: multiple associated items are never used
+   --> src/ported/tui.rs:83:8
+    |
+ 82 | impl App {
+    | -------- associated items in this implementation
+ 83 |     fn new(workspace: Workspace) -> Self {
+    |        ^^^
+...
+105 |     fn set_rows(&mut self, rows: Vec<Row>) {
+    |        ^^^^^^^^
+...
+111 |     fn show(&mut self, title: String, text: &str) {
+    |        ^^^^
+...
+120 |     fn run_command(&mut self, line: &str) {
+    |        ^^^^^^^^^^^
+...
+160 |     fn op_inspect(&mut self) -> Result<()> {
+    |        ^^^^^^^^^^
+...
+174 |     fn op_list(&mut self, rest: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+197 |     fn op_find(&mut self, query: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+232 |     fn op_pack(&mut self, rest: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+279 |     fn op_read(&mut self, target: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+316 |     fn op_history(&mut self, query: &str) -> Result<()> {
+    |        ^^^^^^^^^^
+...
+338 |     fn open_selected(&mut self) {
+    |        ^^^^^^^^^^^^^
+...
+350 |     fn move_selection(&mut self, delta: isize) {
+    |        ^^^^^^^^^^^^^^
+...
+359 |     fn scroll_viewer(&mut self, delta: isize) {
+    |        ^^^^^^^^^^^^^
+
+warning: constant `HELP` is never used
+   --> src/ported/tui.rs:366:7
+    |
+366 | const HELP: &str = "\
+    |       ^^^^
+
+warning: function `draw` is never used
+   --> src/ported/tui.rs:387:4
+    |
+387 | fn draw(frame: &mut ratatui::Frame, app: &mut App) {
+    |    ^^^^
+
+warning: function `inside` is never used
+   --> src/ported/tui.rs:499:4
+    |
+499 | fn inside(area: Rect, column: u16, row: u16) -> bool {
+    |    ^^^^^^
+
+warning: function `on_mouse` is never used
+   --> src/ported/tui.rs:503:4
+    |
+503 | fn on_mouse(app: &mut App, event: MouseEvent) {
+    |    ^^^^^^^^
+
+warning: function `on_key` is never used
+   --> src/ported/tui.rs:547:4
+    |
+547 | fn on_key(app: &mut App, key: KeyEvent) {
+    |    ^^^^^^
+
+warning: struct `Screen` is never constructed
+   --> src/ported/tui.rs:630:8
+    |
+630 | struct Screen(Terminal<CrosstermBackend<Stdout>>);
+    |        ^^^^^^
+
+warning: associated function `enter` is never used
+   --> src/ported/tui.rs:633:8
+    |
+632 | impl Screen {
+    | ----------- associated function in this implementation
+633 |     fn enter() -> Result<Self> {
+    |        ^^^^^
+
+warning: function `main` is never used
+   --> src/ported/tui.rs:651:4
+    |
+651 | fn main() -> Result<()> {
+    |    ^^^^
+
+warning: struct `World` is never constructed
+  --> src/ported/world.rs:38:8
+   |
+38 | struct World {
+   |        ^^^^^
+
+warning: multiple associated items are never used
+   --> src/ported/world.rs:57:8
+    |
+ 56 | impl World {
+    | ---------- associated items in this implementation
+ 57 |     fn load(k: usize) -> anyhow::Result<Self> {
+    |        ^^^^
+...
+214 |     fn n(&self) -> usize {
+    |        ^
+...
+219 |     fn positions_of(&self, term: &str) -> Vec<usize> {
+    |        ^^^^^^^^^^^^
+...
+235 |     fn string_match(&self, term: &str) -> Vec<usize> {
+    |        ^^^^^^^^^^^^
+...
+243 |     fn resolve(&self, term: &str) -> (Vec<usize>, &'static str) {
+    |        ^^^^^^^
+...
+251 |     fn line(&self, i: usize) -> String {
+    |        ^^^^
+...
+259 |     fn chain(&self, i: usize, operator: &str) -> String {
+    |        ^^^^^
+...
+272 |     fn transitions(&self) -> Vec<&'static str> {
+    |        ^^^^^^^^^^^
+...
+279 |     fn linked(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^^
+...
+296 |     fn lexical(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^^^
+...
+307 |     fn blind(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^
+...
+326 |     fn nearest_to_query(&self, q: &str, top: usize) -> Vec<usize> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `clipboard_path` is never used
+   --> src/ported/world.rs:357:4
+    |
+357 | fn clipboard_path() -> std::path::PathBuf {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `clipboard_write` is never used
+   --> src/ported/world.rs:365:4
+    |
+365 | fn clipboard_write(payload: &str) -> String {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `clipboard_read` is never used
+   --> src/ported/world.rs:392:4
+    |
+392 | fn clipboard_read() -> Option<(String, String)> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `which` is never used
+   --> src/ported/world.rs:412:4
+    |
+412 | fn which(bin: &str) -> bool {
+    |    ^^^^^
+
+warning: struct `Clip` is never constructed
+   --> src/ported/world.rs:424:8
+    |
+424 | struct Clip {
+    |        ^^^^
+
+warning: function `cmd_observe` is never used
+   --> src/ported/world.rs:434:4
+    |
+434 | fn cmd_observe(root: &str, max_files: usize) -> anyhow::Result<()> {
+    |    ^^^^^^^^^^^
+
+warning: function `main` is never used
+   --> src/ported/world.rs:482:4
+    |
+482 | fn main() -> anyhow::Result<()> {
+    |    ^^^^
+
+warning: `physis_pro` (lib) generated 21 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.60s
+
+=== cargo check --test epistemic_evolution ===
+warning: struct `Row` is never constructed
+  --> src/ported/tui.rs:51:8
+   |
+51 | struct Row {
+   |        ^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: enum `Focus` is never used
+  --> src/ported/tui.rs:58:6
+   |
+58 | enum Focus {
+   |      ^^^^^
+
+warning: struct `App` is never constructed
+  --> src/ported/tui.rs:64:8
+   |
+64 | struct App {
+   |        ^^^
+
+warning: multiple associated items are never used
+   --> src/ported/tui.rs:83:8
+    |
+ 82 | impl App {
+    | -------- associated items in this implementation
+ 83 |     fn new(workspace: Workspace) -> Self {
+    |        ^^^
+...
+105 |     fn set_rows(&mut self, rows: Vec<Row>) {
+    |        ^^^^^^^^
+...
+111 |     fn show(&mut self, title: String, text: &str) {
+    |        ^^^^
+...
+120 |     fn run_command(&mut self, line: &str) {
+    |        ^^^^^^^^^^^
+...
+160 |     fn op_inspect(&mut self) -> Result<()> {
+    |        ^^^^^^^^^^
+...
+174 |     fn op_list(&mut self, rest: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+197 |     fn op_find(&mut self, query: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+232 |     fn op_pack(&mut self, rest: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+279 |     fn op_read(&mut self, target: &str) -> Result<()> {
+    |        ^^^^^^^
+...
+316 |     fn op_history(&mut self, query: &str) -> Result<()> {
+    |        ^^^^^^^^^^
+...
+338 |     fn open_selected(&mut self) {
+    |        ^^^^^^^^^^^^^
+...
+350 |     fn move_selection(&mut self, delta: isize) {
+    |        ^^^^^^^^^^^^^^
+...
+359 |     fn scroll_viewer(&mut self, delta: isize) {
+    |        ^^^^^^^^^^^^^
+
+warning: constant `HELP` is never used
+   --> src/ported/tui.rs:366:7
+    |
+366 | const HELP: &str = "\
+    |       ^^^^
+
+warning: function `draw` is never used
+   --> src/ported/tui.rs:387:4
+    |
+387 | fn draw(frame: &mut ratatui::Frame, app: &mut App) {
+    |    ^^^^
+
+warning: function `inside` is never used
+   --> src/ported/tui.rs:499:4
+    |
+499 | fn inside(area: Rect, column: u16, row: u16) -> bool {
+    |    ^^^^^^
+
+warning: function `on_mouse` is never used
+   --> src/ported/tui.rs:503:4
+    |
+503 | fn on_mouse(app: &mut App, event: MouseEvent) {
+    |    ^^^^^^^^
+
+warning: function `on_key` is never used
+   --> src/ported/tui.rs:547:4
+    |
+547 | fn on_key(app: &mut App, key: KeyEvent) {
+    |    ^^^^^^
+
+warning: struct `Screen` is never constructed
+   --> src/ported/tui.rs:630:8
+    |
+630 | struct Screen(Terminal<CrosstermBackend<Stdout>>);
+    |        ^^^^^^
+
+warning: associated function `enter` is never used
+   --> src/ported/tui.rs:633:8
+    |
+632 | impl Screen {
+    | ----------- associated function in this implementation
+633 |     fn enter() -> Result<Self> {
+    |        ^^^^^
+
+warning: function `main` is never used
+   --> src/ported/tui.rs:651:4
+    |
+651 | fn main() -> Result<()> {
+    |    ^^^^
+
+warning: struct `World` is never constructed
+  --> src/ported/world.rs:38:8
+   |
+38 | struct World {
+   |        ^^^^^
+
+warning: multiple associated items are never used
+   --> src/ported/world.rs:57:8
+    |
+ 56 | impl World {
+    | ---------- associated items in this implementation
+ 57 |     fn load(k: usize) -> anyhow::Result<Self> {
+    |        ^^^^
+...
+214 |     fn n(&self) -> usize {
+    |        ^
+...
+219 |     fn positions_of(&self, term: &str) -> Vec<usize> {
+    |        ^^^^^^^^^^^^
+...
+235 |     fn string_match(&self, term: &str) -> Vec<usize> {
+    |        ^^^^^^^^^^^^
+...
+243 |     fn resolve(&self, term: &str) -> (Vec<usize>, &'static str) {
+    |        ^^^^^^^
+...
+251 |     fn line(&self, i: usize) -> String {
+    |        ^^^^
+...
+259 |     fn chain(&self, i: usize, operator: &str) -> String {
+    |        ^^^^^
+...
+272 |     fn transitions(&self) -> Vec<&'static str> {
+    |        ^^^^^^^^^^^
+...
+279 |     fn linked(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^^
+...
+296 |     fn lexical(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^^^
+...
+307 |     fn blind(&self, p: usize, top: usize) -> Vec<usize> {
+    |        ^^^^^
+...
+326 |     fn nearest_to_query(&self, q: &str, top: usize) -> Vec<usize> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `clipboard_path` is never used
+   --> src/ported/world.rs:357:4
+    |
+357 | fn clipboard_path() -> std::path::PathBuf {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `clipboard_write` is never used
+   --> src/ported/world.rs:365:4
+    |
+365 | fn clipboard_write(payload: &str) -> String {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `clipboard_read` is never used
+   --> src/ported/world.rs:392:4
+    |
+392 | fn clipboard_read() -> Option<(String, String)> {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `which` is never used
+   --> src/ported/world.rs:412:4
+    |
+412 | fn which(bin: &str) -> bool {
+    |    ^^^^^
+
+warning: struct `Clip` is never constructed
+   --> src/ported/world.rs:424:8
+    |
+424 | struct Clip {
+    |        ^^^^
+
+warning: function `cmd_observe` is never used
+   --> src/ported/world.rs:434:4
+    |
+434 | fn cmd_observe(root: &str, max_files: usize) -> anyhow::Result<()> {
+    |    ^^^^^^^^^^^
+
+warning: function `main` is never used
+   --> src/ported/world.rs:482:4
+    |
+482 | fn main() -> anyhow::Result<()> {
+    |    ^^^^
+
+warning: `physis_pro` (lib) generated 21 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s

@@ -11,7 +11,7 @@ use std::path::Path;
 use crate::config::OntologyLoader;
 use crate::embed::VectorEmbed;
 
-pub use physis_core::quality::QualityFailure;
+pub use crate::ported::quality::QualityFailure;
 
 /// Adapter making a physis_pro embedder satisfy physis_core's `VectorEmbed`
 /// (which lacks `embed_image`; the engine never needs it).
@@ -30,12 +30,12 @@ impl physis_core::embed::VectorEmbed for CoreEmbed {
 }
 
 /// Tracks quality feedback and applies penalty/gain to semiotic cells. Facade
-/// over `physis_core::quality::QualityTracker`; the core's public fields let
+/// over `crate::ported::quality::QualityTracker`; the core's public fields let
 /// `tracker.cell_penalties` / `tracker.failures` access resolve through Deref.
-pub struct QualityTracker(pub physis_core::quality::QualityTracker);
+pub struct QualityTracker(pub crate::ported::quality::QualityTracker);
 
 impl std::ops::Deref for QualityTracker {
-    type Target = physis_core::quality::QualityTracker;
+    type Target = crate::ported::quality::QualityTracker;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -49,20 +49,20 @@ impl std::ops::DerefMut for QualityTracker {
 
 impl QualityTracker {
     pub fn new(embedder: Box<dyn VectorEmbed>, _ontology: OntologyLoader) -> Self {
-        Self(physis_core::quality::QualityTracker::new(Box::new(
+        Self(crate::ported::quality::QualityTracker::new(Box::new(
             CoreEmbed(embedder),
         )))
     }
 
     /// Look up `failures` type from the core without deref (associated fn).
     pub fn load(path: &Path) -> anyhow::Result<Vec<QualityFailure>> {
-        physis_core::quality::QualityTracker::load(path)
+        crate::ported::quality::QualityTracker::load(path)
     }
 }
 
 /// Load from disk, rebuilding penalties from the recorded failures.
 pub fn load_or_new(path: &Path) -> QualityTracker {
-    QualityTracker(physis_core::quality::QualityTracker::load_or_new(path))
+    QualityTracker(crate::ported::quality::QualityTracker::load_or_new(path))
 }
 
 #[cfg(test)]

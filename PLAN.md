@@ -2,6 +2,19 @@ read physis_resources.txt
 
 # Physis Pro — Master Plan
 
+## Active development cycle — 2026-09-16 to 2026-09-29
+
+See [Core and Pro: the next ten development days](docs/plans/2026-09-15-core-pro-development.md)
+for the current two-project boundary, daily implementation pseudocode, research
+experiments, acceptance gates and scope cuts. Pro owns application features;
+Core remains the reusable engine with a small CLI/JSON interface. This cycle
+supersedes older three-project split proposals for implementation planning.
+
+Research objective: [the semantic operational computer](docs/semantic-computer/RESEARCH_DIRECTIVE.md).
+The [v1 implementation skeleton](docs/semantic-computer/CONTRACT.md) defines
+event/capability contracts and the controlled benchmark that the Sonnet swarm
+will implement. Literature anchors remain unverified until checked in originals.
+
 ## Overview
 
 Physis Pro is an **industrial backoffice intelligence engine** that combines
@@ -2473,3 +2486,873 @@ Nothing in this phase claims a duration, a rate or a cause.
 6. Freeze corpus and metrics before evaluation; record seeds, hashes, versions.
 7. Every relation traces to an observation, or it is a bug.
 8. A negative goes into the module header of the code it constrains, and stays.
+
+---
+
+## Phase 26 — Adaptive documents and the minimum sufficient world model
+
+**Added 2026-09-15. Status: implementation handoff, not implemented or benchmarked.**
+User direction: make Physis simpler, lighter, and more useful; consider the
+existing uncommitted scaffold; begin with an adaptive text document. Investigate
+one small frozen embedder and one tiny predictive/diffusion/flow model, but
+require every learned component to beat cheaper alternatives. This section is
+the worker packet; do not create another architecture-document hierarchy.
+
+This phase adds a bounded Pro application to the current two-project development
+cycle. It does not replace Physis's coordinate system, six operations, historical
+experiments, or the Core/Pro boundary. The Phase 25 position-only experiments
+remain position-only; operational event sequence and observed timestamps below
+are additional fields for this new experiment. The new encoder comparisons are
+explicit research arms, not a reason to duplicate the production embedder.
+
+### 26.1 Product outcome and order of work
+
+The first demo is a document whose dependencies are visible:
+
+> Change a source quantity from 18 units to 3. Preview linked values and exact
+> calculations changing. See related prose that needs review. Click a proposed
+> change to see its source. Accept or reject it. Undo the accepted repair
+> without erasing the original human edit. Reload and obtain the same history.
+
+The model is not the demo. Useful behavior must exist with no model loaded.
+
+1. Exact blocks, bindings, revisions, dependencies, patches, and durable history.
+2. One existing web surface with edit, preview, accept, reject, undo, and why.
+3. BM25 and one frozen contextual embedder, evaluated rather than assumed useful.
+4. Identity/lookup/ridge, then a tiny MLP predicting unresolved consequences.
+5. Cheap probability models, then delta/residual diffusion or flow if justified.
+6. Broader computer interaction only after the document workflow is reliable.
+
+Initial exclusions: a new frontend framework, vector database, message bus,
+standalone memory engine, global ontology redesign, generic multi-agent repair
+framework, screenshot generation, encoder pretraining, and a continuously running
+LLM. Do not delete existing product features to meet this scope. Keep the new
+workflow small and isolate unrelated work.
+
+### 26.2 Read the code before reusing the scaffold
+
+The following are observations from the 2026-09-15 source review, not fresh build
+results. Workers must recheck them at their actual starting revision:
+
+| Location | Observed state | Worker instruction |
+|---|---|---|
+| `src/core.rs::edit_node` | Four non-test textual call sites were found, including CLI, web, agent and Studio paths | Reuse content-swap semantics where applicable; wrap with document revision/persistence rules. A graph label swap is not a complete file transaction. |
+| `src/web/coherence.rs::coherence_edit_handler` | Calls `edit_node`; reads/re-embeds content; persists/audits | Inspect concurrency and failure handling before extending it. Do not claim an asynchronous embed followed by an unchecked swap is revision-safe. |
+| `src/semantic_delta/mod.rs` | Local hash embedder; `no_semantic_change` assigns distance 1.0; model escalation sets a constant confidence | Do not use these values as semantic evidence. Reuse only corrected, tested behavior needed by this slice. |
+| `src/dependency/mod.rs` | Edge types and propagation scaffold; incomplete scope logic and suspicious result construction | Retain explicit relation concepts. Prefer simple reachability for confirmed dependencies over uncalibrated attenuation. |
+| `src/staleness/mod.rs` | Classification overlaps with `dependency` | One decision path for the MVP; do not maintain duplicate classifiers. |
+| `src/repair_regions/mod.rs` | Selector had zero external callers; constructor call omitted `delta`; anchor logic contains invalid/incomplete code | Not a ready integration. Keep exact replacement ranges and confirmed locks; avoid a large region optimizer initially. |
+| `src/orchestration/mod.rs` | Workers return fixed strings marked verified | Never treat this as a model or successful repair. No fake-worker fallback in a production path. |
+| `src/metrics/mod.rs` | Precision/waste contain constants; some quantities mix tokens and nodes | Replace only metrics required by actual tests; use null/unknown when truth is absent. |
+| `src/ported/system.rs`, `physis-core/src/observe.rs` | Existing observation read/append seams | Adapt the existing store; typed document payloads live in Pro. Read current code because relocation is ongoing. |
+| `src/atomic.rs` | Existing durable replacement helper | Inspect its write/fsync guarantees and reuse rather than inventing another file writer. |
+
+The uncommitted work identified by the user as Kilo's is shared work, not a clean
+branch owned by a new worker. Capture the starting diff. Do not claim authorship
+from file names, restore the tree to HEAD, or delete the six modules wholesale.
+The earlier free-model reviews were advisory: claims that flow is automatically
+one-step, that mixtures are too heavy, or that a blank-line parser solves all
+Markdown were rejected. Review actual semantics rather than copying those plans.
+
+### 26.3 Worker protocol and ownership
+
+Current authorization is to append this plan. This packet does not itself start
+workers or authorize deployment. When the coordinator starts implementation,
+give each worker one bounded packet, explicit file ownership, and an exit gate.
+
+**Before editing:**
+
+1. Read applicable `AGENTS.md`, the Physis skill, this phase, and the current
+   [semantic-computer contract](docs/semantic-computer/CONTRACT.md).
+2. Follow the pansa/randomesh workflow for code changes, builds and tests. Verify
+   host, checkout and branch; an existing executable may predate current source.
+3. Record commit IDs, dirty tracked/untracked paths, assigned files and baseline
+   failures. Use an isolated checkout when appropriate, preserving relevant
+   uncommitted changes intentionally rather than silently dropping them.
+4. Recall the existing workspace record through available Physis history/pack/read
+   tools. If unavailable, report the missing connection and use exact source reads.
+5. Reconfirm file paths after the Core/Pro migration. Treat old docs as navigation
+   aids, not proof that a symbol exists, runs, or belongs in Core.
+6. Never print, attach, commit, or train on `.env` values. Use existing authenticated
+   free routes where available. Select any needed credential without sourcing the
+   whole file into a shell or sharing all credentials with a worker.
+
+**Ownership and dependency graph:**
+
+| Packet | Owner role and files | Depends on | Exit artifact |
+|---|---|---|---|
+| P0 | Coordinator: baseline audit, contract names, shared `src/lib.rs`/Cargo/routes, integration decisions | Nothing | Frozen interfaces, fixture, baseline transcript, assigned files |
+| P1 | Document worker: one small `src/adaptive_document/` module and focused integration tests | P0 | Stable identities, bindings, patch logic, persistence/recovery/undo tests |
+| P2 | Integration worker/coordinator: existing web handler/service adapter and shared registrations | P1 contract; integrate after P1 | Actual request→service→persistent effect→readback |
+| P3 | UI worker: selected existing page/assets only | P0 frozen wire fixture; live integration after P2 | Visible edit/preview/why/accept/reject/undo behavior |
+| P4 | Evaluation worker: `benchmarks/semantic-computer/adaptive-document/` and fixtures | P0 event schema | Ground-truth suite, export checker, real per-case results |
+| P5 | Research worker: `research/adaptive-document/` experiments and pinned experiment configs | P4 dataset; product need not wait | Baselines, embedding/delta tests, gated tiny-model comparison |
+| P6 | Reviewer: read-only source/runtime audit and concise handoff | P1–P4 | Verified findings, regressions, unresolved risks; no self-certified score |
+
+Parallelize P3's fixture-based interface work and P4's test corpus after P0.
+P1 owns document semantics; P2 owns shared wiring. Do not let several workers
+edit shared handlers, Cargo, or module exports concurrently. Coordinate expensive
+builds on the laptop; multiple harnesses are not a reason to run duplicate builds.
+P5 starts only when real input/output contracts are stable. Workers do not spawn
+additional workers unless their coordinator explicitly assigns that authority.
+
+Prefer small existing files or one cohesive document module. The packet names
+are ownership boundaries, not a demand to create seven modules, services, or
+permanent design documents. Preserve Core as a reusable mechanism library.
+
+### 26.4 Frozen minimal contracts for P0/P1
+
+Use existing ID/reference/event wrappers where they fit. The pseudocode below
+defines required semantics, not an instruction to duplicate repository types.
+
+```text
+Block:
+    id: stable opaque identity
+    document_id, revision, content_hash, raw_ref
+    kind: paragraph | heading | code | other_supported
+    span: [utf8_byte_start, utf8_byte_end) at document_revision
+    authored_by, locked: explicit metadata, not inferred from proximity
+
+Link:
+    id, source_block_id, dependent_block_id
+    behavior: copy | calculate | review
+    binding: named source/target fields or explicit bound spans
+    transform_id?: registered pure transform (never arbitrary code)
+    provenance: human_confirmed | parser_proven
+    source_revision_at_confirmation, revision, active
+
+Change:
+    event_id, document_id, block_id, before_revision, after_revision
+    before_raw_ref, after_raw_ref, before_hash, after_hash
+    actor, operation, sequence, parent_event_ids
+    occurred_at?: timestamp, recorded_at: timestamp
+
+Patch:
+    id, document_id, triggered_by_change_id
+    expected_document_revision, expected_graph_revision
+    expected_block_revisions, expected_source_hashes
+    replacements: [{block_id, range, expected_old_bytes, new_bytes}]
+    review_only_block_ids, reasons: [{link_id, source_change_id}]
+    validators: named exact checks
+    status: proposed | applied | rejected | conflicted | failed | recovery_needed
+    application_event_id?, superseded_by?, reverted_by?
+```
+
+Patch IDs and idempotency keys are stable across retries. A network retry is not
+a second application. Empty/no-op edits create no semantic-change claim. A
+rejected proposal remains in history and has no document mutation.
+
+Direction is **source → dependent** in this adapter. Map existing `DependsOn`
+conventions explicitly; do not reverse a relation accidentally. Quote, citation,
+similarity, ownership and causal dependency are distinct. Only confirmed copy or
+calculation bindings produce automatic replacement candidates. A `review` link
+produces a reason to inspect, not invented replacement prose.
+
+Use integers or exact decimals with explicit units for bound quantities. Do not
+round-trip engineering quantities through an embedding or unqualified `f32`.
+Derived text must distinguish a live bound value from a historical quotation.
+
+Retain exact byte offsets at a named revision. Convert browser UTF-16 indices at
+the API boundary; never apply them directly as Rust UTF-8 byte indices. The
+server verifies boundaries and old bytes. Reject overlapping replacement ranges.
+Apply multiple non-overlapping replacements from right to left.
+
+The first fixture may declare stable IDs and bindings in an application sidecar.
+Support a documented subset of Markdown before general parsing. Blank lines
+inside fenced code are not paragraph boundaries. A moved block retains identity
+only with explicit editor lineage or an unambiguous match. Ambiguous split/merge
+or external replacement invalidates affected bindings for review.
+
+### 26.5 P1 guide: dependency and proposal logic
+
+Use explicit ordered traversal, deduplicate by ID, and cap work per request.
+Reachability is exact for the declared graph; the graph itself may be incomplete.
+There is no claim that all semantic dependencies have been found.
+
+```python
+def propose_after_source_edit(snapshot, observed_change):
+    assert observed_change.after_revision == snapshot.revision
+    affected = reachable_dependents(
+        snapshot.confirmed_links, observed_change.block_id,
+        visited=set(), stable_order=True, max_nodes=MAX_AFFECTED)
+    proposal = Patch(bound_to=snapshot, triggered_by=observed_change.event_id)
+
+    # Calculation edges need dependency order, not arbitrary BFS evaluation.
+    order, cyclic_groups = topological_order(affected.calculation_graph)
+    proposal.mark_review(cyclic_groups, reason="cyclic calculation")
+    preview = snapshot.read_only_copy()
+    for block in order:
+        links = affected.confirmed_inputs(block)
+        if block.locked:
+            proposal.mark_review(block, reason="locked dependent")
+        elif all_inputs_bound_and_supported(links):
+            new_bytes = registered_exact_transform(links, preview)
+            proposal.add_exact_replacement(block, new_bytes, reasons=links)
+            preview.replace_in_memory(block, new_bytes)
+        else:
+            proposal.mark_review(block, reason="unresolved dependency")
+
+    proposal.mark_review(affected.review_only, reasons=affected.source_paths)
+    reject_overlaps_or_conflicting_writers(proposal)
+    validate_preview_and_unchanged_regions(snapshot, proposal)
+    persist_proposal_metadata(proposal)  # does not change document bytes
+    return proposal
+```
+
+For a copy chain, use values from the in-memory preview so downstream copies see
+the proposed upstream value. When two sources disagree, report a conflict rather
+than selecting the last traversal result. Cycles among review-only links may be
+traversed once; cycles among calculations require review, not guessed iteration.
+Cap traversal with an explicit incomplete-result flag; never silently drop nodes.
+
+Do not merge disconnected affected spans into one broad rewrite region. A patch
+can contain several disjoint replacements while preserving every intervening byte.
+Keep human-authored/locked content metadata separate from staleness and route.
+
+### 26.6 P1 guide: persistence, concurrency, and undo
+
+The raw document remains authoritative. Reuse the existing observation store and
+durable file writer; add a narrow Pro payload adapter and immutable content refs.
+An index/graph/embedding cache is a rebuildable view, not another source of truth.
+An event body's summary alone is insufficient to restore prior text.
+
+Minimum application transaction:
+
+```python
+def apply_patch(request, store, workspace):
+    with workspace.document_transaction(request.document_id):
+        previous = store.lookup_operation(request.idempotency_key)
+        if previous is terminal:
+            return previous.result
+        if previous is pending:
+            return reconcile_pending(previous)  # never blindly reapply
+
+        patch = store.read_patch(request.patch_id)
+        require(patch.status == "proposed")
+        current = workspace.read_exact_document_and_metadata()
+        require_current_revisions_hashes_and_locks(current, patch)
+        candidate = apply_nonoverlapping_ranges(current.bytes, patch.replacements)
+        require(exact_outside_range_equality(current.bytes, candidate, patch))
+        require(all_registered_validators_pass(candidate, patch))
+
+        before_ref = store.put_immutable(current.bytes)
+        after_ref = store.put_immutable(candidate)
+        store.append_durable("apply_intent", key=request.idempotency_key,
+                             patch_id=patch.id, before_ref=before_ref,
+                             after_ref=after_ref, expected_revisions=current.revisions)
+        # Recheck external file state immediately before the replacement.
+        require(workspace.current_hash() == current.hash)
+        workspace.replace_atomically_and_sync(candidate)
+        actual = workspace.read_exact_bytes()
+        require(hash(actual) == hash(candidate))
+        event = store.append_durable("apply_observed", key=request.idempotency_key,
+                                     before_ref=before_ref, after_ref=after_ref)
+        update_materialized_views_or_mark_dirty(event)
+        return applied_result(event, validators="verified")
+```
+
+Worker must specify real locking guarantees. A lock within Physis serializes
+Physis clients but does not make arbitrary external editors cooperate. Initial
+support is one managed document edited through the service; externally changed
+files are detected and conflicted. Do not claim fully atomic compare-and-swap
+against uncooperative writers. General filesystem concurrency is a later task.
+
+If writing or validation fails, record the observed failure where possible and
+return failure. If document replacement succeeds but terminal logging fails,
+return/recover `recovery_needed`, not "nothing happened". On restart inspect each
+pending intent: current hash equals intended after → record recovered observation;
+equals before → record not-applied; equals neither → conflict requiring inspection.
+Never reconstruct an application merely from an intent record.
+
+Do not publish in-memory success while durable state failed. A failed cache update
+does not reverse a successfully committed raw write; mark the cache stale and
+rebuild it from observed events. Keep event order by store sequence; timestamps
+need not be unique or monotonic across processes.
+
+```python
+def propose_undo(application_event, current):
+    original = read_verified_application(application_event)
+    # Undo is a new compensating patch, not deletion of history or revision rewind.
+    inverse = swap_old_and_new_ranges(original.replacements)
+    if not ranges_and_revision_still_match(current, original.after):
+        return conflict("Document changed since this repair; inspect inverse patch")
+    return new_patch(inverse, bound_to=current,
+                     reason={"undo_of": application_event})
+```
+
+Initially reject undo after any intervening document revision. Later permit
+non-overlapping edits only with tested range/identity rebasing. Rejecting a stale
+undo is safer and simpler than overwriting a later user edit. Source edit and
+dependent repair are separate events; undo of the latter preserves the former.
+
+### 26.7 P2/P3 guide: one service, one visible workflow
+
+Expose service operations once: `snapshot`, `edit_source`, `propose`,
+`decide_patch(accept|reject)`, `propose_undo`, `history`, `why`.
+Route names are frozen by P0 after inspecting current handlers. Reuse existing
+transport conventions, but do not overload `coherence/edit` with untyped patch
+verbs merely to avoid adding a narrow document endpoint. Existing callers must
+retain their behavior. New request fields require validation and versioning.
+
+Mutating requests carry document/patch identity, expected revisions, and an
+idempotency key. Use existing authorization and user/workspace resolution;
+document and proposal state must be scoped the same way as the authenticated
+resource. A user-selection header alone must not become new authorization logic.
+Do not silently bypass permissions, locks, or revision checks through an older
+CLI/agent route. Any alternate writer invalidates/reconciles document views.
+
+```text
+UI edit submission:
+    send edited block + expected revision + operation ID
+    show source save result
+    request/render dependent preview bound to the returned revision
+    display exact replacements separately from review-only notices
+
+UI acceptance:
+    send patch ID + expected revision + new operation ID
+    applied -> render returned observed revision
+    conflict -> keep user text, refresh state, request a fresh preview
+    failed/recovery_needed -> show observed status, do not pretend rollback
+
+UI rejection:
+    record rejection; keep document bytes; retain source edit
+
+UI why:
+    show source change, named binding/transform, affected passage, and event refs
+```
+
+Do not compute binding logic twice in JS and Rust. Client fixtures are temporary
+test data and must not appear as live outcomes. Do not render predicted vectors,
+confidence scores, worker names, or ontology internals in the default document
+flow. Show practical reasons and actual outcomes. Keyboard access, focus after
+updates, escaped document text, and a readable diff are part of P3 acceptance.
+
+Visual scope: a restrained highlight on affected text, clickable source links,
+an inline before/after preview, and one undo action. Full graph visualization,
+animated agents, extra dashboard tabs, and a separate chat panel are unnecessary.
+A revision scrubber may follow once replay works; never display guessed history.
+
+### 26.8 P4 guide: fixture, acceptance tests, and data export
+
+Build a resettable fixture with independent ground truth:
+
+```text
+B1: source quantity = 18 units
+B2: bound copy of quantity = 18 units
+B3: bound calculation, 2 × quantity = 36 units
+B4: prose recommendation linked as review-only
+B5: unrelated historical quotation containing the number 18
+B6: locked text with a review dependency
+
+human edit B1: 18 -> 3
+expected proposed replacements: B2 18 -> 3, B3 36 -> 6
+expected notices: B4 review; B6 locked/review
+expected unchanged bytes: B4/B5/B6 and all outside replacement ranges
+undo of accepted dependent repair: B2/B3 revert; B1 stays 3
+```
+
+Create adversarial variants: negation, quantity units, repeated identical blocks,
+emoji/accented text, fenced code, block moves, split/merge, disconnected dependents,
+cycles, multiple conflicting inputs, stale graph revision, external edit, missing
+blob, rejected patch, duplicate request, failed write, and interrupted commit.
+
+| ID | Required observable behavior |
+|---|---|
+| AD01 | Supported block parsing preserves exact bytes and stable IDs; unsupported forms are explicit. |
+| AD02 | Source edit produces one observed transition with correct before/after refs. |
+| AD03 | Only confirmed dependents are traversed; unrelated repeated numbers are untouched. |
+| AD04 | Copy/calculation preview produces exactly 3 and 6 for the canonical fixture; review links invent no prose. |
+| AD05 | Disjoint patches preserve all outside bytes; overlaps and conflicting writers are rejected. |
+| AD06 | Locked content cannot be changed through any document mutation route. |
+| AD07 | Stale document, block, source or graph revisions cause conflict before application. |
+| AD08 | Repeating an idempotency key applies once and returns the recorded result. |
+| AD09 | Rejection changes proposal history and zero document bytes. |
+| AD10 | Undo restores only the dependent repair; intervening edits cause conflict. |
+| AD11 | Restart rebuilds the same observed document metadata/proposals; lost raw blobs are reported. |
+| AD12 | Interruptions before/after replacement recover according to observed hashes; no false success. |
+| AD13 | Cycles terminate; calculations in cycles require review; traversal caps report incompleteness. |
+| AD14 | Two user/workspace contexts cannot read/apply each other's patches. |
+| AD15 | Actual UI→API→service→store round trip produces the fixture outcome and readable provenance. |
+| AD16 | Events with equal/out-of-order timestamps replay by store sequence; export preserves attribution. |
+
+Ground truth lives in fixture expectations, not in the implementation's own
+affected-set output. A test that a patch is nonempty does not establish that it
+is correct. A parser's line-count test does not establish identity preservation.
+Record all attempted cases, including timeouts and abstentions.
+
+Transition export requirements:
+
+```text
+schema_version, event_id, sequence, parent_event_ids
+workspace_id, session_id, document_lineage_id, object_id
+before_revision, after_revision, before_raw_ref, after_raw_ref, content_hashes
+actor_kind, operation_kind, typed_args, action_payload_ref
+action_attribution: exact | inferred | unknown
+decision_cutoff_sequence, precondition_ref, dependency_snapshot_ref
+outcome: observed | failed | partial | cancelled | unknown
+prediction_ref?, patch_ref?, validator_results, human_feedback?
+encoder_id?, encoder_revision?, preprocessing_hash?, vector_refs?
+execution_mode: fixture | real_local | real_remote
+```
+
+Export only the selected consented workspace. Credentials, unrelated private
+paths, hidden personal data and provider configuration are excluded. Snapshot
+watchers may miss intermediate edits; infer neither exact actions nor causal
+parents from time proximity. Missing action labels remain missing.
+
+### 26.9 P5 guide: encoder selection and operation-delta experiment
+
+Read primary sources before implementing. Reuse the existing production
+`VectorEmbed`/ONNX seam after verifying the actual loaded encoder. Model absence
+may fall back to a visibly lexical/BM25 path, never a hash presented as semantic.
+Record checkpoint revision, tensor count, tokenizer, prefix, pooling, precision,
+truncation and cache keys. Frozen model memory counts toward system size.
+
+Initial candidates and arithmetic FP32 weight floors:
+
+| Candidate | Approximate parameters / dimensions | Role |
+|---|---|---|
+| [Potion-base-8M](https://huggingface.co/minishlab/potion-base-8M) | 8M / 256; ~32MB | Static pooling control; operation/order limitations must be tested. |
+| [MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | 22.7M / 384; ~91MB | First contextual candidate; short blocks, default 256 word-piece limit. |
+| [BGE-small](https://huggingface.co/BAAI/bge-small-en-v1.5), [E5-small](https://huggingface.co/intfloat/e5-small-v2), [GTE-small](https://huggingface.co/thenlper/gte-small) | ~33.4M / 384; ~134MB | Small retrieval alternatives; obey each model's preprocessing. |
+| [Nomic v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) | ~137M / up to 768 | Supported dimension-reduction/longer-context upper control. |
+| [EmbeddingGemma](https://huggingface.co/google/embeddinggemma-300m) | ~300M nominal / up to 768 | Multilingual upper control, not default. |
+| [BGE-large](https://huggingface.co/BAAI/bge-large-en-v1.5) | ~335M / 1024 | Native 1024-d upper control only. |
+
+These are candidate specifications, not measured RAM or throughput. Confirm
+actual tensor counts before publication. Test dimensions 128/256/384/512/768/1024
+with train-fitted PCA or explicitly supported Matryoshka reductions. Separate
+within-model dimensionality from across-model capacity. Do not pad vectors and
+call that an information-preserving dimension experiment.
+
+One encoder maps multiple regions: `Z_t = {E(x_i,t)}`. IDs, exact facts, order,
+timestamps and graph structure remain external. DOM/text serialization is a
+textual-computer experiment, not proof of universal image/audio representation.
+
+```python
+groups = split_by_workspace_lineage_session_then_forward_time(raw_events)
+train, validation, test = freeze_split_manifest(groups)
+E = load_frozen_encoder(pinned_revision, documented_preprocessing)
+cache_key = (raw_content_hash, encoder_revision, preprocessing_hash)
+vectors = encode_unique_revisions(E, cache_key, inference_mode=True)
+
+for transition in train:
+    z0, z1 = vectors[transition.before], vectors[transition.after]
+    delta = z1 - z0  # FP32 subtraction; do not normalize away magnitude
+    add_operation_example(transition.operation, transition.operands, delta)
+
+prototypes = training_only_operation_means()
+evaluate_on_unseen_objects_templates_and_operands(prototypes, validation)
+# Test set is opened only after methods and thresholds are frozen.
+```
+
+Required delta controls: identity; character/token edit distance; inserted-token
+embedding; per-operation mean; same entity/different operation; same operation/
+different entity; magnitude/length-matched shuffled labels; token-order shuffle;
+hash/random-projection encoder. Report zero/near-zero delta cases separately.
+Test addition, removal, quantity magnitude, negation, scope, rename/move,
+composition and inverse operations. A shared inserted noun is not evidence of
+reusable operational geometry.
+
+Score same-operation vs different-operation AUROC, direction and magnitude,
+held-out future retrieval, and downstream affected-region quality. Do not require
+embeddings to store object identity or exact arithmetic; assess the complete
+learned-plus-explicit system as well as representation-only ablations.
+
+### 26.10 P5 guide: tiny world-model math and pseudocode
+
+The research state is `S_t=(x_t,Z_t,G_t,H_t)`. Predict unresolved consequences:
+`p(z_next | z_current, action, available_context)`.
+
+Three distinct tasks must not be conflated:
+
+1. Pre-action forecasting: no post-action state is available in the condition.
+2. Post-source-edit dependency repair: source after-text is valid input; the
+   dependent's eventual repaired text is still unavailable.
+3. Exact known patch: apply to raw text and embed directly. This is a mandatory
+   baseline, not a world-model achievement.
+
+Start with `c = [z_current:384, E(action_payload):384, explicit_features:64]`.
+The explicit features encode operation/role masks, counts and small historical
+summaries, not arbitrary numeric encodings of object IDs. Neighbor-token/history
+arms may follow, with identical available evidence in all comparison arms.
+
+```text
+future target:   y_A = z_next
+delta target:    y_B = z_next - z_current
+residual target: y_C = z_next - f_cheap(c)
+
+ridge: [c;1] -> delta                         ~319,872 coefficients
+MLP:   832 -> 512 -> 512 -> 384              ~886,144 parameters
+flow:  [y_noisy:384;c:832;time:32]
+       -> 480 -> 480 -> 384                 ~1,015,104 parameters
+```
+
+Counts above include linear biases and are arithmetic design estimates; count
+actual tensors in implemented models. Use fixed sinusoidal time features and a
+simple nonlinear MLP first. No text tokenizer/vocabulary head in W. A roughly
+1M W plus 22.7M E is a roughly 23.7M total learned system, not a 1M system.
+
+Given conditioning, state/delta/residual targets are translations. They do not
+intrinsically remove conditional information. Any capacity gain must come from
+measured conditioning/optimization/inductive bias, not that arithmetic identity.
+Generate residual training targets from chronological/out-of-fold predictions of
+the cheap arm, not its overly optimistic in-sample fit. Freeze it for evaluation.
+
+```python
+# Conditional flow matching; pseudocode, not production implementation.
+target = train_only_scale(raw_target)  # inverse transform saved with artifact
+s = uniform(0, 1, batch)
+noise = normal_like(target)
+y_s = (1 - s) * noise + s * target
+velocity_target = target - noise
+loss = mean_square(W(y_s, time=s, condition=c) - velocity_target)
+optimizer_step(loss)
+
+def sample_flow(c, K, nfe):
+    y = gaussian_noise(K, latent_dim)
+    for s in fixed_grid(nfe):
+        y = numerical_solver_step(W, y, s, c)
+    target_samples = inverse_scale(y)
+    return reconstruct_future(target_samples, target_kind, z_current, cheap(c))
+```
+
+For diffusion compare `y_tau = alpha_tau*y + sigma_tau*epsilon` and
+`MSE(epsilon_theta(y_tau,tau,c),epsilon)` using an existing scheduler/sampler.
+Future, delta and residual arms use the same backbone, optimizer/tuning budget
+and raw-space scoring. Flow inference usually requires integration; a one-step
+Euler arm is an experiment, not a guaranteed quality shortcut.
+
+Compare identity, observed-delta lookup, ridge, MLP, GRU/linear state-space,
+small causal transformer, residual bootstrap, diagonal Gaussian, 2/4/8-component
+mixture-density network and finite-candidate energy scoring before diffusion.
+An energy model normalized over retrieved candidates is a candidate distribution,
+not an implicitly normalized density over all possible states.
+
+For probabilistic evaluation use K>=2 sample energy score, sliced CRPS and known
+branch probabilities in resettable stochastic fixtures. Means can lie between
+incompatible futures; best-of-K is diagnostic only. A selection rule may not see
+the realized future. Record sample count and actual network evaluations (NFE).
+Report retrieval after normalization separately from original-space vector error.
+
+### 26.11 Research implementation references and reuse decisions
+
+References were inspected during planning; workers must pin current revisions,
+check licenses and verify checkpoint/runtime compatibility before use. Paper
+results are author reports, not reproduced Physis results.
+
+| Primary source / repository | Direct reuse and limit |
+|---|---|
+| [LeWorldModel](https://arxiv.org/abs/2603.19312), [official code](https://github.com/lucas-maes/le-wm) | Small action-conditioned prediction/planning; ~15M visual-model precedent, not a text checkpoint. |
+| [DINO-WM](https://github.com/gaoyuezhou/dino_wm) | Frozen encoder plus learned dynamics; reuse architectural recipe. |
+| [Flow-JEPA](https://arxiv.org/abs/2608.29029), [code](https://github.com/HuoYanchen/Flow-JEPA) | Latent trajectory flow comparison; RTX 6000 Ada experiments do not establish 8GB laptop feasibility. |
+| [DIAMOND](https://github.com/eloialonso/diamond) | Conditional diffusion and rollout evaluation; Atari pixels differ from document latent states. |
+| [Diffusion Forcing](https://arxiv.org/abs/2407.01392) | Per-position noise and multi-step robustness if history rollouts justify it. |
+| [Meta flow_matching](https://github.com/facebookresearch/flow_matching) | Preferred existing probability paths and solvers. |
+| [DiT](https://github.com/facebookresearch/DiT) | Conditioning/denoiser blocks only if multiple tokens justify a transformer. |
+| [TD-MPC2](https://github.com/nicklashansen/tdmpc2) | Compact dynamics/planning comparisons; no mandatory RL stack or large multitask dataset. |
+| [LeJEPA](https://github.com/galilai-group/lejepa) | Anti-collapse representation learning only if frozen E fails. |
+| [Mamba](https://github.com/state-spaces/mamba) | History compression upper comparison after GRU/explicit history; include kernel/runtime costs. |
+| [Consistency](https://github.com/openai/consistency_models), [Shortcut](https://github.com/kvfrans/shortcut-models) | Accelerate a model that already wins; count teacher/training cost. |
+| [CUWM](https://arxiv.org/abs/2602.17365), [WebDreamer](https://github.com/OSU-NLP-Group/WebDreamer) | Computer-action evaluation and planning tasks; large-model simulators stay external comparison arms. |
+| [V-JEPA 2](https://arxiv.org/abs/2506.09985), [GAIA-2](https://wayve.ai/wp-content/uploads/2025/03/GAIA_2_Technical_Report.pdf) | Mechanism references; do not inherit billion-parameter production designs. |
+
+Use NumPy/scikit-learn for linear/PCA baselines, PyTorch for W experiments,
+Sentence Transformers for reference E, and the existing ONNX seam for deployment
+comparison. Prefer ordinary configs and a result JSON file to a new experiment
+orchestration platform. Verify exact dependency versions before adding them.
+
+Text repair is a **separate** track: exact transforms → retrieval/substitution →
+[FLAN-T5-small](https://huggingface.co/google/flan-t5-small) (~77M) or
+[DistilRoBERTa](https://huggingface.co/distilbert/distilroberta-base) (~82M) →
+[SmolLM2-135M](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct) →
+[MDLM](https://github.com/kuleshov-group/mdlm),
+[SEDD](https://github.com/louaaron/Score-Entropy-Discrete-Diffusion),
+[Block Diffusion](https://github.com/kuleshov-group/bd3lms).
+Check exact checkpoint sizes. Compare masked completion, variable-length span
+infilling, small AR and text diffusion on the same bounded repair tasks. Clamp
+context, validate exact required facts and outside bytes, and count editor memory
+separately. A latent forecast cannot magically decode itself into correct text.
+
+### 26.12 Ablations, routing, and resource gates
+
+Run a staged matrix rather than its full Cartesian product:
+
+| Stage | Arms | Primary question |
+|---|---|---|
+| A | Exact/BM25; E only; E+order; E+graph; E+order+graph; BM25+order+graph | Does learned geometry add useful information? |
+| B | Identity/table/retrieved delta/ridge/MLP/GRU/transformer | Is dynamics prediction necessary and nonlinear? |
+| C | Bootstrap/Gaussian/mixture/energy | Do distributions improve decisions cheaply? |
+| D | Future/delta/residual diffusion and matching flow arms | Does diffusion/target choice earn iterative inference? |
+| E | One E versus specialists; 128–1024 dimensions | Does a common encoder justify its compromises? |
+| F | Exact/substitution/MLM/infiller/AR/text diffusion | Which local repair method is smallest and adequate? |
+| G | Fixed routing, explicit-dependency heuristic, calibrated surprise, random matched-cost routing | Does compute allocation improve quality per cost? |
+
+Capacity ladder for W: **1M, 5M, 10M, 25M, 50M, 100M, 250M**. Screen 1M/5M;
+scale only with evidence of underfitting and adequate data. Keep frozen E, learned
+projections, ensembles, editors and teacher models in separate and total counts.
+Within-family comparisons match parameters; deployment comparisons match total
+latency/memory/cost. Equal parameter count alone is not equal computation.
+
+Targets, not benchmark results: exact edit/highlight p95 <100ms; incremental
+short-block E+tiny prediction p95 <250ms; optional background planning <1s.
+Measure actual hardware, threads, runtimes, precision, token length, batch size,
+cold load and warm latency. Synchronize GPU timing and include transfers. Report
+both current Physis process memory and incremental cost of the new workflow.
+
+| W parameters | FP32 weights | Approximate FP32 Adam floor including gradients/moments |
+|---:|---:|---:|
+| 1M | 4MB | 16MB |
+| 5M | 20MB | 80MB |
+| 10M | 40MB | 160MB |
+| 25M | 100MB | 400MB |
+| 50M | 200MB | 800MB |
+| 100M | 400MB | 1.6GB |
+| 250M | 1GB | 4GB |
+
+These are arithmetic floors, not measured RAM/VRAM requirements. Add E,
+activations, optimizer temporaries, buffers, cache and framework. Initial 1–5M
+cached-vector experiments have a provisional 1–3GB RAM and optional 1–3GB VRAM
+allowance, to be replaced by measurements. The 250M arm may not fit training in
+8GB and is never an MVP dependency. At 384-d FP32, 100k vectors occupy 153.6MB;
+100k before/after/action triples occupy 460.8MB before metadata. Index shared
+revisions and stream batches. Check FP16 delta cancellation before compressing.
+
+Freeze E; train W on cached vectors, batch 64–256, roughly 10–30 epochs with
+validation early stopping. Begin with 2k–10k valid transitions if available.
+Measure a 200-step warm pilot before predicting training duration. A planning
+budget of one GPU-hour or a few CPU-hours per first 1M trial is a limit to test,
+not a claim about throughput. Data collection may take longer than model fitting.
+No dataset size is claimed available by this plan.
+
+Compute cost includes encoding + retrieval/graph + candidates × horizon × K ×
+NFE × predictor work + validators + editor/API work. Batching eight samples at
+eight NFE does not remove their 64 evaluations per candidate step. Report energy
+with sensor scope and idle subtraction; if no meter/telemetry exists, record
+`NOT MEASURED`. TDP times latency is not an energy measurement.
+
+Routing starts from explicit policy and cheap empirical outcome tables. Later
+attention may combine counted constraints, dependency degree, relevance and
+calibrated uncertainty. Ablate terms. Actual surprise `d(prediction, observation)`
+is known only after observation; it updates subsequent routing, not the earlier
+decision. High surprise may mean missing state, drift or unstable embeddings,
+not falsehood. Low cosine change cannot certify unchanged numbers or negation.
+The human is a distinct privileged actor with raw-state access and override,
+not an expensive model score. External LLMs are tools for validated local gaps.
+
+Measure tokens/API calls on paired workflows at matched verified quality,
+including retries and routing overhead. Separate observed savings from offline
+"would have called" estimates. Count rejected proposals, abstentions and failures.
+
+### 26.13 Decision gates and publication requirements
+
+Freeze primary outcomes and margins before final test evaluation. Suggested gates:
+
+- **No learned model:** ship exact/BM25 if it meets the product acceptance and
+  retrieval/affected-region quality targets. Models are not required for completion.
+- **No learned W:** retain E+table/ridge if more complex dynamics do not improve
+  validated decisions at an acceptable cost.
+- **No diffusion:** keep a cheaper distribution if diffusion/flow has no meaningful
+  proper-score and downstream benefit, requires excessive NFE, or wins only under
+  best-of-K selection or unchanged-dominated average error.
+- **Diffusion promotion:** predeclare a practical decision benefit such as at
+  least 3 percentage points higher validated success at equal cost, or at least
+  20% lower cost with quality within 2 points; require grouped confidence intervals,
+  no critical-regression increase and product latency compliance. A 10% relative
+  proper-score gain supports but cannot replace useful downstream behavior.
+- **Universal E rejection:** specialists retain >2 aggregate quality points or
+  >5 critical-domain points advantage, with uncertainty quantified, after exact
+  facts/order/chunking improvements. Compare equal observations and total resource
+  budgets. Additional screenshots in only one arm are an input ablation.
+
+One failed task regime refutes a deployment choice, not all diffusion or all
+embeddings. Publish an inconclusive result honestly. Try a small projection or
+adapter before retraining E; never mix different encoder spaces merely because
+their dimensions match.
+
+Data splits group by workspace/document lineage/session and forward time. Fit
+PCA, scalers, delta prototypes, residual models and thresholds on train/validation
+only. Separate natural traces from synthetic fixtures. Resettable stochastic
+fixtures need known branch probabilities and repeated interventions; one sample
+per condition cannot establish multimodal future coverage or causality.
+
+Benchmarks: retrieval Recall@5/nDCG; semantic-change critical misses; dependency
+precision/recall; operational delta transfer/composition; prediction at horizons
+1/2/4/8; probabilistic calibration; validated planning; correct local repair and
+outside-byte equality; routing risk/coverage; end-to-end latency/RAM/VRAM/energy.
+Use three seeds for screening and five for final neural comparisons; resample
+independent sessions/workspaces, not adjacent correlated transitions. Keep a
+sealed external workspace/task family and publish per-case failures.
+
+Publishable question: **What is the minimum learned predictive geometry still
+needed once exact structure and history are supplied?** Release sanitized,
+license-compatible fixtures/transitions, versioned contracts, reproducible arms,
+resource measurements and failure cases. Human acceptance is preference evidence;
+exact validators or independent blinded review establish correctness. Do not use
+an LLM judge alone as ground truth or present template success as general computer
+competence. Publication is a later milestone, not a one-week promise.
+
+### 26.14 One-day, one-week, and computer-interface milestones
+
+**One-day fixture:** P0 contract + a narrow P1 service + a minimal preview on the
+selected existing surface if integration is ready. Exact copy/calculation,
+review-only notices, revision-safe application/rejection/undo and persisted
+readback. If baseline build/integration issues consume the day, report a tested
+service fixture and the unfulfilled UI gate explicitly. No line-count promise.
+
+**One-week local MVP:** finish P1–P4, actual UI/API/store round trip, restart and
+crash tests, bounded normal-use collection, optional frozen-E/BM25 comparison.
+Tiny-model trials are conditional on data and baseline readiness. Do not postpone
+durable history until after the demo; it is part of the learning data contract.
+
+**Computer-interface path:** one document → linked documents → files/Git →
+registered commands → DOM/accessibility observations → optional visual encoder.
+Each expansion retains stable object/revision/action/observation contracts and
+gets its own fixture and actual-effect validators. Do not synthesize a screenshot
+when the useful state is already available as text/DOM. No general computer
+controller or automatic command execution is implied by the document milestone.
+
+### 26.15 Launch guidance and worker handoff template
+
+For future delegated implementation, prefer the authenticated Kilo/OpenCode free
+routes actually available then. On 2026-09-15 the planning delegates used
+`kilo/nvidia/nemotron-3-super-120b-a12b:free` through Kilo and
+`opencode/mimo-v2.5-free` through OpenCode; both reported zero cost for the planning
+runs. This is session evidence, not a guarantee of future price, access or provider
+identity. Check catalog/billing metadata before launching; do not silently replace
+an unavailable free route with a paid model. Never cycle credentials to evade limits.
+
+Example command shapes only; verify current CLI help and configuration first:
+
+```sh
+# Read-only design/source review; the coordinator supplies a bounded task file.
+opencode run --pure --agent plan --model PROVIDER/FREE_MODEL \
+  --dir /path/to/assigned/checkout --file /tmp/physis-worker-task.md \
+  'Read the task file and complete only its read-only review.'
+
+# Implementation only after the coordinator assigns code work and file scope.
+kilo run --pure --agent build --model PROVIDER/FREE_MODEL \
+  --dir /path/to/assigned/checkout --file /tmp/physis-worker-task.md \
+  'Read the task file and implement its assigned packet through its exit gate.'
+```
+
+Do not add auto-approval/bypass flags. Preserve existing permission boundaries;
+request environment escalation when required, with the real reason. Free-model
+availability is not worker completion. Inspect the returned artifact and tool
+trace. In the planning run, Kilo wrote a native plan artifact while its final
+message only pointed to it; a coordinator must read such artifacts before using
+their conclusions. No secrets in task files or retained transcripts.
+
+Task-file template:
+
+```text
+Packet: P<number> / short name
+Goal: one observable user or experimental outcome
+Starting host/checkout/commit: ...
+Mode: READ-ONLY REVIEW or IMPLEMENTATION (one, explicit)
+Read: applicable AGENTS.md, Physis skill, PLAN.md Phase 26, named source files
+Own: exact file paths; shared registrations belong to the coordinator
+Inputs: pinned contract/fixture/dataset revisions
+Do: numbered bounded changes and mandatory failure cases
+Do not: unrelated fixes, new stores/frameworks, fake results, secrets, spawning
+Verification: exact relevant checks and actual runtime entrypoint
+Exit gate: behavior plus evidence required to accept this packet
+Handoff: changed paths, executed commands/status, measured results/denominators,
+         remaining gaps, migration notes, dependencies for the next packet
+```
+
+### 26.16 Verification guide and definition of done
+
+Coordinator first identifies an appropriate feature/build command for current
+source. Use focused tests before broader repository gates; don't mask baseline
+failures, use stale binaries, or repeatedly run unrelated expensive suites.
+Example shapes for **later implementation on the designated host**, after test
+targets exist and current feature names have been checked:
+
+```sh
+git status --short
+git diff --check
+cargo test --offline -p physis_pro --lib adaptive_document
+cargo test --offline -p physis_pro --test adaptive_document
+python3 benchmarks/semantic-computer/check_contract.py
+
+# Use the installed helper if working; otherwise its actual script directory.
+# OUT prevents the module-map check overwriting unrelated tracked documentation.
+OUT=/tmp/physis-adaptive-module-map.md physis-check all src tests
+physis-check calls ACTUAL_DOCUMENT_ENTRYPOINT src tests
+```
+
+These commands are examples, not checks already passed; a nonexistent test name
+must not be reported as zero failures. Coordinator defines the minimal applicable
+feature matrix and required full gates after the baseline audit. Do not download
+models or train merely to validate an append-only documentation change.
+
+For every claim that a capability works, show both a write and a read path and an
+actual end-to-end effect. Add a capability manifest entry only once the real
+symbols are known. A textual call-site count is supporting evidence, not execution.
+Run Physis flow verification on the actual session where supported; never report
+the newest unrelated transcript as this worker's verification. Preserve
+`NOT MEASURED`/inconclusive outcomes even if a helper prints a generic clean line.
+
+Worker handoff is concise and evidence-backed:
+
+```text
+Packet/status: complete | partial | blocked, with exact unmet exit gate
+Actual host, checkout, commit and starting dirty state:
+Requested provider/model; observed response provenance; reported cost:
+Changed files and why:
+Commands executed and exit statuses:
+Runtime entrypoint -> write -> observed effect -> reload/read evidence:
+Acceptance cases passed / total attempted (include failures/timeouts):
+Performance: measured values + hardware/settings, or NOT MEASURED:
+Known limitations and source evidence:
+Next owner / exact prerequisite:
+```
+
+Coordinator records a verified outcome through the existing workspace history
+mechanism, without asserting experimental hypotheses as proven. Keep large logs
+and machine-readable results separate from this plan; append only the outcome
+and evidence pointers here when a phase actually changes status.
+
+**Pending acceptance ledger:**
+
+- [x] P0: baseline, ownership, wire/data contract and canonical fixture frozen.
+- [x] P1: document/binding/patch/persistence/undo behavior passes AD01–AD13 as applicable.
+- [ ] P2: actual service wiring, resource scope, conflicts and errors verified.
+- [ ] P3: visible minimal workflow and source explanations verified in the UI.
+- [ ] P4: all AD01–AD16 attempted, results retained, usable transition export.
+- [ ] P5: cheap arms measured; any learned component justified by a controlled comparison.
+- [ ] P6: independent review of raw effects, replay, byte preservation and reported claims.
+
+**P0/P1 outcome (2026-09-15, local host `/home/gio/dev/physis-pro`, uncommitted
+Kilo scaffold preserved, no worktree resets):**
+
+- New module `src/adaptive_document/` (`mod.rs` contracts/parser, `proposal.rs`
+  propose/apply/reject/undo, `store.rs` durable persistence over
+  `src/atomic.rs::write_json_durable` and an append-only `events.jsonl`).
+  Block spans are content-only; separators are gap bytes, so outside-byte
+  equality survives every splice. Transforms: `copy` and `scale:<n>` only;
+  unknown transform ids return `None` and demote the dependent to review.
+- Tests: `cargo test --offline --lib adaptive_document` → 9 passed;
+  `cargo test --offline --test adaptive_document` → 13 passed (AD01–AD13);
+  `cargo test --offline --lib -- --skip cli::` → 968 passed, 0 failed.
+  The three `cli::tests::test_run_*` lib tests hang on a persistent store on
+  this host and were excluded; they predate this change.
+- Baseline repairs required to build (Kilo's uncommitted, untracked scaffold
+  code; all minimal, no module deleted or reset): `staleness/mod.rs` duplicate
+  removed; `dependency/mod.rs` `StalenessClassifier::Default` →
+  `StalenessClassifier::default()`, partial-move of `trace.target`, three
+  `unwrap_or(&vec![])` temporaries now return slices, `map_or` on referenced
+  options; `orchestration/mod.rs` float type annotation and a semicolon that
+  discarded the router's return value; `metrics/mod.rs` initializer missing
+  `cheap_model_tokens`/`strong_model_tokens` (now measured from repair
+  results, not constants); `repair_regions` test called
+  `select_repair_regions` with a removed third argument. NOT MEASURED: any
+  runtime behavior of those six scaffold modules beyond compilation — they
+  remain per §26.2 not ready for integration.
+- NOT DONE (next packets): P2 web/service wiring, P3 UI surface, P4
+  benchmark corpus + AD14–AD16, P5 model experiments, P6 review.
+
+Success is a small reliable workflow with measured limits. It may contain no
+learned dynamics and no diffusion. Extra parameters, services and abstractions
+must justify themselves through behavior the smaller system cannot supply.

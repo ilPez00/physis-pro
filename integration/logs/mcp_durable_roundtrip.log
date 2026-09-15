@@ -1,0 +1,25 @@
+=== MCP Durable Round-Trip for obs:30 ===
+
+Session: integration-owner (this session)
+Store: /home/gio/dev/physis-pro/.physis/system
+
+1. WRITE via physis_remember (actor: integration-owner):
+   mcp__physis_system__physis_remember(
+     actor="integration-owner",
+     text="Session summary...",
+     outcome="success"
+   )
+   → Response: {"id": "obs:30", "seq": 30}
+
+2. SEARCH via physis_history (broad query):
+   mcp__physis_system__physis_history(query="STRIPE")
+   → Response: { "matched_in_window": 1, "records": [{ "seq": 30, ... }] }
+   
+   mcp__physis_system__physis_history(query="integration-owner")
+   → Response: { "matched_in_window": 1, "records": [{ "seq": 30, ... }] }
+
+3. DIRECT READ via physis_read:
+   mcp__physis_system__physis_read(target="obs:30")
+   → Response: Full observation record with seq=30, byte-identical body/subject to write
+
+Verification: obs:30 write → search hit → direct read chain confirmed on real store.

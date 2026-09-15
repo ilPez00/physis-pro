@@ -1,0 +1,145 @@
+{
+  "schema": "physis.benchmark-manifest.v1",
+  "status": "scaffold_not_executed",
+  "research_window": [
+    "2026-02-15",
+    "2026-09-15"
+  ],
+  "arms": [
+    "raw_tools",
+    "dense",
+    "bm25",
+    "graph",
+    "physis_hybrid"
+  ],
+  "ablations": [
+    "graph",
+    "ontology",
+    "temporal",
+    "position_order",
+    "embeddings",
+    "raw_lexical",
+    "pre_postconditions",
+    "cross_representation_agreement"
+  ],
+  "metrics": [
+    "task_success",
+    "recall_at_k",
+    "ndcg",
+    "tokens",
+    "model_calls",
+    "latency_p50_ms",
+    "latency_p95_ms",
+    "execution_steps",
+    "recovery_success",
+    "ontology_precision",
+    "stale_context_errors",
+    "structure_build_cost",
+    "structure_update_cost",
+    "cross_machine_transfer"
+  ],
+  "statistics": {
+    "paired_binary": "McNemar",
+    "paired_continuous": "Wilcoxon signed-rank where appropriate",
+    "confidence_interval": 0.95,
+    "resampling_unit": "independent task family/session/machine; predeclare per experiment",
+    "effect_sizes_required": true,
+    "freeze_thresholds_before_holdout": true
+  },
+  "tasks": [
+    {
+      "task_id": "fs-diagrams",
+      "family": "filesystem",
+      "intent": "find the thesis diagrams",
+      "validators": [
+        "expected_object_ids",
+        "source_checksums"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "docs-experiment",
+      "family": "documents",
+      "intent": "organize these papers by experiment",
+      "validators": [
+        "approved_grouping",
+        "raw_sources_preserved",
+        "rename_manifest"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "resume-work",
+      "family": "applications",
+      "intent": "continue what I was doing yesterday",
+      "validators": [
+        "recorded_task_reference",
+        "state_revision",
+        "open_project_handle"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "open-project",
+      "family": "applications",
+      "intent": "open the relevant project",
+      "validators": [
+        "resolved_object_id",
+        "application_ack"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "build-test",
+      "family": "shell_git",
+      "intent": "build and test Physis",
+      "validators": [
+        "build_exit",
+        "test_report",
+        "source_revision"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "browser-evidence",
+      "family": "browser",
+      "intent": "open the paper supporting this result",
+      "validators": [
+        "resolved_paper_id",
+        "browser_navigation_ack"
+      ],
+      "required_execution_mode": "real_local",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "transfer-workflow",
+      "family": "cross_device",
+      "intent": "move this workflow to another machine",
+      "validators": [
+        "capability_compatibility",
+        "artifact_checksum",
+        "remote_validation"
+      ],
+      "required_execution_mode": "real_remote",
+      "status": "not_implemented"
+    },
+    {
+      "task_id": "print-brackets",
+      "family": "physical_machine",
+      "intent": "print four of these brackets",
+      "validators": [
+        "explicit_authorization",
+        "model_checksum",
+        "material_compatibility",
+        "four_completed_parts"
+      ],
+      "required_execution_mode": "real_physical",
+      "status": "not_implemented"
+    }
+  ]
+}

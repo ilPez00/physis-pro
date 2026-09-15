@@ -1,0 +1,13 @@
+=== studio-server --help ===
+Run the live Ontology Studio web server (axum) for interactive browsing, editing, and feedback on the semiotic grid. This is the moved `physis-core studio` server, gated behind the `web` feature
+
+Usage: physis-pro studio-server [OPTIONS]
+
+Options:
+      --port <PORT>    Port to listen on (default 3000) [default: 3000]
+      --model <MODEL>  ONNX model directory (model.onnx + tokenizer.json). Optional — falls back to deterministic random projection when absent or unloadable
+  -h, --help           Print help
+
+=== studio-server bounded startup (timeout 2s) ===
+
+Exit code: 0
