@@ -115,11 +115,9 @@ pub fn propose_after_source_edit(doc: &Document, change: &Change, patch_id: &str
         }
         let links = inbound.get(&block_id).cloned().unwrap_or_default();
         if links.is_empty() {
-            patch.review_only.push(ReviewNote {
-                block_id: block_id.clone(),
-                reason: "unresolved dependency".into(),
-                link_ids: Vec::new(),
-            });
+            // Only confirmed copy/calculate links auto-propagate. A reachable
+            // block with none of them is review-only coverage; the review-link
+            // pass below emits its note.
             continue;
         }
         let current = block.text(&doc.raw).to_string();
