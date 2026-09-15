@@ -160,7 +160,7 @@ pub struct ContentIndex {
 /// Upper bound on indexed sections. A runaway scan should degrade to "the first
 /// N sections, and it says so", never to an unbounded embedding job that looks
 /// like a hang.
-pub const MAX_SECTIONS: usize = 6000;
+pub const MAX_SECTIONS: usize = 60000;
 
 impl ContentIndex {
     /// Build from already-ingested documents plus their embeddings.
@@ -583,9 +583,20 @@ fn section_units(
             // findable by it.
             let mut terms: HashMap<String, u32> = HashMap::new();
             let mut length = 0u32;
+            // The path joins the term pool alongside the breadcrumb. A query
+            // naming the module ("the content index") has to be able to reach
+            // `src/content.rs`, and the document title is only the file stem —
+            // the directories it sits in are just as much what it is about.
+            let path_terms = d
+                .path
+                .strip_prefix(root)
+                .unwrap_or(&d.path)
+                .to_string_lossy()
+                .replace(['/', '\\', '_', '-', '.'], " ");
             for t in tokenize(&sec.body)
                 .into_iter()
                 .chain(tokenize(&sec.breadcrumb.join(" ")))
+                .chain(tokenize(&path_terms))
             {
                 *terms.entry(t).or_insert(0) += 1;
                 length += 1;

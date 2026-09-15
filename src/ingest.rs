@@ -131,7 +131,10 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
         // (symlink_metadata does NOT follow links — a symlink named dir is
         // still skipped, a real dir is descended.)
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            if name == ".physis"
+            // `.physis`, plus the build/VCS dirs the scanner already excludes:
+            // ingesting `target/` or `.git` buries the real corpus under tens of
+            // thousands of artifacts and pushes the section cap past any source file.
+            if (name == ".physis" || crate::scanner::DEFAULT_EXCLUDE_DIRS.contains(&name))
                 && std::fs::symlink_metadata(&path)
                     .map(|m| m.is_dir())
                     .unwrap_or(false)

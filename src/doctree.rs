@@ -34,6 +34,10 @@ pub struct Section {
     pub body: String,
     /// Ancestor headings, outermost first, ending with this section's heading.
     pub breadcrumb: Vec<String>,
+    /// 1-based line range of `body` in the source document, so a section can be
+    /// cited (and re-read) rather than only quoted.
+    pub start_line: usize,
+    pub end_line: usize,
 }
 
 impl Section {
@@ -87,6 +91,14 @@ pub fn parse(doc_title: &str, text: &str) -> Vec<Section> {
     // No structure at all: the document is one section. Returning an empty vec
     // here would silently drop the document from every downstream index.
     if headings.is_empty() {
+        // A source file has no markdown headings, so without this it indexes as
+        // one section whose body is the entire file — and BM25's length
+        // normalization then ranks that section below any small doc section,
+        // for every query. Its definitions are its headings.
+        let defs = scan_code_defs(&lines, start);
+        if defs.len() >= MIN_CODE_DEFS {
+            return code_sections(doc_title, &lines, start, &defs);
+        }
         let body = lines[start..].join("\n");
         return vec![Section {
             id: 0,
@@ -95,6 +107,8 @@ pub fn parse(doc_title: &str, text: &str) -> Vec<Section> {
             heading: doc_title.to_string(),
             body,
             breadcrumb: vec![doc_title.to_string()],
+            start_line: start + 1,
+            end_line: lines.len().max(start + 1),
         }];
     }
 
@@ -112,6 +126,8 @@ pub fn parse(doc_title: &str, text: &str) -> Vec<Section> {
             heading: doc_title.to_string(),
             body: preamble,
             breadcrumb: vec![doc_title.to_string()],
+            start_line: start + 1,
+            end_line: first.max(start + 1),
         });
     }
 
@@ -150,6 +166,8 @@ pub fn parse(doc_title: &str, text: &str) -> Vec<Section> {
             heading: h.text.clone(),
             body,
             breadcrumb,
+            start_line: h.line + 1,
+            end_line: body_end.max(h.line + 1),
         });
         stack.push((id, h.level));
     }
@@ -175,6 +193,126 @@ fn skip_frontmatter(lines: &[&str]) -> usize {
 /// Find ATX (`## x`) and setext (`x` over `===`) headings, ignoring anything
 /// inside a fenced code block — a `# comment` in a shell snippet is not a
 /// heading, and treating it as one shreds the tree of every technical document.
+
+/// Below this, the "definitions" found are more likely prose that happens to
+/// start with one of the keywords than a code file's structure — splitting on
+/// them would fragment a document for no gain.
+const MIN_CODE_DEFS: usize = 2;
+
+/// Line prefixes that open a named definition, across the languages this tree
+/// actually meets. Deliberately a prefix list and not a parser: the heading only
+/// has to name the unit well enough to retrieve it, and a wrong guess costs a
+/// slightly odd section boundary, never a dropped line.
+const CODE_DEF_PREFIXES: &[&str] = &[
+    "fn ",
+    "pub fn ",
+    "pub(crate) fn ",
+    "async fn ",
+    "pub async fn ",
+    "struct ",
+    "pub struct ",
+    "enum ",
+    "pub enum ",
+    "trait ",
+    "pub trait ",
+    "impl ",
+    "type ",
+    "pub type ",
+    "const ",
+    "pub const ",
+    "static ",
+    "macro_rules! ",
+    "def ",
+    "async def ",
+    "class ",
+    "func ",
+    "function ",
+    "export function ",
+    "export default function ",
+    "export const ",
+    "public ",
+    "private ",
+    "protected ",
+];
+
+/// Indices of lines that open a definition at low indentation.
+///
+/// The indent limit is what keeps this to the file's outline: a nested closure
+/// or an inner `fn` inside a method body is part of its parent's section, not a
+/// section of its own.
+fn scan_code_defs(lines: &[&str], start: usize) -> Vec<usize> {
+    const MAX_DEF_INDENT: usize = 4;
+    let mut out = Vec::new();
+    let mut fence: Option<char> = None;
+    for (i, line) in lines.iter().enumerate().skip(start) {
+        let trimmed = line.trim_start();
+        // Fenced blocks inside a doc comment must not contribute definitions.
+        if let Some(marker) = fence {
+            if trimmed.starts_with(marker)
+                && trimmed.chars().take_while(|&c| c == marker).count() >= 3
+            {
+                fence = None;
+            }
+            continue;
+        }
+        if trimmed.starts_with("```") {
+            fence = Some('`');
+            continue;
+        }
+        let indent = line.len() - trimmed.len();
+        if indent > MAX_DEF_INDENT {
+            continue;
+        }
+        if CODE_DEF_PREFIXES.iter().any(|p| trimmed.starts_with(p)) {
+            out.push(i);
+        }
+    }
+    out
+}
+
+/// One section per definition, plus the preamble above the first one.
+///
+/// The heading is the definition's own line, trimmed of the trailing brace — so
+/// the breadcrumb reads `mcp.rs > pub fn retrieve(...)`, which is both what a
+/// reader recognises and what a query about `retrieve` matches.
+fn code_sections(doc_title: &str, lines: &[&str], start: usize, defs: &[usize]) -> Vec<Section> {
+    let mut out: Vec<Section> = Vec::new();
+
+    let preamble = lines[start..defs[0]].join("\n");
+    if !preamble.trim().is_empty() {
+        out.push(Section {
+            id: 0,
+            parent: None,
+            level: 0,
+            heading: doc_title.to_string(),
+            body: preamble,
+            breadcrumb: vec![doc_title.to_string()],
+            start_line: start + 1,
+            end_line: defs[0].max(start + 1),
+        });
+    }
+
+    for (n, &line_idx) in defs.iter().enumerate() {
+        let end = defs.get(n + 1).copied().unwrap_or(lines.len());
+        let heading = lines[line_idx]
+            .trim()
+            .trim_end_matches(|c| c == '{' || c == ' ')
+            .to_string();
+        let id = out.len();
+        out.push(Section {
+            id,
+            parent: None,
+            level: 1,
+            heading: heading.clone(),
+            body: lines[line_idx..end].join("\n"),
+            breadcrumb: vec![doc_title.to_string(), heading],
+            start_line: line_idx + 1,
+            end_line: end,
+        });
+    }
+    out
+}
+
 fn scan_headings(lines: &[&str], start: usize) -> Vec<Heading> {
     let mut out = Vec::new();
     let mut fence: Option<char> = None;
@@ -469,5 +607,35 @@ mod tests {
         let s = parse("d.md", "# Only\n");
         let only = s.iter().find(|x| x.heading == "Only").unwrap();
         assert_eq!(only.retrieval_text(), "d.md > Only");
+    }
+}
+
+#[cfg(test)]
+mod code_section_tests {
+    use super::parse;
+
+    #[test]
+    fn splits_a_source_file_on_its_definitions() {
+        let src = "use std::io;\n\npub fn alpha() {\n    let x = 1;\n}\n\nstruct Beta {\n    y: u8,\n}\n\nimpl Beta {\n    pub fn method(&self) {\n        fn deeply_nested() {}\n    }\n}\n";
+        let secs = parse("thing.rs", src);
+        let heads: Vec<&str> = secs.iter().map(|s| s.heading.as_str()).collect();
+        assert!(heads.contains(&"pub fn alpha()"), "{heads:?}");
+        assert!(heads.contains(&"struct Beta"), "{heads:?}");
+        // An impl method is the unit a query about `method` should land on, so
+        // one level of indentation still opens a section.
+        assert!(heads.contains(&"pub fn method(&self)"), "{heads:?}");
+        // Deeper than that is body, not outline.
+        assert!(!heads.iter().any(|h| h.contains("deeply_nested")), "{heads:?}");
+        // Every line survives the split.
+        let joined: String = secs.iter().map(|s| s.body.clone()).collect();
+        assert!(joined.contains("let x = 1;") && joined.contains("y: u8,"));
+        assert!(joined.contains("deeply_nested"), "no line may be dropped");
+    }
+
+    #[test]
+    fn prose_is_still_one_section() {
+        let secs = parse("note.txt", "just some prose\nwith no definitions at all\n");
+        assert_eq!(secs.len(), 1);
+        assert_eq!(secs[0].heading, "note.txt");
     }
 }

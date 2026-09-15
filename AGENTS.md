@@ -27,6 +27,15 @@ already tried and failed), `just dev-loop "<task>"` after (gate + note).
 Agents attach via `.mcp.json` (`serve --stdio`, 30 tools); session protocol is
 recall → pack/find/workflow → classify/route → remember+serve. Scripts use
 `note`/`node-search` (offline, same store) — never `fail`/`pass` for dev gates.
+Skills: `physis-nav` (navigation/inspection/RAG/coherence; paste spans carry
+path:line-range provenance), `physis` (self-judgement checklist + verify chain).
+The repo `physis` opencode agent binds both. Split the two by what you know:
+`grep` when you know the string, `physis_pack`/`physis_find` when you know only
+the subject — a physis call costs seconds, grep costs milliseconds. First call
+over a root builds an index; later calls reuse it until a file changes.
+`scripts/physis-retrieval-eval.py` is the retrieval regression line
+(pack 4/5, find 3/5 top-5); `scripts/physis-mcp-bench.py` is the latency and
+output-size census.
 
 ## Multi-Tenancy (Web API — `physis-pro-web`)
 

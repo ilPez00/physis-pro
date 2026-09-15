@@ -3,6 +3,15 @@
 
 #[cfg(feature = "mcp")]
 mod mcp_impl {
+    /// Cells reported by `physis_classify`, and exemplar entries per cell.
+    /// Enough to recognise the classification; not the whole ontology.
+    const CLASSIFY_TOP_CELLS: usize = 5;
+    const CLASSIFY_EXAMPLES: usize = 5;
+
+    /// Histogram rows and doc rows reported by `physis_workflow`.
+    const WORKFLOW_HEAD: usize = 10;
+    const WORKFLOW_DOCS: usize = 15;
+
     use std::path::PathBuf;
     use std::sync::Arc;
     use tokio::sync::Mutex;
@@ -43,6 +52,14 @@ mod mcp_impl {
         pub embedder_kind: &'static str,
         /// Persistent chunk-embedding cache shared by every `physis_pack` call.
         pub pack_cache: crate::pack::EmbedCache,
+        /// Last content index built by `physis_find`, with the root it covers.
+        ///
+        /// Rebuilding it per call re-ingests and re-tokenizes the whole tree —
+        /// seconds of work to answer a question that takes milliseconds once the
+        /// index exists, which is the difference between a tool an agent reaches
+        /// for and one it avoids. Reused only when the root matches and the
+        /// tree's signature is unchanged, so an edit is still picked up.
+        pub find_index: Option<(std::path::PathBuf, crate::content::ContentIndex)>,
         pub scheduler: GanttScheduler,
         pub experiences: Vec<Experience>,
         /// Semiotic memory (Phase 10c A1): the same store the web server and
@@ -148,6 +165,7 @@ mod mcp_impl {
                 classifier,
                 embedder_kind,
                 pack_cache,
+                find_index: None,
                 scheduler: GanttScheduler::new(Box::new(AbstractDomain)),
                 experiences: Vec::new(),
                 core,
@@ -167,13 +185,11 @@ mod mcp_impl {
         )
     }
 
+    /// Tool results go to a language model, not a parser, so they are rendered
+    /// as indented text: the model spends no tokens on braces and quotes, and
+    /// long snippets stay readable instead of arriving as escaped one-liners.
     fn json_content(value: &JsonValue) -> Result<Content, McpError> {
-        Content::json(value).map_err(|e| {
-            McpError::internal_error(
-                "json serialization failed",
-                Some(json!({"reason": e.to_string()})),
-            )
-        })
+        Ok(Content::text(super::render_value(value, 0)))
     }
 
     #[inline]
@@ -512,9 +528,18 @@ mod mcp_impl {
                         embedder_kind,
                         pack_cache,
                         config,
+                        find_index,
                         ..
                     } = &mut *ctx;
 
+                    // A cached index for this root is reused only while the
+                    // tree's signature holds; any edit invalidates it and the
+                    // rebuild below runs, so a reused index is never a stale one.
+                    let signature = crate::content::scan_signature(&root);
+                    let cached = find_index
+                        .as_ref()
+                        .is_some_and(|(r, ix)| *r == root && ix.signature == signature);
+                    if !cached {
                     let docs = crate::ingest::ingest_all(std::slice::from_ref(&root));
                     if docs.is_empty() {
                         return Ok(CallToolResult::success(vec![json_content(&json!({
@@ -554,8 +579,15 @@ mod mcp_impl {
                     } else {
                         Vec::new()
                     };
-                    let index =
-                        crate::content::ContentIndex::build(&root, &docs, &addresses, embeddings);
+                    *find_index = Some((
+                        root.clone(),
+                        crate::content::ContentIndex::build(&root, &docs, &addresses, embeddings),
+                    ));
+                    }
+                    let index = &find_index
+                        .as_ref()
+                        .expect("index built or reused just above")
+                        .1;
                     let opts = crate::content::SearchOptions {
                         mode: mode
                             .as_deref()
@@ -604,7 +636,23 @@ mod mcp_impl {
                     let ctx = self.ctx.lock().await;
                     let embedding = ctx.embedder.embed(&text);
                     let results = ctx.classifier.classify(&embedding);
-                    let result = json!({"results": results});
+                    // `CellScore::entries` is the cell's whole membership — the
+                    // same few hundred labels for every query that lands there,
+                    // ~29 KB of them. The caller needs to recognise the cell, so
+                    // a handful of exemplars per cell is the whole signal.
+                    let trimmed: Vec<JsonValue> = results
+                        .iter()
+                        .take(CLASSIFY_TOP_CELLS)
+                        .map(|c| {
+                            json!({
+                                "cell": format!("{}/{}", c.domain, c.mode),
+                                "score": c.score,
+                                "examples": c.entries.iter().take(CLASSIFY_EXAMPLES).collect::<Vec<_>>(),
+                                "entries": c.entries.len(),
+                            })
+                        })
+                        .collect();
+                    let result = json!({"results": trimmed, "cells_matched": results.len()});
                     Ok(CallToolResult::success(vec![json_content(&result)?]))
                 }
 
@@ -829,14 +877,22 @@ mod mcp_impl {
                     };
                     let docs = crate::workflow::scan_workflow(&scan_dir, None);
                     let report = crate::workflow::report(&scan_dir, docs);
+                    // Histograms are long tails: the head carries the shape of
+                    // the tree, the tail is one file per row. `total` still
+                    // reports the full count, so nothing is silently lost.
+                    let head = |v: &[crate::study::Tally]| {
+                        v.iter().take(WORKFLOW_HEAD).cloned().collect::<Vec<_>>()
+                    };
                     let summary = json!({
                         "path": report.root,
                         "total": report.total,
-                        "by_audience": report.by_audience,
-                        "by_harness": report.by_harness,
-                        "by_author": report.by_author,
-                        "by_dir": report.by_dir,
-                        "docs": report.docs.iter().take(50).collect::<Vec<_>>(),
+                        "by_audience": head(&report.by_audience),
+                        "by_harness": head(&report.by_harness),
+                        "by_author": head(&report.by_author),
+                        "by_dir": head(&report.by_dir),
+                        "dirs_total": report.by_dir.len(),
+                        "docs": report.docs.iter().take(WORKFLOW_DOCS).collect::<Vec<_>>(),
+                        "docs_total": report.docs.len(),
                     });
                     Ok(CallToolResult::success(vec![json_content(&summary)?]))
                 }
@@ -1451,3 +1507,78 @@ mod mcp_impl {
 
 #[cfg(feature = "mcp")]
 pub use mcp_impl::*;
+
+/// JSON -> indented plain text. Nulls and empty collections are dropped: they
+/// carry no information for the reader and every omitted line is context back.
+fn render_value(value: &serde_json::Value, depth: usize) -> String {
+    let pad = "  ".repeat(depth);
+    match value {
+        serde_json::Value::Null => String::new(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::String(s) => {
+            if s.contains('\n') {
+                let inner = "  ".repeat(depth + 1);
+                format!(
+                    "\n{inner}{}",
+                    s.trim_end().replace('\n', &format!("\n{inner}"))
+                )
+            } else {
+                s.clone()
+            }
+        }
+        serde_json::Value::Array(items) => {
+            let mut out = String::new();
+            for (i, item) in items.iter().enumerate() {
+                match item {
+                    serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+                        out.push_str(&format!("\n{pad}[{}]\n", i + 1));
+                        out.push_str(&render_value(item, depth + 1));
+                    }
+                    _ => out.push_str(&format!("\n{pad}- {}", render_value(item, depth))),
+                }
+            }
+            out
+        }
+        serde_json::Value::Object(map) => {
+            let mut out = String::new();
+            for (k, v) in map {
+                if v.is_null()
+                    || v.as_str().is_some_and(|t| t.trim().is_empty())
+                    || v.as_array().is_some_and(|a| a.is_empty())
+                    || v.as_object().is_some_and(|o| o.is_empty())
+                {
+                    continue;
+                }
+                match v {
+                    serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+                        out.push_str(&format!("{pad}{k}:\n{}\n", render_value(v, depth + 1)));
+                    }
+                    _ => out.push_str(&format!("{pad}{k}: {}\n", render_value(v, depth))),
+                }
+            }
+            out
+        }
+    }
+}
+
+#[cfg(test)]
+mod render_tests {
+    use super::render_value;
+    use serde_json::json;
+
+    #[test]
+    fn renders_hits_without_json_punctuation() {
+        let out = render_value(
+            &json!({"matched": 2, "empty": [], "gone": null,
+                    "hits": [{"path": "src/core.rs", "snippet": "line one\nline two"}]}),
+            0,
+        );
+        assert!(out.contains("matched: 2"), "{out}");
+        assert!(!out.contains("empty"), "{out}");
+        assert!(!out.contains("gone"), "{out}");
+        assert!(!out.contains('{'), "{out}");
+        assert!(out.contains("path: src/core.rs"), "{out}");
+        assert!(out.contains("line two"), "{out}");
+    }
+}

@@ -29,6 +29,12 @@ const CHUNK_LINES: usize = 40;
 /// costs more than it returns.
 const MAX_FILE_BYTES: u64 = 512 * 1024;
 
+/// Chunks below this carry no retrievable content: the tail window of a source
+/// file is closing braces, a log line is one sentence. They are short enough
+/// that cosine scores them confidently against anything, so they crowd out real
+/// context — dropping them is what keeps a pack answerable.
+const MIN_CHUNK_TOKENS: usize = 20;
+
 /// One chunk of a file, with the provenance an agent needs to act on it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackedChunk {
@@ -38,7 +44,10 @@ pub struct PackedChunk {
     pub start_line: usize,
     /// 1-indexed inclusive last line.
     pub end_line: usize,
-    /// Cosine similarity to the query.
+    /// Breadcrumb of the section the chunk came from, so the caller can see
+    /// what it is reading before reading it.
+    pub heading: String,
+    /// Blended hybrid score against the query.
     pub score: f32,
     /// Token cost of this chunk, by the same counter that enforced the budget.
     pub tokens: usize,
@@ -70,29 +79,43 @@ struct Candidate {
     path: String,
     start_line: usize,
     end_line: usize,
+    /// Breadcrumb of the section this chunk came from — what the chunk is
+    /// under, which the body alone does not say.
+    heading: String,
     text: String,
 }
 
-/// Split one file's contents into line-window candidates.
-///
-/// Chunks that are entirely whitespace are dropped: they embed to noise and
-/// waste budget.
+/// Split one file's contents into candidate chunks, one per section.
 fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
-    let lines: Vec<&str> = contents.lines().collect();
+    let title = rel_path.rsplit('/').next().unwrap_or(rel_path);
     let mut out = Vec::new();
 
-    for (idx, window) in lines.chunks(CHUNK_LINES).enumerate() {
-        let text = window.join("\n");
-        if text.trim().is_empty() {
+    // Sections, not fixed windows. A 40-line window cuts a function in half and
+    // gives the embedder no indication of its subject; a section is the unit the
+    // author already drew — a heading in a document, a definition in a source
+    // file — and it is the same unit `physis_find` ranks, so the two tools agree
+    // about what the corpus contains.
+    for sec in crate::doctree::parse(title, contents) {
+        if crate::rag::count_tokens(&sec.body) < MIN_CHUNK_TOKENS {
             continue;
         }
-        let start_line = idx * CHUNK_LINES + 1;
-        out.push(Candidate {
-            path: rel_path.to_string(),
-            start_line,
-            end_line: start_line + window.len() - 1,
-            text,
-        });
+        // Long sections still need splitting: a definition can run hundreds of
+        // lines, and packing it whole would spend the entire budget on one.
+        let lines: Vec<&str> = sec.body.lines().collect();
+        for (idx, window) in lines.chunks(CHUNK_LINES).enumerate() {
+            let text = window.join("\n");
+            if crate::rag::count_tokens(&text) < MIN_CHUNK_TOKENS {
+                continue;
+            }
+            let start_line = sec.start_line + idx * CHUNK_LINES;
+            out.push(Candidate {
+                path: rel_path.to_string(),
+                start_line,
+                end_line: start_line + window.len() - 1,
+                heading: sec.breadcrumb.join(" > "),
+                text,
+            });
+        }
     }
     out
 }
@@ -103,23 +126,16 @@ fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
 /// than a language allowlist: a corpus of docs, configs and logs is as valid a
 /// target as a code tree, and an allowlist would silently exclude it.
 fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
-    const SKIP_DIRS: [&str; 8] = [
-        ".git",
-        "target",
-        "node_modules",
-        "vendor",
-        "dist",
-        "build",
-        ".venv",
-        "__pycache__",
-    ];
-
     let mut candidates = Vec::new();
     let mut files_scanned = 0usize;
 
+    // One exclusion list for the whole engine (scanner's), plus the engine's own
+    // data dir: `.physis` holds the embedding cache, and packing it would feed
+    // the retriever its own vectors.
     let walker = WalkDir::new(root).into_iter().filter_entry(|e| {
         let name = e.file_name().to_string_lossy();
-        !(e.file_type().is_dir() && SKIP_DIRS.contains(&name.as_ref()))
+        !(e.file_type().is_dir()
+            && (name == ".physis" || crate::scanner::DEFAULT_EXCLUDE_DIRS.contains(&name.as_ref())))
     });
 
     for entry in walker.filter_map(Result::ok) {
@@ -319,6 +335,7 @@ pub fn pack(
         candidates,
         files_scanned,
         corpus,
+        query,
         &query_embedding,
         budget,
         top_k,
@@ -354,7 +371,24 @@ pub fn pack_cached(
         };
     }
 
-    let texts: Vec<String> = candidates.iter().map(|c| c.text.clone()).collect();
+    // Retrieval text, not display text: the chunk body prefixed with where it
+    // came from. A bare 40-line window carries no indication of its subject —
+    // `src/coherence.rs` does, and a query naming the subject should reach it.
+    // This mirrors the breadcrumb `physis_find` embeds with every section, and
+    // is why the two tools now rank the same corpus the same way. Provenance
+    // for display is reattached from `candidates`, so the prefix never reaches
+    // the caller's context.
+    let texts: Vec<String> = candidates
+        .iter()
+        .map(|c| {
+            format!(
+                "{} {}\n\n{}",
+                c.path.replace(['/', '_', '-', '.'], " "),
+                c.heading,
+                c.text
+            )
+        })
+        .collect();
     let embeddings = cache.embed_texts(&texts, embedder, embedder_kind);
 
     // Assembled directly rather than via `RagCorpus::build`, which would embed
@@ -380,6 +414,7 @@ pub fn pack_cached(
         candidates,
         files_scanned,
         corpus,
+        query,
         &query_embedding,
         budget,
         top_k,
@@ -394,12 +429,15 @@ fn finish_pack(
     candidates: Vec<Candidate>,
     files_scanned: usize,
     corpus: RagCorpus,
+    query: &str,
     query_embedding: &[f32],
     budget: usize,
     top_k: usize,
     diversity: f32,
 ) -> PackResult {
-    let retriever = TokenFixedRetriever::new(budget, top_k).with_diversity(diversity);
+    let retriever = TokenFixedRetriever::new(budget, top_k)
+        .with_diversity(diversity)
+        .with_query(query);
     let result = retriever.retrieve(query_embedding, &corpus);
 
     // `RetrievedChunk::id` indexes back into the corpus, which was built in
@@ -412,9 +450,13 @@ fn finish_pack(
                 path: c.path.clone(),
                 start_line: c.start_line,
                 end_line: c.end_line,
+                heading: c.heading.clone(),
                 score: rc.score,
                 tokens: rc.tokens,
-                text: rc.text.clone(),
+                // The candidate's own body, not the retrieval text: the latter
+                // carries the path prefix used for scoring, which is noise in a
+                // packed context that already reports `path` beside it.
+                text: c.text.clone(),
             })
         })
         .collect();

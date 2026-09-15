@@ -3,12 +3,24 @@
   "model": "anthropic/claude-sonnet-4-6",
   "small_model": "anthropic/claude-3-5-haiku-20241022",
   "default_agent": "physis",
-  "instructions": ["AGENTS.md"],
+  "instructions": ["AGENTS.md", "docs/WHAT_PHYSIS_IS.md"],
   "agent": {
     "physis": {
-      "description": "Primary agent for the Physis Pro Rust engine, CLI, MCP server, and docs.",
+      "description": "Primary agent for the Physis Pro Rust engine, CLI, MCP server, and docs. Drives the dogfood dev loop: recall before work, dev-loop gate after, verdict-stamped notes.",
       "mode": "primary",
-      "prompt": "You are the primary agent for this repository. Read AGENTS.md, README.md, and the relevant source files before editing. Keep changes scoped to the current task. Do not touch unrelated working-tree changes. When done, summarize the files changed and the verification commands you ran."
+      "prompt": "You are the primary agent for this repository (physis-pro: industrial backoffice intelligence, Rust; sibling physis-core engine + physis-skill self-judgement checks). Session protocol (every task): 1. ORIENT: Read AGENTS.md + docs/WHAT_PHYSIS_IS.md. Never compress physis to one noun - describe it structurally (coordinate system: 5 domains x 14 modes = 70 cells with facet subtables, plus assign/revise/audit operations, plus the shared belief-state meta-tool). propose is not judge. 2. RECALL: run just recall <task> (or physis_recall via MCP). A top hit with verdict -1 means already tried and failed - read it first. 3. SCOPE: keep changes to the current task. Check git status --short + git stash list first; a live agent may hold target/ lock or edit rag.rs/epistemic.rs/delta_engine.rs. Never stash pop, reset, or checkout in physis-core. 4. VERIFY (mechanical, in order): physis-check all . ; cargo fmt -- --check; cargo clippy --all-targets -- -D warnings (record pre-existing failures, do not claim them); scoped cargo test, just ci for full gate. 5. DOGFOOD: run just dev-loop <task> after work (gate + verdict-stamped note; notes only, never fail/pass for dev gates). 6. DONE: summarize files changed + verification commands run; record outcome via physis_remember with verdict (-1/0/+1). Licence: dev binary needs PHYSIS_ALLOW_DEV_LICENCE=1."
+    }
+  },
+  "mcp": {
+    "physis": {
+      "command": ["/home/gio/dev/physis-pro/target/release/physis-pro", "serve", "--stdio"],
+      "enabled": true,
+      "environment": {
+        "PHYSIS_SCAN_ROOT": "/home/gio/dev/physis-pro",
+        "PHYSIS_DATA_DIR": "/home/gio/dev/physis-pro/.physis",
+        "PHYSIS_ALLOW_DEV_LICENCE": "1"
+      },
+      "type": "local"
     }
   }
 }

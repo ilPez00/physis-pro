@@ -142,6 +142,9 @@ pub struct TokenFixedRetriever {
     /// each candidate's effective score is discounted by its cosine to already
     /// selected chunks, reducing redundancy in the packed context.
     pub diversity: f32,
+    /// Query terms for the lexical channel. Empty = cosine only, which is what
+    /// every caller got before the channel existed.
+    query_terms: Vec<String>,
 }
 
 impl TokenFixedRetriever {
@@ -150,12 +153,81 @@ impl TokenFixedRetriever {
             budget,
             top_k,
             diversity: 0.0,
+            query_terms: Vec::new(),
         }
+    }
+
+    /// Add the lexical channel, using the raw query text.
+    ///
+    /// Cosine alone ranks a chunk that is *about* the same subject above the
+    /// chunk that literally defines the symbol asked for — an embedding has no
+    /// notion that `coherence_edit` is the name of the thing. Blending in term
+    /// overlap is what puts the definition back on top, and it is the same
+    /// weighting `physis_find` already uses, so the two tools agree.
+    pub fn with_query(mut self, query: &str) -> Self {
+        self.query_terms = crate::content::tokenize(query);
+        self
     }
 
     pub fn with_diversity(mut self, diversity: f32) -> Self {
         self.diversity = diversity.clamp(0.0, 1.0);
         self
+    }
+
+    /// Per-query-term inverse document frequency over the corpus.
+    ///
+    /// Without it every query word counts the same, and a question phrased in
+    /// English ("where the content index is built") is won by whichever chunk
+    /// repeats "index" and "built" most — words that occur everywhere and
+    /// therefore separate nothing. Rare terms are what identify a chunk.
+    fn idf(&self, corpus: &RagCorpus) -> std::collections::HashMap<String, f32> {
+        let n = corpus.chunks.len().max(1) as f32;
+        let mut df: std::collections::HashMap<&String, usize> = std::collections::HashMap::new();
+        for chunk in &corpus.chunks {
+            let present: std::collections::HashSet<String> =
+                crate::content::tokenize(&chunk.text).into_iter().collect();
+            for q in &self.query_terms {
+                if present.contains(q) {
+                    *df.entry(q).or_insert(0) += 1;
+                }
+            }
+        }
+        self.query_terms
+            .iter()
+            .map(|q| {
+                let d = df.get(q).copied().unwrap_or(0) as f32;
+                // Smoothed so a term in every chunk scores ~0 rather than
+                // negative, and an absent term never divides by zero.
+                (q.clone(), ((n - d + 0.5) / (d + 0.5) + 1.0).ln().max(0.0))
+            })
+            .collect()
+    }
+
+    /// Idf-weighted term overlap, length-normalized.
+    ///
+    /// Deliberately not full BM25 — no per-chunk length saturation — because the
+    /// pack corpus is fixed-size windows, where the one term BM25's `b` exists
+    /// to correct for barely varies.
+    fn lexical_score(
+        &self,
+        text: &str,
+        idf: &std::collections::HashMap<String, f32>,
+    ) -> f32 {
+        if self.query_terms.is_empty() {
+            return 0.0;
+        }
+        let terms = crate::content::tokenize(text);
+        if terms.is_empty() {
+            return 0.0;
+        }
+        let mut score = 0.0f32;
+        for q in &self.query_terms {
+            let hits = terms.iter().filter(|t| *t == q).count();
+            if hits > 0 {
+                score += idf.get(q).copied().unwrap_or(0.0) * (1.0 + (hits as f32).ln());
+            }
+        }
+        score / (terms.len() as f32).sqrt().max(1.0)
     }
 
     /// Retrieve the chunks whose packed token total stays within `budget`.
@@ -176,10 +248,43 @@ impl TokenFixedRetriever {
         }
 
         // Base scores, then MMR discount if diversity requested.
-        let mut scored: Vec<(usize, f32)> = corpus
+        // Two channels, each max-normalized over the candidate set before they
+        // are blended: cosine's usable band is model-dependent and the overlap
+        // count is unbounded, so neither is comparable to the other raw. Same
+        // treatment as `content::ContentIndex::search`.
+        let idf = if self.query_terms.is_empty() {
+            std::collections::HashMap::new()
+        } else {
+            self.idf(corpus)
+        };
+        let raw: Vec<(usize, f32, f32)> = corpus
             .chunks
             .iter()
-            .map(|c| (c.id, cosine_sim(query_emb, &c.embedding)))
+            .map(|c| {
+                (
+                    c.id,
+                    cosine_sim(query_emb, &c.embedding),
+                    self.lexical_score(&c.text, &idf),
+                )
+            })
+            .collect();
+        let max_sem = raw.iter().fold(0.0f32, |m, r| m.max(r.1));
+        let max_lex = raw.iter().fold(0.0f32, |m, r| m.max(r.2));
+        let mut scored: Vec<(usize, f32)> = raw
+            .into_iter()
+            .map(|(id, sem, lex)| {
+                let s = if max_sem > 0.0 { sem / max_sem } else { 0.0 };
+                if max_lex > 0.0 && !self.query_terms.is_empty() {
+                    let l = lex / max_lex;
+                    (
+                        id,
+                        crate::content::SEMANTIC_WEIGHT * s
+                            + (1.0 - crate::content::SEMANTIC_WEIGHT) * l,
+                    )
+                } else {
+                    (id, s)
+                }
+            })
             .collect();
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
