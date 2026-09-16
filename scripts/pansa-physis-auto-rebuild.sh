@@ -2,9 +2,12 @@
 # Build-and-swap updater for Physis on pansa-ts.
 #
 # The important ordering is: fetch → build detached commit → smoke-test the
-# candidate → swap/restart → health-check → fast-forward git. A failed build,
-# missing licence, or unhealthy restart leaves the currently running binary
-# and checkout untouched, so one bad commit cannot poison the next update tick.
+# candidate → swap/restart → health-check → stamp. A failed build, missing
+# licence, or unhealthy restart leaves the currently running binary and
+# checkout untouched, so one bad commit cannot poison the next update tick.
+# The stamp ($RUNTIME_DIR/deployed-rev) is the trigger: a tick rebuilds when
+# origin/main differs from the *deployed* revision, not merely from the local
+# checkout — otherwise a push made from this checkout skips forever.
 
 set -Eeuo pipefail
 
@@ -17,7 +20,27 @@ HEALTH_URL="${PHYSIS_HEALTH_URL:-http://127.0.0.1:19876/health}"
 BUILD_IMAGE="${PHYSIS_BUILD_IMAGE:-rust:1-trixie}"
 FEATURES="${PHYSIS_BUILD_FEATURES:-web,cli,embed-onnx}"
 
-mkdir -p "$(dirname "$LOG_FILE")" "$RUNTIME_DIR"
+# Where the throwaway worktree and the throwaway CARGO_HOME live. Both used to
+# be `mktemp -d /tmp/...`, and /tmp on pansa is a 7.8 GB tmpfs — the registry
+# alone exhausted it (`No space left on device` unpacking aws-lc-sys), so every
+# tick failed before compiling a line. Prefer the data disk, fall back to /var/tmp
+# (disk-backed, unlike /tmp) when it is not mounted.
+if [[ -z "${PHYSIS_BUILD_ROOT:-}" ]]; then
+  if mountpoint -q /mnt/bigstore; then
+    PHYSIS_BUILD_ROOT=/mnt/bigstore/physis-build
+  else
+    PHYSIS_BUILD_ROOT=/var/tmp/physis-build
+  fi
+fi
+BUILD_ROOT="$PHYSIS_BUILD_ROOT"
+
+# Revision of the binary the engine is actually running. Comparing the local
+# checkout with origin is not enough: when the push happens *from* this checkout
+# the two are equal while the running binary is still months old, and the
+# updater then skips forever. The stamp is written only after a healthy restart.
+STAMP_FILE="${PHYSIS_DEPLOY_STAMP:-$RUNTIME_DIR/deployed-rev}"
+
+mkdir -p "$(dirname "$LOG_FILE")" "$RUNTIME_DIR" "$BUILD_ROOT"
 log() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] $*" | tee -a "$LOG_FILE"; }
 
 exec 9>"$LOCK_FILE"
@@ -31,10 +54,13 @@ git diff-index --quiet HEAD -- || { log "Dirty checkout; refusing automatic upda
 git fetch origin "$DEPLOY_BRANCH" >>"$LOG_FILE" 2>&1 || { log "Fetch failed; retrying later."; exit 0; }
 local_rev=$(git rev-parse HEAD)
 remote_rev=$(git rev-parse "origin/$DEPLOY_BRANCH")
-[[ "$local_rev" != "$remote_rev" ]] || exit 0
-log "Preparing $local_rev -> $remote_rev"
+deployed_rev=$(cat "$STAMP_FILE" 2>/dev/null || true)
+if [[ "$local_rev" == "$remote_rev" && "$deployed_rev" == "$remote_rev" ]]; then
+  exit 0
+fi
+log "Preparing $local_rev -> $remote_rev (deployed: ${deployed_rev:-unknown})"
 
-worktree=$(mktemp -d /tmp/physis-build.XXXXXX)
+worktree=$(mktemp -d "$BUILD_ROOT/physis-build.XXXXXX")
 cleanup() { git worktree remove --force "$worktree" >>"$LOG_FILE" 2>&1 || true; rmdir "$worktree" 2>/dev/null || true; }
 trap cleanup EXIT
 git worktree add --detach "$worktree" "$remote_rev" >>"$LOG_FILE" 2>&1
@@ -50,7 +76,7 @@ fi
 
 # Build as the deployment user. This avoids root-owned target artifacts and
 # keeps the source checkout usable by the updater after a failed build.
-cargo_home=$(mktemp -d /tmp/physis-cargo.XXXXXX)
+cargo_home=$(mktemp -d "$BUILD_ROOT/physis-cargo.XXXXXX")
 trap 'rm -rf "$cargo_home"; cleanup' EXIT
 candidate="$worktree/target/release/physis-pro-web"
 log "Building candidate with $BUILD_IMAGE ($FEATURES)"
@@ -108,8 +134,17 @@ if [[ "$healthy" != true ]]; then
   exit 1
 fi
 
-git merge --ff-only "origin/$DEPLOY_BRANCH" >>"$LOG_FILE" 2>&1 || {
-  log "Engine is healthy but checkout fast-forward failed; resolve manually."
-  exit 1
-}
-log "Updated successfully to $(git rev-parse --short HEAD)."
+# Stamp only after the new binary is observed healthy. The stamp is what stops
+# the next tick from rebuilding an unchanged revision, and what makes a tick
+# rebuild when the checkout already matched origin but the running binary did
+# not (the push-from-this-checkout case).
+printf '%s' "$remote_rev" > "$STAMP_FILE"
+
+# The checkout is a convenience, not the artifact: the engine runs from
+# $RUNTIME_DIR. A failed fast-forward (the push came from this very checkout, so
+# HEAD is ahead of, or diverged from, origin) must not undo a healthy deploy.
+if git merge --ff-only "origin/$DEPLOY_BRANCH" >>"$LOG_FILE" 2>&1; then
+  log "Updated successfully to $(git rev-parse --short HEAD)."
+else
+  log "Engine healthy and stamped at ${remote_rev:0:7}; checkout is not a fast-forward of origin/$DEPLOY_BRANCH (HEAD $(git rev-parse --short HEAD)) — left as-is."
+fi
