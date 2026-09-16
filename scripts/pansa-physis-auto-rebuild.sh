@@ -108,8 +108,13 @@ set +e
 # the repo (where `models` is a different, incomplete tree) loads no weights,
 # falls back to random projection, and the server refuses to serve degraded —
 # reporting a healthy candidate as broken.
+#
+# The throwaway token is not the service's: the server refuses a loopback bind
+# with no tokens and no PHYSIS_DEV, and the smoke test only needs the process to
+# reach "listening" on an ephemeral port before `timeout` kills it.
 ( cd "$RUNTIME_DIR" && timeout 25s env PHYSIS_HOST=127.0.0.1 PHYSIS_PORT=0 \
     MODEL_DIR="$MODEL_DIR" PHYSIS_LICENSE_FILE="$LICENSE_FILE" \
+    PHYSIS_API_TOKEN=smoke-test-only \
     "$candidate" ) >>"$LOG_FILE" 2>&1
 smoke=$?
 set -e
