@@ -19,6 +19,15 @@ DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 HEALTH_URL="${PHYSIS_HEALTH_URL:-http://127.0.0.1:19876/health}"
 BUILD_IMAGE="${PHYSIS_BUILD_IMAGE:-rust:1-trixie}"
 FEATURES="${PHYSIS_BUILD_FEATURES:-web,cli,embed-onnx}"
+# The service unit exports this; the smoke test must reproduce it. Without
+# MODEL_DIR the candidate cannot find the ONNX weights, the embedder fails its
+# self-test, and the server deliberately refuses to serve a degraded
+# random-projection embedder — so every candidate "failed to start" while the
+# engine it was replacing was perfectly healthy.
+MODEL_DIR="${PHYSIS_MODEL_DIR:-/home/gio/physis-models}"
+# Same reasoning for the licence: the service unit exports it, but the updater
+# must not depend on being launched by systemd to find it.
+LICENSE_FILE="${PHYSIS_LICENSE_FILE:-/home/gio/.physis/license.key}"
 
 # Where the throwaway worktree and the throwaway CARGO_HOME live. Both used to
 # be `mktemp -d /tmp/...`, and /tmp on pansa is a 7.8 GB tmpfs — the registry
@@ -94,12 +103,18 @@ fi
 # timeout 124 means startup succeeded and was intentionally stopped.
 log "Smoke-testing candidate startup"
 set +e
-timeout 25s env PHYSIS_HOST=127.0.0.1 PHYSIS_PORT=0 \
-  "$candidate" >>"$LOG_FILE" 2>&1
+# Run from $RUNTIME_DIR, exactly as the unit does. The engine resolves weights
+# at the relative path `models/bge-base-en-v1.5`, so a smoke test started from
+# the repo (where `models` is a different, incomplete tree) loads no weights,
+# falls back to random projection, and the server refuses to serve degraded —
+# reporting a healthy candidate as broken.
+( cd "$RUNTIME_DIR" && timeout 25s env PHYSIS_HOST=127.0.0.1 PHYSIS_PORT=0 \
+    MODEL_DIR="$MODEL_DIR" PHYSIS_LICENSE_FILE="$LICENSE_FILE" \
+    "$candidate" ) >>"$LOG_FILE" 2>&1
 smoke=$?
 set -e
 if [[ "$smoke" != 124 ]]; then
-  log "Candidate startup failed (exit $smoke); likely missing/invalid licence."
+  log "Candidate startup failed (exit $smoke); see the lines above."
   exit 1
 fi
 
