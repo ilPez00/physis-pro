@@ -28,6 +28,11 @@ pub mod system;
 pub mod system_cli;
 pub mod system_delegation;
 pub mod system_mcp;
+// The relocated TUI is the one ported module that needs an optional
+// dependency pair (`ratatui`/`crossterm`, behind the `tui` feature). Without
+// this gate the whole crate failed to compile for the deploy feature set
+// (`web,cli,embed-onnx`), which is how the pansa auto-updater builds it.
+#[cfg(feature = "tui")]
 pub mod tui;
 pub mod vault;
 pub mod world;

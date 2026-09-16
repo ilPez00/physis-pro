@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Document — Adaptive Document</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  /* Document-specific layout on top of the shared design system. */
+  *{box-sizing:border-box}
+  body{display:flex;flex-direction:column;min-height:100%}
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:11px 20px;background:rgba(4,7,15,.85);
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--shelf);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{
+    width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04101f;font-size:14px;
+  }
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700;font-family:var(--sans)}
+  .brand .sub{font-size:11px;color:var(--brume);margin-top:1px}
+  .spacer{flex:1}
+  main{flex:1;width:100%;max-width:1200px;margin:0 auto;padding:18px 20px 46px}
+  section{margin-bottom:22px}
+  section > h2{
+    font-family:var(--mono);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.22em;color:var(--brume);
+    margin:0 0 10px;display:flex;align-items:center;gap:10px;
+  }
+  section > h2::before{
+    content:"";width:16px;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan),var(--violet));
+  }
+  .panel{padding:14px 16px;min-width:0}
+  .hint{font-size:11px;color:var(--brume);font-weight:400;letter-spacing:0}
+  .loading,.emptynote{font-size:12px;color:var(--brume);padding:8px 0}
+  .doc-block{
+    display:flex;gap:10px;align-items:flex-start;
+    padding:8px 10px;border-radius:8px;border:1px solid transparent;
+  }
+  .doc-block + .doc-block{margin-top:4px}
+  .doc-block .txt{flex:1;white-space:pre-wrap;font-family:var(--mono);font-size:12.5px;line-height:1.5;min-width:0}
+  .doc-block .kind{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--brume);min-width:64px;padding-top:3px}
+  .doc-block.affected{border-color:rgba(95,242,214,.45);background:rgba(95,242,214,.06)}
+  .doc-block.review{border-color:rgba(255,190,90,.4);background:rgba(255,190,90,.05)}
+  .doc-block.locked .txt{opacity:.7}
+  .doc-block button{flex:0 0 auto}
+  .diff{border:1px solid var(--shelf);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+  .diff .who{font-family:var(--mono);font-size:10px;color:var(--brume);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+  .diff .old{color:#ff9a9a;text-decoration:line-through;font-family:var(--mono);font-size:12.5px}
+  .diff .new{color:var(--cyan);font-family:var(--mono);font-size:12.5px}
+  .diff .why{font-size:11px;color:var(--brume);margin-top:6px}
+  .review-note{border-left:3px solid rgba(255,190,90,.6);padding:6px 10px;margin-bottom:6px;font-size:12px}
+  .review-note .why{font-size:11px;color:var(--brume)}
+  .hist{font-family:var(--mono);font-size:11.5px;line-height:1.7}
+  .hist .op{color:var(--cyan)}
+  .hist .rev{color:var(--brume)}
+  textarea{
+    width:100%;min-height:70px;font-family:var(--mono);font-size:12.5px;
+    background:rgba(4,7,15,.6);color:inherit;border:1px solid var(--shelf);
+    border-radius:8px;padding:10px;resize:vertical;
+  }
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .overlay{
+    position:fixed;inset:0;z-index:100;background:rgba(4,7,15,.92);
+    backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:16px;
+  }
+  .overlay.show{display:flex}
+  .overlay-card{
+    background:linear-gradient(180deg,rgba(10,18,32,.98),rgba(7,12,22,.96));
+    border:1px solid rgba(95,242,214,.25);border-radius:20px;padding:26px 30px;
+    max-width:560px;width:100%;box-shadow:var(--shadow);
+  }
+  .overlay-card h2{margin:0 0 10px;font-size:20px}
+  .connect{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .connect label{font-size:11px;color:var(--brume);display:block;margin-bottom:3px}
+  .connect input{width:100%}
+  @media(max-width:720px){header{padding:10px 12px}main{padding:14px 12px 40px}.connect{grid-template-columns:1fr}}
+</style>
+<script src="/sunflower.js"></script>
+</head>
+<body>
+
+<div id="help" class="overlay" role="dialog" aria-labelledby="helpTitle">
+  <div class="overlay-card">
+    <h2 id="helpTitle">Adaptive document</h2>
+    <div style="font-size:13px;display:grid;gap:8px">
+      <div>Edit the source quantity. Linked values are <b>proposed</b>, never applied silently.</div>
+      <div>Accept applies exactly the replacements shown; review-only notices change nothing.</div>
+      <div>Undo reverts the dependent repair and keeps your source edit.</div>
+      <div class="muted" style="margin-top:6px">Reload the page and the same history comes back from disk.</div>
+    </div>
+    <button id="helpClose" class="btn-primary" style="width:100%;margin-top:14px">Close</button>
+  </div>
+</div>
+
+<div id="connect" class="overlay" role="dialog" aria-labelledby="connectTitle">
+  <div class="overlay-card">
+    <h2 id="connectTitle">Connect</h2>
+    <div class="connect">
+      <div><label for="base">Base URL (blank = this origin)</label><input id="base" placeholder=""/></div>
+      <div><label for="token">Bearer token</label><input id="token" type="password" placeholder="paste the bearer token"/></div>
+      <div><label for="user">Tenant (X-Physis-User)</label><input id="user" placeholder="_default"/></div>
+    </div>
+    <div class="row">
+      <button id="connectSave" class="btn-primary">Use these</button>
+      <button id="connectClose">Close</button>
+      <span id="connectNote" class="muted" style="font-size:11px"></span>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">D</div>
+    <div>
+      <h1>PHYSIS <span>· DOCUMENT</span></h1>
+      <div class="sub">Adaptive document — visible dependencies, exact repairs</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <span id="health" class="chip"><span id="healthTxt">checking…</span></span>
+  <span id="rev" class="chip">rev —</span>
+  <button id="btnReset">Reset fixture</button>
+  <button id="btnConnect">Connect…</button>
+  <button id="btnHelp" title="Help" style="padding:6px 10px;font-size:11px">?</button>
+  <span id="status" class="chip" role="status" aria-live="polite"><span class="muted">ready</span></span>
+</header>
+
+<main>
+
+  <section id="editor">
+    <h2>Edit a block <span class="hint">source and dependents are separate: nothing is rewritten until you accept</span></h2>
+    <div class="panel">
+      <div id="blockTarget" class="muted" style="font-size:12px">Pick a block below.</div>
+      <div id="editorBox" hidden>
+        <textarea id="editText" aria-label="Block text"></textarea>
+        <div class="row">
+          <button id="btnSave" class="btn-primary">Save edit</button>
+          <button id="btnCancel">Cancel</button>
+          <span class="muted" style="font-size:11px" id="editMeta"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="proposal">
+    <h2>Proposed changes <span class="hint">exact replacements first; review-only notices invent no prose</span></h2>
+    <div class="panel" id="proposalBody"><div class="emptynote">Edit the source quantity to see linked values change.</div></div>
+  </section>
+
+  <section id="document">
+    <h2>Document</h2>
+    <div class="panel" id="docBody"><div class="loading">loading…</div></div>
+  </section>
+
+  <section id="history">
+    <h2>History <span class="hint">store sequence — reload replays the same order</span></h2>
+    <div class="panel" id="histBody"><div class="emptynote">No events yet.</div></div>
+  </section>
+
+</main>
+
+<script src="/ui-shell.js"></script>
+<script>
+// The document service is the only place the binding rules live. This page
+// renders what it returns; it never recomputes a dependent value.
+const LS = { base: 'physis_base', token: 'physis_token', user: 'physis_user' };
+['base', 'token', 'user'].forEach(k => {
+  const v = localStorage.getItem(LS[k]);
+  if (v && $(k)) $(k).value = v;
+});
+
+let snap = null;        // last snapshot from the server
+let proposed = null;    // the patch awaiting a decision
+let editing = null;     // block id currently open in the editor
+
+function persistConnect() {
+  ['base', 'token', 'user'].forEach(k => $(k) && localStorage.setItem(LS[k], $(k).value));
+  syncConnect();
+}
+
+async function load(msg) {
+  try {
+    const q = snap ? '?document_id=' + encodeURIComponent(snap.document_id) : '';
+    snap = await getJSON('/api/v1/document' + q);
+    // A proposal is pending only while the document still sits at the revision
+    // it was bound to; otherwise the server would refuse the accept anyway.
+    proposed = (snap.patches || []).filter(p => p.status === 'proposed').pop() || null;
+    render();
+    setStatus(msg || 'live');
+  } catch (e) {
+    setStatus(apiError(e), true);
+    $('docBody').innerHTML = '<div class="emptynote">load failed: ' + esc(apiError(e)) + '</div>';
+  }
+}
+
+function affectedIds() {
+  if (!proposed) return new Set();
+  return new Set([
+    ...(proposed.replacements || []).map(r => r.block_id),
+    ...(proposed.review_only || []).map(n => n.block_id),
+  ]);
+}
+
+function blockText(id) {
+  const b = (snap.blocks || []).find(x => x.id === id);
+  return b ? b.text : id;
+}
+
+function linkText(id) {
+  const l = (snap.links || []).find(x => x.id === id);
+  if (!l) return id;
+  return id + ' (' + l.behavior + (l.transform_id ? ' ' + l.transform_id : '') + ')';
+}
+
+function render() {
+  $('rev').textContent = 'rev ' + snap.revision + ' · graph ' + snap.graph_revision;
+  const aff = affectedIds();
+
+  // Document blocks.
+  $('docBody').innerHTML = (snap.blocks || []).map(b => {
+    const cls = 'doc-block' + (aff.has(b.id) ? (b.locked ? ' review' : ' affected') : '') + (b.locked ? ' locked' : '');
+    return '<div class="' + cls + '">' +
+      '<span class="kind">' + esc(b.kind) + (b.locked ? ' 🔒' : '') + '</span>' +
+      '<span class="txt">' + esc(b.text) + '</span>' +
+      (b.locked ? '<span class="muted" style="font-size:10px">locked</span>'
+                : '<button class="btn" data-edit="' + esc(b.id) + '">Edit</button>') +
+      '</div>';
+  }).join('') || '<div class="emptynote">empty document</div>';
+
+  $('docBody').querySelectorAll('button[data-edit]').forEach(btn => {
+    btn.onclick = () => openEditor(btn.getAttribute('data-edit'));
+  });
+
+  renderProposal();
+  renderHistory();
+}
+
+function renderProposal() {
+  if (!proposed) {
+    $('proposalBody').innerHTML = '<div class="emptynote">No pending proposal.</div>';
+    return;
+  }
+  const rows = (proposed.replacements || []).map(r => {
+    const why = (r.reasons || []).map(linkText).join(', ');
+    return '<div class="diff">' +
+      '<div class="who">' + esc(r.block_id) + '</div>' +
+      '<div class="old">' + esc(r.expected_old_bytes) + '</div>' +
+      '<div class="new">' + esc(r.new_bytes) + '</div>' +
+      '<div class="why">why: ' + esc(why) + '</div>' +
+      '</div>';
+  }).join('');
+  const notes = (proposed.review_only || []).map(n => {
+    const why = (n.link_ids || []).map(linkText).join(', ');
+    return '<div class="review-note">review · ' + esc(n.reason) + ' — ' + esc(blockText(n.block_id)) +
+      (why ? '<div class="why">' + esc(why) + '</div>' : '') + '</div>';
+  }).join('');
+
+  $('proposalBody').innerHTML =
+    (rows || '<div class="emptynote">No exact replacements; review only.</div>') +
+    notes +
+    '<div class="row">' +
+      '<button id="btnAccept" class="btn-primary"' + ((proposed.replacements || []).length ? '' : ' disabled') + '>Accept</button>' +
+      '<button id="btnReject">Reject</button>' +
+      '<span class="muted" style="font-size:11px">patch ' + esc(proposed.id) + '</span>' +
+    '</div>';
+  const accept = $('btnAccept');
+  if (accept) accept.disabled = !(proposed.replacements || []).length;
+  if (accept) accept.onclick = () => decide('accept');
+  $('btnReject').onclick = () => decide('reject');
+}
+
+function renderHistory() {
+  const evs = snap.events || [];
+  if (!evs.length) { $('histBody').innerHTML = '<div class="emptynote">No events yet.</div>'; return; }
+  $('histBody').innerHTML = '<div class="hist">' + evs.map(e =>
+    '<div><span class="op">' + esc(e.operation) + '</span> ' +
+    '<span class="rev">rev ' + e.before_revision + '→' + e.after_revision + '</span> ' +
+    '<span class="muted">seq ' + e.sequence + ' · ' + esc(e.actor) + '</span></div>'
+  ).join('') + '</div>';
+  const applied = (snap.patches || []).filter(p => p.status === 'applied');
+  if (applied.length) {
+    const last = applied[applied.length - 1];
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<button id="btnUndo" class="btn">Undo repair ' + esc(last.id) + '</button>' +
+      '<span class="muted" style="font-size:11px">keeps your source edit</span>';
+    $('histBody').appendChild(row);
+    $('btnUndo').onclick = () => undo(last.id);
+  }
+}
+
+function openEditor(blockId) {
+  editing = blockId;
+  const b = snap.blocks.find(x => x.id === blockId);
+  $('blockTarget').textContent = 'Editing ' + blockId;
+  $('editorBox').hidden = false;
+  $('editText').value = b.text;
+  $('editMeta').textContent = 'document revision ' + snap.revision;
+  $('editText').focus();
+}
+
+async function saveEdit() {
+  if (!editing) return;
+  try {
+    const r = await postJSON('/api/v1/document/edit', {
+      document_id: snap.document_id,
+      block_id: editing,
+      new_bytes: $('editText').value,
+      expected_revision: snap.revision,
+      actor: $('user').value.trim() || undefined,
+    });
+    snap = r.snapshot;
+    proposed = r.no_change ? null : r.patch;
+    editing = null;
+    $('editorBox').hidden = true;
+    $('blockTarget').textContent = r.no_change ? 'No change — nothing was recorded.' : 'Edit recorded. Review the proposal below.';
+    render();
+    setStatus(r.no_change ? 'no change' : 'edit recorded');
+    $('proposalBody').scrollIntoView({ block: 'nearest' });
+    $('proposalBody').setAttribute('tabindex', '-1');
+    $('proposalBody').focus();
+  } catch (e) {
+    setStatus(apiError(e), true);
+  }
+}
+
+async function decide(decision) {
+  if (!proposed) return;
+  try {
+    const r = await postJSON('/api/v1/document/decide', {
+      document_id: snap.document_id,
+      patch_id: proposed.id,
+      decision: decision,
+      actor: $('user').value.trim() || undefined,
+    });
+    snap = r.snapshot;
+    proposed = null;
+    render();
+    setStatus(decision === 'accept' ? 'applied' : 'rejected — zero bytes changed');
+    $('docBody').setAttribute('tabindex', '-1');
+    $('docBody').focus();
+  } catch (e) {
+    // A conflict means the document moved under us: keep the user's text and
+    // reload rather than pretending the patch applied.
+    setStatus(apiError(e), true);
+    load('conflict — reloaded');
+  }
+}
+
+async function undo(patchId) {
+  try {
+    const r = await postJSON('/api/v1/document/undo', {
+      document_id: snap.document_id,
+      patch_id: patchId,
+      actor: $('user').value.trim() || undefined,
+    });
+    snap = r.snapshot;
+    proposed = null;
+    render();
+    setStatus('repair reverted; source edit kept');
+  } catch (e) {
+    setStatus(apiError(e), true);
+    load('undo refused — reloaded');
+  }
+}
+
+async function reset() {
+  try {
+    snap = await postJSON('/api/v1/document/reset', { document_id: snap ? snap.document_id : undefined });
+    proposed = null; editing = null;
+    $('editorBox').hidden = true;
+    $('blockTarget').textContent = 'Pick a block below.';
+    render();
+    setStatus('fixture reset');
+  } catch (e) {
+    setStatus(apiError(e), true);
+  }
+}
+
+$('btnSave').onclick = saveEdit;
+$('btnCancel').onclick = () => { editing = null; $('editorBox').hidden = true; $('blockTarget').textContent = 'Pick a block below.'; };
+$('btnReset').onclick = reset;
+$('btnHelp').onclick = () => $('help').classList.add('show');
+$('helpClose').onclick = () => $('help').classList.remove('show');
+$('btnConnect').onclick = () => $('connect').classList.add('show');
+$('connectClose').onclick = () => $('connect').classList.remove('show');
+$('connectSave').onclick = () => {
+  persistConnect();
+  $('connect').classList.remove('show');
+  load('connected');
+};
+$('connectNote').textContent = localStorage.getItem(LS.token) ? 'token remembered' : 'no token stored';
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    $('help').classList.remove('show');
+    $('connect').classList.remove('show');
+    return;
+  }
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !typing(e.target)) {
+    e.preventDefault(); $('help').classList.toggle('show');
+  }
+});
+
+loadHealth();
+load('boot complete');
+</script>
+</body>
+</html>

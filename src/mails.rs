@@ -158,7 +158,11 @@ fn collect_text_plain(mail: &mailparse::ParsedMail, out: &mut String) {
     }
 }
 
-#[cfg(test)]
+// The module compiles without `email`, but every function these tests exercise
+// is behind it — so an un-gated test module turned a legitimate feature
+// selection (`web,cli,embed-onnx`, the deploy build) into two red tests that
+// had nothing to test. Gate the tests with the code they test.
+#[cfg(all(test, feature = "email"))]
 mod tests {
     use super::*;
 

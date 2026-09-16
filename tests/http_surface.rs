@@ -5963,3 +5963,236 @@ async fn scan_is_idempotent_and_produces_one_node_per_document() {
         "unchanged reported: {body}"
     );
 }
+
+// ── Adaptive document (PLAN.md Phase 26 §26.7–§26.8) ────────────────────────
+//
+// The service's own tests prove the proposal arithmetic. These prove the
+// wiring: a real request reaches the store, the effect is readable back, and a
+// second tenant cannot see or decide the first tenant's patch (AD14/AD15).
+
+/// The source block is the first paragraph reading "We ordered 18 units of
+/// bolts." — found by text, not by a hardcoded id, because ids are content
+/// hashes and a test that pinned one would break on the first parser change.
+fn document_source_block(snapshot: &Value) -> String {
+    snapshot["blocks"]
+        .as_array()
+        .expect("blocks")
+        .iter()
+        .find(|b| b["text"].as_str() == Some("We ordered 18 units of bolts."))
+        .expect("the fixture's source block")["id"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+#[tokio::test]
+async fn adaptive_document_round_trips_and_isolates_tenants() {
+    let (router, _dir, _env) = app().await;
+
+    // The page is gated like every other product page but is served.
+    let (status, page) = send_text(&router, get("/document", "alice")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(page.contains("Adaptive document"), "the page is served");
+
+    // First read seeds the canonical fixture: source, copy, calculation, prose,
+    // an unrelated quotation and a locked block.
+    let (status, snap) = send(&router, get("/api/v1/document", "alice")).await;
+    assert_eq!(status, StatusCode::OK, "{snap}");
+    assert_eq!(snap["revision"], 0, "{snap}");
+    assert_eq!(snap["blocks"].as_array().unwrap().len(), 7, "{snap}");
+    assert_eq!(snap["links"].as_array().unwrap().len(), 4, "{snap}");
+    let source = document_source_block(&snap);
+
+    // A source edit records one observed change and returns the proposal bound
+    // to the resulting revision. It does not apply it.
+    let (status, edited) = send(
+        &router,
+        post(
+            "/api/v1/document/edit",
+            "alice",
+            json!({
+                "block_id": source,
+                "new_bytes": "We ordered 3 units of bolts.",
+                "expected_revision": 0,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{edited}");
+    assert_eq!(edited["revision"], 1, "{edited}");
+    assert_eq!(edited["change"]["operation"], "source_edit", "{edited}");
+
+    let patch = &edited["patch"];
+    let replacements: Vec<(&str, &str)> = patch["replacements"]
+        .as_array()
+        .expect("replacements")
+        .iter()
+        .map(|r| {
+            (
+                r["block_id"].as_str().unwrap(),
+                r["new_bytes"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    // Exactly the confirmed copy and the confirmed calculation, with the exact
+    // fixture values 3 and 6 (AD04).
+    assert!(
+        replacements.iter().any(|(_, n)| *n == "We ordered 3 units of bolts."),
+        "copy dependent: {patch}"
+    );
+    assert!(
+        replacements.iter().any(|(_, n)| *n == "Budget is 6 euros."),
+        "calculation dependent: {patch}"
+    );
+    assert_eq!(replacements.len(), 2, "nothing else is rewritten: {patch}");
+    assert!(
+        patch["review_only"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|n| n["reason"] == "locked dependent"),
+        "the locked dependent is a notice, not a rewrite: {patch}"
+    );
+
+    // The document bytes are still untouched until a decision is made.
+    let (_, unchanged) = send(&router, get("/api/v1/document", "alice")).await;
+    assert_eq!(unchanged["revision"], 1, "{unchanged}");
+    assert!(unchanged["raw"].as_str().unwrap().contains("36 euros"), "{unchanged}");
+
+    // A second tenant never sees the first tenant's document (AD14): same
+    // document id, different store root.
+    let (status, other) = send(&router, get("/api/v1/document", "bob")).await;
+    assert_eq!(status, StatusCode::OK, "{other}");
+    assert_eq!(other["revision"], 0, "{other}");
+    assert_eq!(other["patches"].as_array().unwrap().len(), 0, "{other}");
+    let (status, refused) = send(
+        &router,
+        post(
+            "/api/v1/document/decide",
+            "bob",
+            json!({"patch_id": patch["id"], "decision": "accept"}),
+        ),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "another tenant's patch id is not decidable: {refused}"
+    );
+
+    // Accept applies the exact replacements and persists them.
+    let (status, applied) = send(
+        &router,
+        post(
+            "/api/v1/document/decide",
+            "alice",
+            json!({"patch_id": patch["id"], "decision": "accept"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{applied}");
+    assert_eq!(applied["patch"]["status"], "applied", "{applied}");
+    let raw = applied["snapshot"]["raw"].as_str().unwrap();
+    assert!(raw.contains("Budget is 6 euros."), "{applied}");
+    assert!(raw.contains("We ordered 3 units of bolts."), "{applied}");
+    assert!(raw.contains("Do not change this line."), "locked bytes survive: {applied}");
+
+    // Readback from a fresh request is the persisted state, not an in-memory
+    // success (AD11's read half).
+    let (_, readback) = send(&router, get("/api/v1/document", "alice")).await;
+    assert_eq!(readback["revision"], applied["snapshot"]["revision"], "{readback}");
+    assert!(readback["raw"].as_str().unwrap().contains("Budget is 6 euros."), "{readback}");
+    assert_eq!(readback["events"].as_array().unwrap().len(), 2, "source edit + apply: {readback}");
+
+    // Undo is a compensating patch: the repair reverts, the human edit stays.
+    let (status, undone) = send(
+        &router,
+        post(
+            "/api/v1/document/undo",
+            "alice",
+            json!({"patch_id": patch["id"]}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{undone}");
+    let raw = undone["snapshot"]["raw"].as_str().unwrap();
+    assert!(raw.contains("Budget is 36 euros."), "{undone}");
+    assert!(raw.contains("We ordered 3 units of bolts."), "source edit survives: {undone}");
+    assert_eq!(undone["patch"]["status"], "reverted", "{undone}");
+}
+
+#[tokio::test]
+async fn adaptive_document_refuses_a_stale_edit_and_a_replayed_accept() {
+    let (router, _dir, _env) = app().await;
+
+    let (_, snap) = send(&router, get("/api/v1/document", "ops")).await;
+    let source = document_source_block(&snap);
+    let (_, edited) = send(
+        &router,
+        post(
+            "/api/v1/document/edit",
+            "ops",
+            json!({
+                "block_id": source,
+                "new_bytes": "We ordered 3 units of bolts.",
+                "expected_revision": 0,
+            }),
+        ),
+    )
+    .await;
+    let patch_id = edited["patch"]["id"].as_str().unwrap().to_string();
+
+    // A client that still believes revision 0 is refused rather than
+    // overwriting the edit it never saw (AD07).
+    let (status, stale) = send(
+        &router,
+        post(
+            "/api/v1/document/edit",
+            "ops",
+            json!({
+                "block_id": source,
+                "new_bytes": "We ordered 99 units of bolts.",
+                "expected_revision": 0,
+            }),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{stale}");
+    assert_eq!(stale["error"], "stale_document_revision", "{stale}");
+
+    // Accept once, then again: the patch is no longer `proposed`, so a retried
+    // decision is refused instead of applying twice (AD08/AD09).
+    let (status, first) = send(
+        &router,
+        post(
+            "/api/v1/document/decide",
+            "ops",
+            json!({"patch_id": patch_id, "decision": "accept"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    let (status, again) = send(
+        &router,
+        post(
+            "/api/v1/document/decide",
+            "ops",
+            json!({"patch_id": patch_id, "decision": "accept"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{again}");
+    assert_eq!(again["error"], "not_proposed", "{again}");
+
+    // An unknown decision word is refused, never guessed.
+    let (status, bad) = send(
+        &router,
+        post(
+            "/api/v1/document/decide",
+            "ops",
+            json!({"patch_id": patch_id, "decision": "maybe"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
+}

@@ -80,6 +80,7 @@ pub(crate) mod coherence;
 mod content;
 mod context;
 mod corpus;
+mod document;
 mod dream;
 mod extract;
 mod holarchy;
@@ -241,6 +242,15 @@ pub struct AppCtx {
     pub(crate) content_index: Mutex<Option<Arc<crate::content::ContentIndex>>>,
     /// Sliding-window per-IP rate limiter guarding every route (PREMORTEM.md P6).
     pub(crate) limiter: RateLimiter,
+    /// Serialises adaptive-document read-modify-write across requests.
+    ///
+    /// One process-wide lock rather than per-document: the store is
+    /// `document.json` + an append-only `events.jsonl` per tenant, and §26.6 is
+    /// explicit that a lock inside Physis cannot make arbitrary external editors
+    /// cooperate. What is guaranteed here is "one managed document, serialised
+    /// through the service"; externally changed files are detected, not raced.
+    // ponytail: global document lock; per-document locks if throughput matters.
+    pub(crate) documents: Mutex<()>,
     /// Server start time for uptime reporting.
     pub(crate) started_at: std::time::Instant,
     #[cfg(feature = "mcp")]
@@ -2594,6 +2604,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         agent_runs: crate::web::agent::AgentRunRegistry::new(),
         content_index: Mutex::new(None),
         limiter: rate_limit_from_env(),
+        documents: Mutex::new(()),
         started_at: std::time::Instant::now(),
         #[cfg(feature = "mcp")]
         mcp_sessions: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -3022,6 +3033,16 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         )
         .route("/api/v1/corpus/summaries", get(corpus::summaries_handler))
         .route("/api/v1/corpus/ask", post(corpus::global_ask_handler))
+        // Adaptive documents (PLAN.md Phase 26 §26.7): one managed document per
+        // tenant. `edit` records the human source edit and returns the proposal
+        // bound to the new revision; `decide` accepts or rejects it; `undo` is a
+        // compensating patch. The page is gated like every other product page.
+        .route("/document", get(document::document_ui_handler))
+        .route("/api/v1/document", get(document::snapshot_handler))
+        .route("/api/v1/document/edit", post(document::edit_handler))
+        .route("/api/v1/document/decide", post(document::decide_handler))
+        .route("/api/v1/document/undo", post(document::undo_handler))
+        .route("/api/v1/document/reset", post(document::reset_handler))
         .route("/api/v1/oee/machine", post(industrial::oee_machine_handler))
         .route("/api/v1/oee/event", post(industrial::oee_event_handler))
         .route("/api/v1/oee/plant", get(industrial::oee_plant_handler))

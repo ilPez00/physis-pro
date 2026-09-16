@@ -190,6 +190,7 @@ function initCoach(storageKey) {
 const PRODUCT_PAGES = [
   { href: '/pulse',  label: 'Pulse',   hint: 'dashboard — coherence, communities, wiki tour' },
   { href: '/notebook', label: 'Notebook', hint: 'your dashboard — pick the panels, order them' },
+  { href: '/document', label: 'Document', hint: 'adaptive document — edit a source, review linked changes' },
   { href: '/search', label: 'Search',  hint: 'by content — sections, facets, preview' },
   { href: '/atlas',  label: 'Atlas',   hint: 'organic graph — communities, lineage, entities' },
   { href: '/ui',     label: 'Files',   hint: 'graph file manager — scan, cluster, move' },

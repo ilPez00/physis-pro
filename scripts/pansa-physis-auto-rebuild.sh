@@ -39,6 +39,15 @@ cleanup() { git worktree remove --force "$worktree" >>"$LOG_FILE" 2>&1 || true; 
 trap cleanup EXIT
 git worktree add --detach "$worktree" "$remote_rev" >>"$LOG_FILE" 2>&1
 
+# A linked worktree checks out no submodule contents, so `physis-core/Cargo.toml`
+# is absent and the workspace fails to load — every tick since 2026-09-12 died
+# here, leaving the running binary untouched. Populate the submodule at the
+# revision the superproject pins before handing the tree to docker.
+if ! git -C "$worktree" submodule update --init --recursive >>"$LOG_FILE" 2>&1; then
+  log "Submodule init failed; running binary remains untouched."
+  exit 1
+fi
+
 # Build as the deployment user. This avoids root-owned target artifacts and
 # keeps the source checkout usable by the updater after a failed build.
 cargo_home=$(mktemp -d /tmp/physis-cargo.XXXXXX)

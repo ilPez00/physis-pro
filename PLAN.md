@@ -3318,8 +3318,8 @@ and evidence pointers here when a phase actually changes status.
 
 - [x] P0: baseline, ownership, wire/data contract and canonical fixture frozen.
 - [x] P1: document/binding/patch/persistence/undo behavior passes AD01–AD13 as applicable.
-- [ ] P2: actual service wiring, resource scope, conflicts and errors verified.
-- [ ] P3: visible minimal workflow and source explanations verified in the UI.
+- [x] P2: actual service wiring, resource scope, conflicts and errors verified.
+- [x] P3: visible minimal workflow and source explanations verified in the UI.
 - [ ] P4: all AD01–AD16 attempted, results retained, usable transition export.
 - [ ] P5: cheap arms measured; any learned component justified by a controlled comparison.
 - [ ] P6: independent review of raw effects, replay, byte preservation and reported claims.
@@ -3352,6 +3352,40 @@ Kilo scaffold preserved, no worktree resets):**
   remain per §26.2 not ready for integration.
 - NOT DONE (next packets): P2 web/service wiring, P3 UI surface, P4
   benchmark corpus + AD14–AD16, P5 model experiments, P6 review.
+
+**P2/P3 outcome (2026-09-16, pansa `/home/gio/physis_pro` at `96a98c4`):**
+
+- Service: `src/web/document.rs` — six frozen verbs folded into five endpoints
+  on the existing Bearer-gated router: `GET /api/v1/document` (snapshot +
+  patches + event history), `POST …/edit`, `…/decide`, `…/undo`, `…/reset`.
+  Binding logic stays in `adaptive_document`; the module only resolves the
+  tenant to a store root (`{data_dir}/documents/{uid}/{document_id}`), holds one
+  process-wide lock across the read-modify-write, and maps `ApplyError` to
+  HTTP status. Document ids are validated to `[A-Za-z0-9_-]`, so a tenant path
+  cannot be escaped. Tenant scoping reuses `X-Physis-User`, which is what makes
+  AD14 structural rather than asserted.
+- UI: `src/bin/ui/document.html` (`GET /document`, gated like every product
+  page) — block list with an inline editor, the exact before/after replacements
+  with their justifying links, review-only notices rendered as notices, accept /
+  reject, one undo, and the event history in store order. Conflicts reload
+  instead of pretending success. Registered in `PRODUCT_PAGES`.
+- Seed: the §26.8 canonical fixture (source, copy, calculation, review prose,
+  unrelated quotation, locked block) is written on the first read of an empty
+  store, so the page demonstrates real behaviour with no setup. Ground truth
+  stays in the acceptance tests, not in the seed.
+- Tests: `--lib web::document` → 3 passed; `--test adaptive_document` → 13
+  passed (AD01–AD13); `--test http_surface adaptive_document` → 2 passed, a real
+  router round trip proving edit → propose → accept → readback → undo and
+  cross-tenant refusal (AD14/AD15's request half). AD16 (export) and the
+  adversarial corpus remain P4.
+- Build repair found while wiring: the deploy feature set
+  (`web,cli,embed-onnx`) did not compile at `96a98c4` — `ported::tui` was
+  ungated, so `ratatui`/`crossterm` were missing, and the two `mails::tests`
+  were not gated behind `email`. Both fixed. The pansa auto-updater had also
+  failed every tick since 2026-09-12 because a linked worktree checks out no
+  submodule contents; `scripts/pansa-physis-auto-rebuild.sh` now runs
+  `submodule update --init` before the build.
+- NOT DONE: P4 export/AD16, P5 model arms, P6 independent review.
 
 Success is a small reliable workflow with measured limits. It may contain no
 learned dynamics and no diffusion. Extra parameters, services and abstractions
