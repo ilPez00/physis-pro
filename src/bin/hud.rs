@@ -15,7 +15,7 @@
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
 //! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! u rescan · g graph view · H history · f/F intent focus/clear · z zoom rollup ·
+//! u rescan · g graph view · H history · B bench · f/F intent focus/clear · z zoom rollup ·
 //! 1/2/3 why/context/delta tabs. No mouse required.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
@@ -1122,6 +1122,32 @@ impl App {
         self.reading = Some(("history".into(), text));
         self.status = "history: git log, or filesystem order without git".into();
     }
+    /// Measured machine numbers (`B`): same shared helper the REPL `bench`
+    /// command reports — scan cost, index size, live query + propagation
+    /// latency. Slice pair is (cached workspace, live top-8 selection).
+    /// Read-only, no transition recorded.
+    fn show_bench(&mut self) {
+        let mut sel_tokens = 0usize;
+        for h in self.hits.iter().take(8) {
+            sel_tokens += physis_pro::pack::tokens_of(&self.ws.read(&h.object).unwrap_or_default());
+        }
+        let intent = if self.query.is_empty() {
+            "bench".to_string()
+        } else {
+            self.query.clone()
+        };
+        let root = self.ws.root.clone();
+        let provider = self.embedder_kind.clone();
+        let text = physis_pro::mvp::bench_text(
+            &mut self.ws,
+            &root,
+            &provider,
+            &intent,
+            Some((self.ws_tokens, sel_tokens)),
+        );
+        self.reading = Some(("bench".into(), text));
+        self.status = "bench: measured here, offline — same numbers as REPL `bench`".into();
+    }
     /// Hand the current selection (or the highlighted object) to Function 2:
     /// docs = (title, exact source text) for the Notebook scope. Canonical
     /// objects — the Notebook borrows, never copies, the content.
@@ -1386,7 +1412,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "e edit · u rescan · g graph · H history · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "e edit · u rescan · g graph · H history · B bench · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1519,6 +1545,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('r') => app.related(),
                             KeyCode::Char('g') => app.graph_view(),
                             KeyCode::Char('H') => app.show_history(),
+                            KeyCode::Char('B') => app.show_bench(),
                             KeyCode::Char('e') => app.edit_current(),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),

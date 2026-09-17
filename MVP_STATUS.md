@@ -78,7 +78,7 @@ Text tree of directory → file → object, each row with its score and the exac
 Operations: `zoom/open`, `back`, `search`, `focus`, `context`, `related`,
 `dependencies`, `differences`, `contradictions`, `history`, `inspect`,
 `edit`, `rescan`, `bench` (HUD: `physis-hud` adds `e` edit, `u` rescan,
-`●/◐/·` markers, key legend).
+`H` history, `B` bench, `●/◐/·` markers, key legend).
 
 `PHYSIS_MODEL=none` (default) = coherent with no generator: the notebook
 degrades to extractive, `context` prints `generator: none`, and the packet
@@ -227,7 +227,7 @@ Neither Time Machine nor world-model training is built (deferred — see
 | `objects_remapped` is index churn | changed + added + \|object-count delta\|; not a claim about which semantics moved |
 | Validation is one command | chosen by the operator (`PHYSIS_MVP_VALIDATE`), not by a planner |
 | `history` without git | falls back to mtime order over the snapshot |
-| Interface is text | tree + panes in a REPL; no TUI. "Graphical beauty is explicitly post-MVP" |
+| Interface is text | tree + panes in the REPL; `physis-hud` TUI adds list + reading + why/context/delta panes, graph view, history and bench projections |
 | One writer per repository | the nav index is sled-backed, so two loops on the same repository conflict (`could not acquire lock … index.sled/db`). Observed on `feather` when a killed run left a session mid-flush; retrying succeeds. Run one loop per repo |
 
 Nonessential subsystems remain untouched and unbroken: the web console, voice,
@@ -256,14 +256,14 @@ No new dependency, no new store, no new parser, no new agent framework.
 ## 12. Exact commands
 
 ```bash
-# build (offline, no model files)
+# build (default features include the local embedders)
 cargo build --bin physis-pro --features cli
 
-# the loop
-PHYSIS_EMBEDDER=random-projection ./target/debug/physis-pro <directory>
+# the loop (semantic cascade: local ollama nomic-embed-text, self-test gated)
+env -u PHYSIS_EMBEDDER ./target/debug/physis-pro <directory>
 
-# the scripted demo + transcript
-PHYSIS_EMBEDDER=random-projection scripts/mvp-demo.sh <directory>
+# the scripted demo + transcript (prerun once to warm, then demo warm)
+env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh <directory>
 
 # tests protecting the demo path
 cargo test --features cli --test mvp_loop

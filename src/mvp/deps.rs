@@ -32,6 +32,111 @@ pub fn history_text(root: &Path) -> String {
     }
     o
 }
+/// Generator state for the bench line: `PHYSIS_MODEL` + oracle presence.
+/// The loop is coherent with `none` (extractive/manual path); `local` needs
+/// `PHYSIS_ORACLE_*` pointed at localhost or it degrades the same way.
+pub fn generator_state() -> String {
+    match std::env::var("PHYSIS_MODEL").ok().as_deref().map(str::trim) {
+        Some("none") | None | Some("") => {
+            if crate::ported::oracle::configured().is_some() {
+                "local (oracle configured)".to_string()
+            } else {
+                "none (deterministic/manual path)".to_string()
+            }
+        }
+        Some("local") => {
+            if crate::ported::oracle::configured().is_some() {
+                "local (oracle configured)".to_string()
+            } else {
+                "local (requested, no oracle configured — manual path)".to_string()
+            }
+        }
+        Some(other) => format!("{other} (unrecognised — manual path)"),
+    }
+}
+
+/// On-disk size of a state dir (index + caches + logs): the honest
+/// denominator for the "how much workspace needed recompute" claim.
+pub fn walkdir_size(dir: &std::path::Path) -> u64 {
+    walkdir::WalkDir::new(dir)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
+}
+
+/// Measured offline performance numbers — scan cost, index size,
+/// query/propagation latency. Every figure is measured in-process or read
+/// from the on-disk state; nothing projected. Shared by the REPL `bench`
+/// command and the HUD `B` view; `slice_summary` is
+/// `(candidate_tokens, final_tokens)` when the caller has a slice in force.
+pub fn bench_text(
+    ws: &mut crate::nav::workspace::NavWorkspace,
+    root: &Path,
+    provider: &str,
+    intent: &str,
+    slice_summary: Option<(usize, usize)>,
+) -> String {
+    let t0 = std::time::Instant::now();
+    let files = crate::scanner::scan_project(root, None);
+    let scan_ms = t0.elapsed().as_millis();
+    let t1 = std::time::Instant::now();
+    let weights = crate::nav::NavWeights::default();
+    let (qhits, _mode) = ws.query(intent, true, &weights, 20).unwrap_or((
+        vec![],
+        crate::nav::RetrievalMode {
+            semantic: false,
+            embedder: provider.to_string(),
+            indexed_objects: ws.index().objects.len(),
+        },
+    ));
+    let query_ms = t1.elapsed().as_millis();
+    let t2 = std::time::Instant::now();
+    let hit_paths: Vec<String> = qhits
+        .iter()
+        .take(3)
+        .map(|h| {
+            h.object
+                .source
+                .as_ref()
+                .map(|s| s.path.clone())
+                .unwrap_or_else(|| h.object.label.clone())
+        })
+        .collect();
+    let syms = changed_symbols(root, &hit_paths);
+    let affected = affected_dependents(root, &hit_paths, &syms);
+    let prop_ms = t2.elapsed().as_millis();
+    let data_dir = std::env::var("PHYSIS_DATA_DIR").unwrap_or_else(|_| "<unset>".into());
+    let index_bytes: u64 = walkdir_size(std::path::Path::new(&data_dir));
+    let (cand, fin) = slice_summary.unwrap_or((0, 0));
+    let excluded = if cand > 0 {
+        100.0 * (cand - fin) as f64 / cand as f64
+    } else {
+        0.0
+    };
+    let mut o = String::new();
+    o.push_str("── BENCH (measured, this machine, offline) ──\n");
+    o.push_str(&format!(
+        "files scanned now: {} in {scan_ms} ms (stat fast path after first index)\n",
+        files.len()
+    ));
+    o.push_str(&format!("objects indexed: {}\n", ws.index().objects.len()));
+    o.push_str(&format!("index size on disk: {index_bytes} bytes ({data_dir})\n"));
+    o.push_str(&format!("query latency (nav, 20 hits): {query_ms} ms\n"));
+    o.push_str(&format!(
+        "propagation latency (3-file dependents): {prop_ms} ms, {} affected\n",
+        affected.len()
+    ));
+    o.push_str(&format!(
+        "slice in force: {cand} → {fin} tokens ({excluded:.1}% excluded)\n"
+    ));
+    o.push_str(&format!("embedder: {provider} · generator: {}\n", generator_state()));
+    o.push_str("network: OFFLINE (no cloud, no telemetry, no downloads)\n");
+    o
+}
+
 /// Dependents of `changed`: files that *reference* the changed symbols or module.
 ///
 /// The rule is deliberately precision-first, and it was measured before it was
