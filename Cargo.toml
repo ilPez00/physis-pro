@@ -206,6 +206,11 @@ name = "physis-pro-wiki"
 required-features = ["tui"]
 path = "src/bin/wiki.rs"
 
+[[bin]]
+name = "physis-hud"
+required-features = ["tui"]
+path = "src/bin/hud.rs"
+
 # physis-core lives as a subdirectory and is also published as its own crate;
 # this workspace lets `cargo` build/test both the monolith and the core together
 # (resolver 2 keeps feature unification per-target, so physis_pro's
