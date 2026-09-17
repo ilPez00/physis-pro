@@ -56,12 +56,19 @@ lfm2.5). C/D arms need an explicit model decision at MS-005 time.
 - Embedder cascade order BGE → BGE-M3 → CLIP → MiniLM → random-projection;
   `answer.py:127-137` records actual kind into results.
 
-## Infrastructure gaps (blockers for full Q6, not for this manifest)
+## Infrastructure gaps (updated 2026-09-17)
 
-- No release binary (`target/release/physis-pro` absent); debug binary present.
-  Harness needs `cargo build --release --features mcp,cli --bin physis-pro`.
-- No dev licence (`.physis-bench/license.key` absent); needs physis-dev-license run.
-- No `qwen3:4b` locally; C/D arms need model selection + endpoint.
+- ~~No semantic embedder~~ FIXED: `src/embed/ollama.rs` (`OllamaEmbedder`,
+  `/api/embed`, reqwest blocking, no new deps) wired into `select_embedder`
+  (`src/embed/mod.rs`) + web server cascade (`src/web/mod.rs`), self-test
+  gated, `PHYSIS_OLLAMA_EMBED_URL/MODEL` env, `PHYSIS_OLLAMA_EMBED_OFF=1`
+  opt-out. `nomic-embed-text` (137M, 274MB, CPU) passes self-test 3/3 probes
+  (related 0.914/0.789/0.600 vs unrelated 0.469/0.418/0.309).
+- Baseline rerun with semantic arm: hit@5 rp 0/7 → ollama-embed 3/7 (+0.43
+  discrimination; HIT: budget-packing rank 1, structure-recovery rank 1,
+  cascade-selection rank 4). Harness no longer self-reports non-discriminating.
+- C/D arms still need model selection (no `qwen3:4b` on pansa; omo has it at
+  `100.116.39.57:11434`).
 - MS-002 oracle (mutation replay) absent → independent changed-output labels
   for Q1/Q7 unavailable; Q6 utility labels must come from past answer.py-style
   gates only, never test answers.

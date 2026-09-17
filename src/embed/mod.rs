@@ -272,6 +272,8 @@ pub mod jina;
 #[cfg(feature = "embed-onnx")]
 pub mod registry;
 
+pub mod ollama;
+
 /// Whether an operator explicitly asked for the offline random-projection
 /// embedder, given the raw `PHYSIS_EMBEDDER` value.
 ///
@@ -309,6 +311,20 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
             Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
             "random-projection",
         );
+    }
+
+    // Ollama embedding backend (default `nomic-embed-text:latest` on
+    // localhost:11434): 137M params, ~274 MB, CPU-friendly, dim 768. Tried
+    // before the ONNX legs because the weights are usually absent while the
+    // server is already up. Self-test gated like every other candidate; a
+    // down server or a garbage model falls through silently. Opt out with
+    // `PHYSIS_OLLAMA_EMBED_OFF=1`.
+    // ponytail: one env check inline; a config-file knob if a second caller needs it.
+    if std::env::var("PHYSIS_OLLAMA_EMBED_OFF").ok().as_deref() != Some("1") {
+        let o = ollama::OllamaEmbedder::from_env();
+        if super::embed::semantic_self_test(&o) {
+            return (Box::new(o), "ollama-embed");
+        }
     }
 
     #[cfg(feature = "embed-onnx")]

@@ -1473,6 +1473,22 @@ pub struct AskRequest {
     top_k: usize,
 }
 
+/// GET /api/v1/concepts/search — plain-English conceptual search over the
+/// tenant's coherence nodes (PLAN 11C). Embeds the query with the shared
+/// embedder, ranks labeled nodes by cosine, then re-ranks by the quality
+/// tracker's `cell_standing` (penalized cells sink, boosted cells rise) and
+/// groups hits by effective cell. `threshold` is the raw-cosine floor before
+/// salience applies (default 0.0); both `score` and `adjusted` ship so the
+/// promotion is visible.
+#[derive(Deserialize)]
+pub struct ConceptSearchQuery {
+    query: String,
+    #[serde(default)]
+    threshold: Option<f32>,
+    #[serde(default)]
+    limit: Option<usize>,
+}
+
 pub(crate) fn default_ask_topk() -> usize {
     8
 }
@@ -2207,6 +2223,21 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "random-projection",
         )
     } else {
+        // Ollama embedding backend (nomic-embed-text, 137M, CPU-friendly):
+        // tried before the ONNX legs, self-test gated. Opt out with
+        // PHYSIS_OLLAMA_EMBED_OFF=1.
+        let try_ollama = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+            if std::env::var("PHYSIS_OLLAMA_EMBED_OFF").ok().as_deref() == Some("1") {
+                return None;
+            }
+            let o = crate::embed::ollama::OllamaEmbedder::from_env();
+            if embedder_self_test(&o) {
+                Some((Box::new(o), "ollama-embed"))
+            } else {
+                log::warn!("ollama embedder failed the semantic self-test — skipping to ONNX cascade.");
+                None
+            }
+        };
         #[cfg(feature = "embed-onnx")]
         {
             // BGE-base-en-v1.5 (768-d). Loads `onnx/model.onnx` + tokenizer from
@@ -2253,7 +2284,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                     }
                 })
             };
-            // Try the configured primary embedder, then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
+            // Try the ollama backend, then the configured primary embedder,
+            // then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
             let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
                 let ec = config.embedders.primary.as_ref()?;
                 if !ec.enabled {
@@ -2297,6 +2329,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 }
             };
             gate(try_primary())
+                .or_else(try_ollama)
                 .or_else(|| {
                     gate({
                         let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
@@ -2332,10 +2365,12 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         }
         #[cfg(not(feature = "embed-onnx"))]
         {
-            (
-                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
-                "random-projection",
-            )
+            try_ollama().unwrap_or_else(|| {
+                (
+                    Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                    "random-projection",
+                )
+            })
         }
     };
     let embed_dim = embedder.dimension();
@@ -3010,6 +3045,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             get(content::content_section_handler),
         )
         .route("/api/v1/ask", post(search::ask_handler))
+        .route(
+            "/api/v1/concepts/search",
+            get(search::concepts_search_handler),
+        )
         // One drawable graph: nodes, recorded + derived edges, communities.
         .route("/api/v1/atlas/graph", get(atlas::atlas_graph_handler))
         // Notebooks: dashboards the user composes. The registry route sits
