@@ -1,0 +1,200 @@
+{
+  "root": "physis-core/src",
+  "budget": 3000,
+  "pack_embedder": "ollama-embed",
+  "arms": {
+    "C": {
+      "status": "ok",
+      "context": "packed",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11122,
+          "prompt_tokens": 2949,
+          "seconds": 66.2,
+          "answer": "The engine picks which embedding model to use based on the `model_dir` parameter passed to `run_with_model` and the `PHYSIS_EMBEDDER` environment variable. It refuses models that load but produce nonsense by using the `semantic_self_test` function to check if the embedding model passes a semantic test - if it fails, the model is considered to produce nonsense.\n\nKey identifiers:\n- `run_with_model`: Function that takes a model directory parameter\n- `PHYSIS_EMBEDDER`: Environment variable that can override the embedding model\n- `semantic_self_test`: Function that checks if the embedding model passes a semantic test (failure indicates nonsense output)"
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES",
+            "cosine"
+          ],
+          "context_chars": 11294,
+          "prompt_tokens": 3193,
+          "seconds": 95.8,
+          "answer": "The answer to the question \"what stops a word-counting fake from being mistaken for a model that understands meaning\" is that it is explicitly designed to be **\"NO MODEL EVER\"**\u2014it is a pure counting method that does not use any machine learning models. \n\nThis is clearly stated in the context: \"each word's vector is built by counting: random indexing with PPMI weighting over a co-occurrence window, from the corpus itself. NO MODEL EVER, at build time or query time.\"\n\nThe key identifiers involved are:\n- **`table-count`**: The method (a counting-based approach for word vectors).\n- **`word_table_count`**: The function (the implementation of the counting method).\n- **`PPMI`**: The weighting method (Preferred Probabilistic Measure of Inclusion, used for weighting in the counting process).\n\nThese elements collectively ensure that the approach is a simple, model-free counting technique, not a model that learns meaning. The phrase \"NO MODEL EVER\" emphasizes that no machine learning models are involved\u2014only statistical counting and weighting based on co-occurrence windows from the corpus.\n\nThis distinguishes it from models that learn semantic meaning (e.g., neural networks), which would be mistaken for understanding meaning if they were used in this context. Here, the system is intentionally non-model-based to avoid such confusion."
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever",
+            "budget"
+          ],
+          "context_chars": 11480,
+          "prompt_tokens": 3195,
+          "seconds": 107.3,
+          "answer": "The answer is: They use fixed-size batches (EMBED_BATCH = 32) to process the corpus, which helps prevent memory overflow regardless of corpus size.\n\nThis is based on the context where the code for `RagCorpus::build` uses `text.chunks(EMBED_BATCH)` to process the corpus in fixed-size batches of 32 items. The relevant comment in the context states: \"Embedding is submitted in fixed-size batches rather than one call per corpus. A single ONNX call over a thousand 512-token sequences allocates activations for all of them at once and is killed by the OOM reaper on an ordinary machine; batching bounds peak memory independently of corpus size, at no cost in throughput.\"\n\nThis batching approach ensures that memory usage remains manageable even when the corpus is very large, by processing data in smaller, controlled chunks rather than making a single large call that could cause memory overflow."
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12033,
+          "prompt_tokens": 3240,
+          "seconds": 187.6,
+          "answer": "The context states: \"The comparison of two numbers is not a number.\" This explicitly indicates that the result of comparing two numbers is not a numerical value. \n\nThe question asks: \"What is the result of comparing two numbers?\"\n\nBased on the context, the answer is: **not a number**. \n\nThis directly aligns with the given context, which defines the outcome of the comparison as non-numeric. \n\n**Final Answer**: not a number"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11180,
+          "prompt_tokens": 3069,
+          "seconds": 113.0,
+          "answer": "Based on the context provided, near-duplicate documents are grouped into clusters, and statements that disagree are flagged using the `ContradictionPair` struct with specific conditions:\n\n1. **Grouping near-duplicate documents**: Documents are grouped by their paths using the `cluster` structure. This is indicated by the comment \"(README: dedup must not hide disagreement)\" which suggests they handle duplicates through clustering.\n\n2. **Flagging statements that disagree**: Statements that disagree are flagged using the `ContradictionPair` struct with conditions based on:\n   - **Lexical overlap** (minimum 0.5)\n   - **Cosine similarity** (less than 0.55)\n   - **Negation hits** (differing)\n   - **Numeric values** (clashing)\n\nThe key identifiers from the context are:\n- `cluster` (for grouping)\n- `ContradictionPair` (for flagging disagreements)\n- `lexical_overlap`, `cosine`, `negation_hits`, `decimal_number` (for the conditions)\n\nThis approach ensures that near-duplicate documents are handled in clusters, and disagreements are detected using a combination of textual and numerical similarity metrics."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12161,
+          "prompt_tokens": 3138,
+          "seconds": 98.2,
+          "answer": "The context provided does not contain specific information about how probabilities are calculated from shorter fragments when a phrase was never seen at full length. While the context mentions tokenization processes (e.g., \"packed 2995/3000 tokens from 12 chunks (1032 candidates over 68 files, 1020 dropped)\"), it does not explicitly explain the probability calculation mechanism for partial phrases or fragments. The sections related to `extract_noun_phrases`, `is_current`, and `concurrent` functions describe text processing and claim validity checks but do not address the specific question about probability generation from incomplete phrases. Therefore, the context lacks sufficient details to answer this query."
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11429,
+          "prompt_tokens": 3035,
+          "seconds": 35.4,
+          "answer": "Based on the context provided, the system ensures a downloaded weights file wasn't tampered with through a cryptographic hash verification process. \n\nThe specific implementation shows that the system:\n\n1. Initializes a cryptographic hash object (`hasher`)\n2. Updates the hash with the file path bytes\n3. Reads the file in chunks\n4. Updates the hash with each chunk of file data\n5. Creates a final fingerprint from the hash\n\nThe key identifiers involved in this process are:\n- `hasher` (the cryptographic hash object used to compute the file's integrity)\n- `fingerprint` (the final hash value stored as the verification token)\n\nThis mechanism works by generating a unique cryptographic fingerprint of the file that can be compared against a known good fingerprint. If the fingerprints match, it confirms the file wasn't tampered with during download. The context shows this is implemented in the `Snapshot` struct where the `fingerprint` is created from the final hash value using `format!(\"{:x}\", hasher.finalize())`.\n\nThe system uses this fingerprint verification to ensure downloaded weights files maintain integrity before being used."
+        }
+      ]
+    },
+    "D": {
+      "status": "ok",
+      "context": "naive",
+      "tier": "small",
+      "model": "qwen3:4b",
+      "passes": 0,
+      "scored": 7,
+      "errors": 0,
+      "cases": 7,
+      "rate": 0.0,
+      "rows": [
+        {
+          "id": "cascade-selection",
+          "pass": false,
+          "missing": [
+            "semantic_self_test",
+            "SEMANTIC_PROBE_MARGIN"
+          ],
+          "context_chars": 11122,
+          "prompt_tokens": 2709,
+          "seconds": 107.5,
+          "answer": "The context does not provide enough information to fully answer the question about how the engine refuses models that load but produce nonsense. \n\nWhile the context mentions that the engine uses a `VectorEmbed` trait as a seam for embedding models with the default implementation being `RandomProjectionEmbedder`, and that the ONNX MiniLM embedder falls back to deterministic random projection when the model is unavailable, there is no explicit information about the engine's mechanism for refusing models that load but produce nonsense. The context also does not detail the model selection process beyond the default implementation.\n\nTherefore, the answer to the question is not fully covered by the provided context."
+        },
+        {
+          "id": "probe-discrimination",
+          "pass": false,
+          "missing": [
+            "SEMANTIC_PROBES",
+            "cosine"
+          ],
+          "context_chars": 11294,
+          "prompt_tokens": 2742,
+          "seconds": 105.1,
+          "answer": "After thoroughly reviewing the provided context, I cannot identify a direct answer to the question of what stops a word-counting fake from being mistaken for a model that understands meaning. \n\nThe context describes several relevant components of Physis (e.g., semiotic grids in `classify.rs`, ontology systems in `ontology.rs`, and vector-space negative examples in `quality.rs`), but it does not explicitly state what mechanism or measurement distinguishes simple word counters from models that truly understand meaning. \n\nSpecifically:\n- `nlq.rs` mentions \"a measurement that says a cue parser is not enough to be one,\" which could be relevant to distinguishing simple parsers from meaningful models, but it doesn't explicitly define this measurement or how it applies to word-counting fakes.\n- `embed_ngram.rs` describes n-grams as \"compositional lexical units,\" which might relate to how meaning is constructed, but it doesn't directly address the distinction between word-counting fakes and meaningful models.\n\nThe context provides enough background to infer that Physis uses semantic and ontological systems for meaning, but it does not explicitly state what stops a word-counting fake from being mistaken for a model that understands meaning. \n\nTherefore, the answer is **NOT IN CONTEXT**."
+        },
+        {
+          "id": "budget-packing",
+          "pass": false,
+          "missing": [
+            "TokenFixedRetriever",
+            "budget"
+          ],
+          "context_chars": 11480,
+          "prompt_tokens": 2786,
+          "seconds": 19.6,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "reference-model-absent",
+          "pass": false,
+          "missing": [
+            "not_configured",
+            "from_env"
+          ],
+          "context_chars": 12033,
+          "prompt_tokens": 2912,
+          "seconds": 18.2,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "structure-recovery",
+          "pass": false,
+          "missing": [
+            "NEGATION_MARKERS",
+            "build_map"
+          ],
+          "context_chars": 11180,
+          "prompt_tokens": 2716,
+          "seconds": 94.3,
+          "answer": "Based on the context provided, near-duplicate documents are grouped using n-gram tables (from `physis-core/src/ngram_table.rs`), and statements that disagree are flagged through the contradiction handling system (from `physis-core/src/contradiction.rs`). \n\nThis is supported by the following evidence in the context:\n- `physis-core/src/ngram_table.rs` describes n-gram tables that function as \"token 'molecules'\" for compositional lexical units, which would be used to identify near-duplicate documents.\n- `physis-core/src/contradiction.rs` explicitly handles \"explicit representation of conflicting claims,\" which directly addresses how statements that disagree are flagged.\n\nThe context doesn't provide detailed implementation specifics for either process, but these modules represent the core components of the system for these tasks."
+        },
+        {
+          "id": "sparse-counts",
+          "pass": false,
+          "missing": [
+            "backoff",
+            "alpha"
+          ],
+          "context_chars": 12161,
+          "prompt_tokens": 2942,
+          "seconds": 30.6,
+          "answer": "NOT IN CONTEXT"
+        },
+        {
+          "id": "artifact-integrity",
+          "pass": false,
+          "missing": [
+            "sha256",
+            "checksum"
+          ],
+          "context_chars": 11429,
+          "prompt_tokens": 2776,
+          "seconds": 15.6,
+          "answer": "NOT IN CONTEXT"
+        }
+      ]
+    }
+  }
+}
