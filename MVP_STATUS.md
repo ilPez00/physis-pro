@@ -78,7 +78,7 @@ Text tree of directory → file → object, each row with its score and the exac
 Operations: `zoom/open`, `back`, `search`, `focus`, `context`, `related`,
 `dependencies`, `differences`, `contradictions`, `history`, `inspect`,
 `edit`, `rescan`, `bench` (HUD: `physis-hud` adds `e` edit, `u` rescan,
-`H` history, `B` bench, `●/◐/·` markers, key legend).
+`H` history, `B` bench, `D` dependents, `C` contradictions, `●/◐/·` markers, key legend).
 
 `PHYSIS_MODEL=none` (default) = coherent with no generator: the notebook
 degrades to extractive, `context` prints `generator: none`, and the packet
