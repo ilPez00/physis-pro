@@ -143,6 +143,13 @@ pub struct Acted {
     pub duration_ms: u64,
     pub stdout_lines: usize,
     pub stderr_tail: String,
+    /// Last lines of stdout, bounded. Carried so a caller can *show* what a
+    /// validation actually said instead of only how many lines it printed —
+    /// the difference between reporting a diff and reporting that a diff
+    /// command exited 0. Serde-defaulted: records written before this field
+    /// existed still load.
+    #[serde(default)]
+    pub stdout_tail: String,
     /// Claims that bear on this command, most relevant first.
     pub bearing: Vec<Bearing>,
     /// Sequence numbers of the observations this produced.
@@ -178,7 +185,9 @@ impl Acted {
         o.push_str(&format!(
             "── RAN ──\n{}\nexit {} · {:.1}s · {} line(s) out\n",
             self.command,
-            self.exit_code.map(|c| c.to_string()).unwrap_or_else(|| "signal".into()),
+            self.exit_code
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "signal".into()),
             self.duration_ms as f64 / 1000.0,
             self.stdout_lines
         ));
@@ -317,7 +326,11 @@ pub fn bearing_on_with(
             status: format!("{:?}", h.status),
             statement: h.statement.clone(),
             relevance: physis_core::models::cosine_sim(&q, &h.embedding),
-            open_predictions: h.predictions.iter().filter(|p| p.observed_at.is_none()).count(),
+            open_predictions: h
+                .predictions
+                .iter()
+                .filter(|p| p.observed_at.is_none())
+                .count(),
         })
         .filter(|b| b.relevance.is_finite())
         .collect();
@@ -415,31 +428,45 @@ pub fn bearing_on_with(
 /// The intent observation is written first and on purpose: a command that hangs,
 /// is killed, or takes the machine down still leaves a record that it was
 /// attempted. A log that only records completions cannot explain a crash.
-pub fn run(
-    command: &str,
-    bearing: Vec<Bearing>,
-    log: &std::path::Path,
-) -> anyhow::Result<Acted> {
+pub fn run(command: &str, bearing: Vec<Bearing>, log: &std::path::Path) -> anyhow::Result<Acted> {
     let mut intent = physis_core::observe::Observation::new("action", command)
         .with_body("intent")
         .by("act");
     let (first, _) = physis_core::observe::append(log, std::slice::from_mut(&mut intent))?;
 
     let started = std::time::Instant::now();
-    let out = std::process::Command::new("sh").arg("-c").arg(command).output()?;
+    let out = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()?;
     let duration_ms = started.elapsed().as_millis() as u64;
 
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     let stderr_tail: String = stderr.lines().rev().take(3).collect::<Vec<_>>().join(" | ");
+    // Bounded deliberately: this is for showing an operator what a command
+    // said, not for buffering its whole output into a record. Ten lines is
+    // enough for a diff summary, a test summary or a compiler error.
+    let stdout_tail: String = {
+        let mut v: Vec<&str> = stdout.lines().rev().take(10).collect();
+        v.reverse();
+        v.join("\n")
+    };
 
     let mut outcome = physis_core::observe::Observation::new("action", command)
         .with_body(format!(
             "exit {} · {} out / {} err line(s){}",
-            out.status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".into()),
+            out.status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "signal".into()),
             stdout.lines().count(),
             stderr.lines().count(),
-            if stderr_tail.is_empty() { String::new() } else { format!(" · {stderr_tail}") }
+            if stderr_tail.is_empty() {
+                String::new()
+            } else {
+                format!(" · {stderr_tail}")
+            }
         ))
         .by("act");
     outcome.duration_ms = Some(duration_ms);
@@ -451,6 +478,7 @@ pub fn run(
         duration_ms,
         stdout_lines: stdout.lines().count(),
         stderr_tail,
+        stdout_tail,
         bearing,
         observed: vec![first, second],
     })
@@ -460,7 +488,9 @@ pub fn run(
 /// than to a division by zero. A leg with no spread contributes nothing, which
 /// is the correct reading: it ranked nothing.
 fn minmax(xs: &mut [f32]) {
-    let (lo, hi) = xs.iter().fold((f32::MAX, f32::MIN), |(l, h), &x| (l.min(x), h.max(x)));
+    let (lo, hi) = xs
+        .iter()
+        .fold((f32::MAX, f32::MIN), |(l, h), &x| (l.min(x), h.max(x)));
     let span = hi - lo;
     if !(span.is_finite() && span > 0.0) {
         xs.iter_mut().for_each(|x| *x = 0.0);
@@ -535,7 +565,10 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert_eq!(all[0].body, "intent", "intent must be written first");
         assert!(all[1].body.starts_with("exit 0"));
-        assert!(all[1].duration_ms.is_some(), "the outcome carries the runtime");
+        assert!(
+            all[1].duration_ms.is_some(),
+            "the outcome carries the runtime"
+        );
         assert_eq!(a.observed, vec![1, 2]);
     }
 
@@ -557,9 +590,15 @@ mod tests {
             relevance: 0.9,
             open_predictions: 0,
         };
-        let unscored = Bearing { open_predictions: 1, ..candidate.clone() };
+        let unscored = Bearing {
+            open_predictions: 1,
+            ..candidate.clone()
+        };
         assert!(refuted.is_warning());
-        assert!(!candidate.is_warning(), "relatedness alone must not interrupt");
+        assert!(
+            !candidate.is_warning(),
+            "relatedness alone must not interrupt"
+        );
         assert!(unscored.is_warning(), "an unkept promise is worth reading");
     }
 
@@ -569,7 +608,10 @@ mod tests {
     fn bearing_ranks_by_relevance() {
         let e = RandomProjectionEmbedder::new(128);
         let mut core = physis_core::core::PhysisCore::new();
-        for text in ["cargo test fails on this crate", "the kitchen needs painting"] {
+        for text in [
+            "cargo test fails on this crate",
+            "the kitchen needs painting",
+        ] {
             let mut h = Hypothesis::new(text, e.embed(text));
             h.add_supporting_evidence(Evidence::supports("x", "y"));
             core.hypotheses.insert(h.id.clone(), h);
@@ -583,6 +625,30 @@ mod tests {
         );
     }
 
+    /// The command's own last lines are carried, so a caller can show what a
+    /// validation said instead of only that it exited 0.
+    #[test]
+    fn the_stdout_tail_is_carried_bounded() {
+        let log = tmp("tail");
+        let a = run(
+            "for i in 1 2 3 4 5 6 7 8 9 10 11 12; do echo line-$i; done",
+            vec![],
+            &log,
+        )
+        .unwrap();
+        assert_eq!(a.stdout_lines, 12, "the count is still the real count");
+        let lines: Vec<&str> = a.stdout_tail.lines().collect();
+        assert_eq!(lines.len(), 10, "the tail is bounded to ten lines");
+        assert!(
+            a.stdout_tail.contains("line-12"),
+            "the tail is the *end* of stdout"
+        );
+        assert!(
+            !a.stdout_tail.contains("line-1\n"),
+            "the head is not carried"
+        );
+    }
+
     /// Warnings are a filter over bearing, not a separate list that can drift.
     #[test]
     fn warnings_are_a_subset_of_bearing() {
@@ -592,9 +658,22 @@ mod tests {
             duration_ms: 1,
             stdout_lines: 0,
             stderr_tail: String::new(),
+            stdout_tail: String::new(),
             bearing: vec![
-                Bearing { id: "a".into(), status: "Contradicted".into(), statement: "s".into(), relevance: 0.5, open_predictions: 0 },
-                Bearing { id: "b".into(), status: "Supported".into(), statement: "t".into(), relevance: 0.4, open_predictions: 0 },
+                Bearing {
+                    id: "a".into(),
+                    status: "Contradicted".into(),
+                    statement: "s".into(),
+                    relevance: 0.5,
+                    open_predictions: 0,
+                },
+                Bearing {
+                    id: "b".into(),
+                    status: "Supported".into(),
+                    statement: "t".into(),
+                    relevance: 0.4,
+                    open_predictions: 0,
+                },
             ],
             observed: vec![1, 2],
         };

@@ -34,6 +34,11 @@ pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
     "aura_venv",
     ".terraform",
     ".serverless",
+    // Physis's own state dir (sled store, nav index, transition log,
+    // transcripts). It is the observer, not the observed: scanning it counts
+    // our own bookkeeping as repository content and makes every diff see the
+    // log entry the last command just wrote.
+    ".physis",
 ];
 
 pub const BINARY_EXTENSIONS: &[&str] = &[

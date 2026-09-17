@@ -842,6 +842,36 @@ fn main() -> anyhow::Result<()> {
     // split) need the same fix here rather than relying on a caller that no
     // longer exists.
     physis_core::unbreak_pipes();
+    // MVP entry point (§1): `physis-pro <directory>` with no subcommand.
+    //
+    // Detected BEFORE clap, by asking clap itself which names are subcommands:
+    // a bare existing directory that is not a subcommand opens the world loop;
+    // everything else parses exactly as it always did. Doing it here rather than
+    // as an extra positional keeps the existing CLI surface byte-for-byte
+    // unchanged (an optional positional beside an optional subcommand made clap
+    // demand a value for every `physis-pro <subcommand>` call).
+    //
+    // No licence gate on this path: the loop reuses only the licence-free
+    // slices (`nav` index, `scanner`, `pack`, `act`, `physis_core::map`),
+    // exactly like `physis-pro system` and `physis-pro act`.
+    {
+        use clap::CommandFactory;
+        let argv: Vec<String> = std::env::args().skip(1).collect();
+        let is_subcommand = |name: &str| {
+            Cli::command()
+                .get_subcommands()
+                .any(|s| s.get_name() == name || s.get_all_aliases().any(|a| a == name))
+        };
+        if let Some(first) = argv.first() {
+            if !first.starts_with('-') && !is_subcommand(first) {
+                let dir = PathBuf::from(first);
+                if dir.is_dir() {
+                    let _license = physis_pro::license::load().ok();
+                    return physis_pro::mvp::repl::run(&dir);
+                }
+            }
+        }
+    }
     let cli = Cli::parse();
 
     // QA 8.7: schema discovery is documentation, not operation — answer it
@@ -862,9 +892,9 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Estimate token usage and scan/index time for a directory.
-    if let Commands::Estimate { dir } = cli.command
+    if let Commands::Estimate { dir } = &cli.command
     {
-        let dir = dir.unwrap_or_else(|| PathBuf::from("."));
+        let dir = dir.clone().unwrap_or_else(|| PathBuf::from("."));
         match estimate_project(&dir) {
             Ok(est) => {
                 println!("Estimate:");
@@ -892,7 +922,7 @@ fn main() -> anyhow::Result<()> {
     // licence — useful for diagnostics, triage, and reporting the licence and
     // embedder state itself.
     if !matches!(
-        cli.command,
+        &cli.command,
         Commands::Doctor
             | Commands::Benchmark { .. }
             | Commands::License { .. }
@@ -1169,7 +1199,7 @@ fn main() -> anyhow::Result<()> {
     };
     if let Some(feature) = required_feature {
         if !matches!(
-            cli.command,
+            &cli.command,
             Commands::Doctor | Commands::Selftest
         ) {
             let license = physis_pro::license::enforce();

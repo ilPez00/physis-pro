@@ -22,7 +22,11 @@ use crate::scanner::is_text_file;
 
 /// Lines per chunk. Small enough that a 4k budget holds several independent
 /// regions, large enough that a function usually survives intact.
-const CHUNK_LINES: usize = 40;
+///
+/// `pub` (not `pub(crate)`) because the `physis-hud` binary crate reads the
+/// same chunk shape for its workspace-denominator math — same counter, same
+/// windows, no second definition to drift.
+pub const CHUNK_LINES: usize = 40;
 
 /// Files above this size are skipped: a multi-megabyte generated file will
 /// dominate the corpus without carrying proportional meaning, and embedding it
@@ -61,6 +65,13 @@ pub struct PackResult {
     pub dropped: usize,
     /// Chunks considered in total.
     pub candidates: usize,
+    /// Tokens of every candidate chunk the walk produced, by the same counter
+    /// that enforced the budget. This is the "undifferentiated world" figure a
+    /// naive retriever would have handed the model: it is measured here, not
+    /// estimated by a caller, because a compression claim whose denominator is
+    /// invented is not a measurement. Serde-defaulted so existing JSON loads.
+    #[serde(default)]
+    pub candidate_tokens: usize,
     /// Files walked.
     pub files_scanned: usize,
 }
@@ -103,7 +114,7 @@ fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
 /// than a language allowlist: a corpus of docs, configs and logs is as valid a
 /// target as a code tree, and an allowlist would silently exclude it.
 fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
-    const SKIP_DIRS: [&str; 8] = [
+    const SKIP_DIRS: [&str; 9] = [
         ".git",
         "target",
         "node_modules",
@@ -112,6 +123,9 @@ fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
         "build",
         ".venv",
         "__pycache__",
+        // Physis's own state dir — the observer must not be part of the
+        // observed corpus (see `scanner::DEFAULT_EXCLUDE_DIRS`).
+        ".physis",
     ];
 
     let mut candidates = Vec::new();
@@ -307,6 +321,7 @@ pub fn pack(
             chunks: Vec::new(),
             dropped: 0,
             candidates: 0,
+            candidate_tokens: 0,
             files_scanned,
         };
     }
@@ -350,6 +365,7 @@ pub fn pack_cached(
             chunks: Vec::new(),
             dropped: 0,
             candidates: 0,
+            candidate_tokens: 0,
             files_scanned,
         };
     }
@@ -420,6 +436,9 @@ fn finish_pack(
         .collect();
 
     let context = assemble_context(&result, "\n\n---\n\n");
+    // Measured before selection: the tokens of every candidate window, i.e.
+    // what an unpriced retriever would have shipped.
+    let candidate_tokens: usize = candidates.iter().map(|c| count_tokens(&c.text)).sum();
 
     PackResult {
         // Report the packed total, not a recount of the joined string: the
@@ -430,6 +449,7 @@ fn finish_pack(
         budget,
         dropped: candidates.len().saturating_sub(chunks.len()),
         candidates: candidates.len(),
+        candidate_tokens,
         chunks,
         files_scanned,
     }
@@ -439,9 +459,10 @@ fn finish_pack(
 pub fn summarize(result: &PackResult) -> String {
     let mut out = String::new();
     out.push_str(&format!(
-        "packed {}/{} tokens from {} chunks ({} candidates over {} files, {} dropped)\n",
+        "packed {}/{} tokens of {} candidate tokens from {} chunks ({} candidates over {} files, {} dropped)\n",
         result.tokens,
         result.budget,
+        result.candidate_tokens,
         result.chunks.len(),
         result.candidates,
         result.files_scanned,

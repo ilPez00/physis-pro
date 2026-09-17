@@ -50,6 +50,7 @@ pub mod moonraker;
 pub mod moonraker_connect;
 pub mod network;
 pub mod notebook;
+pub mod nav;
 pub mod oee;
 pub mod ontology;
 pub mod ontology_graph;
@@ -140,6 +141,9 @@ pub use trie::DynamicVectorTrie;
 #[cfg(feature = "cli")]
 /// CLI application orchestrator.
 pub use cli::PhysisApp;
+
+/// MVP: repository-as-world closed loop over existing slices.
+pub mod mvp;
 
 pub mod semantic_delta;
 pub mod dependency;
