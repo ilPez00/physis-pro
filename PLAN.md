@@ -3390,3 +3390,135 @@ Kilo scaffold preserved, no worktree resets):**
 Success is a small reliable workflow with measured limits. It may contain no
 learned dynamics and no diffusion. Extra parameters, services and abstractions
 must justify themselves through behavior the smaller system cannot supply.
+
+## Phase 27 — Measured structure of change (2026-09-17)
+
+Status: planned; packets prepared, no agents launched. Research hypothesis only.
+This track follows correctness/replay work in Phases 22–23 and the bounded
+adaptive-document workflow in Phase 26; it does not displace their unfinished
+correctness, isolation, or release gates.
+
+Hypothesis: relations surviving meaningful transformations and coarse-graining
+may predict a sparse changing frontier. Test this before building an invariant
+spine. Heavy tails do not establish power laws; power laws do not establish
+criticality. Useful incremental computation does not require criticality.
+
+Priority within this track (dependencies override numeric ordering):
+
+| Priority | Packet | Deliverable / release condition |
+|---|---|---|
+| P0 | [MS-001](packets/MS-001-archaeology.md) | Archaeology and measurement contract |
+| P1 | [MS-002](packets/MS-002-mutation-replay.md) | Actual mutation replay and incremental correctness |
+| P1 | [MS-003](packets/MS-003-multiscale-relations.md) | Linguistic scales and relation survival |
+| P2 | [MS-004](packets/MS-004-distribution-analysis.md) | Distribution fitting and concentration |
+| P2 | [MS-005](packets/MS-005-sparse-evaluation.md) | Invariant barriers and sparse retrieval |
+| P3 | [MS-006](packets/MS-006-criticality.md) | Criticality, finite-size scaling and recurrence |
+| P4 | [MS-007](packets/MS-007-routing.md) | Outcome-grounded compute and model routing |
+| P5 | [MS-008](packets/MS-008-promotion.md) | Review evidence before minimal production promotion |
+
+Only MS-001 is initially eligible. After review, MS-002 and MS-003 may run
+in parallel in isolated workspaces. MS-004 and MS-005 may then run in parallel.
+MS-006 is observational, not a prerequisite for the scientific usefulness of
+MS-005. MS-007 requires real task outcomes. MS-008 is a conditional review,
+not automatic permission to modify production.
+
+The user's second E65–E70 sequence maps to MS-002/MS-004/MS-006 (critical
+structure), MS-003 (linguistic scales and relation families), MS-005 (spine and
+incremental avalanches), and MS-007 (routing). Existing E65–E70 research IDs
+remain untouched; these MS packet IDs prevent collisions.
+
+Shared agent contract:
+- Follow packets/PROTOCOL.md and AGENTS.md. Work on pansa via randomesh/SSH,
+  confirm checkout and submodule revisions, preserve pre-existing dirty files.
+- Use Physis history/pack/read against the actual checkout. Current MCP may
+  point at /home/gio/dev/physis-pro instead of /home/gio/physis_pro; verify root.
+- Ownership: own packet report plus research/multiscale/<packet-id>/ only for
+  implementation packets. Archaeology and promotion own reports only.
+  Production instrumentation needs a reviewed scope amendment before editing.
+- Freeze corpus manifest, hashes/revisions, train/validation/test split, seeds,
+  controls, estimands and acceptance tolerances before inspecting holdout.
+- A negative or inconclusive result can complete a research packet. It cannot
+  satisfy a positive promotion gate. Missing required data blocks dependent
+  execution. Reviewer must explicitly release dependencies.
+- Each report includes Evidence, Commands, Results, Limitations, Decision;
+  actual denominators, uncertainty and reproduction commands. Independent
+  review is mandatory; artifact existence is not experimental acceptance.
+- Never use research/criticality/run.py or results.json as evidence. Earlier
+  draft has self-comparison, leakage and incompatible likelihoods. Preserve
+  it pending an explicit cleanup decision; do not repair it by default.
+- No new invariant engine, broad production rewrite, model purchases, worker
+  launch, merge or deployment is authorized by preparing these packets.
+
+Proposed dispatch prompt: "Execute only packets/MS-NNN-<name>.md after its
+dependencies have reviewed reports and release decisions. Read PLAN.md Phase
+27 and packets/PROTOCOL.md. Confirm pansa workspace and ownership. Stop at the
+packet gate; write packets/reports/MS-NNN.md. Do not start another packet."
+
+### Quantitative event-stream methods (research extension)
+
+Detailed proposed Q1–Q8 protocols: [Quantitative event streams](research/QUANTITATIVE_EVENT_STREAMS.md).
+Readiness order: context allocation; change-points/EWMA; timestamped excitation;
+admissible cointegration; conditional factors/tail models; outcome-grounded routing.
+Existing MS packet gates and ownership remain unchanged. No experiments launched.
+
+## Phase 28 — Agentic integration as model-agnostic control plane (evaluation only, 2026-09-17)
+
+Status: evaluation, design-only. No implementation, worker launch, production
+edit, merge, deploy, or model purchase is authorized by this section. General
+guidelines apply (Phase 27 shared contract + packets/PROTOCOL.md + AGENTS.md):
+pansa workspace, confirm checkout and submodule revisions, preserve
+pre-existing dirty files, freeze manifests/splits/seeds/controls/tolerances
+before holdout, negative results are valid outcomes, independent review is
+mandatory, only a reviewer releases dependencies.
+
+### 28.0 Thesis, agentic-integration slice
+
+Physis owns the world representation; models are replaceable cognitive
+peripherals. Agent work runs through a shared representation space (coherence
+graph + causal ledger + task envelope + MCP transport), never through a
+worker's private transcript. Three pathways: symbolic→neural (compile the
+smallest relevant context from structure), neural→symbolic (model outputs as
+typed proposals with provenance and confidence, validated deterministically
+where possible), loop (unresolved region → cheapest sufficient compute →
+ingest → delta → propagate → validate → escalate only the remainder).
+Cheapest-cognition ladder: parser/rule → deterministic algorithm → statistics
+→ embedding → small model → large model/API → human.
+
+### 28.1 What exists (verified 2026-09-17 on pansa)
+
+| # | Piece | Location | Verdict vs thesis |
+|---|---|---|---|
+| 1 | Agent loop (ReAct over SSE, `MAX_TOOL_ROUNDS` 8, PDCA rails, cascade route + model override) | `src/ai/agent.rs:15,99-307,173-198` | Partial: loop recruits model + tools, but the prompt is system prompt + history + tool outputs — not the structured GOAL / STATE / DEPENDENCIES / CONSTRAINTS / INVARIANTS / UNRESOLVED / OPERATION / SCHEMA envelope. |
+| 2 | Curated tool registry (`graph_search`, `node_search`, `classify`, `coherence_register`/`coherence_edit`, `dream`, `opencode`; builtins cleared; unknown whitelist → 400) | `src/web/agent.rs:437-682,284-302` | Partial both directions: bounded retrieval packs exist (symbolic→neural), register/edit write typed nodes with embedder provenance (neural→symbolic) — but graph writes pass no proposal-validation gate. |
+| 3 | Answer harness gate (judges the final answer, attaches a verdict, never rewrites; `register_as_hypothesis` off for agent answers) | `src/web/agent.rs:878-905`; threshold default 0.60 in `src/ai/harness.rs:47-69` | Partial: answers judged, graph writes unjudged. |
+| 4 | MCP transport, 32 tools (`physis_pack/find/remember/recall/why/serve/causes/coherence_query/discover/themes`, …) | `src/mcp.rs` | Shared-space transport exists; pointer-bundle discipline (paths + line ranges + freshness) exists in the tools but is not enforced on the agent loop's own context. |
+| 5 | Delegation contract D0–D6 (versioned envelope, broker states, acceptance ≠ completion, worktree isolation, no auto-merge, free/local worker policy, broker-vs-direct baseline) | `docs/plans/2026-09-14-agent-delegation.md` | Closest to thesis: workers keep no truth (§3), acceptance is independent (§D4). D0/D1 implemented per that file's §12 note; adapters (D2/D3) not re-verified here. |
+| 6 | Relation layer: 15 `RelationType` variants with epistemic/causal/procedural families; `transform::Predicate` (Causes/Supports/Contradicts) | `physis-core/src/relation.rs:13-97`; `physis-core/src/transform.rs:19-37` | Partial vs the proposed 16: DEPENDS_ON, PRECEDES, CAUSES, PRODUCES, CONTRADICTS, SUPPORTS exist; CONTAINS, DEFINES, REFERENCES, TRANSFORMS, CALLS, READS, WRITES, CONSUMES, EQUIVALENT_TO, SATISFIES are not first-class. |
+| 7 | Human privileged: nav SAME/DIFFERENT/RELATED privileged ops; cell-pin hybrid; tenant-scoped runs + owner-checked abort; ledger `actor` field | `src/nav/mod.rs:1118`; `src/web/agent.rs:77-84,218-242`; `src/ledger.rs:27` | Same event model for human and model actions exists; privileged authority is not uniform across surfaces. |
+| 8 | Routing: provider cascade classifies the query | `src/ai/provider.rs:922-944` | Ladder missing: no parser→algo→stats→embed→small→large→human escalation with measured margins. |
+| 9 | Computer-state-as-graph | watch/vault/history/mail imports + ledger | Files only. AST, browser, process, device, task objects missing. |
+| 10 | Thesis metrics (context/token reduction, call reduction, deterministic %, incremental ratio, persistence across swaps, wrong-output recovery, provenance completeness, intent→verified-change time) | — | Not measured for the agent path. |
+
+### 28.2 Gaps ordered by demo value × research value
+
+1. Structured model-call envelope (GOAL / STATE / DEPENDENCIES / CONSTRAINTS / INVARIANTS / UNRESOLVED / OPERATION / SCHEMA) compiled from graph + ledger instead of a history dump. Biggest demo and research win; the Q6 allocation work measures the retrieval half.
+2. Proposal gate on graph writes: typed claim + provenance + deterministic validation before commit, human privileged override. Closes "answers judged, writes unjudged" (§28.1 rows 2–3).
+3. Cheapest-cognition router with measured escalation margins (deterministic first, small before large; replaceability test: swap the model, structure persists).
+4. Relation-layer extension: only the missing predicates with traceable mappings, plus mapping-destroyed controls per MS-003 discipline.
+5. Computer-state objects beyond files (AST / process / task first; browser / device later), each with provenance.
+6. Agent-path metrics: the nine thesis metrics with denominators and uncertainty.
+
+### 28.3 Proposed follow-ups (not authorized)
+
+AG-001 envelope compiler; AG-002 write gate; AG-003 cognition router; AG-004
+relation extension; AG-005 computer-state objects; AG-006 agent metrics. Each
+needs its own packet plus reviewer release, frozen manifest/splits/seeds/
+controls/tolerances before holdout, reuse of existing primitives, and an
+Evidence / Commands / Results / Limitations / Decision report. Negative
+results valid, never promote.
+
+### 28.4 Decision
+
+Phase 28 completes as evaluation. No code, worker, or promotion follows from
+this section. Next: reviewer confirms the citations above; the coordinator
+mints AG packets in dependency order (AG-001 first) when capacity allows.
