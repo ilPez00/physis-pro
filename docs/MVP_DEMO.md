@@ -43,14 +43,22 @@ The claim being demonstrated is not "Physis has an agent". It is:
 ## Run it
 
 ```bash
-# 1. build (no model files needed for the offline mode)
+# 1. build (default features include the local embedders)
 cargo build --bin physis-pro --features cli
 
-# 2. run the scripted demo; the transcript lands in <repo>/.physis/
-PHYSIS_EMBEDDER=random-projection scripts/mvp-demo.sh /path/to/repo
+# 2. prerun once with the semantic cascade (local ollama nomic-embed-text,
+#    self-test gated — offline, no cloud). Warms the index + embedding caches
+#    so the live demo starts incremental and fast.
+env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh /path/to/repo
+
+# 3. the live demo: same command, now warm (transcript lands in <repo>/.physis/)
+env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh /path/to/repo
+
+# lexical fallback only (deterministic, no model/server):
+# PHYSIS_EMBEDDER=random-projection scripts/mvp-demo.sh /path/to/repo
 
 # or drive it by hand, same loop, same commands:
-PHYSIS_EMBEDDER=random-projection ./target/debug/physis-pro /path/to/repo
+# env -u PHYSIS_EMBEDDER ./target/debug/physis-pro /path/to/repo
 ```
 
 Interactive commands (plain language also works for anything not in the list):
@@ -77,7 +85,8 @@ Environment:
 
 | variable | meaning |
 |---|---|
-| `PHYSIS_EMBEDDER=random-projection` | deterministic offline embedder (no model files, no network) |
+| `PHYSIS_EMBEDDER` unset | semantic cascade: local ollama `nomic-embed-text` (self-test gated), then ONNX legs, then `random-projection` fallback — still fully offline, no cloud |
+| `PHYSIS_EMBEDDER=random-projection` | deterministic lexical fallback (no model files, no server); every telemetry block prints the provider so the substitution is never silent |
 | `PHYSIS_MODEL=none` | no generator: deterministic/manual path (default). `local` = optional offline worker via `PHYSIS_ORACLE_*` → localhost; packet stays complete without it |
 | `PHYSIS_DATA_DIR` | where the index, caches and logs live (default `<repo>/.physis`) |
 | `PHYSIS_MVP_VALIDATE` | the validation command the action step runs (default `cargo test --quiet`) |
@@ -203,7 +212,7 @@ one cache per repository.
 ```bash
 # transcript + timings, no recorder needed
 cd ~/dev/physis-pro
-PHYSIS_BIN=$HOME/.local/bin/physis-pro PHYSIS_EMBEDDER=random-projection \
+PHYSIS_BIN=$HOME/.local/bin/physis-pro \
   scripts/mvp-demo.sh physis-core /tmp/DEMO.md
 
 # or record the interactive session
@@ -221,11 +230,11 @@ builds the index and says so).
 # clean state for the demo repository
 rm -rf <repo>/.physis
 
-# first run: builds the index, slow, says so
-PHYSIS_EMBEDDER=random-projection scripts/mvp-demo.sh <repo>
+# first run (prerun): semantic cascade builds the index, slow, says so
+env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh <repo>
 
 # second run: incremental, fast — this is the ≤2-minute demo
-PHYSIS_EMBEDDER=random-projection scripts/mvp-demo.sh <repo>
+env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh <repo>
 ```
 
 Two runs from a clean checkout are what the acceptance gate requires, and the
