@@ -8,7 +8,10 @@ pub mod model;
 pub mod repl;
 pub mod slice;
 
-pub use deps::{affected_dependents, changed_symbols, classify_intent, history_text};
+pub use deps::{
+    affected_dependents, bench_text, changed_symbols, classify_intent, generator_state,
+    history_text,
+};
 pub use log::{since_last_session_notice, TransitionLog};
 pub use model::{artifacts_of, Artifact, SemanticDelta};
 pub use repl::map_counts;

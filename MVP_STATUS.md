@@ -78,7 +78,7 @@ Text tree of directory → file → object, each row with its score and the exac
 Operations: `zoom/open`, `back`, `search`, `focus`, `context`, `related`,
 `dependencies`, `differences`, `contradictions`, `history`, `inspect`,
 `edit`, `rescan`, `bench` (HUD: `physis-hud` adds `e` edit, `u` rescan,
-`●/◐/·` markers, key legend).
+`H` history, `B` bench, `●/◐/·` markers, key legend).
 
 `PHYSIS_MODEL=none` (default) = coherent with no generator: the notebook
 degrades to extractive, `context` prints `generator: none`, and the packet
@@ -227,7 +227,7 @@ Neither Time Machine nor world-model training is built (deferred — see
 | `objects_remapped` is index churn | changed + added + \|object-count delta\|; not a claim about which semantics moved |
 | Validation is one command | chosen by the operator (`PHYSIS_MVP_VALIDATE`), not by a planner |
 | `history` without git | falls back to mtime order over the snapshot |
-| Interface is text | tree + panes in a REPL; no TUI. "Graphical beauty is explicitly post-MVP" |
+| Interface is text | tree + panes in the REPL; `physis-hud` TUI adds list + reading + why/context/delta panes, graph view, history and bench projections |
 | One writer per repository | the nav index is sled-backed, so two loops on the same repository conflict (`could not acquire lock … index.sled/db`). Observed on `feather` when a killed run left a session mid-flush; retrying succeeds. Run one loop per repo |
 
 Nonessential subsystems remain untouched and unbroken: the web console, voice,

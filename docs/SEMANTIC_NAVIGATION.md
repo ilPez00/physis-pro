@@ -149,6 +149,7 @@ legend is always present.
 Keys: `/` search · ↑↓ move · Enter zoom in · Esc zoom out (trail preserved) ·
 Space select · `p` pin two · `s`/`d`/`R` same/different/relates two · `g` graph view ·
 `H` history (git log, else mtime order — same projection as REPL `history`) ·
+`B` bench (measured scan/query/propagation numbers — same helper as REPL `bench`) ·
 `n` Notebook over selection · `r` related · `q` quit · Ctrl-C anywhere.
 
 Startup shows the REPL-banner facts (files · objects · cached sample map) plus

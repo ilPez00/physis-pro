@@ -1019,7 +1019,7 @@ impl Session {
         o.push_str("\nEXCLUDED\n");
         o.push_str(&format!("{excluded:.1}% of indexed workspace ({} of {ws_tokens} tokens, {} chunks, {} objects considered)\n", slice.final_tokens, ws_chunks, slice.objects_considered));
         o.push_str(&format!("workspace source: {ws_tokens} tokens · selected context: {} tokens · excluded: {excluded:.1}%\n", slice.final_tokens));
-        let gen = generator_state();
+        let gen = super::deps::generator_state();
         o.push_str(&format!("generator: {gen} — packet is complete without it\n"));
         let after = self.state_ref();
         self.record(&slice.intent, "context", CompactDelta { no_change: true, ..Default::default() }, vec![], format!("packet {} tokens", slice.final_tokens), targets, before, after, 0.1);
@@ -1028,37 +1028,19 @@ impl Session {
     }
 
     /// `bench`: real offline performance numbers — scan cost, index size,
-    /// query/propagation latency. Every figure is measured in-process or read
-    /// from the on-disk state; nothing projected.
+    /// query/propagation latency. Measured by the shared `deps::bench_text`
+    /// helper (same numbers the HUD `B` view reports).
     pub fn bench(&mut self) -> String {
-        let t0 = std::time::Instant::now();
-        let files = crate::scanner::scan_project(&self.root, None);
-        let scan_ms = t0.elapsed().as_millis();
-        let t1 = std::time::Instant::now();
-        let weights = NavWeights::default();
-        let q = self.last_slice.as_ref().map(|s| s.intent.clone()).unwrap_or_else(|| "bench".to_string());
-        let (qhits, _mode) = self.ws.query(&q, true, &weights, 20).unwrap_or((vec![], crate::nav::RetrievalMode { semantic: false, embedder: self.provider.clone(), indexed_objects: self.ws.index().objects.len() }));
-        let query_ms = t1.elapsed().as_millis();
-        let t2 = std::time::Instant::now();
-        let hit_paths: Vec<String> = qhits.iter().take(3).map(|h| h.object.source.as_ref().map(|s| s.path.clone()).unwrap_or_else(|| h.object.label.clone())).collect();
-        let syms = changed_symbols(&self.root, &hit_paths);
-        let affected = affected_dependents(&self.root, &hit_paths, &syms);
-        let prop_ms = t2.elapsed().as_millis();
-        let data_dir = std::env::var("PHYSIS_DATA_DIR").unwrap_or_else(|_| "<unset>".into());
-        let index_bytes: u64 = walkdir_size(std::path::Path::new(&data_dir));
-        let mut o = String::new();
-        o.push_str("── BENCH (measured, this machine, offline) ──\n");
-        o.push_str(&format!("files scanned now: {} in {scan_ms} ms (stat fast path after first index)\n", files.len()));
-        o.push_str(&format!("objects indexed: {}\n", self.ws.index().objects.len()));
-        o.push_str(&format!("index size on disk: {index_bytes} bytes ({data_dir})\n"));
-        o.push_str(&format!("query latency (nav, 20 hits): {query_ms} ms\n"));
-        o.push_str(&format!("propagation latency (3-file dependents): {prop_ms} ms, {} affected\n", affected.len()));
-        o.push_str(&format!("slice in force: {} → {} tokens ({:.1}% excluded)\n",
-            self.last_slice.as_ref().map(|s| s.candidate_tokens).unwrap_or(0),
-            self.last_slice.as_ref().map(|s| s.final_tokens).unwrap_or(0),
-            self.last_slice.as_ref().map(|s| if s.candidate_tokens > 0 { 100.0 * (s.candidate_tokens - s.final_tokens) as f64 / s.candidate_tokens as f64 } else { 0.0 }).unwrap_or(0.0)));
-        o.push_str(&format!("embedder: {} · generator: {}\n", self.provider, generator_state()));
-        o.push_str("network: OFFLINE (no cloud, no telemetry, no downloads)\n");
+        let q = self
+            .last_slice
+            .as_ref()
+            .map(|s| s.intent.clone())
+            .unwrap_or_else(|| "bench".to_string());
+        let slice_summary = self
+            .last_slice
+            .as_ref()
+            .map(|s| (s.candidate_tokens, s.final_tokens));
+        let o = super::deps::bench_text(&mut self.ws, &self.root, &self.provider, &q, slice_summary);
         self.say("bench", &o);
         o
     }
@@ -1166,38 +1148,6 @@ fn shell_quote(s: &str) -> String {
 /// deterministic/manual path, coherent without any model; `local` = the
 /// optional offline worker behind `PHYSIS_ORACLE_*` pointed at localhost.
 /// Anything else is reported verbatim — never assumed usable.
-fn generator_state() -> String {
-    match std::env::var("PHYSIS_MODEL").ok().as_deref().map(str::trim) {
-        Some("none") | None | Some("") => {
-            if crate::ported::oracle::configured().is_some() {
-                "local (oracle configured)".to_string()
-            } else {
-                "none (deterministic/manual path)".to_string()
-            }
-        }
-        Some("local") => {
-            if crate::ported::oracle::configured().is_some() {
-                "local (oracle configured)".to_string()
-            } else {
-                "local (requested, no oracle configured — manual path)".to_string()
-            }
-        }
-        Some(other) => format!("{other} (unrecognised — manual path)"),
-    }
-}
-
-/// On-disk size of a state dir (index + caches + logs): the honest
-/// denominator for the "how much workspace needed recompute" claim.
-fn walkdir_size(dir: &std::path::Path) -> u64 {
-    walkdir::WalkDir::new(dir)
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .filter_map(|e| e.metadata().ok())
-        .map(|m| m.len())
-        .sum()
-}
-
 pub fn run(root: &Path) -> anyhow::Result<()> {
     let mut s = open(root)?;
     print!("{}", s.startup_banner());
