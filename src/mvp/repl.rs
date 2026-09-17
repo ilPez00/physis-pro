@@ -604,38 +604,11 @@ impl Session {
     }
 
     /// Recent changes: git log when available, else hash-snapshot note.
+    /// Body by the shared `history_text` helper (same past the HUD `H`
+    /// view reports); the session recording stays here.
     pub fn recent(&mut self) -> anyhow::Result<String> {
         let before = self.state_ref();
-        let out = std::process::Command::new("git")
-            .args([
-                "-C",
-                &self.root.to_string_lossy(),
-                "log",
-                "--oneline",
-                "-15",
-                "--",
-                ".",
-            ])
-            .output();
-        let mut o = String::new();
-        match out {
-            Ok(res) if res.status.success() => {
-                o.push_str(&String::from_utf8_lossy(&res.stdout));
-            }
-            _ => {
-                o.push_str("(no git history here; filesystem snapshot is the record)\n");
-                let files = crate::scanner::scan_project(&self.root, None);
-                let mut by_mtime = files.clone();
-                by_mtime.sort_by(|a, b| {
-                    b.mtime
-                        .partial_cmp(&a.mtime)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                for f in by_mtime.iter().take(15) {
-                    o.push_str(&format!("  {}  {}\n", f.mtime as u64, f.path));
-                }
-            }
-        }
+        let o = super::deps::history_text(&self.root);
         let after = self.state_ref();
         self.record(
             "recent",
@@ -656,6 +629,8 @@ impl Session {
     }
 
     /// Contradictions bearing on focus: core map candidates over the slice.
+    /// Pairs by the shared `contradictions_text` helper (same view the HUD
+    /// `C` reports); the session recording stays here.
     pub fn contradictions(&mut self) -> anyhow::Result<String> {
         let before = self.state_ref();
         let docs: Vec<(String, String)> = self
@@ -668,26 +643,7 @@ impl Session {
                     .collect()
             })
             .unwrap_or_default();
-        let mut o = String::new();
-        if docs.is_empty() {
-            o.push_str("(scope an intent first — no slice to check)\n");
-        } else {
-            let e = physis_core::embed::RandomProjectionEmbedder::new(128);
-            match physis_core::map::build_map(&docs, &e, None) {
-                Ok(m) if m.contradictions.is_empty() => {
-                    o.push_str("no contradiction candidates in the current slice\n");
-                }
-                Ok(m) => {
-                    for c in &m.contradictions {
-                        o.push_str(&format!(
-                            "  {}  ~  {}  [{}]\n",
-                            c.a.path, c.b.path, c.cluster
-                        ));
-                    }
-                }
-                Err(e) => o.push_str(&format!("(map failed: {e})\n")),
-            }
-        }
+        let o = super::deps::contradictions_text(&docs);
         let after = self.state_ref();
         self.record(
             "contradictions",

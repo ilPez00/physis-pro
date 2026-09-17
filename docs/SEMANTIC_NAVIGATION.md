@@ -150,6 +150,8 @@ Keys: `/` search · ↑↓ move · Enter zoom in · Esc zoom out (trail preserve
 Space select · `p` pin two · `s`/`d`/`R` same/different/relates two · `g` graph view ·
 `H` history (git log, else mtime order — same projection as REPL `history`) ·
 `B` bench (measured scan/query/propagation numbers — same helper as REPL `bench`) ·
+`D` dependents of the cursor path (same rule as REPL `dependencies`) ·
+`C` structural pairs over the selection (same helper as REPL `contradictions`) ·
 `n` Notebook over selection · `r` related · `q` quit · Ctrl-C anywhere.
 
 Startup shows the REPL-banner facts (files · objects · cached sample map) plus

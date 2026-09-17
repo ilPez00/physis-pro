@@ -137,6 +137,49 @@ pub fn bench_text(
     o
 }
 
+/// Dependents of one path, rendered: the same stem/symbol rule the REPL
+/// `dependencies` command reports, as a read-only projection. Shared with the
+/// HUD `D` view so both surfaces name the same dependents.
+pub fn dependents_text(root: &Path, path: &str) -> String {
+    let syms = changed_symbols(root, std::slice::from_ref(&path.to_string()));
+    let deps = affected_dependents(root, std::slice::from_ref(&path.to_string()), &syms);
+    let mut o = String::new();
+    o.push_str(&format!("dependencies of {path}\n"));
+    if deps.is_empty() {
+        o.push_str("  (none found)\n");
+    }
+    for d in &deps {
+        o.push_str(&format!("  ↔ {d}\n"));
+    }
+    o
+}
+
+/// Structural pairs over scoped docs: differences count + contradiction
+/// candidates from one core-map build (deterministic random-projection
+/// embedder, same as the cached sample map). Shared by the REPL
+/// `contradictions` command and the HUD `C` view.
+pub fn contradictions_text(docs: &[(String, String)]) -> String {
+    let mut o = String::new();
+    if docs.is_empty() {
+        o.push_str("(scope an intent first — no slice to check)\n");
+        return o;
+    }
+    let e = physis_core::embed::RandomProjectionEmbedder::new(128);
+    match physis_core::map::build_map(docs, &e, None) {
+        Ok(m) => {
+            o.push_str(&format!("differences (slice map): {}\n", m.differences.len()));
+            if m.contradictions.is_empty() {
+                o.push_str("no contradiction candidates in the current slice\n");
+            }
+            for c in &m.contradictions {
+                o.push_str(&format!("  {}  ~  {}  [{}]\n", c.a.path, c.b.path, c.cluster));
+            }
+        }
+        Err(e) => o.push_str(&format!("(map failed: {e})\n")),
+    }
+    o
+}
+
 /// Dependents of `changed`: files that *reference* the changed symbols or module.
 ///
 /// The rule is deliberately precision-first, and it was measured before it was
@@ -432,5 +475,23 @@ mod tests {
     fn no_change_means_no_dependents_scanned() {
         let dir = tempfile::tempdir().unwrap();
         assert!(affected_dependents(dir.path(), &[], &[]).is_empty());
+    }
+
+    /// Empty docs say what to do instead of building an empty map.
+    #[test]
+    fn contradictions_without_docs_ask_for_scope() {
+        let o = contradictions_text(&[]);
+        assert!(o.contains("scope an intent"), "{o}");
+    }
+
+    /// Dependents of a path with no referrers say none — same shape as the
+    /// REPL command, one projection, no session.
+    #[test]
+    fn dependents_of_lonely_path_report_none() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("solo.rs"), "pub fn solo() {}\n").unwrap();
+        let o = dependents_text(dir.path(), "solo.rs");
+        assert!(o.contains("dependencies of solo.rs"), "{o}");
+        assert!(o.contains("(none found)"), "{o}");
     }
 }

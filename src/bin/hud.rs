@@ -15,8 +15,8 @@
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
 //! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! u rescan · g graph view · H history · B bench · f/F intent focus/clear · z zoom rollup ·
-//! 1/2/3 why/context/delta tabs. No mouse required.
+//! u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
+//! f/F intent focus/clear · z zoom rollup · 1/2/3 why/context/delta tabs. No mouse required.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
 //! passes the probe the header says `semantic: off` and lexical/structural
@@ -1148,6 +1148,42 @@ impl App {
         self.reading = Some(("bench".into(), text));
         self.status = "bench: measured here, offline — same numbers as REPL `bench`".into();
     }
+    /// Dependents of the cursor object (`D`): stem/symbol scan over its path —
+    /// the same rule the REPL `dependencies` command reports. Read-only.
+    fn show_dependents(&mut self) {
+        let Some(hit) = self.current_hit().cloned() else {
+            self.status = "no cursor object — run a query first".into();
+            return;
+        };
+        let path = hit
+            .object
+            .source
+            .as_ref()
+            .map(|s| s.path.clone())
+            .unwrap_or_else(|| hit.object.label.clone());
+        let text = physis_pro::mvp::dependents_text(&self.ws.root, &path);
+        self.reading = Some((format!("dependents: {path}"), text));
+        self.status = "dependents: code-shaped references to the cursor path".into();
+    }
+
+    /// Structural pairs over the selection (`C`): differences count +
+    /// contradiction candidates from one slice-map build — the same helper
+    /// the REPL `contradictions` command reports. Falls back to the cursor
+    /// object when nothing is selected. Read-only.
+    fn show_contradictions(&mut self) {
+        let docs = self.notebook_selection().and_then(|sel| {
+            let v: Vec<(String, String)> = sel;
+            if v.is_empty() { None } else { Some(v) }
+        });
+        let Some(docs) = docs else {
+            self.status = "select objects first (Space)".into();
+            return;
+        };
+        let text = physis_pro::mvp::contradictions_text(&docs);
+        self.reading = Some(("contradictions".into(), text));
+        self.status = "contradictions: slice-map pairs over the selection".into();
+    }
+
     /// Hand the current selection (or the highlighted object) to Function 2:
     /// docs = (title, exact source text) for the Notebook scope. Canonical
     /// objects — the Notebook borrows, never copies, the content.
@@ -1412,7 +1448,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "e edit · u rescan · g graph · H history · B bench · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1546,6 +1582,8 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('g') => app.graph_view(),
                             KeyCode::Char('H') => app.show_history(),
                             KeyCode::Char('B') => app.show_bench(),
+                            KeyCode::Char('D') => app.show_dependents(),
+                            KeyCode::Char('C') => app.show_contradictions(),
                             KeyCode::Char('e') => app.edit_current(),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),
