@@ -104,6 +104,70 @@ impl Store {
     pub fn patch_by_id<'a>(&self, patches: &'a Patches, id: &str) -> Option<&'a Patch> {
         patches.patches.iter().find(|p| p.id == id)
     }
+
+    /// Export the transition log for P4 analysis (Phase 26 §26.8, AD16).
+    /// Order is store sequence (file order), never timestamp order — equal or
+    /// out-of-order `recorded_at` values replay by position. Each event's
+    /// parent is the previous event in the file; the first has none.
+    /// Fields with no recorded truth stay `"unknown"`/absent rather than
+    /// inferred: no parent ids, sessions, raw refs or encoder info are
+    /// invented here.
+    pub fn export_transitions(&self) -> io::Result<Vec<ExportedTransition>> {
+        let events = self.load_events()?;
+        let workspace_id = self
+            .root
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let mut out = Vec::with_capacity(events.len());
+        let mut parent: Vec<String> = Vec::new();
+        for (i, e) in events.iter().enumerate() {
+            out.push(ExportedTransition {
+                schema_version: 1,
+                event_id: e.event_id.clone(),
+                sequence: i as u64,
+                parent_event_ids: parent.clone(),
+                workspace_id: workspace_id.clone(),
+                document_id: e.document_id.clone(),
+                object_id: e.block_id.clone(),
+                before_revision: e.before_revision,
+                after_revision: e.after_revision,
+                before_hash: e.before_hash,
+                after_hash: e.after_hash,
+                actor: e.actor.clone(),
+                operation: e.operation.clone(),
+                recorded_at: e.recorded_at,
+                outcome: "observed".to_string(),
+                action_attribution: "unknown".to_string(),
+                execution_mode: "real_local".to_string(),
+            });
+            parent = vec![e.event_id.clone()];
+        }
+        Ok(out)
+    }
+}
+
+/// One exported transition (Phase 26 §26.8 transition-export subset).
+/// Replay order is `sequence`; `recorded_at` is informational only.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedTransition {
+    pub schema_version: u32,
+    pub event_id: String,
+    pub sequence: u64,
+    pub parent_event_ids: Vec<String>,
+    pub workspace_id: String,
+    pub document_id: String,
+    pub object_id: String,
+    pub before_revision: u64,
+    pub after_revision: u64,
+    pub before_hash: u64,
+    pub after_hash: u64,
+    pub actor: String,
+    pub operation: String,
+    pub recorded_at: u64,
+    pub outcome: String,
+    pub action_attribution: String,
+    pub execution_mode: String,
 }
 
 #[cfg(test)]
@@ -157,8 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn patches_round_trip_and_lookup_by_id() {
-        let dir = tempfile::tempdir().unwrap();
+    fn patches_round_trip_and_lookup_by_id() {        let dir = tempfile::tempdir().unwrap();
         let s = Store::open(dir.path());
         let book = Patches {
             patches: vec![Patch {
@@ -177,5 +240,51 @@ mod tests {
         let back = s.load_patches().unwrap();
         assert!(s.patch_by_id(&back, "p1").is_some());
         assert!(s.patch_by_id(&back, "nope").is_none());
+    }
+
+    /// AD16: export replays by store sequence under out-of-order timestamps,
+    /// chains parents, and preserves actor/operation attribution.
+    #[test]
+    fn export_replays_by_sequence_with_parent_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = Store::open(dir.path());
+        for seq in 0..3u64 {
+            s.append_event(&Change {
+                event_id: format!("e{seq}"),
+                document_id: "d".into(),
+                block_id: "b".into(),
+                before_revision: seq,
+                after_revision: seq + 1,
+                before_hash: seq,
+                after_hash: seq + 1,
+                actor: format!("actor{seq}"),
+                operation: "apply".into(),
+                sequence: seq,
+                recorded_at: 100 - seq, // deliberately out of order
+            })
+            .unwrap();
+        }
+        let exported = s.export_transitions().unwrap();
+        assert_eq!(exported.len(), 3);
+        // File order, not timestamp order.
+        assert_eq!(exported[0].event_id, "e0");
+        assert_eq!(exported[2].event_id, "e2");
+        assert_eq!(exported[2].recorded_at, 98);
+        // Parent chain: first has none, each next cites the previous.
+        assert!(exported[0].parent_event_ids.is_empty());
+        assert_eq!(exported[1].parent_event_ids, vec!["e0".to_string()]);
+        assert_eq!(exported[2].parent_event_ids, vec!["e1".to_string()]);
+        // Attribution survives; sequences are dense file positions.
+        assert_eq!(exported[1].actor, "actor1");
+        assert_eq!(exported[1].operation, "apply");
+        assert_eq!(exported[1].sequence, 1);
+        assert_eq!(exported[0].schema_version, 1);
+        // JSONL round trip: every line parses back to the same event.
+        for t in &exported {
+            let line = serde_json::to_string(t).unwrap();
+            let back: ExportedTransition = serde_json::from_str(&line).unwrap();
+            assert_eq!(back.event_id, t.event_id);
+            assert_eq!(back.sequence, t.sequence);
+        }
     }
 }
