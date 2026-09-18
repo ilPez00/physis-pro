@@ -116,17 +116,29 @@ agent replacement, interruption, review and restart with its meaning intact.
 This table records code inspection, not a fresh build or performance certificate.
 Older benchmark and test results retain their dates and limitations.
 
+P0 cost/quality baseline, frozen 2026-09-18 on pansa (debug binary
+`physis-pro 0.1.21`, dev licence + `PHYSIS_ALLOW_DEV_LICENCE=1`, local
+bge-base embedder, no provider keys — extractive/degraded paths only):
+
+| Measure | Result | Conditions |
+|---|---|---|
+| `pack` fixture copy, budget 1200 | 174/1200 tokens, 4 chunks over 4 files, 0 dropped; top score 0.836 (`src/context.rs`) | 3.4 s wall (18.1 s user — cold ONNX in-process) |
+| `notebook` fixture, "what is the retrieval budget" | EXTRACTIVE answer, correct (500, `[3]` cites `retrieval_budget`), 4 docs, 174 context tokens, 193 ms retrieval, backend bge-base | 0.77 s wall; DEGRADED banner (no oracle/provider keys) as designed |
+| `physis-hud --prescan-only` fixture copy | 8 objects, semantic true (bge-base), +8 embeddings in ~2.9 s, workspace 174 tok | cold index; later starts incremental |
+| `system find/pack` on this checkout | find ranks plan + history records; pack 1092/1200 tokens | 5034 docs indexed, 8.4 MB content bytes; `Cargo.toml.bak` (tracked, stale) excluded from evidence |
+| Licence gate | dev-build licence minted with all-zeros-seed key (`PX-P0BASELINE-20260918`); gated commands run only with `PHYSIS_ALLOW_DEV_LICENCE=1` | prior `.physis/license.key` was signed by `~/.physis-vendor` key ≠ dev fallback → BadSignature; replaced |
+
 | Area | Current evidence | Gap to target |
 |---|---|---|
-| Workspace service | `src/ported/system*.rs`; launcher selects Pro; CLI history/read work locally | MCP session points at `/home/gio/dev/physis-pro`, a different checkout; identity must be explicit |
-| Navigation | `nav::workspace::NavWorkspace`, `bin/hud.rs`; index, relations, trail and lazy embedder | Studio GRAPH uses `FileThemeGraph`; no single end-to-end Studio navigation/action loop |
-| Studio | `bin/studio.rs`: STATUS, GRAPH, NOTEBOOK, DIFF, MACHINES, CONFIG | Notebook `ask()` runs on key path; first 200 graph files selected before retrieval; DIFF review-only |
-| Context and answers | `pack.rs`, `rag.rs`, `ported/notebook.rs` | A source list is not proof each generated claim is supported; need coverage and citation validation |
-| Action and observation | `mvp/`, `ported/act.rs`, `sessions.rs`, workspace observations | Confirm boundaries and recovery before connecting a worker to Studio; reservation is not execution |
-| Review | `diff.rs`, `adaptive_document/`, `web/document.rs`, `core.rs` | Raw-file patch, document revision and coherence edit have different ownership/undo semantics |
-| Settings | `config.rs`, `ported/config_run.rs`, Studio's five settings | No verified unified effective configuration; NavWorkspace constructs defaults when selecting its embedder |
-| Build weight | Cargo defaults include web/voice/SQL/Postgres/ONNX; Core dependency explicitly enables ONNX | `--no-default-features` alone does not prove a lightweight dependency closure |
-| Research | transform/propose/discovery primitives; crystallization plan; optional pyo3 dependency | Operator learning, promotion and composition gateway are not demonstrated end-to-end |
+| Workspace service | `src/ported/system*.rs`; launcher selects Pro; CLI history/read work locally; MCP stdio verified 2026-09-18 (obs:35) | Connected MCP configs pointed at `/home/gio/dev/physis-pro` until this P0 slice — fixed to `/home/gio/physis_pro`; `.mcp.json` now `system serve`; reconnect clients to take effect |
+| Navigation | `nav::workspace::NavWorkspace` lib + `bin/hud.rs`; index, relations, trail, lazy embedder (fixture prescan: 8 objects, bge-base, rc=0) | **No `nav` subcommand in the 2026-09-18 binary** — `nav …` CLI lines are the P2 target surface, see `docs/SEMANTIC_NAVIGATION.md`; Studio GRAPH uses separate `FileThemeGraph`; no single end-to-end Studio navigation/action loop |
+| Studio | `bin/studio.rs`: STATUS, GRAPH, NOTEBOOK, DIFF, MACHINES, CONFIG; `--snapshot` renders real frames | NOTEBOOK calls `ported::notebook::answer()` on key path (studio.rs:441) with `MAX_NOTEBOOK_DOCS=200` pre-selection (studio.rs:81,402); DIFF is review-only — `diff::{diff_lines,diff_words}` hunks with no `edit_node`/quality write path |
+| Context and answers | `pack.rs::pack/pack_cached`, `rag.rs::retrieve/retrieve_from_texts`, `ported/notebook.rs::answer` | A source list is not proof each generated claim is supported; need coverage and citation validation |
+| Action and observation | `mvp/` loop, `ported/act.rs::run/bearing_on`, `sessions.rs`, workspace observations | Confirm boundaries and recovery before connecting a worker to Studio; reservation is not execution |
+| Review | `diff.rs` hunks (Studio, review-only) vs `core.rs::edit_node/delete_node` (exchange-parts, tested) vs `adaptive_document/` revisions | Raw-file patch, document revision and coherence edit have different ownership/undo semantics |
+| Settings | `config.rs::PhysisProConfig`, `ported/config_run.rs::RunConfig`, Studio's five knobs (studio.rs:200) | No verified unified effective configuration; `NavWorkspace::embedder()` constructs `PhysisProConfig::default()` (workspace.rs:73) instead of reading effective settings |
+| Build weight | Cargo defaults = cli/voice/web/tui/sql/postgres/email/embed-onnx; `physis-core` dep explicitly enables `embed-onnx` (Cargo.toml:57) | `--no-default-features` alone does not prove a lightweight dependency closure — default ONNX pulls `ort+ndarray+tokenizers` unconditionally |
+| Research | transform/propose/discovery primitives; crystallization plan; `pyo3` optional behind `instructor` feature (Cargo.toml:102,155, off by default) | Operator learning, promotion and composition gateway are not demonstrated end-to-end |
 
 Known runtime issues outside this programme: shift demo overwrites report files
 inside a multi-CSV loop; shift import can report accepted rows despite failed
