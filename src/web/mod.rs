@@ -29,8 +29,10 @@ use crate::config::{OntologyLoader, PhysisConfig};
 use crate::core::PhysisCore;
 use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]
+#[cfg(feature = "image-embed")]
 use crate::embed::clip::ClipEmbedder;
 #[cfg(feature = "embed-onnx")]
+#[cfg(feature = "image-embed")]
 use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
@@ -2302,14 +2304,28 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 }
                 match ec.kind {
                     EmbedderKindConfig::JinaV2 => {
-                        let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                        j.is_available()
-                            .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                        #[cfg(feature = "image-embed")]
+                        {
+                            let j = JinaEmbedder::with_model_dir(&ec.model_dir);
+                            j.is_available()
+                                .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                        }
+                        #[cfg(not(feature = "image-embed"))]
+                        {
+                            None // vision model needs the image-embed feature
+                        }
                     }
                     EmbedderKindConfig::Clip => {
-                        let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available()
-                            .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                        #[cfg(feature = "image-embed")]
+                        {
+                            let c = ClipEmbedder::with_config(&config.onnx);
+                            c.is_available()
+                                .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                        }
+                        #[cfg(not(feature = "image-embed"))]
+                        {
+                            None // vision model needs the image-embed feature
+                        }
                     }
                     EmbedderKindConfig::MiniLM => {
                         let m = OnnxEmbedder::with_config(&config.onnx);
@@ -2340,11 +2356,18 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             gate(try_primary())
                 .or_else(try_ollama)
                 .or_else(|| {
-                    gate({
-                        let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-                        j.is_available()
-                            .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                    })
+                    #[cfg(feature = "image-embed")]
+                    {
+                        gate({
+                            let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
+                            j.is_available()
+                                .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                        })
+                    }
+                    #[cfg(not(feature = "image-embed"))]
+                    {
+                        None
+                    }
                 })
                 .or_else(|| gate(make_bge()))
                 // BGE-M3 sits BELOW bge-base: measured 2026-06-12, M3 CORE
@@ -2352,11 +2375,18 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                 // domain). Explicit `embedders.primary = bge-m3` still selects it.
                 .or_else(|| gate(make_bge_m3()))
                 .or_else(|| {
-                    gate({
-                        let c = ClipEmbedder::with_config(&config.onnx);
-                        c.is_available()
-                            .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                    })
+                    #[cfg(feature = "image-embed")]
+                    {
+                        gate({
+                            let c = ClipEmbedder::with_config(&config.onnx);
+                            c.is_available()
+                                .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                        })
+                    }
+                    #[cfg(not(feature = "image-embed"))]
+                    {
+                        None
+                    }
                 })
                 .or_else(|| {
                     gate({

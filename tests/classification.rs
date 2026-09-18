@@ -123,13 +123,18 @@ fn is_semantic(e: &dyn VectorEmbed) -> bool {
 #[cfg(feature = "embed-onnx")]
 fn real_embedder() -> Option<(Box<dyn VectorEmbed>, &'static str)> {
     use physis_pro::config::OnnxConfig;
-    use physis_pro::embed::jina::JinaEmbedder;
     use physis_pro::embed::onnx::OnnxEmbedder;
 
-    let jina = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-    if jina.is_available() && is_semantic(&jina) {
-        eprintln!("using embedder: jina-clip-v2 (1024-d)");
-        return Some((Box::new(jina), "jina-v2"));
+    // Jina is a vision-capable model behind the optional `image` crate; the
+    // text-only build (no image-embed) skips straight to the text ONNX legs.
+    #[cfg(feature = "image-embed")]
+    {
+        use physis_pro::embed::jina::JinaEmbedder;
+        let jina = JinaEmbedder::with_model_dir("models/jina-clip-v2");
+        if jina.is_available() && is_semantic(&jina) {
+            eprintln!("using embedder: jina-clip-v2 (1024-d)");
+            return Some((Box::new(jina), "jina-v2"));
+        }
     }
     let bge = OnnxEmbedder::with_config(&OnnxConfig {
         enabled: true,

@@ -14,24 +14,9 @@
 //! If the score ever becomes a normalized measure, update these tests AND
 //! every demo/pane copy that prints a threshold (grep `\.total`).
 
-use physis_pro::nav::{NavIndex, NavWeights, ObjectKind, PhysisObject, RetrievalScore};
+use physis_pro::nav::{NavIndex, NavWeights, RetrievalScore};
 
-fn obj(path: &str, text: &str, mtime: f64) -> PhysisObject {
-    PhysisObject {
-        id: physis_pro::nav::ObjectId::new("fs", path),
-        kind: ObjectKind::File,
-        label: path.to_string(),
-        source: Some(physis_pro::nav::SourceRef {
-            path: path.to_string(),
-            start_line: Some(1),
-            end_line: Some(1),
-        }),
-        mtime,
-        hash: format!("hash-{path}"),
-        text: text.to_string(),
-        embedding: Vec::new(),
-    }
-}
+
 
 #[test]
 fn default_weights_have_support_1_38_not_1_0() {

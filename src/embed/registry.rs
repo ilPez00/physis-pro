@@ -1,4 +1,8 @@
+// Vision embedders need the `image` crate (feature `image-embed`); without
+// it the registry builds text-only and image slots stay None.
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 use super::clip::ClipEmbedder;
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 use super::jina::JinaEmbedder;
 use super::onnx::OnnxEmbedder;
 use super::{RandomProjectionEmbedder, VectorEmbed};
@@ -35,10 +39,17 @@ impl EmbedderRegistry {
         if let Some(ref ec) = config.primary {
             return match ec.kind {
                 EmbedderKindConfig::JinaV2 => {
-                    let jina = JinaEmbedder::with_model_dir(&ec.model_dir);
-                    if jina.is_available() {
-                        (Box::new(jina), None) // Jina handles both text+image, but image via same model
-                    } else {
+                    #[cfg(feature = "image-embed")]
+                    {
+                        let jina = JinaEmbedder::with_model_dir(&ec.model_dir);
+                        if jina.is_available() {
+                            (Box::new(jina), None) // Jina handles text+image via one model
+                        } else {
+                            Self::fallback_onnx(onnx_cfg)
+                        }
+                    }
+                    #[cfg(not(feature = "image-embed"))]
+                    {
                         Self::fallback_onnx(onnx_cfg)
                     }
                 }
@@ -73,17 +84,26 @@ impl EmbedderRegistry {
                     }
                 }
                 EmbedderKindConfig::Clip => {
-                    let clip = ClipEmbedder::with_config(onnx_cfg);
-                    if clip.is_available() {
-                        let vision_available = clip.vision_session.lock().unwrap().is_some();
-                        let img: Option<Box<dyn VectorEmbed>> = if vision_available {
-                            Some(Box::new(ClipEmbedder::with_config(onnx_cfg)))
+                    #[cfg(not(feature = "image-embed"))]
+                    {
+                        let _ = onnx_cfg;
+                        return Self::fallback_onnx(onnx_cfg);
+                    }
+                    #[cfg(feature = "image-embed")]
+                    {
+                        let clip = ClipEmbedder::with_config(onnx_cfg);
+                        if clip.is_available() {
+                            let vision_available =
+                                clip.vision_session.lock().unwrap().is_some();
+                            let img: Option<Box<dyn VectorEmbed>> = if vision_available {
+                                Some(Box::new(ClipEmbedder::with_config(onnx_cfg)))
+                            } else {
+                                None
+                            };
+                            (Box::new(clip), img)
                         } else {
-                            None
-                        };
-                        (Box::new(clip), img)
-                    } else {
-                        Self::fallback_onnx(onnx_cfg)
+                            Self::fallback_onnx(onnx_cfg)
+                        }
                     }
                 }
                 EmbedderKindConfig::MiniLM => Self::fallback_onnx(onnx_cfg),

@@ -1,13 +1,31 @@
 #[cfg(feature = "embed-onnx")]
 use crate::config::EmbedderKindConfig;
 use crate::config::PhysisConfig;
-#[cfg(feature = "embed-onnx")]
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 use crate::embed::clip::ClipEmbedder;
-#[cfg(feature = "embed-onnx")]
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
 use physis_core::embed::VectorEmbed as _;
+
+/// Adapter making a physis_pro [`VectorEmbed`] satisfy `physis_core`'s
+/// `VectorEmbed` (which lacks `embed_image`). Public because more than one
+/// consumer needs the same bridge: `quality.rs` records embeddings, and the
+/// Studio notebook asks `physis_core::rag` for a budgeted answer.
+pub struct CoreEmbedAdapter(pub Box<dyn VectorEmbed>);
+
+impl physis_core::embed::VectorEmbed for CoreEmbedAdapter {
+    fn embed(&self, text: &str) -> Vec<f32> {
+        self.0.embed(text)
+    }
+    fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
+        self.0.embed_batch(texts)
+    }
+    fn dimension(&self) -> usize {
+        self.0.dimension()
+    }
+}
 
 /// Load an ONNX session, logging the actual `ort` error on failure instead of
 /// swallowing it. A returned `None` plus a `warn!` line tells the operator
@@ -263,10 +281,13 @@ impl VectorEmbed for RandomProjectionEmbedder {
 #[cfg(feature = "embed-onnx")]
 pub mod onnx;
 
-#[cfg(feature = "embed-onnx")]
+// Image embedding needs the `image` crate (now optional: it drags in
+// moxcms/pxfm, which require GLIBC 2.43 and break feather). The ONNX text
+// path — the one the HUD and every CLI command use — stays default.
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 pub mod clip;
 
-#[cfg(feature = "embed-onnx")]
+#[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
 pub mod jina;
 
 #[cfg(feature = "embed-onnx")]
@@ -343,14 +364,28 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
             }
             match ec.kind {
                 EmbedderKindConfig::JinaV2 => {
-                    let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                    j.is_available()
-                        .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                    #[cfg(feature = "image-embed")]
+                    {
+                        let j = JinaEmbedder::with_model_dir(&ec.model_dir);
+                        j.is_available()
+                            .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                    }
+                    #[cfg(not(feature = "image-embed"))]
+                    {
+                        None // vision model needs the image-embed feature
+                    }
                 }
                 EmbedderKindConfig::Clip => {
-                    let c = ClipEmbedder::with_config(&config.onnx);
-                    c.is_available()
-                        .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                    #[cfg(feature = "image-embed")]
+                    {
+                        let c = ClipEmbedder::with_config(&config.onnx);
+                        c.is_available()
+                            .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                    }
+                    #[cfg(not(feature = "image-embed"))]
+                    {
+                        None // vision model needs the image-embed feature
+                    }
                 }
                 EmbedderKindConfig::MiniLM => {
                     let m = OnnxEmbedder::with_config(&config.onnx);
@@ -453,9 +488,16 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                 break 'pick e;
             }
             if let Some(e) = gate({
-                let c = ClipEmbedder::with_config(&config.onnx);
-                c.is_available()
-                    .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                #[cfg(feature = "image-embed")]
+                {
+                    let c = ClipEmbedder::with_config(&config.onnx);
+                    c.is_available()
+                        .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                }
+                #[cfg(not(feature = "image-embed"))]
+                {
+                    None::<(Box<dyn VectorEmbed>, &'static str)> // vision needs image-embed
+                }
             }) {
                 break 'pick e;
             }

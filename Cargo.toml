@@ -43,7 +43,8 @@ walkdir = "2"
 rayon = "1"
 # Interest daemon: clipboard access + OOXML (pptx/docx) unzip. Kept OUT of
 # `full` — arboard wants a display server at runtime and CI has none.
-arboard = { version = "3.6", optional = true }
+# image only for the clipboard/daemon path; the HUD never touches it.
+arboard = { version = "3.6", optional = true, default-features = false, features = ["wayland-data-control"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"], optional = true }
 
 # In-process wiki engine (Phase 1: Tantivy BM25 only, no semantic deps).
@@ -88,7 +89,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 futures = "0.3"
 base64 = "0.22"
-image = "0.25"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"], optional = true }
 env_logger = "0.11"
 ratatui = { version = "0.26", optional = true }
 crossterm = { version = "0.27", features = ["events"], optional = true }
@@ -157,6 +158,9 @@ instructor = ["dep:pyo3"]
 # (`--features industrial,cli`, scripts/predeploy.sh, CONTRIBUTING.md) keep
 # working. MQTT/Modbus are unconditional; there is nothing left to gate.
 industrial = []
+# Image embedding (CLIP/Jina vision paths). Off by default: the image crate
+# pulls moxcms/pxfm, whose asm requires GLIBC 2.43 — feather ships 2.41.
+image-embed = ["embed-onnx", "image"]
 # Repair-pipeline scaffolding (semantic_delta/dependency/staleness/
 # repair_regions/orchestration/metrics). These six modules import each other
 # in a cycle — dependency↔staleness↔semantic_delta and metrics↔orchestration —

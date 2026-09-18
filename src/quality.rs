@@ -14,20 +14,9 @@ use crate::embed::VectorEmbed;
 pub use crate::ported::quality::QualityFailure;
 
 /// Adapter making a physis_pro embedder satisfy physis_core's `VectorEmbed`
-/// (which lacks `embed_image`; the engine never needs it).
-struct CoreEmbed(Box<dyn VectorEmbed>);
-
-impl physis_core::embed::VectorEmbed for CoreEmbed {
-    fn embed(&self, text: &str) -> Vec<f32> {
-        self.0.embed(text)
-    }
-    fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
-        self.0.embed_batch(texts)
-    }
-    fn dimension(&self) -> usize {
-        self.0.dimension()
-    }
-}
+/// (which lacks `embed_image`; the engine never needs it). Shared with the
+/// Studio notebook rather than re-declared — see [`crate::embed::CoreEmbedAdapter`].
+use crate::embed::CoreEmbedAdapter as CoreEmbed;
 
 /// Tracks quality feedback and applies penalty/gain to semiotic cells. Facade
 /// over `crate::ported::quality::QualityTracker`; the core's public fields let
@@ -119,10 +108,7 @@ mod tests {
     #[test]
     fn test_adjust_score_with_boost() {
         let mut t = make_tracker();
-        t.cell_boosts.insert(
-            "WORK\x00DO".to_string(),
-            0.5f32,
-        );
+        t.cell_boosts.insert("WORK\x00DO".to_string(), 0.5f32);
         let adjusted = t.adjust_score("WORK\x00DO", 0.8);
         assert!(adjusted > 0.8, "boost should increase score");
     }
