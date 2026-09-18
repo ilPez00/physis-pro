@@ -2,6 +2,16 @@
 
 Date: 2026-09-14. Status: proposed implementation and research plan.
 
+> Current sequencing and complete-demo acceptance:
+> [agentic workspace programme](2026-09-18-agentic-workspace.md).
+> Settings now includes Runtime, **Memory manager**, **Primitives editor** and
+> Appearance. Memory is inspectable, scoped, revisable and exportable; primitives
+> have typed drafts, impact previews and versioned apply/rollback. Reuse current
+> stores and registered definitions; do not invent a parallel memory engine.
+> These additions are planned. Historical Core ownership/connection statements
+> below describe the earlier state; current service lives in Pro's `src/ported/`.
+> Visual and behavioral contract in the programme supersedes older UI sequencing.
+
 ## Immediate priority — a shared system interface, developed with Physis
 
 Latest user direction: build the system interface first so people and agents can

@@ -2,6 +2,15 @@
 
 Date: 2026-09-14. Status: implementation plan.
 
+> Current sequencing: [agentic workspace programme](2026-09-18-agentic-workspace.md).
+> Settings' **Memory manager** shows exactly which records each worker receives,
+> allows scoped retrieval exclusion, and retains evidence provenance. Its
+> **Primitives editor** validates/version-controls editable action metadata and
+> recipes; active tasks pin starting versions. An edit cannot widen task authority
+> or certify success. Reuse these surfaces for worker policy inspection rather
+> than adding a second settings system. These integrations remain planned.
+> Historical Core MCP references below predate the move to Pro's `src/ported/`.
+
 Implementation update: D0/D1 now provide strict task/worker inputs, scoped
 context packs, recorded plans, stale-source checks, unstarted reservations,
 list/show and folder exports. They do not launch workers or create worktrees.

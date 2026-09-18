@@ -1,5 +1,10 @@
 # Physis system interface
 
+> Ownership update, 2026-09-18: implementation is now Pro's
+> `src/ported/system*.rs`, using Core primitives. Historical Core measurements
+> below retain their original context. Current sequencing:
+> [agentic workspace programme](plans/2026-09-18-agentic-workspace.md).
+
 Codex/OpenCode MCP wiring and delegation commands are documented in
 [System delegation](SYSTEM_DELEGATION.md).
 
@@ -18,16 +23,17 @@ and physical-machine execution are subsequent layers.
 From the Pro workspace on pansa:
 
 ```sh
-cargo build --offline -p physis-core --no-default-features --features cli --bin physis --bin physis-core
+cargo build --offline -p physis_pro --features cli --bin physis --bin physis-pro
 ./target/debug/physis system capabilities
 ./target/debug/physis system inspect
 ./target/debug/physis system find 'workspace observation log' --limit 5
 ./target/debug/physis system pack 'token budget window packing' --budget 1200
-./target/debug/physis system read physis-core/src/system.rs:349-400
+./target/debug/physis system read src/ported/system.rs:349-400
 ```
 
-`physis-core system` is the same service if the front-door executable is not on
-your PATH. Use `--root /path/to/project` for another workspace. The current working
+`physis-pro system` is the same service if the front-door executable is not on
+your PATH. `physis-core system` is a historical command. Use `--root /path/to/project`
+for another workspace. The current working
 directory is the default. The root must exist; queries do not create a state store.
 
 ## Operations
@@ -92,8 +98,8 @@ message. A failed child has `ok: false` with its exit/spawn details under
 is handled by Clap and uses its normal diagnostics rather than this response
 envelope. Diagnostics do not contaminate JSON stdout.
 
-The public Rust service is [Workspace](../physis-core/src/system.rs). CLI
-presentation lives in [system_cli.rs](../physis-core/src/system_cli.rs). A future
+The public Rust service is [Workspace](../src/ported/system.rs). CLI
+presentation lives in [system_cli.rs](../src/ported/system_cli.rs). A future
 MCP, HTTP, or graphical surface should call the same service rather than parse
 the human CLI display.
 
@@ -109,7 +115,7 @@ This is the development loop used for this implementation:
 ```sh
 ./target/debug/physis system history 'interface'
 ./target/debug/physis system find 'WriteLock Workspace BM25' --limit 4
-./target/debug/physis system read physis-core/src/system.rs --max-bytes 24000
+./target/debug/physis system read src/ported/system.rs --max-bytes 24000
 ./target/debug/physis system run --intent 'Verify workspace interface behavior' --actor codex -- cargo test --offline -p physis-core --no-default-features --features cli --test system_interface
 ./target/debug/physis system remember 'Record the actual result and its limitations here' --outcome unverified --actor codex
 ./target/debug/physis system history 'interface'

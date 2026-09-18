@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "physis": {
-      "command": "./target/release/physis-pro",
-      "args": ["serve", "--stdio"],
+      "command": "./target/debug/physis-pro",
+      "args": ["system", "serve"],
       "env": {
         "PHYSIS_SCAN_ROOT": ".",
         "PHYSIS_DATA_DIR": ".physis",

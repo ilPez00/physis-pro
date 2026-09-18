@@ -1,5 +1,10 @@
 # Physis Pro
 
+Current development direction: [Physis Workspace — agentic work with durable
+meaning](docs/plans/2026-09-18-agentic-workspace.md). This proposed programme
+connects navigation, evidence, agent execution, review and session memory in a
+lightweight TUI. Its gates distinguish current code from planned capabilities.
+
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 
 > **What Physis *is* lives in [`docs/WHAT_PHYSIS_IS.md`](docs/WHAT_PHYSIS_IS.md).**
@@ -10,7 +15,7 @@
 
 Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
 text, image, video, audio, a code log, a human action — to a vector in one shared
-embedding space, classifies it against a 70-cell semiotic grid, and tracks each
+embedding space, classifies it against a domain × 14-mode grid (70 default cells), and tracks each
 thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
 the failures to propose corrective actions. Beyond meaning, every ingested file
 carries a **space·time·cause address** — where it lives, when it matters, why it
@@ -24,33 +29,29 @@ It runs as:
 - an **MCP server** (feature `mcp`) for agent tool-use,
 - a **TUI** and a **voice** binary for live ontological mapping.
 
-> Crate: `physis_pro` v0.1.0 · edition 2021 · the Praxis backend talks to it through
+> Crate version/features: see `Cargo.toml` · edition 2021 · the Praxis backend talks to it through
 > `src/lib/physisProClient.ts`.
 
 ## License
 
-`physis-core` is released under the [MIT License](LICENSE).
-
-`physis_pro` (this crate) is dual-licensed:
-- **MIT** — for the open-source crate published on [crates.io](https://crates.io/crates/physis_pro).
-- **Proprietary EULA** — for commercial deployments. See `LICENSE.txt` for the full
-  commercial terms, including the licence-key requirement.
-
-The `physis-core` sub-crate remains MIT-only. When using `physis_pro` from crates.io,
-the MIT licence applies to the crate API; the runtime still enforces the commercial
-licence gate when `PHYSIS_LICENSE` is not set.
+The checked-in [Core manifest](physis-core/Cargo.toml) declares **Apache-2.0**.
+The [Pro manifest](Cargo.toml) declares `license-file = "LICENSE.txt"`, the
+[proprietary EULA](LICENSE.txt). The previous MIT/dual-licence description did
+not match these manifests. Consult the licence text accompanying a specific
+release for its terms; package availability does not imply a different licence.
 
 # I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 ---
 
 ## Repository layout — one repo per project
 
-This repository is the **only** working copy of the Physis engine.
+This repository is the current checkout for the workspace programme. Other
+checkouts exist; verify root, branch and revision before using their evidence.
 
 | Piece | Where |
 |---|---|
 | Engine, CLI, HTTP/MCP surface, licence gate | this repository |
-| `physis-core` (MIT, the lean embed/classify/quality core) | git submodule at `physis-core/`, repo [`physis-core`](https://github.com/ilPez00/physis-core) |
+| `physis-core` (Apache-2.0 primitives) | git submodule at `physis-core/`, repo [`physis-core`](https://github.com/ilPez00/physis-core) |
 
 **Do not clone this repo per deployment node.** Three such clones existed on omo
 (`~/dev/air-ts`, `~/dev/pansa-ts`, `~/dev/physis-global`), named after the machines

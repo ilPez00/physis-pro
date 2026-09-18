@@ -1,7 +1,7 @@
 # Workspace tools share the CLI's .physis/system observation store.
 [mcp_servers.physis_system]
 command = "bash"
-args = ["/home/gio/dev/physis-pro/scripts/physis-system-mcp.sh"]
-cwd = "/home/gio/dev/physis-pro"
+args = ["/home/gio/physis_pro/scripts/physis-system-mcp.sh"]
+cwd = "/home/gio/physis_pro"
 startup_timeout_sec = 15
 tool_timeout_sec = 60

@@ -16,7 +16,7 @@ PREFIX="${PREFIX:-$HOME/.local}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_DIR="$ROOT/target/release"
 # The product binaries a release build produces (see [[bin]] in Cargo.toml).
-BINARIES=(physis-pro physis-pro-web physis-pro-tui physis-pro-wiki)
+BINARIES=(physis-pro physis-pro-web physis-pro-tui physis-pro-wiki physis-studio)
 
 # --- arguments --------------------------------------------------------------
 DRY_RUN=0

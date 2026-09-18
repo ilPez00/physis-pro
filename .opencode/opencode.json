@@ -11,7 +11,7 @@
       "type": "local",
       "command": [
         "bash",
-        "/home/gio/dev/physis-pro/scripts/physis-system-mcp.sh"
+        "/home/gio/physis_pro/scripts/physis-system-mcp.sh"
       ],
       "enabled": true,
       "timeout": 60000,

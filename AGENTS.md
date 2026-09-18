@@ -17,19 +17,26 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 - **Ontology extensions** — 75 office domains + 23 machine process + 21 AI agent workflow
 
 ## Development Workflow
+
+Current product sequencing: `docs/plans/2026-09-18-agentic-workspace.md`.
+Scope: agentic work + neurosemantic TUI/workspace. Same-day Studio and
+crystallization plans retain historical designs but defer to this programme.
+Planned acceptance gates are not shipped capabilities.
 All development happens via randomesh ssh connection on machine pansa (192.168.1.15).
 Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed
 on the pansa machine through the randomesh framework. See `today_pansa.log` for
 details on the omo vs pansa distinction.
 
 ## Dogfooding (docs/PHYSIS_DEV_LOOP.md)
-Codex and OpenCode expose the Core workspace service as MCP server
+Codex and OpenCode expose the workspace service (now Pro's
+`src/ported/system*.rs`, reusing Core primitives) as MCP server
 `physis_system` (configuration in `.codex/config.toml` and
 `.opencode/opencode.json`). Start engineering tasks with `physis_history`, then
 use `physis_pack` and `physis_read` for relevant source evidence. After checks,
 call `physis_remember` with a concise outcome, evidence references, and actor
 `codex` or `opencode`. These tools use the same `.physis/system` store as
-`physis system`; Core MCP needs no Pro licence. If tools are absent, use
+`physis system`; this path needs no Pro licence. Verify MCP root matches this
+checkout before using results. If tools are absent or mis-scoped, use
 `./target/debug/physis system` and report the missing connection.
 `physis_tasks`/`physis_task` expose delegation plans; reservations do not start
 workers. Existing Pro MCP tools and their store remain separate.
@@ -75,7 +82,9 @@ dream core. README → "Multimodal Sensory" has the full picture.
   superseded; keep for reference only).
 - **Images** — `embed_image()` on `embed/clip.rs` + `embed/jina.rs`; `/classify`
   and `/embed` accept base64 `image`, fall back to text on failure (never 500).
-- **Video** — planned: frame-sample → `embed_image` → temporal pool. Not built.
+- **Video** — implemented in `src/video.rs`, exposed by `/api/v1/embed/video`:
+  ffmpeg frame sampling → image embeddings → pooling. Availability depends on
+  build features, backend and ffmpeg; source presence is not deployment proof.
 - **Sensory bus** — `src/sensory.rs` `AuraFrame` over a Unix socket;
   `SignalType` = `AudioPCM | VisionFeature | Acceleration | Gyroscope |
   ThoughtCapture`. Single ingestion path into the holarchy.
@@ -100,7 +109,8 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Ingest | `ingest.rs` | `DocKind`, `IngestedDoc`, `classify_file()`, `ingest_all()`, `sort_by_kind()`. 4 tests |
 | Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 8 tests |
 | Semiotic editing | `core.rs` + `web.rs` | **Exchange-parts edit**: `PhysisCore::edit_node()`/`delete_node()` swap node content while preserving structure (id/verdict/edges/provenance); `CoherenceNode.cell_pin` hybrid-pin semantics. API: `POST /api/v1/coherence/edit` + `/delete`. CLI: `node-edit`/`node-delete`. See `docs/SEMIOTIC_EDITING.md` |
-| Semantic navigation | `nav/` + `bin/hud.rs` | **Function 3 MVP**: meaning-first navigation over content-hashed objects (file/passage/note) with hybrid ranking (semantic+lexical+recency+context+pin/relation), per-component `why:` explanations, pins + SAME/DIFFERENT/RELATED relations with provenance (`User`/`Deterministic`/`Inferred` — never collapsed), plural semantic parents, nav trail, graph dual view (`g` in HUD). Frontends program against `nav::workspace::NavWorkspace` (hot-swap seam: index+sled+lazy embedder behind one façade). CLI `physis-pro nav index|query|open|pin|rel|rels|parents|trail|sem-off|sem-on|notebook`; TUI `physis-hud` (`--features tui`). Index = per-root JSON file (NOT sled — blob-growth measured: 5 GB of unreclaimed blobs); embeddings via shared `pack::EmbedCache`. Degraded lexical-only mode reported, never silent. Local updates: `just update` (`scripts/physis-update.sh`, smoke+backup+rollback). See `docs/SEMANTIC_NAVIGATION.md` |
+| Semantic navigation | `nav/` + `bin/hud.rs` | **Function 3 MVP**: meaning-first navigation over content-hashed objects (file/passage/note) with hybrid ranking (semantic+lexical+recency+context+pin/relation), per-component `why:` explanations, pins + SAME/DIFFERENT/RELATED relations with provenance (`User`/`Deterministic`/`Inferred` — never collapsed), plural semantic parents, nav trail, graph dual view (`g` in HUD). Frontends program against `nav::workspace::NavWorkspace` (hot-swap seam: index+sled+lazy embedder behind one façade). HUD `physis-hud` (`--features tui`) is the shipped frontend; `physis-pro nav …` is the P2 target CLI surface (no `nav` subcommand in the 2026-09-18 binary — see `docs/SEMANTIC_NAVIGATION.md` status note). Index = per-root JSON file (NOT sled — blob-growth measured: 5 GB of unreclaimed blobs); embeddings via shared `pack::EmbedCache`. Degraded lexical-only mode reported, never silent. Local updates: `just update` (`scripts/physis-update.sh`, smoke+backup+rollback). See `docs/SEMANTIC_NAVIGATION.md` |
+| Physis Studio (demo TUI) | `bin/studio.rs` + `diff.rs` + `machines/demos.rs` | **One demo product, offline-first**: STATUS · GRAPH (category→theme→files→related, off `theme_graph.json`) · NOTEBOOK (cited answers over the graph's corpus via `ported::notebook::answer`; tier/`degraded`/backend always shown) · DIFF (line + word hunks from the in-repo `diff` engine; review-only until S3 wires `edit_node`/quality) · MACHINES (`machines::demos::run`, now library code instead of a third private copy) · CONFIG (same five knobs + file as `physis-pro-tui`). `--snapshot [TAB]` renders a real frame through the same `draw()` path (TestBackend) for CI/docs; `--left/--right` open on DIFF. Plan: `docs/plans/2026-09-18-studio-tui-demo.md` |
 | Fixed-token search | `web.rs` + `rag.rs` | `POST /api/v1/search/nodes` + CLI `node-search` — budget-bounded similarity search over coherence + goal nodes (`total_tokens ≤ token_budget`), reusing `rag::TokenFixedRetriever` + `count_tokens` |
 | Watch mode | `network.rs` + `web.rs` + `cli.rs` | **Auto-ingest**: `PHYSIS_WATCH_DIR` background thread, `POST /api/v1/watch` on-demand sweep, CLI `physis-pro watch [--once]` — register new/changed files as labeled core nodes (shared embedder), drop nodes for removed files. Shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix` |
 | Vault import | `vault.rs` + `web.rs` + `cli.rs` | **Vault importers (Phase 7B)**: Obsidian/markdown, plain notes, `git log` → `VaultDoc` (title from H1/frontmatter, `h1:`…`h3:` headings) → labeled core nodes. CLI `physis-pro vault <dir> [--git N]`, web `POST /api/v1/vault/import` (scan-root confined, dedupe by label); `parse_git_log` tested without a git binary |

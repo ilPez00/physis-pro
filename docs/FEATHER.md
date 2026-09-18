@@ -4,6 +4,13 @@ You are on **feather** (weak client, disk ~94% full, glibc 2.41, ollama has
 `qwen2.5-coder:3b` + `qwen3:4b`, **no** `nomic-embed-text`). Never build here:
 no disk, no toolchain margin. Pansa builds for you; you install + smoke-test.
 
+Last push: **2026-09-18 13:24** from pansa
+(`rust:1-trixie` release build, features `cli,network,voice,web,tui,embed-onnx,
+industrial,pdf,email,audio,sql,postgres,mcp,repair-pipeline`). New in this
+push: `physis-studio` (the one-TUI demo product — STATUS/GRAPH/NOTEBOOK/DIFF/
+MACHINES/CONFIG, `--snapshot` renders a frame without a TTY); all other
+binaries refreshed from the same build.
+
 Current version: branch **`agent/MS-005-q6`** on origin (7 commits over
 `ac51db6`: HUD edge toggle, adaptive-doc export, Q6 rerun, HUD polish,
 3× wip groups with other agents' packets/code/docs).
@@ -27,12 +34,31 @@ git am ~/physis-diffs/*.patch
 ## 2. Install the binaries (no build — copy, don't compile)
 
 Pansa pushes trixie-linked binaries (glibc 2.41-compatible) to
-`~/.local/bin/`. Verify they are the pushed ones, never rebuild:
+`~/.local/bin/` — `scripts/push-feather.sh` on pansa does the staging + atomic
+swap, and takes an optional list of names (`scripts/push-feather.sh
+physis-studio`). Verify they are the pushed ones, never rebuild:
 
 ```bash
-ls -la ~/.local/bin/physis-pro ~/.local/bin/physis-hud
+ls -la ~/.local/bin/physis-pro ~/.local/bin/physis-hud ~/.local/bin/physis-studio
 physis-hud --help | head -3   # must print flags, not a GLIBC error
+physis-studio --snapshot STATUS | head -5   # one real frame, no TTY needed
 ```
+
+Installed set: `physis` (front door), `physis-pro`, `physis-pro-web`,
+`physis-pro-tui`, `physis-pro-wiki`, `physis-studio`, `physis-hud`.
+
+`physis` is now the **real front-door binary**, not a local shim (a 467-byte
+`physis` wrapper used to sit here; it was replaced by the pushed binary on
+2026-09-18 and no copy of it survives). It runs fine on feather as long as the
+licence + embedder env are exported, which the smoke below does — its banner,
+`inspect`, `context` and `bench` all work with `PHYSIS_EMBEDDER=random-projection`.
+
+**Not** in this build: `ocr` and `ingest` features. They pull `tesseract` →
+`leptonica-sys`, which needs `libleptonica-dev` + `libtesseract-dev` in the
+build image and several MB of native libs on the target — wrong for a client
+whose disk is 96% full. Consequence to state plainly when reporting: OCR of
+scanned documents and spreadsheet extraction are unavailable here; document
+ingestion still handles text/markdown/PDF/mail.
 
 If `GLIBC_2.4x not found` appears, the binaries are the wrong build — stop
 and report which glibc your `ldd --version` shows. Do not `cargo build` here.

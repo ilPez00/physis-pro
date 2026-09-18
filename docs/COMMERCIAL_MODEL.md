@@ -1,5 +1,10 @@
 # Commercial model and licensing
 
+> Scope update, 2026-09-18: this document describes the industrial offer.
+> The proposed agentic-workspace market, packaging experiments and sequencing
+> live in the [workspace programme](plans/2026-09-18-agentic-workspace.md).
+> Its prices are hypotheses, not published offers or changes to licence terms.
+
 This document describes the proposed packaging. `LICENSE.txt` remains the
 controlling legal agreement; pricing and packaging are commercial terms in the
 signed order form.
@@ -13,7 +18,7 @@ signed order form.
 
 | Product | License | Buyer | Channel |
 |---------|---------|-------|---------|
-| **Core** (`physis-core`, MIT) | MIT | developers / agents / MCP directories | crates.io, MCP registry, Smithery, llms.txt, agent-framework recipes |
+| **Core** (`physis-core`, Apache-2.0 per current manifest) | Apache-2.0 | developers / agents / MCP directories | crates.io, MCP registry, Smithery, llms.txt, agent-framework recipes |
 | **Pro** (`physis_pro`, EULA) | commercial, offline Ed25519 key | SME manufacturers first, then regulated | **service-led pilots** → license/subscription |
 
 Core is the free distribution funnel into Pro. Pro is the revenue. Core must

@@ -79,8 +79,9 @@ Facets tree-nest *under* a cell **without enlarging the base grid**
 70-symbol vocabulary models `P(next cell | previous cells)` and throws the facets
 away. The architecture is a *conditional model per region*:
 `P(next | cell, sub_domain, sub_mode, lifecycle, agency, scale, abstraction)`.
-Each region's table is small and well estimated precisely because the 70-way
-partition makes its traces homogeneous.
+The hypothesis is that conditioning could yield more homogeneous traces.
+Sample sufficiency and improved estimation must be measured; partitioning alone
+does not establish either property.
 
 `ngram_table::build_structural` currently builds **one flat table**
 (`physis-core/src/main.rs`). The per-cell hierarchy is **not built**. Do not
@@ -111,7 +112,8 @@ agent (`mcp` `ai/*` `routes` `extract`) · space·time·cause (`address` `ledger
 `sanskrit`) · personal (`life_os` `study` `interest` `monitor` `praxis`).
 
 The **select** row is the one an outside caller touches first.
-`system` (Core, `docs/SYSTEM_INTERFACE.md`) is that row made addressable: one
+`system` (Pro's `src/ported/system*.rs`, reusing Core primitives;
+`docs/SYSTEM_INTERFACE.md`) is that row made addressable: one
 `Workspace` service — `inspect · list · find · pack · read · history · remember ·
 run · export` — behind a CLI, a versioned JSON contract, a folder snapshot and a
 terminal UI. `pack` is `rag`'s token-fixed retrieval applied to a workspace: it
@@ -193,8 +195,9 @@ output, which is the next experiment.
 
 ## 6. The neurosemantic expansion
 
-Five agent harnesses, all local, all writing into **one** coherence graph and
-**one** replayable `EpistemicAuditTrail` (`wiring/neurosemantic_wiring.md`):
+The historical wiring inventory lists four harnesses and one provider
+(`wiring/neurosemantic_wiring.md`). Installed configuration alone does not prove
+that all harnesses write to one store; verify active connections:
 
 | # | harness | on disk 2026-09-12 |
 |---|---|---|
@@ -212,11 +215,11 @@ Interfaces: harness (`.loom` / `.mcp.json` stdio / CLI) = internal · MCP stdio 
 primary external (local, no cloud, **30 tools**) · REST/`web_server` =
 commercial/per-tenant.
 
-**This is the trace source.** "Extraction from agentic workflows (local)" means
-these five harnesses' traces, landing in the ledger, feeding the per-cell tables
-of §2. `ledger.rs` holds ordered causal event sequences; `build_structural`
-consumes documents. **Nothing connects them yet.** That join is the highest-value
-unbuilt thing in the repository.
+**These are intended trace sources.** `ledger.rs` holds ordered causal event
+sequences; `build_structural` consumes documents. The trace-to-per-cell-table
+join is not established here. Its priority is a product/research decision,
+not an architectural fact. The [workspace programme](plans/2026-09-18-agentic-workspace.md)
+prioritizes a usable action/review/outcome loop before this experiment.
 
 ---
 

@@ -1,7 +1,14 @@
 # Semantic Navigation — Function 3 (MVP)
 
-> Status: implemented. `physis-pro nav …` (CLI) and `physis-hud` (TUI,
-> `--features tui`). No LLM anywhere; degraded retrieval is reported, never
+> Status: planned — CLI surface below was written from the pre-P0 design of
+> `nav` as a `physis-pro` subcommand. As built, `physis-pro` has **no `nav`
+> subcommand** (verified: `physis-pro nav --help` → unrecognized subcommand;
+> debug binary `physis-pro 0.1.21` of 2026-09-18) while the library seam
+> `nav::workspace::NavWorkspace` and the `physis-hud` TUI exist and work
+> (`physis-hud --prescan-only fixtures/mvp_propagation` indexed 8 objects).
+> Treat the `physis-pro nav …` lines as the P2 target surface, not as a record
+> of what runs. P0 exit requires either landing `cmd_nav` or correcting this
+> doc. (`physis-hud`, `--features tui`). No LLM anywhere; degraded retrieval is reported, never
 > silent. Extension of the relation layer (SAME / DIFFERENT / RELATED,
 > provenanced), the graph dual view (`g` key in the HUD), the
 > `NavWorkspace` hot-swap seam, and `scripts/physis-update.sh` landed with
@@ -115,9 +122,10 @@ two stores, one scorer). No embedding is ever mutated by user intent.
 provenance) with `origin = Deterministic` — a suggestion never wears
 assertion clothes.
 
-## CLI
+## CLI (P2 target — NOT SHIPPED, see status note at top)
 
-```
+```sh
+# Each line below is planned `physis-pro nav …`; none of them parses today.
 physis-pro nav index   [dir] [--no-embed]     # incremental index + embed
 physis-pro nav query   "<query>" [dir]        # /prefix = global (no ctx bias)
 physis-pro nav open    <path|id>  [dir]       # exact underlying content

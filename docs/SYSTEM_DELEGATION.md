@@ -1,20 +1,27 @@
 # Delegation planning and agent connections
 
-Core now serves ten MCP tools from the same `Workspace` methods as
+Pro's `src/ported/system_mcp.rs` serves workspace MCP tools from the same `Workspace` methods as
 `physis system`, using `.physis/system/observations.jsonl`. The MCP server needs
 no Pro licence, model or additional runtime package.
 
 ## Connect Codex and OpenCode
 
 ```sh
-cargo build --offline -p physis-core --no-default-features --features cli --bin physis-core
+cargo build --offline -p physis_pro --features cli --bin physis-pro
 bash scripts/physis-system-mcp.sh
 ```
 
 The second command waits for MCP messages; stdout contains only protocol JSON.
 It selects this checkout's debug binary explicitly. Overrides:
-`PHYSIS_CORE_BIN`, `PHYSIS_WORKSPACE`, `PHYSIS_SYSTEM_STATE`. Rebuild after
-changing Core and reconnect existing clients to load the new binary.
+`PHYSIS_CORE_BIN`, `PHYSIS_WORKSPACE`, `PHYSIS_SYSTEM_STATE`. The legacy
+`PHYSIS_CORE_BIN` name now selects a Pro executable; default is this checkout's
+`target/debug/physis-pro`. Rebuild after changing the service and reconnect
+existing clients to load the new binary.
+
+Verify actual workspace root and store on connection. During the 2026-09-18
+review, active MCP served `/home/gio/dev/physis-pro` while the intended checkout
+was `/home/gio/physis_pro`; these trees differ. Successful tool calls alone do
+not establish that the intended source was inspected.
 
 Project settings: `.codex/config.toml` and `.opencode/opencode.json`. On this
 machine Codex also has a user-level `physis_system` entry for sessions launched

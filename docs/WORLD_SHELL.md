@@ -1,5 +1,11 @@
 # `physis-world` — the navigational layer, running on this machine
 
+> Historical implementation/experiment report (2026-09-14). The standalone
+> `physis-world` command below is not a current Pro binary target.
+> Current navigation: [Semantic Navigation](SEMANTIC_NAVIGATION.md).
+> Current sequencing: [agentic workspace programme](plans/2026-09-18-agentic-workspace.md).
+> Measurements below remain attached to their original implementation.
+
 Built 2026-09-14, on top of the six experiments E55–E60. It is the smallest
 thing that makes the intended transition visible:
 
