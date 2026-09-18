@@ -107,6 +107,29 @@ mod wiki_generate;
 mod wiki_semiotic;
 mod workflow;
 
+/// Shared embedder health state: whether the embedder is degraded, whether it
+/// is genuinely semantic, and whether it passed the semantic self-test at
+/// startup. Every surface reads this struct instead of accessing
+/// `state.shared.degraded`/`state.shared.semantic`/`state.shared.self_test`
+/// directly — this ensures a single source of truth and makes the degraded
+/// alarm visible across every surface (CLI, MCP, HTTP, UI).
+#[derive(Clone, serde::Serialize)]
+pub struct EmbedderHealth {
+    pub degraded: bool,
+    pub semantic: bool,
+    pub self_test: bool,
+}
+
+impl EmbedderHealth {
+    pub fn from_shared_ctx(shared: &SharedCtx) -> Self {
+        Self {
+            degraded: shared.degraded,
+            semantic: shared.semantic,
+            self_test: shared.self_test,
+        }
+    }
+}
+
 /// Read-only context built once at startup, shared by every request WITHOUT
 /// locking. The hot paths (embed, classify, translate, ontology/semiotic reads)
 /// touch only this, so a CPU-heavy ONNX embed never blocks unrelated requests
@@ -128,6 +151,9 @@ pub struct SharedCtx {
     pub(crate) semantic: bool,
     /// Whether the embedder passed the semantic self-test at startup (P4).
     pub(crate) self_test: bool,
+    /// Shared embedder health state — single source of truth for degraded/semantic/self_test
+    /// across all surfaces (CLI, MCP, HTTP, UI). Read-only after init.
+    pub(crate) embedder_health: EmbedderHealth,
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     pub(crate) ingest: Arc<IngestRing>,
@@ -948,6 +974,7 @@ struct HealthResponse {
     /// random-projection offline mode (reproducible but non-semantic).
     semantic: bool,
     self_test: bool,
+    embedder_health: EmbedderHealth,
     tenants: usize,
     db: bool,
 }
@@ -983,6 +1010,7 @@ async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
         degraded: state.shared.degraded,
         semantic: state.shared.semantic,
         self_test: state.shared.self_test,
+        embedder_health: state.shared.embedder_health.clone(),
         tenants: tenant_count,
         db: db_ok,
     })
@@ -2586,6 +2614,11 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         degraded,
         semantic: !explicit_rp_override && self_test_ok && !degraded,
         self_test: self_test_ok,
+        embedder_health: EmbedderHealth {
+            degraded,
+            semantic: !explicit_rp_override && self_test_ok && !degraded,
+            self_test: self_test_ok,
+        },
         ingest: ingest.clone(),
         dev_mode,
         tokens,
@@ -4170,5 +4203,46 @@ mod log_filter_tests {
                 "filter must parse: {f}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod embedder_health_tests {
+    use super::EmbedderHealth;
+
+    #[test]
+    fn health_from_shared_ctx_degraded_true() {
+        let health = EmbedderHealth {
+            degraded: true,
+            semantic: false,
+            self_test: false,
+        };
+        assert!(health.degraded);
+        assert!(!health.semantic);
+        assert!(!health.self_test);
+    }
+
+    #[test]
+    fn health_from_shared_ctx_semantic_true() {
+        let health = EmbedderHealth {
+            degraded: false,
+            semantic: true,
+            self_test: true,
+        };
+        assert!(!health.degraded);
+        assert!(health.semantic);
+        assert!(health.self_test);
+    }
+
+    #[test]
+    fn health_from_shared_ctx_no_degraded() {
+        let health = EmbedderHealth {
+            degraded: false,
+            semantic: false,
+            self_test: false,
+        };
+        assert!(!health.degraded);
+        assert!(!health.semantic);
+        assert!(!health.self_test);
     }
 }

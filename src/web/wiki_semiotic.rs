@@ -466,7 +466,7 @@ pub async fn classify_handler(
         &results,
         coverage,
         state.shared.embedder_kind,
-        !state.shared.degraded && state.shared.self_test,
+        !state.shared.embedder_health.degraded && state.shared.embedder_health.self_test,
     );
     let discovery = if assessment.semantic && assessment.abstained {
         crate::discovery::suggest_text(&req.text, &embedding, &state.shared.classifier)
