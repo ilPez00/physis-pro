@@ -314,6 +314,15 @@ impl AppCtx {
                                     {skipped} skipped (embedder mismatch)"
                         );
                     }
+                    // Typed edges ride the same store (W1): nodes first, then
+                    // edges (endpoint-absent edges skip rather than resurrect).
+                    let (eloaded, eskipped) = rt.core.load_edges(db, uid);
+                    if eloaded > 0 || eskipped > 0 {
+                        log::info!(
+                            "tenant {uid}: {eloaded} typed edges restored, \
+                                    {eskipped} skipped (missing endpoints)"
+                        );
+                    }
                 }
                 rt
             });
@@ -2656,6 +2665,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                         {skipped} skipped (embedder mismatch)"
             );
         }
+        let (eloaded, eskipped) = state.lock().core.load_edges(&db, "_default");
+        if eloaded > 0 || eskipped > 0 {
+            log::info!(
+                "tenant _default: {eloaded} typed edges restored, \
+                        {eskipped} skipped (missing endpoints)"
+            );
+        }
     }
 
     let state_clone = Arc::downgrade(&state);
@@ -2765,6 +2781,11 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                                     let _ = db.remove(
                                         crate::core::PhysisCore::node_key("_default", &id),
                                     );
+                                    for eid in s.core.delete_edges_for_node(&id) {
+                                        let _ = db.remove(
+                                            crate::core::PhysisCore::edge_key("_default", &eid),
+                                        );
+                                    }
                                 }
                             }
                         }

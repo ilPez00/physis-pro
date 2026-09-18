@@ -3946,6 +3946,80 @@ async fn corpus_summaries_and_global_ask_are_tenant_scoped() {
     assert_eq!(other["communities"].as_u64(), Some(0));
 }
 
+/// PLAN 11C — conceptual search ranks the tenant's nodes by raw cosine,
+/// exposes the quality-adjusted score alongside it, and groups by effective
+/// cell. Tenant-scoped like every other recall surface.
+#[tokio::test]
+async fn concepts_search_ranks_groups_and_isolates_tenants() {
+    let (router, _dir, _env) = app().await;
+
+    for text in [
+        "spindle bearing preload procedure",
+        "spindle bearing replacement procedure",
+        "invoice reconciliation exception",
+    ] {
+        let (status, body) = send(
+            &router,
+            post(
+                "/api/v1/coherence/register",
+                "concept-user",
+                json!({"input": text}),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+
+    let (status, out) = send(
+        &router,
+        get(
+            "/api/v1/concepts/search?query=spindle%20bearing&limit=10",
+            "concept-user",
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{out}");
+    assert_eq!(out["query"], "spindle bearing");
+    let results = out["results"].as_array().expect("results array");
+    assert_eq!(results.len(), 3, "no threshold → every labeled node: {out}");
+    // Both raw and adjusted ship so the promotion is visible, never silent.
+    for r in results {
+        assert!(r["score"].is_number(), "{r}");
+        assert!(r["adjusted"].is_number(), "{r}");
+        assert!(r["group"].is_number(), "{r}");
+    }
+    assert_eq!(out["count"].as_u64(), Some(3));
+
+    // A punitive threshold thins the set (RP vectors are all highly similar,
+    // so 0.999 keeps only the nearest); grouping still numbers from 1.
+    let (_, thin) = send(
+        &router,
+        get(
+            "/api/v1/concepts/search?query=spindle%20bearing&threshold=0.999",
+            "concept-user",
+        ),
+    )
+    .await;
+    let thin_results = thin["results"].as_array().expect("results array");
+    assert!(thin_results.len() <= 3, "threshold only removes: {thin}");
+
+    // Another tenant sees none of it.
+    let (_, other) = send(
+        &router,
+        get(
+            "/api/v1/concepts/search?query=spindle%20bearing",
+            "someone-else",
+        ),
+    )
+    .await;
+    assert_eq!(
+        other["results"].as_array().map(|a| a.len()),
+        Some(0),
+        "tenant isolation: {other}"
+    );
+    assert_eq!(other["count"].as_u64(), Some(0));
+}
+
 /// Phase 11 C4 — `unit: "section"` retrieves heading-scoped sections and says
 /// where each hit came from, while the default flat path stays byte-identical.
 ///

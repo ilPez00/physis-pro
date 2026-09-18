@@ -414,6 +414,72 @@ pub struct NodeView {
     pub properties: serde_json::Map<String, serde_json::Value>,
 }
 
+/// A ranked conceptual-search hit: cosine `score` demoted/promoted by the
+/// quality tracker's `cell_standing`, exposed as `adjusted` so a client can
+/// see the promotion instead of guessing why order changed. `cell` is the
+/// effective semiotic cell (pin wins, else classifier top hit) in
+/// `DOMAIN/MODE` display form; `group` is the 1-based rank of the cell's
+/// first appearance, so one client-side sort groups without a second pass.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConceptHit {
+    pub id: String,
+    pub label: String,
+    pub score: Score,
+    pub adjusted: Score,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cell: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verdict: Option<Score>,
+    pub group: usize,
+}
+
+/// One scored candidate before ranking: `(id, label, raw_cosine,
+/// display_cell, asserted_verdict, quality_adjusted)`.
+pub type ConceptCandidate = (String, String, Score, Option<String>, Option<Score>, Score);
+
+/// One threshold-passing candidate before salience applies: `(id, label,
+/// raw_cosine, display_cell, asserted_verdict)`.
+pub type ConceptRaw = (String, String, Score, Option<String>, Option<Score>);
+
+/// Rank pre-scored candidates by quality-adjusted score.
+///
+/// Pure so the salience contract is unit-testable without an embedder:
+/// `adjusted = raw * standing`, unknown cells keep `standing = 1.0`,
+/// ordering is by `adjusted` (ties break on raw, then id). `group` numbers
+/// cells by first appearance in the ranked order, starting at 1.
+pub fn rank_concept_hits(mut scored: Vec<ConceptCandidate>) -> Vec<ConceptHit> {
+    scored.sort_by(|a, b| {
+        b.5.partial_cmp(&a.5)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    let mut order: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut next_group = 1usize;
+    scored
+        .into_iter()
+        .map(|(id, label, score, cell, verdict, adjusted)| {
+            let group = match &cell {
+                Some(c) => *order.entry(c.clone()).or_insert_with(|| {
+                    let g = next_group;
+                    next_group += 1;
+                    g
+                }),
+                None => 0,
+            };
+            ConceptHit {
+                id,
+                label,
+                score,
+                adjusted,
+                cell,
+                verdict,
+                group,
+            }
+        })
+        .collect()
+}
+
 /// A pointer to a node that shares conceptual similarity with the current node.
 /// Used for "see all instances" browsing — each one is hyperlinked-clickable.
 #[derive(Debug, Clone, Serialize)]
@@ -1748,6 +1814,66 @@ mod tests {
         let d = cosine_dist(&a, &b);
         assert!((d - 1.0).abs() < 1e-6);
         assert_eq!(cosine_dist(&a, &a), 0.0);
+    }
+
+    // ── Conceptual search ranking (PLAN 11C) ─────────────────────────────
+
+    #[test]
+    fn concept_rank_orders_by_adjusted_not_raw() {
+        // Higher raw cosine loses to a boosted cell: salience outranks
+        // similarity, which is the whole point of the re-rank.
+        let hits = rank_concept_hits(vec![
+            (
+                "a".into(),
+                "press drift".into(),
+                0.90,
+                Some("HEAL/WORK".into()),
+                None,
+                0.45,
+            ),
+            (
+                "b".into(),
+                "press alarm".into(),
+                0.70,
+                Some("FABRICATE/WORK".into()),
+                None,
+                0.84,
+            ),
+        ]);
+        assert_eq!(hits[0].id, "b");
+        assert_eq!(hits[1].id, "a");
+        assert!((hits[0].adjusted - 0.84).abs() < 1e-6);
+    }
+
+    #[test]
+    fn concept_rank_groups_by_first_appearance() {
+        let hits = rank_concept_hits(vec![
+            ("a".into(), "one".into(), 0.9, Some("X/Y".into()), None, 0.9),
+            ("b".into(), "two".into(), 0.8, Some("P/Q".into()), None, 0.8),
+            (
+                "c".into(),
+                "three".into(),
+                0.7,
+                Some("X/Y".into()),
+                None,
+                0.7,
+            ),
+            ("d".into(), "four".into(), 0.6, None, None, 0.6),
+        ]);
+        assert_eq!(hits[0].group, 1);
+        assert_eq!(hits[1].group, 2);
+        assert_eq!(hits[2].group, 1, "same cell joins the first group");
+        assert_eq!(hits[3].group, 0, "cell-less hits group nowhere");
+    }
+
+    #[test]
+    fn concept_rank_ties_break_deterministically() {
+        let hits = rank_concept_hits(vec![
+            ("b".into(), "b".into(), 0.5, None, None, 0.5),
+            ("a".into(), "a".into(), 0.5, None, None, 0.5),
+        ]);
+        assert_eq!(hits[0].id, "a", "id tiebreak keeps output stable");
+        assert_eq!(hits[1].id, "b");
     }
 
     // ── Interpretants ──────────────────────────────────────────────────────

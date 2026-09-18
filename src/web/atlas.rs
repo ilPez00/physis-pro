@@ -69,6 +69,13 @@ pub struct AtlasEdge {
     pub weight: f32,
     /// `holarchy` (recorded) or `similarity` (derived). Never merged.
     pub kind: &'static str,
+    /// Stable typed-edge id when this edge is a named relation (W1); `None`
+    /// for holarchy/similarity edges, which have no edge identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    /// RelationType variant name (`"Causes"`, …) for typed edges.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,9 +116,11 @@ pub struct AtlasInput {
 /// Assemble the drawable graph. Pure: same inputs, same output, no clock, no
 /// locks — which is what makes it testable and what makes two renders of an
 /// unchanged graph identical instead of merely similar.
+#[allow(clippy::too_many_arguments)]
 pub fn build_atlas(
     mut nodes: Vec<AtlasInput>,
     holarchy: Vec<(String, String, f32)>,
+    typed: Vec<(String, String, String, String, f32)>,
     total_nodes: usize,
     k: usize,
     min_sim: f32,
@@ -143,6 +152,28 @@ pub fn build_atlas(
                 target: b,
                 weight: w,
                 kind: "holarchy",
+                id: None,
+                relation: None,
+            });
+        }
+    }
+
+    // Named typed relations second: they carry their stable edge id through
+    // so the surface can select and edit them. They never collapse into a
+    // similarity edge between the same pair.
+    for (id, a, b, relation, w) in typed {
+        if a == b || !present.contains(a.as_str()) || !present.contains(b.as_str()) {
+            continue;
+        }
+        let key = ordered(&a, &b);
+        if seen.insert(key) {
+            edges.push(AtlasEdge {
+                source: a,
+                target: b,
+                weight: w,
+                kind: "typed",
+                id: Some(id),
+                relation: Some(relation),
             });
         }
     }
@@ -176,6 +207,8 @@ pub fn build_atlas(
                     target: nodes[j].id.clone(),
                     weight: sim,
                     kind: "similarity",
+                    id: None,
+                    relation: None,
                 });
             }
         }
@@ -285,7 +318,7 @@ pub async fn atlas_graph_handler(
     let k = params.k.clamp(1, 12);
     let min_sim = params.min_sim.clamp(0.0, 1.0);
 
-    let (inputs, holarchy, total) = state.with_user(&uid, |s| {
+    let (inputs, holarchy, typed, total) = state.with_user(&uid, |s| {
         let total = s.core.nodes.len();
         let mut ranked: Vec<&crate::models::CoherenceNode> = s.core.nodes.values().collect();
         ranked.sort_by(|a, b| {
@@ -327,10 +360,24 @@ pub async fn atlas_graph_handler(
                 _ => None,
             })
             .collect();
-        (inputs, holarchy, total)
+        let typed: Vec<(String, String, String, String, f32)> = s
+            .core
+            .edges
+            .iter()
+            .map(|e| {
+                (
+                    e.id.clone(),
+                    e.source_id.clone(),
+                    e.target_id.clone(),
+                    format!("{:?}", e.relation_type),
+                    e.weight,
+                )
+            })
+            .collect();
+        (inputs, holarchy, typed, total)
     });
 
-    Json(build_atlas(inputs, holarchy, total, k, min_sim))
+    Json(build_atlas(inputs, holarchy, typed, total, k, min_sim))
 }
 
 #[cfg(test)]
@@ -361,6 +408,7 @@ mod tests {
                 node("c", 0.7, vec![0.0, 1.0]),
             ],
             Vec::new(),
+            Vec::new(),
             3,
             3,
             0.55,
@@ -379,6 +427,7 @@ mod tests {
                 node("b", 0.8, vec![0.99, 0.1]),
             ],
             vec![("a".into(), "b".into(), 0.4)],
+            Vec::new(),
             2,
             3,
             0.55,
@@ -401,6 +450,7 @@ mod tests {
                 node("lonely", 0.5, vec![0.0, 1.0]),
                 node("lonelier", 0.4, vec![0.0, -1.0]),
             ],
+            Vec::new(),
             Vec::new(),
             4,
             3,
@@ -429,6 +479,7 @@ mod tests {
         let g = build_atlas(
             vec![a, node("b", 0.8, vec![0.99, 0.05])],
             Vec::new(),
+            Vec::new(),
             2,
             3,
             0.55,
@@ -451,6 +502,7 @@ mod tests {
                     node("c", 0.7, vec![0.98, 0.2]),
                 ],
                 Vec::new(),
+                Vec::new(),
                 3,
                 2,
                 0.55,
@@ -470,5 +522,33 @@ mod tests {
                 .map(|e| (e.source.clone(), e.target.clone()))
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn typed_edge_identity_survives_build_and_outranks_similarity() {
+        // W1: a named relation keeps its stable id + relation name through
+        // the build and is never relabeled as resemblance.
+        let g = build_atlas(
+            vec![
+                node("a", 0.9, vec![1.0, 0.0]),
+                node("b", 0.8, vec![0.99, 0.1]),
+            ],
+            Vec::new(),
+            vec![(
+                "edge-1".to_string(),
+                "a".to_string(),
+                "b".to_string(),
+                "Causes".to_string(),
+                0.7,
+            )],
+            2,
+            3,
+            0.55,
+        );
+        assert_eq!(g.edges.len(), 1, "the pair collapses: {:?}", g.edges);
+        assert_eq!(g.edges[0].kind, "typed");
+        assert_eq!(g.edges[0].id.as_deref(), Some("edge-1"));
+        assert_eq!(g.edges[0].relation.as_deref(), Some("Causes"));
+        assert_eq!(g.edges[0].weight, 0.7);
     }
 }

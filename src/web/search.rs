@@ -121,8 +121,17 @@ pub async fn search_nodes_handler(
     })
 }
 
-/// One recall candidate: (kind, id, label, embedding, asserted verdict).
-type SearchCandidate = (String, String, String, Vec<f32>, Option<f32>);
+/// One recall candidate, scored inside the tenant lock: dot-product against
+/// the query embedding (same as `concepts_search_handler`), asserted verdict
+/// riding along. `kind` is static — only "node" and "goal" exist.
+struct ScoredCandidate {
+    kind: &'static str,
+    id: String,
+    label: String,
+    embedding: Vec<f32>,
+    score: f32,
+    asserted: Option<f32>,
+}
 
 /// The retrieval half shared by [`search_nodes_handler`] and
 /// [`ask_handler`]: embed with the same embedder that embedded every node
@@ -138,22 +147,32 @@ pub(crate) async fn retrieve_nodes(
     let shared = state.shared.clone();
     let q_emb = embed_text(shared, query.clone()).await;
 
-    // Collect (kind, id, label, embedding, verdict) from the tenant's store.
-    // The asserted verdict rides along so recall becomes outcome memory: a top
-    // hit can say "you already tried this and it failed." Unlabeled goals
-    // (pure vectors) are skipped — nothing browsable to return.
-    let candidates: Vec<SearchCandidate> = state.with_user(uid, |s| {
-        let mut out: Vec<SearchCandidate> = Vec::new();
+    // Score every candidate against the query *inside* the tenant lock and
+    // keep only the score-ranked prefix that MMR + the token budget could
+    // still reach (keep >= 4x top_k, floor 32). The rest stays uncloned:
+    // this used to copy every node id, label and 384-dim embedding out of
+    // the lock per request, twice (again into the RagCorpus below).
+    // Scoring is the same dot-product `concepts_search_handler` uses — same
+    // embedder-consistency contract. The asserted verdict rides along so
+    // recall becomes outcome memory: a top hit can say "you already tried
+    // this and it failed." Unlabeled goals (pure vectors) are skipped —
+    // nothing browsable to return.
+    let candidates: Vec<ScoredCandidate> = state.with_user(uid, |s| {
+        let mut out: Vec<ScoredCandidate> = Vec::new();
+        let score = |emb: &[f32]| {
+            q_emb.iter().zip(emb).map(|(a, b)| a * b).sum::<f32>()
+        };
         for n in s.core.nodes.values() {
             if let Some(label) = n.label.as_deref() {
                 if !label.trim().is_empty() {
-                    out.push((
-                        "node".to_string(),
-                        n.id.clone(),
-                        label.to_string(),
-                        n.embedding.clone(),
-                        n.asserted,
-                    ));
+                    out.push(ScoredCandidate {
+                        kind: "node",
+                        id: n.id.clone(),
+                        label: label.to_string(),
+                        embedding: n.embedding.clone(),
+                        score: score(&n.embedding),
+                        asserted: n.asserted,
+                    });
                 }
             }
         }
@@ -162,14 +181,18 @@ pub(crate) async fn retrieve_nodes(
                 Some(l) if !l.trim().is_empty() => l.clone(),
                 _ => continue,
             };
-            out.push((
-                "goal".to_string(),
-                g.id.clone(),
+            out.push(ScoredCandidate {
+                kind: "goal",
+                id: g.id.clone(),
                 label,
-                g.embedding.clone(),
-                None,
-            ));
+                embedding: g.embedding.clone(),
+                score: score(&g.embedding),
+                asserted: None,
+            });
         }
+        out.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        let keep = top_k.saturating_mul(4).max(32);
+        out.truncate(keep);
         out
     });
 
@@ -179,11 +202,11 @@ pub(crate) async fn retrieve_nodes(
         chunks: candidates
             .iter()
             .enumerate()
-            .map(|(i, (_, _, label, emb, _))| rag::RagChunk {
+            .map(|(i, c)| rag::RagChunk {
                 id: i,
-                text: label.clone(),
-                tokens: rag::count_tokens(label),
-                embedding: emb.clone(),
+                text: c.label.clone(),
+                tokens: rag::count_tokens(&c.label),
+                embedding: c.embedding.clone(),
             })
             .collect(),
     };
@@ -194,14 +217,14 @@ pub(crate) async fn retrieve_nodes(
         .chunks
         .iter()
         .filter_map(|c| {
-            let (kind, id, label, _, verdict) = candidates.get(c.id)?;
+            let cand = candidates.get(c.id)?;
             Some(SearchNodeHit {
-                kind: kind.clone(),
-                id: id.clone(),
-                label: label.clone(),
+                kind: cand.kind.to_string(),
+                id: cand.id.clone(),
+                label: cand.label.clone(),
                 score: c.score,
                 tokens: c.tokens,
-                verdict: *verdict,
+                verdict: cand.asserted,
             })
         })
         .collect();
@@ -218,6 +241,96 @@ pub(crate) async fn retrieve_nodes(
         .collect();
 
     (result.budget, result.total_tokens, result.truncated, hits, failures)
+}
+
+/// GET /api/v1/concepts/search — PLAN 11C conceptual search.
+///
+/// Same retrieval corpus as `/search/nodes` (tenant coherence labels, no
+/// re-embed) but a different contract: no token packing, a raw-cosine
+/// `threshold` floor, quality re-rank via `cell_standing`, and grouping by
+/// effective semiotic cell. Pure ranking lives in
+/// `models::rank_concept_hits`; this handler only supplies embeddings,
+/// cells, and standings.
+pub async fn concepts_search_handler(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(params): Query<ConceptSearchQuery>,
+) -> Json<serde_json::Value> {
+    let uid = user_key(&headers);
+    let threshold = params.threshold.unwrap_or(0.0);
+    let limit = params.limit.unwrap_or(50).clamp(1, 500);
+    let query = params.query.clone();
+    let q_emb = embed_text(state.shared.clone(), query.clone()).await;
+
+    let scored: Vec<crate::models::ConceptRaw> = state.with_user(&uid, |s| {
+        let mut out = Vec::new();
+        for n in s.core.nodes.values() {
+            let Some(label) = n.label.as_deref() else {
+                continue;
+            };
+            if label.trim().is_empty() {
+                continue;
+            }
+            let raw: f32 = q_emb.iter().zip(&n.embedding).map(|(a, b)| a * b).sum();
+            if raw < threshold {
+                continue;
+            }
+            // Effective cell: pin wins, else classifier top hit — the same
+            // resolution `observable()` uses. Standings are snapshotted
+            // below (outside the tenant lock) so this closure never takes
+            // the quality lock while holding the user lock.
+            let cell = n.cell_pin.clone().or_else(|| {
+                state
+                    .shared
+                    .classifier
+                    .classify(&n.embedding)
+                    .first()
+                    .map(|c| (c.domain.clone(), c.mode.clone()))
+            });
+            out.push((
+                n.id.clone(),
+                label.to_string(),
+                raw,
+                cell.map(|(d, m)| format!("{d}/{m}")),
+                n.asserted,
+            ));
+        }
+        out
+    });
+
+    // Quality standings, snapshotted outside the tenant lock (lock order:
+    // quality after user state would invert the harness/coherence order).
+    let standings: std::collections::HashMap<String, f32> = {
+        let quality = state.quality.lock().unwrap_or_else(|e| e.into_inner());
+        let mut m = std::collections::HashMap::new();
+        for cell in scored.iter().filter_map(|(_, _, _, c, _)| c.as_deref()) {
+            let key = cell.replace('/', "\x00");
+            m.entry(cell.to_string())
+                .or_insert_with(|| quality.cell_standing(&key));
+        }
+        m
+    };
+    let rescored: Vec<crate::models::ConceptCandidate> = scored
+        .into_iter()
+        .map(|(id, label, raw, cell, verdict)| {
+            let standing = cell
+                .as_deref()
+                .and_then(|c| standings.get(c).copied())
+                .unwrap_or(1.0);
+            (id, label, raw, cell, verdict, raw * standing)
+        })
+        .collect();
+
+    let mut hits = crate::models::rank_concept_hits(rescored);
+    hits.truncate(limit);
+    let groups = hits.iter().map(|h| h.group).max().unwrap_or(0);
+    Json(serde_json::json!({
+        "query": query,
+        "threshold": threshold,
+        "count": hits.len(),
+        "groups": groups,
+        "results": hits,
+    }))
 }
 
 /// POST /api/v1/ask — plain-English question over the graph (PLAN 3.2).

@@ -1,5 +1,8 @@
 // provenance: moved from physis-core src/bin/system_tui.rs (core HEAD d65858b)
 // as part of the Core/Product split, 2026-09-14. One implementation; no fork.
+// ponytail: dead under default features until a `physis-system-tui` bin wires
+// `run()` in; delete if no bin ever lands.
+#![allow(dead_code)]
 //! `physis-system-tui` — navigate the workspace interface with a mouse and keys.
 //!
 //! The same [`Workspace`] service the CLI calls, rendered as three regions:

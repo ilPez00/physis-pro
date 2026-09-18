@@ -31,6 +31,8 @@ pub struct EdgeProjection {
     pub weight: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provenance: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -55,6 +57,7 @@ pub async fn coherence_edges_handler(
             confidence: e.confidence,
             weight: e.weight,
             provenance: e.provenance.clone(),
+            evidence: e.evidence.clone(),
         };
         Json(NodeEdgesResponse {
             node_id: q.node_id.clone(),
@@ -75,6 +78,13 @@ pub struct AddEdgeRequest {
     confidence: f32,
     #[serde(default = "default_w")]
     weight: f32,
+    /// Optional exact support pointer (span/path/ledger id). Stored on the
+    /// edge, surfaced in the edge projection, never inferred.
+    #[serde(default)]
+    evidence: Option<String>,
+    /// Optional provenance override. Defaults to "api" (pre-W1 behavior).
+    #[serde(default)]
+    provenance: Option<String>,
 }
 
 fn default_conf() -> f32 {
@@ -102,11 +112,20 @@ pub async fn coherence_add_edge_handler(
         "Influences" => RelationType::Influences,
         "Precedes" => RelationType::Precedes,
         "Follows" => RelationType::Follows,
+        "DependsOn" | "Depends_On" | "DEPENDS_ON" => RelationType::DependsOn,
+        "Requires" => RelationType::Requires,
+        "Produces" => RelationType::Produces,
+        "Measures" => RelationType::Measures,
+        "Observes" => RelationType::Observes,
+        "Explains" => RelationType::Explains,
+        "Predicts" => RelationType::Predicts,
+        "Invalidates" => RelationType::Invalidates,
+        "DerivedFrom" | "Derived_From" | "DERIVED_FROM" => RelationType::DerivedFrom,
         other => {
             return Err((
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({
-                    "error": format!("unknown relation '{other}' — Supports|Contradicts|Causes|Influences|Precedes|Follows")
+                    "error": format!("unknown relation '{other}' — Supports|Contradicts|Causes|Influences|Precedes|Follows|DependsOn|Requires|Produces|Measures|Observes|Explains|Predicts|Invalidates|DerivedFrom")
                 })),
             ));
         }
@@ -124,8 +143,23 @@ pub async fn coherence_add_edge_handler(
         ));
     }
     let edge_id = state.with_user(&uid, |s| {
-        s.core
-            .add_typed_edge(&req.source, relation, &req.target, req.confidence, req.weight)
+        s.core.add_typed_edge(
+            &req.source,
+            relation,
+            &req.target,
+            req.confidence,
+            req.weight,
+            req.provenance.clone(),
+            req.evidence.clone(),
+        )
+    });
+    // Write through so the edge survives a restart (same pattern as nodes).
+    state.with_user(&uid, |s| {
+        if let Some(db) = state.db() {
+            if let Err(e) = s.core.persist_edge(db, &uid, &edge_id) {
+                log::warn!("typed edge {edge_id} not persisted: {e}");
+            }
+        }
     });
     // Audit the edge write (Phase 16 I9).
     state.with_user(&uid, |s| {
@@ -759,6 +793,7 @@ pub async fn coherence_delete_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
     let uid = user_key(&headers);
     let removed = state.with_user(&uid, |s| {
+        let edge_ids = s.core.delete_edges_for_node(&req.id);
         let ok = s.core.delete_node(&req.id);
         if ok {
             // Audit the deletion before the node is gone (Phase 16 I9).
@@ -767,6 +802,9 @@ pub async fn coherence_delete_handler(
                 let _ = s.audit.save(db, &uid);
                 let key = crate::core::PhysisCore::node_key(&uid, &req.id);
                 let _ = db.remove(key);
+                for eid in &edge_ids {
+                    let _ = db.remove(crate::core::PhysisCore::edge_key(&uid, eid));
+                }
             }
         }
         ok

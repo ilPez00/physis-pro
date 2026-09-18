@@ -90,7 +90,7 @@ impl Registry {
         let cap_name = cap.name.clone();
 
         let (ok, raw, detail) = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.run_capability(&cap, &obj, &kwargs)
+            self.run_capability(cap, &obj, &kwargs)
         })) {
             Ok(result) => result,
             Err(e) => {

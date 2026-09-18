@@ -488,6 +488,219 @@ impl PhysisApp {
         self.dreams.generate_dreams(&self.goals, count)
     }
 
+    /// Load the persisted quality tracker (penalties/boosts survive restarts
+    /// via `quality_failures.json`); empty when nothing was ever reported.
+    fn load_quality(&self) -> crate::quality::QualityTracker {
+        let path = self.config.data_dir.join("quality_failures.json");
+        crate::quality::load_or_new(&path)
+    }
+
+    /// Effective cell of a persisted node in `DOMAIN/MODE` display form: pin
+    /// wins, else the classifier's top hit — the same resolution
+    /// `observable()` uses on the web side.
+    fn effective_cell(&self, node: &crate::models::CoherenceNode) -> Option<String> {
+        node.cell_pin
+            .clone()
+            .map(|(d, m)| format!("{d}/{m}"))
+            .or_else(|| {
+                self.classifier
+                    .classify(&node.embedding)
+                    .first()
+                    .map(|c| format!("{}/{}", c.domain, c.mode))
+            })
+    }
+
+    /// PLAN 11C conceptual search over the persisted `_default` store: cosine
+    /// against the shared embedder, quality re-rank via `cell_standing`,
+    /// grouping by effective cell. Same corpus as `run_node_search`, no token
+    /// packing — `threshold` is the raw-cosine floor, `limit` caps the rows.
+    pub fn run_concepts(
+        &mut self,
+        query: &str,
+        threshold: f32,
+        limit: usize,
+    ) -> anyhow::Result<String> {
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let q_emb = self.embedder.embed(query);
+        let quality = self.load_quality();
+        let mut scored = Vec::new();
+        for n in core.nodes.values() {
+            let Some(label) = n.label.as_deref() else {
+                continue;
+            };
+            if label.trim().is_empty() {
+                continue;
+            }
+            let raw: f32 = q_emb.iter().zip(&n.embedding).map(|(a, b)| a * b).sum();
+            if raw < threshold {
+                continue;
+            }
+            let cell = self.effective_cell(n);
+            let standing = cell
+                .as_deref()
+                .map(|c| quality.cell_standing(&c.replace('/', "\x00")))
+                .unwrap_or(1.0);
+            scored.push((
+                n.id.clone(),
+                label.to_string(),
+                raw,
+                cell,
+                n.asserted,
+                raw * standing,
+            ));
+        }
+        let mut hits = crate::models::rank_concept_hits(scored);
+        hits.truncate(limit.clamp(1, 500));
+        let groups = hits.iter().map(|h| h.group).max().unwrap_or(0);
+        let mut out = format!(
+            "{} concept(s) in {} group(s) for '{query}' (threshold {threshold:.2})\n",
+            hits.len(),
+            groups,
+        );
+        for h in &hits {
+            let verdict = match h.verdict {
+                Some(v) if v <= -0.5 => "failed",
+                Some(v) if v >= 0.5 => "worked",
+                Some(_) => "inert",
+                None => "unjudged",
+            };
+            let cell = h.cell.as_deref().unwrap_or("—");
+            out.push_str(&format!(
+                "  {:.3}->{:.3}  [g{} {cell}] [{}] {} (verdict {verdict})\n",
+                h.score, h.adjusted, h.group, h.id, h.label,
+            ));
+        }
+        Ok(out)
+    }
+
+    /// PLAN 11B "see all instances" over the CLI: every node sharing
+    /// conceptual similarity with `id`, via the same
+    /// `find_conceptual_instances` the web endpoint serves.
+    pub fn run_node_instances(
+        &mut self,
+        id: &str,
+        threshold: f32,
+        limit: usize,
+    ) -> anyhow::Result<String> {
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        if !core.nodes.contains_key(id) {
+            anyhow::bail!("node {id} not found");
+        }
+        let instances =
+            core.find_conceptual_instances(id, &self.classifier, threshold, limit.clamp(1, 500));
+        let mut out = format!(
+            "{} instance(s) of {id} (threshold {threshold:.2})\n",
+            instances.len(),
+        );
+        for i in &instances {
+            let cell = i
+                .cell
+                .as_ref()
+                .map(|(d, m)| format!("({d}/{m})"))
+                .unwrap_or_default();
+            out.push_str(&format!(
+                "  {:.3}  [{}] {} {cell}\n",
+                i.score.unwrap_or(0.0),
+                i.id,
+                i.label,
+            ));
+        }
+        Ok(out)
+    }
+
+    /// Jump to a node: fragment, verdict, cell, plus its top instances.
+    pub fn run_jump(&mut self, id: &str) -> anyhow::Result<String> {
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let Some(node) = core.nodes.get(id) else {
+            anyhow::bail!("node {id} not found");
+        };
+        let instances = core.find_conceptual_instances(id, &self.classifier, 0.3, 10);
+        let verdict = match node.asserted {
+            Some(v) if v <= -0.5 => "failed",
+            Some(v) if v >= 0.5 => "worked",
+            Some(_) => "inert",
+            None => "unjudged",
+        };
+        let cell = self.effective_cell(node).unwrap_or_else(|| "—".into());
+        let fragment = node.extract_fragment().unwrap_or_default();
+        let label = node.label.as_deref().unwrap_or("(unlabeled)");
+        let mut out = format!(
+            "{}  {label}\n  fragment: {fragment}\n  verdict: {verdict}\n  cell: {cell}\n  instances: {}\n",
+            node.id,
+            instances.len(),
+        );
+        for i in &instances {
+            out.push_str(&format!(
+                "  {:.3}  [{}] {}\n",
+                i.score.unwrap_or(0.0),
+                i.id,
+                i.label,
+            ));
+        }
+        Ok(out)
+    }
+
+    /// Token-budgeted context around a node: the node itself plus its top
+    /// instances, packed greedily to `budget` (same contract as node-search,
+    /// applied to one neighbourhood instead of the whole store).
+    pub fn run_node_context(&mut self, id: &str, budget: usize) -> anyhow::Result<String> {
+        let Some((_db, core)) = self.open_persisted_core() else {
+            anyhow::bail!("node store unavailable (persistence off)");
+        };
+        let Some(node) = core.nodes.get(id) else {
+            anyhow::bail!("node {id} not found");
+        };
+        let instances = core.find_conceptual_instances(id, &self.classifier, 0.0, 100);
+        let mut members: Vec<(String, String, Vec<f32>)> = vec![(
+            node.id.clone(),
+            node.label.clone().unwrap_or_default(),
+            node.embedding.clone(),
+        )];
+        for i in &instances {
+            if let Some(n) = core.nodes.get(&i.id) {
+                members.push((
+                    n.id.clone(),
+                    n.label.clone().unwrap_or_default(),
+                    n.embedding.clone(),
+                ));
+            }
+        }
+        let corpus = crate::rag::RagCorpus {
+            chunks: members
+                .iter()
+                .enumerate()
+                .map(|(ix, (_, label, emb))| crate::rag::RagChunk {
+                    id: ix,
+                    text: label.clone(),
+                    tokens: crate::rag::count_tokens(label),
+                    embedding: emb.clone(),
+                })
+                .collect(),
+        };
+        // Rank neighbourhood members by similarity to the node itself (query
+        // vector = the node's embedding, not a text query).
+        let result = crate::rag::TokenFixedRetriever::new(budget, members.len())
+            .retrieve(&node.embedding, &corpus);
+        let mut out = format!(
+            "context of {id}: {} chunk(s), {} tokens (budget {})\n",
+            result.chunks.len(),
+            result.total_tokens,
+            result.budget,
+        );
+        for c in &result.chunks {
+            if let Some((nid, label, _)) = members.get(c.id) {
+                out.push_str(&format!("  [{nid}] {label} ({} tokens)\n", c.tokens));
+            }
+        }
+        Ok(out)
+    }
+
     /// Import a knowledge vault into the shared store as labeled core nodes.
     /// Reads markdown/plain-text notes (title + headings → labels) and — when
     /// `git_max > 0` — the recent commit history, embedding each label with the

@@ -1,3 +1,7 @@
+// Repair routing pipeline below is scaffolding kept for the repair phase:
+// only `RepairResult`/`RepairRegion` types are consumed today. Reuse or
+// delete when the repair worker lands.
+#![allow(dead_code)]
 use crate::semantic_delta::SemanticDelta;
 use crate::dependency::{PropagationTrace};
 use crate::repair_regions::RepairRegion;
@@ -95,7 +99,7 @@ fn compute_heaviness(region: &RepairRegion, delta: &SemanticDelta) -> f32 {
     let node_text_len: usize = region
         .affected_nodes
         .iter()
-        .map(|id| {
+        .map(|_id| {
             // Rough estimate based on position
             100 // placeholder
         })
@@ -111,7 +115,7 @@ fn compute_heaviness(region: &RepairRegion, delta: &SemanticDelta) -> f32 {
     let centrality: f32 = region
         .affected_nodes
         .iter()
-        .map(|id| {
+        .map(|_id| {
             // Count outgoing edges to non-region nodes
             0.0 // placeholder
         })

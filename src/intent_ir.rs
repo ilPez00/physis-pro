@@ -45,7 +45,9 @@ impl IntentIR {
 
         for s in SLOTS {
             let v = raw.get(s);
-            if v.is_none() || v.unwrap().is_null() || v.unwrap().as_str() == Some("") {
+            let nil = v.is_none()
+                || v.is_some_and(|val| val.is_null() || val.as_str() == Some(""));
+            if nil {
                 slots.insert(s.to_string(), None);
                 nil_slots.push(s.to_string());
             } else {

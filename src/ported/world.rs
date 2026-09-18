@@ -1,5 +1,8 @@
 // provenance: moved from physis-core src/bin/world.rs (core HEAD d65858b)
 // as part of the Core/Product split, 2026-09-14. One implementation; no fork.
+// ponytail: dead under the current bin set until a `physis-world` bin wires
+// `main()` in; delete if no bin ever lands.
+#![allow(dead_code)]
 //! `physis-world` — the navigational substrate, over the machine's own log.
 //!
 //! The filesystem stays exactly where it is. This is a second layer on top of

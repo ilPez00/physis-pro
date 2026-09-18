@@ -68,7 +68,7 @@ pub fn propagate_delta(
             let relation_relevance = delta_edge_relevance(delta, &edge.relation);
 
             // Compute scope overlap with target node's content
-            let scope_overlap = compute_scope_overlap(delta, &target, source, graph);
+            let scope_overlap = compute_scope_overlap(delta, target, source, graph);
 
             // Compute resulting affectedness score
             let score = incoming_score
@@ -93,7 +93,7 @@ pub fn propagate_delta(
                 let trace = PropagationTrace {
                     source: source.to_string(),
                     target: target.clone(),
-                    relation: edge.relation.clone(),
+                    relation: edge.relation,
                     incoming_score,
                     relation_relevance,
                     scope_overlap,
@@ -140,7 +140,7 @@ fn delta_edge_relevance(delta: &SemanticDelta, relation: &RelationType) -> f32 {
             1.0
         }
         // Entity substitutions propagate through references
-        RelationType::DependsOn if delta.entity_changes.len() > 0 => 0.6,
+        RelationType::DependsOn if !delta.entity_changes.is_empty() => 0.6,
         // Default: use base relevance
         _ => base_relevance,
     }
@@ -159,7 +159,7 @@ fn compute_scope_overlap(delta: &SemanticDelta, target_id: &str, source: &str, g
     // Compute Jaccard-like overlap between changed claims and target claims
     let changed_claims: Vec<&str> = if delta.scope_change.is_some() {
         // When scope changes, all previous claims may be affected
-        vec!["changed"].iter().map(|s| *s).collect()
+        ["changed"].to_vec()
     } else {
         // Compare old vs new claims
         vec![]
@@ -201,7 +201,7 @@ pub struct PropagationTrace {
 }
 
 /// Graph of dependency edges between semantic nodes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DependencyGraph {
     /// Adjacency list: node_id -> outgoing edges
     outgoing: std::collections::HashMap<String, Vec<DependencyEdge>>,
@@ -322,27 +322,25 @@ impl StalenessState {
         }
 
         // Check if this is a cheap repair candidate
-        if affectedness < 0.70 {
-            if delta.entity_changes.is_empty()
-                && delta.quantity_change.as_ref().map_or(true, |q| {
+        if affectedness < 0.70
+            && delta.entity_changes.is_empty()
+                && delta.quantity_change.as_ref().is_none_or(|q| {
                     matches!(q.direction, QuantityDirection::Unknown)
                 })
-                && delta.scope_change.as_ref().map_or(true, |s| matches!(s, ScopeDelta::Unchanged))
+                && delta.scope_change.as_ref().is_none_or(|s| matches!(s, ScopeDelta::Unchanged))
             {
                 return StalenessState::RepairableCheap;
             }
-        }
 
         // Check for human anchor conflicts
-        if affectedness >= 0.70 {
-            if delta.entity_changes.iter().any(|e| {
+        if affectedness >= 0.70
+            && delta.entity_changes.iter().any(|e| {
                 let privileged_prefixes = ["The ", "A ", "An ", "The", "A", "An"];
                 privileged_prefixes.iter().any(|p| e.old_value.starts_with(p))
                     && e.change_type == semantic_delta::EntityChangeType::Substitution
             }) {
                 return StalenessState::RequiresHumanReview;
             }
-        }
 
         // Default: requires strong model repair
         StalenessState::RequiresStrongModel
@@ -351,7 +349,7 @@ impl StalenessState {
 
 /// Classify staleness for a collection of affected nodes.
 pub fn classify_affected_nodes(
-    graph: &DependencyGraph,
+    _graph: &DependencyGraph,
     affected: &[(String, f32, PropagationTrace)],
     node_provenance: &std::collections::HashMap<String, String>,
     node_locked: &std::collections::HashMap<String, bool>,
@@ -381,7 +379,7 @@ pub fn explain_staleness(
     node_id: &str,
     state: &StalenessState,
     affectedness: f32,
-    delta: &semantic_delta::SemanticDelta,
+    _delta: &semantic_delta::SemanticDelta,
 ) -> String {
     match state {
         StalenessState::Unaffected => {

@@ -261,6 +261,10 @@ impl PhysisCore {
     /// (Supports, Contradicts, Causes, Precedes, …), and the edge gets a stable
     /// id + provenance so downstream surfaces (atlas, lineage, spanner) can walk
     /// it by name and backwards. Returns the edge id.
+    ///
+    /// `provenance` defaults to `"api"` when `None` (the pre-W1 behavior);
+    /// `evidence` is an optional exact support pointer (span/path/ledger id).
+    #[allow(clippy::too_many_arguments)]
     pub fn add_typed_edge(
         &mut self,
         source: &str,
@@ -268,11 +272,14 @@ impl PhysisCore {
         target: &str,
         confidence: f32,
         weight: f32,
+        provenance: Option<String>,
+        evidence: Option<String>,
     ) -> String {
         let mut edge = physis_core::relation::TypedEdge::new(relation, source, target);
         edge.confidence = confidence.clamp(0.0, 1.0);
         edge.weight = weight;
-        edge.provenance = Some("api".into());
+        edge.provenance = Some(provenance.unwrap_or_else(|| "api".into()));
+        edge.evidence = evidence;
         let id = edge.id.clone();
         self.edges.push(edge);
         id
@@ -777,8 +784,9 @@ impl PhysisCore {
     }
 
     /// Remove a node and every structure that references it: the label dedupe
-    /// index, the holarchy bridge, the holarchy node + its edges, and any PQ
-    /// codes. The caller is responsible for removing the persisted sled row.
+    /// index, the holarchy bridge, the holarchy node + its edges, any PQ
+    /// codes, and any typed edges touching it. The caller is responsible for
+    /// removing the persisted sled rows.
     /// Returns false when the id is unknown.
     pub fn delete_node(&mut self, id: &str) -> bool {
         let Some(node) = self.nodes.remove(id) else {
@@ -798,6 +806,8 @@ impl PhysisCore {
             self.bridge.unlink_raw(raw);
         }
         self.encoded_nodes.retain(|(nid, _)| nid != id);
+        self.edges
+            .retain(|e| e.source_id != id && e.target_id != id);
         true
     }
 
@@ -858,6 +868,63 @@ impl PhysisCore {
     /// `pub(crate)` so the web layer can remove the persisted row on delete.
     pub(crate) fn node_key(uid: &str, id: &str) -> String {
         format!("coh:{uid}:{id}")
+    }
+
+    /// sled key for one typed edge: `edge:<uid>:<edge_id>`. Edges carry no
+    /// vectors, so they load regardless of the embedder (unlike nodes).
+    /// `pub(crate)` so the web layer can remove the persisted row on delete.
+    pub(crate) fn edge_key(uid: &str, id: &str) -> String {
+        format!("edge:{uid}:{id}")
+    }
+
+    /// Persist a single typed edge so it survives a restart. No-op for an
+    /// unknown id.
+    pub fn persist_edge(&self, db: &sled::Db, uid: &str, id: &str) -> anyhow::Result<()> {
+        if let Some(edge) = self.edges.iter().find(|e| e.id == id) {
+            db.insert(Self::edge_key(uid, id), serde_json::to_vec(edge)?)?;
+        }
+        Ok(())
+    }
+
+    /// Rehydrate a tenant's persisted typed edges into this core. Returns
+    /// `(loaded, skipped)`. Edges whose endpoints are absent (nodes deleted
+    /// or never loaded) are skipped — an edge to nothing fails loudly at
+    /// write time and must not resurrect silently at load time.
+    pub fn load_edges(&mut self, db: &sled::Db, uid: &str) -> (usize, usize) {
+        let (mut loaded, mut skipped) = (0, 0);
+        for item in db.scan_prefix(Self::edge_key(uid, "")) {
+            let Ok((_, raw)) = item else { continue };
+            let Ok(edge) = serde_json::from_slice::<TypedEdge>(&raw) else {
+                skipped += 1;
+                continue;
+            };
+            if !self.nodes.contains_key(&edge.source_id)
+                || !self.nodes.contains_key(&edge.target_id)
+            {
+                skipped += 1;
+                continue;
+            }
+            if self.edges.iter().any(|e| e.id == edge.id) {
+                continue;
+            }
+            self.edges.push(edge);
+            loaded += 1;
+        }
+        (loaded, skipped)
+    }
+
+    /// Drop every typed edge touching `id` from memory. The caller removes
+    /// the persisted sled rows. Returns the dropped edge ids.
+    pub fn delete_edges_for_node(&mut self, id: &str) -> Vec<String> {
+        let ids: Vec<String> = self
+            .edges
+            .iter()
+            .filter(|e| e.source_id == id || e.target_id == id)
+            .map(|e| e.id.clone())
+            .collect();
+        self.edges
+            .retain(|e| e.source_id != id && e.target_id != id);
+        ids
     }
 
     /// Persist a single node so it survives a restart. No-op for an unknown id.
@@ -1945,6 +2012,73 @@ mod tests {
         let mut swapped = PhysisCore::new();
         swapped.set_embedder_id("some-other-model");
         assert_eq!(swapped.load_nodes(&db, "tenant-a"), (0, 2));
+    }
+
+    #[test]
+    fn test_edges_survive_a_restart_and_die_with_their_node() {
+        // W1: typed edges have the same durability as nodes — persist,
+        // rehydrate, cascade on delete. Edges carry no vectors, so no
+        // embedder-mismatch skip applies.
+        use physis_core::relation::RelationType;
+        let db = sled::Config::new().temporary(true).open().unwrap();
+        let emb = fixture_embedder();
+
+        let (a, b, eid) = {
+            let mut g = PhysisCore::new();
+            g.set_embedder_id("fixture");
+            let a = g.register_node_from_text("press seized bearing", &emb);
+            let b = g.register_node_from_text("work-order-41 open", &emb);
+            let eid = g.add_typed_edge(
+                &a,
+                RelationType::Causes,
+                &b,
+                0.9,
+                0.7,
+                Some("human".into()),
+                Some("ledger:3".into()),
+            );
+            for n in g.nodes.keys().cloned().collect::<Vec<_>>() {
+                g.persist_node(&db, "tenant-a", &n).unwrap();
+            }
+            g.persist_edge(&db, "tenant-a", &eid).unwrap();
+            (a, b, eid)
+        };
+
+        let mut restored = PhysisCore::new();
+        restored.set_embedder_id("fixture");
+        assert_eq!(restored.load_nodes(&db, "tenant-a"), (2, 0));
+        assert_eq!(restored.load_edges(&db, "tenant-a"), (1, 0));
+        let e = restored.edges.iter().find(|e| e.id == eid).expect("edge");
+        assert_eq!(e.relation_type, RelationType::Causes);
+        assert_eq!((e.source_id.as_str(), e.target_id.as_str()), (a.as_str(), b.as_str()));
+        assert_eq!(e.provenance.as_deref(), Some("human"));
+        assert_eq!(e.evidence.as_deref(), Some("ledger:3"));
+
+        // Deleting a node drops its edges in memory; rows go with it.
+        let dropped = restored.delete_edges_for_node(&a);
+        assert_eq!(dropped, vec![eid.clone()]);
+        assert!(restored.edges.is_empty());
+        for eid in &dropped {
+            let _ = db.remove(PhysisCore::edge_key("tenant-a", eid));
+        }
+        let mut again = PhysisCore::new();
+        again.set_embedder_id("fixture");
+        assert_eq!(again.load_nodes(&db, "tenant-a"), (2, 0));
+        assert_eq!(again.load_edges(&db, "tenant-a"), (0, 0));
+
+        // `delete_node` itself cascades: edges never outlive an endpoint.
+        let mut g = PhysisCore::new();
+        g.set_embedder_id("fixture");
+        let x = g.register_node_from_text("node x here", &emb);
+        let y = g.register_node_from_text("node y there", &emb);
+        g.add_typed_edge(&x, RelationType::Supports, &y, 1.0, 1.0, None, None);
+        assert!(g.delete_node(&x));
+        assert!(g.edges.is_empty(), "typed edges die with their node");
+
+        // Tenant isolation holds for edges too.
+        let mut other = PhysisCore::new();
+        other.set_embedder_id("fixture");
+        assert_eq!(other.load_edges(&db, "tenant-b"), (0, 0));
     }
 
     #[test]
