@@ -1072,3 +1072,10 @@ An exact log needs no semantics — it *is* a structured label.
 used by a single joint proposer over cells. Top-3 **0.705** against the shipped
 representation's 0.651, *t* = +12.13, better in **24 of 24** paired splits
 (E28 variant B). Every more elaborate design built on top of it lost.
+
+## Proposed: quantitative event streams (2026-09-17)
+
+[Detailed research specification](QUANTITATIVE_EVENT_STREAMS.md): Q1–Q8, data
+contracts, baselines, walk-forward validation, nulls, costs and kill criteria.
+Status: NOT MEASURED. Linked to PLAN.md Phase 27 and existing MS packets;
+no new engine, implementation, worker dispatch or production promotion.

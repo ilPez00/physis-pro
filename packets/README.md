@@ -18,3 +18,9 @@ Read PROTOCOL.md first. Then the repo rules that override everything:
 
 Suggested order = phase, then id. Phase meanings: 0 = now, 1 = next quarter,
 2 = this year, 3 = later, D = discovery (writes future packets).
+
+## Multiscale structure research
+
+See [PLAN.md Phase 27](../PLAN.md#phase-27--measured-structure-of-change-2026-09-17).
+MS-001 is the only initially eligible packet; MS-002–MS-008 are dependency-blocked.
+Packets are prepared, not dispatched. Existing operational correctness work takes priority.
