@@ -47,18 +47,26 @@ mkdir -p "$PHYSIS_DATA_DIR"
 # The actions the demo walks, in order. Fixed and minimal on purpose.
 # Covers the full loop: navigate → intent → context packet → attention →
 # action → Δ → rescan → bench (all model-free; PHYSIS_MODEL=none default).
+# The second `improve … --yes` is the O(Δ) proof: a second bounded edit
+# whose remap touches only what moved (Phase 32 §32.4 G).
 run_demo() {
   cat <<'CMDS'
 what does this project do?
 where is retrieval implemented?
 inspect
 dependencies
+differences
+contradictions
+history
 context
 focus retrieval
 what changed recently?
 improve retrieval without changing its public API
 improve retrieval without changing its public API --yes
 rescan
+bench
+improve retrieval without changing its public API
+improve retrieval without changing its public API --yes
 bench
 quit
 CMDS

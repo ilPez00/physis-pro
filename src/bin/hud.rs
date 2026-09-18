@@ -1355,12 +1355,41 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         };
         format!("CONTEXT {pct:.1}% │ {} potential tokens avoided", ws_tokens.saturating_sub(sel_tokens))
     };
+    // OFFLINE is the demo contract (§32.0): visible without colour, green
+    // when the terminal has it. DEGRADED state renders amber-yellow so the
+    // lexical-only mode is never silent.
+    let offline = Span::styled(
+        "OFFLINE",
+        if app.semantic_on {
+            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        },
+    );
+    let delta_span = match &app.last_delta {
+        Some(d) if !d.changed_artifacts.is_empty() => Span::styled(
+            delta_txt,
+            Style::default().fg(Color::LightRed).add_modifier(Modifier::BOLD),
+        ),
+        _ => Span::raw(delta_txt),
+    };
     let header = Line::from(vec![
-        Span::styled("PHYSIS NAVIGATOR", Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "PHYSIS NAVIGATOR",
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(Color::LightCyan),
+        ),
         Span::raw(format!(
-            "  [{mode}] embedder: {}  indexed: {} objects  {delta_txt}  {ctx_txt}  OFFLINE  {}",
+            "  [{mode}] embedder: {}  indexed: {} objects  ",
             app.embedder_kind,
             app.ws.index().objects.len(),
+        )),
+        delta_span,
+        Span::raw(format!("  {ctx_txt}  ")),
+        offline,
+        Span::raw(format!(
+            "  {}",
             if app.crumbs.is_empty() {
                 String::new()
             } else {
@@ -1410,8 +1439,19 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                     .unwrap_or_else(|| h.object.label.clone());
                 let m = state_of(&path, &app.changed, &app.affected, &pinned, &intent, &app.selected, &h.object);
                 let cold = focus_on && !intent.contains(&path) && !pinned.contains(&path);
+                // State colour rides beside the marker, never instead of it:
+                // ● changed red · ◐ affected amber · ◆ pinned cyan ·
+                // ▲ intent green · ★ selected white.
+                let mark_style = match m {
+                    '●' => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    '◐' => Style::default().fg(Color::LightRed),
+                    '◆' => Style::default().fg(Color::Cyan),
+                    '▲' => Style::default().fg(Color::Green),
+                    '★' => Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+                    _ => Style::default(),
+                };
                 let mut spans = vec![
-                    Span::raw(format!("{m} ")),
+                    Span::styled(format!("{m} "), mark_style),
                     Span::styled(kind_tag(h.object.kind), Style::default().fg(color_for(h.object.kind))),
                     Span::raw(format!(" {:>4.2}  ", h.score.total)),
                     Span::styled(

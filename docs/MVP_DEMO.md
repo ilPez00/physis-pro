@@ -152,6 +152,25 @@ PHYSIS_MVP_VALIDATE='printf "\n// bounded demo edit\n" >> src/act_recall.rs \
 | transitions recorded | 10, one per interaction |
 | revert | `git -C physis-core checkout -- src/act_recall.rs` (the demo edits nothing else) |
 
+---
+
+## Demo script A–G mapping (Phase 32 §32.4)
+
+The scripted demo now covers the full A–G arc from a warm index:
+
+| step | lines in the transcript |
+|---|---|
+| A START | banner: files / objects / relations / sample map / `index ready`, generator `none` |
+| B NAVIGATE | `where is retrieval implemented?` → scoped slice with `why:` breakdown; `inspect` → exact source with `path:start-end` |
+| C EDIT | `improve … --yes` → PLAN → validation → Δ CHANGED/AFFECTED |
+| D CONSEQUENCES | Δ AFFECTED list + `dependencies` over the focus |
+| E INTENT | `focus retrieval` → attention re-scoped; `context` packet |
+| F CONTEXT | `context` → PRIMARY / DEPENDENCIES / RELEVANT TESTS / WHY INCLUDED / SOURCE (bounded) / token math |
+| G EDIT AGAIN | second `improve … --yes` + final `bench` — the O(Δ) proof: the second remap touches only what moved |
+
+Also in the walk: `differences` / `contradictions` (sample map counts),
+`history`, and a closing `bench` (measured scan/query/propagation numbers).
+
 Transcript: `physis-core/.physis/MVP_DEMO_TRANSCRIPT.md`; raw records:
 `physis-core/.physis/mvp_transitions.jsonl`.
 
