@@ -571,6 +571,33 @@ impl ProviderCascade {
             });
         }
 
+        // ── Priority 3.5: JEV reasoning ───────────────────────────────────────
+        // Opt-in via settings (`agent.jev_enabled` + `JEV_API_KEY`); env layer
+        // lives in config::apply_jev_env so builtins < file < env holds. Off
+        // or keyless → absent from the cascade, never a dial-out. Sits above
+        // the keyless proxies, below explicit keyed providers.
+        if let Ok(cfg) = crate::config::PhysisConfig::load_effective().map(|e| e.config) {
+            if cfg.agent.jev_enabled {
+                if let Some(key) = cfg
+                    .agent
+                    .jev_api_key
+                    .clone()
+                    .filter(|k| !k.trim().is_empty())
+                {
+                    cascade.add(ProviderConfig {
+                        name: "jev".into(),
+                        base_url: cfg.agent.jev_base_url.clone(),
+                        model: cfg.agent.jev_model.clone(),
+                        api_key: key,
+                        supports_vision: false,
+                        supports_tools: false,
+                        max_tokens: cfg.agent.jev_max_tokens,
+                        timeout_secs: cfg.agent.jev_timeout_secs.max(5.0),
+                    });
+                }
+            }
+        }
+
         // ── Priority 4: DeepSeek ──────────────────────────────────────────────
         if let Some(key) = first_env(&["AI_DEEPSEEK_KEY", "DEEPSEEK_KEY"]) {
             cascade.add(ProviderConfig {
@@ -1246,5 +1273,16 @@ mod tests {
         let cascade = ProviderCascade::default();
         let names = cascade.provider_names();
         assert!(names.is_empty());
+    }
+
+    #[test]
+    fn jev_absent_unless_enabled_with_key() {
+        // No JEV env/overrides in the test process → the cascade must not
+        // contain a jev entry. Guards against dial-out by default.
+        let cascade = ProviderCascade::from_env();
+        assert!(
+            !cascade.provider_names().iter().any(|n| n == "jev"),
+            "jev must be absent without explicit enable+key"
+        );
     }
 }

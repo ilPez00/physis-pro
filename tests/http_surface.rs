@@ -387,6 +387,20 @@ async fn settings_reports_effective_config_with_origins() {
         "clean config has no error: {body}"
     );
 
+    // JEV key is a secret: presence only, never the value.
+    assert_eq!(
+        body["effective_config"]["agent"]["jev_api_key"], "<unset>",
+        "no JEV key configured in this harness: {body}"
+    );
+    assert_eq!(
+        body["effective_config"]["agent"]["jev_enabled"], false,
+        "JEV off by default: {body}"
+    );
+    assert_eq!(
+        body["effective_config"]["agent"]["jev_model"], "r2-reasoning",
+        "JEV model pinned default: {body}"
+    );
+
     // A file value lands with origin=file.
     std::fs::write(
         dir.path().join("config.json"),

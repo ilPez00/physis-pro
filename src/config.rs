@@ -465,10 +465,42 @@ pub struct AgentRuntimeConfig {
     /// held to the same bar rather than a looser one.
     #[serde(default = "default_agent_gate_threshold")]
     pub harness_threshold: f32,
+    /// JEV reasoning provider: master switch. Off by default — an unconfigured
+    /// key must never dial out. Env: `JEV_ENABLED`.
+    #[serde(default)]
+    pub jev_enabled: bool,
+    /// JEV API key. Secret: redacted in `config`/`doctor`/settings displays.
+    /// Env: `JEV_API_KEY`.
+    #[serde(default)]
+    pub jev_api_key: Option<String>,
+    /// JEV base URL (OpenAI-compatible). Env: `JEV_BASE_URL`.
+    #[serde(default = "default_jev_base_url")]
+    pub jev_base_url: String,
+    /// JEV model id. Env: `JEV_MODEL`.
+    #[serde(default = "default_jev_model")]
+    pub jev_model: String,
+    /// Per-response token cap for JEV. Env: `JEV_MAX_TOKENS`.
+    #[serde(default = "default_jev_max_tokens")]
+    pub jev_max_tokens: u32,
+    /// HTTP timeout for JEV in seconds. Env: `JEV_TIMEOUT_SECS`.
+    #[serde(default = "default_jev_timeout_secs")]
+    pub jev_timeout_secs: f64,
 }
 
 fn default_opencode_model() -> String {
     "llm7/codestral-latest".into()
+}
+fn default_jev_base_url() -> String {
+    "https://api.jev.ai/v1".into()
+}
+fn default_jev_model() -> String {
+    "r2-reasoning".into()
+}
+fn default_jev_max_tokens() -> u32 {
+    4096
+}
+fn default_jev_timeout_secs() -> f64 {
+    30.0
 }
 fn default_agent_max_rounds() -> u32 {
     12
@@ -501,6 +533,12 @@ impl Default for AgentRuntimeConfig {
             system_prompt: default_agent_system_prompt(),
             harness_gate: default_true(),
             harness_threshold: default_agent_gate_threshold(),
+            jev_enabled: false,
+            jev_api_key: None,
+            jev_base_url: default_jev_base_url(),
+            jev_model: default_jev_model(),
+            jev_max_tokens: default_jev_max_tokens(),
+            jev_timeout_secs: default_jev_timeout_secs(),
         }
     }
 }
@@ -721,7 +759,56 @@ impl PhysisConfig {
     fn field_names(&self) -> Vec<&'static str> {
         KNOWN_TOP_LEVEL.to_vec()
     }
+} // end impl PhysisConfig (load_effective + field_names)
 
+/// JEV reasoning provider: environment overlay for the `agent.jev_*` knobs.
+/// Lives beside PhysisConfig so the top-level builtins < file < env
+/// precedence + origins tracking applies uniformly. Keys nest under the
+/// `agent` top-level field; env wins per knob.
+fn apply_jev_env(
+    cfg: &mut PhysisConfig,
+    get_env: &dyn Fn(&str) -> Option<String>,
+    touched: &mut Vec<String>,
+) -> anyhow::Result<()> {
+    let mut touch = |key: &str| {
+        if !touched.contains(&key.to_string()) {
+            touched.push(key.to_string());
+        }
+    };
+    if let Some(raw) = get_env("JEV_ENABLED").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_enabled = parse_bool_env("JEV_ENABLED", &raw)?;
+        touch("agent");
+    }
+    if let Some(raw) = get_env("JEV_API_KEY").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_api_key = Some(raw.trim().to_string());
+        touch("agent");
+    }
+    if let Some(raw) = get_env("JEV_BASE_URL").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_base_url = raw.trim().trim_end_matches('/').to_string();
+        touch("agent");
+    }
+    if let Some(raw) = get_env("JEV_MODEL").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_model = raw.trim().to_string();
+        touch("agent");
+    }
+    if let Some(raw) = get_env("JEV_MAX_TOKENS").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_max_tokens = raw
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| anyhow::anyhow!("env JEV_MAX_TOKENS: want an integer >= 1, got {raw:?}"))?;
+        touch("agent");
+    }
+    if let Some(raw) = get_env("JEV_TIMEOUT_SECS").filter(|s| !s.trim().is_empty()) {
+        cfg.agent.jev_timeout_secs = raw
+            .trim()
+            .parse::<f64>()
+            .map_err(|_| anyhow::anyhow!("env JEV_TIMEOUT_SECS: want a float >= 5, got {raw:?}"))?;
+        touch("agent");
+    }
+    Ok(())
+}
+
+impl PhysisConfig {
     /// Bounds that make a broken config fail loudly instead of running wrong.
     /// `label` names the source in the error (file path or "env").
     fn validate_bounds(&self, label: &Path) -> anyhow::Result<()> {
@@ -754,6 +841,28 @@ impl PhysisConfig {
             "{}: embed_dim must be >= 64, got {}",
             label.display(),
             self.embed_dim
+        );
+        anyhow::ensure!(
+            self.agent.jev_max_tokens >= 1,
+            "{}: agent.jev_max_tokens must be >= 1, got {}",
+            label.display(),
+            self.agent.jev_max_tokens
+        );
+        anyhow::ensure!(
+            self.agent.jev_timeout_secs >= 5.0,
+            "{}: agent.jev_timeout_secs must be >= 5, got {}",
+            label.display(),
+            self.agent.jev_timeout_secs
+        );
+        anyhow::ensure!(
+            !self.agent.jev_base_url.trim().is_empty(),
+            "{}: agent.jev_base_url must not be empty",
+            label.display(),
+        );
+        anyhow::ensure!(
+            !self.agent.jev_model.trim().is_empty(),
+            "{}: agent.jev_model must not be empty",
+            label.display(),
         );
         Ok(())
     }
@@ -818,6 +927,7 @@ impl PhysisConfig {
             self.linguistic.sanskrit_enabled = parse_bool_env("PHYSIS_SANSKRIT", &raw)?;
             Ok(())
         })?;
+        apply_jev_env(self, get_env, &mut touched)?;
         Ok(touched)
     }
 }
@@ -1293,6 +1403,60 @@ mod tests {
         };
         let e = PhysisConfig::load_effective_with(bad_env).unwrap_err();
         assert!(e.to_string().contains("PHYSIS_EMBED_DIM"), "{e}");
+    }
+
+    /// JEV knobs: builtins < file < env with `agent` origin; secrets never
+    /// default from anywhere but an explicit set. Bad JEV env is a hard error.
+    #[test]
+    fn effective_config_jev_layers_and_bounds() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().join(".physis");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::write(
+            data_dir.join("config.json"),
+            r#"{"agent": {"jev_enabled": true, "jev_model": "r2-reasoning"}}"#,
+        )
+        .unwrap();
+        let get_env: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "JEV_API_KEY" => Some("sk-jev-test".into()),
+            "JEV_MODEL" => Some("r2-reasoning-v2".into()),
+            _ => None,
+        };
+        let eff = PhysisConfig::load_effective_with(get_env).unwrap();
+        assert!(eff.config.agent.jev_enabled);
+        assert_eq!(eff.config.agent.jev_api_key.as_deref(), Some("sk-jev-test"));
+        assert_eq!(eff.config.agent.jev_model, "r2-reasoning-v2");
+        assert_eq!(eff.origins["agent"], Origin::Env);
+        // Defaults when nothing sets JEV: disabled, no key, pinned model.
+        let no_jev: &dyn Fn(&str) -> Option<String> = &|k: &str| {
+            if k == "PHYSIS_DATA_DIR" {
+                Some(data_dir.display().to_string())
+            } else {
+                None
+            }
+        };
+        std::fs::remove_file(data_dir.join("config.json")).unwrap();
+        let eff = PhysisConfig::load_effective_with(no_jev).unwrap();
+        assert!(!eff.config.agent.jev_enabled);
+        assert!(eff.config.agent.jev_api_key.is_none());
+        assert_eq!(eff.config.agent.jev_model, "r2-reasoning");
+        assert_eq!(eff.origins["agent"], Origin::Builtin);
+        // Bad JEV values are hard errors, not silent defaults.
+        let bad: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "JEV_MAX_TOKENS" => Some("0".into()),
+            _ => None,
+        };
+        let e = PhysisConfig::load_effective_with(bad).unwrap_err();
+        assert!(e.to_string().contains("jev_max_tokens"), "{e}");
+        let bad2: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "JEV_ENABLED" => Some("maybe".into()),
+            _ => None,
+        };
+        let e = PhysisConfig::load_effective_with(bad2).unwrap_err();
+        assert!(e.to_string().contains("JEV_ENABLED"), "{e}");
     }
 
     #[test]

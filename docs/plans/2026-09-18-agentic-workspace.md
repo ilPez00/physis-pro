@@ -351,6 +351,38 @@ Expose model dimension as validated model metadata, not a casual slider that
 silently makes existing embeddings incompatible. Never reduce security or
 correctness because Lite is selected.
 
+### JEV reasoning provider (added 2026-09-18)
+
+JEV is one more OpenAI-compatible entry in the existing `ProviderCascade`
+(`src/ai/provider.rs`), not a parallel generation path. It earns its place the
+same way every provider does: configured, listed, tried in order, parked on
+fault, never silent when absent.
+
+- **Settings surface.** `AgentRuntimeConfig` gains `jev_api_key`
+  (secret, redacted in every display), `jev_base_url` (default JEV endpoint),
+  `jev_model` (default `r2-reasoning` — exact id pinned at implementation),
+  plus `jev_enabled` (default false) and `jev_max_tokens`/`jev_timeout_secs`
+  with the same bounds discipline as the other providers. All five flow
+  through `load_effective` (builtins < file < env: `JEV_API_KEY`,
+  `JEV_BASE_URL`, `JEV_MODEL`), appear in `physis-pro config` + `doctor`
+  with origin, and ship in `/api/v1/settings` as presence (has-key) +
+  model + origin — never the key value. Unknown-field and bounds rejection
+  apply unchanged.
+- **Cascade wiring.** `ProviderCascade::from_env` adds the JEV entry when
+  enabled with a non-empty key, priority above the keyless proxies and below
+  explicit keyed providers. Supports tools false unless verified live;
+  vision false. `providers_list` shows it like any other entry. A retired
+  model id or rejected key parks it via the existing `is_config_fault`
+  codes — no JEV-specific fault path.
+- **UI.** `/settings` providers card counts it; configuration section shows
+  JEV model + origin + has-key state. No key material in HTML, logs, or
+  transition records.
+- **Acceptance.** Key absent/disabled → cascade unchanged, `/ask` degrades
+  with note as before. Key present → `providers_list` contains `jev`,
+  a live `/ask` reports `provider: jev`, a bad key parks it (15-min
+  cooldown, recovers without restart). `cargo test` provider unit tests
+  cover config parse, redaction, and park-on-fault; no live-key test in CI.
+
 Missing model, unavailable feature and empty corpus have distinct messages.
 Lowering a context budget reports omitted coverage; it never silently drops
 required evidence. Switching providers does not invalidate unrelated index data.

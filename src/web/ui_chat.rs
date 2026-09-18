@@ -344,9 +344,21 @@ pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_js
     // Effective settings + provenance: which layer set each value. Never 500s:
     // a broken config.json is the operator's problem to see, not a handler
     // crash — report it as a value like every other health fact here.
+    // The JEV key is a secret: ship presence only, never the value.
     let (effective, origins, config_error) = match crate::config::PhysisConfig::load_effective() {
         Ok(eff) => {
-            let v = serde_json::to_value(&eff.config).unwrap_or(serde_json::Value::Null);
+            let mut v = serde_json::to_value(&eff.config).unwrap_or(serde_json::Value::Null);
+            if let Some(agent) = v.get_mut("agent") {
+                if let Some(key) = agent.get_mut("jev_api_key") {
+                    *key = serde_json::Value::String(
+                        if key.as_str().is_some_and(|k| !k.trim().is_empty()) {
+                            "<set>".to_string()
+                        } else {
+                            "<unset>".to_string()
+                        },
+                    );
+                }
+            }
             let o: std::collections::HashMap<String, String> = eff
                 .origins
                 .iter()

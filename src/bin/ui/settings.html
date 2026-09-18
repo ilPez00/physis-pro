@@ -205,6 +205,13 @@
         ['tenants', String(e.tenants)],
         ['dev mode', e.dev_mode ? 'on — loopback auth bypassed' : 'off'],
       ];
+      var cfg = (st.effective_config && st.effective_config.agent) || {};
+      var corg = (st.config_origins && st.config_origins.agent) || 'builtin';
+      var jevState = cfg.jev_enabled
+        ? (cfg.jev_api_key === '<set>' ? 'enabled · key set' : 'enabled · NO KEY — cascade unchanged')
+        : 'disabled';
+      rows.push(['jev reasoning', esc(jevState) + ' · model ' + esc(cfg.jev_model || 'r2-reasoning') + ' · origin ' + esc(corg)]);
+      rows.push(['jev key source', 'config.json agent.jev_api_key or JEV_API_KEY env — value never displayed']);
       if (st.license) {
         rows.push(['licence', esc(st.license.tier) + ' · ' + esc(st.license.org || '—') + ' · ' + st.license.seats + ' seats']);
         rows.push(['features', esc((st.license.features || []).join(', ') || '—')]);

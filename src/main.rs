@@ -1473,8 +1473,22 @@ fn main() -> anyhow::Result<()> {
         Commands::Config => {
             match physis_pro::config::PhysisConfig::load_effective() {
                 Ok(eff) => {
+                    // Redact the secret: report presence, never the value.
+                    let mut cfg_v =
+                        serde_json::to_value(&eff.config).unwrap_or(serde_json::Value::Null);
+                    if let Some(agent) = cfg_v.get_mut("agent") {
+                        if let Some(key) = agent.get_mut("jev_api_key") {
+                            *key = serde_json::Value::String(
+                                if key.as_str().is_some_and(|k| !k.trim().is_empty()) {
+                                    "<set>".to_string()
+                                } else {
+                                    "<unset>".to_string()
+                                },
+                            );
+                        }
+                    }
                     let v = serde_json::json!({
-                        "config": eff.config,
+                        "config": cfg_v,
                         "origins": eff.origins.iter().map(|(k, o)| (k, o.to_string())).collect::<std::collections::HashMap<_, _>>(),
                         "config_path": eff.config.data_dir.join("config.json").display().to_string(),
                     });
@@ -2430,6 +2444,13 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
                 if *o != physis_pro::config::Origin::Builtin {
                     println!("    {k}: {o}");
                 }
+            }
+            // JEV presence only — the key value never prints.
+            let j = &eff.config.agent;
+            if j.jev_enabled && j.jev_api_key.as_ref().is_some_and(|k| !k.trim().is_empty()) {
+                println!("    jev: enabled · model {} · has-key", j.jev_model);
+            } else if j.jev_enabled {
+                println!("    jev: enabled but no key — cascade unchanged");
             }
         }
         Err(e) => {
