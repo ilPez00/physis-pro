@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{ensure, Context, Result};
 use clap::{Args, Subcommand};
 use serde_json::{json, Value};
 
@@ -161,6 +161,15 @@ enum DelegationCommand {
     },
     /// Export a task snapshot into a new browsable directory.
     Export { id: String, destination: PathBuf },
+    /// Preview a staged change vs the working tree before applying it. Reads
+    /// `--baseline` as the authored content and diffs each file against the
+    /// workspace using the same hunk engine as the Studio DIFF pane; refuses
+    /// (stale-base) when a baseline file is absent from the tree. Read-only.
+    DiffPreview {
+        /// Directory holding the authored file set (workspace-relative shape).
+        #[arg(long)]
+        baseline: PathBuf,
+    },
 }
 
 impl DelegationCommand {
@@ -198,6 +207,55 @@ impl DelegationCommand {
             Self::Release { id, token } => delegation::delegation_release(workspace, id, token)?,
             Self::Export { id, destination } => {
                 delegation::delegation_export(workspace, id, destination)?
+            }
+            Self::DiffPreview { baseline } => {
+                let base = baseline.canonicalize().context("baseline directory not found")?;
+                let mut baselines: Vec<(String, String)> = Vec::new();
+                for entry in walkdir::WalkDir::new(&base)
+                    .into_iter()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.file_type().is_file())
+                {
+                    let rel = entry
+                        .path()
+                        .strip_prefix(&base)
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string();
+                    let text = std::fs::read_to_string(entry.path())
+                        .with_context(|| format!("cannot read baseline {rel}"))?;
+                    if !text.is_empty() {
+                        baselines.push((rel, text));
+                    }
+                }
+                ensure!(!baselines.is_empty(), "baseline directory is empty");
+                let preview = workspace.stage_diff(&baselines)?;
+                let mut changes = 0usize;
+                let mut files: Vec<serde_json::Value> = Vec::new();
+                for (rel, hunks) in preview {
+                    if hunks.iter().any(|h| h.is_change()) {
+                        changes += 1;
+                    }
+                    let (adds, dels) = hunks
+                        .iter()
+                        .filter(|h| h.is_change())
+                        .fold((0usize, 0usize), |(a, d), h| {
+                            let (ha, hd) = h.tally();
+                            (a + ha, d + hd)
+                        });
+                    files.push(json!({
+                        "path": rel,
+                        "hunks": hunks.len(),
+                        "adds": adds,
+                        "dels": dels,
+                    }));
+                }
+                json!({
+                    "files": files,
+                    "changed_files": changes,
+                    "total_files": baselines.len(),
+                    "engine": "diff_lines (LCS, same as Studio DIFF pane)",
+                })
             }
         })
     }
@@ -677,5 +735,47 @@ fn short_id(id: &str) -> String {
     match id.strip_prefix("file:") {
         Some(hash) if hash.len() > 12 => format!("file:{}", &hash[..12]),
         _ => id.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diff_preview_command_reports_changes_and_stale_base() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("ws");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let file = root.join("src/a.txt");
+        std::fs::write(&file, "line one\nline two\n").unwrap();
+
+        let baseline = dir.path().join("baseline");
+        std::fs::create_dir_all(baseline.join("src")).unwrap();
+        std::fs::write(baseline.join("src/a.txt"), "line one\nline THREE\n").unwrap();
+
+        let ws = Workspace::open(&root, &dir.path().join("state")).unwrap();
+
+        // Changed file → hunks + counts, via the command path.
+        let out = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+        }
+        .run(&ws)
+        .unwrap();
+        assert_eq!(out["changed_files"].as_u64(), Some(1));
+        assert_eq!(out["total_files"].as_u64(), Some(1));
+        assert!(out["files"][0]["adds"].as_u64().unwrap_or(0) >= 1);
+        assert!(out["files"][0]["dels"].as_u64().unwrap_or(0) >= 1);
+
+        // Stale base: baseline references a file gone from the tree.
+        std::fs::write(baseline.join("src/b.txt"), "extra file\n").unwrap();
+        let err = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+        }
+        .run(&ws);
+        assert!(
+            matches!(err, Err(ref e) if e.to_string().contains("stale-base")),
+            "missing baseline file must surface stale-base, got: {err:?}"
+        );
     }
 }
