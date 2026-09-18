@@ -93,6 +93,13 @@ env_logger = "0.11"
 ratatui = { version = "0.26", optional = true }
 crossterm = { version = "0.27", features = ["events"], optional = true }
 
+# Instructor gateway (operator crystallization P4). The typed-proposal gateway
+# embeds a Python interpreter only when this feature is on, so default CI builds
+# stay pure Rust. `abi3-py311` (not `extension-module`): the interpreter is
+# embedded, and the wheels-style abi3 contract means a future Python bump does
+# not break the build. See docs/plans/2026-09-18-operator-crystallization.md §9.
+pyo3 = { version = "0.25", features = ["abi3-py311"], optional = true }
+
 # Business backoffice dependencies
 # Industrial protocol adapters. NOT optional: the industrial stack is part of
 # the product, not a vertical bolted onto it, and a feature gate nothing in CI
@@ -141,11 +148,23 @@ empedocles = []
 rachmaninov = []
 web = ["dep:axum", "dep:tower-http"]
 tui = ["dep:ratatui", "dep:crossterm"]
+# Instructor gateway: embeds Python (pyo3) so the real `instructor` package can
+# drive the typed composition gateway. OFF by default — nothing on the hot path
+# may take the GIL. `compose.rs` falls back to the native cascade when absent.
+instructor = ["dep:pyo3"]
 # Business backoffice features.
 # `industrial` is now a NO-OP kept only so existing invocations
 # (`--features industrial,cli`, scripts/predeploy.sh, CONTRIBUTING.md) keep
 # working. MQTT/Modbus are unconditional; there is nothing left to gate.
 industrial = []
+# Repair-pipeline scaffolding (semantic_delta/dependency/staleness/
+# repair_regions/orchestration/metrics). These six modules import each other
+# in a cycle — dependency↔staleness↔semantic_delta and metrics↔orchestration —
+# so a crate-level feature cannot split them; one gate is the only honest
+# grouping. Nothing outside the cluster calls in (grep: crate::orchestration
+# appears only in metrics and vice versa), so `--no-default-features`-style
+# lean builds can drop it. Kept OFF by default: not deleting, just opt-in.
+repair-pipeline = []
 ingest = ["dep:calamine", "dep:csv", "dep:quick-xml", "dep:tesseract"]
 sql = ["dep:rusqlite"]
 postgres = ["dep:tokio-postgres"]
@@ -168,7 +187,7 @@ vendor = ["dep:clap"]
 # Local interest daemon: clipboard + watched-dir observation → interest profile.
 daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
 
-full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "audio", "ocr", "sql", "postgres", "mcp"]
+full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "audio", "ocr", "sql", "postgres", "mcp", "repair-pipeline", "instructor"]
 
 
 
@@ -210,6 +229,13 @@ path = "src/bin/wiki.rs"
 name = "physis-hud"
 required-features = ["tui"]
 path = "src/bin/hud.rs"
+
+# One demo product: graph browsing + notebook + diff reviewer + HUD world pane +
+# ops registry, in one offline-first shell. Old bins stay as they are.
+[[bin]]
+name = "physis-studio"
+required-features = ["tui"]
+path = "src/bin/studio.rs"
 
 # physis-core lives as a subdirectory and is also published as its own crate;
 # this workspace lets `cargo` build/test both the monolith and the core together

@@ -16,7 +16,6 @@ struct Fixture {
     budget: BlockId,
     review: BlockId,
     locked: BlockId,
-    unrelated: BlockId,
 }
 
 fn fixture() -> Fixture {
@@ -58,7 +57,7 @@ fn fixture() -> Fixture {
         },
     ];
     doc.graph_revision = 1;
-    Fixture { doc, source, budget, review, locked, unrelated: String::new() }
+    Fixture { doc, source, budget, review, locked }
 }
 
 fn assert_err<T>(result: Result<T, ApplyError>, expected: ApplyError) {
@@ -246,7 +245,7 @@ fn ad08_idempotency_key_applies_once() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::open(dir.path());
     let mut book = Patches::default();
-    let (applied_doc, applied_change, applied_patch) =
+    let (applied_doc, _applied_change, applied_patch) =
         apply_patch(&next, &patch, "gio", 2, 1002).unwrap();
     assert_eq!(applied_patch.status, PatchStatus::Applied);
     let produced = applied_patch.applied_revision.unwrap();

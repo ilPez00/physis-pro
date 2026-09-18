@@ -315,7 +315,7 @@ fn hud_projections_are_pure_and_honest() {
         },
         score: RetrievalScore { total: score, components: Default::default() },
     };
-    let hits = vec![
+    let hits = [
         mk("src/index.rs", "src/index.rs:1-1", 0.9),
         mk("src/query.rs", "src/query.rs:1-1", 0.7),
         mk("README.md", "README.md:1-1", 0.2),

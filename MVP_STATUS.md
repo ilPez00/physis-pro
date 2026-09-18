@@ -77,8 +77,15 @@ Text tree of directory → file → object, each row with its score and the exac
 
 Operations: `zoom/open`, `back`, `search`, `focus`, `context`, `related`,
 `dependencies`, `differences`, `contradictions`, `history`, `inspect`,
-`edit`, `rescan`, `bench` (HUD: `physis-hud` adds `e` edit, `u` rescan,
-`H` history, `B` bench, `D` dependents, `C` contradictions, `●/◐/·` markers, key legend).
+`edit`, `rescan`, `bench` (HUD: `physis-hud` adds `e` inline edit with
+rescan, `:external` for `$EDITOR`, `u` rescan, `H` history, `B` bench,
+`D` dependents, `C` contradictions, `●/◐/·` markers plus positional score
+bars, key legend, `?` help, `1/2/3/4` why/context/delta/history tabs, and a
+universal command box — plain text searches, `/text` global, `$ cmd` shell
+in the workspace root, `:name` Physis commands (`:trail`, `:pins`,
+`:unpin`, `:sem off|on`), `open`/`edit`/`cd` — plus
+`scripts/mvp-hud-propagation-demo.sh`, the 90-second one-edit propagation
+demo over `fixtures/mvp_propagation`).
 
 `PHYSIS_MODEL=none` (default) = coherent with no generator: the notebook
 degrades to extractive, `context` prints `generator: none`, and the packet
@@ -268,6 +275,7 @@ env -u PHYSIS_EMBEDDER scripts/mvp-demo.sh <directory>
 # tests protecting the demo path
 cargo test --features cli --test mvp_loop
 cargo test --lib --features cli mvp::
+cargo test --features tui --bin physis-hud
 
 # regression on the slices the loop reuses
 cargo test --features cli --test smoke_test

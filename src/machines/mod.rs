@@ -30,6 +30,7 @@
 pub mod apodeixis;
 pub mod chroma;
 pub mod chronos;
+pub mod demos;
 pub mod elenchus;
 pub mod empedocles;
 pub mod erosa;

@@ -421,7 +421,7 @@ pub fn explain_staleness(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::semantic_delta::{self, QuantityDirection};
+    use crate::semantic_delta;
 
     #[test]
     fn test_dependency_graph_creation() {

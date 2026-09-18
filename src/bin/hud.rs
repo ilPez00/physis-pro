@@ -14,9 +14,17 @@
 //!
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
-//! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
-//! f/F intent focus/clear · z zoom rollup · 1/2/3 why/context/delta tabs. No mouse required.
+//! · n notebook selection · p pin · r related · e inline edit (with rescan) ·
+//! :external [path] falls back to $EDITOR · u rescan · g graph view · H history
+//! · B bench · D dependents · C contradictions · f/F intent focus/clear · z zoom
+//! rollup · 1/2/3/4 why/context/delta/history tabs · ? command help.
+//! No mouse required.
+//!
+//! The bottom box is universal: plain text searches, `/text` searches
+//! globally, `$ command` runs shell in the workspace root, `:name` and command
+//! words run Physis helpers, and `open`/`edit`/`cd` navigate, edit, or change
+//! the root. Inline editing uses arrows/Home/End, Enter, Backspace/Delete,
+//! Ctrl+S to save, and Esc to cancel.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
 //! passes the probe the header says `semantic: off` and lexical/structural
@@ -25,7 +33,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::stdout;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
@@ -42,6 +52,9 @@ use ratatui::{
 };
 
 use physis_pro::nav::{self, NavHit, NavWeights, ObjectKind};
+use physis_pro::mvp::log::{
+    hash_canonical, CompactDelta, StateRef, Transition, TransitionLog,
+};
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -147,6 +160,18 @@ fn leave_tui() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Run a child process with the TUI parked: leave the alternate screen, run
+/// the closure, then restore the terminal before returning. This keeps shell
+/// commands and external editors from corrupting the drawn UI.
+fn suspend_tui_for<T>(f: impl FnOnce() -> T) -> T {
+    let _ = disable_raw_mode();
+    let _ = execute!(stdout(), LeaveAlternateScreen);
+    let out = f();
+    let _ = enable_raw_mode();
+    let _ = execute!(stdout(), EnterAlternateScreen);
+    out
+}
+
 /// One entry in the visible result list: either a group header, a directory
 /// aggregation (zoomed-out rollup), or an object.
 #[derive(Debug, Clone)]
@@ -164,6 +189,7 @@ enum ContextTab {
     Why,
     Context,
     Delta,
+    History,
 }
 
 /// One entry in the visible result list: either a group header or an object.
@@ -241,12 +267,868 @@ fn intent_paths(hits: &[NavHit]) -> (BTreeSet<String>, BTreeSet<String>) {
     (hot, warm)
 }
 
+/// Deterministic HUD commands. This is a small closed vocabulary over the
+/// existing helpers — not a language, router, or agent framework.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HudCommand {
+    Help,
+    History,
+    Bench,
+    Context,
+    Delta,
+    Why,
+    Dependencies(Option<String>),
+    Contradictions,
+    Rescan,
+    Graph,
+    Notebook,
+    Related,
+    Pin,
+    Relate(String),
+    Focus(Option<String>),
+    ClearFocus,
+    Zoom,
+    CycleEdges,
+    Tab(ContextTab),
+    Trail,
+    Pins,
+    Unpin,
+    Sem(bool),
+    OpenExternal(Option<String>),
+    Quit,
+}
+
+/// One parsed command-box line. Parsing is explicit and total: every input
+/// becomes exactly one of these variants.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HudInput {
+    Empty,
+    Invalid(String),
+    Shell(String),
+    Command(HudCommand),
+    Open(String),
+    Edit(Option<String>),
+    ChangeRoot(String),
+    GlobalQuery(String),
+    SemanticQuery(String),
+}
+
+/// Deterministic mode label for the command box. Inferred from the text, not
+/// from AI: `$` shell, `:` or a command word Physis, `open`/`edit`/`cd` their
+/// own narrow modes, `/` global search, anything else local search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HudPromptMode {
+    Search,
+    GlobalSearch,
+    Physis,
+    Shell,
+    Open,
+    Edit,
+    Root,
+    Editor,
+    Invalid,
+}
+
+/// Highlighting is decoration only: the mode text carries the meaning, never
+/// the colour alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PromptPart {
+    Prefix,
+    Word,
+    Text,
+}
+
+fn split_command_word(text: &str) -> (String, String) {
+    let mut parts = text.splitn(2, char::is_whitespace);
+    let word = parts.next().unwrap_or_default().to_string();
+    let rest = parts.next().unwrap_or_default().trim().to_string();
+    (word, rest)
+}
+
+fn optional_argument(rest: &str) -> Option<String> {
+    if rest.trim().is_empty() {
+        None
+    } else {
+        Some(rest.to_string())
+    }
+}
+
+fn parse_named_command(text: &str) -> HudInput {
+    let (word, rest) = split_command_word(text);
+    let arg = optional_argument(&rest);
+    match word.to_lowercase().as_str() {
+        "help" if arg.is_none() => HudInput::Command(HudCommand::Help),
+        "history" if arg.is_none() => HudInput::Command(HudCommand::History),
+        "bench" if arg.is_none() => HudInput::Command(HudCommand::Bench),
+        "context" if arg.is_none() => HudInput::Command(HudCommand::Context),
+        "delta" if arg.is_none() => HudInput::Command(HudCommand::Delta),
+        "why" if arg.is_none() => HudInput::Command(HudCommand::Why),
+        "contradictions" if arg.is_none() => {
+            HudInput::Command(HudCommand::Contradictions)
+        }
+        "rescan" if arg.is_none() => HudInput::Command(HudCommand::Rescan),
+        "graph" if arg.is_none() => HudInput::Command(HudCommand::Graph),
+        "notebook" if arg.is_none() => HudInput::Command(HudCommand::Notebook),
+        "related" if arg.is_none() => HudInput::Command(HudCommand::Related),
+        "pin" if arg.is_none() => HudInput::Command(HudCommand::Pin),
+        "clear" | "clear-focus" if arg.is_none() => {
+            HudInput::Command(HudCommand::ClearFocus)
+        }
+        "zoom" if arg.is_none() => HudInput::Command(HudCommand::Zoom),
+        "edges" if arg.is_none() => HudInput::Command(HudCommand::CycleEdges),
+        "quit" | "q" if arg.is_none() => HudInput::Command(HudCommand::Quit),
+        "dependencies" | "focus" => HudInput::Command(match word.to_lowercase().as_str() {
+            "dependencies" => HudCommand::Dependencies(arg),
+            _ => HudCommand::Focus(arg),
+        }),
+        "trail" if arg.is_none() => HudInput::Command(HudCommand::Trail),
+        "pins" if arg.is_none() => HudInput::Command(HudCommand::Pins),
+        "unpin" if arg.is_none() => HudInput::Command(HudCommand::Unpin),
+        "sem" => match arg.as_deref().map(str::to_lowercase).as_deref() {
+            Some("off") | Some("0") | Some("no") => {
+                HudInput::Command(HudCommand::Sem(false))
+            }
+            Some("on") | Some("1") | Some("yes") => {
+                HudInput::Command(HudCommand::Sem(true))
+            }
+            _ => HudInput::Invalid("usage: sem off|on".into()),
+        },
+        "relate" => match arg.as_deref().map(str::to_lowercase).as_deref() {
+            Some("same") => HudInput::Command(HudCommand::Relate("same".into())),
+            Some("different") => {
+                HudInput::Command(HudCommand::Relate("different".into()))
+            }
+            Some("relates") | Some("relates to") | Some("relates-to") => {
+                HudInput::Command(HudCommand::Relate("relates to".into()))
+            }
+            _ => HudInput::Invalid(
+                "usage: relate same|different|relates".into(),
+            ),
+        },
+        "tab" => match arg.as_deref().map(str::to_lowercase).as_deref() {
+            Some("why") => HudInput::Command(HudCommand::Tab(ContextTab::Why)),
+            Some("context") => {
+                HudInput::Command(HudCommand::Tab(ContextTab::Context))
+            }
+            Some("delta") => HudInput::Command(HudCommand::Tab(ContextTab::Delta)),
+            Some("history") => {
+                HudInput::Command(HudCommand::Tab(ContextTab::History))
+            }
+            _ => HudInput::Invalid("usage: tab why|context|delta|history".into()),
+        },
+        "open" => match arg {
+            Some(target) => HudInput::Open(target),
+            None => HudInput::Invalid("usage: open <path-or-object>".into()),
+        },
+        "edit" => HudInput::Edit(arg),
+        "external" => HudInput::Command(HudCommand::OpenExternal(arg)),
+        "cd" => match arg {
+            Some(dir) => HudInput::ChangeRoot(dir),
+            None => HudInput::Invalid("usage: cd <directory>".into()),
+        },
+        "shell" => match arg {
+            Some(command) => HudInput::Shell(command),
+            None => HudInput::Invalid("usage: shell <command>".into()),
+        },
+        "search" | "query" => match arg {
+            Some(query) => HudInput::SemanticQuery(query),
+            None => HudInput::Invalid("usage: search <text>".into()),
+        },
+        _ => HudInput::Invalid(format!("unknown command: {word}")),
+    }
+}
+
+/// Parse one command-box line. Order is the contract: shell first, then
+/// explicit commands, then navigation/edit/root words, then global search,
+/// then plain semantic search.
+fn parse_hud_input(raw: &str) -> HudInput {
+    let text = raw.trim();
+    if text.is_empty() {
+        return HudInput::Empty;
+    }
+    if let Some(command) = text.strip_prefix('$') {
+        let command = command
+            .trim_start_matches([' ', '\t'])
+            .trim_end()
+            .to_string();
+        if command.is_empty() {
+            return HudInput::Invalid("shell command needed after `$`".into());
+        }
+        return HudInput::Shell(command);
+    }
+    if let Some(command) = text.strip_prefix(':') {
+        if command.trim().is_empty() {
+            return HudInput::Command(HudCommand::Help);
+        }
+        return parse_named_command(command.trim());
+    }
+    if let Some(query) = text.strip_prefix('/') {
+        let query = query.trim().to_string();
+        if query.is_empty() {
+            return HudInput::Empty;
+        }
+        return HudInput::GlobalQuery(query);
+    }
+    let (word, rest) = split_command_word(text);
+    match word.to_lowercase().as_str() {
+        "open" => {
+            if rest.is_empty() {
+                HudInput::Invalid("usage: open <path-or-object>".into())
+            } else {
+                HudInput::Open(rest)
+            }
+        }
+        "edit" => HudInput::Edit(optional_argument(&rest)),
+        "cd" => {
+            if rest.is_empty() {
+                HudInput::Invalid("usage: cd <directory>".into())
+            } else {
+                HudInput::ChangeRoot(rest)
+            }
+        }
+        "help" | "history" | "bench" | "context" | "delta" | "why"
+        | "contradictions" | "rescan" | "graph" | "notebook" | "related" | "pin" | "clear"
+        | "clear-focus" | "zoom" | "edges" | "trail" | "pins" | "unpin"
+            if rest.is_empty() =>
+        {
+            parse_named_command(text)
+        }
+        "dependencies" | "focus" | "relate" | "tab" | "sem" | "shell" | "search"
+        | "query" | "external" => parse_named_command(text),
+        _ => HudInput::SemanticQuery(text.to_string()),
+    }
+}
+
+fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
+    if editor_active {
+        return HudPromptMode::Editor;
+    }
+    match parse_hud_input(input) {
+        HudInput::Empty | HudInput::SemanticQuery(_) => HudPromptMode::Search,
+        HudInput::GlobalQuery(_) => HudPromptMode::GlobalSearch,
+        HudInput::Command(_) => HudPromptMode::Physis,
+        HudInput::Shell(_) => HudPromptMode::Shell,
+        HudInput::Open(_) => HudPromptMode::Open,
+        HudInput::Edit(_) => HudPromptMode::Edit,
+        HudInput::ChangeRoot(_) => HudPromptMode::Root,
+        HudInput::Invalid(_) => HudPromptMode::Invalid,
+    }
+}
+
+fn prompt_mode_label(mode: HudPromptMode) -> &'static str {
+    match mode {
+        HudPromptMode::Search => "[SEARCH]",
+        HudPromptMode::GlobalSearch => "[SEARCH/GLOBAL]",
+        HudPromptMode::Physis => "[PHYSIS]",
+        HudPromptMode::Shell => "[SHELL]",
+        HudPromptMode::Open => "[OPEN]",
+        HudPromptMode::Edit => "[EDIT]",
+        HudPromptMode::Root => "[ROOT]",
+        HudPromptMode::Editor => "[EDIT]",
+        HudPromptMode::Invalid => "[INPUT]",
+    }
+}
+
+/// Split the visible prompt into a stable prefix and the operator's text.
+/// Tests assert the split; ratatui only styles it.
+fn prompt_parts(input: &str, editor_active: bool) -> Vec<(PromptPart, String)> {
+    if editor_active {
+        return vec![
+            (PromptPart::Prefix, "[EDIT] ".to_string()),
+            (
+                PromptPart::Text,
+                "Ctrl+S save · Esc cancel — query box is parked".to_string(),
+            ),
+        ];
+    }
+    let text = input.trim_end().to_string();
+    let (word, _) = split_command_word(&text);
+    let prefix = match parse_hud_input(input) {
+        HudInput::Shell(_) => "$ ".to_string(),
+        HudInput::Command(_) | HudInput::Open(_) | HudInput::Edit(_) | HudInput::ChangeRoot(_) => {
+            if word.is_empty() {
+                String::new()
+            } else {
+                format!("{word} ")
+            }
+        }
+        HudInput::GlobalQuery(_) => "/".to_string(),
+        HudInput::SemanticQuery(_)
+        | HudInput::Empty
+        | HudInput::Invalid(_) => String::new(),
+    };
+    let body = text
+        .strip_prefix(&prefix)
+        .or_else(|| {
+            if text == word {
+                Some("")
+            } else {
+                None
+            }
+        })
+        .unwrap_or(text.as_str())
+        .to_string();
+    let part = match parse_hud_input(input) {
+        HudInput::Command(_)
+        | HudInput::Open(_)
+        | HudInput::Edit(_)
+        | HudInput::ChangeRoot(_) => PromptPart::Word,
+        HudInput::Shell(_) | HudInput::GlobalQuery(_) => PromptPart::Prefix,
+        _ => PromptPart::Text,
+    };
+    vec![
+        (PromptPart::Prefix, prompt_mode_label(prompt_mode(input, false)).to_string() + " > "),
+        (part, prefix),
+        (PromptPart::Text, body),
+    ]
+}
+
+fn hud_command_help() -> String {
+    [
+        "command box: plain text searches · /text searches globally",
+        "$ <command> runs a shell command in the workspace root",
+        ":name runs a Physis command; bare history/bench/context/dependencies/contradictions/rescan/graph/notebook/related/pin/focus/clear/zoom/edges/why/delta/trail/pins/help also work",
+        "open <path-or-object> reads exact source · edit [path] edits inline · cd <dir> changes workspace root",
+        "relate same|different|relates · tab why|context|delta|history · unpin removes the selected pin · sem off|on toggles embeddings · :external [path] uses $EDITOR · :quit quits",
+    ]
+    .join("\n")
+}
+
+/// One shell invocation, pinned to the workspace root and fully captured.
+/// Runs as the current user with no privilege change; the caller displays
+/// and records the outcome.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ShellOutcome {
+    command: String,
+    stdout: String,
+    stderr: String,
+    code: Option<i32>,
+    duration_ms: u128,
+}
+
+fn run_shell_command(root: &Path, command: &str) -> anyhow::Result<ShellOutcome> {
+    let command = command.trim();
+    if command.is_empty() {
+        anyhow::bail!("shell command needed after `$`");
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|e| anyhow::anyhow!("workspace root is not usable: {e}"))?;
+    if !root.is_dir() {
+        anyhow::bail!("workspace root is not a directory: {}", root.display());
+    }
+    let started = Instant::now();
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .current_dir(&root)
+        .output()
+        .map_err(|e| anyhow::anyhow!("cannot run shell command: {e}"))?;
+    Ok(ShellOutcome {
+        command: command.to_string(),
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        code: output.status.code(),
+        duration_ms: started.elapsed().as_millis(),
+    })
+}
+
+fn render_shell_outcome(outcome: &ShellOutcome) -> String {
+    const MAX_LINES: usize = 200;
+    let mut o = String::new();
+    o.push_str(&format!("$ {}\n", outcome.command));
+    o.push_str(&format!(
+        "exit: {} · {} ms\n",
+        outcome
+            .code
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "signal".to_string()),
+        outcome.duration_ms
+    ));
+    let mut lines: Vec<&str> = outcome.stdout.lines().chain(outcome.stderr.lines()).collect();
+    let truncated = lines.len().saturating_sub(MAX_LINES);
+    lines.truncate(MAX_LINES);
+    for line in lines {
+        o.push_str(line);
+        o.push('\n');
+    }
+    if truncated > 0 {
+        o.push_str(&format!("… and {truncated} more lines\n"));
+    }
+    o
+}
+
+const MAX_INLINE_EDIT_BYTES: usize = 256 * 1024;
+
+/// Minimal in-HUD text buffer. The file on disk stays canonical; this only
+/// holds keystrokes until save or cancel. Cursor addressing is by Unicode
+/// scalar, not terminal cell: honest plain-text editing, not a terminal Vim.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EditBuffer {
+    path: PathBuf,
+    label: String,
+    original: String,
+    chars: Vec<char>,
+    cursor: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EditSave {
+    unchanged: bool,
+    before_hash: String,
+    after_hash: String,
+    bytes: usize,
+}
+
+impl EditBuffer {
+    fn open(path: PathBuf, label: String, text: String) -> Self {
+        let cursor = text.chars().count();
+        let chars: Vec<char> = text.chars().collect();
+        Self {
+            path,
+            label,
+            original: text,
+            chars,
+            cursor,
+        }
+    }
+
+    fn text(&self) -> String {
+        self.chars.iter().collect()
+    }
+
+    fn insert_char(&mut self, c: char) {
+        self.chars.insert(self.cursor, c);
+        self.cursor += 1;
+    }
+
+    fn insert_newline(&mut self) {
+        self.insert_char('\n');
+    }
+
+    fn backspace(&mut self) {
+        if self.cursor > 0 {
+            self.cursor -= 1;
+            self.chars.remove(self.cursor);
+        }
+    }
+
+    fn delete(&mut self) {
+        if self.cursor < self.chars.len() {
+            self.chars.remove(self.cursor);
+        }
+    }
+
+    fn move_left(&mut self) {
+        self.cursor = self.cursor.saturating_sub(1);
+    }
+
+    fn move_right(&mut self) {
+        self.cursor = (self.cursor + 1).min(self.chars.len());
+    }
+
+    fn line_starts(&self) -> Vec<usize> {
+        let mut starts = vec![0];
+        for (i, c) in self.chars.iter().enumerate() {
+            if *c == '\n' {
+                starts.push(i + 1);
+            }
+        }
+        starts
+    }
+
+    fn cursor_line_col(&self) -> (usize, usize) {
+        let starts = self.line_starts();
+        let mut line = 0;
+        for (i, start) in starts.iter().enumerate() {
+            if *start <= self.cursor {
+                line = i;
+            } else {
+                break;
+            }
+        }
+        (line, self.cursor - starts[line])
+    }
+
+    fn move_to_line_col(&mut self, line: usize, col: usize) {
+        let starts = self.line_starts();
+        let line = line.min(starts.len().saturating_sub(1));
+        let start = starts[line];
+        let end = if line + 1 < starts.len() {
+            starts[line + 1] - 1
+        } else {
+            self.chars.len()
+        };
+        self.cursor = (start + col).min(end);
+    }
+
+    fn move_up(&mut self) {
+        let (line, col) = self.cursor_line_col();
+        if line > 0 {
+            self.move_to_line_col(line - 1, col);
+        }
+    }
+
+    fn move_down(&mut self) {
+        let (line, col) = self.cursor_line_col();
+        self.move_to_line_col(line + 1, col);
+    }
+
+    fn move_home(&mut self) {
+        let (line, _) = self.cursor_line_col();
+        self.move_to_line_col(line, 0);
+    }
+
+    fn move_end(&mut self) {
+        let (line, _) = self.cursor_line_col();
+        let starts = self.line_starts();
+        let end = if line + 1 < starts.len() {
+            starts[line + 1] - 1
+        } else {
+            self.chars.len()
+        };
+        self.cursor = end;
+    }
+
+    /// Render with an explicit block-cursor marker. The marker is UI only;
+    /// `text()` remains the exact buffer.
+    fn render_with_cursor(&self) -> String {
+        let mut out = String::new();
+        for (i, c) in self.chars.iter().enumerate() {
+            if i == self.cursor {
+                out.push('▌');
+            }
+            out.push(*c);
+        }
+        if self.cursor == self.chars.len() {
+            out.push('▌');
+        }
+        out
+    }
+
+    /// Persist the buffer: refuse when the file moved under us, report a
+    /// no-op when nothing changed, otherwise atomically replace it and hash
+    /// both sides with the shared transition-log hash.
+    fn save(&self) -> anyhow::Result<EditSave> {
+        let disk = std::fs::read_to_string(&self.path).map_err(|e| {
+            anyhow::anyhow!("cannot re-read {}: {e}", self.path.display())
+        })?;
+        if disk != self.original {
+            anyhow::bail!(
+                "file changed on disk since inline edit opened — save refused, Esc cancels"
+            );
+        }
+        let text = self.text();
+        let before_hash = hash_canonical(&self.original);
+        let after_hash = hash_canonical(&text);
+        if text == self.original {
+            return Ok(EditSave {
+                unchanged: true,
+                before_hash,
+                after_hash,
+                bytes: text.len(),
+            });
+        }
+        physis_pro::atomic::write_atomic(&self.path, text.as_bytes()).map_err(|e| {
+            anyhow::anyhow!("cannot write {}: {e}", self.path.display())
+        })?;
+        Ok(EditSave {
+            unchanged: false,
+            before_hash,
+            after_hash,
+            bytes: text.len(),
+        })
+    }
+}
+
+/// Resolve an operator-supplied file path to a real file strictly inside the
+/// current workspace. Object ids go through `NavWorkspace::resolve` in the
+/// caller; this is the filesystem half of that gate.
+fn resolve_workspace_file(root: &Path, raw: &str) -> anyhow::Result<PathBuf> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        anyhow::bail!("a path is needed");
+    }
+    let candidate = if Path::new(raw).is_absolute() {
+        PathBuf::from(raw)
+    } else {
+        root.join(raw)
+    };
+    let abs = candidate
+        .canonicalize()
+        .map_err(|_| anyhow::anyhow!("no such file: {raw}"))?;
+    let root_abs = root
+        .canonicalize()
+        .map_err(|e| anyhow::anyhow!("workspace root is not usable: {e}"))?;
+    if !abs.starts_with(&root_abs) {
+        anyhow::bail!("outside the workspace root: {raw}");
+    }
+    if !abs.is_file() {
+        anyhow::bail!("not a file: {raw}");
+    }
+    Ok(abs)
+}
+
+/// Change-root gate: the target must exist and be a directory. The caller
+/// reopens the workspace (and its per-repository state) only after this
+/// passes.
+fn resolve_change_root(current: &Path, raw: &str) -> anyhow::Result<PathBuf> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        anyhow::bail!("usage: cd <directory>");
+    }
+    let candidate = if Path::new(raw).is_absolute() {
+        PathBuf::from(raw)
+    } else {
+        current.join(raw)
+    };
+    let abs = candidate
+        .canonicalize()
+        .map_err(|_| anyhow::anyhow!("no such directory: {raw}"))?;
+    if !abs.is_dir() {
+        anyhow::bail!("not a directory: {raw}");
+    }
+    Ok(abs)
+}
+
+fn display_workspace_path(root: &Path, abs: &Path) -> String {
+    abs.strip_prefix(root)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| abs.to_string_lossy().to_string())
+}
+
+/// Sibling candidates: hits whose content matches the center's but whose
+/// path lives in a different directory. The exact "same content, branched
+/// across directories" projection for big codebases. Pure over `hits` —
+/// no second ranking; the shared scorer's semantic leg already did the work.
+fn sibling_groups(
+    center_path: &str,
+    hits: &[NavHit],
+    exclude_id: &nav::ObjectId,
+) -> Vec<(String, Vec<String>)> {
+    let center_dir = Path::new(center_path)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .filter(|d| !d.is_empty())
+        .unwrap_or_else(|| ".".to_string());
+    let mut by_dir: std::collections::BTreeMap<String, Vec<(f32, String)>> = Default::default();
+    for h in hits {
+        if h.object.id == *exclude_id {
+            continue;
+        }
+        let path = h
+            .object
+            .source
+            .as_ref()
+            .map(|s| s.path.clone())
+            .unwrap_or_else(|| h.object.label.clone());
+        let dir = Path::new(&path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .filter(|d| !d.is_empty())
+            .unwrap_or_else(|| ".".to_string());
+        if dir == center_dir {
+            continue; // same directory = ordinary neighbour, not a branch
+        }
+        by_dir
+            .entry(dir)
+            .or_default()
+            .push((h.score.total, path));
+    }
+    by_dir
+        .into_iter()
+        .map(|(dir, mut items)| {
+            items.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            (
+                dir,
+                items
+                    .into_iter()
+                    .map(|(_, p)| p)
+                    .collect::<Vec<String>>(),
+            )
+        })
+        .collect()
+}
+
+/// Compact HUD state pointer for the existing append-only transition log.
+/// Same shape as the REPL's `state_ref`, projected from the HUD's workspace.
+fn workspace_state(root: &Path, ws: &physis_pro::nav::workspace::NavWorkspace) -> StateRef {
+    let snap = physis_pro::mvp::slice::snapshot_hashes(
+        &physis_pro::scanner::scan_project(root, None),
+    );
+    let content_hash = hash_canonical(&snap);
+    let mut ids: Vec<String> = ws
+        .index()
+        .objects
+        .values()
+        .map(|o| format!("{}:{}", o.id.short(), o.hash))
+        .collect();
+    ids.sort();
+    StateRef {
+        content_hash,
+        objects: ws.index().objects.len(),
+        files: snap.len(),
+        map_hash: hash_canonical(&ids),
+    }
+}
+
+/// Relative ranking bar for one hit: `▇` per filled slot, `▁` per empty one.
+/// Positional only — it shows where a hit sits against this list's own max,
+/// never a probability. Non-positive or non-finite scores draw empty.
+fn score_bar(score: f32, max: f32, width: usize) -> String {
+    if width == 0 || !max.is_finite() || max <= 0.0 {
+        return "▁".repeat(width);
+    }
+    let ratio = if score.is_finite() && score > 0.0 {
+        score / max
+    } else {
+        0.0
+    };
+    let filled = (ratio * width as f32).round().clamp(0.0, width as f32) as usize;
+    "▇".repeat(filled) + &"▁".repeat(width - filled)
+}
+
+/// The startup world card: every demo-contract fact on one screen, all
+/// measured at open — backend that answered, generator state, offline claim,
+/// counts, and the cached sample map. Nothing estimated, nothing inherited.
+fn world_card(
+    root: &Path,
+    files: usize,
+    objects: usize,
+    ws_tokens: usize,
+    embedder: &str,
+    generator: &str,
+    map: (usize, usize, usize),
+) -> String {
+    let mut o = String::new();
+    o.push_str("PHYSIS HUD — the repository as a navigable world\n\n");
+    o.push_str(&format!("root: {}\n", root.display()));
+    o.push_str(&format!(
+        "semantic backend: {embedder} · generator: {generator} · network: OFFLINE\n"
+    ));
+    o.push_str(&format!(
+        "files: {files} · objects: {objects} · workspace tokens: {ws_tokens}\n"
+    ));
+    o.push_str(&format!(
+        "sample map: {} repeats / {} differences / {} contradictions\n",
+        map.0, map.1, map.2
+    ));
+    o.push_str("\ntype a query, Enter searches · /text searches globally · $ runs shell · :help lists commands\n");
+    o
+}
+
+/// Render nav-trail steps newest-last, capped. Pure projection over the
+/// sled-backed trail the workspace already keeps.
+fn trail_view_text(steps: &[nav::NavStep], limit: usize) -> String {
+    let mut o = String::new();
+    o.push_str("── TRAIL ──\n");
+    if steps.is_empty() {
+        o.push_str("(no navigation yet — search, then Enter)\n");
+        return o;
+    }
+    let start = steps.len().saturating_sub(limit);
+    for (i, s) in steps.iter().enumerate().skip(start) {
+        o.push_str(&format!("{i:>3}  {:<6}  {}  {}\n", s.kind, s.focus, s.at));
+    }
+    o
+}
+
+/// Session transitions newest-last, capped. The caller supplies the git /
+/// filesystem history text; this appends the recorded HUD transitions after
+/// it so both pasts read as one view.
+fn history_view_text(
+    base: &str,
+    transitions: &[physis_pro::mvp::log::Transition],
+    limit: usize,
+) -> String {
+    let mut o = String::new();
+    o.push_str(base);
+    if !base.ends_with('\n') {
+        o.push('\n');
+    }
+    if transitions.is_empty() {
+        return o;
+    }
+    o.push_str("\nSESSION TRANSITIONS (this repository)\n");
+    let start = transitions.len().saturating_sub(limit);
+    for t in transitions.iter().skip(start) {
+        o.push_str(&format!(
+            "#{} {} → {} — {}\n",
+            t.seq, t.intent, t.action, t.outcome
+        ));
+    }
+    o
+}
+
+
+/// Notebook handoff targets: sourced selection wins; cursor is fallback.
+/// Pure selection logic; workspace reads stay in `notebook_selection`.
+fn notebook_targets<'a>(
+    selected: &'a [NavHit],
+    current: Option<&'a NavHit>,
+) -> Vec<&'a NavHit> {
+    let mut targets: Vec<&NavHit> = selected
+        .iter()
+        .filter(|h| h.object.source.is_some())
+        .collect();
+    if targets.is_empty() {
+        if let Some(hit) = current {
+            targets.push(hit);
+        }
+    }
+    targets
+}
+
+/// Pure WHY-AFFECTED matcher: module-stem and code-shaped symbol explanation.
+/// Filesystem reads and changed-symbol extraction stay in `why_affected`.
+fn why_affected_lines(
+    path: &str,
+    text: &str,
+    changed: &[String],
+    symbols: &[String],
+) -> Vec<String> {
+    let lower = text.to_lowercase().replace('-', "_");
+    let mut lines = Vec::new();
+    for c in changed {
+        let stem = Path::new(c)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.replace('-', "_").to_lowercase())
+            .unwrap_or_default();
+        if !stem.is_empty() && lower.contains(stem.as_str()) {
+            lines.push(format!("{path}\n  ← names module {stem}\n  ← {c} changed"));
+        }
+    }
+    for s in symbols {
+        if s.len() < 6 {
+            continue;
+        }
+        let distinctive = s.contains('_') || s.chars().any(|c| c.is_ascii_uppercase());
+        let pats = if distinctive {
+            vec![
+                format!("{s}::"),
+                format!("::{s}"),
+                format!("use {s}"),
+                format!("{s}("),
+            ]
+        } else {
+            vec![format!("{s}::"), format!("::{s}"), format!("use {s}")]
+        };
+        if pats.iter().any(|p| text.contains(p.as_str())) {
+            lines.push(format!("{path}\n  ← calls {s}\n  ← {s} defined in changed file(s)"));
+            break;
+        }
+    }
+    lines
+}
+
 struct App {
     ws: physis_pro::nav::workspace::NavWorkspace,
     weights: NavWeights,
 
     query: String,
     typing: bool,
+    editor: Option<EditBuffer>,
     hits: Vec<NavHit>,
     rows: Vec<Row>,
     sel: usize,
@@ -342,8 +1224,14 @@ impl App {
             map_d,
             map_c,
         );
-        let mut startup = format!(
-            "PHYSIS HUD\n\n{status}\nindex ready — type a query, Enter searches\n"
+        let mut startup = world_card(
+            &root,
+            ws.index().files.len(),
+            ws.index().objects.len(),
+            ws_tokens,
+            &kind,
+            &physis_pro::mvp::generator_state(),
+            (map_r, map_d, map_c),
         );
         if let Some(n) = notice {
             startup.push_str(&format!("\n{n}\n"));
@@ -353,6 +1241,7 @@ impl App {
             weights: NavWeights::default(),
             query: String::new(),
             typing: true,
+            editor: None,
             hits: Vec::new(),
             rows: Vec::new(),
             sel: 0,
@@ -425,42 +1314,10 @@ impl App {
         let root = self.ws.root.clone();
         let changed_v: Vec<String> = self.changed.iter().cloned().collect();
         let syms = physis_pro::mvp::changed_symbols(&root, &changed_v);
-        let mut lines = Vec::new();
         let Ok(text) = std::fs::read_to_string(root.join(path)) else {
             return Vec::new();
         };
-        let lower = text.to_lowercase().replace('-', "_");
-        for c in &changed_v {
-            let stem = Path::new(c)
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .map(|s| s.replace('-', "_").to_lowercase())
-                .unwrap_or_default();
-            if !stem.is_empty() && lower.contains(stem.as_str()) {
-                lines.push(format!("{path}\n  ← names module {stem}\n  ← {c} changed"));
-            }
-        }
-        for s in &syms {
-            if s.len() < 6 {
-                continue;
-            }
-            let distinctive = s.contains('_') || s.chars().any(|c| c.is_ascii_uppercase());
-            let pats = if distinctive {
-                vec![
-                    format!("{s}::"),
-                    format!("::{s}"),
-                    format!("use {s}"),
-                    format!("{s}("),
-                ]
-            } else {
-                vec![format!("{s}::"), format!("::{s}"), format!("use {s}")]
-            };
-            if pats.iter().any(|p| text.contains(p.as_str())) {
-                lines.push(format!("{path}\n  ← calls {s}\n  ← {s} defined in changed file(s)"));
-                break;
-            }
-        }
-        lines
+        why_affected_lines(path, &text, &changed_v, &syms)
     }
 
     /// Minimal context for the CONTEXT tab: PRIMARY (top hits), DEPENDENCIES
@@ -593,15 +1450,64 @@ impl App {
         }
     }
 
+    fn snapshot_state(&self) -> StateRef {
+        workspace_state(&self.ws.root, &self.ws)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn record_hud_transition(
+        &self,
+        intent: &str,
+        action: &str,
+        delta: CompactDelta,
+        validation: Vec<String>,
+        outcome: String,
+        provenance: Vec<String>,
+        before: &StateRef,
+        after: &StateRef,
+        uncertainty: f32,
+    ) -> anyhow::Result<()> {
+        let mut log = TransitionLog::open(&self.ws.root)?;
+        log.append(Transition {
+            v: 1,
+            seq: 0,
+            timestamp: String::new(),
+            state_before: before.clone(),
+            intent: intent.to_string(),
+            action: action.to_string(),
+            delta,
+            validation,
+            outcome,
+            state_after: after.clone(),
+            provenance,
+            uncertainty,
+            slice: None,
+        })?;
+        Ok(())
+    }
+
+    fn note_history_failure(&mut self, what: &str, e: &anyhow::Error) {
+        self.status
+            .push_str(&format!(" ({what} history not recorded: {e})"));
+    }
+
     /// Re-index only what moved on disk (nav stat fast path — O(Δ)), then
     /// diff the file catalog around it for the CHANGED set and run the same
     /// precision-first dependents rule the MVP loop uses for AFFECTED.
     /// `u` in the HUD; no editor launched, no model touched.
     fn rescan_now(&mut self) {
+        self.rescan_with_intent("rescan", "rescan");
+    }
+
+    /// Shared rescan path with an explicit intent/action for the history
+    /// record. Returns whether the world update itself succeeded; logging
+    /// failures only annotate the status.
+    fn rescan_with_intent(&mut self, intent: &str, action: &str) -> bool {
+        let before_state = self.snapshot_state();
         // Hash-level CHANGED: compare the refreshed catalog against the
         // pre-update one. Stat fast path keeps this O(Δ): unchanged files
         // cost one stat, only content-moved files rehash + re-ingest.
-        let before: std::collections::BTreeMap<String, String> = self
+        let before_files: std::collections::BTreeMap<String, String> = self
             .ws
             .index()
             .files
@@ -615,7 +1521,7 @@ impl App {
                 let mut added: Vec<String> = Vec::new();
                 let mut removed: Vec<String> = Vec::new();
                 for (path, rec) in &self.ws.index().files {
-                    match before.get(path) {
+                    match before_files.get(path) {
                         None => {
                             changed.insert(path.clone());
                             added.push(path.clone());
@@ -626,7 +1532,7 @@ impl App {
                         _ => {}
                     }
                 }
-                for gone in before.keys() {
+                for gone in before_files.keys() {
                     if !self.ws.index().files.contains_key(gone) {
                         changed.insert(gone.clone());
                         removed.push(gone.clone());
@@ -646,10 +1552,21 @@ impl App {
                 let objects_after = self.ws.index().objects.len();
                 let mut changed_all = changed_v.clone();
                 changed_all.extend(added.iter().cloned());
+                let compact = CompactDelta {
+                    changed: changed_v.clone(),
+                    added: added.clone(),
+                    removed: removed.clone(),
+                    objects_remapped: objects_before.abs_diff(objects_after)
+                        + changed_v.len()
+                        + added.len(),
+                    neighborhoods_changed: self.affected.len(),
+                    no_change: changed_v.is_empty(),
+                    ..Default::default()
+                };
                 self.last_delta = Some(physis_pro::mvp::SemanticDelta {
                     changed_artifacts: changed_all,
                     added_relations: vec![],
-                    removed_relations: removed,
+                    removed_relations: removed.clone(),
                     affected_dependents: self.affected.iter().cloned().collect(),
                     invariant_results: vec![
                         "file-type invariants preserved (rs/md/json/toml shapes)".into(),
@@ -668,64 +1585,597 @@ impl App {
                     self.changed.len(),
                     self.affected.len()
                 );
-                // Re-run the current query so markers land on visible rows.
-                if !self.query.is_empty() {
-                    let q = self.query.clone();
-                    let global = q.starts_with('/');
-                    if global {
-                        self.query = q[1..].to_string();
-                    }
-                    self.run_query(global);
-                    if global {
-                        self.query = format!("/{query}", query = self.query);
-                    }
+                let after_state = self.snapshot_state();
+                let outcome = format!(
+                    "{} changed, {} affected",
+                    self.changed.len(),
+                    self.affected.len()
+                );
+                let provenance = self
+                    .changed
+                    .iter()
+                    .cloned()
+                    .chain(added.iter().cloned())
+                    .collect();
+                if let Err(e) = self.record_hud_transition(
+                    intent,
+                    action,
+                    compact,
+                    vec![summary.clone()],
+                    outcome,
+                    provenance,
+                    &before_state,
+                    &after_state,
+                    0.1,
+                ) {
+                    self.note_history_failure("rescan", &e);
                 }
+                // Re-run the current query so markers land on visible rows.
+                // A leading `/` stays in the prompt and stays global.
+                if !self.query.is_empty() {
+                    self.run_query();
+                }
+                true
             }
-            Err(e) => self.status = format!("rescan failed: {e}"),
+            Err(e) => {
+                self.status = format!("rescan failed: {e}");
+                false
+            }
         }
     }
 
     /// Open the cursor object in `$EDITOR` (blocking; TUI suspends while it
     /// runs), then rescan so the world reacts to the save. Undo-before-save
-    /// is the editor's. `e` in the HUD.
-    fn edit_current(&mut self) {
-        let Some(hit) = self.current_hit().cloned() else {
-            self.status = "nothing to edit".into();
-            return;
+    /// is the editor's. `:external [path]` in the HUD.
+    fn run_external_edit(&mut self, target: Option<&str>) {
+        let path = match target {
+            Some(raw) => match self.resolve_edit_path(Some(raw)) {
+                Ok((_, label)) => label,
+                Err(e) => {
+                    self.status = format!("external edit: {e}");
+                    return;
+                }
+            },
+            None => {
+                let Some(hit) = self.current_hit().cloned() else {
+                    self.status = "nothing to edit".into();
+                    return;
+                };
+                hit.object
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.clone())
+                    .unwrap_or_else(|| hit.object.label.clone())
+            }
         };
-        let path = hit
-            .object
-            .source
-            .as_ref()
-            .map(|s| s.path.clone())
-            .unwrap_or_else(|| hit.object.label.clone());
         let abs = self.ws.root.join(&path);
         if !abs.is_file() {
-            self.status = format!("not a file: {path}");
+            // Absolute workspace paths arrive canonical; every other target is
+            // workspace-relative by construction.
+            let abs = if Path::new(&path).is_absolute() {
+                PathBuf::from(&path)
+            } else {
+                abs
+            };
+            if !abs.is_file() {
+                self.status = format!("not a file: {path}");
+                return;
+            }
+            self.run_external_editor(&path, &abs);
             return;
         }
+        self.run_external_editor(&path, &abs);
+    }
+
+    fn run_external_editor(&mut self, path: &str, abs: &Path) {
         let editor = std::env::var("EDITOR")
             .ok()
             .filter(|e| !e.trim().is_empty())
             .unwrap_or_else(|| "vi".to_string());
         // Leave the alternate screen so the editor owns the terminal.
-        let _ = disable_raw_mode();
-        let _ = execute!(stdout(), LeaveAlternateScreen);
-        let status = std::process::Command::new(&editor).arg(&abs).status();
-        let _ = enable_raw_mode();
-        let _ = execute!(stdout(), EnterAlternateScreen);
+        let status = suspend_tui_for(|| Command::new(&editor).arg(abs).status());
         match status {
             Ok(s) if s.success() => {
                 self.status = format!("edited {path} — rescanning");
-                self.rescan_now();
+                self.rescan_with_intent(&format!("external edit {path}"), "external-edit");
             }
             Ok(s) => self.status = format!("editor exited {s:?} — no rescan ran"),
             Err(e) => self.status = format!("cannot launch editor {editor}: {e}"),
         }
     }
 
-    fn run_query(&mut self, global: bool) {
-        let query = self.query.clone();
+    /// Resolve an inline-edit target to an absolute workspace file plus its
+    /// display label. Explicit targets may be object ids or workspace paths;
+    /// a missing target means the cursor object.
+    fn resolve_edit_path(&self, target: Option<&str>) -> anyhow::Result<(PathBuf, String)> {
+        let root = self.ws.root.clone();
+        let raw_path = match target {
+            Some(raw) => match self.ws.resolve(raw) {
+                Ok(obj) => obj
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.clone())
+                    .unwrap_or_else(|| obj.label.clone()),
+                Err(_) => raw.to_string(),
+            },
+            None => {
+                let Some(hit) = self.current_hit() else {
+                    anyhow::bail!("nothing to edit");
+                };
+                hit.object
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.clone())
+                    .unwrap_or_else(|| hit.object.label.clone())
+            }
+        };
+        let abs = resolve_workspace_file(&root, &raw_path)?;
+        let label = display_workspace_path(&root, &abs);
+        Ok((abs, label))
+    }
+
+    /// Start the minimal inline editor on one workspace file. Full files only:
+    /// object regions resolve to their file so the written bytes are exactly
+    /// what the operator saw, plus their keystrokes.
+    fn start_inline_edit(&mut self, target: Option<&str>) {
+        let (abs, label) = match self.resolve_edit_path(target) {
+            Ok(resolved) => resolved,
+            Err(e) => {
+                self.status = format!("edit: {e}");
+                return;
+            }
+        };
+        let bytes = match std::fs::metadata(&abs).map(|m| m.len()) {
+            Ok(n) => n,
+            Err(e) => {
+                self.status = format!("edit: cannot stat {}: {e}", abs.display());
+                return;
+            }
+        };
+        if bytes > MAX_INLINE_EDIT_BYTES as u64 {
+            self.status = format!(
+                "edit: {label} is too large for inline edit — use :external {label}"
+            );
+            return;
+        }
+        let text = match std::fs::read_to_string(&abs) {
+            Ok(text) => text,
+            Err(e) => {
+                self.status = format!("edit: cannot read {label}: {e}");
+                return;
+            }
+        };
+        self.editor = Some(EditBuffer::open(abs, label.clone(), text));
+        self.typing = false;
+        self.refresh_editor_reading();
+        self.status = format!(
+            "inline edit {label}: type and arrows move · Enter newline · Ctrl+S saves · Esc cancels"
+        );
+    }
+
+    fn refresh_editor_reading(&mut self) {
+        if let Some(editor) = &self.editor {
+            self.reading = Some((
+                format!("edit {}", editor.label),
+                editor.render_with_cursor(),
+            ));
+        }
+    }
+
+    fn cancel_editor(&mut self) {
+        if let Some(editor) = self.editor.take() {
+            let body = std::fs::read_to_string(&editor.path).unwrap_or(editor.original);
+            self.reading = Some((format!("edit {}", editor.label), body));
+            self.status = format!("edit cancelled — {} untouched", editor.label);
+        }
+    }
+
+    fn save_editor(&mut self) {
+        let Some(editor) = self.editor.take() else {
+            return;
+        };
+        let rel = display_workspace_path(&self.ws.root, &editor.path);
+        let saved = match editor.save() {
+            Ok(saved) => saved,
+            Err(e) => {
+                self.editor = Some(editor);
+                self.refresh_editor_reading();
+                self.status = format!("save refused: {e}");
+                return;
+            }
+        };
+        if saved.unchanged {
+            self.reading = Some((format!("edit {rel}"), editor.text()));
+            self.status = format!("no changes — {rel} untouched");
+            return;
+        }
+        self.reading = Some((format!("edit {rel}"), editor.text()));
+        if self.rescan_with_intent(&format!("edit {rel}"), "edit-save") {
+            self.status = format!(
+                "saved {rel} · {} → {} · {} changed, {} affected",
+                &saved.before_hash[..8.min(saved.before_hash.len())],
+                &saved.after_hash[..8.min(saved.after_hash.len())],
+                self.changed.len(),
+                self.affected.len()
+            );
+        } else {
+            let failed = self.status.clone();
+            self.status = format!(
+                "saved {rel} · {} → {} but {failed}",
+                &saved.before_hash[..8.min(saved.before_hash.len())],
+                &saved.after_hash[..8.min(saved.after_hash.len())]
+            );
+        }
+    }
+
+    fn submit_command_line(&mut self, raw: &str) -> bool {
+        match parse_hud_input(raw) {
+            HudInput::Empty => false,
+            HudInput::Invalid(message) => {
+                self.status = message;
+                false
+            }
+            HudInput::Shell(command) => {
+                self.run_shell_line(&command);
+                false
+            }
+            HudInput::Command(command) => self.run_hud_command(command),
+            HudInput::Open(target) => {
+                self.open_target(&target);
+                false
+            }
+            HudInput::Edit(target) => {
+                self.start_inline_edit(target.as_deref());
+                false
+            }
+            HudInput::ChangeRoot(dir) => {
+                self.change_root(&dir);
+                false
+            }
+            HudInput::GlobalQuery(query) => {
+                self.query = format!("/{query}");
+                self.run_query();
+                false
+            }
+            HudInput::SemanticQuery(query) => {
+                self.query = query;
+                self.run_query();
+                false
+            }
+        }
+    }
+
+    fn run_hud_command(&mut self, command: HudCommand) -> bool {
+        match command {
+            HudCommand::Help => {
+                self.reading = Some(("commands".into(), hud_command_help()));
+                self.status = "command box: deterministic dispatch, no model".into();
+            }
+            HudCommand::History => self.show_history(),
+            HudCommand::Bench => self.show_bench(),
+            HudCommand::Context => self.show_context(),
+            HudCommand::Delta => {
+                self.context_tab = ContextTab::Delta;
+                self.reading = Some(("delta".into(), self.delta_text()));
+                self.status = "delta: last observed Δ".into();
+            }
+            HudCommand::Why => self.show_why(),
+            HudCommand::Dependencies(target) => {
+                let path = match target {
+                    Some(raw) => match self.resolve_command_path(&raw) {
+                        Ok(path) => path,
+                        Err(e) => {
+                            self.status = format!("dependencies: {e}");
+                            return false;
+                        }
+                    },
+                    None => match self.current_hit().cloned() {
+                        Some(hit) => hit
+                            .object
+                            .source
+                            .as_ref()
+                            .map(|s| s.path.clone())
+                            .unwrap_or_else(|| hit.object.label.clone()),
+                        None => {
+                            self.status = "no cursor object — run a query first".into();
+                            return false;
+                        }
+                    },
+                };
+                self.show_dependents_for(&path);
+            }
+            HudCommand::Contradictions => self.show_contradictions(),
+            HudCommand::Rescan => self.rescan_now(),
+            HudCommand::Graph => self.graph_view(),
+            HudCommand::Notebook => self.show_notebook(),
+            HudCommand::Related => self.related(),
+            HudCommand::Pin => self.pin_selection(),
+            HudCommand::Relate(kind) => self.relate_selection(&kind),
+            HudCommand::Focus(query) => self.focus_query_arg(query),
+            HudCommand::ClearFocus => self.clear_focus(),
+            HudCommand::Zoom => self.toggle_zoom(),
+            HudCommand::CycleEdges => self.cycle_edge_filter(),
+            HudCommand::Tab(tab) => self.switch_context_tab(tab),
+            HudCommand::Trail => self.show_trail(),
+            HudCommand::Pins => self.show_pins(),
+            HudCommand::Unpin => self.unpin_selection(),
+            HudCommand::Sem(enable) => self.set_semantic(enable),
+            HudCommand::OpenExternal(target) => self.run_external_edit(target.as_deref()),
+            HudCommand::Quit => return true,
+        }
+        false
+    }
+
+    fn resolve_command_path(&self, raw: &str) -> anyhow::Result<String> {
+        if let Ok(obj) = self.ws.resolve(raw) {
+            return Ok(obj
+                .source
+                .as_ref()
+                .map(|s| s.path.clone())
+                .unwrap_or_else(|| obj.label.clone()));
+        }
+        let abs = resolve_workspace_file(&self.ws.root, raw)?;
+        Ok(display_workspace_path(&self.ws.root, &abs))
+    }
+
+    /// Open one exact object or workspace file in the reading pane. Object
+    /// ids resolve through the index; paths stay strictly inside the root.
+    /// The cursor moves only when the same object is already visible.
+    fn open_target(&mut self, target: &str) {
+        let root = self.ws.root.clone();
+        let (obj, path) = match self.ws.resolve(target) {
+            Ok(obj) => {
+                let path = obj
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.clone())
+                    .unwrap_or_else(|| obj.label.clone());
+                (Some(obj), path)
+            }
+            Err(_) => (None, target.to_string()),
+        };
+        let abs = match resolve_workspace_file(&root, &path) {
+            Ok(abs) => abs,
+            Err(e) => {
+                self.status = format!("open: {e}");
+                return;
+            }
+        };
+        let text = match std::fs::read_to_string(&abs) {
+            Ok(text) => text,
+            Err(e) => {
+                self.status = format!("open: cannot read {}: {e}", abs.display());
+                return;
+            }
+        };
+        let label = display_workspace_path(&root, &abs);
+        self.reading = Some((format!("open {label}"), text));
+        if let Some(obj) = obj {
+            let id = obj.id.clone();
+            if let Some(pos) = self.rows.iter().position(|row| {
+                matches!(row, Row::Hit(h) if h.object.id == id)
+            }) {
+                self.sel = pos;
+                self.sync_list_state();
+            }
+            self.ws.push_trail("open", &id.short());
+        } else {
+            self.ws.push_trail("open", &label);
+        }
+        self.update_explain();
+        self.status = format!("open {label} — exact file, no summary");
+    }
+
+    /// Change the workspace root. The target must already exist as a
+    /// directory; the index, sled state, and transition log reopen beside the
+    /// new root, mirroring startup. Volatile HUD selections do not cross the
+    /// boundary.
+    fn change_root(&mut self, raw: &str) {
+        let current = self.ws.root.clone();
+        let new_root = match resolve_change_root(&current, raw) {
+            Ok(root) => root,
+            Err(e) => {
+                self.status = format!("cd: {e}");
+                return;
+            }
+        };
+        anchor_data_dir(&new_root);
+        match physis_pro::nav::workspace::NavWorkspace::open(&new_root) {
+            Ok(ws) => {
+                self.ws = ws;
+                self.query.clear();
+                self.hits.clear();
+                self.rows.clear();
+                self.sel = 0;
+                self.selected.clear();
+                self.stack.clear();
+                self.crumbs.clear();
+                self.changed.clear();
+                self.affected.clear();
+                self.intent_hot.clear();
+                self.intent_warm.clear();
+                self.context_tab = ContextTab::Why;
+                self.last_delta = None;
+                self.editor = None;
+                self.typing = false;
+                self.ws_tokens = workspace_tokens(&new_root);
+                self.embedder_kind = self.ws.embedder_kind(true);
+                self.semantic_on = self.embedder_kind != "random-projection";
+                self.reading = Some((
+                    "workspace".into(),
+                    format!(
+                        "root {}\nfiles {} · objects {}\nrun rescan to refresh this root",
+                        new_root.display(),
+                        self.ws.index().files.len(),
+                        self.ws.index().objects.len()
+                    ),
+                ));
+                self.sync_list_state();
+                self.update_explain();
+                self.status = format!("workspace root: {}", new_root.display());
+            }
+            Err(e) => {
+                self.status = format!("cd: cannot open {}: {e}", new_root.display());
+            }
+        }
+    }
+
+    /// Run one shell command in the workspace root, display the captured
+    /// result, rescan only when the filesystem actually moved, and record the
+    /// interaction in the existing transition log.
+    fn run_shell_line(&mut self, command: &str) {
+        let root = self.ws.root.clone();
+        let before_state = self.snapshot_state();
+        let before_files = physis_pro::mvp::slice::snapshot_hashes(
+            &physis_pro::scanner::scan_project(&root, None),
+        );
+        let outcome = suspend_tui_for(|| run_shell_command(&root, command));
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(e) => {
+                self.reading = Some(("shell".into(), format!("$ {command}\n{e:#}")));
+                self.status = format!("shell failed: {e:#}");
+                return;
+            }
+        };
+        self.reading = Some((
+            format!("shell: {}", outcome.command),
+            render_shell_outcome(&outcome),
+        ));
+        let after_files = physis_pro::mvp::slice::snapshot_hashes(
+            &physis_pro::scanner::scan_project(&root, None),
+        );
+        let (changed, _added, _removed) =
+            physis_pro::mvp::slice::diff_snapshots(&before_files, &after_files);
+        if changed.is_empty() {
+            let after_state = self.snapshot_state();
+            let validation = vec![format!(
+                "exit {} in {} ms",
+                outcome
+                    .code
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "signal".to_string()),
+                outcome.duration_ms
+            )];
+            if let Err(e) = self.record_hud_transition(
+                &format!("$ {}", outcome.command),
+                "shell",
+                CompactDelta {
+                    no_change: true,
+                    ..Default::default()
+                },
+                validation,
+                format!(
+                    "exit {:?}; {} stdout lines, {} stderr lines",
+                    outcome.code,
+                    outcome.stdout.lines().count(),
+                    outcome.stderr.lines().count()
+                ),
+                vec![outcome.command.clone()],
+                &before_state,
+                &after_state,
+                0.1,
+            ) {
+                self.note_history_failure("shell", &e);
+            }
+            self.status = format!(
+                "shell exit {:?} in {} ms — no filesystem change",
+                outcome.code, outcome.duration_ms
+            );
+            return;
+        }
+        self.rescan_with_intent(&format!("$ {}", outcome.command), "shell");
+        self.status = format!(
+            "shell exit {:?} in {} ms; {}",
+            outcome.code, outcome.duration_ms, self.status
+        );
+    }
+
+    fn show_context(&mut self) {
+        let text = self.context_text();
+        self.context_tab = ContextTab::Context;
+        self.reading = Some(("context".into(), text));
+        self.status = "context: bounded packet for the current selection".into();
+    }
+
+    fn show_why(&mut self) {
+        self.context_tab = ContextTab::Why;
+        self.update_explain();
+        self.status = "why: shared scorer components and relations".into();
+    }
+
+    fn show_notebook(&mut self) {
+        // Notebook handoff: run the Function 2 extractive answer over the
+        // selection, in process. Result lands in the reading pane.
+        if let Some(docs) = self.notebook_selection() {
+            match run_notebook(self, &docs) {
+                Ok(answer) => {
+                    self.reading = Some(("notebook".into(), answer));
+                }
+                Err(e) => self.status = format!("notebook: {e}"),
+            }
+        } else {
+            self.status = "select objects first (Space)".into();
+        }
+    }
+
+    fn focus_query_arg(&mut self, query: Option<String>) {
+        if let Some(query) = query {
+            self.query = query;
+            self.run_query();
+        }
+        self.apply_focus();
+    }
+
+    fn toggle_zoom(&mut self) {
+        self.zoomed_out = !self.zoomed_out;
+        let hits = self.hits.clone();
+        self.set_results(hits);
+        self.status = if self.zoomed_out {
+            "zoomed out: directory rollup (z toggles, Enter drills in)".into()
+        } else {
+            "zoomed in: object rows".into()
+        };
+    }
+
+    fn switch_context_tab(&mut self, tab: ContextTab) {
+        self.context_tab = tab;
+        match tab {
+            ContextTab::Why => self.update_explain(),
+            ContextTab::Context => {
+                let text = self.context_text();
+                self.reading = Some(("context".into(), text));
+            }
+            ContextTab::Delta => {
+                let text = self.delta_text();
+                self.reading = Some(("delta".into(), text));
+            }
+            ContextTab::History => {}
+        }
+        self.status = match tab {
+            ContextTab::Why => "why: shared scorer components and relations".into(),
+            ContextTab::Context => "context: bounded packet for the current selection".into(),
+            ContextTab::Delta => "delta: last observed Δ".into(),
+            ContextTab::History => "history: git/filesystem plus recorded transitions".into(),
+        };
+    }
+
+    fn show_dependents_for(&mut self, path: &str) {
+        let text = physis_pro::mvp::dependents_text(&self.ws.root, path);
+        self.reading = Some((format!("dependents: {path}"), text));
+        self.status = "dependents: code-shaped references to the cursor path".into();
+    }
+
+    /// Run the command-box query. A leading `/` stays in the prompt and
+    /// stays global; the slash itself is never sent to the scorer.
+    fn run_query(&mut self) {
+        let raw = self.query.clone();
+        let global = raw.starts_with('/');
+        let query = if global {
+            raw[1..].trim_start().to_string()
+        } else {
+            raw.clone()
+        };
         match self.ws.query(&query, global, &self.weights, 60) {
             Ok((hits, mode)) => {
                 self.semantic_on = mode.semantic;
@@ -1138,6 +2588,43 @@ fn edge_filter_name(filter: u8) -> &'static str {
                 h.score.total, h.object.label
             ));
         }
+        // SIBLINGS: content-similar files in *other* directories — the
+        // "branched differently across directories" projection. Same
+        // semantic query `related()` uses (the center's own text), no new
+        // ranking; only the cross-directory slice of it is drawn. This is
+        // similarity, NOT a proven relationship — the dashed edge grammar
+        // says so, and the legend line names the leg honestly.
+        if Self::edge_shown(false, self.edge_filter) {
+            let ws = &mut self.ws;
+            let weights = self.weights.clone();
+            if let Ok((sib_hits, _)) =
+                ws.query(&center.object.text, true, &weights, 60)
+            {
+                let siblings = sibling_groups(&center_path, &sib_hits, &center.object.id);
+                let total: usize = siblings.iter().map(|(_, v)| v.len()).sum();
+                if !siblings.is_empty() {
+                    lines.push(String::new());
+                    lines.push(format!(
+                        "SIBLINGS — similar content, other directories ({total} files, {}/{} shown; similarity, not proven relation)",
+                        siblings.len(),
+                        siblings.len()
+                    ));
+                    for (dir, paths) in siblings.iter().take(6) {
+                        lines.push(format!("  ▸ {dir} ({})", paths.len()));
+                        for p in paths.iter().take(3) {
+                            lines.push(format!("      - - {p}"));
+                        }
+                        if paths.len() > 3 {
+                            lines.push(format!("      … and {} more", paths.len() - 3));
+                        }
+                    }
+                    if siblings.len() > 6 {
+                        lines.push(format!("  … and {} more directories", siblings.len() - 6));
+                    }
+                    lines.push("  Enter drills into a sibling's directory from the list (z rollup)".into());
+                }
+            }
+        }
         lines.push(String::new());
         lines.push("solid = user · double = deterministic · dashed = inferred/near".into());
         lines.push("edge ids: rel:<a>:<kind>:<b> (canonical order)".into());
@@ -1162,13 +2649,106 @@ fn edge_filter_name(filter: u8) -> &'static str {
         }
     }
 
-    /// Recent past (`H`): git log where present, else mtime order — the same
-    /// projection the REPL `history` command reports. Lands in the reading
-    /// pane; read-only, no transition recorded.
+    /// Recent past (`H`, tab 4): git log where present, else mtime order —
+    /// the same projection the REPL `history` command reports — followed by
+    /// this repository's recorded HUD transitions. The view itself is
+    /// read-only; shell, rescan, and inline-edit saves append elsewhere.
     fn show_history(&mut self) {
-        let text = physis_pro::mvp::history_text(&self.ws.root);
-        self.reading = Some(("history".into(), text));
-        self.status = "history: git log, or filesystem order without git".into();
+        self.context_tab = ContextTab::History;
+        self.status = "history: git log/filesystem plus recorded HUD transitions".into();
+    }
+
+    fn history_view(&self) -> String {
+        let base = physis_pro::mvp::history_text(&self.ws.root);
+        let transitions = TransitionLog::open(&self.ws.root)
+            .map(|log| log.read_all())
+            .unwrap_or_default();
+        history_view_text(&base, &transitions, 8)
+    }
+
+    /// Navigation trail (`:trail`): the sled-backed steps this workspace
+    /// already records on every query/enter/open. Read-only projection.
+    fn show_trail(&mut self) {
+        let text = trail_view_text(&self.ws.trail(), 15);
+        self.reading = Some(("trail".into(), text));
+        self.status = "trail: recorded navigation steps, newest last".into();
+    }
+
+    /// Human pins (`:pins`): the sled-backed pairs with their labels.
+    /// Read-only; `:unpin` removes the selected pair.
+    fn show_pins(&mut self) {
+        let pins = self.ws.pins();
+        let mut o = String::new();
+        o.push_str("── PINS ──\n");
+        if pins.is_empty() {
+            o.push_str("(none — select exactly 2 objects with Space, then p)\n");
+        }
+        for p in &pins {
+            let label = |id: &nav::ObjectId| {
+                self.ws
+                    .index()
+                    .objects
+                    .get(&serde_json::to_string(id).unwrap())
+                    .map(|o| o.label.clone())
+                    .unwrap_or_else(|| id.short())
+            };
+            o.push_str(&format!("◆ {} ─── {}\n", label(&p.a), label(&p.b)));
+        }
+        self.reading = Some(("pins".into(), o));
+        self.status = "pins: human assertions, distinct from intent focus".into();
+    }
+
+    /// Remove the pin between the two selected objects, if one exists.
+    /// Mirrors `pin_selection`; a repeat reports, never errors.
+    fn unpin_selection(&mut self) {
+        if self.selected.len() != 2 {
+            self.status = "select exactly 2 objects to unpin (Space)".into();
+            return;
+        }
+        let (a, b) = (self.selected[0].clone(), self.selected[1].clone());
+        match self.ws.remove_pin(&a.object, &b.object) {
+            Ok(0) => self.status = "no pin between those objects".into(),
+            Ok(n) => self.status = format!("unpinned ({n} removed)"),
+            Err(e) => self.status = format!("unpin failed: {e}"),
+        }
+    }
+
+    /// Toggle the embedding backend (`:sem off|on`): drop embeddings to run
+    /// lexical/structural only, or reselect and re-embed. Reuses the
+    /// workspace seam; the header reports whichever backend answers.
+    fn set_semantic(&mut self, enable: bool) {
+        let msg = if enable {
+            match self.ws.sem_on() {
+                Ok((n, kind)) => format!("semantic on: {n} embeddings ({kind})"),
+                Err(e) => {
+                    self.status = format!("sem on failed: {e}");
+                    return;
+                }
+            }
+        } else {
+            match self.ws.sem_off() {
+                Ok(n) => format!("semantic off: dropped {n} embeddings, lexical/structural only"),
+                Err(e) => {
+                    self.status = format!("sem off failed: {e}");
+                    return;
+                }
+            }
+        };
+        self.embedder_kind = self.ws.embedder_kind(true);
+        self.semantic_on = self.embedder_kind != "random-projection";
+        if !self.query.is_empty() {
+            self.run_query();
+        }
+        self.status = msg;
+    }
+
+    /// Command help (`?`): the deterministic vocabulary plus the key map.
+    /// Read-only; the mode label beside the prompt says what Enter will do.
+    fn show_help(&mut self) {
+        let mut o = hud_command_help();
+        o.push_str("\nkeys: / search · Enter zoom · Esc back · Space select · e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f/F focus · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · q quit · Ctrl+C quit");
+        self.reading = Some(("commands".into(), o));
+        self.status = "commands: deterministic dispatch, no model".into();
     }
     /// Measured machine numbers (`B`): same shared helper the REPL `bench`
     /// command reports — scan cost, index size, live query + propagation
@@ -1209,9 +2789,7 @@ fn edge_filter_name(filter: u8) -> &'static str {
             .as_ref()
             .map(|s| s.path.clone())
             .unwrap_or_else(|| hit.object.label.clone());
-        let text = physis_pro::mvp::dependents_text(&self.ws.root, &path);
-        self.reading = Some((format!("dependents: {path}"), text));
-        self.status = "dependents: code-shaped references to the cursor path".into();
+        self.show_dependents_for(&path);
     }
 
     /// Structural pairs over the selection (`C`): differences count +
@@ -1236,22 +2814,12 @@ fn edge_filter_name(filter: u8) -> &'static str {
     /// docs = (title, exact source text) for the Notebook scope. Canonical
     /// objects — the Notebook borrows, never copies, the content.
     fn notebook_selection(&mut self) -> Option<Vec<(String, String)>> {
-        let mut sel: Vec<NavHit> = self
-            .selected
-            .iter()
-            .filter(|h| h.object.source.is_some())
-            .cloned()
-            .collect();
-        if sel.is_empty() {
-            if let Some(h) = self.current_hit().cloned() {
-                sel.push(h);
-            }
-        }
-        if sel.is_empty() {
+        let targets = notebook_targets(&self.selected, self.current_hit());
+        if targets.is_empty() {
             return None;
         }
         let mut docs = Vec::new();
-        for h in sel {
+        for h in targets {
             if let Ok(text) = self.ws.read(&h.object) {
                 let title = h
                     .object
@@ -1320,9 +2888,9 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
-            Constraint::Min(8),
+            Constraint::Min(7),
             Constraint::Percentage(35),
-            Constraint::Length(4),
+            Constraint::Length(5),
         ])
         .split(f.size());
 
@@ -1381,8 +2949,9 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                 .fg(Color::LightCyan),
         ),
         Span::raw(format!(
-            "  [{mode}] embedder: {}  indexed: {} objects  ",
+            "  [{mode}] embedder: {}  gen: {}  indexed: {} objects  ",
             app.embedder_kind,
+            physis_pro::mvp::generator_state(),
             app.ws.index().objects.len(),
         )),
         delta_span,
@@ -1405,6 +2974,13 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     let pinned = app.pinned_paths();
     let intent = app.intent_paths();
     let focus_on = !app.intent_hot.is_empty() || !app.intent_warm.is_empty();
+    // Ranking bars are positional: each bar is scaled to this list's own
+    // max, so a full bar means "top here", never a probability.
+    let max_score = app
+        .hits
+        .iter()
+        .map(|h| h.score.total)
+        .fold(0.0_f32, f32::max);
     let items: Vec<ListItem> = app
         .rows
         .iter()
@@ -1455,6 +3031,11 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                     Span::styled(kind_tag(h.object.kind), Style::default().fg(color_for(h.object.kind))),
                     Span::raw(format!(" {:>4.2}  ", h.score.total)),
                     Span::styled(
+                        score_bar(h.score.total, max_score, 5),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::raw("  ".to_string()),
+                    Span::styled(
                         loc,
                         if cold {
                             Style::default().fg(Color::DarkGray)
@@ -1500,7 +3081,8 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     f.render_widget(reader, reading_chunks[0]);
 
     // Right pane switches tabs: Why (rank + relations) / Context (minimal
-    // context packet) / Delta (last Δ). All three project existing state.
+    // context packet) / Delta (last Δ) / History (git + recorded transitions).
+    // All four project existing state.
     let (right_title, right_body) = match app.context_tab {
         ContextTab::Why => {
             let mut explain = app.explain.clone();
@@ -1510,15 +3092,19 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                     explain.push_str("\np (pin) · s/d/R (same/different/relates) · n (notebook)");
                 }
             }
-            (" why: 1 why · 2 context · 3 delta ".to_string(), explain)
+            (" why: 1 why · 2 context · 3 delta · 4 history ".to_string(), explain)
         }
         ContextTab::Context => (
-            " context: 1 why · 2 context · 3 delta ".to_string(),
+            " context: 1 why · 2 context · 3 delta · 4 history ".to_string(),
             app.context_text(),
         ),
         ContextTab::Delta => (
-            " delta: 1 why · 2 context · 3 delta ".to_string(),
+            " delta: 1 why · 2 context · 3 delta · 4 history ".to_string(),
             app.delta_text(),
+        ),
+        ContextTab::History => (
+            " history: 1 why · 2 context · 3 delta · 4 history ".to_string(),
+            app.history_view(),
         ),
     };
     let right = Paragraph::new(right_body)
@@ -1526,21 +3112,43 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         .wrap(Wrap { trim: false });
     f.render_widget(right, reading_chunks[1]);
 
-    // Query bar + status + key legend (footer names every marker + edge
-    // grammar so state never rides on colour alone).
-    let prompt = if app.typing { "> " } else { "  " };
+    // Command box + status + key legend (footer names every marker + edge
+    // grammar so state never rides on colour alone). The mode word is the
+    // contract; colour only decorates it.
+    let mut prompt_spans = Vec::new();
+    for (kind, text) in prompt_parts(&app.query, app.editor.is_some()) {
+        let style = match kind {
+            PromptPart::Prefix => Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+            PromptPart::Word => Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+            PromptPart::Text => Style::default(),
+        };
+        prompt_spans.push(Span::styled(text, style));
+    }
+    let keys = if app.editor.is_some() {
+        "type · ←/→/↑/↓/Home/End move · Enter newline · Backspace/Delete · Ctrl+S save · Esc/Ctrl+C cancel"
+    } else {
+        "e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · space select · ? help · q quit"
+    };
     let lines = vec![
-        Line::from(format!("{prompt}{}", app.query)),
+        Line::from(prompt_spans),
         Line::from(Span::styled(
             app.status.clone(),
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "e edit · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            keys,
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
             "★ selected · ◆ human-pinned · ● changed · ◐ affected · ▲ intent · · ordinary │ ─── user · ═══ deterministic · - - inferred",
+            Style::default().fg(Color::DarkGray),
+        )),
+        Line::from(Span::styled(
+            "$ shell in workspace root · :command · open/edit/cd path · /text global search · :help lists commands",
             Style::default().fg(Color::DarkGray),
         )),
     ];
@@ -1575,7 +3183,87 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
             let mut app = app.lock().unwrap();
             if let Event::Key(key) = ev {
                 if key.kind == KeyEventKind::Press {
-                    if app.typing {
+                    if app.editor.is_some() {
+                        // Inline editor owns the keyboard: every text key is a
+                        // keystroke, never a HUD shortcut. Esc/Ctrl+C cancel,
+                        // Ctrl+S saves, Ctrl+Q cancels rather than quitting.
+                        if key.modifiers.contains(KeyModifiers::CONTROL) {
+                            match key.code {
+                                KeyCode::Char('s') | KeyCode::Char('S') => app.save_editor(),
+                                KeyCode::Char('c')
+                                | KeyCode::Char('C')
+                                | KeyCode::Char('q')
+                                | KeyCode::Char('Q') => app.cancel_editor(),
+                                _ => {}
+                            }
+                        } else {
+                            match key.code {
+                                KeyCode::Esc => app.cancel_editor(),
+                                KeyCode::Enter => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.insert_newline();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Left => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_left();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Right => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_right();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Up => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_up();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Down => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_down();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Home => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_home();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::End => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.move_end();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Backspace => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.backspace();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Delete => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.delete();
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Char(c) => {
+                                    if let Some(editor) = app.editor.as_mut() {
+                                        editor.insert_char(c);
+                                    }
+                                    app.refresh_editor_reading();
+                                }
+                                KeyCode::Tab => {}
+                                _ => {}
+                            }
+                        }
+                    } else if app.typing {
                         // Ctrl-C quits even mid-typing; checked before the
                         // plain-char arm so 'c' with CONTROL reaches here.
                         if key.modifiers.contains(KeyModifiers::CONTROL)
@@ -1584,30 +3272,24 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             quit = true;
                         } else {
                             match key.code {
-                                KeyCode::Char('/') => {
-                                    if !app.query.is_empty() {
-                                        app.query.clear();
-                                    } else {
-                                        app.typing = false;
-                                    }
-                                }
+                                // `/` is an ordinary query character: the old
+                                // branch cleared the box here, which made a
+                                // leading-slash global query untypeable.
                                 KeyCode::Char(c) => app.query.push(c),
                                 KeyCode::Backspace => {
                                     app.query.pop();
                                 }
                                 KeyCode::Enter => {
+                                    let line = std::mem::take(&mut app.query);
                                     app.typing = false;
-                                    let global = app.query.starts_with('/');
-                                    if global {
-                                        app.query = app.query[1..].to_string();
-                                    }
-                                    app.run_query(global);
+                                    quit = app.submit_command_line(&line);
                                 }
                                 KeyCode::Esc => app.query.clear(),
                                 _ => {}
                             }
                         }
-                    } else {
+                    }
+                    else {
                         match key.code {
                             KeyCode::Char('/') | KeyCode::Char('k')
                                 if key.modifiers.contains(KeyModifiers::CONTROL) =>
@@ -1650,22 +3332,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('s') => app.relate_selection("same"),
                             KeyCode::Char('d') => app.relate_selection("different"),
                             KeyCode::Char('R') => app.relate_selection("relates to"),
-                            KeyCode::Char('n') => {
-                                // Notebook handoff: run the Function 2
-                                // extractive answer over the selection, in
-                                // process. Result lands in the reading pane.
-                                if let Some(docs) = app.notebook_selection() {
-                                    match run_notebook(&app, &docs) {
-                                        Ok(answer) => {
-                                            app.reading =
-                                                Some(("notebook".into(), answer));
-                                        }
-                                        Err(e) => app.status = format!("notebook: {e}"),
-                                    }
-                                } else {
-                                    app.status = "select objects first (Space)".into();
-                                }
-                            }
+                            KeyCode::Char('n') => app.show_notebook(),
                             KeyCode::Char('r') => app.related(),
                             KeyCode::Char('g') => app.graph_view(),
                             KeyCode::Char('t') => app.cycle_edge_filter(),
@@ -1673,23 +3340,16 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('B') => app.show_bench(),
                             KeyCode::Char('D') => app.show_dependents(),
                             KeyCode::Char('C') => app.show_contradictions(),
-                            KeyCode::Char('e') => app.edit_current(),
+                            KeyCode::Char('e') => app.start_inline_edit(None),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),
                             KeyCode::Char('F') => app.clear_focus(),
-                            KeyCode::Char('z') => {
-                                app.zoomed_out = !app.zoomed_out;
-                                let hits = app.hits.clone();
-                                app.set_results(hits);
-                                app.status = if app.zoomed_out {
-                                    "zoomed out: directory rollup (z toggles, Enter drills in)".into()
-                                } else {
-                                    "zoomed in: object rows".into()
-                                };
-                            }
-                            KeyCode::Char('1') => app.context_tab = ContextTab::Why,
-                            KeyCode::Char('2') => app.context_tab = ContextTab::Context,
-                            KeyCode::Char('3') => app.context_tab = ContextTab::Delta,
+                            KeyCode::Char('z') => app.toggle_zoom(),
+                            KeyCode::Char('1') => app.switch_context_tab(ContextTab::Why),
+                            KeyCode::Char('2') => app.switch_context_tab(ContextTab::Context),
+                            KeyCode::Char('3') => app.switch_context_tab(ContextTab::Delta),
+                            KeyCode::Char('4') => app.switch_context_tab(ContextTab::History),
+                            KeyCode::Char('?') => app.show_help(),
                             KeyCode::Char('q') => quit = true,
                             _ => {}
                         }
@@ -1739,5 +3399,711 @@ mod tests {
         assert_eq!(App::edge_filter_name(0), "all edges");
         assert_eq!(App::edge_filter_name(1), "recorded relations only");
         assert_eq!(App::edge_filter_name(2), "near neighbours only");
+    }
+
+    use physis_pro::nav::{ObjectId, PhysisObject, RetrievalScore, SourceRef};
+
+    fn hud_hit(path: &str, key: &str, score: f32) -> NavHit {
+        NavHit {
+            object: PhysisObject {
+                id: ObjectId::new("fs", key),
+                kind: ObjectKind::Passage,
+                label: path.to_string(),
+                source: Some(SourceRef {
+                    path: path.to_string(),
+                    start_line: Some(1),
+                    end_line: Some(1),
+                }),
+                mtime: 0.0,
+                hash: format!("{key}-hash"),
+                text: path.to_string(),
+                embedding: Vec::new(),
+            },
+            score: RetrievalScore {
+                total: score,
+                components: Default::default(),
+            },
+        }
+    }
+
+    fn hud_bare_hit(label: &str, key: &str) -> NavHit {
+        let mut hit = hud_hit(label, key, 0.1);
+        hit.object.source = None;
+        hit
+    }
+
+    fn hud_set(paths: &[&str]) -> std::collections::BTreeSet<String> {
+        paths.iter().map(|p| p.to_string()).collect()
+    }
+
+    #[test]
+    fn state_marker_precedence_is_explicit() {
+        let path = "src/a.rs";
+        let target = hud_hit(path, "a-key-0123456789abcdef", 0.9);
+        let selected = vec![hud_hit(path, "a-key-0123456789abcdef", 0.1)];
+        let everywhere = hud_set(&[path]);
+        let nowhere = hud_set(&[]);
+
+        assert_eq!(
+            state_of(path, &everywhere, &everywhere, &everywhere, &everywhere, &selected, &target.object),
+            '★'
+        );
+        assert_eq!(
+            state_of(path, &nowhere, &everywhere, &everywhere, &everywhere, &[], &target.object),
+            '◆'
+        );
+        assert_eq!(
+            state_of(path, &everywhere, &everywhere, &nowhere, &everywhere, &[], &target.object),
+            '●'
+        );
+        assert_eq!(
+            state_of(path, &nowhere, &everywhere, &nowhere, &everywhere, &[], &target.object),
+            '◐'
+        );
+        assert_eq!(
+            state_of(path, &nowhere, &nowhere, &nowhere, &everywhere, &[], &target.object),
+            '▲'
+        );
+        assert_eq!(
+            state_of(path, &nowhere, &nowhere, &nowhere, &nowhere, &[], &target.object),
+            '·'
+        );
+    }
+
+    #[test]
+    fn directory_rollup_is_capped_and_rank_sorted() {
+        let hits = vec![
+            hud_hit("src/query.rs", "query-key-0123456789abcdef", 0.7),
+            hud_hit("src/index.rs", "index-key-0123456789abcdef", 0.9),
+            hud_hit("README.md", "readme-key-0123456789abcdef", 0.5),
+        ];
+        assert_eq!(
+            aggregate_dirs(&hits, 10),
+            vec![("src".to_string(), 2), (".".to_string(), 1)]
+        );
+        assert_eq!(aggregate_dirs(&hits, 1), vec![("src".to_string(), 2)]);
+    }
+
+    #[test]
+    fn intent_bands_cover_first_eight_hits() {
+        let hits: Vec<NavHit> = (0..10)
+            .map(|i| {
+                hud_hit(
+                    &format!("src/file{i}.rs"),
+                    &format!("intent-key-{i:02}-0123456789abcdef"),
+                    1.0 - (i as f32 * 0.05),
+                )
+            })
+            .collect();
+        let (hot, warm) = intent_paths(&hits);
+        assert_eq!(hot.len(), 3);
+        assert_eq!(warm.len(), 5);
+        assert!(hot.contains("src/file0.rs"));
+        assert!(hot.contains("src/file2.rs"));
+        assert!(warm.contains("src/file3.rs"));
+        assert!(warm.contains("src/file7.rs"));
+        assert!(!hot.contains("src/file8.rs"));
+        assert!(!warm.contains("src/file9.rs"));
+    }
+
+    #[test]
+    fn notebook_targets_prefers_source_then_cursor() {
+        let source = hud_hit("src/a.rs", "a-key-0123456789abcdef", 0.9);
+        let selected = vec![hud_bare_hit("unsourced", "bare-key-0123456789abcdef"), source];
+        let cursor = hud_hit("src/cursor.rs", "cursor-key-0123456789abcdef", 0.5);
+
+        let targets = notebook_targets(&selected, Some(&cursor));
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].object.source.as_ref().unwrap().path, "src/a.rs");
+
+        let bare = [hud_bare_hit("unsourced", "bare-key-0123456789abcdef")];
+        let fallback = notebook_targets(&bare, Some(&cursor));
+        assert_eq!(fallback.len(), 1);
+        assert_eq!(fallback[0].object.id, cursor.object.id);
+        assert!(notebook_targets(&[], None).is_empty());
+    }
+
+    #[test]
+    fn why_affected_lines_names_module_and_call() {
+        let lines = why_affected_lines(
+            "src/query.rs",
+            "fn search() { update_index(); }\n",
+            &["src/index.rs".to_string()],
+            &["update_index".to_string()],
+        );
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("names module index"));
+        assert!(lines[1].contains("calls update_index"));
+    }
+
+    #[test]
+    fn command_box_routing_is_deterministic() {
+        assert_eq!(parse_hud_input(""), HudInput::Empty);
+        assert_eq!(parse_hud_input("   "), HudInput::Empty);
+        assert_eq!(parse_hud_input("/"), HudInput::Empty);
+        assert_eq!(
+            parse_hud_input("$ git status --short"),
+            HudInput::Shell("git status --short".into())
+        );
+        assert_eq!(
+            parse_hud_input("$"),
+            HudInput::Invalid("shell command needed after `$`".into())
+        );
+        assert_eq!(
+            parse_hud_input(":context"),
+            HudInput::Command(HudCommand::Context)
+        );
+        assert_eq!(
+            parse_hud_input(":"),
+            HudInput::Command(HudCommand::Help)
+        );
+        assert_eq!(
+            parse_hud_input(":bogus"),
+            HudInput::Invalid("unknown command: bogus".into())
+        );
+        assert_eq!(
+            parse_hud_input("/retrieval budget"),
+            HudInput::GlobalQuery("retrieval budget".into())
+        );
+        assert_eq!(
+            parse_hud_input("open src/mvp/repl.rs"),
+            HudInput::Open("src/mvp/repl.rs".into())
+        );
+        assert_eq!(parse_hud_input("edit"), HudInput::Edit(None));
+        assert_eq!(
+            parse_hud_input("edit src/mvp/repl.rs"),
+            HudInput::Edit(Some("src/mvp/repl.rs".into()))
+        );
+        assert_eq!(
+            parse_hud_input("cd .."),
+            HudInput::ChangeRoot("..".into())
+        );
+        assert_eq!(
+            parse_hud_input("history"),
+            HudInput::Command(HudCommand::History)
+        );
+        assert_eq!(
+            parse_hud_input("HISTORY"),
+            HudInput::Command(HudCommand::History)
+        );
+        assert_eq!(
+            parse_hud_input("dependencies src/mvp/repl.rs"),
+            HudInput::Command(HudCommand::Dependencies(Some(
+                "src/mvp/repl.rs".into()
+            )))
+        );
+        assert_eq!(
+            parse_hud_input("focus retrieval"),
+            HudInput::Command(HudCommand::Focus(Some("retrieval".into())))
+        );
+        assert_eq!(
+            parse_hud_input("relate same"),
+            HudInput::Command(HudCommand::Relate("same".into()))
+        );
+        // Bare quit stays a search: only the explicit `:quit` exits.
+        assert_eq!(
+            parse_hud_input("quit"),
+            HudInput::SemanticQuery("quit".into())
+        );
+        assert_eq!(
+            parse_hud_input(":quit"),
+            HudInput::Command(HudCommand::Quit)
+        );
+        assert_eq!(
+            parse_hud_input("history of everything"),
+            HudInput::SemanticQuery("history of everything".into())
+        );
+        assert_eq!(
+            parse_hud_input("where is retrieval implemented?"),
+            HudInput::SemanticQuery("where is retrieval implemented?".into())
+        );
+    }
+
+    #[test]
+    fn prompt_mode_is_visible_before_enter() {
+        assert_eq!(prompt_mode("$ git status", false), HudPromptMode::Shell);
+        assert_eq!(prompt_mode(":context", false), HudPromptMode::Physis);
+        assert_eq!(prompt_mode("history", false), HudPromptMode::Physis);
+        assert_eq!(
+            prompt_mode("/retrieval", false),
+            HudPromptMode::GlobalSearch
+        );
+        assert_eq!(
+            prompt_mode("open src/mvp/repl.rs", false),
+            HudPromptMode::Open
+        );
+        assert_eq!(prompt_mode("edit", false), HudPromptMode::Edit);
+        assert_eq!(prompt_mode("cd ..", false), HudPromptMode::Root);
+        assert_eq!(
+            prompt_mode("where is retrieval?", false),
+            HudPromptMode::Search
+        );
+        assert_eq!(prompt_mode(":bogus", false), HudPromptMode::Invalid);
+        assert_eq!(prompt_mode("anything", true), HudPromptMode::Editor);
+        assert_eq!(prompt_mode_label(HudPromptMode::Shell), "[SHELL]");
+        assert_eq!(prompt_mode_label(HudPromptMode::Physis), "[PHYSIS]");
+        assert_eq!(prompt_mode_label(HudPromptMode::Search), "[SEARCH]");
+        assert_eq!(prompt_mode_label(HudPromptMode::Edit), "[EDIT]");
+    }
+
+    #[test]
+    fn prompt_parts_split_prefix_from_text() {
+        assert_eq!(
+            prompt_parts("$ git status", false),
+            vec![
+                (PromptPart::Prefix, "[SHELL] > ".to_string()),
+                (PromptPart::Prefix, "$ ".to_string()),
+                (PromptPart::Text, "git status".to_string()),
+            ]
+        );
+        assert_eq!(
+            prompt_parts("history", false),
+            vec![
+                (PromptPart::Prefix, "[PHYSIS] > ".to_string()),
+                (PromptPart::Word, "history ".to_string()),
+                (PromptPart::Text, String::new()),
+            ]
+        );
+        assert_eq!(
+            prompt_parts("/retrieval", false),
+            vec![
+                (PromptPart::Prefix, "[SEARCH/GLOBAL] > ".to_string()),
+                (PromptPart::Prefix, "/".to_string()),
+                (PromptPart::Text, "retrieval".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn shell_command_runs_in_workspace_and_reports_status() {
+        let dir = tempfile::tempdir().unwrap();
+        let ok = run_shell_command(dir.path(), "printf hello; printf err >&2").unwrap();
+        assert_eq!(ok.command, "printf hello; printf err >&2");
+        assert_eq!(ok.stdout, "hello");
+        assert_eq!(ok.stderr, "err");
+        assert_eq!(ok.code, Some(0));
+
+        let failed = run_shell_command(dir.path(), "exit 3").unwrap();
+        assert_eq!(failed.code, Some(3));
+
+        let root = dir.path().canonicalize().unwrap();
+        let cwd = run_shell_command(dir.path(), "pwd").unwrap();
+        assert_eq!(std::path::Path::new(cwd.stdout.trim()), root.as_path());
+
+        assert!(run_shell_command(dir.path(), "   ").is_err());
+        assert!(run_shell_command(&dir.path().join("missing"), "true").is_err());
+    }
+
+    #[test]
+    fn shell_rendering_bounds_long_output() {
+        let mut stdout = String::new();
+        for i in 0..250 {
+            stdout.push_str(&format!("line {i}\n"));
+        }
+        let outcome = ShellOutcome {
+            command: "demo".to_string(),
+            stdout,
+            stderr: String::new(),
+            code: Some(0),
+            duration_ms: 3,
+        };
+        let rendered = render_shell_outcome(&outcome);
+        assert!(rendered.starts_with("$ demo\nexit: 0 · 3 ms\n"));
+        assert!(rendered.contains("line 199\n"));
+        assert!(!rendered.contains("line 200\n"));
+        assert!(rendered.contains("… and 50 more lines"));
+    }
+
+    #[test]
+    fn edit_buffer_edits_text_and_cursor() {
+        let mut buffer = EditBuffer::open(
+            PathBuf::from("demo.rs"),
+            "demo.rs".to_string(),
+            "ab\ncd".to_string(),
+        );
+        assert_eq!(buffer.text(), "ab\ncd");
+        assert_eq!(buffer.render_with_cursor(), "ab\ncd▌");
+
+        buffer.move_left();
+        buffer.move_left();
+        buffer.insert_char('X');
+        assert_eq!(buffer.text(), "ab\nXcd");
+        buffer.backspace();
+        assert_eq!(buffer.text(), "ab\ncd");
+        buffer.move_home();
+        buffer.insert_newline();
+        assert_eq!(buffer.text(), "ab\n\ncd");
+        buffer.move_up();
+        buffer.move_end();
+        buffer.delete();
+        assert_eq!(buffer.text(), "ab\ncd");
+    }
+
+    #[test]
+    fn edit_buffer_save_detects_no_change_conflict_and_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("note.txt");
+        std::fs::write(&path, "first\n").unwrap();
+
+        let buffer = EditBuffer::open(path.clone(), "note.txt".into(), "first\n".into());
+        let saved = buffer.save().unwrap();
+        assert!(saved.unchanged);
+        assert_eq!(saved.before_hash, saved.after_hash);
+        assert_eq!(saved.bytes, 6);
+
+        let mut changed = EditBuffer::open(path.clone(), "note.txt".into(), "first\n".into());
+        changed.insert_char('!');
+        let saved = changed.save().unwrap();
+        assert!(!saved.unchanged);
+        assert_ne!(saved.before_hash, saved.after_hash);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "first\n!");
+
+        std::fs::write(&path, "outside\n").unwrap();
+        let mut stale =
+            EditBuffer::open(path.clone(), "note.txt".into(), "first\n!".into());
+        stale.insert_char('?');
+        let err = stale.save().unwrap_err();
+        assert!(err.to_string().contains("changed on disk"));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "outside\n");
+    }
+
+    #[test]
+    fn workspace_path_gate_stays_inside_the_root() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("src")).unwrap();
+        let target = dir.path().join("src/a.rs");
+        std::fs::write(&target, "fn a() {}\n").unwrap();
+        let found = resolve_workspace_file(dir.path(), "src/a.rs").unwrap();
+        assert_eq!(found, target.canonicalize().unwrap());
+
+        let outside_dir = tempfile::tempdir().unwrap();
+        let outside = outside_dir.path().join("outside.rs");
+        std::fs::write(&outside, "fn outside() {}\n").unwrap();
+        assert!(resolve_workspace_file(dir.path(), "../outside.rs").is_err());
+        assert!(resolve_workspace_file(dir.path(), "missing.rs").is_err());
+        assert!(resolve_workspace_file(dir.path(), "src").is_err());
+        assert_eq!(
+            display_workspace_path(dir.path(), &found),
+            "src/a.rs".to_string()
+        );
+    }
+
+    #[test]
+    fn change_root_gate_accepts_only_directories() {        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("file.txt"), "x\n").unwrap();
+        let root = dir.path().canonicalize().unwrap();
+
+        assert_eq!(
+            resolve_change_root(dir.path(), "sub").unwrap(),
+            root.join("sub")
+        );
+        assert_eq!(resolve_change_root(dir.path(), ".").unwrap(), root);
+        assert!(resolve_change_root(dir.path(), "missing").is_err());
+        assert!(resolve_change_root(dir.path(), "file.txt").is_err());
+    }
+
+    struct RestoreEnv {
+        key: &'static str,
+        old: Option<std::ffi::OsString>,
+    }
+
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            if let Some(value) = &self.old {
+                std::env::set_var(self.key, value);
+            } else {
+                std::env::remove_var(self.key);
+            }
+        }
+    }
+
+    /// Inline edit → atomic save → existing rescan/Δ machinery → markers and
+    /// one `edit-save` transition, followed by a recorded shell command.
+    #[test]
+    fn inline_edit_save_rescans_records_delta_and_markers() {
+        use std::sync::{Mutex, MutexGuard, OnceLock};
+
+        fn hud_env_lock() -> MutexGuard<'static, ()> {
+            static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+            LOCK.get_or_init(|| Mutex::new(()))
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+        }
+
+        let _guard = hud_env_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("src/retrieval.rs"),
+            "pub fn retrieval_budget() -> usize {\n    500\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/agent.rs"),
+            "use crate::retrieval::retrieval_budget;\n\npub fn agent_budget() -> usize {\n    retrieval_budget()\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("src/context.rs"),
+            "use crate::retrieval::retrieval_budget;\n\npub fn context_budget() -> usize {\n    retrieval_budget()\n}\n",
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("README.md"),
+            "# Fixture\n\nThe retrieval budget lives in src/retrieval.rs.\n",
+        )
+        .unwrap();
+
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        std::env::set_var("PHYSIS_DATA_DIR", root.join(".physis"));
+
+        // Prescan so the save's rescan sees a baseline: without it every
+        // file would read as added and the dependents rule would exclude
+        // them all (changed files are never their own dependents).
+        let mut app = App::new(root.to_path_buf(), true).unwrap();
+        app.query = "retrieval budget".to_string();
+        app.run_query();
+        app.start_inline_edit(Some("src/retrieval.rs"));
+        assert!(app.editor.is_some(), "inline editor must open");
+        app.editor
+            .as_mut()
+            .expect("editor open")
+            .insert_char('!');
+        app.save_editor();
+
+        assert!(app.editor.is_none(), "save closes the editor");
+        assert!(
+            app.changed.contains("src/retrieval.rs"),
+            "changed: {:?}",
+            app.changed
+        );
+        assert!(
+            app.affected.contains("src/agent.rs"),
+            "affected: {:?}",
+            app.affected
+        );
+        assert!(
+            app.affected.contains("src/context.rs"),
+            "affected: {:?}",
+            app.affected
+        );
+        let delta = app
+            .last_delta
+            .as_ref()
+            .expect("save must leave a Δ")
+            .render();
+        for section in ["CHANGED", "AFFECTED", "STRUCTURE", "VALIDATION", "MAP"] {
+            assert!(delta.contains(section), "missing {section}:\n{delta}");
+        }
+        assert!(delta.contains("src/retrieval.rs"), "{delta}");
+        let (title, body) = app.reading.clone().expect("reading must show the save");
+        assert_eq!(title, "edit src/retrieval.rs");
+        assert!(body.contains('!'), "{body}");
+        assert!(app.status.contains("saved src/retrieval.rs"), "{}", app.status);
+
+        let log = TransitionLog::open(root).unwrap().read_all();
+        let saved = log.last().expect("save must be a transition");
+        assert_eq!(saved.action, "edit-save");
+        assert_eq!(saved.intent, "edit src/retrieval.rs");
+        assert!(!saved.delta.no_change);
+
+        assert!(!app.submit_command_line("$ printf hello"));
+        let (title, body) = app.reading.clone().expect("shell must show output");
+        assert_eq!(title, "shell: printf hello");
+        assert!(body.contains("exit: 0"), "{body}");
+        assert!(body.contains("hello"), "{body}");
+        let log = TransitionLog::open(root).unwrap().read_all();
+        let shelled = log.last().expect("shell must be a transition");
+        assert_eq!(shelled.action, "shell");
+        assert_eq!(shelled.intent, "$ printf hello");
+    }
+
+    #[test]
+    fn command_box_routes_new_helpers() {
+        assert_eq!(
+            parse_hud_input("trail"),
+            HudInput::Command(HudCommand::Trail)
+        );
+        assert_eq!(parse_hud_input(":trail"), HudInput::Command(HudCommand::Trail));
+        assert_eq!(parse_hud_input("pins"), HudInput::Command(HudCommand::Pins));
+        assert_eq!(
+            parse_hud_input("related"),
+            HudInput::Command(HudCommand::Related)
+        );
+        assert_eq!(
+            parse_hud_input("unpin"),
+            HudInput::Command(HudCommand::Unpin)
+        );
+        assert_eq!(
+            parse_hud_input("sem off"),
+            HudInput::Command(HudCommand::Sem(false))
+        );
+        assert_eq!(
+            parse_hud_input(":sem on"),
+            HudInput::Command(HudCommand::Sem(true))
+        );
+        assert_eq!(
+            parse_hud_input("tab history"),
+            HudInput::Command(HudCommand::Tab(ContextTab::History))
+        );
+        assert_eq!(
+            parse_hud_input("sem"),
+            HudInput::Invalid("usage: sem off|on".into())
+        );
+        assert_eq!(
+            parse_hud_input("sem maybe"),
+            HudInput::Invalid("usage: sem off|on".into())
+        );
+        // A bare noun that happens to contain a command word stays a search.
+        assert_eq!(
+            parse_hud_input("trail mix recipe"),
+            HudInput::SemanticQuery("trail mix recipe".into())
+        );
+    }
+
+    #[test]
+    fn score_bar_is_positional_and_total() {        assert_eq!(score_bar(1.0, 1.0, 5), "▇▇▇▇▇");
+        assert_eq!(score_bar(0.5, 1.0, 4), "▇▇▁▁");
+        assert_eq!(score_bar(0.0, 1.0, 3), "▁▁▁");
+        assert_eq!(score_bar(-2.0, 1.0, 3), "▁▁▁");
+        assert_eq!(score_bar(f32::NAN, 1.0, 3), "▁▁▁");
+        assert_eq!(score_bar(1.0, 0.0, 3), "▁▁▁");
+        assert_eq!(score_bar(1.0, f32::NAN, 3), "▁▁▁");
+        assert_eq!(score_bar(2.0, 1.0, 4), "▇▇▇▇");
+        assert_eq!(score_bar(0.7, 1.0, 0), "");
+        // Full bar means top-of-this-list, not a probability.
+        assert_eq!(score_bar(1.38, 1.38, 5), "▇▇▇▇▇");
+    }
+
+    #[test]
+    fn world_card_names_every_demo_contract_fact() {
+        let card = world_card(
+            std::path::Path::new("/demo"),
+            4,
+            8,
+            174,
+            "bge-base",
+            "none (deterministic/manual path)",
+            (1, 2, 0),
+        );
+        for needle in [
+            "root: /demo",
+            "semantic backend: bge-base",
+            "generator: none (deterministic/manual path)",
+            "network: OFFLINE",
+            "files: 4",
+            "objects: 8",
+            "workspace tokens: 174",
+            "1 repeats / 2 differences / 0 contradictions",
+        ] {
+            assert!(card.contains(needle), "missing {needle}:\n{card}");
+        }
+    }
+
+    #[test]
+    fn trail_view_lists_steps_newest_last_and_caps() {
+        use physis_pro::nav::NavStep;
+        let steps: Vec<NavStep> = (0..20)
+            .map(|i| NavStep {
+                kind: "query".to_string(),
+                focus: format!("q{i}"),
+                at: format!("t{i}"),
+            })
+            .collect();
+        let text = trail_view_text(&steps, 15);
+        assert!(text.starts_with("── TRAIL ──\n"));
+        assert!(!text.contains("q0\n"), "cap must drop the oldest:\n{text}");
+        assert!(text.contains("q19"), "{text}");
+        let empty = trail_view_text(&[], 15);
+        assert!(empty.contains("no navigation yet"), "{empty}");
+    }
+
+    #[test]
+    fn history_view_appends_transitions_after_base() {
+        use physis_pro::mvp::log::{CompactDelta, StateRef, Transition};
+        let state = StateRef {
+            content_hash: "h".to_string(),
+            objects: 1,
+            files: 1,
+            map_hash: "m".to_string(),
+        };
+        let transitions = vec![
+            Transition {
+                v: 1,
+                seq: 0,
+                timestamp: "t0".to_string(),
+                state_before: state.clone(),
+                intent: "edit src/a.rs".to_string(),
+                action: "edit-save".to_string(),
+                delta: CompactDelta::default(),
+                validation: vec![],
+                outcome: "1 changed, 0 affected".to_string(),
+                state_after: state.clone(),
+                provenance: vec![],
+                uncertainty: 0.1,
+                slice: None,
+            },
+            Transition {
+                v: 1,
+                seq: 1,
+                timestamp: "t1".to_string(),
+                state_before: state.clone(),
+                intent: "$ git status".to_string(),
+                action: "shell".to_string(),
+                delta: CompactDelta::default(),
+                validation: vec![],
+                outcome: "exit Some(0)".to_string(),
+                state_after: state,
+                provenance: vec![],
+                uncertainty: 0.1,
+                slice: None,
+            },
+        ];
+        let text = history_view_text("git log here", &transitions, 8);
+        assert!(text.starts_with("git log here\n"), "{text}");
+        assert!(text.contains("SESSION TRANSITIONS"), "{text}");
+        assert!(text.contains("#0 edit src/a.rs → edit-save — 1 changed, 0 affected"), "{text}");
+        assert!(text.contains("#1 $ git status → shell — exit Some(0)"), "{text}");
+        let bare = history_view_text("git log here", &[], 8);
+        assert!(!bare.contains("SESSION TRANSITIONS"), "{bare}");
+    }
+
+    #[test]
+    fn sibling_groups_branch_by_directory_only() {
+        let center = hud_hit("src/retrieval.rs", "center-key-0123456789abcdef", 0.9);
+        let hits = vec![
+            center.clone(),
+            hud_hit("src/index.rs", "same-dir-key-0123456789ab", 0.8),
+            hud_hit("cli/main.rs", "cli-key-0123456789abcdefgh", 0.7),
+            hud_hit("cli/util.rs", "cli2-key-0123456789abcdefg", 0.6),
+            hud_hit("tests/it.rs", "tests-key-0123456789abcdefg", 0.4),
+        ];
+        let groups = sibling_groups("src/retrieval.rs", &hits, &center.object.id);
+        // Same-directory neighbours are excluded; other dirs kept, ranked
+        // by score descending inside the group, groups in path order.
+        assert_eq!(
+            groups.iter().map(|(d, _)| d.as_str()).collect::<Vec<_>>(),
+            vec!["cli", "tests"]
+        );
+        assert_eq!(
+            groups[0].1,
+            vec!["cli/main.rs".to_string(), "cli/util.rs".to_string()]
+        );
+        assert_eq!(groups[1].1, vec!["tests/it.rs".to_string()]);
+        // Bare label (no source path) falls back to the label itself.
+        let bare = hud_bare_hit("weird-no-slash", "bare2-key-0123456789abcdef");
+        let groups = sibling_groups("src/retrieval.rs", &[bare], &center.object.id);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].0, ".");
     }
 }

@@ -20,6 +20,7 @@ pub mod context;
 pub mod core;
 pub mod corpus;
 pub mod demo_corpus;
+pub mod diff;
 pub mod discovery;
 pub mod doctree;
 pub mod dream;
@@ -76,6 +77,9 @@ pub mod semiotic_grid;
 pub mod sensory;
 pub mod sessions;
 pub mod shifts;
+// Social scaffolding: no referents anywhere in the tree, but not deleted —
+// gated so it stops compiling into every build. Re-enable to revive it.
+#[cfg(feature = "repair-pipeline")]
 pub mod social;
 pub mod storage;
 pub mod study;
@@ -145,11 +149,20 @@ pub use cli::PhysisApp;
 /// MVP: repository-as-world closed loop over existing slices.
 pub mod mvp;
 
+// Repair-pipeline scaffolding. One feature, not six: these modules import
+// each other in a cycle (dependency↔staleness↔semantic_delta, metrics↔
+// orchestration) so separate gates would not compile. See Cargo.toml.
+#[cfg(feature = "repair-pipeline")]
 pub mod semantic_delta;
+#[cfg(feature = "repair-pipeline")]
 pub mod dependency;
+#[cfg(feature = "repair-pipeline")]
 pub mod staleness;
+#[cfg(feature = "repair-pipeline")]
 pub mod repair_regions;
+#[cfg(feature = "repair-pipeline")]
 pub mod orchestration;
+#[cfg(feature = "repair-pipeline")]
 pub mod metrics;
 pub mod adaptive_document;
 pub use linguistic::*;

@@ -230,7 +230,6 @@ impl RepairWorker for StrongWorker {
 /// CHEAP_WORKER_EXAMPLE and STRONG_WORKER_EXAMPLE are referenced but not defined
 /// at the module level here; in a full implementation they'd be instantiated
 /// or passed in. For now, we define the routing logic that would use them.
-
 #[cfg(test)]
 mod tests {
     use super::*;
