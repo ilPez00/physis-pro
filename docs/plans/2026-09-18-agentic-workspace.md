@@ -572,3 +572,13 @@ a stale `Cargo.toml.bak`; exact local `system read` resolved Studio's blocking a
 path. Connected MCP targets the other checkout. Conventional `rg`/`sed` supplied
 the focused evidence. No matched token-saving or latency claim is made. Exclude
 backups and identify workspace provenance as P0 retrieval requirements.
+
+## 12. P3 gate (next, not yet started)
+
+Staged-diff handoff over reused primitives: `System::snapshot`
+(git HEAD + porcelain + binary diff `HEAD`) supplies the stale-base check in
+`ported/system_delegation.rs`; `diff::diff_lines` supplies the staged preview.
+A seam records the source fingerprint at review start and refuses to apply
+when files changed while the diff sat pending; the seeded-repo check fails
+before the fix and passes after. Worker dispatch remains an operator command
+(never auto-run). Out of scope here: a second simultaneous writer.
