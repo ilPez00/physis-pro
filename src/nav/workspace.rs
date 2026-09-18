@@ -64,14 +64,19 @@ impl NavWorkspace {
 
     /// Select the embedder once. `(None, "off")` when the caller disabled
     /// semantics or no embedder passes the probe — callers must surface the
-    /// kind label rather than assume.
+    /// kind label rather than assume. Reads effective settings
+    /// (builtins < file < env) so a workspace config change takes effect on
+    /// the next selection; falls back to builtins when the file is broken
+    /// (the `config`/`doctor` surfaces report that error, not this path).
     pub fn embedder(&mut self, enable: bool) -> Option<&dyn VectorEmbed> {
         if self.embedder.is_none() {
             let chosen = if !enable {
                 None
             } else {
-                let config = crate::config::PhysisProConfig::default();
-                Some(crate::embed::select_embedder(&config.physis))
+                let config = crate::config::PhysisConfig::load_effective()
+                    .map(|eff| eff.config)
+                    .unwrap_or_else(|_| crate::config::PhysisConfig::default());
+                Some(crate::embed::select_embedder(&config))
             };
             self.embedder = Some(chosen);
         }
