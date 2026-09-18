@@ -1062,6 +1062,10 @@ impl Default for ProviderCascade {
 mod tests {
     use super::*;
 
+    /// Serialises the one test that mutates JEV environment variables, so the
+    /// present/absent halves cannot observe each other's writes.
+    static JEV_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn test_message_text_serialization() {
         let msg = Message {
@@ -1276,13 +1280,62 @@ mod tests {
     }
 
     #[test]
-    fn jev_absent_unless_enabled_with_key() {
-        // No JEV env/overrides in the test process → the cascade must not
-        // contain a jev entry. Guards against dial-out by default.
-        let cascade = ProviderCascade::from_env();
+    fn jev_cascade_follows_enable_and_key() {
+        // JEV is opt-in: absent unless `agent.jev_enabled` is true *and* a key
+        // is set, and then present with the configured model/url. One test
+        // owns the JEV env for the whole process, so the present/absent halves
+        // cannot race each other.
+        let _guard = JEV_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let restore = |k: &str, old: Option<String>| match old {
+            Some(v) => std::env::set_var(k, v),
+            None => std::env::remove_var(k),
+        };
+        let (d, e, k, m) = (
+            std::env::var("PHYSIS_DATA_DIR").ok(),
+            std::env::var("JEV_ENABLED").ok(),
+            std::env::var("JEV_API_KEY").ok(),
+            std::env::var("JEV_MODEL").ok(),
+        );
+        std::env::set_var("PHYSIS_DATA_DIR", dir.path());
+
+        // Disabled, no key → absent.
+        std::env::remove_var("JEV_ENABLED");
+        std::env::remove_var("JEV_API_KEY");
         assert!(
-            !cascade.provider_names().iter().any(|n| n == "jev"),
+            !ProviderCascade::from_env()
+                .provider_names()
+                .iter()
+                .any(|n| n == "jev"),
             "jev must be absent without explicit enable+key"
         );
+
+        // Enabled but keyless → still absent (never dial out on half config).
+        std::env::set_var("JEV_ENABLED", "true");
+        assert!(
+            !ProviderCascade::from_env()
+                .provider_names()
+                .iter()
+                .any(|n| n == "jev"),
+            "jev must be absent when enabled without a key"
+        );
+
+        // Enabled + keyed → present, with the configured model.
+        std::env::set_var("JEV_API_KEY", "sk-jev-test");
+        std::env::set_var("JEV_MODEL", "r2-reasoning");
+        let cascade = ProviderCascade::from_env();
+        let entry = cascade
+            .providers_list()
+            .into_iter()
+            .find(|p| p["name"] == "jev")
+            .expect("jev present when enabled and keyed");
+        assert_eq!(entry["model"], "r2-reasoning");
+        assert_eq!(entry["has_key"], true);
+        assert_eq!(entry["supports_tools"], false);
+
+        restore("PHYSIS_DATA_DIR", d);
+        restore("JEV_ENABLED", e);
+        restore("JEV_API_KEY", k);
+        restore("JEV_MODEL", m);
     }
 }

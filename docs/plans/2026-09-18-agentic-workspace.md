@@ -383,6 +383,17 @@ fault, never silent when absent.
   cooldown, recovers without restart). `cargo test` provider unit tests
   cover config parse, redaction, and park-on-fault; no live-key test in CI.
 
+Status 2026-09-18 (branch `agent/MS-005-q6`): settings surface, env layering
+(`JEV_ENABLED/API_KEY/BASE_URL/MODEL/MAX_TOKENS/TIMEOUT_SECS`), redaction in
+`config`/`doctor`/`/api/v1/settings`, `/settings` state row, and cascade
+inclusion are implemented and unit-tested
+(`config::tests::effective_config_jev_layers_and_bounds`,
+`ai::provider::tests::jev_cascade_follows_enable_and_key`, settings HTTP test).
+Live `/ask` against a real JEV endpoint and park-on-bad-key are **NOT
+MEASURED** — no live key exists in this environment. The exact model id
+(`r2-reasoning`) and base URL (`https://api.jev.ai/v1`) are defaults to be
+pinned against the real service before release.
+
 Missing model, unavailable feature and empty corpus have distinct messages.
 Lowering a context budget reports omitted coverage; it never silently drops
 required evidence. Switching providers does not invalidate unrelated index data.
