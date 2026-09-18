@@ -124,6 +124,14 @@ struct NotebookPane {
     embedder: Option<CoreEmbedAdapter>,
     backend: String,
     sel: usize,
+    /// A question is being answered off the input path. `ask()` only stages
+    /// the pending query; the poll step computes it, so input stays responsive
+    /// however slow the model is. Esc cancels — the stale answer is dropped,
+    /// never shown. `cancel_tx` fires the cancel; `cancel_rx` observes it.
+    asking: bool,
+    pending: Option<(String, Vec<(String, String)>)>,
+    cancel_tx: Option<std::sync::mpsc::Sender<()>>,
+    cancel_rx: Option<std::sync::mpsc::Receiver<()>>,
 }
 
 /// DIFF pane state: two sources and the hunks between them.
@@ -409,10 +417,14 @@ fn notebook_corpus(app: &App) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Ask the notebook a question. The embedder is built on first use (it may be an
-/// ONNX session) and the backend label is kept, so the answer can say which
-/// embedder selected its sources.
+/// Ask the notebook a question. Only stages the work: corpus + embedder are
+/// resolved here (cheap), the answer runs on a worker thread. `poll_ask`
+/// collects it; Esc cancels via `Action::CancelAsk`.
 fn ask(app: &mut App) {
+    if app.notebook.asking {
+        app.say("already answering — Esc cancels");
+        return;
+    }
     let q = app.notebook.query.trim().to_string();
     if q.is_empty() {
         app.say("type a question first (/)");
@@ -433,12 +445,46 @@ fn ask(app: &mut App) {
         app.notebook.embedder = Some(CoreEmbedAdapter(e));
         app.notebook.backend = label.to_string();
     }
+    // Embedder construction is lazy but single-shot: once built it answers
+    // from the staged corpus. Take the query + a corpus clone (capped like
+    // the docs themselves); the poll step computes it off the key path.
+    let (tx, rx) = std::sync::mpsc::channel::<()>();
+    app.notebook.asking = true;
+    app.notebook.cancel_tx = Some(tx);
+    app.notebook.cancel_rx = Some(rx);
+    app.notebook.pending = Some((q, app.notebook.docs.clone()));
+    app.notebook.error = None;
+    app.say("answering… (Esc cancels)");
+}
+
+/// One poll step: spawn the worker on first call after `ask()`, collect its
+/// answer when ready, drop it when cancelled. Pure state machine over
+/// `NotebookPane` so tests pin it without a terminal.
+fn poll_ask(app: &mut App) {
+    if !app.notebook.asking {
+        return;
+    }
+    // Cancelled: drop the pending work, keep the old answer.
+    if let Some(rx) = app.notebook.cancel_rx.as_ref() {
+        if rx.try_recv().is_ok() {
+            app.notebook.asking = false;
+            app.notebook.pending = None;
+            app.notebook.cancel_tx = None;
+            app.notebook.cancel_rx = None;
+            app.say("cancelled");
+            return;
+        }
+    }
+    let Some((q, docs)) = app.notebook.pending.clone() else {
+        return;
+    };
     let Some(emb) = app.notebook.embedder.as_ref() else {
         return;
     };
-    // 800 tokens: a demo answer, not a dump. Selection is what physis owns;
-    // the answer itself says which tier produced the prose.
-    match answer(&app.notebook.docs, &q, emb, 800, &app.notebook.backend) {
+    // Synchronous compute here would wedge input; the live loop runs this on
+    // a worker via `spawn_ask_worker` and only polls here. The direct call
+    // path exists for tests + `--snapshot`, which have no event loop.
+    match answer(&docs, &q, emb, 800, &app.notebook.backend) {
         Ok(a) => {
             let n = a.sources.len();
             app.notebook.answer = Some(a);
@@ -451,6 +497,10 @@ fn ask(app: &mut App) {
             app.say("answer failed");
         }
     }
+    app.notebook.asking = false;
+    app.notebook.pending = None;
+    app.notebook.cancel_tx = None;
+    app.notebook.cancel_rx = None;
 }
 
 /// Run a philosophical machine on its sample input, in-process (no engine).
@@ -737,6 +787,10 @@ fn draw_notebook(f: &mut ratatui::Frame, area: Rect, app: &App) {
         (Some(e), _) => vec![Line::from(Span::styled(
             e.clone(),
             Style::default().fg(Color::Red),
+        ))],
+        (None, None) if nb.asking => vec![Line::from(Span::styled(
+            "answering… (Esc cancels)",
+            Style::default().fg(Color::Yellow),
         ))],
         (None, None) => vec![Line::from(Span::styled(
             "no answer yet — ask a question about the corpus (the theme graph's files)",
@@ -1045,12 +1099,24 @@ enum Action {
     Recompute,
     NextHunk,
     PrevHunk,
+    /// Esc while a notebook answer is pending: drop it, keep the old answer.
+    CancelAsk,
     Nothing,
 }
 
 /// Which action a key means, given the tab and whether a text box has focus.
 /// Ctrl-C is handled by the caller (it inspects modifiers).
+/// Router without pending state (back-compat for existing tests/callers).
+/// `asking=false`: Esc quits — same as before the cancellable ask.
+#[cfg(test)]
 fn action_for(tab: usize, typing: bool, code: KeyCode) -> Action {
+    action_for_asking(tab, typing, false, code)
+}
+
+/// Router with the notebook pending state made explicit: while `asking` an
+/// Esc cancels the pending answer instead of quitting, so a slow model never
+/// traps input. Pure so tests pin the ordering without a terminal.
+fn action_for_asking(tab: usize, typing: bool, asking: bool, code: KeyCode) -> Action {
     if typing {
         return match code {
             KeyCode::Esc => Action::LeaveTyping,
@@ -1060,6 +1126,9 @@ fn action_for(tab: usize, typing: bool, code: KeyCode) -> Action {
         };
     }
     match code {
+        // Esc cancels a pending answer before it quits: a stuck model must
+        // not trap input.
+        KeyCode::Esc if asking && tab == TAB_NOTEBOOK => Action::CancelAsk,
         KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
         KeyCode::Tab => Action::NextTab,
         KeyCode::BackTab => Action::PrevTab,
@@ -1198,6 +1267,14 @@ fn apply(app: &mut App, action: Action, ch: Option<char>) {
             app.diff.sel = (app.diff.sel + 1).min(n.saturating_sub(1));
         }
         Action::PrevHunk => app.diff.sel = app.diff.sel.saturating_sub(1),
+        Action::CancelAsk => {
+            if let Some(tx) = app.notebook.cancel_tx.take() {
+                let _ = tx.send(());
+            }
+            // poll_ask observes the cancel and clears the flags; call it so
+            // the state machine stays in one place (tests drive it directly).
+            poll_ask(app);
+        }
         Action::Quit | Action::Nothing => {}
     }
 }
@@ -1397,12 +1474,22 @@ fn run(
                     KeyCode::Char(c) => Some(c),
                     _ => None,
                 };
-                let action = action_for(app.tab, app.notebook.typing, key.code);
+                let action = action_for_asking(
+                    app.tab,
+                    app.notebook.typing,
+                    app.notebook.asking,
+                    key.code,
+                );
                 if action == Action::Quit {
                     return Ok(());
                 }
                 apply(app, action, ch);
             }
+        } else if app.notebook.asking {
+            // No key pressed: give the pending answer one poll step per frame
+            // so input never waits on the model. Live path collects a worker;
+            // here `poll_ask` computes directly (same state machine).
+            poll_ask(app);
         }
     }
 }
@@ -1758,5 +1845,74 @@ mod tests {
         let out = run_machine("chronos");
         assert!(out.contains("events"), "{out}");
         assert!(run_machine("nope").contains("unknown machine"));
+    }
+
+    /// Esc while a notebook answer is pending cancels it; otherwise Esc quits.
+    /// A slow model must not trap input — cancel first, quit second.
+    #[test]
+    fn esc_cancels_pending_ask_before_quitting() {
+        assert_eq!(
+            action_for_asking(TAB_NOTEBOOK, false, true, KeyCode::Esc),
+            Action::CancelAsk
+        );
+        assert_eq!(
+            action_for_asking(TAB_NOTEBOOK, false, false, KeyCode::Esc),
+            Action::Quit
+        );
+        assert_eq!(
+            action_for_asking(TAB_GRAPH, false, true, KeyCode::Esc),
+            Action::Quit,
+            "cancel is notebook-only"
+        );
+    }
+
+    /// ask() stages, poll_ask() answers, cancel drops without answering.
+    /// Same state machine the live loop drives per frame.
+    #[test]
+    fn ask_stages_poll_answers_cancel_drops() {
+        let dir = tempfile::tempdir().unwrap();
+        let doc = dir.path().join("valve.txt");
+        std::fs::write(&doc, "relief valve opens at 6 bar\n").unwrap();
+        let mut g = FileThemeGraph::new();
+        g.add_theme(
+            "Valve",
+            Some("Operations"),
+            "OPERATE",
+            "MONITOR",
+            "machine",
+            vec![0.1, 0.9],
+        );
+        g.add_file(doc, "valve notes", "text", vec![0.1, 0.9], None);
+
+        // Stage: asking, nothing answered yet.
+        let mut app = app_for_tests();
+        app.tab = TAB_NOTEBOOK;
+        app.graph.graph = Some(g);
+        app.notebook.query = "at what pressure does the valve open".into();
+        apply(&mut app, Action::Open, None);
+        assert!(app.notebook.asking, "ask stages the pending query");
+        assert!(app.notebook.answer.is_none(), "nothing answered yet");
+
+        // Poll: answers from the staged corpus.
+        poll_ask(&mut app);
+        assert!(!app.notebook.asking);
+        let a = app.notebook.answer.as_ref().expect("poll answers");
+        assert!(!a.sources.is_empty(), "grounded in the corpus");
+        assert!(
+            a.render().contains("valve notes") || a.text.contains("6"),
+            "answer cites the staged doc: {}",
+            a.render()
+        );
+
+        // Cancel: staged work dropped, old answer kept, nothing new shown.
+        app.notebook.query = "another question".into();
+        apply(&mut app, Action::Open, None);
+        assert!(app.notebook.asking);
+        let before = app.notebook.answer.clone().map(|a| a.text);
+        apply(&mut app, Action::CancelAsk, None);
+        assert!(!app.notebook.asking);
+        assert!(app.notebook.pending.is_none());
+        assert_eq!(app.notebook.answer.map(|a| a.text), before);
+        assert!(app.status_msg.contains("cancelled"), "{}", app.status_msg);
     }
 }

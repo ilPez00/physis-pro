@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+#[cfg(feature = "cli")]
 use physis_pro::cli::PhysisApp;
 use physis_pro::config::{OntologyLoader, PhysisProConfig};
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
@@ -15,6 +16,7 @@ use physis_pro::models::{cosine_sim, DomainDef, Score};
 use physis_pro::quality::QualityTracker;
 use physis_pro::wiki;
 use physis_pro::estimate::estimate_project;
+#[cfg(feature = "cli")]
 use physis_pro::ported::system_cli::SystemArgs;
 use physis_pro::ported::act::{run as act_run, bearing_on_with, Selection};
 
@@ -631,6 +633,7 @@ pub enum Commands {
     /// Shared workspace interface: inspect, list, find, pack, read, history,
     /// delegation, remember, run, export, and `serve` (MCP stdio). No licence
     /// or model is required; see `physis-pro system capabilities`.
+    #[cfg(feature = "cli")]
     System(SystemArgs),
     /// Grounded question-answering over a document directory, with citations.
     /// Uses an oracle endpoint when configured (`PHYSIS_ORACLE_*`), falling
@@ -927,9 +930,10 @@ fn main() -> anyhow::Result<()> {
             | Commands::Benchmark { .. }
             | Commands::License { .. }
             | Commands::Selftest
-            | Commands::System(..)
             | Commands::Act { .. }
             | Commands::StudioServer { .. }
+            | Commands::Index { .. }
+            | Commands::System(..)
     ) {
         let _license = physis_pro::license::enforce();
     } else {
@@ -943,6 +947,7 @@ fn main() -> anyhow::Result<()> {
     // its own observation log: no licence, no ontology, no embedder. Dispatch
     // it before building the heavy PhysisApp, matching Core's former
     // `physis-core system` behaviour exactly (same Workspace, same contract).
+    #[cfg(feature = "cli")]
     if let Commands::System(args) = &cli.command {
         return args.run();
     }
@@ -1326,6 +1331,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Index { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::License { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Estimate { .. } => unreachable!("dispatched before PhysisApp::new"),
+        #[cfg(feature = "cli")]
         Commands::System(..) => unreachable!("dispatched before PhysisApp::new"),
         Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
@@ -1465,8 +1471,20 @@ fn main() -> anyhow::Result<()> {
             print!("{out}");
         }
         Commands::Config => {
-            let config_str = serde_json::to_string_pretty(&PhysisProConfig::default())?;
-            println!("{config_str}");
+            match physis_pro::config::PhysisConfig::load_effective() {
+                Ok(eff) => {
+                    let v = serde_json::json!({
+                        "config": eff.config,
+                        "origins": eff.origins.iter().map(|(k, o)| (k, o.to_string())).collect::<std::collections::HashMap<_, _>>(),
+                        "config_path": eff.config.data_dir.join("config.json").display().to_string(),
+                    });
+                    println!("{}", serde_json::to_string_pretty(&v)?);
+                }
+                Err(e) => {
+                    eprintln!("config error: {e}");
+                    std::process::exit(2);
+                }
+            }
         }
         Commands::Translate { text, lense } => {
             let output = app.run_translate(&text, lense.as_deref());
@@ -2402,25 +2420,22 @@ fn run_doctor(config: &PhysisProConfig) -> anyhow::Result<()> {
         }
     }
 
-    // 3. Config file
+    // 3. Config file — effective settings with per-field provenance.
     let config_path = data_dir.join("config.json");
     println!("\n⚙️  Config: {}", config_path.display());
-    if config_path.exists() {
-        match std::fs::read_to_string(&config_path) {
-            Ok(raw) => match serde_json::from_str::<serde_json::Value>(&raw) {
-                Ok(_) => println!("  ✅ Valid JSON"),
-                Err(e) => {
-                    println!("  ❌ Invalid JSON: {e}");
-                    issues += 1;
+    match physis_pro::config::PhysisConfig::load_effective() {
+        Ok(eff) => {
+            println!("  ✅ Effective settings loaded");
+            for (k, o) in &eff.origins {
+                if *o != physis_pro::config::Origin::Builtin {
+                    println!("    {k}: {o}");
                 }
-            },
-            Err(e) => {
-                println!("  ❌ Not readable: {e}");
-                issues += 1;
             }
         }
-    } else {
-        println!("  ℹ️  No config file (defaults will be used)");
+        Err(e) => {
+            println!("  ❌ {e}");
+            issues += 1;
+        }
     }
 
     // 4. Embedder

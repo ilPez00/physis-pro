@@ -21,10 +21,14 @@ pub mod observe_adapters;
 pub mod oracle;
 pub mod praxis;
 pub mod quality;
+#[cfg(feature = "web")]
 pub mod studio;
+#[cfg(feature = "web")]
 pub mod studio_communities;
+#[cfg(feature = "web")]
 pub mod studio_lab;
 pub mod system;
+#[cfg(feature = "cli")]
 pub mod system_cli;
 pub mod system_delegation;
 pub mod system_mcp;

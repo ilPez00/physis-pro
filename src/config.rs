@@ -113,6 +113,71 @@ static EXTRA_ONTOLOGIES: Lazy<Vec<(&'static str, &'static str)>> = Lazy::new(|| 
 
 static DEFAULT_PHYSIS_DIR: &str = ".physis";
 
+/// Where one effective setting came from. Surfaced by `physis-pro config`,
+/// `doctor` and `/api/v1/settings` so "which input set this value" is
+/// answered from the record, not guessed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Origin {
+    Builtin,
+    File,
+    Env,
+}
+
+impl std::fmt::Display for Origin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Origin::Builtin => write!(f, "builtin"),
+            Origin::File => write!(f, "file"),
+            Origin::Env => write!(f, "env"),
+        }
+    }
+}
+
+/// Effective settings: the merged config plus per-field provenance.
+///
+/// Precedence: built-in defaults < `<data_dir>/config.json` < environment.
+/// A file that is not valid JSON, names an unknown field, or sets a value
+/// outside its bounds is a hard error — silently running on defaults while a
+/// config file sits on disk is the failure this exists to prevent.
+#[derive(Debug, Clone)]
+pub struct EffectiveConfig {
+    pub config: PhysisConfig,
+    pub origins: HashMap<String, Origin>,
+}
+
+const KNOWN_TOP_LEVEL: &[&str] = &[
+    "data_dir",
+    "ontologies",
+    "network_scan_interval_secs",
+    "dream_batch_size",
+    "pdca_stagnant_threshold",
+    "pdca_stagnant_window",
+    "watch_dirs",
+    "linguistic",
+    "onnx",
+    "embed_dim",
+    "embedders",
+    "agent",
+];
+
+fn resolve_data_dir_with(get_env: &dyn Fn(&str) -> Option<String>) -> PathBuf {
+    get_env("PHYSIS_DATA_DIR")
+        .filter(|p| !p.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            cwd.join(DEFAULT_PHYSIS_DIR)
+        })
+}
+
+fn parse_bool_env(var: &str, raw: &str) -> anyhow::Result<bool> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Ok(true),
+        "0" | "false" | "no" | "off" => Ok(false),
+        _ => anyhow::bail!("{var}: want a bool (1/0/true/false), got {raw:?}"),
+    }
+}
+
 /// Controls which linguistic lenses (Wenyan, Piraha, Sanskrit) are active at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinguisticConfig {
@@ -295,32 +360,67 @@ impl Default for OnnxConfig {
 /// PDCA stagnation detection parameters, linguistic lenses, and embedder settings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhysisConfig {
-    /// Directory for persistent data (hash cache, logs, etc.).
+    /// Directory for persistent data (hash cache, logs, etc.). Discovered
+    /// (PHYSIS_DATA_DIR or cwd/.physis), never set in the file — see
+    /// `load_effective`.
+    #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
     /// Ontology sources to load at startup.
+    #[serde(default = "default_ontologies")]
     pub ontologies: Vec<OntologySource>,
     /// Seconds between network scans when watching directories.
+    #[serde(default = "default_scan_interval")]
     pub network_scan_interval_secs: u64,
     /// Number of dreams to generate per dream cycle.
+    #[serde(default = "default_dream_batch")]
     pub dream_batch_size: usize,
     /// Progress threshold below which a goal is flagged stagnant.
+    #[serde(default = "default_pdca_threshold")]
     pub pdca_stagnant_threshold: f32,
     /// Number of recent PDCA actions to inspect for stagnation.
+    #[serde(default = "default_pdca_window")]
     pub pdca_stagnant_window: usize,
     /// Directories to watch for file changes.
+    #[serde(default)]
     pub watch_dirs: Vec<PathBuf>,
     /// Linguistic lense toggles (Wenyan, Piraha, Sanskrit).
+    #[serde(default)]
     pub linguistic: LinguisticConfig,
     /// ONNX embedder tuning parameters.
+    #[serde(default)]
     pub onnx: OnnxConfig,
     /// Embedding vector dimension (should match model).
+    #[serde(default = "default_embed_dim")]
     pub embed_dim: usize,
     /// Multi-embedder configuration (optional, overrides onnx fallback).
+    #[serde(default)]
     pub embedders: EmbeddersConfig,
     /// Agent-orchestration configuration (ReAct loop, OpenCode coding sub-agent,
     /// tool palette). Drives the /api/v1/agent/run endpoint + /agent dashboard.
     #[serde(default)]
     pub agent: AgentRuntimeConfig,
+}
+
+fn default_data_dir() -> PathBuf {
+    resolve_data_dir_with(&|k| std::env::var(k).ok())
+}
+fn default_ontologies() -> Vec<OntologySource> {
+    defaults_for(default_data_dir(), false).ontologies
+}
+fn default_scan_interval() -> u64 {
+    60
+}
+fn default_dream_batch() -> usize {
+    5
+}
+fn default_pdca_threshold() -> f32 {
+    0.2
+}
+fn default_pdca_window() -> usize {
+    5
+}
+fn default_embed_dim() -> usize {
+    384
 }
 
 /// Configuration for the in-process agent orchestration surface.
@@ -409,112 +509,316 @@ impl Default for AgentRuntimeConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OntologySource {
     /// Display name for this ontology.
+    #[serde(default = "default_human_ontology")]
     pub name: String,
     /// Filesystem path (None for built-in ontologies).
+    #[serde(default)]
     pub path: Option<PathBuf>,
     /// Ontology kind: "human", "machine", or custom.
+    #[serde(default)]
     pub kind: String,
     /// Whether this source is loaded at startup.
+    #[serde(default = "default_true_src")]
     pub enabled: bool,
+}
+
+fn default_human_ontology() -> String {
+    HUMAN_ONTOLOGY_NAME.to_string()
+}
+fn default_true_src() -> bool {
+    true
 }
 
 impl Default for PhysisConfig {
     fn default() -> Self {
-        let data_dir = std::env::var("PHYSIS_DATA_DIR")
-            .ok()
-            .map(PathBuf::from)
-            .filter(|p| !p.as_os_str().is_empty())
-            .unwrap_or_else(|| {
-                let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-                cwd.join(DEFAULT_PHYSIS_DIR)
-            });
-        Self {
-            data_dir,
-            ontologies: vec![
-                OntologySource {
-                    name: HUMAN_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "human".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: MACHINE_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "machine".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: SEMIOTIC_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "semiotic".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: CATEGORY_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "category".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: AGENT_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "agent".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: NATURAL_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "natural".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: SOCIAL_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "social".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: ABSTRACT_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "abstract".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: ENGINEERING_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "engineering".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: OFFICE_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "office".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: SPACE_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "place".to_string(),
-                    enabled: true,
-                },
-                OntologySource {
-                    name: TIME_ONTOLOGY_NAME.to_string(),
-                    path: None,
-                    kind: "period".to_string(),
-                    enabled: true,
-                },
-            ],
-            network_scan_interval_secs: 60,
-            dream_batch_size: 5,
-            pdca_stagnant_threshold: 0.2,
-            pdca_stagnant_window: 5,
-            watch_dirs: vec![],
-            linguistic: LinguisticConfig::default(),
-            onnx: OnnxConfig::default(),
-            embed_dim: 384,
-            embedders: EmbeddersConfig::default(),
-            agent: AgentRuntimeConfig::default(),
+        Self::default_at(resolve_data_dir_with(&|k| std::env::var(k).ok()))
+    }
+}
+
+impl PhysisConfig {
+    fn default_at(data_dir: PathBuf) -> Self {
+        defaults_for(data_dir, true)
+    }
+
+    fn default_no_env(data_dir: PathBuf) -> Self {
+        defaults_for(data_dir, false)
+    }
+}
+
+/// Shared builtin constructor. `apply_env=true` layers the
+/// PHYSIS_* overrides (warn-and-keep-builtin on a bad value so Default never
+/// panics); `load_effective` passes false and applies env itself as hard
+/// errors after the file layer.
+fn defaults_for(data_dir: PathBuf, apply_env: bool) -> PhysisConfig {
+    let mut cfg = PhysisConfig {
+        data_dir,
+        ontologies: vec![
+            OntologySource {
+                name: HUMAN_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "human".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: MACHINE_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "machine".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: SEMIOTIC_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "semiotic".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: CATEGORY_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "category".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: AGENT_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "agent".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: NATURAL_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "natural".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: SOCIAL_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "social".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: ABSTRACT_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "abstract".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: ENGINEERING_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "engineering".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: OFFICE_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "office".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: SPACE_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "place".to_string(),
+                enabled: true,
+            },
+            OntologySource {
+                name: TIME_ONTOLOGY_NAME.to_string(),
+                path: None,
+                kind: "period".to_string(),
+                enabled: true,
+            },
+        ],
+        network_scan_interval_secs: 60,
+        dream_batch_size: 5,
+        pdca_stagnant_threshold: 0.2,
+        pdca_stagnant_window: 5,
+        watch_dirs: vec![],
+        linguistic: LinguisticConfig::default(),
+        onnx: OnnxConfig::default(),
+        embed_dim: 384,
+        embedders: EmbeddersConfig::default(),
+        agent: AgentRuntimeConfig::default(),
+    };
+    // Env wins over built-ins for the same knobs the Studio/TUI CONFIG
+    // tab edits. A bad value warns and keeps the builtin here so Default
+    // never panics; `load_effective` applies env itself as hard errors.
+    if apply_env {
+        if let Err(e) = cfg.apply_env(&|k| std::env::var(k).ok()) {
+            eprintln!("[physis] WARNING: {e} — keeping builtin default");
         }
+    }
+    cfg
+}
+
+impl PhysisConfig {
+    /// Load the effective config: builtins < `<data_dir>/config.json` < env.
+    ///
+    /// Data-dir discovery: `PHYSIS_DATA_DIR` wins, else `cwd/.physis`. The
+    /// file is read at the discovered dir; a `data_dir` inside the file moves
+    /// nothing (self-reference rejected as an error) so every layer agrees on
+    /// where state lives.
+    pub fn load_effective() -> anyhow::Result<EffectiveConfig> {
+        Self::load_effective_with(&|k| std::env::var(k).ok())
+    }
+
+    fn load_effective_with(
+        get_env: &dyn Fn(&str) -> Option<String>,
+    ) -> anyhow::Result<EffectiveConfig> {
+        let data_dir = resolve_data_dir_with(get_env);
+        let builtin = Self::default_no_env(data_dir.clone());
+        let mut origins: HashMap<String, Origin> = builtin
+            .field_names()
+            .into_iter()
+            .map(|n| (n.to_string(), Origin::Builtin))
+            .collect();
+        let mut cfg = builtin;
+        let mut file_keys: Vec<String> = Vec::new();
+        let path = data_dir.join("config.json");
+        if let Some(raw) = std::fs::read_to_string(&path).ok().filter(|s| !s.trim().is_empty()) {
+            let v: serde_json::Value = serde_json::from_str(&raw)
+                .map_err(|e| anyhow::anyhow!("{}: invalid JSON: {e}", path.display()))?;
+            let obj = v
+                .as_object()
+                .ok_or_else(|| anyhow::anyhow!("{}: top level must be an object", path.display()))?;
+            let keys: Vec<String> = obj.keys().cloned().collect();
+            for k in &keys {
+                if !KNOWN_TOP_LEVEL.contains(&k.as_str()) {
+                    anyhow::bail!("{}: unknown field `{k}`", path.display());
+                }
+            }
+            if obj.contains_key("data_dir") {
+                anyhow::bail!(
+                    "{}: `data_dir` is discovered (PHYSIS_DATA_DIR or cwd/.physis), not configured",
+                    path.display()
+                );
+            }
+            let merged: PhysisConfig = serde_json::from_str(&raw)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+            for k in keys {
+                let file_val = serde_json::to_value(&merged).ok().and_then(|c| c.get(&k).cloned());
+                let base_val = serde_json::to_value(&cfg).ok().and_then(|c| c.get(&k).cloned());
+                if file_val != base_val {
+                    file_keys.push(k);
+                }
+            }
+            cfg = merged;
+            cfg.data_dir = data_dir.clone();
+        }
+        cfg.validate_bounds(&path)?;
+        for k in file_keys {
+            origins.insert(k, Origin::File);
+        }
+        let env_keys = cfg.apply_env(get_env)?;
+        for k in env_keys {
+            origins.insert(k, Origin::Env);
+        }
+        cfg.data_dir = data_dir;
+        cfg.validate_bounds(&path)?;
+        Ok(EffectiveConfig {
+            config: cfg,
+            origins,
+        })
+    }
+
+    fn field_names(&self) -> Vec<&'static str> {
+        KNOWN_TOP_LEVEL.to_vec()
+    }
+
+    /// Bounds that make a broken config fail loudly instead of running wrong.
+    /// `label` names the source in the error (file path or "env").
+    fn validate_bounds(&self, label: &Path) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.network_scan_interval_secs >= 1,
+            "{}: network_scan_interval_secs must be >= 1, got {}",
+            label.display(),
+            self.network_scan_interval_secs
+        );
+        anyhow::ensure!(
+            self.dream_batch_size >= 1,
+            "{}: dream_batch_size must be >= 1, got {}",
+            label.display(),
+            self.dream_batch_size
+        );
+        anyhow::ensure!(
+            (0.0..=1.0).contains(&self.pdca_stagnant_threshold),
+            "{}: pdca_stagnant_threshold must be in [0,1], got {}",
+            label.display(),
+            self.pdca_stagnant_threshold
+        );
+        anyhow::ensure!(
+            self.pdca_stagnant_window >= 1,
+            "{}: pdca_stagnant_window must be >= 1, got {}",
+            label.display(),
+            self.pdca_stagnant_window
+        );
+        anyhow::ensure!(
+            self.embed_dim >= 64,
+            "{}: embed_dim must be >= 64, got {}",
+            label.display(),
+            self.embed_dim
+        );
+        Ok(())
+    }
+
+    /// Layer env overrides onto self. Returns top-level keys the env touched.
+    /// Same knobs the Studio/TUI CONFIG tab edits, plus embedder identity
+    /// (PHYSIS_EMBEDDER) which `select_embedder` already honors.
+    fn apply_env(
+        &mut self,
+        get_env: &dyn Fn(&str) -> Option<String>,
+    ) -> anyhow::Result<Vec<String>> {
+        let mut touched = Vec::new();
+        let mut get = |var: &str, key: &str, set: &mut dyn FnMut(String) -> anyhow::Result<()>| -> anyhow::Result<()> {
+            if let Some(raw) = get_env(var).filter(|s| !s.trim().is_empty()) {
+                set(raw).map_err(|e| anyhow::anyhow!("env {var}: {e}"))?;
+                if !touched.contains(&key.to_string()) {
+                    touched.push(key.to_string());
+                }
+            }
+            Ok(())
+        };
+        get("PHYSIS_SCAN_INTERVAL", "network_scan_interval_secs", &mut |raw| {
+            self.network_scan_interval_secs = raw
+                .trim()
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
+            Ok(())
+        })?;
+        get("PHYSIS_DREAM_BATCH", "dream_batch_size", &mut |raw| {
+            self.dream_batch_size = raw
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
+            Ok(())
+        })?;
+        get("PHYSIS_PDCA_THRESHOLD", "pdca_stagnant_threshold", &mut |raw| {
+            self.pdca_stagnant_threshold = raw
+                .trim()
+                .parse::<f32>()
+                .map_err(|_| anyhow::anyhow!("want a float in [0,1], got {raw:?}"))?;
+            Ok(())
+        })?;
+        get("PHYSIS_PDCA_WINDOW", "pdca_stagnant_window", &mut |raw| {
+            self.pdca_stagnant_window = raw
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
+            Ok(())
+        })?;
+        get("PHYSIS_EMBED_DIM", "embed_dim", &mut |raw| {
+            self.embed_dim = raw
+                .trim()
+                .parse::<usize>()
+                .map_err(|_| anyhow::anyhow!("want an integer >= 64, got {raw:?}"))?;
+            Ok(())
+        })?;
+        get("PHYSIS_WENYAN", "linguistic", &mut |raw| {
+            self.linguistic.wenyan_enabled = parse_bool_env("PHYSIS_WENYAN", &raw)?;
+            Ok(())
+        })?;
+        get("PHYSIS_SANSKRIT", "linguistic", &mut |raw| {
+            self.linguistic.sanskrit_enabled = parse_bool_env("PHYSIS_SANSKRIT", &raw)?;
+            Ok(())
+        })?;
+        Ok(touched)
     }
 }
 
@@ -903,6 +1207,93 @@ impl OntologyLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Precedence: builtins < file < env, with each layer's origin recorded.
+    /// A file value differs from the builtin only when the file sets it; an
+    /// env value always wins and is marked env.
+    #[test]
+    fn effective_config_records_origin_per_layer() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().join(".physis");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        std::fs::write(
+            data_dir.join("config.json"),
+            r#"{"dream_batch_size": 9, "embed_dim": 512}"#,
+        )
+        .unwrap();
+        let get_env: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "PHYSIS_EMBED_DIM" => Some("768".into()),
+            _ => None,
+        };
+        let eff = PhysisConfig::load_effective_with(get_env).unwrap();
+        assert_eq!(eff.config.dream_batch_size, 9);
+        assert_eq!(eff.config.embed_dim, 768);
+        assert_eq!(eff.origins["dream_batch_size"], Origin::File);
+        assert_eq!(eff.origins["embed_dim"], Origin::Env);
+        assert_eq!(eff.origins["pdca_stagnant_window"], Origin::Builtin);
+    }
+
+    /// Env-only, no file: the same knobs apply without a config.json present.
+    #[test]
+    fn effective_config_env_without_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().join(".physis");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let get_env: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "PHYSIS_PDCA_THRESHOLD" => Some("0.7".into()),
+            _ => None,
+        };
+        let eff = PhysisConfig::load_effective_with(get_env).unwrap();
+        assert!((eff.config.pdca_stagnant_threshold - 0.7).abs() < f32::EPSILON);
+        assert_eq!(eff.origins["pdca_stagnant_threshold"], Origin::Env);
+    }
+
+    /// Invalid JSON, unknown fields, self-referential data_dir and
+    /// out-of-bounds values are hard errors, not silent defaults.
+    #[test]
+    fn effective_config_rejects_broken_inputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_dir = dir.path().join(".physis");
+        std::fs::create_dir_all(&data_dir).unwrap();
+        let no_env: &dyn Fn(&str) -> Option<String> = &|k: &str| {
+            if k == "PHYSIS_DATA_DIR" {
+                Some(data_dir.display().to_string())
+            } else {
+                None
+            }
+        };
+        // Bad JSON.
+        std::fs::write(data_dir.join("config.json"), "{not json").unwrap();
+        let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
+        assert!(e.to_string().contains("invalid JSON"), "{e}");
+        // Unknown field.
+        std::fs::write(data_dir.join("config.json"), r#"{"nope": 1}"#).unwrap();
+        let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
+        assert!(e.to_string().contains("unknown field"), "{e}");
+        // data_dir inside the file moves nothing.
+        std::fs::write(
+            data_dir.join("config.json"),
+            r#"{"data_dir": "/tmp/x"}"#,
+        )
+        .unwrap();
+        let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
+        assert!(e.to_string().contains("data_dir"), "{e}");
+        // Out of bounds.
+        std::fs::write(data_dir.join("config.json"), r#"{"embed_dim": 8}"#).unwrap();
+        let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
+        assert!(e.to_string().contains("embed_dim"), "{e}");
+        // Bad env value is a hard error too (Default only warns).
+        std::fs::remove_file(data_dir.join("config.json")).unwrap();
+        let bad_env: &dyn Fn(&str) -> Option<String> = &|k: &str| match k {
+            "PHYSIS_DATA_DIR" => Some(data_dir.display().to_string()),
+            "PHYSIS_EMBED_DIM" => Some("abc".into()),
+            _ => None,
+        };
+        let e = PhysisConfig::load_effective_with(bad_env).unwrap_err();
+        assert!(e.to_string().contains("PHYSIS_EMBED_DIM"), "{e}");
+    }
 
     #[test]
     fn test_builtin_human_ontology_count() {

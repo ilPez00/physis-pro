@@ -341,6 +341,26 @@ pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_js
         })
     });
 
+    // Effective settings + provenance: which layer set each value. Never 500s:
+    // a broken config.json is the operator's problem to see, not a handler
+    // crash — report it as a value like every other health fact here.
+    let (effective, origins, config_error) = match crate::config::PhysisConfig::load_effective() {
+        Ok(eff) => {
+            let v = serde_json::to_value(&eff.config).unwrap_or(serde_json::Value::Null);
+            let o: std::collections::HashMap<String, String> = eff
+                .origins
+                .iter()
+                .map(|(k, o)| (k.clone(), o.to_string()))
+                .collect();
+            (v, serde_json::to_value(o).unwrap_or(serde_json::Value::Null), None)
+        }
+        Err(e) => (
+            serde_json::to_value(&s.config).unwrap_or(serde_json::Value::Null),
+            serde_json::Value::Null,
+            Some(e.to_string()),
+        ),
+    };
+
     Json(serde_json::json!({
         "version": env!("CARGO_PKG_VERSION"),
         "crate": "physis_pro",
@@ -363,6 +383,9 @@ pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_js
             "degraded": s.degraded,
             "self_test": s.self_test,
         },
+        "effective_config": effective,
+        "config_origins": origins,
+        "config_error": config_error,
         "license": license,
     }))
 }

@@ -366,6 +366,52 @@ async fn health_and_embedder_are_public() {
 }
 
 #[tokio::test]
+async fn settings_reports_effective_config_with_origins() {
+    // P1 gate: /api/v1/settings answers "which input set this value" from the
+    // record — effective config plus per-field origin, never a 500 even when
+    // the config file is broken.
+    let (router, dir, _env) = app().await;
+
+    let (status, body) = send(&router, get("/api/v1/settings", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body["effective_config"]["embed_dim"].is_number(),
+        "effective config present: {body}"
+    );
+    assert_eq!(
+        body["config_origins"]["embed_dim"], "builtin",
+        "untouched knob is builtin: {body}"
+    );
+    assert!(
+        body["config_error"].is_null(),
+        "clean config has no error: {body}"
+    );
+
+    // A file value lands with origin=file.
+    std::fs::write(
+        dir.path().join("config.json"),
+        r#"{"dream_batch_size": 9}"#,
+    )
+    .unwrap();
+    let (status, body) = send(&router, get("/api/v1/settings", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["effective_config"]["dream_batch_size"], 9);
+    assert_eq!(body["config_origins"]["dream_batch_size"], "file");
+
+    // A broken file is a value, not a 500: config_error names it.
+    std::fs::write(dir.path().join("config.json"), r#"{"bogus": 1}"#).unwrap();
+    let (status, body) = send(&router, get("/api/v1/settings", "_default")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        body["config_error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("unknown field"),
+        "broken config reported as a value: {body}"
+    );
+}
+
+#[tokio::test]
 async fn demo_and_console_ui_are_served() {
     // The demo dashboard and the dev console are single-file pages served by the
     // router — a missing include_str or a broken route must not ship silently.

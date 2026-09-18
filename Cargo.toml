@@ -54,7 +54,7 @@ llmwiki_physis = { path = "vendor/llmwiki", package = "llmwiki", version = "0.2"
 
 # The lean core engine — embed/classify/quality/discovery now live here, and
 # physis_pro delegates to it (see src/classify.rs, src/quality.rs).
-physis-core = { path = "physis-core", version = "0.1.17", default-features = false, features = ["embed-onnx"] }
+physis-core = { path = "physis-core", version = "0.1.17", default-features = false }
 
 clap = { version = "4", features = ["derive"], optional = true }
 tokio = { version = "1", features = ["full"] }
@@ -139,7 +139,7 @@ tesseract = { version = "0.14", optional = true }
 # want, or select the random embedder explicitly at runtime.
 [features]
 default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx"]
-embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
+embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers", "physis-core/embed-onnx"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
 network = ["dep:notify"]
@@ -204,10 +204,12 @@ rag = []
 [[bin]]
 name = "physis"
 path = "src/bin/physis.rs"
+required-features = ["cli"]
 
 [[bin]]
 name = "physis-pro"
 path = "src/main.rs"
+required-features = ["cli"]
 
 [[bin]]
 name = "physis-pro-web"
