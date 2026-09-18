@@ -48,6 +48,8 @@ directory is the default. The root must exist; queries do not create a state sto
 | Predict | `physis system predict -- cargo test` | Reads this workspace's own record of how this kind of action has gone, with the counts behind it. |
 | Read | `physis system read src/main.rs` | Reads a current file, one region with `src/main.rs:120-180`, a returned `file:...` ID or any unambiguous prefix of one, or an `obs:...` reference. |
 | Recall | `physis system history 'calibration'` | Reads matching workspace notes and runs, newest first. |
+| Runs | `physis system runs --limit 20` | Recent command runs with intent, exit status, duration and argv, newest first — the record `predict` reads, in human form. |
+| Usage | `physis system usage` | Per-source counts plus per-kind run tallies with failure rates over the workspace log. Read-only queries leave no observation, so counts are exact for notes/runs and a lower bound for reads; the response says so. |
 | Remember | `physis system remember 'Probe disconnected during calibration' --outcome failure --actor operator` | Appends an explicitly reported outcome. |
 | Execute | `physis system run --intent 'Check the workspace' -- cargo check --offline` | Executes the exact argv in the workspace, with start/end records and output logs. |
 | Export | `physis system export /tmp/physis-workspace-view` | Creates a new reference snapshot; refuses an existing destination. |

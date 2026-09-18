@@ -50,6 +50,9 @@ Configuration references: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?
 | `physis_find` | Find files and observations with lexical BM25. |
 | `physis_pack` | Read relevant line windows within a Physis token budget. |
 | `physis_read` | Follow a path, range, file ID or observation ID. |
+| `physis_list` | List addressable files with a `limit`; reports the slice it returned. |
+| `physis_runs` | Recent command runs with intent, exit status and duration. |
+| `physis_usage` | Per-source and per-kind usage counters over the log. |
 | `physis_predict` | Consult process-failure history without executing argv. |
 | `physis_remember` | Record outcome, actor and evidence references. |
 | `physis_tasks` | List delegation tasks and reservation state. |
@@ -58,6 +61,27 @@ Configuration references: [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?
 Only `physis_remember` writes through MCP. Outcomes remain operator reports.
 Command execution and task/reservation writes remain explicit CLI operations.
 OpenCode prefixes tool names, e.g. `physis_system_physis_history`.
+
+## Usage accounting (what agents actually called)
+
+Read-only calls write nothing, so the log alone cannot answer "which tool did
+the agent call". `PHYSIS_MCP_AUDIT=1` on the server appends one
+`system.mcp.call` observation per `tools/call` — tool name, ok flag, duration,
+the argument **key names**, and the client name from the handshake. Argument
+values are never copied, so queries and source text stay in the caller's
+process. Off by default: an audit trail nobody reads is log growth.
+
+`physis system usage` (or the `physis_usage` tool) then reports
+`mcp_calls` per tool with error counts, alongside per-source counts and
+per-kind run failure rates. The audit row is written *after* a call answers,
+so a `physis_usage` call never counts itself; `by_source` reflects the state
+at answer time. Verified 2026-09-18 on this checkout: with the env set, a
+`physis_find` call appears as `{"tool":"physis_find","calls":1,"errors":0}`;
+without it the store stays untouched (both asserted in `tests/system_mcp.rs`).
+
+Project configs enable it for the workspace MCP entry so normal development
+accumulates the data; keep it off for anything customer-facing unless the
+customer asked for an audit trail.
 
 Verified 2026-09-14: OpenCode 1.18.30 used the catalog-listed free model
 `opencode/mimo-v2.5-free` through `serve` to call history → remember → history.

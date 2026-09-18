@@ -3,5 +3,9 @@
 command = "bash"
 args = ["/home/gio/physis_pro/scripts/physis-system-mcp.sh"]
 cwd = "/home/gio/physis_pro"
+# One `system.mcp.call` row per tool call (names, not argument values) so
+# adoption/usage data accumulates from normal development: `physis system usage`.
+# See docs/SYSTEM_DELEGATION.md -> Usage accounting.
+env = { PHYSIS_MCP_AUDIT = "1" }
 startup_timeout_sec = 15
 tool_timeout_sec = 60

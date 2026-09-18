@@ -6,7 +6,8 @@
       "env": {
         "PHYSIS_SCAN_ROOT": ".",
         "PHYSIS_DATA_DIR": ".physis",
-        "PHYSIS_ALLOW_DEV_LICENCE": "1"
+        "PHYSIS_ALLOW_DEV_LICENCE": "1",
+        "PHYSIS_MCP_AUDIT": "1"
       }
     }
   }

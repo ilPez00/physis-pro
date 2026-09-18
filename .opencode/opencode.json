@@ -16,7 +16,8 @@
       "enabled": true,
       "timeout": 60000,
       "environment": {
-        "PHYSIS_WORKSPACE": "/home/gio/physis_pro"
+        "PHYSIS_WORKSPACE": "/home/gio/physis_pro",
+        "PHYSIS_MCP_AUDIT": "1"
       }
     }
   },

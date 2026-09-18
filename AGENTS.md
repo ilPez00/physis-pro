@@ -40,6 +40,13 @@ checkout before using results. If tools are absent or mis-scoped, use
 `./target/debug/physis system` and report the missing connection.
 `physis_tasks`/`physis_task` expose delegation plans; reservations do not start
 workers. Existing Pro MCP tools and their store remain separate.
+`physis_list`/`physis_runs`/`physis_usage` are the read-only rollups: what the
+workspace holds, what was actually run, and per-tool call counts. The project
+MCP entries set `PHYSIS_MCP_AUDIT=1`, so every tool call appends one
+`system.mcp.call` row (tool name, ok, duration, argument key names — never
+values) and `physis_usage` answers "what do agents actually call" from real use.
+Record what you looked up and what you fell back to, then read `physis_usage`
+before claiming adoption or savings.
 
 Develop physis with physis: `just recall "<task>"` before work (verdict −1 =
 already tried and failed), `just dev-loop "<task>"` after (gate + note).

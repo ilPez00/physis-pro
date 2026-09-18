@@ -424,6 +424,10 @@ profiles and dependency evidence; do not chase a small binary by removing checks
 - Each patch includes relevant doc delta and a concise handoff: objective,
   changed paths, exact checks, result, limitations and next dependency. Record
   Physis lookups and conventional fallbacks in the same workspace store.
+  Shipped 2026-09-18 (P1 slice): `physis system runs|usage` plus three read-only
+  MCP rollups (`physis_list`/`physis_runs`/`physis_usage`) and the opt-in
+  `PHYSIS_MCP_AUDIT=1` call trail, so this instruction is measurable rather
+  than aspirational — a lookup leaves either a note or an audit row.
 - Never use a new abstraction to hide an existing duplicate. Retire legacy UI
   code only after the replacement reaches parity; preserve command aliases
   during transition. Keep shipped experiments outside default hot paths.

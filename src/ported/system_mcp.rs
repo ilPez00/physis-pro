@@ -3,12 +3,43 @@
 //! MCP stdio adapter for the shared workspace service, with no licence or model.
 //! Queries and explicit outcome notes share exactly the CLI's objects and log.
 //! No shell execution or delegation launch is exposed through this tool palette.
+//!
+//! Usage accounting: read-only calls deliberately write nothing, so the log can
+//! only answer "what did agents *record*", not "what did they call". Setting
+//! `PHYSIS_MCP_AUDIT=1` appends one `system.mcp.call` observation per call with
+//! the tool name, ok flag, duration and the argument *key names* — never the
+//! values, so neither source text nor queries leave the caller's process. Off by
+//! default: an audit trail nobody asked for is log growth, not evidence.
 
 use crate::ported::system::Workspace;
 use crate::ported::system_delegation;
 use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::io::{Read, Write};
+
+/// Opt-in MCP call audit. Value must be exactly `1`.
+pub const AUDIT_ENV: &str = "PHYSIS_MCP_AUDIT";
+
+fn audit_enabled() -> bool {
+    std::env::var(AUDIT_ENV).ok().as_deref() == Some("1")
+}
+
+/// One audit row per `tools/call`. Argument *names* only: an audit trail that
+/// stored queries would be a second copy of the caller's context.
+fn audit_call(ws: &Workspace, tool: &str, args: &Value, ok: bool, ms: u64, client: &str) {
+    let mut keys: Vec<&str> = args
+        .as_object()
+        .map(|o| o.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    keys.sort_unstable();
+    let _ = ws.record(
+        "system.mcp.call",
+        tool,
+        json!({"tool":tool, "ok":ok, "duration_ms":ms, "argument_keys":keys,
+            "client":client, "actor":format!("mcp:{client}"),
+            "note":"names only; argument values are not recorded"}),
+    );
+}
 
 fn tool(
     name: &str,
@@ -35,6 +66,9 @@ pub fn workspace_tools() -> Vec<Value> {
         tool("physis_predict","Consult the recorded process-failure prior before running argv; this does not execute it.",json!({"argv":{"type":"array","items":text,"minItems":1,"maxItems":64}}),&["argv"],false),
         tool("physis_tasks","List recorded delegation tasks and unstarted reservation states.",json!({}),&[],false),
         tool("physis_task","Read a delegation task with context, acceptance criteria and proposed invocation.",json!({"id":text}),&["id"],false),
+        tool("physis_list","List addressable files (hidden/build/vendor directories excluded). Paged; report which slice this is.",json!({"limit":limit}),&[],false),
+        tool("physis_runs","Recent command runs with intent, exit status and duration — the usage record agents actually consult via predict. Newest first.",json!({"limit":limit}),&[],false),
+        tool("physis_usage","Tool/call usage counters over the workspace observation log: per-source counts plus run kinds with failure rates. Read-only rollup for adoption questions.",json!({}),&[],false),
     ]
 }
 
@@ -127,6 +161,20 @@ fn call(ws: &Workspace, name: &str, args: &Value) -> Result<Value> {
             ws,
             text("id"),
         )?)?),
+        "physis_list" => {
+            let mut inventory = ws.inventory()?;
+            let total = inventory.objects.len();
+            let limit = number("limit", 100);
+            inventory.truncated |= total > limit;
+            inventory.objects.truncate(limit);
+            Ok(json!({"inventory":inventory, "files_enumerated":total,
+                "limit":limit, "truncated":inventory.truncated}))
+        }
+        "physis_runs" => {
+            let limit = number("limit", 20).min(200);
+            Ok(ws.runs(limit)?)
+        }
+        "physis_usage" => Ok(ws.usage()?),
         _ => anyhow::bail!("unknown tool"),
     }
 }
@@ -138,6 +186,9 @@ pub fn serve_workspace(ws: &Workspace) -> Result<()> {
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
     let mut initialized = false;
+    // Claimed by the client at handshake; used to attribute audit rows.
+    let mut client = String::from("unknown");
+    let audit = audit_enabled();
     loop {
         let mut line = String::new();
         // Bound allocation even for a peer that never sends a newline.
@@ -168,6 +219,9 @@ pub fn serve_workspace(ws: &Workspace) -> Result<()> {
             match request["method"].as_str().unwrap() {
                 "initialize" => {
                     initialized = true;
+                    if let Some(name) = request["params"]["clientInfo"]["name"].as_str() {
+                        client = name.chars().take(64).collect();
+                    }
                     let version = request["params"]["protocolVersion"]
                         .as_str()
                         .unwrap_or("2024-11-05");
@@ -188,11 +242,23 @@ pub fn serve_workspace(ws: &Workspace) -> Result<()> {
                         .get("arguments")
                         .cloned()
                         .unwrap_or(json!({}));
-                    let result = call(ws, request["params"]["name"].as_str().unwrap_or(""), &args);
+                    let tool = request["params"]["name"].as_str().unwrap_or("").to_string();
+                    let started = std::time::Instant::now();
+                    let result = call(ws, &tool, &args);
                     let (text, failed) = match result {
                         Ok(data) => (serde_json::to_string(&data)?, false),
                         Err(e) => (format!("{e:#}"), true),
                     };
+                    if audit {
+                        audit_call(
+                            ws,
+                            &tool,
+                            &args,
+                            !failed,
+                            started.elapsed().as_millis() as u64,
+                            &client,
+                        );
+                    }
                     json!({"result":{"content":[{"type":"text","text":text}],"isError":failed}})
                 }
                 _ => json!({"error":{"code":-32601,"message":"Method not found"}}),

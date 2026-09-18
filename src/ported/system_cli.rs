@@ -94,6 +94,17 @@ enum SystemCommand {
         #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=1000))]
         limit: u32,
     },
+    /// Recent command runs with intent, exit status and duration — the usage
+    /// record `predict` reads, newest first. Read-only.
+    Runs {
+        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=200))]
+        limit: u32,
+    },
+    /// Tool/call usage counters over the workspace observation log: per-source
+    /// counts plus per-kind run tallies with failure rates. Read-only rollup
+    /// for adoption questions. Read-only queries leave no observation, so
+    /// counts are exact for notes/runs, lower-bound for reads.
+    Usage,
     /// Record a development note; does not alter classification quality.
     Remember {
         text: String,
@@ -205,6 +216,8 @@ impl SystemCommand {
             Self::Predict { .. } => "predict",
             Self::Read { .. } => "read",
             Self::History { .. } => "history",
+            Self::Runs { .. } => "runs",
+            Self::Usage => "usage",
             Self::Remember { .. } => "remember",
             Self::Run { .. } => "run",
             Self::Export { .. } => "export",
@@ -268,6 +281,8 @@ impl SystemArgs {
                 SystemCommand::History { query, limit } => {
                     workspace.history(query.as_deref(), *limit as usize)?
                 }
+                SystemCommand::Runs { limit } => workspace.runs(*limit as usize)?,
+                SystemCommand::Usage => workspace.usage()?,
                 SystemCommand::Remember {
                     text,
                     outcome,

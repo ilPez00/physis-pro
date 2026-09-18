@@ -153,6 +153,8 @@ impl Workspace {
                 {"name":"predict", "writes":false, "purpose":"Read this workspace's own record of how this kind of action has gone"},
                 {"name":"read", "writes":false, "purpose":"Read a path (optionally path:start-end), file ID or prefix, or obs:sequence"},
                 {"name":"history", "writes":false, "purpose":"Read this workspace's recorded work"},
+                {"name":"runs", "writes":false, "purpose":"Recent command runs with intent, exit status and duration, newest first"},
+                {"name":"usage", "writes":false, "purpose":"Per-source and per-kind usage counters over the observation log"},
                 {"name":"delegation", "writes":true, "purpose":"Plan/list/show are read-only; create/reserve/release record unstarted tasks; export writes a snapshot; no worker launch"},
                 {"name":"remember", "writes":true, "purpose":"Append a note with an explicit outcome"},
                 {"name":"run", "writes":true, "purpose":"Run explicit argv and record intent, logs, and exit status"},
@@ -850,6 +852,107 @@ impl Workspace {
         )?;
         Ok(json!({"id":format!("obs:{}", record.seq), "record":record,
             "meaning":"operator-reported development outcome, not classification quality feedback"}))
+    }
+
+    /// Recent command runs with intent, exit status and duration — the usage
+    /// record `predict` reads, newest first. Read-only; a run that exited 0
+    /// may still not have done what was wanted (see `predict`'s not_claimed).
+    pub fn runs(&self, limit: usize) -> Result<Value> {
+        let mut rows: Vec<Value> = Vec::new();
+        for o in self.records()?.into_iter().rev() {
+            if o.source != "system.run.finish" {
+                continue;
+            }
+            let payload: Value = serde_json::from_str(&o.body).unwrap_or(Value::Null);
+            rows.push(json!({
+                "id": format!("obs:{}", o.seq),
+                "at": o.at,
+                "intent": payload["intent"],
+                "actor": payload["actor"],
+                "argv": payload["argv"],
+                "process_success": payload["process_success"],
+                "exit_code": payload["exit_code"],
+                "duration_ms": payload["duration_ms"],
+            }));
+            if rows.len() >= limit.max(1) {
+                break;
+            }
+        }
+        let tally = Tally::from_runs(&self.records()?, None);
+        Ok(json!({"runs": rows, "count": rows.len(),
+            "runs_total": tally.runs, "failures_total": tally.failures,
+            "workspace_failure_rate": tally.rate(),
+            "history_window": HISTORY_WINDOW, "log": self.log_path()}))
+    }
+
+    /// Tool/call usage counters over the workspace observation log: per-source
+    /// counts plus per-kind run tallies with failure rates. Read-only rollup
+    /// for adoption questions ("what do agents actually call, what fails").
+    /// Sources count what is *recorded* — read-only MCP calls leave no
+    /// observation, so this is a lower bound on reads, exact on writes/runs.
+    pub fn usage(&self) -> Result<Value> {
+        use std::collections::BTreeMap;
+        let records = self.records()?;
+        let mut by_source = BTreeMap::<String, usize>::new();
+        for o in &records {
+            *by_source.entry(o.source.clone()).or_default() += 1;
+        }
+        // MCP call audit, when `PHYSIS_MCP_AUDIT=1` was set on the server. Keyed
+        // by tool so "what do agents actually call, and what errors" is one step
+        // from the raw log. Absent entirely when no audit row exists.
+        let mut mcp_tools: BTreeMap<String, (u32, u32)> = BTreeMap::new();
+        for o in &records {
+            if o.source != "system.mcp.call" {
+                continue;
+            }
+            let payload: Value = serde_json::from_str(&o.body).unwrap_or(Value::Null);
+            let tool = payload["tool"].as_str().unwrap_or(&o.subject).to_string();
+            let ok = payload["ok"].as_bool().unwrap_or(false);
+            let entry = mcp_tools.entry(tool).or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += u32::from(!ok);
+        }
+        let mcp_calls: Vec<Value> = mcp_tools
+            .iter()
+            .map(|(tool, (calls, errors))| json!({"tool": tool, "calls": calls, "errors": errors}))
+            .collect();
+        let tally = Tally::from_runs(&records, None);
+        let mut kinds: Vec<Value> = tally
+            .per_kind
+            .iter()
+            .map(|(kind, (runs, failures))| {
+                let rate = if *runs == 0 {
+                    0.0
+                } else {
+                    *failures as f64 / *runs as f64
+                };
+                json!({"kind": kind, "runs": runs, "failures": failures,
+                    "failure_rate": rate})
+            })
+            .collect();
+        kinds.sort_by(|a, b| {
+            b["runs"]
+                .as_u64()
+                .unwrap_or(0)
+                .cmp(&b["runs"].as_u64().unwrap_or(0))
+                .then_with(|| {
+                    a["kind"]
+                        .as_str()
+                        .unwrap_or("")
+                        .cmp(b["kind"].as_str().unwrap_or(""))
+                })
+        });
+        Ok(json!({"workspace_records_in_window": records.len(),
+            "history_window": HISTORY_WINDOW,
+            "by_source": by_source,
+            "run_kinds": kinds,
+            "runs_total": tally.runs, "failures_total": tally.failures,
+            "workspace_failure_rate": tally.rate(),
+            "mcp_calls": mcp_calls,
+            "mcp_calls_total": mcp_calls.iter().map(|r| r["calls"].as_u64().unwrap_or(0)).sum::<u64>(),
+            "audit_env": "PHYSIS_MCP_AUDIT=1",
+            "coverage_note": "read-only MCP/CLI queries are not recorded unless the server runs with the audit env; counts are exact for notes/runs, lower-bound for reads",
+            "log": self.log_path()}))
     }
 
     /// Executes the exact program/arguments requested. No shell is inserted.
