@@ -1,3 +1,4 @@
+> **PHYSIS-FIRST:** While developing Physis, use Physis itself for search, retrieval, context packing, navigation, and routing whenever applicable; log every Physis-assisted operation and its conventional alternative/baseline where measurable (tokens/context, latency, hits/misses, errors, fallbacks, task outcome) so normal development continuously produces dogfooding and benchmark data.
 # I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
 # Physis Pro — Industrial Backoffice Intelligence
 
@@ -99,6 +100,7 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Ingest | `ingest.rs` | `DocKind`, `IngestedDoc`, `classify_file()`, `ingest_all()`, `sort_by_kind()`. 4 tests |
 | Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 8 tests |
 | Semiotic editing | `core.rs` + `web.rs` | **Exchange-parts edit**: `PhysisCore::edit_node()`/`delete_node()` swap node content while preserving structure (id/verdict/edges/provenance); `CoherenceNode.cell_pin` hybrid-pin semantics. API: `POST /api/v1/coherence/edit` + `/delete`. CLI: `node-edit`/`node-delete`. See `docs/SEMIOTIC_EDITING.md` |
+| Semantic navigation | `nav/` + `bin/hud.rs` | **Function 3 MVP**: meaning-first navigation over content-hashed objects (file/passage/note) with hybrid ranking (semantic+lexical+recency+context+pin/relation), per-component `why:` explanations, pins + SAME/DIFFERENT/RELATED relations with provenance (`User`/`Deterministic`/`Inferred` — never collapsed), plural semantic parents, nav trail, graph dual view (`g` in HUD). Frontends program against `nav::workspace::NavWorkspace` (hot-swap seam: index+sled+lazy embedder behind one façade). CLI `physis-pro nav index|query|open|pin|rel|rels|parents|trail|sem-off|sem-on|notebook`; TUI `physis-hud` (`--features tui`). Index = per-root JSON file (NOT sled — blob-growth measured: 5 GB of unreclaimed blobs); embeddings via shared `pack::EmbedCache`. Degraded lexical-only mode reported, never silent. Local updates: `just update` (`scripts/physis-update.sh`, smoke+backup+rollback). See `docs/SEMANTIC_NAVIGATION.md` |
 | Fixed-token search | `web.rs` + `rag.rs` | `POST /api/v1/search/nodes` + CLI `node-search` — budget-bounded similarity search over coherence + goal nodes (`total_tokens ≤ token_budget`), reusing `rag::TokenFixedRetriever` + `count_tokens` |
 | Watch mode | `network.rs` + `web.rs` + `cli.rs` | **Auto-ingest**: `PHYSIS_WATCH_DIR` background thread, `POST /api/v1/watch` on-demand sweep, CLI `physis-pro watch [--once]` — register new/changed files as labeled core nodes (shared embedder), drop nodes for removed files. Shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix` |
 | Vault import | `vault.rs` + `web.rs` + `cli.rs` | **Vault importers (Phase 7B)**: Obsidian/markdown, plain notes, `git log` → `VaultDoc` (title from H1/frontmatter, `h1:`…`h3:` headings) → labeled core nodes. CLI `physis-pro vault <dir> [--git N]`, web `POST /api/v1/vault/import` (scan-root confined, dedupe by label); `parse_git_log` tested without a git binary |
@@ -288,18 +290,15 @@ Dev note: rebuilding with a custom vendor key needs
 - New endpoint: `GET /api/v1/coherence/nodes/{id}/instances`
 - Hyperlinked navigation: instances include origin file paths and cell info
 
-### Conceptual Search (Phase 11C — planned)
-- `GET /api/v1/concepts/search?query=<text>&threshold=<f32>` endpoint
-- Concept clustering + grouping by ontology cell
-- Salience-aware ranking using quality feedback (penalties/boosts)
-- CLI commands: `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+### Conceptual Search (Phase 11C — completed)
 
-### JEPA Reranker (Phase 11D — planned)
-- Lightweight MLP reranker on top of existing embeddings
-- Improves classification in ambiguous cells (Phase 10c)
-- Feature gate: `jepa-rerank`
-- Integrates with `CellClassifier::classify` to re-rank top-k candidates
-- Falls back to pure cosine when disabled
+- `GET /api/v1/concepts/search?query=<text>&threshold=<f32>&limit=<n>` endpoint (`web/search.rs::concepts_search_handler`, tenant-scoped)
+- Concept grouping by effective semiotic cell + salience-aware ranking via the quality tracker's `cell_standing` (both raw `score` and `adjusted` ship)
+- CLI commands: `physis-pro concepts <query>`, `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+
+### JEPA Reranker (Phase 11D — superseded, do not build)
+- Trained JEPA-style predictive latent FALSIFIED at scale (toy win = supervision confound; chance-level on 730 entries — see `research/perspective-discovery/THESIS_EVALUATION_JEPA_QWEN.md` It. 3–4)
+- What ships instead: quality-tracker salience re-rank (`cell_standing`, same multiplier `adjust_score` uses) + existing LLM `rerank_cell`
 
 ### Cargo Features
 | Feature | Dependencies | Purpose |

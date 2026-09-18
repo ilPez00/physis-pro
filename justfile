@@ -115,3 +115,15 @@ install-hooks:
 release-core:
     ./scripts/check-release-integrity.sh --crate-dir physis-core
     cd physis-core && cargo publish
+
+# Rebuild + swap the local binaries into ~/.local/bin (no full reinstall).
+# Smoke-tests candidates and keeps backups: `just rollback` restores them.
+update:
+    scripts/physis-update.sh
+
+# Report what is installed vs the current checkout.
+update-check:
+    scripts/physis-update.sh --check
+
+rollback:
+    scripts/physis-update.sh --rollback

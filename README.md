@@ -193,6 +193,7 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/coherence/delete` | ✓ | Delete a node + every reference (dedupe index, holarchy node/edges, sled row) `{id}` |
 | POST | `/api/v1/search/nodes` | ✓ | **Fixed-token search** over coherence + goal nodes `{query, token_budget?, top_k?}` — response `total_tokens ≤ token_budget` (same contract as `/rag/retrieve`) |
 | POST | `/api/v1/ask` | ✓ | **Plain-English graph query**: question → embedder-consistent retrieval (token-packed) → grounded synthesis via the LLM cascade with `[n]` citations. Never errors for lack of a provider — degrades to ranked matches + a `note` |
+| GET  | `/api/v1/concepts/search` | ✓ | **Conceptual search** `?query=&threshold=&limit=`: cosine-ranked coherence labels, re-ranked by quality `cell_standing` (`score` + `adjusted` both ship), grouped by effective cell |
 | GET  | `/api/v1/quality` | global | **Quality feedback ledger**: learned per-cell penalties/boosts + per-failure records (newest first, embeddings stripped) with open/resolved counts and mean severity |
 | GET  | `/api/v1/communities` | ✓ | Label-propagation communities over the tenant's labelled coherence graph, largest first |
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |

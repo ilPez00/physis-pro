@@ -46,3 +46,8 @@ models/wordnet/
 # redacted, digest-target corpus is committed (benchmarks/behaviour/corpus-redacted.json.gz).
 benchmarks/behaviour/actions-*.json
 benchmarks/behaviour/sessions.json
+
+# container build trees
+target-*/
+# machine-generated run logs
+logs/

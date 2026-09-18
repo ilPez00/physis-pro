@@ -92,31 +92,34 @@ Lightweight MLP reranker trained on ontology entries:
 - ✅ `InstanceParams` / `InstanceResponse` request/response types
 - ✅ Tests: `test_find_conceptual_instances`, `test_node_fragment_extraction`
 
-### Phase 11C — Conceptual Search (NOT STARTED)
+### Phase 11C — Conceptual Search (COMPLETED)
 
-- ☐ `GET /api/v1/concepts/search?query=<text>&threshold=<f32>` endpoint
-- ☐ Concept clustering + grouping algorithm
-- ☐ Salience-aware ranking using quality feedback
-- ☐ CLI commands: `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+- ✅ `GET /api/v1/concepts/search?query=<text>&threshold=<f32>&limit=<n>` endpoint (`web/search.rs::concepts_search_handler`, tenant-scoped)
+- ✅ Concept grouping by effective semiotic cell (pin wins, else classifier top hit) — `group` numbers cells by first appearance
+- ✅ Salience-aware ranking via the quality tracker's `cell_standing` (`raw * standing`; both `score` and `adjusted` ship so the promotion is visible, never silent). Pure ranker `models::rank_concept_hits()` unit-tested
+- ✅ CLI commands: `physis-pro concepts <query>`, `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+- ✅ Tests: `concept_rank_*` (3), `test_cli_concepts_node_instances_jump_context`, `concepts_search_ranks_groups_and_isolates_tenants` (http_surface)
 
-### Phase 11D — JEPA Reranker (NOT STARTED)
+### Phase 11D — JEPA Reranker (SUPERSEDED — DO NOT BUILD)
 
-- ☐ JEPA model training infrastructure
-- ☐ Integration with `CellClassifier::classify` to re-rank top-k candidates
-- ☐ Feature gate: `jepa-rerank`
-- ☐ Tests for rerank quality improvement
+- ❌ Trained JEPA-style predictive latent: **FALSIFIED at scale** — toy win was a supervision confound; chance-level on 730 entries under a shuffled-label control (`research/perspective-discovery/THESIS_EVALUATION_JEPA_QWEN.md` It. 3–4; Stage 12 paired t = −5.58 over 22 configs; It. 17b supervised metric learning ceiling 0.534 held-out with 0.277 generalization gap)
+- ✅ What ships instead: the quality-tracker salience re-rank above (`cell_standing` = `1 − penalty + boost`, the same multiplier `adjust_score` already applies to live classification) plus the existing LLM `rerank_cell` for ambiguous classify calls. No new model, no new feature gate, no training infrastructure — the plan's `jepa-rerank` feature was never added to `Cargo.toml` and stays out
 
 ## Files Modified
 
 | File | Changes |
 |------|---------|
-| `src/models.rs` | DocumentTemplate enum + template structs, ConceptualInstance, CoherenceNode.with_template/with_embedder/extract_fragment, NodeView.fragment/instances fields |
+| `src/models.rs` | DocumentTemplate enum + template structs, ConceptualInstance, CoherenceNode.with_template/with_embedder/extract_fragment, NodeView.fragment/instances fields, ConceptHit + rank_concept_hits() (11C) |
 | `src/core.rs` | `find_conceptual_instances()` method |
 | `src/ingest.rs` | DocKind::OcrDocument/Image/Video, extract_ocr/extract_audio_transcript/extract_spreadsheet/extract_video_metadata, template extraction in push loop |
 | `src/operational.rs` | DocKind match updated for new variants |
 | `src/web/coherence.rs` | Instance listing endpoint, fragment population in handlers |
-| `src/web/mod.rs` | Route registration for instances endpoint |
-| `Cargo.toml` | New features: `ocr`, `audio`, `jepa-rerank`; updated `full` and `ingest` features |
+| `src/web/search.rs` | `concepts_search_handler` (11C: threshold + salience re-rank + cell grouping) |
+| `src/web/mod.rs` | Route registration for instances endpoint + `/api/v1/concepts/search`; `ConceptSearchQuery` type |
+| `src/cli.rs` | `run_concepts` / `run_node_instances` / `run_jump` / `run_node_context` (11C) |
+| `src/main.rs` | `Concepts` / `NodeInstances` / `Jump` / `Context` CLI subcommands + dispatch + CLI test |
+| `tests/http_surface.rs` | `concepts_search_ranks_groups_and_isolates_tenants` (11C) |
+| `Cargo.toml` | New features: `ocr`, `audio` (`jepa-rerank` planned but never added — 11D superseded, see above); updated `full` and `ingest` features |
 
 ## Feature Flags
 
@@ -124,7 +127,6 @@ Lightweight MLP reranker trained on ontology entries:
 |---------|-------------|---------|
 | `ocr` | `tesseract` | OCR pipeline for scanned documents/images |
 | `audio` | (Whisper API) | Audio transcription for mp3/wav/flac |
-| `jepa-rerank` | (future) | JEPA model reranking |
 | `ingest` | `calamine`, `csv`, `quick-xml`, `tesseract` | Spreadsheet parsing + OCR support |
 
 ## Tests
@@ -144,16 +146,11 @@ All new functionality has tests:
 
 ## Remaining Work
 
-### JEPA Reranker (Phase 11D)
-The JEPA reranker integration is planned but not implemented. The design is:
-- Lightweight MLP trained on ontology entry embeddings to provide a reranking signal
-- Integrates with `CellClassifier::classify()` to adjust top-k scores
-- Feature-gated behind `jepa-rerank` feature
-- Falls back to pure cosine similarity when disabled or unavailable
-
-### Conceptual Search (Phase 11C)
-The conceptual search endpoint is planned but not implemented. Key design points:
-- `GET /api/v1/concepts/search` for plain-English graph queries
-- Concept clustering using community detection on the coherence graph
-- Salience-aware ranking using accumulated quality feedback (penalties/boosts)
-- CLI: `physis-pro node-instances <id>`, `physis-pro jump --node <id>`, `physis-pro context --node <id>`
+None on the plan as written: 11A + 11B shipped before, 11C ships here, 11D
+is superseded (do not build — see above). What remains is verification:
+`cargo check --all-targets --features web` is green; still to run once the
+build settles: `cargo test --lib models::tests`,
+`cargo test --bin physis-pro test_cli_concepts_node_instances_jump_context`,
+`cargo test --test http_surface --features web concepts_search`, then the
+full gates (`cargo test`, `cargo clippy --all-targets -- -D warnings`,
+`cargo fmt -- --check`, `just dev-loop "PLAN 11C conceptual search"`).

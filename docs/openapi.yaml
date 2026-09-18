@@ -351,6 +351,51 @@ paths:
               schema:
                 type: object
 
+  /api/v1/concepts/search:
+    get:
+      summary: Conceptual search with salience re-rank and cell grouping
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: threshold
+          in: query
+          required: false
+          description: Raw-cosine floor before quality salience applies (default 0.0)
+          schema:
+            type: number
+            format: float
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Hits with raw `score`, salience-adjusted `adjusted`, and cell `group`
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  query:
+                    type: string
+                  threshold:
+                    type: number
+                  count:
+                    type: integer
+                  groups:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+
   /api/v1/study/log:
     post:
       summary: Log study events

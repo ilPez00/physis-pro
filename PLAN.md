@@ -1,3 +1,4 @@
+> **PHYSIS-FIRST:** While developing Physis, use Physis itself for search, retrieval, context packing, navigation, and routing whenever applicable; log every Physis-assisted operation and its conventional alternative/baseline where measurable (tokens/context, latency, hits/misses, errors, fallbacks, task outcome) so normal development continuously produces dogfooding and benchmark data.
 read physis_resources.txt
 
 # Physis Pro — Master Plan
@@ -9,6 +10,56 @@ for the current two-project boundary, daily implementation pseudocode, research
 experiments, acceptance gates and scope cuts. Pro owns application features;
 Core remains the reusable engine with a small CLI/JSON interface. This cycle
 supersedes older three-project split proposals for implementation planning.
+
+## First priority — hygiene + execution optimizations (2026-09-17)
+
+> Supersedes §32.6 P0 until done. Evidence in `system remember` obs:16–18.
+> **Status 2026-09-17:** items 1–2, 4–6 done (see per-item notes); 3 left to
+> the W1/W2 authors (not this branch's work to commit); 7–8 closed as no-op.
+
+Hygiene (evidence-ranked, fewest first):
+1. ✅ CI clippy gate verified present: `.github/workflows/ci.yml` runs
+   `cargo clippy --all-targets -- -D warnings` (default features include the
+   industrial stack; the alias is a no-op per the ci.yml comment). Local gate
+   now green: `cargo clippy --lib -- -D warnings` clean.
+2. ✅ Warnings cleared (they were 35, not 8 — `-D warnings` would have failed):
+   unused imports/params underscored or dropped, 19 auto-lints via
+   `clippy --fix`, `intent_ir` unwrap-after-is_none rewritten, `clamp` idiom,
+   `to_vec`, `DependencyGraph: Default`. Dead `ported/tui.rs`,
+   `ported/world.rs`, `orchestration` scaffolding got module-level
+   `allow(dead_code)` with ponytail comments naming the upgrade path.
+3. ⏸ Dirty tree (Phase 30 W1/W2 files): left to the owning slices.
+4. ✅ Scan coverage: `physis-core/src/main.rs::run_scan` clipped node labels at
+   5000 chars instead of skipping long files — `physis-core scan src` now
+   registers 223/221 files (was 42). Submodule edit; core pointer moves with
+   the core repo's own commit.
+5. ✅ CLI embedder: plan was wrong that it is env-only — physis-core's default
+   features exclude `embed-onnx`, so the shipped core binary could never load
+   weights. Fixed by downloading BGE-base ONNX **quantized** weights (110 MB,
+   replaced the 436 MB fp32 export; same 768-d output, self-test passes, scores
+   within 0.005 of fp32 on the probe set) to `models/bge-base-en-v1.5/`
+   (gitignored) and building the core binary with `--features embed-onnx`.
+   Measured: `classify` 60s+ → 29.9s (debug) → 19.5s (release build);
+   `scan src` 6.7s release for 223 files, semantic. Probe example
+   `embed_probe` kept for diagnostics. Next lever if classify latency matters:
+   persistent exemplar-embedding cache (Pro's `EmbedCache` pattern) — not
+   built, YAGNI until CLI classify volume justifies it.
+
+Execution hot path (checked 2026-09-17, evidence in `src/web/search.rs`,
+`src/rag.rs`, `src/web/mod.rs`):
+6. ✅ `retrieve_nodes()` (`src/web/search.rs`) now scores candidates inside the
+   tenant lock (dot product, same contract as `concepts_search_handler`) and
+   keeps only the top `4×top_k` (floor 32) before the MMR token packer — the
+   full-store id/label/384-dim-embedding clone per request is gone. Serves
+   `/api/v1/search/nodes` + `/api/v1/ask`. Verified: 1033/1033 lib tests,
+   `http_surface` search (5) + ask (3) suites green.
+7. Already-fast, leave alone: per-query `embed_text` (spawn_blocking, no cache —
+   one model call, fine); `EmbedCache` load/save per batch (scan/pack path only,
+   not per-request); token trie per-invocation (CLI only).
+8. Skipped: SIMD `cosine_sim`, per-tenant content-index, document-lock
+   granularity — all YAGNI until a profile says otherwise.
+
+## Active development cycle — 2026-09-16 to 2026-09-29
 
 Research objective: [the semantic operational computer](docs/semantic-computer/RESEARCH_DIRECTIVE.md).
 The [v1 implementation skeleton](docs/semantic-computer/CONTRACT.md) defines
@@ -3522,3 +3573,634 @@ results valid, never promote.
 Phase 28 completes as evaluation. No code, worker, or promotion follows from
 this section. Next: reviewer confirms the citations above; the coordinator
 mints AG packets in dependency order (AG-001 first) when capacity allows.
+
+## Phase 29 — Model-agnostic neurosymbolic control plane (thesis record, 2026-09-17)
+
+Status: thesis recorded, design-only. No implementation, worker launch,
+production edit, merge, deploy, or model purchase is authorized by this
+section. General guidelines apply (Phase 27 shared contract +
+packets/PROTOCOL.md + AGENTS.md): pansa workspace, confirm checkout and
+submodule revisions, preserve pre-existing dirty files, freeze
+manifests/splits/seeds/controls/tolerances before holdout, negative results
+are valid outcomes, independent review is mandatory, only a reviewer releases
+dependencies.
+
+### 29.0 Core thesis
+
+Physis is a model-agnostic neurosymbolic control plane between human intent,
+persistent machine/world state, and interchangeable cognitive engines. The
+LLM must not own the world representation. Physis does.
+
+```text
+human intent
+    ↓
+PHYSIS
+    ├─ persistent symbolic graph
+    ├─ ontologies / typed relations
+    ├─ invariants / constraints
+    ├─ temporal + dependency structure
+    ├─ file/substrate priors
+    ├─ provenance + uncertainty
+    ├─ semantic delta detection
+    ├─ residual/surprise detection
+    └─ compute routing
+         ↓
+ deterministic algorithms
+ embedders
+ small models
+ large LLMs
+ tools
+ human agent
+         ↓
+actual computer/world state
+         ↕
+       PHYSIS
+```
+
+This phase records the thesis as the long-term architectural direction. It
+does not replace Phases 22–24 (correctness/replay), 26 (bounded adaptive
+documents), 27 (measured structure of change), or 28 (agentic-integration
+evaluation). It constrains them: every follow-up must reuse existing
+primitives (coherence graph, causal ledger, typed edges, pack/rag/nav
+retrieval, quality standing, orchestration seams) and must not build a
+parallel engine where existing state can be adapted.
+
+### 29.1 Three pathways
+
+1. Symbolic → Neural: compile persistent structure into the smallest relevant
+   model context. Retrieve graph neighborhoods, dependencies, constraints,
+   unresolved questions, prior actions, and high-information regions — never
+   dump raw histories/files into prompts.
+2. Neural → Symbolic: treat model outputs as proposals, not ephemeral prose.
+   Convert useful outputs into typed claims, relations, plans, hypotheses,
+   edits, constraints, and uncertainties with provenance and confidence.
+   Validate deterministically where possible.
+3. Neural ↔ Symbolic loop: unresolved region → cheapest sufficient compute →
+   ingest result into graph → measure semantic/structural delta → propagate
+   consequences → validate invariants → escalate only remaining uncertainty.
+
+Core rule — cheapest sufficient cognition:
+
+```text
+parser/rule
+→ deterministic algorithm
+→ statistics
+→ embedding
+→ small model
+→ large model/API
+→ human
+```
+
+Natural language is one interface to the graph, not the store. Computer state
+(files, code ASTs, browser state, processes, commands, devices, projects,
+tasks, documents, external tools) becomes graph objects with provenance,
+not repeated prose translations.
+
+### 29.2 Relation layer, human authority, conceptual API
+
+Universal relation vocabulary (target): CONTAINS, DEFINES, REFERENCES,
+DEPENDS_ON, PRECEDES, CAUSES, TRANSFORMS, CALLS, READS, WRITES, PRODUCES,
+CONSUMES, EQUIVALENT_TO, CONTRADICTS, SUPPORTS, SATISFIES. Current
+`RelationType` coverage vs this list is inventoried in §28.1 row 6; only
+missing predicates with traceable mappings are ever added (AG-004), with
+mapping-destroyed controls per MS-003 discipline. Source-specific structure
+and provenance are preserved beneath normalization.
+
+Human intervention is first-class: pin meanings, override classifications,
+establish equivalences, reject hypotheses, modify ontology, manipulate the
+machine directly. Human actions enter the same event/state model as model
+actions but carry privileged authority (§28.1 row 7; nav privileged ops,
+cell-pin hybrid, owner-checked abort, ledger `actor`).
+
+Optimize explicitly for: persistent state over conversational memory,
+structure over token repetition, delta over full recomputation, residual over
+uniform attention, deterministic computation over model calls, small models
+over large models, model replaceability over provider coupling,
+inspectability over hidden reasoning.
+
+Conceptual API (direction, not a committed signature):
+
+```rust
+observe(world_delta);
+update_graph();
+detect_invariants();
+detect_residuals();
+select_unresolved_region();
+route_compute(region);
+ingest_result();
+validate();
+propagate();
+```
+
+A model call receives a compiled envelope — GOAL / CURRENT RELEVANT STATE /
+DEPENDENCIES / CONSTRAINTS / KNOWN INVARIANTS / UNRESOLVED VARIABLES /
+REQUESTED OPERATION / EXPECTED OUTPUT SCHEMA — never arbitrary accumulated
+chat context (AG-001).
+
+### 29.3 Success metrics, demo, hypothesis
+
+Measure: task quality; context/token reduction; model-call reduction;
+percentage handled deterministically; incremental recomputation ratio;
+structural persistence across model swaps; recovery from wrong model outputs;
+provenance completeness; time from human intent to verified machine-state
+change. Each metric ships with denominators and uncertainty (AG-006).
+
+Minimal vertical demo (gated, not authorized): user gives a natural-language
+objective over a real code/project workspace; Physis constructs/updates
+persistent structure, identifies the relevant region, selects
+deterministic/model/human computation, performs or proposes the operation,
+validates the resulting state, and preserves the learned structure for the
+next task.
+
+Research hypothesis under test: a computer whose semantic/world state lives
+outside the neural model can use LLMs as replaceable cognitive peripherals,
+achieving better continuity, control, interpretability, and compute
+efficiency than systems whose effective world model lives primarily inside
+prompts and context windows. Do not build another agent wrapper or chat
+frontend. Build the semantic runtime that owns state and recruits agents
+when needed.
+
+### 29.4 Quantitative event-stream layer (pointer, not a copy)
+
+The experimental layer treating language, semantic state, agent traces,
+repository evolution, and retrieval history as multivariate nonstationary
+event streams is specified in
+[Quantitative event streams](research/QUANTITATIVE_EVENT_STREAMS.md) under
+Phase 27, executed only through MS-001…MS-008 gates. That document is
+normative for method detail; this section records scope and discipline only.
+
+Initial experiment set (Q-labels are local to that document): Q1 semantic
+volatility (EWMA vs rolling baselines; spikes predicting structural change);
+Q2 change-points (CUSUM/Page-Hinkley/BOCD/PELT vs fixed windows, LLM phase
+labels, shuffled-order control); Q3 factors (PCA/robust/NMF/incremental,
+variance explained, stability, retrieval usefulness); Q4 cointegration as
+invariant discovery (Engle-Granger/Johansen/ADF-KPSS-style; priority
+hypothesis, admissible trajectories only); Q5 Hawkes excitation
+(conditional on timestamps and event counts, vs co-occurrence/transition
+counts/shuffle/time-reversed nulls); Q6 portfolio retrieval
+(covariance-aware allocation vs BM25/cosine/RRF/MMR/TokenFixedRetriever
+under equal token budget); Q7 tail impact (VaR/ES, heavy-tail diagnostics
+before EVT/GPD); Q8 walk-forward routing (tokens-to-passing-task on real
+worker outcomes, after validated signals).
+
+Standing rules: every method beats cheap baselines (frequency, recency,
+BM25, cosine, RRF, MMR, transition counts, rolling averages, existing
+Physis structure/order metrics) plus a claim-matched null (shuffle order /
+labels, time reversal, degree-preserving rewiring, phase randomization,
+bootstrap); walk-forward validation wherever time leakage is possible;
+prefer online/incremental forms with cost proportional to the delta, not to
+history; instrument CPU/RAM/latency/tokens/calls/recall/success per method;
+a method whose compute exceeds its savings is discarded. Negative results
+are first-class outputs. Kill criteria: fails a strong null, reproduces
+frequency or cosine only, unstable across windows, needs arbitrary
+thresholds, overfits one project, no downstream gain, costs more than it
+saves.
+
+Target architecture under test:
+
+```text
+LANGUAGE / ACTION STREAM → cheap quantitative state estimation
+→ regime + invariant + propagation map
+→ sparse context/compute allocation → Notebook / agent, cheap ↔ strong
+```
+
+Deepest hypothesis: semantic systems may be easier to control as dynamical
+systems than to regenerate as prose. Generative models are used only where
+the deterministic/statistical layer reaches a measured limit.
+
+### 29.5 Follow-ups (not authorized)
+
+AG-001 envelope compiler; AG-002 proposal gate on graph writes; AG-003
+cheapest-cognition router; AG-004 relation extension; AG-005
+computer-state objects (AST/process/task first); AG-006 agent-path metrics —
+each needs its own packet plus reviewer release in dependency order
+(AG-001 first), frozen manifest/splits/seeds/controls/tolerances before
+holdout, reuse of existing primitives, Evidence / Commands / Results /
+Limitations / Decision report. Q1–Q8 run only inside MS packets. No code,
+worker, merge, deploy, or promotion follows from this section.
+
+### 29.6 Decision
+
+Phase 29 completes as thesis record. Next: reviewer confirms §28 citations
+and the §29.4 pointer resolve; the coordinator mints AG packets when
+capacity allows. Unfinished correctness, isolation, and release gates in
+Phases 22–24, 26–28 keep priority over any Phase 29 follow-up.
+
+## Phase 30 — Spatial world surface MVP (2026-09-17)
+
+Status: planned; slice W1 authorized (edge identity + persistence + vocab,
+below) + W2 nav-bridge authorized (below). All later slices need their own
+plan entry + reviewer release.
+General guidelines apply (Phase 27 shared contract + packets/PROTOCOL.md +
+AGENTS.md): pansa workspace, confirm checkout and submodule revisions,
+preserve pre-existing dirty files (MS-track + nav/HUD work is another
+agent's — touch only the files named per slice), freeze manifests before
+holdout, negative results valid, independent review mandatory.
+
+### 30.0 Evaluation: spec §1–§34 vs what exists (verified 2026-09-17)
+
+| Spec | Exists | Gap |
+|---|---|---|
+| §1 EntityRef/Relation identity | `nav::ObjectId` (origin+key, content-hash, rename-stable) + `nav::Relation` (a/b/kind/note/origin/status/created_at); `physis_core::relation::TypedEdge` (uuid id, source/target, confidence/weight, temporal, provenance, evidence) + `PhysisCore.edges` with `add_typed_edge`/`edges_from`/`edges_to` | nav Relation has no stable id, no evidence/scope/validity; TypedEdge has id but **no persistence** (nodes persist via `coh:` keys, edges live in memory only); atlas drops edge identity entirely |
+| §2 multiscale center | HUD list+reading+ASCII graph dual (`hud.rs graph_view`), atlas canvas (`organic.js`), doctree sections, `nav resolve/read` | no pan/zoom/semantic-zoom over real objects; no function/block/code children (objects are File/Passage/Directory/Concept/Note/Other) |
+| §3 NavigableEntity/plural parents | `nav::semantic_parents` (fs/note/kind, derived on demand, tested plural) | no lens-parameterized children/neighbours trait; no project/semantic/temporal/epistemic parents |
+| §4 lenses SEM/REL/STRUCT/TIME/FS/EPI | atlas verdict/domain/community filters; HUD hybrid scorer with weights; `query_with_relations` | no lens toggles, no multi-lens weighting, no TIME/EPI lens |
+| §5 REAL ONLY | `RelationOrigin` User/Deterministic/Inferred never collapsed; HUD graph glyphs solid/double/dashed; atlas recorded-vs-resemblance never merged | no REAL ONLY filter; origin not enforced on agent writes |
+| §6 epistemic grammar | origin glyphs in HUD; atlas legend recorded vs resemblance | no edge-style-by-origin on canvas; symmetric similarity still drawable as directed |
+| §7 bundling | communities + cohesion exemplar; corpus summaries | no bundle objects retaining constituent RelationIds |
+| §8–§10 right dock editor | atlas explorer (entity card, neighbours, pin, serve, lineage) + `POST /coherence/edit` | explorer edits nodes only; **edges not selectable/editable**; no relation editor |
+| §11 SAME/DIFFERENT/RELATED | `nav rel/rel-infer/rels` CLI + `add_relation` idempotent + `infer_same_source_relations` | no kind-qualified SAME/DIFFERENT prompts; no HUD keybindings beyond pin |
+| §12 draw relations | — | missing entirely |
+| §13 text-span selection | `SourceRef` path:start-end; `read_object` exact text; evidence span attached on praxis/ledger paths | no temp Selection entity; no phrase→neighbour→relate flow |
+| §14–§15 evidence/history | ledger lineage/purposes; audit `edge:add`/register/edit/delete; `GET /audit?node_id=` | edge evidence field exists on TypedEdge but unwritten by API; no per-edge history view |
+| §16 representation | `RetrievalScore.components` per-name inspectable; `why:` in HUD | no REPRESENTATION tab joining lexical/semantic/structural/temporal/graph |
+| §17–§18 textbox/IntentIR | `ui-shell.js initAskBar` (search inline, agent second); `intent_ir.rs` slots + read-only ops + bind tasks | ask bar searches labels only; IntentIR not wired to selection/scope/lenses or capabilities |
+| §19 history | `nav trail` (query/enter push) + crumbs stack | restores nothing (no scope/zoom/lens/selection/camera) |
+| §20 graph↔editor continuity | doctree breadcrumb+body; `nav open` exact text | no zoom-threshold center transition; graph and editor separate surfaces |
+| §21 FS lens | nav fs substrate + `semantic_parents` fs leg | no FS-lens rendering; hard-link vs semantic-link distinction unwritten |
+| §22 notebook handoff | HUD `notebook_selection` (canonical objects, borrow-not-copy) + `addToNotebook` | one direction only; answer evidence not drawn as graph edges |
+| §23 clusters as objects | communities singleton convention; corpus summaries | transient clusters have no opt-in identity |
+| §24 compare | — | missing; no COMPARE across representations |
+| §25 meaning-shift | — | missing |
+| §26 why-am-I-here | atlas help text (recorded vs resemblance); HUD explain line | not per-element; similarity edges lack provenance pointers |
+| §27 no-LLM navigation | nav/hud/atlas retrieval is LLM-free by construction | must be preserved per slice (gate below) |
+| §28 incremental | nav stat fast-path + content-hash embed cache; atlas limit/k/min_sim truncation | atlas still builds full similarity matrix over truncated set |
+| §29 layout stability | hash-seeded layout + stable sort; positions not persisted | no pinned-position persistence |
+| §30–§31 dock tabs/projections | atlas rail/explorer; PRODUCT_PAGES shell | no tabbed dock; pages switch layouts instead of re-projecting |
+| §32 acceptance | nav acceptance walk exists per SEMANTIC_NAVIGATION.md | world-surface acceptance (§32 1–38) not runnable |
+| §33 do-nots | origin separation, propose-don't-write conventions | must be gated per slice |
+
+### 30.1 MVP order (spec §34, unchanged)
+
+1. EntityRef/ObjectId/RelationId identity → 2. shared Selection →
+3. persistent RelationStore + provenance → 4. renderer over real objects →
+5. dock selection binding → 6. node inspector → 7. relation inspector →
+8. evidence refs → 9. semantic zoom → 10. bundling → 11. lenses →
+12. REAL ONLY → 13. span Focus → 14. notebook handoff → 15. command-box ops →
+16. model suggestions (last, async only).
+
+### 30.2 Slice W1 (authorized): edge identity + persistence + full vocab
+
+Rationale: §10/§15/§26 are all blocked on one fact — typed edges have
+identity in memory (`TypedEdge.id`) but lose it everywhere else: they are
+never persisted (restart wipes them while nodes survive), only 6 of 15
+`RelationType` variants are writable via the API, `EdgeProjection` drops
+the evidence field, `delete_node` orphans edges, and the atlas graph
+carries no edge ids at all. Fix the identity chain first; no renderer,
+lens, or zoom work lands on a graph whose edges cannot survive a restart.
+
+Files owned by this slice (all currently clean, no MS/nav/HUD overlap):
+`src/core.rs`, `src/web/coherence.rs`, `src/web/atlas.rs`,
+`src/web/mod.rs` (rehydrate call sites only), `tests/` (new file
+`tests/world_edges.rs`; do NOT append to the dirty `http_surface.rs`).
+
+Deliverables:
+- W1.1 `PhysisCore`: `edge_key` + `persist_edge` + `load_edges` (embedder-
+  agnostic — edges carry no vectors, so no provenance skip) +
+  `delete_edges_for_node`; `delete_node` drops referencing typed edges;
+  unit test extends `test_nodes_survive_a_restart` pattern (edges survive).
+- W1.2 API: `AddEdgeRequest` accepts all 15 `RelationType` variants +
+  optional `evidence`/`provenance` (default provenance `"api"` preserved);
+  `EdgeProjection` gains `evidence`; unknown relation still 400 with the
+  full variant list in the error.
+- W1.3 Atlas: `AtlasEdge` gains `id: Option<String>` + `relation:
+  Option<String>`; `build_atlas` takes the typed-edge layer (recorded
+  holarchy first, typed second, similarity last; recorded never relabeled);
+  handler feeds `core.edges`; existing 5 atlas tests updated, 1 new test
+  pins typed-edge identity through `build_atlas`.
+- W1.4 Rehydrate: `load_edges` on tenant first access (`with_user`) +
+  default-tenant startup, beside the existing `load_nodes` calls.
+- W1.5 Persist on write: `coherence_add_edge_handler` writes the edge row
+  through to sled (same write-through pattern as register/edit).
+
+Gates: `cargo check --all-targets` + `cargo clippy --all-targets -- -D
+warnings` green; new `tests/world_edges.rs` (persist round-trip, full
+vocab accept, unknown-relation 400, delete cascades, tenant isolation)
+green; no LLM in the path (unit-verifiable — no provider calls);
+`git status` shows only slice-owned files changed.
+
+Explicitly NOT in W1: renderer changes, lens toggles, REAL ONLY filter,
+span Selection, notebook write-back, command-box ops, model suggestions,
+openapi.yaml edits (dirty — another surface owns it), any file under
+`src/nav/`, `src/bin/hud.rs`, `src/main.rs`, `packets/`, `research/`.
+
+### 30.3 Later slices (not authorized — one plan entry each)
+
+W3 relation inspector API (edge get/update/dispute/supersede + per-edge
+history from audit); W4 atlas edge selection + origin grammar on canvas;
+W4 REAL ONLY filter (data-model predicate, both surfaces); W5 span
+Selection + evidence attach; W6 lens toggles; W7 semantic zoom over
+doctree/code children; W8 bundling with constituent ids; W9 notebook
+evidence edges; W10 command-box graph ops via IntentIR; W11 compare/diff;
+W12 layout persistence. Model suggestions stay last (spec §34.16).
+
+### 30.4 Decision
+
+Phase 30 opens with W1 only. Later slices wait for W1 review + explicit
+plan authorization. MS-track and nav/HUD ownership unchanged.
+
+### 30.5 Slice W2 (authorized 2026-09-17): nav relation identity + HUD relate
+
+Rationale: cline's nav/HUD work is reviewed and sound — content-hashed
+`ObjectId`, one scorer, atomic index, honest degradation — but nav
+relations had no stable identity (§30.0 row 1 stands) and the HUD could pin
+but not SAME/DIFFERENT/RELATE (spec §11 gap stands). W2 closes both inside
+cline's files, reusing the W1 identity pattern (derived ids, no migration).
+
+Files owned: `src/nav/mod.rs`, `src/nav/workspace.rs` (pure helpers only —
+no core-store bridge; the nav sled and core sled are different stores and
+no path exists to open both together), `src/bin/hud.rs`,
+`docs/SEMANTIC_NAVIGATION.md` (keys paragraph only).
+
+Deliverables:
+- W2.1 `nav::relation_id` (pure, canonical endpoint order) +
+  `relation_kind_to_core` (only traceable verbs map; SAME/DIFFERENT/free
+  verbs → `None`, skipped openly); 2 unit tests.
+- W2.2 HUD: `s`/`d`/`R` keys (`relate_selection`), relations listed in the
+  explain pane with origin glyphs + edge ids, graph legend names the id
+  scheme. No core writes from the HUD (none possible — see above).
+- W2.3 Deferred with reason: nav→core edge bridge needs a designed home
+  (server-side handler or CLI core-store path), not a fresh sled open on
+  the CLI path. Proposed as W5, not smuggled into W2.
+
+Gates: `cargo test --lib nav::` (17) + `world_edges` (4) green; HUD
+compiles warning-free on its own files; no LLM in the path.
+
+Explicitly NOT in W2: core writes from nav/HUD, stored relation ids
+(derived, not migrated), renderer/lens/zoom work, `src/core.rs`,
+`src/web/*`, `packets/`, `research/`.
+
+### 30.6 Decision (W2)
+
+W2 ships the identity + HUD slice above. Next: reviewer confirms W1+W2;
+coordinator proposes W3 (relation inspector API) and W5 (nav→core bridge
+design) as separate plan entries when capacity allows.
+
+### 30.7 Untracked inventory + inspection (2026-09-17)
+
+`git ls-files --others --exclude-standard` = 28 paths. Headers/sizes verified
+this session; full content review NOT done. No slice may claim these files as
+evidence until reviewer verifies content + ownership.
+
+| group | paths | standing |
+|---|---|---|
+| orchestration harness (opt-in, human-supervised) | `.opencode/commands/orchestrate.md`, `.opencode/orchestration.json`, `.opencode/plugins/orchestration.js`, `.opencode/skills/physis-inspect/SKILL.md`, `clients/opencode-orchestration/` (README, roles/router/router.test/smoke), `logs/auto_update.log` | headers only; Astra advertised-but-rejected, live runs bounded; out of all slice gates |
+| MS packets (prepared, blocked) | `packets/MS-002`…`MS-008` | prepared-only; MS-002/003 wait MS-001 review, rest chained; no worker launched |
+| research | `research/E91_ARCHAEOLOGY.md`, `research/E91_CONCEPT_MAP.md`, `research/QUANTITATIVE_EVENT_STREAMS.md` (Q1–Q8 PROPOSED/NOT MEASURED), `research/criticality/run.py` + `results.json` (invalid draft, never baseline) | E91-A/B citable as audits; QES authorizes nothing; criticality draft is non-evidence |
+| nav/HUD slice (W2-owned) | `src/nav/mod.rs`, `src/nav/workspace.rs`, `src/bin/hud.rs`, `tests/world_edges.rs`, `docs/SEMANTIC_NAVIGATION.md`, `scripts/physis-update.sh` | W2.1 (`relation_id`, `relation_kind_to_core` + 2 tests) + W2.2 (`relate_selection`, `s`/`d`/`R`) present per grep; targeted tests not yet run |
+
+Resume 1-2-3-4 (ordered, reviewer-gated): (1) separate dirt — W1 vs 11C vs
+nav/HUD as distinct review units; (2) run slice gates — `world_edges`,
+`cargo test --lib nav::`, concepts HTTP test; (3) triage clippy — isolate
+slice regressions from the 53–61-error pre-existing baseline (stash-compare
+vs `main`); (4) reviewer confirms W1+W2 before any W3/W5 proposal.
+
+## Phase 31 — Jev-inspired System-One layer (proposed 2026-09-17)
+
+Status: proposed. No implementation, worker launch, production edit, merge,
+deploy, or model purchase authorized by this section. General guidelines
+apply (Phase 27 shared contract + packets/PROTOCOL.md + AGENTS.md): pansa
+workspace, reuse-first (no parallel engine), freeze manifests/splits/seeds/
+controls/tolerances before holdout, negative results valid, independent
+review mandatory, only reviewer releases dependencies.
+
+### 31.0 Thesis
+
+Jev as computational model, not fast classifier: structured state → many
+parallel typed probabilistic decisions → propagation → minimal action,
+escalating to generative reasoning only for novelty/uncertainty. Physis holds
+an executable probabilistic ontology, not an index. Preserve distributions
+while useful; ontology-invalid outputs unrepresentable via types/schema.
+Compilation ladder: LLM/human → SLM/Jev-like head →
+classifier/embedder/count-table → graph/FSM/rule/index. Familiarity becomes
+software. Whole trajectories compile, not just labels. Large action spaces:
+cheap independent scoring → prune → explicit choice among survivors. Cheap
+heads verify System-Two traces; interrupt/escalate only when warranted.
+
+```rust
+Decision<T> { distribution, confidence: f32, evidence, provenance, cost }
+trait SemanticHead { type Output: PhysisType;
+  fn decide(&self, world: &WorldSlice, ctx: &Ontology) -> Decision<Self::Output>; }
+```
+
+Backends: `rule | FSM | regex | graph | count-table | BM25 | embedding |
+classifier | Jev | SLM | LLM | human`.
+
+### 31.1 Reuse map (verify paths at pinned revision before citing)
+
+`src/dependency/` (affectedness flood, LIFO — E91-A) + `src/semantic_delta/`
+(no live producer) → WorldSlice/Δ source; `src/rag.rs`, `src/pack.rs`,
+`src/nav/` → candidate pools + budgets (Q6/MMR baseline); `src/quality.rs`
+standing → salience signal; `physis-core/src/transform.rs`, `relation.rs`,
+`delta_engine.rs` → constraints + replay oracle; `src/ledger.rs` +
+`physis-core/src/observe.rs`, `hypothesis.rs` → event/provenance substrate;
+`src/orchestration/` + `clients/opencode-orchestration/` → routing seam
+(placeholders, not workers); `benchmarks/behaviour/` +
+`benchmarks/retrieval/` → task records + harness. Prior-art families for the
+S1 packet to map w/ links+licenses (not rebuilt): TypeSafe Jev (typed
+parallel decisions, calibration, hierarchical selection), MoE / routers /
+cascades / FrugalGPT, early-exit / speculative, distillation / active
+learning, conformal + calibration, Rete / Datalog / incremental compute,
+partial-eval / tracing-JIT, BM25 / n-grams / count-tables / regex / FSM /
+prototypes, contextual bandits, DSPy / verifiers.
+
+### 31.2 Evaluation + decisive experiment
+
+Benchmark identical workflows with interchangeable intelligence sources, not
+models alone. Metrics: task success, calibration, semantic errors, latency,
+RAM, joules, tokens, €, recomputation %, escalation %, compiled-head
+coverage, accuracy retained after compilation. Objective: useful correct
+world-state transitions / second / joule / euro. Decisive run: repeated
+mixed computer/language workflow, strong-LLM only at start; does Physis
+discover recurring distinctions/dependencies, compile them into cheaper
+typed heads/policies, and cut LLM calls/tokens/latency while preserving task
+success? Controls: frequency/recency/BM25/cosine/RRF/MMR arms, equal budgets,
+walk-forward + project holdouts, mechanism-destroying nulls. Ablations:
+propagation on/off, calibration on/off, bandit vs static routing,
+whole-trajectory vs per-label compilation. Failure modes: silent miscompile,
+undetected drift, escalation collapse, cost exceeding savings.
+
+### 31.3 Sequence (own packet + reviewer release each)
+
+S1 prior-art/resource map (links+licenses, Jev→module mapping, what NOT to
+build); S2 `Decision`/`SemanticHead` pure types + cheapest heads
+(count-table/BM25/prototype) on one frozen workflow; S3 calibration/
+conformal gates + shadow-test vs strong source; S4 bandit router
+(accuracy×latency×RAM×energy×tokens×€); S5 semantic JIT
+(record→detect→synthesize→distill→calibrate→shadow→deploy→monitor); S6
+trajectory compilation + continuous verification. MS-track and W1/W2 review
+keep priority; S1 mints only after W1+W2 confirm.
+
+### 31.4 Decision
+
+Phase 31 opens as proposal only. Next: reviewer confirms §30.7 inventory and
+§31.1 reuse paths; coordinator mints S1 (map, no code) when capacity allows.
+Prototypes follow positive gated evidence; promotion, if ever, via
+MS-008-style review, never direct.
+
+## Phase 32 — Physis MVP demonstration (offline Feather, reuse-first, no parallel demo app)
+
+Status: planned, PLAN.md only. No code, worker, merge, deploy, or model
+purchase is authorized by this section. General guidelines apply (Phase 27
+shared contract + packets/PROTOCOL.md + AGENTS.md): pansa workspace, confirm
+checkout and submodule revisions, preserve pre-existing dirty files, reuse
+before building, negative results valid, independent review mandatory.
+
+### 32.0 Absolute constraint
+
+The complete demonstration runs offline on Feather with no generative model:
+no LLM, cloud API, remote embedding service, network dependency,
+model-generated patches, agent framework, or canned fake graph
+transformations. Local deterministic embedders already used by Physis are
+allowed where practical, with clean degradation to lexical/structural methods
+when unavailable. The demo is about Physis, not about an LLM using Physis.
+`OFFLINE` is displayed in the UI. The irreducible loop is
+NAVIGATE → SEE STRUCTURE → EDIT REAL TEXT → DETECT Δ → PROPAGATE
+CONSEQUENCES → STATE INTENT → MOVE ATTENTION → INSPECT MINIMAL CONTEXT → ↺.
+
+### 32.1 Reuse-first inspection (verified against this checkout)
+
+No parallel demo app. The MVP loop already exists as a thin REPL over real
+slices: `src/mvp/repl.rs` (`open`/`scope`/`inspect`/`dependencies`/`recent`/
+`contradictions`/`act_flow`/`observe`), `src/mvp/model.rs`
+(`artifacts_of`, `Artifact::from(&PhysisObject)`), `src/mvp/deps.rs`
+(`affected_dependents`, `changed_symbols`, `classify_intent`, `render_map`),
+`src/mvp/slice.rs` (`WorldSlice` + telemetry + `snapshot_hashes`/
+`diff_snapshots`), `src/mvp/log.rs` (`TransitionLog`, append-only
+`mvp_transitions.jsonl`). Navigation is `src/nav/mod.rs` +
+`src/nav/workspace.rs` (`NavWorkspace::open/update/query/read`,
+`query_with_relations`, `explain_hit`, `group_hits`, pins/relations/trail,
+`sem_off`/`sem_on`, honest `semantic: off` degradation). The existing TUI is
+`src/bin/hud.rs` (`physis-hud`: neighborhood list + reading pane + `why:`
+pane + query bar, `g` ASCII graph dual view, `s`/`d`/`R` relate,
+`relation_id` + origin glyphs solid/double/dashed). Context packing is
+`src/pack.rs` (`pack_cached`, content-addressed `EmbedCache`,
+`PackResult::candidate_tokens` measured denominator, `summarize`,
+`tokens_of`) over `src/rag.rs` (`count_tokens` heuristic,
+`TokenFixedRetriever`). Incremental scan is `src/tree.rs`
+(`DirTree::scan_run`, stat-only `meta_walk`, Merkle `diff`, one node per
+doc) + `src/scanner.rs` (`scan_project`, `.physis` excluded) +
+`src/ledger.rs` (`record`/`lineage`/`descendants`/`purposes`). Token math is
+`src/estimate.rs` (`calculate_estimate`). Entry is `physis-pro <dir>`
+(`src/main.rs` bare-dir before the licence gate) via
+`src/bin/physis.rs` + `src/ported/front_door.rs`. Protection is
+`tests/mvp_loop.rs` (7 tests), reproducibility is `scripts/mvp-demo.sh` +
+`docs/MVP_DEMO.md` + `MVP_STATUS.md` + `POST_MVP.md`. Narrow exact
+copy/calculate document flow (`src/adaptive_document/`,
+`src/web/document.rs`, `src/bin/ui/document.html`) stays as-is and is not
+the repo-loop demo path.
+
+### 32.2 Classification
+
+ALREADY WORKS: persistent index from a real workspace with instant warm
+start; nested navigation project → dir → file → symbol via nav objects +
+`semantic_parents`; real source open/read with `path:start-end` provenance;
+hash-snapshot Δ on save (`changed/added/removed`); precision-first
+`affected_dependents` (code-shaped refs, defines-not-implements, measured
+261 → 6 on physis-core); intent box as attention op (`scope` → nav rank +
+token-fixed pack + telemetry); minimal context object (`WorldSlice` +
+per-hit `why:` components + chunk provenance); token counts
+(`candidate_tokens` = A, packed tokens = B, `calculate_estimate` =
+reduction %); append-only transition records with slice shape; offline
+`PHYSIS_EMBEDDER=random-projection` determinism; HUD honest-degradation
+header; relation provenance glyphs; demo script + transcript + Feather
+install notes (`docs/MVP_DEMO.md` install section: build on target, glibc,
+untracked-module payload).
+
+NEEDS ADAPTATION (shortest path, inside existing files only): HUD
+`graph_view` from flat ASCII list to nested expand/collapse with zoom/LOD,
+pan, select, follow-relations, parent/children reveal, source reveal, and
+state channels (selected / human-pinned / intent-relevant / changed /
+affected / related / inferred / ordinary) + legend; reading pane into
+editable source beside the graph (open/edit/save real files via existing
+`src/atomic.rs` writer, graph→source and source→graph where mappings
+permit, external-change detection via existing stat fast-path + snapshot
+diff); intent focus that visibly reorganizes the graph to HOT/WARM/COLD and
+collapses/fades the rest; `[context]` pane showing PRIMARY / DEPENDENCIES /
+RELEVANT TESTS / RECENT CHANGES / WHY INCLUDED / bounded source regions;
+status bar showing `Δ N changed · M affected · context X%` +
+`CONTEXT x% │ Nk potential tokens avoided` + `OFFLINE`; impact explainer
+(`WHY AFFECTED` path walks from `affected_dependents` reasons + ledger
+`lineage`); edge-class toggles (STRUCTURAL / DEPENDENCY / SEMANTIC / ORDER /
+ONTOLOGY / HISTORY — disable openly where the leg has no data); Feather
+perf table (cold index / warm startup / index size / idle+peak RAM /
+nav+query+delta+propagation+context latency) with cheap-structural-delta →
+UI-update → deeper-analysis ordering.
+
+MISSING (build only this): HUD keys for `[context]`, intent focus/clear,
+edge-class toggles, legend, parent/children + why-affected pane; zoomed-out
+aggregation (group by dir/file, cap nodes, never render thousands); a
+frozen demo workspace fixture + scripted A–G replay reusing
+`scripts/mvp-demo.sh`; the Feather perf numbers above, measured not
+projected.
+
+NOT NEEDED FOR DEMO (cut): any LLM integration, agent orchestration, model
+routing, cloud APIs, autonomous editing/coding, voice, browser automation,
+desktop control, fleet operation, dream loops, autonomous ontology
+invention, multimodality, 3D rendering, GUI replacement, diffusion /
+world-models, Jev/System-One, MS/Q/S/AG research packets. Phase 20
+fragments/instances and Phase 21 multimodal stay out unless the demo path
+itself needs them.
+
+### 32.3 Shortest dependency chain (in order)
+
+1. HUD nested graph over the existing nav index (no second graph model).
+2. Editable source pane + save → existing snapshot-diff `observe()` path.
+3. Changed/affected/related states + WHY AFFECTED explainer.
+4. Intent-focus attention op over the existing `scope()` path.
+5. `[context]` pane + A/B token counts labeled potential context tokens
+   avoided / context reduction (no billing or quality-equivalence claims).
+6. Second-edit incremental update proving O(Δ) remap.
+7. Frozen fixture + scripted A–G replay + Feather perf table.
+8. Slice gates green: `tests/mvp_loop.rs`, `cargo test --lib nav::`,
+   `tests/world_edges.rs`, HUD warning-free build, no LLM in path.
+
+### 32.4 Demo script mapping (replayable, §8 A–G)
+
+A START: networking disabled, `physis <dir>` (or `physis-pro <dir>`),
+persistent index, graph visible, `OFFLINE` shown, no login/key/model.
+B NAVIGATE: project → subsystem → file → symbol → source through structure;
+one dependency edge followed. C EDIT: one meaningful save →
+`Δ N objects · M affected · P related · Q% untouched`, graph reacts
+unprompted. D CONSEQUENCES: select affected object, show WHY path
+(`query.rs::search ← calls update_index() ← update_index() changed` shape).
+E INTENT: one sentence in the prompt box → world collapses to HOT/WARM/COLD.
+F CONTEXT: `[context]` → exact selection + reasons + WORKSPACE / SELECTED /
+REDUCTION / AVOIDED from the real workspace numbers. G EDIT AGAIN: navigate
+from focused graph into second source, save, incremental update + attention
+recompute. Memorable moments: ZOOM (project → one function through
+structure), CHANGE (edit → graph moves unasked), ATTENTION (one sentence →
+128k → 8k shape).
+
+### 32.5 Definition of done (the 16 checks)
+
+On Feather, networking disabled, no generative model: (1) launch; (2)
+persistent structured graph of a real workspace; (3) nested navigation;
+(4) graph → real source; (5) edit + save real source; (6) graph reacts;
+(7) affected objects inspectable; (8) why-affected shown; (9) NL intent
+typed; (10) attention visibly reorganizes graph; (11) minimal context
+inspectable; (12) context → source navigation; (13) second change; (14)
+incremental update again; (15) real full-vs-selected token counts; (16)
+all of the above with no network or LLM.
+
+### 32.6 Whole-plan priority order (what runs first when capacity is scarce)
+
+P0 — Demo + slice integrity (this phase + W1/W2 review): §32 chain,
+`world_edges` + `nav::` + concepts HTTP gates, clippy/test green on touched
+files only, `git status` shows slice-owned files. MS/nav/HUD ownership and
+`packets/PROTOCOL.md` unchanged.
+P1 — Unfinished correctness/isolation/release gates before any new
+capability: Phases 22–24 P0–P2 items, Phase 26 P4 export/AD16 + P6 review,
+Phase 28/30 reviewer confirmations (W1+W2 before any W3/W5 proposal).
+P2 — Pilot-trust hardening: H4 (confidence inflation), H6 (shipped-model
+accuracy gate), H7 (pack incremental cost), H1–H3 (licence/dev-key,
+self-test discrimination, silent downgrade) — in that order.
+P3 — Industrial pilot path only: ingest → OEE → anomaly → Italian shift
+report; everything outside it frozen per H11.
+P4 — Everything else waits: Phase 20/21 surfaces, Phase 27 MS-002…MS-008,
+Q1–Q8 quantitative streams, Phase 28/29 AG-001…AG-006, Phase 31 S1…S6 —
+each needs its own plan entry + reviewer release + frozen
+manifest/splits/seeds/controls/tolerances before holdout. A negative
+completes a research packet; it never promotes. No worker, merge, deploy,
+or promotion follows from a thesis/evaluation section.
+
