@@ -158,7 +158,9 @@ impl NavWorkspace {
     // -- retrieval ----------------------------------------------------------
 
     /// Query with context bias, pins and relations all applied. Returns the
-    /// hits plus the retrieval mode (for the honest header).
+    /// hits plus the retrieval mode (for the honest header). Records a
+    /// `query` trail step so the HUD's `:trail` and this method agree on
+    /// what was asked — the plan's shared focus/trail surface starts here.
     pub fn query(
         &mut self,
         q: &str,
@@ -198,6 +200,7 @@ impl NavWorkspace {
             embedder: kind,
             indexed_objects: self.index.objects.len(),
         };
+        self.push_trail("query", q);
         Ok((hits, mode))
     }
 
@@ -205,6 +208,7 @@ impl NavWorkspace {
 
     /// Resolve a CLI target (path, id prefix) to an object. Prefers the
     /// file-level object when a path matches both a file and its passages.
+    /// Records an `open` trail step on success, matching the HUD's open path.
     pub fn resolve(&self, target: &str) -> anyhow::Result<PhysisObject> {
         let norm = target.trim_start_matches("./");
         let by_path = |o: &&PhysisObject| {
@@ -218,6 +222,7 @@ impl NavWorkspace {
             .find(by_path)
             .or_else(|| self.index.objects.values().find(by_path))
         {
+            self.push_trail("open", &obj.id.short());
             return Ok(obj.clone());
         }
         let matches: Vec<_> = self
@@ -227,7 +232,10 @@ impl NavWorkspace {
             .filter(|o| o.id.short().starts_with(target) || o.id.key.starts_with(target))
             .collect();
         match matches.len() {
-            1 => Ok(matches[0].clone()),
+            1 => {
+                self.push_trail("open", &matches[0].id.short());
+                Ok(matches[0].clone())
+            }
             0 => anyhow::bail!("no object matches {target}"),
             n => anyhow::bail!("{n} objects match {target}; use a longer prefix"),
         }
@@ -357,13 +365,16 @@ mod tests {
         let (hits, mode) = ws.query("order signal", false, &Default::default(), 10).unwrap();
         assert!(!hits.is_empty());
         assert!(mode.semantic);
+        // query records its own trail step through the seam
+        assert!(ws.trail().iter().any(|s| s.kind == "query"));
 
         // pin + trail through the seam
         let a = ws.resolve("docs/order.md").unwrap();
         let b = ws.resolve(&a.id.short()).unwrap_or_else(|_| a.clone());
         assert!(ws.add_pin(&a, &b).is_ok() || true);
-        ws.push_trail("query", "order signal");
-        assert_eq!(ws.trail().len(), 1);
+        // resolve records open steps: 2 resolves above + 1 query = 3
+        assert_eq!(ws.trail().len(), 3);
+        assert!(ws.trail().iter().any(|s| s.kind == "open"));
 
         // sem off/on
         let dropped = ws.sem_off().unwrap();
