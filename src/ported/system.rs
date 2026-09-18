@@ -458,6 +458,22 @@ impl Workspace {
         Ok(out)
     }
 
+    /// Current `HEAD` of the repository at `self.root`, or an empty string when
+    /// the workspace is not a Git checkout. The cheap half of the P3 stale-base
+    /// check: a plan authored at one HEAD is unsafe to review once the branch
+    /// moves. The full content-hash lives in `system_delegation::snapshot`.
+    pub fn git_head(&self) -> Result<String> {
+        let out = std::process::Command::new("git")
+            .arg("rev-parse")
+            .arg("HEAD")
+            .current_dir(&self.root)
+            .output()?;
+        if !out.status.success() {
+            return Ok(String::new());
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    }
+
     fn pack_selected(
         &self,
         query: &str,

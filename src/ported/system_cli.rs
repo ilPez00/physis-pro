@@ -164,11 +164,17 @@ enum DelegationCommand {
     /// Preview a staged change vs the working tree before applying it. Reads
     /// `--baseline` as the authored content and diffs each file against the
     /// workspace using the same hunk engine as the Studio DIFF pane; refuses
-    /// (stale-base) when a baseline file is absent from the tree. Read-only.
+    /// (stale-base) when a baseline file is absent from the tree. `--base-ref`
+    /// (typically `HEAD`) makes the stale check also fail when the branch has
+    /// moved since the baseline was authored. Read-only.
     DiffPreview {
         /// Directory holding the authored file set (workspace-relative shape).
         #[arg(long)]
         baseline: PathBuf,
+        /// Expected git ref at handoff time; mismatch surfaces a stale-base
+        /// flag (does not abort — review still runs, but the caller sees stale).
+        #[arg(long)]
+        base_ref: Option<String>,
     },
 }
 
@@ -208,7 +214,10 @@ impl DelegationCommand {
             Self::Export { id, destination } => {
                 delegation::delegation_export(workspace, id, destination)?
             }
-            Self::DiffPreview { baseline } => {
+            Self::DiffPreview {
+                baseline,
+                base_ref,
+            } => {
                 let base = baseline.canonicalize().context("baseline directory not found")?;
                 let mut baselines: Vec<(String, String)> = Vec::new();
                 for entry in walkdir::WalkDir::new(&base)
@@ -250,12 +259,25 @@ impl DelegationCommand {
                         "dels": dels,
                     }));
                 }
-                json!({
+                let mut out = json!({
                     "files": files,
                     "changed_files": changes,
                     "total_files": baselines.len(),
                     "engine": "diff_lines (LCS, same as Studio DIFF pane)",
-                })
+                });
+                // Stale-base on branch move: a plan authored at one HEAD is
+                // unsafe once the branch has moved. Full content-hash
+                // comparison lives in System::snapshot (system_delegation.rs);
+                // this is the cheap head check that covers "someone pushed".
+                if let Some(expected) = base_ref {
+                    let now = workspace.git_head().unwrap_or_default();
+                    out["stale_base"] = json!({
+                        "ok": now == *expected,
+                        "expected_head": expected,
+                        "current_head": now,
+                    });
+                }
+                out
             }
         })
     }
@@ -759,6 +781,7 @@ mod tests {
         // Changed file → hunks + counts, via the command path.
         let out = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
+            base_ref: None,
         }
         .run(&ws)
         .unwrap();
@@ -766,16 +789,80 @@ mod tests {
         assert_eq!(out["total_files"].as_u64(), Some(1));
         assert!(out["files"][0]["adds"].as_u64().unwrap_or(0) >= 1);
         assert!(out["files"][0]["dels"].as_u64().unwrap_or(0) >= 1);
+        assert!(out.get("stale_base").is_none(), "no --base-ref supplied → no stale check");
+
+        // Stale-base-on-branch-move flag: bogus HEAD yields stale=true.
+        let out = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+            base_ref: Some("deadbeef".to_string()),
+        }
+        .run(&ws)
+        .unwrap();
+        let sb = &out["stale_base"];
+        assert_eq!(sb["ok"], false);
+        assert_eq!(sb["expected_head"], "deadbeef");
 
         // Stale base: baseline references a file gone from the tree.
         std::fs::write(baseline.join("src/b.txt"), "extra file\n").unwrap();
         let err = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
+            base_ref: None,
         }
         .run(&ws);
         assert!(
             matches!(err, Err(ref e) if e.to_string().contains("stale-base")),
             "missing baseline file must surface stale-base, got: {err:?}"
         );
+    }
+
+    /// Full stale-base arc in a real (temp) Git repo: author baseline at HEAD,
+    /// commit, then `--base-ref HEAD` is `ok=true`; commit a new change and the
+    /// same `base_ref` flips to `ok=false`. Skips when `git` is unavailable.
+    #[test]
+    fn diff_preview_stale_base_tracks_head_move() {
+        fn git(repo: &std::path::Path, args: &[&str]) -> bool {
+            std::process::Command::new("git")
+                .args(args)
+                .current_dir(repo)
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("ws");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let file = root.join("src/a.txt");
+        std::fs::write(&file, "line one\nline two\n").unwrap();
+        if !git(&root, &["init", "-q"]) || !git(&root, &["add", "-A"]) || !git(&root, &["commit", "-q", "-m", "init"]) {
+            eprintln!("git unavailable — skipping stale_base HEAD-move test");
+            return;
+        }
+
+        let baseline = dir.path().join("baseline");
+        std::fs::create_dir_all(baseline.join("src")).unwrap();
+        std::fs::write(baseline.join("src/a.txt"), "line one\nline two\n").unwrap();
+        let ws = Workspace::open(&root, &dir.path().join("state")).unwrap();
+        let head1 = ws.git_head().unwrap();
+
+        // Baseline matches HEAD → not stale.
+        let out = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+            base_ref: Some(head1.clone()),
+        }
+        .run(&ws)
+        .unwrap();
+        assert_eq!(out["stale_base"]["ok"], true);
+
+        // Move HEAD after authoring the baseline → stale.
+        std::fs::write(&file, "line one\nline TWO\n").unwrap();
+        git(&root, &["add", "-A"]);
+        git(&root, &["commit", "-q", "-m", "edit"]);
+        let out = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+            base_ref: Some(head1),
+        }
+        .run(&ws)
+        .unwrap();
+        assert_eq!(out["stale_base"]["ok"], false, "{out}");
     }
 }
