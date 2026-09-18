@@ -435,6 +435,29 @@ impl Workspace {
         )
     }
 
+    /// One side of the P3 staged-diff gate: a deterministic, engine-independent
+    /// preview of a proposed change vs the *current* working tree, before any
+    /// patch is applied. `baselines` maps workspace-relative paths to the content
+    /// the change was authored against; each path is read from the workspace and
+    /// diffed with the same `crate::diff::diff_lines` the Studio DIFF pane uses,
+    /// so the review surface and the apply path share one hunk algorithm.
+    ///
+    /// Hunks are returned only for paths present in both `baselines` and the
+    /// workspace — missing or untracked paths surface as an error, never a
+    /// silent skip, because a patch over a file that does not exist in the
+    /// working tree is a stale-base condition the caller must resolve.
+    pub fn stage_diff(&self, baselines: &[(String, String)]) -> Result<Vec<(String, Vec<crate::diff::Hunk>)>> {
+        let mut out = Vec::new();
+        for (rel, base) in baselines {
+            let here = self.root.join(rel);
+            let current = std::fs::read_to_string(&here)
+                .with_context(|| format!("stale-base: {rel} not found in workspace; re-baseline against HEAD"))?;
+            let hunks = crate::diff::diff_lines(base, &current);
+            out.push((rel.clone(), hunks));
+        }
+        Ok(out)
+    }
+
     fn pack_selected(
         &self,
         query: &str,
@@ -1223,5 +1246,44 @@ impl WriteLock {
 impl Drop for WriteLock {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stage_diff_reports_changes_and_stale_base() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("ws");
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        let file = root.join("src/a.txt");
+        std::fs::write(&file, "line one\nline two\n").unwrap();
+
+        let ws = Workspace::open(&root, &dir.path().join("state")).unwrap();
+
+        // Unchanged vs baseline → empty hunks (apply_hunks is the round-trip).
+        let baseline_same = vec![("src/a.txt".to_string(), "line one\nline two\n".to_string())];
+        let preview = ws.stage_diff(&baseline_same).unwrap();
+        assert_eq!(preview.len(), 1);
+        assert!(preview[0].1.is_empty(), "no diff against identical baseline");
+
+        // Changed → hunks reconstruct to the new text.
+        let baseline_new = vec![("src/a.txt".to_string(), "line one\nline TWO\n".to_string())];
+        let preview = ws.stage_diff(&baseline_new).unwrap();
+        let hunks = &preview[0].1;
+        assert!(!hunks.is_empty(), "changed baseline must produce hunks");
+        let rebuilt = crate::diff::apply_hunks(&baseline_new[0].1, hunks);
+        let current = std::fs::read_to_string(&file).unwrap();
+        assert_eq!(rebuilt, current, "hunks must reconstruct the working-tree file");
+
+        // Stale base: file removed from the working tree → error, not silent skip.
+        std::fs::remove_file(&file).unwrap();
+        let preview = ws.stage_diff(&baseline_new);
+        assert!(
+            matches!(preview, Err(ref e) if e.to_string().contains("stale-base")),
+            "missing file must surface stale-base, got: {preview:?}"
+        );
     }
 }
