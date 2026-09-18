@@ -8,20 +8,27 @@ crates.io verification already done.
 
 ## 0. One-time setup (~5 min)
 
-The binary is licence-gated. Mint a local dev licence with the vendor tool
-(already built):
+The binary is licence-gated. A dev-build binary (no `PHYSIS_LICENSE_PUBKEY`
+stamped in) verifies licences against the **dev fallback key** — the Ed25519
+public half of the all-zeros seed (`src/license.rs: DEV_FALLBACK_PUBKEY_HEX`),
+whose private half is public by construction. A licence signed by any other
+key (e.g. `~/.physis-vendor/signing.key`) is rejected with `BadSignature`,
+even with `PHYSIS_ALLOW_DEV_LICENCE=1` set. Mint the dev licence with the
+in-repo minter, not the vendor tool:
 
 ```bash
-cd /home/gio/dev/physis-pro
+cd /home/gio/physis_pro
 
-# 1. Mint a 1-year all-features licence from the vendor keypair
-./target/debug/physis-license sign \
-    --key ~/.physis-vendor/signing.key \
-    --org "Gio Dev" --seats 1 --features '*' \
-    --exp 2027-08-25 > .physis/license.key
+# 1. Mint an all-features dev licence (private half = all-zeros seed — dev only, never ship)
+(cd physis-dev-license && cargo run -q) > .physis/license.key
 
-# 2. Sanity check: doctor must pass
-CARGO_TARGET_DIR=target ./target/debug/physis-pro doctor | head -20
+# 2. Gated commands need the opt-in on every run (dev builds exit 2 without it)
+export PHYSIS_ALLOW_DEV_LICENCE=1
+./target/debug/physis-pro license 2>&1 | head -8
+# expect: ENTERPRISE / * / issued / expires 2099-01-01
+
+# 3. Sanity check: doctor must pass
+./target/debug/physis-pro doctor | head -20
 ```
 
 Expected: `doctor` reports ok for config / data dir / embedder / licence.

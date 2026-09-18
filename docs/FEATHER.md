@@ -65,9 +65,16 @@ and report which glibc your `ldd --version` shows. Do not `cargo build` here.
 
 ## 3. Licence (dev key, already placed — check it exists)
 
+A dev-build binary verifies against the dev fallback key (all-zeros seed),
+NOT the vendor key in `~/.physis-vendor`. A vendor-signed licence fails with
+`BadSignature` here. The valid key is minted by the `physis-dev-license`
+crate (private half is public — dev only, never ship):
+
 ```bash
 ls ~/.physis/license.key
 PHYSIS_ALLOW_DEV_LICENCE=1 physis-pro license 2>&1 | head -2
+# expect: ENTERPRISE / * — if BadSignature, the key is vendor-signed: ask
+# pansa to re-push it with `(cd physis-dev-license && cargo run -q)`
 ```
 
 If the licence is missing, ask pansa to re-push it (`physis-dev-license`
