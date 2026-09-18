@@ -274,6 +274,11 @@ struct App {
     /// Zoomed-out aggregation (Phase 32): when true, rows collapse to one
     /// rollup per directory instead of one row per object.
     zoomed_out: bool,
+    /// Graph edge-class filter (Phase 32, `t` key): 0 = all edges,
+    /// 1 = recorded relations only, 2 = near-neighbour rows only.
+    /// Near-neighbour rows are similarity-ranked, not recorded — the filter
+    /// states which leg is drawn instead of merging them silently.
+    edge_filter: u8,
     /// HOT/WARM/COLD intent focus (Phase 32): set by `f`, cleared by `F`.
     /// HOT/WARM path sets projected from the ranked hits; COLD collapses.
     intent_hot: BTreeSet<String>,
@@ -363,6 +368,7 @@ impl App {
             changed: Default::default(),
             affected: Default::default(),
             zoomed_out: false,
+            edge_filter: 0,
             intent_hot: Default::default(),
             intent_warm: Default::default(),
             context_tab: ContextTab::Why,
@@ -1003,11 +1009,46 @@ impl App {
         }
     }
 
+/// Edge-class visibility for the graph dual view. `recorded` is true for
+/// rows drawn from stored relations, false for similarity-ranked
+/// near-neighbour rows. Filter: 0 = all, 1 = recorded only, 2 = near only.
+/// Pure so the toggle states exactly what it draws (ponytail: two arms, no
+/// per-kind taxonomy until a third leg exists).
+fn edge_shown(recorded: bool, filter: u8) -> bool {
+    match filter {
+        1 => recorded,
+        2 => !recorded,
+        _ => true,
+    }
+}
+
+/// Status text for the edge filter, shared by the toggle and the graph view.
+fn edge_filter_name(filter: u8) -> &'static str {
+    match filter {
+        1 => "recorded relations only",
+        2 => "near neighbours only",
+        _ => "all edges",
+    }
+}
+
+    /// Cycle the graph edge filter (`t`): all → recorded → near → all.
+    /// Re-renders the graph view when it is showing so the key visibly acts.
+    fn cycle_edge_filter(&mut self) {
+        self.edge_filter = (self.edge_filter + 1) % 3;
+        self.status = format!("graph edges: {}", Self::edge_filter_name(self.edge_filter));
+        if self
+            .reading
+            .as_ref()
+            .is_some_and(|(t, _)| t.starts_with("graph: "))
+        {
+            self.graph_view();
+        }
+    }
+
     /// Graph dual view (`g`): the same objects + relations as the list, in a
     /// local ASCII projection. One substrate, two renderings (§21) — no
     /// second graph model; this is a draw, not a data structure.
-    fn graph_view(&mut self) {
-        let Some(center) = self.current_hit().cloned() else {
+    fn graph_view(&mut self) {        let Some(center) = self.current_hit().cloned() else {
             self.status = "select an object to graph".into();
             return;
         };
@@ -1021,9 +1062,13 @@ impl App {
         };
         let mut lines = Vec::new();
         lines.push(format!("● {}", center.object.label));
+        lines.push(format!("edges: {}", Self::edge_filter_name(self.edge_filter)));
         // Related objects from relations touching the center, deduped.
         let mut seen = std::collections::BTreeSet::new();
         for r in self.ws.relations_of(&center.object) {
+            if !Self::edge_shown(true, self.edge_filter) {
+                continue;
+            }
             let (other, rel, dir) = if r.a == center.object.id {
                 (&r.b, r.kind.clone(), "→")
             } else {
@@ -1075,6 +1120,9 @@ impl App {
             }
         }
         for h in self.hits.iter().take(6) {
+            if !Self::edge_shown(false, self.edge_filter) {
+                continue;
+            }
             if h.object.id == center.object.id || !seen.insert(h.object.label.clone()) {
                 continue;
             }
@@ -1448,7 +1496,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "e edit · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1580,6 +1628,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             }
                             KeyCode::Char('r') => app.related(),
                             KeyCode::Char('g') => app.graph_view(),
+                            KeyCode::Char('t') => app.cycle_edge_filter(),
                             KeyCode::Char('H') => app.show_history(),
                             KeyCode::Char('B') => app.show_bench(),
                             KeyCode::Char('D') => app.show_dependents(),
@@ -1637,5 +1686,18 @@ mod tests {
         std::fs::write(dir.path().join("a.md"), "# hello\n\nsmall test file\n").unwrap();
         assert!(workspace_tokens(dir.path()) > 0);
         assert_eq!(workspace_tokens(&dir.path().join("missing")), 0);
+    }
+
+    /// The edge filter shows exactly the leg it names, nothing merged.
+    #[test]
+    fn edge_filter_states_which_leg_is_drawn() {
+        assert!(App::edge_shown(true, 0) && App::edge_shown(false, 0));
+        assert!(App::edge_shown(true, 1) && !App::edge_shown(false, 1));
+        assert!(!App::edge_shown(true, 2) && App::edge_shown(false, 2));
+        // Unknown filter values degrade to all, never to empty.
+        assert!(App::edge_shown(true, 9) && App::edge_shown(false, 9));
+        assert_eq!(App::edge_filter_name(0), "all edges");
+        assert_eq!(App::edge_filter_name(1), "recorded relations only");
+        assert_eq!(App::edge_filter_name(2), "near neighbours only");
     }
 }
