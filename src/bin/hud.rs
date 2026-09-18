@@ -1236,10 +1236,20 @@ impl App {
         if let Some(n) = notice {
             startup.push_str(&format!("\n{n}\n"));
         }
+        // Retained intent (P2): the last query this workspace was asked is in
+        // the trail, so a reopen resumes instead of starting blank. Prefill
+        // the box so Enter re-runs it; the card says what will run.
+        let resume = ws.last_intent();
+        if let Some(step) = &resume {
+            startup.push_str(&format!(
+                "\nresume: last intent \"{}\" ({}) — Enter to run\n",
+                step.focus, step.at
+            ));
+        }
         Ok(Self {
             ws,
             weights: NavWeights::default(),
-            query: String::new(),
+            query: resume.map(|s| s.focus).unwrap_or_default(),
             typing: true,
             editor: None,
             hits: Vec::new(),

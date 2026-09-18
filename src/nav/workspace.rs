@@ -318,6 +318,13 @@ impl NavWorkspace {
         nav::load_trail(&self.db)
     }
 
+    /// The most recent recorded query — the intent to resume when a workspace
+    /// is reopened. Read back out of the trail rather than kept in a second
+    /// field, so `:trail` and "what was I doing" can never disagree.
+    pub fn last_intent(&self) -> Option<NavStep> {
+        self.trail().into_iter().rev().find(|s| s.kind == "query")
+    }
+
     // -- sem off/on ------------------------------------------------------------
 
     /// Disable embeddings (step 21 of the acceptance walk): text is kept,
@@ -353,8 +360,13 @@ mod tests {
     use super::*;
     use crate::nav::tests::seed;
 
+    /// `PHYSIS_DATA_DIR` is process-global and the sled store is opened from
+    /// it, so tests that set it must not interleave.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn workspace_end_to_end() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         std::env::set_var("PHYSIS_DATA_DIR", dir.path().join("state"));
         seed(dir.path(), "docs/order.md", "order signal experiment\n");
@@ -385,5 +397,40 @@ mod tests {
         // read gives exact content
         let text = ws.read(&a).unwrap();
         assert_eq!(text, "order signal experiment\n");
+    }
+
+    #[test]
+    fn intent_survives_reopen() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        // P2: a workspace reopened on the same data dir reports the query it
+        // was last asked — retained intent, no guided command to find it.
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("PHYSIS_DATA_DIR", dir.path().join("state"));
+        seed(dir.path(), "docs/order.md", "order signal experiment\n");
+        let root = dir.path().to_path_buf();
+        let mut ws = NavWorkspace::open(&root).unwrap();
+        ws.update(false).unwrap();
+        ws.query("order signal", false, &Default::default(), 10)
+            .unwrap();
+        assert_eq!(
+            ws.last_intent().map(|s| s.focus),
+            Some("order signal".to_string())
+        );
+        drop(ws); // release the sled lock before reopening the same store
+
+        // Fresh handle on the same store: the intent is still there.
+        let reopened = NavWorkspace::open(&root).unwrap();
+        assert_eq!(
+            reopened.last_intent().map(|s| s.focus),
+            Some("order signal".to_string()),
+            "intent must survive reopen"
+        );
+        drop(reopened);
+
+        // A workspace that was never queried reports no intent, not a guess.
+        let other = tempfile::tempdir().unwrap();
+        std::env::set_var("PHYSIS_DATA_DIR", other.path().join("state"));
+        let fresh = NavWorkspace::open(other.path()).unwrap();
+        assert!(fresh.last_intent().is_none());
     }
 }
