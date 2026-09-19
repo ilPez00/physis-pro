@@ -41,6 +41,12 @@ pub enum AgentCommand {
     Show { id: String },
     /// Invoke an agent: `agent call <id> <prompt...>`
     Call { id: String, prompt: Vec<String> },
+    /// Ask JEV a question grounded in packed workspace context
+    Ask {
+        question: String,
+        #[arg(long, default_value_t = 3000)]
+        budget: usize,
+    },
     /// Route a request: `agent route <verb> <object-kind> [--agent ID] [--domain D] [--mode M]`
     Route {
         verb: String,
@@ -2443,7 +2449,55 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("{}", out.text);
             if let Some(s) = out.structured {
-                println!("{}", serde_json::to_string_pretty(&s)?);
+                if !s.is_empty() {
+                    println!("{}", serde_json::to_string_pretty(&s)?);
+                }
+            }
+        }
+        AgentCommand::Ask { question, budget } => {
+            // Ground the question in the workspace: pack the most relevant
+            // source first, so the agent answers from evidence instead of
+            // exploring the tree on its own (measured: a bare `opencode run`
+            // turn is ~43 s; a repo-exploring question ran past three minutes).
+            let config = PhysisProConfig::default();
+            let root = std::env::current_dir()?;
+            let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+            eprintln!("[physis] jev ask embedder: {kind}");
+            let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+            let packed = physis_pro::pack::pack_cached(
+                &root,
+                question,
+                *budget,
+                12,
+                0.3,
+                embedder.as_ref(),
+                kind,
+                &mut cache,
+            );
+            cache.save(&config.physis.data_dir);
+            eprintln!(
+                "[physis] packed {} tokens from {} chunks",
+                packed.tokens,
+                packed.chunks.len()
+            );
+
+            let prompt = format!(
+                "Answer using only the workspace context below. Cite paths as path:line.\n\n\
+                 --- context ---\n{}\n--- end context ---\n\nQuestion: {question}",
+                packed.context
+            );
+            let agent = roster
+                .get("jev")
+                .ok_or_else(|| anyhow::anyhow!("no `jev` in the roster"))?;
+            let adapter = adapter::adapter_for(agent).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let out = adapter
+                .invoke(&adapter::Invocation::new(prompt))
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("{}", out.text);
+            if let Some(s) = out.structured {
+                if !s.is_empty() {
+                    println!("{}", serde_json::to_string_pretty(&s)?);
+                }
             }
         }
         AgentCommand::Route {
