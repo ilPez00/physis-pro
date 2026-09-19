@@ -74,6 +74,26 @@ pub enum AgentCommand {
     },
 }
 
+/// Editable intent: the operator's statement of what this workspace is for.
+#[derive(Subcommand)]
+pub enum IntentCommand {
+    /// Show every intent with its recent edits
+    Show,
+    /// Set an intent: `intent set <id> <statement...>`
+    Set {
+        id: String,
+        statement: Vec<String>,
+        /// Who is making the edit (recorded in the provenance)
+        #[arg(long, default_value = "cli")]
+        by: String,
+        /// Why the edit was made (recorded in the provenance)
+        #[arg(long, default_value = "")]
+        reason: String,
+    },
+    /// Show one intent's full edit history
+    History { id: String },
+}
+
 /// Editable settings: command syntax and provider/model configuration.
 #[derive(Subcommand)]
 pub enum SettingsCommand {
@@ -126,6 +146,11 @@ pub enum Commands {
     Settings {
         #[command(subcommand)]
         command: SettingsCommand,
+    },
+    /// Editable intent: what this workspace is for, with provenance
+    Intent {
+        #[command(subcommand)]
+        command: IntentCommand,
     },
     /// Draw everything as text: agents, actions, tasks, routes and settings
     Draw {
@@ -208,6 +233,9 @@ pub enum Commands {
         /// run for minutes; 0 means no bound.
         #[arg(long, default_value_t = 0)]
         max_files: usize,
+        /// Name the intent this pack is built under; recorded in the packet.
+        #[arg(long)]
+        intent: Option<String>,
     },
     /// Pre-compute the embeddings the engine needs at startup, so the first
     /// real run is fast. Intended to be run once by the installer: without it
@@ -1179,6 +1207,7 @@ fn main() -> anyhow::Result<()> {
         show_context,
         save,
         max_files,
+        intent,
     } = &cli.command
     {
         let config = PhysisProConfig::default();
@@ -1205,6 +1234,10 @@ fn main() -> anyhow::Result<()> {
             &mut cache,
             limit,
         );
+        let mut result = result;
+        // A packet that does not say what it was for cannot be audited against
+        // it, so the intent id travels with the pack.
+        result.intent = intent.clone();
         cache.save(&config.physis.data_dir);
         let (hits, misses) = cache.stats();
         eprintln!("[physis] embed cache: {hits} hits, {misses} misses");
@@ -1505,6 +1538,10 @@ fn main() -> anyhow::Result<()> {
         return cmd_draw(root.as_deref(), log.as_deref(), *width);
     }
 
+    if let Commands::Intent { command } = &cli.command {
+        return cmd_intent(command);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1520,6 +1557,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Agent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Settings { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Draw { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Intent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2545,6 +2583,55 @@ fn read_observations(
     Ok(out)
 }
 
+/// `intent`: the operator's statement of what the workspace is for, with the
+/// provenance of every edit, persisted so it survives a restart.
+fn cmd_intent(command: &IntentCommand) -> anyhow::Result<()> {
+    use physis_pro::intent::IntentStore;
+    let root = std::env::current_dir()?;
+    match command {
+        IntentCommand::Show => print!("{}", IntentStore::load(&root).render()),
+        IntentCommand::History { id } => {
+            let store = IntentStore::load(&root);
+            match store.get(id) {
+                Some(i) => {
+                    println!("{}\n  {}\n", i.id, i.statement);
+                    for e in &i.history {
+                        println!(
+                            "  {} by {} — {}{}",
+                            e.at.to_rfc3339(),
+                            e.by,
+                            e.to,
+                            if e.reason.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" ({})", e.reason)
+                            }
+                        );
+                    }
+                }
+                None => anyhow::bail!("no such intent: {id}"),
+            }
+        }
+        IntentCommand::Set {
+            id,
+            statement,
+            by,
+            reason,
+        } => {
+            let text = statement.join(" ");
+            if text.trim().is_empty() {
+                anyhow::bail!("an intent statement must not be empty");
+            }
+            let mut store = IntentStore::load(&root);
+            store.set(id, &text, by, reason);
+            store.save(&root).map_err(|e| anyhow::anyhow!(e))?;
+            println!("intent {id} = {text}");
+            println!("written to {}", IntentStore::path(&root).display());
+        }
+    }
+    Ok(())
+}
+
 /// `draw`: everything the HUD shows, as text. Every section is produced by the
 /// same renderer the TUI calls, so the two frontends cannot drift.
 fn cmd_draw(
@@ -2614,6 +2701,10 @@ fn cmd_draw(
     }
 
     let sections = vec![
+        Section::new(
+            "intent",
+            physis_pro::intent::IntentStore::load(&root).render(),
+        ),
         Section::new("agents", agents_body),
         Section::new("actions", actions_body),
         Section::new("tasks", tasks_body),

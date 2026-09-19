@@ -564,13 +564,37 @@ impl Registry {
         }
     }
 
+    /// Register the workspace's intents as Note-kind objects, so an intent is
+    /// addressable like any other object and appears in `action list`.
+    pub fn register_intents(&mut self, store: &crate::intent::IntentStore) {
+        for (id, i) in &store.intents {
+            let mut meta = HashMap::new();
+            meta.insert(
+                "statement".to_string(),
+                serde_json::Value::String(i.statement.clone()),
+            );
+            meta.insert(
+                "edits".to_string(),
+                serde_json::Value::Number(i.history.len().into()),
+            );
+            self.register_object(
+                format!("intent:{id}"),
+                crate::intent::INTENT_KIND.to_string(),
+                String::new(),
+                meta,
+            );
+        }
+    }
+
     /// Populate a registry from an already-open workspace: `fs:` objects, the
-    /// host/device placeholders, and the shipped capabilities. The HUD already
-    /// holds the workspace, so it calls this rather than reopening sled.
+    /// host/device placeholders, the agents, the workspace's intents, and the
+    /// shipped capabilities. The HUD already holds the workspace, so it calls
+    /// this rather than reopening sled.
     pub fn register_workspace(&mut self, ws: &crate::nav::workspace::NavWorkspace) {
         self.register_nav_index(ws.index());
         self.register_placeholders();
         self.register_agents(&crate::agents::default_roster());
+        self.register_intents(&crate::intent::IntentStore::load(&ws.root));
         for cap in crate::capability::default_capabilities() {
             self.add_capability(cap);
         }

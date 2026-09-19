@@ -352,6 +352,12 @@ enum HudCommand {
     Action(String),
     /// Fold the observation log into the task graph and show it.
     Tasks,
+    /// Show the operator's intent and its provenance.
+    Intent,
+    /// Show the agent roster and live availability.
+    Agents,
+    /// Show the effective settings.
+    Settings,
     Quit,
 }
 
@@ -439,6 +445,9 @@ fn parse_named_command(text: &str) -> HudInput {
         "rescan" if arg.is_none() => HudInput::Command(HudCommand::Rescan),
         "graph" if arg.is_none() => HudInput::Command(HudCommand::Graph),
         "tasks" | "task" if arg.is_none() => HudInput::Command(HudCommand::Tasks),
+        "intent" if arg.is_none() => HudInput::Command(HudCommand::Intent),
+        "agents" if arg.is_none() => HudInput::Command(HudCommand::Agents),
+        "settings" if arg.is_none() => HudInput::Command(HudCommand::Settings),
         "notebook" if arg.is_none() => HudInput::Command(HudCommand::Notebook),
         "related" if arg.is_none() => HudInput::Command(HudCommand::Related),
         "pin" if arg.is_none() => HudInput::Command(HudCommand::Pin),
@@ -568,7 +577,8 @@ fn parse_hud_input(raw: &str) -> HudInput {
         }
         "help" | "history" | "bench" | "context" | "delta" | "why" | "contradictions"
         | "rescan" | "graph" | "notebook" | "related" | "pin" | "clear" | "clear-focus"
-        | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks"
+        | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks" | "intent" | "agents"
+        | "settings"
             if rest.is_empty() =>
         {
             parse_named_command(text)
@@ -2211,6 +2221,44 @@ impl App {
                 };
                 self.status = format!("tasks: folded from {}", path.display());
                 self.reading = Some(("tasks".into(), text));
+            }
+            HudCommand::Intent => {
+                let store = physis_pro::intent::IntentStore::load(&self.ws.root);
+                let body = if store.intents.is_empty() {
+                    format!(
+                        "no intents yet\n\nset one with:\n  physis-pro intent set main \"what this workspace is for\"\nstored at {}",
+                        physis_pro::intent::IntentStore::path(&self.ws.root).display()
+                    )
+                } else {
+                    store.render()
+                };
+                self.status = "intent: the operator's statement, with provenance".into();
+                self.reading = Some(("intent".into(), body));
+            }
+            HudCommand::Agents => {
+                let roster = physis_pro::agents::default_roster();
+                let mut body = physis_pro::agents::view::render_strip(&roster);
+                body.push('\n');
+                for a in &roster.agents {
+                    let s = physis_pro::agents::status(a);
+                    let dot = if s.available { "●" } else { "○" };
+                    body.push_str(&format!(
+                        "  {dot} {:<10} {:<8} {:<28} {}\n",
+                        a.id,
+                        a.state.label(),
+                        s.transport,
+                        s.reason.as_deref().unwrap_or("")
+                    ));
+                }
+                self.status = format!("agents: {} in the roster", roster.agents.len());
+                self.reading = Some(("agents".into(), body));
+            }
+            HudCommand::Settings => {
+                self.status = "settings: shipped defaults layered with yours".into();
+                self.reading = Some((
+                    "settings".into(),
+                    physis_pro::settings::Settings::load().render(),
+                ));
             }
             HudCommand::Action(line) => {
                 let mut reg =
@@ -4085,6 +4133,32 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert!(lines[0].contains("names module index"));
         assert!(lines[1].contains("calls update_index"));
+    }
+
+    #[test]
+    fn new_surface_commands_parse() {
+        assert_eq!(
+            parse_hud_input("intent"),
+            HudInput::Command(HudCommand::Intent)
+        );
+        assert_eq!(
+            parse_hud_input("agents"),
+            HudInput::Command(HudCommand::Agents)
+        );
+        assert_eq!(
+            parse_hud_input("settings"),
+            HudInput::Command(HudCommand::Settings)
+        );
+        assert_eq!(
+            parse_hud_input("tasks"),
+            HudInput::Command(HudCommand::Tasks)
+        );
+        // `settings set x` is not a HUD command: it needs an argument and lives
+        // on the CLI, so it must not silently become a command.
+        assert!(matches!(
+            parse_hud_input("settings set providers.jev.model x"),
+            HudInput::SemanticQuery(_)
+        ));
     }
 
     #[test]

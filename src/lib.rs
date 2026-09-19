@@ -4,6 +4,7 @@ pub mod action;
 pub mod actor;
 pub mod agents;
 pub mod draw;
+pub mod intent;
 pub mod settings;
 // Product surfaces moved out of physis-core by the 2026-09-14 Core/Product
 // split (see physis-core/MOVED_TO_PRODUCT.md).

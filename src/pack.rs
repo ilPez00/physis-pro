@@ -74,6 +74,10 @@ pub struct PackResult {
     pub candidate_tokens: usize,
     /// Files walked.
     pub files_scanned: usize,
+    /// The intent this pack was built under, when one was named. A packet that
+    /// does not say what it was for cannot be audited against it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intent: Option<String>,
 }
 
 /// A chunk before retrieval: text plus where it came from.
@@ -153,9 +157,7 @@ fn collect_candidates_limited(root: &Path, max_files: Option<usize>) -> (Vec<Can
         // Measured 2026-09-19: without the `target` prefix rule a pack over this
         // repo returned `target-trixie/release/deps/*.d` and `CACHEDIR.TAG` as
         // its top hits — build artifacts crowding out the source.
-        !(name.starts_with('.')
-            || name.starts_with("target")
-            || SKIP_DIRS.contains(&name.as_ref()))
+        !(name.starts_with('.') || name.starts_with("target") || SKIP_DIRS.contains(&name.as_ref()))
     });
 
     for entry in walker.filter_map(Result::ok) {
@@ -350,6 +352,7 @@ pub fn pack(
             candidates: 0,
             candidate_tokens: 0,
             files_scanned,
+            intent: None,
         };
     }
 
@@ -446,6 +449,7 @@ fn pack_from_candidates(
             candidates: 0,
             candidate_tokens: 0,
             files_scanned,
+            intent: None,
         };
     }
 
@@ -531,6 +535,7 @@ fn finish_pack(
         candidate_tokens,
         chunks,
         files_scanned,
+        intent: None,
     }
 }
 
