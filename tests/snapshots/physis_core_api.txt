@@ -1,0 +1,2213 @@
+act — mod
+act::Acted — struct pub struct Acted {
+act::Acted::bearing — field pub bearing: Vec<Bearing>
+act::Acted::command — field pub command: String
+act::Acted::duration_ms — field pub duration_ms: u64
+act::Acted::exit_code — field pub exit_code: Option<i32>
+act::Acted::observed — field pub observed: Vec<u64>
+act::Acted::render — fn pub fn render(&self) -> String {
+act::Acted::stderr_tail — field pub stderr_tail: String
+act::Acted::stdout_lines — field pub stdout_lines: usize
+act::Acted::warnings — fn pub fn warnings(&self) -> Vec<&Bearing> {
+act::Bearing — struct pub struct Bearing {
+act::Bearing::id — field pub id: String
+act::Bearing::is_warning — fn pub fn is_warning(&self) -> bool {
+act::Bearing::open_predictions — field pub open_predictions: usize
+act::Bearing::relevance — field pub relevance: f32
+act::Bearing::statement — field pub statement: String
+act::Bearing::status — field pub status: String
+act::Selection — enum pub enum Selection {
+act::Selection::CascadeFloor — variant CascadeFloor { pool: usize, floor: f32 }
+act::Selection::CascadeRerank — variant CascadeRerank { pool: usize }
+act::Selection::Hybrid — variant Hybrid { alpha: f32 }
+act::Selection::HybridRrf — variant HybridRrf { k: f32 }
+act::Selection::Relevance — variant Relevance
+act::Selection::WarningReserve — variant WarningReserve { floor_ratio: f32 }
+act::bearing_on — fn pub fn bearing_on( core: &crate::core::PhysisCore, command: &str, embedder: &dyn VectorEmbed, top: usize, ) -> Vec<Bearing> {
+act::bearing_on_with — fn pub fn bearing_on_with( core: &crate::core::PhysisCore, command: &str, embedder: &dyn VectorEmbed, top: usize, selection: Selection, ) -> Vec<Bearing> {
+act::run — fn pub fn run( command: &str, bearing: Vec<Bearing>, log: &std::path::Path, ) -> anyhow::Result<Acted> {
+act_recall — mod
+act_recall::ABS_FLOORS — const pub const ABS_FLOORS: [f32; 5];
+act_recall::ALPHAS — const pub const ALPHAS: [f32; 11];
+act_recall::Arm — enum pub enum Arm {
+act_recall::Arm::Lexical — variant Lexical
+act_recall::Arm::Paraphrase — variant Paraphrase
+act_recall::Arm::label — fn pub fn label(&self) -> &'static str {
+act_recall::ArmResult — struct pub struct ArmResult {
+act_recall::ArmResult::arm — field pub arm: String
+act_recall::ArmResult::cases — field pub cases: Vec<CaseResult>
+act_recall::ArmResult::hits — field pub hits: usize
+act_recall::ArmResult::margin_status — field pub margin_status: f32
+act_recall::ArmResult::margin_uniform — field pub margin_uniform: f32
+act_recall::ArmResult::mrr — field pub mrr: f32
+act_recall::ArmResult::null_status_recall — field pub null_status_recall: f32
+act_recall::ArmResult::null_uniform_recall — field pub null_uniform_recall: f32
+act_recall::ArmResult::queries — field pub queries: usize
+act_recall::ArmResult::recall — field pub recall: f32
+act_recall::ArmResult::top — field pub top: usize
+act_recall::ArmResult::verdict — field pub verdict: String
+act_recall::ArmResult::warned — field pub warned: usize
+act_recall::ArmResult::warning_recall — field pub warning_recall: f32
+act_recall::CaseResult — struct pub struct CaseResult {
+act_recall::CaseResult::command — field pub command: String
+act_recall::CaseResult::rank — field pub rank: Option<usize>
+act_recall::CaseResult::target — field pub target: String
+act_recall::CaseResult::target_relevance — field pub target_relevance: f32
+act_recall::CaseResult::top_statement — field pub top_statement: String
+act_recall::FLOORS — const pub const FLOORS: [f32; 5];
+act_recall::HybridPoint — struct pub struct HybridPoint {
+act_recall::HybridPoint::combined — field pub combined: f32
+act_recall::HybridPoint::lexical_recall — field pub lexical_recall: f32
+act_recall::HybridPoint::paraphrase_recall — field pub paraphrase_recall: f32
+act_recall::HybridPoint::polarity_lexical — field pub polarity_lexical: f32
+act_recall::HybridPoint::polarity_paraphrase — field pub polarity_paraphrase: f32
+act_recall::HybridPoint::policy — field pub policy: String
+act_recall::LEDGER_SIZE — const pub const LEDGER_SIZE: usize;
+act_recall::NULL_TRIALS — const pub const NULL_TRIALS: usize;
+act_recall::PolarityCase — struct pub struct PolarityCase {
+act_recall::PolarityCase::command — field pub command: String
+act_recall::PolarityCase::target_rank — field pub target_rank: usize
+act_recall::PolarityCase::target_relevance — field pub target_relevance: f32
+act_recall::PolarityCase::twin_rank — field pub twin_rank: usize
+act_recall::PolarityCase::twin_relevance — field pub twin_relevance: f32
+act_recall::PolarityResult — struct pub struct PolarityResult {
+act_recall::PolarityResult::arm — field pub arm: String
+act_recall::PolarityResult::cases — field pub cases: Vec<PolarityCase>
+act_recall::PolarityResult::discrimination — field pub discrimination: f32
+act_recall::PolarityResult::queries — field pub queries: usize
+act_recall::PolarityResult::reassured_instead — field pub reassured_instead: usize
+act_recall::PolarityResult::target_first — field pub target_first: usize
+act_recall::PolarityResult::target_in_top — field pub target_in_top: usize
+act_recall::PolarityResult::top — field pub top: usize
+act_recall::PolarityResult::twin_in_top — field pub twin_in_top: usize
+act_recall::PolarityResult::verdict — field pub verdict: String
+act_recall::RecallRun — struct pub struct RecallRun {
+act_recall::RecallRun::arm — fn pub fn arm(&self, label: &str) -> Option<&ArmResult> {
+act_recall::RecallRun::arms — field pub arms: Vec<ArmResult>
+act_recall::RecallRun::contradicted_claims — field pub contradicted_claims: usize
+act_recall::RecallRun::embedder — field pub embedder: String
+act_recall::RecallRun::git_commit — field pub git_commit: String
+act_recall::RecallRun::hybrid — field pub hybrid: Vec<HybridPoint>
+act_recall::RecallRun::ledger_size — field pub ledger_size: usize
+act_recall::RecallRun::null_trials — field pub null_trials: usize
+act_recall::RecallRun::physis_version — field pub physis_version: String
+act_recall::RecallRun::polarity — field pub polarity: Vec<PolarityResult>
+act_recall::RecallRun::polarity_ledger_size — field pub polarity_ledger_size: usize
+act_recall::RecallRun::render — fn pub fn render(&self) -> String {
+act_recall::RecallRun::seed — field pub seed: u64
+act_recall::RecallRun::selection — field pub selection: Vec<SelectionResult>
+act_recall::RecallRun::top — field pub top: usize
+act_recall::SelectionResult — struct pub struct SelectionResult {
+act_recall::SelectionResult::false_alarms — field pub false_alarms: usize
+act_recall::SelectionResult::harm_removed_per_false_alarm — field pub harm_removed_per_false_alarm: Option<f32>
+act_recall::SelectionResult::pairs — field pub pairs: usize
+act_recall::SelectionResult::policy — field pub policy: String
+act_recall::SelectionResult::reassured — field pub reassured: usize
+act_recall::SelectionResult::target_in_top — field pub target_in_top: usize
+act_recall::SelectionResult::top — field pub top: usize
+act_recall::SelectionResult::unrelated — field pub unrelated: usize
+act_recall::demo_ledger — fn pub fn demo_ledger(embedder: &dyn VectorEmbed) -> PhysisCore {
+act_recall::pair_commands — fn pub fn pair_commands() -> Vec<&'static str> {
+act_recall::run — fn pub fn run(top: usize, embedder: &dyn VectorEmbed, embedder_kind: &str, seed: u64) -> RecallRun {
+act_recall::run_arm — fn pub fn run_arm( core: &PhysisCore, index: &[(String, String)], arm: Arm, top: usize, embedder: &dyn VectorEmbed, seed: u64, ) -> ArmResult {
+act_recall::run_hybrid_sweep — fn pub fn run_hybrid_sweep( base: &PhysisCore, base_index: &[(String, String)], twin: &PhysisCore, twin_index: &[(String, String)], top: usize, embedder: &dyn VectorEmbed, ) -> Vec<HybridPoint> {
+act_recall::run_polarity — fn pub fn run_polarity( core: &PhysisCore, index: &[(String, String)], arm: Arm, top: usize, embedder: &dyn VectorEmbed, ) -> PolarityResult {
+act_recall::run_selection — fn pub fn run_selection( core: &PhysisCore, arm: Arm, top: usize, embedder: &dyn VectorEmbed, selection: crate::act::Selection, baseline_reassured: Option<usize>, ) -> SelectionResult {
+act_recall::twin_pairs_corpus — fn pub fn twin_pairs_corpus( embedder: &dyn VectorEmbed, ) -> (crate::claim_identity::ScoredClaims, crate::claim_identity::TruthPairs) {
+act_recall::unrelated_commands — fn pub fn unrelated_commands() -> Vec<&'static str> {
+becoming — mod
+becoming::Deviation — enum pub enum Deviation {
+becoming::Deviation::Mistake — variant Mistake
+becoming::Deviation::Variation — variant Variation
+becoming::Occurrence — struct pub struct Occurrence {
+becoming::Occurrence::at — field pub at: i64
+becoming::Occurrence::context — field pub context: Vec<f32>
+becoming::Trajectory — enum pub enum Trajectory {
+becoming::Trajectory::Becoming — variant Becoming
+becoming::Trajectory::Split — variant Split
+becoming::Trajectory::Stable — variant Stable
+becoming::Trajectory::TooFew — variant TooFew
+becoming::Verdict — struct pub struct Verdict {
+becoming::Verdict::change_at — field pub change_at: Option<usize>
+becoming::Verdict::deviations — field pub deviations: Vec<Option<Deviation>>
+becoming::Verdict::runs_z — field pub runs_z: f64
+becoming::Verdict::separation — field pub separation: f32
+becoming::Verdict::trajectory — field pub trajectory: Trajectory
+becoming::classify — fn pub fn classify(occs: &[Occurrence]) -> Verdict {
+becoming::classify_labeled — fn pub fn classify_labeled(labels: &[&str]) -> Verdict {
+becoming::deviations — fn pub fn deviations(occs: &[Occurrence]) -> Vec<Option<Deviation>> {
+becoming::runs_z — fn pub fn runs_z(seq: &[bool]) -> f64 {
+bench — mod
+bench::BenchConfig — struct pub struct BenchConfig {
+bench::BenchConfig::big_model — field pub big_model: Option<String>
+bench::BenchConfig::context_budget — field pub context_budget: usize
+bench::BenchConfig::corpus_root — field pub corpus_root: String
+bench::BenchConfig::git_commit — field pub git_commit: String
+bench::BenchConfig::min_count — field pub min_count: usize
+bench::BenchConfig::order — field pub order: u8
+bench::BenchConfig::physis_version — field pub physis_version: String
+bench::BenchConfig::seed — field pub seed: u64
+bench::BenchMetrics — struct pub struct BenchMetrics {
+bench::BenchMetrics::anomalies_caught — field pub anomalies_caught: usize
+bench::BenchMetrics::anomalies_known — field pub anomalies_known: usize
+bench::BenchMetrics::anomaly_recall — field pub anomaly_recall: f32
+bench::BenchMetrics::baseline_tokens — field pub baseline_tokens: usize
+bench::BenchMetrics::big_model_leg — field pub big_model_leg: String, // "not_configured" | "failed:<why>" | model id
+bench::BenchMetrics::context_compression_ratio — field pub context_compression_ratio: f32
+bench::BenchMetrics::contradiction_recall — field pub contradiction_recall: f32
+bench::BenchMetrics::contradictions_found — field pub contradictions_found: usize
+bench::BenchMetrics::contradictions_known — field pub contradictions_known: usize
+bench::BenchMetrics::families_found — field pub families_found: usize
+bench::BenchMetrics::families_known — field pub families_known: usize
+bench::BenchMetrics::heldout_docs — field pub heldout_docs: usize
+bench::BenchMetrics::heldout_score — field pub heldout_score: f32
+bench::BenchMetrics::interchange_ok — field pub interchange_ok: bool
+bench::BenchMetrics::map_deterministic — field pub map_deterministic: bool
+bench::BenchMetrics::ngram_build_ms — field pub ngram_build_ms: f64
+bench::BenchMetrics::ngram_disk_bytes — field pub ngram_disk_bytes: u64
+bench::BenchMetrics::ngram_load_ms — field pub ngram_load_ms: f64
+bench::BenchMetrics::ngram_lookup_per_sec — field pub ngram_lookup_per_sec: f64
+bench::BenchMetrics::ngram_ram_estimate_mb — field pub ngram_ram_estimate_mb: u64
+bench::BenchMetrics::oracle_cases — field pub oracle_cases: Vec<crate::oracle::OracleCase>
+bench::BenchMetrics::oracle_evidence_hits — field pub oracle_evidence_hits: usize
+bench::BenchMetrics::oracle_evidence_total — field pub oracle_evidence_total: usize
+bench::BenchMetrics::oracle_mean_agreement — field pub oracle_mean_agreement: f32
+bench::BenchMetrics::physis_tokens — field pub physis_tokens: usize
+bench::BenchMetrics::repeat_recovery — field pub repeat_recovery: f32
+bench::BenchMetrics::structure_hash — field pub structure_hash: String
+bench::BenchOut — struct pub struct BenchOut {
+bench::BenchOut::artifacts_dir — field pub artifacts_dir: String
+bench::BenchOut::run — field pub run: BenchRun
+bench::BenchRun — struct pub struct BenchRun {
+bench::BenchRun::config — field pub config: BenchConfig
+bench::BenchRun::corpus_hash — field pub corpus_hash: String
+bench::BenchRun::metrics — field pub metrics: BenchMetrics
+bench::BenchRun::timestamp — field pub timestamp: String
+bench::Doc — type pub type Doc = (String, String);
+bench::Truth — type pub type Truth = BTreeMap<String, Vec<String>>;
+bench::git_head — fn pub fn git_head() -> String {
+bench::ground_truth — fn pub fn ground_truth() -> (Vec<Doc>, Truth) {
+bench::materialise_ground_truth — fn pub fn materialise_ground_truth(root: &PathBuf) -> anyhow::Result<Vec<(String, String)>> {
+bench::run — fn pub fn run(cfg: BenchConfig, embedder: &dyn crate::embed::VectorEmbed) -> anyhow::Result<BenchOut> {
+chain — mod
+chain::ChainReport — struct pub struct ChainReport {
+chain::ChainReport::baseline_tokens — field pub baseline_tokens: usize
+chain::ChainReport::candidates — field pub candidates: usize
+chain::ChainReport::context_tokens — field pub context_tokens: usize
+chain::ChainReport::contradictions — field pub contradictions: usize
+chain::ChainReport::differences — field pub differences: usize
+chain::ChainReport::discriminates — fn pub fn discriminates(&self) -> bool {
+chain::ChainReport::documents — field pub documents: usize
+chain::ChainReport::drifts — field pub drifts: Vec<Drift>
+chain::ChainReport::embedder — field pub embedder: String
+chain::ChainReport::mean_gain — field pub mean_gain: f32
+chain::ChainReport::null — field pub null: f32
+chain::ChainReport::render — fn pub fn render(&self) -> String {
+chain::ChainReport::repeats — field pub repeats: usize
+chain::ChainReport::structure_hash — field pub structure_hash: String
+chain::ChainReport::testable — fn pub fn testable(&self) -> bool {
+chain::ChainReport::unplaced — field pub unplaced: Vec<Unplaced>
+chain::Drift — struct pub struct Drift {
+chain::Drift::runs_z — field pub runs_z: f64
+chain::Drift::separation — field pub separation: f32
+chain::Drift::term — field pub term: String
+chain::Drift::trajectory — field pub trajectory: String
+chain::Unplaced — struct pub struct Unplaced {
+chain::Unplaced::id — field pub id: String
+chain::Unplaced::live_score — field pub live_score: f32
+chain::Unplaced::shortlist — field pub shortlist: Vec<String>
+chain::Unplaced::top_gain — field pub top_gain: f32
+chain::run — fn pub fn run( docs: &[(String, String)], query: &str, embedder: &dyn VectorEmbed, clf: &CellClassifier, budget: usize, threshold: f32, embedder_kind: &str, ) -> anyhow::Result<ChainReport> {
+claim_identity — mod
+claim_identity::IdentityRun — struct pub struct IdentityRun {
+claim_identity::IdentityRun::best_embedding — field pub best_embedding: Option<PairScore>
+claim_identity::IdentityRun::best_structural — field pub best_structural: Option<PairScore>
+claim_identity::IdentityRun::claims — field pub claims: usize
+claim_identity::IdentityRun::embedder — field pub embedder: String
+claim_identity::IdentityRun::known_contradictions — field pub known_contradictions: usize
+claim_identity::IdentityRun::pairs_examined — field pub pairs_examined: usize
+claim_identity::IdentityRun::polarity_unresolved — field pub polarity_unresolved: usize
+claim_identity::IdentityRun::render — fn pub fn render(&self) -> String {
+claim_identity::IdentityRun::scores — field pub scores: Vec<PairScore>
+claim_identity::IdentityRun::unresolved_examples — field pub unresolved_examples: Vec<String>
+claim_identity::PairScore — struct pub struct PairScore {
+claim_identity::PairScore::f1 — field pub f1: f32
+claim_identity::PairScore::false_positives — field pub false_positives: usize
+claim_identity::PairScore::known — field pub known: usize
+claim_identity::PairScore::method — field pub method: String
+claim_identity::PairScore::pairs_examined — field pub pairs_examined: usize
+claim_identity::PairScore::precision — field pub precision: f32
+claim_identity::PairScore::recall — field pub recall: f32
+claim_identity::PairScore::threshold — field pub threshold: f32
+claim_identity::PairScore::true_positives — field pub true_positives: usize
+claim_identity::ScoredClaims — type pub type ScoredClaims = Vec<(String, Vec<f32>)>;
+claim_identity::Signature — struct pub struct Signature {
+claim_identity::Signature::content — field pub content: Vec<String>
+claim_identity::Signature::opposed — fn pub fn opposed(&self, other: &Signature) -> bool {
+claim_identity::Signature::overlap — fn pub fn overlap(&self, other: &Signature) -> f32 {
+claim_identity::Signature::polarity — field pub polarity: i8
+claim_identity::THRESHOLDS — const pub const THRESHOLDS: [f32; 9];
+claim_identity::TruthPairs — type pub type TruthPairs = Vec<(usize, usize)>;
+claim_identity::run — fn pub fn run( claims: &[(String, Vec<f32>)], truth: &[(usize, usize)], embedder_kind: &str, ) -> IdentityRun {
+claim_identity::signature — fn pub fn signature(statement: &str) -> Signature {
+classify — mod
+classify::Cell — struct pub struct Cell {
+classify::Cell::domain — field pub domain: String
+classify::Cell::embeddings — field pub embeddings: Vec<Vec<f32>>
+classify::Cell::entries — field pub entries: Vec<String>
+classify::Cell::facets — field pub facets: Vec<Facets>
+classify::Cell::mode — field pub mode: String
+classify::Cell::new — fn pub fn new( domain: String, mode: String, embeddings: Vec<Vec<f32>>, entries: Vec<String>, facets: Vec<Facets>, ) -> Self {
+classify::CellClassifier — struct pub struct CellClassifier {
+classify::CellClassifier::adaptive_top_k — fn pub fn adaptive_top_k(num_entries: usize) -> usize {
+classify::CellClassifier::best_entry_sim — fn pub fn best_entry_sim(&self, embedding: &[f32]) -> Option<(f32, String, String)> {
+classify::CellClassifier::build — fn pub fn build(ontology: &OntologyLoader, embedder: &dyn VectorEmbed) -> Self {
+classify::CellClassifier::build_seeds — fn pub fn build_seeds<F>(seeds: impl IntoIterator<Item = EntrySeed>, embed: F) -> Self where F: Fn(&str) -> Vec<f32>, {
+classify::CellClassifier::cell_centroids — fn pub fn cell_centroids(&self) -> HashMap<String, Vec<f32>> {
+classify::CellClassifier::cell_count — fn pub fn cell_count(&self) -> usize {
+classify::CellClassifier::cells — field pub cells: Vec<Cell>
+classify::CellClassifier::classify — fn pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
+classify::CellClassifier::classify_filtered — fn pub fn classify_filtered(&self, embedding: &[f32], filter: &FacetFilter) -> Vec<CellScore> {
+classify::CellClassifier::classify_text — fn pub fn classify_text(&self, text: &str, embedder: &dyn VectorEmbed) -> Vec<CellScore> {
+classify::CellClassifier::classify_with_metadata — fn pub fn classify_with_metadata( &self, embedding: &[f32], metadata: &ClassificationMetadata, filter: &MetadataFilter, ) -> Option<ClassifiedSentence> {
+classify::CellClassifier::classify_with_topk — fn pub fn classify_with_topk(&self, embedding: &[f32], strat: TopKStrategy) -> Vec<CellScore> {
+classify::CellClassifier::from_cells — fn pub fn from_cells(cells: Vec<Cell>) -> Self {
+classify::CellClassifier::hint_weighted_embed — fn pub fn hint_weighted_embed(name_embed: &[f32], hints_embed: &[f32]) -> Vec<f32> {
+classify::CellClassifier::propose_cells — fn pub fn propose_cells( &self, text: &str, embedder: &dyn VectorEmbed, _filter: &MetadataFilter, ) -> Vec<((String, String), f32, f32)> {
+classify::CellScore — struct pub struct CellScore {
+classify::CellScore::domain — field pub domain: String
+classify::CellScore::entries — field pub entries: Vec<String>
+classify::CellScore::facets — field pub facets: Facets
+classify::CellScore::mode — field pub mode: String
+classify::CellScore::score — field pub score: f32
+classify::ClassificationMetadata — struct pub struct ClassificationMetadata {
+classify::ClassificationMetadata::context — field pub context: Option<String>
+classify::ClassificationMetadata::extra — field pub extra: std::collections::HashMap<String, String>
+classify::ClassificationMetadata::source_document — field pub source_document: Option<String>
+classify::ClassificationMetadata::speaker — field pub speaker: Option<String>
+classify::ClassificationMetadata::tags — field pub tags: Vec<String>
+classify::ClassifiedSentence — struct pub struct ClassifiedSentence {
+classify::ClassifiedSentence::cell — field pub cell: (String, String), // (domain, mode) pair
+classify::ClassifiedSentence::classified_at — field pub classified_at: Option<String>
+classify::ClassifiedSentence::confidence — field pub confidence: f32
+classify::ClassifiedSentence::metadata — field pub metadata: ClassificationMetadata
+classify::ClassifiedSentence::text — field pub text: String
+classify::EntrySeed — struct pub struct EntrySeed {
+classify::EntrySeed::domain — field pub domain: String
+classify::EntrySeed::facets — field pub facets: Facets
+classify::EntrySeed::mode — field pub mode: String
+classify::EntrySeed::name — field pub name: String
+classify::EntrySeed::text — field pub text: String
+classify::FacetFilter — struct pub struct FacetFilter {
+classify::FacetFilter::abstraction — field pub abstraction: Option<crate::models::Abstraction>
+classify::FacetFilter::agency — field pub agency: Option<crate::models::Agency>
+classify::FacetFilter::lifecycle — field pub lifecycle: Option<crate::models::LifecyclePhase>
+classify::FacetFilter::scale — field pub scale: Option<crate::models::Scale>
+classify::FacetFilter::sub_domain — field pub sub_domain: Option<String>
+classify::FacetFilter::sub_mode — field pub sub_mode: Option<String>
+classify::MetadataFilter — struct pub struct MetadataFilter {
+classify::MetadataFilter::allows — fn pub fn allows(&self, metadata: &ClassificationMetadata) -> bool {
+classify::MetadataFilter::contexts — field pub contexts: Vec<String>
+classify::MetadataFilter::speakers — field pub speakers: Vec<String>
+classify::MetadataFilter::tags — field pub tags: Vec<String>
+classify::TopKStrategy — enum pub enum TopKStrategy {
+classify::TopKStrategy::Adaptive — variant Adaptive
+classify::TopKStrategy::Fixed — variant Fixed(usize)
+classify::{CellClassifier, CellScore, TopKStrategy} — use pub use classify::{CellClassifier, CellScore, TopKStrategy};
+coherence_dimensions — mod
+coherence_dimensions::CoherenceDimension — struct pub struct CoherenceDimension {
+coherence_dimensions::CoherenceDimension::label — field pub label: String
+coherence_dimensions::CoherenceDimension::neutral — fn pub fn neutral(label: impl Into<String>) -> Self {
+coherence_dimensions::CoherenceDimension::new — fn pub fn new(label: impl Into<String>, score: Score, weight: Score) -> Self {
+coherence_dimensions::CoherenceDimension::score — field pub score: Score
+coherence_dimensions::CoherenceDimension::weight — field pub weight: Score
+coherence_dimensions::CoherenceProfile — struct pub struct CoherenceProfile {
+coherence_dimensions::CoherenceProfile::causal — field pub causal: CoherenceDimension
+coherence_dimensions::CoherenceProfile::composite — fn pub fn composite(&self) -> Score {
+coherence_dimensions::CoherenceProfile::empirical — field pub empirical: CoherenceDimension
+coherence_dimensions::CoherenceProfile::logical — field pub logical: CoherenceDimension
+coherence_dimensions::CoherenceProfile::new — fn pub fn new() -> Self {
+coherence_dimensions::CoherenceProfile::procedural — field pub procedural: CoherenceDimension
+coherence_dimensions::CoherenceProfile::semantic — field pub semantic: CoherenceDimension
+coherence_dimensions::CoherenceProfile::set — fn pub fn set(&mut self, label: &str, score: Score, weight: Score) {
+coherence_dimensions::CoherenceProfile::summary — fn pub fn summary(&self) -> String {
+coherence_dimensions::CoherenceProfile::temporal — field pub temporal: CoherenceDimension
+coherence_dimensions::{CoherenceDimension, CoherenceProfile} — use pub use coherence_dimensions::{CoherenceDimension, CoherenceProfile};
+coherence_query — mod
+coherence_query::EpistemicQuery — enum pub enum EpistemicQuery {
+coherence_query::EpistemicQuery::FailedPredictions — variant FailedPredictions { limit: usize }
+coherence_query::EpistemicQuery::HighestEmpiricalFitness — variant HighestEmpiricalFitness { limit: usize }
+coherence_query::EpistemicQuery::InsufficientOntologyConcepts — variant InsufficientOntologyConcepts
+coherence_query::EpistemicQuery::SimilarCasesFailed — variant SimilarCasesFailed { embedding: Vec<f32>, limit: usize }
+coherence_query::EpistemicQuery::SimilarCasesSucceeded — variant SimilarCasesSucceeded { embedding: Vec<f32>, limit: usize }
+coherence_query::EpistemicQuery::StrongestHypotheses — variant StrongestHypotheses { limit: usize }
+coherence_query::EpistemicQuery::WhatContradicts — variant WhatContradicts { id: String }
+coherence_query::EpistemicQuery::WhatHappenedAfterPrediction — variant WhatHappenedAfterPrediction { id: String }
+coherence_query::EpistemicQuery::WhyChangedInterpretation — variant WhyChangedInterpretation { id: String }
+coherence_query::EpistemicQuery::WhyIsBelieved — variant WhyIsBelieved { id: String }
+coherence_query::EpistemicQueryResult — enum pub enum EpistemicQueryResult {
+coherence_query::EpistemicQueryResult::Explanation — variant Explanation(Box<ExplanationReport>)
+coherence_query::FailedPredictionSummary — struct pub struct FailedPredictionSummary {
+coherence_query::FailedPredictionSummary::actual_outcome — field pub actual_outcome: Option<String>
+coherence_query::FailedPredictionSummary::expected_outcome — field pub expected_outcome: Option<String>
+coherence_query::FailedPredictionSummary::hypothesis_id — field pub hypothesis_id: String
+coherence_query::FailedPredictionSummary::hypothesis_statement — field pub hypothesis_statement: String
+coherence_query::FailedPredictionSummary::made_at — field pub made_at: chrono::DateTime<chrono::Utc>
+coherence_query::FailedPredictionSummary::observed_at — field pub observed_at: Option<chrono::DateTime<chrono::Utc>>
+coherence_query::FailedPredictionSummary::prediction_statement — field pub prediction_statement: String
+coherence_query::HypothesisSummary — struct pub struct HypothesisSummary {
+coherence_query::HypothesisSummary::coherence — field pub coherence: Score
+coherence_query::HypothesisSummary::confidence — field pub confidence: Score
+coherence_query::HypothesisSummary::evidence_count — field pub evidence_count: usize
+coherence_query::HypothesisSummary::fitness — field pub fitness: Score
+coherence_query::HypothesisSummary::id — field pub id: String
+coherence_query::HypothesisSummary::predictions_count — field pub predictions_count: usize
+coherence_query::HypothesisSummary::statement — field pub statement: String
+coherence_query::HypothesisSummary::status — field pub status: HypothesisStatus
+coherence_query::{ — use pub use coherence_query::{
+config_run — mod
+config_run::NgramSel — struct pub struct NgramSel {
+config_run::NgramSel::order — field pub order: u8
+config_run::NgramSel::registry_id — field pub registry_id: Option<String>
+config_run::RunConfig — struct pub struct RunConfig {
+config_run::RunConfig::budget — field pub budget: usize
+config_run::RunConfig::corpus — field pub corpus: PathBuf
+config_run::RunConfig::model — field pub model: Option<String>
+config_run::RunConfig::ngram — field pub ngram: NgramSel
+config_run::RunConfig::query — field pub query: String
+config_run::example_json — fn pub fn example_json() -> String {
+config_run::load_config — fn pub fn load_config(path: &PathBuf) -> anyhow::Result<RunConfig> {
+contradiction — mod
+contradiction::Contradiction — struct pub struct Contradiction {
+contradiction::Contradiction::claim_a — field pub claim_a: ContradictionParty
+contradiction::Contradiction::claim_b — field pub claim_b: ContradictionParty
+contradiction::Contradiction::detected_at — field pub detected_at: chrono::DateTime<chrono::Utc>
+contradiction::Contradiction::explanation — field pub explanation: Option<String>
+contradiction::Contradiction::id — field pub id: String
+contradiction::Contradiction::new — fn pub fn new(claim_a: ContradictionParty, claim_b: ContradictionParty) -> Self {
+contradiction::Contradiction::resolution — field pub resolution: ResolutionStatus
+contradiction::Contradiction::temporal — field pub temporal: TemporalValidity
+contradiction::ContradictionParty — struct pub struct ContradictionParty {
+contradiction::ContradictionParty::authority — field pub authority: Score
+contradiction::ContradictionParty::claim — field pub claim: String
+contradiction::ContradictionParty::confidence — field pub confidence: Score
+contradiction::ContradictionParty::context — field pub context: Vec<String>
+contradiction::ContradictionParty::embedding — field pub embedding: Vec<f32>
+contradiction::ContradictionParty::new — fn pub fn new(claim: impl Into<String>, source: impl Into<String>) -> Self {
+contradiction::ContradictionParty::source — field pub source: String
+contradiction::ContradictionParty::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+contradiction::ContradictionParty::with_authority — fn pub fn with_authority(mut self, authority: Score) -> Self {
+contradiction::ContradictionParty::with_confidence — fn pub fn with_confidence(mut self, confidence: Score) -> Self {
+contradiction::ResolutionStatus — enum pub enum ResolutionStatus {
+contradiction::ResolutionStatus::APreferred — variant APreferred
+contradiction::ResolutionStatus::BPreferred — variant BPreferred
+contradiction::ResolutionStatus::Contextual — variant Contextual
+contradiction::ResolutionStatus::Open — variant Open
+contradiction::ResolutionStatus::Superseded — variant Superseded
+contradiction::{Contradiction, ContradictionParty, ResolutionStatus} — use pub use contradiction::{Contradiction, ContradictionParty, ResolutionStatus};
+core — mod
+core::PhysisCore — struct pub struct PhysisCore {
+core::PhysisCore — use pub use core::PhysisCore;
+core::PhysisCore::add_edge — fn pub fn add_edge(&mut self, edge: TypedEdge) {
+core::PhysisCore::assert_coherence — fn pub fn assert_coherence(&mut self, id: &str, score: Score) -> bool {
+core::PhysisCore::asserted_failures — fn pub fn asserted_failures(&self) -> Vec<&CoherenceNode> {
+core::PhysisCore::asserted_index — fn pub fn asserted_index(&self) -> Option<Score> {
+core::PhysisCore::certified_branches — field pub certified_branches: Vec<CertifiedBranch>
+core::PhysisCore::certify_branches — fn pub fn certify_branches(&mut self) -> Vec<CertifiedBranch> {
+core::PhysisCore::check_consistency — fn pub fn check_consistency(&self, query_embedding: &[f32], threshold: f32) -> ConsistencyResult {
+core::PhysisCore::coherence_index — fn pub fn coherence_index(&self) -> Score {
+core::PhysisCore::contradictions — field pub contradictions: Vec<Contradiction>
+core::PhysisCore::delete_node — fn pub fn delete_node(&mut self, id: &str) -> bool {
+core::PhysisCore::delete_nodes_by_label_prefix — fn pub fn delete_nodes_by_label_prefix(&mut self, label: &str) -> Vec<String> {
+core::PhysisCore::detect_contradictions — fn pub fn detect_contradictions(&mut self) -> Vec<IsolatedBranch> {
+core::PhysisCore::detect_hypothesis_contradiction — fn pub fn detect_hypothesis_contradiction(&self, a: &str, b: &str) -> Option<Contradiction> {
+core::PhysisCore::dream — fn pub fn dream(&mut self) -> Vec<DreamResult> {
+core::PhysisCore::dream_archive — field pub dream_archive: Vec<DreamResult>
+core::PhysisCore::dream_hypotheses — fn pub fn dream_hypotheses(&mut self) -> Vec<Hypothesis> {
+core::PhysisCore::edges — field pub edges: Vec<TypedEdge>
+core::PhysisCore::edges_for — fn pub fn edges_for(&self, entity_id: &str) -> Vec<&TypedEdge> {
+core::PhysisCore::edit_node — fn pub fn edit_node( &mut self, id: &str, new_label: &str, new_embedding: Vec<f32>, pin: PinEdit, embedder_id: Option<&str>, ) -> anyhow::Result<NodeEditOutcome> {
+core::PhysisCore::embedder_id — fn pub fn embedder_id(&self) -> Option<&str> {
+core::PhysisCore::epistemic_audit — field pub epistemic_audit: EpistemicAuditTrail
+core::PhysisCore::explain_hypothesis — fn pub fn explain_hypothesis(&self, id: &str) -> Option<String> {
+core::PhysisCore::from_json — fn pub fn from_json(json: &str) -> anyhow::Result<Self> {
+core::PhysisCore::full_explanation_report — fn pub fn full_explanation_report(&self, id: &str) -> Option<ExplanationReport> {
+core::PhysisCore::hypotheses — field pub hypotheses: HashMap<String, Hypothesis>
+core::PhysisCore::hypothesis — fn pub fn hypothesis(&self, id: &str) -> Option<&Hypothesis> {
+core::PhysisCore::hypothesis_mut — fn pub fn hypothesis_mut(&mut self, id: &str) -> Option<&mut Hypothesis> {
+core::PhysisCore::isolated_branches — field pub isolated_branches: Vec<IsolatedBranch>
+core::PhysisCore::new — fn pub fn new() -> Self {
+core::PhysisCore::node_by_label — fn pub fn node_by_label(&self, label: &str) -> Option<&CoherenceNode> {
+core::PhysisCore::nodes — field pub nodes: HashMap<String, CoherenceNode>
+core::PhysisCore::process_cycles — field pub process_cycles: Vec<ProcessCycle>
+core::PhysisCore::project_all_revisions — fn pub fn project_all_revisions(&mut self) -> usize {
+core::PhysisCore::project_revisions — fn pub fn project_revisions(&mut self, id: &str) -> usize {
+core::PhysisCore::provenance_chain — fn pub fn provenance_chain(&mut self, subject: impl Into<String>) -> &mut ProvenanceChain {
+core::PhysisCore::provenance_chains — field pub provenance_chains: HashMap<String, ProvenanceChain>
+core::PhysisCore::query_coherence — fn pub fn query_coherence(&self, query: &EpistemicQuery) -> EpistemicQueryResult {
+core::PhysisCore::reconstruct_belief_at — fn pub fn reconstruct_belief_at( &self, subject_id: &str, when: chrono::DateTime<chrono::Utc>, ) -> Option<HypothesisStatus> {
+core::PhysisCore::record_contradiction — fn pub fn record_contradiction(&mut self, contradiction: Contradiction) -> String {
+core::PhysisCore::record_epistemic_event — fn pub fn record_epistemic_event(&mut self, event: EpistemicEvent) {
+core::PhysisCore::record_process_cycle — fn pub fn record_process_cycle(&mut self, cycle: ProcessCycle) {
+core::PhysisCore::register_hypothesis — fn pub fn register_hypothesis(&mut self, hypothesis: Hypothesis) -> String {
+core::PhysisCore::register_node_from_text — fn pub fn register_node_from_text(&mut self, text: &str, embedder: &dyn VectorEmbed) -> String {
+core::PhysisCore::register_node_vec — fn pub fn register_node_vec(&mut self, embedding: Vec<f32>) -> String {
+core::PhysisCore::register_node_vec_labeled — fn pub fn register_node_vec_labeled( &mut self, embedding: Vec<f32>, label: Option<String>, ) -> String {
+core::PhysisCore::search_nodes — fn pub fn search_nodes(&self, query: &[f32], max: usize) -> Vec<(String, String, Score)> {
+core::PhysisCore::search_text — fn pub fn search_text( &self, query: &str, embedder: &dyn VectorEmbed, max: usize, ) -> Vec<(String, String, Score)> {
+core::PhysisCore::set_embedder_id — fn pub fn set_embedder_id(&mut self, id: impl Into<String>) {
+core::PhysisCore::snapshot — fn pub fn snapshot(&self) -> CoherenceSnapshot {
+core::PhysisCore::to_json — fn pub fn to_json(&self) -> anyhow::Result<String> {
+core::PhysisCore::transition_hypothesis — fn pub fn transition_hypothesis( &mut self, id: &str, new_status: HypothesisStatus, description: impl Into<String>, trigger: Option<String>, ) -> bool {
+coverage — mod
+coverage::CandidateGain — struct pub struct CandidateGain {
+coverage::CandidateGain::count — fn pub fn count(&self) -> usize {
+coverage::CandidateGain::is_useful — fn pub fn is_useful(&self) -> bool {
+coverage::CandidateGain::lift — field pub lift: f32
+coverage::CandidateGain::newly_covered — field pub newly_covered: Vec<String>
+coverage::candidate_gain — fn pub fn candidate_gain( classifier: &CellClassifier, candidate: &Cell, records: &[(String, Vec<f32>)], threshold: f32, ) -> CandidateGain {
+coverage::rank_candidates — fn pub fn rank_candidates( classifier: &CellClassifier, candidates: &[Cell], records: &[(String, Vec<f32>)], threshold: f32, ) -> Vec<(usize, CandidateGain)> {
+coverage::uncovered — fn pub fn uncovered( classifier: &CellClassifier, records: &[(String, Vec<f32>)], threshold: f32, ) -> Vec<String> {
+delta_engine — mod
+delta_engine::ADJUDICATION_STRATEGIC_FLOOR — const pub const ADJUDICATION_STRATEGIC_FLOOR: Score;
+delta_engine::AdjudicationDecision — struct pub struct AdjudicationDecision {
+delta_engine::AdjudicationDecision::coherence_delta — field pub coherence_delta: Score
+delta_engine::AdjudicationDecision::hypothesis_id — field pub hypothesis_id: String
+delta_engine::AdjudicationDecision::proposed_status — field pub proposed_status: HypothesisStatus
+delta_engine::AdjudicationDecision::rationale — field pub rationale: String
+delta_engine::AdjudicationDecision::resolution — field pub resolution: ResolutionStatus
+delta_engine::AdjudicationDecision::route — field pub route: AdjudicationRoute
+delta_engine::AdjudicationRoute — enum pub enum AdjudicationRoute {
+delta_engine::AdjudicationRoute::AutoApply — variant AutoApply
+delta_engine::AdjudicationRoute::CoreProtected — variant CoreProtected
+delta_engine::AdjudicationRoute::StrategicReview — variant StrategicReview
+delta_engine::DEGRADATION_THRESHOLD — const pub const DEGRADATION_THRESHOLD: f32;
+delta_engine::EvaluationContext — struct pub struct EvaluationContext<'a> {
+delta_engine::EvaluationContext::base_hypotheses — field pub base_hypotheses: &'a [Hypothesis]
+delta_engine::EvaluationContext::base_nodes — field pub base_nodes: &'a [CoherenceNode]
+delta_engine::EvaluationContext::edges — field pub edges: &'a [TypedEdge]
+delta_engine::EvaluationContext::mutation_log — field pub mutation_log: Vec<OntologyMutation>
+delta_engine::EvaluationContext::shadow_hypotheses — field pub shadow_hypotheses: HashMap<String, Hypothesis>
+delta_engine::EvaluationContext::shadow_nodes — field pub shadow_nodes: HashMap<String, CoherenceNode>
+delta_engine::GAMMA — const pub const GAMMA: f32;
+delta_engine::HypothesisTransition — struct pub struct HypothesisTransition {
+delta_engine::HypothesisTransition::hypothesis_id — field pub hypothesis_id: String
+delta_engine::HypothesisTransition::new_status — field pub new_status: HypothesisStatus
+delta_engine::HypothesisTransition::previous_status — field pub previous_status: HypothesisStatus
+delta_engine::HypothesisTransition::trigger_reason — field pub trigger_reason: String
+delta_engine::MAX_PROPAGATION_DEPTH — const pub const MAX_PROPAGATION_DEPTH: usize;
+delta_engine::MAX_REVISION_WALK_NODES — const pub const MAX_REVISION_WALK_NODES: usize;
+delta_engine::MIN_IMPACT — const pub const MIN_IMPACT: f32;
+delta_engine::MutationOp — enum pub enum MutationOp {
+delta_engine::NodeDelta — struct pub struct NodeDelta {
+delta_engine::NodeDelta::delta_type — field pub delta_type: String
+delta_engine::NodeDelta::new_coherence — field pub new_coherence: Score
+delta_engine::NodeDelta::node_id — field pub node_id: String
+delta_engine::NodeDelta::previous_coherence — field pub previous_coherence: Score
+delta_engine::OntologyDeltaReport — struct pub struct OntologyDeltaReport {
+delta_engine::OntologyDeltaReport::adjudications — field pub adjudications: Vec<AdjudicationDecision>
+delta_engine::OntologyDeltaReport::affected_nodes — field pub affected_nodes: Vec<NodeDelta>
+delta_engine::OntologyDeltaReport::hypothesis_status_shifts — field pub hypothesis_status_shifts: Vec<HypothesisTransition>
+delta_engine::OntologyDeltaReport::mutation_source — field pub mutation_source: OntologyMutation
+delta_engine::OntologyDeltaReport::net_coherence_delta — field pub net_coherence_delta: f32
+delta_engine::OntologyDeltaReport::revision_walk — field pub revision_walk: Option<RevisionWalk>
+delta_engine::OntologyMutation — struct pub struct OntologyMutation {
+delta_engine::OntologyMutation::id — field pub id: String
+delta_engine::OntologyMutation::new — fn pub fn new(target_node_id: impl Into<String>, operation: MutationOp) -> Self {
+delta_engine::OntologyMutation::operation — field pub operation: MutationOp
+delta_engine::OntologyMutation::target_node_id — field pub target_node_id: String
+delta_engine::OntologyMutation::timestamp — field pub timestamp: DateTime<Utc>
+delta_engine::OntologyMutation::triggered_by — field pub triggered_by: Option<String>
+delta_engine::OntologyMutation::with_trigger — fn pub fn with_trigger(mut self, trigger_id: impl Into<String>) -> Self {
+delta_engine::RetractionCascadeReport — struct pub struct RetractionCascadeReport {
+delta_engine::RetractionCascadeReport::dependents_revised — field pub dependents_revised: Vec<String>
+delta_engine::RetractionCascadeReport::hypothesis_id — field pub hypothesis_id: String
+delta_engine::RetractionCascadeReport::removed — field pub removed: usize
+delta_engine::RetractionCascadeReport::revision_walk — field pub revision_walk: RevisionWalk
+delta_engine::RetractionCascadeReport::source — field pub source: String
+delta_engine::RetractionCascadeReport::truncated — field pub truncated: bool
+delta_engine::RevisionWalk — struct pub struct RevisionWalk {
+delta_engine::RevisionWalk::cycles — field pub cycles: Vec<[String; 2]>
+delta_engine::RevisionWalk::dependents — field pub dependents: Vec<WalkStep>
+delta_engine::RevisionWalk::fallback_breadth_used — field pub fallback_breadth_used: bool
+delta_engine::RevisionWalk::revised_hypotheses — field pub revised_hypotheses: Vec<String>
+delta_engine::RevisionWalk::steps — field pub steps: Vec<WalkStep>
+delta_engine::RevisionWalk::truncated — field pub truncated: bool
+delta_engine::WalkStep — struct pub struct WalkStep {
+delta_engine::WalkStep::hops — field pub hops: usize
+delta_engine::WalkStep::node_id — field pub node_id: String
+delta_engine::build_adjacency — fn pub fn build_adjacency(&self) -> HashMap<String, Vec<String>> {
+delta_engine::compute_coherence — fn pub fn compute_coherence(&self, node_id: &str) -> Score {
+delta_engine::depends_on_walk — fn pub fn depends_on_walk(&self, mutated_id: &str) -> RevisionWalk {
+delta_engine::effective_hypotheses_all — fn pub fn effective_hypotheses_all(&self) -> Vec<&Hypothesis> {
+delta_engine::effective_hypothesis — fn pub fn effective_hypothesis(&self, id: &str) -> Option<&Hypothesis> {
+delta_engine::effective_node — fn pub fn effective_node(&self, id: &str) -> Option<&CoherenceNode> {
+delta_engine::effective_nodes_all — fn pub fn effective_nodes_all(&self) -> Vec<&CoherenceNode> {
+delta_engine::ensure_shadowed — fn pub fn ensure_shadowed(&mut self, node_id: &str) -> Option<&mut CoherenceNode> {
+delta_engine::ensure_shadowed_hypothesis — fn pub fn ensure_shadowed_hypothesis(&mut self, hypothesis_id: &str) -> Option<&mut Hypothesis> {
+delta_engine::evaluate_mutation — fn pub fn evaluate_mutation( ctx: &mut EvaluationContext, mutation: OntologyMutation, ) -> OntologyDeltaReport {
+delta_engine::find_neighbors — fn pub fn find_neighbors(&self, node_id: &str) -> Vec<String> {
+delta_engine::from_base — fn pub fn from_base( base_nodes: &'a [CoherenceNode], base_hypotheses: &'a [Hypothesis], edges: &'a [TypedEdge], ) -> Self {
+delta_engine::retract_evidence_with_cascade — fn pub fn retract_evidence_with_cascade( ctx: &mut EvaluationContext, hypothesis_id: &str, source: &str, ) -> Option<RetractionCascadeReport> {
+delta_engine::route_transition — fn pub fn route_transition( prev_status: HypothesisStatus, coherence_delta: Score, ) -> AdjudicationRoute {
+delta_engine::{ — use pub use delta_engine::{
+direction — mod
+direction::Direction — enum pub enum Direction {
+direction::Direction::Longer — variant Longer
+direction::Direction::Rephrased — variant Rephrased
+direction::Direction::Shorter — variant Shorter
+direction::Direction::as_str — fn pub fn as_str(&self) -> &'static str {
+direction::Direction::parse — fn pub fn parse(s: &str) -> Option<Self> {
+direction::RetentionMetric — enum pub enum RetentionMetric {
+direction::RetentionMetric::WholeTextCosine — variant WholeTextCosine
+direction::RetentionMetric::WorstCovered — variant WorstCovered
+direction::RetentionMetric::from_env — fn pub fn from_env() -> Self {
+direction::RetentionMetric::from_env_value — fn pub fn from_env_value(value: Option<&str>) -> Self {
+direction::Verdict — struct pub struct Verdict {
+direction::Verdict::after_tokens — field pub after_tokens: usize
+direction::Verdict::before_tokens — field pub before_tokens: usize
+direction::Verdict::direction — field pub direction: String
+direction::Verdict::embedder — field pub embedder: String
+direction::Verdict::evidence_for — fn pub fn evidence_for(&self) -> &'static str {
+direction::Verdict::holds — fn pub fn holds(&self) -> bool {
+direction::Verdict::margin — fn pub fn margin(&self) -> f32 {
+direction::Verdict::moved — field pub moved: bool
+direction::Verdict::null_retention — field pub null_retention: f32
+direction::Verdict::render — fn pub fn render(&self) -> String {
+direction::Verdict::retention — field pub retention: f32
+direction::Verdict::retention_is_lexical — field pub retention_is_lexical: bool
+direction::check — fn pub fn check( before: &str, after: &str, direction: Direction, embedder: &dyn VectorEmbed, embedder_kind: &str, ) -> anyhow::Result<Verdict> {
+discovery — mod
+discovery::DiscoveryConfig — struct pub struct DiscoveryConfig {
+discovery::DiscoveryConfig::auto_retune — field pub auto_retune: bool
+discovery::DiscoveryConfig::cluster_sim — field pub cluster_sim: f32
+discovery::DiscoveryConfig::coverage_threshold — field pub coverage_threshold: f32
+discovery::DiscoveryConfig::max_hints — field pub max_hints: usize
+discovery::DiscoveryConfig::min_cluster — field pub min_cluster: usize
+discovery::DiscoveryReport — struct pub struct DiscoveryReport {
+discovery::DiscoveryReport::auto_retuned — field pub auto_retuned: bool
+discovery::DiscoveryReport::covered — field pub covered: usize
+discovery::DiscoveryReport::proposals — field pub proposals: Vec<ProposedDomain>
+discovery::DiscoveryReport::sim_max — field pub sim_max: f32
+discovery::DiscoveryReport::sim_mean — field pub sim_mean: f32
+discovery::DiscoveryReport::sim_min — field pub sim_min: f32
+discovery::DiscoveryReport::threshold_used — field pub threshold_used: f32
+discovery::DiscoveryReport::total — field pub total: usize
+discovery::DiscoveryReport::unmapped — field pub unmapped: usize
+discovery::ProposedDomain — struct pub struct ProposedDomain {
+discovery::ProposedDomain::count — field pub count: usize
+discovery::ProposedDomain::coverage — field pub coverage: f32
+discovery::ProposedDomain::domain — field pub domain: String
+discovery::ProposedDomain::hints — field pub hints: Vec<String>
+discovery::ProposedDomain::mode — field pub mode: String
+discovery::ProposedDomain::name — field pub name: String
+discovery::ProposedDomain::samples — field pub samples: Vec<String>
+discovery::discover — fn pub fn discover( texts: &[String], clf: &CellClassifier, embedder: &dyn VectorEmbed, cfg: &DiscoveryConfig, ) -> DiscoveryReport {
+discovery::to_ontology_json — fn pub fn to_ontology_json(report: &DiscoveryReport, kind: &str) -> String {
+discovery::{discover, DiscoveryConfig, DiscoveryReport, ProposedDomain} — use pub use discovery::{discover, DiscoveryConfig, DiscoveryReport, ProposedDomain};
+dream — mod
+dream::ProposalKind — enum pub enum ProposalKind {
+dream::ProposalKind::ReactivateHypothesis — variant ReactivateHypothesis
+dream::ProposalKind::RestoreConnection — variant RestoreConnection { to: String }
+dream::ProposalKind::RetireConnection — variant RetireConnection { to: String }
+dream::RETIRE_AFTER_CONTRADICTIONS — const pub const RETIRE_AFTER_CONTRADICTIONS: usize;
+dream::RetrospectiveProposal — struct pub struct RetrospectiveProposal {
+dream::RetrospectiveProposal::anchor_time — field pub anchor_time: chrono::DateTime<chrono::Utc>
+dream::RetrospectiveProposal::citing — field pub citing: Vec<String>
+dream::RetrospectiveProposal::kind — field pub kind: ProposalKind
+dream::RetrospectiveProposal::rationale — field pub rationale: String
+dream::RetrospectiveProposal::subject_id — field pub subject_id: String
+dream::dream_over_history — fn pub fn dream_over_history( trail: &EpistemicAuditTrail, mutations: &[OntologyMutation], lookback: chrono::Duration, ) -> Vec<RetrospectiveProposal> {
+dream::{dream_over_history, ProposalKind, RetrospectiveProposal, RETIRE_AFTER_CONTRADICTIONS} — use pub use dream::{dream_over_history, ProposalKind, RetrospectiveProposal, RETIRE_AFTER_CONTRADICTIONS};
+edition — mod
+edition::CORE_CLI — const pub const CORE_CLI: &str;
+edition::Edition — struct pub struct Edition {
+edition::Edition::core_cli — field pub core_cli: Option<PathBuf>
+edition::Edition::detect — fn pub fn detect() -> Self {
+edition::Edition::has_pro — fn pub fn has_pro(&self) -> bool {
+edition::Edition::name — fn pub fn name(&self) -> &'static str {
+edition::Edition::pro_cli — field pub pro_cli: Option<PathBuf>
+edition::Edition::pro_web — field pub pro_web: Option<PathBuf>
+edition::PRO_CLI — const pub const PRO_CLI: &str;
+edition::PRO_SUMMARY — const pub const PRO_SUMMARY: &[(&str, &str)];
+edition::PRO_WEB — const pub const PRO_WEB: &str;
+edition::UPGRADE_URL — const pub const UPGRADE_URL: &str;
+edition::find_executable — fn pub fn find_executable(name: &str) -> Option<PathBuf> {
+embed — mod
+embed::MemoEmbedder — struct pub struct MemoEmbedder {
+embed::MemoEmbedder::new — fn pub fn new(inner: Box<dyn VectorEmbed>) -> Self {
+embed::RandomProjectionEmbedder — struct pub struct RandomProjectionEmbedder {
+embed::RandomProjectionEmbedder::new — fn pub fn new(dim: usize) -> Self {
+embed::SEMANTIC_PROBES — const pub const SEMANTIC_PROBES: [(&str, &str, &str); 3];
+embed::SEMANTIC_PROBE_MARGIN — const pub const SEMANTIC_PROBE_MARGIN: f32;
+embed::Selected — type pub type Selected = (Box<dyn VectorEmbed>, &'static str);
+embed::VectorEmbed — trait pub trait VectorEmbed: Send + Sync {
+embed::VectorEmbed::dimension — method fn dimension(&self) -> usize;
+embed::VectorEmbed::embed — method fn embed(&self, text: &str) -> Vec<f32>;
+embed::VectorEmbed::embed_batch — method fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
+embed::select — fn pub fn select(dim: usize) -> Selected {
+embed::semantic_self_test — fn pub fn semantic_self_test(e: &dyn VectorEmbed) -> bool {
+embed::{RandomProjectionEmbedder, VectorEmbed} — use pub use embed::{RandomProjectionEmbedder, VectorEmbed};
+embed_ngram — mod
+embed_ngram::SyntheticNGramEmbedder — struct pub struct SyntheticNGramEmbedder {
+embed_ngram::SyntheticNGramEmbedder::new — fn pub fn new(dim: usize, seed: u64) -> Self {
+embed_onnx — mod
+embed_onnx::OnnxConfig — struct pub struct OnnxConfig {
+embed_onnx::OnnxConfig::dim — field pub dim: usize
+embed_onnx::OnnxConfig::intra_threads — field pub intra_threads: Option<usize>
+embed_onnx::OnnxConfig::max_length — field pub max_length: usize
+embed_onnx::OnnxConfig::model_dir — field pub model_dir: Option<String>
+embed_onnx::OnnxConfig::pooling — field pub pooling: PoolingStrategy
+embed_onnx::OnnxEmbedder — struct pub struct OnnxEmbedder {
+embed_onnx::OnnxEmbedder::is_available — fn pub fn is_available(&self) -> bool {
+embed_onnx::OnnxEmbedder::model_path — field pub model_path: String
+embed_onnx::OnnxEmbedder::new — fn pub fn new(model_dir: &str) -> Self {
+embed_onnx::OnnxEmbedder::with_config — fn pub fn with_config(config: &OnnxConfig) -> Self {
+embed_onnx::PoolingStrategy — enum pub enum PoolingStrategy {
+embed_onnx::PoolingStrategy::Cls — variant Cls
+embed_onnx::PoolingStrategy::Mean — variant Mean
+embed_onnx::native_dim — fn pub fn native_dim(model_dir: &str) -> Option<usize> {
+embed_onnx::{OnnxConfig, OnnxEmbedder, PoolingStrategy} — use pub use embed_onnx::{OnnxConfig, OnnxEmbedder, PoolingStrategy};
+epistemic — mod
+epistemic::EpistemicAuditTrail — struct pub struct EpistemicAuditTrail {
+epistemic::EpistemicAuditTrail::events — field pub events: Vec<EpistemicEvent>
+epistemic::EpistemicAuditTrail::history_for — fn pub fn history_for(&self, subject_id: &str) -> Vec<&EpistemicEvent> {
+epistemic::EpistemicAuditTrail::new — fn pub fn new() -> Self {
+epistemic::EpistemicAuditTrail::note_intake — fn pub fn note_intake( &mut self, stream_id: impl Into<String>, arrival: chrono::DateTime<chrono::Utc>, episode_valid_at: Option<chrono::DateTime<chrono::Utc>>, ) -> IntakeReceipt {
+epistemic::EpistemicAuditTrail::point_in_time_status_at — fn pub fn point_in_time_status_at( &self, subject_id: &str, when: chrono::DateTime<chrono::Utc>, validity: &TemporalValidity, ) -> Option<HypothesisStatus> {
+epistemic::EpistemicAuditTrail::reconstruct_status_at — fn pub fn reconstruct_status_at( &self, subject_id: &str, when: chrono::DateTime<chrono::Utc>, ) -> Option<HypothesisStatus> {
+epistemic::EpistemicAuditTrail::record — fn pub fn record(&mut self, event: EpistemicEvent) {
+epistemic::EpistemicAuditTrail::summary — fn pub fn summary(&self) -> String {
+epistemic::EpistemicAuditTrail::watermarks — field pub watermarks: Vec<HighWaterMark>
+epistemic::EpistemicEvent — struct pub struct EpistemicEvent {
+epistemic::EpistemicEvent::asserted_at — field pub asserted_at: Option<chrono::DateTime<chrono::Utc>>
+epistemic::EpistemicEvent::assertion_time — fn pub fn assertion_time(&self) -> chrono::DateTime<chrono::Utc> {
+epistemic::EpistemicEvent::description — field pub description: String
+epistemic::EpistemicEvent::event_type — field pub event_type: EpistemicEventType
+epistemic::EpistemicEvent::id — field pub id: String
+epistemic::EpistemicEvent::intake_id — field pub intake_id: Option<String>
+epistemic::EpistemicEvent::metric_value — field pub metric_value: Option<Score>
+epistemic::EpistemicEvent::new — fn pub fn new( event_type: EpistemicEventType, subject_id: impl Into<String>, description: impl Into<String>, ) -> Self {
+epistemic::EpistemicEvent::posterior_state — field pub posterior_state: Option<String>
+epistemic::EpistemicEvent::prior_state — field pub prior_state: Option<String>
+epistemic::EpistemicEvent::source — field pub source: Option<String>
+epistemic::EpistemicEvent::subject_id — field pub subject_id: String
+epistemic::EpistemicEvent::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+epistemic::EpistemicEvent::with_asserted_at — fn pub fn with_asserted_at(mut self, asserted_at: chrono::DateTime<chrono::Utc>) -> Self {
+epistemic::EpistemicEvent::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
+epistemic::EpistemicEvent::with_metric — fn pub fn with_metric(mut self, metric: Score) -> Self {
+epistemic::EpistemicEvent::with_source — fn pub fn with_source(mut self, source: impl Into<String>) -> Self {
+epistemic::EpistemicEvent::with_transition — fn pub fn with_transition( mut self, prior: impl Into<String>, posterior: impl Into<String>, ) -> Self {
+epistemic::EpistemicEventType — enum pub enum EpistemicEventType {
+epistemic::EpistemicEventType::BeliefFormed — variant BeliefFormed
+epistemic::EpistemicEventType::ContradictionDetected — variant ContradictionDetected
+epistemic::EpistemicEventType::FitnessShifted — variant FitnessShifted
+epistemic::EpistemicEventType::HypothesisGenerated — variant HypothesisGenerated
+epistemic::EpistemicEventType::ObservationIngested — variant ObservationIngested
+epistemic::EpistemicEventType::OntologyDomainPromoted — variant OntologyDomainPromoted
+epistemic::EpistemicEventType::OntologyGapDiscovered — variant OntologyGapDiscovered
+epistemic::EpistemicEventType::OutcomeObserved — variant OutcomeObserved
+epistemic::EpistemicEventType::PredictionFormulated — variant PredictionFormulated
+epistemic::EpistemicEventType::StatusTransition — variant StatusTransition
+epistemic::HighWaterMark — struct pub struct HighWaterMark {
+epistemic::HighWaterMark::last_arrival — field pub last_arrival: chrono::DateTime<chrono::Utc>
+epistemic::HighWaterMark::last_episode_valid_at — field pub last_episode_valid_at: Option<chrono::DateTime<chrono::Utc>>
+epistemic::HighWaterMark::stream_id — field pub stream_id: String
+epistemic::IntakeReceipt — struct pub struct IntakeReceipt {
+epistemic::IntakeReceipt::late — field pub late: bool
+epistemic::IntakeReceipt::mark — field pub mark: HighWaterMark
+epistemic::IntakeReceipt::stream_id — field pub stream_id: String
+epistemic::{ — use pub use epistemic::{
+experiments — mod
+explanation — mod
+explanation::ExplanationReport — struct pub struct ExplanationReport {
+explanation::ExplanationReport::ascii_summary — fn pub fn ascii_summary(&self) -> String {
+explanation::ExplanationReport::cited_intake_ids — fn pub fn cited_intake_ids(&self) -> Vec<String> {
+explanation::ExplanationReport::coherence_profile — field pub coherence_profile: CoherenceProfile
+explanation::ExplanationReport::coherence_score — field pub coherence_score: Score
+explanation::ExplanationReport::confidence — field pub confidence: Score
+explanation::ExplanationReport::contradicting_evidence — field pub contradicting_evidence: Vec<Evidence>
+explanation::ExplanationReport::expected_consequences — field pub expected_consequences: Vec<Prediction>
+explanation::ExplanationReport::fitness_breakdown — field pub fitness_breakdown: FitnessBreakdown
+explanation::ExplanationReport::fitness_score — field pub fitness_score: Score
+explanation::ExplanationReport::historical_precedents — field pub historical_precedents: Vec<HistoricalPrecedent>
+explanation::ExplanationReport::human_readable_summary — field pub human_readable_summary: String
+explanation::ExplanationReport::observed_consequences — field pub observed_consequences: Vec<Prediction>
+explanation::ExplanationReport::provenance_chain — field pub provenance_chain: ProvenanceChain
+explanation::ExplanationReport::render_ascii — fn pub fn render_ascii(&self) -> String {
+explanation::ExplanationReport::statement — field pub statement: String
+explanation::ExplanationReport::status — field pub status: HypothesisStatus
+explanation::ExplanationReport::subject_id — field pub subject_id: String
+explanation::ExplanationReport::supporting_evidence — field pub supporting_evidence: Vec<Evidence>
+explanation::HistoricalPrecedent — struct pub struct HistoricalPrecedent {
+explanation::HistoricalPrecedent::case_id — field pub case_id: String
+explanation::HistoricalPrecedent::context_match — field pub context_match: Option<String>
+explanation::HistoricalPrecedent::description — field pub description: String
+explanation::HistoricalPrecedent::outcome_worked — field pub outcome_worked: bool
+explanation::HistoricalPrecedent::similarity — field pub similarity: Score
+explanation::{ExplanationReport, HistoricalPrecedent} — use pub use explanation::{ExplanationReport, HistoricalPrecedent};
+grid_fitness — mod
+grid_fitness::CellFitness — struct pub struct CellFitness {
+grid_fitness::CellFitness::above_null — field pub above_null: bool
+grid_fitness::CellFitness::cell — field pub cell: String
+grid_fitness::CellFitness::entries — field pub entries: usize
+grid_fitness::CellFitness::fitness — field pub fitness: f32
+grid_fitness::CellFitness::null_mean — field pub null_mean: f32
+grid_fitness::CellFitness::null_sd — field pub null_sd: f32
+grid_fitness::CellFitness::unmeasurable — field pub unmeasurable: bool
+grid_fitness::CellFitness::z — field pub z: Option<f32>
+grid_fitness::GridFitness — struct pub struct GridFitness {
+grid_fitness::GridFitness::cells — field pub cells: usize
+grid_fitness::GridFitness::cells_above_null — field pub cells_above_null: usize
+grid_fitness::GridFitness::cells_failing — field pub cells_failing: usize
+grid_fitness::GridFitness::cells_unmeasurable — field pub cells_unmeasurable: usize
+grid_fitness::GridFitness::embedder — field pub embedder: String
+grid_fitness::GridFitness::entries — field pub entries: usize
+grid_fitness::GridFitness::overall_fitness — field pub overall_fitness: f32
+grid_fitness::GridFitness::overall_null_mean — field pub overall_null_mean: f32
+grid_fitness::GridFitness::per_cell — field pub per_cell: Vec<CellFitness>
+grid_fitness::GridFitness::permutations — field pub permutations: usize
+grid_fitness::GridFitness::render — fn pub fn render(&self) -> String {
+grid_fitness::GridFitness::seed — field pub seed: u64
+grid_fitness::PERMUTATIONS — const pub const PERMUTATIONS: usize;
+grid_fitness::run — fn pub fn run(entries: &[(String, Vec<f32>)], seed: u64, embedder_kind: &str) -> GridFitness {
+ground — mod
+ground::Claim — struct pub struct Claim {
+ground::Claim::against_count — field pub against_count: usize
+ground::Claim::fitness — field pub fitness: f32
+ground::Claim::for_count — field pub for_count: usize
+ground::Claim::grounded_in — field pub grounded_in: Vec<String>
+ground::Claim::id — field pub id: String
+ground::Claim::open_predictions — field pub open_predictions: usize
+ground::Claim::statement — field pub statement: String
+ground::Claim::status — field pub status: String
+ground::Ground — struct pub struct Ground {
+ground::Ground::claims — field pub claims: Vec<Claim>
+ground::Ground::disagreements — field pub disagreements: Vec<OpenDisagreement>
+ground::Ground::events — field pub events: usize
+ground::Ground::nodes — field pub nodes: usize
+ground::Ground::render — fn pub fn render(&self) -> String {
+ground::Ground::unscored — field pub unscored: Vec<Unscored>
+ground::OpenDisagreement — struct pub struct OpenDisagreement {
+ground::OpenDisagreement::claim_a — field pub claim_a: String
+ground::OpenDisagreement::claim_b — field pub claim_b: String
+ground::OpenDisagreement::id — field pub id: String
+ground::OpenDisagreement::source_a — field pub source_a: String
+ground::OpenDisagreement::source_b — field pub source_b: String
+ground::Unscored — struct pub struct Unscored {
+ground::Unscored::claim_id — field pub claim_id: String
+ground::Unscored::days_open — field pub days_open: i64
+ground::Unscored::prediction — field pub prediction: String
+ground::Unscored::statement — field pub statement: String
+ground::read — fn pub fn read( core: &PhysisCore, observations: &[crate::observe::Observation], now: chrono::DateTime<chrono::Utc>, ) -> Ground {
+history — mod
+history::import_file — fn pub fn import_file(path: &Path) -> anyhow::Result<(Vec<VaultDoc>, String)> {
+history::importer_for as history_importer_for — use pub use history::importer_for as history_importer_for;
+history::importer_for — fn pub fn importer_for(path: &Path) -> Option<fn(&str) -> Vec<VaultDoc>> {
+history::parse_bookmarks_html — fn pub fn parse_bookmarks_html(html: &str) -> Vec<VaultDoc> {
+history::parse_history_json — fn pub fn parse_history_json(json: &str) -> Vec<VaultDoc> {
+history::parse_messages_jsonl — fn pub fn parse_messages_jsonl(input: &str) -> Vec<VaultDoc> {
+history::parse_opml — fn pub fn parse_opml(xml: &str) -> Vec<VaultDoc> {
+hypothesis — mod
+hypothesis::CONTRADICTION_PENALTY_CAP — const pub const CONTRADICTION_PENALTY_CAP: Score;
+hypothesis::CONTRADICTION_PENALTY_PER_ITEM — const pub const CONTRADICTION_PENALTY_PER_ITEM: Score;
+hypothesis::Evidence — struct pub struct Evidence {
+hypothesis::Evidence::claim — field pub claim: String
+hypothesis::Evidence::confidence — field pub confidence: Score
+hypothesis::Evidence::context — field pub context: Vec<String>
+hypothesis::Evidence::contradicts — fn pub fn contradicts(source: impl Into<String>, claim: impl Into<String>) -> Self {
+hypothesis::Evidence::embedding — field pub embedding: Vec<f32>
+hypothesis::Evidence::intake_id — field pub intake_id: Option<String>
+hypothesis::Evidence::new — fn pub fn new(claim: impl Into<String>, source: impl Into<String>) -> Self {
+hypothesis::Evidence::observed_at — field pub observed_at: Option<chrono::DateTime<chrono::Utc>>
+hypothesis::Evidence::polarity — field pub polarity: EvidencePolarity
+hypothesis::Evidence::source — field pub source: String
+hypothesis::Evidence::supports — fn pub fn supports(source: impl Into<String>, claim: impl Into<String>) -> Self {
+hypothesis::Evidence::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
+hypothesis::Evidence::with_weight — fn pub fn with_weight(mut self, weight: Score) -> Self {
+hypothesis::EvidencePolarity — enum pub enum EvidencePolarity {
+hypothesis::EvidencePolarity::Contradicts — variant Contradicts
+hypothesis::EvidencePolarity::Supports — variant Supports
+hypothesis::FAILED_PREDICTION_PENALTY_CAP — const pub const FAILED_PREDICTION_PENALTY_CAP: Score;
+hypothesis::FAILED_PREDICTION_PENALTY_PER_ITEM — const pub const FAILED_PREDICTION_PENALTY_PER_ITEM: Score;
+hypothesis::FITNESS_WEIGHT_EMPIRICAL_SUPPORT — const pub const FITNESS_WEIGHT_EMPIRICAL_SUPPORT: Score;
+hypothesis::FITNESS_WEIGHT_LOGICAL_CONSISTENCY — const pub const FITNESS_WEIGHT_LOGICAL_CONSISTENCY: Score;
+hypothesis::FITNESS_WEIGHT_ONTOLOGICAL_FIT — const pub const FITNESS_WEIGHT_ONTOLOGICAL_FIT: Score;
+hypothesis::FITNESS_WEIGHT_PREDICTIVE_SUCCESS — const pub const FITNESS_WEIGHT_PREDICTIVE_SUCCESS: Score;
+hypothesis::FITNESS_WEIGHT_SEMANTIC_FIT — const pub const FITNESS_WEIGHT_SEMANTIC_FIT: Score;
+hypothesis::FitnessBreakdown — struct pub struct FitnessBreakdown {
+hypothesis::FitnessBreakdown::composite_fitness — field pub composite_fitness: Score
+hypothesis::FitnessBreakdown::contradiction_penalty — field pub contradiction_penalty: Score
+hypothesis::FitnessBreakdown::empirical_support — field pub empirical_support: Score
+hypothesis::FitnessBreakdown::failed_prediction_penalty — field pub failed_prediction_penalty: Score
+hypothesis::FitnessBreakdown::logical_consistency — field pub logical_consistency: Score
+hypothesis::FitnessBreakdown::ontological_fit — field pub ontological_fit: Score
+hypothesis::FitnessBreakdown::outcome_success — field pub outcome_success: Score
+hypothesis::FitnessBreakdown::predictive_success — field pub predictive_success: Score
+hypothesis::FitnessBreakdown::semantic_fit — field pub semantic_fit: Score
+hypothesis::Hypothesis — struct pub struct Hypothesis {
+hypothesis::Hypothesis::actual_outcomes — field pub actual_outcomes: Vec<String>
+hypothesis::Hypothesis::add_assumption — fn pub fn add_assumption(&mut self, assumption: impl Into<String>) {
+hypothesis::Hypothesis::add_contradicting — fn pub fn add_contradicting(&mut self, evidence: Evidence) {
+hypothesis::Hypothesis::add_contradicting_evidence — fn pub fn add_contradicting_evidence(&mut self, evidence: Evidence) {
+hypothesis::Hypothesis::add_prediction — fn pub fn add_prediction(&mut self, prediction: Prediction) {
+hypothesis::Hypothesis::add_supporting — fn pub fn add_supporting(&mut self, evidence: Evidence) {
+hypothesis::Hypothesis::add_supporting_evidence — fn pub fn add_supporting_evidence(&mut self, evidence: Evidence) {
+hypothesis::Hypothesis::assumptions — field pub assumptions: Vec<String>
+hypothesis::Hypothesis::coherence — field pub coherence: Score
+hypothesis::Hypothesis::coherence_profile — field pub coherence_profile: CoherenceProfile
+hypothesis::Hypothesis::confidence — field pub confidence: Score
+hypothesis::Hypothesis::contradicting_evidence — field pub contradicting_evidence: Vec<Evidence>
+hypothesis::Hypothesis::created_at — field pub created_at: chrono::DateTime<chrono::Utc>
+hypothesis::Hypothesis::embedding — field pub embedding: Vec<f32>
+hypothesis::Hypothesis::evidence_count — fn pub fn evidence_count(&self) -> usize {
+hypothesis::Hypothesis::expected_outcomes — field pub expected_outcomes: Vec<String>
+hypothesis::Hypothesis::fitness — field pub fitness: Score
+hypothesis::Hypothesis::fitness_breakdown — field pub fitness_breakdown: FitnessBreakdown
+hypothesis::Hypothesis::fitness_term_breakdown — fn pub fn fitness_term_breakdown(&self) -> Vec<(&'static str, Score)> {
+hypothesis::Hypothesis::id — field pub id: String
+hypothesis::Hypothesis::is_valid_at — fn pub fn is_valid_at(&self, when: chrono::DateTime<chrono::Utc>) -> bool {
+hypothesis::Hypothesis::narrow_validity — fn pub fn narrow_validity( &mut self, when: chrono::DateTime<chrono::Utc>, trigger: Option<String>, ) -> bool {
+hypothesis::Hypothesis::new — fn pub fn new(statement: impl Into<String>, embedding: Vec<f32>) -> Self {
+hypothesis::Hypothesis::ontology_refs — field pub ontology_refs: Vec<String>
+hypothesis::Hypothesis::open_predictions — fn pub fn open_predictions(&self) -> Vec<(usize, &Prediction)> {
+hypothesis::Hypothesis::pending_predictions — fn pub fn pending_predictions(&self) -> usize {
+hypothesis::Hypothesis::predictions — field pub predictions: Vec<Prediction>
+hypothesis::Hypothesis::provenance — field pub provenance: Option<String>
+hypothesis::Hypothesis::recompute_fitness — fn pub fn recompute_fitness(&mut self) {
+hypothesis::Hypothesis::record_prediction — fn pub fn record_prediction(&mut self, prediction: Prediction) {
+hypothesis::Hypothesis::resolve_prediction — fn pub fn resolve_prediction( &mut self, index: usize, actual_outcome: impl Into<String>, correct: bool, ) -> bool {
+hypothesis::Hypothesis::retract_evidence — fn pub fn retract_evidence(&mut self, source: &str) -> usize {
+hypothesis::Hypothesis::revised_at — field pub revised_at: chrono::DateTime<chrono::Utc>
+hypothesis::Hypothesis::revision_history — field pub revision_history: Vec<Revision>
+hypothesis::Hypothesis::statement — field pub statement: String
+hypothesis::Hypothesis::status — field pub status: HypothesisStatus
+hypothesis::Hypothesis::supporting_evidence — field pub supporting_evidence: Vec<Evidence>
+hypothesis::Hypothesis::temporal — field pub temporal: TemporalValidity
+hypothesis::Hypothesis::transition_to — fn pub fn transition_to( &mut self, new_status: HypothesisStatus, description: impl Into<String>, trigger: Option<String>, ) {
+hypothesis::HypothesisStatus — enum pub enum HypothesisStatus {
+hypothesis::HypothesisStatus::Candidate — variant Candidate
+hypothesis::HypothesisStatus::Certified — variant Certified
+hypothesis::HypothesisStatus::Confirmed — variant Confirmed
+hypothesis::HypothesisStatus::Contradicted — variant Contradicted
+hypothesis::HypothesisStatus::Failed — variant Failed
+hypothesis::HypothesisStatus::Inert — variant Inert
+hypothesis::HypothesisStatus::Isolated — variant Isolated
+hypothesis::HypothesisStatus::Superseded — variant Superseded
+hypothesis::HypothesisStatus::Supported — variant Supported
+hypothesis::HypothesisStatus::as_str — fn pub fn as_str(&self) -> &'static str {
+hypothesis::Prediction — struct pub struct Prediction {
+hypothesis::Prediction::actual_outcome — field pub actual_outcome: Option<String>
+hypothesis::Prediction::confidence — field pub confidence: Score
+hypothesis::Prediction::correct — field pub correct: Option<bool>
+hypothesis::Prediction::expected_outcome — field pub expected_outcome: Option<String>
+hypothesis::Prediction::made_at — field pub made_at: chrono::DateTime<chrono::Utc>
+hypothesis::Prediction::new — fn pub fn new(statement: impl Into<String>) -> Self {
+hypothesis::Prediction::observed_at — field pub observed_at: Option<chrono::DateTime<chrono::Utc>>
+hypothesis::Prediction::statement — field pub statement: String
+hypothesis::Revision — struct pub struct Revision {
+hypothesis::Revision::description — field pub description: String
+hypothesis::Revision::new_status — field pub new_status: HypothesisStatus
+hypothesis::Revision::previous_status — field pub previous_status: HypothesisStatus
+hypothesis::Revision::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+hypothesis::Revision::trigger — field pub trigger: Option<String>
+hypothesis::current_hypotheses — fn pub fn current_hypotheses( hyps: &std::collections::HashMap<String, Hypothesis>, ) -> Vec<&Hypothesis> {
+hypothesis::hypotheses_including_history — fn pub fn hypotheses_including_history( hyps: &std::collections::HashMap<String, Hypothesis>, ) -> Vec<&Hypothesis> {
+hypothesis::{ — use pub use hypothesis::{
+linkage — mod
+linkage::CellKey — type pub type CellKey = (String, String);
+linkage::CellLink — struct pub struct CellLink {
+linkage::CellLink::a — field pub a: CellKey
+linkage::CellLink::b — field pub b: CellKey
+linkage::CellLink::bridge_count — field pub bridge_count: usize
+linkage::CellLink::bridges — field pub bridges: Vec<String>
+linkage::CellLink::is_cross_domain — fn pub fn is_cross_domain(&self) -> bool {
+linkage::LinkageGraph — struct pub struct LinkageGraph {
+linkage::LinkageGraph::build — fn pub fn build<I, S>(classifier: &CellClassifier, embedder: &dyn VectorEmbed, texts: I) -> Self where I: IntoIterator<Item = S>, S: AsRef<str>, {
+linkage::LinkageGraph::cross_domain — fn pub fn cross_domain(&self) -> impl Iterator<Item = &CellLink> {
+linkage::LinkageGraph::is_empty — fn pub fn is_empty(&self) -> bool {
+linkage::LinkageGraph::len — fn pub fn len(&self) -> usize {
+linkage::LinkageGraph::links — fn pub fn links(&self) -> &[CellLink] {
+linkage::LinkageGraph::strongest — fn pub fn strongest(&self, n: usize) -> &[CellLink] {
+machines — mod
+machines::Observation — struct pub struct Observation {
+machines::Observation::certifies — fn pub fn certifies(&self) -> bool {
+machines::Observation::claim — field pub claim: String
+machines::Observation::machine — field pub machine: String
+machines::Observation::new — fn pub fn new( machine: impl Into<String>, target: impl Into<String>, claim: impl Into<String>, quantity: f64, status: ProofStatus, ) -> Self {
+machines::Observation::quantity — field pub quantity: f64
+machines::Observation::refusal — fn pub fn refusal( machine: impl Into<String>, target: impl Into<String>, claim: impl Into<String>, ) -> Self {
+machines::Observation::status — field pub status: ProofStatus
+machines::Observation::target — field pub target: String
+machines::ProofStatus — enum pub enum ProofStatus {
+machines::ProofStatus::Conjectural — variant Conjectural
+machines::ProofStatus::Contradicted — variant Contradicted
+machines::ProofStatus::Derived — variant Derived
+machines::ProofStatus::Established — variant Established
+machines::ProofStatus::EstablishedFinite — variant EstablishedFinite
+machines::ProofStatus::Heuristic — variant Heuristic
+machines::ProofStatus::InsufficientData — variant InsufficientData
+machines::ProofStatus::Numerical — variant Numerical
+machines::ProofStatus::certifies — fn pub fn certifies(&self) -> bool {
+machines::StructuralMachine — trait pub trait StructuralMachine<W> {
+machines::StructuralMachine::inspect — method fn inspect(&self, world: &W) -> Vec<Observation>;
+machines::StructuralMachine::name — method fn name(&self) -> &'static str;
+machines::least_squares_slope — fn pub fn least_squares_slope(points: &[(f64, f64)]) -> Option<f64> {
+machines::scaling_exponent — fn pub fn scaling_exponent(log_points: &[(f64, f64)]) -> Option<f64> {
+map — mod
+map::ContextReport — struct pub struct ContextReport {
+map::ContextReport::baseline_tokens — field pub baseline_tokens: usize
+map::ContextReport::budget — field pub budget: usize
+map::ContextReport::clusters — field pub clusters: Vec<String>
+map::ContextReport::compression_ratio — field pub compression_ratio: f32
+map::ContextReport::contradictions — field pub contradictions: usize
+map::ContextReport::differences — field pub differences: usize
+map::ContextReport::physis_context — field pub physis_context: String
+map::ContextReport::physis_tokens — field pub physis_tokens: usize
+map::ContextReport::query — field pub query: String
+map::ContextReport::render — fn pub fn render(&self) -> String {
+map::ContextReport::repeats — field pub repeats: usize
+map::ContextReport::source_documents — field pub source_documents: usize
+map::ContradictionPair — struct pub struct ContradictionPair {
+map::ContradictionPair::a — field pub a: SourceRef
+map::ContradictionPair::b — field pub b: SourceRef
+map::ContradictionPair::cluster — field pub cluster: String
+map::ContradictionPair::embedding_sim — field pub embedding_sim: f32
+map::ContradictionPair::lexical_overlap — field pub lexical_overlap: f32
+map::DifferenceItem — struct pub struct DifferenceItem {
+map::DifferenceItem::best_sim — field pub best_sim: f32
+map::DifferenceItem::nearest_cluster — field pub nearest_cluster: Option<String>
+map::DifferenceItem::path — field pub path: String
+map::DifferenceItem::separation — field pub separation: f32
+map::DifferenceItem::title — field pub title: String
+map::MapReport — struct pub struct MapReport {
+map::MapReport::auto_retuned — field pub auto_retuned: bool
+map::MapReport::contradictions — field pub contradictions: Vec<ContradictionPair>
+map::MapReport::differences — field pub differences: Vec<DifferenceItem>
+map::MapReport::docs — field pub docs: usize
+map::MapReport::hero_lines — fn pub fn hero_lines(&self) -> Vec<String> {
+map::MapReport::repeats — field pub repeats: Vec<RepeatCluster>
+map::MapReport::structure_hash — field pub structure_hash: String
+map::MapReport::threshold_used — field pub threshold_used: f32
+map::RepeatCluster — struct pub struct RepeatCluster {
+map::RepeatCluster::count — field pub count: usize
+map::RepeatCluster::coverage — field pub coverage: f32
+map::RepeatCluster::hints — field pub hints: Vec<String>
+map::RepeatCluster::id — field pub id: String
+map::RepeatCluster::instances — field pub instances: Vec<SourceRef>
+map::RepeatCluster::name — field pub name: String
+map::SourceRef — struct pub struct SourceRef {
+map::SourceRef::path — field pub path: String
+map::SourceRef::title — field pub title: String
+map::build_map — fn pub fn build_map( docs: &[(String, String)], // (path, body) — provenance preserved embedder: &dyn VectorEmbed, threshold: Option<f32>, ) -> anyhow::Result<MapReport> {
+map::compile_context — fn pub fn compile_context( docs: &[(String, String)], embedder: &dyn crate::embed::VectorEmbed, query: &str, budget: usize, ) -> anyhow::Result<ContextReport> {
+map::load_corpus — fn pub fn load_corpus(dir: &Path) -> anyhow::Result<Vec<(String, String)>> {
+map::render — fn pub fn render(report: &MapReport) -> String {
+model_provider — mod
+model_provider::Capability — enum pub enum Capability {
+model_provider::Capability::Embeddings — variant Embeddings
+model_provider::Capability::Generation — variant Generation
+model_provider::Capability::Logits — variant Logits
+model_provider::Capability::Streaming — variant Streaming
+model_provider::Capability::TokenScoring — variant TokenScoring
+model_provider::DiskTableModel — struct pub struct DiskTableModel {
+model_provider::DiskTableModel::inner — field pub inner: NgramDecoderModel
+model_provider::DiskTableModel::load — fn pub fn load(model_id: &str, dir: &Path) -> anyhow::Result<Self> {
+model_provider::DiskTableModel::model_id — field pub model_id: String
+model_provider::DiskTableModel::source_path — field pub source_path: PathBuf
+model_provider::ModelError — enum pub enum ModelError {
+model_provider::ModelError::Backend — variant Backend(String)
+model_provider::ModelError::Unsupported — variant Unsupported(Capability)
+model_provider::ModelManifest — struct pub struct ModelManifest {
+model_provider::ModelManifest::files — field pub files: Vec<(String, String)>, // (relative path, sha256)
+model_provider::ModelManifest::installed_at — field pub installed_at: String
+model_provider::ModelManifest::record — field pub record: ModelRecord
+model_provider::ModelManifest::revision — field pub revision: String
+model_provider::ModelMetadata — struct pub struct ModelMetadata {
+model_provider::ModelMetadata::architecture — field pub architecture: String
+model_provider::ModelMetadata::capabilities — field pub capabilities: Vec<Capability>
+model_provider::ModelMetadata::context_length — field pub context_length: usize
+model_provider::ModelMetadata::id — field pub id: String
+model_provider::ModelMetadata::license — field pub license: String
+model_provider::ModelMetadata::memory_estimate_mb — field pub memory_estimate_mb: u64
+model_provider::ModelMetadata::name — field pub name: String
+model_provider::ModelMetadata::parameter_count — field pub parameter_count: Option<u64>
+model_provider::ModelMetadata::quantization — field pub quantization: Option<String>
+model_provider::ModelMetadata::tokenizer — field pub tokenizer: String
+model_provider::ModelProvider — trait pub trait ModelProvider: Send + Sync {
+model_provider::ModelProvider::capabilities — method fn capabilities(&self) -> &[Capability] {
+model_provider::ModelProvider::detokenize — method fn detokenize(&self, tokens: &[String]) -> String;
+model_provider::ModelProvider::generate — method fn generate(&self, prompt: &str, max_tokens: usize) -> Result<String, ModelError>;
+model_provider::ModelProvider::memory_requirements_mb — method fn memory_requirements_mb(&self) -> u64 {
+model_provider::ModelProvider::metadata — method fn metadata(&self) -> &ModelMetadata;
+model_provider::ModelProvider::score — method fn score(&self, text: &str) -> Result<f32, ModelError>;
+model_provider::ModelProvider::stream — method fn stream(&self, _prompt: &str, _on_token: &mut dyn FnMut(&str)) -> Result<(), ModelError> {
+model_provider::ModelProvider::tokenize — method fn tokenize(&self, text: &str) -> Vec<String>;
+model_provider::ModelRecord — struct pub struct ModelRecord {
+model_provider::ModelRecord::architecture — field pub architecture: String
+model_provider::ModelRecord::capabilities — field pub capabilities: Vec<Capability>
+model_provider::ModelRecord::context_length — field pub context_length: usize
+model_provider::ModelRecord::id — field pub id: String
+model_provider::ModelRecord::license — field pub license: String
+model_provider::ModelRecord::memory_estimate_mb — field pub memory_estimate_mb: u64
+model_provider::ModelRecord::name — field pub name: String
+model_provider::ModelRecord::parameter_count — field pub parameter_count: Option<u64>
+model_provider::ModelRecord::quantization — field pub quantization: Option<String>
+model_provider::ModelRecord::source — field pub source: String
+model_provider::ModelRecord::tokenizer — field pub tokenizer: String
+model_provider::ModelRegistry — struct pub struct ModelRegistry {
+model_provider::ModelRegistry::default_root — fn pub fn default_root() -> PathBuf {
+model_provider::ModelRegistry::info — fn pub fn info(&self, id: &str) -> anyhow::Result<ModelManifest> {
+model_provider::ModelRegistry::install_http — fn pub fn install_http(&self, record: ModelRecord, url: &str, files: &[String]) -> anyhow::Result<ModelManifest> {
+model_provider::ModelRegistry::install_local — fn pub fn install_local(&self, record: ModelRecord, src: &Path, files: &[String]) -> anyhow::Result<ModelManifest> {
+model_provider::ModelRegistry::list — fn pub fn list(&self) -> Vec<ModelManifest> {
+model_provider::ModelRegistry::new — fn pub fn new(root: impl Into<PathBuf>) -> Self {
+model_provider::ModelRegistry::path — fn pub fn path(&self, id: &str) -> PathBuf {
+model_provider::ModelRegistry::remove — fn pub fn remove(&self, id: &str) -> anyhow::Result<()> {
+model_provider::ModelSource — enum pub enum ModelSource {
+model_provider::ModelSource::Http — variant Http(String)
+model_provider::ModelSource::Local — variant Local(PathBuf)
+model_provider::NgramDecoderModel — struct pub struct NgramDecoderModel {
+model_provider::NgramDecoderModel::new — fn pub fn new(id: &str, table: Arc<dyn NGramTable>, tokenizer: Box<dyn Tokenizer>) -> Self {
+models — mod
+models::* — use pub use models::*;
+models::Abstraction — enum pub enum Abstraction {
+models::Abstraction::Abstract — variant Abstract
+models::Abstraction::Concrete — variant Concrete
+models::Abstraction::as_str — fn pub fn as_str(&self) -> &'static str {
+models::Abstraction::parse_facet — fn pub fn parse_facet(s: &str) -> Option<Self> {
+models::Agency — enum pub enum Agency {
+models::Agency::Automated — variant Automated
+models::Agency::Collective — variant Collective
+models::Agency::Other — variant Other
+models::Agency::SelfActor — variant SelfActor
+models::Agency::all — fn pub fn all() -> [Agency; 4] {
+models::Agency::as_str — fn pub fn as_str(&self) -> &'static str {
+models::Agency::parse_facet — fn pub fn parse_facet(s: &str) -> Option<Self> {
+models::CertifiedBranch — struct pub struct CertifiedBranch {
+models::CertifiedBranch::branch_id — field pub branch_id: String
+models::CertifiedBranch::centroid — field pub centroid: Vec<f32>
+models::CertifiedBranch::node_ids — field pub node_ids: Vec<String>
+models::CertifiedBranch::stability_score — field pub stability_score: Score
+models::CoherenceNode — struct pub struct CoherenceNode {
+models::CoherenceNode::asserted — field pub asserted: Option<Score>
+models::CoherenceNode::cell_pin — field pub cell_pin: Option<(String, String)>
+models::CoherenceNode::coherence_score — field pub coherence_score: Score
+models::CoherenceNode::embedder — field pub embedder: Option<String>
+models::CoherenceNode::embedding — field pub embedding: Vec<f32>
+models::CoherenceNode::id — field pub id: String
+models::CoherenceNode::is_asserted_failure — fn pub fn is_asserted_failure(&self) -> bool {
+models::CoherenceNode::label — field pub label: Option<String>
+models::CoherenceNode::new — fn pub fn new(embedding: Vec<f32>) -> Self {
+models::CoherenceNode::preference — field pub preference: Option<f32>
+models::CoherenceNode::previous_coherence_state — field pub previous_coherence_state: Option<f32>
+models::CoherenceNode::rating — fn pub fn rating(&self) -> Option<CoherenceRating> {
+models::CoherenceNode::self_model_version — field pub self_model_version: u32
+models::CoherenceNode::with_label — fn pub fn with_label(mut self, label: impl Into<String>) -> Self {
+models::CoherenceRating — enum pub enum CoherenceRating {
+models::CoherenceRating::Failure — variant Failure
+models::CoherenceRating::Inert — variant Inert
+models::CoherenceRating::Success — variant Success
+models::CoherenceRating::from_score — fn pub fn from_score(score: Score) -> Self {
+models::CoherenceRating::weight — fn pub fn weight(self) -> Score {
+models::CoherenceSnapshot — struct pub struct CoherenceSnapshot {
+models::CoherenceSnapshot::asserted_failure — field pub asserted_failure: usize
+models::CoherenceSnapshot::asserted_index — field pub asserted_index: Option<Score>
+models::CoherenceSnapshot::asserted_inert — field pub asserted_inert: usize
+models::CoherenceSnapshot::asserted_success — field pub asserted_success: usize
+models::CoherenceSnapshot::certified_branches_count — field pub certified_branches_count: usize
+models::CoherenceSnapshot::cluster_count — field pub cluster_count: usize
+models::CoherenceSnapshot::coherence_index — field pub coherence_index: Score
+models::CoherenceSnapshot::dream_cycle_count — field pub dream_cycle_count: usize
+models::CoherenceSnapshot::high_coherence — field pub high_coherence: usize
+models::CoherenceSnapshot::isolated_branches_count — field pub isolated_branches_count: usize
+models::CoherenceSnapshot::low_coherence — field pub low_coherence: usize
+models::CoherenceSnapshot::mid_coherence — field pub mid_coherence: usize
+models::CoherenceSnapshot::outlier_count — field pub outlier_count: usize
+models::CoherenceSnapshot::total_nodes — field pub total_nodes: usize
+models::ConsistencyResult — enum pub enum ConsistencyResult {
+models::ConsistencyResult::Clean — variant Clean
+models::ConsistencyResult::Conflict — variant Conflict(ConstructiveRefutation)
+models::ConstructiveRefutation — struct pub struct ConstructiveRefutation {
+models::ConstructiveRefutation::coherence_gap — field pub coherence_gap: Score
+models::ConstructiveRefutation::conflict_id — field pub conflict_id: String
+models::ConstructiveRefutation::conflicting_node_ids — field pub conflicting_node_ids: Vec<String>
+models::ConstructiveRefutation::new — fn pub fn new( query_embedding: Vec<f32>, conflicting_ids: Vec<String>, suggestion: &str, gap: Score, ) -> Self {
+models::ConstructiveRefutation::query_embedding — field pub query_embedding: Vec<f32>
+models::ConstructiveRefutation::suggestion — field pub suggestion: String
+models::DomainDef — struct pub struct DomainDef {
+models::DomainDef::axis_kind — field pub axis_kind: Option<String>
+models::DomainDef::axis_name — field pub axis_name: Option<String>
+models::DomainDef::category — field pub category: Option<String>
+models::DomainDef::domain — field pub domain: Option<String>
+models::DomainDef::facets — field pub facets: Facets
+models::DomainDef::hints — field pub hints: Vec<String>
+models::DomainDef::mode — field pub mode: Option<String>
+models::DomainDef::name — field pub name: String
+models::DomainDef::unit — field pub unit: String
+models::DreamResult — struct pub struct DreamResult {
+models::DreamResult::coherence_delta — field pub coherence_delta: Score
+models::DreamResult::dream_id — field pub dream_id: String
+models::DreamResult::nodes_tested — field pub nodes_tested: Vec<String>
+models::DreamResult::outcome — field pub outcome: f32
+models::DreamResult::prevented_failure — field pub prevented_failure: bool
+models::FacetFilter — struct pub struct FacetFilter {
+models::FacetFilter::abstraction — field pub abstraction: Option<Abstraction>
+models::FacetFilter::agency — field pub agency: Option<Agency>
+models::FacetFilter::domain — field pub domain: Option<String>
+models::FacetFilter::kind — field pub kind: Option<String>
+models::FacetFilter::lifecycle — field pub lifecycle: Option<LifecyclePhase>
+models::FacetFilter::mode — field pub mode: Option<String>
+models::FacetFilter::scale — field pub scale: Option<Scale>
+models::FacetFilter::sub_domain — field pub sub_domain: Option<String>
+models::FacetFilter::sub_mode — field pub sub_mode: Option<String>
+models::Facets — struct pub struct Facets {
+models::Facets::abstraction — field pub abstraction: Option<Abstraction>
+models::Facets::agency — field pub agency: Option<Agency>
+models::Facets::aggregate — fn pub fn aggregate(members: &[Facets]) -> Facets {
+models::Facets::lifecycle — field pub lifecycle: Option<LifecyclePhase>
+models::Facets::matches — fn pub fn matches(&self, filter: &FacetFilter) -> bool {
+models::Facets::scale — field pub scale: Option<Scale>
+models::Facets::simple — fn pub fn simple(&self) -> String {
+models::Facets::sub_domain — field pub sub_domain: Option<String>
+models::Facets::sub_mode — field pub sub_mode: Option<String>
+models::GanttChart — struct pub struct GanttChart {
+models::GanttChart::add_task — fn pub fn add_task(mut self, task: GanttTask) -> Self {
+models::GanttChart::critical_path — field pub critical_path: Vec<String>
+models::GanttChart::new — fn pub fn new() -> Self {
+models::GanttChart::tasks — field pub tasks: Vec<GanttTask>
+models::GanttTask — struct pub struct GanttTask {
+models::GanttTask::depends_on — field pub depends_on: Vec<String>
+models::GanttTask::end — field pub end: String
+models::GanttTask::id — field pub id: String
+models::GanttTask::name — field pub name: String
+models::GanttTask::progress — field pub progress: f32
+models::GanttTask::resource — field pub resource: Option<String>
+models::GanttTask::start — field pub start: String
+models::GridPosition — struct pub struct GridPosition {
+models::GridPosition::axis_kind — field pub axis_kind: String
+models::GridPosition::axis_name — field pub axis_name: String
+models::GridPosition::cell_index — fn pub fn cell_index(&self) -> usize {
+models::GridPosition::domain — field pub domain: HumanDomain
+models::GridPosition::facets — field pub facets: Facets
+models::GridPosition::from_ontology_entry — fn pub fn from_ontology_entry(e: &OntologyEntry) -> Option<GridPosition> {
+models::GridPosition::mode — field pub mode: HumanMode
+models::HumanDomain — enum pub enum HumanDomain {
+models::HumanDomain::Bond — variant Bond
+models::HumanDomain::Construct — variant Construct
+models::HumanDomain::Fabricate — variant Fabricate
+models::HumanDomain::Heal — variant Heal
+models::HumanDomain::Study — variant Study
+models::HumanDomain::all — fn pub fn all() -> [HumanDomain; 5] {
+models::HumanDomain::as_str — fn pub fn as_str(&self) -> &'static str {
+models::HumanMode — enum pub enum HumanMode {
+models::HumanMode::Brainstorm — variant Brainstorm
+models::HumanMode::Create — variant Create
+models::HumanMode::Destroy — variant Destroy
+models::HumanMode::Guide — variant Guide
+models::HumanMode::Learn — variant Learn
+models::HumanMode::Lift — variant Lift
+models::HumanMode::Maintain — variant Maintain
+models::HumanMode::Move — variant Move
+models::HumanMode::Plan — variant Plan
+models::HumanMode::Play — variant Play
+models::HumanMode::Rest — variant Rest
+models::HumanMode::Sense — variant Sense
+models::HumanMode::Walk — variant Walk
+models::HumanMode::Work — variant Work
+models::HumanMode::all — fn pub fn all() -> [HumanMode; 14] {
+models::HumanMode::as_str — fn pub fn as_str(&self) -> &'static str {
+models::IsolatedBranch — struct pub struct IsolatedBranch {
+models::IsolatedBranch::branch_id — field pub branch_id: String
+models::IsolatedBranch::node_ids — field pub node_ids: Vec<String>
+models::IsolatedBranch::outlier_score — field pub outlier_score: Score
+models::LifecyclePhase — enum pub enum LifecyclePhase {
+models::LifecyclePhase::Build — variant Build
+models::LifecyclePhase::Design — variant Design
+models::LifecyclePhase::Operate — variant Operate
+models::LifecyclePhase::Retire — variant Retire
+models::LifecyclePhase::all — fn pub fn all() -> [LifecyclePhase; 4] {
+models::LifecyclePhase::as_str — fn pub fn as_str(&self) -> &'static str {
+models::LifecyclePhase::parse_facet — fn pub fn parse_facet(s: &str) -> Option<Self> {
+models::NodeEditOutcome — struct pub struct NodeEditOutcome {
+models::NodeEditOutcome::asserted — field pub asserted: Option<Score>
+models::NodeEditOutcome::coherence_score — field pub coherence_score: Score
+models::NodeEditOutcome::label — field pub label: String
+models::NodeEditOutcome::node_id — field pub node_id: String
+models::NodeEditOutcome::pinned_cell — field pub pinned_cell: Option<(String, String)>
+models::OntologyConfig — struct pub struct OntologyConfig {
+models::OntologyConfig::domains — field pub domains: Vec<OntologyEntry>
+models::OntologyConfig::kind — field pub kind: String
+models::OntologyEntry — struct pub struct OntologyEntry {
+models::OntologyEntry::axis_kind — field pub axis_kind: String
+models::OntologyEntry::axis_name — field pub axis_name: String
+models::OntologyEntry::category — field pub category: Option<String>
+models::OntologyEntry::domain — field pub domain: String
+models::OntologyEntry::facets — field pub facets: Facets
+models::OntologyEntry::hints — field pub hints: Vec<String>
+models::OntologyEntry::mode — field pub mode: String
+models::OntologyEntry::name — field pub name: String
+models::OntologyEntry::unit — field pub unit: String
+models::PinEdit — enum pub enum PinEdit {
+models::PinEdit::Clear — variant Clear
+models::PinEdit::Keep — variant Keep
+models::PinEdit::Set — variant Set(String, String)
+models::Scale — enum pub enum Scale {
+models::Scale::Civil — variant Civil
+models::Scale::Interpersonal — variant Interpersonal
+models::Scale::Organizational — variant Organizational
+models::Scale::Personal — variant Personal
+models::Scale::all — fn pub fn all() -> [Scale; 4] {
+models::Scale::as_str — fn pub fn as_str(&self) -> &'static str {
+models::Scale::parse_facet — fn pub fn parse_facet(s: &str) -> Option<Self> {
+models::Score — type pub type Score = f32;
+models::SemioticCell — struct pub struct SemioticCell {
+models::SemioticCell::activation — field pub activation: f32
+models::SemioticCell::domain — field pub domain: HumanDomain
+models::SemioticCell::entries — field pub entries: Vec<String>
+models::SemioticCell::mode — field pub mode: HumanMode
+models::SemioticGrid — struct pub struct SemioticGrid {
+models::SemioticGrid::cells — field pub cells: Vec<SemioticCell>
+models::SemioticGrid::classify — fn pub fn classify(&mut self, entry_name: &str, domain: HumanDomain, mode: HumanMode) {
+models::SemioticGrid::get_cell — fn pub fn get_cell(&self, domain: HumanDomain, mode: HumanMode) -> Option<&SemioticCell> {
+models::SemioticGrid::get_cell_mut — fn pub fn get_cell_mut( &mut self, domain: HumanDomain, mode: HumanMode, ) -> Option<&mut SemioticCell> {
+models::SemioticGrid::heatmap_matrix — fn pub fn heatmap_matrix(&self) -> Vec<Vec<f32>> {
+models::SemioticGrid::new — fn pub fn new() -> Self {
+models::SemioticGrid::reset_activations — fn pub fn reset_activations(&mut self) {
+models::cosine_dist — fn pub fn cosine_dist(a: &[f32], b: &[f32]) -> f32 {
+models::cosine_sim — fn pub fn cosine_sim(a: &[f32], b: &[f32]) -> f32 {
+ngram_table — mod
+ngram_table::BackoffTable — struct pub struct BackoffTable {
+ngram_table::BackoffTable::from_counts — fn pub fn from_counts( manifest: TableManifest, counts: Counts, ) -> Result<Self, crate::tokenizer::Incompatible> {
+ngram_table::CellTables — struct pub struct CellTables {
+ngram_table::CellTables::by_support — fn pub fn by_support(&self) -> Vec<(&String, usize)> {
+ngram_table::CellTables::flat — field pub flat: BackoffTable
+ngram_table::CellTables::support — field pub support: BTreeMap<String, usize>
+ngram_table::CellTables::tables — field pub tables: BTreeMap<String, BackoffTable>
+ngram_table::CellTables::top_next — fn pub fn top_next(&self, context: &[String], k: usize, min_support: usize) -> Vec<(String, f32)> {
+ngram_table::Counts — type pub type Counts = Vec<BTreeMap<(Vec<String>, String), u64>>;
+ngram_table::FORMAT_VERSION — const pub const FORMAT_VERSION: u32;
+ngram_table::MAGIC — const pub const MAGIC: &[u8; 8];
+ngram_table::NGramTable — trait pub trait NGramTable: Send + Sync {
+ngram_table::NGramTable::context_count — method fn context_count(&self, context: &[String]) -> u64;
+ngram_table::NGramTable::count — method fn count(&self, context: &[String], next: &str) -> u64;
+ngram_table::NGramTable::manifest — method fn manifest(&self) -> &TableManifest;
+ngram_table::NGramTable::probability — method fn probability(&self, context: &[String], next: &str) -> f32;
+ngram_table::NGramTable::statistics — method fn statistics(&self) -> TableStatistics;
+ngram_table::NGramTable::top_next — method fn top_next(&self, context: &[String], k: usize) -> Vec<(String, f32)>;
+ngram_table::TableBuilder — struct pub struct TableBuilder {
+ngram_table::TableBuilder::finish — fn pub fn finish(mut self, tokenizer: &dyn Tokenizer, corpus_hash: &str) -> (BackoffTable, Vec<u8>) {
+ngram_table::TableBuilder::new — fn pub fn new(cfg: TableConfig) -> Self {
+ngram_table::TableBuilder::push_sequence — fn pub fn push_sequence(&mut self, seq: &[String]) {
+ngram_table::TableBuilder::push_text — fn pub fn push_text(&mut self, tokenizer: &dyn Tokenizer, text: &str) {
+ngram_table::TableConfig — struct pub struct TableConfig {
+ngram_table::TableConfig::backoff_alpha — field pub backoff_alpha: f32
+ngram_table::TableConfig::kind — field pub kind: TableKind
+ngram_table::TableConfig::license — field pub license: String
+ngram_table::TableConfig::max_order — field pub max_order: u8
+ngram_table::TableConfig::max_vocabulary — field pub max_vocabulary: usize, // 0 = unbounded; applied by frequency then alpha
+ngram_table::TableConfig::min_count — field pub min_count: usize
+ngram_table::TableConfig::smoothing_addk — field pub smoothing_addk: f32
+ngram_table::TableConfig::table_id — field pub table_id: String
+ngram_table::TableKind — enum pub enum TableKind {
+ngram_table::TableKind::Lexical — variant Lexical
+ngram_table::TableKind::Structural — variant Structural
+ngram_table::TableManifest — struct pub struct TableManifest {
+ngram_table::TableManifest::backoff_alpha — field pub backoff_alpha: f32
+ngram_table::TableManifest::checksum — field pub checksum: String
+ngram_table::TableManifest::corpus_hash — field pub corpus_hash: String
+ngram_table::TableManifest::entry_count — field pub entry_count: u64
+ngram_table::TableManifest::kind — field pub kind: TableKind
+ngram_table::TableManifest::license — field pub license: String
+ngram_table::TableManifest::max_order — field pub max_order: u8
+ngram_table::TableManifest::min_count — field pub min_count: usize
+ngram_table::TableManifest::physis_version — field pub physis_version: String
+ngram_table::TableManifest::smoothing_addk — field pub smoothing_addk: f32
+ngram_table::TableManifest::table_id — field pub table_id: String
+ngram_table::TableManifest::tokenizer — field pub tokenizer: TokenizerInfo
+ngram_table::TableRegistry — struct pub struct TableRegistry {
+ngram_table::TableRegistry::default_root — fn pub fn default_root() -> PathBuf {
+ngram_table::TableRegistry::export — fn pub fn export(&self, id: &str, dest: &Path) -> anyhow::Result<u64> {
+ngram_table::TableRegistry::import — fn pub fn import(&self, id: &str, src: &Path) -> anyhow::Result<TableManifest> {
+ngram_table::TableRegistry::info — fn pub fn info(&self, id: &str) -> anyhow::Result<TableManifest> {
+ngram_table::TableRegistry::install_bytes — fn pub fn install_bytes(&self, id: &str, bytes: &[u8]) -> anyhow::Result<TableManifest> {
+ngram_table::TableRegistry::list — fn pub fn list(&self) -> Vec<(String, TableManifest)> {
+ngram_table::TableRegistry::load — fn pub fn load(&self, id: &str, model_tokenizer: Option<&str>) -> anyhow::Result<BackoffTable> {
+ngram_table::TableRegistry::new — fn pub fn new(root: impl Into<PathBuf>) -> Self {
+ngram_table::TableRegistry::path — fn pub fn path(&self, id: &str) -> PathBuf {
+ngram_table::TableRegistry::remove — fn pub fn remove(&self, id: &str) -> anyhow::Result<()> {
+ngram_table::TableStatistics — struct pub struct TableStatistics {
+ngram_table::TableStatistics::avg_branching — field pub avg_branching: f32
+ngram_table::TableStatistics::disk_size — field pub disk_size: u64
+ngram_table::TableStatistics::entry_count — field pub entry_count: u64
+ngram_table::TableStatistics::max_branching — field pub max_branching: usize
+ngram_table::TableStatistics::max_order — field pub max_order: u8
+ngram_table::TableStatistics::unique_contexts — field pub unique_contexts: usize
+ngram_table::TableStatistics::vocabulary — field pub vocabulary: usize
+ngram_table::build_cell_tables — fn pub fn build_cell_tables( sequences: &[Vec<String>], cfg: TableConfig, ) -> anyhow::Result<CellTables> {
+ngram_table::build_structural — fn pub fn build_structural( docs: &[(String, String)], cfg: TableConfig, classify: impl Fn(&str) -> String, ) -> anyhow::Result<(BackoffTable, Vec<u8>)> {
+ngram_table::deserialize — fn pub fn deserialize(bytes: &[u8]) -> anyhow::Result<BackoffTable> {
+ngram_table::load — fn pub fn load(path: &Path) -> anyhow::Result<BackoffTable> {
+ngram_table::save — fn pub fn save(table: &BackoffTable, path: &Path) -> anyhow::Result<u64> {
+ngram_table::serialize — fn pub fn serialize(table: &BackoffTable) -> Vec<u8> {
+nlq — mod
+nlq::Cue — struct pub struct Cue {
+nlq::Cue::intent — field pub intent: Intent
+nlq::Cue::phrase — field pub phrase: String
+nlq::Cue::weight — field pub weight: i32
+nlq::Intent — enum pub enum Intent {
+nlq::Intent::Changed — variant Changed
+nlq::Intent::Compare — variant Compare
+nlq::Intent::History — variant History
+nlq::Intent::Inspect — variant Inspect
+nlq::Intent::Locate — variant Locate
+nlq::Intent::Neighbors — variant Neighbors
+nlq::Intent::Retrieve — variant Retrieve
+nlq::Intent::Trace — variant Trace
+nlq::Intent::Why — variant Why
+nlq::Intent::all — fn pub fn all() -> &'static [Intent] {
+nlq::Intent::verb — fn pub fn verb(self) -> &'static str {
+nlq::Proposal — struct pub struct Proposal {
+nlq::Proposal::command — fn pub fn command(&self) -> String {
+nlq::Proposal::evidence — field pub evidence: Vec<Cue>
+nlq::Proposal::fallback — field pub fallback: bool
+nlq::Proposal::intent — field pub intent: Intent
+nlq::Proposal::margin — fn pub fn margin(&self) -> i32 {
+nlq::Proposal::question — field pub question: String
+nlq::Proposal::runner_up — field pub runner_up: Option<(Intent, i32)>
+nlq::Proposal::score — field pub score: i32
+nlq::Proposal::term — field pub term: String
+nlq::null_majority — fn pub fn null_majority(question: &str, majority: Intent) -> Proposal {
+nlq::parse — fn pub fn parse(question: &str) -> Proposal {
+notebook — mod
+notebook::Answer — struct pub struct Answer {
+notebook::Answer::baseline_tokens — field pub baseline_tokens: usize
+notebook::Answer::context_tokens — field pub context_tokens: usize
+notebook::Answer::corpus_documents — field pub corpus_documents: usize
+notebook::Answer::degraded — field pub degraded: Option<String>
+notebook::Answer::latency_ms — field pub latency_ms: f64
+notebook::Answer::query — field pub query: String
+notebook::Answer::render — fn pub fn render(&self) -> String {
+notebook::Answer::sources — field pub sources: Vec<Source>
+notebook::Answer::text — field pub text: String
+notebook::Answer::tier — field pub tier: Tier
+notebook::Draft — struct pub struct Draft {
+notebook::Draft::drafted_tokens — field pub drafted_tokens: usize
+notebook::Draft::gaps — field pub gaps: usize
+notebook::Draft::looped — field pub looped: bool
+notebook::Draft::render_with_gaps — fn pub fn render_with_gaps(&self) -> String {
+notebook::Draft::spans — field pub spans: Vec<Span>
+notebook::Draft::table_entries — field pub table_entries: u64
+notebook::Draft::table_share — fn pub fn table_share(&self) -> f32 {
+notebook::Source — struct pub struct Source {
+notebook::Source::excerpt — field pub excerpt: String
+notebook::Source::name — field pub name: String
+notebook::Source::score — field pub score: f32
+notebook::Span — enum pub enum Span {
+notebook::Span::Gap — variant Gap { after: String }
+notebook::Span::Grounded — variant Grounded(String)
+notebook::Tier — enum pub enum Tier {
+notebook::Tier::Extractive — variant Extractive
+notebook::Tier::Synthesised — variant Synthesised
+notebook::Tier::label — fn pub fn label(&self) -> &'static str {
+notebook::answer — fn pub fn answer( docs: &[(String, String)], query: &str, embedder: &dyn VectorEmbed, budget: usize, ) -> anyhow::Result<Answer> {
+notebook::draft — fn pub fn draft( result: &crate::rag::RetrievalResult, query: &str, max_tokens: usize, confidence: f32, ) -> anyhow::Result<Draft> {
+observe — mod
+observe::Observation — struct pub struct Observation {
+observe::Observation::at — field pub at: chrono::DateTime<chrono::Utc>
+observe::Observation::body — field pub body: String
+observe::Observation::by — fn pub fn by(mut self, watcher: impl Into<String>) -> Self {
+observe::Observation::duration_ms — field pub duration_ms: Option<u64>
+observe::Observation::new — fn pub fn new(source: impl Into<String>, subject: impl Into<String>) -> Self {
+observe::Observation::produced_by — field pub produced_by: Option<String>
+observe::Observation::seq — field pub seq: u64
+observe::Observation::source — field pub source: String
+observe::Observation::subject — field pub subject: String
+observe::Observation::with_body — fn pub fn with_body(mut self, b: impl Into<String>) -> Self {
+observe::Observation::with_duration — fn pub fn with_duration(mut self, ms: u64) -> Self {
+observe::append — fn pub fn append(path: &Path, obs: &mut [Observation]) -> anyhow::Result<(u64, u64)> {
+observe::by_source — fn pub fn by_source(all: &[Observation], source: &str) -> Vec<Observation> {
+observe::cited_by — fn pub fn cited_by(h: &crate::hypothesis::Hypothesis, all: &[Observation]) -> Vec<Observation> {
+observe::concurrent — fn pub fn concurrent(all: &[Observation], seq: u64) -> Vec<Observation> {
+observe::last_seq — fn pub fn last_seq(path: &Path) -> anyhow::Result<u64> {
+observe::log_path — fn pub fn log_path() -> PathBuf {
+observe::promote — fn pub fn promote( obs: &Observation, statement: impl Into<String>, embedding: Vec<f32>, ) -> crate::hypothesis::Hypothesis {
+observe::read — fn pub fn read(path: &Path) -> anyhow::Result<Vec<Observation>> {
+observe::read_tail — fn pub fn read_tail(path: &Path, n: usize) -> anyhow::Result<Vec<Observation>> {
+observe::watch_agent — fn pub fn watch_agent(dir: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
+observe::watch_browser — fn pub fn watch_browser(db: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
+observe::watch_fs — fn pub fn watch_fs(root: &Path, known: &[Observation], max_files: usize) -> Vec<Observation> {
+observe::watch_git — fn pub fn watch_git(repo: &Path, limit: usize) -> Vec<Observation> {
+observe::watch_proc — fn pub fn watch_proc(known: &[Observation], min_age_s: u64, limit: usize) -> Vec<Observation> {
+observe::watch_shell — fn pub fn watch_shell(hist: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
+ontology — mod
+ontology::BUILTIN_ONTOLOGIES — static pub static BUILTIN_ONTOLOGIES: &[(&str, &str, &str)];
+ontology::EXTRA_ONTOLOGIES — static pub static EXTRA_ONTOLOGIES: &[(&str, &str)];
+ontology::HUMAN_ONTOLOGY_NAME — const pub const HUMAN_ONTOLOGY_NAME: &str;
+ontology::ONTOLOGY_SOURCES — static pub static ONTOLOGY_SOURCES: &[(&str, &str)];
+ontology::OntologyLoader — struct pub struct OntologyLoader {
+ontology::OntologyLoader — use pub use ontology::OntologyLoader;
+ontology::OntologyLoader::all_domains — fn pub fn all_domains(&self) -> HashMap<String, DomainDef> {
+ontology::OntologyLoader::categories — fn pub fn categories(&self) -> Vec<String> {
+ontology::OntologyLoader::classification_domains — fn pub fn classification_domains(&self) -> impl Iterator<Item = &DomainDef> {
+ontology::OntologyLoader::custom_domains — field pub custom_domains: HashMap<String, DomainDef>
+ontology::OntologyLoader::entry_count — fn pub fn entry_count(&self) -> usize {
+ontology::OntologyLoader::human_domains — field pub human_domains: HashMap<String, DomainDef>
+ontology::OntologyLoader::load_all — fn pub fn load_all() -> Self {
+ontology::OntologyLoader::load_from_path — fn pub fn load_from_path(path: &Path) -> anyhow::Result<HashMap<String, DomainDef>> {
+ontology::OntologyLoader::load_from_str — fn pub fn load_from_str(json: &str) -> anyhow::Result<HashMap<String, DomainDef>> {
+ontology::OntologyLoader::machine_domains — field pub machine_domains: HashMap<String, DomainDef>
+ontology::OntologyLoader::merge_custom — fn pub fn merge_custom(&mut self, kind: &str, map: HashMap<String, DomainDef>) {
+ontology::OntologyLoader::new — fn pub fn new() -> Self {
+ontology::ontology_source — fn pub fn ontology_source(name: &str) -> Option<&'static str> {
+oracle — mod
+oracle::OracleCase — struct pub struct OracleCase {
+oracle::OracleCase::agreement_jaccard — field pub agreement_jaccard: f32
+oracle::OracleCase::context_chars — field pub context_chars: usize
+oracle::OracleCase::decisive_docs — field pub decisive_docs: Vec<String>
+oracle::OracleCase::latency_ms — field pub latency_ms: f64
+oracle::OracleCase::must_mention — field pub must_mention: Vec<String>
+oracle::OracleCase::oracle_answer — field pub oracle_answer: String
+oracle::OracleCase::oracle_cites_evidence — field pub oracle_cites_evidence: bool
+oracle::OracleCase::physis_answer — field pub physis_answer: String
+oracle::OracleCase::query — field pub query: String
+oracle::OracleConfig — struct pub struct OracleConfig {
+oracle::OracleConfig::has_key — field pub has_key: bool
+oracle::OracleConfig::model — field pub model: String
+oracle::OracleConfig::url — field pub url: String
+oracle::cites_evidence — fn pub fn cites_evidence(answer: &str, must_mention: &[String]) -> bool {
+oracle::complete — fn pub fn complete( _cfg: &OracleConfig, _key: &str, _system: &str, _prompt: &str, _max_tokens: u32, ) -> anyhow::Result<(String, f64)> {
+oracle::complete — fn pub fn complete( cfg: &OracleConfig, key: &str, system: &str, prompt: &str, max_tokens: u32, ) -> anyhow::Result<(String, f64)> {
+oracle::from_env — fn pub fn from_env() -> Option<(OracleConfig, String)> {
+oracle::token_jaccard — fn pub fn token_jaccard(a: &str, b: &str) -> f32 {
+praxis — mod
+praxis::BehaviourRecord — struct pub struct BehaviourRecord {
+praxis::BehaviourRecord::body — field pub body: String
+praxis::BehaviourRecord::kind — field pub kind: String
+praxis::BehaviourRecord::labels — fn pub fn labels(&self) -> Vec<String> {
+praxis::BehaviourRecord::status — field pub status: BehaviourStatus
+praxis::BehaviourRecord::title — field pub title: String
+praxis::BehaviourStatus — enum pub enum BehaviourStatus {
+praxis::BehaviourStatus::Failure — variant Failure
+praxis::BehaviourStatus::Inert — variant Inert
+praxis::BehaviourStatus::Success — variant Success
+praxis::BehaviourStatus::as_score — fn pub fn as_score(self) -> f32 {
+praxis::BehaviourStatus::as_str — fn pub fn as_str(self) -> &'static str {
+praxis::parse_export — fn pub fn parse_export(json: &str) -> Vec<BehaviourRecord> {
+praxis::parse_notebook_entries — fn pub fn parse_notebook_entries(json: &str) -> Vec<BehaviourRecord> {
+praxis::parse_trackers — fn pub fn parse_trackers(json: &str) -> Vec<BehaviourRecord> {
+praxis::{BehaviourRecord, BehaviourStatus} — use pub use praxis::{BehaviourRecord, BehaviourStatus};
+process — mod
+process::ProcessConstraint — struct pub struct ProcessConstraint {
+process::ProcessConstraint::id — field pub id: String
+process::ProcessConstraint::is_hard_constraint — field pub is_hard_constraint: bool
+process::ProcessConstraint::max_value — field pub max_value: Option<f64>
+process::ProcessConstraint::metric — field pub metric: String
+process::ProcessConstraint::min_value — field pub min_value: Option<f64>
+process::ProcessConstraint::name — field pub name: String
+process::ProcessCycle — struct pub struct ProcessCycle {
+process::ProcessCycle::complete_outcome — fn pub fn complete_outcome(&mut self, outcome: ProcessOutcome) {
+process::ProcessCycle::deviations — field pub deviations: Vec<ProcessDeviation>
+process::ProcessCycle::id — field pub id: String
+process::ProcessCycle::interventions — field pub interventions: Vec<ProcessIntervention>
+process::ProcessCycle::measurements — field pub measurements: Vec<ProcessMeasurement>
+process::ProcessCycle::new — fn pub fn new(id: impl Into<String>) -> Self {
+process::ProcessCycle::outcome — field pub outcome: Option<ProcessOutcome>
+process::ProcessCycle::plan — field pub plan: Option<ProcessPlan>
+process::ProcessCycle::record_deviation — fn pub fn record_deviation(&mut self, deviation: ProcessDeviation) {
+process::ProcessCycle::record_intervention — fn pub fn record_intervention(&mut self, intervention: ProcessIntervention) {
+process::ProcessCycle::record_measurement — fn pub fn record_measurement(&mut self, measurement: ProcessMeasurement) {
+process::ProcessCycle::scan_deviations — fn pub fn scan_deviations(&mut self, constraints: &[ProcessConstraint]) -> usize {
+process::ProcessCycle::temporal — field pub temporal: Option<TemporalValidity>
+process::ProcessDeviation — struct pub struct ProcessDeviation {
+process::ProcessDeviation::description — field pub description: String
+process::ProcessDeviation::detected_at — field pub detected_at: chrono::DateTime<chrono::Utc>
+process::ProcessDeviation::expected_value — field pub expected_value: f64
+process::ProcessDeviation::id — field pub id: String
+process::ProcessDeviation::metric — field pub metric: String
+process::ProcessDeviation::observed_value — field pub observed_value: f64
+process::ProcessDeviation::severity — field pub severity: Score
+process::ProcessDeviation::task_or_process_id — field pub task_or_process_id: String
+process::ProcessGoal — struct pub struct ProcessGoal {
+process::ProcessGoal::achieved — field pub achieved: bool
+process::ProcessGoal::created_at — field pub created_at: chrono::DateTime<chrono::Utc>
+process::ProcessGoal::description — field pub description: String
+process::ProcessGoal::id — field pub id: String
+process::ProcessGoal::target_metric — field pub target_metric: Option<String>
+process::ProcessGoal::target_value — field pub target_value: Option<f64>
+process::ProcessGoal::title — field pub title: String
+process::ProcessIntervention — struct pub struct ProcessIntervention {
+process::ProcessIntervention::action_taken — field pub action_taken: String
+process::ProcessIntervention::actual_recovery — field pub actual_recovery: Option<String>
+process::ProcessIntervention::deviation_id — field pub deviation_id: Option<String>
+process::ProcessIntervention::expected_recovery — field pub expected_recovery: String
+process::ProcessIntervention::id — field pub id: String
+process::ProcessIntervention::operator — field pub operator: String
+process::ProcessIntervention::resolved — field pub resolved: bool
+process::ProcessIntervention::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+process::ProcessMeasurement — struct pub struct ProcessMeasurement {
+process::ProcessMeasurement::deviation_against — fn pub fn deviation_against( &self, constraint: &ProcessConstraint, task_or_process_id: &str, ) -> Option<ProcessDeviation> {
+process::ProcessMeasurement::id — field pub id: String
+process::ProcessMeasurement::is_nominal — field pub is_nominal: bool
+process::ProcessMeasurement::machine_or_source — field pub machine_or_source: String
+process::ProcessMeasurement::metric — field pub metric: String
+process::ProcessMeasurement::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+process::ProcessMeasurement::unit — field pub unit: String
+process::ProcessMeasurement::value — field pub value: f64
+process::ProcessOutcome — struct pub struct ProcessOutcome {
+process::ProcessOutcome::completion_time — field pub completion_time: chrono::DateTime<chrono::Utc>
+process::ProcessOutcome::id — field pub id: String
+process::ProcessOutcome::output_produced — field pub output_produced: Option<String>
+process::ProcessOutcome::plan_id — field pub plan_id: Option<String>
+process::ProcessOutcome::scrap_or_error_count — field pub scrap_or_error_count: usize
+process::ProcessOutcome::success — field pub success: bool
+process::ProcessOutcome::summary — field pub summary: String
+process::ProcessPlan — struct pub struct ProcessPlan {
+process::ProcessPlan::constraints — field pub constraints: Vec<ProcessConstraint>
+process::ProcessPlan::created_at — field pub created_at: chrono::DateTime<chrono::Utc>
+process::ProcessPlan::goal_id — field pub goal_id: Option<String>
+process::ProcessPlan::id — field pub id: String
+process::ProcessPlan::name — field pub name: String
+process::ProcessPlan::tasks — field pub tasks: Vec<ProcessTask>
+process::ProcessResource — struct pub struct ProcessResource {
+process::ProcessResource::capacity — field pub capacity: f64
+process::ProcessResource::current_utilization — field pub current_utilization: f64
+process::ProcessResource::id — field pub id: String
+process::ProcessResource::kind — field pub kind: String
+process::ProcessResource::name — field pub name: String
+process::ProcessState — struct pub struct ProcessState {
+process::ProcessState::active_since — field pub active_since: chrono::DateTime<chrono::Utc>
+process::ProcessState::id — field pub id: String
+process::ProcessState::name — field pub name: String
+process::ProcessState::parameters — field pub parameters: std::collections::HashMap<String, f64>
+process::ProcessState::valid_until — field pub valid_until: Option<chrono::DateTime<chrono::Utc>>
+process::ProcessTask — struct pub struct ProcessTask {
+process::ProcessTask::assigned_resources — field pub assigned_resources: Vec<String>
+process::ProcessTask::dependencies — field pub dependencies: Vec<String>
+process::ProcessTask::expected_duration_secs — field pub expected_duration_secs: Option<u64>
+process::ProcessTask::id — field pub id: String
+process::ProcessTask::state — field pub state: TaskState
+process::ProcessTask::title — field pub title: String
+process::StateTransition — struct pub struct StateTransition {
+process::StateTransition::duration_secs — field pub duration_secs: Option<f64>
+process::StateTransition::from_state — field pub from_state: String
+process::StateTransition::id — field pub id: String
+process::StateTransition::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+process::StateTransition::to_state — field pub to_state: String
+process::StateTransition::trigger_event — field pub trigger_event: String
+process::TaskState — enum pub enum TaskState {
+process::TaskState::Blocked — variant Blocked
+process::TaskState::Completed — variant Completed
+process::TaskState::Failed — variant Failed
+process::TaskState::InProgress — variant InProgress
+process::TaskState::Intervened — variant Intervened
+process::TaskState::Pending — variant Pending
+process::{ — use pub use process::{
+propose — mod
+propose::CellProposal — struct pub struct CellProposal {
+propose::CellProposal::cell — fn pub fn cell(&self) -> String {
+propose::CellProposal::domain — field pub domain: String
+propose::CellProposal::mode — field pub mode: String
+propose::CellProposal::score — field pub score: f32
+propose::DEFAULT_HINT_WEIGHT — const pub const DEFAULT_HINT_WEIGHT: f32;
+propose::Proposer — struct pub struct Proposer {
+propose::Proposer::cell_count — fn pub fn cell_count(&self) -> usize {
+propose::Proposer::decision_count — fn pub fn decision_count(&self) -> usize {
+propose::Proposer::from_decisions — fn pub fn from_decisions<I, D, M>(decisions: I) -> Self where I: IntoIterator<Item = (D, M, Vec<f32>)>, D: Into<String>, M: Into<String>, {
+propose::Proposer::is_empty — fn pub fn is_empty(&self) -> bool {
+propose::Proposer::propose — fn pub fn propose(&self, embedding: &[f32], k: usize) -> Vec<CellProposal> {
+propose::blend_hint_weight — fn pub fn blend_hint_weight(name_vec: &[f32], name_hints_vec: &[f32], alpha: f32) -> Vec<f32> {
+propose::embed_entry — fn pub fn embed_entry( name: &str, hints: &[String], embedder: &dyn VectorEmbed, alpha: f32, ) -> Vec<f32> {
+provenance — mod
+provenance::ProvenanceChain — struct pub struct ProvenanceChain {
+provenance::ProvenanceChain::add_link — fn pub fn add_link(&mut self, link: ProvenanceLink) {
+provenance::ProvenanceChain::cited_intake_ids — fn pub fn cited_intake_ids(&self) -> Vec<String> {
+provenance::ProvenanceChain::links — field pub links: Vec<ProvenanceLink>
+provenance::ProvenanceChain::new — fn pub fn new() -> Self {
+provenance::ProvenanceChain::summary — fn pub fn summary(&self) -> String {
+provenance::ProvenanceLink — struct pub struct ProvenanceLink {
+provenance::ProvenanceLink::claim — field pub claim: String
+provenance::ProvenanceLink::confidence — field pub confidence: Score
+provenance::ProvenanceLink::intake_id — field pub intake_id: Option<String>
+provenance::ProvenanceLink::method — field pub method: Option<String>
+provenance::ProvenanceLink::new — fn pub fn new(claim: impl Into<String>, source: impl Into<String>) -> Self {
+provenance::ProvenanceLink::raw_reference — field pub raw_reference: Option<String>
+provenance::ProvenanceLink::source — field pub source: String
+provenance::ProvenanceLink::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+provenance::ProvenanceLink::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
+provenance::{ProvenanceChain, ProvenanceLink} — use pub use provenance::{ProvenanceChain, ProvenanceLink};
+quality — mod
+quality::CONDITION_CONFIDENCE_SPAN — const pub const CONDITION_CONFIDENCE_SPAN: f32;
+quality::ConditionLens — enum pub enum ConditionLens {
+quality::ConditionLens::Balanced — variant Balanced
+quality::ConditionLens::Custom — variant Custom(f32)
+quality::ConditionLens::Responsive — variant Responsive
+quality::ConditionLens::Trusting — variant Trusting
+quality::ConditionLens::confidence — fn pub fn confidence(self) -> f32 {
+quality::ConditionLens::parse — fn pub fn parse(s: &str) -> Option<Self> {
+quality::ContextualQualityTracker — struct pub struct ContextualQualityTracker {
+quality::ContextualQualityTracker::adjust_score_contextual — fn pub fn adjust_score_contextual( &self, cell: &str, raw_score: Score, context: &FitnessContext, ) -> Score {
+quality::ContextualQualityTracker::fitness_for — fn pub fn fitness_for(&self, interpretation: &str, context: &FitnessContext) -> Option<Score> {
+quality::ContextualQualityTracker::fitness_for_interpretation — fn pub fn fitness_for_interpretation(&self, interpretation: &str) -> Vec<&FitnessRecord> {
+quality::ContextualQualityTracker::fitness_records — field pub fitness_records: HashMap<String, FitnessRecord>
+quality::ContextualQualityTracker::global_boosts — field pub global_boosts: HashMap<String, f32>
+quality::ContextualQualityTracker::global_failures — field pub global_failures: Vec<QualityFailure>
+quality::ContextualQualityTracker::global_penalties — field pub global_penalties: HashMap<String, f32>
+quality::ContextualQualityTracker::new — fn pub fn new(embedder: Box<dyn VectorEmbed>) -> Self {
+quality::ContextualQualityTracker::report_failure_context — fn pub fn report_failure_context( &mut self, feedback: &str, cell_centroids: &HashMap<String, Vec<f32>>, correct_domain: Option<&str>, context: FitnessContext, ) -> &QualityFailure {
+quality::ContextualQualityTracker::report_failure_for_cell_context — fn pub fn report_failure_for_cell_context( &mut self, cell: &str, _feedback: &str, context: FitnessContext, ) {
+quality::ContextualQualityTracker::report_success_context — fn pub fn report_success_context(&mut self, cell: &str, context: FitnessContext) {
+quality::ContextualQualityTracker::summary — fn pub fn summary(&self) -> String {
+quality::FitnessContext — struct pub struct FitnessContext {
+quality::FitnessContext::domain — field pub domain: Option<String>
+quality::FitnessContext::environment — field pub environment: Option<String>
+quality::FitnessContext::key — fn pub fn key(&self) -> String {
+quality::FitnessContext::machine — field pub machine: Option<String>
+quality::FitnessContext::material — field pub material: Option<String>
+quality::FitnessContext::new — fn pub fn new() -> Self {
+quality::FitnessContext::operator — field pub operator: Option<String>
+quality::FitnessContext::process — field pub process: Option<String>
+quality::FitnessContext::state — field pub state: Option<String>
+quality::FitnessContext::task — field pub task: Option<String>
+quality::FitnessRecord — struct pub struct FitnessRecord {
+quality::FitnessRecord::context — field pub context: FitnessContext
+quality::FitnessRecord::failures — field pub failures: usize
+quality::FitnessRecord::fitness — field pub fitness: Score
+quality::FitnessRecord::interpretation — field pub interpretation: String
+quality::FitnessRecord::new — fn pub fn new(interpretation: impl Into<String>, context: FitnessContext) -> Self {
+quality::FitnessRecord::record_failure — fn pub fn record_failure(&mut self) {
+quality::FitnessRecord::record_success — fn pub fn record_success(&mut self) {
+quality::FitnessRecord::successes — field pub successes: usize
+quality::NEUTRAL_CONDITION — const pub const NEUTRAL_CONDITION: f32;
+quality::QualityFailure — struct pub struct QualityFailure {
+quality::QualityFailure::correct_domain — field pub correct_domain: Option<String>
+quality::QualityFailure::correct_embedding — field pub correct_embedding: Option<Vec<f32>>
+quality::QualityFailure::feedback — field pub feedback: String
+quality::QualityFailure::feedback_embedding — field pub feedback_embedding: Vec<f32>
+quality::QualityFailure::id — field pub id: String
+quality::QualityFailure::new — fn pub fn new(feedback: &str, embedding: Vec<f32>, top_cell: &str, top_score: f32) -> Self {
+quality::QualityFailure::resolved — field pub resolved: bool
+quality::QualityFailure::severity — field pub severity: f32
+quality::QualityFailure::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+quality::QualityFailure::top_cell — field pub top_cell: String
+quality::QualityFailure::top_score — field pub top_score: f32
+quality::QualityTracker — struct pub struct QualityTracker {
+quality::QualityTracker::adjust_score — fn pub fn adjust_score(&self, cell: &str, raw_score: f32) -> f32 {
+quality::QualityTracker::agent_boosts — field pub agent_boosts: HashMap<String, f32>
+quality::QualityTracker::agent_penalties — field pub agent_penalties: HashMap<String, f32>
+quality::QualityTracker::cell_boosts — field pub cell_boosts: HashMap<String, f32>
+quality::QualityTracker::cell_penalties — field pub cell_penalties: HashMap<String, f32>
+quality::QualityTracker::cell_standing — fn pub fn cell_standing(&self, cell: &str) -> f32 {
+quality::QualityTracker::failures — field pub failures: Vec<QualityFailure>
+quality::QualityTracker::load — fn pub fn load(path: &Path) -> anyhow::Result<Vec<QualityFailure>> {
+quality::QualityTracker::load_or_new — fn pub fn load_or_new(path: &Path) -> Self {
+quality::QualityTracker::new — fn pub fn new(embedder: Box<dyn VectorEmbed>) -> Self {
+quality::QualityTracker::penalize_cell — fn pub fn penalize_cell(&mut self, cell: &str, severity: f32) {
+quality::QualityTracker::report_agent_failure — fn pub fn report_agent_failure(&mut self, agent_id: &str) {
+quality::QualityTracker::report_agent_success — fn pub fn report_agent_success(&mut self, agent_id: &str) {
+quality::QualityTracker::report_failure — fn pub fn report_failure( &mut self, feedback: &str, cell_centroids: &HashMap<String, Vec<f32>>, correct_domain: Option<&str>, ) -> &QualityFailure {
+quality::QualityTracker::report_success — fn pub fn report_success(&mut self, cell: &str) {
+quality::QualityTracker::save — fn pub fn save(&self, path: &Path) -> anyhow::Result<()> {
+quality::QualityTracker::summary — fn pub fn summary(&self) -> String {
+quality::cell_condition — fn pub fn cell_condition( count: u32, standing: f32, mean_asserted: Option<f32>, confidence: f32, ) -> f32 {
+quality::{ — use pub use quality::{
+rag — mod
+rag::Bm25Index — struct pub struct Bm25Index {
+rag::Bm25Index::avg_dl — field pub avg_dl: f32
+rag::Bm25Index::build — fn pub fn build(texts: &[String]) -> Self {
+rag::Bm25Index::df — fn pub fn df(&self, term: &str) -> usize {
+rag::Bm25Index::doc_freq — field pub doc_freq: Vec<(String, usize)>
+rag::Bm25Index::doc_len — field pub doc_len: Vec<usize>
+rag::Bm25Index::rank — fn pub fn rank(&self, query_terms: &[String]) -> Vec<(usize, f32)> {
+rag::Bm25Index::score — fn pub fn score(&self, doc_idx: usize, query_terms: &[String]) -> f32 {
+rag::HeuristicTokenizer — struct pub struct HeuristicTokenizer;
+rag::HybridVerdict — struct pub struct HybridVerdict {
+rag::HybridVerdict::cosine_top1 — field pub cosine_top1: Option<usize>
+rag::HybridVerdict::hybrid_top1 — field pub hybrid_top1: Option<usize>
+rag::HybridVerdict::improvement — field pub improvement: f32
+rag::HybridVerdict::ships_fusion — field pub ships_fusion: bool
+rag::HybridVerdict::target_doc — field pub target_doc: usize
+rag::RagChunk — struct pub struct RagChunk {
+rag::RagChunk::embedding — field pub embedding: Vec<f32>
+rag::RagChunk::id — field pub id: usize
+rag::RagChunk::text — field pub text: String
+rag::RagChunk::tokens — field pub tokens: usize
+rag::RagCorpus — struct pub struct RagCorpus {
+rag::RagCorpus::bm25 — field pub bm25: Bm25Index
+rag::RagCorpus::build — fn pub fn build(texts: &[String], embedder: &dyn VectorEmbed) -> Self {
+rag::RagCorpus::chunks — field pub chunks: Vec<RagChunk>
+rag::RagCorpus::total_tokens — fn pub fn total_tokens(&self) -> usize {
+rag::RetrievalResult — struct pub struct RetrievalResult {
+rag::RetrievalResult::budget — field pub budget: usize
+rag::RetrievalResult::chunks — field pub chunks: Vec<RetrievedChunk>
+rag::RetrievalResult::total_tokens — field pub total_tokens: usize
+rag::RetrievalResult::truncated — field pub truncated: bool
+rag::RetrievedChunk — struct pub struct RetrievedChunk {
+rag::RetrievedChunk::id — field pub id: usize
+rag::RetrievedChunk::score — field pub score: f32
+rag::RetrievedChunk::text — field pub text: String
+rag::RetrievedChunk::tokens — field pub tokens: usize
+rag::TokenCounter — trait pub trait TokenCounter {
+rag::TokenCounter::count — method fn count(&self, text: &str) -> usize;
+rag::TokenFixedRetriever — struct pub struct TokenFixedRetriever {
+rag::TokenFixedRetriever::budget — field pub budget: usize
+rag::TokenFixedRetriever::diversity — field pub diversity: f32
+rag::TokenFixedRetriever::new — fn pub fn new(budget: usize, top_k: usize) -> Self {
+rag::TokenFixedRetriever::retrieve — fn pub fn retrieve(&self, query_emb: &[f32], corpus: &RagCorpus) -> RetrievalResult {
+rag::TokenFixedRetriever::top_k — field pub top_k: usize
+rag::TokenFixedRetriever::with_diversity — fn pub fn with_diversity(mut self, diversity: f32) -> Self {
+rag::assemble_context — fn pub fn assemble_context(result: &RetrievalResult, separator: &str) -> String {
+rag::bm25_terms — fn pub fn bm25_terms(text: &str) -> Vec<String> {
+rag::count_tokens — fn pub fn count_tokens(text: &str) -> usize {
+rag::fuse_rrf — fn pub fn fuse_rrf(rankings: &[&[usize]], k: f32) -> Vec<(usize, f32)> {
+rag::measure_hybrid_vs_cosine — fn pub fn measure_hybrid_vs_cosine( corpus: &RagCorpus, query_emb: &[f32], query_text: &str, target_doc: usize, ) -> HybridVerdict {
+rag::rank_by_cosine — fn pub fn rank_by_cosine(query_emb: &[f32], corpus: &RagCorpus) -> Vec<(usize, f32)> {
+rag::rank_hybrid — fn pub fn rank_hybrid( corpus: &RagCorpus, query_emb: &[f32], query_text: &str, ) -> Vec<(usize, f32)> {
+rag::retrieve_from_texts — fn pub fn retrieve_from_texts( texts: &[String], query: &str, embedder: &dyn VectorEmbed, budget: usize, top_k: usize, ) -> (RetrievalResult, String) {
+rag::{count_tokens, RagChunk, RagCorpus, RetrievalResult, TokenFixedRetriever} — use pub use rag::{count_tokens, RagChunk, RagCorpus, RetrievalResult, TokenFixedRetriever};
+relation — mod
+relation::RelationType — enum pub enum RelationType {
+relation::RelationType::Causes — variant Causes
+relation::RelationType::Contradicts — variant Contradicts
+relation::RelationType::DependsOn — variant DependsOn
+relation::RelationType::DerivedFrom — variant DerivedFrom
+relation::RelationType::Explains — variant Explains
+relation::RelationType::Follows — variant Follows
+relation::RelationType::Influences — variant Influences
+relation::RelationType::Invalidates — variant Invalidates
+relation::RelationType::Measures — variant Measures
+relation::RelationType::Observes — variant Observes
+relation::RelationType::Precedes — variant Precedes
+relation::RelationType::Predicts — variant Predicts
+relation::RelationType::Produces — variant Produces
+relation::RelationType::Requires — variant Requires
+relation::RelationType::Supports — variant Supports
+relation::RelationType::as_str — fn pub fn as_str(&self) -> &'static str {
+relation::RelationType::is_causal — fn pub fn is_causal(&self) -> bool {
+relation::RelationType::is_epistemic — fn pub fn is_epistemic(&self) -> bool {
+relation::RelationType::is_procedural — fn pub fn is_procedural(&self) -> bool {
+relation::TypedEdge — struct pub struct TypedEdge {
+relation::TypedEdge::confidence — field pub confidence: Score
+relation::TypedEdge::created_at — field pub created_at: chrono::DateTime<chrono::Utc>
+relation::TypedEdge::evidence — field pub evidence: Option<String>
+relation::TypedEdge::id — field pub id: String
+relation::TypedEdge::new — fn pub fn new( relation_type: RelationType, source_id: impl Into<String>, target_id: impl Into<String>, ) -> Self {
+relation::TypedEdge::provenance — field pub provenance: Option<String>
+relation::TypedEdge::relation_type — field pub relation_type: RelationType
+relation::TypedEdge::source_id — field pub source_id: String
+relation::TypedEdge::target_id — field pub target_id: String
+relation::TypedEdge::temporal — field pub temporal: TemporalValidity
+relation::TypedEdge::weight — field pub weight: Score
+relation::TypedEdge::with_confidence — fn pub fn with_confidence(mut self, confidence: Score) -> Self {
+relation::TypedEdge::with_evidence — fn pub fn with_evidence(mut self, evidence: impl Into<String>) -> Self {
+relation::TypedEdge::with_provenance — fn pub fn with_provenance(mut self, provenance: impl Into<String>) -> Self {
+relation::TypedEdge::with_temporal — fn pub fn with_temporal(mut self, temporal: TemporalValidity) -> Self {
+relation::TypedEdge::with_weight — fn pub fn with_weight(mut self, weight: Score) -> Self {
+relation::{RelationType, TypedEdge} — use pub use relation::{RelationType, TypedEdge};
+store — mod
+store::DATA_DIR_ENV — const pub const DATA_DIR_ENV: &str;
+store::custom_ontology_path — fn pub fn custom_ontology_path() -> PathBuf {
+store::data_dir — fn pub fn data_dir() -> PathBuf {
+store::ensure_data_dir — fn pub fn ensure_data_dir() -> anyhow::Result<()> {
+store::nodes_path — fn pub fn nodes_path() -> PathBuf {
+store::quality_path — fn pub fn quality_path() -> PathBuf {
+store::read_optional — fn pub fn read_optional(path: &Path) -> String {
+studio — mod
+studio::? — item pub async fn run(port: u16) -> anyhow::Result<()> {
+studio::? — item pub async fn run_with_model(port: u16, model_dir: Option<String>) -> anyhow::Result<()> {
+studio::Shared — type pub type Shared = Arc<RwLock<StudioState>>;
+studio::StudioState — struct pub struct StudioState {
+studio::StudioState::classifier — field pub classifier: CellClassifier
+studio::StudioState::core — field pub core: PhysisCore
+studio::StudioState::custom_entries — field pub custom_entries: HashMap<String, DomainDef>
+studio::StudioState::data_dir — field pub data_dir: PathBuf
+studio::StudioState::embedder — field pub embedder: Box<dyn VectorEmbed>
+studio::StudioState::embedder_kind — field pub embedder_kind: String
+studio::StudioState::gantt — field pub gantt: Option<GanttChart>
+studio::StudioState::new — fn pub fn new(data_dir: PathBuf) -> Self {
+studio::StudioState::ontology — field pub ontology: OntologyLoader
+studio::StudioState::quality — field pub quality: QualityTracker
+studio::StudioState::save_core — fn pub fn save_core(&self) {
+studio::StudioState::semantic — field pub semantic: bool
+studio::StudioState::with_embedder — fn pub fn with_embedder(data_dir: PathBuf, model_dir: Option<String>) -> Self {
+studio::{run, run_with_model, StudioState} — use pub use studio::{run, run_with_model, StudioState};
+studio_communities — mod
+studio_communities::? — item pub async fn api_communities(State(state): State<Shared>) -> Response {
+studio_communities::CommunitiesJson — struct pub struct CommunitiesJson {
+studio_communities::CommunitiesJson::communities — field pub communities: Vec<CommunityJson>
+studio_communities::CommunitiesJson::unlabeled — field pub unlabeled: usize
+studio_communities::CommunityJson — struct pub struct CommunityJson {
+studio_communities::CommunityJson::cohesion — field pub cohesion: f32
+studio_communities::CommunityJson::id — field pub id: u32
+studio_communities::CommunityJson::members — field pub members: Vec<String>
+studio_communities::rollup — fn pub fn rollup( labeled: &[(String, String)], // (id, label) edges: &[(String, String)], // undirected id pairs ) -> CommunitiesJson {
+studio_lab — mod
+studio_lab::router — fn pub fn router() -> Router<Shared> {
+system — mod
+system::API_VERSION — const pub const API_VERSION: &str;
+system::Hit — struct pub struct Hit {
+system::Hit::excerpt — field pub excerpt: String
+system::Hit::id — field pub id: String
+system::Hit::kind — field pub kind: String
+system::Hit::label — field pub label: String
+system::Hit::score — field pub score: f32
+system::Inventory — struct pub struct Inventory {
+system::Inventory::errors — field pub errors: Vec<String>
+system::Inventory::objects — field pub objects: Vec<Object>
+system::Inventory::skipped_links — field pub skipped_links: usize
+system::Inventory::truncated — field pub truncated: bool
+system::Object — struct pub struct Object {
+system::Object::bytes — field pub bytes: u64
+system::Object::id — field pub id: String
+system::Object::modified_at — field pub modified_at: Option<String>
+system::Object::path — field pub path: String
+system::PackStrategy — enum pub enum PackStrategy {
+system::PackStrategy::FilesThenWindows — variant FilesThenWindows
+system::PackStrategy::Windows — variant Windows
+system::PackStrategy::name — fn pub fn name(self) -> &'static str {
+system::Workspace — struct pub struct Workspace {
+system::Workspace::capabilities — fn pub fn capabilities(&self) -> Value {
+system::Workspace::export — fn pub fn export(&self, destination: &Path) -> Result<Value> {
+system::Workspace::find — fn pub fn find(&self, query: &str, limit: usize) -> Result<Value> {
+system::Workspace::history — fn pub fn history(&self, query: Option<&str>, limit: usize) -> Result<Value> {
+system::Workspace::including — fn pub fn including(mut self, dirs: &[String]) -> Self {
+system::Workspace::inspect — fn pub fn inspect(&self) -> Result<Value> {
+system::Workspace::inventory — fn pub fn inventory(&self) -> Result<Inventory> {
+system::Workspace::open — fn pub fn open(root: &Path, state: &Path) -> Result<Self> {
+system::Workspace::pack — fn pub fn pack(&self, query: &str, budget: usize, per_file: usize) -> Result<Value> {
+system::Workspace::pack_paths — fn pub fn pack_paths(&self, query: &str, budget: usize, paths: &[PathBuf]) -> Result<Value> {
+system::Workspace::pack_with — fn pub fn pack_with( &self, query: &str, budget: usize, per_file: usize, strategy: PackStrategy, bridge_gaps: bool, ) -> Result<Value> {
+system::Workspace::predict — fn pub fn predict(&self, argv: &[String]) -> Result<Value> {
+system::Workspace::predict_with — fn pub fn predict_with(&self, argv: &[String], shared: Option<&Path>) -> Result<Value> {
+system::Workspace::read — fn pub fn read(&self, target: &str, max_bytes: usize) -> Result<Value> {
+system::Workspace::remember — fn pub fn remember(&self, text: &str, outcome: &str, actor: &str) -> Result<Value> {
+system::Workspace::root — field pub root: PathBuf
+system::Workspace::run — fn pub fn run(&self, argv: &[String], intent: &str, actor: &str) -> Result<Value> {
+system::Workspace::skip_dirs — field pub skip_dirs: Vec<String>
+system::Workspace::state — field pub state: PathBuf
+system_cli — mod
+system_cli::SystemArgs — struct pub struct SystemArgs {
+system_cli::SystemArgs::run — fn pub fn run(&self) -> Result<()> {
+system_delegation — mod
+system_delegation::Cost — enum pub enum Cost {
+system_delegation::Cost::FreeTier — variant FreeTier
+system_delegation::Cost::Local — variant Local
+system_delegation::Cost::Paid — variant Paid
+system_delegation::Kind — enum pub enum Kind {
+system_delegation::Kind::Cline — variant Cline
+system_delegation::Kind::Opencode — variant Opencode
+system_delegation::Mode — enum pub enum Mode {
+system_delegation::Mode::Plan — variant Plan
+system_delegation::Mode::Read — variant Read
+system_delegation::Mode::Write — variant Write
+system_delegation::Plan — struct pub struct Plan {
+system_delegation::Plan::context — field pub context: Value
+system_delegation::Plan::correlation_id — field pub correlation_id: String
+system_delegation::Plan::duplicates — field pub duplicates: Vec<String>
+system_delegation::Plan::invocation — field pub invocation: Vec<String>
+system_delegation::Plan::notices — field pub notices: Vec<String>
+system_delegation::Plan::prior_work — field pub prior_work: Value
+system_delegation::Plan::request — field pub request: Request
+system_delegation::Plan::schema — field pub schema: String
+system_delegation::Plan::source — field pub source: Snapshot
+system_delegation::Plan::task — field pub task: ProcessTask
+system_delegation::Plan::worker — field pub worker: Worker
+system_delegation::Plan::worktree — field pub worktree: PathBuf
+system_delegation::Policy — struct pub struct Policy {
+system_delegation::Policy::allow_remote_model — field pub allow_remote_model: bool
+system_delegation::Policy::costs — field pub costs: Vec<Cost>
+system_delegation::Policy::timeout_seconds — field pub timeout_seconds: u32
+system_delegation::Registry — struct pub struct Registry {
+system_delegation::Registry::schema — field pub schema: String
+system_delegation::Registry::workers — field pub workers: Vec<Worker>
+system_delegation::Request — struct pub struct Request {
+system_delegation::Request::acceptance — field pub acceptance: Vec<String>
+system_delegation::Request::budget — field pub budget: usize
+system_delegation::Request::checks — field pub checks: Vec<Vec<String>>
+system_delegation::Request::intent — field pub intent: String
+system_delegation::Request::mode — field pub mode: Mode
+system_delegation::Request::paths — field pub paths: Vec<PathBuf>
+system_delegation::Request::policy — field pub policy: Policy
+system_delegation::Request::schema — field pub schema: String
+system_delegation::Request::worker — field pub worker: Option<String>
+system_delegation::Reservation — struct pub struct Reservation {
+system_delegation::Reservation::expires_at — field pub expires_at: DateTime<Utc>
+system_delegation::Reservation::token — field pub token: String
+system_delegation::Snapshot — struct pub struct Snapshot {
+system_delegation::Snapshot::fingerprint — field pub fingerprint: String
+system_delegation::Snapshot::head — field pub head: String
+system_delegation::Snapshot::scoped_files — field pub scoped_files: usize
+system_delegation::Snapshot::status — field pub status: String
+system_delegation::TaskView — struct pub struct TaskView {
+system_delegation::TaskView::observation — field pub observation: String
+system_delegation::TaskView::plan — field pub plan: Plan
+system_delegation::TaskView::reservation — field pub reservation: Option<Reservation>
+system_delegation::Worker — struct pub struct Worker {
+system_delegation::Worker::cost — field pub cost: Cost
+system_delegation::Worker::id — field pub id: String
+system_delegation::Worker::kind — field pub kind: Kind
+system_delegation::Worker::max_parallel — field pub max_parallel: usize
+system_delegation::Worker::model — field pub model: String
+system_delegation::Worker::modes — field pub modes: Vec<Mode>
+system_delegation::Worker::program — field pub program: PathBuf
+system_delegation::Worker::provider — field pub provider: String
+system_delegation::Worker::remote_model — field pub remote_model: bool
+system_delegation::Worker::server — field pub server: Option<String>
+system_delegation::delegation_create — fn pub fn delegation_create( ws: &Workspace, request: &Request, registry: &Registry, ) -> Result<TaskView> {
+system_delegation::delegation_export — fn pub fn delegation_export(ws: &Workspace, id: &str, destination: &Path) -> Result<Value> {
+system_delegation::delegation_plan — fn pub fn delegation_plan(ws: &Workspace, request: &Request, registry: &Registry) -> Result<Plan> {
+system_delegation::delegation_release — fn pub fn delegation_release(ws: &Workspace, id: &str, token: &str) -> Result<Value> {
+system_delegation::delegation_reserve — fn pub fn delegation_reserve(ws: &Workspace, id: &str, seconds: u32) -> Result<Reservation> {
+system_delegation::delegation_show — fn pub fn delegation_show(ws: &Workspace, id: &str) -> Result<TaskView> {
+system_delegation::delegation_tasks — fn pub fn delegation_tasks(ws: &Workspace) -> Result<Vec<TaskView>> {
+system_delegation::load_json — fn pub fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
+system_mcp — mod
+system_mcp::serve_workspace — fn pub fn serve_workspace(ws: &Workspace) -> Result<()> {
+system_mcp::workspace_tools — fn pub fn workspace_tools() -> Vec<Value> {
+temporal — mod
+temporal::TemporalValidity — struct pub struct TemporalValidity {
+temporal::TemporalValidity — use pub use temporal::TemporalValidity;
+temporal::TemporalValidity::during — fn pub fn during( start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>, ) -> Self {
+temporal::TemporalValidity::expired_at — field pub expired_at: Option<chrono::DateTime<chrono::Utc>>
+temporal::TemporalValidity::from — fn pub fn from(instant: chrono::DateTime<chrono::Utc>) -> Self {
+temporal::TemporalValidity::is_current — fn pub fn is_current(&self) -> bool {
+temporal::TemporalValidity::is_valid_at — fn pub fn is_valid_at(&self, when: chrono::DateTime<chrono::Utc>) -> bool {
+temporal::TemporalValidity::narrow_until — fn pub fn narrow_until( &mut self, when: chrono::DateTime<chrono::Utc>, trigger: Option<String>, ) -> bool {
+temporal::TemporalValidity::overlaps — fn pub fn overlaps(&self, other: &TemporalValidity) -> bool {
+temporal::TemporalValidity::permanent — fn pub fn permanent() -> Self {
+temporal::TemporalValidity::trigger — field pub trigger: Option<String>
+temporal::TemporalValidity::valid_from — field pub valid_from: Option<chrono::DateTime<chrono::Utc>>
+temporal::TemporalValidity::valid_until — field pub valid_until: Option<chrono::DateTime<chrono::Utc>>
+tokenizer — mod
+tokenizer::Incompatible — struct pub struct Incompatible {
+tokenizer::Incompatible::expected — field pub expected: String
+tokenizer::Incompatible::found — field pub found: String
+tokenizer::Incompatible::what — field pub what: String
+tokenizer::StructuralTokenizer — struct pub struct StructuralTokenizer {
+tokenizer::StructuralTokenizer::states — field pub states: Vec<String>
+tokenizer::Tokenizer — trait pub trait Tokenizer: Send + Sync {
+tokenizer::Tokenizer::decode — method fn decode(&self, tokens: &[String]) -> String;
+tokenizer::Tokenizer::encode — method fn encode(&self, text: &str) -> Vec<String>;
+tokenizer::Tokenizer::id — method fn id(&self) -> &'static str;
+tokenizer::Tokenizer::metadata — method fn metadata(&self) -> TokenizerInfo {
+tokenizer::Tokenizer::vocab_size — method fn vocab_size(&self) -> usize;
+tokenizer::TokenizerInfo — struct pub struct TokenizerInfo {
+tokenizer::TokenizerInfo::id — field pub id: String
+tokenizer::TokenizerInfo::vocab_size — field pub vocab_size: usize
+tokenizer::WhitespaceTokenizer — struct pub struct WhitespaceTokenizer {
+tokenizer::WhitespaceTokenizer::new — fn pub fn new(vocab_cap: usize) -> Self {
+tokenizer::check_compatible — fn pub fn check_compatible(expected: &str, found: &str) -> Result<(), Incompatible> {
+transform — mod
+transform::ACCEPT_FLOOR — const pub const ACCEPT_FLOOR: f32;
+transform::Constraint — struct pub struct Constraint {
+transform::Constraint::check — fn pub fn check(&self, world: &WorldState) -> bool {
+transform::Constraint::desc — field pub desc: String
+transform::Constraint::kind — field pub kind: ConstraintKind
+transform::ConstraintKind — enum pub enum ConstraintKind {
+transform::ConstraintKind::Forbids — variant Forbids { triple: Triple }
+transform::ConstraintKind::Requires — variant Requires { triple: Triple }
+transform::PatElem — enum pub enum PatElem {
+transform::PatElem::Const — variant Const(String)
+transform::PatElem::Var — variant Var(String)
+transform::Predicate — enum pub enum Predicate {
+transform::Predicate::Causes — variant Causes
+transform::Predicate::Contradicts — variant Contradicts
+transform::Predicate::Custom — variant Custom(String)
+transform::Predicate::Exchanges — variant Exchanges
+transform::Predicate::Observes — variant Observes
+transform::Predicate::Precedes — variant Precedes
+transform::Predicate::Produces — variant Produces
+transform::Predicate::Requires — variant Requires
+transform::Predicate::Supports — variant Supports
+transform::Predicate::as_str — fn pub fn as_str(&self) -> &str {
+transform::Predicate::invert — fn pub fn invert(&self) -> Self {
+transform::Predicate::is_causal — fn pub fn is_causal(&self) -> bool {
+transform::PropKind — enum pub enum PropKind {
+transform::PropKind::Contradicted — variant Contradicted
+transform::PropKind::Hypothesized — variant Hypothesized
+transform::PropKind::Inferred — variant Inferred
+transform::PropKind::Observed — variant Observed
+transform::Proposition — struct pub struct Proposition {
+transform::Proposition::claim — field pub claim: Triple
+transform::Proposition::confidence — field pub confidence: Score
+transform::Proposition::kind — field pub kind: PropKind
+transform::Proposition::method — field pub method: String
+transform::Proposition::observed — fn pub fn observed(claim: Triple, source: impl Into<String>) -> Self {
+transform::Proposition::source — field pub source: String
+transform::TraceStep — struct pub struct TraceStep {
+transform::TraceStep::accepted — field pub accepted: bool
+transform::TraceStep::after — field pub after: Vec<Triple>
+transform::TraceStep::before — field pub before: Vec<Triple>
+transform::TraceStep::gates — field pub gates: CoherenceProfile
+transform::TraceStep::note — field pub note: String
+transform::TraceStep::op — field pub op: String
+transform::Transform — enum pub enum Transform {
+transform::Transform::op_name — fn pub fn op_name(&self) -> String {
+transform::Transform::spec — fn pub fn spec(&self) -> (String, String, String, String) {
+transform::Triple — struct pub struct Triple {
+transform::Triple::new — fn pub fn new(s: impl Into<String>, p: Predicate, o: impl Into<String>) -> Self {
+transform::Triple::o — field pub o: String
+transform::Triple::p — field pub p: Predicate
+transform::Triple::s — field pub s: String
+transform::TriplePattern — struct pub struct TriplePattern {
+transform::TriplePattern::instantiate — fn pub fn instantiate(&self, binding: &HashMap<String, String>) -> Option<Triple> {
+transform::TriplePattern::match_against — fn pub fn match_against(&self, fact: &Triple) -> Option<HashMap<String, String>> {
+transform::TriplePattern::o — field pub o: PatElem
+transform::TriplePattern::p — field pub p: Option<Predicate>
+transform::TriplePattern::s — field pub s: PatElem
+transform::WorldState — struct pub struct WorldState {
+transform::WorldState::constraints — field pub constraints: Vec<Constraint>
+transform::WorldState::facts — field pub facts: Vec<Proposition>
+transform::WorldState::incoherent_after — fn pub fn incoherent_after(&self) -> Vec<String> {
+transform::WorldState::substitution_invariants — fn pub fn substitution_invariants(&self, a: &str, b: &str) -> Vec<Triple> {
+transform::WorldState::triples — fn pub fn triples(&self) -> Vec<Triple> {
+transform::WorldState::without_relation — fn pub fn without_relation(&self, predicate: &Predicate) -> WorldState {
+transform::apply — fn pub fn apply(world: &WorldState, op: &Transform) -> (WorldState, TraceStep) {
+transform::find_homomorphisms — fn pub fn find_homomorphisms( patterns: &[TriplePattern], facts: &[Triple], ) -> Vec<HashMap<String, String>> {
+transform::{ — use pub use transform::{
+transplant — mod
+transplant::CorrespondenceProposal — struct pub struct CorrespondenceProposal {
+transplant::CorrespondenceProposal::contradictions — field pub contradictions: Vec<String>
+transplant::CorrespondenceProposal::donor — field pub donor: String
+transplant::CorrespondenceProposal::evidence — field pub evidence: Vec<(MatcherTag, f32)>
+transplant::CorrespondenceProposal::recipient — field pub recipient: String
+transplant::CorrespondenceProposal::score — field pub score: f32
+transplant::MatcherTag — enum pub enum MatcherTag {
+transplant::MatcherTag::NameTokens — variant NameTokens
+transplant::MatcherTag::PathShape — variant PathShape
+transplant::MatcherTag::RoleMatch — variant RoleMatch
+transplant::MatcherTag::SiblingTopology — variant SiblingTopology
+transplant::MatcherTag::as_str — fn pub fn as_str(&self) -> &'static str {
+transplant::ProjectShape — struct pub struct ProjectShape {
+transplant::ProjectShape::nodes — field pub nodes: Vec<ShapeNode>
+transplant::ProjectShape::root — field pub root: String
+transplant::ProjectShape::scan — fn pub fn scan(root: &Path) -> std::io::Result<Self> {
+transplant::ShapeKind — enum pub enum ShapeKind {
+transplant::ShapeKind::Asset — variant Asset
+transplant::ShapeKind::Config — variant Config
+transplant::ShapeKind::Directory — variant Directory
+transplant::ShapeKind::Doc — variant Doc
+transplant::ShapeKind::Manifest — variant Manifest
+transplant::ShapeKind::Other — variant Other
+transplant::ShapeKind::Source — variant Source
+transplant::ShapeKind::Test — variant Test
+transplant::ShapeKind::from_rel_path — fn pub fn from_rel_path(rel_path: &str) -> ShapeKind {
+transplant::ShapeNode — struct pub struct ShapeNode {
+transplant::ShapeNode::depth — field pub depth: usize
+transplant::ShapeNode::kind — field pub kind: ShapeKind
+transplant::ShapeNode::rel_path — field pub rel_path: String
+transplant::ShapeNode::tokens — field pub tokens: Vec<String>
+transplant::TRANSPLANT_FLOOR — const pub const TRANSPLANT_FLOOR: f32;
+transplant::TransplantOp — enum pub enum TransplantOp {
+transplant::TransplantOp::Create — variant Create { to: String }
+transplant::TransplantOp::Keep — variant Keep { path: String }
+transplant::TransplantPlan — struct pub struct TransplantPlan {
+transplant::TransplantPlan::direction — field pub direction: String
+transplant::TransplantPlan::ops — field pub ops: Vec<TransplantOp>
+transplant::TransplantPlan::unaligned_donor — field pub unaligned_donor: Vec<String>
+transplant::TransplantPlan::unaligned_recipient — field pub unaligned_recipient: Vec<String>
+transplant::WEIGHT_NAME_TOKENS — const pub const WEIGHT_NAME_TOKENS: f32;
+transplant::WEIGHT_PATH_SHAPE — const pub const WEIGHT_PATH_SHAPE: f32;
+transplant::WEIGHT_ROLE — const pub const WEIGHT_ROLE: f32;
+transplant::WEIGHT_SIBLING — const pub const WEIGHT_SIBLING: f32;
+transplant::build_transplant_plan — fn pub fn build_transplant_plan( donor: &ProjectShape, recipient: &ProjectShape, correspondences: &[CorrespondenceProposal], ) -> TransplantPlan {
+transplant::jaccard — fn pub fn jaccard(a: &[String], b: &[String]) -> f32 {
+transplant::matcher_evidence — fn pub fn matcher_evidence(a: &ShapeNode, b: &ShapeNode) -> (f32, Vec<(MatcherTag, f32)>) {
+transplant::name_tokens — fn pub fn name_tokens(name: &str) -> Vec<String> {
+transplant::propose_correspondences — fn pub fn propose_correspondences( donor: &ProjectShape, recipient: &ProjectShape, ) -> Vec<CorrespondenceProposal> {
+unbreak_pipes — fn pub fn unbreak_pipes() {
+vault — mod
+vault::VaultDoc — struct pub struct VaultDoc {
+vault::VaultDoc::body — field pub body: String
+vault::VaultDoc::headings — field pub headings: Vec<String>
+vault::VaultDoc::labels — fn pub fn labels(&self) -> Vec<String> {
+vault::VaultDoc::source — field pub source: String
+vault::VaultDoc::title — field pub title: String
+vault::collect_labels — fn pub fn collect_labels(docs: &[VaultDoc]) -> Vec<(String, String)> {
+vault::headings_of — fn pub fn headings_of(body: &str) -> Vec<String> {
+vault::parse_git_log — fn pub fn parse_git_log(output: &str) -> Vec<VaultDoc> {
+vault::scan_git_log — fn pub fn scan_git_log(repo: &Path, max: usize) -> Vec<VaultDoc> {
+vault::scan_vault — fn pub fn scan_vault(dir: &Path) -> Vec<VaultDoc> {
+vault::title_of — fn pub fn title_of(path: &Path, body: &str) -> String {
+vault::{collect_labels as collect_vault_labels, scan_vault, VaultDoc} — use pub use vault::{collect_labels as collect_vault_labels, scan_vault, VaultDoc};
+worldstate — mod
+worldstate::AntecedentScore — struct pub struct AntecedentScore {
+worldstate::AntecedentScore::arm — field pub arm: String
+worldstate::AntecedentScore::queries — field pub queries: usize
+worldstate::AntecedentScore::top1 — field pub top1: f64
+worldstate::AntecedentScore::top1_ci — field pub top1_ci: (f64, f64)
+worldstate::AntecedentScore::top3 — field pub top3: f64
+worldstate::ArmScore — struct pub struct ArmScore {
+worldstate::ArmScore::arm — field pub arm: String
+worldstate::ArmScore::knn_preservation — field pub knn_preservation: f64
+worldstate::ArmScore::n — field pub n: usize
+worldstate::ArmScore::top1 — field pub top1: f64
+worldstate::ArmScore::top1_ci — field pub top1_ci: (f64, f64)
+worldstate::ArmScore::top3 — field pub top3: f64
+worldstate::PositionRun — struct pub struct PositionRun {
+worldstate::PositionRun::antecedents — field pub antecedents: Vec<AntecedentScore>
+worldstate::PositionRun::corpus_sha256 — field pub corpus_sha256: String
+worldstate::PositionRun::embedder — field pub embedder: String
+worldstate::PositionRun::k — field pub k: usize
+worldstate::PositionRun::locality_null — field pub locality_null: f64
+worldstate::PositionRun::locality_observed — field pub locality_observed: f64
+worldstate::PositionRun::locality_ratio — field pub locality_ratio: f64
+worldstate::PositionRun::n_items — field pub n_items: usize
+worldstate::PositionRun::render — fn pub fn render(&self) -> String {
+worldstate::PositionRun::transitions — field pub transitions: TransitionScore
+worldstate::RECUR_GAP — const pub const RECUR_GAP: usize;
+worldstate::Run — struct pub struct Run {
+worldstate::Run::anchors — field pub anchors: usize
+worldstate::Run::ari_baseline — field pub ari_baseline: f64
+worldstate::Run::arms — field pub arms: Vec<ArmScore>
+worldstate::Run::corpus_sha256 — field pub corpus_sha256: String
+worldstate::Run::embedder_a — field pub embedder_a: String
+worldstate::Run::embedder_b — field pub embedder_b: String
+worldstate::Run::k — field pub k: usize
+worldstate::Run::n_items — field pub n_items: usize
+worldstate::Run::profile — field pub profile: usize
+worldstate::Run::render — fn pub fn render(&self) -> String {
+worldstate::Run::split — field pub split: String
+worldstate::TRANSITIONS — const pub const TRANSITIONS: [&str; 6];
+worldstate::TransitionScore — struct pub struct TransitionScore {
+worldstate::TransitionScore::accuracy — field pub accuracy: f64
+worldstate::TransitionScore::majority_baseline — field pub majority_baseline: f64
+worldstate::TransitionScore::n — field pub n: usize
+worldstate::TransitionScore::per_label — field pub per_label: Vec<(String, usize, f64)>
+worldstate::TransitionScore::recur_gap — field pub recur_gap: usize
+worldstate::TransitionScore::shuffled_null_mean — field pub shuffled_null_mean: f64
+worldstate::TransitionScore::shuffled_null_sd — field pub shuffled_null_sd: f64
+worldstate::TransitionScore::z — field pub z: f64
+worldstate::anchor_descriptor — fn pub fn anchor_descriptor(sim: &[Vec<f32>], anchors: &[usize]) -> Vec<Vec<f32>> {
+worldstate::ari — fn pub fn ari(a: &[usize], b: &[usize]) -> f64 {
+worldstate::bootstrap_ci — fn pub fn bootstrap_ci(values: &[f64], iters: usize, seed: u64) -> (f64, f64) {
+worldstate::components — fn pub fn components(adj: &[Vec<usize>]) -> Vec<usize> {
+worldstate::cosine — fn pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
+worldstate::derive_transitions — fn pub fn derive_transitions( entities: &[Vec<String>], facts: &[Option<(String, String, String)>], texts: &[&str], ) -> Vec<&'static str> {
+worldstate::derive_transitions_gap — fn pub fn derive_transitions_gap( entities: &[Vec<String>], facts: &[Option<(String, String, String)>], texts: &[&str], recur_gap: usize, ) -> Vec<&'static str> {
+worldstate::entity_key — fn pub fn entity_key(s: &str) -> String {
+worldstate::extract_code_identifiers — fn pub fn extract_code_identifiers(texts: &[&str]) -> Vec<Vec<String>> {
+worldstate::extract_entities — fn pub fn extract_entities(texts: &[&str], min_df: usize) -> Vec<Vec<String>> {
+worldstate::extract_entities_rules — fn pub fn extract_entities_rules( texts: &[&str], min_df: usize, use_id: bool, use_cap: bool, use_df: bool, ) -> Vec<Vec<String>> {
+worldstate::extract_noun_phrases — fn pub fn extract_noun_phrases(texts: &[&str], max_len: usize) -> Vec<Vec<String>> {
+worldstate::extraction_prf — fn pub fn extraction_prf(extracted: &[Vec<String>], gold: &[Vec<String>]) -> (f64, f64, f64) {
+worldstate::filter_advice — fn pub fn filter_advice(redundancy: f64) -> &'static str {
+worldstate::filter_from_margin — fn pub fn filter_from_margin(margin: f64) -> &'static str {
+worldstate::gold_antecedents — fn pub fn gold_antecedents(entities: &[Vec<String>]) -> Vec<Option<usize>> {
+worldstate::label_descriptor — fn pub fn label_descriptor(sim: &[Vec<f32>], labels: &[usize], n_labels: usize) -> Vec<Vec<f32>> {
+worldstate::lexical_margin — fn pub fn lexical_margin(texts: &[String], sample: usize) -> f64 {
+worldstate::merge_entities — fn pub fn merge_entities(a: &[Vec<String>], b: &[Vec<String>]) -> Vec<Vec<String>> {
+worldstate::mutual_knn — fn pub fn mutual_knn(sim: &[Vec<f32>], k: usize) -> Vec<Vec<usize>> {
+worldstate::position_locality — fn pub fn position_locality(adj: &[Vec<usize>], seed: u64, samples: usize) -> (f64, f64, f64) {
+worldstate::random_candidates — fn pub fn random_candidates(n: usize, top: usize, seed: u64) -> Vec<Vec<usize>> {
+worldstate::rank_candidates — fn pub fn rank_candidates(da: &[Vec<f32>], db: &[Vec<f32>], top: usize) -> Vec<Vec<usize>> {
+worldstate::redundancy — fn pub fn redundancy(texts: &[&str], sample: usize) -> f64 {
+worldstate::score_antecedents — fn pub fn score_antecedents( arm: &str, gold: &[Option<usize>], rank: impl Fn(usize) -> Vec<usize>, seed: u64, ) -> AntecedentScore {
+worldstate::score_arm — fn pub fn score_arm( arm: &str, cands: &[Vec<usize>], adj_a: &[Vec<usize>], adj_b: &[Vec<usize>], seed: u64, ) -> ArmScore {
+worldstate::score_transitions — fn pub fn score_transitions( entities: &[Vec<String>], facts: &[Option<(String, String, String)>], texts: &[&str], gold: &[String], perms: usize, seed: u64, ) -> TransitionScore {
+worldstate::score_transitions_gap — fn pub fn score_transitions_gap( entities: &[Vec<String>], facts: &[Option<(String, String, String)>], texts: &[&str], gold: &[String], perms: usize, seed: u64, recur_gap: usize, ) -> TransitionScore {
+worldstate::sentence_from_table — fn pub fn sentence_from_table(table: &HashMap<String, Vec<f32>>, text: &str, dim: usize) -> Vec<f32> {
+worldstate::sim_matrix — fn pub fn sim_matrix(vecs: &[Vec<f32>]) -> Vec<Vec<f32>> {
+worldstate::structural_descriptor — fn pub fn structural_descriptor(sim: &[Vec<f32>], adj: &[Vec<usize>], profile: usize) -> Vec<Vec<f32>> {
+worldstate::vocabulary — fn pub fn vocabulary(texts: &[&str], min_len: usize) -> Vec<String> {
+worldstate::word_table_count — fn pub fn word_table_count(texts: &[&str], dim: usize, window: usize) -> HashMap<String, Vec<f32>> {

@@ -2,7 +2,7 @@
 id: PH-012
 track: physis
 phase: 2
-status: todo
+status: done
 rung: 3
 depends: [PH-010]
 gate: "cargo test --test api_stability && cargo public-api --diff 2>/dev/null || cargo test api"

@@ -122,6 +122,20 @@ cargo run --bin physis-pro-web
 - **Lock discipline:** Do not hold `Arc<Mutex<…>>` across `.await` points.
   Use `spawn_blocking` for CPU-heavy work.
 
+## Core API stability (PH-012)
+
+physis-core is Apache-2.0: its public surface is a promise. `tests/api_stability.rs`
+snapshots all 2000+ public items (`tests/snapshots/physis_core_api.txt`) and
+fails on any drift, printing the diff. Rules:
+
+- Breaking the frozen surface requires a **minor+1 (0.x) bump** and a
+  `CHANGELOG.md` `### BREAKING` entry under the new version.
+- Never bless your own diff: `BLESS=1` rewrites the snapshot and is a
+  human-only operation (CI never sets it). Deliberate changes go back to a
+  human with the printed diff.
+- New internal modules must NOT be `pub` — use `pub(crate)` or `#[doc(hidden)]`
+  with an issue entry. Audit candidates are listed in `packets/reports/PH-012.md`.
+
 ## License
 
 Physis Pro requires a valid license to run. See `src/license.rs` for the
