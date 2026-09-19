@@ -54,8 +54,21 @@ physis-pro agent ask "What does the routing ladder do?" --pack /tmp/pack.json
 walk, so a small N may miss relevant files; use a saved pack or `0` for full
 quality.
 
-Not in tonight's ship: S4 task graph, S7–S12, agent pane invocation from the
-HUD (the card shows transport and says no call is made).
+Not in tonight's ship: S7–S12, and the HUD task-graph overlay (the CLI
+`agent tasks` folds and renders the graph; the TUI does not yet draw it).
+
+## 2.1 The full gate
+
+`cargo test --all-targets` is green (45 suites). Two failures surfaced the first
+time it was run and both were stale snapshots of a deliberate change, not
+regressions:
+
+- `core_public_api_matches_snapshot` — the snapshot predated the physis-core
+  fast-forward to the austere-core split, listing 503 items from retired modules
+  and missing 22 additions. Re-blessed (`BLESS=1`), 22+/503-.
+- `http_surface::route_table_crud_match_and_validation` — asserted a bare domain
+  was an invalid cell, which the routing-key rework made valid. The invalid case
+  is now an empty cell, and the assertion still demands all three problems.
 
 ---
 
@@ -65,8 +78,9 @@ HUD (the card shows transport and says no call is made).
 |---|---|---|
 | S0 | `a70eb3b` | `config/actions.json` + loader; registry wired to nav objects; `action` CLI; HUD `action` line; approval gate for irreversible capabilities |
 | S1 | `e2de4a0` | `src/agents/{mod,view}.rs`, `config/agents.json`; lifecycle legality; deny-by-default permissions; `@agent[@host]` addressing; AGENTS strip; HUD `--snapshot`; `ai/orchestration` stub deleted |
-| S2 | `d754b1a` | `src/agents/adapter.rs`: `AgentAdapter`, `JevResult` schema, `LocalAdapter`, `CliAdapter`, fixture-process tests |
-| S3 | `d754b1a` | `src/agents/routing.rs`: cost ladder, policy enforcement, explicit override, no silent substitution |
+| S2 | `d754b1a`→`0ce16ae` | `src/agents/adapter.rs`: `AgentAdapter`, `JevResult` schema, `LocalAdapter`, `CliAdapter`, fixture-process tests |
+| S3 | `d754b1a`→`0ce16ae` | `src/agents/routing.rs`: cost ladder, policy enforcement, explicit override, no silent substitution |
+| S4 | `022ac8a` | `src/agents/tasks.rs`: task graph folded from observations; legality table; acceptance gate; expire creates a child with parent + reason |
 | rework | `a1be100` | route key is the region, domain-first with optional mode (see §4) |
 
 Submodule `physis-core` at `c3ddb8e` (product modules retired, boundary docs,
