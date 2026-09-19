@@ -540,12 +540,37 @@ impl Registry {
         Ok(reg)
     }
 
+    /// Register the roster as objects under the `agent:` namespace, so an agent
+    /// is addressable like any other object. They carry no capability yet, so a
+    /// verb on an agent resolves `unavailable` — honest until S12 gives agents
+    /// typed actions.
+    pub fn register_agents(&mut self, roster: &crate::agents::Roster) {
+        for a in &roster.agents {
+            let mut meta = HashMap::new();
+            meta.insert(
+                "transport".to_string(),
+                serde_json::Value::String(format!("{:?}", a.transport).to_lowercase()),
+            );
+            meta.insert(
+                "state".to_string(),
+                serde_json::Value::String(a.state.label().to_string()),
+            );
+            self.register_object(
+                format!("agent:{}", a.id),
+                "agent".to_string(),
+                String::new(),
+                meta,
+            );
+        }
+    }
+
     /// Populate a registry from an already-open workspace: `fs:` objects, the
     /// host/device placeholders, and the shipped capabilities. The HUD already
     /// holds the workspace, so it calls this rather than reopening sled.
     pub fn register_workspace(&mut self, ws: &crate::nav::workspace::NavWorkspace) {
         self.register_nav_index(ws.index());
         self.register_placeholders();
+        self.register_agents(&crate::agents::default_roster());
         for cap in crate::capability::default_capabilities() {
             self.add_capability(cap);
         }

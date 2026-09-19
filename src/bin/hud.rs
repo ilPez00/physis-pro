@@ -71,13 +71,19 @@ fn main() -> anyhow::Result<()> {
             "--snapshot" => {
                 snapshot = Some((100, 30));
             }
+            _ if a.starts_with("--snapshot=") => {
+                let spec = &a["--snapshot=".len()..];
+                snapshot = Some(parse_size(spec).ok_or_else(|| {
+                    anyhow::anyhow!("--snapshot expects WxH, e.g. --snapshot=80x24 (got {spec:?})")
+                })?);
+            }
             "-h" | "--help" => {
-                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--snapshot [WxH]]");
+                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--snapshot[=WxH]]");
                 eprintln!("  default: prescan index + embedding cache, then open the HUD");
                 eprintln!("  --prescan-only: warm the index + caches and exit (no TUI)");
                 eprintln!("  --no-prescan: open on the persisted index as-is (fast restart)");
                 eprintln!(
-                    "  --snapshot [WxH]: render one frame to stdout and exit (no TTY, CI-safe)"
+                    "  --snapshot[=WxH]: render one frame to stdout and exit (default 100x30)"
                 );
                 return Ok(());
             }
@@ -106,6 +112,17 @@ fn main() -> anyhow::Result<()> {
     let result = run(terminal, app);
     leave_tui()?;
     result
+}
+
+/// Parse a `WxH` snapshot size, e.g. `80x24`.
+fn parse_size(spec: &str) -> Option<(u16, u16)> {
+    let (w, h) = spec.split_once('x')?;
+    let w: u16 = w.trim().parse().ok()?;
+    let h: u16 = h.trim().parse().ok()?;
+    if w == 0 || h == 0 {
+        return None;
+    }
+    Some((w, h))
 }
 
 /// Render one frame through the same `draw` path to a `TestBackend` and print
@@ -333,6 +350,8 @@ enum HudCommand {
     Sem(bool),
     OpenExternal(Option<String>),
     Action(String),
+    /// Fold the observation log into the task graph and show it.
+    Tasks,
     Quit,
 }
 
@@ -419,6 +438,7 @@ fn parse_named_command(text: &str) -> HudInput {
         "contradictions" if arg.is_none() => HudInput::Command(HudCommand::Contradictions),
         "rescan" if arg.is_none() => HudInput::Command(HudCommand::Rescan),
         "graph" if arg.is_none() => HudInput::Command(HudCommand::Graph),
+        "tasks" | "task" if arg.is_none() => HudInput::Command(HudCommand::Tasks),
         "notebook" if arg.is_none() => HudInput::Command(HudCommand::Notebook),
         "related" if arg.is_none() => HudInput::Command(HudCommand::Related),
         "pin" if arg.is_none() => HudInput::Command(HudCommand::Pin),
@@ -548,7 +568,7 @@ fn parse_hud_input(raw: &str) -> HudInput {
         }
         "help" | "history" | "bench" | "context" | "delta" | "why" | "contradictions"
         | "rescan" | "graph" | "notebook" | "related" | "pin" | "clear" | "clear-focus"
-        | "zoom" | "edges" | "trail" | "pins" | "unpin"
+        | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks"
             if rest.is_empty() =>
         {
             parse_named_command(text)
@@ -603,6 +623,15 @@ fn invoke_agent(agent_id: &str, prompt: &str, scope: Option<&str>) -> AgentReply
         },
         Err(e) => fail(format!("{e}")),
     }
+}
+
+/// Parse a JSONL observation log, skipping a torn line rather than failing the
+/// whole fold: the log is append-only, so a bad line is a lost record.
+fn parse_observation_lines(text: &str) -> Vec<physis_core::observe::Observation> {
+    text.lines()
+        .filter(|l| !l.trim().is_empty())
+        .filter_map(|l| serde_json::from_str::<physis_core::observe::Observation>(l).ok())
+        .collect()
 }
 
 /// `@all`: ask every agent in the roster, one after another. Unavailable agents
@@ -2154,6 +2183,34 @@ impl App {
             HudCommand::Help => {
                 self.reading = Some(("commands".into(), hud_command_help()));
                 self.status = "command box: deterministic dispatch, no model".into();
+            }
+            HudCommand::Tasks => {
+                let path = std::path::PathBuf::from(
+                    std::env::var("PHYSIS_OBSERVATIONS")
+                        .unwrap_or_else(|_| ".physis/observations.jsonl".into()),
+                );
+                let text = match std::fs::read_to_string(&path) {
+                    Ok(raw) => {
+                        let obs = parse_observation_lines(&raw);
+                        let g = physis_pro::agents::tasks::TaskGraph::fold(&obs);
+                        format!(
+                            "{} observations → {} tasks\n\n{}\n\
+                             reported is a claim · only a verifier record completes a task ·\n\
+                             an expired task gets a child naming its parent and the reason",
+                            obs.len(),
+                            g.tasks.len(),
+                            g.render()
+                        )
+                    }
+                    Err(e) => format!(
+                        "no task log at {}: {e}\n\n\
+                         Task events are observations with source \"task\"; \
+                         write them with agents::tasks::TaskEvent::observation.",
+                        path.display()
+                    ),
+                };
+                self.status = format!("tasks: folded from {}", path.display());
+                self.reading = Some(("tasks".into(), text));
             }
             HudCommand::Action(line) => {
                 let mut reg =
@@ -4028,6 +4085,15 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert!(lines[0].contains("names module index"));
         assert!(lines[1].contains("calls update_index"));
+    }
+
+    #[test]
+    fn snapshot_size_parses_and_rejects_junk() {
+        assert_eq!(parse_size("80x24"), Some((80, 24)));
+        assert_eq!(parse_size("140x40"), Some((140, 40)));
+        assert_eq!(parse_size("abc"), None);
+        assert_eq!(parse_size("80"), None);
+        assert_eq!(parse_size("0x24"), None);
     }
 
     #[test]
