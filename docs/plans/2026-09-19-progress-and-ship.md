@@ -100,7 +100,9 @@ regressions:
 | S5 | `9c126b5` | `src/agents/parse.rs`: the `@` grammar (quoted requests, pipelines, `@all`, `@agent@host`), wired into the HUD |
 | S6 | `889ca1c` | HUD task-graph overlay (`tasks`), `--snapshot=WxH` wide/narrow frames, agents as registry objects |
 | S7 | `fcbcf5d` | `src/intent.rs`: editable intent with provenance, persisted; `intent` CLI; `pack --intent` names it; TUI surfaces intent/agents/settings |
+| grid | `cf6a104` / `9359b46` | the mode axis reworked 14 → 9, each mode owning one verb supersense; both `HumanMode` enums, the anchors (70 → 45 entries), fixtures and docs |
 | CLI | `0d6577f` | `physis-pro draw`: every surface as text, from the same renderers the HUD uses |
+| web | `3f264c3` | `/impossible`: the graphical, clickable surface, fed by `/api/v1/workspace` |
 | rework | `a1be100` | route key is the region, domain-first with optional mode (see §4) |
 
 Submodule `physis-core` at `c3ddb8e` (product modules retired, boundary docs,
@@ -139,6 +141,25 @@ The `--snapshot` flag was added in S1; before that the HUD had no headless mode
 (the plan's §11 open unknown is now closed: Studio had one, the HUD did not).
 
 ---
+
+## 3.1 The mode axis, reworked 14 → 9
+
+D2a measured every mode against WordNet's verb supersenses. Acting on it, the
+axis is nine modes, each named for the supersense it owns: RETIRE (LIFT, SENSE,
+WALK, BRAINSTORM, DESTROY, and the old CREATE, whose dominant supersense was
+`verb.contact` rather than creation), MERGE (LEARN+PLAN → COGNITION, GUIDE+WORK →
+COMMUNICATION, MOVE+PLAY → MOTION), EXPAND (SOCIAL 12.2% of verb mass, CREATE
+7.9%, POSSESS 5.6%, STATIVE 5.3%). `MODE_OWNERS` in `src/semiotic_grid.rs`
+carries the measurement per mode; the anchors file went from 70 to 45 entries;
+the Greimas dual is redefined (nine is odd, so MAINTAIN has no dual and the
+square returns `None`).
+
+**Claim boundary:** the 0.416 / 0.585 / 0.472 self-recovery numbers, the 35-of-70
+cell disputes and the 6-of-14 mode failures were all measured on the
+**pre-rework** axis. They are the evidence for this rework, not measurements of
+it. The nine-mode axis is **not yet measured** — same 731 entries, same
+permutation null, not run. `docs/WHAT_PHYSIS_IS.md`, `README.md` and `AGENTS.md`
+now say so.
 
 ## 4. The routing-key rework (why the cell is not the key)
 

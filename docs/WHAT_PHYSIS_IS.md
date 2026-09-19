@@ -9,7 +9,7 @@ This file exists because three separate attempts in one session compressed a
 |---|---|---|
 | 1 | "Physis is a context compiler." | Context compiling is one operation out of six. MIT alternatives beat it on token reduction. |
 | 2 | "No — an epistemic ledger." | The ledger is a second operation out of six. |
-| 3 | "70-symbol vocabulary, one n-gram table." | It is **70 tables with subtables**. See §2. |
+| 3 | "70-symbol vocabulary, one n-gram table." | It is **tables with subtables** — 45 under the default pack. See §2. |
 
 Each attempt sounded sharper than the last and was equally wrong. **The system
 does not compress to a noun. Describe it structurally.**
@@ -18,14 +18,15 @@ does not compress to a noun. Describe it structurally.**
 
 ## 1. The one true sentence
 
-> Physis is a **coordinate system for meaning** — *n* domains × 14 modes,
+> Physis is a **coordinate system for meaning** — *n* domains × 9 modes,
 > tree-nested by facets — **plus the operations that assign, revise and audit
 > coordinates**, plus the applications built on those operations.
 
-**Revised 2026-09-14: the domain axis is open, and "70" was never measured as
-70.** The default pack is still 5 × 14, and `PHYSIS_DOMAINS` replaces the domain
-list per deployment (`src/semiotic_grid.rs`, `domains()` / `cell_count()`). See
-§2 for what the axes are measured to be and what they are not.
+**Revised 2026-09-14: the domain axis is open, and no count was ever measured as
+a law.** **Revised 2026-09-19: the mode axis was reworked from fourteen modes to
+nine**, each named for the WordNet verb supersense it owns (D2a) — see §2. The
+default pack is now 5 × 9 = 45 cells, and `PHYSIS_DOMAINS` replaces the domain
+list per deployment (`src/semiotic_grid.rs`, `domains()` / `cell_count()`).
 
 Everything else is a consequence of that sentence.
 
@@ -35,11 +36,12 @@ Everything else is a consequence of that sentence.
 
 ```rust
 DEFAULT_DOMAINS: [HEAL, CONSTRUCT, FABRICATE, BOND, STUDY]   // the default pack
-MODES:           [LIFT, REST, WALK, WORK, CREATE, LEARN, DESTROY, SENSE,
-                  GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN]         // 14
+MODES:           [COMMUNICATION, COGNITION, MOTION, REST, MAINTAIN,
+                  SOCIAL, CREATE, POSSESS, STATIVE]                      // 9
 ```
-`src/semiotic_grid.rs` — **`domains().len()` × 14 cells; 70 with the default
-pack.** The domain axis is content-side (*what the work is about*) and is
+`src/semiotic_grid.rs` — **`domains().len()` × 9 cells; 45 with the default
+pack.** Each mode owns one supersense and `MODE_OWNERS` carries the measurement
+that put it there. The domain axis is content-side (*what the work is about*) and is
 replaceable via `PHYSIS_DOMAINS`; the mode axis is operative (*tool use, method,
 workflow*) and is not currently overridable.
 
@@ -60,8 +62,31 @@ the other way: 35 of 70 cells are `disputed` against WordNet noun supersenses
 (D1), and 6 of 14 modes fail against its verb supersenses while `verb.social`
 — 12.2% of the corpus's verb mass — is owned by no mode (D2a). Internal
 coherence says the axes are real; external anchors say the *counts* are
-convention. Hence: domains open, modes fixed until Track D's proposals are
-adjudicated.
+convention.
+
+**Claim boundary — that table is the PRE-REWORK axis.** Every number in it was
+measured on the fourteen-mode axis that existed on 2026-09-14. It is the
+*evidence for* the rework below, not a measurement of it. The nine-mode axis is
+**not yet measured**: its self-recovery, its per-class nulls and its cell
+disputes are all unknown until the same 731 entries are put through the same
+permutation null again. Do not quote 0.416 / 0.585 / 0.472 as properties of the
+current grid.
+
+**The rework (2026-09-19), from that evidence.** D2a measured every mode against
+WordNet's verb supersenses. Acting on it, the mode axis is nine modes:
+
+- **RETIRE** — LIFT, SENSE, WALK, BRAINSTORM, DESTROY and the old CREATE did not
+  clear their own null. The old CREATE is retired as a word and re-anchored:
+  its dominant supersense was `verb.contact`, not creation.
+- **MERGE** — LEARN+PLAN → COGNITION, GUIDE+WORK → COMMUNICATION, MOVE+PLAY →
+  MOTION. Each pair shared one dominant supersense, so the axis carried the same
+  distinction twice.
+- **EXPAND** — SOCIAL (`verb.social`, 12.2% of the corpus's verb mass and
+  unowned), CREATE (`verb.creation`, 7.9%), POSSESS (`verb.possession`, 5.6%),
+  STATIVE (`verb.stative`, 5.3%).
+
+Hence: domains open, modes **fixed at nine, each with an owner**. A mode that
+owns nothing is a word the corpus has no use for.
 
 Facets tree-nest *under* a cell **without enlarging the base grid**
 (`physis-core/src/models.rs`, `struct Facets`):
@@ -75,8 +100,8 @@ Facets tree-nest *under* a cell **without enlarging the base grid**
 | `scale` | `Scale` |
 | `abstraction` | `Abstraction` |
 
-**So the unit is not "70 symbols". It is 70 tables, each with subtables.** A flat
-70-symbol vocabulary models `P(next cell | previous cells)` and throws the facets
+**So the unit is not "70 symbols". It is 45 tables, each with subtables.** A flat
+symbol vocabulary models `P(next cell | previous cells)` and throws the facets
 away. The architecture is a *conditional model per region*:
 `P(next | cell, sub_domain, sub_mode, lifecycle, agency, scale, abstraction)`.
 The hypothesis is that conditioning could yield more homogeneous traces.
@@ -248,8 +273,10 @@ shape over an ontology; pointed at the crate graph it is a self-debugger.
 3. Do **not** cite `benchmarks/ground-truth` as retrieval evidence — it scores
    identically under a lexical hash and a real model. Use `benchmarks/retrieval/`.
 4. Do **not** claim a capability without grepping its call sites (§7).
-5. Say **tables with subtables — 70 under the default pack**, never "70 symbols",
-   and never "the five domains" as if five were measured (§2).
+5. Say **tables with subtables — 45 under the default pack**, never "70 symbols",
+   and never "the five domains" as if five were measured (§2). The mode axis is
+   nine modes, each owning one verb supersense; the pre-rework measurements are
+   evidence for that rework, not measurements of it.
 6. When a measurement is absent, write `NOT MEASURED`. Never imply.
 
 These rules are installed as an agent skill — `docs/PHYSIS_SKILL.md`, which is

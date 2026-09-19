@@ -4,7 +4,8 @@
 
 > **Before summarising this project to anyone, read `docs/WHAT_PHYSIS_IS.md`.**
 > Three attempts in one session compressed these 190 modules to a single noun and
-> all three were wrong. The grid is **70 cells with subtables**, the operations
+> all three were wrong. The grid is **tables with subtables** (45 cells under
+the default 5x9 pack since the 2026-09-19 mode rework), the operations
 > are **six**, and `propose` is not `judge`. That file carries the rules.
 
 

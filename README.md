@@ -492,14 +492,23 @@ than keeping a second copy, so `config/` here holds no ontology JSON.
 
 ## Semiotic grid & ontologies
 
-Every entry maps to one of **70 cells** — **5 domains** (HEAL, CONSTRUCT,
-FABRICATE, BOND, STUDY) × **14 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN,
-DESTROY, SENSE, GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN). The last eight
-extend the original activity-energy axis: DESTROY completes the Greimas opposition
-with CREATE, SENSE is perception/measurement, GUIDE is leading/mentoring others
-(vs LEARN, self-study), PLAY is low-stakes generative, BRAINSTORM is divergent
-ideation, MAINTAIN is upkeep/repair/preserve, MOVE is relocate/transport/logistics,
-PLAN is convergent sequencing/organizing (the converge to BRAINSTORM's diverge).
+Every entry maps to one of **45 cells** — **5 domains** (HEAL, CONSTRUCT,
+FABRICATE, BOND, STUDY) × **9 modes** (COMMUNICATION, COGNITION, MOTION, REST,
+MAINTAIN, SOCIAL, CREATE, POSSESS, STATIVE).
+
+The mode axis was **reworked 2026-09-19** from fourteen modes. Each mode is named
+for the WordNet verb supersense it owns (D2a): six modes did not clear their own
+permutation null and were retired (LIFT, SENSE, WALK, BRAINSTORM, DESTROY, and the
+old CREATE, whose dominant supersense was `verb.contact` rather than creation);
+three pairs sharing one dominant supersense were merged (LEARN+PLAN → COGNITION,
+GUIDE+WORK → COMMUNICATION, MOVE+PLAY → MOTION); and four heavy unowned
+supersenses were given owners (SOCIAL 12.2% of verb mass, CREATE 7.9%, POSSESS
+5.6%, STATIVE 5.3%). `MODE_OWNERS` in `src/semiotic_grid.rs` carries the
+measurement per mode.
+
+**Claim boundary:** the 0.416 / 0.585 / 0.472 self-recovery numbers were measured
+on the **pre-rework** fourteen-mode axis. They are the evidence for this rework,
+not a measurement of it — the nine-mode axis is not yet measured.
 
 Ships **10 ontologies** (~630 entries):
 
