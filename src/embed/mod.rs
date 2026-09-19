@@ -340,6 +340,21 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
         );
     }
 
+    // Explicit config choice of random-projection is the same supported
+    // OFFLINE mode as the env override above — honor it without the
+    // semantic self-test gate (RP is deterministic hashing; the gate would
+    // reject it and fall through to minutes of model probing, ignoring an
+    // explicit instruction). PH-009: this is what lets embedder-agnostic
+    // CLI tests run offline via config instead of racing on process env.
+    if let Some(ec) = config.embedders.primary.as_ref() {
+        if ec.enabled && matches!(ec.kind, EmbedderKindConfig::RandomProjection) {
+            return (
+                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                "random-projection",
+            );
+        }
+    }
+
     // Ollama embedding backend (default `nomic-embed-text:latest` on
     // localhost:11434): 137M params, ~274 MB, CPU-friendly, dim 768. Tried
     // before the ONNX legs because the weights are usually absent while the

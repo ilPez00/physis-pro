@@ -214,6 +214,63 @@ impl CellClassifier {
         self.0.cell_count()
     }
 
+    /// Fingerprint of the classification seeds: kind + dim + a hash over every
+    /// seed (name/text/domain/mode/facets). Custom ontology entries change the
+    /// key, so the shared cache below never serves a stale classifier.
+    fn fingerprint(ontology: &OntologyLoader, embedder_kind: &str, dim: usize) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut h = DefaultHasher::new();
+        embedder_kind.hash(&mut h);
+        dim.hash(&mut h);
+        // Sort: seed order follows HashMap iteration, which varies per thread.
+        let mut seeds: Vec<_> = Self::seeds(ontology).collect();
+        seeds.sort_by(|a, b| {
+            (&a.domain, &a.mode, &a.name, &a.text).cmp(&(&b.domain, &b.mode, &b.name, &b.text))
+        });
+        let mut n = 0u64;
+        for seed in &seeds {
+            seed.name.hash(&mut h);
+            seed.text.hash(&mut h);
+            seed.domain.hash(&mut h);
+            seed.mode.hash(&mut h);
+            serde_json::to_string(&seed.facets)
+                .unwrap_or_default()
+                .hash(&mut h);
+            n += 1;
+        }
+        n.hash(&mut h);
+        format!("{:016x}", h.finish())
+    }
+
+    /// Process-wide classifier cache (PH-009). Seed texts are fixed by the
+    /// ontology + embedder kind, so every `build_app` in one process
+    /// recomputes the identical classifier (~2.8 s under RP — once per each
+    /// of the ~93 http_surface tests, each with a cold per-test data dir).
+    /// First caller pays, the rest clone an Arc. Keyed by [`Self::fingerprint`].
+    pub fn build_shared(
+        ontology: &OntologyLoader,
+        embedder: &dyn VectorEmbed,
+        embedder_kind: &str,
+        dim: usize,
+        cache: &mut crate::pack::EmbedCache,
+    ) -> std::sync::Arc<Self> {
+        static CACHE: std::sync::LazyLock<
+            std::sync::Mutex<std::collections::HashMap<String, std::sync::Arc<CellClassifier>>>,
+        > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+        let key = Self::fingerprint(ontology, embedder_kind, dim);
+        if let Some(hit) = CACHE.lock().unwrap().get(&key) {
+            return std::sync::Arc::clone(hit);
+        }
+        let built =
+            std::sync::Arc::new(Self::build_cached(ontology, embedder, embedder_kind, cache));
+        CACHE
+            .lock()
+            .unwrap()
+            .insert(key, std::sync::Arc::clone(&built));
+        built
+    }
+
     /// Classify a pre-computed embedding with soft nested (domain→mode) scoring.
     pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
         self.0.classify(embedding)

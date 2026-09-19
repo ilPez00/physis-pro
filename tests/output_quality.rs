@@ -92,7 +92,7 @@ async fn send(
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs a real embedder model on disk; qualitative probe"]
 async fn classification_reach_quality() {
     let Some((embedder, kind)) = real_embedder() else {
         eprintln!("SKIP: no real model on disk");
@@ -148,7 +148,7 @@ async fn classification_reach_quality() {
 }
 
 #[tokio::test]
-#[ignore]
+#[ignore = "needs a real embedder model on disk; qualitative probe"]
 async fn memory_and_ledger_quality() {
     let Some((_embedder, kind)) = real_embedder() else {
         eprintln!("SKIP: no real model on disk");

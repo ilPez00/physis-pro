@@ -140,8 +140,11 @@ pub struct SharedCtx {
     pub(crate) cascade: Arc<ProviderCascade>,
     pub(crate) ontology: OntologyLoader,
     pub(crate) embedder: Box<dyn VectorEmbed>,
-    /// Pre-computed per-cell centroids + classification logic.
-    pub(crate) classifier: CellClassifier,
+    /// Pre-computed per-cell centroids + classification logic. Arc-shared
+    /// process-wide (PH-009): seeds are fixed by ontology + embedder kind,
+    /// so every build in one process reuses the first build's classifier
+    /// instead of recomputing it (~2.8 s under RP per http_surface test).
+    pub(crate) classifier: std::sync::Arc<CellClassifier>,
     pub(crate) embed_dim: usize,
     /// Which embedder kind actually loaded (provenance of every vector).
     pub(crate) embedder_kind: &'static str,
@@ -2535,8 +2538,13 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // ontology, so recomputing them on every boot cost ~78s of startup for a
     // result that never changes. `physis-pro warm` populates the same cache.
     let mut seed_cache = crate::pack::EmbedCache::load(&config.data_dir);
-    let classifier =
-        CellClassifier::build_cached(&ontology, embedder.as_ref(), embedder_kind, &mut seed_cache);
+    let classifier = CellClassifier::build_shared(
+        &ontology,
+        embedder.as_ref(),
+        embedder_kind,
+        config.embed_dim,
+        &mut seed_cache,
+    );
     seed_cache.save(&config.data_dir);
     log::info!(
         "classifier ready: {} populated cells",
