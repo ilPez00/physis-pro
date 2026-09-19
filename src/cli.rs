@@ -765,32 +765,120 @@ impl PhysisApp {
     /// content in the wiki; re-imports dedupe by label.
     pub fn run_history_import(&mut self, file: &std::path::Path) -> anyhow::Result<String> {
         let (docs, name) = crate::history::import_file(file)?;
+        Ok(self.register_docs(&docs, &format!("history[{name}]")))
+    }
+
+    /// Shared sink for parsed docs (history/vault/onboard): embed the label
+    /// bodies with the shared embedder and register them as labeled core
+    /// nodes. Label dedupe happens in the core; the summary reports it.
+    fn register_docs(&mut self, docs: &[crate::vault::VaultDoc], name: &str) -> String {
         if docs.is_empty() {
-            return Ok(format!("history[{name}]: no items found"));
+            return format!("{name}: no items found");
         }
-        let pairs = crate::vault::collect_labels(&docs);
+        let pairs = crate::vault::collect_labels(docs);
         let labels_total = pairs.len();
         let texts: Vec<&str> = pairs.iter().map(|(_, body)| body.as_str()).collect();
         let embeddings = self.embedder.embed_batch(&texts);
 
         let Some((db, mut core)) = self.open_persisted_core() else {
-            anyhow::bail!("node store unavailable (persistence off)");
+            return format!("{name}: node store unavailable (persistence off)");
         };
         let before = core.nodes.len();
         for ((label, _), emb) in pairs.into_iter().zip(embeddings) {
             let id = core.register_node_vec_labeled(emb, Some(label));
             if let Err(e) = core.persist_node(&db, "_default", &id) {
-                eprintln!("[physis] history: node {id} not persisted: {e}");
+                eprintln!("[physis] {name}: node {id} not persisted: {e}");
             }
         }
         let registered = core.nodes.len().saturating_sub(before);
         let deduped = labels_total.saturating_sub(registered);
-        Ok(format!(
-            "history[{name}]: {} items → {} labels registered ({} deduped)",
+        format!(
+            "{name}: {} items → {} labels registered ({} deduped)",
             docs.len(),
             registered,
             deduped,
-        ))
+        )
+    }
+
+    /// Prepopulate the store from the operator's own machine: shell histories,
+    /// Claude agent sessions, and the Hermes long-term memory file. Missing
+    /// sources are skipped (reported, not an error) so a fresh machine yields
+    /// a partial onboard instead of a failure. Re-runs dedupe by label.
+    pub fn run_onboard(&mut self, max_sessions: usize) -> anyhow::Result<String> {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let home = std::path::PathBuf::from(home);
+        let mut lines = Vec::new();
+
+        for hist in [".zsh_history", ".bash_history"] {
+            let p = home.join(hist);
+            if !p.is_file() {
+                lines.push(format!("shell[{}]: not found, skipped", p.display()));
+                continue;
+            }
+            match crate::history::import_file(&p) {
+                Ok((docs, _)) => lines.push(self.register_docs(&docs, &format!("shell[{}]", p.display()))),
+                Err(e) => lines.push(format!("shell[{}]: {e}", p.display())),
+            }
+        }
+
+        // Claude sessions: newest first, bounded (each session embeds).
+        let mut sessions: Vec<(std::time::SystemTime, std::path::PathBuf)> = Vec::new();
+        let projects = home.join(".claude/projects");
+        if projects.is_dir() {
+            let mut stack = vec![projects];
+            while let Some(dir) = stack.pop() {
+                let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+                for entry in rd.filter_map(|e| e.ok()) {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        stack.push(p);
+                    } else if p.extension().and_then(|e| e.to_str()) == Some("jsonl")
+                        && p.file_name()
+                            .and_then(|n| n.to_str())
+                            .is_some_and(crate::history::looks_like_claude_session_hint)
+                    {
+                        // Only session-shaped stems; chat logs go via `history`.
+                        let mtime = entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                        sessions.push((mtime, p));
+                    }
+                }
+            }
+        }
+        sessions.sort_by_key(|(mtime, _)| std::cmp::Reverse(*mtime));
+        sessions.truncate(max_sessions.max(1));
+        if sessions.is_empty() {
+            lines.push("sessions: none found, skipped".to_string());
+        }
+        for (_, p) in &sessions {
+            match crate::history::import_file(p) {
+                Ok((docs, _)) => lines.push(self.register_docs(
+                    &docs,
+                    &format!("session[{}]", p.file_stem().and_then(|s| s.to_str()).unwrap_or("?")),
+                )),
+                Err(e) => lines.push(format!("session[{}]: {e}", p.display())),
+            }
+        }
+
+        // Hermes long-term memory: single markdown doc.
+        let mem = home.join(".hermes/memories/MEMORY.md");
+        if mem.is_file() {
+            match std::fs::read_to_string(&mem) {
+                Ok(body) if body.trim().len() >= 8 => {
+                    let doc = crate::vault::VaultDoc {
+                        source: mem.display().to_string(),
+                        title: "agent memory".to_string(),
+                        body,
+                        headings: vec![],
+                    };
+                    lines.push(self.register_docs(&[doc], "memory[hermes]"));
+                }
+                _ => lines.push("memory[hermes]: empty, skipped".to_string()),
+            }
+        } else {
+            lines.push("memory[hermes]: not found, skipped".to_string());
+        }
+
+        Ok(lines.join("\n"))
     }
 
     /// Backfill coherence from a Praxis life-log export: read notebook entries +

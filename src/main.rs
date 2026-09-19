@@ -326,10 +326,20 @@ pub enum Commands {
         git: usize,
     },
     /// Import a personal-history export (browser bookmarks/history, OPML feed
-    /// list, chat JSONL) into the shared store as labeled core nodes
+    /// list, chat JSONL, shell history, Claude session JSONL) into the shared
+    /// store as labeled core nodes
     History {
-        /// Path to the export file (.html/.htm, .json, .opml/.xml, .jsonl/.txt)
+        /// Path to the export file (.html/.htm, .json, .opml/.xml, .jsonl/.txt,
+        /// .zsh_history/.bash_history, Claude UUID.jsonl)
         file: PathBuf,
+    },
+    /// Prepopulate the store from this machine: shell histories, Claude agent
+    /// sessions, and the Hermes memory file. Missing sources are skipped;
+    /// re-runs dedupe by label
+    Onboard {
+        /// Newest N agent sessions to import (default 30)
+        #[arg(long, default_value_t = 30)]
+        max_sessions: usize,
     },
     /// Backfill coherence from a Praxis life-log export (notebook entries +
     /// trackers): register labeled behavioral nodes and assert success/inert/
@@ -1660,6 +1670,9 @@ print(json.dumps({{
         }
         Commands::History { file } => {
             println!("{}", app.run_history_import(&file)?);
+        }
+        Commands::Onboard { max_sessions } => {
+            println!("{}", app.run_onboard(max_sessions)?);
         }
         Commands::Praxis { file } => {
             println!("{}", app.run_praxis_backfill(&file)?);

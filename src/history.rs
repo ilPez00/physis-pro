@@ -12,9 +12,19 @@ use std::path::Path;
 
 use crate::vault::VaultDoc;
 
-/// Pick the importer for a file by extension. Returns `None` when the extension
-/// is not a recognised personal-history export.
+/// Pick the importer for a file by extension, falling back to well-known
+/// dotfile names (shell histories carry no usable extension). Returns `None`
+/// when the file is not a recognised personal-history export.
 pub fn importer_for(path: &Path) -> Option<fn(&str) -> Vec<VaultDoc>> {
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        let lower = name.to_lowercase();
+        if lower == ".zsh_history" || lower == ".bash_history" || lower == ".sh_history" {
+            return Some(parse_shell_history);
+        }
+        if lower.ends_with(".jsonl") && looks_like_claude_session_hint(name) {
+            return Some(parse_claude_session);
+        }
+    }
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -27,6 +37,19 @@ pub fn importer_for(path: &Path) -> Option<fn(&str) -> Vec<VaultDoc>> {
         "txt" | "jsonl" | "ndjson" => Some(parse_messages_jsonl),
         _ => None,
     }
+}
+
+/// Filename heuristic for Claude session exports: 36-char UUID stems
+/// (`03273da0-…​.jsonl`) as written under `~/.claude/projects/`. The generic
+/// message parser would yield zero docs on these (different schema), so route
+/// them to the session parser instead of silently importing nothing.
+pub(crate) fn looks_like_claude_session_hint(name: &str) -> bool {
+    let stem = name.trim_end_matches(".jsonl").trim_end_matches(".JSONL");
+    stem.len() == 36
+        && stem.bytes().filter(|&b| b == b'-').count() == 4
+        && stem
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() || b == b'-')
 }
 
 /// Netscape bookmark file: `<!DOCTYPE NETSCAPE-Bookmark-file-1>` — the export
@@ -231,13 +254,186 @@ fn attr(tag: &str, name: &str) -> Option<String> {
     (!val.is_empty()).then(|| val.to_string())
 }
 
-/// Read a file and reduce it through the importer matching its extension.
+/// Shell history (zsh extended `: <ts>:<dur>;cmd`, plain bash lines, and
+/// backslash continuations) reduced to one doc per unique command. Commands
+/// shorter than 3 chars and blank lines are dropped; repetition counts are
+/// kept in the body ("ran 14×") so habitual workflows stay visible without
+/// one node per keystroke. Caps at 3000 docs; order is first-seen.
+pub fn parse_shell_history(input: &str) -> Vec<VaultDoc> {
+    const CAP: usize = 3000;
+    let mut order: Vec<String> = Vec::new();
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut current = String::new();
+    let flush = |cmd: &mut String,
+                     order: &mut Vec<String>,
+                     counts: &mut std::collections::HashMap<String, usize>| {
+        let c = cmd.trim().to_string();
+        cmd.clear();
+        if c.len() < 3 {
+            return;
+        }
+        if !counts.contains_key(&c) {
+            order.push(c.clone());
+        }
+        *counts.entry(c).or_insert(0) += 1;
+    };
+    for raw in input.lines() {
+        let line = raw.trim_end();
+        if line.is_empty() {
+            continue;
+        }
+        // Backslash continuation: append to the open command, else every
+        // physical line starts a new entry (bash is one-command-per-line;
+        // zsh stores multiline commands with a trailing backslash).
+        let continued = current.ends_with('\\');
+        if continued {
+            current.pop();
+            current.push(' ');
+            current.push_str(line.trim());
+            continue;
+        }
+        if let Some(cmd) = strip_zsh_prefix(line) {
+            flush(&mut current, &mut order, &mut counts);
+            current = cmd.to_string();
+        } else if line.starts_with(':') {
+            // Malformed timestamp line — treat the tail as a command.
+            flush(&mut current, &mut order, &mut counts);
+            current = line.to_string();
+        } else {
+            flush(&mut current, &mut order, &mut counts);
+            current = line.trim().to_string();
+        }
+    }
+    flush(&mut current, &mut order, &mut counts);
+    order
+        .into_iter()
+        .take(CAP)
+        .map(|cmd| {
+            let n = counts.get(&cmd).copied().unwrap_or(1);
+            let title = if cmd.len() > 80 { cmd[..80].to_string() } else { cmd.clone() };
+            let body = if n > 1 {
+                format!("shell: {cmd} (ran {n}×)")
+            } else {
+                format!("shell: {cmd}")
+            };
+            VaultDoc {
+                source: format!("shell {title}"),
+                title,
+                body,
+                headings: vec![],
+            }
+        })
+        .collect()
+}
+
+/// Strip the zsh extended-history prefix (`: <epoch>:<duration>;`). Returns
+/// `None` for plain bash lines.
+fn strip_zsh_prefix(line: &str) -> Option<&str> {
+    let rest = line.strip_prefix(':')?.trim_start();
+    let semi = rest.find(';')?;
+    let (head, cmd) = rest.split_at(semi);
+    // Head must look like `<digits>:<digits>` — otherwise the `;` belongs to
+    // the command itself (e.g. `a; b`) and this is a plain bash line.
+    let mut parts = head.split(':');
+    let ts_ok = parts.next().is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+    let dur_ok = parts.next().is_some_and(|p| p.bytes().all(|b| b.is_ascii_digit()));
+    if ts_ok && dur_ok && parts.next().is_none() {
+        Some(cmd[1..].trim())
+    } else if ts_ok && head.contains(':') {
+        // `: ts;cmd` without duration — accept, command follows the `;`.
+        Some(cmd[1..].trim())
+    } else {
+        None
+    }
+}
+
+/// One Claude Code session export (`~/.claude/projects/*/UUID.jsonl`):
+/// user prompts become `prompt` docs, assistant text becomes `answer` docs
+/// (tool calls and thinking blocks skipped), `summary` records become their
+/// own doc. Queue/attachment/system records are skipped. Caps at 500 docs.
+pub fn parse_claude_session(input: &str) -> Vec<VaultDoc> {
+    const CAP: usize = 500;
+    const BODY_CAP: usize = 4000;
+    let mut docs = Vec::new();
+    for (idx, line) in input.lines().enumerate() {
+        if docs.len() >= CAP {
+            break;
+        }
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let v: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let rtype = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        let (kind, text) = match rtype {
+            "user" => ("prompt", message_text(&v)),
+            "assistant" => ("answer", message_text(&v)),
+            "summary" | "file-history-summary" => ("summary", message_text(&v)),
+            _ => continue,
+        };
+        let text = text.trim();
+        if text.len() < 20 {
+            continue;
+        }
+        let body = if text.len() > BODY_CAP {
+            format!("{}…", &text[..BODY_CAP])
+        } else {
+            text.to_string()
+        };
+        let title = if text.len() > 80 {
+            text[..80].to_string()
+        } else {
+            text.to_string()
+        };
+        docs.push(VaultDoc {
+            source: format!("session msg {idx}"),
+            title: format!("[{kind}] {title}"),
+            body,
+            headings: vec![],
+        });
+    }
+    docs
+}
+
+/// Pull readable text out of a Claude record's `message.content`, which is
+/// either a plain string (user) or an array of `{type, text}` blocks
+/// (assistant: text/tool_use/thinking — only `text` is kept).
+fn message_text(v: &serde_json::Value) -> String {
+    let content = match v.get("message").and_then(|m| m.get("content")) {
+        Some(c) => c,
+        None => return v
+            .get("content")
+            .and_then(|c| c.as_str())
+            .unwrap_or_default()
+            .to_string(),
+    };
+    if let Some(s) = content.as_str() {
+        return s.to_string();
+    }
+    content
+        .as_array()
+        .map(|blocks| {
+            blocks
+                .iter()
+                .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
+}
+
+/// Read a file and reduce it through the importer matching its name/extension.
 /// Returns `(docs, name)` or an error naming the problem.
 pub fn import_file(path: &Path) -> anyhow::Result<(Vec<VaultDoc>, String)> {
     let importer = importer_for(path)
         .ok_or_else(|| anyhow::anyhow!("no personal-history importer for {}", path.display()))?;
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| anyhow::anyhow!("cannot read {}: {e}", path.display()))?;
+    let text = std::fs::read(path)
+        .map_err(|e| anyhow::anyhow!("cannot read {}: {e}", path.display()))
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -324,5 +520,51 @@ mod tests {
         assert!(importer_for(Path::new("chat.jsonl")).is_some());
         assert!(importer_for(Path::new("notes.txt")).is_some());
         assert!(importer_for(Path::new("data.csv")).is_none());
+    }
+
+    #[test]
+    fn test_shell_history_zsh_bash_dedupe() {
+        let input = ": 1786010752:0;sudo apt install -y zsh\nls\n: 1786010769:0;sudo apt install -y zsh\n  \ncd\ncargo test --lib pack\n";
+        let docs = parse_shell_history(input);
+        // apt line deduped with count, `ls`/`cd` dropped (<3 chars), blank dropped.
+        assert_eq!(docs.len(), 2);
+        assert!(docs[0].body.contains("ran 2×"), "repetition kept: {}", docs[0].body);
+        assert!(docs[0].body.starts_with("shell: "), "shell prefix");
+        assert_eq!(docs[1].title, "cargo test --lib pack");
+        assert!(docs[1].body.starts_with("shell: cargo test"));
+    }
+
+    #[test]
+    fn test_shell_history_semicolons_are_not_prefixes() {
+        // A bash line containing `;` must not be mistaken for a zsh prefix.
+        let docs = parse_shell_history("make foo; make bar\n");
+        assert_eq!(docs.len(), 1);
+        assert_eq!(docs[0].title, "make foo; make bar");
+    }
+
+    #[test]
+    fn test_claude_session_prompts_answers_skip_blobs() {
+        let jsonl = concat!(
+            "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"Review this change for security vulnerabilities in the classifier module\"}}\n",
+            "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"The classifier looks solid overall, here are three findings to consider carefully\"},{\"type\":\"tool_use\",\"name\":\"Read\"}]}}\n",
+            "{\"type\":\"queue-operation\",\"operation\":\"enqueue\",\"content\":\"huge diff blob\"}\n",
+            "{\"type\":\"assistant\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"tool_use\",\"name\":\"Bash\"}]}}\n",
+            "not json\n",
+        );
+        let docs = parse_claude_session(jsonl);
+        assert_eq!(docs.len(), 2);
+        assert!(docs[0].title.starts_with("[prompt]"), "kind tag: {}", docs[0].title);
+        assert!(docs[0].body.contains("security vulnerabilities"));
+        assert!(docs[1].title.starts_with("[answer]"), "{}", docs[1].title);
+        assert!(!docs[1].body.contains("tool_use"), "no tool blobs");
+    }
+
+    #[test]
+    fn test_importer_for_dotfiles_and_sessions() {
+        assert!(importer_for(Path::new(".zsh_history")).is_some());
+        assert!(importer_for(Path::new(".bash_history")).is_some());
+        assert!(importer_for(Path::new("03273da0-92f8-4a92-ad22-47c70d2c9243.jsonl")).is_some());
+        // Generic jsonl still goes to the message parser.
+        assert!(importer_for(Path::new("chat.jsonl")).is_some());
     }
 }
