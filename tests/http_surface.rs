@@ -5223,13 +5223,16 @@ async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
 async fn route_table_crud_match_and_validation() {
     let (router, _dir, _env) = app().await;
 
-    // Invalid route: every problem reported at once, one round-trip.
+    // Invalid route: every problem reported at once, one round-trip. The cell
+    // is an empty domain: a bare domain is valid since the routing-key rework
+    // (domain is the strongest measured axis), so the invalid case is no domain
+    // at all.
     let (status, body) = send(
         &router,
         post(
             "/api/v1/routes",
             "tenant-a",
-            json!({"route": {"name": "  ", "cell": "BROKEN", "action": ""}}),
+            json!({"route": {"name": "  ", "cell": "  ", "action": ""}}),
         ),
     )
     .await;
