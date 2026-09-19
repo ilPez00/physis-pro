@@ -474,6 +474,29 @@ impl Workspace {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
     }
 
+    /// Content fingerprint of workspace-relative files, sorted by path.
+    ///
+    /// The P3 review seam: `DiffPreview` records this at review start and
+    /// refuses (`--expect-fingerprint`) when the workspace moved while the
+    /// diff sat pending. Git-free on purpose — it covers dirty-tree edits
+    /// that `HEAD` alone cannot see. Missing files error as stale-base,
+    /// never a silent skip.
+    pub fn content_fingerprint(&self, rels: &[String]) -> Result<String> {
+        let mut sorted: Vec<&String> = rels.iter().collect();
+        sorted.sort();
+        let mut hasher = Sha256::new();
+        for rel in sorted {
+            let here = self.root.join(rel);
+            let bytes = std::fs::read(&here)
+                .with_context(|| format!("stale-base: {rel} not found in workspace; re-baseline"))?;
+            hasher.update(rel.as_bytes());
+            hasher.update([0]);
+            hasher.update(&bytes);
+            hasher.update([0]);
+        }
+        Ok(format!("{:x}", hasher.finalize()))
+    }
+
     fn pack_selected(
         &self,
         query: &str,

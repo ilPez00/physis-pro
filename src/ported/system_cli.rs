@@ -166,7 +166,10 @@ enum DelegationCommand {
     /// workspace using the same hunk engine as the Studio DIFF pane; refuses
     /// (stale-base) when a baseline file is absent from the tree. `--base-ref`
     /// (typically `HEAD`) makes the stale check also fail when the branch has
-    /// moved since the baseline was authored. Read-only.
+    /// moved since the baseline was authored. `--expect-fingerprint` records
+    /// the P3 review seam: the preview's `source_fingerprint` is re-checked
+    /// at apply time and a mismatch refuses, so a diff that sat pending while
+    /// the workspace moved cannot be applied. Read-only.
     DiffPreview {
         /// Directory holding the authored file set (workspace-relative shape).
         #[arg(long)]
@@ -175,6 +178,10 @@ enum DelegationCommand {
         /// flag (does not abort — review still runs, but the caller sees stale).
         #[arg(long)]
         base_ref: Option<String>,
+        /// Refuse when the current workspace content fingerprint no longer
+        /// matches the fingerprint recorded at review start.
+        #[arg(long)]
+        expect_fingerprint: Option<String>,
     },
 }
 
@@ -217,6 +224,7 @@ impl DelegationCommand {
             Self::DiffPreview {
                 baseline,
                 base_ref,
+                expect_fingerprint,
             } => {
                 let base = baseline.canonicalize().context("baseline directory not found")?;
                 let mut baselines: Vec<(String, String)> = Vec::new();
@@ -238,6 +246,18 @@ impl DelegationCommand {
                     }
                 }
                 ensure!(!baselines.is_empty(), "baseline directory is empty");
+                let rels: Vec<String> = baselines.iter().map(|(r, _)| r.clone()).collect();
+                // The review seam: fingerprint the workspace content NOW, so a
+                // later `--expect-fingerprint <this>` refuses when the tree
+                // moved while the diff sat pending. Missing file = stale-base
+                // error, never a silent skip.
+                let source_fingerprint = workspace.content_fingerprint(&rels)?;
+                if let Some(expected) = expect_fingerprint {
+                    ensure!(
+                        source_fingerprint == *expected,
+                        "stale-base: workspace changed since review started (fingerprint mismatch); re-baseline"
+                    );
+                }
                 let preview = workspace.stage_diff(&baselines)?;
                 let mut changes = 0usize;
                 let mut files: Vec<serde_json::Value> = Vec::new();
@@ -264,6 +284,7 @@ impl DelegationCommand {
                     "changed_files": changes,
                     "total_files": baselines.len(),
                     "engine": "diff_lines (LCS, same as Studio DIFF pane)",
+                    "source_fingerprint": source_fingerprint,
                 });
                 // Stale-base on branch move: a plan authored at one HEAD is
                 // unsafe once the branch has moved. Full content-hash
@@ -782,6 +803,7 @@ mod tests {
         let out = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
             base_ref: None,
+            expect_fingerprint: None,
         }
         .run(&ws)
         .unwrap();
@@ -790,11 +812,16 @@ mod tests {
         assert!(out["files"][0]["adds"].as_u64().unwrap_or(0) >= 1);
         assert!(out["files"][0]["dels"].as_u64().unwrap_or(0) >= 1);
         assert!(out.get("stale_base").is_none(), "no --base-ref supplied → no stale check");
+        assert!(
+            out["source_fingerprint"].as_str().is_some_and(|s| !s.is_empty()),
+            "review seam must record a source fingerprint, got: {out}"
+        );
 
         // Stale-base-on-branch-move flag: bogus HEAD yields stale=true.
         let out = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
             base_ref: Some("deadbeef".to_string()),
+            expect_fingerprint: None,
         }
         .run(&ws)
         .unwrap();
@@ -807,6 +834,7 @@ mod tests {
         let err = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
             base_ref: None,
+            expect_fingerprint: None,
         }
         .run(&ws);
         assert!(
@@ -848,10 +876,22 @@ mod tests {
         let out = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
             base_ref: Some(head1.clone()),
+            expect_fingerprint: None,
         }
         .run(&ws)
         .unwrap();
         assert_eq!(out["stale_base"]["ok"], true);
+        let fingerprint = out["source_fingerprint"].as_str().unwrap().to_string();
+
+        // Same fingerprint re-check passes: the tree did not move since review.
+        let out = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+            base_ref: Some(head1.clone()),
+            expect_fingerprint: Some(fingerprint.clone()),
+        }
+        .run(&ws)
+        .unwrap();
+        assert_eq!(out["source_fingerprint"], fingerprint);
 
         // Move HEAD after authoring the baseline → stale.
         std::fs::write(&file, "line one\nline TWO\n").unwrap();
@@ -860,9 +900,23 @@ mod tests {
         let out = DelegationCommand::DiffPreview {
             baseline: baseline.clone(),
             base_ref: Some(head1),
+            expect_fingerprint: None,
         }
         .run(&ws)
         .unwrap();
         assert_eq!(out["stale_base"]["ok"], false, "{out}");
+
+        // The recorded fingerprint now refuses: the diff sat pending while
+        // the workspace moved. This is the P3 review seam.
+        let err = DelegationCommand::DiffPreview {
+            baseline: baseline.clone(),
+            base_ref: None,
+            expect_fingerprint: Some(fingerprint),
+        }
+        .run(&ws);
+        assert!(
+            matches!(err, Err(ref e) if e.to_string().contains("stale-base")),
+            "moved workspace must refuse stale fingerprint, got: {err:?}"
+        );
     }
 }
