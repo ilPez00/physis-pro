@@ -1042,21 +1042,16 @@ models::HumanDomain::Study — variant Study
 models::HumanDomain::all — fn pub fn all() -> [HumanDomain; 5] {
 models::HumanDomain::as_str — fn pub fn as_str(&self) -> &'static str {
 models::HumanMode — enum pub enum HumanMode {
-models::HumanMode::Brainstorm — variant Brainstorm
+models::HumanMode::Cognition — variant Cognition
+models::HumanMode::Communication — variant Communication
 models::HumanMode::Create — variant Create
-models::HumanMode::Destroy — variant Destroy
-models::HumanMode::Guide — variant Guide
-models::HumanMode::Learn — variant Learn
-models::HumanMode::Lift — variant Lift
 models::HumanMode::Maintain — variant Maintain
-models::HumanMode::Move — variant Move
-models::HumanMode::Plan — variant Plan
-models::HumanMode::Play — variant Play
+models::HumanMode::Motion — variant Motion
+models::HumanMode::Possess — variant Possess
 models::HumanMode::Rest — variant Rest
-models::HumanMode::Sense — variant Sense
-models::HumanMode::Walk — variant Walk
-models::HumanMode::Work — variant Work
-models::HumanMode::all — fn pub fn all() -> [HumanMode; 14] {
+models::HumanMode::Social — variant Social
+models::HumanMode::Stative — variant Stative
+models::HumanMode::all — fn pub fn all() -> [HumanMode; 9] {
 models::HumanMode::as_str — fn pub fn as_str(&self) -> &'static str {
 models::IsolatedBranch — struct pub struct IsolatedBranch {
 models::IsolatedBranch::branch_id — field pub branch_id: String

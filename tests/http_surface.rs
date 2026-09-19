@@ -549,7 +549,7 @@ async fn planner_simulates_without_mutating_live_state_and_admin_groups_duplicat
             "name": "Invoice Review",
             "category": "Finance",
             "domain": "STUDY",
-            "mode": "WORK",
+            "mode": "COMMUNICATION",
             "axis_kind": "office",
             "axis_name": "finance",
             // Required by `OntologyEntry`, and present on all 929 entries in
@@ -1221,7 +1221,9 @@ async fn the_semiotic_grid_reports_every_loaded_ontology() {
     let (status, body) = send(&router, get("/api/v1/semiotic/grid", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     let cells = body["cells"].as_array().expect("cells");
-    assert_eq!(cells.len(), 70, "5 domains x 14 modes");
+    // 5 domains x 9 modes: the mode axis was reworked 2026-09-19 to nine modes,
+    // each owning one WordNet verb supersense (D2a), replacing 5 x 14.
+    assert_eq!(cells.len(), 45, "5 domains x 9 modes");
 
     let empty = cells
         .iter()
@@ -2186,7 +2188,7 @@ async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
             json!({
                 "id": id,
                 "label": "autoclave cycle log",
-                "cell": {"domain": "BOND", "mode": "PLAY"},
+                "cell": {"domain": "BOND", "mode": "MOTION"},
             }),
         ),
     )
@@ -2200,7 +2202,7 @@ async fn a_pin_is_visible_from_the_node_listing_and_outranks_the_classifier() {
         "the listing reports the pin: {pinned}"
     );
     assert_eq!(pinned["cell"][0], "BOND", "the pin outranks the classifier");
-    assert_eq!(pinned["cell"][1], "PLAY");
+    assert_eq!(pinned["cell"][1], "MOTION");
 
     // An edit that says nothing about the cell must not silently unpin it —
     // changing the text is not a retraction of where someone said it belongs.
@@ -2303,7 +2305,7 @@ async fn a_dissenting_pin_penalizes_the_cell_the_classifier_chose() {
                 json!({
                     "id": id,
                     "label": "hydraulic press tonnage drift",
-                    "cell": {"domain": dissent, "mode": "PLAY"},
+                    "cell": {"domain": dissent, "mode": "MOTION"},
                 }),
             ),
         )
@@ -4511,13 +4513,13 @@ async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
             "name": "Freight Booking",
             "category": "Logistics",
             "domain": "bond",
-            "mode": "work",
+            "mode": "communication",
             "hints": ["freight", "carrier", "bill of lading"]
         },
         {
             "name": "Customs Declaration",
             "domain": "CONSTRUCT",
-            "mode": "WORK",
+            "mode": "COMMUNICATION",
             "hints": ["customs", "tariff code"]
         }
     ]);
@@ -4568,7 +4570,7 @@ async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(read["domains"][0]["domain"], "BOND", "{read}");
-    assert_eq!(read["domains"][0]["mode"], "WORK", "{read}");
+    assert_eq!(read["domains"][0]["mode"], "COMMUNICATION", "{read}");
 
     // Every problem comes back at once — one round-trip per error is not a
     // studio.

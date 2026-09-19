@@ -2805,14 +2805,22 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                 .get(id)
                 .ok_or_else(|| anyhow::anyhow!("no such agent: @{id}"))?;
             let adapter = adapter::adapter_for(agent).map_err(|e| anyhow::anyhow!("{e}"))?;
-            let out = adapter
-                .invoke(&adapter::Invocation::new(prompt.join(" ")))
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
-            println!("{}", out.text);
-            if let Some(s) = out.structured {
-                if !s.is_empty() {
-                    println!("{}", serde_json::to_string_pretty(&s)?);
+            match adapter.invoke(&adapter::Invocation::new(prompt.join(" "))) {
+                Ok(out) => {
+                    println!("{}", out.text);
+                    if let Some(s) = out.structured {
+                        if !s.is_empty() {
+                            println!("{}", serde_json::to_string_pretty(&s)?);
+                        }
+                    }
                 }
+                Err(adapter::AdapterError::Schema { detail, reply }) => {
+                    // A schema miss is information: show the reply, then say why
+                    // it did not parse. Discarding the text loses the answer.
+                    println!("{reply}");
+                    anyhow::bail!("schema-invalid reply: {detail}");
+                }
+                Err(e) => return Err(anyhow::anyhow!("{e}")),
             }
         }
         AgentCommand::Ask {

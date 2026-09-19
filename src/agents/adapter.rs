@@ -28,8 +28,13 @@ pub enum AdapterError {
     Exit(i32, String),
     /// The process exceeded its deadline and was killed.
     Timeout(u32),
-    /// The reply did not match the required schema.
-    Schema(String),
+    /// The reply did not match the required schema. Carries the reply itself:
+    /// a schema miss is information, and discarding the text loses the very
+    /// thing the caller needs to see.
+    Schema {
+        detail: String,
+        reply: String,
+    },
     /// The prompt could be read as an option, or carries a NUL.
     Unsafe(String),
     /// This build has no transport for the agent.
@@ -49,7 +54,7 @@ impl std::fmt::Display for AdapterError {
                 }
             }
             AdapterError::Timeout(s) => write!(f, "timed out after {s}s"),
-            AdapterError::Schema(e) => write!(f, "schema-invalid reply: {e}"),
+            AdapterError::Schema { detail, .. } => write!(f, "schema-invalid reply: {detail}"),
             AdapterError::Unsafe(e) => write!(f, "unsafe prompt: {e}"),
             AdapterError::Unsupported(e) => write!(f, "unsupported: {e}"),
         }
@@ -335,7 +340,12 @@ impl AgentAdapter for CliAdapter {
             return Err(AdapterError::Exit(status.code().unwrap_or(-1), stderr));
         }
         let structured = if self.wants_schema {
-            Some(JevResult::parse(&stdout).map_err(AdapterError::Schema)?)
+            Some(
+                JevResult::parse(&stdout).map_err(|detail| AdapterError::Schema {
+                    detail,
+                    reply: stdout.clone(),
+                })?,
+            )
         } else {
             None
         };
@@ -550,7 +560,7 @@ mod tests {
         let a = sh_adapter("echo 'not json at all'", true);
         assert!(matches!(
             a.invoke(&Invocation::new("q")),
-            Err(AdapterError::Schema(_))
+            Err(AdapterError::Schema { .. })
         ));
     }
 

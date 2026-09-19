@@ -401,11 +401,14 @@ mod tests {
 
     #[test]
     fn a_valid_draft_becomes_the_on_disk_format() {
-        let doc =
-            validate_pack("logistics", &[entry("Freight Booking", "bond", "work")]).expect("valid");
+        let doc = validate_pack(
+            "logistics",
+            &[entry("Freight Booking", "bond", "communication")],
+        )
+        .expect("valid");
         assert_eq!(doc.kind, "logistics");
         assert_eq!(doc.domains[0].domain, "BOND");
-        assert_eq!(doc.domains[0].mode, "WORK");
+        assert_eq!(doc.domains[0].mode, "COMMUNICATION");
         // Unit is required by the loader's type; a draft that omits it gets a
         // neutral default rather than failing on a field nobody thinks about.
         assert_eq!(doc.domains[0].unit, "items");
@@ -421,7 +424,7 @@ mod tests {
         let errors = validate_pack(
             "ok-name",
             &[
-                entry("", "BOND", "WORK"),
+                entry("", "BOND", "COMMUNICATION"),
                 entry("Ghost Cell", "NOPE", "ALSO-NOPE"),
             ],
         )
@@ -449,8 +452,8 @@ mod tests {
         let errors = validate_pack(
             "dupes",
             &[
-                entry("Freight Booking", "BOND", "WORK"),
-                entry("freight booking", "STUDY", "SENSE"),
+                entry("Freight Booking", "BOND", "COMMUNICATION"),
+                entry("freight booking", "STUDY", "COGNITION"),
             ],
         )
         .unwrap_err();

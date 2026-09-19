@@ -834,7 +834,14 @@ pub(crate) fn embedder_self_test(e: &dyn VectorEmbed) -> bool {
     // runs. `block_in_place` moves this call off the async worker, which is what
     // makes that client legal here. Without it the server refuses to boot
     // whenever the ollama leg is reachable.
-    if tokio::runtime::Handle::try_current().is_ok() {
+    // `block_in_place` is only legal on the multi-threaded runtime, and panics
+    // on a current-thread one — which is what `#[tokio::test]` builds. The real
+    // server is multi-threaded; tests take the direct path (and no test selects
+    // the ollama leg, so the client is never constructed there).
+    let multi_thread = tokio::runtime::Handle::try_current()
+        .map(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+        .unwrap_or(false);
+    if multi_thread {
         tokio::task::block_in_place(|| crate::embed::semantic_self_test(e))
     } else {
         crate::embed::semantic_self_test(e)

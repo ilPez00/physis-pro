@@ -1086,84 +1086,64 @@ impl HumanDomain {
 /// stable for the earlier modes.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum HumanMode {
-    Lift,
+    Communication,
+    Cognition,
+    Motion,
     Rest,
-    Walk,
-    Work,
-    Create,
-    Learn,
-    Destroy,
-    Sense,
-    Guide,
-    Play,
-    Brainstorm,
     Maintain,
-    Move,
-    Plan,
+    Social,
+    Create,
+    Possess,
+    Stative,
 }
 
 impl HumanMode {
-    pub fn all() -> [HumanMode; 14] {
+    pub fn all() -> [HumanMode; 9] {
         [
-            HumanMode::Lift,
+            HumanMode::Communication,
+            HumanMode::Cognition,
+            HumanMode::Motion,
             HumanMode::Rest,
-            HumanMode::Walk,
-            HumanMode::Work,
-            HumanMode::Create,
-            HumanMode::Learn,
-            HumanMode::Destroy,
-            HumanMode::Sense,
-            HumanMode::Guide,
-            HumanMode::Play,
-            HumanMode::Brainstorm,
             HumanMode::Maintain,
-            HumanMode::Move,
-            HumanMode::Plan,
+            HumanMode::Social,
+            HumanMode::Create,
+            HumanMode::Possess,
+            HumanMode::Stative,
         ]
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            HumanMode::Lift => "LIFT",
+            HumanMode::Communication => "COMMUNICATION",
+            HumanMode::Cognition => "COGNITION",
+            HumanMode::Motion => "MOTION",
             HumanMode::Rest => "REST",
-            HumanMode::Walk => "WALK",
-            HumanMode::Work => "WORK",
-            HumanMode::Create => "CREATE",
-            HumanMode::Learn => "LEARN",
-            HumanMode::Destroy => "DESTROY",
-            HumanMode::Sense => "SENSE",
-            HumanMode::Guide => "GUIDE",
-            HumanMode::Play => "PLAY",
-            HumanMode::Brainstorm => "BRAINSTORM",
             HumanMode::Maintain => "MAINTAIN",
-            HumanMode::Move => "MOVE",
-            HumanMode::Plan => "PLAN",
+            HumanMode::Social => "SOCIAL",
+            HumanMode::Create => "CREATE",
+            HumanMode::Possess => "POSSESS",
+            HumanMode::Stative => "STATIVE",
         }
     }
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<HumanMode> {
         match s.to_uppercase().as_str() {
-            "LIFT" => Some(HumanMode::Lift),
+            "COMMUNICATION" => Some(HumanMode::Communication),
+            "COGNITION" => Some(HumanMode::Cognition),
+            "MOTION" => Some(HumanMode::Motion),
             "REST" => Some(HumanMode::Rest),
-            "WALK" => Some(HumanMode::Walk),
-            "WORK" => Some(HumanMode::Work),
-            "CREATE" => Some(HumanMode::Create),
-            "LEARN" => Some(HumanMode::Learn),
-            "DESTROY" => Some(HumanMode::Destroy),
-            "SENSE" => Some(HumanMode::Sense),
-            "GUIDE" => Some(HumanMode::Guide),
-            "PLAY" => Some(HumanMode::Play),
-            "BRAINSTORM" => Some(HumanMode::Brainstorm),
             "MAINTAIN" => Some(HumanMode::Maintain),
-            "MOVE" => Some(HumanMode::Move),
-            "PLAN" => Some(HumanMode::Plan),
+            "SOCIAL" => Some(HumanMode::Social),
+            "CREATE" => Some(HumanMode::Create),
+            "POSSESS" => Some(HumanMode::Possess),
+            "STATIVE" => Some(HumanMode::Stative),
             _ => None,
         }
     }
 }
 
-/// A grid position mapping an ontology entry to one of the 70 cells.
+/// A grid position mapping an ontology entry to one of the 45 cells.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GridPosition {
     pub domain: HumanDomain,
@@ -1301,29 +1281,24 @@ impl SemioticGrid {
             HumanDomain::Bond => HumanDomain::Study,
             HumanDomain::Study => HumanDomain::Bond,
         };
+        // Opposites on the reworked nine-mode axis: outward/inward, move/stay,
+        // make/be, give/hold. Nine is odd, so one mode has no dual and the
+        // square reports that rather than inventing a partner for it.
         let m = match mode {
-            HumanMode::Lift => HumanMode::Rest,
-            HumanMode::Rest => HumanMode::Lift,
-            HumanMode::Walk => HumanMode::Work,
-            HumanMode::Work => HumanMode::Walk,
-            // Create/Destroy = make↔unmake; Learn(self-study)↔Guide(teach others);
-            // Sense(observe real)↔Brainstorm(imagine); Play(unstructured)↔Plan(structured);
-            // Maintain(keep-in-place)↔Move(relocate).
-            HumanMode::Create => HumanMode::Destroy,
-            HumanMode::Destroy => HumanMode::Create,
-            HumanMode::Learn => HumanMode::Guide,
-            HumanMode::Guide => HumanMode::Learn,
-            HumanMode::Sense => HumanMode::Brainstorm,
-            HumanMode::Brainstorm => HumanMode::Sense,
-            HumanMode::Play => HumanMode::Plan,
-            HumanMode::Plan => HumanMode::Play,
-            HumanMode::Maintain => HumanMode::Move,
-            HumanMode::Move => HumanMode::Maintain,
+            HumanMode::Communication => HumanMode::Cognition,
+            HumanMode::Cognition => HumanMode::Communication,
+            HumanMode::Motion => HumanMode::Rest,
+            HumanMode::Rest => HumanMode::Motion,
+            HumanMode::Create => HumanMode::Stative,
+            HumanMode::Stative => HumanMode::Create,
+            HumanMode::Social => HumanMode::Possess,
+            HumanMode::Possess => HumanMode::Social,
+            HumanMode::Maintain => return None,
         };
         Some((d, m))
     }
 
-    /// Activation heatmap as a 5×14 matrix
+    /// Activation heatmap as a 5×9 matrix
     pub fn heatmap_matrix(&self) -> Vec<Vec<f32>> {
         let mut matrix = vec![vec![0.0_f32; HumanMode::all().len()]; HumanDomain::all().len()];
         for cell in &self.cells {

@@ -383,7 +383,7 @@ mod tests {
         let mut grid = SemioticGrid::new();
         // Drive one cell to full activation; `classify` adds 0.1 each call.
         for _ in 0..15 {
-            grid.classify("x", HumanDomain::Fabricate, HumanMode::Brainstorm);
+            grid.classify("x", HumanDomain::Fabricate, HumanMode::Social);
         }
         let table = format_heatmap_table(&grid);
         let body: Vec<&str> = table

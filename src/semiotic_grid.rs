@@ -21,13 +21,35 @@
 //! `verb.social` — 12.2% of the corpus's verb mass — is owned by no mode at all
 //! (D2a).
 //!
-//! Therefore: **domains are an open set**, defaulting to the five below and
-//! replaceable per deployment via `PHYSIS_DOMAINS`. Modes stay fixed for now
-//! because they are the operative axis — tool use, method, workflow — and
-//! because D2a's proposals (EXPAND `verb.social`, MERGE `LEARN`+`PLAN`, RETIRE
-//! six) are proposals with a measurement, not an approved change. Track D's rule
-//! holds: the machine proposes, a person adjudicates, nothing edits the grid
-//! silently.
+//! ## The mode axis, reworked (2026-09-19)
+//!
+//! D2a measured every mode against WordNet's verb supersenses. Acting on that
+//! measurement, the mode axis is now nine modes, each named for the supersense
+//! it owns:
+//!
+//! | action | change | evidence |
+//! |---|---|---|
+//! | RETIRE | LIFT, SENSE, CREATE, WALK, BRAINSTORM, DESTROY | `carves = false` against their own null |
+//! | MERGE | LEARN+PLAN → COGNITION · GUIDE+WORK → COMMUNICATION · MOVE+PLAY → MOTION | each pair shares one dominant supersense |
+//! | EXPAND | SOCIAL (12.2% of verb mass) · CREATE (7.9%) · POSSESS (5.6%) · STATIVE (5.3%) | unowned supersenses with real corpus mass |
+//!
+//! `CREATE` appears in both columns: the old mode carved nothing (its dominant
+//! supersense was `verb.contact`, not creation), so it is retired as a word and
+//! re-anchored to `verb.creation`, which no mode owned. `MODE_OWNERS` carries
+//! the measurement per mode, so the axis states its own justification.
+//!
+//! ## The unit is the domain plus its facets
+//!
+//! The joint cell recovers 0.416 against the domain's 0.585, so the cell is the
+//! weaker coordinate. A mode that is unknown or misclassified must not be able
+//! to weaken a coordinate the domain already fixes: **domain + facets is the
+//! unit, and mode is an optional refinement** (facets nest under a cell without
+//! enlarging the grid — `physis-core/src/models.rs`, `struct Facets`).
+//!
+//! Domains remain an open set, defaulting to the five below and replaceable per
+//! deployment via `PHYSIS_DOMAINS`. Track D's rule still holds: the machine
+//! proposes, a person adjudicates. This rework was adjudicated; nothing edits
+//! the grid silently.
 
 use physis_core::classify::EntrySeed;
 
@@ -71,26 +93,92 @@ pub fn domains_from(spec: Option<&str>) -> Vec<String> {
     }
 }
 
-/// How many cells the active axes describe. **Not necessarily 70.**
+/// How many cells the active axes describe. **Not necessarily 45.**
 pub fn cell_count() -> usize {
     domains().len() * MODES.len()
 }
-pub const MODES: [&str; 14] = [
-    "LIFT",
+
+/// The operative axis: nine modes, each the owner of one verb supersense.
+pub const MODES: [&str; 9] = [
+    "COMMUNICATION",
+    "COGNITION",
+    "MOTION",
     "REST",
-    "WALK",
-    "WORK",
-    "CREATE",
-    "LEARN",
-    "DESTROY",
-    "SENSE",
-    "GUIDE",
-    "PLAY",
-    "BRAINSTORM",
     "MAINTAIN",
-    "MOVE",
-    "PLAN",
+    "SOCIAL",
+    "CREATE",
+    "POSSESS",
+    "STATIVE",
 ];
+
+/// What a mode owns and the measurement that put it there.
+///
+/// A mode that owns nothing is a word the corpus has no use for: that is D2a's
+/// finding and this axis's reason to exist. `evidence` is prose because the two
+/// kinds of entry — a surviving mode's own carve, and a newly-owned supersense's
+/// corpus mass — are different measurements and forcing them into one numeric
+/// schema would hide which is which.
+pub struct ModeOwner {
+    pub mode: &'static str,
+    pub supersense: &'static str,
+    pub evidence: &'static str,
+}
+
+pub const MODE_OWNERS: [ModeOwner; 9] = [
+    ModeOwner {
+        mode: "COMMUNICATION",
+        supersense: "verb.communication",
+        evidence: "GUIDE carved at share 0.361 vs null 0.182 (+0.179); WORK merged in (share 0.190, +0.045)",
+    },
+    ModeOwner {
+        mode: "COGNITION",
+        supersense: "verb.cognition",
+        evidence: "LEARN carved at share 0.272 vs null 0.154 (+0.117); PLAN merged in (share 0.239, +0.079)",
+    },
+    ModeOwner {
+        mode: "MOTION",
+        supersense: "verb.motion",
+        evidence: "MOVE carved at share 0.250 vs null 0.163 (+0.087); PLAY merged in (share 0.255, +0.071)",
+    },
+    ModeOwner {
+        mode: "REST",
+        supersense: "verb.contact",
+        evidence: "carved at share 0.217 vs null 0.164 (+0.053)",
+    },
+    ModeOwner {
+        mode: "MAINTAIN",
+        supersense: "verb.change",
+        evidence: "carved at share 0.181 vs null 0.151 (+0.029)",
+    },
+    ModeOwner {
+        mode: "SOCIAL",
+        supersense: "verb.social",
+        evidence: "unowned before this rework; 12.2% of the corpus's verb mass (D2a)",
+    },
+    ModeOwner {
+        mode: "CREATE",
+        supersense: "verb.creation",
+        evidence: "unowned before this rework at 7.9% of verb mass; the retired CREATE owned verb.contact, not this",
+    },
+    ModeOwner {
+        mode: "POSSESS",
+        supersense: "verb.possession",
+        evidence: "unowned before this rework; 5.6% of verb mass",
+    },
+    ModeOwner {
+        mode: "STATIVE",
+        supersense: "verb.stative",
+        evidence: "unowned before this rework; 5.3% of verb mass",
+    },
+];
+
+/// The supersense a mode owns, if it is one of the reworked modes.
+pub fn owned_supersense(mode: &str) -> Option<&'static str> {
+    MODE_OWNERS
+        .iter()
+        .find(|m| m.mode == mode)
+        .map(|m| m.supersense)
+}
 
 pub fn is_canonical(domain: &str, mode: &str) -> bool {
     domains().iter().any(|d| d == domain) && MODES.contains(&mode)
@@ -133,7 +221,46 @@ mod tests {
     fn an_overridden_domain_axis_is_n_wide_not_five() {
         let axis = domains_from(Some("MAKE, TRADE"));
         assert_eq!(axis, vec!["MAKE".to_string(), "TRADE".to_string()]);
-        assert_eq!(axis.len() * MODES.len(), 28);
+        assert_eq!(axis.len() * MODES.len(), 18);
+    }
+
+    #[test]
+    fn every_mode_owns_a_supersense_and_the_retired_ones_are_gone() {
+        // The rework's whole point: no mode is a word without an owner.
+        assert_eq!(MODE_OWNERS.len(), MODES.len());
+        for mode in MODES {
+            assert!(owned_supersense(mode).is_some(), "{mode} owns nothing");
+        }
+        for retired in [
+            "LIFT",
+            "SENSE",
+            "WALK",
+            "BRAINSTORM",
+            "DESTROY",
+            "PLAN",
+            "LEARN",
+            "GUIDE",
+            "WORK",
+            "MOVE",
+            "PLAY",
+        ] {
+            assert!(
+                !MODES.contains(&retired),
+                "{retired} should be retired or merged away"
+            );
+        }
+        // The four heavy unowned supersenses now have owners.
+        for s in [
+            "verb.social",
+            "verb.creation",
+            "verb.possession",
+            "verb.stative",
+        ] {
+            assert!(
+                MODE_OWNERS.iter().any(|m| m.supersense == s),
+                "{s} is still unowned"
+            );
+        }
     }
 
     #[test]
@@ -144,24 +271,25 @@ mod tests {
     }
 
     #[test]
-    fn canonical_grid_has_seventy_cells() {
-        // The default pack is 5 x 14. The point of the assertion is that the
-        // DEFAULT is stable, not that 70 is a property of the world.
-        assert_eq!(DEFAULT_DOMAINS.len() * MODES.len(), 70);
+    fn canonical_grid_is_five_by_nine_after_the_rework() {
+        // The default pack is 5 x 9 since the mode axis was reworked. The point
+        // of the assertion is that the DEFAULT is stable, not that 45 is a
+        // property of the world.
+        assert_eq!(DEFAULT_DOMAINS.len() * MODES.len(), 45);
         assert_eq!(
             cell_count(),
-            70,
+            45,
             "no PHYSIS_DOMAINS set, so the default holds"
         );
     }
 
     #[test]
     fn fallback_anchors_fill_only_missing_cells() {
-        let existing = vec![("HEAL".into(), "LIFT".into())];
+        let existing = vec![("HEAL".into(), "REST".into())];
         let anchors = fallback_anchors(&existing);
-        assert_eq!(anchors.len(), 69);
+        assert_eq!(anchors.len(), 44);
         assert!(anchors
             .iter()
-            .all(|a| !(a.domain == "HEAL" && a.mode == "LIFT")));
+            .all(|a| !(a.domain == "HEAL" && a.mode == "REST")));
     }
 }

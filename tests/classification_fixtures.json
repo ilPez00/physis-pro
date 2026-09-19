@@ -2,12 +2,12 @@
   {
     "text": "lifting heavy weights at the gym this morning",
     "domain": "HEAL",
-    "mode": "LIFT"
+    "mode": "MOTION"
   },
   {
     "text": "eating a high-protein nutritious meal",
     "domain": "HEAL",
-    "mode": "LIFT"
+    "mode": "MOTION"
   },
   {
     "text": "taking a nap to recover and rest",
@@ -22,12 +22,12 @@
   {
     "text": "going for a walk outside to stay healthy",
     "domain": "HEAL",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "stretching and physio therapy for injury rehab",
     "domain": "HEAL",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "cooking a recipe in the kitchen",
@@ -52,22 +52,22 @@
   {
     "text": "budgeting finances and paying invoices",
     "domain": "FABRICATE",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "investing in a stock portfolio",
     "domain": "FABRICATE",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "fixing the plumbing and hvac at home",
     "domain": "CONSTRUCT",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "using tools in the workshop with a drill and saw",
     "domain": "CONSTRUCT",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "organizing files and folders on the desktop",
@@ -82,7 +82,7 @@
   {
     "text": "climbing and hiking and camping outdoors",
     "domain": "CONSTRUCT",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "calling a friend to meet up socially",
@@ -97,12 +97,12 @@
   {
     "text": "mentoring and coaching a junior teammate",
     "domain": "BOND",
-    "mode": "LEARN"
+    "mode": "COGNITION"
   },
   {
     "text": "team collaboration and a sync meeting",
     "domain": "BOND",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "walking the dog and feeding the cat",
@@ -112,32 +112,32 @@
   {
     "text": "researching and analyzing data for a report",
     "domain": "STUDY",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "studying for a course and learning in class",
     "domain": "STUDY",
-    "mode": "LEARN"
+    "mode": "COGNITION"
   },
   {
     "text": "planning a strategy and roadmap with milestones",
     "domain": "STUDY",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "traveling and exploring on a trip abroad",
     "domain": "STUDY",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "practicing language vocabulary and grammar",
     "domain": "STUDY",
-    "mode": "LEARN"
+    "mode": "COGNITION"
   },
   {
     "text": "drinking water and electrolytes to stay hydrated",
     "domain": "HEAL",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "gardening and planting seeds in the soil",
@@ -152,7 +152,7 @@
   {
     "text": "wiring the electrical panel and circuit breaker",
     "domain": "CONSTRUCT",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "decorating the interior with new furniture and decor",
@@ -167,7 +167,7 @@
   {
     "text": "coding at my desk on a work project",
     "domain": "FABRICATE",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "volunteering at a charity to help the community",
@@ -177,12 +177,12 @@
   {
     "text": "networking at a conference to make connections",
     "domain": "BOND",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "analyzing data and writing a research report",
     "domain": "STUDY",
-    "mode": "WORK"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "running an experiment to test a hypothesis",
@@ -192,7 +192,7 @@
   {
     "text": "exploring museums while traveling abroad",
     "domain": "STUDY",
-    "mode": "WALK"
+    "mode": "MOTION"
   },
   {
     "text": "letting the bread dough rest and proof",
@@ -209,13 +209,13 @@
   {
     "text": "doing an apprenticeship to learn the trade",
     "domain": "FABRICATE",
-    "mode": "LEARN",
+    "mode": "COGNITION",
     "tier": "hard"
   },
   {
     "text": "following a recipe tutorial to learn cooking technique",
     "domain": "FABRICATE",
-    "mode": "LEARN",
+    "mode": "COGNITION",
     "tier": "hard"
   },
   {
@@ -239,19 +239,19 @@
   {
     "text": "operating a crane to hoist a steel beam on site",
     "domain": "CONSTRUCT",
-    "mode": "LIFT",
+    "mode": "MOTION",
     "tier": "hard"
   },
   {
     "text": "a deep-focus exam cram and study sprint",
     "domain": "STUDY",
-    "mode": "LIFT",
+    "mode": "MOTION",
     "tier": "hard"
   },
   {
     "text": "sollevamento pesi in palestra questa mattina",
     "domain": "HEAL",
-    "mode": "LIFT",
+    "mode": "MOTION",
     "tier": "italian"
   },
   {
@@ -263,7 +263,7 @@
   {
     "text": "camminata all'aperto per restare in salute",
     "domain": "HEAL",
-    "mode": "WALK",
+    "mode": "MOTION",
     "tier": "italian"
   },
   {
@@ -281,19 +281,19 @@
   {
     "text": "pagare le fatture e gestire il bilancio aziendale",
     "domain": "FABRICATE",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
     "text": "riparare l'impianto idraulico con chiave inglese e guarnizioni",
     "domain": "CONSTRUCT",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
     "text": "manutenzione del macchinario: sostituzione del cuscinetto usurato",
     "domain": "CONSTRUCT",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
@@ -311,82 +311,82 @@
   {
     "text": "riunione di coordinamento con il team di produzione",
     "domain": "BOND",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
     "text": "fare da mentore a un collega junior in officina",
     "domain": "BOND",
-    "mode": "LEARN",
+    "mode": "COGNITION",
     "tier": "italian"
   },
   {
     "text": "studiare per un corso serale e imparare in aula",
     "domain": "STUDY",
-    "mode": "LEARN",
+    "mode": "COGNITION",
     "tier": "italian"
   },
   {
     "text": "analizzare i dati di produzione per il report del turno",
     "domain": "STUDY",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
     "text": "pianificare la strategia e la roadmap del progetto con le milestone",
     "domain": "STUDY",
-    "mode": "WORK",
+    "mode": "COMMUNICATION",
     "tier": "italian"
   },
   {
     "text": "tear down the condemned structure with a wrecking crew",
     "domain": "CONSTRUCT",
-    "mode": "DESTROY"
+    "mode": "MAINTAIN"
   },
   {
     "text": "disprove the theory by exposing its logical flaws",
     "domain": "STUDY",
-    "mode": "DESTROY"
+    "mode": "MAINTAIN"
   },
   {
     "text": "check each component against spec using a caliper",
     "domain": "FABRICATE",
-    "mode": "SENSE"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "pick up on how tense everyone felt in the meeting",
     "domain": "BOND",
-    "mode": "SENSE"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "walk the students through the proof on the board",
     "domain": "STUDY",
-    "mode": "GUIDE"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "coach the junior engineer through her first project",
     "domain": "BOND",
-    "mode": "GUIDE"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "kick a ball around the park with friends after work",
     "domain": "HEAL",
-    "mode": "PLAY"
+    "mode": "MOTION"
   },
   {
     "text": "imagine what would happen if gravity reversed, just for fun",
     "domain": "STUDY",
-    "mode": "PLAY"
+    "mode": "MOTION"
   },
   {
     "text": "freewheel a list of possible research directions",
     "domain": "STUDY",
-    "mode": "BRAINSTORM"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "doodle rough massing options for the new wing",
     "domain": "CONSTRUCT",
-    "mode": "BRAINSTORM"
+    "mode": "COMMUNICATION"
   },
   {
     "text": "grease the spindle and swap the worn bearing",
@@ -401,21 +401,21 @@
   {
     "text": "shuttle finished pallets from the cell to shipping",
     "domain": "FABRICATE",
-    "mode": "MOVE"
+    "mode": "MOTION"
   },
   {
     "text": "crane the steel girders over to the foundation",
     "domain": "CONSTRUCT",
-    "mode": "MOVE"
+    "mode": "MOTION"
   },
   {
     "text": "lay out the week's job order and machine sequence",
     "domain": "FABRICATE",
-    "mode": "PLAN"
+    "mode": "COGNITION"
   },
   {
     "text": "draw up the critical path for the renovation",
     "domain": "CONSTRUCT",
-    "mode": "PLAN"
+    "mode": "COGNITION"
   }
 ]
