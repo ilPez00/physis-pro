@@ -65,6 +65,13 @@ pub enum AgentCommand {
         #[arg(long)]
         mode: Option<String>,
     },
+    /// Fold the observation log into the task graph
+    Tasks {
+        /// Observation log (JSONL). Defaults to $PHYSIS_OBSERVATIONS or
+        /// .physis/observations.jsonl
+        #[arg(long)]
+        log: Option<PathBuf>,
+    },
 }
 
 /// Editable settings: command syntax and provider/model configuration.
@@ -2497,6 +2504,31 @@ fn cmd_settings(command: &SettingsCommand) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Read a JSONL observation log. A malformed line is skipped and counted, never
+/// fatal: the log is append-only, and a torn line is a lost record rather than a
+/// lost log.
+fn read_observations(
+    path: &std::path::Path,
+) -> anyhow::Result<Vec<physis_core::observe::Observation>> {
+    let text =
+        std::fs::read_to_string(path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+    let mut out = Vec::new();
+    let mut bad = 0usize;
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<physis_core::observe::Observation>(line) {
+            Ok(o) => out.push(o),
+            Err(_) => bad += 1,
+        }
+    }
+    if bad > 0 {
+        eprintln!("[physis] skipped {bad} unparseable observation line(s)");
+    }
+    Ok(out)
+}
+
 fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
     use physis_pro::agents::{self, adapter, routing};
     let roster = agents::default_roster();
@@ -2612,6 +2644,26 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                     println!("{}", serde_json::to_string_pretty(&s)?);
                 }
             }
+        }
+        AgentCommand::Tasks { log } => {
+            let path = log
+                .clone()
+                .or_else(|| {
+                    std::env::var("PHYSIS_OBSERVATIONS")
+                        .ok()
+                        .filter(|p| !p.is_empty())
+                        .map(PathBuf::from)
+                })
+                .unwrap_or_else(|| PathBuf::from(".physis/observations.jsonl"));
+            let observations = read_observations(&path)?;
+            let graph = physis_pro::agents::tasks::TaskGraph::fold(&observations);
+            eprintln!(
+                "[physis] folded {} observations from {} into {} tasks",
+                observations.len(),
+                path.display(),
+                graph.tasks.len()
+            );
+            print!("{}", graph.render());
         }
         AgentCommand::Route {
             verb,

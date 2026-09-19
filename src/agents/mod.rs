@@ -9,6 +9,7 @@
 
 pub mod adapter;
 pub mod routing;
+pub mod tasks;
 pub mod view;
 
 use serde::{Deserialize, Serialize};
