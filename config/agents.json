@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "agents": [
+    {
+      "id": "jev",
+      "name": "JEV",
+      "kind": "jev",
+      "capabilities": ["reasoning", "critique", "structured-output"],
+      "transport": "zen",
+      "state": "idle",
+      "permissions": {
+        "readable_kinds": ["file", "passage", "concept", "note"],
+        "writable_kinds": [],
+        "allowed_verbs": ["read", "inspect"],
+        "hosts": [],
+        "network": true,
+        "max_cost": 0.0
+      }
+    },
+    {
+      "id": "hermes",
+      "name": "Hermes",
+      "kind": "hermes",
+      "capabilities": ["conversation", "tool-calling", "task-execution"],
+      "transport": "cli",
+      "state": "idle",
+      "permissions": {
+        "readable_kinds": ["file", "passage", "concept", "note"],
+        "writable_kinds": [],
+        "allowed_verbs": ["read", "inspect", "search"],
+        "hosts": [],
+        "network": true,
+        "max_cost": null
+      }
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "kind": "opencode",
+      "capabilities": ["implementation", "refactor"],
+      "transport": "cli",
+      "state": "idle",
+      "permissions": {
+        "readable_kinds": ["file", "passage"],
+        "writable_kinds": ["file"],
+        "allowed_verbs": ["read", "inspect", "write", "execute"],
+        "hosts": [],
+        "network": false,
+        "max_cost": null
+      }
+    },
+    {
+      "id": "verifier",
+      "name": "Verifier",
+      "kind": "verifier",
+      "capabilities": ["tests", "invariants", "schemas"],
+      "transport": "local",
+      "state": "idle",
+      "permissions": {
+        "readable_kinds": ["file", "passage", "concept"],
+        "writable_kinds": [],
+        "allowed_verbs": ["read", "inspect", "execute"],
+        "hosts": [],
+        "network": false,
+        "max_cost": null
+      }
+    },
+    {
+      "id": "local",
+      "name": "Local",
+      "kind": "local",
+      "capabilities": ["classify", "retrieve", "similarity"],
+      "transport": "local",
+      "state": "idle",
+      "permissions": {
+        "readable_kinds": ["file", "passage", "concept", "note"],
+        "writable_kinds": [],
+        "allowed_verbs": ["read", "inspect", "search"],
+        "hosts": [],
+        "network": false,
+        "max_cost": null
+      }
+    }
+  ]
+}

@@ -58,6 +58,7 @@ fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mut prescan = true;
     let mut prescan_only = false;
+    let mut snapshot: Option<(u16, u16)> = None;
     let mut root: Option<PathBuf> = None;
     for a in args.iter().skip(1) {
         match a.as_str() {
@@ -67,11 +68,17 @@ fn main() -> anyhow::Result<()> {
             "--no-prescan" => {
                 prescan = false;
             }
+            "--snapshot" => {
+                snapshot = Some((100, 30));
+            }
             "-h" | "--help" => {
-                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan]");
+                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--snapshot [WxH]]");
                 eprintln!("  default: prescan index + embedding cache, then open the HUD");
                 eprintln!("  --prescan-only: warm the index + caches and exit (no TUI)");
                 eprintln!("  --no-prescan: open on the persisted index as-is (fast restart)");
+                eprintln!(
+                    "  --snapshot [WxH]: render one frame to stdout and exit (no TTY, CI-safe)"
+                );
                 return Ok(());
             }
             _ => {
@@ -91,11 +98,32 @@ fn main() -> anyhow::Result<()> {
     if prescan_only {
         return prescan_only_run(&root);
     }
+    if let Some((w, h)) = snapshot {
+        return snapshot_run(&root, w, h);
+    }
     let app = App::new(root, prescan)?;
     let terminal = enter_tui()?;
     let result = run(terminal, app);
     leave_tui()?;
     result
+}
+
+/// Render one frame through the same `draw` path to a `TestBackend` and print
+/// it. A golden frame in CI cannot drift from what a person sees, because there
+/// is no second renderer. No TTY required.
+fn snapshot_run(root: &Path, w: u16, h: u16) -> anyhow::Result<()> {
+    use ratatui::backend::TestBackend;
+    let app = App::new(root.to_path_buf(), false)?;
+    let backend = TestBackend::new(w, h);
+    let mut terminal = ratatui::Terminal::new(backend)?;
+    terminal.draw(|f| draw(f, &app))?;
+    let buf = terminal.backend().buffer();
+    let width = buf.area.width as usize;
+    for row in buf.content.chunks(width) {
+        let line: String = row.iter().map(|c| c.symbol()).collect();
+        println!("{}", line.trim_end());
+    }
+    Ok(())
 }
 
 /// Scriptable warmup: build the index + embedding cache, print the summary,
@@ -321,6 +349,12 @@ enum HudInput {
     ChangeRoot(String),
     GlobalQuery(String),
     SemanticQuery(String),
+    /// `@agent` or `@agent@host`, with the remaining text as scope/request.
+    AgentCall {
+        agent: String,
+        host: Option<String>,
+        rest: String,
+    },
 }
 
 /// Deterministic mode label for the command box. Inferred from the text, not
@@ -335,6 +369,7 @@ enum HudPromptMode {
     Open,
     Edit,
     Root,
+    Agent,
     Editor,
     Invalid,
 }
@@ -467,6 +502,13 @@ fn parse_hud_input(raw: &str) -> HudInput {
         }
         return HudInput::GlobalQuery(query);
     }
+    // `@` is reserved for agent addressing: `@jev`, `@hermes@omo inspect`.
+    if text.starts_with('@') {
+        if let Some((agent, host, rest)) = physis_pro::agents::parse_agent_address(text) {
+            return HudInput::AgentCall { agent, host, rest };
+        }
+        return HudInput::Invalid("usage: @agent[@host] [request]".into());
+    }
     let (word, rest) = split_command_word(text);
     match word.to_lowercase().as_str() {
         "open" => {
@@ -497,6 +539,21 @@ fn parse_hud_input(raw: &str) -> HudInput {
     }
 }
 
+/// The context an agent card names: the explicit request when present, else the
+/// current query. `None` only when both are empty, so a card never invents a
+/// scope and never silently drops one.
+fn agent_scope(rest: &str, query: &str) -> Option<String> {
+    if !rest.is_empty() {
+        return Some(rest.to_string());
+    }
+    let q = query.trim();
+    if q.is_empty() {
+        None
+    } else {
+        Some(q.to_string())
+    }
+}
+
 fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
     if editor_active {
         return HudPromptMode::Editor;
@@ -509,6 +566,7 @@ fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
         HudInput::Open(_) => HudPromptMode::Open,
         HudInput::Edit(_) => HudPromptMode::Edit,
         HudInput::ChangeRoot(_) => HudPromptMode::Root,
+        HudInput::AgentCall { .. } => HudPromptMode::Agent,
         HudInput::Invalid(_) => HudPromptMode::Invalid,
     }
 }
@@ -522,6 +580,7 @@ fn prompt_mode_label(mode: HudPromptMode) -> &'static str {
         HudPromptMode::Open => "[OPEN]",
         HudPromptMode::Edit => "[EDIT]",
         HudPromptMode::Root => "[ROOT]",
+        HudPromptMode::Agent => "[AGENT]",
         HudPromptMode::Editor => "[EDIT]",
         HudPromptMode::Invalid => "[INPUT]",
     }
@@ -543,7 +602,11 @@ fn prompt_parts(input: &str, editor_active: bool) -> Vec<(PromptPart, String)> {
     let (word, _) = split_command_word(&text);
     let prefix = match parse_hud_input(input) {
         HudInput::Shell(_) => "$ ".to_string(),
-        HudInput::Command(_) | HudInput::Open(_) | HudInput::Edit(_) | HudInput::ChangeRoot(_) => {
+        HudInput::Command(_)
+        | HudInput::Open(_)
+        | HudInput::Edit(_)
+        | HudInput::ChangeRoot(_)
+        | HudInput::AgentCall { .. } => {
             if word.is_empty() {
                 String::new()
             } else {
@@ -559,9 +622,11 @@ fn prompt_parts(input: &str, editor_active: bool) -> Vec<(PromptPart, String)> {
         .unwrap_or(text.as_str())
         .to_string();
     let part = match parse_hud_input(input) {
-        HudInput::Command(_) | HudInput::Open(_) | HudInput::Edit(_) | HudInput::ChangeRoot(_) => {
-            PromptPart::Word
-        }
+        HudInput::Command(_)
+        | HudInput::Open(_)
+        | HudInput::Edit(_)
+        | HudInput::ChangeRoot(_)
+        | HudInput::AgentCall { .. } => PromptPart::Word,
         HudInput::Shell(_) | HudInput::GlobalQuery(_) => PromptPart::Prefix,
         _ => PromptPart::Text,
     };
@@ -1843,6 +1908,28 @@ impl App {
                 self.run_query();
                 false
             }
+            HudInput::AgentCall { agent, host, rest } => {
+                let roster = physis_pro::agents::default_roster();
+                // The pane names its context: the explicit request, else the
+                // current query, so the card is never detached from the world.
+                let scope = agent_scope(&rest, &self.query);
+                let text = match roster.get(&agent) {
+                    Some(a) => {
+                        let mut card =
+                            physis_pro::agents::view::render_agent_card(a, scope.as_deref());
+                        if let Some(h) = &host {
+                            card.push_str(&format!(
+                                "\nrequested host: {h} (remote placement is S12; no call made)"
+                            ));
+                        }
+                        card
+                    }
+                    None => physis_pro::agents::view::render_unknown_agent(&agent, &roster),
+                };
+                self.status = format!("agent @{agent}: card shown, no call made (adapters are S2)");
+                self.reading = Some((format!("@{agent}"), text));
+                false
+            }
         }
     }
 
@@ -2934,6 +3021,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Constraint::Length(1),
             Constraint::Min(7),
             Constraint::Percentage(35),
+            Constraint::Length(1),
             Constraint::Length(5),
         ])
         .split(f.size());
@@ -3236,9 +3324,22 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     ];
     f.render_widget(
         Paragraph::new(lines).block(Block::default().borders(Borders::TOP)),
+        chunks[4],
+    );
+
+    // AGENTS strip (plan S1/S6): who is present and whether they are reachable.
+    // Probed once at startup and cached, so the draw loop never re-walks PATH.
+    f.render_widget(
+        Paragraph::new(AGENTS_STRIP.as_str()).style(Style::default().fg(Color::Gray)),
         chunks[3],
     );
 }
+
+/// The agent roster probe, resolved once. Availability is a property of the
+/// environment (PATH, keys), not of a frame.
+static AGENTS_STRIP: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    physis_pro::agents::view::render_strip(&physis_pro::agents::default_roster())
+});
 
 /// ratatui needs `&mut ListState`; the app keeps its own copy in sync.
 fn list_state_for(app: &App) -> ListState {
@@ -3668,6 +3769,20 @@ mod tests {
     }
 
     #[test]
+    fn agent_scope_prefers_request_then_query() {
+        assert_eq!(
+            agent_scope("inspect this", "auth"),
+            Some("inspect this".into())
+        );
+        assert_eq!(
+            agent_scope("", "auth middleware"),
+            Some("auth middleware".into())
+        );
+        assert_eq!(agent_scope("", "   "), None);
+        assert_eq!(agent_scope("", ""), None);
+    }
+
+    #[test]
     fn command_box_routing_is_deterministic() {
         assert_eq!(parse_hud_input(""), HudInput::Empty);
         assert_eq!(parse_hud_input("   "), HudInput::Empty);
@@ -3687,6 +3802,22 @@ mod tests {
         assert_eq!(
             parse_hud_input("action"),
             HudInput::Invalid("usage: action <verb> <object> [key=value ...]".into())
+        );
+        assert_eq!(
+            parse_hud_input("@jev inspect this"),
+            HudInput::AgentCall {
+                agent: "jev".into(),
+                host: None,
+                rest: "inspect this".into()
+            }
+        );
+        assert_eq!(
+            parse_hud_input("@hermes@omo inspect worker"),
+            HudInput::AgentCall {
+                agent: "hermes".into(),
+                host: Some("omo".into()),
+                rest: "inspect worker".into()
+            }
         );
         assert_eq!(
             parse_hud_input(":context"),
