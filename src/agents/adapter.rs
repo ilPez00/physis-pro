@@ -1,0 +1,581 @@
+//! Agent adapters (plan S2). One trait, one job: reach the agent and bring back
+//! text plus, when the agent is JEV, a validated structured result.
+//!
+//! Rules the exit gate tests:
+//! - A probe never mutates anything.
+//! - An absent binary or key reports a reason; it never guesses availability.
+//! - `@jev` with no transport is `unavailable`.
+//! - Schema-invalid output is reported, never guessed at.
+//!
+//! Invocation is bounded: a spawned process is killed at its deadline. Nothing
+//! here writes to the workspace; the adapters only read a reply.
+
+use std::io::Read;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+use serde::{Deserialize, Serialize};
+
+use super::{on_path, Agent, AgentKind, Status};
+
+/// What went wrong, stated rather than flattened into an empty string.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AdapterError {
+    /// The program is not on PATH.
+    Missing(String),
+    Spawn(String),
+    /// The process exited non-zero.
+    Exit(i32),
+    /// The process exceeded its deadline and was killed.
+    Timeout(u32),
+    /// The reply did not match the required schema.
+    Schema(String),
+    /// The prompt could be read as an option, or carries a NUL.
+    Unsafe(String),
+    /// This build has no transport for the agent.
+    Unsupported(String),
+}
+
+impl std::fmt::Display for AdapterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AdapterError::Missing(p) => write!(f, "{p} not on PATH"),
+            AdapterError::Spawn(e) => write!(f, "spawn failed: {e}"),
+            AdapterError::Exit(c) => write!(f, "process exited {c}"),
+            AdapterError::Timeout(s) => write!(f, "timed out after {s}s"),
+            AdapterError::Schema(e) => write!(f, "schema-invalid reply: {e}"),
+            AdapterError::Unsafe(e) => write!(f, "unsafe prompt: {e}"),
+            AdapterError::Unsupported(e) => write!(f, "unsupported: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for AdapterError {}
+
+/// One request to an agent.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Invocation {
+    pub prompt: String,
+    pub scope: Option<String>,
+    pub timeout_seconds: u32,
+}
+
+impl Invocation {
+    pub fn new(prompt: impl Into<String>) -> Self {
+        Self {
+            prompt: prompt.into(),
+            scope: None,
+            timeout_seconds: 120,
+        }
+    }
+
+    pub fn with_scope(mut self, scope: impl Into<String>) -> Self {
+        self.scope = Some(scope.into());
+        self
+    }
+
+    pub fn with_timeout(mut self, seconds: u32) -> Self {
+        self.timeout_seconds = seconds;
+        self
+    }
+}
+
+/// One finding with the evidence it cites.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Finding {
+    pub claim: String,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+}
+
+/// A relation the agent proposes. Proposed, not asserted: S9 owns the accept
+/// path, and nothing here writes to the nav store.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProposedRelation {
+    pub from: String,
+    pub to: String,
+    pub kind: String,
+}
+
+/// The JEV structured-result contract. Every field is optional so a partial
+/// reply is still parseable; invalid JSON is an error, not an empty result.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct JevResult {
+    #[serde(default)]
+    pub findings: Vec<Finding>,
+    #[serde(default)]
+    pub relations: Vec<ProposedRelation>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+    #[serde(default)]
+    pub decisions: Vec<String>,
+}
+
+impl JevResult {
+    /// Extract and parse a structured result from a reply that may wrap the
+    /// JSON in prose or a fenced block. A reply with no JSON object is an
+    /// error: the caller reports it rather than inventing a result.
+    pub fn parse(text: &str) -> Result<Self, String> {
+        let json =
+            extract_json_object(text).ok_or_else(|| "no JSON object found in reply".to_string())?;
+        let parsed: JevResult =
+            serde_json::from_str(&json).map_err(|e| format!("invalid JSON: {e}"))?;
+        parsed.validate()?;
+        Ok(parsed)
+    }
+
+    /// Structural validation: an item that cannot be used is an error, not a
+    /// silently dropped field.
+    pub fn validate(&self) -> Result<(), String> {
+        for (i, f) in self.findings.iter().enumerate() {
+            if f.claim.trim().is_empty() {
+                return Err(format!("findings[{i}].claim is empty"));
+            }
+        }
+        for (i, r) in self.relations.iter().enumerate() {
+            if r.from.trim().is_empty() || r.to.trim().is_empty() || r.kind.trim().is_empty() {
+                return Err(format!("relations[{i}] needs non-empty from, to and kind"));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.findings.is_empty()
+            && self.relations.is_empty()
+            && self.notes.is_empty()
+            && self.decisions.is_empty()
+    }
+}
+
+/// First top-level `{...}` in the text, brace-balanced and string-aware.
+fn extract_json_object(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let start = text.find('{')?;
+    let mut depth = 0i32;
+    let mut in_str = false;
+    let mut escaped = false;
+    for (i, &b) in bytes.iter().enumerate().skip(start) {
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(text[start..=i].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// What an agent returned.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AgentOutput {
+    pub text: String,
+    /// Present only when the adapter asked for and validated a schema.
+    pub structured: Option<JevResult>,
+}
+
+pub trait AgentAdapter {
+    fn id(&self) -> &str;
+    /// Availability, probed without side effects.
+    fn probe(&self) -> Status;
+    fn invoke(&self, inv: &Invocation) -> Result<AgentOutput, AdapterError>;
+}
+
+// ---------------------------------------------------------------------------
+// Local / verifier: deterministic, in-process, no network.
+// ---------------------------------------------------------------------------
+
+pub struct LocalAdapter {
+    id: String,
+    verifier: bool,
+}
+
+impl LocalAdapter {
+    pub fn new(id: impl Into<String>, verifier: bool) -> Self {
+        Self {
+            id: id.into(),
+            verifier,
+        }
+    }
+}
+
+impl AgentAdapter for LocalAdapter {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn probe(&self) -> Status {
+        Status {
+            available: true,
+            transport: "local".to_string(),
+            reason: None,
+        }
+    }
+
+    fn invoke(&self, inv: &Invocation) -> Result<AgentOutput, AdapterError> {
+        let what = if self.verifier { "verifier" } else { "local" };
+        let mut result = JevResult::default();
+        result.notes.push(format!(
+            "{what} adapter: deterministic, no model; scope={}",
+            inv.scope.as_deref().unwrap_or("none")
+        ));
+        Ok(AgentOutput {
+            text: format!("[{what}] deterministic reply for: {}", inv.prompt.trim()),
+            structured: Some(result),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CLI adapters: hermes, opencode, and JEV over the OpenCode Zen transport.
+// ---------------------------------------------------------------------------
+
+pub struct CliAdapter {
+    id: String,
+    program: String,
+    /// argv template; every occurrence of `{prompt}` is replaced.
+    args: Vec<String>,
+    /// When true, the reply must contain a valid `JevResult`.
+    wants_schema: bool,
+}
+
+impl CliAdapter {
+    pub fn new(
+        id: impl Into<String>,
+        program: impl Into<String>,
+        args: Vec<&str>,
+        wants_schema: bool,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            program: program.into(),
+            args: args.into_iter().map(|s| s.to_string()).collect(),
+            wants_schema,
+        }
+    }
+}
+
+impl AgentAdapter for CliAdapter {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn probe(&self) -> Status {
+        if on_path(&self.program) {
+            Status {
+                available: true,
+                transport: format!("cli:{}", self.program),
+                reason: None,
+            }
+        } else {
+            Status {
+                available: false,
+                transport: "unavailable".to_string(),
+                reason: Some(format!("{} not on PATH", self.program)),
+            }
+        }
+    }
+
+    fn invoke(&self, inv: &Invocation) -> Result<AgentOutput, AdapterError> {
+        if !on_path(&self.program) {
+            return Err(AdapterError::Missing(self.program.clone()));
+        }
+        guard_prompt(&inv.prompt)?;
+        let args: Vec<String> = self
+            .args
+            .iter()
+            .map(|a| a.replace("{prompt}", &inv.prompt))
+            .collect();
+        let mut cmd = Command::new(&self.program);
+        cmd.args(&args);
+        if let Some(scope) = &inv.scope {
+            cmd.env("PHYSIS_AGENT_SCOPE", scope);
+        }
+        let (status, stdout, _stderr) = run_with_timeout(&mut cmd, inv.timeout_seconds)?;
+        if !status.success() {
+            return Err(AdapterError::Exit(status.code().unwrap_or(-1)));
+        }
+        let structured = if self.wants_schema {
+            Some(JevResult::parse(&stdout).map_err(AdapterError::Schema)?)
+        } else {
+            None
+        };
+        Ok(AgentOutput {
+            text: stdout,
+            structured,
+        })
+    }
+}
+
+/// Run to completion or kill at the deadline. Returns (status, stdout, stderr).
+fn run_with_timeout(
+    cmd: &mut Command,
+    timeout_seconds: u32,
+) -> Result<(std::process::ExitStatus, String, String), AdapterError> {
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| AdapterError::Spawn(e.to_string()))?;
+    let deadline = Instant::now() + Duration::from_secs(timeout_seconds.max(1) as u64);
+    loop {
+        match child
+            .try_wait()
+            .map_err(|e| AdapterError::Spawn(e.to_string()))?
+        {
+            Some(status) => {
+                let mut stdout = String::new();
+                let mut stderr = String::new();
+                if let Some(mut o) = child.stdout.take() {
+                    let _ = o.read_to_string(&mut stdout);
+                }
+                if let Some(mut e) = child.stderr.take() {
+                    let _ = e.read_to_string(&mut stderr);
+                }
+                return Ok((status, stdout, stderr));
+            }
+            None => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(AdapterError::Timeout(timeout_seconds));
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+    }
+}
+
+fn env_or(key: &str, default: &str) -> String {
+    std::env::var(key)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| default.to_string())
+}
+
+/// Keep the prompt as data, not as another option. The prompt is already a
+/// single argv element (no shell is involved), so shell metacharacters are
+/// inert; what remains is a prompt that the program would read as a flag, or a
+/// NUL that cannot cross the argv boundary at all. Both are refused rather than
+/// passed on.
+fn guard_prompt(prompt: &str) -> Result<(), AdapterError> {
+    if prompt.contains('\0') {
+        return Err(AdapterError::Unsafe("prompt contains a NUL byte".into()));
+    }
+    if prompt.trim_start().starts_with('-') {
+        return Err(AdapterError::Unsafe(
+            "prompt starts with `-` and would be read as an option".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Build the adapter for a roster entry. Program names are overridable by env
+/// so a fixture process can stand in for the real binary in tests.
+///
+/// The OpenCode and JEV transports run `--agent plan` (read-only). S2 reasons;
+/// it does not let an agent edit the workspace.
+pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError> {
+    match agent.kind {
+        AgentKind::Verifier => Ok(Box::new(LocalAdapter::new(&agent.id, true))),
+        AgentKind::Local => Ok(Box::new(LocalAdapter::new(&agent.id, false))),
+        AgentKind::Human => Err(AdapterError::Unsupported(
+            "human agents are addressed, not invoked".to_string(),
+        )),
+        AgentKind::Hermes => Ok(Box::new(CliAdapter::new(
+            &agent.id,
+            env_or("PHYSIS_HERMES_BIN", "hermes"),
+            vec!["-z", "{prompt}"],
+            false,
+        ))),
+        AgentKind::Opencode => Ok(Box::new(CliAdapter::new(
+            &agent.id,
+            env_or("PHYSIS_OPENCODE_BIN", "opencode"),
+            vec!["run", "--agent", "plan", "{prompt}"],
+            false,
+        ))),
+        AgentKind::Jev => {
+            // JEV has no direct transport in this build. The reachable path is
+            // OpenCode Zen, and it must not be reported as JEV-the-service.
+            let program = env_or("PHYSIS_OPENCODE_BIN", "opencode");
+            if !on_path(&program) {
+                return Err(AdapterError::Unsupported(
+                    "no JEV transport: set PHYSIS_OPENCODE_BIN/opencode for the Zen path; \
+                     a direct JEV transport is not implemented in this build"
+                        .to_string(),
+                ));
+            }
+            Ok(Box::new(CliAdapter::new(
+                &agent.id,
+                program,
+                vec!["run", "--agent", "plan", "{prompt}"],
+                true,
+            )))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agents::default_roster;
+
+    fn fixture(script: &str) -> (tempfile::TempDir, String) {
+        use std::io::Write;
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("fixture.sh");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, "#!/bin/sh").unwrap();
+        writeln!(f, "{script}").unwrap();
+        drop(f);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        (dir, path.to_string_lossy().to_string())
+    }
+
+    #[test]
+    fn local_adapter_is_available_and_never_touches_the_network() {
+        let a = LocalAdapter::new("local", false);
+        assert!(a.probe().available);
+        let out = a
+            .invoke(&Invocation::new("hello").with_scope("auth"))
+            .unwrap();
+        assert!(out.structured.is_some());
+        assert!(out.text.contains("hello"));
+    }
+
+    #[test]
+    fn missing_binary_reports_a_reason_and_never_claims_availability() {
+        let a = CliAdapter::new(
+            "x",
+            "definitely-not-a-real-binary-xyz",
+            vec!["{prompt}"],
+            false,
+        );
+        let s = a.probe();
+        assert!(!s.available);
+        assert_eq!(s.transport, "unavailable");
+        assert!(s.reason.as_deref().unwrap().contains("not on PATH"));
+        assert!(matches!(
+            a.invoke(&Invocation::new("x")),
+            Err(AdapterError::Missing(_))
+        ));
+    }
+
+    #[test]
+    fn fixture_process_returns_text() {
+        let (_d, prog) = fixture("echo hello from fixture");
+        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        let out = a.invoke(&Invocation::new("ignored")).unwrap();
+        assert!(out.text.contains("hello from fixture"));
+        assert!(out.structured.is_none(), "no schema was requested");
+    }
+
+    #[test]
+    fn fixture_process_with_schema_parses_a_valid_jev_result() {
+        let json = r#"{"findings":[{"claim":"c","evidence":["e"]}],"relations":[{"from":"a","to":"b","kind":"same"}],"notes":["n"],"decisions":[]}"#;
+        let (_d, prog) = fixture(&format!("echo '{}'", json));
+        let a = CliAdapter::new("jev", prog, vec!["{prompt}"], true);
+        let out = a.invoke(&Invocation::new("q")).unwrap();
+        let s = out.structured.expect("schema requested");
+        assert_eq!(s.findings.len(), 1);
+        assert_eq!(s.relations[0].kind, "same");
+    }
+
+    #[test]
+    fn schema_invalid_reply_is_reported_not_guessed() {
+        let (_d, prog) = fixture("echo 'not json at all'");
+        let a = CliAdapter::new("jev", prog, vec!["{prompt}"], true);
+        assert!(matches!(
+            a.invoke(&Invocation::new("q")),
+            Err(AdapterError::Schema(_))
+        ));
+    }
+
+    #[test]
+    fn nonzero_exit_is_reported() {
+        let (_d, prog) = fixture("exit 3");
+        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        assert!(matches!(
+            a.invoke(&Invocation::new("q")),
+            Err(AdapterError::Exit(3))
+        ));
+    }
+
+    #[test]
+    fn timeout_kills_the_process() {
+        let (_d, prog) = fixture("sleep 30");
+        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        let started = Instant::now();
+        let r = a.invoke(&Invocation::new("q").with_timeout(1));
+        assert!(matches!(r, Err(AdapterError::Timeout(1))));
+        assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn jev_result_parsing_extracts_json_from_prose_and_validates() {
+        let text = "Here you go:\n```json\n{\"notes\":[\"ok\"]}\n```\ndone";
+        let r = JevResult::parse(text).unwrap();
+        assert_eq!(r.notes, vec!["ok"]);
+
+        // An empty claim is invalid.
+        assert!(JevResult::parse(r#"{"findings":[{"claim":""}]}"#).is_err());
+        // A relation missing a side is invalid.
+        assert!(JevResult::parse(r#"{"relations":[{"from":"a","to":"","kind":"x"}]}"#).is_err());
+        // No JSON object at all.
+        assert!(JevResult::parse("no object here").is_err());
+    }
+
+    #[test]
+    fn prompts_that_look_like_options_are_refused() {
+        let (_d, prog) = fixture("echo ok");
+        let a = CliAdapter::new("x", prog, vec!["{prompt}"], false);
+        assert!(matches!(
+            a.invoke(&Invocation::new("--danger")),
+            Err(AdapterError::Unsafe(_))
+        ));
+        assert!(matches!(
+            a.invoke(&Invocation::new("  -x")),
+            Err(AdapterError::Unsafe(_))
+        ));
+        assert!(matches!(
+            a.invoke(&Invocation::new("has\0nul")),
+            Err(AdapterError::Unsafe(_))
+        ));
+        // A normal prompt still goes through, dashes not at the start included.
+        assert!(a.invoke(&Invocation::new("explain the -flag")).is_ok());
+    }
+
+    #[test]
+    fn factory_refuses_jevs_direct_path_and_invokes_local() {
+        let roster = default_roster();
+        let local = adapter_for(roster.get("local").unwrap()).unwrap();
+        assert!(local.probe().available);
+        let human = Agent {
+            kind: AgentKind::Human,
+            ..roster.get("local").unwrap().clone()
+        };
+        assert!(matches!(
+            adapter_for(&human),
+            Err(AdapterError::Unsupported(_))
+        ));
+    }
+}

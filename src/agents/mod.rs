@@ -7,6 +7,8 @@
 //! honestly from the environment, so an absent binary or key reports a reason
 //! rather than a silent success.
 
+pub mod adapter;
+pub mod routing;
 pub mod view;
 
 use serde::{Deserialize, Serialize};
@@ -146,7 +148,7 @@ pub struct Status {
 }
 
 /// Is `bin` on PATH? No subprocess: split PATH and stat.
-fn on_path(bin: &str) -> bool {
+pub(crate) fn on_path(bin: &str) -> bool {
     std::env::var_os("PATH")
         .map(|paths| std::env::split_paths(&paths).any(|p| p.join(bin).is_file()))
         .unwrap_or(false)
@@ -159,24 +161,19 @@ fn jev_zen_model() -> String {
         .unwrap_or_else(|| "oczen/laguna-s-2.1-free".to_string())
 }
 
-fn jev_key_present() -> bool {
-    ["JEV_API_KEY", "PHYSIS_JEV_API_KEY"]
-        .iter()
-        .any(|k| std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false))
-}
-
 /// Probe what is actually reachable for this agent. Pure with respect to the
 /// process environment: no side effects, no mutation.
 pub fn status(agent: &Agent) -> Status {
     match agent.kind {
         AgentKind::Jev => {
-            if jev_key_present() {
-                Status {
-                    available: true,
-                    transport: format!("jev:{}", agent.model.clone().unwrap_or_else(jev_zen_model)),
-                    reason: None,
-                }
-            } else if on_path("opencode") {
+            // The reachable path is OpenCode Zen. A direct JEV key is configured
+            // but this build has no direct transport, so the key alone is not
+            // reported as a working transport.
+            let program = std::env::var("PHYSIS_OPENCODE_BIN")
+                .ok()
+                .filter(|p| !p.is_empty())
+                .unwrap_or_else(|| "opencode".to_string());
+            if on_path(&program) {
                 Status {
                     available: true,
                     transport: format!("zen:{}", jev_zen_model()),
@@ -186,7 +183,11 @@ pub fn status(agent: &Agent) -> Status {
                 Status {
                     available: false,
                     transport: "unavailable".to_string(),
-                    reason: Some("no JEV key and no opencode on PATH".to_string()),
+                    reason: Some(
+                        "no JEV transport: opencode not on PATH and a direct JEV transport \
+                         is not implemented in this build"
+                            .to_string(),
+                    ),
                 }
             }
         }

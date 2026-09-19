@@ -32,6 +32,28 @@ pub enum ActionCommand {
     Call { line: Vec<String> },
 }
 
+/// The agent surface: who is in the roster, and which one answers a request.
+#[derive(Subcommand)]
+pub enum AgentCommand {
+    /// List the roster with probed availability
+    List,
+    /// Show one agent's card
+    Show { id: String },
+    /// Invoke an agent: `agent call <id> <prompt...>`
+    Call { id: String, prompt: Vec<String> },
+    /// Route a request: `agent route <verb> <object-kind> [--agent ID] [--domain D] [--mode M]`
+    Route {
+        verb: String,
+        object_kind: String,
+        #[arg(long)]
+        agent: Option<String>,
+        #[arg(long)]
+        domain: Option<String>,
+        #[arg(long)]
+        mode: Option<String>,
+    },
+}
+
 #[derive(Parser)]
 #[command(
     name = "physis-pro",
@@ -63,6 +85,11 @@ pub enum Commands {
     Action {
         #[command(subcommand)]
         command: ActionCommand,
+    },
+    /// Agent roster, adapters and routing ladder
+    Agent {
+        #[command(subcommand)]
+        command: AgentCommand,
     },
     /// Generate stochastic dreams
     Dream {
@@ -1391,6 +1418,10 @@ fn main() -> anyhow::Result<()> {
         return cmd_action(command);
     }
 
+    if let Commands::Agent { command } = &cli.command {
+        return cmd_agent(command);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1403,6 +1434,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Action { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Agent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2377,6 +2409,62 @@ print(json.dumps({{
         }
     }
 
+    Ok(())
+}
+
+fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
+    use physis_pro::agents::{self, adapter, routing};
+    let roster = agents::default_roster();
+    match command {
+        AgentCommand::List => {
+            for a in &roster.agents {
+                let s = agents::status(a);
+                let dot = if s.available { "●" } else { "○" };
+                println!(
+                    "{dot} {:<10} {:<8} {:<28} {}",
+                    a.id,
+                    a.state.label(),
+                    s.transport,
+                    s.reason.as_deref().unwrap_or("")
+                );
+            }
+        }
+        AgentCommand::Show { id } => match roster.get(id) {
+            Some(a) => println!("{}", agents::view::render_agent_card(a, None)),
+            None => anyhow::bail!("no such agent: @{id}"),
+        },
+        AgentCommand::Call { id, prompt } => {
+            let agent = roster
+                .get(id)
+                .ok_or_else(|| anyhow::anyhow!("no such agent: @{id}"))?;
+            let adapter = adapter::adapter_for(agent).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let out = adapter
+                .invoke(&adapter::Invocation::new(prompt.join(" ")))
+                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            println!("{}", out.text);
+            if let Some(s) = out.structured {
+                println!("{}", serde_json::to_string_pretty(&s)?);
+            }
+        }
+        AgentCommand::Route {
+            verb,
+            object_kind,
+            agent,
+            domain,
+            mode,
+        } => {
+            let caps = physis_pro::capability::default_capabilities();
+            let table = physis_pro::routes::RouteTable::new();
+            let mut req = routing::RouteRequest::new(verb, object_kind);
+            if let Some(a) = agent {
+                req = req.with_agent(a);
+            }
+            if let Some(d) = domain {
+                req = req.with_region(d, mode.as_deref());
+            }
+            println!("{}", routing::choose(&roster, &caps, &table, &req).render());
+        }
+    }
     Ok(())
 }
 
