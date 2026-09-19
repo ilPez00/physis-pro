@@ -506,8 +506,24 @@ pub fn select_facts(field: &str, subject: Option<&str>, facts: &[FactView]) -> V
     if key.is_empty() {
         return Vec::new();
     }
-    let tokens: Vec<&str> = key.split('_').filter(|t| !t.is_empty()).collect();
     let subject = subject.map(normalize_key);
+
+    // Exact structural identity dominates a broader token match. Without this,
+    // asking for cpu_temperature also selects cpu_tccd1_temperature and
+    // turns a precise canonical reading into a false ambiguity.
+    let exact: Vec<FactView> = facts
+        .iter()
+        .filter(|f| {
+            subject_matches(subject.as_deref(), f)
+                && (f.key == key || normalize_key(&f.display_key) == key)
+        })
+        .cloned()
+        .collect();
+    if !exact.is_empty() {
+        return exact;
+    }
+
+    let tokens: Vec<&str> = key.split('_').filter(|t| !t.is_empty()).collect();
     facts
         .iter()
         .filter(|f| key_matches(&key, &tokens, f) && subject_matches(subject.as_deref(), f))
@@ -776,6 +792,21 @@ mod tests {
         match answer_fact("what is temperature?", &facts) {
             FactAnswer::Ambiguous(fs) => assert_eq!(fs.len(), 2),
             other => panic!("expected ambiguity, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn exact_key_outranks_broader_token_subset() {
+        let facts = vec![
+            fact("cpu_temperature", "79.5 °C", "pansa", at(12, 0)),
+            fact("cpu_tccd1_temperature", "78.2 °C", "pansa", at(12, 0)),
+        ];
+        match answer_fact("what is CPU temperature?", &facts) {
+            FactAnswer::One(f) => {
+                assert_eq!(f.key, "cpu_temperature");
+                assert_eq!(f.value, "79.5 °C");
+            }
+            other => panic!("expected exact canonical fact, got {other:?}"),
         }
     }
 
