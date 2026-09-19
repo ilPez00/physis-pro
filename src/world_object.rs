@@ -24,6 +24,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use physis_core::models::CoherenceNode;
 use std::path::Path;
 
 /// Stable identity of a world object. Namespaced by the store that minted it,
@@ -254,6 +255,28 @@ impl WorldObject {
         obj
     }
 
+    /// Project an engine node into a world object. The join between the
+    /// engine's stored state and the one object the TUI navigates.
+    ///
+    /// Edges are *not* added here: they live in the holarchy, not on the node,
+    /// so the caller supplies them. This maps what the node owns — identity,
+    /// label, the two coherence axes, the pinned cell, the embedder and the
+    /// vector.
+    pub fn from_coherence_node(node: &CoherenceNode) -> Self {
+        let content = node.label.clone().unwrap_or_else(|| node.id.clone());
+        let provenance = match &node.embedder {
+            Some(e) => Provenance::deterministic(format!("embed:{e}")),
+            None => Provenance::deterministic("operator:core-node"),
+        };
+        let mut obj = Self::new(format!("core:node:{}", node.id), ObjectKind::Concept, content)
+            .with_provenance(provenance);
+        obj.state.coherence = Some(node.coherence_score);
+        obj.state.asserted = node.asserted;
+        obj.state.cell = node.cell_pin.clone();
+        obj.semantic_position = Some(node.embedding.clone());
+        obj
+    }
+
     /// Plain-text lines for the TUI stream. Kept UI-agnostic on purpose: the
     /// library must not depend on ratatui, and a line list is testable without
     /// a terminal.
@@ -346,6 +369,30 @@ mod tests {
         assert_eq!(obj.provenance.route, Route::Deterministic);
         assert!(obj.identity.starts_with("fs:"));
         assert!(obj.relations_of(RelationKind::Contains).count() > 0);
+    }
+
+    #[test]
+    fn an_engine_node_projects_to_a_world_object() {
+        let node = CoherenceNode {
+            id: "7f3a".into(),
+            embedding: vec![0.1, 0.2, 0.3],
+            coherence_score: 0.42,
+            asserted: Some(-1.0),
+            label: Some("sled vs postgres".into()),
+            cell_pin: Some(("storage".into(), "decision".into())),
+            embedder: Some("bge-base".into()),
+            previous_coherence_state: None,
+            self_model_version: 0,
+            preference: None,
+        };
+        let obj = WorldObject::from_coherence_node(&node);
+        assert_eq!(obj.identity, "core:node:7f3a");
+        assert_eq!(obj.content, "sled vs postgres");
+        assert_eq!(obj.provenance_chain(), "route=deterministic source=embed:bge-base");
+        assert_eq!(obj.state.coherence, Some(0.42));
+        assert_eq!(obj.state.asserted, Some(-1.0));
+        assert_eq!(obj.state.cell, Some(("storage".into(), "decision".into())));
+        assert_eq!(obj.semantic_position, Some(vec![0.1, 0.2, 0.3]));
     }
 
     #[test]
