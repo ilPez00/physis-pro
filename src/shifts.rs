@@ -791,7 +791,19 @@ CNC-03,28800,0,100,90
         }
 
         // Reopening the store must not lose the persisted history.
-        let db = sled::Config::new().path(&path).open().unwrap();
+        // Retry on lock contention: under full-suite parallel load the
+        // dropped handle's flock can linger briefly (PH-010 flake).
+        let mut attempt = 0;
+        let db = loop {
+            match sled::Config::new().path(&path).open() {
+                Ok(db) => break db,
+                Err(_) if attempt < 20 => {
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(e) => panic!("reopen failed after retry: {e}"),
+            }
+        };
         assert_eq!(load_shifts(&db, "alice").len(), HISTORY_CAP);
         assert_eq!(load_shifts(&db, "bob").len(), 1);
     }

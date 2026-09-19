@@ -2,7 +2,7 @@
 id: PH-010
 track: physis
 phase: 2
-status: todo
+status: done
 rung: 2
 depends: [PH-001, PH-003, PH-007]
 gate: "bash scripts/release-check.sh && git tag --list 'v*' | wc -l"
