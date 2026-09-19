@@ -5,9 +5,11 @@ read physis_resources.txt
 
 ## Active development cycle — 2026-09-16 to 2026-09-29
 
-See [Core and Pro: the next ten development days](docs/plans/2026-09-15-core-pro-development.md)
+See [Core and Pro: the next ten development days](docs/plans/2026-09-18-agentic-workspace.md)
 for the current two-project boundary, daily implementation pseudocode, research
-experiments, acceptance gates and scope cuts. Pro owns application features;
+experiments, acceptance gates and scope cuts. (The 2026-09-15 doc this line
+once named was never committed; the 09-18 agentic-workspace plan is the live
+programme — corrected 2026-09-19.) Pro owns application features;
 Core remains the reusable engine with a small CLI/JSON interface. This cycle
 supersedes older three-project split proposals for implementation planning.
 
@@ -935,6 +937,14 @@ Status was re-measured 2026-09-11 on `research/perspective-invention`:
 
 Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 (eats the known test flake that otherwise poisons every full gate).
+
+> Re-measured 2026-09-19 (PH-011 sweep; the 2026-09-11 rows above are history,
+> not rewritten): PH-002 done, PH-003 done, PH-005 done, PH-006 blocked
+> (PH-001 features decision missing), PH-007 done, PH-008 done, PH-009 done
+> (suite 790 s → 105 s), PH-010 done (tag pending go-ahead), PH-011 in
+> progress, PH-014 done, PH-016 done, PH-017–PH-020 done, PH-021 review,
+> PH-022 review, PH-023 todo (gate unmet, no local NLI server). Next in
+> queue: PH-011 → PH-012 → PH-013 → PH-015.
 
 ## Plan Index & Reconciled Status
 

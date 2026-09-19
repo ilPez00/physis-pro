@@ -2,7 +2,7 @@
 id: PH-011
 track: physis
 phase: 2
-status: todo
+status: done
 rung: 2
 depends: [PH-000]
 gate: "test -f packets/reports/PH-011.md && ! grep -rn 'TODO verify' docs/ PLAN.md | wc -l | awk '{exit ($1>0)?0:1}' 2>/dev/null || test $? -eq 1"

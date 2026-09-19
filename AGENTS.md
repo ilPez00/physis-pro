@@ -24,8 +24,7 @@ crystallization plans retain historical designs but defer to this programme.
 Planned acceptance gates are not shipped capabilities.
 All development happens via randomesh ssh connection on machine pansa (192.168.1.15).
 Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed
-on the pansa machine through the randomesh framework. See `today_pansa.log` for
-details on the omo vs pansa distinction.
+on the pansa machine through the randomesh framework.
 
 ## Dogfooding (docs/PHYSIS_DEV_LOOP.md)
 Codex and OpenCode expose the workspace service (now Pro's
@@ -88,7 +87,9 @@ dream core. README → "Multimodal Sensory" has the full picture.
   graph UI on `:3000`. **Folds in the standalone `physis_voice` repo** (now
   superseded; keep for reference only).
 - **Images** — `embed_image()` on `embed/clip.rs` + `embed/jina.rs`; `/classify`
-  and `/embed` accept base64 `image`, fall back to text on failure (never 500).
+  and `/embed` accept base64 `image`, resolved via the registry image slot
+  then the text embedder's own capability — 503 + reason when neither can
+  (PH-008; the old silent text fallback is gone).
 - **Video** — implemented in `src/video.rs`, exposed by `/api/v1/embed/video`:
   ffmpeg frame sampling → image embeddings → pooling. Availability depends on
   build features, backend and ffmpeg; source presence is not deployment proof.
@@ -110,18 +111,18 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 
 | Module | File | Description |
 |--------|------|-------------|
-| Quality | `quality.rs` | `QualityTracker` — `report_failure()`, `report_success()`, `save()`, `load()`. Persists 384-dim embeddings to `~/.physis/quality_failures.json`. 6 tests |
+| Quality | `quality.rs` | `QualityTracker` — `report_failure()`, `report_success()`, `save()`, `load()`. Persists 384-dim embeddings to `~/.physis/quality_failures.json`. 19 tests |
 | Wiki | `wiki.rs` | `llmwiki` CLI fallback with recursive grep fallback |
-| Industrial | `industrial.rs` | `MachineAdapter` trait, `MachineReading`, `ProcessAnomaly`, `detect_anomalies`, stub `MqttAdapter`. 4 tests |
-| Ingest | `ingest.rs` | `DocKind`, `IngestedDoc`, `classify_file()`, `ingest_all()`, `sort_by_kind()`. 4 tests |
-| Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 8 tests |
+| Industrial | `industrial.rs` | `MachineAdapter` trait, `MachineReading`, `ProcessAnomaly`, `detect_anomalies`, stub `MqttAdapter`. 16 tests |
+| Ingest | `ingest.rs` | `DocKind`, `IngestedDoc`, `classify_file()`, `ingest_all()`, `sort_by_kind()`. 8 tests |
+| Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 13 tests |
 | Semiotic editing | `core.rs` + `web.rs` | **Exchange-parts edit**: `PhysisCore::edit_node()`/`delete_node()` swap node content while preserving structure (id/verdict/edges/provenance); `CoherenceNode.cell_pin` hybrid-pin semantics. API: `POST /api/v1/coherence/edit` + `/delete`. CLI: `node-edit`/`node-delete`. See `docs/SEMIOTIC_EDITING.md` |
 | Semantic navigation | `nav/` + `bin/hud.rs` | **Function 3 MVP**: meaning-first navigation over content-hashed objects (file/passage/note) with hybrid ranking (semantic+lexical+recency+context+pin/relation), per-component `why:` explanations, pins + SAME/DIFFERENT/RELATED relations with provenance (`User`/`Deterministic`/`Inferred` — never collapsed), plural semantic parents, nav trail, graph dual view (`g` in HUD). Frontends program against `nav::workspace::NavWorkspace` (hot-swap seam: index+sled+lazy embedder behind one façade). HUD `physis-hud` (`--features tui`) is the shipped frontend; `physis-pro nav …` is the P2 target CLI surface (no `nav` subcommand in the 2026-09-18 binary — see `docs/SEMANTIC_NAVIGATION.md` status note). Index = per-root JSON file (NOT sled — blob-growth measured: 5 GB of unreclaimed blobs); embeddings via shared `pack::EmbedCache`. Degraded lexical-only mode reported, never silent. Local updates: `just update` (`scripts/physis-update.sh`, smoke+backup+rollback). See `docs/SEMANTIC_NAVIGATION.md` |
 | Physis Studio (demo TUI) | `bin/studio.rs` + `diff.rs` + `machines/demos.rs` | **One demo product, offline-first**: STATUS · GRAPH (category→theme→files→related, off `theme_graph.json`) · NOTEBOOK (cited answers over the graph's corpus via `ported::notebook::answer`; tier/`degraded`/backend always shown) · DIFF (line + word hunks from the in-repo `diff` engine; review-only until S3 wires `edit_node`/quality) · MACHINES (`machines::demos::run`, now library code instead of a third private copy) · CONFIG (same five knobs + file as `physis-pro-tui`). `--snapshot [TAB]` renders a real frame through the same `draw()` path (TestBackend) for CI/docs; `--left/--right` open on DIFF. Plan: `docs/plans/2026-09-18-studio-tui-demo.md` |
 | Fixed-token search | `web.rs` + `rag.rs` | `POST /api/v1/search/nodes` + CLI `node-search` — budget-bounded similarity search over coherence + goal nodes (`total_tokens ≤ token_budget`), reusing `rag::TokenFixedRetriever` + `count_tokens` |
 | Watch mode | `network.rs` + `web.rs` + `cli.rs` | **Auto-ingest**: `PHYSIS_WATCH_DIR` background thread, `POST /api/v1/watch` on-demand sweep, CLI `physis-pro watch [--once]` — register new/changed files as labeled core nodes (shared embedder), drop nodes for removed files. Shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix` |
 | Vault import | `vault.rs` + `web.rs` + `cli.rs` | **Vault importers (Phase 7B)**: Obsidian/markdown, plain notes, `git log` → `VaultDoc` (title from H1/frontmatter, `h1:`…`h3:` headings) → labeled core nodes. CLI `physis-pro vault <dir> [--git N]`, web `POST /api/v1/vault/import` (scan-root confined, dedupe by label); `parse_git_log` tested without a git binary |
-| Personal history | `history.rs` + `web.rs` + `cli.rs` | **Personal-history importers (Phase 7B)**: browser bookmarks (Netscape HTML), browser history (JSON), OPML feeds, chat JSONL → labeled core nodes. CLI `physis-pro history <file>`, web `POST /api/v1/history/import` (scan-root confined, dedupe by label) |
+| Personal history | `history.rs` + `web.rs` + `cli.rs` | **Personal-history importers (Phase 7B + onboard)**: browser bookmarks (Netscape HTML), browser history (JSON), OPML feeds, chat JSONL, shell history (zsh extended + bash, deduped with run counts), Claude sessions, opencode sessions, codex threads, mesh fleet memory (traps/decisions, the fleet-view pull), hermes memory + plans → labeled core nodes. CLI `physis-pro history <file>`, `physis-pro onboard [--max-sessions]` (sweeps this machine; re-runs dedupe), web `POST /api/v1/history/import` (scan-root confined, dedupe by label) |
 | Praxis backfill | `praxis.rs` + `web.rs` + `cli.rs` | **Praxis backfill (Phase 7B)**: notebook entries + trackers → `BehaviourRecord`s with Success/Inert/Failure verdicts (mood / value-target thresholds) → labeled behavioural nodes with **asserted** verdicts. CLI `physis-pro praxis <file>`, web `POST /api/v1/praxis/backfill` |
 | Spanner sink | `spanner.rs` + `web.rs` + `cli.rs` | **Spanner Graph sink (Phase 7C)**: durable-memory mirror (`--features spanner`, off the hot path). Web `POST /api/v1/spanner/sync\|hydrate`, CLI `physis-pro spanner sync\|hydrate`; JWT service-account auth + emulator round-trip test |
 | Facet query | `physis-core/models.rs` + `cli.rs` + `main.rs` | **Ontology facet CLI**: `physis-pro facet [--lifecycle OPERATE] [--agency SELF] [--scale …] [--abstraction …] [--sub-domain X] [--sub-mode X] [--kind X] [--domain X] [--mode X]` — filter ontology entries by orthogonal facets; `Facets::simple()` display |
@@ -261,7 +262,7 @@ Categories (Finance, Communication, ...)
 | Piece | Description |
 |-------|-------------|
 | Probe | `tests/output_quality.rs` — `#[ignore]`d like accuracy_floor; run `cargo test --features full --test output_quality -- --ignored --nocapture`. Prints live classify (cells + similarity-ranked exemplars), recall rankings over planted facts, `/ask` synthesis, ledger facets, lineage/purpose chains under the production ONNX cascade |
-| Guarantees | classification seeds = all nine domain buckets (928); cell exemplars ranked by per-entry cosine (core 0.1.10); recall top-1 correct on the probe set; ask degrades to matches+note without a provider and cites `[n]` with one |
+| Guarantees | classification seeds = all nine domain buckets (929); cell exemplars ranked by per-entry cosine (core 0.1.26); recall top-1 correct on the probe set; ask degrades to matches+note without a provider and cites `[n]` with one |
 
 ## Quality Dashboard (PLAN 3.3)
 
