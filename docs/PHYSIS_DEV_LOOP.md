@@ -44,3 +44,83 @@ against this repo. Agent session protocol:
 CLI equivalents for scripts/harness: `note` (= remember), `node-search`
 (= recall), `pack`, `find`, `workflow`, `where` (= ledger facets),
 `fail`/`pass`/`quality` (classification feedback only).
+
+---
+
+## The loop actually used on 2026-09-19 (and the traps it hit)
+
+Recorded because most of the time lost that session went to traps, not to work.
+
+### The two MCP servers
+
+| server | launched by | store | what it gives |
+|---|---|---|---|
+| `physis` | `.mcp.json` → `./target/debug/physis-pro system serve`, env `PHYSIS_SCAN_ROOT=.`, `PHYSIS_MCP_AUDIT=1` | `.physis/system` | 30 tools: `physis_recall`, `physis_pack`, `physis_find`, `physis_classify`, `physis_route`, `physis_remember`, `physis_serve`, `physis_usage`, `physis_history`, `physis_tasks` |
+| `jev-review` | the harness's own config → `/home/gio/dev/jev-review/dist/server.js`, `JEV_MODEL=jev-1.13-free` | — | one tool: a scalar review loop returning per-metric scores + confidence. Not a prose reviewer: it scores, you diagnose. |
+
+**The root trap.** The `physis` server is scoped by the directory it was
+launched in. In that session it pointed at `/home/gio/dev/physis-pro` while the
+work was in `/home/gio/physis_pro` — a *different clone*. Every MCP result would
+have described the wrong tree. The fix used was to stop using the MCP tools and
+drive the CLI directly from the working clone:
+
+```bash
+PHYSIS_ALLOW_DEV_LICENCE=1 ./target/debug/physis-pro system remember --outcome success \
+  --actor opencode --root /home/gio/physis_pro "<what happened>"
+```
+
+`--root` is explicit there, which is the whole point. **Before trusting any MCP
+result, confirm the root matches the checkout you are editing.**
+
+### The CLI surfaces that did the work
+
+`system remember` (outcome memory), `agent call|ask|tasks|route`, `action
+list|show|call`, `intent show|set|history`, `settings show|path|set`, `decide`
+(decision-native classification), `attention`, `draw` (every surface as text),
+`pack --save`. The HUD: `physis-hud --snapshot=WxH` renders one frame through
+the real `draw()` path, so a claim about the TUI can be checked without a TTY.
+
+### Traps that cost real time
+
+1. **`pkill -f '<pattern>'` kills the shell running it.** The pattern matches
+   the shell's own command line, so everything after the `pkill` in that command
+   silently never runs. Symptom: "the command halts without running anything".
+   Use `kill <pid>`, or a pattern that cannot match your own command line.
+2. **Backticks and angle brackets in `git commit -m "..."` are shell.** A
+   backticked phrase is command-substituted (the message loses it); `<state>`
+   is a redirection (the commit does not run). Write messages with no backticks
+   and no `<`.
+3. **`cargo test --all-targets` twice in one command is ~26 minutes.** Run it
+   once and grep the captured output, or run it in the background.
+4. **`cargo fmt` is repo-wide and the tree was not fmt-clean.** It rewrote ~95
+   unrelated files. Revert everything outside your change set
+   (`git diff --name-only | grep '\.rs$' | grep -vE '<yours>' | xargs git checkout --`)
+   and re-apply your edits; never commit the sweep as if it were yours.
+5. **Fixture tests that write a script and exec it flake with `ETXTBSY`** under
+   parallel `cargo test`: a sibling's forked child inherits the write fd, and the
+   kernel refuses to exec a file open for writing. Run `sh -c "<script>"`
+   instead — no file, no race.
+6. **`tokio::task::block_in_place` panics on a current-thread runtime**, which
+   is what `#[tokio::test]` builds. Guard on
+   `Handle::runtime_flavor() == MultiThread`; the real server is multi-threaded,
+   tests are not.
+7. **`opencode run` defaults to a model that is out of funds.** Always pass
+   `-m`. The pinned working free model is `oczen/nemotron-3.5-lightning-free`;
+   a bare turn is ~43 s and a repo-exploring question ran 3 m 10 s.
+8. **The adapter appends its own reply contract to every prompt.** When a caller
+   wants a different JSON schema (a judge, say), the two collide and the model
+   may answer the wrong one — or return an empty result. Make the contract
+   opt-in per call.
+9. **A cold `pack` over the whole tree is minutes of CPU.** `pack --save` then
+   `agent ask --pack` is the fast path; `--max-files` bounds a fresh walk.
+
+### The gates
+
+```bash
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test --all-targets            # ~13 min; the done gate
+```
+Focused first: `cargo test --lib <module>::`, `cargo test --test <name>`. A
+failing suite stops cargo unless you pass `--no-fail-fast`, so use it when you
+expect more than one break.
