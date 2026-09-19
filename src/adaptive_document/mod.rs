@@ -6,6 +6,9 @@
 //! `repair_regions`, whose current state is documented as not ready for
 //! integration (Phase 26 §26.2). Persistence reuses [`crate::atomic`].
 
+pub mod corpus;
+pub mod identity;
+pub mod observation;
 pub mod proposal;
 pub mod store;
 

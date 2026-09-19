@@ -59,7 +59,7 @@ pub async fn rag_retrieve_handler(
                 )
             };
 
-            let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+            let corpus = rag::corpus_from_texts(&texts, shared.embedder.as_ref());
             let q_emb = shared.embedder.embed(&query);
             let retriever = rag::TokenFixedRetriever::new(budget, top_k);
             let result = retriever.retrieve(&q_emb, &corpus);
@@ -186,6 +186,12 @@ pub(crate) async fn retrieve_nodes(
                 embedding: emb.clone(),
             })
             .collect(),
+        bm25: rag::Bm25Index::build(
+            &candidates
+                .iter()
+                .map(|(_, _, label, _, _)| label.clone())
+                .collect::<Vec<String>>(),
+        ),
     };
     let retriever = rag::TokenFixedRetriever::new(token_budget, top_k);
     let result = retriever.retrieve(&q_emb, &corpus);

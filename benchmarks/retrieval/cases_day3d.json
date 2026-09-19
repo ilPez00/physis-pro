@@ -1,0 +1,129 @@
+{
+  "comment": "Day 3, fourth frozen holdout — the set the lexical-leg candidate is scored on. Sets #1, #2 and #3 are spent. Balanced like set #3 (3 cross-border, 9 across the other classes), and every file is one no earlier set touched: classify.rs, ngram_table.rs, transform.rs, linkage.rs, structsim.rs, ai/memory.rs, ai/harness.rs, machines/krisis.rs, inventory.rs, interest.rs. No `dev` split: the candidate has one free parameter and it is not tuned (RRF k is unused here; BM25's k1/b are fixed inside physis-core).",
+  "groups": {
+    "core": "physis-core/src",
+    "pro": "src"
+  },
+  "cases": [
+    {
+      "id": "sym-cell-classifier",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "CellClassifier",
+      "required_spans": [
+        {"path": "classify.rs", "start": 91, "end": 120, "why": "the classifier struct and its cell feed"}
+      ]
+    },
+    {
+      "id": "par-ngram-format",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "what does the stored n-gram file look like on disk and how is it checked",
+      "required_spans": [
+        {"path": "ngram_table.rs", "start": 1, "end": 30, "why": "module doc: the PHYSISNG1 layout and checksum"}
+      ]
+    },
+    {
+      "id": "sym-world-state",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "WorldState",
+      "required_spans": [
+        {"path": "transform.rs", "start": 252, "end": 290, "why": "the symbolic world state: facts plus constraints"}
+      ]
+    },
+    {
+      "id": "xborder-homomorphism",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["cross-border", "paraphrase"],
+      "query": "how does the engine find a structural match between two different representations",
+      "required_spans": [
+        {"path": "transform.rs", "start": 148, "end": 190, "why": "find_homomorphisms and the backtracking join; straddles the 160/161 boundary"}
+      ]
+    },
+    {
+      "id": "neg-no-auto-cluster",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["negation"],
+      "query": "what did the engine conclude about discovering stable groupings from embedding geometry",
+      "required_spans": [
+        {"path": "linkage.rs", "start": 1, "end": 30, "why": "module doc: seven discovery mechanisms failed on real data"}
+      ]
+    },
+    {
+      "id": "sym-coherence-node",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "CoherenceNode",
+      "required_spans": [
+        {"path": "models.rs", "start": 48, "end": 80, "why": "the entity carrier: embedding, verdict, cell pin, provenance"}
+      ]
+    },
+    {
+      "id": "sym-structsim",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "compare_structures",
+      "required_spans": [
+        {"path": "structsim.rs", "start": 289, "end": 320, "why": "node-by-node structural comparison in one embedding space"}
+      ]
+    },
+    {
+      "id": "par-episodic-memory",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how does an agent remember what happened in earlier sessions",
+      "required_spans": [
+        {"path": "ai/memory.rs", "start": 1, "end": 30, "why": "episodic memory on sled, and what it stores"}
+      ]
+    },
+    {
+      "id": "par-epistemic-gate",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "what has to pass before a generated answer is allowed through",
+      "required_spans": [
+        {"path": "ai/harness.rs", "start": 1, "end": 25, "why": "the epistemic gate: placement, contradiction, fitness, precedent"}
+      ]
+    },
+    {
+      "id": "dup-krisis",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header"],
+      "query": "which machine turns pairwise choices into a ranking and rejects intransitive taste",
+      "required_spans": [
+        {"path": "machines/krisis.rs", "start": 1, "end": 12, "why": "the machine doc header, sharing the boilerplate line with 17 siblings"}
+      ]
+    },
+    {
+      "id": "xborder-inventory-forecast",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how does the system forecast how much of a part gets used each day",
+      "required_spans": [
+        {"path": "inventory.rs", "start": 79, "end": 120, "why": "forecast_daily_usage over the consumption window; straddles the 80/81 boundary"}
+      ]
+    },
+    {
+      "id": "xborder-interest-decay",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how does what someone works on fade over time",
+      "required_spans": [
+        {"path": "interest.rs", "start": 338, "end": 380, "why": "the decayed interest entry and the half-life weight; straddles the 360/361 boundary"}
+      ]
+    }
+  ]
+}

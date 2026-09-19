@@ -119,12 +119,11 @@ pub fn select_repair_regions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::semantic_delta::QuantityDirection;
 
     #[test]
     fn test_region_creation() {
         let positions = std::collections::HashMap::new();
-        let region = RepairRegion::from_stale_nodes(&vec![], &positions);
+        let region = RepairRegion::from_stale_nodes(&[], &positions);
         assert!(region.affected_nodes.is_empty());
     }
 
@@ -136,7 +135,7 @@ mod tests {
         positions.insert("s3".to_string(), (120, 170));
 
         let region = RepairRegion::from_stale_nodes(
-            &vec!["s1".to_string(), "s2".to_string(), "s3".to_string()],
+            &["s1".to_string(), "s2".to_string(), "s3".to_string()],
             &positions,
         );
 
@@ -153,7 +152,7 @@ mod tests {
         positions.insert("s2".to_string(), (100, 200));
         positions.insert("s3".to_string(), (200, 300));
 
-        let delta = crate::semantic_delta::SemanticDelta {
+        let _delta = crate::semantic_delta::SemanticDelta {
             source_node: "s1".to_string(),
             lexical: crate::semantic_delta::LexicalDiff::no_change(),
             proposition_changed: true,
@@ -186,7 +185,7 @@ mod tests {
         positions.insert("s2".to_string(), (100, 200));
 
         let region = RepairRegion::from_stale_nodes(
-            &vec!["s1".to_string(), "s2".to_string()],
+            &["s1".to_string(), "s2".to_string()],
             &positions,
         );
 

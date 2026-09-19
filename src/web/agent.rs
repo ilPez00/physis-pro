@@ -742,6 +742,12 @@ fn rag_corpus_from(cands: &[(String, String, String, Vec<f32>)]) -> RagCorpus {
                 embedding: emb.clone(),
             })
             .collect(),
+        bm25: rag::Bm25Index::build(
+            &cands
+                .iter()
+                .map(|(_, _, label, _)| label.clone())
+                .collect::<Vec<String>>(),
+        ),
     }
 }
 

@@ -479,7 +479,10 @@ fn cmd_observe(root: &str, max_files: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
+/// Entry point, as Core's `physis-world` binary had it. `pub` (and called via
+/// the `physis-pro-world` shim in `src/bin/world.rs`) so the moved navigator is
+/// reachable from a shipped executable rather than only from this library.
+pub fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let verb = args.first().map(|s| s.as_str()).unwrap_or("help");
     let arg = |i: usize| args.get(i).cloned().unwrap_or_default();

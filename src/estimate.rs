@@ -57,6 +57,8 @@ pub fn estimate_project(dir: &Path) -> Result<EstimateResult> {
         budget,
         top_k,
         diversity,
+        crate::pack::PackMode::default(),
+        false,
         &embedder,
         embedder_kind,
         &mut cache,

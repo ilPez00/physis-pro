@@ -1,0 +1,170 @@
+{
+  "comment": "Day 3 frozen evidence-span cases (docs/plans/2026-09-15-core-pro-development.md, Day 3). Each case names the exact line range that answers its query, established by reading the code, not by running the retriever. `group` is the corpus root the case is scored against; arms never see the other root. `split` is dev (used to pick the candidate) or heldout (scored once, after the candidate is frozen). A case may carry more than one class.",
+  "classes_comment": "symbol = the query is the identifier; paraphrase = developer words vs compiler words; italian = the query is Italian and so is the evidence; negation = the query asks what must not / does not happen; dup-header = the evidence shares a boilerplate header with many sibling files; changed-file = the evidence sits in a file edited in the working tree this cycle; cross-border = the required span straddles a 40-line chunk boundary, so only a pack holding both neighbours covers it.",
+  "groups": {
+    "core": "physis-core/src",
+    "pro": "src"
+  },
+  "cases": [
+    {
+      "id": "sym-count-tokens",
+      "group": "core",
+      "split": "dev",
+      "classes": ["symbol"],
+      "query": "count_tokens",
+      "required_spans": [
+        {"path": "rag.rs", "start": 31, "end": 60, "why": "count_tokens + tokenize_word, the counter that enforces every budget"}
+      ]
+    },
+    {
+      "id": "par-pick-model",
+      "group": "core",
+      "split": "dev",
+      "classes": ["paraphrase"],
+      "query": "how does the engine pick which embedding model to use, and how does it refuse one that loads but produces nonsense",
+      "required_spans": [
+        {"path": "embed.rs", "start": 121, "end": 160, "why": "SEMANTIC_PROBE_MARGIN, SEMANTIC_PROBES, semantic_self_test"}
+      ]
+    },
+    {
+      "id": "neg-budget-guarantee",
+      "group": "core",
+      "split": "dev",
+      "classes": ["negation"],
+      "query": "what guarantee does retrieval make about the token budget that it must never break",
+      "required_spans": [
+        {"path": "rag.rs", "start": 1, "end": 9, "why": "module doc: context is guaranteed to fit a fixed token window"}
+      ]
+    },
+    {
+      "id": "par-fit-window",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase", "cross-border"],
+      "query": "how is the prompt kept from overflowing the window no matter how large the corpus grows",
+      "required_spans": [
+        {"path": "rag.rs", "start": 145, "end": 175, "why": "TokenFixedRetriever + retrieve; straddles the 160/161 chunk boundary"}
+      ]
+    },
+    {
+      "id": "neg-oracle-absent",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["negation"],
+      "query": "what does the reference comparison report when no transport is installed",
+      "required_spans": [
+        {"path": "oracle.rs", "start": 100, "end": 117, "why": "install_transport + complete_with bail naming not_configured"}
+      ]
+    },
+    {
+      "id": "xborder-embed-probes",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how are the probe pairs used to decide whether an embedder understands meaning",
+      "required_spans": [
+        {"path": "embed.rs", "start": 145, "end": 170, "why": "semantic_self_test body; straddles the 160/161 chunk boundary"}
+      ]
+    },
+    {
+      "id": "sym-embed-cache",
+      "group": "pro",
+      "split": "dev",
+      "classes": ["symbol", "cross-border"],
+      "query": "EmbedCache",
+      "required_spans": [
+        {"path": "pack.rs", "start": 156, "end": 190, "why": "EmbedCache doc + struct + load; straddles the 160/161 chunk boundary"}
+      ]
+    },
+    {
+      "id": "par-chunk-size",
+      "group": "pro",
+      "split": "dev",
+      "classes": ["paraphrase"],
+      "query": "how big is each piece of a file that the packer embeds, and why that size",
+      "required_spans": [
+        {"path": "pack.rs", "start": 23, "end": 30, "why": "CHUNK_LINES and MAX_FILE_BYTES with their rationale"}
+      ]
+    },
+    {
+      "id": "ita-summary",
+      "group": "pro",
+      "split": "dev",
+      "classes": ["italian"],
+      "query": "come viene riassunto in una riga il numero di turni e il numero di macchine",
+      "required_spans": [
+        {"path": "report.rs", "start": 108, "end": 122, "why": "summarize_it, the Italian one-line summary"}
+      ]
+    },
+    {
+      "id": "chg-staleness",
+      "group": "pro",
+      "split": "dev",
+      "classes": ["changed-file"],
+      "query": "how does the engine decide that a change has gone stale",
+      "required_spans": [
+        {"path": "staleness/mod.rs", "start": 17, "end": 40, "why": "affectedness thresholds in StalenessClassifier::classify"}
+      ]
+    },
+    {
+      "id": "sym-choose-worker",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["symbol", "cross-border"],
+      "query": "choose_worker",
+      "required_spans": [
+        {"path": "orchestration/mod.rs", "start": 145, "end": 165, "why": "choose_worker signature + first branch; straddles the 160/161 boundary"}
+      ]
+    },
+    {
+      "id": "par-cache-key",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "why can an embedding cached for one model not be reused by another",
+      "required_spans": [
+        {"path": "pack.rs", "start": 162, "end": 170, "why": "the doc comment that names the (embedder_kind, dim, sha256) key"}
+      ]
+    },
+    {
+      "id": "ita-report-title",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["italian"],
+      "query": "come si intitola il rapporto di turno quando non viene specificato un nome",
+      "required_spans": [
+        {"path": "report.rs", "start": 194, "end": 198, "why": "render_shift_report_it + the default Rapporto di turno title"}
+      ]
+    },
+    {
+      "id": "dup-harmony",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header", "italian"],
+      "query": "quale macchina riduce una melodia a intervalli e trova motivi ricorrenti",
+      "required_spans": [
+        {"path": "machines/harmony.rs", "start": 1, "end": 13, "why": "the machine doc header; the trailing 'Pure + testable.' line is shared with 17 siblings"}
+      ]
+    },
+    {
+      "id": "dup-empedocles",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header"],
+      "query": "which machine maps machine telemetry onto the four classical elements",
+      "required_spans": [
+        {"path": "machines/empedocles.rs", "start": 1, "end": 12, "why": "the machine doc header, one of 18 carrying the same 'Pure + testable.' line"}
+      ]
+    },
+    {
+      "id": "chg-semantic-delta",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["changed-file"],
+      "query": "how is the semantic distance between two versions of a text bounded",
+      "required_spans": [
+        {"path": "semantic_delta/mod.rs", "start": 141, "end": 147, "why": "compute_semantic_distance and its clamp(0.0, 1.0)"}
+      ]
+    }
+  ]
+}

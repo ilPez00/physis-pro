@@ -1,0 +1,1876 @@
+{
+  "comment": "GENERATED holdout \u2014 do not hand-edit. Produced by benchmarks/retrieval/gen_cases.py (seed=1, per_root=30, span=6..40). Ground truth is by construction: a case is a definition site found by pattern and its query is built from that site. Regenerate rather than edit, and regenerate immediately before scoring so the spans match the frozen corpus.",
+  "generator": {
+    "script": "benchmarks/retrieval/gen_cases.py",
+    "seed": 1,
+    "per_root": 30,
+    "min_span": 6,
+    "max_span": 40
+  },
+  "groups": {
+    "core": "physis-core/src",
+    "pro": "src"
+  },
+  "cases": [
+    {
+      "id": "gen-core-000-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "checksum_rejects_corruption",
+      "required_spans": [
+        {
+          "path": "ngram_table.rs",
+          "start": 956,
+          "end": 975,
+          "why": "fn `checksum_rejects_corruption` at ngram_table.rs:956"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "checksum_rejects_corruption",
+        "kind": "fn",
+        "def_line": 956,
+        "span_lines": 20,
+        "file_lines": 1050,
+        "definitions_in_file": 75,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-001-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "pub fn render(&self) -> String",
+      "required_spans": [
+        {
+          "path": "chain.rs",
+          "start": 141,
+          "end": 160,
+          "why": "fn `render` at chain.rs:141"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "render",
+        "kind": "fn",
+        "def_line": 141,
+        "span_lines": 20,
+        "file_lines": 561,
+        "definitions_in_file": 15,
+        "query_tokens": 4,
+        "df_fraction": 0.36386
+      }
+    },
+    {
+      "id": "gen-core-002-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "cosine vec target new push take list write",
+      "required_spans": [
+        {
+          "path": "delta_engine.rs",
+          "start": 307,
+          "end": 341,
+          "why": "fn `build_adjacency` at delta_engine.rs:307"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "build_adjacency",
+        "kind": "fn",
+        "def_line": 307,
+        "span_lines": 35,
+        "file_lines": 1070,
+        "definitions_in_file": 36,
+        "query_tokens": 8,
+        "df_fraction": 0.19616
+      }
+    },
+    {
+      "id": "gen-core-003-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "cites_evidence",
+      "required_spans": [
+        {
+          "path": "oracle.rs",
+          "start": 81,
+          "end": 93,
+          "why": "fn `cites_evidence` at oracle.rs:81"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "cites_evidence",
+        "kind": "fn",
+        "def_line": 81,
+        "span_lines": 13,
+        "file_lines": 150,
+        "definitions_in_file": 10,
+        "query_tokens": 1,
+        "df_fraction": 0.00495
+      }
+    },
+    {
+      "id": "gen-core-004-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "pub fn triples(&self) -> Vec<Triple>",
+      "required_spans": [
+        {
+          "path": "transform.rs",
+          "start": 258,
+          "end": 295,
+          "why": "fn `triples` at transform.rs:258"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "triples",
+        "kind": "fn",
+        "def_line": 258,
+        "span_lines": 38,
+        "file_lines": 760,
+        "definitions_in_file": 37,
+        "query_tokens": 5,
+        "df_fraction": 0.30825
+      }
+    },
+    {
+      "id": "gen-core-005-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-mid",
+        "span-long"
+      ],
+      "query": "weights physis tokens person resolves signal left directory",
+      "required_spans": [
+        {
+          "path": "transplant.rs",
+          "start": 316,
+          "end": 353,
+          "why": "fn `matcher_evidence` at transplant.rs:316"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "matcher_evidence",
+        "kind": "fn",
+        "def_line": 316,
+        "span_lines": 38,
+        "file_lines": 788,
+        "definitions_in_file": 25,
+        "query_tokens": 8,
+        "df_fraction": 0.0429
+      }
+    },
+    {
+      "id": "gen-core-006-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "query": "composite_weights_dimensions",
+      "required_spans": [
+        {
+          "path": "coherence_dimensions.rs",
+          "start": 127,
+          "end": 134,
+          "why": "fn `composite_weights_dimensions` at coherence_dimensions.rs:127"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "composite_weights_dimensions",
+        "kind": "fn",
+        "def_line": 127,
+        "span_lines": 8,
+        "file_lines": 136,
+        "definitions_in_file": 10,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-007-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "fn epistemic_audit_reconstruction()",
+      "required_spans": [
+        {
+          "path": "core.rs",
+          "start": 1327,
+          "end": 1347,
+          "why": "fn `epistemic_audit_reconstruction` at core.rs:1327"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "epistemic_audit_reconstruction",
+        "kind": "fn",
+        "def_line": 1327,
+        "span_lines": 21,
+        "file_lines": 1465,
+        "definitions_in_file": 67,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-008-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "super iter format sum u64 mut core physis",
+      "required_spans": [
+        {
+          "path": "embed_onnx.rs",
+          "start": 427,
+          "end": 458,
+          "why": "fn `fallback_embed` at embed_onnx.rs:427"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "fallback_embed",
+        "kind": "fn",
+        "def_line": 427,
+        "span_lines": 32,
+        "file_lines": 485,
+        "definitions_in_file": 18,
+        "query_tokens": 8,
+        "df_fraction": 0.17389
+      }
+    },
+    {
+      "id": "gen-core-009-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "TaskState",
+      "required_spans": [
+        {
+          "path": "process.rs",
+          "start": 53,
+          "end": 68,
+          "why": "enum `TaskState` at process.rs:53"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "TaskState",
+        "kind": "enum",
+        "def_line": 53,
+        "span_lines": 16,
+        "file_lines": 335,
+        "definitions_in_file": 27,
+        "query_tokens": 1,
+        "df_fraction": 0.0033
+      }
+    },
+    {
+      "id": "gen-core-010-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "pub fn new(root: impl Into<PathBuf>) -> Self",
+      "required_spans": [
+        {
+          "path": "model_provider.rs",
+          "start": 284,
+          "end": 314,
+          "why": "fn `new` at model_provider.rs:284"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "new",
+        "kind": "fn",
+        "def_line": 284,
+        "span_lines": 31,
+        "file_lines": 431,
+        "definitions_in_file": 47,
+        "query_tokens": 6,
+        "df_fraction": 0.2665
+      }
+    },
+    {
+      "id": "gen-core-011-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "let max vec to_string crate len per f32",
+      "required_spans": [
+        {
+          "path": "grid_fitness.rs",
+          "start": 288,
+          "end": 324,
+          "why": "fn `similarity_matrix` at grid_fitness.rs:288"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "similarity_matrix",
+        "kind": "fn",
+        "def_line": 288,
+        "span_lines": 37,
+        "file_lines": 437,
+        "definitions_in_file": 12,
+        "query_tokens": 8,
+        "df_fraction": 0.32508
+      }
+    },
+    {
+      "id": "gen-core-012-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "query": "Incompatible",
+      "required_spans": [
+        {
+          "path": "tokenizer.rs",
+          "start": 42,
+          "end": 47,
+          "why": "struct `Incompatible` at tokenizer.rs:42"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "Incompatible",
+        "kind": "struct",
+        "def_line": 42,
+        "span_lines": 6,
+        "file_lines": 162,
+        "definitions_in_file": 23,
+        "query_tokens": 1,
+        "df_fraction": 0.0066
+      }
+    },
+    {
+      "id": "gen-core-013-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "pub struct FitnessBreakdown",
+      "required_spans": [
+        {
+          "path": "hypothesis.rs",
+          "start": 204,
+          "end": 243,
+          "why": "struct `FitnessBreakdown` at hypothesis.rs:204"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "FitnessBreakdown",
+        "kind": "struct",
+        "def_line": 204,
+        "span_lines": 40,
+        "file_lines": 944,
+        "definitions_in_file": 47,
+        "query_tokens": 3,
+        "df_fraction": 0.23927
+      }
+    },
+    {
+      "id": "gen-core-014-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "token projection random could env pass embedder let",
+      "required_spans": [
+        {
+          "path": "embed.rs",
+          "start": 382,
+          "end": 401,
+          "why": "fn `select_label_always_matches_probe_outcome` at embed.rs:382"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "select_label_always_matches_probe_outcome",
+        "kind": "fn",
+        "def_line": 382,
+        "span_lines": 20,
+        "file_lines": 417,
+        "definitions_in_file": 29,
+        "query_tokens": 8,
+        "df_fraction": 0.14851
+      }
+    },
+    {
+      "id": "gen-core-015-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-mid",
+        "span-long"
+      ],
+      "query": "dimension",
+      "required_spans": [
+        {
+          "path": "linkage.rs",
+          "start": 189,
+          "end": 226,
+          "why": "fn `dimension` at linkage.rs:189"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "dimension",
+        "kind": "fn",
+        "def_line": 189,
+        "span_lines": 38,
+        "file_lines": 292,
+        "definitions_in_file": 20,
+        "query_tokens": 1,
+        "df_fraction": 0.02475
+      }
+    },
+    {
+      "id": "gen-core-016-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "fn cell_score(cell: &Cell, embedding: &[f32]) -> f32",
+      "required_spans": [
+        {
+          "path": "coverage.rs",
+          "start": 172,
+          "end": 210,
+          "why": "fn `cell_score` at coverage.rs:172"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "cell_score",
+        "kind": "fn",
+        "def_line": 172,
+        "span_lines": 39,
+        "file_lines": 443,
+        "definitions_in_file": 20,
+        "query_tokens": 6,
+        "df_fraction": 0.14109
+      }
+    },
+    {
+      "id": "gen-core-017-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "actually let find contradiction below pair build unknown",
+      "required_spans": [
+        {
+          "path": "claim_identity.rs",
+          "start": 498,
+          "end": 516,
+          "why": "fn `agreement_is_not_contradiction` at claim_identity.rs:498"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "agreement_is_not_contradiction",
+        "kind": "fn",
+        "def_line": 498,
+        "span_lines": 19,
+        "file_lines": 529,
+        "definitions_in_file": 15,
+        "query_tokens": 8,
+        "df_fraction": 0.14315
+      }
+    },
+    {
+      "id": "gen-core-018-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "query": "history_for",
+      "required_spans": [
+        {
+          "path": "epistemic.rs",
+          "start": 233,
+          "end": 260,
+          "why": "fn `history_for` at epistemic.rs:233"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "history_for",
+        "kind": "fn",
+        "def_line": 233,
+        "span_lines": 28,
+        "file_lines": 318,
+        "definitions_in_file": 19,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-019-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-long"
+      ],
+      "query": "fn narrow_until_refuses_an_instant_before_the_window_opens()",
+      "required_spans": [
+        {
+          "path": "temporal.rs",
+          "start": 240,
+          "end": 267,
+          "why": "fn `narrow_until_refuses_an_instant_before_the_window_opens` at temporal.rs:240"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "narrow_until_refuses_an_instant_before_the_window_opens",
+        "kind": "fn",
+        "def_line": 240,
+        "span_lines": 28,
+        "file_lines": 291,
+        "definitions_in_file": 16,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-020-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "exists similarity everything every node partial_cmp let collect",
+      "required_spans": [
+        {
+          "path": "worldstate.rs",
+          "start": 76,
+          "end": 115,
+          "why": "fn `cosine` at worldstate.rs:76"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "cosine",
+        "kind": "fn",
+        "def_line": 76,
+        "span_lines": 40,
+        "file_lines": 1678,
+        "definitions_in_file": 65,
+        "query_tokens": 8,
+        "df_fraction": 0.1941
+      }
+    },
+    {
+      "id": "gen-core-021-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "dream_over_history",
+      "required_spans": [
+        {
+          "path": "dream.rs",
+          "start": 65,
+          "end": 81,
+          "why": "fn `dream_over_history` at dream.rs:65"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "dream_over_history",
+        "kind": "fn",
+        "def_line": 65,
+        "span_lines": 17,
+        "file_lines": 201,
+        "definitions_in_file": 3,
+        "query_tokens": 1,
+        "df_fraction": 0.0033
+      }
+    },
+    {
+      "id": "gen-core-022-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-short"
+      ],
+      "query": "pub fn unbreak_pipes()",
+      "required_spans": [
+        {
+          "path": "lib.rs",
+          "start": 226,
+          "end": 236,
+          "why": "fn `unbreak_pipes` at lib.rs:226"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "unbreak_pipes",
+        "kind": "fn",
+        "def_line": 226,
+        "span_lines": 11,
+        "file_lines": 284,
+        "definitions_in_file": 1,
+        "query_tokens": 2,
+        "df_fraction": 0.25908
+      }
+    },
+    {
+      "id": "gen-core-023-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "let false vec baseline deviations assert_eq never mut",
+      "required_spans": [
+        {
+          "path": "becoming.rs",
+          "start": 419,
+          "end": 440,
+          "why": "fn `runs_z_is_negative_when_clumped_and_positive_when_alternating` at becoming.rs:419"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "runs_z_is_negative_when_clumped_and_positive_when_alternating",
+        "kind": "fn",
+        "def_line": 419,
+        "span_lines": 22,
+        "file_lines": 508,
+        "definitions_in_file": 25,
+        "query_tokens": 8,
+        "df_fraction": 0.28032
+      }
+    },
+    {
+      "id": "gen-core-024-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "run_node_search",
+      "required_spans": [
+        {
+          "path": "main.rs",
+          "start": 778,
+          "end": 800,
+          "why": "fn `run_node_search` at main.rs:778"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "run_node_search",
+        "kind": "fn",
+        "def_line": 778,
+        "span_lines": 23,
+        "file_lines": 2106,
+        "definitions_in_file": 51,
+        "query_tokens": 1,
+        "df_fraction": 0.0033
+      }
+    },
+    {
+      "id": "gen-core-025-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "pub fn new(claim: impl Into<String>, source: impl Into<String>) -> Self",
+      "required_spans": [
+        {
+          "path": "provenance.rs",
+          "start": 37,
+          "end": 53,
+          "why": "fn `new` at provenance.rs:37"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "new",
+        "kind": "fn",
+        "def_line": 37,
+        "span_lines": 17,
+        "file_lines": 95,
+        "definitions_in_file": 8,
+        "query_tokens": 9,
+        "df_fraction": 0.32225
+      }
+    },
+    {
+      "id": "gen-core-026-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "vec self new string clone mut pub let",
+      "required_spans": [
+        {
+          "path": "explanation.rs",
+          "start": 67,
+          "end": 90,
+          "why": "fn `cited_intake_ids` at explanation.rs:67"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "cited_intake_ids",
+        "kind": "fn",
+        "def_line": 67,
+        "span_lines": 24,
+        "file_lines": 196,
+        "definitions_in_file": 5,
+        "query_tokens": 8,
+        "df_fraction": 0.50825
+      }
+    },
+    {
+      "id": "gen-core-027-id",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "query": "scores_are_descending_and_ordering_is_deterministic",
+      "required_spans": [
+        {
+          "path": "propose.rs",
+          "start": 275,
+          "end": 300,
+          "why": "fn `scores_are_descending_and_ordering_is_deterministic` at propose.rs:275"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "scores_are_descending_and_ordering_is_deterministic",
+        "kind": "fn",
+        "def_line": 275,
+        "span_lines": 26,
+        "file_lines": 321,
+        "definitions_in_file": 18,
+        "query_tokens": 1,
+        "df_fraction": 0.00165
+      }
+    },
+    {
+      "id": "gen-core-028-sig",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-mid",
+        "span-long"
+      ],
+      "query": "fn e() -> RandomProjectionEmbedder",
+      "required_spans": [
+        {
+          "path": "direction.rs",
+          "start": 425,
+          "end": 460,
+          "why": "fn `e` at direction.rs:425"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "e",
+        "kind": "fn",
+        "def_line": 425,
+        "span_lines": 36,
+        "file_lines": 636,
+        "definitions_in_file": 28,
+        "query_tokens": 1,
+        "df_fraction": 0.0363
+      }
+    },
+    {
+      "id": "gen-core-029-body",
+      "group": "core",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "query": "clone derive pub debug string",
+      "required_spans": [
+        {
+          "path": "map.rs",
+          "start": 58,
+          "end": 64,
+          "why": "struct `SourceRef` at map.rs:58"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "SourceRef",
+        "kind": "struct",
+        "def_line": 58,
+        "span_lines": 7,
+        "file_lines": 683,
+        "definitions_in_file": 24,
+        "query_tokens": 5,
+        "df_fraction": 0.37162
+      }
+    },
+    {
+      "id": "gen-pro-000-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "ok",
+      "required_spans": [
+        {
+          "path": "bin/doc_tui/terminal.rs",
+          "start": 37,
+          "end": 58,
+          "why": "fn `ok` at bin/doc_tui/terminal.rs:37"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "ok",
+        "kind": "fn",
+        "def_line": 37,
+        "span_lines": 22,
+        "file_lines": 229,
+        "definitions_in_file": 15,
+        "query_tokens": 0,
+        "df_fraction": 0.0
+      }
+    },
+    {
+      "id": "gen-pro-001-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "struct Entry",
+      "required_spans": [
+        {
+          "path": "bin/doc_tui/main.rs",
+          "start": 335,
+          "end": 374,
+          "why": "struct `Entry` at bin/doc_tui/main.rs:335"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "Entry",
+        "kind": "struct",
+        "def_line": 335,
+        "span_lines": 40,
+        "file_lines": 2418,
+        "definitions_in_file": 102,
+        "query_tokens": 2,
+        "df_fraction": 0.12919
+      }
+    },
+    {
+      "id": "gen-pro-002-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "set iter question test assert position parse assert_eq",
+      "required_spans": [
+        {
+          "path": "ported/nlq.rs",
+          "start": 609,
+          "end": 636,
+          "why": "fn `nothing_is_executed_and_fallback_is_visible` at ported/nlq.rs:609"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "nothing_is_executed_and_fallback_is_visible",
+        "kind": "fn",
+        "def_line": 609,
+        "span_lines": 28,
+        "file_lines": 666,
+        "definitions_in_file": 21,
+        "query_tokens": 8,
+        "df_fraction": 0.11823
+      }
+    },
+    {
+      "id": "gen-pro-003-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "Watermark",
+      "required_spans": [
+        {
+          "path": "sql.rs",
+          "start": 34,
+          "end": 56,
+          "why": "struct `Watermark` at sql.rs:34"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "Watermark",
+        "kind": "struct",
+        "def_line": 34,
+        "span_lines": 23,
+        "file_lines": 514,
+        "definitions_in_file": 23,
+        "query_tokens": 1,
+        "df_fraction": 0.00328
+      }
+    },
+    {
+      "id": "gen-pro-004-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "pub struct Reading",
+      "required_spans": [
+        {
+          "path": "machines/empedocles.rs",
+          "start": 59,
+          "end": 92,
+          "why": "struct `Reading` at machines/empedocles.rs:59"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "Reading",
+        "kind": "struct",
+        "def_line": 59,
+        "span_lines": 34,
+        "file_lines": 260,
+        "definitions_in_file": 16,
+        "query_tokens": 3,
+        "df_fraction": 0.1949
+      }
+    },
+    {
+      "id": "gen-pro-005-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "score human as_ref pub nodes is_empty check review",
+      "required_spans": [
+        {
+          "path": "staleness/mod.rs",
+          "start": 5,
+          "end": 31,
+          "why": "struct `StalenessClassifier` at staleness/mod.rs:5"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "StalenessClassifier",
+        "kind": "struct",
+        "def_line": 5,
+        "span_lines": 27,
+        "file_lines": 59,
+        "definitions_in_file": 3,
+        "query_tokens": 8,
+        "df_fraction": 0.12434
+      }
+    },
+    {
+      "id": "gen-pro-006-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "set_charge",
+      "required_spans": [
+        {
+          "path": "life_os/tracker.rs",
+          "start": 307,
+          "end": 327,
+          "why": "fn `set_charge` at life_os/tracker.rs:307"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "set_charge",
+        "kind": "fn",
+        "def_line": 307,
+        "span_lines": 21,
+        "file_lines": 637,
+        "definitions_in_file": 35,
+        "query_tokens": 1,
+        "df_fraction": 0.00131
+      }
+    },
+    {
+      "id": "gen-pro-007-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-short"
+      ],
+      "query": "pub fn configured() -> Option<(OracleConfig, String)>",
+      "required_spans": [
+        {
+          "path": "ported/oracle.rs",
+          "start": 66,
+          "end": 69,
+          "why": "fn `configured` at ported/oracle.rs:66"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "configured",
+        "kind": "fn",
+        "def_line": 66,
+        "span_lines": 4,
+        "file_lines": 69,
+        "definitions_in_file": 2,
+        "query_tokens": 5,
+        "df_fraction": 0.19862
+      }
+    },
+    {
+      "id": "gen-pro-008-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-mid",
+        "span-short"
+      ],
+      "query": "status success join root output",
+      "required_spans": [
+        {
+          "path": "ported/system_delegation.rs",
+          "start": 203,
+          "end": 213,
+          "why": "fn `git` at ported/system_delegation.rs:203"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "git",
+        "kind": "fn",
+        "def_line": 203,
+        "span_lines": 11,
+        "file_lines": 679,
+        "definitions_in_file": 31,
+        "query_tokens": 5,
+        "df_fraction": 0.07859
+      }
+    },
+    {
+      "id": "gen-pro-009-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "n",
+      "required_spans": [
+        {
+          "path": "ported/world.rs",
+          "start": 214,
+          "end": 236,
+          "why": "fn `n` at ported/world.rs:214"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "n",
+        "kind": "fn",
+        "def_line": 214,
+        "span_lines": 23,
+        "file_lines": 827,
+        "definitions_in_file": 20,
+        "query_tokens": 0,
+        "df_fraction": 0.0
+      }
+    },
+    {
+      "id": "gen-pro-010-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-mid",
+        "span-short"
+      ],
+      "query": "enum SystemCommand",
+      "required_spans": [
+        {
+          "path": "ported/system_cli.rs",
+          "start": 35,
+          "end": 44,
+          "why": "enum `SystemCommand` at ported/system_cli.rs:35"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "SystemCommand",
+        "kind": "enum",
+        "def_line": 35,
+        "span_lines": 10,
+        "file_lines": 667,
+        "definitions_in_file": 8,
+        "query_tokens": 2,
+        "df_fraction": 0.0197
+      }
+    },
+    {
+      "id": "gen-pro-011-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "query": "failed tool limit error string provider",
+      "required_spans": [
+        {
+          "path": "ai/mod.rs",
+          "start": 23,
+          "end": 28,
+          "why": "enum `AiError` at ai/mod.rs:23"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "AiError",
+        "kind": "enum",
+        "def_line": 23,
+        "span_lines": 6,
+        "file_lines": 52,
+        "definitions_in_file": 1,
+        "query_tokens": 6,
+        "df_fraction": 0.10779
+      }
+    },
+    {
+      "id": "gen-pro-012-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "query": "test_reconstruct_returns_neighbors",
+      "required_spans": [
+        {
+          "path": "reconstruct.rs",
+          "start": 247,
+          "end": 256,
+          "why": "fn `test_reconstruct_returns_neighbors` at reconstruct.rs:247"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "test_reconstruct_returns_neighbors",
+        "kind": "fn",
+        "def_line": 247,
+        "span_lines": 10,
+        "file_lines": 309,
+        "definitions_in_file": 16,
+        "query_tokens": 1,
+        "df_fraction": 0.00033
+      }
+    },
+    {
+      "id": "gen-pro-013-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "fn p(x: f32, y: f32) -> Point",
+      "required_spans": [
+        {
+          "path": "machines/kinesis.rs",
+          "start": 143,
+          "end": 159,
+          "why": "fn `p` at machines/kinesis.rs:143"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "p",
+        "kind": "fn",
+        "def_line": 143,
+        "span_lines": 17,
+        "file_lines": 196,
+        "definitions_in_file": 11,
+        "query_tokens": 3,
+        "df_fraction": 0.10916
+      }
+    },
+    {
+      "id": "gen-pro-014-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "name domain mode vec unit tests study machine",
+      "required_spans": [
+        {
+          "path": "ontology_nonhuman.rs",
+          "start": 56,
+          "end": 70,
+          "why": "fn `sample_domains` at ontology_nonhuman.rs:56"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "sample_domains",
+        "kind": "fn",
+        "def_line": 56,
+        "span_lines": 15,
+        "file_lines": 154,
+        "definitions_in_file": 12,
+        "query_tokens": 8,
+        "df_fraction": 0.13633
+      }
+    },
+    {
+      "id": "gen-pro-015-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "ties",
+      "required_spans": [
+        {
+          "path": "machines/polis.rs",
+          "start": 43,
+          "end": 57,
+          "why": "fn `ties` at machines/polis.rs:43"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "ties",
+        "kind": "fn",
+        "def_line": 43,
+        "span_lines": 15,
+        "file_lines": 146,
+        "definitions_in_file": 9,
+        "query_tokens": 1,
+        "df_fraction": 0.00788
+      }
+    },
+    {
+      "id": "gen-pro-016-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-short"
+      ],
+      "query": "fn a_split_offers_both_halves_ranked_by_shared_words()",
+      "required_spans": [
+        {
+          "path": "adaptive_document/identity.rs",
+          "start": 841,
+          "end": 848,
+          "why": "fn `a_split_offers_both_halves_ranked_by_shared_words` at adaptive_document/identity.rs:841"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "a_split_offers_both_halves_ranked_by_shared_words",
+        "kind": "fn",
+        "def_line": 841,
+        "span_lines": 8,
+        "file_lines": 996,
+        "definitions_in_file": 46,
+        "query_tokens": 1,
+        "df_fraction": 0.00033
+      }
+    },
+    {
+      "id": "gen-pro-017-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "mode test name to_string mut new clone filter",
+      "required_spans": [
+        {
+          "path": "axes.rs",
+          "start": 615,
+          "end": 640,
+          "why": "fn `unit` at axes.rs:615"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "unit",
+        "kind": "fn",
+        "def_line": 615,
+        "span_lines": 26,
+        "file_lines": 700,
+        "definitions_in_file": 27,
+        "query_tokens": 8,
+        "df_fraction": 0.25652
+      }
+    },
+    {
+      "id": "gen-pro-018-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-mid",
+        "span-mid"
+      ],
+      "query": "Req",
+      "required_spans": [
+        {
+          "path": "machines/run.rs",
+          "start": 717,
+          "end": 732,
+          "why": "struct `Req` at machines/run.rs:717"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "Req",
+        "kind": "struct",
+        "def_line": 717,
+        "span_lines": 16,
+        "file_lines": 1053,
+        "definitions_in_file": 50,
+        "query_tokens": 1,
+        "df_fraction": 0.06664
+      }
+    },
+    {
+      "id": "gen-pro-019-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "pub struct Observation",
+      "required_spans": [
+        {
+          "path": "adaptive_document/observation.rs",
+          "start": 33,
+          "end": 53,
+          "why": "struct `Observation` at adaptive_document/observation.rs:33"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "Observation",
+        "kind": "struct",
+        "def_line": 33,
+        "span_lines": 21,
+        "file_lines": 119,
+        "definitions_in_file": 4,
+        "query_tokens": 3,
+        "df_fraction": 0.19359
+      }
+    },
+    {
+      "id": "gen-pro-020-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "query": "name text mut iter new format vec let",
+      "required_spans": [
+        {
+          "path": "semiotic_grid.rs",
+          "start": 102,
+          "end": 111,
+          "why": "fn `fallback_anchors` at semiotic_grid.rs:102"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "fallback_anchors",
+        "kind": "fn",
+        "def_line": 102,
+        "span_lines": 10,
+        "file_lines": 164,
+        "definitions_in_file": 9,
+        "query_tokens": 8,
+        "df_fraction": 0.37455
+      }
+    },
+    {
+      "id": "gen-pro-021-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "query": "importer_for",
+      "required_spans": [
+        {
+          "path": "history.rs",
+          "start": 17,
+          "end": 47,
+          "why": "fn `importer_for` at history.rs:17"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "importer_for",
+        "kind": "fn",
+        "def_line": 17,
+        "span_lines": 31,
+        "file_lines": 329,
+        "definitions_in_file": 12,
+        "query_tokens": 1,
+        "df_fraction": 0.0023
+      }
+    },
+    {
+      "id": "gen-pro-022-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "pub struct Worker",
+      "required_spans": [
+        {
+          "path": "bin/doc_tui/annotate.rs",
+          "start": 120,
+          "end": 135,
+          "why": "struct `Worker` at bin/doc_tui/annotate.rs:120"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "Worker",
+        "kind": "struct",
+        "def_line": 120,
+        "span_lines": 16,
+        "file_lines": 193,
+        "definitions_in_file": 12,
+        "query_tokens": 3,
+        "df_fraction": 0.1868
+      }
+    },
+    {
+      "id": "gen-pro-023-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "let query into_iter vec async pub to_string string",
+      "required_spans": [
+        {
+          "path": "moonraker.rs",
+          "start": 49,
+          "end": 85,
+          "why": "struct `MoonrakerAdapter` at moonraker.rs:49"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "MoonrakerAdapter",
+        "kind": "struct",
+        "def_line": 49,
+        "span_lines": 37,
+        "file_lines": 319,
+        "definitions_in_file": 14,
+        "query_tokens": 8,
+        "df_fraction": 0.31652
+      }
+    },
+    {
+      "id": "gen-pro-024-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-mid",
+        "span-mid"
+      ],
+      "query": "main",
+      "required_spans": [
+        {
+          "path": "bin/web_server.rs",
+          "start": 7,
+          "end": 18,
+          "why": "fn `main` at bin/web_server.rs:7"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "main",
+        "kind": "fn",
+        "def_line": 7,
+        "span_lines": 12,
+        "file_lines": 18,
+        "definitions_in_file": 1,
+        "query_tokens": 1,
+        "df_fraction": 0.03217
+      }
+    },
+    {
+      "id": "gen-pro-025-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "query": "pub struct RulEstimate",
+      "required_spans": [
+        {
+          "path": "maintenance.rs",
+          "start": 282,
+          "end": 304,
+          "why": "struct `RulEstimate` at maintenance.rs:282"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "RulEstimate",
+        "kind": "struct",
+        "def_line": 282,
+        "span_lines": 23,
+        "file_lines": 620,
+        "definitions_in_file": 40,
+        "query_tokens": 3,
+        "df_fraction": 0.18396
+      }
+    },
+    {
+      "id": "gen-pro-026-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "test format text assert_eq let scan embedder hash",
+      "required_spans": [
+        {
+          "path": "postgres.rs",
+          "start": 278,
+          "end": 308,
+          "why": "fn `row` at postgres.rs:278"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "row",
+        "kind": "fn",
+        "def_line": 278,
+        "span_lines": 31,
+        "file_lines": 424,
+        "definitions_in_file": 24,
+        "query_tokens": 8,
+        "df_fraction": 0.22952
+      }
+    },
+    {
+      "id": "gen-pro-027-id",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "query": "holarchy_neighbors_handler",
+      "required_spans": [
+        {
+          "path": "web/holarchy.rs",
+          "start": 79,
+          "end": 112,
+          "why": "fn `holarchy_neighbors_handler` at web/holarchy.rs:79"
+        }
+      ],
+      "knobs": {
+        "template": "id",
+        "symbol": "holarchy_neighbors_handler",
+        "kind": "fn",
+        "def_line": 79,
+        "span_lines": 34,
+        "file_lines": 130,
+        "definitions_in_file": 6,
+        "query_tokens": 1,
+        "df_fraction": 0.00066
+      }
+    },
+    {
+      "id": "gen-pro-028-sig",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-mid"
+      ],
+      "query": "fn empty_prose_string_yields_no_event_not_none()",
+      "required_spans": [
+        {
+          "path": "sessions.rs",
+          "start": 277,
+          "end": 296,
+          "why": "fn `empty_prose_string_yields_no_event_not_none` at sessions.rs:277"
+        }
+      ],
+      "knobs": {
+        "template": "sig",
+        "symbol": "empty_prose_string_yields_no_event_not_none",
+        "kind": "fn",
+        "def_line": 277,
+        "span_lines": 20,
+        "file_lines": 308,
+        "definitions_in_file": 24,
+        "query_tokens": 1,
+        "df_fraction": 0.00033
+      }
+    },
+    {
+      "id": "gen-pro-029-body",
+      "group": "pro",
+      "split": "heldout",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "query": "set datetime to_string utc impl push last let",
+      "required_spans": [
+        {
+          "path": "ledger.rs",
+          "start": 73,
+          "end": 98,
+          "why": "fn `record_at` at ledger.rs:73"
+        }
+      ],
+      "knobs": {
+        "template": "body",
+        "symbol": "record_at",
+        "kind": "fn",
+        "def_line": 73,
+        "span_lines": 26,
+        "file_lines": 380,
+        "definitions_in_file": 22,
+        "query_tokens": 8,
+        "df_fraction": 0.17814
+      }
+    }
+  ]
+}

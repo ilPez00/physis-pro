@@ -1,0 +1,1185 @@
+{
+  "revision": "96a98c41b97be7c262a550caad4691a513d04b87",
+  "dirty_files": 57,
+  "cases_file": "benchmarks/retrieval/cases_day3c.json",
+  "candidate": "expand:cosine",
+  "budget": 3000,
+  "top_k": 50,
+  "frozen_corpus": true,
+  "corpus": {
+    "core": {
+      "root": "physis-core/src",
+      "hash": "82dc3034b6ac454e",
+      "chunks": 606,
+      "files": 46
+    },
+    "pro": {
+      "root": "src",
+      "hash": "e51ae3cc3df3e379",
+      "chunks": 2986,
+      "files": 241
+    }
+  },
+  "dev": {},
+  "dev_summary": {},
+  "heldout": {
+    "sym-relation-type": {
+      "group": "core",
+      "classes": [
+        "symbol"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "delta_engine.rs",
+          "relation.rs"
+        ],
+        "tokens": 2520,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "core.rs",
+          "dream.rs",
+          "lib.rs",
+          "map.rs",
+          "models.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 12,
+        "seconds": 5.44,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "candidate_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "dream.rs",
+          "lib.rs",
+          "map.rs",
+          "relation.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2906,
+        "chunks": 12,
+        "seconds": 5.43,
+        "over_budget": false,
+        "reported_total": 2906
+      }
+    },
+    "par-provenance-chain": {
+      "group": "core",
+      "classes": [
+        "paraphrase"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "coverage.rs",
+          "epistemic.rs",
+          "main.rs",
+          "observe.rs",
+          "provenance.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "direction.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "explanation.rs",
+          "lib.rs",
+          "machines.rs",
+          "main.rs",
+          "map.rs",
+          "provenance.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 5.52,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "epistemic.rs",
+          "explanation.rs",
+          "main.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 8,
+        "seconds": 5.57,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "neg-never-overwrite": {
+      "group": "core",
+      "classes": [
+        "negation"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "config_run.rs",
+          "contradiction.rs",
+          "lib.rs",
+          "main.rs",
+          "models.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 7,
+        "seconds": 0.04,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "delta_engine.rs",
+          "explanation.rs",
+          "main.rs",
+          "map.rs",
+          "oracle.rs",
+          "process.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 12,
+        "seconds": 5.1,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "main.rs",
+          "map.rs",
+          "rag.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2869,
+        "chunks": 11,
+        "seconds": 5.39,
+        "over_budget": false,
+        "reported_total": 2869
+      }
+    },
+    "sym-temporal-validity": {
+      "group": "core",
+      "classes": [
+        "symbol"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "contradiction.rs",
+          "process.rs",
+          "relation.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2714,
+        "chunks": 8,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "contradiction.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "relation.rs",
+          "temporal.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 13,
+        "seconds": 5.25,
+        "over_budget": false,
+        "reported_total": 2990
+      },
+      "candidate_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "contradiction.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "temporal.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2982,
+        "chunks": 12,
+        "seconds": 5.13,
+        "over_budget": false,
+        "reported_total": 2982
+      }
+    },
+    "par-fitness-breakdown": {
+      "group": "core",
+      "classes": [
+        "paraphrase"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "delta_engine.rs",
+          "explanation.rs",
+          "hypothesis.rs",
+          "observe.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2996,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "coherence_query.rs",
+          "core.rs",
+          "discovery.rs",
+          "explanation.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "relation.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 12,
+        "seconds": 5.23,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "coherence_query.rs",
+          "core.rs",
+          "explanation.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2953,
+        "chunks": 11,
+        "seconds": 5.17,
+        "over_budget": false,
+        "reported_total": 2953
+      }
+    },
+    "par-belief-at-time": {
+      "group": "core",
+      "classes": [
+        "paraphrase"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dream.rs",
+          "epistemic.rs",
+          "explanation.rs",
+          "grid_fitness.rs",
+          "main.rs"
+        ],
+        "tokens": 2960,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "main.rs",
+          "map.rs",
+          "provenance.rs",
+          "temporal.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2987,
+        "chunks": 12,
+        "seconds": 5.21,
+        "over_budget": false,
+        "reported_total": 2987
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "main.rs",
+          "map.rs",
+          "temporal.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 10,
+        "seconds": 5.34,
+        "over_budget": false,
+        "reported_total": 2971
+      }
+    },
+    "xborder-typed-edge": {
+      "group": "core",
+      "classes": [
+        "cross-border"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7916666666666666,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "hypothesis.rs",
+          "main.rs",
+          "relation.rs"
+        ],
+        "tokens": 2953,
+        "chunks": 6,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7916666666666666,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "machines.rs",
+          "main.rs",
+          "map.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 14,
+        "seconds": 5.07,
+        "over_budget": false,
+        "reported_total": 2983
+      },
+      "candidate_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "main.rs",
+          "map.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 13,
+        "seconds": 4.96,
+        "over_budget": false,
+        "reported_total": 2977
+      }
+    },
+    "sym-mechanism": {
+      "group": "pro",
+      "classes": [
+        "symbol"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "admin.rs",
+          "ai/agent.rs",
+          "ai/harness.rs",
+          "audit.rs",
+          "bin/ui/index.html",
+          "life_os/mod.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "address.rs",
+          "ledger.rs",
+          "operational.rs",
+          "web/ingest.rs"
+        ],
+        "tokens": 2915,
+        "chunks": 8,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "address.rs",
+          "bin/ui/index.html",
+          "corpus.rs",
+          "ledger.rs",
+          "mcp.rs",
+          "models.rs",
+          "spanner.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 16.56,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "address.rs",
+          "bin/ui/index.html",
+          "ledger.rs",
+          "mcp.rs",
+          "spanner.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 10,
+        "seconds": 5.69,
+        "over_budget": false,
+        "reported_total": 2997
+      }
+    },
+    "xborder-lineage-trace": {
+      "group": "pro",
+      "classes": [
+        "cross-border"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "admin.rs",
+          "ai/agent.rs",
+          "ai/harness.rs",
+          "audit.rs",
+          "bin/ui/index.html",
+          "life_os/mod.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/atlas.html",
+          "industrial_benchmark/mod.rs",
+          "monitor.rs",
+          "ported/ground.rs",
+          "ported/nlq.rs",
+          "report.rs"
+        ],
+        "tokens": 2978,
+        "chunks": 7,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui.rs",
+          "dependency/mod.rs",
+          "notebook.rs",
+          "ported/nlq.rs",
+          "report.rs",
+          "spanner.rs",
+          "web/axes.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 5.57,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui.rs",
+          "dependency/mod.rs",
+          "notebook.rs",
+          "web/axes.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2794,
+        "chunks": 9,
+        "seconds": 5.59,
+        "over_budget": false,
+        "reported_total": 2794
+      }
+    },
+    "xborder-incremental-catalog": {
+      "group": "pro",
+      "classes": [
+        "cross-border"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "admin.rs",
+          "ai/agent.rs",
+          "ai/harness.rs",
+          "audit.rs",
+          "bin/ui/index.html",
+          "life_os/mod.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.047619047619047616,
+        "unresolved_citations": [],
+        "paths": [
+          "communities.rs",
+          "indexer.rs",
+          "industrial_benchmark/mod.rs",
+          "main.rs",
+          "ported/nlq.rs",
+          "web/industrial.rs"
+        ],
+        "tokens": 2987,
+        "chunks": 9,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/store.rs",
+          "batch_csv.rs",
+          "bin/doc_tui.rs",
+          "capability.rs",
+          "config.rs",
+          "indexer.rs",
+          "ported/config_run.rs",
+          "tree.rs",
+          "vfs/orchestrator.rs",
+          "web/axes.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 5.55,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.9523809523809523,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui.rs",
+          "config.rs",
+          "indexer.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 5.2,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "dup-topos": {
+      "group": "pro",
+      "classes": [
+        "dup-header"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "admin.rs",
+          "ai/agent.rs",
+          "ai/harness.rs",
+          "audit.rs",
+          "bin/ui/index.html",
+          "life_os/mod.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "industrial.rs",
+          "machines/topos.rs",
+          "monitor.rs",
+          "web/machines.rs",
+          "web/monitor.rs"
+        ],
+        "tokens": 2978,
+        "chunks": 8,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "config.rs",
+          "machines/mod.rs",
+          "machines/topos.rs",
+          "monitor.rs",
+          "social/mod.rs",
+          "web/machines.rs",
+          "web/mod.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 5.24,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "candidate_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "capability.rs",
+          "config.rs",
+          "machines/topos.rs",
+          "monitor.rs",
+          "social/mod.rs",
+          "web/mod.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2991,
+        "chunks": 13,
+        "seconds": 5.11,
+        "over_budget": false,
+        "reported_total": 2991
+      }
+    },
+    "par-repair-heaviness": {
+      "group": "pro",
+      "classes": [
+        "paraphrase"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "admin.rs",
+          "ai/agent.rs",
+          "ai/harness.rs",
+          "audit.rs",
+          "bin/ui/index.html",
+          "life_os/mod.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "industrial_benchmark/mod.rs",
+          "metrics/mod.rs",
+          "models.rs",
+          "orchestration/mod.rs"
+        ],
+        "tokens": 2974,
+        "chunks": 13,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "capability.rs",
+          "industrial.rs",
+          "metrics/mod.rs",
+          "models.rs",
+          "oee.rs",
+          "orchestration/mod.rs",
+          "ported/front_door.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/mod.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 17,
+        "seconds": 5.87,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "candidate_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "capability.rs",
+          "industrial.rs",
+          "metrics/mod.rs",
+          "models.rs",
+          "oee.rs",
+          "orchestration/mod.rs",
+          "ported/front_door.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/mod.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 17,
+        "seconds": 5.53,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    }
+  },
+  "heldout_summary": {
+    "file_heads": {
+      "cases": 12,
+      "case_hits": 0,
+      "span_recall": 0.0,
+      "line_recall": 0.0,
+      "tokens": 35916,
+      "seconds": 0.0,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "bm25": {
+      "cases": 12,
+      "case_hits": 7,
+      "span_recall": 0.5833333333333334,
+      "line_recall": 0.6532738095238095,
+      "tokens": 34957,
+      "seconds": 1.0,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "current_pack": {
+      "cases": 12,
+      "case_hits": 4,
+      "span_recall": 0.3333333333333333,
+      "line_recall": 0.3993055555555556,
+      "tokens": 35956,
+      "seconds": 75.6,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "candidate_pack": {
+      "cases": 12,
+      "case_hits": 4,
+      "span_recall": 0.3333333333333333,
+      "line_recall": 0.41269841269841273,
+      "tokens": 35439,
+      "seconds": 64.1,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    }
+  },
+  "verdict": "KEEP_BASELINE",
+  "answer_arm": "NOT_MEASURED"
+}

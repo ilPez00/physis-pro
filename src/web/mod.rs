@@ -39,7 +39,7 @@ use crate::embed::VectorEmbed;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
 use crate::mapper::OntologyMapper;
 use crate::models::{CoherenceNode, Goal, HumanDomain, HumanMode, NodeView, Score, SemioticGrid};
-use crate::rag::{self, RagCorpus};
+use crate::rag;
 use crate::structsim::{self, StructNode};
 use crate::CoherenceSnapshot;
 

@@ -1,0 +1,467 @@
+{
+  "schema_version": "temporal-fixture.v1",
+  "frozen_at": "2026-09-15",
+  "author": "sonnet-research-worker (development-cycle-2026-09-15)",
+  "purpose": "Frozen typed fixtures distinguishing valid_at (when a claim was true in the world) from known_at (when the system learned it), for a state(valid_at=T, known_at=K) query that does not yet exist in physis-core. Do not edit case data after a validator run is cited in a report; add new cases with new ids instead.",
+  "status_vocabulary": {
+    "SUPPORTED": "at least one visible, time-applicable supporting item and no visible, time-applicable contradicting item",
+    "CONTRADICTED": "at least one visible, time-applicable contradicting item (contradicting takes precedence over supporting when both are applicable)",
+    "UNKNOWN_TIME": "no visible, time-applicable dated item, but at least one visible item whose valid time is explicitly unknown -- an abstention, not a negative",
+    "NO_BELIEF": "no visible evidence bears on the subject at all (nothing known_at<=K, or the subject does not exist yet)"
+  },
+  "interval_semantics": "half-open [valid_from, valid_until): valid_at == valid_from is inside the window, valid_at == valid_until is outside it. This matches physis-core/src/temporal.rs TemporalValidity::is_valid_at (from <= when && when < until). null valid_from = open at the start of time; null valid_until = open-ended / still valid.",
+  "visibility_rule": "an evidence item is visible at known_at=K iff item.known_at <= K. If item.supersedes names another item's id, the superseded item is excluded from visibility once the superseding item itself is visible (visibility gates the correction, not the correction's own valid window).",
+  "cases": [
+    {
+      "id": "T01-late-arrival-gate",
+      "category": "late_arrival",
+      "subject": "boiler-7:pressure-reading-jan",
+      "notes": "Reproduces the Day-4 acceptance gate literally: 'a January reading learned in March is absent from a February knowledge query but available to an April query about January.'",
+      "evidence": [
+        {
+          "id": "e1",
+          "claim": "On 2026-01-15 boiler-7 read 42 psi, within the 45 psi limit.",
+          "polarity": "supporting",
+          "valid_from": "2026-01-15T00:00:00Z",
+          "valid_until": "2026-01-16T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-03-01T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q1",
+          "valid_at": "2026-01-15T12:00:00Z",
+          "known_at": "2026-02-01T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "the February query predates when e1 was recorded (known_at=March); the reading is invisible even though the January event already happened"
+        },
+        {
+          "id": "q2",
+          "valid_at": "2026-01-15T12:00:00Z",
+          "known_at": "2026-04-01T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e1"],
+          "why": "the April query is after e1 was recorded, and January 15 falls inside e1's valid window"
+        }
+      ]
+    },
+    {
+      "id": "T02-e77-typed-replication",
+      "category": "late_arrival",
+      "subject": "reactor-3:temperature-below-70",
+      "notes": "Typed replacement for benchmarks/conatus/e77_temporal.py's prose-dates setup. All three evidence items are known by the same final known_at (mirrors E77's 'query after all evidence is in'); the three valid_at queries must return DIFFERENT statuses if the engine reads event time. This is E77's own falsification test, made executable against a typed oracle instead of CLI stdout regex.",
+      "evidence": [
+        {
+          "id": "e_jan",
+          "claim": "2026-01-01: reactor-3 ran at 60C, below the 70C limit.",
+          "polarity": "supporting",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_until": "2026-06-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-12-02T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_jun",
+          "claim": "2026-06-01: reactor-3 ran at 80C, above the 70C limit.",
+          "polarity": "contradicting",
+          "valid_from": "2026-06-01T00:00:00Z",
+          "valid_until": "2026-12-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-12-02T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_dec",
+          "claim": "2026-12-01: reactor-3 ran at 95C, above the 70C limit.",
+          "polarity": "contradicting",
+          "valid_from": "2026-12-01T00:00:00Z",
+          "valid_until": null,
+          "valid_unknown": false,
+          "known_at": "2026-12-02T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_jan",
+          "valid_at": "2026-01-01T00:00:00Z",
+          "known_at": "2026-12-02T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_jan"],
+          "why": "January is inside e_jan's window and no contradicting item covers January"
+        },
+        {
+          "id": "q_jun",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-12-02T00:00:00Z",
+          "expected_status": "CONTRADICTED",
+          "expected_evidence_ids": ["e_jun"],
+          "why": "June is the exact instant e_jan's window closes (excluded, half-open) and e_jun's window opens (included)"
+        },
+        {
+          "id": "q_dec",
+          "valid_at": "2026-12-01T00:00:00Z",
+          "known_at": "2026-12-02T00:00:00Z",
+          "expected_status": "CONTRADICTED",
+          "expected_evidence_ids": ["e_dec"],
+          "why": "December is inside e_dec's open-ended window"
+        }
+      ],
+      "known_bad_expectation": "a known_at-only replay (ignores valid_at, uses only visibility-by-K) sees all three items visible and must return the SAME status (CONTRADICTED, since a contradicting item is visible) for q_jan, q_jun and q_dec alike -- reproducing E77's measured defect that replay at different timestamps does not track what the evidence is ABOUT."
+    },
+    {
+      "id": "T03-arrival-order-invariance",
+      "category": "forward_reverse_final_evidence",
+      "subject": "reactor-3:temperature-below-70:arrival-order",
+      "notes": "Same three evidence items as T02, but known_at is assigned in reverse arrival order (e_dec known before e_jun before e_jan). Retrospective queries at the FINAL known_at must match T02 exactly (arrival order must not change the world-state answer once everything is in). Intermediate known_at queries are allowed, and expected, to differ from the forward arm -- that is not a bug.",
+      "evidence": [
+        {
+          "id": "e_jan",
+          "claim": "2026-01-01: reactor-3 ran at 60C, below the 70C limit.",
+          "polarity": "supporting",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_until": "2026-06-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-12-02T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_jun",
+          "claim": "2026-06-01: reactor-3 ran at 80C, above the 70C limit.",
+          "polarity": "contradicting",
+          "valid_from": "2026-06-01T00:00:00Z",
+          "valid_until": "2026-12-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-11-15T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_dec",
+          "claim": "2026-12-01: reactor-3 ran at 95C, above the 70C limit.",
+          "polarity": "contradicting",
+          "valid_from": "2026-12-01T00:00:00Z",
+          "valid_until": null,
+          "valid_unknown": false,
+          "known_at": "2026-11-01T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_final_jan",
+          "valid_at": "2026-01-01T00:00:00Z",
+          "known_at": "2026-12-02T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_jan"],
+          "why": "final retrospective answer must equal T02.q_jan regardless of arrival order",
+          "must_equal_case": "T02-e77-typed-replication",
+          "must_equal_query": "q_jan"
+        },
+        {
+          "id": "q_final_jun",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-12-02T00:00:00Z",
+          "expected_status": "CONTRADICTED",
+          "expected_evidence_ids": ["e_jun"],
+          "why": "final retrospective answer must equal T02.q_jun regardless of arrival order",
+          "must_equal_case": "T02-e77-typed-replication",
+          "must_equal_query": "q_jun"
+        },
+        {
+          "id": "q_intermediate_nov01",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-11-01T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "at this intermediate known_at only e_dec is visible (reverse order), and e_dec's window does not cover June -- legitimately different from the forward arm's state at an equivalent step"
+        }
+      ]
+    },
+    {
+      "id": "T04-correction-narrows-window",
+      "category": "correction",
+      "subject": "valve-12:open",
+      "notes": "Mirrors physis-core/src/temporal.rs test a_window_closed_by_weak_evidence_is_corrected_by_better_evidence: a first, worse guess about when a claim stopped being true is later narrowed by better evidence. Modeled here as an explicit supersede rather than in-place mutation, since the fixture format has no notion of editing a record after the fact.",
+      "evidence": [
+        {
+          "id": "e_open_v1",
+          "claim": "Valve-12 was open from March to November (first estimate, based on the November inspection alone).",
+          "polarity": "supporting",
+          "valid_from": "2026-03-01T00:00:00Z",
+          "valid_until": "2026-11-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-11-05T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_open_v2",
+          "claim": "Correction: maintenance logs show valve-12 was actually closed by July; the November estimate over-ran the window.",
+          "polarity": "supporting",
+          "valid_from": "2026-03-01T00:00:00Z",
+          "valid_until": "2026-07-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-11-20T00:00:00Z",
+          "supersedes": "e_open_v1"
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_before_correction",
+          "valid_at": "2026-08-01T00:00:00Z",
+          "known_at": "2026-11-10T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_open_v1"],
+          "why": "before the correction is known, the wide (wrong) window is still the best available belief"
+        },
+        {
+          "id": "q_after_correction_in_gap",
+          "valid_at": "2026-08-01T00:00:00Z",
+          "known_at": "2026-11-25T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "after the correction, August falls in the gap the correction opened up (valve already closed by July) -- neither evidence item is applicable, and this must not be silently reported as still SUPPORTED"
+        },
+        {
+          "id": "q_after_correction_inside_narrowed_window",
+          "valid_at": "2026-05-01T00:00:00Z",
+          "known_at": "2026-11-25T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_open_v2"],
+          "why": "May is still inside the corrected window"
+        }
+      ]
+    },
+    {
+      "id": "T05-correction-reverses-polarity",
+      "category": "correction",
+      "subject": "sensor-4:calibration-ok",
+      "notes": "A correction that does not just narrow an interval but reverses the claim: the original record said the sensor was fine; the correction says it was miscalibrated the whole time. known_at gating must still hold -- pre-correction queries see the wrong belief, this is expected and not a defect in the fixture.",
+      "evidence": [
+        {
+          "id": "e_calibrated",
+          "claim": "Sensor-4 was correctly calibrated all year.",
+          "polarity": "supporting",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_until": null,
+          "valid_unknown": false,
+          "known_at": "2026-02-01T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_miscalibrated",
+          "claim": "Audit finds sensor-4 was miscalibrated from 2026-01-01 onward; retroactive correction.",
+          "polarity": "contradicting",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_until": null,
+          "valid_unknown": false,
+          "known_at": "2026-09-01T00:00:00Z",
+          "supersedes": "e_calibrated"
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_pre_audit",
+          "valid_at": "2026-05-01T00:00:00Z",
+          "known_at": "2026-06-01T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_calibrated"],
+          "why": "before the audit is known, the (wrong) calibrated belief is the honest historical answer at that known_at"
+        },
+        {
+          "id": "q_post_audit_same_valid_at",
+          "valid_at": "2026-05-01T00:00:00Z",
+          "known_at": "2026-10-01T00:00:00Z",
+          "expected_status": "CONTRADICTED",
+          "expected_evidence_ids": ["e_miscalibrated"],
+          "why": "same valid_at, later known_at: the retroactive correction now applies and flips the answer -- this is the point of separating the two axes"
+        }
+      ]
+    },
+    {
+      "id": "T06-unknown-time-only",
+      "category": "unknown_time",
+      "subject": "line-2:rattling-noise-reported",
+      "notes": "The only evidence for this subject has no extractable world time (an operator mentioned it in passing with no date). This must surface as an explicit abstention (UNKNOWN_TIME), never silently as NO_BELIEF (which would say nothing was ever reported) and never as a false SUPPORTED/CONTRADICTED at an arbitrary T.",
+      "evidence": [
+        {
+          "id": "e_rattle",
+          "claim": "An operator mentioned line-2 has been making a rattling noise, no date given.",
+          "polarity": "contradicting",
+          "valid_from": null,
+          "valid_until": null,
+          "valid_unknown": true,
+          "known_at": "2026-05-01T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_any_time_after_report",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-07-01T00:00:00Z",
+          "expected_status": "UNKNOWN_TIME",
+          "expected_evidence_ids": ["e_rattle"],
+          "why": "there is relevant evidence, but no valid_at query can be honestly answered SUPPORTED/CONTRADICTED without a world time to place it at"
+        },
+        {
+          "id": "q_before_report_known",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-04-01T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "before the report itself is even known, there is nothing to abstain about -- NO_BELIEF is correct here, not UNKNOWN_TIME"
+        }
+      ]
+    },
+    {
+      "id": "T07-unknown-time-vs-dated",
+      "category": "unknown_time",
+      "subject": "line-2:rattling-noise-vs-dated-inspection",
+      "notes": "An undated complaint coexists with a dated, applicable inspection record. Inside the dated record's window the dated evidence must win outright; outside every dated window the undated evidence must still surface as UNKNOWN_TIME rather than being dropped.",
+      "evidence": [
+        {
+          "id": "e_rattle",
+          "claim": "An operator mentioned line-2 has been making a rattling noise, no date given.",
+          "polarity": "contradicting",
+          "valid_from": null,
+          "valid_until": null,
+          "valid_unknown": true,
+          "known_at": "2026-05-01T00:00:00Z",
+          "supersedes": null
+        },
+        {
+          "id": "e_inspection_clean",
+          "claim": "2026-08-01 scheduled inspection: line-2 running within spec, no rattle observed, valid through the next inspection cycle.",
+          "polarity": "supporting",
+          "valid_from": "2026-08-01T00:00:00Z",
+          "valid_until": "2026-09-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-08-01T12:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_inside_inspection_window",
+          "valid_at": "2026-08-15T00:00:00Z",
+          "known_at": "2026-09-01T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_inspection_clean"],
+          "why": "a dated, applicable, contradicting-to-the-complaint record inside its own window wins over an undated item"
+        },
+        {
+          "id": "q_outside_inspection_window",
+          "valid_at": "2026-10-01T00:00:00Z",
+          "known_at": "2026-10-15T00:00:00Z",
+          "expected_status": "UNKNOWN_TIME",
+          "expected_evidence_ids": ["e_rattle"],
+          "why": "once outside the inspection's window, only the undated complaint remains visible and relevant -- must not silently disappear"
+        }
+      ]
+    },
+    {
+      "id": "T08-interval-endpoint-closed-start",
+      "category": "interval_endpoint",
+      "subject": "permit-9:valid-window",
+      "notes": "valid_at exactly equal to valid_from must be INSIDE the window (half-open, start inclusive).",
+      "evidence": [
+        {
+          "id": "e_permit",
+          "claim": "Permit-9 is valid from 2026-05-01 to 2026-06-01.",
+          "polarity": "supporting",
+          "valid_from": "2026-05-01T00:00:00Z",
+          "valid_until": "2026-06-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-04-20T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_at_start",
+          "valid_at": "2026-05-01T00:00:00Z",
+          "known_at": "2026-06-15T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_permit"],
+          "why": "start instant is inside the window"
+        },
+        {
+          "id": "q_before_start",
+          "valid_at": "2026-04-30T23:59:59Z",
+          "known_at": "2026-06-15T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "one second before the window opens, the permit is not yet valid"
+        }
+      ]
+    },
+    {
+      "id": "T09-interval-endpoint-open-end",
+      "category": "interval_endpoint",
+      "subject": "permit-9:valid-window",
+      "notes": "valid_at exactly equal to valid_until must be OUTSIDE the window (half-open, end exclusive) -- the classic off-by-one trap.",
+      "evidence": [
+        {
+          "id": "e_permit",
+          "claim": "Permit-9 is valid from 2026-05-01 to 2026-06-01.",
+          "polarity": "supporting",
+          "valid_from": "2026-05-01T00:00:00Z",
+          "valid_until": "2026-06-01T00:00:00Z",
+          "valid_unknown": false,
+          "known_at": "2026-04-20T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_at_end_exact",
+          "valid_at": "2026-06-01T00:00:00Z",
+          "known_at": "2026-06-15T00:00:00Z",
+          "expected_status": "NO_BELIEF",
+          "expected_evidence_ids": [],
+          "why": "the end instant itself is already expired"
+        },
+        {
+          "id": "q_just_before_end",
+          "valid_at": "2026-05-31T23:59:59Z",
+          "known_at": "2026-06-15T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_permit"],
+          "why": "one second before expiry, still valid"
+        }
+      ]
+    },
+    {
+      "id": "T10-interval-endpoint-open-ended",
+      "category": "interval_endpoint",
+      "subject": "policy-3:in-effect",
+      "notes": "valid_until=null means still valid arbitrarily far into the future; valid_from=null means valid since before any recorded evidence.",
+      "evidence": [
+        {
+          "id": "e_policy",
+          "claim": "Policy-3 took effect 2026-01-01 and has not been rescinded.",
+          "polarity": "supporting",
+          "valid_from": "2026-01-01T00:00:00Z",
+          "valid_until": null,
+          "valid_unknown": false,
+          "known_at": "2026-01-02T00:00:00Z",
+          "supersedes": null
+        }
+      ],
+      "queries": [
+        {
+          "id": "q_far_future",
+          "valid_at": "2030-01-01T00:00:00Z",
+          "known_at": "2030-01-02T00:00:00Z",
+          "expected_status": "SUPPORTED",
+          "expected_evidence_ids": ["e_policy"],
+          "why": "an open-ended valid_until must not silently expire"
+        }
+      ]
+    }
+  ]
+}

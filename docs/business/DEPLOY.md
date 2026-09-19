@@ -16,6 +16,58 @@ inside the buyer's LAN and point it at their documents.
 cargo build --release --features web,pdf,email --bin web_server
 ```
 
+## Licensing
+
+Every product binary is licence-gated at startup. Without a valid licence the
+process refuses to run (`licence check failed`). Diagnostics only
+(`doctor`, `license`, `benchmark`) and `estimate` bypass the gate.
+
+### Vendor side (one time, offline machine)
+
+```bash
+scripts/generate-physis-license.sh keygen ~/.physis-vendor
+# -> ~/.physis-vendor/signing.key   (private, never leaves this machine)
+#    ~/.physis-vendor/verifying.key (64-hex public key)
+```
+
+Build with the public key stamped in — an unstamped build embeds a dev key and
+accepts any forged licence:
+
+```bash
+PHYSIS_LICENSE_PUBKEY=$(cat ~/.physis-vendor/verifying.key) \
+  cargo build --release --bin web_server
+```
+
+`scripts/package.sh` does this plus signs the tarball (separate release key).
+
+### Issuing a licence
+
+```bash
+scripts/generate-physis-license.sh issue \
+  --key ~/.physis-vendor/signing.key --org "Acme Ltd" --exp 2027-01-01 \
+  --seats 5 --features "*" --out acme.lic
+```
+
+Ship only the licence blob (`acme.lic`); the signing key stays offline.
+
+### Customer side (install)
+
+```bash
+export PHYSIS_LICENSE_FILE=/etc/physis/license.lic   # or PHYSIS_LICENSE=<blob>
+# or place the blob at <workdir>/.physis/license.key
+```
+
+Precedence: `PHYSIS_LICENSE` > `PHYSIS_LICENSE_FILE` > `.physis/license.key`.
+Inspect a licence without trusting it:
+
+```bash
+scripts/generate-physis-license.sh inspect acme.lic
+```
+
+Note: the signature is only checked by a product binary built with the matching
+`PHYSIS_LICENSE_PUBKEY`. Rotating the vendor key means rebuilding and
+redistributing all binaries.
+
 ## Tokens & RBAC
 
 Auth is role-aware. Issue least-privilege tokens:

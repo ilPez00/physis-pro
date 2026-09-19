@@ -46,7 +46,7 @@ impl EditMetrics {
         affected: &[(String, f32, PropagationTrace)],
         regions: &[RepairRegion],
         repair_results: &[crate::orchestration::RepairResult],
-        delta: &SemanticDelta,
+        _delta: &SemanticDelta,
     ) -> Self {
         let regenerated: usize = repair_results.iter().map(|r| {
             // Rough estimate: length of repaired text

@@ -648,7 +648,11 @@ impl Drop for Screen {
     }
 }
 
-fn main() -> Result<()> {
+/// Entry point, as Core's `physis-system-tui` binary had it. `pub` (and called
+/// via the `physis-pro-system-tui` shim in `src/bin/system_tui.rs`) so the moved
+/// navigator is reachable from a shipped executable rather than only from this
+/// library.
+pub fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let mut root = PathBuf::from(".");
     let mut state: Option<PathBuf> = None;

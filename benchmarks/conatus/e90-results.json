@@ -1,0 +1,603 @@
+{
+ "fixture": "day5-holdout.json",
+ "nli_model": "cross-encoder/nli-deberta-v3-xsmall",
+ "threshold": 0.5,
+ "arms": {
+  "rules-unbound": {
+   "overall": {
+    "tp": 9,
+    "fp": 9,
+    "fn": 4,
+    "tn": 18,
+    "abstained": 0,
+    "decided": 40,
+    "coverage": 1.0,
+    "precision": 0.5,
+    "recall_decided": 0.6923076923076923,
+    "recall_overall": 0.6923076923076923
+   },
+   "per_class": {
+    "different-object": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "tn": 5,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "different-owner": {
+     "tp": 0,
+     "fp": 2,
+     "fn": 0,
+     "tn": 3,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "implication": {
+     "tp": 1,
+     "fp": 1,
+     "fn": 1,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.5,
+     "recall_decided": 0.5,
+     "recall_overall": 0.5
+    },
+    "negated-predicate": {
+     "tp": 3,
+     "fp": 0,
+     "fn": 1,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 0.75,
+     "recall_overall": 0.75
+    },
+    "nonoverlapping-time": {
+     "tp": 1,
+     "fp": 4,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.2,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "paraphrase": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "quantifier-scope": {
+     "tp": 1,
+     "fp": 2,
+     "fn": 2,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.3333333333333333,
+     "recall_decided": 0.3333333333333333,
+     "recall_overall": 0.3333333333333333
+    },
+    "unit-conversion": {
+     "tp": 2,
+     "fp": 0,
+     "fn": 0,
+     "tn": 3,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    }
+   }
+  },
+  "rules-bound": {
+   "overall": {
+    "tp": 9,
+    "fp": 5,
+    "fn": 4,
+    "tn": 22,
+    "abstained": 0,
+    "decided": 40,
+    "coverage": 1.0,
+    "precision": 0.6428571428571429,
+    "recall_decided": 0.6923076923076923,
+    "recall_overall": 0.6923076923076923
+   },
+   "per_class": {
+    "different-object": {
+     "tp": 0,
+     "fp": 0,
+     "fn": 0,
+     "tn": 5,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "different-owner": {
+     "tp": 0,
+     "fp": 1,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "implication": {
+     "tp": 1,
+     "fp": 1,
+     "fn": 1,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.5,
+     "recall_decided": 0.5,
+     "recall_overall": 0.5
+    },
+    "negated-predicate": {
+     "tp": 3,
+     "fp": 0,
+     "fn": 1,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 0.75,
+     "recall_overall": 0.75
+    },
+    "nonoverlapping-time": {
+     "tp": 1,
+     "fp": 2,
+     "fn": 0,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.3333333333333333,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "paraphrase": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "quantifier-scope": {
+     "tp": 1,
+     "fp": 1,
+     "fn": 2,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.5,
+     "recall_decided": 0.3333333333333333,
+     "recall_overall": 0.3333333333333333
+    },
+    "unit-conversion": {
+     "tp": 2,
+     "fp": 0,
+     "fn": 0,
+     "tn": 3,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    }
+   }
+  },
+  "nli": {
+   "overall": {
+    "tp": 13,
+    "fp": 16,
+    "fn": 0,
+    "tn": 11,
+    "abstained": 0,
+    "decided": 40,
+    "coverage": 1.0,
+    "precision": 0.4482758620689655,
+    "recall_decided": 1.0,
+    "recall_overall": 1.0
+   },
+   "per_class": {
+    "different-object": {
+     "tp": 0,
+     "fp": 5,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "different-owner": {
+     "tp": 0,
+     "fp": 5,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "implication": {
+     "tp": 2,
+     "fp": 0,
+     "fn": 0,
+     "tn": 3,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "negated-predicate": {
+     "tp": 4,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "nonoverlapping-time": {
+     "tp": 1,
+     "fp": 3,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.25,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "paraphrase": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "quantifier-scope": {
+     "tp": 3,
+     "fp": 0,
+     "fn": 0,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "unit-conversion": {
+     "tp": 2,
+     "fp": 3,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.4,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    }
+   }
+  },
+  "union": {
+   "overall": {
+    "tp": 13,
+    "fp": 18,
+    "fn": 0,
+    "tn": 9,
+    "abstained": 0,
+    "decided": 40,
+    "coverage": 1.0,
+    "precision": 0.41935483870967744,
+    "recall_decided": 1.0,
+    "recall_overall": 1.0
+   },
+   "per_class": {
+    "different-object": {
+     "tp": 0,
+     "fp": 5,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "different-owner": {
+     "tp": 0,
+     "fp": 5,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "implication": {
+     "tp": 2,
+     "fp": 1,
+     "fn": 0,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.6666666666666666,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "negated-predicate": {
+     "tp": 4,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "nonoverlapping-time": {
+     "tp": 1,
+     "fp": 3,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.25,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "paraphrase": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "quantifier-scope": {
+     "tp": 3,
+     "fp": 1,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.75,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "unit-conversion": {
+     "tp": 2,
+     "fp": 3,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.4,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    }
+   }
+  },
+  "routed": {
+   "overall": {
+    "tp": 13,
+    "fp": 11,
+    "fn": 0,
+    "tn": 8,
+    "abstained": 8,
+    "decided": 32,
+    "coverage": 0.8,
+    "precision": 0.5416666666666666,
+    "recall_decided": 1.0,
+    "recall_overall": 0.6190476190476191
+   },
+   "per_class": {
+    "different-object": {
+     "tp": 0,
+     "fp": 5,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "different-owner": {
+     "tp": 0,
+     "fp": 1,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 4,
+     "decided": 1,
+     "coverage": 0.2,
+     "precision": 0.0,
+     "recall_decided": 0.0,
+     "recall_overall": 0.0
+    },
+    "implication": {
+     "tp": 2,
+     "fp": 1,
+     "fn": 0,
+     "tn": 2,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.6666666666666666,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "negated-predicate": {
+     "tp": 4,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "nonoverlapping-time": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "abstained": 3,
+     "decided": 2,
+     "coverage": 0.4,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 0.25
+    },
+    "paraphrase": {
+     "tp": 1,
+     "fp": 0,
+     "fn": 0,
+     "tn": 4,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 1.0,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    },
+    "quantifier-scope": {
+     "tp": 3,
+     "fp": 1,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 1,
+     "decided": 4,
+     "coverage": 0.8,
+     "precision": 0.75,
+     "recall_decided": 1.0,
+     "recall_overall": 0.75
+    },
+    "unit-conversion": {
+     "tp": 2,
+     "fp": 3,
+     "fn": 0,
+     "tn": 0,
+     "abstained": 0,
+     "decided": 5,
+     "coverage": 1.0,
+     "precision": 0.4,
+     "recall_decided": 1.0,
+     "recall_overall": 1.0
+    }
+   }
+  }
+ },
+ "regression": {
+  "holdout (E84)": {
+   "routed_fp": 0,
+   "rules_fp": 0,
+   "routed_tp": 16,
+   "rules_tp": 21,
+   "abstained": 20,
+   "no_new_false_positives": true
+  },
+  "adversarial (E85)": {
+   "routed_fp": 0,
+   "rules_fp": 0,
+   "routed_tp": 0,
+   "rules_tp": 0,
+   "abstained": 15,
+   "no_new_false_positives": true
+  },
+  "validation (E86)": {
+   "routed_fp": 0,
+   "rules_fp": 0,
+   "routed_tp": 5,
+   "rules_tp": 5,
+   "abstained": 9,
+   "no_new_false_positives": true
+  }
+ },
+ "gate": {
+  "no_new_false_positives_on_locked_fixtures": true,
+  "recall_gain_over_rules_bound": false,
+  "precision_at_least_rules_bound": false,
+  "rules_bound_precision": 0.6428571428571429,
+  "routed_precision": 0.5416666666666666,
+  "rules_bound_recall_overall": 0.6923076923076923,
+  "routed_recall_overall": 0.6190476190476191
+ },
+ "verdict": "ROUTE_HURTS_PRECISION_KEEP_RULES"
+}

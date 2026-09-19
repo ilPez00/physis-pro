@@ -1,0 +1,129 @@
+{
+  "comment": "Day 3, second frozen holdout — the set the pack-mode repair is scored on. Set #1 (cases_day3.json) was spent scoring the cosine arm and must not be reused for a candidate; this set was authored after that verdict and before the hybrid arm was run, so the comparison stays honest. Same rules: evidence spans read out of the code, one corpus root per case, no case shared with set #1. No `dev` split: the candidate (PackMode::Hybrid) has no tuned parameter — RRF k is fixed in physis-core — so there is nothing to fit and every case is held out.",
+  "groups": {
+    "core": "physis-core/src",
+    "pro": "src"
+  },
+  "cases": [
+    {
+      "id": "sym-fuse-rrf",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol", "cross-border"],
+      "query": "fuse_rrf",
+      "required_spans": [
+        {"path": "rag.rs", "start": 437, "end": 470, "why": "rank_by_cosine + fuse_rrf; straddles the 440/441 chunk boundary"}
+      ]
+    },
+    {
+      "id": "par-hybrid-ship",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase", "cross-border"],
+      "query": "how does the codebase decide whether to ship a fusion of two rankings",
+      "required_spans": [
+        {"path": "rag.rs", "start": 494, "end": 528, "why": "HybridVerdict + measure_hybrid_vs_cosine; straddles the 520/521 boundary"}
+      ]
+    },
+    {
+      "id": "neg-never-merged",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["negation"],
+      "query": "what does the engine refuse to do with statements that disagree",
+      "required_spans": [
+        {"path": "map.rs", "start": 1, "end": 13, "why": "module doc: contradiction candidates are reported, never merged"}
+      ]
+    },
+    {
+      "id": "sym-runs-z",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "runs_z",
+      "required_spans": [
+        {"path": "becoming.rs", "start": 165, "end": 182, "why": "the Wald-Wolfowitz runs statistic and its null"}
+      ]
+    },
+    {
+      "id": "par-name-collision",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how can you tell whether a word changed meaning or two things share one name",
+      "required_spans": [
+        {"path": "becoming.rs", "start": 1, "end": 17, "why": "module doc: time-separated senses vs interleaved senses"}
+      ]
+    },
+    {
+      "id": "xborder-retrieve-ranking",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how is an arbitrary ranking given the same token budget guarantee",
+      "required_spans": [
+        {"path": "rag.rs", "start": 181, "end": 215, "why": "retrieve_with_ranking; straddles the 200/201 boundary"}
+      ]
+    },
+    {
+      "id": "par-cell-pin",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase", "cross-border"],
+      "query": "how can a human override a node's automatic classification and have the override survive a restart",
+      "required_spans": [
+        {"path": "core.rs", "start": 755, "end": 775, "why": "PinEdit::Set/Clear and the pinned cell in the edit response; straddles 760/761"}
+      ]
+    },
+    {
+      "id": "dup-elenchus",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header"],
+      "query": "which machine reduces a conversation to claims and warrants",
+      "required_spans": [
+        {"path": "machines/elenchus.rs", "start": 1, "end": 12, "why": "the machine doc header, one of 18 carrying the same 'Pure + testable.' line"}
+      ]
+    },
+    {
+      "id": "xborder-finish-pack",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how are the line ranges reattached after retrieval picks the chunks",
+      "required_spans": [
+        {"path": "pack.rs", "start": 439, "end": 480, "why": "finish_pack reattaching provenance; straddles the 440/441 boundary"}
+      ]
+    },
+    {
+      "id": "chg-axes-proposal",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["changed-file", "cross-border"],
+      "query": "how does the engine propose a new axis when data clusters where no axis names it",
+      "required_spans": [
+        {"path": "axes.rs", "start": 173, "end": 215, "why": "propose_axes; straddles the 200/201 boundary"}
+      ]
+    },
+    {
+      "id": "par-global-budget",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase", "cross-border"],
+      "query": "how can a question about the whole corpus be answered within a bounded token count",
+      "required_spans": [
+        {"path": "corpus.rs", "start": 496, "end": 540, "why": "GlobalHit/GlobalContext/pack_global; straddles the 520/521 boundary"}
+      ]
+    },
+    {
+      "id": "dup-chronos",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header"],
+      "query": "which machine turns a stream of timestamped events into recurring rhythms",
+      "required_spans": [
+        {"path": "machines/chronos.rs", "start": 1, "end": 12, "why": "the machine doc header, sharing the boilerplate line with 17 siblings"}
+      ]
+    }
+  ]
+}

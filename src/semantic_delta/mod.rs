@@ -143,13 +143,13 @@ impl SemanticDelta {
     pub fn compute_semantic_distance<E: Embedder>(embedder: &E, old_text: &str, new_text: &str) -> f32 {
         let old_emb = embedder.embed(old_text);
         let new_emb = embedder.embed(new_text);
-        1.0 - cosine_sim(&old_emb, &new_emb).max(0.0).min(1.0)
+        1.0 - cosine_sim(&old_emb, &new_emb).clamp(0.0, 1.0)
     }
 
     pub fn escalate_with_model(
         &self,
-        old_repr: &SemanticRepresentation,
-        new_repr: &SemanticRepresentation,
+        _old_repr: &SemanticRepresentation,
+        _new_repr: &SemanticRepresentation,
         initial_distance: f32,
     ) -> Self {
         let mut result = self.clone();
@@ -203,12 +203,11 @@ impl Embedder for RandomProjectionEmbedder {
         for ch in text.chars() {
             h = h.wrapping_mul(0x100000001).wrapping_add(ch as u64);
         }
-        let h = h as u64;
         let dim = self.dim;
         (0..dim)
             .map(|i| {
                 let bit_shift = (i * 7) % 64;
-                let bit = ((h >> bit_shift) & 1 as u64) as f32;
+                let bit = ((h >> bit_shift) & 1_u64) as f32;
                 (bit - 0.5) * 2.0
             })
             .collect()
@@ -233,7 +232,7 @@ pub fn extract_semantic_representation(text: &str, embedder: &dyn Embedder) -> S
 
     let propositions: Vec<String> = text
         .split('.')
-        .filter(|s| !s.trim().is_empty() && s.trim().split_whitespace().count() > 3)
+        .filter(|s| !s.trim().is_empty() && s.split_whitespace().count() > 3)
         .map(|s| s.trim().to_string())
         .collect();
 

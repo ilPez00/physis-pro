@@ -54,7 +54,7 @@ pub async fn chat_handler(
                         anyhow::bail!("no documents found under scan dir");
                     }
                     let texts: Vec<String> = docs.iter().map(|d| d.body.clone()).collect();
-                    let corpus = RagCorpus::build(&texts, shared.embedder.as_ref());
+                    let corpus = rag::corpus_from_texts(&texts, shared.embedder.as_ref());
                     let q_emb = shared.embedder.embed(&query);
                     let retriever = rag::TokenFixedRetriever::new(req.rag_budget, req.rag_top_k);
                     let result = retriever.retrieve(&q_emb, &corpus);

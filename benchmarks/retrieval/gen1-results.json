@@ -1,0 +1,7135 @@
+{
+  "revision": "96a98c41b97be7c262a550caad4691a513d04b87",
+  "dirty_files": 68,
+  "cases_file": "<generated seed=1>",
+  "candidate": "mode:cosine",
+  "candidates": [
+    "mode:lexical",
+    "mode:auto"
+  ],
+  "budget": 3000,
+  "top_k": 50,
+  "frozen_corpus": true,
+  "corpus": {
+    "core": {
+      "root": "physis-core/src",
+      "hash": "82dc3034b6ac454e",
+      "chunks": 606,
+      "files": 46
+    },
+    "pro": {
+      "root": "src",
+      "hash": "2db7654cbb9eb63f",
+      "chunks": 3070,
+      "files": 245
+    }
+  },
+  "dev": {},
+  "dev_summary": {},
+  "heldout": {
+    "gen-core-000-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2913,
+        "chunks": 7,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "config_run.rs",
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "model_provider.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "oracle.rs",
+          "process.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2973,
+        "chunks": 14,
+        "seconds": 6.85,
+        "over_budget": false,
+        "reported_total": 2973
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2913,
+        "chunks": 7,
+        "seconds": 6.9,
+        "over_budget": false,
+        "reported_total": 2913
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2913,
+        "chunks": 7,
+        "seconds": 7.04,
+        "over_budget": false,
+        "reported_total": 2913
+      }
+    },
+    "gen-core-001-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "core.rs",
+          "direction.rs",
+          "explanation.rs",
+          "grid_fitness.rs",
+          "map.rs",
+          "relation.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2975,
+        "chunks": 8,
+        "seconds": 0.06,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "explanation.rs",
+          "map.rs",
+          "model_provider.rs",
+          "propose.rs",
+          "relation.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 11,
+        "seconds": 6.99,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "core.rs",
+          "direction.rs",
+          "explanation.rs",
+          "grid_fitness.rs",
+          "map.rs",
+          "relation.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2975,
+        "chunks": 8,
+        "seconds": 6.94,
+        "over_budget": false,
+        "reported_total": 2975
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "explanation.rs",
+          "map.rs",
+          "model_provider.rs",
+          "propose.rs",
+          "relation.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 11,
+        "seconds": 6.85,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-core-002-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2996,
+        "chunks": 7,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "discovery.rs",
+          "embed_ngram.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 13,
+        "seconds": 7.09,
+        "over_budget": false,
+        "reported_total": 2980
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2996,
+        "chunks": 7,
+        "seconds": 7.17,
+        "over_budget": false,
+        "reported_total": 2996
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "discovery.rs",
+          "embed_ngram.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 13,
+        "seconds": 7.08,
+        "over_budget": false,
+        "reported_total": 2980
+      }
+    },
+    "gen-core-003-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "core.rs",
+          "main.rs",
+          "observe.rs",
+          "oracle.rs",
+          "relation.rs"
+        ],
+        "tokens": 2969,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "claim_identity.rs",
+          "coverage.rs",
+          "explanation.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "observe.rs",
+          "provenance.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2981,
+        "chunks": 13,
+        "seconds": 6.96,
+        "over_budget": false,
+        "reported_total": 2981
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "core.rs",
+          "main.rs",
+          "observe.rs",
+          "oracle.rs",
+          "relation.rs"
+        ],
+        "tokens": 2969,
+        "chunks": 8,
+        "seconds": 6.51,
+        "over_budget": false,
+        "reported_total": 2969
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "core.rs",
+          "main.rs",
+          "observe.rs",
+          "oracle.rs",
+          "relation.rs"
+        ],
+        "tokens": 2969,
+        "chunks": 8,
+        "seconds": 7.33,
+        "over_budget": false,
+        "reported_total": 2969
+      }
+    },
+    "gen-core-004-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "transform.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 10,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "embed_ngram.rs",
+          "lib.rs",
+          "linkage.rs",
+          "map.rs",
+          "provenance.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 16,
+        "seconds": 6.94,
+        "over_budget": false,
+        "reported_total": 2988
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "transform.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 10,
+        "seconds": 7.54,
+        "over_budget": false,
+        "reported_total": 2971
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "embed_ngram.rs",
+          "lib.rs",
+          "linkage.rs",
+          "map.rs",
+          "provenance.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 16,
+        "seconds": 8.89,
+        "over_budget": false,
+        "reported_total": 2988
+      }
+    },
+    "gen-core-005-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-mid",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "store.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2864,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.868421052631579,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "coherence_dimensions.rs",
+          "coverage.rs",
+          "embed.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 14,
+        "seconds": 7.23,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "map.rs",
+          "store.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2915,
+        "chunks": 8,
+        "seconds": 8.11,
+        "over_budget": false,
+        "reported_total": 2915
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.868421052631579,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "coherence_dimensions.rs",
+          "coverage.rs",
+          "embed.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 14,
+        "seconds": 9.13,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-core-006-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "models.rs"
+        ],
+        "tokens": 2873,
+        "chunks": 8,
+        "seconds": 0.06,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coherence_dimensions.rs",
+          "coverage.rs",
+          "embed.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "models.rs",
+          "tokenizer.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 12,
+        "seconds": 7.02,
+        "over_budget": false,
+        "reported_total": 2997
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "models.rs"
+        ],
+        "tokens": 2873,
+        "chunks": 8,
+        "seconds": 7.67,
+        "over_budget": false,
+        "reported_total": 2873
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "models.rs"
+        ],
+        "tokens": 2873,
+        "chunks": 8,
+        "seconds": 6.79,
+        "over_budget": false,
+        "reported_total": 2873
+      }
+    },
+    "gen-core-007-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "embed_ngram.rs",
+          "epistemic.rs",
+          "main.rs",
+          "relation.rs"
+        ],
+        "tokens": 2962,
+        "chunks": 9,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2996,
+        "chunks": 12,
+        "seconds": 7.31,
+        "over_budget": false,
+        "reported_total": 2996
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "embed_ngram.rs",
+          "epistemic.rs",
+          "main.rs",
+          "relation.rs"
+        ],
+        "tokens": 2962,
+        "chunks": 9,
+        "seconds": 7.41,
+        "over_budget": false,
+        "reported_total": 2962
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "embed_ngram.rs",
+          "epistemic.rs",
+          "main.rs",
+          "relation.rs"
+        ],
+        "tokens": 2962,
+        "chunks": 9,
+        "seconds": 6.22,
+        "over_budget": false,
+        "reported_total": 2962
+      }
+    },
+    "gen-core-008-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "main.rs",
+          "ngram_table.rs",
+          "provenance.rs",
+          "relation.rs"
+        ],
+        "tokens": 2993,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 11,
+        "seconds": 6.73,
+        "over_budget": false,
+        "reported_total": 2990
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "main.rs",
+          "ngram_table.rs",
+          "provenance.rs",
+          "relation.rs"
+        ],
+        "tokens": 2993,
+        "chunks": 8,
+        "seconds": 6.4,
+        "over_budget": false,
+        "reported_total": 2993
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 11,
+        "seconds": 6.85,
+        "over_budget": false,
+        "reported_total": 2990
+      }
+    },
+    "gen-core-009-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "lib.rs",
+          "process.rs"
+        ],
+        "tokens": 833,
+        "chunks": 2,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "claim_identity.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "main.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 13,
+        "seconds": 6.6,
+        "over_budget": false,
+        "reported_total": 2983
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "lib.rs",
+          "process.rs"
+        ],
+        "tokens": 833,
+        "chunks": 2,
+        "seconds": 7.11,
+        "over_budget": false,
+        "reported_total": 833
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "claim_identity.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "main.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 13,
+        "seconds": 6.85,
+        "over_budget": false,
+        "reported_total": 2983
+      }
+    },
+    "gen-core-010-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "model_provider.rs",
+          "ngram_table.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2973,
+        "chunks": 7,
+        "seconds": 0.04,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "config_run.rs",
+          "coverage.rs",
+          "embed_ngram.rs",
+          "main.rs",
+          "map.rs",
+          "model_provider.rs",
+          "models.rs",
+          "relation.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 13,
+        "seconds": 6.16,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "model_provider.rs",
+          "ngram_table.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2973,
+        "chunks": 7,
+        "seconds": 5.93,
+        "over_budget": false,
+        "reported_total": 2973
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "config_run.rs",
+          "coverage.rs",
+          "embed_ngram.rs",
+          "main.rs",
+          "map.rs",
+          "model_provider.rs",
+          "models.rs",
+          "relation.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 13,
+        "seconds": 7.09,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-core-011-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "chain.rs",
+          "classify.rs",
+          "discovery.rs",
+          "grid_fitness.rs",
+          "provenance.rs"
+        ],
+        "tokens": 2946,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "coverage.rs",
+          "delta_engine.rs",
+          "embed.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 11,
+        "seconds": 6.62,
+        "over_budget": false,
+        "reported_total": 2997
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "classify.rs",
+          "discovery.rs",
+          "embed_onnx.rs",
+          "grid_fitness.rs",
+          "map.rs"
+        ],
+        "tokens": 2967,
+        "chunks": 7,
+        "seconds": 7.25,
+        "over_budget": false,
+        "reported_total": 2967
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "classify.rs",
+          "discovery.rs",
+          "embed_onnx.rs",
+          "grid_fitness.rs",
+          "map.rs"
+        ],
+        "tokens": 2967,
+        "chunks": 7,
+        "seconds": 6.51,
+        "over_budget": false,
+        "reported_total": 2967
+      }
+    },
+    "gen-core-012-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "hypothesis.rs",
+          "ngram_table.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2126,
+        "chunks": 5,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "contradiction.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "main.rs",
+          "map.rs",
+          "model_provider.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 12,
+        "seconds": 6.73,
+        "over_budget": false,
+        "reported_total": 2984
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "hypothesis.rs",
+          "ngram_table.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2126,
+        "chunks": 5,
+        "seconds": 6.65,
+        "over_budget": false,
+        "reported_total": 2126
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "contradiction.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "main.rs",
+          "map.rs",
+          "model_provider.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 12,
+        "seconds": 6.7,
+        "over_budget": false,
+        "reported_total": 2984
+      }
+    },
+    "gen-core-013-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.925,
+        "unresolved_citations": [],
+        "paths": [
+          "explanation.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "transform.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "explanation.rs",
+          "grid_fitness.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2978,
+        "chunks": 13,
+        "seconds": 7.0,
+        "over_budget": false,
+        "reported_total": 2978
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.925,
+        "unresolved_citations": [],
+        "paths": [
+          "explanation.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "transform.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 8,
+        "seconds": 6.95,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "explanation.rs",
+          "grid_fitness.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2978,
+        "chunks": 13,
+        "seconds": 7.29,
+        "over_budget": false,
+        "reported_total": 2978
+      }
+    },
+    "gen-core-014-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "config_run.rs",
+          "direction.rs",
+          "embed.rs",
+          "linkage.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "direction.rs",
+          "embed.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "model_provider.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 7.43,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.95,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "direction.rs",
+          "embed.rs",
+          "oracle.rs"
+        ],
+        "tokens": 2981,
+        "chunks": 6,
+        "seconds": 8.14,
+        "over_budget": false,
+        "reported_total": 2981
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "direction.rs",
+          "embed.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "model_provider.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 8.81,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-core-015-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-mid",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.3157894736842105,
+        "unresolved_citations": [],
+        "paths": [
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "linkage.rs",
+          "transform.rs"
+        ],
+        "tokens": 2745,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coherence_dimensions.rs",
+          "coverage.rs",
+          "embed.rs",
+          "embed_ngram.rs",
+          "map.rs",
+          "models.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 12,
+        "seconds": 8.77,
+        "over_budget": false,
+        "reported_total": 2977
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.3157894736842105,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "linkage.rs",
+          "transform.rs"
+        ],
+        "tokens": 2775,
+        "chunks": 8,
+        "seconds": 8.1,
+        "over_budget": false,
+        "reported_total": 2775
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coherence_dimensions.rs",
+          "coverage.rs",
+          "embed.rs",
+          "embed_ngram.rs",
+          "map.rs",
+          "models.rs",
+          "tokenizer.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 12,
+        "seconds": 7.67,
+        "over_budget": false,
+        "reported_total": 2977
+      }
+    },
+    "gen-core-016-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7435897435897436,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "embed_ngram.rs",
+          "models.rs",
+          "relation.rs"
+        ],
+        "tokens": 2940,
+        "chunks": 8,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7435897435897436,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "embed_ngram.rs",
+          "grid_fitness.rs",
+          "linkage.rs",
+          "map.rs",
+          "propose.rs",
+          "relation.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 13,
+        "seconds": 6.75,
+        "over_budget": false,
+        "reported_total": 2992
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7435897435897436,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "models.rs"
+        ],
+        "tokens": 2939,
+        "chunks": 7,
+        "seconds": 6.91,
+        "over_budget": false,
+        "reported_total": 2939
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.7435897435897436,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coverage.rs",
+          "models.rs"
+        ],
+        "tokens": 2939,
+        "chunks": 7,
+        "seconds": 6.91,
+        "over_budget": false,
+        "reported_total": 2939
+      }
+    },
+    "gen-core-017-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "main.rs",
+          "map.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2943,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "hypothesis.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2976,
+        "chunks": 14,
+        "seconds": 7.4,
+        "over_budget": false,
+        "reported_total": 2976
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "main.rs",
+          "map.rs",
+          "temporal.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2951,
+        "chunks": 8,
+        "seconds": 7.53,
+        "over_budget": false,
+        "reported_total": 2951
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "hypothesis.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2976,
+        "chunks": 14,
+        "seconds": 7.98,
+        "over_budget": false,
+        "reported_total": 2976
+      }
+    },
+    "gen-core-018-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.2857142857142857,
+        "unresolved_citations": [],
+        "paths": [
+          "dream.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "main.rs"
+        ],
+        "tokens": 2952,
+        "chunks": 7,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "coherence_query.rs",
+          "coverage.rs",
+          "dream.rs",
+          "embed_onnx.rs",
+          "explanation.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "ontology.rs",
+          "provenance.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 13,
+        "seconds": 7.0,
+        "over_budget": false,
+        "reported_total": 2997
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dream.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "main.rs"
+        ],
+        "tokens": 2933,
+        "chunks": 6,
+        "seconds": 7.8,
+        "over_budget": false,
+        "reported_total": 2933
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dream.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "main.rs"
+        ],
+        "tokens": 2933,
+        "chunks": 6,
+        "seconds": 8.2,
+        "over_budget": false,
+        "reported_total": 2933
+      }
+    },
+    "gen-core-019-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "hypothesis.rs",
+          "linkage.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 9,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.03571428571428571,
+        "unresolved_citations": [],
+        "paths": [
+          "bench.rs",
+          "config_run.rs",
+          "coverage.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "hypothesis.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "relation.rs",
+          "temporal.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 14,
+        "seconds": 7.13,
+        "over_budget": false,
+        "reported_total": 2995
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "hypothesis.rs",
+          "linkage.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 9,
+        "seconds": 7.76,
+        "over_budget": false,
+        "reported_total": 2971
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "hypothesis.rs",
+          "linkage.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2971,
+        "chunks": 9,
+        "seconds": 8.83,
+        "over_budget": false,
+        "reported_total": 2971
+      }
+    },
+    "gen-core-020-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.875,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "config_run.rs",
+          "core.rs",
+          "delta_engine.rs",
+          "map.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 8,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "delta_engine.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "map.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 13,
+        "seconds": 7.88,
+        "over_budget": false,
+        "reported_total": 2980
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.875,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "config_run.rs",
+          "core.rs",
+          "delta_engine.rs",
+          "map.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 8,
+        "seconds": 9.52,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.875,
+        "unresolved_citations": [],
+        "paths": [
+          "classify.rs",
+          "config_run.rs",
+          "core.rs",
+          "delta_engine.rs",
+          "map.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 8,
+        "seconds": 8.02,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-core-021-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.9411764705882353,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "dream.rs",
+          "lib.rs",
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 8,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.9411764705882353,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "dream.rs",
+          "epistemic.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 11,
+        "seconds": 7.61,
+        "over_budget": false,
+        "reported_total": 2998
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.9411764705882353,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "dream.rs",
+          "lib.rs",
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 8,
+        "seconds": 8.18,
+        "over_budget": false,
+        "reported_total": 2988
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.9411764705882353,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "dream.rs",
+          "lib.rs",
+          "main.rs",
+          "ngram_table.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 8,
+        "seconds": 10.83,
+        "over_budget": false,
+        "reported_total": 2988
+      }
+    },
+    "gen-core-022-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "core.rs",
+          "lib.rs",
+          "main.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "process.rs",
+          "provenance.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 11,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "config_run.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "model_provider.rs",
+          "ngram_table.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 14,
+        "seconds": 7.7,
+        "over_budget": false,
+        "reported_total": 2990
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "lib.rs",
+          "main.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "process.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2972,
+        "chunks": 10,
+        "seconds": 6.62,
+        "over_budget": false,
+        "reported_total": 2972
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coherence_dimensions.rs",
+          "lib.rs",
+          "main.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "process.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2972,
+        "chunks": 10,
+        "seconds": 7.03,
+        "over_budget": false,
+        "reported_total": 2972
+      }
+    },
+    "gen-core-023-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "embed_onnx.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "process.rs",
+          "rag.rs"
+        ],
+        "tokens": 2959,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "delta_engine.rs",
+          "embed_onnx.rs",
+          "grid_fitness.rs",
+          "map.rs",
+          "observe.rs",
+          "process.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2973,
+        "chunks": 14,
+        "seconds": 6.93,
+        "over_budget": false,
+        "reported_total": 2973
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "claim_identity.rs",
+          "discovery.rs",
+          "hypothesis.rs",
+          "process.rs",
+          "rag.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2987,
+        "chunks": 9,
+        "seconds": 7.57,
+        "over_budget": false,
+        "reported_total": 2987
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "claim_identity.rs",
+          "discovery.rs",
+          "hypothesis.rs",
+          "process.rs",
+          "rag.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2987,
+        "chunks": 9,
+        "seconds": 7.26,
+        "over_budget": false,
+        "reported_total": 2987
+      }
+    },
+    "gen-core-024-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs.retired",
+          "core.rs",
+          "main.rs"
+        ],
+        "tokens": 2954,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "claim_identity.rs",
+          "core.rs",
+          "coverage.rs",
+          "delta_engine.rs",
+          "lib.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs",
+          "transplant.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 13,
+        "seconds": 6.72,
+        "over_budget": false,
+        "reported_total": 2998
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs.retired",
+          "core.rs",
+          "main.rs"
+        ],
+        "tokens": 2954,
+        "chunks": 8,
+        "seconds": 8.42,
+        "over_budget": false,
+        "reported_total": 2954
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs.retired",
+          "core.rs",
+          "main.rs"
+        ],
+        "tokens": 2954,
+        "chunks": 8,
+        "seconds": 7.96,
+        "over_budget": false,
+        "reported_total": 2954
+      }
+    },
+    "gen-core-025-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.23529411764705882,
+        "unresolved_citations": [],
+        "paths": [
+          "contradiction.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "machines.rs",
+          "ngram_table.rs",
+          "observe.rs",
+          "provenance.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2996,
+        "chunks": 11,
+        "seconds": 0.03,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "model_provider.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "provenance.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 14,
+        "seconds": 7.44,
+        "over_budget": false,
+        "reported_total": 2984
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.23529411764705882,
+        "unresolved_citations": [],
+        "paths": [
+          "contradiction.rs",
+          "hypothesis.rs",
+          "lib.rs",
+          "machines.rs",
+          "observe.rs",
+          "provenance.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2994,
+        "chunks": 11,
+        "seconds": 7.6,
+        "over_budget": false,
+        "reported_total": 2994
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "hypothesis.rs",
+          "map.rs",
+          "model_provider.rs",
+          "models.rs",
+          "ngram_table.rs",
+          "provenance.rs",
+          "relation.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 14,
+        "seconds": 7.87,
+        "over_budget": false,
+        "reported_total": 2984
+      }
+    },
+    "gen-core-026-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "models.rs",
+          "process.rs",
+          "provenance.rs",
+          "rag.rs",
+          "transplant.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "observe.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 12,
+        "seconds": 11.07,
+        "over_budget": false,
+        "reported_total": 2980
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "models.rs",
+          "process.rs",
+          "provenance.rs",
+          "rag.rs",
+          "transplant.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 8.22,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "core.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "observe.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "worldstate.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 12,
+        "seconds": 8.24,
+        "over_budget": false,
+        "reported_total": 2980
+      }
+    },
+    "gen-core-027-id": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.23076923076923078,
+        "unresolved_citations": [],
+        "paths": [
+          "coverage.rs",
+          "main.rs",
+          "ngram_table.rs",
+          "propose.rs",
+          "rag.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 7,
+        "seconds": 0.04,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "chain.rs",
+          "classify.rs",
+          "coverage.rs",
+          "discovery.rs",
+          "map.rs",
+          "ngram_table.rs",
+          "process.rs",
+          "rag.rs",
+          "tokenizer.rs",
+          "transform.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 12,
+        "seconds": 7.94,
+        "over_budget": false,
+        "reported_total": 2997
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.23076923076923078,
+        "unresolved_citations": [],
+        "paths": [
+          "config_run.rs",
+          "coverage.rs",
+          "machines.rs",
+          "main.rs",
+          "propose.rs",
+          "rag.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2951,
+        "chunks": 8,
+        "seconds": 7.82,
+        "over_budget": false,
+        "reported_total": 2951
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.23076923076923078,
+        "unresolved_citations": [],
+        "paths": [
+          "config_run.rs",
+          "coverage.rs",
+          "machines.rs",
+          "main.rs",
+          "propose.rs",
+          "rag.rs",
+          "temporal.rs"
+        ],
+        "tokens": 2951,
+        "chunks": 8,
+        "seconds": 6.96,
+        "over_budget": false,
+        "reported_total": 2951
+      }
+    },
+    "gen-core-028-sig": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-mid",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.4444444444444444,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "config_run.rs",
+          "direction.rs",
+          "embed.rs",
+          "models.rs",
+          "rag.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 8,
+        "seconds": 0.05,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 13,
+        "seconds": 7.79,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.4444444444444444,
+        "unresolved_citations": [],
+        "paths": [
+          "chain.rs",
+          "config_run.rs",
+          "direction.rs",
+          "embed.rs",
+          "models.rs",
+          "rag.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 8,
+        "seconds": 8.18,
+        "over_budget": false,
+        "reported_total": 2998
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "embed.rs",
+          "embed_ngram.rs",
+          "embed_onnx.rs",
+          "lib.rs",
+          "linkage.rs",
+          "main.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 13,
+        "seconds": 7.57,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-core-029-body": {
+      "group": "core",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "becoming.rs",
+          "bench.rs",
+          "bin/physis.rs.retired",
+          "chain.rs",
+          "claim_identity.rs",
+          "classify.rs",
+          "coverage.rs",
+          "embed_onnx.rs",
+          "map.rs",
+          "tokenizer.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2975,
+        "chunks": 11,
+        "seconds": 0.04,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "lib.rs",
+          "model_provider.rs",
+          "models.rs",
+          "process.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 7.26,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "map.rs",
+          "models.rs",
+          "process.rs",
+          "relation.rs",
+          "transform.rs"
+        ],
+        "tokens": 2975,
+        "chunks": 11,
+        "seconds": 7.34,
+        "over_budget": false,
+        "reported_total": 2975
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "delta_engine.rs",
+          "embed_onnx.rs",
+          "epistemic.rs",
+          "lib.rs",
+          "model_provider.rs",
+          "models.rs",
+          "process.rs",
+          "store.rs",
+          "tokenizer.rs",
+          "transform.rs",
+          "transplant.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 7.19,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-000-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "extract.rs",
+          "indexer.rs",
+          "license.rs",
+          "mcp.rs",
+          "ported/system_cli.rs",
+          "ported/system_mcp.rs",
+          "registry.rs",
+          "web/admin_study.rs",
+          "web/industrial.rs"
+        ],
+        "tokens": 2962,
+        "chunks": 9,
+        "seconds": 0.27,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "operational.rs",
+          "ported/system.rs",
+          "praxis.rs",
+          "social/mod.rs",
+          "spanner.rs",
+          "study.rs",
+          "video.rs",
+          "web/dream.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 14,
+        "seconds": 7.01,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "extract.rs",
+          "indexer.rs",
+          "license.rs",
+          "mcp.rs",
+          "ported/system_cli.rs",
+          "ported/system_mcp.rs",
+          "registry.rs",
+          "web/admin_study.rs",
+          "web/industrial.rs"
+        ],
+        "tokens": 2962,
+        "chunks": 9,
+        "seconds": 7.08,
+        "over_budget": false,
+        "reported_total": 2962
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "operational.rs",
+          "ported/system.rs",
+          "praxis.rs",
+          "social/mod.rs",
+          "spanner.rs",
+          "study.rs",
+          "video.rs",
+          "web/dream.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 14,
+        "seconds": 11.68,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-pro-001-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.625,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/memory.rs",
+          "bin/doc_tui/main.rs",
+          "content.rs",
+          "ported/studio.rs",
+          "salience.rs",
+          "web/ingest.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 2927,
+        "chunks": 9,
+        "seconds": 0.18,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "bin/doc_tui/main.rs",
+          "content.rs",
+          "graph.rs",
+          "indexer.rs",
+          "machines/techne.rs",
+          "main.rs",
+          "structsim.rs",
+          "web/axes.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 11.28,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.625,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/memory.rs",
+          "bin/doc_tui/main.rs",
+          "content.rs",
+          "ported/studio.rs",
+          "salience.rs",
+          "web/ingest.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 2927,
+        "chunks": 9,
+        "seconds": 10.1,
+        "over_budget": false,
+        "reported_total": 2927
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "bin/doc_tui/main.rs",
+          "content.rs",
+          "graph.rs",
+          "indexer.rs",
+          "machines/techne.rs",
+          "main.rs",
+          "structsim.rs",
+          "web/axes.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 9.89,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-002-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "communities.rs",
+          "doctree.rs",
+          "industrial.rs",
+          "ported/nlq.rs"
+        ],
+        "tokens": 2994,
+        "chunks": 7,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "ai/session.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "industrial.rs",
+          "linguistic/mod.rs",
+          "linguistic/sanskrit.rs",
+          "machines/lex.rs",
+          "machines/plutos.rs",
+          "ported/act.rs",
+          "ported/nlq.rs",
+          "praxis.rs",
+          "reconcile.rs",
+          "social/mod.rs",
+          "spanner.rs",
+          "trie.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 20,
+        "seconds": 10.56,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "corpus.rs",
+          "doctree.rs",
+          "industrial.rs",
+          "machines/apodeixis.rs",
+          "ported/nlq.rs",
+          "spanner.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 9,
+        "seconds": 8.11,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "corpus.rs",
+          "doctree.rs",
+          "industrial.rs",
+          "machines/apodeixis.rs",
+          "ported/nlq.rs",
+          "spanner.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 9,
+        "seconds": 9.19,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-pro-003-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.30434782608695654,
+        "unresolved_citations": [],
+        "paths": [
+          "sql.rs"
+        ],
+        "tokens": 2725,
+        "chunks": 8,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/license_tool.rs",
+          "bin/ui/index.html",
+          "decisions.rs",
+          "demo_corpus.rs",
+          "embed/jina.rs",
+          "life_os/mod.rs",
+          "linguistic/wenyan.rs",
+          "report.rs",
+          "scanner.rs",
+          "sql.rs",
+          "web/shifts.rs",
+          "web/ui_chat.rs",
+          "web/wiki_generate.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 16,
+        "seconds": 9.47,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.30434782608695654,
+        "unresolved_citations": [],
+        "paths": [
+          "sql.rs"
+        ],
+        "tokens": 2725,
+        "chunks": 8,
+        "seconds": 8.45,
+        "over_budget": false,
+        "reported_total": 2725
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/license_tool.rs",
+          "bin/ui/index.html",
+          "decisions.rs",
+          "demo_corpus.rs",
+          "embed/jina.rs",
+          "life_os/mod.rs",
+          "linguistic/wenyan.rs",
+          "report.rs",
+          "scanner.rs",
+          "sql.rs",
+          "web/shifts.rs",
+          "web/ui_chat.rs",
+          "web/wiki_generate.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 16,
+        "seconds": 8.37,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-004-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6470588235294118,
+        "unresolved_citations": [],
+        "paths": [
+          "industrial.rs",
+          "machines/empedocles.rs",
+          "machines/mod.rs",
+          "machines/run.rs",
+          "maintenance.rs",
+          "ported/mod.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "capability.rs",
+          "gantt.rs",
+          "graph.rs",
+          "life_os/mod.rs",
+          "notebook.rs",
+          "ported/notebook.rs",
+          "scanner.rs",
+          "sensory.rs",
+          "social/algorithm.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 7.23,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6470588235294118,
+        "unresolved_citations": [],
+        "paths": [
+          "industrial.rs",
+          "life_os/mod.rs",
+          "machines/empedocles.rs",
+          "machines/run.rs",
+          "maintenance.rs",
+          "social/mod.rs",
+          "web/industrial.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 11,
+        "seconds": 7.59,
+        "over_budget": false,
+        "reported_total": 2983
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "capability.rs",
+          "gantt.rs",
+          "graph.rs",
+          "life_os/mod.rs",
+          "notebook.rs",
+          "ported/notebook.rs",
+          "scanner.rs",
+          "sensory.rs",
+          "social/algorithm.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 8.23,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-005-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dependency/mod.rs",
+          "life_os/mod.rs",
+          "machines/run.rs",
+          "models.rs",
+          "planner.rs",
+          "staleness/mod.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 9,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/mod.rs",
+          "bin/doc_tui/main.rs",
+          "bin/tui.rs",
+          "bin/ui/index.html",
+          "core.rs",
+          "life_os/mod.rs",
+          "metrics/mod.rs",
+          "salience.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/coherence.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 16,
+        "seconds": 8.4,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dependency/mod.rs",
+          "life_os/mod.rs",
+          "machines/run.rs",
+          "models.rs",
+          "planner.rs",
+          "social/mod.rs",
+          "staleness/mod.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 10,
+        "seconds": 7.86,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "dependency/mod.rs",
+          "life_os/mod.rs",
+          "machines/run.rs",
+          "models.rs",
+          "planner.rs",
+          "social/mod.rs",
+          "staleness/mod.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 10,
+        "seconds": 8.91,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-pro-006-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6666666666666666,
+        "unresolved_citations": [],
+        "paths": [
+          "empedocles.rs",
+          "life_os/tracker.rs",
+          "web/pdca.rs"
+        ],
+        "tokens": 2981,
+        "chunks": 8,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.3333333333333333,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/onnx_worker.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/index.html",
+          "bin/ui/pulse.html",
+          "capability.rs",
+          "communities.rs",
+          "estimate.rs",
+          "inventory.rs",
+          "life_os/tracker.rs",
+          "models.rs",
+          "operational.rs",
+          "social/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 15,
+        "seconds": 8.54,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6666666666666666,
+        "unresolved_citations": [],
+        "paths": [
+          "empedocles.rs",
+          "life_os/tracker.rs",
+          "web/pdca.rs"
+        ],
+        "tokens": 2981,
+        "chunks": 8,
+        "seconds": 8.3,
+        "over_budget": false,
+        "reported_total": 2981
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6666666666666666,
+        "unresolved_citations": [],
+        "paths": [
+          "empedocles.rs",
+          "life_os/tracker.rs",
+          "web/pdca.rs"
+        ],
+        "tokens": 2981,
+        "chunks": 8,
+        "seconds": 7.37,
+        "over_budget": false,
+        "reported_total": 2981
+      }
+    },
+    "gen-pro-007-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis-interest-daemon.rs",
+          "ported/system.rs",
+          "ported/system_delegation.rs",
+          "ported/system_mcp.rs"
+        ],
+        "tokens": 2991,
+        "chunks": 8,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "bin/doc_tui/annotate.rs",
+          "bin/doc_tui/terminal.rs",
+          "communities.rs",
+          "ported/system.rs",
+          "ported/system_delegation.rs",
+          "registry.rs",
+          "vault.rs",
+          "vfs/orchestrator.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs",
+          "wiki.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 6.79,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/tools.rs",
+          "ported/system_delegation.rs",
+          "ported/system_mcp.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 7,
+        "seconds": 7.68,
+        "over_budget": false,
+        "reported_total": 2988
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "bin/doc_tui/annotate.rs",
+          "bin/doc_tui/terminal.rs",
+          "communities.rs",
+          "ported/system.rs",
+          "ported/system_delegation.rs",
+          "registry.rs",
+          "vault.rs",
+          "vfs/orchestrator.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs",
+          "wiki.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 7.26,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-008-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "corpus.rs",
+          "dream.rs",
+          "industrial.rs",
+          "ported/system.rs",
+          "ported/world.rs",
+          "praxis.rs",
+          "sql.rs",
+          "web/ingest.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 9,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/agent.rs",
+          "capability.rs",
+          "corpus.rs",
+          "ported/studio.rs",
+          "scanner.rs",
+          "shifts.rs",
+          "social/mod.rs",
+          "sql.rs",
+          "web/axes.rs",
+          "web/search.rs",
+          "web/wiki_generate.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 7.49,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "corpus.rs",
+          "dream.rs",
+          "industrial.rs",
+          "ported/system.rs",
+          "ported/world.rs",
+          "praxis.rs",
+          "sql.rs",
+          "web/ingest.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 9,
+        "seconds": 8.24,
+        "over_budget": false,
+        "reported_total": 2984
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/agent.rs",
+          "capability.rs",
+          "corpus.rs",
+          "ported/studio.rs",
+          "scanner.rs",
+          "shifts.rs",
+          "social/mod.rs",
+          "sql.rs",
+          "web/axes.rs",
+          "web/search.rs",
+          "web/wiki_generate.rs",
+          "workflow.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 12,
+        "seconds": 7.34,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-009-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "main.rs",
+          "ported/system_cli.rs"
+        ],
+        "tokens": 1655,
+        "chunks": 4,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/session.rs",
+          "bin/doc_tui/main.rs",
+          "bin/tui.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "config.rs",
+          "main.rs",
+          "ported/front_door.rs",
+          "ported/system_cli.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.95,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "main.rs",
+          "ported/system_cli.rs"
+        ],
+        "tokens": 1655,
+        "chunks": 4,
+        "seconds": 7.0,
+        "over_budget": false,
+        "reported_total": 1655
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/session.rs",
+          "bin/doc_tui/main.rs",
+          "bin/tui.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "config.rs",
+          "main.rs",
+          "ported/front_door.rs",
+          "ported/system_cli.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 7.03,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-010-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6428571428571429,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/mod.rs",
+          "ai/provider.rs",
+          "ai/tools.rs",
+          "life_os/mod.rs",
+          "machines/mod.rs",
+          "semantic_delta/mod.rs",
+          "social/mod.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 12,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "capability.rs",
+          "content.rs",
+          "life_os/mod.rs",
+          "notebook.rs",
+          "oee.rs",
+          "semantic_delta/mod.rs",
+          "sensory.rs",
+          "social/mod.rs",
+          "spanner.rs",
+          "web/admin_datawork.rs",
+          "web/axes.rs",
+          "web/scenarios.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 15,
+        "seconds": 6.98,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.6428571428571429,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/mod.rs",
+          "ai/onnx_worker.rs",
+          "ai/provider.rs",
+          "ai/tools.rs",
+          "machines/mod.rs",
+          "ported/system.rs",
+          "semantic_delta/mod.rs",
+          "social/mod.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 12,
+        "seconds": 7.52,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "capability.rs",
+          "content.rs",
+          "life_os/mod.rs",
+          "notebook.rs",
+          "oee.rs",
+          "semantic_delta/mod.rs",
+          "sensory.rs",
+          "social/mod.rs",
+          "spanner.rs",
+          "web/admin_datawork.rs",
+          "web/axes.rs",
+          "web/scenarios.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 15,
+        "seconds": 7.17,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-011-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "core.rs",
+          "embed/mod.rs",
+          "machines/empedocles.rs",
+          "reconstruct.rs",
+          "spanner.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/tools.rs",
+          "communities.rs",
+          "config.rs",
+          "discovery.rs",
+          "embed/mod.rs",
+          "machines/techne.rs",
+          "management_pack.rs",
+          "ontology.rs",
+          "ontology_nonhuman.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 7.34,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "config.rs",
+          "core.rs",
+          "machines/empedocles.rs",
+          "machines/run.rs",
+          "notebook.rs",
+          "reconstruct.rs",
+          "spanner.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 10,
+        "seconds": 7.27,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/tools.rs",
+          "communities.rs",
+          "config.rs",
+          "discovery.rs",
+          "embed/mod.rs",
+          "machines/techne.rs",
+          "management_pack.rs",
+          "ontology.rs",
+          "ontology_nonhuman.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 8.35,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-012-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/kinesis.rs",
+          "machines/run.rs",
+          "models.rs",
+          "web/machines.rs"
+        ],
+        "tokens": 2797,
+        "chunks": 8,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/kinesis.rs",
+          "machines/run.rs",
+          "praxis.rs",
+          "web/machines.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 7.51,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/kinesis.rs",
+          "machines/run.rs",
+          "models.rs",
+          "web/machines.rs"
+        ],
+        "tokens": 2797,
+        "chunks": 8,
+        "seconds": 7.21,
+        "over_budget": false,
+        "reported_total": 2797
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/kinesis.rs",
+          "machines/run.rs",
+          "praxis.rs",
+          "web/machines.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 7.41,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-013-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/provider.rs",
+          "bin/ui/ui-shell.js",
+          "ontology_nonhuman.rs",
+          "pack.rs",
+          "ported/system.rs",
+          "structsim.rs",
+          "web/agent.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 9,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "classify.rs",
+          "communities.rs",
+          "decisions.rs",
+          "grounding.rs",
+          "mcp.rs",
+          "ontology_nonhuman.rs",
+          "pack.rs",
+          "ported/config_run.rs",
+          "praxis.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 19,
+        "seconds": 7.62,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/provider.rs",
+          "bin/ui/ui-shell.js",
+          "ontology_nonhuman.rs",
+          "pack.rs",
+          "ported/system.rs",
+          "structsim.rs",
+          "web/agent.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 9,
+        "seconds": 7.56,
+        "over_budget": false,
+        "reported_total": 2995
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/provider.rs",
+          "bin/ui/ui-shell.js",
+          "ontology_nonhuman.rs",
+          "pack.rs",
+          "ported/system.rs",
+          "structsim.rs",
+          "web/agent.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 9,
+        "seconds": 7.25,
+        "over_budget": false,
+        "reported_total": 2995
+      }
+    },
+    "gen-pro-014-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.5789473684210527,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "capability.rs",
+          "life_os/mod.rs",
+          "machines/mod.rs",
+          "machines/polis.rs",
+          "planner.rs",
+          "ported/quality.rs",
+          "ported/system.rs",
+          "salience.rs",
+          "social/mod.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 12,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/session.rs",
+          "bin/doc_tui/main.rs",
+          "capability.rs",
+          "ported/system_mcp.rs",
+          "ported/tui.rs",
+          "registry.rs",
+          "shifts.rs",
+          "social/mod.rs",
+          "storage.rs",
+          "trie.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 7.41,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.5789473684210527,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "capability.rs",
+          "life_os/mod.rs",
+          "machines/mod.rs",
+          "machines/polis.rs",
+          "planner.rs",
+          "ported/quality.rs",
+          "ported/system.rs",
+          "salience.rs",
+          "social/mod.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 12,
+        "seconds": 6.94,
+        "over_budget": false,
+        "reported_total": 2992
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/session.rs",
+          "bin/doc_tui/main.rs",
+          "capability.rs",
+          "ported/system_mcp.rs",
+          "ported/tui.rs",
+          "registry.rs",
+          "shifts.rs",
+          "social/mod.rs",
+          "storage.rs",
+          "trie.rs",
+          "web/mod.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 6.9,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-015-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.47368421052631576,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/identity.rs",
+          "metrics/mod.rs",
+          "reconcile.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 8,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "brain.rs",
+          "communities.rs",
+          "grounding.rs",
+          "linguistic/piraha.rs",
+          "linguistic/sanskrit.rs",
+          "metrics/mod.rs",
+          "network.rs",
+          "trie.rs",
+          "web/search.rs",
+          "web/shifts.rs",
+          "web/ui_chat.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 6.72,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.47368421052631576,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/identity.rs",
+          "metrics/mod.rs",
+          "reconcile.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 8,
+        "seconds": 7.07,
+        "over_budget": false,
+        "reported_total": 2995
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.47368421052631576,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/identity.rs",
+          "metrics/mod.rs",
+          "reconcile.rs"
+        ],
+        "tokens": 2995,
+        "chunks": 8,
+        "seconds": 7.41,
+        "over_budget": false,
+        "reported_total": 2995
+      }
+    },
+    "gen-pro-016-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "models.rs"
+        ],
+        "tokens": 2994,
+        "chunks": 7,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.32,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "bin/doc_tui/main.rs",
+          "bin/wiki.rs",
+          "classify.rs",
+          "models.rs",
+          "semiotic_grid.rs",
+          "social/mod.rs",
+          "web/atlas.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 7.26,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "models.rs"
+        ],
+        "tokens": 2994,
+        "chunks": 7,
+        "seconds": 7.03,
+        "over_budget": false,
+        "reported_total": 2994
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "axes.rs",
+          "models.rs"
+        ],
+        "tokens": 2994,
+        "chunks": 7,
+        "seconds": 7.68,
+        "over_budget": false,
+        "reported_total": 2994
+      }
+    },
+    "gen-pro-017-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.35,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/run.rs",
+          "notebook.rs",
+          "web/holarchy.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 9,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "atomic.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "machines/run.rs",
+          "mcp.rs",
+          "ontology_graph.rs",
+          "social/mod.rs",
+          "structsim.rs",
+          "trie.rs",
+          "web/pdca.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.91,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.35,
+        "unresolved_citations": [],
+        "paths": [
+          "machines/run.rs",
+          "notebook.rs",
+          "web/holarchy.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 9,
+        "seconds": 7.12,
+        "over_budget": false,
+        "reported_total": 2980
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "atomic.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "machines/run.rs",
+          "mcp.rs",
+          "ontology_graph.rs",
+          "social/mod.rs",
+          "structsim.rs",
+          "trie.rs",
+          "web/pdca.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.88,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-018-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/observation.rs",
+          "adaptive_document/store.rs",
+          "bin/doc_tui/annotate.rs",
+          "communities.rs",
+          "dream.rs",
+          "ported/studio.rs"
+        ],
+        "tokens": 2970,
+        "chunks": 7,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/observation.rs",
+          "address.rs",
+          "atomic.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "industrial_benchmark/secom.rs",
+          "monitor.rs",
+          "ported/studio.rs",
+          "ported/studio_lab.rs",
+          "praxis.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/mod.rs",
+          "web/scenarios.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 16,
+        "seconds": 6.94,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/observation.rs",
+          "adaptive_document/store.rs",
+          "bin/doc_tui/annotate.rs",
+          "communities.rs",
+          "dream.rs",
+          "ported/studio.rs"
+        ],
+        "tokens": 2970,
+        "chunks": 7,
+        "seconds": 6.83,
+        "over_budget": false,
+        "reported_total": 2970
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/observation.rs",
+          "adaptive_document/store.rs",
+          "bin/doc_tui/annotate.rs",
+          "communities.rs",
+          "dream.rs",
+          "ported/studio.rs"
+        ],
+        "tokens": 2970,
+        "chunks": 7,
+        "seconds": 6.78,
+        "over_budget": false,
+        "reported_total": 2970
+      }
+    },
+    "gen-pro-019-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-low",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.8235294117647058,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/notebook.html",
+          "notebook.rs",
+          "ported/studio.rs",
+          "semiotic_grid.rs"
+        ],
+        "tokens": 2988,
+        "chunks": 7,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/doc_tui/main.rs",
+          "bin/tui.rs",
+          "bin/ui/index.html",
+          "classify.rs",
+          "communities.rs",
+          "dream.rs",
+          "empedocles.rs",
+          "industrial_benchmark/secom.rs",
+          "models.rs",
+          "ported/studio.rs",
+          "rag.rs",
+          "social/mod.rs",
+          "trie.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs",
+          "wiki_gen.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 18,
+        "seconds": 6.72,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.8235294117647058,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/notebook.html",
+          "bin/ui/studio.html",
+          "notebook.rs",
+          "ported/studio.rs",
+          "ported/system.rs",
+          "semiotic_grid.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 7,
+        "seconds": 6.45,
+        "over_budget": false,
+        "reported_total": 2980
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.8235294117647058,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/notebook.html",
+          "bin/ui/studio.html",
+          "notebook.rs",
+          "ported/studio.rs",
+          "ported/system.rs",
+          "semiotic_grid.rs"
+        ],
+        "tokens": 2980,
+        "chunks": 7,
+        "seconds": 6.34,
+        "over_budget": false,
+        "reported_total": 2980
+      }
+    },
+    "gen-pro-020-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/about.html",
+          "bin/ui/console.html",
+          "bin/ui/index.html",
+          "history.rs",
+          "main.rs",
+          "ported/history.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 7,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/tools.rs",
+          "audit.rs",
+          "bin/ui/console.html",
+          "bin/ui/index.html",
+          "graph.rs",
+          "life_os/mod.rs",
+          "main.rs",
+          "models.rs",
+          "pack.rs",
+          "ported/system_delegation.rs",
+          "scanner.rs",
+          "semiotic_grid.rs",
+          "web/brain.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.12,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/about.html",
+          "bin/ui/console.html",
+          "bin/ui/index.html",
+          "history.rs",
+          "main.rs",
+          "ported/history.rs"
+        ],
+        "tokens": 2998,
+        "chunks": 7,
+        "seconds": 7.09,
+        "over_budget": false,
+        "reported_total": 2998
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ai/tools.rs",
+          "audit.rs",
+          "bin/ui/console.html",
+          "bin/ui/index.html",
+          "graph.rs",
+          "life_os/mod.rs",
+          "main.rs",
+          "models.rs",
+          "pack.rs",
+          "ported/system_delegation.rs",
+          "scanner.rs",
+          "semiotic_grid.rs",
+          "web/brain.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 5.72,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-021-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-mid",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui/annotate.rs",
+          "bin/doc_tui/main.rs",
+          "bin/doc_tui/terminal.rs",
+          "moonraker_connect.rs",
+          "ported/tui.rs"
+        ],
+        "tokens": 2914,
+        "chunks": 8,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "corpus.rs",
+          "estimate.rs",
+          "life_os/mod.rs",
+          "machines/krisis.rs",
+          "main.rs",
+          "moonraker.rs",
+          "praxis.rs",
+          "semiotic_grid.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 18,
+        "seconds": 6.38,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui/annotate.rs",
+          "bin/doc_tui/main.rs",
+          "bin/doc_tui/terminal.rs",
+          "industrial.rs",
+          "moonraker_connect.rs",
+          "ported/tui.rs"
+        ],
+        "tokens": 2799,
+        "chunks": 8,
+        "seconds": 6.73,
+        "over_budget": false,
+        "reported_total": 2799
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "cli.rs",
+          "corpus.rs",
+          "estimate.rs",
+          "life_os/mod.rs",
+          "machines/krisis.rs",
+          "main.rs",
+          "moonraker.rs",
+          "praxis.rs",
+          "semiotic_grid.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 18,
+        "seconds": 7.52,
+        "over_budget": false,
+        "reported_total": 2999
+      }
+    },
+    "gen-pro-022-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-mid",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.8214285714285714,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/wiki.rs",
+          "brain.rs",
+          "gantt.rs",
+          "moonraker.rs",
+          "notebook.rs",
+          "ported/system_delegation.rs",
+          "study.rs",
+          "trie.rs"
+        ],
+        "tokens": 2972,
+        "chunks": 9,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.17857142857142858,
+        "unresolved_citations": [],
+        "paths": [
+          "address.rs",
+          "bin/ui/index.html",
+          "machines/run.rs",
+          "mcp.rs",
+          "moonraker.rs",
+          "notebook.rs",
+          "ported/studio.rs",
+          "ported/system_mcp.rs",
+          "web/context.rs",
+          "web/holarchy.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.28,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.8214285714285714,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/wiki.rs",
+          "brain.rs",
+          "gantt.rs",
+          "models.rs",
+          "moonraker.rs",
+          "praxis.rs",
+          "study.rs"
+        ],
+        "tokens": 2939,
+        "chunks": 9,
+        "seconds": 6.32,
+        "over_budget": false,
+        "reported_total": 2939
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.17857142857142858,
+        "unresolved_citations": [],
+        "paths": [
+          "address.rs",
+          "bin/ui/index.html",
+          "machines/run.rs",
+          "mcp.rs",
+          "moonraker.rs",
+          "notebook.rs",
+          "ported/studio.rs",
+          "ported/system_mcp.rs",
+          "web/context.rs",
+          "web/holarchy.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.29,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-023-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-mid",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs",
+          "bin/ui/pricing.html",
+          "bin/web_server.rs",
+          "license.rs",
+          "main.rs",
+          "ported/front_door.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 9,
+        "seconds": 0.15,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "batch_csv.rs",
+          "bin/license_tool.rs",
+          "bin/tui.rs",
+          "bin/ui/pricing.html",
+          "bin/web_server.rs",
+          "industrial.rs",
+          "license.rs",
+          "main.rs",
+          "ported/studio.rs",
+          "web/axes.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 11,
+        "seconds": 6.6,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs",
+          "bin/ui/pricing.html",
+          "bin/web_server.rs",
+          "license.rs",
+          "main.rs",
+          "ported/front_door.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 9,
+        "seconds": 6.89,
+        "over_budget": false,
+        "reported_total": 2977
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/physis.rs",
+          "bin/ui/pricing.html",
+          "bin/web_server.rs",
+          "license.rs",
+          "main.rs",
+          "ported/front_door.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 9,
+        "seconds": 6.06,
+        "over_budget": false,
+        "reported_total": 2977
+      }
+    },
+    "gen-pro-024-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-short"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "config.rs",
+          "industrial.rs",
+          "machines/empedocles.rs",
+          "maintenance.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 9,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/doc_tui/main.rs",
+          "core.rs",
+          "industrial.rs",
+          "industrial_benchmark/secom.rs",
+          "machines/empedocles.rs",
+          "maintenance.rs",
+          "praxis.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 6.33,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "config.rs",
+          "industrial.rs",
+          "machines/empedocles.rs",
+          "maintenance.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 9,
+        "seconds": 6.72,
+        "over_budget": false,
+        "reported_total": 2990
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "config.rs",
+          "industrial.rs",
+          "machines/empedocles.rs",
+          "maintenance.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 9,
+        "seconds": 7.13,
+        "over_budget": false,
+        "reported_total": 2990
+      }
+    },
+    "gen-pro-025-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ported/system.rs",
+          "postgres.rs",
+          "sql.rs"
+        ],
+        "tokens": 2982,
+        "chunks": 9,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "capability.rs",
+          "communities.rs",
+          "postgres.rs",
+          "reconcile.rs",
+          "social/mod.rs",
+          "sql.rs",
+          "web/axes.rs",
+          "web/ingest.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 15,
+        "seconds": 6.89,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ported/system.rs",
+          "postgres.rs",
+          "sql.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 9,
+        "seconds": 6.04,
+        "over_budget": false,
+        "reported_total": 2983
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "ported/system.rs",
+          "postgres.rs",
+          "sql.rs"
+        ],
+        "tokens": 2983,
+        "chunks": 9,
+        "seconds": 6.04,
+        "over_budget": false,
+        "reported_total": 2983
+      }
+    },
+    "gen-pro-026-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-mid",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "web/dream.rs",
+          "web/holarchy.rs",
+          "web/machines.rs"
+        ],
+        "tokens": 2977,
+        "chunks": 6,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "bin/voice.rs",
+          "models.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/coherence.rs",
+          "web/context.rs",
+          "web/holarchy.rs",
+          "web/pdca.rs",
+          "web/ui_chat.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 6.11,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/notebook.html",
+          "web/coherence.rs",
+          "web/holarchy.rs",
+          "web/machines.rs"
+        ],
+        "tokens": 2997,
+        "chunks": 7,
+        "seconds": 6.1,
+        "over_budget": false,
+        "reported_total": 2997
+      },
+      "mode@auto": {
+        "case_hit": true,
+        "spans_covered": 1,
+        "spans_total": 1,
+        "line_recall": 1.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "bin/voice.rs",
+          "models.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/coherence.rs",
+          "web/context.rs",
+          "web/holarchy.rs",
+          "web/pdca.rs",
+          "web/ui_chat.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 14,
+        "seconds": 5.66,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-027-id": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "id-query",
+        "df-low",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.12903225806451613,
+        "unresolved_citations": [],
+        "paths": [
+          "decisions.rs",
+          "sessions.rs",
+          "wiki_gen.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 7,
+        "seconds": 0.16,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "bin/ui/index.html",
+          "brain.rs",
+          "capability.rs",
+          "communities.rs",
+          "history.rs",
+          "monitor.rs",
+          "moonraker.rs",
+          "operational.rs",
+          "operational_report.rs",
+          "ported/config_run.rs",
+          "social/mod.rs",
+          "web/admin_study.rs",
+          "web/machines.rs",
+          "web/mod.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 15,
+        "seconds": 6.15,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.12903225806451613,
+        "unresolved_citations": [],
+        "paths": [
+          "decisions.rs",
+          "sessions.rs",
+          "wiki_gen.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 7,
+        "seconds": 5.97,
+        "over_budget": false,
+        "reported_total": 2992
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.12903225806451613,
+        "unresolved_citations": [],
+        "paths": [
+          "decisions.rs",
+          "sessions.rs",
+          "wiki_gen.rs"
+        ],
+        "tokens": 2992,
+        "chunks": 7,
+        "seconds": 6.3,
+        "over_budget": false,
+        "reported_total": 2992
+      }
+    },
+    "gen-pro-028-sig": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "sig-query",
+        "df-high",
+        "span-long"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "industrial_benchmark/mod.rs",
+          "inventory.rs",
+          "ledger.rs",
+          "life_os/mod.rs",
+          "machines/mod.rs",
+          "salience.rs",
+          "social/mod.rs",
+          "web/coherence.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 2984,
+        "chunks": 12,
+        "seconds": 0.17,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/mod.rs",
+          "ai/provider.rs",
+          "audit.rs",
+          "batch_csv.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/index.html",
+          "capability.rs",
+          "life_os/mod.rs",
+          "maintenance.rs",
+          "models.rs",
+          "moonraker.rs",
+          "praxis.rs",
+          "rag.rs",
+          "shifts.rs",
+          "social/mod.rs",
+          "web/axes.rs",
+          "web/shifts.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 2990,
+        "chunks": 21,
+        "seconds": 5.92,
+        "over_budget": false,
+        "reported_total": 2990
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "capability.rs",
+          "inventory.rs",
+          "ledger.rs",
+          "oee.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 6.14,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.25,
+        "unresolved_citations": [],
+        "paths": [
+          "audit.rs",
+          "capability.rs",
+          "inventory.rs",
+          "ledger.rs",
+          "oee.rs",
+          "web/scenarios.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 9,
+        "seconds": 5.91,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    },
+    "gen-pro-029-body": {
+      "group": "pro",
+      "classes": [
+        "generated",
+        "body-query",
+        "df-high",
+        "span-mid"
+      ],
+      "file_heads": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "actor.rs",
+          "adaptive_document/identity.rs",
+          "adaptive_document/mod.rs",
+          "adaptive_document/observation.rs",
+          "adaptive_document/proposal.rs",
+          "adaptive_document/store.rs",
+          "address.rs",
+          "ai/provider.rs",
+          "bin/doc_tui/main.rs",
+          "bin/ui/customer_dashboard.html"
+        ],
+        "tokens": 3000,
+        "chunks": 10,
+        "seconds": 0.0,
+        "over_budget": false
+      },
+      "bm25": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.5652173913043478,
+        "unresolved_citations": [],
+        "paths": [
+          "gantt.rs",
+          "graph.rs",
+          "life_os/mod.rs",
+          "linguistic/sanskrit.rs",
+          "models.rs",
+          "ported/quality.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 10,
+        "seconds": 0.18,
+        "over_budget": false
+      },
+      "current_pack": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/proposal.rs",
+          "ai/session.rs",
+          "communities.rs",
+          "industrial.rs",
+          "machines/erosa.rs",
+          "models.rs",
+          "ported/system.rs",
+          "ported/system_delegation.rs",
+          "ported/system_mcp.rs",
+          "social/mod.rs",
+          "storage.rs",
+          "trie.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 5.93,
+        "over_budget": false,
+        "reported_total": 3000
+      },
+      "mode@lexical": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.5652173913043478,
+        "unresolved_citations": [],
+        "paths": [
+          "gantt.rs",
+          "graph.rs",
+          "life_os/mod.rs",
+          "linguistic/sanskrit.rs",
+          "models.rs",
+          "ported/quality.rs"
+        ],
+        "tokens": 2999,
+        "chunks": 10,
+        "seconds": 5.91,
+        "over_budget": false,
+        "reported_total": 2999
+      },
+      "mode@auto": {
+        "case_hit": false,
+        "spans_covered": 0,
+        "spans_total": 1,
+        "line_recall": 0.0,
+        "unresolved_citations": [],
+        "paths": [
+          "adaptive_document/proposal.rs",
+          "ai/session.rs",
+          "communities.rs",
+          "industrial.rs",
+          "machines/erosa.rs",
+          "models.rs",
+          "ported/system.rs",
+          "ported/system_delegation.rs",
+          "ported/system_mcp.rs",
+          "social/mod.rs",
+          "storage.rs",
+          "trie.rs",
+          "web/wiki_generate.rs"
+        ],
+        "tokens": 3000,
+        "chunks": 13,
+        "seconds": 5.86,
+        "over_budget": false,
+        "reported_total": 3000
+      }
+    }
+  },
+  "heldout_summary": {
+    "file_heads": {
+      "cases": 60,
+      "case_hits": 0,
+      "span_recall": 0.0,
+      "line_recall": 0.0,
+      "tokens": 179640,
+      "seconds": 0.0,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "bm25": {
+      "cases": 60,
+      "case_hits": 33,
+      "span_recall": 0.55,
+      "line_recall": 0.7520757906181149,
+      "tokens": 173490,
+      "seconds": 6.3,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "current_pack": {
+      "cases": 60,
+      "case_hits": 14,
+      "span_recall": 0.23333333333333334,
+      "line_recall": 0.2903467719071434,
+      "tokens": 179666,
+      "seconds": 436.9,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "mode@lexical": {
+      "cases": 60,
+      "case_hits": 32,
+      "span_recall": 0.5333333333333333,
+      "line_recall": 0.7464805525228769,
+      "tokens": 173412,
+      "seconds": 439.6,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    },
+    "mode@auto": {
+      "cases": 60,
+      "case_hits": 21,
+      "span_recall": 0.35,
+      "line_recall": 0.45717400788620705,
+      "tokens": 179048,
+      "seconds": 447.9,
+      "over_budget": 0,
+      "unresolved_citations": 0
+    }
+  },
+  "verdict": "DIAGNOSTIC_NO_VERDICT",
+  "answer_arm": "NOT_MEASURED"
+}

@@ -95,7 +95,7 @@ fn compute_heaviness(region: &RepairRegion, delta: &SemanticDelta) -> f32 {
     let node_text_len: usize = region
         .affected_nodes
         .iter()
-        .map(|id| {
+        .map(|_id| {
             // Rough estimate based on position
             100 // placeholder
         })
@@ -111,7 +111,7 @@ fn compute_heaviness(region: &RepairRegion, delta: &SemanticDelta) -> f32 {
     let centrality: f32 = region
         .affected_nodes
         .iter()
-        .map(|id| {
+        .map(|_id| {
             // Count outgoing edges to non-region nodes
             0.0 // placeholder
         })
@@ -140,7 +140,13 @@ fn compute_heaviness(region: &RepairRegion, delta: &SemanticDelta) -> f32 {
 }
 
 /// Choose the appropriate worker for a repair region.
-fn choose_worker(region: &RepairRegion, delta: &SemanticDelta) -> (Box<dyn RepairWorker>, f32) {
+///
+/// The routing entry point for this module: `compute_heaviness` scores the
+/// region and the score picks the worker. `pub` because that is the module's
+/// contract, not because a caller inside the crate exists yet — the dead-code
+/// lint is what found the gap between "the module is public" and "nothing can
+/// reach the routing".
+pub fn choose_worker(region: &RepairRegion, delta: &SemanticDelta) -> (Box<dyn RepairWorker>, f32) {
     let heaviness = compute_heaviness(region, delta);
 
     // Simple two-worker routing for demo
@@ -223,9 +229,11 @@ impl RepairWorker for StrongWorker {
     }
 }
 
-/// CHEAP_WORKER_EXAMPLE and STRONG_WORKER_EXAMPLE are referenced but not defined
-/// at the module level here; in a full implementation they'd be instantiated
-/// or passed in. For now, we define the routing logic that would use them.
+// CHEAP_WORKER_EXAMPLE and STRONG_WORKER_EXAMPLE are referenced but not defined
+// at the module level here; in a full implementation they'd be instantiated
+// or passed in. For now, we define the routing logic that would use them.
+// (A plain comment, not `///`: it documents nothing that follows — the tests
+// module is next — and a doc comment here made rustdoc attach it to `tests`.)
 
 #[cfg(test)]
 mod tests {

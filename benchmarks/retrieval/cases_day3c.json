@@ -1,0 +1,129 @@
+{
+  "comment": "Day 3, third frozen holdout — the set the adjacency-expansion candidate is scored on. Sets #1 (cases_day3.json) and #2 (cases_day3b.json) are both spent. Set #3 is deliberately BALANCED rather than aimed at one class: set #2 was 7/12 boundary-straddling and could not tell the two ranking legs apart, because on 10 of 12 cases every arm scored zero. This set carries 3 cross-border cases (where expansion should help) and 9 across the other classes (where it must not hurt). No `dev` split: the candidate has no tuned parameter — it takes the neighbour of a selected window when it fits, full stop. No case or span is shared with sets #1 or #2.",
+  "groups": {
+    "core": "physis-core/src",
+    "pro": "src"
+  },
+  "cases": [
+    {
+      "id": "sym-relation-type",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "RelationType",
+      "required_spans": [
+        {"path": "relation.rs", "start": 13, "end": 40, "why": "the typed-relation enum and its variants"}
+      ]
+    },
+    {
+      "id": "par-provenance-chain",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how does an assertion keep track of who said it and where it came from",
+      "required_spans": [
+        {"path": "provenance.rs", "start": 1, "end": 30, "why": "module doc plus ProvenanceLink: who said this, when, based on what"}
+      ]
+    },
+    {
+      "id": "neg-never-overwrite",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["negation"],
+      "query": "what must the engine never do to conflicting information",
+      "required_spans": [
+        {"path": "contradiction.rs", "start": 1, "end": 17, "why": "module doc: conflicting claims are never silently overwritten"}
+      ]
+    },
+    {
+      "id": "sym-temporal-validity",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "TemporalValidity",
+      "required_spans": [
+        {"path": "temporal.rs", "start": 15, "end": 40, "why": "the validity-interval struct and its fields"}
+      ]
+    },
+    {
+      "id": "par-fitness-breakdown",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how is a hypothesis scored from the evidence for and against it",
+      "required_spans": [
+        {"path": "hypothesis.rs", "start": 204, "end": 240, "why": "FitnessBreakdown: semantic, ontological, logical and empirical terms"}
+      ]
+    },
+    {
+      "id": "par-belief-at-time",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how can you ask what the system believed at a past moment",
+      "required_spans": [
+        {"path": "epistemic.rs", "start": 1, "end": 20, "why": "module doc: the replayable belief timeline"}
+      ]
+    },
+    {
+      "id": "xborder-typed-edge",
+      "group": "core",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "what does a relation between two claims carry besides its type",
+      "required_spans": [
+        {"path": "relation.rs", "start": 102, "end": 125, "why": "TypedEdge provenance fields; straddles the 120/121 boundary"}
+      ]
+    },
+    {
+      "id": "sym-mechanism",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["symbol"],
+      "query": "Mechanism",
+      "required_spans": [
+        {"path": "address.rs", "start": 52, "end": 80, "why": "the Mechanism enum: generated, received, derived, corrected"}
+      ]
+    },
+    {
+      "id": "xborder-lineage-trace",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how do you trace what an artifact came from and what it went on to affect",
+      "required_spans": [
+        {"path": "ledger.rs", "start": 98, "end": 147, "why": "lineage + descendants walks; straddles the 120/121 boundary"}
+      ]
+    },
+    {
+      "id": "xborder-incremental-catalog",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["cross-border"],
+      "query": "how does the catalog avoid re-reading files that have not changed",
+      "required_spans": [
+        {"path": "indexer.rs", "start": 119, "end": 160, "why": "index_once and the stat fast path; straddles the 120/121 boundary"}
+      ]
+    },
+    {
+      "id": "dup-topos",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["dup-header"],
+      "query": "which machine turns geotagged waypoints into places",
+      "required_spans": [
+        {"path": "machines/topos.rs", "start": 1, "end": 12, "why": "the machine doc header, sharing the boilerplate line with 17 siblings"}
+      ]
+    },
+    {
+      "id": "par-repair-heaviness",
+      "group": "pro",
+      "split": "heldout",
+      "classes": ["paraphrase"],
+      "query": "how does the engine decide a repair is cheap enough for the ordinary worker",
+      "required_spans": [
+        {"path": "orchestration/mod.rs", "start": 85, "end": 120, "why": "compute_heaviness and the density terms that feed it"}
+      ]
+    }
+  ]
+}

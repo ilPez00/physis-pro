@@ -4,12 +4,22 @@
   "small_model": "anthropic/claude-3-5-haiku-20241022",
   "default_agent": "physis",
   "instructions": ["AGENTS.md"],
+  "plugin": ["/home/gio/dev/physis-pro/clients/opencode-jev-recorder/plugin.js"],
   "mcp": {
     "physis_system": {
       "type": "local",
       "command": ["bash", "/home/gio/dev/physis-pro/scripts/physis-system-mcp.sh"],
       "enabled": true,
       "timeout": 60000
+    },
+    "jev-review": {
+      "type": "local",
+      "command": ["node", "/home/gio/dev/jev-review/dist/server.js"],
+      "env": {
+        "JEV_API_URL": "https://opencode.ai/zen/v1/systemone",
+        "JEV_MODEL": "jev-1.13-free"
+      },
+      "enabled": true
     }
   },
   "agent": {

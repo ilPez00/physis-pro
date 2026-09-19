@@ -44,12 +44,16 @@ impl IntentIR {
         let mut nil_slots = Vec::new();
 
         for s in SLOTS {
-            let v = raw.get(s);
-            if v.is_none() || v.unwrap().is_null() || v.unwrap().as_str() == Some("") {
-                slots.insert(s.to_string(), None);
-                nil_slots.push(s.to_string());
-            } else {
-                slots.insert(s.to_string(), Some(v.unwrap().clone()));
+            match raw.get(s) {
+                // A slot is nil when it is absent, JSON null, or the empty
+                // string. A non-string value (a number, say) is present.
+                Some(v) if !v.is_null() && v.as_str() != Some("") => {
+                    slots.insert(s.to_string(), Some(v.clone()));
+                }
+                _ => {
+                    slots.insert(s.to_string(), None);
+                    nil_slots.push(s.to_string());
+                }
             }
         }
 

@@ -472,6 +472,8 @@ mod mcp_impl {
                         budget,
                         top_k,
                         diversity,
+                        crate::pack::PackMode::default(),
+                        false,
                         embedder.as_ref(),
                         embedder_kind,
                         pack_cache,
@@ -1060,6 +1062,12 @@ mod mcp_impl {
                                 embedding: emb.clone(),
                             })
                             .collect(),
+                        bm25: crate::rag::Bm25Index::build(
+                            &candidates
+                                .iter()
+                                .map(|(text, _, _, _)| text.clone())
+                                .collect::<Vec<String>>(),
+                        ),
                     };
                     let result = crate::rag::TokenFixedRetriever::new(budget, top_k)
                         .retrieve(&q_emb, &corpus);

@@ -1,0 +1,671 @@
+{
+  "ledger_size": 48,
+  "contradicted_claims": 16,
+  "top": 5,
+  "seed": 7,
+  "null_trials": 2000,
+  "embedder": "bge-base",
+  "physis_version": "0.1.21",
+  "git_commit": "96a98c4",
+  "arms": [
+    {
+      "arm": "lexical",
+      "queries": 8,
+      "top": 5,
+      "hits": 8,
+      "recall": 1.0,
+      "warned": 8,
+      "warning_recall": 1.0,
+      "mrr": 1.0,
+      "null_uniform_recall": 0.1039375,
+      "null_status_recall": 0.316875,
+      "margin_uniform": 0.8960625,
+      "margin_status": 0.683125,
+      "verdict": "HOLDS",
+      "cases": [
+        {
+          "command": "cargo test --all-features",
+          "target": "cargo test --all-features fails on this crate: the ort linker step never resolves",
+          "rank": 1,
+          "target_relevance": 0.7984945,
+          "top_statement": "cargo test --all-features fails on this crate: the ort linker step never resolves"
+        },
+        {
+          "command": "cargo build --release",
+          "target": "the release build never finishes on this box — it runs out of memory at the LTO stage",
+          "rank": 1,
+          "target_relevance": 0.7440791,
+          "top_statement": "the release build never finishes on this box — it runs out of memory at the LTO stage"
+        },
+        {
+          "command": "pip install onnxruntime",
+          "target": "pip install onnxruntime fails on this Python: there is no manylinux wheel for 3.13",
+          "rank": 1,
+          "target_relevance": 0.8817908,
+          "top_statement": "pip install onnxruntime fails on this Python: there is no manylinux wheel for 3.13"
+        },
+        {
+          "command": "docker compose up -d",
+          "target": "docker compose up leaves postgres in a restart loop because the volume is owned by root",
+          "rank": 1,
+          "target_relevance": 0.7676858,
+          "top_statement": "docker compose up leaves postgres in a restart loop because the volume is owned by root"
+        },
+        {
+          "command": "npm run build",
+          "target": "npm run build breaks on the CI image: node 18 cannot parse the new syntax",
+          "rank": 1,
+          "target_relevance": 0.78672683,
+          "top_statement": "npm run build breaks on the CI image: node 18 cannot parse the new syntax"
+        },
+        {
+          "command": "git push origin main",
+          "target": "git push origin main is rejected — the branch is protected and requires a review",
+          "rank": 1,
+          "target_relevance": 0.86024255,
+          "top_statement": "git push origin main is rejected — the branch is protected and requires a review"
+        },
+        {
+          "command": "./scripts/migrate.sh",
+          "target": "the migrate script drops the audit table when run twice; it is not idempotent",
+          "rank": 1,
+          "target_relevance": 0.6936778,
+          "top_statement": "the migrate script drops the audit table when run twice; it is not idempotent"
+        },
+        {
+          "command": "rsync -av ./data backup:/srv/data",
+          "target": "rsync to the backup host times out over the VPN for anything larger than a gigabyte",
+          "rank": 1,
+          "target_relevance": 0.74557906,
+          "top_statement": "rsync to the backup host times out over the VPN for anything larger than a gigabyte"
+        }
+      ]
+    },
+    {
+      "arm": "paraphrase",
+      "queries": 8,
+      "top": 5,
+      "hits": 7,
+      "recall": 0.875,
+      "warned": 7,
+      "warning_recall": 0.875,
+      "mrr": 0.5833334,
+      "null_uniform_recall": 0.1039375,
+      "null_status_recall": 0.316875,
+      "margin_uniform": 0.7710625,
+      "margin_status": 0.558125,
+      "verdict": "HOLDS",
+      "cases": [
+        {
+          "command": "run the whole suite with every optional flag turned on",
+          "target": "cargo test --all-features fails on this crate: the ort linker step never resolves",
+          "rank": 3,
+          "target_relevance": 0.6270594,
+          "top_statement": "coherence is computed over the certified branches only"
+        },
+        {
+          "command": "produce an optimised binary for shipping",
+          "target": "the release build never finishes on this box — it runs out of memory at the LTO stage",
+          "rank": 1,
+          "target_relevance": 0.6357998,
+          "top_statement": "the release build never finishes on this box — it runs out of memory at the LTO stage"
+        },
+        {
+          "command": "add the neural inference package to the interpreter environment",
+          "target": "pip install onnxruntime fails on this Python: there is no manylinux wheel for 3.13",
+          "rank": null,
+          "target_relevance": 0.6400915,
+          "top_statement": "n-gram tables are interchangeable with the model that reads them"
+        },
+        {
+          "command": "bring the local service stack online in the background",
+          "target": "docker compose up leaves postgres in a restart loop because the volume is owned by root",
+          "rank": 3,
+          "target_relevance": 0.60602933,
+          "top_statement": "the web server keys session state by the tenant header"
+        },
+        {
+          "command": "compile the frontend bundle for deployment",
+          "target": "npm run build breaks on the CI image: node 18 cannot parse the new syntax",
+          "rank": 2,
+          "target_relevance": 0.65945995,
+          "top_statement": "packs are dropped into the config directory rather than compiled in"
+        },
+        {
+          "command": "publish the local commits to the shared upstream trunk",
+          "target": "git push origin main is rejected — the branch is protected and requires a review",
+          "rank": 1,
+          "target_relevance": 0.6721702,
+          "top_statement": "git push origin main is rejected — the branch is protected and requires a review"
+        },
+        {
+          "command": "apply the pending schema changes to the database",
+          "target": "the migrate script drops the audit table when run twice; it is not idempotent",
+          "rank": 2,
+          "target_relevance": 0.6500331,
+          "top_statement": "the ledger keeps a revision every time a status changes"
+        },
+        {
+          "command": "copy the dataset across to the offsite machine",
+          "target": "rsync to the backup host times out over the VPN for anything larger than a gigabyte",
+          "rank": 1,
+          "target_relevance": 0.6700768,
+          "top_statement": "rsync to the backup host times out over the VPN for anything larger than a gigabyte"
+        }
+      ]
+    }
+  ],
+  "polarity": [
+    {
+      "arm": "lexical",
+      "queries": 8,
+      "top": 5,
+      "target_first": 2,
+      "discrimination": 0.25,
+      "target_in_top": 8,
+      "twin_in_top": 8,
+      "reassured_instead": 0,
+      "verdict": "INVERTED — ranks the endorsement first",
+      "cases": [
+        {
+          "command": "cargo test --all-features",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.7984945,
+          "twin_relevance": 0.8235169
+        },
+        {
+          "command": "cargo build --release",
+          "target_rank": 3,
+          "twin_rank": 2,
+          "target_relevance": 0.7440791,
+          "twin_relevance": 0.75387025
+        },
+        {
+          "command": "pip install onnxruntime",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.8817908,
+          "twin_relevance": 0.9125513
+        },
+        {
+          "command": "docker compose up -d",
+          "target_rank": 1,
+          "twin_rank": 2,
+          "target_relevance": 0.7676858,
+          "twin_relevance": 0.76492226
+        },
+        {
+          "command": "npm run build",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.78672683,
+          "twin_relevance": 0.7980511
+        },
+        {
+          "command": "git push origin main",
+          "target_rank": 1,
+          "twin_rank": 2,
+          "target_relevance": 0.86024255,
+          "twin_relevance": 0.8420729
+        },
+        {
+          "command": "./scripts/migrate.sh",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.6936778,
+          "twin_relevance": 0.71722287
+        },
+        {
+          "command": "rsync -av ./data backup:/srv/data",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.74557906,
+          "twin_relevance": 0.7578837
+        }
+      ]
+    },
+    {
+      "arm": "paraphrase",
+      "queries": 8,
+      "top": 5,
+      "target_first": 1,
+      "discrimination": 0.125,
+      "target_in_top": 6,
+      "twin_in_top": 8,
+      "reassured_instead": 2,
+      "verdict": "INVERTED — ranks the endorsement first",
+      "cases": [
+        {
+          "command": "run the whole suite with every optional flag turned on",
+          "target_rank": 8,
+          "twin_rank": 1,
+          "target_relevance": 0.6270594,
+          "twin_relevance": 0.6601359
+        },
+        {
+          "command": "produce an optimised binary for shipping",
+          "target_rank": 3,
+          "twin_rank": 2,
+          "target_relevance": 0.6357998,
+          "twin_relevance": 0.6533642
+        },
+        {
+          "command": "add the neural inference package to the interpreter environment",
+          "target_rank": 8,
+          "twin_rank": 3,
+          "target_relevance": 0.6400915,
+          "twin_relevance": 0.67063636
+        },
+        {
+          "command": "bring the local service stack online in the background",
+          "target_rank": 3,
+          "twin_rank": 5,
+          "target_relevance": 0.60602933,
+          "twin_relevance": 0.59696186
+        },
+        {
+          "command": "compile the frontend bundle for deployment",
+          "target_rank": 3,
+          "twin_rank": 2,
+          "target_relevance": 0.65945995,
+          "twin_relevance": 0.66331834
+        },
+        {
+          "command": "publish the local commits to the shared upstream trunk",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.6721702,
+          "twin_relevance": 0.6783158
+        },
+        {
+          "command": "apply the pending schema changes to the database",
+          "target_rank": 3,
+          "twin_rank": 2,
+          "target_relevance": 0.6500331,
+          "twin_relevance": 0.6505913
+        },
+        {
+          "command": "copy the dataset across to the offsite machine",
+          "target_rank": 2,
+          "twin_rank": 1,
+          "target_relevance": 0.6700768,
+          "twin_relevance": 0.6886146
+        }
+      ]
+    }
+  ],
+  "polarity_ledger_size": 56,
+  "selection": [
+    {
+      "policy": "relevance",
+      "top": 1,
+      "reassured": 5,
+      "target_in_top": 2,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@0.00",
+      "top": 1,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 0.625
+    },
+    {
+      "policy": "reserve@0.80",
+      "top": 1,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 0.625
+    },
+    {
+      "policy": "reserve@0.90",
+      "top": 1,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 0.625
+    },
+    {
+      "policy": "reserve@0.95",
+      "top": 1,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 5,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 1.0
+    },
+    {
+      "policy": "reserve@1.00",
+      "top": 1,
+      "reassured": 5,
+      "target_in_top": 2,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5",
+      "top": 1,
+      "reassured": 1,
+      "target_in_top": 7,
+      "false_alarms": 2,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 2.0
+    },
+    {
+      "policy": "cascade@5+floor0.60",
+      "top": 1,
+      "reassured": 1,
+      "target_in_top": 7,
+      "false_alarms": 1,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": 4.0
+    },
+    {
+      "policy": "cascade@5+floor0.66",
+      "top": 1,
+      "reassured": 1,
+      "target_in_top": 7,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.68",
+      "top": 1,
+      "reassured": 1,
+      "target_in_top": 7,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.70",
+      "top": 1,
+      "reassured": 2,
+      "target_in_top": 6,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.75",
+      "top": 1,
+      "reassured": 2,
+      "target_in_top": 5,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "relevance",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 4,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@0.00",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@0.80",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@0.90",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 8,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@0.95",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 5,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "reserve@1.00",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 4,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 4,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.60",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 2,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.66",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.68",
+      "top": 5,
+      "reassured": 0,
+      "target_in_top": 8,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.70",
+      "top": 5,
+      "reassured": 1,
+      "target_in_top": 7,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    },
+    {
+      "policy": "cascade@5+floor0.75",
+      "top": 5,
+      "reassured": 2,
+      "target_in_top": 5,
+      "false_alarms": 0,
+      "pairs": 8,
+      "unrelated": 8,
+      "harm_removed_per_false_alarm": null
+    }
+  ],
+  "hybrid": [
+    {
+      "policy": "hybrid@0.00",
+      "paraphrase_recall": 0.125,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.875,
+      "polarity_paraphrase": 0.625,
+      "combined": 0.75
+    },
+    {
+      "policy": "hybrid@0.10",
+      "paraphrase_recall": 0.25,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.625,
+      "polarity_paraphrase": 0.25,
+      "combined": 0.5
+    },
+    {
+      "policy": "hybrid@0.20",
+      "paraphrase_recall": 0.25,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.625,
+      "polarity_paraphrase": 0.125,
+      "combined": 0.375
+    },
+    {
+      "policy": "hybrid@0.30",
+      "paraphrase_recall": 0.375,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.5,
+      "polarity_paraphrase": 0.125,
+      "combined": 0.5
+    },
+    {
+      "policy": "hybrid@0.40",
+      "paraphrase_recall": 0.625,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.5,
+      "polarity_paraphrase": 0.125,
+      "combined": 0.75
+    },
+    {
+      "policy": "hybrid@0.50",
+      "paraphrase_recall": 0.625,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.375,
+      "polarity_paraphrase": 0.125,
+      "combined": 0.75
+    },
+    {
+      "policy": "hybrid@0.60",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.25,
+      "polarity_paraphrase": 0.125,
+      "combined": 1.0
+    },
+    {
+      "policy": "hybrid@0.70",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.25,
+      "polarity_paraphrase": 0.125,
+      "combined": 1.0
+    },
+    {
+      "policy": "hybrid@0.80",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.25,
+      "polarity_paraphrase": 0.125,
+      "combined": 1.0
+    },
+    {
+      "policy": "hybrid@0.90",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.25,
+      "polarity_paraphrase": 0.125,
+      "combined": 1.0
+    },
+    {
+      "policy": "hybrid@1.00",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.25,
+      "polarity_paraphrase": 0.125,
+      "combined": 1.0
+    },
+    {
+      "policy": "rrf@60",
+      "paraphrase_recall": 0.625,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.375,
+      "polarity_paraphrase": 0.125,
+      "combined": 0.75
+    },
+    {
+      "policy": "cascade@3",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.875,
+      "polarity_paraphrase": 0.625,
+      "combined": 1.5
+    },
+    {
+      "policy": "cascade@5",
+      "paraphrase_recall": 0.875,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.875,
+      "polarity_paraphrase": 0.625,
+      "combined": 1.5
+    },
+    {
+      "policy": "cascade@10",
+      "paraphrase_recall": 0.625,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.875,
+      "polarity_paraphrase": 0.625,
+      "combined": 1.25
+    },
+    {
+      "policy": "cascade@20",
+      "paraphrase_recall": 0.375,
+      "lexical_recall": 1.0,
+      "polarity_lexical": 0.875,
+      "polarity_paraphrase": 0.625,
+      "combined": 1.0
+    }
+  ]
+}

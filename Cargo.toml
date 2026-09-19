@@ -130,7 +130,13 @@ tesseract = { version = "0.14", optional = true }
 # model-free path, ask for it: `--no-default-features` plus the features you
 # want, or select the random embedder explicitly at runtime.
 [features]
-default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx"]
+# `mcp` is here because `serve` is a first-class command in `main.rs` and the
+# root `.mcp.json` points at it: without the feature, a plain
+# `cargo build --release` produces a binary whose documented MCP entry point
+# answers "unrecognized subcommand 'serve'" (found 2026-09-16). The SKU tiers
+# below are separate and unchanged — `base` still excludes it, so a customer
+# build is unaffected.
+default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx", "mcp"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
@@ -205,6 +211,26 @@ path = "src/bin/voice.rs"
 name = "physis-pro-wiki"
 required-features = ["tui"]
 path = "src/bin/wiki.rs"
+
+# The adaptive document, driven live: type in a source block and the confirmed
+# dependents adapt on screen before you accept. Library-only module, so this is
+# the only surface it has.
+[[bin]]
+name = "physis-pro-doc"
+required-features = ["tui"]
+path = "src/bin/doc_tui/main.rs"
+
+# Moved out of Core by the 2026-09-14 Core/Product split: Core's `physis-world`
+# and `physis-system-tui` binaries became these two, with the implementations
+# living in `src/ported/{world,tui}.rs` and these files as one-line shims.
+[[bin]]
+name = "physis-pro-world"
+path = "src/bin/world.rs"
+
+[[bin]]
+name = "physis-pro-system-tui"
+path = "src/bin/system_tui.rs"
+required-features = ["tui"]
 
 # physis-core lives as a subdirectory and is also published as its own crate;
 # this workspace lets `cargo` build/test both the monolith and the core together

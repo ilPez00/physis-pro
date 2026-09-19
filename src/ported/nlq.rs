@@ -160,10 +160,15 @@ pub struct Proposal {
 impl Proposal {
     /// The command line this proposal would run. Rendering it is the point:
     /// the operator approves a concrete command, not an intention.
+    ///
+    /// The binary named is `physis-pro-world`, not `physis-world`: the 2026-09-14
+    /// split moved the navigator into this repository and shipped it under the
+    /// product's own name, so a proposal that still said `physis-world` would be
+    /// a command the operator cannot paste.
     pub fn command(&self) -> String {
         match self.intent {
-            Intent::Inspect => "physis-world inspect".to_string(),
-            _ => format!("physis-world {} {}", self.intent.verb(), self.term),
+            Intent::Inspect => "physis-pro-world inspect".to_string(),
+            _ => format!("physis-pro-world {} {}", self.intent.verb(), self.term),
         }
     }
 
@@ -642,8 +647,13 @@ mod tests {
     #[test]
     fn command_is_runnable_text_not_an_intention() {
         let p = parse("what changed since yesterday");
-        assert!(p.command().starts_with("physis-world changed"));
-        assert_eq!(parse("what is in this world").command(), "physis-world inspect");
+        // The navigator ships as `physis-pro-world` from this repository, so the
+        // rendered command has to name the binary a user can actually run.
+        assert!(p.command().starts_with("physis-pro-world changed"));
+        assert_eq!(
+            parse("what is in this world").command(),
+            "physis-pro-world inspect"
+        );
     }
 
     #[test]

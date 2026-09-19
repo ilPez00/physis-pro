@@ -1,0 +1,259 @@
+{
+  "schema_version": "literature-pass.v1",
+  "generated_at": "2026-09-16",
+  "timebox_minutes": 0,
+  "search_window": {
+    "start": "2025-11-28",
+    "end": "2026-09-16"
+  },
+  "search_method": "No search. All three entries were supplied as full text by the operator and read at table level. Nothing was fetched, and no dataset, checkpoint or checksum was verified.",
+  "exhaustive": false,
+  "verification_caveat": "Every entry is verification_depth=supplied_full_text: the paper's own body text and results tables were available, which is deeper than the abstract-only pass of 2026-09-14, but no independent retrieval happened and no claim was checked against a released artifact. 'supplied_full_text' means 'consistent with the text the operator supplied', nothing more. It does NOT mean the numbers hold, that the baselines are matched constructions, or that the comparisons are fair. Neither paper reports a construction-matched null, which is this repository's own bar for evidence, so both are recorded as method precedent rather than as citable results.",
+  "entries": [
+    {
+      "seed": "world action models",
+      "arxiv_id": "2606.08242",
+      "version": "v1",
+      "category": "cs.CV",
+      "title": "Light-WAM: Efficient World Action Models with State-Fusion Action Decoding",
+      "publication_date": "2026-06-06",
+      "authors": [
+        "Ziang Li",
+        "Dongzhou Cheng",
+        "Yibin Wang",
+        "Shiyue Wang",
+        "Xiaoyang Xu",
+        "Lingxuan Weng",
+        "Juan Wang",
+        "Jiaqi Wang"
+      ],
+      "affiliations": [
+        "Wuhan University",
+        "Shanghai Innovation Institute",
+        "Southeast University",
+        "Fudan University",
+        "East China Normal University"
+      ],
+      "code": "https://github.com/L1ziang/Light-WAM",
+      "in_window": true,
+      "verification_status": "supplied_full_text_unverified",
+      "verification_depth": "supplied_full_text",
+      "verified_numbers": {
+        "libero_average_success": 0.972,
+        "libero_suites": {
+          "spatial": 0.982,
+          "object": 0.996,
+          "goal": 0.978,
+          "long": 0.93
+        },
+        "libero_rank_without_embodied_pretraining": 1,
+        "libero_rank_overall": 3,
+        "robotwin2_average_success": 0.764,
+        "robotwin2_clean": 0.764,
+        "robotwin2_randomized": 0.763,
+        "trainable_params_b": 0.44,
+        "total_params_b": 1.99,
+        "fast_wam_trainable_params_b": 6.02,
+        "fast_wam_total_params_b": 6.73,
+        "trainable_params_reduction_x": 13.7,
+        "total_params_reduction_x": 3.4,
+        "training_steps_per_second": 2.08,
+        "fast_wam_training_steps_per_second": 0.49,
+        "throughput_improvement_x": 4.25,
+        "peak_training_memory_gib": 43.1,
+        "fast_wam_peak_training_memory_gib": 70.7,
+        "inference_latency_ms": 72.03,
+        "inference_peak_memory_gib": 4.1,
+        "action_branch_ms": 2.1,
+        "policy_forward_ms": 58.6
+      },
+      "ablations": {
+        "libero_spatial_default": 0.982,
+        "no_latent_downsample_1x": 0.99,
+        "five_adapter_layers": 0.98,
+        "eight_learned_queries": 0.954,
+        "note": "the 1x-vs-2x gap (0.8pp) is the cost of the 4.25x throughput; the query bottleneck has a measured capacity floor"
+      },
+      "relevance_to_physis": [
+        "Method precedent for 'the expensive component is not what produces the benefit': their test-time video rollout is unnecessary, and physis's 65-105s pack leg returns worse evidence coverage than a 1-2s lexical leg at the same budget on four frozen holdouts.",
+        "A controlled bottleneck has an empirical capacity floor (8 queries 95.4 vs 16 98.2) - the same finding as 3000 tokens over ~2900 chunks being ~0.4% of the corpus.",
+        "Granularity as an explicit measured knob (resolution ablation) argues for sweeping CHUNK_LINES {20,40,80} in src/pack.rs at equal budget.",
+        "Reporting standard: latency and peak memory beside success rate. Physis's retrieval notes report tokens and wall time, not memory."
+      ],
+      "unresolved": [
+        "the LIBERO rank-1 claim is among methods WITHOUT embodied pretraining, not overall; do not repeat it as overall SOTA",
+        "no construction-matched null in any headline comparison",
+        "not independently retrieved or artifact-verified"
+      ]
+    },
+    {
+      "seed": "world model evaluation",
+      "arxiv_id": "2511.23465",
+      "version": "v1",
+      "category": "cs.LG",
+      "title": "SmallWorld: Assessing Dynamics Understanding of World Models in Isolated Environments",
+      "publication_date": "2025-11-28",
+      "authors": [
+        "Xinyi Li",
+        "Zaishuo Xia",
+        "Weyl Lu",
+        "Chenjie Hao",
+        "Yubei Chen"
+      ],
+      "affiliations": [
+        "University of California, Davis",
+        "Open Path AI Foundation"
+      ],
+      "in_window": true,
+      "verification_status": "supplied_full_text_unverified",
+      "verification_depth": "supplied_full_text",
+      "verified_numbers": {
+        "architectures_compared": [
+          "RSSM/DreamerV3",
+          "Transformer/IRIS-style",
+          "Diffusion Forcing",
+          "Neural ODE/MoSim"
+        ],
+        "metric": "MSE over 90 imagined rollout steps given 10 conditioning steps",
+        "physics_tasks": 10,
+        "domains_evaluated": [
+          "SW-Physics",
+          "SW-3DPoint",
+          "Atari",
+          "Go",
+          "Panda Hand",
+          "DMControl",
+          "Memory-Maze"
+        ],
+        "table_1_selected_cells": {
+          "atari_pong": {
+            "rssm": 1094.9,
+            "transformer": 545.74,
+            "mosim": 2683.9,
+            "diffusion_forcing": 332.79
+          },
+          "spin": {
+            "rssm": 0.026,
+            "transformer": 0.014,
+            "mosim": 0.0035,
+            "diffusion_forcing": 0.0018
+          },
+          "roll": {
+            "rssm": 0.823,
+            "transformer": 0.978,
+            "mosim": 0.0012,
+            "diffusion_forcing": 0.018
+          },
+          "circle": {
+            "rssm": 0.084,
+            "transformer": 0.023,
+            "mosim": 1.27e-07,
+            "diffusion_forcing": 0.0012
+          },
+          "scale_caveat": "Atari columns are O(100-1000) and Spin is O(1e-3..1e-7); cross-domain comparison is meaningful only within a domain"
+        }
+      },
+      "qualitative_findings": [
+        "MoSim (Neural ODE) is best on formalized physical dynamics and worst on Atari; Diffusion Forcing is the reverse - a precision/robustness trade-off.",
+        "Long-horizon: MoSim's error grows exponentially because it conditions on the immediately preceding state only ('weak self-correction').",
+        "The other architectures degrade more gracefully, which the authors attribute to losing trajectory information and falling back on fundamental understanding of the dynamics."
+      ],
+      "relevance_to_physis": [
+        "External precedent for the isolated-harness discipline already in benchmarks/retrieval/run.py and used by the Day 3 equal-budget work: measure the component, not the pipeline that contains it.",
+        "Design factor physis lacks: parameterized data distribution as an explicit difficulty knob. Retrieval holdout difficulty is currently an accident of authoring, which is why set #2 and set #4 gave opposite verdicts.",
+        "Testable hypothesis about physis's own predictions: does forecast error grow with the number of intervening revisions? hypothesis.rs ships Prediction/resolve_prediction/open_predictions/FitnessBreakdown and E75/E78 provide the protocol.",
+        "Their identified failure mechanism (order-blind next-state conditioning) is the one becoming.rs and epistemic.rs exist to avoid - external support for a primitive already in the tree."
+      ],
+      "unresolved": [
+        "no construction-matched null",
+        "no independent retrieval or artifact verification",
+        "Table 1 mixes scales across domains"
+      ]
+    },
+    {
+      "seed": "causal world models / reasoning benchmark design",
+      "arxiv_id": "2509.03636",
+      "version": "v3",
+      "category": "cs.AI",
+      "title": "CausalARC: Abstract Reasoning with Causal World Models",
+      "publication_date": "2026-03-19",
+      "venue": "NeurIPS 2025 Workshop: Bridging Language, Agent, and World Models (LAW)",
+      "authors": [
+        "Jacqueline Maasch",
+        "John Kalantari",
+        "Kia Khezeli"
+      ],
+      "affiliations": [
+        "Cornell Tech",
+        "YRIKKA"
+      ],
+      "project_page": "https://jmaasch.github.io/carc/",
+      "in_window": true,
+      "verification_status": "supplied_full_text_unverified",
+      "verification_depth": "supplied_full_text",
+      "verified_numbers": {
+        "static_task_instances": 50,
+        "demonstration_pairs_per_task": 5,
+        "test_pairs_per_task": 1,
+        "counterfactual_pairs_per_demonstration": "5-10",
+        "themes": {
+          "counting": 10,
+          "extension": 10,
+          "logical": 20,
+          "ordering": 10
+        },
+        "marc_ttt_accuracy_causalarc": 0.46,
+        "marc_ttt_accuracy_arc_agi_1": 0.471,
+        "program_synthesis_best_model": "o4-mini",
+        "program_synthesis_peak_in_context_examples": 6,
+        "pc_algorithm_structural_hamming_distance": {
+          "logical_and": {
+            "n_1000": 1.0,
+            "n_5000": 1.0,
+            "n_10000": 0.0
+          },
+          "logical_or": {
+            "n_1000": 0.0,
+            "n_5000": 0.0,
+            "n_10000": 0.0
+          },
+          "logical_xor": {
+            "n_1000": 40.0,
+            "n_5000": 42.0,
+            "n_10000": 40.0
+          },
+          "note": "xor is a faithfulness violation: deterministic/logical causal functions break the assumption that statistical independence mirrors graph separation"
+        }
+      },
+      "qualitative_findings": [
+        "Each task is sampled from a fully specified SCM, so all three rungs of Pearl's Causal Hierarchy (L1 observational, L2 interventional, L3 counterfactual) are well-defined and sampleable at any size.",
+        "Generative task sampling buffers against static-benchmark data leakage: exact test cases were never previously seen.",
+        "L3 (counterfactual) in-context demonstrations did not consistently help, attributed to lower demonstration diversity because the exogenous context is held fixed.",
+        "Causal discovery with logical reasoning: only Grok 4 was consistent; other models showed unstable, non-monotonic performance as complexity scaled.",
+        "Self-reported contamination: o4-mini emitted ARC-style scaffolding for a prompt that never mentioned ARC; Sonnet 4 volunteered program synthesis unprompted; Grok 4 excelled on xor which appears in ARC-AGI-1. Reasoning effort also moved results.",
+        "The authors state strong performance is necessary but not sufficient for demonstrating reasoning."
+      ],
+      "relevance_to_physis": [
+        "Generative, parameterized task sampling is the direct fix for the holdout problem hit on 2026-09-16: four hand-authored retrieval holdouts were spent, and two of them gave opposite verdicts on the same comparison because difficulty was an authoring accident rather than a controlled variable.",
+        "The PCH ladder is the ledger's vocabulary half-implemented: Mechanism::{Generated,Received,Derived,Corrected,Serves} marks L1-adjacent provenance, there is no L2 do() operator, and dream.rs retrospective proposals replay history without pinning an exogenous context, so they are not counterfactuals in Definition 2.4's sense.",
+        "Skill from unlimited priors is not generalization (Chollet's skill-acquisition-efficiency definition) - the right vocabulary for a lexical baseline that wins on surface-form queries and loses on definitional ones.",
+        "Per-theme fine-grained error analysis is the same instrument as the retrieval case files' `classes` field, and per-class reporting is what exposed the set #2 versus set #4 flip.",
+        "Known hazard: if relation.rs or ledger.rs ever feeds constraint-based causal discovery, the PC result on xor is the warning that deterministic/logical functions violate faithfulness."
+      ],
+      "unresolved": [
+        "no construction-matched null in the LM comparisons (the PC baseline is a real one)",
+        "acknowledged contamination risk in every LM number",
+        "static set is only 50 tasks and is explicitly not intended for fine-tuning or large-scale benchmarking",
+        "no human baseline was collected",
+        "not independently retrieved or artifact-verified"
+      ]
+    }
+  ],
+  "follow_up_queue": [
+    "Replace hand-authored retrieval holdout cases with cases sampled from a parameterized generator (CausalARC design factor 1), so difficulty is a controlled variable.",
+    "Sweep CHUNK_LINES {20, 40, 80} in src/pack.rs at equal budget on a fresh frozen holdout (Light-WAM Table 5 analogue).",
+    "Add an explicit difficulty axis to the retrieval holdouts (span length, query/evidence lexical overlap, file size) so difficulty is a controlled variable (SmallWorld design factor 3).",
+    "Plot physis prediction error against revision horizon using the E78 protocol (SmallWorld Fig. 4 analogue).",
+    "Report peak memory beside latency for the pack path (Light-WAM Table 3/4 standard)."
+  ]
+}

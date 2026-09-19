@@ -105,6 +105,19 @@ pub enum Commands {
         /// 0 = pure relevance, 1 = maximum spread
         #[arg(long, default_value_t = 0.3)]
         diversity: f32,
+        /// Ranking leg: `cosine` (the frozen baseline), `hybrid` (cosine +
+        /// BM25 fused by reciprocal rank fusion), or `lexical` (BM25 alone,
+        /// falling back to cosine when the query shares no term). All fill the
+        /// same budget. Omit to use `PackMode::default()`, the one place the
+        /// default lives.
+        #[arg(long)]
+        mode: Option<String>,
+        /// Take a selected window's neighbour in the same file when it still
+        /// fits the budget, so a region cut by the 40-line grid is packed
+        /// whole. Off by default: a selection policy change is measured before
+        /// it ships (`docs/plans/2026-09-16-day3-retrieval-repair.md`).
+        #[arg(long)]
+        expand: bool,
         /// Print the assembled context after the summary
         #[arg(long)]
         show_context: bool,
@@ -667,6 +680,65 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Measure `act`'s recall: does the machine warn you before you repeat a
+    /// command it has already recorded as contradicted? Both phrasings
+    /// (`lexical`, `paraphrase`) run against their own nulls in one pass —
+    /// moved from physis-core's `act-recall` (see `src/ported/act_recall.rs`).
+    ///
+    /// The embedder is reported, never assumed: the same ledger scores
+    /// differently under a lexical hash and a real model, and a recall claim
+    /// made on the hash is not a recall claim.
+    #[command(name = "act-recall")]
+    ActRecall {
+        /// Claims `act` surfaces; the CLI default is 5.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        /// Seed for the null draws, so a run is reproducible.
+        #[arg(long, default_value_t = 7)]
+        seed: u64,
+        #[arg(long)]
+        json: bool,
+    },
+    /// The conceptual state a human and a machine are both working on: what is
+    /// believed and on what evidence, what is still disputed, and what was
+    /// predicted and never scored. Reads the store — no model, no network —
+    /// moved from physis-core's `ground` (see `src/ported/ground.rs`).
+    #[command(name = "ground")]
+    Ground {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Turn a question into the concrete navigational command it is asking for,
+    /// with the cues that argued for it. Proposed, never executed — moved from
+    /// physis-core's `nlq` verb mapper (see `src/ported/nlq.rs`), which the
+    /// Core CLI never wired either.
+    #[command(name = "nlq")]
+    Nlq {
+        /// The question, as you would ask it.
+        question: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Run the pipeline from a JSON config: model / ngram / corpus / budget are
+    /// read from the file and overridable on the CLI, so changing either never
+    /// requires a source edit — moved from physis-core's `run` (the config
+    /// loader lives in `src/ported/config_run.rs`; the pipeline legs are Core
+    /// mechanisms the product composes).
+    #[command(name = "run")]
+    Run {
+        /// Path to a JSON config file (`physis-core run --config …` shape).
+        #[arg(long, required = true)]
+        config: PathBuf,
+        /// Override the configured model registry id.
+        #[arg(long)]
+        model: Option<String>,
+        /// Override the configured ngram registry id (loads it).
+        #[arg(long)]
+        ngram: Option<String>,
+        /// Override the configured query.
+        #[arg(long)]
+        query: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -891,6 +963,15 @@ fn main() -> anyhow::Result<()> {
     // require a valid licence. These bypass the gate so they can run without a
     // licence — useful for diagnostics, triage, and reporting the licence and
     // embedder state itself.
+    //
+    // `System`, `Act`, `ActRecall`, `Ground` and `Nlq` join them because each
+    // reads only local state (the workspace, the claim ledger, the observation
+    // log) and needs no model, network or ontology — the same reason Core
+    // shipped them without any licence concept. `Run` joins them because it
+    // composes Core's offline model/n-gram mechanisms over a local config, all
+    // of which `physis-core` already ships ungated. `StudioServer` bypasses so
+    // the moved Core studio surface can boot where a key is missing and report
+    // it itself.
     if !matches!(
         cli.command,
         Commands::Doctor
@@ -899,6 +980,10 @@ fn main() -> anyhow::Result<()> {
             | Commands::Selftest
             | Commands::System(..)
             | Commands::Act { .. }
+            | Commands::ActRecall { .. }
+            | Commands::Ground { .. }
+            | Commands::Nlq { .. }
+            | Commands::Run { .. }
             | Commands::StudioServer { .. }
     ) {
         let _license = physis_pro::license::enforce();
@@ -1019,6 +1104,8 @@ fn main() -> anyhow::Result<()> {
         budget,
         top_k,
         diversity,
+        mode,
+        expand,
         show_context,
     } = &cli.command
     {
@@ -1026,6 +1113,11 @@ fn main() -> anyhow::Result<()> {
         let root = physis_pro::pack::resolve_root(dir, None)?;
         let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
         eprintln!("[physis] pack embedder: {kind}");
+        let mode: physis_pro::pack::PackMode = match mode {
+            Some(m) => m.parse().map_err(|e: String| anyhow::anyhow!(e))?,
+            None => physis_pro::pack::PackMode::default(),
+        };
+        eprintln!("[physis] pack mode: {mode:?}{}", if *expand { " +expand" } else { "" });
 
         // Cache persists across runs: the first pack of a tree pays for the
         // whole corpus, later packs pay only for what changed.
@@ -1036,6 +1128,8 @@ fn main() -> anyhow::Result<()> {
             *budget,
             *top_k,
             *diversity,
+            mode,
+            *expand,
             embedder.as_ref(),
             kind,
             &mut cache,
@@ -1085,6 +1179,8 @@ fn main() -> anyhow::Result<()> {
                 1,
                 1,
                 0.0,
+                physis_pro::pack::PackMode::default(),
+                false,
                 embedder.as_ref(),
                 kind,
                 &mut cache,
@@ -1289,6 +1385,32 @@ fn main() -> anyhow::Result<()> {
         return cmd_act(command, *dry_run, *top, *json);
     }
 
+    // `act-recall` measures that same leg, so it sits beside `act` rather than
+    // behind it: a ledger, an embedder and a null, no ontology and no PhysisApp.
+    if let Commands::ActRecall { top, seed, json } = &cli.command {
+        return cmd_act_recall(*top, *seed, *json);
+    }
+
+    // `ground` is the same read `act` warns from, rendered as a picture of the
+    // whole shared state — store and log only.
+    if let Commands::Ground { json } = &cli.command {
+        return cmd_ground(*json);
+    }
+
+    // `nlq` is pure string work: a question in, a proposed command out. It must
+    // not pay for an embedder it will never call.
+    if let Commands::Nlq { question, json } = &cli.command {
+        return cmd_nlq(question, *json);
+    }
+
+    // `run` composes Core mechanisms (map, ngram table, decoder) around a JSON
+    // config; no ontology and no PhysisApp, so it is dispatched here for the
+    // same reason `demo`/`notebook` are not: it would otherwise pay for a
+    // classifier it never consults.
+    if let Commands::Run { config, model, ngram, query } = &cli.command {
+        return run_config_pipeline(config, model.clone(), ngram.clone(), query.clone());
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1299,6 +1421,10 @@ fn main() -> anyhow::Result<()> {
         Commands::System(..) => unreachable!("dispatched before PhysisApp::new"),
         Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::ActRecall { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Ground { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Nlq { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Run { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2057,13 +2183,15 @@ print(json.dumps({{
             // Was hard-coded to RandomProjectionEmbedder, which made this
             // command — the retrieval demo — rank on random projections.
             let (embedder, _kind) = physis_pro::embed::select_embedder(&config.physis);
-            let (result, context) = physis_pro::rag::retrieve_from_texts(
-                &texts,
-                &query,
-                embedder.as_ref(),
-                tokens,
-                top_k,
-            );
+            // Built from the product embedder directly: Core's
+            // `retrieve_from_texts` takes Core's `VectorEmbed`, and the
+            // product's is a different (image-capable) trait.
+            let corpus = physis_pro::rag::corpus_from_texts(&texts, embedder.as_ref());
+            let q_emb = embedder.embed(&query);
+            let retriever =
+                physis_pro::rag::TokenFixedRetriever::new(tokens, top_k);
+            let result = retriever.retrieve(&q_emb, &corpus);
+            let context = physis_pro::rag::assemble_context(&result, "\n\n---\n\n");
             println!("=== Token-Fixed RAG ===");
             println!("  query: {query}");
             println!(
@@ -2291,6 +2419,202 @@ fn load_core() -> physis_core::core::PhysisCore {
     } else {
         physis_core::core::PhysisCore::from_json(&json).unwrap_or_else(|_| physis_core::core::PhysisCore::new())
     }
+}
+
+/// Measure `act`'s recall, in both phrasings, against both nulls — moved from
+/// Core's `cmd_act_recall` unchanged, including the artifact path, because the
+/// result is a measurement and a measurement that lands somewhere new is not
+/// the same measurement.
+fn cmd_act_recall(top: usize, seed: u64, json: bool) -> anyhow::Result<()> {
+    let (embedder, embedder_kind) = physis_core::embed::select(384);
+    let run = physis_pro::ported::act_recall::run(top, embedder.as_ref(), embedder_kind, seed);
+    let dir = PathBuf::from("benchmarks/results");
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join("act-recall.json");
+    std::fs::write(&path, serde_json::to_vec_pretty(&run)?)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&run)?);
+    } else {
+        print!("{}", run.render());
+        println!("\nartifact -> {}", path.display());
+    }
+    Ok(())
+}
+
+/// The shared state, as a human and a machine can both read it. Core's
+/// `ground` verb, moved: project the revisions the store holds, then render.
+fn cmd_ground(json: bool) -> anyhow::Result<()> {
+    let mut core = load_core();
+    if core.project_all_revisions() > 0 {
+        physis_core::store::ensure_data_dir()?;
+        core.persist()?;
+    }
+    let observations =
+        physis_core::observe::read(&physis_core::observe::log_path()).unwrap_or_default();
+    let ground = physis_pro::ported::ground::read(&core, &observations, chrono::Utc::now());
+    if json {
+        println!("{}", serde_json::to_string_pretty(&ground)?);
+    } else {
+        print!("{}", ground.render());
+    }
+    Ok(())
+}
+
+/// The config-driven pipeline, moved from Core's `cmd_run` — the same legs in
+/// the same order: load the JSON config, resolve the n-gram table (registry id
+/// or build on the fly from the corpus), wrap it in a decoder, map the corpus,
+/// compile the bounded context, then print the run. Only the config loader is
+/// a moved product file (`ported::config_run`); every other leg is a public
+/// Core mechanism this command composes, which is the point of the split.
+fn run_config_pipeline(
+    config: &Path,
+    model: Option<String>,
+    ngram: Option<String>,
+    query: Option<String>,
+) -> anyhow::Result<()> {
+    use physis_core::model_provider::{ModelProvider, NgramDecoderModel};
+    use physis_core::ngram_table::{NGramTable, TableBuilder, TableConfig, TableKind, TableRegistry};
+    use physis_core::tokenizer::WhitespaceTokenizer;
+    use std::sync::Arc;
+
+    let mut cfg = physis_pro::ported::config_run::load_config(&config.to_path_buf())?;
+    if let Some(q) = query {
+        cfg.query = q;
+    }
+    if let Some(id) = ngram {
+        cfg.ngram.registry_id = Some(id);
+    }
+    // Resolve the ngram: registry id if given, else build from the corpus.
+    let table = if let Some(rid) = cfg.ngram.registry_id.clone() {
+        let reg = TableRegistry::new(TableRegistry::default_root());
+        Arc::new(reg.load(&rid, None)?)
+    } else {
+        let docs = physis_core::map::load_corpus(&cfg.corpus)?;
+        let tok = WhitespaceTokenizer::new(50_000);
+        let bcfg = TableConfig {
+            table_id: "run".into(),
+            max_order: cfg.ngram.order,
+            ..Default::default()
+        };
+        let mut tb = TableBuilder::new(bcfg);
+        for (_, b) in &docs {
+            tb.push_text(&tok, b);
+        }
+        let (t, _bytes) = tb.finish(&tok, "run-corpus");
+        Arc::new(t)
+    };
+    let kind = match table.manifest().kind {
+        TableKind::Lexical => "lexical".to_string(),
+        TableKind::Structural => "structural".to_string(),
+    };
+    let model_id = if let Some(mx) = model {
+        mx
+    } else if let Some(cm) = cfg.model.clone() {
+        cm
+    } else {
+        "demo-ngram".to_string()
+    };
+    let m = NgramDecoderModel::new(&model_id, table, Box::new(WhitespaceTokenizer::new(50_000)));
+    let docs = physis_core::map::load_corpus(&cfg.corpus)?;
+    // Same cascade, and the same warning Core printed: this command's numbers
+    // come from the embedder it names.
+    let (embedder, embedder_kind) = physis_core::embed::select(384);
+    if embedder_kind == "random-projection" {
+        eprintln!(
+            "warning: embedder is random-projection (non-semantic). \
+Similarity here is lexical, not meaning-based. Set PHYSIS_MODEL_DIR \
+or build with --features embed-onnx and real weights for semantic scores."
+        );
+    }
+    let map = physis_core::map::build_map(&docs, embedder.as_ref(), None)?;
+    let ctx = physis_core::map::compile_context(&docs, &embedder, &cfg.query, cfg.budget)?;
+    let score = match m.score(&cfg.query) {
+        Ok(x) => (x * 100.0).round(),
+        Err(_) => 0.0,
+    };
+    let cont = m.generate(&cfg.query, 8)?;
+    println!("── PHYSIS RUN (config-driven, offline, deterministic) ──");
+    println!(
+        "model: {} · architecture: {} · ngram kind: {}",
+        m.metadata().id,
+        m.metadata().architecture,
+        kind
+    );
+    println!("corpus: {} · query: {}", cfg.corpus.display(), cfg.query);
+    for l in map.hero_lines() {
+        println!("{l}");
+    }
+    println!(
+        "context compression {}% ({} to {} tokens)",
+        (ctx.compression_ratio * 100.0).round(),
+        ctx.baseline_tokens,
+        ctx.physis_tokens
+    );
+    println!("score(query) {} (mean log-prob * 100)", score);
+    println!(
+        "continuation: {} ...",
+        cont.trim().chars().take(60).collect::<String>()
+    );
+    println!("less context, more structure — physis.");
+    Ok(())
+}
+
+/// `PhysisCore` exposes `to_json`/`from_json` but no writer of its own: Core's
+/// binary carries this two-line extension trait privately (`PersistCore` in
+/// `physis-core/src/main.rs`). The moved `ground` verb needs the identical
+/// pair, so it brings Core's version along instead of inventing a second
+/// convention for the same two lines — and the bytes it writes are the same
+/// bytes, to the same path.
+trait PersistCore {
+    fn persist(&self) -> anyhow::Result<()>;
+}
+
+impl PersistCore for physis_core::PhysisCore {
+    fn persist(&self) -> anyhow::Result<()> {
+        std::fs::write(physis_core::store::nodes_path(), self.to_json()?)?;
+        Ok(())
+    }
+}
+
+/// A question in, a proposed command out. The proposal is printed with its
+/// cues and its margin, because an operator approves a concrete command and
+/// needs to see how close the runner-up was — and a `fallback` parse says so
+/// rather than pretending the default was inferred.
+fn cmd_nlq(question: &str, json: bool) -> anyhow::Result<()> {
+    let proposal = physis_pro::ported::nlq::parse(question);
+    if json {
+        println!("{}", serde_json::to_string_pretty(&proposal)?);
+        return Ok(());
+    }
+    println!("question  : {}", proposal.question);
+    println!(
+        "intent    : {} (score {})",
+        proposal.intent.verb(),
+        proposal.score
+    );
+    if let Some((runner_up, score)) = proposal.runner_up {
+        println!("runner-up : {} (score {score})", runner_up.verb());
+    }
+    println!("margin    : {}", proposal.margin());
+    println!("term      : {}", proposal.term);
+    println!("command   : {}", proposal.command());
+    if proposal.evidence.is_empty() {
+        println!("evidence  : (none)");
+    } else {
+        println!("evidence  :");
+        for cue in &proposal.evidence {
+            println!(
+                "  {:>+2}  {:?}  {:?}",
+                cue.weight, cue.phrase, cue.intent
+            );
+        }
+    }
+    if proposal.fallback {
+        println!(
+            "note      : nothing fired — this is the default (`retrieve`), not an inference."
+        );
+    }
+    Ok(())
 }
 
 fn run_selftest(config: &PhysisProConfig) -> anyhow::Result<()> {

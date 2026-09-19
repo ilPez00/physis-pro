@@ -137,12 +137,41 @@ not answer this.\" Do not answer from general knowledge. Do not guess.
 /// [`Answer::degraded`] exists to prevent for the generation tier, so
 /// retrieval gets the same treatment rather than being the one field callers
 /// can leave the reader to assume about.
+///
+/// To force extraction — never reading generator environment, never calling a
+/// provider — call [`answer_extractive`] instead.
 pub fn answer(
     docs: &[(String, String)],
     query: &str,
     embedder: &dyn VectorEmbed,
     budget: usize,
     retrieval_backend: &str,
+) -> anyhow::Result<Answer> {
+    answer_inner(docs, query, embedder, budget, retrieval_backend, false, crate::ported::oracle::configured)
+}
+
+/// Explicit no-generator path. Generator environment variables are never read
+/// and no provider transport is invoked. Evidence comes from the same
+/// retrieval as [`answer`]; choosing extraction is a mode, not a failed
+/// synthesis request, so `degraded` stays empty.
+pub fn answer_extractive(
+    docs: &[(String, String)],
+    query: &str,
+    embedder: &dyn VectorEmbed,
+    budget: usize,
+    retrieval_backend: &str,
+) -> anyhow::Result<Answer> {
+    answer_inner(docs, query, embedder, budget, retrieval_backend, true, crate::ported::oracle::configured)
+}
+
+fn answer_inner(
+    docs: &[(String, String)],
+    query: &str,
+    embedder: &dyn VectorEmbed,
+    budget: usize,
+    retrieval_backend: &str,
+    extractive_only: bool,
+    configured: impl FnOnce() -> Option<(physis_core::oracle::OracleConfig, String)>,
 ) -> anyhow::Result<Answer> {
     anyhow::ensure!(!docs.is_empty(), "no documents to answer from");
     let started = std::time::Instant::now();
@@ -182,7 +211,11 @@ pub fn answer(
         retrieval_backend: retrieval_backend.to_string(),
     };
 
-    match crate::ported::oracle::configured() {
+    if extractive_only {
+        return Ok(common(Tier::Extractive, extractive(&result), None));
+    }
+
+    match configured() {
         Some((cfg, key)) => {
             let prompt = format!("CONTEXT:\n{numbered}\nQUESTION: {query}");
             match crate::ported::oracle::complete(&cfg, &key, GROUNDING, &prompt, 800) {
@@ -520,7 +553,7 @@ mod tests {
         let e = RandomProjectionEmbedder::new(64);
         // A corpus engineered to cycle: the continuation leads back into the
         // context that produced it.
-        let docs = vec![(
+        let docs = [(
             "loop.md".to_string(),
             "the machine must not stop above it the machine must not stop above it".to_string(),
         )];
@@ -538,7 +571,7 @@ mod tests {
     #[test]
     fn drafting_always_terminates_within_max_tokens() {
         let e = RandomProjectionEmbedder::new(64);
-        let docs = vec![("r.md".to_string(), "a b a b a b a b a b".to_string())];
+        let docs = [("r.md".to_string(), "a b a b a b a b a b".to_string())];
         let texts: Vec<String> = docs.iter().map(|(_, b)| b.clone()).collect();
         let (result, _) = physis_core::rag::retrieve_from_texts(&texts, "a b", &e, 400, 3);
         let d = draft(&result, "a b", 1000, 0.0).unwrap();

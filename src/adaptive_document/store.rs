@@ -4,6 +4,12 @@
 //! - `document.json` — full [`Document`] state (raw bytes, blocks, links)
 //! - `events.jsonl`  — append-only change log; store sequence is replay order
 //! - `patches.json`  — proposals/applied/rejected/reverted patches by id
+//! - `transitions.jsonl` — how each reparse mapped block identity forward,
+//!   with the canonical diff hash of the passage (see [`super::identity`])
+//! - `causes.json` — the same successions as a [`crate::ledger::CausalLedger`],
+//!   so `lineage()` and `descendants()` can walk them
+//! - `observations.json` — what a model said about each block, attributed to
+//!   the embedder that said it (see [`super::observation`])
 //!
 //! Raw document bytes live inside `document.json` for this MVP; if a future
 //! relocation splits them out, a missing blob must be reported, never
@@ -97,6 +103,77 @@ impl Store {
         f.write_all(line.as_bytes())?;
         f.write_all(b"\n")?;
         f.sync_all()
+    }
+
+    /// Load the identity transitions, in file order.
+    pub fn load_transitions(&self) -> io::Result<Vec<super::identity::Transition>> {
+        let path = self.root.join("transitions.jsonl");
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let bytes = std::fs::read(&path)?;
+        let mut out = Vec::new();
+        for line in bytes.split(|&b| b == b'\n') {
+            if line.is_empty() {
+                continue;
+            }
+            out.push(serde_json::from_slice(line).map_err(|e| {
+                io::Error::new(io::ErrorKind::InvalidData, format!("transitions.jsonl: {e}"))
+            })?);
+        }
+        Ok(out)
+    }
+
+    /// Append one identity transition. Same append-then-fsync contract as the
+    /// event log: a torn trailing line is reported on load, never dropped.
+    pub fn append_transition(&self, t: &super::identity::Transition) -> io::Result<()> {
+        std::fs::create_dir_all(&self.root)?;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.root.join("transitions.jsonl"))?;
+        let line = serde_json::to_string(t)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        f.write_all(line.as_bytes())?;
+        f.write_all(b"\n")?;
+        f.sync_all()
+    }
+
+    /// The causal ledger for this document: one `Corrected` event per
+    /// succession, so a chain of replacements is walkable rather than merely
+    /// listed. A missing file is an empty ledger.
+    pub fn load_causes(&self) -> io::Result<crate::ledger::CausalLedger> {
+        let path = self.root.join("causes.json");
+        if !path.exists() {
+            return Ok(crate::ledger::CausalLedger::default());
+        }
+        let bytes = std::fs::read(&path)?;
+        serde_json::from_slice(&bytes)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("causes.json: {e}")))
+    }
+
+    pub fn save_causes(&self, ledger: &crate::ledger::CausalLedger) -> io::Result<()> {
+        write_json_durable(&self.root.join("causes.json"), ledger)
+    }
+
+    /// Model observations for this document. Missing file means none have been
+    /// made, which is not the same as none being possible.
+    pub fn load_observations(&self) -> io::Result<Vec<super::observation::Observation>> {
+        let path = self.root.join("observations.json");
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let bytes = std::fs::read(&path)?;
+        serde_json::from_slice(&bytes).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidData, format!("observations.json: {e}"))
+        })
+    }
+
+    pub fn save_observations(
+        &self,
+        observations: &[super::observation::Observation],
+    ) -> io::Result<()> {
+        write_json_durable(&self.root.join("observations.json"), &observations)
     }
 
     /// Idempotency lookup: a repeated patch id returns the recorded patch so

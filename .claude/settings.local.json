@@ -3,10 +3,13 @@
     "allow": [
       "Bash(rtk git *)",
       "Bash(git -C physis-core diff --stat)",
-      "Bash(git -C physis-core diff src/embed.rs)"
+      "Bash(git -C physis-core diff src/embed.rs)",
+      "mcp__physis",
+      "mcp__physis_system"
     ]
   },
   "enabledMcpjsonServers": [
-    "supabase"
+    "supabase",
+    "physis"
   ]
 }

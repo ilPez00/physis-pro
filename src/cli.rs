@@ -463,6 +463,12 @@ impl PhysisApp {
                     embedding: emb.clone(),
                 })
                 .collect(),
+            bm25: crate::rag::Bm25Index::build(
+                &candidates
+                    .iter()
+                    .map(|(_, label, _)| label.clone())
+                    .collect::<Vec<String>>(),
+            ),
         };
         let result = crate::rag::TokenFixedRetriever::new(budget, top).retrieve(&q_emb, &corpus);
 
