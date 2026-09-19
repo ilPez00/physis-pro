@@ -82,11 +82,19 @@ pub struct Provenance {
 
 impl Provenance {
     pub fn deterministic(source: impl Into<String>) -> Self {
-        Self { route: Route::Deterministic, source: source.into(), observation_seq: None }
+        Self {
+            route: Route::Deterministic,
+            source: source.into(),
+            observation_seq: None,
+        }
     }
 
     pub fn model(source: impl Into<String>) -> Self {
-        Self { route: Route::Model, source: source.into(), observation_seq: None }
+        Self {
+            route: Route::Model,
+            source: source.into(),
+            observation_seq: None,
+        }
     }
 
     pub fn at(mut self, seq: u64) -> Self {
@@ -188,7 +196,11 @@ impl WorldObject {
     }
 
     pub fn relate(mut self, kind: RelationKind, target: impl Into<String>) -> Self {
-        self.relations.push(Relation { kind, target: target.into(), provenance: None });
+        self.relations.push(Relation {
+            kind,
+            target: target.into(),
+            provenance: None,
+        });
         self
     }
 
@@ -255,6 +267,66 @@ impl WorldObject {
         obj
     }
 
+    /// Project any path: a directory becomes a `Project` (see
+    /// [`Self::from_directory`]), a file becomes a `File` whose `Contains`
+    /// edges are its deterministic structural symbols. Read-only, offline, no
+    /// model — the projection the navigator descends through.
+    pub fn from_path(path: impl AsRef<Path>) -> Self {
+        let path = path.as_ref();
+        if path.is_dir() {
+            return Self::from_directory(path);
+        }
+        let display = path.display().to_string();
+        let name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| display.clone());
+        let mut obj = Self::new(format!("fs:{display}"), ObjectKind::File, name)
+            .with_provenance(Provenance::deterministic("operator:fs-scan"));
+        obj.affordances = vec![
+            "open".into(),
+            "read".into(),
+            "symbols".into(),
+            "edit-content".into(),
+        ];
+        obj.constraints = vec!["read-only view (no writes)".into()];
+        if !path.is_file() {
+            obj.constraints
+                .push("not a regular file (stat failed)".into());
+        }
+        if let Some(parent) = path.parent() {
+            obj.containment = Some(format!("fs:{}", parent.display()));
+        }
+        for line in structural_lines(path) {
+            obj.relations.push(Relation {
+                kind: RelationKind::Contains,
+                target: symbol_identity(&display, &line),
+                provenance: None,
+            });
+        }
+        obj
+    }
+
+    /// The objects one step inside this one: a directory's immediate children,
+    /// or a file's structural symbols. Pure, and read from the object's own
+    /// `Contains` edges rather than from disk again, so a file is parsed
+    /// exactly once — when it is projected. This is what makes the object a
+    /// navigation payload rather than a single rendered page.
+    pub fn children(&self) -> Vec<WorldObject> {
+        if self.kind == ObjectKind::File {
+            return self
+                .relations_of(RelationKind::Contains)
+                .filter_map(|r| r.target.strip_prefix("symbol:"))
+                .filter_map(|rest| rest.split_once('#'))
+                .map(|(path, structural)| symbol_object(path, structural))
+                .collect();
+        }
+        self.relations_of(RelationKind::Contains)
+            .filter_map(|r| r.target.strip_prefix("fs:"))
+            .map(Self::from_path)
+            .collect()
+    }
+
     /// Project an engine node into a world object. The join between the
     /// engine's stored state and the one object the TUI navigates.
     ///
@@ -268,8 +340,12 @@ impl WorldObject {
             Some(e) => Provenance::deterministic(format!("embed:{e}")),
             None => Provenance::deterministic("operator:core-node"),
         };
-        let mut obj = Self::new(format!("core:node:{}", node.id), ObjectKind::Concept, content)
-            .with_provenance(provenance);
+        let mut obj = Self::new(
+            format!("core:node:{}", node.id),
+            ObjectKind::Concept,
+            content,
+        )
+        .with_provenance(provenance);
         obj.state.coherence = Some(node.coherence_score);
         obj.state.asserted = node.asserted;
         obj.state.cell = node.cell_pin.clone();
@@ -311,7 +387,12 @@ impl WorldObject {
         ] {
             let targets: Vec<&str> = self.relations_of(kind).map(|r| r.target.as_str()).collect();
             if !targets.is_empty() {
-                lines.push(format!("{:?} ({}) -> {}", kind, targets.len(), targets.join(", ")));
+                lines.push(format!(
+                    "{:?} ({}) -> {}",
+                    kind,
+                    targets.len(),
+                    targets.join(", ")
+                ));
             }
         }
         if !self.affordances.is_empty() {
@@ -324,6 +405,44 @@ impl WorldObject {
     }
 }
 
+/// Stable identity for a symbol: the file path plus the structural line the
+/// scanner produced. Deduped by the scanner, so it is unique within a file.
+fn symbol_identity(path: &str, structural: &str) -> String {
+    format!("symbol:{path}#{structural}")
+}
+
+/// Materialise one symbol from the identity already stored on its file's
+/// `Contains` edge. No disk read: the structural line came from the scanner
+/// when the file was projected.
+fn symbol_object(path: &str, structural: &str) -> WorldObject {
+    let mut sym = WorldObject::new(
+        symbol_identity(path, structural),
+        ObjectKind::Symbol,
+        structural,
+    )
+    .with_provenance(Provenance::deterministic("operator:structure-scan"));
+    sym.containment = Some(format!("fs:{path}"));
+    sym.relations.push(Relation {
+        kind: RelationKind::DerivedFrom,
+        target: format!("fs:{path}"),
+        provenance: None,
+    });
+    sym.affordances = vec!["open".into()];
+    sym
+}
+
+/// Reuse the one structural extractor in the crate rather than parsing again
+/// here; the scanner already covers Rust, Python, JS/TS, Go, Ruby, Kotlin,
+/// Java, Swift, C, Markdown, JSON, TOML/YAML and CSV.
+fn structural_lines(path: &Path) -> Vec<String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| format!(".{}", e.to_lowercase()))
+        .unwrap_or_default();
+    crate::scanner::extract_structural_lines(path, &ext)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,14 +451,20 @@ mod tests {
     fn provenance_chain_names_route_source_and_log_position() {
         let obj = WorldObject::new("core:node:7f3a", ObjectKind::Concept, "sled vs postgres")
             .with_provenance(Provenance::deterministic("embed:bge-base").at(1234));
-        assert_eq!(obj.provenance_chain(), "route=deterministic source=embed:bge-base obs=1234");
+        assert_eq!(
+            obj.provenance_chain(),
+            "route=deterministic source=embed:bge-base obs=1234"
+        );
     }
 
     #[test]
     fn model_produced_values_are_never_labelled_deterministic() {
         let obj = WorldObject::new("core:node:7f3a", ObjectKind::Concept, "a decision")
             .with_provenance(Provenance::model("model:jev-1.13-free"));
-        assert_eq!(obj.provenance_chain(), "route=model source=model:jev-1.13-free");
+        assert_eq!(
+            obj.provenance_chain(),
+            "route=model source=model:jev-1.13-free"
+        );
     }
 
     #[test]
@@ -388,7 +513,10 @@ mod tests {
         let obj = WorldObject::from_coherence_node(&node);
         assert_eq!(obj.identity, "core:node:7f3a");
         assert_eq!(obj.content, "sled vs postgres");
-        assert_eq!(obj.provenance_chain(), "route=deterministic source=embed:bge-base");
+        assert_eq!(
+            obj.provenance_chain(),
+            "route=deterministic source=embed:bge-base"
+        );
         assert_eq!(obj.state.coherence, Some(0.42));
         assert_eq!(obj.state.asserted, Some(-1.0));
         assert_eq!(obj.state.cell, Some(("storage".into(), "decision".into())));
@@ -405,5 +533,46 @@ mod tests {
         assert!(text.contains("route=model"), "{text}");
         assert!(text.contains("inside: project:aion"), "{text}");
         assert!(text.contains("DependsOn (1) -> service:physis"), "{text}");
+    }
+
+    #[test]
+    fn a_file_projects_with_its_symbols_as_children() {
+        // Cargo runs lib tests from the package root, so this file exists.
+        let file = WorldObject::from_path("src/world_object.rs");
+        assert_eq!(file.kind, ObjectKind::File);
+        assert_eq!(file.provenance.route, Route::Deterministic);
+        assert_eq!(file.containment.as_deref(), Some("fs:src"));
+
+        let symbols = file.children();
+        assert!(
+            symbols.iter().any(|s| s.content == "struct WorldObject"),
+            "public struct is extracted: {:?}",
+            symbols.iter().map(|s| &s.content).collect::<Vec<_>>()
+        );
+        assert!(symbols.iter().all(|s| s.kind == ObjectKind::Symbol));
+        assert!(symbols
+            .iter()
+            .all(|s| s.containment.as_deref() == Some("fs:src/world_object.rs")));
+        assert!(symbols.iter().all(|s| s
+            .relations_of(RelationKind::DerivedFrom)
+            .any(|r| r.target == "fs:src/world_object.rs")));
+    }
+
+    #[test]
+    fn a_directory_navigates_down_to_a_file_then_to_symbols() {
+        let project = WorldObject::from_path("src");
+        assert_eq!(project.kind, ObjectKind::Project);
+
+        let file = project
+            .children()
+            .into_iter()
+            .find(|c| c.content == "world_object.rs")
+            .expect("module file is a child of the project");
+        assert_eq!(file.kind, ObjectKind::File);
+
+        assert!(file
+            .children()
+            .iter()
+            .any(|s| s.content.starts_with("fn ") || s.content.starts_with("struct ")));
     }
 }

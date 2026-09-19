@@ -121,10 +121,15 @@ struct App {
     wiki_confidence: f32,
     wiki_cell_row: usize,
     wiki_cell_col: usize,
-    /// STREAM tab: the world object under the cursor, rendered to lines.
-    /// Read-only — the visible slice of sprint 1 (P04 + this).
-    stream: Vec<String>,
-    stream_source: String,
+    /// STREAM tab: the navigation path from the root object to the current
+    /// one. Every entry is a `WorldObject`; the last is rendered, the previous
+    /// ones form the breadcrumb.
+    stream_stack: Vec<WorldObject>,
+    /// Children of the current object, refreshed on navigation rather than per
+    /// frame — a directory's `from_path` children or a file's symbols.
+    stream_children: Vec<WorldObject>,
+    /// Selected child, when the current object has any.
+    stream_sel: usize,
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -358,11 +363,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_confidence: 0.35,
         wiki_cell_row: 0,
         wiki_cell_col: 0,
-        stream: WorldObject::from_directory(".").render(),
-        stream_source: std::env::current_dir()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| ".".into()),
+        stream_stack: vec![WorldObject::from_directory(
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        )],
+        stream_children: Vec::new(),
+        stream_sel: 0,
     };
+    stream_refresh(&mut app);
 
     enable_raw_mode()?;
     let mut out = stdout();
@@ -937,6 +944,9 @@ fn run<B: ratatui::backend::Backend>(
                     app.wiki_sel = (app.wiki_sel + 1) % app.wiki_hits.len();
                     wiki_load_preview(app);
                 }
+                TAB_STREAM => {
+                    app.stream_sel = cycle(app.stream_children.len(), app.stream_sel, 1);
+                }
                 _ => {}
             },
             KeyCode::Up | KeyCode::Char('k') => match app.tab {
@@ -949,6 +959,9 @@ fn run<B: ratatui::backend::Backend>(
                 TAB_WIKI if !app.wiki_hits.is_empty() => {
                     app.wiki_sel = (app.wiki_sel + app.wiki_hits.len() - 1) % app.wiki_hits.len();
                     wiki_load_preview(app);
+                }
+                TAB_STREAM => {
+                    app.stream_sel = cycle(app.stream_children.len(), app.stream_sel, -1);
                 }
                 _ => {}
             },
@@ -995,6 +1008,8 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Char('g') if app.tab == TAB_WIKI => wiki_walk_into(app),
             KeyCode::Char('d') if app.tab == TAB_WIKI => wiki_dream(app),
             KeyCode::Backspace if app.tab == TAB_WIKI => wiki_walk_back(app),
+            KeyCode::Enter if app.tab == TAB_STREAM => stream_enter(app),
+            KeyCode::Backspace if app.tab == TAB_STREAM => stream_back(app),
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
             }
@@ -1063,7 +1078,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
             " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
         }
         TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
-        TAB_STREAM => " Tab switch · one WorldObject per directory · provenance first · q quit",
+        TAB_STREAM => " Tab · ↑/↓ select · Enter open · ⌫ back · provenance first · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
@@ -1076,23 +1091,118 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
     f.render_widget(foot, rows[2]);
 }
 
-/// STREAM tab — the first visible slice of the world-object model.
+/// Move a selection index by `delta`, wrapping around. Kept pure so the
+/// wrap-around rule is testable without a terminal; an empty list has no
+/// selection to move.
+fn cycle(len: usize, cur: usize, delta: isize) -> usize {
+    if len == 0 {
+        return 0;
+    }
+    (cur as isize + delta).rem_euclid(len as isize) as usize
+}
+
+/// Refresh the cached children of the current object. Called on mount and
+/// after every descent/ascent, never per frame — walking a directory reads the
+/// filesystem and the render loop runs several times a second.
+fn stream_refresh(app: &mut App) {
+    app.stream_children = app
+        .stream_stack
+        .last()
+        .map(WorldObject::children)
+        .unwrap_or_default();
+    app.stream_sel = 0;
+}
+
+/// Descend into the selected child. A directory's children are its entries; a
+/// file's are its structural symbols.
+fn stream_enter(app: &mut App) {
+    if let Some(child) = app.stream_children.get(app.stream_sel).cloned() {
+        app.stream_stack.push(child);
+        stream_refresh(app);
+    }
+}
+
+/// Climb back toward the root. The root is never popped, so the tab always has
+/// something to render.
+fn stream_back(app: &mut App) {
+    if app.stream_stack.len() > 1 {
+        app.stream_stack.pop();
+        stream_refresh(app);
+    }
+}
+
+/// STREAM tab — the world-object navigator.
 ///
-/// One `WorldObject` (this working directory) rendered the way the stream will
-/// render any node: provenance first, because a navigational layer that cannot
-/// say why it said something is an oracle. Then state, container, typed
-/// relations, affordances and constraints. Read-only on purpose: this slice
-/// exists to make the object model visible, not yet to edit it.
+/// Breadcrumb of the path taken, the current object rendered provenance-first
+/// (a navigational layer that cannot say why it said something is an oracle),
+/// then the objects one step inside it. Read-only on purpose: this slice makes
+/// the object model navigable, not yet editable.
 fn draw_stream(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
-    let body: Vec<Line> = app.stream.iter().map(|l| Line::from(l.as_str())).collect();
-    let block = Block::default()
-        .title(format!(" STREAM · {} ", app.stream_source))
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
-    let p = Paragraph::new(body)
-        .block(block)
-        .wrap(Wrap { trim: false });
-    f.render_widget(p, area);
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area);
+
+    let crumb = app
+        .stream_stack
+        .iter()
+        .map(|o| truncate(&o.identity, 28))
+        .collect::<Vec<_>>()
+        .join(" → ");
+    f.render_widget(
+        Paragraph::new(crumb).block(
+            Block::default()
+                .title(" STREAM · path ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Magenta)),
+        ),
+        rows[0],
+    );
+
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(rows[1]);
+
+    let body: Vec<Line> = app
+        .stream_stack
+        .last()
+        .map(|o| o.render().into_iter().map(Line::from).collect())
+        .unwrap_or_default();
+    f.render_widget(
+        Paragraph::new(body)
+            .block(Block::default().title(" object ").borders(Borders::ALL))
+            .wrap(Wrap { trim: false }),
+        cols[0],
+    );
+
+    let items: Vec<ListItem> = app
+        .stream_children
+        .iter()
+        .map(|c| {
+            ListItem::new(Line::from(
+                format!("{:?}  {}", c.kind, c.content).to_lowercase(),
+            ))
+        })
+        .collect();
+    let mut state = ListState::default();
+    if !items.is_empty() {
+        state.select(Some(app.stream_sel.min(items.len() - 1)));
+    }
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .title(format!(" inside ({}) ", app.stream_children.len()))
+                .borders(Borders::ALL),
+        )
+        .highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Magenta)
+                .add_modifier(Modifier::BOLD),
+        )
+        .highlight_symbol("▶ ");
+    f.render_stateful_widget(list, cols[1], &mut state);
 }
 
 /// WIKI tab — search box on top, cosine-ranked hits left, preview right.
@@ -1802,5 +1912,14 @@ mod tests {
             "multi-byte utf8 encodes per byte"
         );
         assert_eq!(urlencoding_minimal("plain-text_1.0~"), "plain-text_1.0~");
+    }
+
+    #[test]
+    fn cycle_wraps_stream_selection_both_ways() {
+        assert_eq!(cycle(3, 2, 1), 0, "past the end wraps to the first");
+        assert_eq!(cycle(3, 0, -1), 2, "before the start wraps to the last");
+        assert_eq!(cycle(3, 1, 1), 2, "inside the list moves by one");
+        assert_eq!(cycle(0, 0, 1), 0, "an empty list has no selection to move");
+        assert_eq!(cycle(1, 0, 1), 0, "a single child stays selected");
     }
 }

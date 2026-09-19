@@ -323,6 +323,34 @@ fn build_extractors() -> Vec<(String, Vec<(Regex, String)>)> {
         .collect()
 }
 
+/// Drop leading Rust visibility and qualifier keywords so the item extractors
+/// can anchor. Loops because `pub async fn` carries two prefixes; the guard
+/// after each strip keeps a plain identifier like `publicity` untouched.
+fn strip_rust_qualifiers(mut line: &str) -> &str {
+    loop {
+        let before = line;
+        for q in [
+            "pub(crate)",
+            "pub(super)",
+            "pub(self)",
+            "pub",
+            "async",
+            "unsafe",
+            "default",
+            "extern \"C\"",
+        ] {
+            if let Some(rest) = line.strip_prefix(q) {
+                if rest.starts_with(' ') || rest.starts_with('(') {
+                    line = rest.trim_start();
+                }
+            }
+        }
+        if line == before {
+            return line;
+        }
+    }
+}
+
 pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
     let text = match std::fs::read_to_string(file_path) {
         Ok(t) => t,
@@ -429,8 +457,17 @@ pub fn extract_structural_lines(file_path: &Path, ext: &str) -> Vec<String> {
         let mut seen = HashSet::new();
         for line in text.lines() {
             let trimmed = line.trim();
+            // Rust items usually sit behind visibility/qualifier keywords
+            // (`pub fn`, `pub(crate) struct`, `async fn`, `unsafe impl`). The
+            // extractor regexes anchor at the item keyword, so without this the
+            // scanner only ever sees private top-level items.
+            let candidate = if ext == ".rs" {
+                strip_rust_qualifiers(trimmed)
+            } else {
+                trimmed
+            };
             for (re, fmt) in &all_extractors {
-                if let Some(caps) = re.captures(trimmed) {
+                if let Some(caps) = re.captures(candidate) {
                     let name = caps.get(1).map_or("", |m| m.as_str());
                     let extracted = fmt.replace("{name}", name);
                     if seen.insert(extracted.clone()) {
@@ -716,6 +753,28 @@ mod tests {
         assert!(lines.contains(&"fn hello".to_string()));
         assert!(lines.contains(&"struct World".to_string()));
         assert!(lines.contains(&"fn another".to_string()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rust_visibility_and_qualifiers_do_not_hide_items() {
+        let dir = std::env::temp_dir().join("physis_test_scan_pub");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("pub.rs");
+        std::fs::write(
+            &file_path,
+            "pub fn a() {}\npub(crate) struct B {}\npub async fn c() {}\nunsafe impl D for B {}\nlet publicity = 1;\n",
+        )
+        .unwrap();
+        let lines = extract_structural_lines(&file_path, ".rs");
+        assert!(lines.contains(&"fn a".to_string()), "{lines:?}");
+        assert!(lines.contains(&"struct B".to_string()), "{lines:?}");
+        assert!(lines.contains(&"fn c".to_string()), "{lines:?}");
+        assert!(lines.contains(&"impl D".to_string()), "{lines:?}");
+        assert!(
+            !lines.iter().any(|l| l.contains("publicity")),
+            "a plain identifier must not be mistaken for a qualifier: {lines:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
