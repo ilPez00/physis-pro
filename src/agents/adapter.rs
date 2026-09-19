@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use super::{on_path, Agent, AgentKind, Status};
+use super::{on_path, zen_model, Agent, AgentKind, Status};
 
 /// What went wrong, stated rather than flattened into an empty string.
 #[derive(Debug, Clone, PartialEq)]
@@ -24,8 +24,8 @@ pub enum AdapterError {
     /// The program is not on PATH.
     Missing(String),
     Spawn(String),
-    /// The process exited non-zero.
-    Exit(i32),
+    /// The process exited non-zero, with its stderr for diagnosis.
+    Exit(i32, String),
     /// The process exceeded its deadline and was killed.
     Timeout(u32),
     /// The reply did not match the required schema.
@@ -41,7 +41,13 @@ impl std::fmt::Display for AdapterError {
         match self {
             AdapterError::Missing(p) => write!(f, "{p} not on PATH"),
             AdapterError::Spawn(e) => write!(f, "spawn failed: {e}"),
-            AdapterError::Exit(c) => write!(f, "process exited {c}"),
+            AdapterError::Exit(c, e) => {
+                if e.trim().is_empty() {
+                    write!(f, "process exited {c}")
+                } else {
+                    write!(f, "process exited {c}: {}", e.trim())
+                }
+            }
             AdapterError::Timeout(s) => write!(f, "timed out after {s}s"),
             AdapterError::Schema(e) => write!(f, "schema-invalid reply: {e}"),
             AdapterError::Unsafe(e) => write!(f, "unsafe prompt: {e}"),
@@ -65,7 +71,11 @@ impl Invocation {
         Self {
             prompt: prompt.into(),
             scope: None,
-            timeout_seconds: 120,
+            // Measured 2026-09-19: a bare `opencode run` turn on the pinned Zen
+            // model is ~43 s, and a question that makes the read-only agent
+            // explore the repo runs past two minutes. The deadline is generous
+            // because killing a useful answer is worse than waiting.
+            timeout_seconds: 240,
         }
     }
 
@@ -114,12 +124,26 @@ pub struct JevResult {
 impl JevResult {
     /// Extract and parse a structured result from a reply that may wrap the
     /// JSON in prose or a fenced block. A reply with no JSON object is an
-    /// error: the caller reports it rather than inventing a result.
+    /// error, and so is a JSON object that carries none of the known keys —
+    /// otherwise an unrelated object would deserialize to an empty result and
+    /// read as success.
     pub fn parse(text: &str) -> Result<Self, String> {
         let json =
             extract_json_object(text).ok_or_else(|| "no JSON object found in reply".to_string())?;
-        let parsed: JevResult =
+        let value: serde_json::Value =
             serde_json::from_str(&json).map_err(|e| format!("invalid JSON: {e}"))?;
+        let obj = value
+            .as_object()
+            .ok_or_else(|| "reply JSON is not an object".to_string())?;
+        const KNOWN: [&str; 4] = ["findings", "relations", "notes", "decisions"];
+        if !obj.keys().any(|k| KNOWN.contains(&k.as_str())) {
+            let keys: Vec<&String> = obj.keys().collect();
+            return Err(format!(
+                "JSON object has none of {KNOWN:?} (found keys {keys:?})"
+            ));
+        }
+        let parsed: JevResult =
+            serde_json::from_value(value).map_err(|e| format!("invalid JevResult: {e}"))?;
         parsed.validate()?;
         Ok(parsed)
     }
@@ -258,13 +282,13 @@ impl CliAdapter {
     pub fn new(
         id: impl Into<String>,
         program: impl Into<String>,
-        args: Vec<&str>,
+        args: Vec<String>,
         wants_schema: bool,
     ) -> Self {
         Self {
             id: id.into(),
             program: program.into(),
-            args: args.into_iter().map(|s| s.to_string()).collect(),
+            args,
             wants_schema,
         }
     }
@@ -306,9 +330,9 @@ impl AgentAdapter for CliAdapter {
         if let Some(scope) = &inv.scope {
             cmd.env("PHYSIS_AGENT_SCOPE", scope);
         }
-        let (status, stdout, _stderr) = run_with_timeout(&mut cmd, inv.timeout_seconds)?;
+        let (status, stdout, stderr) = run_with_timeout(&mut cmd, inv.timeout_seconds)?;
         if !status.success() {
-            return Err(AdapterError::Exit(status.code().unwrap_or(-1)));
+            return Err(AdapterError::Exit(status.code().unwrap_or(-1), stderr));
         }
         let structured = if self.wants_schema {
             Some(JevResult::parse(&stdout).map_err(AdapterError::Schema)?)
@@ -385,11 +409,37 @@ fn guard_prompt(prompt: &str) -> Result<(), AdapterError> {
     Ok(())
 }
 
+/// The reply contract, appended to every JEV prompt. The adapter requires a
+/// parseable result, so the request for it is explicit rather than assumed —
+/// and a reply that ignores it is reported as schema-invalid, not guessed at.
+const JEV_SCHEMA: &str = "\n\nReply with a single JSON object and nothing else. \
+Optional keys: \"findings\" (array of {\"claim\": string, \"evidence\": [string]}), \
+\"relations\" (array of {\"from\": string, \"to\": string, \"kind\": string}), \
+\"notes\" (array of strings), \"decisions\" (array of strings).";
+
+/// `opencode run` argv with the model pinned. The model is not optional: the
+/// CLI's default is the out-of-funds `deepseek-v4-flash`.
+fn zen_args(model: &str, schema: bool) -> Vec<String> {
+    let prompt = if schema {
+        format!("{{prompt}}{JEV_SCHEMA}")
+    } else {
+        "{prompt}".to_string()
+    };
+    vec![
+        "run".to_string(),
+        "-m".to_string(),
+        model.to_string(),
+        "--agent".to_string(),
+        "plan".to_string(),
+        prompt,
+    ]
+}
+
 /// Build the adapter for a roster entry. Program names are overridable by env
 /// so a fixture process can stand in for the real binary in tests.
 ///
-/// The OpenCode and JEV transports run `--agent plan` (read-only). S2 reasons;
-/// it does not let an agent edit the workspace.
+/// The OpenCode and JEV transports run `--agent plan` (read-only) on a pinned
+/// free Zen model. S2 reasons; it does not let an agent edit the workspace.
 pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError> {
     match agent.kind {
         AgentKind::Verifier => Ok(Box::new(LocalAdapter::new(&agent.id, true))),
@@ -400,15 +450,18 @@ pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError>
         AgentKind::Hermes => Ok(Box::new(CliAdapter::new(
             &agent.id,
             env_or("PHYSIS_HERMES_BIN", "hermes"),
-            vec!["-z", "{prompt}"],
+            vec!["-z".to_string(), "{prompt}".to_string()],
             false,
         ))),
-        AgentKind::Opencode => Ok(Box::new(CliAdapter::new(
-            &agent.id,
-            env_or("PHYSIS_OPENCODE_BIN", "opencode"),
-            vec!["run", "--agent", "plan", "{prompt}"],
-            false,
-        ))),
+        AgentKind::Opencode => {
+            let model = agent.model.clone().unwrap_or_else(zen_model);
+            Ok(Box::new(CliAdapter::new(
+                &agent.id,
+                env_or("PHYSIS_OPENCODE_BIN", "opencode"),
+                zen_args(&model, false),
+                false,
+            )))
+        }
         AgentKind::Jev => {
             // JEV has no direct transport in this build. The reachable path is
             // OpenCode Zen, and it must not be reported as JEV-the-service.
@@ -420,10 +473,11 @@ pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError>
                         .to_string(),
                 ));
             }
+            let model = agent.model.clone().unwrap_or_else(zen_model);
             Ok(Box::new(CliAdapter::new(
                 &agent.id,
                 program,
-                vec!["run", "--agent", "plan", "{prompt}"],
+                zen_args(&model, true),
                 true,
             )))
         }
@@ -435,20 +489,20 @@ mod tests {
     use super::*;
     use crate::agents::default_roster;
 
-    fn fixture(script: &str) -> (tempfile::TempDir, String) {
-        use std::io::Write;
-        let dir = tempfile::TempDir::new().unwrap();
-        let path = dir.path().join("fixture.sh");
-        let mut f = std::fs::File::create(&path).unwrap();
-        writeln!(f, "#!/bin/sh").unwrap();
-        writeln!(f, "{script}").unwrap();
-        drop(f);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        (dir, path.to_string_lossy().to_string())
+    /// A `CliAdapter` whose program is the shell: `sh -c <script>`.
+    ///
+    /// No fixture file is exec'd. Writing a script and exec'ing it flakes under
+    /// parallel tests with ETXTBSY ("Text file busy"): a `Command::spawn` in one
+    /// test forks while a sibling still holds its fixture open for writing, and
+    /// the kernel refuses to exec a file open for writing. The shell always
+    /// exists and can never be busy.
+    fn sh_adapter(script: &str, wants_schema: bool) -> CliAdapter {
+        CliAdapter::new(
+            "fixture",
+            "sh",
+            vec!["-c".to_string(), script.to_string()],
+            wants_schema,
+        )
     }
 
     #[test]
@@ -467,7 +521,7 @@ mod tests {
         let a = CliAdapter::new(
             "x",
             "definitely-not-a-real-binary-xyz",
-            vec!["{prompt}"],
+            vec!["{prompt}".to_string()],
             false,
         );
         let s = a.probe();
@@ -482,8 +536,7 @@ mod tests {
 
     #[test]
     fn fixture_process_returns_text() {
-        let (_d, prog) = fixture("echo hello from fixture");
-        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        let a = sh_adapter("echo hello from fixture", false);
         let out = a.invoke(&Invocation::new("ignored")).unwrap();
         assert!(out.text.contains("hello from fixture"));
         assert!(out.structured.is_none(), "no schema was requested");
@@ -492,8 +545,7 @@ mod tests {
     #[test]
     fn fixture_process_with_schema_parses_a_valid_jev_result() {
         let json = r#"{"findings":[{"claim":"c","evidence":["e"]}],"relations":[{"from":"a","to":"b","kind":"same"}],"notes":["n"],"decisions":[]}"#;
-        let (_d, prog) = fixture(&format!("echo '{}'", json));
-        let a = CliAdapter::new("jev", prog, vec!["{prompt}"], true);
+        let a = sh_adapter(&format!("echo '{}'", json), true);
         let out = a.invoke(&Invocation::new("q")).unwrap();
         let s = out.structured.expect("schema requested");
         assert_eq!(s.findings.len(), 1);
@@ -502,8 +554,7 @@ mod tests {
 
     #[test]
     fn schema_invalid_reply_is_reported_not_guessed() {
-        let (_d, prog) = fixture("echo 'not json at all'");
-        let a = CliAdapter::new("jev", prog, vec!["{prompt}"], true);
+        let a = sh_adapter("echo 'not json at all'", true);
         assert!(matches!(
             a.invoke(&Invocation::new("q")),
             Err(AdapterError::Schema(_))
@@ -512,18 +563,16 @@ mod tests {
 
     #[test]
     fn nonzero_exit_is_reported() {
-        let (_d, prog) = fixture("exit 3");
-        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        let a = sh_adapter("exit 3", false);
         assert!(matches!(
             a.invoke(&Invocation::new("q")),
-            Err(AdapterError::Exit(3))
+            Err(AdapterError::Exit(3, _))
         ));
     }
 
     #[test]
     fn timeout_kills_the_process() {
-        let (_d, prog) = fixture("sleep 30");
-        let a = CliAdapter::new("hermes", prog, vec!["{prompt}"], false);
+        let a = sh_adapter("sleep 30", false);
         let started = Instant::now();
         let r = a.invoke(&Invocation::new("q").with_timeout(1));
         assert!(matches!(r, Err(AdapterError::Timeout(1))));
@@ -542,12 +591,17 @@ mod tests {
         assert!(JevResult::parse(r#"{"relations":[{"from":"a","to":"","kind":"x"}]}"#).is_err());
         // No JSON object at all.
         assert!(JevResult::parse("no object here").is_err());
+        // A JSON object with none of the known keys is not a JevResult: it must
+        // be reported, not silently deserialized to an empty result.
+        let err = JevResult::parse(r#"{"modules":["mod.rs"],"note":"x"}"#).unwrap_err();
+        assert!(err.contains("none of"), "{err}");
+        // A known key alongside an unknown one is still a valid result.
+        assert!(JevResult::parse(r#"{"notes":["ok"],"extra":1}"#).is_ok());
     }
 
     #[test]
     fn prompts_that_look_like_options_are_refused() {
-        let (_d, prog) = fixture("echo ok");
-        let a = CliAdapter::new("x", prog, vec!["{prompt}"], false);
+        let a = sh_adapter("echo ok", false);
         assert!(matches!(
             a.invoke(&Invocation::new("--danger")),
             Err(AdapterError::Unsafe(_))

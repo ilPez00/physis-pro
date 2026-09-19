@@ -154,11 +154,17 @@ pub(crate) fn on_path(bin: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn jev_zen_model() -> String {
+/// The Zen model the JEV and OpenCode transports use. The `opencode` CLI
+/// defaults to `deepseek-v4-flash`, which is out of funds and fails at once, so
+/// the model is always passed explicitly. Verified reachable 2026-09-19:
+/// `oczen/nemotron-3.5-lightning-free` answers; `mimo-v2.5-free` and
+/// `deepseek-v4-flash-free` returned nothing; `jev-1.13-free` errors
+/// server-side. Override with `PHYSIS_JEV_ZEN_MODEL`.
+pub(crate) fn zen_model() -> String {
     std::env::var("PHYSIS_JEV_ZEN_MODEL")
         .ok()
         .filter(|m| !m.is_empty())
-        .unwrap_or_else(|| "oczen/laguna-s-2.1-free".to_string())
+        .unwrap_or_else(|| "oczen/nemotron-3.5-lightning-free".to_string())
 }
 
 /// Probe what is actually reachable for this agent. Pure with respect to the
@@ -176,7 +182,7 @@ pub fn status(agent: &Agent) -> Status {
             if on_path(&program) {
                 Status {
                     available: true,
-                    transport: format!("zen:{}", jev_zen_model()),
+                    transport: format!("zen:{}", zen_model()),
                     reason: None,
                 }
             } else {
