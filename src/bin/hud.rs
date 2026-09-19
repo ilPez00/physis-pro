@@ -355,6 +355,14 @@ enum HudInput {
         host: Option<String>,
         rest: String,
     },
+    /// `@all <request>`: ask every agent in the roster.
+    AgentAll {
+        request: String,
+    },
+    /// `@a x | @b y`: stages run in order, each fed the previous reply.
+    AgentPipeline {
+        stages: Vec<physis_pro::agents::parse::Stage>,
+    },
 }
 
 /// Deterministic mode label for the command box. Inferred from the text, not
@@ -502,12 +510,24 @@ fn parse_hud_input(raw: &str) -> HudInput {
         }
         return HudInput::GlobalQuery(query);
     }
-    // `@` is reserved for agent addressing: `@jev`, `@hermes@omo inspect`.
+    // `@` is reserved for agent addressing. The grammar lives in
+    // `agents::parse` so the interpretation is one tested table, not a second
+    // parser here.
     if text.starts_with('@') {
-        if let Some((agent, host, rest)) = physis_pro::agents::parse_agent_address(text) {
-            return HudInput::AgentCall { agent, host, rest };
-        }
-        return HudInput::Invalid("usage: @agent[@host] [request]".into());
+        return match physis_pro::agents::parse::parse(text) {
+            Ok(physis_pro::agents::parse::AgentCall::Single(s)) => HudInput::AgentCall {
+                agent: s.agent,
+                host: s.host,
+                rest: s.request,
+            },
+            Ok(physis_pro::agents::parse::AgentCall::All { request }) => {
+                HudInput::AgentAll { request }
+            }
+            Ok(physis_pro::agents::parse::AgentCall::Pipeline { stages }) => {
+                HudInput::AgentPipeline { stages }
+            }
+            Err(e) => HudInput::Invalid(e),
+        };
     }
     let (word, rest) = split_command_word(text);
     match word.to_lowercase().as_str() {
@@ -585,6 +605,69 @@ fn invoke_agent(agent_id: &str, prompt: &str, scope: Option<&str>) -> AgentReply
     }
 }
 
+/// `@all`: ask every agent in the roster, one after another. Unavailable agents
+/// are reported with their reason rather than skipped silently.
+fn run_agent_all(request: &str) -> AgentReply {
+    let roster = physis_pro::agents::default_roster();
+    let mut out = String::new();
+    let mut any = false;
+    for a in &roster.agents {
+        let s = physis_pro::agents::status(a);
+        out.push_str(&format!("── @{} ({}) ──\n", a.id, s.transport));
+        if !s.available {
+            out.push_str(&format!(
+                "unavailable: {}\n\n",
+                s.reason.as_deref().unwrap_or("no transport")
+            ));
+            continue;
+        }
+        let r = invoke_agent(&a.id, request, None);
+        any |= r.ok;
+        out.push_str(&r.text);
+        out.push_str("\n\n");
+    }
+    AgentReply {
+        agent: "all".into(),
+        ok: any,
+        text: out,
+    }
+}
+
+/// A pipeline: stages run in order, each fed the previous stage's reply. The
+/// first failure stops the chain rather than feeding a failure onward.
+fn run_agent_pipeline(stages: &[physis_pro::agents::parse::Stage]) -> AgentReply {
+    let mut out = String::new();
+    let mut carry = String::new();
+    let mut ok = true;
+    for (i, st) in stages.iter().enumerate() {
+        out.push_str(&format!("── stage {}: @{} ──\n", i + 1, st.agent));
+        if let Some(h) = &st.host {
+            out.push_str(&format!(
+                "(host {h}: remote placement is S12; running locally)\n"
+            ));
+        }
+        let prompt = if carry.is_empty() {
+            st.request.clone()
+        } else {
+            format!("{}\n\nPrevious stage output:\n{carry}", st.request)
+        };
+        let r = invoke_agent(&st.agent, &prompt, None);
+        ok &= r.ok;
+        out.push_str(&r.text);
+        out.push('\n');
+        if !r.ok {
+            out.push_str("(stopping: a stage failed)\n");
+            break;
+        }
+        carry = r.text;
+    }
+    AgentReply {
+        agent: "pipeline".into(),
+        ok,
+        text: out,
+    }
+}
+
 fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
     if editor_active {
         return HudPromptMode::Editor;
@@ -597,7 +680,9 @@ fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
         HudInput::Open(_) => HudPromptMode::Open,
         HudInput::Edit(_) => HudPromptMode::Edit,
         HudInput::ChangeRoot(_) => HudPromptMode::Root,
-        HudInput::AgentCall { .. } => HudPromptMode::Agent,
+        HudInput::AgentCall { .. } | HudInput::AgentAll { .. } | HudInput::AgentPipeline { .. } => {
+            HudPromptMode::Agent
+        }
         HudInput::Invalid(_) => HudPromptMode::Invalid,
     }
 }
@@ -637,7 +722,9 @@ fn prompt_parts(input: &str, editor_active: bool) -> Vec<(PromptPart, String)> {
         | HudInput::Open(_)
         | HudInput::Edit(_)
         | HudInput::ChangeRoot(_)
-        | HudInput::AgentCall { .. } => {
+        | HudInput::AgentCall { .. }
+        | HudInput::AgentAll { .. }
+        | HudInput::AgentPipeline { .. } => {
             if word.is_empty() {
                 String::new()
             } else {
@@ -657,7 +744,9 @@ fn prompt_parts(input: &str, editor_active: bool) -> Vec<(PromptPart, String)> {
         | HudInput::Open(_)
         | HudInput::Edit(_)
         | HudInput::ChangeRoot(_)
-        | HudInput::AgentCall { .. } => PromptPart::Word,
+        | HudInput::AgentCall { .. }
+        | HudInput::AgentAll { .. }
+        | HudInput::AgentPipeline { .. } => PromptPart::Word,
         HudInput::Shell(_) | HudInput::GlobalQuery(_) => PromptPart::Prefix,
         _ => PromptPart::Text,
     };
@@ -2004,6 +2093,57 @@ impl App {
                     }
                 }
                 self.reading = Some((format!("@{agent}"), text));
+                false
+            }
+            HudInput::AgentAll { request } => {
+                let mut text = format!("@all {request}\n\nasking every agent in the background…\n");
+                match &self.agent_tx {
+                    Some(tx) => {
+                        let tx = tx.clone();
+                        let request = request.clone();
+                        self.agent_pending = Some("all".into());
+                        self.status = "@all: asking every agent in the background".into();
+                        std::thread::spawn(move || {
+                            let _ = tx.send(run_agent_all(&request));
+                        });
+                    }
+                    None => {
+                        text.push_str("\n(no event loop)");
+                        self.status = "@all: no event loop".into();
+                    }
+                }
+                self.reading = Some(("@all".into(), text));
+                false
+            }
+            HudInput::AgentPipeline { stages } => {
+                let desc = stages
+                    .iter()
+                    .map(|s| format!("@{} {}", s.agent, s.request))
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                let mut text = format!(
+                    "{desc}\n\nrunning {} stage(s) in the background…\n",
+                    stages.len()
+                );
+                match &self.agent_tx {
+                    Some(tx) => {
+                        let tx = tx.clone();
+                        let stages = stages.clone();
+                        self.agent_pending = Some(desc);
+                        self.status = format!(
+                            "pipeline: {} stage(s) running in the background",
+                            stages.len()
+                        );
+                        std::thread::spawn(move || {
+                            let _ = tx.send(run_agent_pipeline(&stages));
+                        });
+                    }
+                    None => {
+                        text.push_str("\n(no event loop)");
+                        self.status = "pipeline: no event loop".into();
+                    }
+                }
+                self.reading = Some(("pipeline".into(), text));
                 false
             }
         }
@@ -3941,6 +4081,17 @@ mod tests {
                 rest: "inspect worker".into()
             }
         );
+        assert_eq!(
+            parse_hud_input("@all summarise"),
+            HudInput::AgentAll {
+                request: "summarise".into()
+            }
+        );
+        assert!(matches!(
+            parse_hud_input("@a x | @b y"),
+            HudInput::AgentPipeline { .. }
+        ));
+        assert!(matches!(parse_hud_input("@jev@"), HudInput::Invalid(_)));
         assert_eq!(
             parse_hud_input(":context"),
             HudInput::Command(HudCommand::Context)
