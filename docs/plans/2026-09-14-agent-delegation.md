@@ -2,8 +2,9 @@
 
 Date: 2026-09-14. Status: implementation plan.
 
-> Current sequencing: [agentic workspace programme](2026-09-18-agentic-workspace.md).
-> Settings' **Memory manager** shows exactly which records each worker receives,
+> Current sequencing: [impossible computer programme](2026-09-19-impossible-computer.md).
+> The delegation contract and broker states below remain authoritative for worker
+> adapters. Settings' **Memory manager** shows exactly which records each worker receives,
 > allows scoped retrieval exclusion, and retains evidence provenance. Its
 > **Primitives editor** validates/version-controls editable action metadata and
 > recipes; active tasks pin starting versions. An edit cannot widen task authority

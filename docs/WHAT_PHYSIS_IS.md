@@ -218,7 +218,7 @@ commercial/per-tenant.
 **These are intended trace sources.** `ledger.rs` holds ordered causal event
 sequences; `build_structural` consumes documents. The trace-to-per-cell-table
 join is not established here. Its priority is a product/research decision,
-not an architectural fact. The [workspace programme](plans/2026-09-18-agentic-workspace.md)
+not an architectural fact. The [impossible computer programme](plans/2026-09-19-impossible-computer.md)
 prioritizes a usable action/review/outcome loop before this experiment.
 
 ---

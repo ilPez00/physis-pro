@@ -1,6 +1,6 @@
 # Operator Crystallization — evaluation and implementation plan
 
-> Sequencing update, 2026-09-18: [agentic workspace programme](2026-09-18-agentic-workspace.md)
+> Sequencing update, 2026-09-19: [impossible computer programme](2026-09-19-impossible-computer.md)
 > is current. This is a research/design backlog, not the demo critical path.
 > Compare agent traces, a handwritten recipe and a learned operator on held-out
 > work first. Python/Instructor and registry infrastructure wait for that gate.

@@ -18,9 +18,13 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 
 ## Development Workflow
 
-Current product sequencing: `docs/plans/2026-09-18-agentic-workspace.md`.
-Scope: agentic work + neurosemantic TUI/workspace. Same-day Studio and
-crystallization plans retain historical designs but defer to this programme.
+Current product sequencing: `docs/plans/2026-09-19-impossible-computer.md`.
+Scope: agent-native semantic world — agents as first-class objects, `@agent`
+calls from the magic textbox, visible task graphs, crystallization of agent
+output, semantic zoom, offline-first operation. This supersedes the sequencing
+and UI-expansion priority of `docs/plans/2026-09-18-agentic-workspace.md`, which
+retains its market, packaging, Settings memory/primitives editor and P0–P5
+gates. Same-day Studio and crystallization plans retain historical designs.
 Planned acceptance gates are not shipped capabilities.
 All development happens via randomesh ssh connection on machine pansa (192.168.1.15).
 Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed

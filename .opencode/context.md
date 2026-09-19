@@ -1,5 +1,8 @@
 # Project Context
 
+> Current programme (2026-09-19): `docs/plans/2026-09-19-impossible-computer.md`.
+> The status notes below are historical (2026-09-11) and may be stale.
+
 ## Current Status
 - Repository: `/home/gio/dev/physis-pro`; branch `agent/PH-001`.
 - User asks to continue estimate-command work; do not commit or push.

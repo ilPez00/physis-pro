@@ -1,5 +1,8 @@
 # Mission Status
 
+> Current programme (2026-09-19): `docs/plans/2026-09-19-impossible-computer.md`.
+> The mission log below is historical (2026-09-11).
+
 ## Progress
 - Transform mission: complete (8/8 transform tests green)
 - Ngram fix mission: complete (test target fixed, lint fixed, full suite green)

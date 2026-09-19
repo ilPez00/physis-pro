@@ -3,7 +3,7 @@
 > Ownership update, 2026-09-18: implementation is now Pro's
 > `src/ported/system*.rs`, using Core primitives. Historical Core measurements
 > below retain their original context. Current sequencing:
-> [agentic workspace programme](plans/2026-09-18-agentic-workspace.md).
+> [impossible computer programme](plans/2026-09-19-impossible-computer.md).
 
 Codex/OpenCode MCP wiring and delegation commands are documented in
 [System delegation](SYSTEM_DELEGATION.md).

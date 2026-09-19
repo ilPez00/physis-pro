@@ -3,7 +3,8 @@
 Date: 2026-09-14. Status: proposed implementation and research plan.
 
 > Current sequencing and complete-demo acceptance:
-> [agentic workspace programme](2026-09-18-agentic-workspace.md).
+> [impossible computer programme](2026-09-19-impossible-computer.md).
+> The agentic workspace programme retains market, packaging and Settings gates.
 > Settings now includes Runtime, **Memory manager**, **Primitives editor** and
 > Appearance. Memory is inspectable, scoped, revisable and exportable; primitives
 > have typed drafts, impact previews and versioned apply/rollback. Reuse current

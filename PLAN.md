@@ -5,13 +5,18 @@ read physis_resources.txt
 
 ## Active development cycle — 2026-09-16 to 2026-09-29
 
-See [Core and Pro: the next ten development days](docs/plans/2026-09-18-agentic-workspace.md)
-for the current two-project boundary, daily implementation pseudocode, research
-experiments, acceptance gates and scope cuts. (The 2026-09-15 doc this line
-once named was never committed; the 09-18 agentic-workspace plan is the live
-programme — corrected 2026-09-19.) Pro owns application features;
-Core remains the reusable engine with a small CLI/JSON interface. This cycle
-supersedes older three-project split proposals for implementation planning.
+See [Physis as the impossible computer — agent-native semantic
+world](docs/plans/2026-09-19-impossible-computer.md) for the live programme:
+agents as first-class objects in the HUD, `@agent` calls, task graphs,
+crystallization, semantic zoom and offline operation, with per-step files,
+estimates and exit gates. It supersedes the sequencing of [Core and Pro: the
+next ten development days](docs/plans/2026-09-18-agentic-workspace.md), which
+retains the two-project boundary, market/packaging experiments, Settings
+memory/primitives editor and P0–P5 gates. (The 2026-09-15 doc an earlier line
+named was never committed — corrected 2026-09-19.) Pro owns application
+features; Core remains the reusable engine with a small CLI/JSON interface.
+This cycle supersedes older three-project split proposals for implementation
+planning.
 
 ## First priority — hygiene + execution optimizations (2026-09-17)
 

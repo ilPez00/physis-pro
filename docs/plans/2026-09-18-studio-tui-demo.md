@@ -1,7 +1,8 @@
 # Physis Studio — one TUI demo product
 
-> Sequencing update, 2026-09-18: [agentic workspace programme](2026-09-18-agentic-workspace.md)
-> governs current scope and acceptance. This document retains original designs
+> Sequencing update, 2026-09-19: [impossible computer programme](2026-09-19-impossible-computer.md)
+> governs current agent-native scope and acceptance. The 2026-09-18 agentic
+> workspace programme retains market, packaging and Settings gates. This document retains original designs
 > and dated reports. WORLD/OPS/PULSE are not demo prerequisites; the connected
 > navigation → agent → review → outcome loop is. The original no-arbitrary-file-edit
 > scope is superseded only for explicitly scoped, staged repository edits with

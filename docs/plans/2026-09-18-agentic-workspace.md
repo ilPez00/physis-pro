@@ -1,14 +1,22 @@
 # Physis Workspace — agentic work with durable meaning
 
+> Sequencing update, 2026-09-19: [Physis as the impossible computer — agent-native
+> semantic world](2026-09-19-impossible-computer.md) is now the sequencing
+> authority for the agent-native workspace. It supersedes this plan's sequencing
+> and UI-expansion priority. This plan retains its market analysis, packaging
+> experiments, Settings memory manager and primitives editor, and its P0–P5
+> gates, which still apply where that programme touches the same surfaces.
+
 Date: 2026-09-18. Status: proposed development programme; no new runtime
 capabilities delivered by this document. Scope: `/home/gio/physis_pro`, branch
 `agent/MS-005-q6`, inspected at `464ca7c` with existing uncommitted changes.
 
-This is the current **product sequencing authority** for the agentic workspace
-and Studio demo. It supersedes the sequencing, UI expansion and Python-gateway
-priority in the same-day Studio and operator-crystallization plans. Those files
-retain useful designs and historical acceptance records. The industrial product
-remains supported; it is not the first market for this programme.
+This was the **product sequencing authority** for the agentic workspace and
+Studio demo from 2026-09-18 until the 2026-09-19 update above. It supersedes the
+sequencing, UI expansion and Python-gateway priority in the same-day Studio and
+operator-crystallization plans. Those files retain useful designs and historical
+acceptance records. The industrial product remains supported; it is not the
+first market for this programme.
 
 Architecture authority remains [WHAT_PHYSIS_IS](../WHAT_PHYSIS_IS.md): an open
 domain axis × fourteen modes, nested facets, and six operations over meaning.

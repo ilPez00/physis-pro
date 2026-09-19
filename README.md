@@ -1,9 +1,14 @@
 # Physis Pro
 
-Current development direction: [Physis Workspace — agentic work with durable
-meaning](docs/plans/2026-09-18-agentic-workspace.md). This proposed programme
-connects navigation, evidence, agent execution, review and session memory in a
-lightweight TUI. Its gates distinguish current code from planned capabilities.
+Current development direction: [Physis as the impossible computer — agent-native
+semantic world](docs/plans/2026-09-19-impossible-computer.md). This proposed
+programme makes agents first-class objects inside the HUD, callable from the
+magic textbox (`@jev`, `@hermes`, `@opencode`, `@verifier`), visible as task
+graphs, and crystallizable into deterministic structure. It supersedes the
+sequencing of [Physis Workspace — agentic work with durable
+meaning](docs/plans/2026-09-18-agentic-workspace.md), which retains its market,
+packaging and Settings gates. Its gates distinguish current code from planned
+capabilities.
 
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 

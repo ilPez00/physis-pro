@@ -1,8 +1,9 @@
 # Commercial model and licensing
 
 > Scope update, 2026-09-18: this document describes the industrial offer.
-> The proposed agentic-workspace market, packaging experiments and sequencing
-> live in the [workspace programme](plans/2026-09-18-agentic-workspace.md).
+> The proposed agentic-workspace market and packaging experiments live in the
+> [workspace programme](plans/2026-09-18-agentic-workspace.md); current sequencing
+> is the [impossible computer programme](plans/2026-09-19-impossible-computer.md).
 > Its prices are hypotheses, not published offers or changes to licence terms.
 
 This document describes the proposed packaging. `LICENSE.txt` remains the
