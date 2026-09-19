@@ -37,7 +37,7 @@ use ratatui::{
 use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
-use physis_pro::world_object::WorldObject;
+use physis_pro::world_object::{RelationKind, WorldObject};
 
 const TABS: [&str; 5] = ["STATUS", "MACHINES", "CONFIG", "WIKI", "STREAM"];
 const TAB_WIKI: usize = 3;
@@ -134,6 +134,9 @@ struct App {
     /// to a deterministic operator. Opened with `:` from any tab.
     cmd_open: bool,
     cmd_input: String,
+    /// STREAM tab: show the current object's typed edges as a graph projection
+    /// instead of the object body and child list. Same context, another view.
+    stream_graph: bool,
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -374,6 +377,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stream_sel: 0,
         cmd_open: false,
         cmd_input: String::new(),
+        stream_graph: false,
     };
     stream_refresh(&mut app);
 
@@ -1038,6 +1042,7 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Backspace if app.tab == TAB_WIKI => wiki_walk_back(app),
             KeyCode::Enter if app.tab == TAB_STREAM => stream_enter(app),
             KeyCode::Backspace if app.tab == TAB_STREAM => stream_back(app),
+            KeyCode::Char('g') if app.tab == TAB_STREAM => app.stream_graph = !app.stream_graph,
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
             }
@@ -1106,7 +1111,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
             " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
         }
         TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
-        TAB_STREAM => " Tab · ↑/↓ · Enter open · ⌫ back · : command · q quit",
+        TAB_STREAM => " Tab · ↑/↓ · Enter open · ⌫ back · g graph · : command · q quit",
         _ => " Tab · s start · x stop · r reload · : command · q quit",
     };
     let foot = if app.cmd_open {
@@ -1143,6 +1148,7 @@ enum Command {
     Open(String),
     Find(String),
     View(usize),
+    Graph,
     Help,
     Usage(&'static str),
     Empty,
@@ -1177,6 +1183,7 @@ fn parse_command(input: &str) -> Command {
             Some(i) => Command::View(i),
             None => Command::Usage("view <status|machines|config|wiki|stream>"),
         },
+        "graph" => Command::Graph,
         _ => Command::Unknown(verb),
     }
 }
@@ -1202,11 +1209,19 @@ fn run_command(app: &mut App) {
         }
         Command::View(tab) => {
             app.tab = tab;
+            if tab == TAB_STREAM {
+                app.stream_graph = false;
+            }
             app.status_msg = format!("route=deterministic operator=view tab={}", TABS[tab]);
+        }
+        Command::Graph => {
+            app.tab = TAB_STREAM;
+            app.stream_graph = true;
+            app.status_msg = "route=deterministic operator=graph".into();
         }
         Command::Help => {
             app.status_msg =
-                "open <path> · find <query> · view <status|machines|config|wiki|stream> · help"
+                "open <path> · find <query> · view <status|machines|config|wiki|stream> · graph · help"
                     .into();
         }
         Command::Usage(usage) => app.status_msg = format!("usage: {usage}"),
@@ -1258,6 +1273,48 @@ fn stream_back(app: &mut App) {
     }
 }
 
+/// The current object's typed edges as an ASCII projection. Deterministic and
+/// read-only: the same relations the STREAM list shows, grouped by kind, so
+/// the two views cannot disagree. Bounded so a 100-child directory stays
+/// readable.
+fn graph_lines(obj: &WorldObject, max_per_kind: usize) -> Vec<String> {
+    const KINDS: [RelationKind; 10] = [
+        RelationKind::Contains,
+        RelationKind::DependsOn,
+        RelationKind::ProducedBy,
+        RelationKind::SimilarTo,
+        RelationKind::Contradicts,
+        RelationKind::Calls,
+        RelationKind::Controls,
+        RelationKind::DerivedFrom,
+        RelationKind::ModifiedBy,
+        RelationKind::Requires,
+    ];
+    let mut lines = vec![format!("graph  {}", obj.identity)];
+    let mut edges = 0;
+    for kind in KINDS {
+        let targets: Vec<&str> = obj.relations_of(kind).map(|r| r.target.as_str()).collect();
+        if targets.is_empty() {
+            continue;
+        }
+        edges += targets.len();
+        lines.push(format!("├─ {:?} ({})", kind, targets.len()));
+        for t in targets.iter().take(max_per_kind) {
+            lines.push(format!("│    {t}"));
+        }
+        if targets.len() > max_per_kind {
+            lines.push(format!("│    … and {} more", targets.len() - max_per_kind));
+        }
+    }
+    if edges == 0 {
+        lines.push("(no typed edges — the object stands alone)".into());
+    }
+    if let Some(parent) = &obj.containment {
+        lines.push(format!("└─ inside  {parent}"));
+    }
+    lines
+}
+
 /// STREAM tab — the world-object navigator.
 ///
 /// Breadcrumb of the path taken, the current object rendered provenance-first
@@ -1276,15 +1333,35 @@ fn draw_stream(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
         .map(|o| truncate(&o.identity, 28))
         .collect::<Vec<_>>()
         .join(" → ");
+    let title = if app.stream_graph {
+        " STREAM · graph · path "
+    } else {
+        " STREAM · path "
+    };
     f.render_widget(
         Paragraph::new(crumb).block(
             Block::default()
-                .title(" STREAM · path ")
+                .title(title)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Magenta)),
         ),
         rows[0],
     );
+
+    if app.stream_graph {
+        let body: Vec<Line> = app
+            .stream_stack
+            .last()
+            .map(|o| graph_lines(o, 12).into_iter().map(Line::from).collect())
+            .unwrap_or_default();
+        f.render_widget(
+            Paragraph::new(body)
+                .block(Block::default().title(" graph ").borders(Borders::ALL))
+                .wrap(Wrap { trim: false }),
+            rows[1],
+        );
+        return;
+    }
 
     let cols = Layout::default()
         .direction(Direction::Horizontal)
@@ -1915,6 +1992,31 @@ fn polis_demo() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use physis_pro::world_object::ObjectKind;
+
+    #[test]
+    fn graph_lines_group_typed_edges_and_bound_the_list() {
+        let obj = WorldObject::new("project:aion", ObjectKind::Project, "aion")
+            .relate(RelationKind::Contains, "module:ui")
+            .relate(RelationKind::Contains, "module:deck")
+            .relate(RelationKind::DependsOn, "service:physis")
+            .contained_in("fs:/home/gio/dev");
+        let text = graph_lines(&obj, 10).join("\n");
+        assert!(text.contains("graph  project:aion"), "{text}");
+        assert!(text.contains("Contains (2)"), "{text}");
+        assert!(text.contains("DependsOn (1)"), "{text}");
+        assert!(text.contains("inside  fs:/home/gio/dev"), "{text}");
+
+        let bounded = graph_lines(&obj, 1).join("\n");
+        assert!(bounded.contains("… and 1 more"), "{bounded}");
+
+        let lone = graph_lines(
+            &WorldObject::new("x:1", ObjectKind::Other("x".into()), "x"),
+            5,
+        )
+        .join("\n");
+        assert!(lone.contains("stands alone"), "{lone}");
+    }
 
     #[test]
     fn parse_hits_keeps_unjudged_distinct_from_inert() {
@@ -2055,6 +2157,7 @@ mod tests {
         );
         assert_eq!(parse_command("view stream"), Command::View(4));
         assert_eq!(parse_command("view WIKI"), Command::View(3));
+        assert_eq!(parse_command("graph"), Command::Graph);
         assert_eq!(parse_command("help"), Command::Help);
         assert_eq!(parse_command("   "), Command::Empty);
         assert_eq!(parse_command("open"), Command::Usage("open <path>"));
