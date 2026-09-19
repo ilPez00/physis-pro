@@ -42,10 +42,8 @@ impl Registry {
         path: String,
         meta: HashMap<String, serde_json::Value>,
     ) {
-        self.objects.insert(
-            oid,
-            RegistryObject { kind, path, meta },
-        );
+        self.objects
+            .insert(oid, RegistryObject { kind, path, meta });
     }
 
     pub fn add_capability(&mut self, cap: Capability) {
@@ -63,7 +61,12 @@ impl Registry {
             .collect()
     }
 
-    pub fn call(&mut self, oid: &str, verb: &str, kwargs: HashMap<String, serde_json::Value>) -> CallResult {
+    pub fn call(
+        &mut self,
+        oid: &str,
+        verb: &str,
+        kwargs: HashMap<String, serde_json::Value>,
+    ) -> CallResult {
         let caps = self.capabilities_for(oid, verb);
         if caps.is_empty() {
             self.obs.append(ObservationRecord {
@@ -88,6 +91,39 @@ impl Registry {
         let cap = caps[0];
         let obj = self.objects.get(oid).unwrap().clone();
         let cap_name = cap.name.clone();
+
+        // Deny by default: a capability whose risk is irreversible does not run
+        // until the caller states confirmation explicitly. The refusal is
+        // recorded like any other outcome, so it is never silent and never a
+        // success. (`confirm` is the magic-textbox form of "I mean this".)
+        if cap.risk.starts_with("irreversible")
+            && !kwargs
+                .get("confirm")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        {
+            let detail = format!(
+                "refused: `{}` is {} and requires confirm=true",
+                cap.name, cap.risk
+            );
+            self.obs.append(ObservationRecord {
+                t: 0.0,
+                actor: "registry".to_string(),
+                object: oid.to_string(),
+                verb: verb.to_string(),
+                capability: Some(cap_name.clone()),
+                ok: false,
+                detail: detail.clone(),
+                reliability: None,
+            });
+            return CallResult {
+                ok: false,
+                result: None,
+                validation: detail,
+                capability: cap_name,
+                error: Some("approval_required".to_string()),
+            };
+        }
 
         let (ok, raw, detail) = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             self.run_capability(cap, &obj, &kwargs)
@@ -195,10 +231,7 @@ impl Registry {
         kwargs: &HashMap<String, serde_json::Value>,
     ) -> (bool, Option<serde_json::Value>, String) {
         let path = std::path::Path::new(&obj.path);
-        let limit = kwargs
-            .get("limit")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(4000) as usize;
+        let limit = kwargs.get("limit").and_then(|v| v.as_u64()).unwrap_or(4000) as usize;
 
         let content = if path.is_dir() {
             match std::fs::read_dir(path) {
@@ -225,7 +258,11 @@ impl Registry {
             }
         };
 
-        (true, Some(serde_json::Value::String(content)), "read_ok".to_string())
+        (
+            true,
+            Some(serde_json::Value::String(content)),
+            "read_ok".to_string(),
+        )
     }
 
     fn fs_write_runner(
@@ -233,10 +270,7 @@ impl Registry {
         obj: &RegistryObject,
         kwargs: &HashMap<String, serde_json::Value>,
     ) -> (bool, Option<serde_json::Value>, String) {
-        let content = kwargs
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let content = kwargs.get("content").and_then(|v| v.as_str()).unwrap_or("");
         let append = kwargs
             .get("append")
             .and_then(|v| v.as_bool())
@@ -249,9 +283,16 @@ impl Registry {
         };
 
         let mode = if append {
-            std::fs::OpenOptions::new().create(true).append(true).open(&draft_path)
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&draft_path)
         } else {
-            std::fs::OpenOptions::new().create(true).write(true).truncate(true).open(&draft_path)
+            std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&draft_path)
         };
 
         match mode {
@@ -260,7 +301,11 @@ impl Registry {
                 if let Err(e) = file.write_all(content.as_bytes()) {
                     return (false, None, format!("write error: {}", e));
                 }
-                (true, Some(serde_json::Value::String(draft_path)), "draft_created".to_string())
+                (
+                    true,
+                    Some(serde_json::Value::String(draft_path)),
+                    "draft_created".to_string(),
+                )
             }
             Err(e) => (false, None, format!("open error: {}", e)),
         }
@@ -359,7 +404,10 @@ pub fn v_exit_zero(
         .and_then(|v| v.as_i64())
         .unwrap_or(-1);
     let mut detail = HashMap::new();
-    detail.insert("exit".to_string(), serde_json::Value::Number(exit_code.into()));
+    detail.insert(
+        "exit".to_string(),
+        serde_json::Value::Number(exit_code.into()),
+    );
     (exit_code == 0, detail)
 }
 
@@ -368,13 +416,13 @@ pub fn v_path_exists(
     _obj: &RegistryObject,
     _kwargs: &HashMap<String, serde_json::Value>,
 ) -> (bool, HashMap<String, serde_json::Value>) {
-    let path = raw
-        .as_ref()
-        .and_then(|r| r.as_str())
-        .unwrap_or("");
+    let path = raw.as_ref().and_then(|r| r.as_str()).unwrap_or("");
     let exists = std::path::Path::new(path).exists();
     let mut detail = HashMap::new();
-    detail.insert("path".to_string(), serde_json::Value::String(path.to_string()));
+    detail.insert(
+        "path".to_string(),
+        serde_json::Value::String(path.to_string()),
+    );
     (exists, detail)
 }
 
@@ -394,58 +442,138 @@ pub fn seed(reg: &mut Registry, root: &str) {
                 "dir"
             };
             let mut meta = HashMap::new();
-            meta.insert("path".to_string(), serde_json::Value::String(path.to_string_lossy().to_string()));
-            reg.register_object(name, kind.to_string(), path.to_string_lossy().to_string(), meta);
+            meta.insert(
+                "path".to_string(),
+                serde_json::Value::String(path.to_string_lossy().to_string()),
+            );
+            reg.register_object(
+                name,
+                kind.to_string(),
+                path.to_string_lossy().to_string(),
+                meta,
+            );
         }
     }
 
-    reg.add_capability(Capability::new(
-        "fs.read".to_string(),
-        vec!["dir".to_string(), "repo".to_string(), "file".to_string()],
-        vec!["read".to_string()],
-        "api".to_string(),
-        "reversible".to_string(),
-        HashMap::from([("latency_p50_s".to_string(), 0.1)]),
-        None,
-    ));
+    for cap in crate::capability::default_capabilities() {
+        reg.add_capability(cap);
+    }
+}
 
-    reg.add_capability(Capability::new(
-        "fs.write_draft".to_string(),
-        vec!["file".to_string(), "dir".to_string(), "repo".to_string()],
-        vec!["write".to_string()],
-        "api".to_string(),
-        "draft_only".to_string(),
-        HashMap::from([("latency_p50_s".to_string(), 0.1)]),
-        None,
-    ));
+/// Default append-only observation path: the same data dir the nav workspace
+/// uses, so the registry's record sits beside the index rather than inventing a
+/// second store.
+pub fn default_obs_path() -> std::path::PathBuf {
+    let dir = std::env::var("PHYSIS_DATA_DIR")
+        .ok()
+        .filter(|p| !p.is_empty())
+        .unwrap_or_else(|| ".physis".to_string());
+    std::path::PathBuf::from(dir).join("registry_observations.jsonl")
+}
 
-    reg.add_capability(Capability::new(
-        "shell.execute".to_string(),
-        vec!["dir".to_string(), "repo".to_string()],
-        vec!["execute".to_string()],
-        "cli".to_string(),
-        "irreversible_without_approval".to_string(),
-        HashMap::from([("latency_p50_s".to_string(), 1.0)]),
-        None,
-    ));
+impl Registry {
+    /// Register every object in a nav index under the `fs:` namespace. Kind is
+    /// the object kind in lower case, which is the vocabulary `config/actions.json`
+    /// matches against; `path` is the source path so the shell executor has a
+    /// working directory.
+    pub fn register_nav_index(&mut self, index: &crate::nav::NavIndex) {
+        for obj in index.objects.values() {
+            let kind = match obj.kind {
+                crate::nav::ObjectKind::File => "file",
+                crate::nav::ObjectKind::Passage => "passage",
+                crate::nav::ObjectKind::Directory => "dir",
+                crate::nav::ObjectKind::Concept => "concept",
+                crate::nav::ObjectKind::Note => "note",
+                crate::nav::ObjectKind::Other => "other",
+            };
+            let path = obj
+                .source
+                .as_ref()
+                .map(|s| s.path.clone())
+                .unwrap_or_default();
+            let mut meta = HashMap::new();
+            meta.insert("path".to_string(), serde_json::Value::String(path.clone()));
+            meta.insert(
+                "label".to_string(),
+                serde_json::Value::String(obj.label.clone()),
+            );
+            self.register_object(obj.id.short(), kind.to_string(), path, meta);
+        }
+    }
 
-    reg.add_capability(Capability::new(
-        "git.status".to_string(),
-        vec!["repo".to_string()],
-        vec!["inspect".to_string()],
-        "cli".to_string(),
-        "reversible".to_string(),
-        HashMap::from([("latency_p50_s".to_string(), 0.5)]),
-        None,
-    ));
+    /// One host object and one device object placeholder. They carry no
+    /// capability yet, so every verb on them resolves `unavailable` — honest
+    /// until S12 gives hosts and devices typed actions.
+    pub fn register_placeholders(&mut self) {
+        let hostname = std::env::var("HOSTNAME")
+            .or_else(|_| std::env::var("HOST"))
+            .unwrap_or_else(|_| "localhost".to_string());
+        let mut host_meta = HashMap::new();
+        host_meta.insert("hostname".to_string(), serde_json::Value::String(hostname));
+        self.register_object(
+            "host:local".to_string(),
+            "host".to_string(),
+            ".".to_string(),
+            host_meta,
+        );
 
-    reg.add_capability(Capability::new(
-        "git.diff".to_string(),
-        vec!["repo".to_string()],
-        vec!["read".to_string()],
-        "cli".to_string(),
-        "reversible".to_string(),
-        HashMap::from([("latency_p50_s".to_string(), 0.5)]),
-        None,
-    ));
+        let mut device_meta = HashMap::new();
+        device_meta.insert(
+            "note".to_string(),
+            serde_json::Value::String("placeholder; no device adapter wired".to_string()),
+        );
+        self.register_object(
+            "device:placeholder".to_string(),
+            "device".to_string(),
+            String::new(),
+            device_meta,
+        );
+    }
+
+    /// Build a registry for a workspace root: open the nav workspace, register
+    /// its `fs:` objects plus the host/device placeholders, and load the
+    /// capabilities from the shipped `config/actions.json`.
+    pub fn from_workspace(root: &std::path::Path) -> anyhow::Result<Self> {
+        let ws = crate::nav::workspace::NavWorkspace::open(root)?;
+        let mut reg = Registry::new(default_obs_path());
+        reg.register_workspace(&ws);
+        Ok(reg)
+    }
+
+    /// Populate a registry from an already-open workspace: `fs:` objects, the
+    /// host/device placeholders, and the shipped capabilities. The HUD already
+    /// holds the workspace, so it calls this rather than reopening sled.
+    pub fn register_workspace(&mut self, ws: &crate::nav::workspace::NavWorkspace) {
+        self.register_nav_index(ws.index());
+        self.register_placeholders();
+        for cap in crate::capability::default_capabilities() {
+            self.add_capability(cap);
+        }
+    }
+
+    /// Capability names and their verbs, for `action list`.
+    pub fn list_capabilities(&self) -> Vec<(String, Vec<String>, String, String)> {
+        self.caps
+            .iter()
+            .map(|c| {
+                (
+                    c.name.clone(),
+                    c.verbs.clone(),
+                    c.risk.clone(),
+                    c.tier.clone(),
+                )
+            })
+            .collect()
+    }
+
+    /// Registered objects as `(oid, kind, path)`, for `action list`.
+    pub fn list_objects(&self) -> Vec<(String, String, String)> {
+        let mut out: Vec<(String, String, String)> = self
+            .objects
+            .iter()
+            .map(|(oid, o)| (oid.clone(), o.kind.clone(), o.path.clone()))
+            .collect();
+        out.sort();
+        out
+    }
 }

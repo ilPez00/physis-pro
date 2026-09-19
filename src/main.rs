@@ -8,18 +8,29 @@ use walkdir::WalkDir;
 use physis_pro::cli::PhysisApp;
 use physis_pro::config::{OntologyLoader, PhysisProConfig};
 use physis_pro::embed::{RandomProjectionEmbedder, VectorEmbed};
+use physis_pro::estimate::estimate_project;
 use physis_pro::graph::FileThemeGraph;
 use physis_pro::industrial_benchmark::secom::{self, BenchmarkConfig};
 use physis_pro::ingest;
 use physis_pro::inventory::InventoryTracker;
 use physis_pro::models::{cosine_sim, DomainDef, Score};
-use physis_pro::quality::QualityTracker;
-use physis_pro::wiki;
-use physis_pro::estimate::estimate_project;
+use physis_pro::ported::act::{bearing_on_with, run as act_run, Selection};
 #[cfg(feature = "cli")]
 use physis_pro::ported::system_cli::SystemArgs;
-use physis_pro::ported::act::{run as act_run, bearing_on_with, Selection};
+use physis_pro::quality::QualityTracker;
+use physis_pro::wiki;
 
+/// The object/action registry surface: what can be done, to what, and the
+/// recorded outcome of doing it.
+#[derive(Subcommand)]
+pub enum ActionCommand {
+    /// List loaded capabilities and registered objects
+    List,
+    /// Show one capability by name
+    Show { capability: String },
+    /// Call one capability: `action call <verb> <object> [key=value ...]`
+    Call { line: Vec<String> },
+}
 
 #[derive(Parser)]
 #[command(
@@ -47,6 +58,11 @@ pub enum Commands {
         query: String,
         #[arg(short, long, default_value = "10")]
         max_results: usize,
+    },
+    /// Object/action registry: list capabilities and objects, show one, call one
+    Action {
+        #[command(subcommand)]
+        command: ActionCommand,
     },
     /// Generate stochastic dreams
     Dream {
@@ -812,9 +828,21 @@ fn mcp_tool_mapping(name: &str) -> Option<(&'static str, &'static str)> {
 
 fn run_mcp_cli(tool: Option<&str>) -> anyhow::Result<()> {
     const TOOLS: [&str; 15] = [
-        "health", "stats", "query", "scan", "ingest_prompt", "dream_generate",
-        "dream_evaluate", "coherence_snapshot", "coherence_register", "context_filter",
-        "compress_logs", "pdca_plan", "pdca_act", "pdca_stats", "reconstruct",
+        "health",
+        "stats",
+        "query",
+        "scan",
+        "ingest_prompt",
+        "dream_generate",
+        "dream_evaluate",
+        "coherence_snapshot",
+        "coherence_register",
+        "context_filter",
+        "compress_logs",
+        "pdca_plan",
+        "pdca_act",
+        "pdca_stats",
+        "reconstruct",
     ];
     let Some(name) = tool else {
         for t in TOOLS {
@@ -905,8 +933,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Estimate token usage and scan/index time for a directory.
-    if let Commands::Estimate { dir } = &cli.command
-    {
+    if let Commands::Estimate { dir } = &cli.command {
         let dir = dir.clone().unwrap_or_else(|| PathBuf::from("."));
         match estimate_project(&dir) {
             Ok(est) => {
@@ -983,7 +1010,10 @@ fn main() -> anyhow::Result<()> {
     // be read once — re-reading it after app init would find it empty.
     let mut machine_reduce: Option<serde_json::Value> = None;
     if let Commands::Machine {
-        name, input, reduce, ..
+        name,
+        input,
+        reduce,
+        ..
     } = &cli.command
     {
         let raw = match input.as_deref() {
@@ -1170,7 +1200,12 @@ fn main() -> anyhow::Result<()> {
         {
             Ok(resp) => {
                 let v: serde_json::Value = resp.json().unwrap_or(serde_json::Value::Null);
-                println!("{}", v.get("content").and_then(|c| c.as_str()).unwrap_or("(empty)"));
+                println!(
+                    "{}",
+                    v.get("content")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("(empty)")
+                );
             }
             Err(_) => println!("start physis-pro-web first"),
         }
@@ -1213,10 +1248,7 @@ fn main() -> anyhow::Result<()> {
         _ => None,
     };
     if let Some(feature) = required_feature {
-        if !matches!(
-            &cli.command,
-            Commands::Doctor | Commands::Selftest
-        ) {
+        if !matches!(&cli.command, Commands::Doctor | Commands::Selftest) {
             let license = physis_pro::license::enforce();
             if let Err(e) = license.require(feature) {
                 eprintln!("physis: {e}");
@@ -1251,14 +1283,14 @@ fn main() -> anyhow::Result<()> {
     if let Commands::License { path, json } = cli.command {
         let lic = match &path {
             Some(p) => {
-                let blob = std::fs::read_to_string(p).map_err(|e| {
-                    anyhow::anyhow!("cannot read licence {}: {e}", p.display())
-                })?;
+                let blob = std::fs::read_to_string(p)
+                    .map_err(|e| anyhow::anyhow!("cannot read licence {}: {e}", p.display()))?;
                 physis_pro::license::verify_blob(&blob)
                     .map_err(|e| anyhow::anyhow!("licence is invalid: {e}"))?
             }
-            None => physis_pro::license::load()
-                .map_err(|e| anyhow::anyhow!("no valid licence: {e}"))?,
+            None => {
+                physis_pro::license::load().map_err(|e| anyhow::anyhow!("no valid licence: {e}"))?
+            }
         };
         let revoked = physis_pro::license::check_revoked(&lic.license_id, None).is_err();
         if json {
@@ -1279,11 +1311,19 @@ fn main() -> anyhow::Result<()> {
         } else {
             println!("license_id      : {}", lic.license_id);
             println!("licensed to     : {}", lic.org);
-            println!("sku             : {} ({})", lic.tier().sku(), lic.tier().name());
+            println!(
+                "sku             : {} ({})",
+                lic.tier().sku(),
+                lic.tier().name()
+            );
             println!("seats           : {}", lic.seats);
             println!("features        : {}", lic.features.join(", "));
             println!("issued          : {}", lic.iat);
-            println!("expires         : {} ({} days left)", lic.exp, lic.days_remaining());
+            println!(
+                "expires         : {} ({} days left)",
+                lic.exp,
+                lic.days_remaining()
+            );
             println!("maintenance until: {}", lic.maint_exp);
             println!("revoked         : {}", lic.revoked || revoked);
         }
@@ -1293,14 +1333,19 @@ fn main() -> anyhow::Result<()> {
     // `notebook` answers from its own corpus, embedder and citation index — it
     // never touches the ontology/classifier PhysisApp builds, so it is
     // dispatched here rather than paying that startup cost.
-    if let Commands::Notebook { dir, query, budget, json } = &cli.command {
+    if let Commands::Notebook {
+        dir,
+        query,
+        budget,
+        json,
+    } = &cli.command
+    {
         let docs = physis_pro::ingest::ingest_all(std::slice::from_ref(dir));
         if docs.is_empty() {
             eprintln!("no documents found under {}", dir.display());
             std::process::exit(1);
         }
-        let pairs: Vec<(String, String)> =
-            docs.into_iter().map(|d| (d.title, d.body)).collect();
+        let pairs: Vec<(String, String)> = docs.into_iter().map(|d| (d.title, d.body)).collect();
         // Was hard-coded to RandomProjectionEmbedder (lexical hash, not
         // meaning) — the same defect already fixed for the `rag` command
         // below (see its own comment), and for the MCP server, via a
@@ -1330,8 +1375,20 @@ fn main() -> anyhow::Result<()> {
     // `act` needs only the claims ledger and the observation log — like
     // `notebook`, dispatched here rather than paying `PhysisApp::new()`'s
     // ontology/classifier startup cost.
-    if let Commands::Act { command, dry_run, top, json } = &cli.command {
+    if let Commands::Act {
+        command,
+        dry_run,
+        top,
+        json,
+    } = &cli.command
+    {
         return cmd_act(command, *dry_run, *top, *json);
+    }
+
+    // `action` needs only the registry and the observation log, not the
+    // ontology/classifier startup cost of `PhysisApp::new()`.
+    if let Commands::Action { command } = &cli.command {
+        return cmd_action(command);
     }
 
     let config = PhysisProConfig::default();
@@ -1345,6 +1402,7 @@ fn main() -> anyhow::Result<()> {
         Commands::System(..) => unreachable!("dispatched before PhysisApp::new"),
         Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Action { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -1402,9 +1460,12 @@ fn main() -> anyhow::Result<()> {
             let output = app.run_watch(dirs, once)?;
             println!("{output}");
         }
-        Commands::Studio { dir, html_out, demo } => {
-            let out = html_out
-                .unwrap_or_else(|| dir.join("studio.html"));
+        Commands::Studio {
+            dir,
+            html_out,
+            demo,
+        } => {
+            let out = html_out.unwrap_or_else(|| dir.join("studio.html"));
             let report = app.run_studio(&dir, &out, demo)?;
             println!("{report}");
         }
@@ -1514,7 +1575,11 @@ fn main() -> anyhow::Result<()> {
             let output = app.run_translate(&text, lense.as_deref());
             println!("{output}");
         }
-        Commands::Correct { intent, max_attempts, timeout } => {
+        Commands::Correct {
+            intent,
+            max_attempts,
+            timeout,
+        } => {
             let script_path = std::env::temp_dir().join("physis_correct.py");
             let script_content = format!(
                 r#"import sys
@@ -1615,8 +1680,11 @@ print(json.dumps({{
                     topic,
                     post_to,
                     user,
-                    token: token
-                        .or_else(|| std::env::var("PHYSIS_API_TOKEN").ok().filter(|t| !t.is_empty())),
+                    token: token.or_else(|| {
+                        std::env::var("PHYSIS_API_TOKEN")
+                            .ok()
+                            .filter(|t| !t.is_empty())
+                    }),
                     interval_secs: interval,
                     once,
                     thresholds,
@@ -1749,42 +1817,40 @@ print(json.dumps({{
             run_ingest_pipeline(&config, "Ingested", true)?;
         }
         Commands::Process => {
-            {
-                if config.industrial_endpoints.is_empty() {
-                    println!("Process monitoring: no industrial endpoints configured.");
-                    println!("  Add MQTT/Modbus endpoints to config.industrial_endpoints.");
-                } else {
-                    println!(
-                        "Process monitoring — checking {} endpoint(s):",
-                        config.industrial_endpoints.len()
-                    );
-                    let rt = tokio::runtime::Runtime::new()?;
-                    rt.block_on(async {
-                        for ep in &config.industrial_endpoints {
-                            let clean = ep
-                                .trim_start_matches("mqtt://")
-                                .trim_start_matches("tcp://")
-                                .trim_start_matches("modbus://");
-                            let host = clean.split(':').next().unwrap_or(clean);
-                            let port: u16 = clean
-                                .split(':')
-                                .nth(1)
-                                .and_then(|p| p.parse().ok())
-                                .unwrap_or(1883);
-                            let addr = format!("{host}:{port}");
-                            match tokio::time::timeout(
-                                std::time::Duration::from_secs(3),
-                                tokio::net::TcpStream::connect(&addr),
-                            )
-                            .await
-                            {
-                                Ok(Ok(_)) => println!("  ✅ {ep} — reachable"),
-                                Ok(Err(e)) => println!("  ❌ {ep} — {e}"),
-                                Err(_) => println!("  ❌ {ep} — timeout (3s)"),
-                            }
+            if config.industrial_endpoints.is_empty() {
+                println!("Process monitoring: no industrial endpoints configured.");
+                println!("  Add MQTT/Modbus endpoints to config.industrial_endpoints.");
+            } else {
+                println!(
+                    "Process monitoring — checking {} endpoint(s):",
+                    config.industrial_endpoints.len()
+                );
+                let rt = tokio::runtime::Runtime::new()?;
+                rt.block_on(async {
+                    for ep in &config.industrial_endpoints {
+                        let clean = ep
+                            .trim_start_matches("mqtt://")
+                            .trim_start_matches("tcp://")
+                            .trim_start_matches("modbus://");
+                        let host = clean.split(':').next().unwrap_or(clean);
+                        let port: u16 = clean
+                            .split(':')
+                            .nth(1)
+                            .and_then(|p| p.parse().ok())
+                            .unwrap_or(1883);
+                        let addr = format!("{host}:{port}");
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(3),
+                            tokio::net::TcpStream::connect(&addr),
+                        )
+                        .await
+                        {
+                            Ok(Ok(_)) => println!("  ✅ {ep} — reachable"),
+                            Ok(Err(e)) => println!("  ❌ {ep} — {e}"),
+                            Err(_) => println!("  ❌ {ep} — timeout (3s)"),
                         }
-                    });
-                }
+                    }
+                });
             }
         }
         Commands::Inventory => match sled::open(&config.inventory_db) {
@@ -2314,6 +2380,27 @@ print(json.dumps({{
     Ok(())
 }
 
+fn cmd_action(command: &ActionCommand) -> anyhow::Result<()> {
+    let root = std::env::current_dir()?;
+    let mut reg = physis_pro::registry::Registry::from_workspace(&root)?;
+    match command {
+        ActionCommand::List => print!("{}", physis_pro::action::render_list(&reg)),
+        ActionCommand::Show { capability } => {
+            println!(
+                "{}",
+                physis_pro::action::render_capability(&reg, capability)
+            );
+        }
+        ActionCommand::Call { line } => {
+            let text = line.join(" ");
+            let (_result, rendered) =
+                physis_pro::action::dispatch(&mut reg, &text).map_err(|e| anyhow::anyhow!(e))?;
+            println!("{rendered}");
+        }
+    }
+    Ok(())
+}
+
 fn cmd_act(command: &str, dry_run: bool, top: usize, json: bool) -> anyhow::Result<()> {
     let (embedder, embedder_kind) = physis_core::embed::select(384);
     let core = load_core();
@@ -2322,7 +2409,10 @@ fn cmd_act(command: &str, dry_run: bool, top: usize, json: bool) -> anyhow::Resu
     let selection = if embedder_kind == "random-projection" {
         Selection::CascadeRerank { pool: top.max(5) }
     } else {
-        Selection::CascadeFloor { pool: top.max(5), floor: SEMANTIC_FLOOR }
+        Selection::CascadeFloor {
+            pool: top.max(5),
+            floor: SEMANTIC_FLOOR,
+        }
     };
     let bearing = bearing_on_with(&core, command, embedder.as_ref(), top, selection);
 
@@ -2335,11 +2425,17 @@ fn cmd_act(command: &str, dry_run: bool, top: usize, json: bool) -> anyhow::Resu
     if dry_run {
         let warnings: Vec<_> = bearing.iter().filter(|b| b.is_warning()).collect();
         if warnings.is_empty() {
-            println!("nothing already established bears on this. {} claim(s) checked.{floor}", core.hypotheses.len());
+            println!(
+                "nothing already established bears on this. {} claim(s) checked.{floor}",
+                core.hypotheses.len()
+            );
         } else {
             println!("── ALREADY ESTABLISHED ──");
             for b in warnings {
-                println!("  [{}] {:<13} rel {:.3}\n      {}", b.id, b.status, b.relevance, b.statement);
+                println!(
+                    "  [{}] {:<13} rel {:.3}\n      {}",
+                    b.id, b.status, b.relevance, b.statement
+                );
             }
         }
         println!("\n(not run — drop --dry-run to execute)");
@@ -2364,7 +2460,8 @@ fn load_core() -> physis_core::core::PhysisCore {
     if json.trim().is_empty() {
         physis_core::core::PhysisCore::new()
     } else {
-        physis_core::core::PhysisCore::from_json(&json).unwrap_or_else(|_| physis_core::core::PhysisCore::new())
+        physis_core::core::PhysisCore::from_json(&json)
+            .unwrap_or_else(|_| physis_core::core::PhysisCore::new())
     }
 }
 
@@ -2607,9 +2704,7 @@ fn run_demo(app: &mut PhysisApp, dir: &std::path::Path, seed: bool) -> anyhow::R
             plant,
             shift_label: Some(format!(
                 "Demo — {}",
-                p.file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
+                p.file_name().unwrap_or_default().to_string_lossy()
             )),
             metadata: Some(physis_pro::report::ReportMetadata::new("demo-csv")),
             ..Default::default()
@@ -2618,7 +2713,10 @@ fn run_demo(app: &mut PhysisApp, dir: &std::path::Path, seed: bool) -> anyhow::R
             dir.join("report.html"),
             physis_pro::report::render_shift_report_html(&input),
         )?;
-        std::fs::write(dir.join("report.md"), physis_pro::report::render_shift_report_it(&input))?;
+        std::fs::write(
+            dir.join("report.md"),
+            physis_pro::report::render_shift_report_it(&input),
+        )?;
     }
 
     if shifts_seen > 0 {

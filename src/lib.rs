@@ -1,9 +1,9 @@
 //! Physis — an ontological mapper and PDCA dream engine.
 
+pub mod action;
 pub mod actor;
 // Product surfaces moved out of physis-core by the 2026-09-14 Core/Product
 // split (see physis-core/MOVED_TO_PRODUCT.md).
-pub mod ported;
 pub mod address;
 pub mod admin;
 pub mod ai;
@@ -12,6 +12,7 @@ pub mod audit;
 pub mod axes;
 #[cfg(feature = "ingest")]
 pub mod batch_csv;
+pub mod capability;
 pub mod classify;
 pub mod communities;
 pub mod config;
@@ -34,6 +35,7 @@ pub mod indexer;
 pub mod industrial;
 pub mod industrial_benchmark;
 pub mod ingest;
+pub mod intent_ir;
 pub mod interest;
 pub mod inventory;
 pub mod ledger;
@@ -49,9 +51,9 @@ pub mod models;
 pub mod monitor;
 pub mod moonraker;
 pub mod moonraker_connect;
+pub mod nav;
 pub mod network;
 pub mod notebook;
-pub mod nav;
 pub mod oee;
 pub mod ontology;
 pub mod ontology_graph;
@@ -59,18 +61,17 @@ pub mod ontology_nonhuman;
 pub mod operational;
 pub mod operational_report;
 pub mod output;
+pub mod ported;
 pub mod quality;
 pub mod quantize;
-pub mod registry;
-pub mod capability;
-pub mod intent_ir;
 pub mod rachmaninov;
 pub mod rbac;
 pub mod reconcile;
 pub mod reconstruct;
+pub mod registry;
 pub mod report;
-pub mod routes;
 pub mod review_desk;
+pub mod routes;
 pub mod salience;
 pub mod scanner;
 pub mod semiotic_grid;
@@ -79,6 +80,7 @@ pub mod sessions;
 pub mod shifts;
 // Social scaffolding: no referents anywhere in the tree, but not deleted —
 // gated so it stops compiling into every build. Re-enable to revive it.
+pub mod estimate;
 #[cfg(feature = "repair-pipeline")]
 pub mod social;
 pub mod storage;
@@ -92,7 +94,6 @@ pub mod web;
 pub mod wiki;
 pub mod wiki_gen;
 pub mod workflow;
-pub mod estimate;
 
 #[cfg(feature = "spanner")]
 pub mod spanner;
@@ -152,17 +153,17 @@ pub mod mvp;
 // Repair-pipeline scaffolding. One feature, not six: these modules import
 // each other in a cycle (dependency↔staleness↔semantic_delta, metrics↔
 // orchestration) so separate gates would not compile. See Cargo.toml.
-#[cfg(feature = "repair-pipeline")]
-pub mod semantic_delta;
+pub mod adaptive_document;
 #[cfg(feature = "repair-pipeline")]
 pub mod dependency;
 #[cfg(feature = "repair-pipeline")]
-pub mod staleness;
-#[cfg(feature = "repair-pipeline")]
-pub mod repair_regions;
+pub mod metrics;
 #[cfg(feature = "repair-pipeline")]
 pub mod orchestration;
 #[cfg(feature = "repair-pipeline")]
-pub mod metrics;
-pub mod adaptive_document;
+pub mod repair_regions;
+#[cfg(feature = "repair-pipeline")]
+pub mod semantic_delta;
+#[cfg(feature = "repair-pipeline")]
+pub mod staleness;
 pub use linguistic::*;

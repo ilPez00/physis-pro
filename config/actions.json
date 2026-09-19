@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "capabilities": [
+    {
+      "name": "fs.read",
+      "object_kinds": ["dir", "repo", "file", "passage", "note"],
+      "verbs": ["read"],
+      "tier": "api",
+      "risk": "reversible",
+      "cost": { "latency_p50_s": 0.1 }
+    },
+    {
+      "name": "fs.write_draft",
+      "object_kinds": ["file", "dir", "repo"],
+      "verbs": ["write"],
+      "tier": "api",
+      "risk": "draft_only",
+      "cost": { "latency_p50_s": 0.1 }
+    },
+    {
+      "name": "shell.execute",
+      "object_kinds": ["dir", "repo"],
+      "verbs": ["execute"],
+      "tier": "cli",
+      "risk": "irreversible_without_approval",
+      "cost": { "latency_p50_s": 1.0 }
+    },
+    {
+      "name": "git.status",
+      "object_kinds": ["repo"],
+      "verbs": ["inspect"],
+      "tier": "cli",
+      "risk": "reversible",
+      "cost": { "latency_p50_s": 0.5 }
+    },
+    {
+      "name": "git.diff",
+      "object_kinds": ["repo"],
+      "verbs": ["read"],
+      "tier": "cli",
+      "risk": "reversible",
+      "cost": { "latency_p50_s": 0.5 }
+    }
+  ]
+}
