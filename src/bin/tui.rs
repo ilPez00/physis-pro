@@ -15,7 +15,7 @@
 //! coherence state is per-user, so the default `_default` tenant is empty if
 //! your nodes were written under `aion` / `praxis`).
 
-use std::io::stdout;
+use std::io::{stdout, Read};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -40,7 +40,7 @@ use physis_pro::fact::{self, FactAnswer};
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
 use physis_pro::ported::system::Workspace;
 use physis_pro::sensors;
-use physis_pro::world_object::{RelationKind, WorldObject};
+use physis_pro::world_object::{ObjectKind, RelationKind, WorldObject};
 
 const TABS: [&str; 5] = ["STATUS", "MACHINES", "CONFIG", "WIKI", "STREAM"];
 const TAB_WIKI: usize = 3;
@@ -1392,20 +1392,104 @@ fn record(
         .map(|e| e.to_string())
 }
 
-/// Answer a specific-fact question from live typed facts.
+/// Maximum bytes read from the selected file when projecting context facts.
+/// Bounded so a huge log cannot stall the panel; the fact grammar only needs
+/// the head of a file to find obvious `key: value` spans.
+const CONTEXT_READ_LIMIT: u64 = 256 * 1024;
+
+/// Facts projected from the currently selected object, when it is text-bearing.
 ///
-/// The sensors are read once for this submission, never per frame; the result
-/// is projected through the shared fact view and answered deterministically.
-/// Exactly one observation is appended through the existing action path, with
-/// the real outcome so a miss is not logged as a success. The footer shows the
-/// answer value-first, with the sysfs path visible in the provenance line.
+/// This lives beside the navigation stack rather than in the `fact` module:
+/// "the selected object" is UI state, and the shared projection stays
+/// navigation-agnostic. The behaviour is still tested here without a terminal.
+///
+/// A `File` is read once, bounded and lossy, from the path in its `fs:`
+/// identity. Any other text-bearing object uses its own `content`. A `Project`
+/// (a directory) is deliberately not scanned, so selecting a folder never walks
+/// the tree. Every fact's `source` names the object, so the provenance line
+/// shows which file the value came from; the evidence span stays verbatim.
+fn context_facts(obj: &WorldObject, at: chrono::DateTime<chrono::Utc>) -> Vec<fact::FactView> {
+    let (text, source) = match obj.kind {
+        ObjectKind::Project => return Vec::new(),
+        ObjectKind::File => {
+            let path = obj.identity.strip_prefix("fs:").unwrap_or(&obj.identity);
+            match read_bounded_text(std::path::Path::new(path), CONTEXT_READ_LIMIT) {
+                Some(text) => (text, obj.identity.clone()),
+                None => return Vec::new(),
+            }
+        }
+        _ => (obj.content.clone(), obj.identity.clone()),
+    };
+    let mut facts = fact::facts_from_text(&text, Some(at), None);
+    for f in &mut facts {
+        f.source = Some(source.clone());
+    }
+    facts
+}
+
+/// Read at most `max` bytes from a path and decode lossily. A missing or
+/// unreadable path yields `None`; a directory read fails and yields `None`
+/// rather than a panic, so a mislabelled object simply produces no facts.
+fn read_bounded_text(path: &std::path::Path, max: u64) -> Option<String> {
+    let file = std::fs::File::open(path).ok()?;
+    let mut buf = Vec::new();
+    file.take(max).read_to_end(&mut buf).ok()?;
+    Some(String::from_utf8_lossy(&buf).into_owned())
+}
+
+/// Query the selected object's facts first; the ambient facts (live sensors)
+/// are consulted only when the context has no answer. Returns the answer and
+/// whether it came from the context, so the caller can name the object in the
+/// observation. The ambient source is a closure so it is not read at all when
+/// the context already answers.
+fn answer_with_context(
+    question: &str,
+    context: &[fact::FactView],
+    ambient: impl FnOnce() -> Vec<fact::FactView>,
+) -> (FactAnswer, bool) {
+    let answer = fact::answer_fact(question, context);
+    if matches!(answer, FactAnswer::NotFound) {
+        (fact::answer_fact(question, &ambient()), false)
+    } else {
+        (answer, true)
+    }
+}
+
+/// Answer a specific-fact question from the selected object first, then live
+/// sensors.
+///
+/// The selected object is read once for this submission, never per frame; the
+/// sensors are read only when the context has no answer. Exactly one
+/// observation is appended through the existing action path, with the real
+/// outcome so a miss is not logged as a success, and the selected object's
+/// identity when the context answered. The footer shows the answer value-first
+/// with deterministic provenance.
 fn ask_facts(app: &mut App, question: String) {
-    let facts = fact::facts_from_events(&sensors::local_events());
-    let answer = fact::answer_fact(&question, &facts);
+    let at = chrono::Utc::now();
+    let selected = app.stream_stack.last().cloned();
+    let context = selected
+        .as_ref()
+        .map(|o| context_facts(o, at))
+        .unwrap_or_default();
+    let (answer, from_context) = answer_with_context(&question, &context, || {
+        fact::facts_from_events(&sensors::local_events())
+    });
     let outcome = fact_outcome(&answer);
+    let object = if from_context {
+        selected.as_ref().map(|o| o.identity.as_str())
+    } else {
+        None
+    };
     app.answer = Some(answer.render());
     app.status_msg = format!("route=deterministic operator=fact/query {outcome}");
-    if let Some(err) = record(app, "deterministic", "fact/query", &question, None, outcome) {
+    if let Some(err) = record(
+        app,
+        "deterministic",
+        "fact/query",
+        &question,
+        object,
+        outcome,
+    ) {
         app.status_msg = format!("{} · record failed: {err}", app.status_msg);
     }
 }
@@ -2675,6 +2759,132 @@ mod tests {
         assert_eq!(fact_outcome(&FactAnswer::Ambiguous(vec![])), "ambiguous");
         assert_eq!(fact_outcome(&FactAnswer::NotFound), "not_found");
         assert_ne!(fact_outcome(&FactAnswer::NotFound), "success");
+    }
+
+    fn text_fact(key: &str, value: &str) -> physis_pro::fact::FactView {
+        let (number, unit) = physis_pro::fact::parse_scalar(value);
+        physis_pro::fact::FactView {
+            key: physis_pro::fact::normalize_key(key),
+            display_key: key.to_string(),
+            value: value.to_string(),
+            number,
+            unit,
+            observed_at: None,
+            subject: None,
+            source: None,
+            origin: physis_pro::fact::FactOrigin::Text {
+                evidence: format!("{key}: {value}"),
+            },
+        }
+    }
+
+    #[test]
+    fn context_facts_read_selected_file_and_answer_from_it() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("note.txt");
+        std::fs::write(&path, "CPU temperature: 72.4 °C\n").unwrap();
+        let obj = WorldObject::from_path(&path);
+        assert_eq!(obj.kind, ObjectKind::File);
+        let facts = context_facts(&obj, chrono::Utc::now());
+        assert_eq!(facts.len(), 1, "{facts:?}");
+        assert_eq!(facts[0].value, "72.4 °C");
+        assert_eq!(facts[0].source.as_deref(), Some(obj.identity.as_str()));
+        assert_eq!(
+            facts[0].origin,
+            physis_pro::fact::FactOrigin::Text {
+                evidence: "CPU temperature: 72.4 °C".into()
+            },
+            "evidence stays verbatim"
+        );
+        match fact::answer_fact("what is CPU temperature?", &facts) {
+            FactAnswer::One(f) => assert_eq!(f.number, Some(72.4)),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn context_answer_beats_ambient_sensor_fact() {
+        let context = vec![text_fact("CPU temperature", "72.4 °C")];
+        let ambient = vec![text_fact("CPU temperature", "81.2 °C")];
+        let (answer, from_context) =
+            answer_with_context("what is CPU temperature?", &context, || ambient.clone());
+        assert!(from_context, "the selected object answered");
+        match answer {
+            FactAnswer::One(f) => assert_eq!(f.value, "72.4 °C"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn ambient_is_used_only_when_context_misses() {
+        let context = vec![text_fact("pressure", "2.5 bar")];
+        let ambient = vec![text_fact("CPU temperature", "81.2 °C")];
+        let (answer, from_context) =
+            answer_with_context("what is CPU temperature?", &context, || ambient.clone());
+        assert!(!from_context, "context lacked the key, ambient answered");
+        match answer {
+            FactAnswer::One(f) => assert_eq!(f.value, "81.2 °C"),
+            other => panic!("{other:?}"),
+        }
+        let (none, from_ctx) =
+            answer_with_context("what is fan speed?", &context, || ambient.clone());
+        assert_eq!(none, FactAnswer::NotFound);
+        assert!(!from_ctx);
+    }
+
+    #[test]
+    fn directory_and_unreadable_contexts_yield_no_facts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let project = WorldObject::from_directory(dir.path());
+        assert_eq!(project.kind, ObjectKind::Project);
+        assert!(context_facts(&project, chrono::Utc::now()).is_empty());
+
+        let missing = WorldObject::new(
+            format!("fs:{}/nope.txt", dir.path().display()),
+            ObjectKind::File,
+            "nope.txt",
+        );
+        assert!(context_facts(&missing, chrono::Utc::now()).is_empty());
+    }
+
+    #[test]
+    fn symbol_content_answers_without_filesystem() {
+        let obj = WorldObject::new(
+            "symbol:x#pressure",
+            ObjectKind::Symbol,
+            "pressure is 2.5 bar",
+        );
+        let facts = context_facts(&obj, chrono::Utc::now());
+        match fact::answer_fact("what is pressure?", &facts) {
+            FactAnswer::One(f) => {
+                assert_eq!(f.number, Some(2.5));
+                assert_eq!(f.unit.as_deref(), Some("bar"));
+                assert_eq!(f.source.as_deref(), Some("symbol:x#pressure"));
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn read_bounded_text_is_bounded_and_lossy_safe() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let ascii = dir.path().join("big.txt");
+        std::fs::write(&ascii, "a".repeat(100)).unwrap();
+        let bounded = read_bounded_text(&ascii, 16).expect("reads");
+        assert_eq!(bounded.len(), 16, "ASCII read stops at the byte limit");
+
+        let binary = dir.path().join("blob.bin");
+        let mut bytes = b"CPU temperature: 72.4 \xC2\xB0C\n".to_vec();
+        bytes.extend(std::iter::repeat(0xFF).take(4096));
+        std::fs::write(&binary, &bytes).unwrap();
+        let text = read_bounded_text(&binary, 32).expect("lossy read never fails");
+        assert!(text.starts_with("CPU temperature: 72.4"), "{text:?}");
+
+        assert!(read_bounded_text(&dir.path().join("missing"), 32).is_none());
+        assert!(
+            read_bounded_text(dir.path(), 32).is_none(),
+            "a directory is not a note"
+        );
     }
 
     #[test]
