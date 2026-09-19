@@ -152,6 +152,8 @@ pub enum Commands {
         #[command(subcommand)]
         command: IntentCommand,
     },
+    /// Show the seven attention terms and the weights the ranking applies
+    Attention,
     /// Decision-native classification: ask a Jev-compatible endpoint for the
     /// cell and read the probabilities, instead of generating a label.
     Decide {
@@ -1554,6 +1556,18 @@ fn main() -> anyhow::Result<()> {
         return cmd_intent(command);
     }
 
+    if let Commands::Attention = &cli.command {
+        let w = physis_pro::nav::NavWeights::default();
+        println!("attention terms (the ranking applies these weights):");
+        for t in physis_pro::agents::attention::ATTENTION_TERMS {
+            match physis_pro::agents::attention::weight_of(&w, t) {
+                Some(w) => println!("  {t:<9} weight {w:.2}"),
+                None => println!("  {t:<9} (carried by the score when it applies)"),
+            }
+        }
+        return Ok(());
+    }
+
     if let Commands::Decide {
         state,
         classify,
@@ -1580,6 +1594,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Draw { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Intent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Decide { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Attention => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }

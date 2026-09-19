@@ -8,9 +8,11 @@
 //! rather than a silent success.
 
 pub mod adapter;
+pub mod attention;
 pub mod decision;
 pub mod parse;
 pub mod routing;
+pub mod similar;
 pub mod tasks;
 pub mod view;
 
