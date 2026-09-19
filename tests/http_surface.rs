@@ -6630,3 +6630,40 @@ async fn adaptive_document_refuses_a_stale_edit_and_a_replayed_accept() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}");
 }
+
+/// The Impossible Computer page and the endpoint that feeds it. The page is a
+/// renderer over /api/v1/workspace: it must load the shared shell, fetch that
+/// endpoint, and be clickable (every row is a hyperlink).
+#[tokio::test]
+async fn impossible_page_and_workspace_endpoint_render() {
+    let (router, _dir, _env) = app().await;
+
+    let (status, html) = send_text(&router, get("/impossible", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(html.contains("IMPOSSIBLE COMPUTER"), "page title missing");
+    assert!(
+        html.contains("/ui-shell.js"),
+        "page must load the shared shell"
+    );
+    assert!(
+        html.contains("api/v1/workspace"),
+        "page must fetch the workspace endpoint"
+    );
+    assert!(html.contains("<a "), "page must be clickable");
+    assert!(html.contains("href=\"/agent#"), "agents must link out");
+
+    let (status, body) = send(&router, get("/api/v1/workspace", "tenant-a")).await;
+    assert_eq!(status, StatusCode::OK);
+    let agents = body["agents"].as_array().expect("agents array");
+    assert!(!agents.is_empty(), "the roster must not be empty");
+    for a in agents {
+        assert!(a["id"].is_string());
+        assert!(a["available"].is_boolean());
+        assert!(a["transport"].is_string());
+    }
+    let caps = body["capabilities"].as_array().expect("capabilities array");
+    assert!(!caps.is_empty(), "the capability table must not be empty");
+    assert!(body["intents"].is_array());
+    assert!(body["task_graph"]["tasks"].is_array());
+    assert!(body["root"].is_string());
+}

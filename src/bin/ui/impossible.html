@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Physis · Impossible Computer</title>
+<link rel="stylesheet" href="/physis.css" />
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg,#04070f);color:var(--ink,#e8eef7);
+       font-family:var(--sans,system-ui,sans-serif);min-height:100vh}
+  header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+         flex-wrap:wrap;padding:11px 20px;background:rgba(4,7,15,.85);
+         backdrop-filter:blur(14px);border-bottom:1px solid var(--shelf,#1b2436)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{width:30px;height:30px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan,#5ff2d6),var(--violet,#a78bfa));
+    display:flex;align-items:center;justify-content:center;font-weight:800;
+    color:#04101f;font-size:14px}
+  .brand h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:700}
+  .brand .sub{font-size:11px;color:var(--brume,#7d8aa3);margin-top:1px}
+  .spacer{flex:1}
+  .root{font-family:var(--mono,ui-monospace,monospace);font-size:11px;
+        color:var(--brume,#7d8aa3);max-width:46ch;overflow:hidden;
+        text-overflow:ellipsis;white-space:nowrap}
+  main{max-width:1440px;margin:0 auto;padding:18px 20px 60px}
+  section{margin-bottom:26px}
+  section > h2{font-family:var(--mono,ui-monospace,monospace);font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.22em;color:var(--brume,#7d8aa3);
+    margin:0 0 12px;display:flex;align-items:center;gap:10px}
+  section > h2::before{content:"";width:16px;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan,#5ff2d6),var(--violet,#a78bfa))}
+  .card{border:1px solid var(--shelf,#1b2436);border-radius:12px;padding:14px 16px;
+        background:rgba(255,255,255,.015)}
+  .statement{font-size:20px;line-height:1.35;margin:0 0 10px}
+  .prov{list-style:none;margin:0;padding:0;font-size:12px;
+        font-family:var(--mono,ui-monospace,monospace);color:var(--brume,#7d8aa3)}
+  .prov li{padding:3px 0;border-top:1px dashed rgba(125,138,163,.18)}
+  .prov b{color:var(--ink,#e8eef7);font-weight:600}
+  .chips{display:flex;flex-wrap:wrap;gap:10px}
+  .chip{display:flex;align-items:center;gap:9px;border:1px solid var(--shelf,#1b2436);
+        border-radius:999px;padding:8px 14px;text-decoration:none;
+        color:var(--ink,#e8eef7);font-size:13px;transition:border-color .15s}
+  .chip:hover{border-color:var(--cyan,#5ff2d6)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .up{background:var(--cyan,#5ff2d6);box-shadow:0 0 10px rgba(95,242,214,.6)}
+  .down{background:#7d8aa3;opacity:.5}
+  .chip small{color:var(--brume,#7d8aa3);font-family:var(--mono,ui-monospace,monospace)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--shelf,#1b2436)}
+  th{font-family:var(--mono,ui-monospace,monospace);font-size:10px;letter-spacing:.16em;
+     text-transform:uppercase;color:var(--brume,#7d8aa3)}
+  td a{color:var(--cyan,#5ff2d6);text-decoration:none}
+  td a:hover{text-decoration:underline}
+  .tasks{list-style:none;margin:0;padding:0}
+  .task{display:flex;align-items:baseline;gap:10px;padding:7px 0;
+        border-bottom:1px dashed rgba(125,138,163,.16);flex-wrap:wrap}
+  .task.child{padding-left:26px;position:relative}
+  .task.child::before{content:"└";position:absolute;left:6px;color:var(--brume,#7d8aa3)}
+  .task a{color:var(--ink,#e8eef7);text-decoration:none;font-weight:600}
+  .task a:hover{color:var(--cyan,#5ff2d6);text-decoration:underline}
+  .badge{font-family:var(--mono,ui-monospace,monospace);font-size:10px;
+         letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:999px;
+         border:1px solid var(--shelf,#1b2436);color:var(--brume,#7d8aa3)}
+  .badge.ok{color:#04101f;background:var(--cyan,#5ff2d6);border-color:transparent}
+  .badge.claim{color:#f5c451;border-color:#f5c451}
+  .badge.bad{color:#ff8a8a;border-color:#ff8a8a}
+  .meta{font-family:var(--mono,ui-monospace,monospace);font-size:11px;color:var(--brume,#7d8aa3)}
+  .err{color:#ff8a8a;font-family:var(--mono,ui-monospace,monospace);font-size:12px}
+  .empty{color:var(--brume,#7d8aa3);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">Φ</div>
+    <div>
+      <h1>IMPOSSIBLE COMPUTER</h1>
+      <div class="sub">intent · agents · tasks · capabilities — every row a link</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <a class="root" id="root-link" href="/search" title="search this workspace">…</a>
+</header>
+
+<main>
+  <section><h2>Intent</h2><div class="card" id="intent"><span class="empty">loading…</span></div></section>
+  <section><h2>Agents</h2><div class="chips" id="agents"><span class="empty">loading…</span></div></section>
+  <section><h2>Tasks</h2><div class="card" id="tasks"><span class="empty">loading…</span></div></section>
+  <section><h2>Capabilities</h2><div class="card" id="caps"><span class="empty">loading…</span></div></section>
+</main>
+
+<script>
+// The page is a renderer, not a second source of truth: every value comes from
+// /api/v1/workspace, and every value is shown with the link it can be followed
+// by. Nothing here writes.
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function renderIntent(data) {
+  const el = document.getElementById('intent');
+  if (!data.length) {
+    el.innerHTML = '<span class="empty">No intent set. Run ' +
+      '<code>physis-pro intent set main "what this workspace is for"</code>.</span>';
+    return;
+  }
+  el.innerHTML = data.map(i => {
+    const prov = i.history.slice().reverse().slice(0, 6).map(e =>
+      `<li><b>${esc(e.by)}</b> · ${esc(e.at)} — ${esc(e.to)}` +
+      (e.reason ? ` <span class="meta">(${esc(e.reason)})</span>` : '') + '</li>').join('');
+    return `<p class="statement">${esc(i.statement)}</p>` +
+      `<div class="meta">intent:${esc(i.id)} · ${i.edits} edit(s)` +
+      (i.goal_id ? ` · goal ${esc(i.goal_id)}` : '') + `</div>` +
+      `<ul class="prov">${prov}</ul>`;
+  }).join('');
+}
+
+function renderAgents(data) {
+  const el = document.getElementById('agents');
+  if (!data.length) { el.innerHTML = '<span class="empty">No agents in the roster.</span>'; return; }
+  el.innerHTML = data.map(a => {
+    const cls = a.available ? 'up' : 'down';
+    const title = a.available ? a.transport : (a.reason || 'unavailable');
+    // Clickable: the agent page, scoped by id.
+    return `<a class="chip" href="/agent#${encodeURIComponent(a.id)}" title="${esc(title)}">` +
+      `<span class="dot ${cls}"></span>${esc(a.name)}` +
+      `<small>${esc(a.available ? a.transport : 'unavailable')}</small></a>`;
+  }).join('');
+}
+
+function renderTasks(g) {
+  const el = document.getElementById('tasks');
+  const tasks = g.tasks || [];
+  if (!tasks.length) {
+    el.innerHTML = '<span class="empty">No task events in the observation log. ' +
+      'Tasks are a fold over observations; write them with ' +
+      '<code>agents::tasks::TaskEvent::observation</code>.</span>';
+    return;
+  }
+  const byId = Object.fromEntries(tasks.map(t => [t.id, t]));
+  // Children render directly under their parent so the tree reads as a tree.
+  const roots = tasks.filter(t => !t.parent || !byId[t.parent]);
+  const line = (t, depth) => {
+    const badge = t.verified ? '<span class="badge ok">verified</span>'
+      : t.reported ? '<span class="badge claim">reported</span>'
+      : t.state === 'failed' ? '<span class="badge bad">failed</span>'
+      : `<span class="badge">${esc(t.state)}</span>`;
+    const links = [];
+    if (t.parent) links.push(`<a class="meta" href="#task-${encodeURIComponent(t.parent)}">↑ parent</a>`);
+    for (const c of (t.children || []))
+      links.push(`<a class="meta" href="#task-${encodeURIComponent(c)}">↓ ${esc(c)}</a>`);
+    const row = `<li class="task ${depth ? 'child' : ''}" id="task-${encodeURIComponent(t.id)}">` +
+      `<a href="#task-${encodeURIComponent(t.id)}">${esc(t.id)}</a>${badge}` +
+      `<span>${esc(t.title)}</span>` + links.join('') +
+      (t.expired_reason ? `<span class="meta">expired: ${esc(t.expired_reason)}</span>` : '') +
+      `</li>`;
+    const kids = (t.children || []).map(c => byId[c]).filter(Boolean)
+      .map(c => line(c, depth + 1)).join('');
+    return row + kids;
+  };
+  el.innerHTML = `<div class="meta">${g.observations} observation(s) → ${tasks.length} task(s)</div>` +
+    `<ul class="tasks">${roots.map(t => line(t, 0)).join('')}</ul>`;
+}
+
+function renderCaps(data) {
+  const el = document.getElementById('caps');
+  if (!data.length) { el.innerHTML = '<span class="empty">No capabilities loaded.</span>'; return; }
+  el.innerHTML = '<table><thead><tr><th>capability</th><th>verbs</th><th>kinds</th>' +
+    '<th>tier</th><th>risk</th></tr></thead><tbody>' +
+    data.map(c => `<tr><td><a href="/console" title="operate this capability">${esc(c.name)}</a></td>` +
+      `<td>${esc((c.verbs || []).join(', '))}</td>` +
+      `<td class="meta">${esc((c.kinds || []).join(', '))}</td>` +
+      `<td class="meta">${esc(c.tier)}</td>` +
+      `<td class="meta">${esc(c.risk)}</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/v1/workspace');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const link = document.getElementById('root-link');
+    link.href = '/search?q=' + encodeURIComponent(d.root || '');
+    link.textContent = d.root || '';
+    renderIntent(d.intents || []);
+    renderAgents(d.agents || []);
+    renderTasks(d.task_graph || { tasks: [] });
+    renderCaps(d.capabilities || []);
+  } catch (e) {
+    for (const id of ['intent', 'tasks', 'caps'])
+      document.getElementById(id).innerHTML = `<span class="err">${esc(e.message)}</span>`;
+    document.getElementById('agents').innerHTML = `<span class="err">${esc(e.message)}</span>`;
+  }
+}
+load();
+setInterval(load, 15000); // availability is a property of the environment, not a page load
+</script>
+<script src="/ui-shell.js"></script>
+</body>
+</html>

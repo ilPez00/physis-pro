@@ -188,6 +188,7 @@ function initCoach(storageKey) {
 // copies would drift apart on the first edit. Any page that loads this shell
 // gets the nav, including ones not written yet.
 const PRODUCT_PAGES = [
+  { href: '/impossible', label: 'Impossible', hint: 'the computer — intent, agents, tasks, capabilities' },
   { href: '/pulse',  label: 'Pulse',   hint: 'dashboard — coherence, communities, wiki tour' },
   { href: '/notebook', label: 'Notebook', hint: 'your dashboard — pick the panels, order them' },
   { href: '/document', label: 'Document', hint: 'adaptive document — edit a source, review linked changes' },

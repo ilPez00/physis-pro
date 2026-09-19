@@ -222,6 +222,120 @@ pub async fn pulse_ui_handler() -> Html<&'static str> {
     Html(include_str!("../bin/ui/pulse.html"))
 }
 
+/// GET /impossible — the workspace as a graphical, clickable surface: the
+/// intent and its provenance, the agent roster, the task graph, the action
+/// capabilities. Rendered from `/api/v1/workspace`, every row a hyperlink.
+pub async fn impossible_ui_handler() -> Html<&'static str> {
+    Html(include_str!("../bin/ui/impossible.html"))
+}
+
+/// GET /api/v1/workspace — the state the Impossible Computer page renders.
+///
+/// Read-only, and every value is a fact the page can link to. `?root=` selects
+/// the workspace; it defaults to the server's working directory. The task graph
+/// is folded from the observation log at read time, so the page cannot show a
+/// graph the log does not support.
+pub async fn workspace_handler(
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    use crate::agents::{self, tasks::TaskGraph};
+    use crate::capability::default_capabilities;
+    use crate::intent::IntentStore;
+
+    let root = params
+        .get("root")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        });
+
+    let store = IntentStore::load(&root);
+    let intents: Vec<serde_json::Value> = store
+        .intents
+        .values()
+        .map(|i| {
+            serde_json::json!({
+                "id": i.id,
+                "statement": i.statement,
+                "goal_id": i.goal_id,
+                "edits": i.history.len(),
+                "history": i.history.iter().map(|e| serde_json::json!({
+                    "at": e.at.to_rfc3339(),
+                    "by": e.by,
+                    "from": e.from,
+                    "to": e.to,
+                    "reason": e.reason,
+                })).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let roster = agents::default_roster();
+    let agent_rows: Vec<serde_json::Value> = roster
+        .agents
+        .iter()
+        .map(|a| {
+            let s = agents::status(a);
+            serde_json::json!({
+                "id": a.id,
+                "name": a.name,
+                "state": a.state.label(),
+                "transport": s.transport,
+                "available": s.available,
+                "reason": s.reason,
+                "capabilities": a.capabilities,
+            })
+        })
+        .collect();
+
+    let log = root.join(".physis").join("observations.jsonl");
+    let task_graph = match std::fs::read_to_string(&log) {
+        Ok(raw) => {
+            let obs: Vec<physis_core::observe::Observation> = raw
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .filter_map(|l| serde_json::from_str(l).ok())
+                .collect();
+            let g = TaskGraph::fold(&obs);
+            serde_json::json!({
+                "observations": obs.len(),
+                "tasks": g.tasks.values().map(|t| serde_json::json!({
+                    "id": t.id,
+                    "title": t.title,
+                    "state": format!("{:?}", t.state).to_lowercase(),
+                    "parent": t.parent,
+                    "children": t.children,
+                    "verified": t.verified(),
+                    "reported": t.reported,
+                    "expired_reason": t.expired_reason,
+                })).collect::<Vec<_>>(),
+            })
+        }
+        Err(_) => serde_json::json!({ "observations": 0, "tasks": [] }),
+    };
+
+    let capabilities: Vec<serde_json::Value> = default_capabilities()
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "name": c.name,
+                "verbs": c.verbs,
+                "kinds": c.object_kinds,
+                "risk": c.risk,
+                "tier": c.tier,
+            })
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "root": root.display().to_string(),
+        "intents": intents,
+        "agents": agent_rows,
+        "task_graph": task_graph,
+        "capabilities": capabilities,
+    }))
+}
+
 /// GET /dashboard — the unified read-only dashboard: health, stats, quality,
 /// communities, coherence snapshot, embedder, providers, static MCP tool list.
 pub async fn dashboard_ui_handler() -> Html<&'static str> {
