@@ -54,8 +54,24 @@ physis-pro agent ask "What does the routing ladder do?" --pack /tmp/pack.json
 walk, so a small N may miss relevant files; use a saved pack or `0` for full
 quality.
 
-Not in tonight's ship: S7–S12, and the HUD task-graph overlay (the CLI
-`agent tasks` folds and renders the graph; the TUI does not yet draw it).
+Not in tonight's ship: S8–S12, and the HUD task-graph overlay draws the graph
+as text in the reading pane rather than a graphical overlay.
+
+### The TUI surface, complete
+
+Every feature has a TUI command, and each renders the same string the CLI does:
+
+| command | shows |
+|---|---|
+| `intent` | the operator's statement and its provenance |
+| `agents` | the roster with live transport and availability |
+| `tasks` | the task graph folded from the observation log |
+| `action` | the object/action registry |
+| `settings` | the effective settings |
+| `graph` | the selected object's relations, each naming its file |
+| `@agent …` | a card, or a background call (`@all`, pipelines) |
+
+`physis-pro draw` renders all of these at once as text.
 
 ## 2.1 The full gate
 
@@ -83,6 +99,7 @@ regressions:
 | S4 | `022ac8a` | `src/agents/tasks.rs`: task graph folded from observations; legality table; acceptance gate; expire creates a child with parent + reason |
 | S5 | `9c126b5` | `src/agents/parse.rs`: the `@` grammar (quoted requests, pipelines, `@all`, `@agent@host`), wired into the HUD |
 | S6 | `889ca1c` | HUD task-graph overlay (`tasks`), `--snapshot=WxH` wide/narrow frames, agents as registry objects |
+| S7 | `fcbcf5d` | `src/intent.rs`: editable intent with provenance, persisted; `intent` CLI; `pack --intent` names it; TUI surfaces intent/agents/settings |
 | CLI | `0d6577f` | `physis-pro draw`: every surface as text, from the same renderers the HUD uses |
 | rework | `a1be100` | route key is the region, domain-first with optional mode (see §4) |
 
