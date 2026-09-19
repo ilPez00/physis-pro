@@ -2404,6 +2404,22 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                             m.is_available()
                                 .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                         }
+                        EmbedderKindConfig::BgeSmall => {
+                            // The distilled sibling of BGE-base (384-d, 33 M).
+                            // Present so the cascade is exhaustive; select it
+                            // with PHYSIS_EMBEDDER=bge-small to measure it
+                            // against BGE-base on the same corpus.
+                            let cfg = crate::config::OnnxConfig {
+                                enabled: true,
+                                model_dir: Some("models/bge-small-en-v1.5".to_string()),
+                                dim: 384,
+                                max_length: 512,
+                                pooling: crate::config::PoolingStrategy::Mean,
+                            };
+                            let b = OnnxEmbedder::with_config(&cfg);
+                            b.is_available()
+                                .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-small"))
+                        }
                         EmbedderKindConfig::BgeBase => make_bge(),
                         EmbedderKindConfig::BgeM3 => make_bge_m3(),
                         EmbedderKindConfig::SentenceTransformers => {

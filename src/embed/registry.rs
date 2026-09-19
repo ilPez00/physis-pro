@@ -62,6 +62,21 @@ impl EmbedderRegistry {
                         Self::fallback_onnx(onnx_cfg)
                     }
                 }
+                EmbedderKindConfig::BgeSmall => {
+                    let cfg = OnnxConfig {
+                        enabled: true,
+                        model_dir: Some("models/bge-small-en-v1.5".to_string()),
+                        dim: 384,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Mean,
+                    };
+                    let bge = OnnxEmbedder::with_config(&cfg);
+                    if bge.is_available() {
+                        (Box::new(bge) as Box<dyn VectorEmbed>, None, None)
+                    } else {
+                        Self::fallback_onnx(onnx_cfg)
+                    }
+                }
                 EmbedderKindConfig::BgeBase => {
                     let cfg = OnnxConfig {
                         enabled: true,

@@ -280,6 +280,13 @@ pub enum EmbedderKindConfig {
     Clip,
     #[serde(rename = "jina-v2")]
     JinaV2,
+    /// BGE-small-en-v1.5 (384-d text, 12 layers, 33 M params). The distilled
+    /// sibling of BGE-base: same tokenizer and pooling, roughly a third of the
+    /// parameters and several times faster on CPU. Selected to be *measured*
+    /// against BGE-base on pack wall-clock and hit@5 — see
+    /// `docs/plans/2026-09-19-small-encoders.md` (E1). Text-only.
+    #[serde(rename = "bge-small")]
+    BgeSmall,
     /// BGE-base-en-v1.5 (768-d text). Strong, ONNX-friendly fallback that loads
     /// cleanly under the current `ort` when Jina's quant won't. Text-only.
     #[serde(rename = "bge-base")]

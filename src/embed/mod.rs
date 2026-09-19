@@ -355,6 +355,33 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
         }
     }
 
+    // Explicit model choice for the E1 measurement: `PHYSIS_EMBEDDER=bge-small`
+    // selects the distilled encoder ahead of the cascade, so the same corpus can
+    // be packed by both encoders and compared on wall-clock and hit@5 (see
+    // docs/plans/2026-09-19-small-encoders.md). Self-test gated like every other
+    // candidate: a model that loads but emits non-semantic vectors is refused
+    // rather than silently used.
+    if std::env::var("PHYSIS_EMBEDDER").ok().as_deref() == Some("bge-small") {
+        #[cfg(feature = "embed-onnx")]
+        {
+            let cfg = crate::config::OnnxConfig {
+                enabled: true,
+                model_dir: Some(model_dir(config, "bge-small-en-v1.5")),
+                dim: 384,
+                max_length: 512,
+                pooling: crate::config::PoolingStrategy::Mean,
+            };
+            let b = OnnxEmbedder::with_config(&cfg);
+            if b.is_available() && super::embed::semantic_self_test(&b) {
+                return (Box::new(b), "bge-small");
+            }
+            eprintln!(
+                "physis: PHYSIS_EMBEDDER=bge-small requested but the model is absent or \
+                 fails the semantic self-test; falling through to the cascade"
+            );
+        }
+    }
+
     // Ollama embedding backend (default `nomic-embed-text:latest` on
     // localhost:11434): 137M params, ~274 MB, CPU-friendly, dim 768. Tried
     // before the ONNX legs because the weights are usually absent while the
@@ -412,6 +439,18 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
                     let m = OnnxEmbedder::with_config(&config.onnx);
                     m.is_available()
                         .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                }
+                EmbedderKindConfig::BgeSmall => {
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some(model_dir(config, "bge-small-en-v1.5")),
+                        dim: 384,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Mean,
+                    };
+                    let b = OnnxEmbedder::with_config(&cfg);
+                    b.is_available()
+                        .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-small"))
                 }
                 EmbedderKindConfig::BgeBase => {
                     let cfg = crate::config::OnnxConfig {

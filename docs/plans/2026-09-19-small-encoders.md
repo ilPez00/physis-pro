@@ -33,6 +33,28 @@ what an encoder that is too large for CPU costs.
 candidates. The trade is explicit: 3–5× fewer parameters, roughly 5–10× faster
 on CPU, at some cost in retrieval quality.
 
+**Measured 2026-09-20 (first run).** `bge-small-en-v1.5` was fetched and wired
+as a selectable embedder (`PHYSIS_EMBEDDER=bge-small`, self-test gated like every
+other candidate). Same corpus, same bounded pack (60 files, 661/685 chunks), on
+pansa, CPU-only:
+
+| encoder | dim | cold chunks | wall-clock | **s per cold chunk** |
+|---|---|---|---|---|
+| bge-small-en-v1.5 (33 M) | 384 | 661 | 124.8 s | **0.189** |
+| bge-base-en-v1.5 (110 M) | 768 | 364 (warm cache) | 114.9 s | **0.316** |
+
+**1.67× faster per cold chunk**, on the axis that matters when the cache is
+cold. Two honest caveats: the bge-base run had 321 cache hits so its wall-clock
+is not comparable (hence the per-chunk figure), and *both* remain minutes for a
+60-file pack because the ONNX runtime is CPU-bound at ~520% CPU. **The encoder
+swap helps; it does not solve the cold-pack problem** — the bound (`--max-files`)
+and the saved pack remain the real fix, and this measurement does not change
+that.
+
+Still missing for E1's full verdict: `hit@5` on the same corpus with both
+encoders (`benchmarks/retrieval/`). A faster encoder that retrieves worse is not
+an improvement, and the number is not in yet.
+
 **How to judge it, not argue it:** the pack has a timing harness and the
 retrieval layer has `hit@5` (currently 0.57 semantic vs 0.14 lexical,
 `benchmarks/retrieval/`). Run both encoders over the same corpus: pack wall-clock
