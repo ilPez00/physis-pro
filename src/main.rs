@@ -50,6 +50,9 @@ pub enum AgentCommand {
         /// tree can otherwise run for minutes; 0 means no bound.
         #[arg(long, default_value_t = 150)]
         max_files: usize,
+        /// Ground on a saved pack (`pack --save <file>`) instead of packing now
+        #[arg(long)]
+        pack: Option<PathBuf>,
     },
     /// Route a request: `agent route <verb> <object-kind> [--agent ID] [--domain D] [--mode M]`
     Route {
@@ -62,6 +65,17 @@ pub enum AgentCommand {
         #[arg(long)]
         mode: Option<String>,
     },
+}
+
+/// Editable settings: command syntax and provider/model configuration.
+#[derive(Subcommand)]
+pub enum SettingsCommand {
+    /// Show the effective settings (shipped defaults layered with yours)
+    Show,
+    /// Print the path of your settings file
+    Path,
+    /// Set a key, e.g. `settings set providers.jev.model oczen/mimo-v2.5-free`
+    Set { key: String, value: String },
 }
 
 #[derive(Parser)]
@@ -100,6 +114,11 @@ pub enum Commands {
     Agent {
         #[command(subcommand)]
         command: AgentCommand,
+    },
+    /// Editable settings: command syntax, providers, models and key env names
+    Settings {
+        #[command(subcommand)]
+        command: SettingsCommand,
     },
     /// Generate stochastic dreams
     Dream {
@@ -163,6 +182,14 @@ pub enum Commands {
         /// Print the assembled context after the summary
         #[arg(long)]
         show_context: bool,
+        /// Write the pack to a JSON file for reuse: `agent ask --pack <file>`
+        /// grounds on it without re-embedding the tree.
+        #[arg(long)]
+        save: Option<PathBuf>,
+        /// Cap the files walked. A cold embedding cache over a large tree can
+        /// run for minutes; 0 means no bound.
+        #[arg(long, default_value_t = 0)]
+        max_files: usize,
     },
     /// Pre-compute the embeddings the engine needs at startup, so the first
     /// real run is fast. Intended to be run once by the installer: without it
@@ -1132,6 +1159,8 @@ fn main() -> anyhow::Result<()> {
         top_k,
         diversity,
         show_context,
+        save,
+        max_files,
     } = &cli.command
     {
         let config = PhysisProConfig::default();
@@ -1142,7 +1171,12 @@ fn main() -> anyhow::Result<()> {
         // Cache persists across runs: the first pack of a tree pays for the
         // whole corpus, later packs pay only for what changed.
         let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
-        let result = physis_pro::pack::pack_cached(
+        let limit = if *max_files == 0 {
+            None
+        } else {
+            Some(*max_files)
+        };
+        let result = physis_pro::pack::pack_cached_limited(
             &root,
             query,
             *budget,
@@ -1151,6 +1185,7 @@ fn main() -> anyhow::Result<()> {
             embedder.as_ref(),
             kind,
             &mut cache,
+            limit,
         );
         cache.save(&config.physis.data_dir);
         let (hits, misses) = cache.stats();
@@ -1158,6 +1193,18 @@ fn main() -> anyhow::Result<()> {
         print!("{}", physis_pro::pack::summarize(&result));
         if *show_context {
             println!("\n--- context ---\n{}", result.context);
+        }
+        // Pre-pack: persist the assembled context and its provenance so a
+        // later `agent ask --pack <file>` is grounded without re-embedding.
+        if let Some(path) = save {
+            let text = serde_json::to_string_pretty(&result)?;
+            std::fs::write(path, text)?;
+            eprintln!(
+                "[physis] pack saved to {} ({} tokens, {} chunks)",
+                path.display(),
+                result.tokens,
+                result.chunks.len()
+            );
         }
         return Ok(());
     }
@@ -1432,6 +1479,10 @@ fn main() -> anyhow::Result<()> {
         return cmd_agent(command);
     }
 
+    if let Commands::Settings { command } = &cli.command {
+        return cmd_settings(command);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1445,6 +1496,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Action { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Agent { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Settings { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2422,6 +2474,29 @@ print(json.dumps({{
     Ok(())
 }
 
+fn cmd_settings(command: &SettingsCommand) -> anyhow::Result<()> {
+    use physis_pro::settings::Settings;
+    match command {
+        SettingsCommand::Show => print!("{}", Settings::load().render()),
+        SettingsCommand::Path => println!("{}", Settings::user_path().display()),
+        SettingsCommand::Set { key, value } => {
+            let path = Settings::user_path();
+            // Start from the user's own file so a `set` never drops the rest of
+            // their overrides. The shipped defaults are layered on load, so the
+            // user file holds only what was explicitly set.
+            let mut s = match std::fs::read_to_string(&path) {
+                Ok(text) => Settings::parse(&text).map_err(|e| anyhow::anyhow!(e))?,
+                Err(_) => Settings::default(),
+            };
+            s.set(key, value).map_err(|e| anyhow::anyhow!(e))?;
+            s.save(&path).map_err(|e| anyhow::anyhow!(e))?;
+            println!("set {key} = {value}");
+            println!("written to {}", path.display());
+        }
+    }
+    Ok(())
+}
+
 fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
     use physis_pro::agents::{self, adapter, routing};
     let roster = agents::default_roster();
@@ -2462,46 +2537,62 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
             question,
             budget,
             max_files,
+            pack,
         } => {
-            // Ground the question in the workspace: pack the most relevant
-            // source first, so the agent answers from evidence instead of
-            // exploring the tree on its own (measured: a bare `opencode run`
+            // Ground the question in the workspace: either a pack saved earlier
+            // (fast — no embedding) or one assembled now. Packing the most
+            // relevant source first lets the agent answer from evidence instead
+            // of exploring the tree on its own (measured: a bare `opencode run`
             // turn is ~43 s; a repo-exploring question ran past three minutes).
-            // The file bound keeps a cold cache from running for minutes.
-            let config = PhysisProConfig::default();
-            let root = std::env::current_dir()?;
-            let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
-            eprintln!("[physis] jev ask embedder: {kind}");
-            let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
-            let limit = if *max_files == 0 {
-                None
+            let context = if let Some(path) = pack {
+                let text = std::fs::read_to_string(path)
+                    .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+                let saved: physis_pro::pack::PackResult = serde_json::from_str(&text)
+                    .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+                eprintln!(
+                    "[physis] loaded saved pack {} ({} tokens, {} chunks)",
+                    path.display(),
+                    saved.tokens,
+                    saved.chunks.len()
+                );
+                saved.context
             } else {
-                Some(*max_files)
+                // The file bound keeps a cold cache from running for minutes.
+                let config = PhysisProConfig::default();
+                let root = std::env::current_dir()?;
+                let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
+                eprintln!("[physis] jev ask embedder: {kind}");
+                let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+                let limit = if *max_files == 0 {
+                    None
+                } else {
+                    Some(*max_files)
+                };
+                let packed = physis_pro::pack::pack_cached_limited(
+                    &root,
+                    question,
+                    *budget,
+                    12,
+                    0.3,
+                    embedder.as_ref(),
+                    kind,
+                    &mut cache,
+                    limit,
+                );
+                cache.save(&config.physis.data_dir);
+                eprintln!(
+                    "[physis] packed {} tokens from {} chunks ({} files scanned, limit {:?})",
+                    packed.tokens,
+                    packed.chunks.len(),
+                    packed.files_scanned,
+                    limit
+                );
+                packed.context
             };
-            let packed = physis_pro::pack::pack_cached_limited(
-                &root,
-                question,
-                *budget,
-                12,
-                0.3,
-                embedder.as_ref(),
-                kind,
-                &mut cache,
-                limit,
-            );
-            cache.save(&config.physis.data_dir);
-            eprintln!(
-                "[physis] packed {} tokens from {} chunks ({} files scanned, limit {:?})",
-                packed.tokens,
-                packed.chunks.len(),
-                packed.files_scanned,
-                limit
-            );
 
             let prompt = format!(
                 "Answer using only the workspace context below. Cite paths as path:line.\n\n\
-                 --- context ---\n{}\n--- end context ---\n\nQuestion: {question}",
-                packed.context
+                 --- context ---\n{context}\n--- end context ---\n\nQuestion: {question}"
             );
             let agent = roster
                 .get("jev")

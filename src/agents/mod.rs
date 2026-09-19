@@ -167,6 +167,30 @@ pub(crate) fn zen_model() -> String {
         .unwrap_or_else(|| "oczen/nemotron-3.5-lightning-free".to_string())
 }
 
+/// The model an agent should use, most specific first: an environment override
+/// (used by tests), then the user's editable settings, then the roster entry,
+/// then the built-in default.
+pub(crate) fn resolved_model(agent: &Agent) -> String {
+    let settings = crate::settings::Settings::load();
+    std::env::var("PHYSIS_JEV_ZEN_MODEL")
+        .ok()
+        .filter(|m| !m.is_empty())
+        .or_else(|| settings.provider(&agent.id).and_then(|p| p.model.clone()))
+        .or_else(|| agent.model.clone())
+        .unwrap_or_else(zen_model)
+}
+
+/// The program an agent's adapter should spawn, same precedence as
+/// [`resolved_model`].
+pub(crate) fn resolved_bin(agent: &Agent, env_key: &str, default: &str) -> String {
+    let settings = crate::settings::Settings::load();
+    std::env::var(env_key)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| settings.provider(&agent.id).and_then(|p| p.bin.clone()))
+        .unwrap_or_else(|| default.to_string())
+}
+
 /// Probe what is actually reachable for this agent. Pure with respect to the
 /// process environment: no side effects, no mutation.
 pub fn status(agent: &Agent) -> Status {
@@ -175,14 +199,11 @@ pub fn status(agent: &Agent) -> Status {
             // The reachable path is OpenCode Zen. A direct JEV key is configured
             // but this build has no direct transport, so the key alone is not
             // reported as a working transport.
-            let program = std::env::var("PHYSIS_OPENCODE_BIN")
-                .ok()
-                .filter(|p| !p.is_empty())
-                .unwrap_or_else(|| "opencode".to_string());
+            let program = resolved_bin(agent, "PHYSIS_OPENCODE_BIN", "opencode");
             if on_path(&program) {
                 Status {
                     available: true,
-                    transport: format!("zen:{}", zen_model()),
+                    transport: format!("zen:{}", resolved_model(agent)),
                     reason: None,
                 }
             } else {

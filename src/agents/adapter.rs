@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use super::{on_path, zen_model, Agent, AgentKind, Status};
+use super::{on_path, resolved_bin, resolved_model, Agent, AgentKind, Status};
 
 /// What went wrong, stated rather than flattened into an empty string.
 #[derive(Debug, Clone, PartialEq)]
@@ -385,13 +385,6 @@ fn run_with_timeout(
     }
 }
 
-fn env_or(key: &str, default: &str) -> String {
-    std::env::var(key)
-        .ok()
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| default.to_string())
-}
-
 /// Keep the prompt as data, not as another option. The prompt is already a
 /// single argv element (no shell is involved), so shell metacharacters are
 /// inert; what remains is a prompt that the program would read as a flag, or a
@@ -449,15 +442,15 @@ pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError>
         )),
         AgentKind::Hermes => Ok(Box::new(CliAdapter::new(
             &agent.id,
-            env_or("PHYSIS_HERMES_BIN", "hermes"),
+            resolved_bin(agent, "PHYSIS_HERMES_BIN", "hermes"),
             vec!["-z".to_string(), "{prompt}".to_string()],
             false,
         ))),
         AgentKind::Opencode => {
-            let model = agent.model.clone().unwrap_or_else(zen_model);
+            let model = resolved_model(agent);
             Ok(Box::new(CliAdapter::new(
                 &agent.id,
-                env_or("PHYSIS_OPENCODE_BIN", "opencode"),
+                resolved_bin(agent, "PHYSIS_OPENCODE_BIN", "opencode"),
                 zen_args(&model, false),
                 false,
             )))
@@ -465,7 +458,7 @@ pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError>
         AgentKind::Jev => {
             // JEV has no direct transport in this build. The reachable path is
             // OpenCode Zen, and it must not be reported as JEV-the-service.
-            let program = env_or("PHYSIS_OPENCODE_BIN", "opencode");
+            let program = resolved_bin(agent, "PHYSIS_OPENCODE_BIN", "opencode");
             if !on_path(&program) {
                 return Err(AdapterError::Unsupported(
                     "no JEV transport: set PHYSIS_OPENCODE_BIN/opencode for the Zen path; \
@@ -473,7 +466,7 @@ pub fn adapter_for(agent: &Agent) -> Result<Box<dyn AgentAdapter>, AdapterError>
                         .to_string(),
                 ));
             }
-            let model = agent.model.clone().unwrap_or_else(zen_model);
+            let model = resolved_model(agent);
             Ok(Box::new(CliAdapter::new(
                 &agent.id,
                 program,

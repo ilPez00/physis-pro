@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "commands": {
+    "query": { "aliases": ["q", "search", "find"] },
+    "graph": { "aliases": ["g"] },
+    "history": { "aliases": ["h"] },
+    "bench": { "aliases": ["b"] },
+    "context": { "aliases": ["ctx"] },
+    "dependencies": { "aliases": ["deps", "d"] },
+    "contradictions": { "aliases": ["contra"] },
+    "rescan": { "aliases": ["update", "refresh"] },
+    "notebook": { "aliases": ["nb"] },
+    "related": { "aliases": ["rel"] },
+    "zoom": { "aliases": ["z"] },
+    "edges": { "aliases": ["t"] },
+    "why": { "aliases": [] },
+    "delta": { "aliases": [] },
+    "trail": { "aliases": [] },
+    "pins": { "aliases": [] },
+    "unpin": { "aliases": [] },
+    "pin": { "aliases": [] },
+    "focus": { "aliases": [] },
+    "clear": { "aliases": [] },
+    "help": { "aliases": ["?"] },
+    "action": { "aliases": [] },
+    "agent": { "aliases": ["a"] },
+    "ask": { "aliases": ["question"], "agent": "jev" },
+    "open": { "aliases": [] },
+    "edit": { "aliases": ["e"] },
+    "cd": { "aliases": [] },
+    "sem": { "aliases": [] },
+    "shell": { "aliases": ["sh", "$"] }
+  },
+  "providers": {
+    "jev": {
+      "model": "oczen/nemotron-3.5-lightning-free",
+      "bin": "opencode",
+      "transport": "zen",
+      "key_env": "JEV_API_KEY"
+    },
+    "hermes": { "bin": "hermes", "transport": "cli" },
+    "opencode": {
+      "model": "oczen/nemotron-3.5-lightning-free",
+      "bin": "opencode",
+      "transport": "cli"
+    },
+    "verifier": { "transport": "local" },
+    "local": { "transport": "local" }
+  }
+}

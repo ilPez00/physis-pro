@@ -143,8 +143,19 @@ fn collect_candidates_limited(root: &Path, max_files: Option<usize>) -> (Vec<Can
     let mut files_scanned = 0usize;
 
     let walker = WalkDir::new(root).into_iter().filter_entry(|e| {
+        // Never skip the root itself: a temp dir is `.tmpXXXX`, and skipping
+        // dot-roots would empty the walk.
+        if e.path() == root || !e.file_type().is_dir() {
+            return true;
+        }
         let name = e.file_name().to_string_lossy();
-        !(e.file_type().is_dir() && SKIP_DIRS.contains(&name.as_ref()))
+        // Skip dot-dirs (.git, .physis, .venv, .cache …) and any build tree.
+        // Measured 2026-09-19: without the `target` prefix rule a pack over this
+        // repo returned `target-trixie/release/deps/*.d` and `CACHEDIR.TAG` as
+        // its top hits — build artifacts crowding out the source.
+        !(name.starts_with('.')
+            || name.starts_with("target")
+            || SKIP_DIRS.contains(&name.as_ref()))
     });
 
     for entry in walker.filter_map(Result::ok) {
