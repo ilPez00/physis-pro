@@ -51,3 +51,6 @@ benchmarks/behaviour/sessions.json
 # jobs/ holds per-run scratch. Neither is source.
 .claude/worktrees/
 .claude/jobs/
+
+# Runtime capability cache
+.physis-capabilities
