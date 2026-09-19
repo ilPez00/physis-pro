@@ -81,6 +81,8 @@ regressions:
 | S2 | `d754b1a`→`0ce16ae` | `src/agents/adapter.rs`: `AgentAdapter`, `JevResult` schema, `LocalAdapter`, `CliAdapter`, fixture-process tests |
 | S3 | `d754b1a`→`0ce16ae` | `src/agents/routing.rs`: cost ladder, policy enforcement, explicit override, no silent substitution |
 | S4 | `022ac8a` | `src/agents/tasks.rs`: task graph folded from observations; legality table; acceptance gate; expire creates a child with parent + reason |
+| S5 | `9c126b5` | `src/agents/parse.rs`: the `@` grammar (quoted requests, pipelines, `@all`, `@agent@host`), wired into the HUD |
+| CLI | `0d6577f` | `physis-pro draw`: every surface as text, from the same renderers the HUD uses |
 | rework | `a1be100` | route key is the region, domain-first with optional mode (see §4) |
 
 Submodule `physis-core` at `c3ddb8e` (product modules retired, boundary docs,
