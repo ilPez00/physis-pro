@@ -878,6 +878,74 @@ impl PhysisApp {
             lines.push("memory[hermes]: not found, skipped".to_string());
         }
 
+        // Hermes plans: markdown project plans, vault-style (one doc per file).
+        let plans = home.join(".hermes/plans");
+        if plans.is_dir() {
+            let docs = crate::vault::scan_vault(&plans);
+            lines.push(self.register_docs(&docs, "plans[hermes]"));
+        } else {
+            lines.push("plans[hermes]: not found, skipped".to_string());
+        }
+
+        #[cfg(feature = "sql")]
+        {
+            // Opencode sessions: newest first, bounded (32k messages total —
+            // cap sessions and let the turn cap bound the rest).
+            let ocdb = home.join(".local/share/opencode/opencode.db");
+            if ocdb.is_file() {
+                let mut n_docs = 0;
+                let mut n_sess = 0;
+                for (id, turns) in crate::history::read_opencode_turns(&ocdb, max_sessions) {
+                    let docs = crate::history::agent_turn_docs("opencode", &id, &turns);
+                    n_docs += docs.len();
+                    n_sess += 1;
+                    lines.push(self.register_docs(&docs, &format!("opencode[{id}]")));
+                }
+                if n_sess == 0 {
+                    lines.push("opencode: store present, no turns found".to_string());
+                } else {
+                    lines.push(format!("opencode: {n_sess} sessions → {n_docs} turn docs (see lines above)"));
+                }
+            } else {
+                lines.push("opencode: no store, skipped".to_string());
+            }
+
+            // Codex threads: newest first, bounded.
+            let cxdb = home.join(".codex/thread_history_1.sqlite");
+            if cxdb.is_file() {
+                let mut n_docs = 0;
+                let mut n_threads = 0;
+                for (id, turns) in crate::history::read_codex_turns(&cxdb, max_sessions) {
+                    let docs = crate::history::agent_turn_docs("codex", &id, &turns);
+                    n_docs += docs.len();
+                    n_threads += 1;
+                    let short = id.chars().take(8).collect::<String>();
+                    lines.push(self.register_docs(&docs, &format!("codex[{short}]")));
+                }
+                if n_threads == 0 {
+                    lines.push("codex: store present, no turns found".to_string());
+                } else {
+                    lines.push(format!("codex: {n_threads} threads → {n_docs} turn docs (see lines above)"));
+                }
+            } else {
+                lines.push("codex: no store, skipped".to_string());
+            }
+
+            // Mesh memory: the gossiped fleet store (traps/decisions/runbooks/
+            // facts from every machine). This is the fleet-view pull.
+            let memdb = home.join(".local/state/randomesh/memory/mem.db");
+            if memdb.is_file() {
+                let docs = crate::history::read_memories(&memdb);
+                lines.push(self.register_docs(&docs, "mesh[memory]"));
+            } else {
+                lines.push("mesh[memory]: no store, skipped".to_string());
+            }
+        }
+        #[cfg(not(feature = "sql"))]
+        {
+            lines.push("opencode/codex/mesh: skipped (sql feature off)".to_string());
+        }
+
         Ok(lines.join("\n"))
     }
 

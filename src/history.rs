@@ -229,7 +229,7 @@ pub fn parse_messages_jsonl(input: &str) -> Vec<VaultDoc> {
             .get("from")
             .or_else(|| v.get("sender"))
             .and_then(|x| x.as_str());
-        let title = if text.len() > 60 { &text[..60] } else { text };
+        let title = truncate_bytes(text, 60);
         let mut body = text.to_string();
         if let Some(s) = sender {
             body.insert_str(0, &format!("{s}: "));
@@ -310,7 +310,7 @@ pub fn parse_shell_history(input: &str) -> Vec<VaultDoc> {
         .take(CAP)
         .map(|cmd| {
             let n = counts.get(&cmd).copied().unwrap_or(1);
-            let title = if cmd.len() > 80 { cmd[..80].to_string() } else { cmd.clone() };
+            let title = truncate_bytes(&cmd, 80).to_string();
             let body = if n > 1 {
                 format!("shell: {cmd} (ran {n}×)")
             } else {
@@ -379,15 +379,11 @@ pub fn parse_claude_session(input: &str) -> Vec<VaultDoc> {
             continue;
         }
         let body = if text.len() > BODY_CAP {
-            format!("{}…", &text[..BODY_CAP])
+            format!("{}…", truncate_bytes(text, BODY_CAP))
         } else {
             text.to_string()
         };
-        let title = if text.len() > 80 {
-            text[..80].to_string()
-        } else {
-            text.to_string()
-        };
+        let title = truncate_bytes(text, 80).to_string();
         docs.push(VaultDoc {
             source: format!("session msg {idx}"),
             title: format!("[{kind}] {title}"),
@@ -424,6 +420,256 @@ fn message_text(v: &serde_json::Value) -> String {
                 .join("\n")
         })
         .unwrap_or_default()
+}
+
+/// Truncate to `max` bytes without splitting a UTF-8 char.
+fn truncate_bytes(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+/// Shared sink for pre-extracted agent turns (opencode/codex rows): one doc
+/// per turn with a `[agent/role]` title tag. Short stubs (<20 chars) and
+/// empties are dropped; caps at 500 docs per session.
+pub fn agent_turn_docs(agent: &str, session: &str, rows: &[(String, String)]) -> Vec<VaultDoc> {
+    const CAP: usize = 500;
+    const BODY_CAP: usize = 4000;
+    let mut docs = Vec::new();
+    for (idx, (role, text)) in rows.iter().enumerate() {
+        if docs.len() >= CAP {
+            break;
+        }
+        let text = text.trim();
+        if text.len() < 20 {
+            continue;
+        }
+        let body = if text.len() > BODY_CAP {
+            format!("{}…", truncate_bytes(text, BODY_CAP))
+        } else {
+            text.to_string()
+        };
+        let short = truncate_bytes(text, 80).to_string();
+        docs.push(VaultDoc {
+            source: format!("{agent} {session} turn {idx}"),
+            title: format!("[{agent}/{role}] {short}"),
+            body,
+            headings: vec![],
+        });
+    }
+    docs
+}
+
+/// Read opencode turns from its SQLite store: newest `max_sessions` sessions
+/// by update time, each as `(session_id, [(role, text)])` in time order.
+/// Only `text` parts are kept (step markers, tool calls, reasoning parts
+/// skipped); texts under 20 chars are dropped by [`agent_turn_docs`].
+/// Read-only open; returns empty when the store is missing/unreadable.
+#[cfg(feature = "sql")]
+pub fn read_opencode_turns(db: &Path, max_sessions: usize) -> Vec<(String, Vec<(String, String)>)> {
+    let conn = match rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    ) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let ids: Vec<String> = conn
+        .prepare("SELECT id FROM session ORDER BY time_updated DESC LIMIT ?1")
+        .and_then(|mut q| {
+            q.query_map([max_sessions as i64], |r| r.get(0))
+                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<String>>>())
+        })
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for id in ids {
+        let rows: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT m.data, p.data FROM part p \
+                 JOIN message m ON m.id = p.message_id \
+                 WHERE p.session_id = ?1 ORDER BY p.time_created, p.id",
+            )
+            .and_then(|mut q| {
+                q.query_map([id.as_str()], |r| {
+                    let msg: String = r.get(0)?;
+                    let part: String = r.get(1)?;
+                    Ok((msg, part))
+                })
+                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<(String, String)>>>())
+            })
+            .unwrap_or_default();
+        let mut turns = Vec::new();
+        for (msg, part) in &rows {
+            let role = serde_json::from_str::<serde_json::Value>(msg)
+                .ok()
+                .and_then(|v| v.get("role").and_then(|r| r.as_str()).map(str::to_string))
+                .unwrap_or_else(|| "unknown".to_string());
+            let text = serde_json::from_str::<serde_json::Value>(part)
+                .ok()
+                .filter(|v| v.get("type").and_then(|t| t.as_str()) == Some("text"))
+                .and_then(|v| v.get("text").and_then(|t| t.as_str()).map(str::to_string));
+            if let Some(t) = text {
+                turns.push((role, t));
+            }
+        }
+        if !turns.is_empty() {
+            out.push((id, turns));
+        }
+    }
+    out
+}
+
+/// Read codex threads from its SQLite store: newest `max_threads` threads by
+/// last item time, each as `(thread_id, [(role, text)])` in rollout order.
+/// `userMessage` text and `agentMessage` text kept; command executions
+/// skipped (shell history already covers commands).
+/// Read-only open; returns empty when the store is missing/unreadable.
+#[cfg(feature = "sql")]
+pub fn read_codex_turns(db: &Path, max_threads: usize) -> Vec<(String, Vec<(String, String)>)> {
+    let conn = match rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    ) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let ids: Vec<String> = conn
+        .prepare(
+            "SELECT thread_id FROM thread_items \
+             GROUP BY thread_id ORDER BY MAX(created_at_ms) DESC LIMIT ?1",
+        )
+        .and_then(|mut q| {
+            q.query_map([max_threads as i64], |r| r.get(0))
+                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<String>>>())
+        })
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    for id in ids {
+        let rows: Vec<(String, String)> = conn
+            .prepare(
+                "SELECT item_type, item_json FROM thread_items \
+                 WHERE thread_id = ?1 ORDER BY rollout_ordinal",
+            )
+            .and_then(|mut q| {
+                q.query_map([id.as_str()], |r| {
+                    let t: String = r.get(0)?;
+                    let j: String = r.get(1)?;
+                    Ok((t, j))
+                })
+                .and_then(|rows| rows.collect::<rusqlite::Result<Vec<(String, String)>>>())
+            })
+            .unwrap_or_default();
+        let mut turns = Vec::new();
+        for (item_type, item_json) in &rows {
+            let v: serde_json::Value = match serde_json::from_str(item_json) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            match item_type.as_str() {
+                "userMessage" => {
+                    let text = v
+                        .get("content")
+                        .and_then(|c| c.as_array())
+                        .map(|blocks| {
+                            blocks
+                                .iter()
+                                .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
+                                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        })
+                        .unwrap_or_default();
+                    if !text.is_empty() {
+                        turns.push(("user".to_string(), text));
+                    }
+                }
+                "agentMessage" => {
+                    if let Some(t) = v.get("text").and_then(|t| t.as_str()) {
+                        turns.push(("assistant".to_string(), t.to_string()));
+                    }
+                }
+                _ => continue,
+            }
+        }
+        if !turns.is_empty() {
+            out.push((id, turns));
+        }
+    }
+    out
+}
+
+/// Read the mesh memory store (memd sqlite, gossiped across the fleet) as
+/// docs: every live row, kind + host folded into the title tag
+/// (`[mem/trap@omo]`), body carries the date + text. This is the fleet-view
+/// pull — traps, decisions, runbooks and facts other machines recorded land
+/// in the local store. Skips deleted rows; caps at 2000. Read-only open;
+/// returns empty when the store is missing/unreadable.
+#[cfg(feature = "sql")]
+pub fn read_memories(db: &Path) -> Vec<VaultDoc> {
+    const CAP: usize = 2000;
+    let conn = match rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    ) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let rows: Vec<(String, String, String, String, f64)> = conn
+        .prepare("SELECT kind, host, title, body, ts FROM mem WHERE deleted = 0 ORDER BY ts DESC LIMIT ?1")
+        .and_then(|mut q| {
+            q.query_map([CAP as i64], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .and_then(|rows| rows.collect::<rusqlite::Result<Vec<(String, String, String, String, f64)>>>())
+        })
+        .unwrap_or_default();
+    rows.into_iter()
+        .map(|(kind, host, title, body, ts)| {
+            let date = chrono_date(ts);
+            VaultDoc {
+                source: format!("mesh {kind}@{host}"),
+                title: format!("[mem/{kind}@{host}] {title}"),
+                body: format!("{date} {host}: {body}"),
+                headings: vec![],
+            }
+        })
+        .collect()
+}
+
+/// Unix seconds → `YYYY-MM-DD`, best-effort without a date dependency.
+#[cfg(feature = "sql")]
+fn chrono_date(ts: f64) -> String {
+    const DAYS: &[u32] = &[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut days = (ts / 86400.0) as i64;
+    let mut year = 1970i64;
+    loop {
+        let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+        let yd = if leap { 366 } else { 365 };
+        if days < yd {
+            break;
+        }
+        days -= yd;
+        year += 1;
+    }
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let mut month = 1u32;
+    for (i, d) in DAYS.iter().enumerate() {
+        let mut dim = *d as i64;
+        if i == 1 && leap {
+            dim = 29;
+        }
+        if days < dim {
+            break;
+        }
+        days -= dim;
+        month += 1;
+    }
+    format!("{year:04}-{:02}-{:02}", month, days + 1)
 }
 
 /// Read a file and reduce it through the importer matching its name/extension.
@@ -566,5 +812,87 @@ mod tests {
         assert!(importer_for(Path::new("03273da0-92f8-4a92-ad22-47c70d2c9243.jsonl")).is_some());
         // Generic jsonl still goes to the message parser.
         assert!(importer_for(Path::new("chat.jsonl")).is_some());
+    }
+
+    #[test]
+    fn test_agent_turn_docs_tags_and_skips_stubs() {        let rows = vec![
+            ("user".to_string(), "how do I tune the spindle PID loop".to_string()),
+            ("assistant".to_string(), "ok".to_string()),
+            ("assistant".to_string(), "Set P first, then I, then D with small steps".to_string()),
+        ];
+        let docs = agent_turn_docs("opencode", "ses1", &rows);
+        assert_eq!(docs.len(), 2);
+        assert!(docs[0].title.starts_with("[opencode/user]"), "{}", docs[0].title);
+        assert!(docs[1].title.starts_with("[opencode/assistant]"), "{}", docs[1].title);
+        assert!(docs[0].source.contains("ses1 turn 0"));
+    }
+
+    #[test]
+    fn test_truncate_never_splits_utf8() {
+        // 70 ASCII + em-dashes straddling byte 80: must not panic.
+        let text = format!("{}—pad—{}", "x".repeat(70), "y".repeat(40));
+        let rows = vec![("user".to_string(), text)];
+        let docs = agent_turn_docs("t", "s", &rows);
+        assert_eq!(docs.len(), 1);
+        assert!(docs[0].title.is_char_boundary(docs[0].title.len()));
+        let shell = format!("{}—{}", "z".repeat(100), "w".repeat(10));
+        let sdocs = parse_shell_history(&shell);
+        assert_eq!(sdocs.len(), 1);
+    }
+
+    #[test]
+    fn test_chrono_date_known_days() {
+        assert_eq!(chrono_date(0.0), "1970-01-01");
+        assert_eq!(chrono_date(1787616000.0), "2026-08-25");
+        assert_eq!(chrono_date(1767225600.0), "2026-01-01");
+    }
+
+    #[cfg(feature = "sql")]
+    fn fixture_db(dir: &std::path::Path, name: &str, schema: &str) -> std::path::PathBuf {
+        let p = dir.join(name);
+        let conn = rusqlite::Connection::open(&p).unwrap();
+        conn.execute_batch(schema).unwrap();
+        p
+    }
+
+    #[test]
+    #[cfg(feature = "sql")]
+    fn test_read_opencode_turns_newest_first_text_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = fixture_db(
+            dir.path(),
+            "opencode.db",
+            "CREATE TABLE session (id TEXT PRIMARY KEY, time_updated INTEGER NOT NULL);
+             CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+             CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT NOT NULL, session_id TEXT NOT NULL, time_created INTEGER NOT NULL, time_updated INTEGER NOT NULL, data TEXT NOT NULL);
+             INSERT INTO session VALUES ('old', 1), ('new', 2);
+             INSERT INTO message VALUES ('m1', 'new', 1, 1, '{\"role\":\"user\"}');
+             INSERT INTO part VALUES ('p1', 'm1', 'new', 1, 1, '{\"type\":\"text\",\"text\":\"tune the spindle PID loop carefully\"}');
+             INSERT INTO part VALUES ('p2', 'm1', 'new', 2, 2, '{\"type\":\"step-start\"}');",
+        );
+        let out = read_opencode_turns(&db, 10);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].0, "new");
+        assert_eq!(out[0].1.len(), 1, "step-start skipped");
+        assert_eq!(out[0].1[0].0, "user");
+        // Missing db → empty, not an error.
+        assert!(read_opencode_turns(&dir.path().join("nope.db"), 10).is_empty());
+    }
+
+    #[test]
+    #[cfg(feature = "sql")]
+    fn test_read_memories_skips_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = fixture_db(
+            dir.path(),
+            "mem.db",
+            "CREATE TABLE mem (id TEXT PRIMARY KEY, seq INTEGER, ts REAL NOT NULL, host TEXT NOT NULL, agent TEXT NOT NULL DEFAULT 'unknown', kind TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'global', title TEXT NOT NULL, body TEXT NOT NULL, tags TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', deleted INTEGER NOT NULL DEFAULT 0);
+             INSERT INTO mem VALUES ('a', 1, 1787616000.0, 'omo', 'x', 'trap', 'global', 'never push --force', 'it rewrites shared history', '', '', 0);
+             INSERT INTO mem VALUES ('b', 2, 1787616000.0, 'omo', 'x', 'trap', 'global', 'gone', 'deleted row', '', '', 1);",
+        );
+        let docs = read_memories(&db);
+        assert_eq!(docs.len(), 1);
+        assert!(docs[0].title.starts_with("[mem/trap@omo]"), "{}", docs[0].title);
+        assert!(docs[0].body.contains("2026-08-25"), "date folded in: {}", docs[0].body);
     }
 }
