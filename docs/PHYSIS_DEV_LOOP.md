@@ -124,3 +124,31 @@ cargo test --all-targets            # ~13 min; the done gate
 Focused first: `cargo test --lib <module>::`, `cargo test --test <name>`. A
 failing suite stops cargo unless you pass `--no-fail-fast`, so use it when you
 expect more than one break.
+
+---
+
+## One clone on pansa (2026-09-20)
+
+There used to be two clones of this repo on pansa and they drifted: the MCP
+server was scoped to one while the work happened in the other, and the same
+mistake is easy to repeat. **There is now one tree:**
+
+```
+/home/gio/physis_pro                 <- the real directory, branch agent/MS-005-q6
+/home/gio/dev/physis-pro  ->  /home/gio/physis_pro     (symlink)
+```
+
+Both paths resolve to the same working tree, so the `.mcp.json` root
+(`/home/gio/dev/physis-pro`) and the directory you edit are the same checkout.
+`readlink -f /home/gio/dev/physis-pro` is the check.
+
+Before retiring the second clone its local `main` commits (10 of them, unpushed)
+were imported into this tree as `local-main-import` **and pushed to the remote**,
+so nothing lives only on a disk. The retired directory is kept at
+`/home/gio/dev/.physis-pro-retired-20260920-014539` (19 GB, mostly build cache
+and git objects) and is safe to delete once you have confirmed you do not want
+it.
+
+**Do not clone again.** If you need a second working tree, use
+`git worktree add` — it shares the object store instead of duplicating it, and
+it cannot drift into a different history the way a second clone did.
