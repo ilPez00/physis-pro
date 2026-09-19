@@ -90,8 +90,11 @@ pub async fn match_route(
     State(state): State<SharedState>,
     Json(req): Json<RouteMatchRequest>,
 ) -> Json<RouteMatchResponse> {
+    // Text-only (image=None) so the image-slot 503 is unreachable here.
     let embedding =
-        crate::web::wiki_semiotic::embed_input(state.shared.clone(), req.text.clone(), None).await;
+        crate::web::wiki_semiotic::embed_input(state.shared.clone(), req.text.clone(), None)
+            .await
+            .unwrap_or_default();
     let results = state.shared.classifier.classify(&embedding);
     let (domain, mode) = match results.first() {
         Some(c) => (c.domain.clone(), c.mode.clone()),

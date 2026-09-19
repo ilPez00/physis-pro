@@ -70,7 +70,7 @@ pub async fn wiki_generate_handler(
     Json(req): Json<WikiGenerateRequest>,
 ) -> Json<serde_json::Value> {
     let uid = user_key(&headers);
-    let semantic_ok = state.shared.semantic;
+    let semantic_ok = state.shared.embedder_health.semantic;
     let (nodes, raw_edges) = state.with_user(&uid, |s| {
         let nodes: Vec<crate::wiki_gen::NodeInput> = s
             .core

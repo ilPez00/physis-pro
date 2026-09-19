@@ -2,7 +2,7 @@
 id: PH-006
 track: physis
 phase: 1
-status: todo
+status: blocked
 rung: 3
 depends: [PH-001, PH-004]
 gate: "cargo test pro && cargo test --test http_surface licence"

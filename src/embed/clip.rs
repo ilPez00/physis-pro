@@ -190,6 +190,10 @@ impl VectorEmbed for ClipEmbedder {
         Some(pooled)
     }
 
+    fn handles_images(&self) -> bool {
+        self.vision_session.lock().unwrap().is_some()
+    }
+
     fn dimension(&self) -> usize {
         self.dim
     }

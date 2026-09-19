@@ -79,6 +79,12 @@ pub trait VectorEmbed: Send + Sync {
     fn embed_image(&self, _bytes: &[u8]) -> Option<Vec<f32>> {
         None
     }
+    /// Whether this embedder can embed images at all (PH-008). Default false;
+    /// vision embedders override to true. Lets callers report an honest 503
+    /// instead of calling `embed_image` and silently falling back to text.
+    fn handles_images(&self) -> bool {
+        false
+    }
     /// Embed multiple texts in batch. Default impl calls `embed` for each.
     fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         texts.iter().map(|t| self.embed(t)).collect()
@@ -332,6 +338,21 @@ pub fn select_embedder(config: &PhysisConfig) -> (Box<dyn VectorEmbed>, &'static
             Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
             "random-projection",
         );
+    }
+
+    // Explicit config choice of random-projection is the same supported
+    // OFFLINE mode as the env override above — honor it without the
+    // semantic self-test gate (RP is deterministic hashing; the gate would
+    // reject it and fall through to minutes of model probing, ignoring an
+    // explicit instruction). PH-009: this is what lets embedder-agnostic
+    // CLI tests run offline via config instead of racing on process env.
+    if let Some(ec) = config.embedders.primary.as_ref() {
+        if ec.enabled && matches!(ec.kind, EmbedderKindConfig::RandomProjection) {
+            return (
+                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                "random-projection",
+            );
+        }
     }
 
     // Ollama embedding backend (default `nomic-embed-text:latest` on

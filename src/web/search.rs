@@ -355,7 +355,7 @@ pub async fn ask_handler(
     )
     .await;
 
-    let semantic = state.shared.semantic;
+    let semantic = state.shared.embedder_health.semantic;
     let mut answer = None;
     let mut provider = None;
     let mut note = match () {

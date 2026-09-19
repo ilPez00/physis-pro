@@ -150,7 +150,8 @@ pub struct PhysisApp {
     /// Pre-computed centroids per DOMAIN\x00MODE cell.
     pub cell_centroids: HashMap<String, Vec<f32>>,
     /// Nearest-entry classifier, built once (one full-ontology embedding pass).
-    pub classifier: crate::classify::CellClassifier,
+    /// Arc-shared process-wide (PH-009) — see `CellClassifier::build_shared`.
+    pub classifier: std::sync::Arc<crate::classify::CellClassifier>,
     /// The sled handle, opened at most once per app.
     ///
     /// sled takes an exclusive file lock and releases it asynchronously on
@@ -192,10 +193,11 @@ impl PhysisApp {
         // Served from the shared on-disk cache — see `physis-pro warm`. This
         // constructor is what made every subcommand pay ~78s of startup.
         let mut seed_cache = crate::pack::EmbedCache::load(&config.data_dir);
-        let classifier = crate::classify::CellClassifier::build_cached(
+        let classifier = crate::classify::CellClassifier::build_shared(
             &ontology,
             embedder.as_ref(),
             embedder_kind,
+            config.embed_dim,
             &mut seed_cache,
         );
         seed_cache.save(&config.data_dir);
@@ -2342,6 +2344,25 @@ mod tests {
     use super::*;
     use clap::CommandFactory;
 
+    /// Test config with an explicit random-projection primary (PH-009): these
+    /// tests exercise query/store logic, not embedding semantics, so they run
+    /// offline without model probing (no ollama timeouts, no ONNX loads) and
+    /// without racing on the process-wide PHYSIS_EMBEDDER env var.
+    fn rp_config(data_dir: Option<std::path::PathBuf>) -> PhysisConfig {
+        PhysisConfig {
+            data_dir: data_dir.unwrap_or_else(|| PhysisConfig::default().data_dir),
+            embedders: crate::config::EmbeddersConfig {
+                primary: Some(crate::config::EmbedderConfig {
+                    kind: crate::config::EmbedderKindConfig::RandomProjection,
+                    model_dir: String::new(),
+                    enabled: true,
+                }),
+                image: None,
+            },
+            ..PhysisConfig::default()
+        }
+    }
+
     #[test]
     fn test_cli_parser_scan() {
         let cli = Cli::try_parse_from(["physis", "scan", "/tmp"]);
@@ -2476,7 +2497,7 @@ mod tests {
 
     #[test]
     fn test_app_new_with_default_config() {
-        let config = PhysisConfig::default();
+        let config = rp_config(None);
         let app = PhysisApp::new(config);
         assert!(app.goals.is_empty());
         assert!(app.actor.stats(&[]).total_actions == 0);
@@ -2484,7 +2505,7 @@ mod tests {
 
     #[test]
     fn test_run_stats_empty() {
-        let config = PhysisConfig::default();
+        let config = rp_config(None);
         let app = PhysisApp::new(config);
         let stats = app.run_stats();
         assert!(stats.contains("Physis Stats"));
@@ -2493,7 +2514,7 @@ mod tests {
 
     #[test]
     fn test_run_query_empty() {
-        let config = PhysisConfig::default();
+        let config = rp_config(None);
         let app = PhysisApp::new(config);
         let results = app.run_query("nonexistent", 5);
         assert!(results.is_empty());
@@ -2505,10 +2526,7 @@ mod tests {
     #[test]
     fn test_run_query_nodes_recalls_persisted_labels() {
         let dir = tempfile::tempdir().unwrap();
-        let config = PhysisConfig {
-            data_dir: dir.path().to_path_buf(),
-            ..PhysisConfig::default()
-        };
+        let config = rp_config(Some(dir.path().to_path_buf()));
 
         // "First process": register labeled nodes (what /scan and watch do).
         {
@@ -2545,10 +2563,7 @@ mod tests {
     #[test]
     fn test_run_query_nodes_without_store_is_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let config = PhysisConfig {
-            data_dir: dir.path().to_path_buf(),
-            ..Default::default()
-        };
+        let config = rp_config(Some(dir.path().to_path_buf()));
         let app = PhysisApp::new(config);
         assert!(app.run_query_nodes("anything", 5).is_empty());
     }
@@ -2559,10 +2574,7 @@ mod tests {
     #[test]
     fn test_run_note_remembers_with_verdict() {
         let dir = tempfile::tempdir().unwrap();
-        let config = PhysisConfig {
-            data_dir: dir.path().to_path_buf(),
-            ..PhysisConfig::default()
-        };
+        let config = rp_config(Some(dir.path().to_path_buf()));
         let mut app = PhysisApp::new(config.clone());
         let out = app
             .run_note("clippy lint E0599 on coherence edit", -1.0)
@@ -2585,7 +2597,7 @@ mod tests {
 
     #[test]
     fn test_run_dream_empty_goals() {
-        let config = PhysisConfig::default();
+        let config = rp_config(None);
         let mut app = PhysisApp::new(config);
         let dreams = app.run_dream(3);
         assert_eq!(dreams.len(), 0, "no goals means no dreams");
@@ -2593,7 +2605,7 @@ mod tests {
 
     #[test]
     fn test_run_evaluate_nonexistent() {
-        let config = PhysisConfig::default();
+        let config = rp_config(None);
         let mut app = PhysisApp::new(config);
         let result = app.run_evaluate("bogus", 0.5);
         assert!(!result);

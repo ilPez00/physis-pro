@@ -202,7 +202,7 @@ pub async fn agent_capabilities_handler(
         opencode_model: cfg.opencode_model.clone(),
         max_rounds: cfg.max_rounds,
         provider_count: state.shared.cascade.provider_names().len(),
-        semantic: state.shared.semantic,
+        semantic: state.shared.embedder_health.semantic,
         harness_gate: cfg.harness_gate,
         harness_threshold: cfg.harness_threshold,
     })

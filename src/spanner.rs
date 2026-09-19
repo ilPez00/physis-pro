@@ -890,7 +890,7 @@ mod tests {
     /// gcloud). Skips unless SPANNER_REST_ENDPOINT is set. Run with:
     ///   cargo test --features spanner -- --ignored spanner_emulator_roundtrip
     #[tokio::test]
-    #[ignore]
+    #[ignore = "needs a running Spanner emulator (SPANNER_REST_ENDPOINT)"]
     async fn spanner_emulator_roundtrip() {
         if std::env::var("SPANNER_REST_ENDPOINT").is_err() {
             eprintln!("skipping: no SPANNER_REST_ENDPOINT (emulator)");

@@ -2,7 +2,7 @@
 id: PH-005
 track: physis
 phase: 1
-status: todo
+status: done
 rung: 3
 depends: [PH-004]
 gate: "cargo test --test http_surface && cargo test degraded"

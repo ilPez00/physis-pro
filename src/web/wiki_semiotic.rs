@@ -6,23 +6,46 @@ use axum::{
     http::{HeaderMap, StatusCode},
 };
 
-/// Image (base64) → `embed_image`, else text — off-thread.
-pub async fn embed_input(shared: Arc<SharedCtx>, text: String, image: Option<String>) -> Vec<f32> {
-    tokio::task::spawn_blocking(move || {
-        if let Some(b64) = image {
-            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b64) {
-                if let Some(v) = shared.embedder.embed_image(&bytes) {
-                    return v;
+/// Image (base64) → registry image slot, else text — off-thread.
+///
+/// Resolution order for an image: (1) the registry image slot
+/// (`SharedCtx::image_embedder`, vision model), (2) the text embedder's own
+/// `embed_image` (covers a joint model like jina serving the text slot).
+/// When neither can handle images the request fails with 503 + a
+/// machine-readable reason — never a silent text fallback (PH-008).
+/// A base64 decode failure still falls back to text (bad input, not an
+/// incapable embedder) with a server-side warning.
+pub async fn embed_input(
+    shared: Arc<SharedCtx>,
+    text: String,
+    image: Option<String>,
+) -> Result<Vec<f32>, (StatusCode, Json<ErrorResponse>)> {
+    if let Some(b64) = image {
+        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&b64) {
+            let v = shared
+                .image_embedder
+                .as_deref()
+                .and_then(|e| e.embed_image(&bytes))
+                .or_else(|| shared.embedder.embed_image(&bytes));
+            match v {
+                Some(vec) => return Ok(vec),
+                None => {
+                    return Err(err_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        &format!(
+                            "image embedding unavailable: image slot is '{}' (no vision model loaded); send text input instead",
+                            shared.image_embedder_kind,
+                        ),
+                    ));
                 }
-                log::warn!("image embedding unavailable; falling back to text");
-            } else {
-                log::warn!("base64 decode failed; falling back to text");
             }
+        } else {
+            log::warn!("base64 decode failed; falling back to text");
         }
-        shared.embedder.embed(&text)
-    })
-    .await
-    .unwrap_or_default()
+    }
+    Ok(tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
+        .await
+        .unwrap_or_default())
 }
 
 pub async fn ontology_list_handler(State(state): State<SharedState>) -> Json<Vec<OntologyListing>> {
@@ -376,8 +399,8 @@ pub async fn classify_handler(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Json(req): Json<ClassifyRequest>,
-) -> Json<ClassifyResponse> {
-    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
+) -> Result<Json<ClassifyResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await?;
     // Accumulated interpretant evidence adjusts the ranking within a bounded
     // budget — see salience::BIAS_STRENGTH. Scoped to the calling tenant: the
     // context comes from one process-wide env var, so without the uid one
@@ -466,7 +489,7 @@ pub async fn classify_handler(
         &results,
         coverage,
         state.shared.embedder_kind,
-        !state.shared.degraded && state.shared.self_test,
+        !state.shared.embedder_health.degraded && state.shared.embedder_health.self_test,
     );
     let discovery = if assessment.semantic && assessment.abstained {
         crate::discovery::suggest_text(&req.text, &embedding, &state.shared.classifier)
@@ -474,7 +497,7 @@ pub async fn classify_handler(
         None
     };
     let object_type = crate::models::object_type_for(&top.domain, &top.mode);
-    Json(ClassifyResponse {
+    Ok(Json(ClassifyResponse {
         results,
         top,
         assessment,
@@ -483,16 +506,16 @@ pub async fn classify_handler(
         object_type,
         context: ctx.label(),
         overlay_count,
-    })
+    }))
 }
 
 pub async fn embed_handler(
     State(state): State<SharedState>,
     Json(req): Json<EmbedRequest>,
-) -> Json<EmbedResponse> {
-    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await;
+) -> Result<Json<EmbedResponse>, (StatusCode, Json<ErrorResponse>)> {
+    let embedding = embed_input(state.shared.clone(), req.text.clone(), req.image.clone()).await?;
     let dim = embedding.len();
-    Json(EmbedResponse { embedding, dim })
+    Ok(Json(EmbedResponse { embedding, dim }))
 }
 
 /// Embed a video into the shared space: ffmpeg frame-sample → image-embed each →

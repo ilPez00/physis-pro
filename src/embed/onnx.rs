@@ -441,7 +441,7 @@ mod tests {
     /// same vectors as per-text embedding (within fp tolerance). Run with:
     ///   cargo test --features embed-onnx -- --ignored embed_batch_matches
     #[test]
-    #[ignore]
+    #[ignore = "needs a real ONNX model on disk"]
     fn test_embed_batch_matches_per_text_with_model() {
         let e = OnnxEmbedder::new("models");
         if !e.is_available() {

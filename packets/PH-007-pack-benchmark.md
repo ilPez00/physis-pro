@@ -2,7 +2,7 @@
 id: PH-007
 track: physis
 phase: 1
-status: todo
+status: done
 rung: 1
 depends: [PH-000]
 gate: "bash scripts/bench-pack.sh --assert-warm-under 30s --assert-cold-under 600s && cargo test pack"

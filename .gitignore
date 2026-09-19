@@ -21,6 +21,7 @@ models/nli-deberta-v3-xsmall/
 .venv-nli/
 models/**/tokenizer_config.json
 *.env
+.env
 shots/*.png
 shots/*.html
 shots/index.html

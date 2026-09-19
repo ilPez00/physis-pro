@@ -104,7 +104,7 @@ pub async fn global_ask_handler(
 
     let context = corpus::pack_global(&summaries, &ranked, req.token_budget, req.top_k);
 
-    let semantic = state.shared.semantic;
+    let semantic = state.shared.embedder_health.semantic;
     let mut answer = None;
     let mut provider = None;
     let mut note = match () {
