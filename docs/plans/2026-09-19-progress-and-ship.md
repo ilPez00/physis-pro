@@ -16,9 +16,43 @@ Branch: `agent/MS-005-q6`. Box: pansa. Dev licence: `PHYSIS_ALLOW_DEV_LICENCE=1`
 |---|---|---|
 | `physis-hud` TUI with an AGENTS strip and `@agent` cards | shipped | `--snapshot` (below) |
 | OpenCode integration: `physis-pro agent call jev "<prompt>"` | works, ~43 s–3 min | live call, below |
+| Editable settings: `physis-pro settings show\|path\|set` | shipped | settings 6/6 |
+| Saved packs: `pack --save` then `agent ask --pack` | shipped | pack 14/14 |
 | Object/action registry: `physis-pro action list\|show\|call` | shipped | S0 tests |
 | Agent roster, lifecycle, permissions | shipped | S1 tests |
 | Routing ladder: `physis-pro agent route` | shipped | S3 tests |
+
+### Settings are editable
+
+Two layers, user wins: `config/settings.json` (shipped) and
+`~/.physis/settings.json` (or `PHYSIS_SETTINGS`). Both command syntax and
+provider configuration are editable without a rebuild:
+
+```sh
+physis-pro settings show
+physis-pro settings set providers.jev.model oczen/mimo-v2.5-free
+physis-pro settings set commands.ask.aliases q,question
+physis-pro settings set providers.jev.key_env MY_JEV_KEY
+```
+
+A key is stored as the **name of an environment variable**, never the secret, so
+a settings file can be shared or committed. Model and bin resolve as
+env override > settings > roster > built-in default.
+
+### Pre-pack and save for later
+
+The measured pack cost is why this exists: a cold cache over the whole tree ran
+10+ minutes. A pack can be built once and reused.
+
+```sh
+physis-pro pack . "routing key" --max-files 40 --budget 900 --save /tmp/pack.json
+physis-pro agent ask "What does the routing ladder do?" --pack /tmp/pack.json
+# [physis] loaded saved pack /tmp/pack.json (887 tokens, 4 chunks)  — no embedding
+```
+
+`pack --max-files N` bounds the walk (`0` = unbounded). Note the bound is on the
+walk, so a small N may miss relevant files; use a saved pack or `0` for full
+quality.
 
 Not in tonight's ship: S4 task graph, S7–S12, agent pane invocation from the
 HUD (the card shows transport and says no call is made).
