@@ -836,6 +836,15 @@ impl Workspace {
         Ok(records[0].clone())
     }
 
+    /// Append one observation with a caller-supplied structured body, through
+    /// the same append path, cooperative lock and `produced_by` as [`remember`]
+    /// and [`run`]. Product surfaces (the TUI textbox) need named fields —
+    /// actor, route, operator, target — rather than a free-text note, and they
+    /// must land in the store `history` already reads.
+    pub fn observe(&self, source: &str, subject: &str, payload: Value) -> Result<Observation> {
+        self.record(source, subject, payload)
+    }
+
     pub fn remember(&self, text: &str, outcome: &str, actor: &str) -> Result<Value> {
         ensure!(!text.trim().is_empty(), "remember needs a non-empty note");
         ensure!(text.len() <= 16 * 1024, "note exceeds 16 KiB");

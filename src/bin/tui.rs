@@ -37,6 +37,7 @@ use ratatui::{
 use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
+use physis_pro::ported::system::Workspace;
 use physis_pro::world_object::{RelationKind, WorldObject};
 
 const TABS: [&str; 5] = ["STATUS", "MACHINES", "CONFIG", "WIKI", "STREAM"];
@@ -137,6 +138,11 @@ struct App {
     /// STREAM tab: show the current object's typed edges as a graph projection
     /// instead of the object body and child list. Same context, another view.
     stream_graph: bool,
+    /// The workspace observation store. Every deterministic action appends one
+    /// record here, through the same writer `physis system` and the MCP history
+    /// tools read — so a textbox action is recoverable as history, not a
+    /// parallel event log. `None` when the store could not be opened.
+    obs: Option<Workspace>,
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -341,6 +347,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    // One working directory for the navigator root and the observation store,
+    // so the actions this panel records land in the same `.physis/system` store
+    // that `physis system history` and the MCP history tools read.
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let obs = {
+        let state = std::env::var_os("PHYSIS_CORE_DIR")
+            .filter(|v| !v.is_empty())
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| cwd.join(".physis/system"));
+        Workspace::open(&cwd, &state).ok()
+    };
+
     let mut app = App {
         tab: 0,
         machine_sel: 0,
@@ -370,14 +388,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_confidence: 0.35,
         wiki_cell_row: 0,
         wiki_cell_col: 0,
-        stream_stack: vec![WorldObject::from_directory(
-            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
-        )],
+        stream_stack: vec![WorldObject::from_directory(&cwd)],
         stream_children: Vec::new(),
         stream_sel: 0,
         cmd_open: false,
         cmd_input: String::new(),
         stream_graph: false,
+        obs,
     };
     stream_refresh(&mut app);
 
@@ -474,11 +491,11 @@ fn parse_hits(v: &serde_json::Value) -> Vec<WikiHit> {
 
 /// Recall nodes near the query *by meaning* — the whole point of the browser:
 /// you remember what a thing was about, not what it was called.
-fn wiki_search(app: &mut App) {
+fn wiki_search(app: &mut App) -> bool {
     let q = app.wiki_query.trim().to_string();
     if q.is_empty() {
         app.status_msg = "type a query first (/)".into();
-        return;
+        return false;
     }
     let path = format!(
         "/api/v1/coherence/nodes?q={}&max=30",
@@ -496,12 +513,14 @@ fn wiki_search(app: &mut App) {
             } else {
                 wiki_load_preview(app);
             }
+            true
         }
         Err(e) => {
             app.status_msg = format!("search failed: {e}");
             app.wiki_preview = format!(
                 "search failed: {e}\n\nis physis-pro-web running? (STATUS tab, 's' starts it)"
             );
+            false
         }
     }
 }
@@ -1034,7 +1053,9 @@ fn run<B: ratatui::backend::Backend>(
                 wiki_scope_to_cell(app);
                 app.wiki_map_focus = false;
             }
-            KeyCode::Enter if app.tab == TAB_WIKI => wiki_search(app),
+            KeyCode::Enter if app.tab == TAB_WIKI => {
+                wiki_search(app);
+            }
             // Graph walk: 'g' descends into the selected node's edges,
             // Backspace climbs back out (vim-ish, as the §2 spec describes).
             KeyCode::Char('g') if app.tab == TAB_WIKI => wiki_walk_into(app),
@@ -1188,49 +1209,158 @@ fn parse_command(input: &str) -> Command {
     }
 }
 
-/// Run one parsed command against the panel. Every arm names its route in the
-/// status line, so the operator can see the textbox answered deterministically
-/// rather than through a model.
+/// The action a parsed command performs, or `None` when it performs none
+/// (help, usage, empty, unknown). Pure, so "nothing happened, record nothing"
+/// is a testable rule rather than a property of the side-effecting arms.
+fn command_action(cmd: &Command) -> Option<(&'static str, String)> {
+    match cmd {
+        Command::Open(path) => Some(("open", path.clone())),
+        Command::Find(query) => Some(("find", query.clone())),
+        Command::View(tab) => Some(("view", TABS[*tab].to_lowercase())),
+        Command::Graph => Some(("graph", String::new())),
+        Command::Help | Command::Usage(_) | Command::Empty | Command::Unknown(_) => None,
+    }
+}
+
+/// The structured observation a deterministic action appends. Pure: the record
+/// shape is testable without touching a store. `object` is the WorldObject
+/// identity the action landed on, when there is one.
+fn action_record(
+    operator: &str,
+    target: &str,
+    object: Option<&str>,
+    outcome: &str,
+) -> (&'static str, String, serde_json::Value) {
+    let mut payload = serde_json::json!({
+        "actor": "human",
+        "route": "deterministic",
+        "operator": operator,
+        "outcome": outcome,
+    });
+    if !target.is_empty() {
+        payload["target"] = serde_json::json!(target);
+    }
+    if let Some(o) = object {
+        payload["object"] = serde_json::json!(o);
+    }
+    let subject = match (object, target.is_empty()) {
+        (Some(o), false) => format!("{operator} {target} -> {o}"),
+        (Some(o), true) => format!("{operator} -> {o}"),
+        (None, false) => format!("{operator} {target}"),
+        (None, true) => operator.to_string(),
+    };
+    ("human", subject, payload)
+}
+
+/// Append one action to the workspace observation store. One call writes
+/// exactly one record.
+fn record_action(
+    ws: &Workspace,
+    operator: &str,
+    target: &str,
+    object: Option<&str>,
+    outcome: &str,
+) -> anyhow::Result<()> {
+    let (source, subject, payload) = action_record(operator, target, object, outcome);
+    ws.observe(source, &subject, payload).map(|_| ())
+}
+
+/// Record through the panel's store; `None` means recorded, `Some(reason)` is
+/// surfaced in the status line so a missing or failing store is visible rather
+/// than a silent lie that history was written. The textbox still works either
+/// way.
+fn record(
+    app: &App,
+    operator: &str,
+    target: &str,
+    object: Option<&str>,
+    outcome: &str,
+) -> Option<String> {
+    let Some(ws) = app.obs.as_ref() else {
+        return Some("no observation store".into());
+    };
+    record_action(ws, operator, target, object, outcome)
+        .err()
+        .map(|e| e.to_string())
+}
+
+/// Run one parsed command against the panel. Every action names its route in
+/// the status line and appends exactly one observation through the existing
+/// workspace store; commands that did nothing append nothing.
 fn run_command(app: &mut App) {
     let cmd = parse_command(&app.cmd_input);
     app.cmd_input.clear();
-    match cmd {
+
+    let Some((operator, target)) = command_action(&cmd) else {
+        match cmd {
+            Command::Help => {
+                app.status_msg =
+                    "open <path> · find <query> · view <status|machines|config|wiki|stream> · graph · help"
+                        .into();
+            }
+            Command::Usage(usage) => app.status_msg = format!("usage: {usage}"),
+            Command::Unknown(verb) => {
+                app.status_msg = format!(
+                    "no deterministic operator for '{verb}' — model/agent routing not wired"
+                );
+            }
+            Command::Empty => {}
+            _ => {}
+        }
+        return;
+    };
+
+    // Clear first so an arm can leave a detail (the hit count) that the route
+    // line precedes rather than erases.
+    app.status_msg.clear();
+    let (outcome, object) = match cmd {
         Command::Open(path) => {
-            app.stream_stack = vec![WorldObject::from_path(&path)];
+            let missing = !std::path::Path::new(&path).exists();
+            let obj = WorldObject::from_path(&path);
+            let identity = obj.identity.clone();
+            app.stream_stack = vec![obj];
             stream_refresh(app);
             app.tab = TAB_STREAM;
-            app.status_msg = format!("route=deterministic operator=open path={path}");
+            (if missing { "failure" } else { "success" }, Some(identity))
         }
         Command::Find(query) => {
-            app.wiki_query = query.clone();
+            app.wiki_query = query;
             app.tab = TAB_WIKI;
-            wiki_search(app);
-            app.status_msg = format!("route=deterministic operator=find query={query}");
+            let ok = wiki_search(app);
+            (if ok { "success" } else { "failure" }, None)
         }
         Command::View(tab) => {
             app.tab = tab;
             if tab == TAB_STREAM {
                 app.stream_graph = false;
             }
-            app.status_msg = format!("route=deterministic operator=view tab={}", TABS[tab]);
+            (
+                "success",
+                app.stream_stack.last().map(|o| o.identity.clone()),
+            )
         }
         Command::Graph => {
             app.tab = TAB_STREAM;
             app.stream_graph = true;
-            app.status_msg = "route=deterministic operator=graph".into();
+            (
+                "success",
+                app.stream_stack.last().map(|o| o.identity.clone()),
+            )
         }
-        Command::Help => {
-            app.status_msg =
-                "open <path> · find <query> · view <status|machines|config|wiki|stream> · graph · help"
-                    .into();
-        }
-        Command::Usage(usage) => app.status_msg = format!("usage: {usage}"),
-        Command::Empty => {}
-        Command::Unknown(verb) => {
-            app.status_msg =
-                format!("no deterministic operator for '{verb}' — model/agent routing not wired");
-        }
+        _ => ("success", None),
+    };
+
+    let route = format!("route=deterministic operator={operator} {outcome}");
+    let detail = std::mem::take(&mut app.status_msg);
+    let mut line = if detail.is_empty() {
+        route
+    } else {
+        format!("{route} · {detail}")
+    };
+    if let Some(err) = record(app, operator, &target, object.as_deref(), outcome) {
+        line = format!("{line} · record failed: {err}");
     }
+    app.status_msg = line;
 }
 
 /// Move a selection index by `delta`, wrapping around. Kept pure so the
@@ -2171,6 +2301,89 @@ mod tests {
             "agent/model routing is a separate arm, not reachable from this table"
         );
         assert_eq!(parse_command("rm -rf /"), Command::Unknown("rm".into()));
+    }
+
+    #[test]
+    fn a_successful_action_appends_exactly_one_observation() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let state = dir.path().join(".physis/system");
+        let ws = Workspace::open(dir.path(), &state).expect("workspace opens");
+
+        record_action(
+            &ws,
+            "open",
+            "src/world_object.rs",
+            Some("fs:src/world_object.rs"),
+            "success",
+        )
+        .expect("recorded");
+
+        let records =
+            physis_core::observe::read(&state.join("observations.jsonl")).expect("read log");
+        assert_eq!(records.len(), 1, "one action, one record");
+        assert_eq!(records[0].source, "human");
+        let body: serde_json::Value =
+            serde_json::from_str(&records[0].body).expect("structured body");
+        assert_eq!(body["actor"], "human");
+        assert_eq!(body["route"], "deterministic");
+        assert_eq!(body["operator"], "open");
+        assert_eq!(body["target"], "src/world_object.rs");
+        assert_eq!(body["object"], "fs:src/world_object.rs");
+        assert_eq!(body["outcome"], "success");
+
+        // Recoverable through the existing history reader, not just the file.
+        let history = ws.history(Some("open"), 10).expect("history reads");
+        assert!(
+            history["matched_in_window"].as_u64().unwrap_or(0) >= 1,
+            "the action is visible to `physis system history`: {history}"
+        );
+    }
+
+    #[test]
+    fn failed_and_empty_commands_do_not_claim_success() {
+        // Nothing happened: no action, so nothing may be recorded.
+        for cmd in [
+            Command::Empty,
+            Command::Help,
+            Command::Unknown("agent".into()),
+            Command::Usage("open <path>"),
+        ] {
+            assert_eq!(command_action(&cmd), None, "{cmd:?} performs no action");
+        }
+
+        // A failed action records the failure, never success.
+        let (_, _, payload) = action_record("open", "does-not-exist", None, "failure");
+        assert_eq!(payload["outcome"], "failure");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let state = dir.path().join(".physis/system");
+        let ws = Workspace::open(dir.path(), &state).expect("workspace opens");
+        record_action(&ws, "open", "does-not-exist", None, "failure").expect("recorded");
+        let records =
+            physis_core::observe::read(&state.join("observations.jsonl")).expect("read log");
+        assert_eq!(records.len(), 1);
+        let body: serde_json::Value = serde_json::from_str(&records[0].body).unwrap();
+        assert_eq!(body["outcome"], "failure");
+    }
+
+    #[test]
+    fn action_record_names_the_operator_target_and_object() {
+        let (source, subject, payload) =
+            action_record("open", "src/x.rs", Some("fs:src/x.rs"), "success");
+        assert_eq!(source, "human");
+        assert_eq!(subject, "open src/x.rs -> fs:src/x.rs");
+        assert_eq!(payload["object"], "fs:src/x.rs");
+
+        let (_, subject, payload) = action_record("graph", "", Some("fs:src"), "success");
+        assert_eq!(subject, "graph -> fs:src");
+        assert!(
+            payload.get("target").is_none(),
+            "no target field when there is none"
+        );
+
+        let (_, subject, payload) = action_record("view", "wiki", None, "success");
+        assert_eq!(subject, "view wiki");
+        assert!(payload.get("object").is_none());
     }
 
     #[test]
