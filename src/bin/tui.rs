@@ -143,6 +143,63 @@ struct App {
     /// tools read — so a textbox action is recoverable as history, not a
     /// parallel event log. `None` when the store could not be opened.
     obs: Option<Workspace>,
+    /// The live agent run, when one was started from the textbox. Shared with
+    /// the run thread; rendered in STREAM as a `WorldObject` of kind `Agent`.
+    agent_run: Option<Arc<Mutex<AgentRun>>>,
+}
+
+/// One `AgentEvent` as the panel shows it: the same fields the SSE endpoint
+/// serialises, kept plain so the TUI never depends on `ai::agent` types.
+#[derive(Debug, Clone, PartialEq)]
+struct AgentEventView {
+    round: u32,
+    kind: String,
+    text: String,
+}
+
+/// A run's observable state, updated by the run thread and read by the render
+/// loop. The `WorldObject` projection is built from this at draw time, so the
+/// view type stays free of runtime state.
+#[derive(Debug, Clone)]
+struct AgentRun {
+    id: String,
+    provider: String,
+    model: String,
+    prompt: String,
+    status: String,
+    events: Vec<AgentEventView>,
+}
+
+impl AgentRun {
+    fn new(prompt: &str) -> Self {
+        Self {
+            id: "pending".into(),
+            provider: String::new(),
+            model: String::new(),
+            prompt: prompt.to_string(),
+            status: "running".into(),
+            events: Vec::new(),
+        }
+    }
+}
+
+/// Cap on the retained trace. A runaway or hostile engine must not grow the
+/// panel's memory without bound; the newest events are the ones worth keeping.
+const MAX_AGENT_EVENTS: usize = 500;
+
+/// Append one event, dropping the oldest past the cap. A `done` event carries
+/// the server-assigned run id in its text.
+fn push_event(run: &Arc<Mutex<AgentRun>>, ev: AgentEventView) {
+    if let Ok(mut r) = run.lock() {
+        if ev.kind == "done" {
+            r.id = ev.text.clone();
+        }
+        r.events.push(ev);
+        let over = r.events.len().saturating_sub(MAX_AGENT_EVENTS);
+        if over > 0 {
+            r.events.drain(..over);
+        }
+    }
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -395,6 +452,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cmd_input: String::new(),
         stream_graph: false,
         obs,
+        agent_run: None,
     };
     stream_refresh(&mut app);
 
@@ -1063,7 +1121,10 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Backspace if app.tab == TAB_WIKI => wiki_walk_back(app),
             KeyCode::Enter if app.tab == TAB_STREAM => stream_enter(app),
             KeyCode::Backspace if app.tab == TAB_STREAM => stream_back(app),
-            KeyCode::Char('g') if app.tab == TAB_STREAM => app.stream_graph = !app.stream_graph,
+            KeyCode::Char('g') if app.tab == TAB_STREAM => {
+                app.agent_run = None;
+                app.stream_graph = !app.stream_graph;
+            }
             KeyCode::Enter if app.tab == 1 => {
                 app.machine_out = run_machine(MACHINES[app.machine_sel].0);
             }
@@ -1170,6 +1231,8 @@ enum Command {
     Find(String),
     View(usize),
     Graph,
+    /// Invoke an agent on a prompt. Route is `model`, not deterministic.
+    Agent(String),
     Help,
     Usage(&'static str),
     Empty,
@@ -1205,6 +1268,13 @@ fn parse_command(input: &str) -> Command {
             None => Command::Usage("view <status|machines|config|wiki|stream>"),
         },
         "graph" => Command::Graph,
+        "agent" => {
+            if arg.is_empty() {
+                Command::Usage("agent <prompt>")
+            } else {
+                Command::Agent(arg)
+            }
+        }
         _ => Command::Unknown(verb),
     }
 }
@@ -1218,14 +1288,17 @@ fn command_action(cmd: &Command) -> Option<(&'static str, String)> {
         Command::Find(query) => Some(("find", query.clone())),
         Command::View(tab) => Some(("view", TABS[*tab].to_lowercase())),
         Command::Graph => Some(("graph", String::new())),
+        Command::Agent(prompt) => Some(("agent", prompt.clone())),
         Command::Help | Command::Usage(_) | Command::Empty | Command::Unknown(_) => None,
     }
 }
 
-/// The structured observation a deterministic action appends. Pure: the record
-/// shape is testable without touching a store. `object` is the WorldObject
-/// identity the action landed on, when there is one.
+/// The structured observation an action appends. Pure: the record shape is
+/// testable without touching a store. `route` is `deterministic` for an
+/// operator over stored state and `model` for an agent; `object` is the
+/// WorldObject identity the action landed on, when there is one.
 fn action_record(
+    route: &str,
     operator: &str,
     target: &str,
     object: Option<&str>,
@@ -1233,7 +1306,7 @@ fn action_record(
 ) -> (&'static str, String, serde_json::Value) {
     let mut payload = serde_json::json!({
         "actor": "human",
-        "route": "deterministic",
+        "route": route,
         "operator": operator,
         "outcome": outcome,
     });
@@ -1256,12 +1329,13 @@ fn action_record(
 /// exactly one record.
 fn record_action(
     ws: &Workspace,
+    route: &str,
     operator: &str,
     target: &str,
     object: Option<&str>,
     outcome: &str,
 ) -> anyhow::Result<()> {
-    let (source, subject, payload) = action_record(operator, target, object, outcome);
+    let (source, subject, payload) = action_record(route, operator, target, object, outcome);
     ws.observe(source, &subject, payload).map(|_| ())
 }
 
@@ -1271,6 +1345,7 @@ fn record_action(
 /// way.
 fn record(
     app: &App,
+    route: &str,
     operator: &str,
     target: &str,
     object: Option<&str>,
@@ -1279,7 +1354,7 @@ fn record(
     let Some(ws) = app.obs.as_ref() else {
         return Some("no observation store".into());
     };
-    record_action(ws, operator, target, object, outcome)
+    record_action(ws, route, operator, target, object, outcome)
         .err()
         .map(|e| e.to_string())
 }
@@ -1295,20 +1370,31 @@ fn run_command(app: &mut App) {
         match cmd {
             Command::Help => {
                 app.status_msg =
-                    "open <path> · find <query> · view <status|machines|config|wiki|stream> · graph · help"
+                    "open <path> · find <query> · view <status|machines|config|wiki|stream> · graph · agent <prompt> · help"
                         .into();
             }
             Command::Usage(usage) => app.status_msg = format!("usage: {usage}"),
             Command::Unknown(verb) => {
-                app.status_msg = format!(
-                    "no deterministic operator for '{verb}' — model/agent routing not wired"
-                );
+                app.status_msg = format!("no operator for '{verb}' — try: help");
             }
             Command::Empty => {}
             _ => {}
         }
         return;
     };
+
+    // An agent run is asynchronous and model-routed: it records its own single
+    // observation on completion (from the run thread), so it must not also go
+    // through the deterministic record below.
+    if let Command::Agent(prompt) = &cmd {
+        let prompt = prompt.clone();
+        app.status_msg.clear();
+        app.tab = TAB_STREAM;
+        app.stream_graph = false;
+        start_agent_run(app, prompt.clone());
+        app.status_msg = format!("route=model operator=agent started · {prompt}");
+        return;
+    }
 
     // Clear first so an arm can leave a detail (the hit count) that the route
     // line precedes rather than erases.
@@ -1321,11 +1407,13 @@ fn run_command(app: &mut App) {
             app.stream_stack = vec![obj];
             stream_refresh(app);
             app.tab = TAB_STREAM;
+            app.agent_run = None;
             (if missing { "failure" } else { "success" }, Some(identity))
         }
         Command::Find(query) => {
             app.wiki_query = query;
             app.tab = TAB_WIKI;
+            app.agent_run = None;
             let ok = wiki_search(app);
             (if ok { "success" } else { "failure" }, None)
         }
@@ -1334,6 +1422,7 @@ fn run_command(app: &mut App) {
             if tab == TAB_STREAM {
                 app.stream_graph = false;
             }
+            app.agent_run = None;
             (
                 "success",
                 app.stream_stack.last().map(|o| o.identity.clone()),
@@ -1342,6 +1431,7 @@ fn run_command(app: &mut App) {
         Command::Graph => {
             app.tab = TAB_STREAM;
             app.stream_graph = true;
+            app.agent_run = None;
             (
                 "success",
                 app.stream_stack.last().map(|o| o.identity.clone()),
@@ -1357,10 +1447,103 @@ fn run_command(app: &mut App) {
     } else {
         format!("{route} · {detail}")
     };
-    if let Some(err) = record(app, operator, &target, object.as_deref(), outcome) {
+    if let Some(err) = record(
+        app,
+        "deterministic",
+        operator,
+        &target,
+        object.as_deref(),
+        outcome,
+    ) {
         line = format!("{line} · record failed: {err}");
     }
     app.status_msg = line;
+}
+
+/// Parse one SSE line from `POST /api/v1/agent/run` into an event view. Pure
+/// and tolerant: keep-alive comments and any non-`data:` line are ignored, and
+/// a malformed payload is dropped rather than aborting the stream.
+fn parse_agent_event(line: &str) -> Option<AgentEventView> {
+    let data = line.strip_prefix("data:")?.trim();
+    let v: serde_json::Value = serde_json::from_str(data).ok()?;
+    Some(AgentEventView {
+        round: v.get("round").and_then(|r| r.as_u64()).unwrap_or(0) as u32,
+        kind: v.get("kind")?.as_str()?.to_string(),
+        text: v
+            .get("text")
+            .and_then(|t| t.as_str())
+            .unwrap_or_default()
+            .to_string(),
+    })
+}
+
+/// Consume the run's SSE body, pushing each event into `run` as it arrives.
+/// Blocking by design: it runs on its own thread, so a long run never freezes
+/// the panel. `Err` means the stream could not be opened.
+fn stream_agent_run(
+    url: &str,
+    token: Option<&str>,
+    user: &str,
+    prompt: &str,
+    run: &Arc<Mutex<AgentRun>>,
+) -> Result<(), String> {
+    use std::io::{BufRead, BufReader};
+    let client = reqwest::blocking::Client::builder()
+        .timeout(None)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let body = serde_json::json!({"prompt": prompt, "mode": "", "tools": []});
+    let mut rb = client.post(format!("{url}/api/v1/agent/run")).json(&body);
+    if let Some(t) = token {
+        rb = rb.bearer_auth(t);
+    }
+    rb = rb.header("X-Physis-User", user);
+    let resp = rb
+        .send()
+        .map_err(|e| format!("agent request failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    for line in BufReader::new(resp).lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        let Some(ev) = parse_agent_event(&line) else {
+            continue;
+        };
+        push_event(run, ev);
+    }
+    Ok(())
+}
+
+/// Start an agent run on its own thread and point STREAM at it. The run records
+/// exactly one observation on completion — the result, route `model` — through
+/// the same workspace store as every other action.
+fn start_agent_run(app: &mut App, prompt: String) {
+    let run = Arc::new(Mutex::new(AgentRun::new(&prompt)));
+    app.agent_run = Some(run.clone());
+    let url = app.url.clone();
+    let token = app.token.clone();
+    let user = app.user.clone();
+    let store = app.obs.as_ref().map(|w| (w.root.clone(), w.state.clone()));
+    std::thread::spawn(move || {
+        let result = stream_agent_run(&url, token.as_deref(), &user, &prompt, &run);
+        let (outcome, detail) = match &result {
+            Ok(()) => ("success", "agent run completed".to_string()),
+            Err(e) => ("failure", e.clone()),
+        };
+        if let Ok(mut r) = run.lock() {
+            r.status = if result.is_ok() {
+                "done".into()
+            } else {
+                format!("failed: {detail}")
+            };
+        }
+        if let Some((root, state)) = store {
+            if let Ok(ws) = Workspace::open(&root, &state) {
+                let id = run.lock().map(|r| r.id.clone()).unwrap_or_default();
+                let _ = record_action(&ws, "model", "agent", &prompt, Some(&id), outcome);
+            }
+        }
+    });
 }
 
 /// Move a selection index by `delta`, wrapping around. Kept pure so the
@@ -1388,6 +1571,7 @@ fn stream_refresh(app: &mut App) {
 /// Descend into the selected child. A directory's children are its entries; a
 /// file's are its structural symbols.
 fn stream_enter(app: &mut App) {
+    app.agent_run = None;
     if let Some(child) = app.stream_children.get(app.stream_sel).cloned() {
         app.stream_stack.push(child);
         stream_refresh(app);
@@ -1397,6 +1581,7 @@ fn stream_enter(app: &mut App) {
 /// Climb back toward the root. The root is never popped, so the tab always has
 /// something to render.
 fn stream_back(app: &mut App) {
+    app.agent_run = None;
     if app.stream_stack.len() > 1 {
         app.stream_stack.pop();
         stream_refresh(app);
@@ -1445,6 +1630,69 @@ fn graph_lines(obj: &WorldObject, max_per_kind: usize) -> Vec<String> {
     lines
 }
 
+/// The STREAM view of a live agent run: the run projected as a `WorldObject`
+/// of kind `Agent`, beside the trace of events it has emitted. Same surface as
+/// any other object; the events are runtime state, not part of the view type.
+fn draw_agent(f: &mut ratatui::Frame, area: ratatui::layout::Rect, run: &AgentRun) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(area);
+
+    let obj = WorldObject::agent(
+        format!("agent:{}", run.id),
+        &run.provider,
+        &run.model,
+        &run.status,
+    );
+    f.render_widget(
+        Paragraph::new(obj.identity.clone()).block(
+            Block::default()
+                .title(format!(" STREAM · agent · {} ", truncate(&run.prompt, 40)))
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Magenta)),
+        ),
+        rows[0],
+    );
+
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(rows[1]);
+
+    let body: Vec<Line> = obj.render().into_iter().map(Line::from).collect();
+    f.render_widget(
+        Paragraph::new(body)
+            .block(Block::default().title(" agent ").borders(Borders::ALL))
+            .wrap(Wrap { trim: false }),
+        cols[0],
+    );
+
+    let items: Vec<ListItem> = run
+        .events
+        .iter()
+        .rev()
+        .take(40)
+        .rev()
+        .map(|e| {
+            ListItem::new(Line::from(format!(
+                "[{}] {} {}",
+                e.round,
+                e.kind,
+                truncate(&e.text, 60)
+            )))
+        })
+        .collect();
+    f.render_widget(
+        List::new(items).block(
+            Block::default()
+                .title(format!(" trace ({}) ", run.events.len()))
+                .borders(Borders::ALL),
+        ),
+        cols[1],
+    );
+}
+
 /// STREAM tab — the world-object navigator.
 ///
 /// Breadcrumb of the path taken, the current object rendered provenance-first
@@ -1452,6 +1700,16 @@ fn graph_lines(obj: &WorldObject, max_per_kind: usize) -> Vec<String> {
 /// then the objects one step inside it. Read-only on purpose: this slice makes
 /// the object model navigable, not yet editable.
 fn draw_stream(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    // A live agent run owns the view until the operator navigates away; the
+    // object it projects is built from the run state here, so WorldObject never
+    // holds a reference to the provider runtime.
+    if let Some(run) = app.agent_run.as_ref() {
+        if let Ok(run) = run.lock() {
+            draw_agent(f, area, &run);
+            return;
+        }
+    }
+
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(4)])
@@ -2297,10 +2555,118 @@ mod tests {
         );
         assert_eq!(
             parse_command("agent do the thing"),
-            Command::Unknown("agent".into()),
-            "agent/model routing is a separate arm, not reachable from this table"
+            Command::Agent("do the thing".into()),
+            "an agent prompt is its own verb, routed as model"
         );
+        assert_eq!(parse_command("agent"), Command::Usage("agent <prompt>"));
         assert_eq!(parse_command("rm -rf /"), Command::Unknown("rm".into()));
+    }
+
+    #[test]
+    fn agent_events_parse_from_sse_data_lines_only() {
+        let ev = parse_agent_event(r#"data: {"round":2,"kind":"tool_call","text":"read src"}"#)
+            .expect("data line parses");
+        assert_eq!(
+            ev,
+            AgentEventView {
+                round: 2,
+                kind: "tool_call".into(),
+                text: "read src".into(),
+            }
+        );
+        assert_eq!(parse_agent_event(":keep-alive"), None, "comments ignored");
+        assert_eq!(parse_agent_event("event: final"), None, "non-data ignored");
+        assert_eq!(parse_agent_event("data: not json"), None, "junk dropped");
+        assert_eq!(
+            parse_agent_event(r#"data: {"kind":"final"}"#),
+            Some(AgentEventView {
+                round: 0,
+                kind: "final".into(),
+                text: String::new(),
+            }),
+            "missing text/round default rather than fail"
+        );
+    }
+
+    #[test]
+    fn the_agent_trace_is_bounded_and_done_sets_the_run_id() {
+        let run = Arc::new(Mutex::new(AgentRun::new("go")));
+        for i in 0..(MAX_AGENT_EVENTS + 10) {
+            push_event(
+                &run,
+                AgentEventView {
+                    round: i as u32,
+                    kind: "plan".into(),
+                    text: format!("e{i}"),
+                },
+            );
+        }
+        {
+            let r = run.lock().unwrap();
+            assert_eq!(r.events.len(), MAX_AGENT_EVENTS, "trace is capped");
+            assert_eq!(r.events.first().unwrap().text, "e10", "oldest dropped");
+            assert_eq!(
+                r.events.last().unwrap().text,
+                format!("e{}", MAX_AGENT_EVENTS + 9)
+            );
+        }
+        push_event(
+            &run,
+            AgentEventView {
+                round: 0,
+                kind: "done".into(),
+                text: "run-42".into(),
+            },
+        );
+        assert_eq!(run.lock().unwrap().id, "run-42");
+    }
+
+    #[test]
+    fn stream_agent_run_consumes_sse_into_the_run() {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut sock, _) = listener.accept().expect("accept");
+            let mut buf = [0u8; 1024];
+            let _ = sock.read(&mut buf); // the request; ignored
+            let body = "data: {\"round\":0,\"kind\":\"plan\",\"text\":\"thinking\"}\n\n\
+                        data: {\"round\":1,\"kind\":\"final\",\"text\":\"answer\"}\n\n\
+                        data: {\"round\":0,\"kind\":\"done\",\"text\":\"run-42\"}\n\n";
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\
+                 Content-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = sock.write_all(resp.as_bytes());
+        });
+
+        let run = Arc::new(Mutex::new(AgentRun::new("hi")));
+        let result = stream_agent_run(&format!("http://{addr}"), None, "tester", "hi", &run);
+        server.join().unwrap();
+        assert!(result.is_ok(), "{result:?}");
+        let r = run.lock().unwrap();
+        assert_eq!(r.events.len(), 3);
+        assert_eq!(r.events[0].kind, "plan");
+        assert_eq!(r.events[1].text, "answer");
+        assert_eq!(r.id, "run-42", "the done event names the run");
+    }
+
+    #[test]
+    fn agent_is_an_action_but_help_usage_empty_unknown_are_not() {
+        assert_eq!(
+            command_action(&Command::Agent("go".into())),
+            Some(("agent", "go".into()))
+        );
+        for cmd in [
+            Command::Help,
+            Command::Usage("agent <prompt>"),
+            Command::Empty,
+            Command::Unknown("nope".into()),
+        ] {
+            assert_eq!(command_action(&cmd), None, "{cmd:?} performs no action");
+        }
     }
 
     #[test]
@@ -2311,6 +2677,7 @@ mod tests {
 
         record_action(
             &ws,
+            "deterministic",
             "open",
             "src/world_object.rs",
             Some("fs:src/world_object.rs"),
@@ -2345,20 +2712,29 @@ mod tests {
         for cmd in [
             Command::Empty,
             Command::Help,
-            Command::Unknown("agent".into()),
+            Command::Unknown("rm".into()),
             Command::Usage("open <path>"),
         ] {
             assert_eq!(command_action(&cmd), None, "{cmd:?} performs no action");
         }
 
         // A failed action records the failure, never success.
-        let (_, _, payload) = action_record("open", "does-not-exist", None, "failure");
+        let (_, _, payload) =
+            action_record("deterministic", "open", "does-not-exist", None, "failure");
         assert_eq!(payload["outcome"], "failure");
 
         let dir = tempfile::tempdir().expect("tempdir");
         let state = dir.path().join(".physis/system");
         let ws = Workspace::open(dir.path(), &state).expect("workspace opens");
-        record_action(&ws, "open", "does-not-exist", None, "failure").expect("recorded");
+        record_action(
+            &ws,
+            "deterministic",
+            "open",
+            "does-not-exist",
+            None,
+            "failure",
+        )
+        .expect("recorded");
         let records =
             physis_core::observe::read(&state.join("observations.jsonl")).expect("read log");
         assert_eq!(records.len(), 1);
@@ -2368,22 +2744,33 @@ mod tests {
 
     #[test]
     fn action_record_names_the_operator_target_and_object() {
-        let (source, subject, payload) =
-            action_record("open", "src/x.rs", Some("fs:src/x.rs"), "success");
+        let (source, subject, payload) = action_record(
+            "deterministic",
+            "open",
+            "src/x.rs",
+            Some("fs:src/x.rs"),
+            "success",
+        );
         assert_eq!(source, "human");
         assert_eq!(subject, "open src/x.rs -> fs:src/x.rs");
+        assert_eq!(payload["route"], "deterministic");
         assert_eq!(payload["object"], "fs:src/x.rs");
 
-        let (_, subject, payload) = action_record("graph", "", Some("fs:src"), "success");
+        let (_, subject, payload) =
+            action_record("deterministic", "graph", "", Some("fs:src"), "success");
         assert_eq!(subject, "graph -> fs:src");
         assert!(
             payload.get("target").is_none(),
             "no target field when there is none"
         );
 
-        let (_, subject, payload) = action_record("view", "wiki", None, "success");
+        let (_, subject, payload) = action_record("deterministic", "view", "wiki", None, "success");
         assert_eq!(subject, "view wiki");
         assert!(payload.get("object").is_none());
+
+        // An agent action is model-routed, not deterministic.
+        let (_, _, payload) = action_record("model", "agent", "fix the build", None, "success");
+        assert_eq!(payload["route"], "model");
     }
 
     #[test]

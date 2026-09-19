@@ -50,6 +50,10 @@ pub enum ObjectKind {
     Conversation,
     Service,
     Device,
+    /// A model-backed agent run: identity, provider/model, status and the
+    /// trace of what it did. Projected from plain strings, never from the
+    /// provider runtime (see [`WorldObject::agent`]).
+    Agent,
     /// A kind this build does not know yet. Carried verbatim so an older reader
     /// does not drop a newer writer's object.
     Other(String),
@@ -353,6 +357,29 @@ impl WorldObject {
         obj
     }
 
+    /// Project an agent run as a world object. Takes plain strings on purpose:
+    /// the view type must not depend on the provider runtime (`ai::provider`),
+    /// only on what a caller observed about the run. The route is `Model` — an
+    /// agent's output is a model's, and the UI must never blur that with a
+    /// deterministic operator.
+    pub fn agent(id: impl Into<String>, provider: &str, model: &str, status: &str) -> Self {
+        let label = match (provider.is_empty(), model.is_empty()) {
+            (false, false) => format!("{provider}:{model}"),
+            (false, true) => provider.to_string(),
+            _ => "agent".to_string(),
+        };
+        let content = if status.is_empty() {
+            label
+        } else {
+            format!("{label} — {status}")
+        };
+        let mut obj = Self::new(id, ObjectKind::Agent, content)
+            .with_provenance(Provenance::model("agent:run"));
+        obj.affordances = vec!["inspect".into(), "abort".into()];
+        obj.constraints = vec!["route=model".into(), "requires a provider (network)".into()];
+        obj
+    }
+
     /// Plain-text lines for the TUI stream. Kept UI-agnostic on purpose: the
     /// library must not depend on ratatui, and a line list is testable without
     /// a terminal.
@@ -521,6 +548,17 @@ mod tests {
         assert_eq!(obj.state.asserted, Some(-1.0));
         assert_eq!(obj.state.cell, Some(("storage".into(), "decision".into())));
         assert_eq!(obj.semantic_position, Some(vec![0.1, 0.2, 0.3]));
+    }
+
+    #[test]
+    fn an_agent_run_is_a_model_route_object_not_a_deterministic_one() {
+        let obj = WorldObject::agent("agent:run-1", "openai", "gpt-4o", "running");
+        assert_eq!(obj.kind, ObjectKind::Agent);
+        assert_eq!(obj.provenance.route, Route::Model);
+        assert_eq!(obj.provenance_chain(), "route=model source=agent:run");
+        assert_eq!(obj.content, "openai:gpt-4o — running");
+        assert!(obj.constraints.iter().any(|c| c == "route=model"));
+        assert!(obj.children().is_empty(), "an agent run has no fs children");
     }
 
     #[test]
