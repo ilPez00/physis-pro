@@ -36,8 +36,10 @@ use ratatui::{
 
 use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
+use physis_pro::fact::{self, FactAnswer};
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
 use physis_pro::ported::system::Workspace;
+use physis_pro::sensors;
 use physis_pro::world_object::{RelationKind, WorldObject};
 
 const TABS: [&str; 5] = ["STATUS", "MACHINES", "CONFIG", "WIKI", "STREAM"];
@@ -138,6 +140,11 @@ struct App {
     /// STREAM tab: show the current object's typed edges as a graph projection
     /// instead of the object body and child list. Same context, another view.
     stream_graph: bool,
+    /// The last specific-fact answer, value-first. Rendered in the footer in
+    /// place of the help line so a reading is not truncated; any key dismisses
+    /// it. Runtime state, never a store — the next question re-reads the
+    /// sensors.
+    answer: Option<Vec<String>>,
     /// The workspace observation store. Every deterministic action appends one
     /// record here, through the same writer `physis system` and the MCP history
     /// tools read — so a textbox action is recoverable as history, not a
@@ -451,6 +458,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cmd_open: false,
         cmd_input: String::new(),
         stream_graph: false,
+        answer: None,
         obs,
         agent_run: None,
     };
@@ -990,6 +998,9 @@ fn run<B: ratatui::backend::Backend>(
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(());
         }
+        // A shown fact answer is dismissed by the next keypress, so it never
+        // becomes a stale reading masquerading as the current one.
+        app.answer = None;
         // The magic textbox owns every key while it is open, for the same
         // reason the wiki box does: a verb must be typeable without the panel
         // reading its letters as commands.
@@ -1219,6 +1230,15 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
             ),
         ]))
     };
+    // A fact answer takes the whole footer line so the reading is not cut off;
+    // value first, provenance after. Any key dismisses it.
+    let foot = match &app.answer {
+        Some(lines) if !app.cmd_open => Paragraph::new(Line::from(Span::styled(
+            lines.join("  ·  "),
+            Style::default().fg(Color::Green),
+        ))),
+        _ => foot,
+    };
     f.render_widget(foot, rows[2]);
 }
 
@@ -1231,6 +1251,9 @@ enum Command {
     Find(String),
     View(usize),
     Graph,
+    /// A specific-fact question (`what is CPU temperature?`). Answered from
+    /// live typed facts, deterministically; route is `deterministic`.
+    Ask(String),
     /// Invoke an agent on a prompt. Route is `model`, not deterministic.
     Agent(String),
     Help,
@@ -1243,6 +1266,13 @@ enum Command {
 /// agent call is a separate, later arm, so this table can never reach one by
 /// accident.
 fn parse_command(input: &str) -> Command {
+    // A recognized specific-fact question is routed to the deterministic fact
+    // query before the verb table, so "what is CPU temperature?" can never fall
+    // through to an unknown-verb message. `parse_fact_question` is the single
+    // definition of what a fact question is.
+    if fact::parse_fact_question(input).is_some() {
+        return Command::Ask(input.trim().to_string());
+    }
     let mut parts = input.trim().splitn(2, char::is_whitespace);
     let verb = parts.next().unwrap_or("").to_lowercase();
     let arg = parts.next().unwrap_or("").trim().to_string();
@@ -1289,6 +1319,9 @@ fn command_action(cmd: &Command) -> Option<(&'static str, String)> {
         Command::View(tab) => Some(("view", TABS[*tab].to_lowercase())),
         Command::Graph => Some(("graph", String::new())),
         Command::Agent(prompt) => Some(("agent", prompt.clone())),
+        // Ask records its own single observation in `ask_facts` (with the
+        // answer outcome), so the generic action path must not also fire.
+        Command::Ask(_) => None,
         Command::Help | Command::Usage(_) | Command::Empty | Command::Unknown(_) => None,
     }
 }
@@ -1359,12 +1392,49 @@ fn record(
         .map(|e| e.to_string())
 }
 
+/// Answer a specific-fact question from live typed facts.
+///
+/// The sensors are read once for this submission, never per frame; the result
+/// is projected through the shared fact view and answered deterministically.
+/// Exactly one observation is appended through the existing action path, with
+/// the real outcome so a miss is not logged as a success. The footer shows the
+/// answer value-first, with the sysfs path visible in the provenance line.
+fn ask_facts(app: &mut App, question: String) {
+    let facts = fact::facts_from_events(&sensors::local_events());
+    let answer = fact::answer_fact(&question, &facts);
+    let outcome = fact_outcome(&answer);
+    app.answer = Some(answer.render());
+    app.status_msg = format!("route=deterministic operator=fact/query {outcome}");
+    if let Some(err) = record(app, "deterministic", "fact/query", &question, None, outcome) {
+        app.status_msg = format!("{} · record failed: {err}", app.status_msg);
+    }
+}
+
+/// The honest outcome of a fact answer, recorded through the action path. A
+/// miss is `not_found`, never `success`; ambiguity is its own outcome, so the
+/// history can tell a guess from an answer.
+fn fact_outcome(answer: &FactAnswer) -> &'static str {
+    match answer {
+        FactAnswer::One(_) => "success",
+        FactAnswer::Ambiguous(_) => "ambiguous",
+        FactAnswer::NotFound => "not_found",
+    }
+}
+
 /// Run one parsed command against the panel. Every action names its route in
 /// the status line and appends exactly one observation through the existing
 /// workspace store; commands that did nothing append nothing.
 fn run_command(app: &mut App) {
     let cmd = parse_command(&app.cmd_input);
     app.cmd_input.clear();
+
+    // A specific-fact question is answered from live typed facts, read once for
+    // this submission. Deterministic: no model is consulted, and a miss leaves
+    // the normal fallback message rather than silently starting an agent.
+    if let Command::Ask(question) = &cmd {
+        ask_facts(app, question.clone());
+        return;
+    }
 
     let Some((operator, target)) = command_action(&cmd) else {
         match cmd {
@@ -2560,6 +2630,51 @@ mod tests {
         );
         assert_eq!(parse_command("agent"), Command::Usage("agent <prompt>"));
         assert_eq!(parse_command("rm -rf /"), Command::Unknown("rm".into()));
+    }
+
+    #[test]
+    fn textbox_routes_specific_fact_questions_to_the_fact_query() {
+        assert_eq!(
+            parse_command("what is CPU temperature?"),
+            Command::Ask("what is CPU temperature?".into())
+        );
+        assert_eq!(
+            parse_command("  what's my heart rate?  "),
+            Command::Ask("what's my heart rate?".into()),
+            "trimmed, possessive folded by the query itself"
+        );
+        assert_eq!(
+            parse_command("what isotope is carbon-14?"),
+            Command::Unknown("what".into()),
+            "a prefix without a word boundary is not a fact question"
+        );
+        assert_eq!(parse_command("rm -rf /"), Command::Unknown("rm".into()));
+        assert_eq!(
+            command_action(&Command::Ask("what is x?".into())),
+            None,
+            "a fact question records its own observation, not the generic path"
+        );
+    }
+
+    #[test]
+    fn fact_outcome_never_calls_a_miss_a_success() {
+        let one = FactAnswer::One(physis_pro::fact::FactView {
+            key: "cpu_temperature".into(),
+            display_key: "cpu_temperature".into(),
+            value: "79.5 °C".into(),
+            number: Some(79.5),
+            unit: Some("°C".into()),
+            observed_at: None,
+            subject: Some("pansa".into()),
+            source: None,
+            origin: physis_pro::fact::FactOrigin::Property {
+                key: "cpu_temperature".into(),
+            },
+        });
+        assert_eq!(fact_outcome(&one), "success");
+        assert_eq!(fact_outcome(&FactAnswer::Ambiguous(vec![])), "ambiguous");
+        assert_eq!(fact_outcome(&FactAnswer::NotFound), "not_found");
+        assert_ne!(fact_outcome(&FactAnswer::NotFound), "success");
     }
 
     #[test]

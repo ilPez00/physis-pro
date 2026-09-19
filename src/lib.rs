@@ -73,6 +73,7 @@ pub mod review_desk;
 pub mod salience;
 pub mod scanner;
 pub mod semiotic_grid;
+pub mod sensors;
 pub mod sensory;
 pub mod sessions;
 pub mod shifts;
