@@ -130,6 +130,10 @@ struct App {
     stream_children: Vec<WorldObject>,
     /// Selected child, when the current object has any.
     stream_sel: usize,
+    /// Magic textbox: when open, keys edit `cmd_input` and Enter dispatches it
+    /// to a deterministic operator. Opened with `:` from any tab.
+    cmd_open: bool,
+    cmd_input: String,
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -368,6 +372,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )],
         stream_children: Vec::new(),
         stream_sel: 0,
+        cmd_open: false,
+        cmd_input: String::new(),
     };
     stream_refresh(&mut app);
 
@@ -903,6 +909,24 @@ fn run<B: ratatui::backend::Backend>(
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(());
         }
+        // The magic textbox owns every key while it is open, for the same
+        // reason the wiki box does: a verb must be typeable without the panel
+        // reading its letters as commands.
+        if app.cmd_open {
+            match key.code {
+                KeyCode::Esc => app.cmd_open = false,
+                KeyCode::Enter => {
+                    app.cmd_open = false;
+                    run_command(app);
+                }
+                KeyCode::Backspace => {
+                    app.cmd_input.pop();
+                }
+                KeyCode::Char(c) => app.cmd_input.push(c),
+                _ => {}
+            }
+            continue;
+        }
         // While typing a wiki query every printable key belongs to the box —
         // otherwise searching for "quality" would quit on the first letter.
         if app.wiki_typing {
@@ -933,6 +957,10 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
             KeyCode::Tab => app.tab = (app.tab + 1) % TABS.len(),
             KeyCode::BackTab => app.tab = (app.tab + TABS.len() - 1) % TABS.len(),
+            KeyCode::Char(':') => {
+                app.cmd_open = true;
+                app.cmd_input.clear();
+            }
             KeyCode::Down | KeyCode::Char('j') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + 1) % MACHINES.len(),
                 2 => app.cfg_sel = (app.cfg_sel + 1) % CFG_FIELDS.len(),
@@ -1078,17 +1106,116 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
             " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
         }
         TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
-        TAB_STREAM => " Tab · ↑/↓ select · Enter open · ⌫ back · provenance first · q quit",
-        _ => " Tab switch · s start · x stop · r reload-config · q quit",
+        TAB_STREAM => " Tab · ↑/↓ · Enter open · ⌫ back · : command · q quit",
+        _ => " Tab · s start · x stop · r reload · : command · q quit",
     };
-    let foot = Paragraph::new(Line::from(vec![
-        Span::styled(help, Style::default().fg(Color::Cyan)),
-        Span::styled(
-            format!("   {}", app.status_msg),
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]));
+    let foot = if app.cmd_open {
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                ":",
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(app.cmd_input.clone(), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                "   Enter run · Esc cancel",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]))
+    } else {
+        Paragraph::new(Line::from(vec![
+            Span::styled(help, Style::default().fg(Color::Cyan)),
+            Span::styled(
+                format!("   {}", app.status_msg),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]))
+    };
     f.render_widget(foot, rows[2]);
+}
+
+/// A deterministic verb the magic textbox knows. Parsing is pure so the
+/// routing table is testable without a terminal; an unrecognised verb is
+/// reported, never guessed at.
+#[derive(Debug, PartialEq)]
+enum Command {
+    Open(String),
+    Find(String),
+    View(usize),
+    Help,
+    Usage(&'static str),
+    Empty,
+    Unknown(String),
+}
+
+/// Route the textbox input to a verb. Deterministic operators only: a model or
+/// agent call is a separate, later arm, so this table can never reach one by
+/// accident.
+fn parse_command(input: &str) -> Command {
+    let mut parts = input.trim().splitn(2, char::is_whitespace);
+    let verb = parts.next().unwrap_or("").to_lowercase();
+    let arg = parts.next().unwrap_or("").trim().to_string();
+    match verb.as_str() {
+        "" => Command::Empty,
+        "help" | "?" => Command::Help,
+        "open" | "cd" | "o" => {
+            if arg.is_empty() {
+                Command::Usage("open <path>")
+            } else {
+                Command::Open(arg)
+            }
+        }
+        "find" | "search" | "/" => {
+            if arg.is_empty() {
+                Command::Usage("find <query>")
+            } else {
+                Command::Find(arg)
+            }
+        }
+        "view" | "tab" => match TABS.iter().position(|t| t.eq_ignore_ascii_case(&arg)) {
+            Some(i) => Command::View(i),
+            None => Command::Usage("view <status|machines|config|wiki|stream>"),
+        },
+        _ => Command::Unknown(verb),
+    }
+}
+
+/// Run one parsed command against the panel. Every arm names its route in the
+/// status line, so the operator can see the textbox answered deterministically
+/// rather than through a model.
+fn run_command(app: &mut App) {
+    let cmd = parse_command(&app.cmd_input);
+    app.cmd_input.clear();
+    match cmd {
+        Command::Open(path) => {
+            app.stream_stack = vec![WorldObject::from_path(&path)];
+            stream_refresh(app);
+            app.tab = TAB_STREAM;
+            app.status_msg = format!("route=deterministic operator=open path={path}");
+        }
+        Command::Find(query) => {
+            app.wiki_query = query.clone();
+            app.tab = TAB_WIKI;
+            wiki_search(app);
+            app.status_msg = format!("route=deterministic operator=find query={query}");
+        }
+        Command::View(tab) => {
+            app.tab = tab;
+            app.status_msg = format!("route=deterministic operator=view tab={}", TABS[tab]);
+        }
+        Command::Help => {
+            app.status_msg =
+                "open <path> · find <query> · view <status|machines|config|wiki|stream> · help"
+                    .into();
+        }
+        Command::Usage(usage) => app.status_msg = format!("usage: {usage}"),
+        Command::Empty => {}
+        Command::Unknown(verb) => {
+            app.status_msg =
+                format!("no deterministic operator for '{verb}' — model/agent routing not wired");
+        }
+    }
 }
 
 /// Move a selection index by `delta`, wrapping around. Kept pure so the
@@ -1912,6 +2039,35 @@ mod tests {
             "multi-byte utf8 encodes per byte"
         );
         assert_eq!(urlencoding_minimal("plain-text_1.0~"), "plain-text_1.0~");
+    }
+
+    #[test]
+    fn magic_textbox_routes_deterministic_verbs_only() {
+        assert_eq!(parse_command("open src"), Command::Open("src".into()));
+        assert_eq!(
+            parse_command("  OPEN  src/world_object.rs "),
+            Command::Open("src/world_object.rs".into()),
+            "verb is case-insensitive, path keeps its case"
+        );
+        assert_eq!(
+            parse_command("find retrieval packing"),
+            Command::Find("retrieval packing".into())
+        );
+        assert_eq!(parse_command("view stream"), Command::View(4));
+        assert_eq!(parse_command("view WIKI"), Command::View(3));
+        assert_eq!(parse_command("help"), Command::Help);
+        assert_eq!(parse_command("   "), Command::Empty);
+        assert_eq!(parse_command("open"), Command::Usage("open <path>"));
+        assert_eq!(
+            parse_command("view nowhere"),
+            Command::Usage("view <status|machines|config|wiki|stream>")
+        );
+        assert_eq!(
+            parse_command("agent do the thing"),
+            Command::Unknown("agent".into()),
+            "agent/model routing is a separate arm, not reachable from this table"
+        );
+        assert_eq!(parse_command("rm -rf /"), Command::Unknown("rm".into()));
     }
 
     #[test]
