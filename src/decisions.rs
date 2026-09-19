@@ -140,18 +140,30 @@ pub fn dedup_by_title(decisions: &[Candidate]) -> Vec<Candidate> {
 }
 
 /// Full deterministic pipeline: events → episodes → candidates → gate → dedup.
+///
+/// `apply_gate` already rejects a candidate outright when no gated field
+/// survives, so it never returns `Verdict::Unverified` — there is no unverified
+/// pass to filter here. Dedup is the only remaining step, and it runs after the
+/// gate so an ungrounded duplicate can never shadow a grounded one.
 pub fn extract(events: &[Event]) -> Vec<Candidate> {
     let gated = apply_gate(mine_decisions(&fold_episodes(events))).0;
     dedup_by_title(&gated)
-        .into_iter()
-        .filter(|c| c.verification != Verdict::Unverified)
-        .collect()
 }
 
 // ── 9.3b: embedding dedup against a prior-decision store ───────────────────
 
 use crate::embed::VectorEmbed;
-use crate::models::cosine_sim;
+
+/// Dot product over the shared prefix; callers check widths first.
+fn dot(a: &[f32], b: &[f32]) -> f32 {
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
+/// L2 norm with the same `1e-8` floor `models::cosine_sim` uses, so scores are
+/// identical to the shared helper — only the redundant recomputation differs.
+fn norm(a: &[f32]) -> f32 {
+    a.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8)
+}
 
 /// One previously-accepted decision, embedded for similarity search.
 /// Mirrors the repowise P4 shape: decisions live in the SHARED store
@@ -179,10 +191,16 @@ pub fn dedup_by_embedding(
     threshold: f32,
 ) -> Vec<Candidate> {
     // Seed with prior vectors; extend with each kept decision so intra-batch
-    // near-duplicates also collapse (first occurrence wins).
-    let mut seen: Vec<(String, Vec<f32>)> = priors
+    // near-duplicates also collapse (first occurrence wins). Each vector carries
+    // its precomputed norm, so a comparison is one dot product instead of the
+    // two extra norm passes `cosine_sim` recomputes per call.
+    //
+    // ponytail: O(candidates × seen) pairwise scan. Fine for a batch of mined
+    // decisions (tens); bucket by cell or add an ANN index if the prior store
+    // grows into the thousands.
+    let mut seen: Vec<(Vec<f32>, f32)> = priors
         .iter()
-        .map(|p| (p.text.clone(), p.embedding.clone()))
+        .map(|p| (p.embedding.clone(), norm(&p.embedding)))
         .collect();
 
     let mut out = Vec::with_capacity(candidates.len());
@@ -191,12 +209,14 @@ pub fn dedup_by_embedding(
         if !v.iter().all(|x| x.is_finite()) {
             continue; // broken vector never becomes institutional memory
         }
-        let dup = seen.iter().any(|(_, pv)| {
-            let s = cosine_sim(&v, pv);
-            s >= threshold
+        let nv = norm(&v);
+        let dup = seen.iter().any(|(pv, pn)| {
+            // A prior embedded by a different model has a different width;
+            // comparing lengths first keeps the dot product off mismatched vectors.
+            pv.len() == v.len() && (dot(&v, pv) / (nv * pn)).clamp(-1.0, 1.0) >= threshold
         });
         if !dup {
-            seen.push((c.decision.clone(), v));
+            seen.push((v, nv));
             out.push(c.clone());
         }
     }
@@ -350,6 +370,21 @@ mod tests {
         }
         let kept = dedup_by_embedding(&[cand("anything")], &[], &NaNEmbedder, 0.9);
         assert!(kept.is_empty());
+    }
+
+    /// A prior embedded by a different model has a different width. `cosine_sim`
+    /// zips, so without a length guard it would score a meaningless prefix
+    /// cosine and could spuriously dedup a real decision.
+    #[test]
+    fn mismatched_width_prior_does_not_falsely_dedup() {
+        let e = RandomProjectionEmbedder::new(384);
+        let priors = vec![PriorDecision {
+            text: "unrelated".into(),
+            embedding: vec![1.0; 4], // e.g. a different embedder's output
+        }];
+        let kept = dedup_by_embedding(&[cand("We chose sled for persistence")], &priors, &e, 0.9);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].decision, "We chose sled for persistence");
     }
 
     #[test]

@@ -1,0 +1,7 @@
+{
+  "name": "opencode-jev-recorder",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "plugin.js",
+  "description": "Record JEV evaluations into a Physis workspace observation log."
+}

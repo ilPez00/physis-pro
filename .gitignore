@@ -46,3 +46,8 @@ models/wordnet/
 # redacted, digest-target corpus is committed (benchmarks/behaviour/corpus-redacted.json.gz).
 benchmarks/behaviour/actions-*.json
 benchmarks/behaviour/sessions.json
+
+# Claude Code runtime state. worktrees/ holds full checkouts (166 MB measured);
+# jobs/ holds per-run scratch. Neither is source.
+.claude/worktrees/
+.claude/jobs/

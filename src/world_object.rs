@@ -1,0 +1,362 @@
+//! `WorldObject` — the one object the whole system navigates (P04).
+//!
+//! Every surface in the mission is a view over the same thing: a file, a
+//! concept, a project, a module, a symbol, a person, a command, a process, a
+//! machine, a website, a conversation, a service, a device. Today those live in
+//! different stores — `CoherenceNode` in the engine, `ThemeNode`/`FileNode` in
+//! the file-theme graph, notebook cells, ledger entries. This module defines the
+//! shape they all project onto, so the TUI stream has exactly one item type to
+//! render and the interop layer has exactly one schema to version.
+//!
+//! This is a *view type*, not a new store. It is composed from the existing
+//! nodes and edges; it does not replace them. P05 is the wiring pass that builds
+//! `WorldObject`s from `CoherenceNode` + holarchy edges; until then this module
+//! is the contract, exercised by its own tests.
+//!
+//! The two fields that make the mission's claim checkable:
+//!
+//! * [`Provenance::route`] — was this value produced by a deterministic
+//!   operator or by a model? Every answer carries it, so the UI can show it and
+//!   the observation log can count it.
+//! * [`WorldObject::provenance_chain`] — the "why did this appear" line. A
+//!   navigational layer that cannot say why it said something is an oracle, and
+//!   this project does not ship oracles (`ported/world.rs` states the same rule).
+
+use serde::{Deserialize, Serialize};
+
+use std::path::Path;
+
+/// Stable identity of a world object. Namespaced by the store that minted it,
+/// e.g. `core:node:7f3a`, `fs:/home/gio/dev/aion/src/aion/ui/app.py`,
+/// `fleet:node:pansa`, `cyclops:note:2026-09-19T14:00Z`.
+pub type ObjectId = String;
+
+/// What kind of thing this is. Drives the graph's iconography and the
+/// affordances that are even offerable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectKind {
+    File,
+    Concept,
+    Project,
+    Module,
+    Symbol,
+    Person,
+    Command,
+    Process,
+    Machine,
+    Website,
+    Conversation,
+    Service,
+    Device,
+    /// A kind this build does not know yet. Carried verbatim so an older reader
+    /// does not drop a newer writer's object.
+    Other(String),
+}
+
+/// Who produced a value. The distinction the mission insists on: a result the
+/// deterministic path can justify is not the same as a model's guess, and the
+/// UI must never blur them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Route {
+    /// Produced by an operator over stored state — reproducible, no model.
+    Deterministic,
+    /// Produced with a model in the loop.
+    Model,
+}
+
+/// Where a value came from, in enough detail to re-derive it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Provenance {
+    pub route: Route,
+    /// The operator or tool, e.g. `embed:bge-base`, `operator:neighbors`,
+    /// `operator:semantic-delta`, `model:jev-1.13-free`.
+    pub source: String,
+    /// Position in the append-only observation log, when the value is backed by
+    /// one. Ordered by log position, never by clock.
+    #[serde(default)]
+    pub observation_seq: Option<u64>,
+}
+
+impl Provenance {
+    pub fn deterministic(source: impl Into<String>) -> Self {
+        Self { route: Route::Deterministic, source: source.into(), observation_seq: None }
+    }
+
+    pub fn model(source: impl Into<String>) -> Self {
+        Self { route: Route::Model, source: source.into(), observation_seq: None }
+    }
+
+    pub fn at(mut self, seq: u64) -> Self {
+        self.observation_seq = Some(seq);
+        self
+    }
+}
+
+/// A typed edge. The edge carries meaning; an untyped edge is a bug.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationKind {
+    Contains,
+    DependsOn,
+    ProducedBy,
+    SimilarTo,
+    Contradicts,
+    Calls,
+    Controls,
+    DerivedFrom,
+    ModifiedBy,
+    Requires,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Relation {
+    pub kind: RelationKind,
+    pub target: ObjectId,
+    #[serde(default)]
+    pub provenance: Option<Provenance>,
+}
+
+/// The state axis, mirroring the engine's two axes: `coherence` is derived and
+/// never negative; `asserted` is a verdict someone reported and may be absent.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ObjectState {
+    #[serde(default)]
+    pub coherence: Option<f32>,
+    #[serde(default)]
+    pub asserted: Option<f32>,
+    /// Semiotic cell `(domain, mode)`, when pinned.
+    #[serde(default)]
+    pub cell: Option<(String, String)>,
+}
+
+/// One object in the world, projected from whatever store owns it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorldObject {
+    pub identity: ObjectId,
+    pub kind: ObjectKind,
+    /// Human-readable content: a label, a path, a fragment. Not a copy of the
+    /// file body — content lives where it lives; this is what the stream shows.
+    pub content: String,
+    pub state: ObjectState,
+    pub provenance: Provenance,
+    #[serde(default)]
+    pub relations: Vec<Relation>,
+    /// What this object sits inside, if anything.
+    #[serde(default)]
+    pub containment: Option<ObjectId>,
+    /// What a user or agent can *do* with this object.
+    #[serde(default)]
+    pub affordances: Vec<String>,
+    /// What must hold for those affordances to be valid.
+    #[serde(default)]
+    pub constraints: Vec<String>,
+    #[serde(default)]
+    pub dependencies: Vec<ObjectId>,
+    /// The embedding, when the store has one. Named by the embedder in
+    /// `provenance.source`, never anonymous.
+    #[serde(default)]
+    pub semantic_position: Option<Vec<f32>>,
+    /// Provenance entries in log order: how this object came to be and change.
+    #[serde(default)]
+    pub temporal_history: Vec<Provenance>,
+}
+
+impl WorldObject {
+    pub fn new(identity: impl Into<String>, kind: ObjectKind, content: impl Into<String>) -> Self {
+        Self {
+            identity: identity.into(),
+            kind,
+            content: content.into(),
+            state: ObjectState::default(),
+            provenance: Provenance::deterministic("operator:new"),
+            relations: Vec::new(),
+            containment: None,
+            affordances: Vec::new(),
+            constraints: Vec::new(),
+            dependencies: Vec::new(),
+            semantic_position: None,
+            temporal_history: Vec::new(),
+        }
+    }
+
+    pub fn with_provenance(mut self, provenance: Provenance) -> Self {
+        self.provenance = provenance;
+        self
+    }
+
+    pub fn relate(mut self, kind: RelationKind, target: impl Into<String>) -> Self {
+        self.relations.push(Relation { kind, target: target.into(), provenance: None });
+        self
+    }
+
+    pub fn contained_in(mut self, parent: impl Into<String>) -> Self {
+        self.containment = Some(parent.into());
+        self
+    }
+
+    /// Outgoing edges of one kind.
+    pub fn relations_of(&self, kind: RelationKind) -> impl Iterator<Item = &Relation> {
+        self.relations.iter().filter(move |r| r.kind == kind)
+    }
+
+    /// The "why did this appear" line. Always names the route and the source,
+    /// and the observation position when there is one.
+    pub fn provenance_chain(&self) -> String {
+        let route = match self.provenance.route {
+            Route::Deterministic => "deterministic",
+            Route::Model => "model",
+        };
+        let mut line = format!("route={route} source={}", self.provenance.source);
+        if let Some(seq) = self.provenance.observation_seq {
+            line.push_str(&format!(" obs={seq}"));
+        }
+        line
+    }
+
+    /// Build a project object from a directory: the directory is the object,
+    /// its immediate children are `Contains` edges. This is the smallest real
+    /// world object the TUI can show without a model or a network — the visible
+    /// slice of the first sprint.
+    ///
+    /// Read-only: it never writes, and it skips entries it cannot stat.
+    pub fn from_directory(root: impl AsRef<Path>) -> Self {
+        let root = root.as_ref();
+        let display = root.display().to_string();
+        let name = root
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| display.clone());
+
+        let mut obj = Self::new(format!("fs:{display}"), ObjectKind::Project, name)
+            .with_provenance(Provenance::deterministic("operator:fs-scan"));
+        obj.affordances = vec!["open".into(), "scan".into(), "edit-content".into()];
+        obj.constraints = vec!["read-only view (no writes)".into()];
+        if let Some(parent) = root.parent() {
+            obj.containment = Some(format!("fs:{}", parent.display()));
+        }
+
+        if let Ok(entries) = std::fs::read_dir(root) {
+            let mut children: Vec<String> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| e.path().display().to_string())
+                .collect();
+            children.sort();
+            for path in children.iter().take(200) {
+                obj.relations.push(Relation {
+                    kind: RelationKind::Contains,
+                    target: format!("fs:{path}"),
+                    provenance: None,
+                });
+            }
+        }
+        obj
+    }
+
+    /// Plain-text lines for the TUI stream. Kept UI-agnostic on purpose: the
+    /// library must not depend on ratatui, and a line list is testable without
+    /// a terminal.
+    pub fn render(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        lines.push(self.provenance_chain());
+        lines.push(format!("{:?}  {}", self.kind, self.identity).to_lowercase());
+        lines.push(self.content.clone());
+
+        let mut state = Vec::new();
+        if let Some(c) = self.state.coherence {
+            state.push(format!("coherence={c:.2}"));
+        }
+        if let Some(a) = self.state.asserted {
+            state.push(format!("asserted={a:.2}"));
+        }
+        if let Some((d, m)) = &self.state.cell {
+            state.push(format!("cell={d}/{m}"));
+        }
+        if !state.is_empty() {
+            lines.push(format!("state: {}", state.join(" ")));
+        }
+
+        if let Some(parent) = &self.containment {
+            lines.push(format!("inside: {parent}"));
+        }
+        for kind in [
+            RelationKind::Contains,
+            RelationKind::DependsOn,
+            RelationKind::Requires,
+            RelationKind::Contradicts,
+        ] {
+            let targets: Vec<&str> = self.relations_of(kind).map(|r| r.target.as_str()).collect();
+            if !targets.is_empty() {
+                lines.push(format!("{:?} ({}) -> {}", kind, targets.len(), targets.join(", ")));
+            }
+        }
+        if !self.affordances.is_empty() {
+            lines.push(format!("can: {}", self.affordances.join(", ")));
+        }
+        if !self.constraints.is_empty() {
+            lines.push(format!("must: {}", self.constraints.join(", ")));
+        }
+        lines
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provenance_chain_names_route_source_and_log_position() {
+        let obj = WorldObject::new("core:node:7f3a", ObjectKind::Concept, "sled vs postgres")
+            .with_provenance(Provenance::deterministic("embed:bge-base").at(1234));
+        assert_eq!(obj.provenance_chain(), "route=deterministic source=embed:bge-base obs=1234");
+    }
+
+    #[test]
+    fn model_produced_values_are_never_labelled_deterministic() {
+        let obj = WorldObject::new("core:node:7f3a", ObjectKind::Concept, "a decision")
+            .with_provenance(Provenance::model("model:jev-1.13-free"));
+        assert_eq!(obj.provenance_chain(), "route=model source=model:jev-1.13-free");
+    }
+
+    #[test]
+    fn relations_are_typed_and_filterable() {
+        let obj = WorldObject::new("project:aion", ObjectKind::Project, "aion")
+            .relate(RelationKind::Contains, "module:ui")
+            .relate(RelationKind::DependsOn, "service:physis")
+            .relate(RelationKind::Contains, "module:deck");
+        assert_eq!(obj.relations_of(RelationKind::Contains).count(), 2);
+        assert_eq!(obj.relations_of(RelationKind::DependsOn).count(), 1);
+        assert_eq!(obj.relations_of(RelationKind::Contradicts).count(), 0);
+    }
+
+    #[test]
+    fn an_unknown_kind_round_trips_instead_of_being_dropped() {
+        let obj = WorldObject::new("x:1", ObjectKind::Other("hologram".into()), "new thing");
+        let json = serde_json::to_string(&obj).expect("serializes");
+        let back: WorldObject = serde_json::from_str(&json).expect("deserializes");
+        assert_eq!(back, obj);
+    }
+
+    #[test]
+    fn a_directory_becomes_a_project_with_typed_children() {
+        // Cargo runs lib tests from the package root, so `src` exists.
+        let obj = WorldObject::from_directory("src");
+        assert_eq!(obj.kind, ObjectKind::Project);
+        assert_eq!(obj.provenance.route, Route::Deterministic);
+        assert!(obj.identity.starts_with("fs:"));
+        assert!(obj.relations_of(RelationKind::Contains).count() > 0);
+    }
+
+    #[test]
+    fn render_names_the_route_the_container_and_the_relations() {
+        let obj = WorldObject::new("core:node:1", ObjectKind::Concept, "a concept")
+            .with_provenance(Provenance::model("model:jev-1.13-free"))
+            .relate(RelationKind::DependsOn, "service:physis")
+            .contained_in("project:aion");
+        let text = obj.render().join("\n");
+        assert!(text.contains("route=model"), "{text}");
+        assert!(text.contains("inside: project:aion"), "{text}");
+        assert!(text.contains("DependsOn (1) -> service:physis"), "{text}");
+    }
+}

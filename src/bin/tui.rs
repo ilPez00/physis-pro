@@ -37,9 +37,11 @@ use ratatui::{
 use chrono::{Duration as ChronoDuration, Utc};
 use physis_pro::config::PhysisConfig;
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
+use physis_pro::world_object::WorldObject;
 
-const TABS: [&str; 4] = ["STATUS", "MACHINES", "CONFIG", "WIKI"];
+const TABS: [&str; 5] = ["STATUS", "MACHINES", "CONFIG", "WIKI", "STREAM"];
 const TAB_WIKI: usize = 3;
+const TAB_STREAM: usize = 4;
 const MACHINES: [(&str, &str); 7] = [
     ("chronos", "temporal — rhythms, what's due / slipping"),
     ("techne", "codebase — capabilities + change impact"),
@@ -119,6 +121,10 @@ struct App {
     wiki_confidence: f32,
     wiki_cell_row: usize,
     wiki_cell_col: usize,
+    /// STREAM tab: the world object under the cursor, rendered to lines.
+    /// Read-only — the visible slice of sprint 1 (P04 + this).
+    stream: Vec<String>,
+    stream_source: String,
 }
 
 /// One cell of the semiotic grid: a DOMAIN x MODE intersection, how strongly the
@@ -352,6 +358,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         wiki_confidence: 0.35,
         wiki_cell_row: 0,
         wiki_cell_col: 0,
+        stream: WorldObject::from_directory(".").render(),
+        stream_source: std::env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| ".".into()),
     };
 
     enable_raw_mode()?;
@@ -1039,6 +1049,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         1 => draw_machines(f, rows[1], app),
         2 => draw_config(f, rows[1], app),
         TAB_WIKI => draw_wiki(f, rows[1], app),
+        TAB_STREAM => draw_stream(f, rows[1], app),
         _ => {}
     }
 
@@ -1052,6 +1063,7 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
             " ←/→ mode · ↑/↓ domain · [ ] evidence · Enter scope to cell · m unfocus"
         }
         TAB_WIKI => " Tab · / search · ↑/↓ · g walk · d dreams · ⌫ back · m map · q quit",
+        TAB_STREAM => " Tab switch · one WorldObject per directory · provenance first · q quit",
         _ => " Tab switch · s start · x stop · r reload-config · q quit",
     };
     let foot = Paragraph::new(Line::from(vec![
@@ -1062,6 +1074,25 @@ fn draw(f: &mut ratatui::Frame, app: &App, status: &Arc<Mutex<EngineStatus>>) {
         ),
     ]));
     f.render_widget(foot, rows[2]);
+}
+
+/// STREAM tab — the first visible slice of the world-object model.
+///
+/// One `WorldObject` (this working directory) rendered the way the stream will
+/// render any node: provenance first, because a navigational layer that cannot
+/// say why it said something is an oracle. Then state, container, typed
+/// relations, affordances and constraints. Read-only on purpose: this slice
+/// exists to make the object model visible, not yet to edit it.
+fn draw_stream(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
+    let body: Vec<Line> = app.stream.iter().map(|l| Line::from(l.as_str())).collect();
+    let block = Block::default()
+        .title(format!(" STREAM · {} ", app.stream_source))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+    let p = Paragraph::new(body)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    f.render_widget(p, area);
 }
 
 /// WIKI tab — search box on top, cosine-ranked hits left, preview right.
