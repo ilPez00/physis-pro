@@ -554,6 +554,37 @@ fn agent_scope(rest: &str, query: &str) -> Option<String> {
     }
 }
 
+/// Invoke an agent synchronously. Runs on a worker thread from the HUD; the CLI
+/// calls the adapter directly. Every failure path returns a readable reason.
+fn invoke_agent(agent_id: &str, prompt: &str, scope: Option<&str>) -> AgentReply {
+    use physis_pro::agents::{adapter, default_roster};
+    let fail = |text: String| AgentReply {
+        agent: agent_id.to_string(),
+        ok: false,
+        text,
+    };
+    let roster = default_roster();
+    let Some(agent) = roster.get(agent_id) else {
+        return fail(format!("no such agent: @{agent_id}"));
+    };
+    let adapter = match adapter::adapter_for(agent) {
+        Ok(a) => a,
+        Err(e) => return fail(format!("{e}")),
+    };
+    let mut inv = adapter::Invocation::new(prompt);
+    if let Some(s) = scope {
+        inv = inv.with_scope(s);
+    }
+    match adapter.invoke(&inv) {
+        Ok(out) => AgentReply {
+            agent: agent_id.to_string(),
+            ok: true,
+            text: out.text,
+        },
+        Err(e) => fail(format!("{e}")),
+    }
+}
+
 fn prompt_mode(input: &str, editor_active: bool) -> HudPromptMode {
     if editor_active {
         return HudPromptMode::Editor;
@@ -1173,6 +1204,15 @@ fn why_affected_lines(
     lines
 }
 
+/// A completed background agent call, delivered back to the run loop. An agent
+/// turn is 43 s to 3 min, so it runs off the UI thread and the result arrives
+/// through a channel; the HUD never blocks on a model.
+struct AgentReply {
+    agent: String,
+    ok: bool,
+    text: String,
+}
+
 struct App {
     ws: physis_pro::nav::workspace::NavWorkspace,
     weights: NavWeights,
@@ -1224,6 +1264,11 @@ struct App {
     /// Recomputed at startup and on rescan; the header and Context tab read
     /// this instead of re-walking the tree.
     ws_tokens: usize,
+    /// Sender for background agent calls, installed by `run`. `None` in
+    /// snapshot mode and tests, where there is no event loop to receive on.
+    agent_tx: Option<std::sync::mpsc::Sender<AgentReply>>,
+    /// The agent being asked right now, if a background call is in flight.
+    agent_pending: Option<String>,
 }
 
 impl App {
@@ -1324,6 +1369,8 @@ impl App {
             context_tab: ContextTab::Why,
             last_delta: None,
             ws_tokens,
+            agent_tx: None,
+            agent_pending: None,
         })
     }
 
@@ -1913,20 +1960,49 @@ impl App {
                 // The pane names its context: the explicit request, else the
                 // current query, so the card is never detached from the world.
                 let scope = agent_scope(&rest, &self.query);
-                let text = match roster.get(&agent) {
+                let mut text = match roster.get(&agent) {
                     Some(a) => {
                         let mut card =
                             physis_pro::agents::view::render_agent_card(a, scope.as_deref());
                         if let Some(h) = &host {
                             card.push_str(&format!(
-                                "\nrequested host: {h} (remote placement is S12; no call made)"
+                                "\nrequested host: {h} (remote placement is S12)"
                             ));
                         }
                         card
                     }
                     None => physis_pro::agents::view::render_unknown_agent(&agent, &roster),
                 };
-                self.status = format!("agent @{agent}: card shown, no call made (adapters are S2)");
+
+                // A bare `@agent` shows the card. `@agent <question>` asks it,
+                // off the UI thread: a turn is 43 s to 3 min and must not freeze
+                // the loop. The reply arrives through `agent_tx` in `run`.
+                match (&self.agent_tx, rest.is_empty()) {
+                    (Some(tx), false) => {
+                        let tx = tx.clone();
+                        let agent_id = agent.clone();
+                        let question = rest.clone();
+                        let scope = scope.clone();
+                        text.push_str("\n\nasking in the background…");
+                        self.agent_pending = Some(agent_id.clone());
+                        self.status = format!(
+                            "@{agent_id}: asking in the background — the TUI stays responsive"
+                        );
+                        std::thread::spawn(move || {
+                            let reply = invoke_agent(&agent_id, &question, scope.as_deref());
+                            let _ = tx.send(reply);
+                        });
+                    }
+                    (Some(_), true) => {
+                        self.status = format!(
+                            "agent @{agent}: card shown — add a question to ask it, e.g. @{agent} what does this do?"
+                        );
+                    }
+                    (None, _) => {
+                        // Snapshot mode / tests: no event loop, so no call.
+                        self.status = format!("agent @{agent}: card shown (no event loop)");
+                    }
+                }
                 self.reading = Some((format!("@{agent}"), text));
                 false
             }
@@ -2630,6 +2706,18 @@ impl App {
                 .map(|o| o.label.clone())
                 .unwrap_or_else(|| id.short())
         };
+        // Every graph edge names the file it points at, so the graph is a way
+        // to a file and not a wall of labels: the path shown is the one
+        // `open`/`edit` accept.
+        let path_of = |id: &nav::ObjectId| {
+            self.ws
+                .index()
+                .objects
+                .get(&serde_json::to_string(id).unwrap())
+                .and_then(|o| o.source.as_ref())
+                .map(|s| s.path.clone())
+                .unwrap_or_default()
+        };
         let mut lines = Vec::new();
         lines.push(format!("● {}", center.object.label));
         lines.push(format!(
@@ -2656,7 +2744,10 @@ impl App {
                 nav::RelationOrigin::Deterministic => "═══",
                 nav::RelationOrigin::Inferred => "- -",
             };
-            lines.push(format!("  {dir} {origin} [{rel}] {} {origin}→", name));
+            let other_path = path_of(other);
+            lines.push(format!(
+                "  {dir} {origin} [{rel}] {name} {origin}→  {other_path}"
+            ));
         }
         // Nearest neighbours by retrieval score — dashed as inferred.
         // State-aware: the center and each neighbour carry their world
@@ -2712,7 +2803,7 @@ impl App {
                 &h.object,
             );
             lines.push(format!(
-                "  {m}  - - [near {:.2}] {} - -",
+                "  {m}  - - [near {:.2}] {} - -  {p}",
                 h.score.total, h.object.label
             ));
         }
@@ -2759,7 +2850,13 @@ impl App {
         lines.push(
             "★ selected · ◆ human-pinned · ● changed · ◐ affected · ▲ intent · · ordinary".into(),
         );
-        self.reading = Some((format!("graph: {}", center.object.label), lines.join("\n")));
+        lines.push(
+            "every edge above names its file — `open <path>` / `edit <path>` accepts it".into(),
+        );
+        self.reading = Some((
+            format!("graph: {} — {}", center.object.label, center_path),
+            lines.join("\n"),
+        ));
     }
 
     fn related(&mut self) {
@@ -3350,8 +3447,33 @@ fn list_state_for(app: &App) -> ListState {
 
 fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> anyhow::Result<()> {
     let app = Arc::new(Mutex::new(app));
+    // Background agent calls report here. The sender is installed on the App so
+    // the `@agent` handler can hand work to a worker thread.
+    let (agent_tx, agent_rx) = std::sync::mpsc::channel::<AgentReply>();
+    app.lock().unwrap().agent_tx = Some(agent_tx);
 
     loop {
+        // Deliver any completed agent turn before drawing, so the reply appears
+        // the moment it lands instead of on the next keystroke.
+        while let Ok(reply) = agent_rx.try_recv() {
+            let mut app = app.lock().unwrap();
+            app.agent_pending = None;
+            app.status = if reply.ok {
+                format!(
+                    "@{} replied ({} chars) — reading pane shows the reply",
+                    reply.agent,
+                    reply.text.len()
+                )
+            } else {
+                format!(
+                    "@{} failed: {}",
+                    reply.agent,
+                    reply.text.lines().next().unwrap_or("no detail")
+                )
+            };
+            app.reading = Some((format!("@{} reply", reply.agent), reply.text));
+        }
+
         {
             let app = app.lock().unwrap();
             terminal.draw(|f| draw(f, &app))?;
