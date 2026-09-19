@@ -109,7 +109,25 @@ Measured 2026-09-19 on pansa, `opencode` 1.18.30.
   `PHYSIS_JEV_ZEN_MODEL`.
 - Latency: a bare turn is **~43 s**. A question that makes the read-only `plan`
   agent explore the repo ran **3 m 10 s** and produced a correct answer about
-  `src/agents/`. The adapter deadline is 240 s.
+  `src/agents/`. The adapter deadline is 240 s for `agent call`, 600 s for
+  `agent ask`.
+- Attaching to a warm `opencode serve` (`opencode run --attach`) was measured
+  **slower** — 56 s against 43 s for the same prompt — so the adapter uses a
+  plain `run`. The plan's suggested mitigation did not pay off here.
+
+### `agent ask`, measured
+
+`agent ask` packs workspace context and then asks JEV. Two measurements:
+
+- **The pack step was the cliff.** Over the whole tree on a cold embedding cache
+  it ran **10+ minutes at ~680 % CPU without finishing** and had to be killed; it
+  saturates the box. `pack_cached_limited` now takes a file bound, and `agent
+  ask --max-files` defaults to 150, which packs in seconds (5 chunks, ~1.2k
+  tokens in the measured run). `--max-files 0` restores the unbounded walk.
+- **The model call still dominates.** With the pack bounded the call exceeded
+  the then-240 s deadline on a real question, so `ask` now allows 600 s. The
+  free Zen tier is a batch/background transport, not an interactive one — which
+  is exactly why the HUD asks on a worker thread.
 
 The adapter appends a reply contract to every JEV prompt and requires a parseable
 `JevResult`. A reply whose JSON object carries none of `findings`/`relations`/
@@ -120,14 +138,14 @@ deserialized to an empty result and read as success.
 
 ## 6. Known limits and defects
 
-- **`agent ask` is unmeasured end-to-end.** It packs workspace context and then
-  calls the model; the pack step embeds the corpus on first run and is
-  unbounded, so the command can exceed a 400 s shell timeout. `agent call jev` is
-  the verified path.
-- **The HUD agent card does not invoke.** `@jev` shows the card and states that
-  no call is made; invocation is `agent call`/`agent ask` on the CLI. A 43 s–3 min
-  call would freeze the synchronous HUD loop, so wiring it needs a background
-  thread (S6 work).
+- **`agent ask` is measured, and it is slow by nature.** The pack step is now
+  bounded (`--max-files`, default 150), but the model call has a ~43 s floor and
+  a real question ran 3 m 10 s, so the deadline is 600 s. Treat it as a
+  background tool. `agent call jev` is the smaller, verified path.
+- **The HUD asks on a worker thread.** `@agent <question>` spawns a thread and
+  the reply arrives through an mpsc channel drained before each draw, so a
+  3-minute turn never freezes the loop. Snapshot mode and tests have no channel
+  and the card says so.
 - **Commit `d754b1a` message is mangled**: shell backticks ate the CLI list, so
   it reads `Callers:  (the plan's rule…)`. The commit is pushed; fixing the
   message needs a force-push and was not done unasked.

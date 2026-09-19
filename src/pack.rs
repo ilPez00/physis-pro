@@ -114,6 +114,17 @@ fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
 /// than a language allowlist: a corpus of docs, configs and logs is as valid a
 /// target as a code tree, and an allowlist would silently exclude it.
 fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
+    collect_candidates_limited(root, None)
+}
+
+/// Walk `root` and chunk every text file, stopping after `max_files` files when
+/// a bound is given.
+///
+/// The bound exists because a cold cache over a large tree is brutal: measured
+/// 2026-09-19, packing this repo from scratch ran 10+ minutes at ~680% CPU
+/// without finishing, saturating the box. A batch job can afford that; an agent
+/// that packs several times a session cannot, and neither can a TUI.
+fn collect_candidates_limited(root: &Path, max_files: Option<usize>) -> (Vec<Candidate>, usize) {
     const SKIP_DIRS: [&str; 9] = [
         ".git",
         "target",
@@ -137,6 +148,11 @@ fn collect_candidates(root: &Path) -> (Vec<Candidate>, usize) {
     });
 
     for entry in walker.filter_map(Result::ok) {
+        if let Some(limit) = max_files {
+            if files_scanned >= limit {
+                break;
+            }
+        }
         if !entry.file_type().is_file() {
             continue;
         }
@@ -356,7 +372,59 @@ pub fn pack_cached(
     cache: &mut EmbedCache,
 ) -> PackResult {
     let (candidates, files_scanned) = collect_candidates(root);
+    pack_from_candidates(
+        candidates,
+        files_scanned,
+        query,
+        budget,
+        top_k,
+        diversity,
+        embedder,
+        embedder_kind,
+        cache,
+    )
+}
 
+/// [`pack_cached`] with a file bound, for callers that must not spend minutes
+/// embedding a cold tree (the TUI, `agent ask`).
+#[allow(clippy::too_many_arguments)]
+pub fn pack_cached_limited(
+    root: &Path,
+    query: &str,
+    budget: usize,
+    top_k: usize,
+    diversity: f32,
+    embedder: &dyn VectorEmbed,
+    embedder_kind: &str,
+    cache: &mut EmbedCache,
+    max_files: Option<usize>,
+) -> PackResult {
+    let (candidates, files_scanned) = collect_candidates_limited(root, max_files);
+    pack_from_candidates(
+        candidates,
+        files_scanned,
+        query,
+        budget,
+        top_k,
+        diversity,
+        embedder,
+        embedder_kind,
+        cache,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn pack_from_candidates(
+    candidates: Vec<Candidate>,
+    files_scanned: usize,
+    query: &str,
+    budget: usize,
+    top_k: usize,
+    diversity: f32,
+    embedder: &dyn VectorEmbed,
+    embedder_kind: &str,
+    cache: &mut EmbedCache,
+) -> PackResult {
     if candidates.is_empty() {
         return PackResult {
             context: String::new(),

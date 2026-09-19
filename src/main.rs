@@ -46,6 +46,10 @@ pub enum AgentCommand {
         question: String,
         #[arg(long, default_value_t = 3000)]
         budget: usize,
+        /// Cap the files packed as context. A cold embedding cache over a large
+        /// tree can otherwise run for minutes; 0 means no bound.
+        #[arg(long, default_value_t = 150)]
+        max_files: usize,
     },
     /// Route a request: `agent route <verb> <object-kind> [--agent ID] [--domain D] [--mode M]`
     Route {
@@ -2454,17 +2458,27 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                 }
             }
         }
-        AgentCommand::Ask { question, budget } => {
+        AgentCommand::Ask {
+            question,
+            budget,
+            max_files,
+        } => {
             // Ground the question in the workspace: pack the most relevant
             // source first, so the agent answers from evidence instead of
             // exploring the tree on its own (measured: a bare `opencode run`
             // turn is ~43 s; a repo-exploring question ran past three minutes).
+            // The file bound keeps a cold cache from running for minutes.
             let config = PhysisProConfig::default();
             let root = std::env::current_dir()?;
             let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
             eprintln!("[physis] jev ask embedder: {kind}");
             let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
-            let packed = physis_pro::pack::pack_cached(
+            let limit = if *max_files == 0 {
+                None
+            } else {
+                Some(*max_files)
+            };
+            let packed = physis_pro::pack::pack_cached_limited(
                 &root,
                 question,
                 *budget,
@@ -2473,12 +2487,15 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                 embedder.as_ref(),
                 kind,
                 &mut cache,
+                limit,
             );
             cache.save(&config.physis.data_dir);
             eprintln!(
-                "[physis] packed {} tokens from {} chunks",
+                "[physis] packed {} tokens from {} chunks ({} files scanned, limit {:?})",
                 packed.tokens,
-                packed.chunks.len()
+                packed.chunks.len(),
+                packed.files_scanned,
+                limit
             );
 
             let prompt = format!(
@@ -2490,8 +2507,13 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
                 .get("jev")
                 .ok_or_else(|| anyhow::anyhow!("no `jev` in the roster"))?;
             let adapter = adapter::adapter_for(agent).map_err(|e| anyhow::anyhow!("{e}"))?;
+            // Measured 2026-09-19: the free Zen tier has a ~43 s floor for a
+            // bare turn and a repo-exploring question ran 3 m 10 s. Attaching to
+            // a warm `opencode serve` was measured slower (56 s), so it is not
+            // used. The deadline is generous because killing a useful answer is
+            // worse than waiting.
             let out = adapter
-                .invoke(&adapter::Invocation::new(prompt))
+                .invoke(&adapter::Invocation::new(prompt).with_timeout(600))
                 .map_err(|e| anyhow::anyhow!("{e}"))?;
             println!("{}", out.text);
             if let Some(s) = out.structured {
