@@ -54,3 +54,4 @@ benchmarks/behaviour/sessions.json
 
 # Runtime capability cache
 .physis-capabilities
+benchmarks/behaviour/actions*.json
