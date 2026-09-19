@@ -1,120 +1,3 @@
-act — mod
-act::Acted — struct pub struct Acted {
-act::Acted::bearing — field pub bearing: Vec<Bearing>
-act::Acted::command — field pub command: String
-act::Acted::duration_ms — field pub duration_ms: u64
-act::Acted::exit_code — field pub exit_code: Option<i32>
-act::Acted::observed — field pub observed: Vec<u64>
-act::Acted::render — fn pub fn render(&self) -> String {
-act::Acted::stderr_tail — field pub stderr_tail: String
-act::Acted::stdout_lines — field pub stdout_lines: usize
-act::Acted::warnings — fn pub fn warnings(&self) -> Vec<&Bearing> {
-act::Bearing — struct pub struct Bearing {
-act::Bearing::id — field pub id: String
-act::Bearing::is_warning — fn pub fn is_warning(&self) -> bool {
-act::Bearing::open_predictions — field pub open_predictions: usize
-act::Bearing::relevance — field pub relevance: f32
-act::Bearing::statement — field pub statement: String
-act::Bearing::status — field pub status: String
-act::Selection — enum pub enum Selection {
-act::Selection::CascadeFloor — variant CascadeFloor { pool: usize, floor: f32 }
-act::Selection::CascadeRerank — variant CascadeRerank { pool: usize }
-act::Selection::Hybrid — variant Hybrid { alpha: f32 }
-act::Selection::HybridRrf — variant HybridRrf { k: f32 }
-act::Selection::Relevance — variant Relevance
-act::Selection::WarningReserve — variant WarningReserve { floor_ratio: f32 }
-act::bearing_on — fn pub fn bearing_on( core: &crate::core::PhysisCore, command: &str, embedder: &dyn VectorEmbed, top: usize, ) -> Vec<Bearing> {
-act::bearing_on_with — fn pub fn bearing_on_with( core: &crate::core::PhysisCore, command: &str, embedder: &dyn VectorEmbed, top: usize, selection: Selection, ) -> Vec<Bearing> {
-act::run — fn pub fn run( command: &str, bearing: Vec<Bearing>, log: &std::path::Path, ) -> anyhow::Result<Acted> {
-act_recall — mod
-act_recall::ABS_FLOORS — const pub const ABS_FLOORS: [f32; 5];
-act_recall::ALPHAS — const pub const ALPHAS: [f32; 11];
-act_recall::Arm — enum pub enum Arm {
-act_recall::Arm::Lexical — variant Lexical
-act_recall::Arm::Paraphrase — variant Paraphrase
-act_recall::Arm::label — fn pub fn label(&self) -> &'static str {
-act_recall::ArmResult — struct pub struct ArmResult {
-act_recall::ArmResult::arm — field pub arm: String
-act_recall::ArmResult::cases — field pub cases: Vec<CaseResult>
-act_recall::ArmResult::hits — field pub hits: usize
-act_recall::ArmResult::margin_status — field pub margin_status: f32
-act_recall::ArmResult::margin_uniform — field pub margin_uniform: f32
-act_recall::ArmResult::mrr — field pub mrr: f32
-act_recall::ArmResult::null_status_recall — field pub null_status_recall: f32
-act_recall::ArmResult::null_uniform_recall — field pub null_uniform_recall: f32
-act_recall::ArmResult::queries — field pub queries: usize
-act_recall::ArmResult::recall — field pub recall: f32
-act_recall::ArmResult::top — field pub top: usize
-act_recall::ArmResult::verdict — field pub verdict: String
-act_recall::ArmResult::warned — field pub warned: usize
-act_recall::ArmResult::warning_recall — field pub warning_recall: f32
-act_recall::CaseResult — struct pub struct CaseResult {
-act_recall::CaseResult::command — field pub command: String
-act_recall::CaseResult::rank — field pub rank: Option<usize>
-act_recall::CaseResult::target — field pub target: String
-act_recall::CaseResult::target_relevance — field pub target_relevance: f32
-act_recall::CaseResult::top_statement — field pub top_statement: String
-act_recall::FLOORS — const pub const FLOORS: [f32; 5];
-act_recall::HybridPoint — struct pub struct HybridPoint {
-act_recall::HybridPoint::combined — field pub combined: f32
-act_recall::HybridPoint::lexical_recall — field pub lexical_recall: f32
-act_recall::HybridPoint::paraphrase_recall — field pub paraphrase_recall: f32
-act_recall::HybridPoint::polarity_lexical — field pub polarity_lexical: f32
-act_recall::HybridPoint::polarity_paraphrase — field pub polarity_paraphrase: f32
-act_recall::HybridPoint::policy — field pub policy: String
-act_recall::LEDGER_SIZE — const pub const LEDGER_SIZE: usize;
-act_recall::NULL_TRIALS — const pub const NULL_TRIALS: usize;
-act_recall::PolarityCase — struct pub struct PolarityCase {
-act_recall::PolarityCase::command — field pub command: String
-act_recall::PolarityCase::target_rank — field pub target_rank: usize
-act_recall::PolarityCase::target_relevance — field pub target_relevance: f32
-act_recall::PolarityCase::twin_rank — field pub twin_rank: usize
-act_recall::PolarityCase::twin_relevance — field pub twin_relevance: f32
-act_recall::PolarityResult — struct pub struct PolarityResult {
-act_recall::PolarityResult::arm — field pub arm: String
-act_recall::PolarityResult::cases — field pub cases: Vec<PolarityCase>
-act_recall::PolarityResult::discrimination — field pub discrimination: f32
-act_recall::PolarityResult::queries — field pub queries: usize
-act_recall::PolarityResult::reassured_instead — field pub reassured_instead: usize
-act_recall::PolarityResult::target_first — field pub target_first: usize
-act_recall::PolarityResult::target_in_top — field pub target_in_top: usize
-act_recall::PolarityResult::top — field pub top: usize
-act_recall::PolarityResult::twin_in_top — field pub twin_in_top: usize
-act_recall::PolarityResult::verdict — field pub verdict: String
-act_recall::RecallRun — struct pub struct RecallRun {
-act_recall::RecallRun::arm — fn pub fn arm(&self, label: &str) -> Option<&ArmResult> {
-act_recall::RecallRun::arms — field pub arms: Vec<ArmResult>
-act_recall::RecallRun::contradicted_claims — field pub contradicted_claims: usize
-act_recall::RecallRun::embedder — field pub embedder: String
-act_recall::RecallRun::git_commit — field pub git_commit: String
-act_recall::RecallRun::hybrid — field pub hybrid: Vec<HybridPoint>
-act_recall::RecallRun::ledger_size — field pub ledger_size: usize
-act_recall::RecallRun::null_trials — field pub null_trials: usize
-act_recall::RecallRun::physis_version — field pub physis_version: String
-act_recall::RecallRun::polarity — field pub polarity: Vec<PolarityResult>
-act_recall::RecallRun::polarity_ledger_size — field pub polarity_ledger_size: usize
-act_recall::RecallRun::render — fn pub fn render(&self) -> String {
-act_recall::RecallRun::seed — field pub seed: u64
-act_recall::RecallRun::selection — field pub selection: Vec<SelectionResult>
-act_recall::RecallRun::top — field pub top: usize
-act_recall::SelectionResult — struct pub struct SelectionResult {
-act_recall::SelectionResult::false_alarms — field pub false_alarms: usize
-act_recall::SelectionResult::harm_removed_per_false_alarm — field pub harm_removed_per_false_alarm: Option<f32>
-act_recall::SelectionResult::pairs — field pub pairs: usize
-act_recall::SelectionResult::policy — field pub policy: String
-act_recall::SelectionResult::reassured — field pub reassured: usize
-act_recall::SelectionResult::target_in_top — field pub target_in_top: usize
-act_recall::SelectionResult::top — field pub top: usize
-act_recall::SelectionResult::unrelated — field pub unrelated: usize
-act_recall::demo_ledger — fn pub fn demo_ledger(embedder: &dyn VectorEmbed) -> PhysisCore {
-act_recall::pair_commands — fn pub fn pair_commands() -> Vec<&'static str> {
-act_recall::run — fn pub fn run(top: usize, embedder: &dyn VectorEmbed, embedder_kind: &str, seed: u64) -> RecallRun {
-act_recall::run_arm — fn pub fn run_arm( core: &PhysisCore, index: &[(String, String)], arm: Arm, top: usize, embedder: &dyn VectorEmbed, seed: u64, ) -> ArmResult {
-act_recall::run_hybrid_sweep — fn pub fn run_hybrid_sweep( base: &PhysisCore, base_index: &[(String, String)], twin: &PhysisCore, twin_index: &[(String, String)], top: usize, embedder: &dyn VectorEmbed, ) -> Vec<HybridPoint> {
-act_recall::run_polarity — fn pub fn run_polarity( core: &PhysisCore, index: &[(String, String)], arm: Arm, top: usize, embedder: &dyn VectorEmbed, ) -> PolarityResult {
-act_recall::run_selection — fn pub fn run_selection( core: &PhysisCore, arm: Arm, top: usize, embedder: &dyn VectorEmbed, selection: crate::act::Selection, baseline_reassured: Option<usize>, ) -> SelectionResult {
-act_recall::twin_pairs_corpus — fn pub fn twin_pairs_corpus( embedder: &dyn VectorEmbed, ) -> (crate::claim_identity::ScoredClaims, crate::claim_identity::TruthPairs) {
-act_recall::unrelated_commands — fn pub fn unrelated_commands() -> Vec<&'static str> {
 becoming — mod
 becoming::Deviation — enum pub enum Deviation {
 becoming::Deviation::Mistake — variant Mistake
@@ -499,6 +382,8 @@ delta_engine::MAX_PROPAGATION_DEPTH — const pub const MAX_PROPAGATION_DEPTH: u
 delta_engine::MAX_REVISION_WALK_NODES — const pub const MAX_REVISION_WALK_NODES: usize;
 delta_engine::MIN_IMPACT — const pub const MIN_IMPACT: f32;
 delta_engine::MutationOp — enum pub enum MutationOp {
+delta_engine::MutationOp::RelationCreated — variant RelationCreated { target_id: String, weight: f32 }
+delta_engine::MutationOp::RelationSevered — variant RelationSevered { target_id: String }
 delta_engine::NodeDelta — struct pub struct NodeDelta {
 delta_engine::NodeDelta::delta_type — field pub delta_type: String
 delta_engine::NodeDelta::new_coherence — field pub new_coherence: Score
@@ -618,21 +503,7 @@ dream::RetrospectiveProposal::kind — field pub kind: ProposalKind
 dream::RetrospectiveProposal::rationale — field pub rationale: String
 dream::RetrospectiveProposal::subject_id — field pub subject_id: String
 dream::dream_over_history — fn pub fn dream_over_history( trail: &EpistemicAuditTrail, mutations: &[OntologyMutation], lookback: chrono::Duration, ) -> Vec<RetrospectiveProposal> {
-dream::{dream_over_history, ProposalKind, RetrospectiveProposal, RETIRE_AFTER_CONTRADICTIONS} — use pub use dream::{dream_over_history, ProposalKind, RetrospectiveProposal, RETIRE_AFTER_CONTRADICTIONS};
-edition — mod
-edition::CORE_CLI — const pub const CORE_CLI: &str;
-edition::Edition — struct pub struct Edition {
-edition::Edition::core_cli — field pub core_cli: Option<PathBuf>
-edition::Edition::detect — fn pub fn detect() -> Self {
-edition::Edition::has_pro — fn pub fn has_pro(&self) -> bool {
-edition::Edition::name — fn pub fn name(&self) -> &'static str {
-edition::Edition::pro_cli — field pub pro_cli: Option<PathBuf>
-edition::Edition::pro_web — field pub pro_web: Option<PathBuf>
-edition::PRO_CLI — const pub const PRO_CLI: &str;
-edition::PRO_SUMMARY — const pub const PRO_SUMMARY: &[(&str, &str)];
-edition::PRO_WEB — const pub const PRO_WEB: &str;
-edition::UPGRADE_URL — const pub const UPGRADE_URL: &str;
-edition::find_executable — fn pub fn find_executable(name: &str) -> Option<PathBuf> {
+dream::{ — use pub use dream::{
 embed — mod
 embed::MemoEmbedder — struct pub struct MemoEmbedder {
 embed::MemoEmbedder::new — fn pub fn new(inner: Box<dyn VectorEmbed>) -> Self {
@@ -677,6 +548,7 @@ epistemic::EpistemicAuditTrail::note_intake — fn pub fn note_intake( &mut self
 epistemic::EpistemicAuditTrail::point_in_time_status_at — fn pub fn point_in_time_status_at( &self, subject_id: &str, when: chrono::DateTime<chrono::Utc>, validity: &TemporalValidity, ) -> Option<HypothesisStatus> {
 epistemic::EpistemicAuditTrail::reconstruct_status_at — fn pub fn reconstruct_status_at( &self, subject_id: &str, when: chrono::DateTime<chrono::Utc>, ) -> Option<HypothesisStatus> {
 epistemic::EpistemicAuditTrail::record — fn pub fn record(&mut self, event: EpistemicEvent) {
+epistemic::EpistemicAuditTrail::state — fn pub fn state( &self, subject_id: &str, valid_at: chrono::DateTime<chrono::Utc>, known_at: chrono::DateTime<chrono::Utc>, ) -> StateAt {
 epistemic::EpistemicAuditTrail::summary — fn pub fn summary(&self) -> String {
 epistemic::EpistemicAuditTrail::watermarks — field pub watermarks: Vec<HighWaterMark>
 epistemic::EpistemicEvent — struct pub struct EpistemicEvent {
@@ -693,11 +565,13 @@ epistemic::EpistemicEvent::prior_state — field pub prior_state: Option<String>
 epistemic::EpistemicEvent::source — field pub source: Option<String>
 epistemic::EpistemicEvent::subject_id — field pub subject_id: String
 epistemic::EpistemicEvent::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
+epistemic::EpistemicEvent::validity — field pub validity: Option<TemporalValidity>
 epistemic::EpistemicEvent::with_asserted_at — fn pub fn with_asserted_at(mut self, asserted_at: chrono::DateTime<chrono::Utc>) -> Self {
 epistemic::EpistemicEvent::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
 epistemic::EpistemicEvent::with_metric — fn pub fn with_metric(mut self, metric: Score) -> Self {
 epistemic::EpistemicEvent::with_source — fn pub fn with_source(mut self, source: impl Into<String>) -> Self {
 epistemic::EpistemicEvent::with_transition — fn pub fn with_transition( mut self, prior: impl Into<String>, posterior: impl Into<String>, ) -> Self {
+epistemic::EpistemicEvent::with_validity — fn pub fn with_validity(mut self, validity: TemporalValidity) -> Self {
 epistemic::EpistemicEventType — enum pub enum EpistemicEventType {
 epistemic::EpistemicEventType::BeliefFormed — variant BeliefFormed
 epistemic::EpistemicEventType::ContradictionDetected — variant ContradictionDetected
@@ -717,8 +591,12 @@ epistemic::IntakeReceipt — struct pub struct IntakeReceipt {
 epistemic::IntakeReceipt::late — field pub late: bool
 epistemic::IntakeReceipt::mark — field pub mark: HighWaterMark
 epistemic::IntakeReceipt::stream_id — field pub stream_id: String
+epistemic::StateAt — struct pub struct StateAt {
+epistemic::StateAt::excluded_by_validity — field pub excluded_by_validity: Vec<String>
+epistemic::StateAt::status — field pub status: Option<HypothesisStatus>
+epistemic::StateAt::supporting_event_ids — field pub supporting_event_ids: Vec<String>
+epistemic::StateAt::unknown_time — field pub unknown_time: Vec<String>
 epistemic::{ — use pub use epistemic::{
-experiments — mod
 explanation — mod
 explanation::ExplanationReport — struct pub struct ExplanationReport {
 explanation::ExplanationReport::ascii_summary — fn pub fn ascii_summary(&self) -> String {
@@ -771,43 +649,6 @@ grid_fitness::GridFitness::render — fn pub fn render(&self) -> String {
 grid_fitness::GridFitness::seed — field pub seed: u64
 grid_fitness::PERMUTATIONS — const pub const PERMUTATIONS: usize;
 grid_fitness::run — fn pub fn run(entries: &[(String, Vec<f32>)], seed: u64, embedder_kind: &str) -> GridFitness {
-ground — mod
-ground::Claim — struct pub struct Claim {
-ground::Claim::against_count — field pub against_count: usize
-ground::Claim::fitness — field pub fitness: f32
-ground::Claim::for_count — field pub for_count: usize
-ground::Claim::grounded_in — field pub grounded_in: Vec<String>
-ground::Claim::id — field pub id: String
-ground::Claim::open_predictions — field pub open_predictions: usize
-ground::Claim::statement — field pub statement: String
-ground::Claim::status — field pub status: String
-ground::Ground — struct pub struct Ground {
-ground::Ground::claims — field pub claims: Vec<Claim>
-ground::Ground::disagreements — field pub disagreements: Vec<OpenDisagreement>
-ground::Ground::events — field pub events: usize
-ground::Ground::nodes — field pub nodes: usize
-ground::Ground::render — fn pub fn render(&self) -> String {
-ground::Ground::unscored — field pub unscored: Vec<Unscored>
-ground::OpenDisagreement — struct pub struct OpenDisagreement {
-ground::OpenDisagreement::claim_a — field pub claim_a: String
-ground::OpenDisagreement::claim_b — field pub claim_b: String
-ground::OpenDisagreement::id — field pub id: String
-ground::OpenDisagreement::source_a — field pub source_a: String
-ground::OpenDisagreement::source_b — field pub source_b: String
-ground::Unscored — struct pub struct Unscored {
-ground::Unscored::claim_id — field pub claim_id: String
-ground::Unscored::days_open — field pub days_open: i64
-ground::Unscored::prediction — field pub prediction: String
-ground::Unscored::statement — field pub statement: String
-ground::read — fn pub fn read( core: &PhysisCore, observations: &[crate::observe::Observation], now: chrono::DateTime<chrono::Utc>, ) -> Ground {
-history — mod
-history::import_file — fn pub fn import_file(path: &Path) -> anyhow::Result<(Vec<VaultDoc>, String)> {
-history::importer_for as history_importer_for — use pub use history::importer_for as history_importer_for;
-history::importer_for — fn pub fn importer_for(path: &Path) -> Option<fn(&str) -> Vec<VaultDoc>> {
-history::parse_bookmarks_html — fn pub fn parse_bookmarks_html(html: &str) -> Vec<VaultDoc> {
-history::parse_history_json — fn pub fn parse_history_json(json: &str) -> Vec<VaultDoc> {
-history::parse_messages_jsonl — fn pub fn parse_messages_jsonl(input: &str) -> Vec<VaultDoc> {
-history::parse_opml — fn pub fn parse_opml(xml: &str) -> Vec<VaultDoc> {
 hypothesis — mod
 hypothesis::CONTRADICTION_PENALTY_CAP — const pub const CONTRADICTION_PENALTY_CAP: Score;
 hypothesis::CONTRADICTION_PENALTY_PER_ITEM — const pub const CONTRADICTION_PENALTY_PER_ITEM: Score;
@@ -1058,8 +899,8 @@ model_provider::ModelRecord::tokenizer — field pub tokenizer: String
 model_provider::ModelRegistry — struct pub struct ModelRegistry {
 model_provider::ModelRegistry::default_root — fn pub fn default_root() -> PathBuf {
 model_provider::ModelRegistry::info — fn pub fn info(&self, id: &str) -> anyhow::Result<ModelManifest> {
-model_provider::ModelRegistry::install_http — fn pub fn install_http(&self, record: ModelRecord, url: &str, files: &[String]) -> anyhow::Result<ModelManifest> {
-model_provider::ModelRegistry::install_local — fn pub fn install_local(&self, record: ModelRecord, src: &Path, files: &[String]) -> anyhow::Result<ModelManifest> {
+model_provider::ModelRegistry::install_http — fn pub fn install_http( &self, _record: ModelRecord, _url: &str, _files: &[String], ) -> anyhow::Result<ModelManifest> {
+model_provider::ModelRegistry::install_local — fn pub fn install_local( &self, record: ModelRecord, src: &Path, files: &[String], ) -> anyhow::Result<ModelManifest> {
 model_provider::ModelRegistry::list — fn pub fn list(&self) -> Vec<ModelManifest> {
 model_provider::ModelRegistry::new — fn pub fn new(root: impl Into<PathBuf>) -> Self {
 model_provider::ModelRegistry::path — fn pub fn path(&self, id: &str) -> PathBuf {
@@ -1296,7 +1137,7 @@ ngram_table::NGramTable::probability — method fn probability(&self, context: &
 ngram_table::NGramTable::statistics — method fn statistics(&self) -> TableStatistics;
 ngram_table::NGramTable::top_next — method fn top_next(&self, context: &[String], k: usize) -> Vec<(String, f32)>;
 ngram_table::TableBuilder — struct pub struct TableBuilder {
-ngram_table::TableBuilder::finish — fn pub fn finish(mut self, tokenizer: &dyn Tokenizer, corpus_hash: &str) -> (BackoffTable, Vec<u8>) {
+ngram_table::TableBuilder::finish — fn pub fn finish( mut self, tokenizer: &dyn Tokenizer, corpus_hash: &str, ) -> (BackoffTable, Vec<u8>) {
 ngram_table::TableBuilder::new — fn pub fn new(cfg: TableConfig) -> Self {
 ngram_table::TableBuilder::push_sequence — fn pub fn push_sequence(&mut self, seq: &[String]) {
 ngram_table::TableBuilder::push_text — fn pub fn push_text(&mut self, tokenizer: &dyn Tokenizer, text: &str) {
@@ -1350,68 +1191,6 @@ ngram_table::deserialize — fn pub fn deserialize(bytes: &[u8]) -> anyhow::Resu
 ngram_table::load — fn pub fn load(path: &Path) -> anyhow::Result<BackoffTable> {
 ngram_table::save — fn pub fn save(table: &BackoffTable, path: &Path) -> anyhow::Result<u64> {
 ngram_table::serialize — fn pub fn serialize(table: &BackoffTable) -> Vec<u8> {
-nlq — mod
-nlq::Cue — struct pub struct Cue {
-nlq::Cue::intent — field pub intent: Intent
-nlq::Cue::phrase — field pub phrase: String
-nlq::Cue::weight — field pub weight: i32
-nlq::Intent — enum pub enum Intent {
-nlq::Intent::Changed — variant Changed
-nlq::Intent::Compare — variant Compare
-nlq::Intent::History — variant History
-nlq::Intent::Inspect — variant Inspect
-nlq::Intent::Locate — variant Locate
-nlq::Intent::Neighbors — variant Neighbors
-nlq::Intent::Retrieve — variant Retrieve
-nlq::Intent::Trace — variant Trace
-nlq::Intent::Why — variant Why
-nlq::Intent::all — fn pub fn all() -> &'static [Intent] {
-nlq::Intent::verb — fn pub fn verb(self) -> &'static str {
-nlq::Proposal — struct pub struct Proposal {
-nlq::Proposal::command — fn pub fn command(&self) -> String {
-nlq::Proposal::evidence — field pub evidence: Vec<Cue>
-nlq::Proposal::fallback — field pub fallback: bool
-nlq::Proposal::intent — field pub intent: Intent
-nlq::Proposal::margin — fn pub fn margin(&self) -> i32 {
-nlq::Proposal::question — field pub question: String
-nlq::Proposal::runner_up — field pub runner_up: Option<(Intent, i32)>
-nlq::Proposal::score — field pub score: i32
-nlq::Proposal::term — field pub term: String
-nlq::null_majority — fn pub fn null_majority(question: &str, majority: Intent) -> Proposal {
-nlq::parse — fn pub fn parse(question: &str) -> Proposal {
-notebook — mod
-notebook::Answer — struct pub struct Answer {
-notebook::Answer::baseline_tokens — field pub baseline_tokens: usize
-notebook::Answer::context_tokens — field pub context_tokens: usize
-notebook::Answer::corpus_documents — field pub corpus_documents: usize
-notebook::Answer::degraded — field pub degraded: Option<String>
-notebook::Answer::latency_ms — field pub latency_ms: f64
-notebook::Answer::query — field pub query: String
-notebook::Answer::render — fn pub fn render(&self) -> String {
-notebook::Answer::sources — field pub sources: Vec<Source>
-notebook::Answer::text — field pub text: String
-notebook::Answer::tier — field pub tier: Tier
-notebook::Draft — struct pub struct Draft {
-notebook::Draft::drafted_tokens — field pub drafted_tokens: usize
-notebook::Draft::gaps — field pub gaps: usize
-notebook::Draft::looped — field pub looped: bool
-notebook::Draft::render_with_gaps — fn pub fn render_with_gaps(&self) -> String {
-notebook::Draft::spans — field pub spans: Vec<Span>
-notebook::Draft::table_entries — field pub table_entries: u64
-notebook::Draft::table_share — fn pub fn table_share(&self) -> f32 {
-notebook::Source — struct pub struct Source {
-notebook::Source::excerpt — field pub excerpt: String
-notebook::Source::name — field pub name: String
-notebook::Source::score — field pub score: f32
-notebook::Span — enum pub enum Span {
-notebook::Span::Gap — variant Gap { after: String }
-notebook::Span::Grounded — variant Grounded(String)
-notebook::Tier — enum pub enum Tier {
-notebook::Tier::Extractive — variant Extractive
-notebook::Tier::Synthesised — variant Synthesised
-notebook::Tier::label — fn pub fn label(&self) -> &'static str {
-notebook::answer — fn pub fn answer( docs: &[(String, String)], query: &str, embedder: &dyn VectorEmbed, budget: usize, ) -> anyhow::Result<Answer> {
-notebook::draft — fn pub fn draft( result: &crate::rag::RetrievalResult, query: &str, max_tokens: usize, confidence: f32, ) -> anyhow::Result<Draft> {
 observe — mod
 observe::Observation — struct pub struct Observation {
 observe::Observation::at — field pub at: chrono::DateTime<chrono::Utc>
@@ -1434,12 +1213,6 @@ observe::log_path — fn pub fn log_path() -> PathBuf {
 observe::promote — fn pub fn promote( obs: &Observation, statement: impl Into<String>, embedding: Vec<f32>, ) -> crate::hypothesis::Hypothesis {
 observe::read — fn pub fn read(path: &Path) -> anyhow::Result<Vec<Observation>> {
 observe::read_tail — fn pub fn read_tail(path: &Path, n: usize) -> anyhow::Result<Vec<Observation>> {
-observe::watch_agent — fn pub fn watch_agent(dir: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
-observe::watch_browser — fn pub fn watch_browser(db: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
-observe::watch_fs — fn pub fn watch_fs(root: &Path, known: &[Observation], max_files: usize) -> Vec<Observation> {
-observe::watch_git — fn pub fn watch_git(repo: &Path, limit: usize) -> Vec<Observation> {
-observe::watch_proc — fn pub fn watch_proc(known: &[Observation], min_age_s: u64, limit: usize) -> Vec<Observation> {
-observe::watch_shell — fn pub fn watch_shell(hist: &Path, known: &[Observation], limit: usize) -> Vec<Observation> {
 ontology — mod
 ontology::BUILTIN_ONTOLOGIES — static pub static BUILTIN_ONTOLOGIES: &[(&str, &str, &str)];
 ontology::EXTRA_ONTOLOGIES — static pub static EXTRA_ONTOLOGIES: &[(&str, &str)];
@@ -1475,28 +1248,12 @@ oracle::OracleConfig — struct pub struct OracleConfig {
 oracle::OracleConfig::has_key — field pub has_key: bool
 oracle::OracleConfig::model — field pub model: String
 oracle::OracleConfig::url — field pub url: String
+oracle::OracleTransport — type pub type OracleTransport = fn(&OracleConfig, &str, &str, &str, u32) -> anyhow::Result<(String, f64)>;
 oracle::cites_evidence — fn pub fn cites_evidence(answer: &str, must_mention: &[String]) -> bool {
-oracle::complete — fn pub fn complete( _cfg: &OracleConfig, _key: &str, _system: &str, _prompt: &str, _max_tokens: u32, ) -> anyhow::Result<(String, f64)> {
-oracle::complete — fn pub fn complete( cfg: &OracleConfig, key: &str, system: &str, prompt: &str, max_tokens: u32, ) -> anyhow::Result<(String, f64)> {
+oracle::complete_with — fn pub fn complete_with( cfg: &OracleConfig, key: &str, system: &str, prompt: &str, max_tokens: u32, ) -> anyhow::Result<(String, f64)> {
 oracle::from_env — fn pub fn from_env() -> Option<(OracleConfig, String)> {
+oracle::install_transport — fn pub fn install_transport(f: OracleTransport) {
 oracle::token_jaccard — fn pub fn token_jaccard(a: &str, b: &str) -> f32 {
-praxis — mod
-praxis::BehaviourRecord — struct pub struct BehaviourRecord {
-praxis::BehaviourRecord::body — field pub body: String
-praxis::BehaviourRecord::kind — field pub kind: String
-praxis::BehaviourRecord::labels — fn pub fn labels(&self) -> Vec<String> {
-praxis::BehaviourRecord::status — field pub status: BehaviourStatus
-praxis::BehaviourRecord::title — field pub title: String
-praxis::BehaviourStatus — enum pub enum BehaviourStatus {
-praxis::BehaviourStatus::Failure — variant Failure
-praxis::BehaviourStatus::Inert — variant Inert
-praxis::BehaviourStatus::Success — variant Success
-praxis::BehaviourStatus::as_score — fn pub fn as_score(self) -> f32 {
-praxis::BehaviourStatus::as_str — fn pub fn as_str(self) -> &'static str {
-praxis::parse_export — fn pub fn parse_export(json: &str) -> Vec<BehaviourRecord> {
-praxis::parse_notebook_entries — fn pub fn parse_notebook_entries(json: &str) -> Vec<BehaviourRecord> {
-praxis::parse_trackers — fn pub fn parse_trackers(json: &str) -> Vec<BehaviourRecord> {
-praxis::{BehaviourRecord, BehaviourStatus} — use pub use praxis::{BehaviourRecord, BehaviourStatus};
 process — mod
 process::ProcessConstraint — struct pub struct ProcessConstraint {
 process::ProcessConstraint::id — field pub id: String
@@ -1636,81 +1393,6 @@ provenance::ProvenanceLink::source — field pub source: String
 provenance::ProvenanceLink::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
 provenance::ProvenanceLink::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
 provenance::{ProvenanceChain, ProvenanceLink} — use pub use provenance::{ProvenanceChain, ProvenanceLink};
-quality — mod
-quality::CONDITION_CONFIDENCE_SPAN — const pub const CONDITION_CONFIDENCE_SPAN: f32;
-quality::ConditionLens — enum pub enum ConditionLens {
-quality::ConditionLens::Balanced — variant Balanced
-quality::ConditionLens::Custom — variant Custom(f32)
-quality::ConditionLens::Responsive — variant Responsive
-quality::ConditionLens::Trusting — variant Trusting
-quality::ConditionLens::confidence — fn pub fn confidence(self) -> f32 {
-quality::ConditionLens::parse — fn pub fn parse(s: &str) -> Option<Self> {
-quality::ContextualQualityTracker — struct pub struct ContextualQualityTracker {
-quality::ContextualQualityTracker::adjust_score_contextual — fn pub fn adjust_score_contextual( &self, cell: &str, raw_score: Score, context: &FitnessContext, ) -> Score {
-quality::ContextualQualityTracker::fitness_for — fn pub fn fitness_for(&self, interpretation: &str, context: &FitnessContext) -> Option<Score> {
-quality::ContextualQualityTracker::fitness_for_interpretation — fn pub fn fitness_for_interpretation(&self, interpretation: &str) -> Vec<&FitnessRecord> {
-quality::ContextualQualityTracker::fitness_records — field pub fitness_records: HashMap<String, FitnessRecord>
-quality::ContextualQualityTracker::global_boosts — field pub global_boosts: HashMap<String, f32>
-quality::ContextualQualityTracker::global_failures — field pub global_failures: Vec<QualityFailure>
-quality::ContextualQualityTracker::global_penalties — field pub global_penalties: HashMap<String, f32>
-quality::ContextualQualityTracker::new — fn pub fn new(embedder: Box<dyn VectorEmbed>) -> Self {
-quality::ContextualQualityTracker::report_failure_context — fn pub fn report_failure_context( &mut self, feedback: &str, cell_centroids: &HashMap<String, Vec<f32>>, correct_domain: Option<&str>, context: FitnessContext, ) -> &QualityFailure {
-quality::ContextualQualityTracker::report_failure_for_cell_context — fn pub fn report_failure_for_cell_context( &mut self, cell: &str, _feedback: &str, context: FitnessContext, ) {
-quality::ContextualQualityTracker::report_success_context — fn pub fn report_success_context(&mut self, cell: &str, context: FitnessContext) {
-quality::ContextualQualityTracker::summary — fn pub fn summary(&self) -> String {
-quality::FitnessContext — struct pub struct FitnessContext {
-quality::FitnessContext::domain — field pub domain: Option<String>
-quality::FitnessContext::environment — field pub environment: Option<String>
-quality::FitnessContext::key — fn pub fn key(&self) -> String {
-quality::FitnessContext::machine — field pub machine: Option<String>
-quality::FitnessContext::material — field pub material: Option<String>
-quality::FitnessContext::new — fn pub fn new() -> Self {
-quality::FitnessContext::operator — field pub operator: Option<String>
-quality::FitnessContext::process — field pub process: Option<String>
-quality::FitnessContext::state — field pub state: Option<String>
-quality::FitnessContext::task — field pub task: Option<String>
-quality::FitnessRecord — struct pub struct FitnessRecord {
-quality::FitnessRecord::context — field pub context: FitnessContext
-quality::FitnessRecord::failures — field pub failures: usize
-quality::FitnessRecord::fitness — field pub fitness: Score
-quality::FitnessRecord::interpretation — field pub interpretation: String
-quality::FitnessRecord::new — fn pub fn new(interpretation: impl Into<String>, context: FitnessContext) -> Self {
-quality::FitnessRecord::record_failure — fn pub fn record_failure(&mut self) {
-quality::FitnessRecord::record_success — fn pub fn record_success(&mut self) {
-quality::FitnessRecord::successes — field pub successes: usize
-quality::NEUTRAL_CONDITION — const pub const NEUTRAL_CONDITION: f32;
-quality::QualityFailure — struct pub struct QualityFailure {
-quality::QualityFailure::correct_domain — field pub correct_domain: Option<String>
-quality::QualityFailure::correct_embedding — field pub correct_embedding: Option<Vec<f32>>
-quality::QualityFailure::feedback — field pub feedback: String
-quality::QualityFailure::feedback_embedding — field pub feedback_embedding: Vec<f32>
-quality::QualityFailure::id — field pub id: String
-quality::QualityFailure::new — fn pub fn new(feedback: &str, embedding: Vec<f32>, top_cell: &str, top_score: f32) -> Self {
-quality::QualityFailure::resolved — field pub resolved: bool
-quality::QualityFailure::severity — field pub severity: f32
-quality::QualityFailure::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
-quality::QualityFailure::top_cell — field pub top_cell: String
-quality::QualityFailure::top_score — field pub top_score: f32
-quality::QualityTracker — struct pub struct QualityTracker {
-quality::QualityTracker::adjust_score — fn pub fn adjust_score(&self, cell: &str, raw_score: f32) -> f32 {
-quality::QualityTracker::agent_boosts — field pub agent_boosts: HashMap<String, f32>
-quality::QualityTracker::agent_penalties — field pub agent_penalties: HashMap<String, f32>
-quality::QualityTracker::cell_boosts — field pub cell_boosts: HashMap<String, f32>
-quality::QualityTracker::cell_penalties — field pub cell_penalties: HashMap<String, f32>
-quality::QualityTracker::cell_standing — fn pub fn cell_standing(&self, cell: &str) -> f32 {
-quality::QualityTracker::failures — field pub failures: Vec<QualityFailure>
-quality::QualityTracker::load — fn pub fn load(path: &Path) -> anyhow::Result<Vec<QualityFailure>> {
-quality::QualityTracker::load_or_new — fn pub fn load_or_new(path: &Path) -> Self {
-quality::QualityTracker::new — fn pub fn new(embedder: Box<dyn VectorEmbed>) -> Self {
-quality::QualityTracker::penalize_cell — fn pub fn penalize_cell(&mut self, cell: &str, severity: f32) {
-quality::QualityTracker::report_agent_failure — fn pub fn report_agent_failure(&mut self, agent_id: &str) {
-quality::QualityTracker::report_agent_success — fn pub fn report_agent_success(&mut self, agent_id: &str) {
-quality::QualityTracker::report_failure — fn pub fn report_failure( &mut self, feedback: &str, cell_centroids: &HashMap<String, Vec<f32>>, correct_domain: Option<&str>, ) -> &QualityFailure {
-quality::QualityTracker::report_success — fn pub fn report_success(&mut self, cell: &str) {
-quality::QualityTracker::save — fn pub fn save(&self, path: &Path) -> anyhow::Result<()> {
-quality::QualityTracker::summary — fn pub fn summary(&self) -> String {
-quality::cell_condition — fn pub fn cell_condition( count: u32, standing: f32, mean_asserted: Option<f32>, confidence: f32, ) -> f32 {
-quality::{ — use pub use quality::{
 rag — mod
 rag::Bm25Index — struct pub struct Bm25Index {
 rag::Bm25Index::avg_dl — field pub avg_dl: f32
@@ -1754,6 +1436,7 @@ rag::TokenFixedRetriever::budget — field pub budget: usize
 rag::TokenFixedRetriever::diversity — field pub diversity: f32
 rag::TokenFixedRetriever::new — fn pub fn new(budget: usize, top_k: usize) -> Self {
 rag::TokenFixedRetriever::retrieve — fn pub fn retrieve(&self, query_emb: &[f32], corpus: &RagCorpus) -> RetrievalResult {
+rag::TokenFixedRetriever::retrieve_with_ranking — fn pub fn retrieve_with_ranking( &self, ranked: &[(usize, f32)], corpus: &RagCorpus, ) -> RetrievalResult {
 rag::TokenFixedRetriever::top_k — field pub top_k: usize
 rag::TokenFixedRetriever::with_diversity — fn pub fn with_diversity(mut self, diversity: f32) -> Self {
 rag::assemble_context — fn pub fn assemble_context(result: &RetrievalResult, separator: &str) -> String {
@@ -1762,7 +1445,7 @@ rag::count_tokens — fn pub fn count_tokens(text: &str) -> usize {
 rag::fuse_rrf — fn pub fn fuse_rrf(rankings: &[&[usize]], k: f32) -> Vec<(usize, f32)> {
 rag::measure_hybrid_vs_cosine — fn pub fn measure_hybrid_vs_cosine( corpus: &RagCorpus, query_emb: &[f32], query_text: &str, target_doc: usize, ) -> HybridVerdict {
 rag::rank_by_cosine — fn pub fn rank_by_cosine(query_emb: &[f32], corpus: &RagCorpus) -> Vec<(usize, f32)> {
-rag::rank_hybrid — fn pub fn rank_hybrid( corpus: &RagCorpus, query_emb: &[f32], query_text: &str, ) -> Vec<(usize, f32)> {
+rag::rank_hybrid — fn pub fn rank_hybrid(corpus: &RagCorpus, query_emb: &[f32], query_text: &str) -> Vec<(usize, f32)> {
 rag::retrieve_from_texts — fn pub fn retrieve_from_texts( texts: &[String], query: &str, embedder: &dyn VectorEmbed, budget: usize, top_k: usize, ) -> (RetrievalResult, String) {
 rag::{count_tokens, RagChunk, RagCorpus, RetrievalResult, TokenFixedRetriever} — use pub use rag::{count_tokens, RagChunk, RagCorpus, RetrievalResult, TokenFixedRetriever};
 relation — mod
@@ -1812,158 +1495,6 @@ store::ensure_data_dir — fn pub fn ensure_data_dir() -> anyhow::Result<()> {
 store::nodes_path — fn pub fn nodes_path() -> PathBuf {
 store::quality_path — fn pub fn quality_path() -> PathBuf {
 store::read_optional — fn pub fn read_optional(path: &Path) -> String {
-studio — mod
-studio::? — item pub async fn run(port: u16) -> anyhow::Result<()> {
-studio::? — item pub async fn run_with_model(port: u16, model_dir: Option<String>) -> anyhow::Result<()> {
-studio::Shared — type pub type Shared = Arc<RwLock<StudioState>>;
-studio::StudioState — struct pub struct StudioState {
-studio::StudioState::classifier — field pub classifier: CellClassifier
-studio::StudioState::core — field pub core: PhysisCore
-studio::StudioState::custom_entries — field pub custom_entries: HashMap<String, DomainDef>
-studio::StudioState::data_dir — field pub data_dir: PathBuf
-studio::StudioState::embedder — field pub embedder: Box<dyn VectorEmbed>
-studio::StudioState::embedder_kind — field pub embedder_kind: String
-studio::StudioState::gantt — field pub gantt: Option<GanttChart>
-studio::StudioState::new — fn pub fn new(data_dir: PathBuf) -> Self {
-studio::StudioState::ontology — field pub ontology: OntologyLoader
-studio::StudioState::quality — field pub quality: QualityTracker
-studio::StudioState::save_core — fn pub fn save_core(&self) {
-studio::StudioState::semantic — field pub semantic: bool
-studio::StudioState::with_embedder — fn pub fn with_embedder(data_dir: PathBuf, model_dir: Option<String>) -> Self {
-studio::{run, run_with_model, StudioState} — use pub use studio::{run, run_with_model, StudioState};
-studio_communities — mod
-studio_communities::? — item pub async fn api_communities(State(state): State<Shared>) -> Response {
-studio_communities::CommunitiesJson — struct pub struct CommunitiesJson {
-studio_communities::CommunitiesJson::communities — field pub communities: Vec<CommunityJson>
-studio_communities::CommunitiesJson::unlabeled — field pub unlabeled: usize
-studio_communities::CommunityJson — struct pub struct CommunityJson {
-studio_communities::CommunityJson::cohesion — field pub cohesion: f32
-studio_communities::CommunityJson::id — field pub id: u32
-studio_communities::CommunityJson::members — field pub members: Vec<String>
-studio_communities::rollup — fn pub fn rollup( labeled: &[(String, String)], // (id, label) edges: &[(String, String)], // undirected id pairs ) -> CommunitiesJson {
-studio_lab — mod
-studio_lab::router — fn pub fn router() -> Router<Shared> {
-system — mod
-system::API_VERSION — const pub const API_VERSION: &str;
-system::Hit — struct pub struct Hit {
-system::Hit::excerpt — field pub excerpt: String
-system::Hit::id — field pub id: String
-system::Hit::kind — field pub kind: String
-system::Hit::label — field pub label: String
-system::Hit::score — field pub score: f32
-system::Inventory — struct pub struct Inventory {
-system::Inventory::errors — field pub errors: Vec<String>
-system::Inventory::objects — field pub objects: Vec<Object>
-system::Inventory::skipped_links — field pub skipped_links: usize
-system::Inventory::truncated — field pub truncated: bool
-system::Object — struct pub struct Object {
-system::Object::bytes — field pub bytes: u64
-system::Object::id — field pub id: String
-system::Object::modified_at — field pub modified_at: Option<String>
-system::Object::path — field pub path: String
-system::PackStrategy — enum pub enum PackStrategy {
-system::PackStrategy::FilesThenWindows — variant FilesThenWindows
-system::PackStrategy::Windows — variant Windows
-system::PackStrategy::name — fn pub fn name(self) -> &'static str {
-system::Workspace — struct pub struct Workspace {
-system::Workspace::capabilities — fn pub fn capabilities(&self) -> Value {
-system::Workspace::export — fn pub fn export(&self, destination: &Path) -> Result<Value> {
-system::Workspace::find — fn pub fn find(&self, query: &str, limit: usize) -> Result<Value> {
-system::Workspace::history — fn pub fn history(&self, query: Option<&str>, limit: usize) -> Result<Value> {
-system::Workspace::including — fn pub fn including(mut self, dirs: &[String]) -> Self {
-system::Workspace::inspect — fn pub fn inspect(&self) -> Result<Value> {
-system::Workspace::inventory — fn pub fn inventory(&self) -> Result<Inventory> {
-system::Workspace::open — fn pub fn open(root: &Path, state: &Path) -> Result<Self> {
-system::Workspace::pack — fn pub fn pack(&self, query: &str, budget: usize, per_file: usize) -> Result<Value> {
-system::Workspace::pack_paths — fn pub fn pack_paths(&self, query: &str, budget: usize, paths: &[PathBuf]) -> Result<Value> {
-system::Workspace::pack_with — fn pub fn pack_with( &self, query: &str, budget: usize, per_file: usize, strategy: PackStrategy, bridge_gaps: bool, ) -> Result<Value> {
-system::Workspace::predict — fn pub fn predict(&self, argv: &[String]) -> Result<Value> {
-system::Workspace::predict_with — fn pub fn predict_with(&self, argv: &[String], shared: Option<&Path>) -> Result<Value> {
-system::Workspace::read — fn pub fn read(&self, target: &str, max_bytes: usize) -> Result<Value> {
-system::Workspace::remember — fn pub fn remember(&self, text: &str, outcome: &str, actor: &str) -> Result<Value> {
-system::Workspace::root — field pub root: PathBuf
-system::Workspace::run — fn pub fn run(&self, argv: &[String], intent: &str, actor: &str) -> Result<Value> {
-system::Workspace::skip_dirs — field pub skip_dirs: Vec<String>
-system::Workspace::state — field pub state: PathBuf
-system_cli — mod
-system_cli::SystemArgs — struct pub struct SystemArgs {
-system_cli::SystemArgs::run — fn pub fn run(&self) -> Result<()> {
-system_delegation — mod
-system_delegation::Cost — enum pub enum Cost {
-system_delegation::Cost::FreeTier — variant FreeTier
-system_delegation::Cost::Local — variant Local
-system_delegation::Cost::Paid — variant Paid
-system_delegation::Kind — enum pub enum Kind {
-system_delegation::Kind::Cline — variant Cline
-system_delegation::Kind::Opencode — variant Opencode
-system_delegation::Mode — enum pub enum Mode {
-system_delegation::Mode::Plan — variant Plan
-system_delegation::Mode::Read — variant Read
-system_delegation::Mode::Write — variant Write
-system_delegation::Plan — struct pub struct Plan {
-system_delegation::Plan::context — field pub context: Value
-system_delegation::Plan::correlation_id — field pub correlation_id: String
-system_delegation::Plan::duplicates — field pub duplicates: Vec<String>
-system_delegation::Plan::invocation — field pub invocation: Vec<String>
-system_delegation::Plan::notices — field pub notices: Vec<String>
-system_delegation::Plan::prior_work — field pub prior_work: Value
-system_delegation::Plan::request — field pub request: Request
-system_delegation::Plan::schema — field pub schema: String
-system_delegation::Plan::source — field pub source: Snapshot
-system_delegation::Plan::task — field pub task: ProcessTask
-system_delegation::Plan::worker — field pub worker: Worker
-system_delegation::Plan::worktree — field pub worktree: PathBuf
-system_delegation::Policy — struct pub struct Policy {
-system_delegation::Policy::allow_remote_model — field pub allow_remote_model: bool
-system_delegation::Policy::costs — field pub costs: Vec<Cost>
-system_delegation::Policy::timeout_seconds — field pub timeout_seconds: u32
-system_delegation::Registry — struct pub struct Registry {
-system_delegation::Registry::schema — field pub schema: String
-system_delegation::Registry::workers — field pub workers: Vec<Worker>
-system_delegation::Request — struct pub struct Request {
-system_delegation::Request::acceptance — field pub acceptance: Vec<String>
-system_delegation::Request::budget — field pub budget: usize
-system_delegation::Request::checks — field pub checks: Vec<Vec<String>>
-system_delegation::Request::intent — field pub intent: String
-system_delegation::Request::mode — field pub mode: Mode
-system_delegation::Request::paths — field pub paths: Vec<PathBuf>
-system_delegation::Request::policy — field pub policy: Policy
-system_delegation::Request::schema — field pub schema: String
-system_delegation::Request::worker — field pub worker: Option<String>
-system_delegation::Reservation — struct pub struct Reservation {
-system_delegation::Reservation::expires_at — field pub expires_at: DateTime<Utc>
-system_delegation::Reservation::token — field pub token: String
-system_delegation::Snapshot — struct pub struct Snapshot {
-system_delegation::Snapshot::fingerprint — field pub fingerprint: String
-system_delegation::Snapshot::head — field pub head: String
-system_delegation::Snapshot::scoped_files — field pub scoped_files: usize
-system_delegation::Snapshot::status — field pub status: String
-system_delegation::TaskView — struct pub struct TaskView {
-system_delegation::TaskView::observation — field pub observation: String
-system_delegation::TaskView::plan — field pub plan: Plan
-system_delegation::TaskView::reservation — field pub reservation: Option<Reservation>
-system_delegation::Worker — struct pub struct Worker {
-system_delegation::Worker::cost — field pub cost: Cost
-system_delegation::Worker::id — field pub id: String
-system_delegation::Worker::kind — field pub kind: Kind
-system_delegation::Worker::max_parallel — field pub max_parallel: usize
-system_delegation::Worker::model — field pub model: String
-system_delegation::Worker::modes — field pub modes: Vec<Mode>
-system_delegation::Worker::program — field pub program: PathBuf
-system_delegation::Worker::provider — field pub provider: String
-system_delegation::Worker::remote_model — field pub remote_model: bool
-system_delegation::Worker::server — field pub server: Option<String>
-system_delegation::delegation_create — fn pub fn delegation_create( ws: &Workspace, request: &Request, registry: &Registry, ) -> Result<TaskView> {
-system_delegation::delegation_export — fn pub fn delegation_export(ws: &Workspace, id: &str, destination: &Path) -> Result<Value> {
-system_delegation::delegation_plan — fn pub fn delegation_plan(ws: &Workspace, request: &Request, registry: &Registry) -> Result<Plan> {
-system_delegation::delegation_release — fn pub fn delegation_release(ws: &Workspace, id: &str, token: &str) -> Result<Value> {
-system_delegation::delegation_reserve — fn pub fn delegation_reserve(ws: &Workspace, id: &str, seconds: u32) -> Result<Reservation> {
-system_delegation::delegation_show — fn pub fn delegation_show(ws: &Workspace, id: &str) -> Result<TaskView> {
-system_delegation::delegation_tasks — fn pub fn delegation_tasks(ws: &Workspace) -> Result<Vec<TaskView>> {
-system_delegation::load_json — fn pub fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-system_mcp — mod
-system_mcp::serve_workspace — fn pub fn serve_workspace(ws: &Workspace) -> Result<()> {
-system_mcp::workspace_tools — fn pub fn workspace_tools() -> Vec<Value> {
 temporal — mod
 temporal::TemporalValidity — struct pub struct TemporalValidity {
 temporal::TemporalValidity — use pub use temporal::TemporalValidity;
@@ -1976,7 +1507,9 @@ temporal::TemporalValidity::narrow_until — fn pub fn narrow_until( &mut self, 
 temporal::TemporalValidity::overlaps — fn pub fn overlaps(&self, other: &TemporalValidity) -> bool {
 temporal::TemporalValidity::permanent — fn pub fn permanent() -> Self {
 temporal::TemporalValidity::trigger — field pub trigger: Option<String>
+temporal::TemporalValidity::unknown — fn pub fn unknown() -> Self {
 temporal::TemporalValidity::valid_from — field pub valid_from: Option<chrono::DateTime<chrono::Utc>>
+temporal::TemporalValidity::valid_unknown — field pub valid_unknown: bool
 temporal::TemporalValidity::valid_until — field pub valid_until: Option<chrono::DateTime<chrono::Utc>>
 tokenizer — mod
 tokenizer::Incompatible — struct pub struct Incompatible {
@@ -2116,20 +1649,6 @@ transplant::matcher_evidence — fn pub fn matcher_evidence(a: &ShapeNode, b: &S
 transplant::name_tokens — fn pub fn name_tokens(name: &str) -> Vec<String> {
 transplant::propose_correspondences — fn pub fn propose_correspondences( donor: &ProjectShape, recipient: &ProjectShape, ) -> Vec<CorrespondenceProposal> {
 unbreak_pipes — fn pub fn unbreak_pipes() {
-vault — mod
-vault::VaultDoc — struct pub struct VaultDoc {
-vault::VaultDoc::body — field pub body: String
-vault::VaultDoc::headings — field pub headings: Vec<String>
-vault::VaultDoc::labels — fn pub fn labels(&self) -> Vec<String> {
-vault::VaultDoc::source — field pub source: String
-vault::VaultDoc::title — field pub title: String
-vault::collect_labels — fn pub fn collect_labels(docs: &[VaultDoc]) -> Vec<(String, String)> {
-vault::headings_of — fn pub fn headings_of(body: &str) -> Vec<String> {
-vault::parse_git_log — fn pub fn parse_git_log(output: &str) -> Vec<VaultDoc> {
-vault::scan_git_log — fn pub fn scan_git_log(repo: &Path, max: usize) -> Vec<VaultDoc> {
-vault::scan_vault — fn pub fn scan_vault(dir: &Path) -> Vec<VaultDoc> {
-vault::title_of — fn pub fn title_of(path: &Path, body: &str) -> String {
-vault::{collect_labels as collect_vault_labels, scan_vault, VaultDoc} — use pub use vault::{collect_labels as collect_vault_labels, scan_vault, VaultDoc};
 worldstate — mod
 worldstate::AntecedentScore — struct pub struct AntecedentScore {
 worldstate::AntecedentScore::arm — field pub arm: String
@@ -2208,6 +1727,6 @@ worldstate::score_transitions — fn pub fn score_transitions( entities: &[Vec<S
 worldstate::score_transitions_gap — fn pub fn score_transitions_gap( entities: &[Vec<String>], facts: &[Option<(String, String, String)>], texts: &[&str], gold: &[String], perms: usize, seed: u64, recur_gap: usize, ) -> TransitionScore {
 worldstate::sentence_from_table — fn pub fn sentence_from_table(table: &HashMap<String, Vec<f32>>, text: &str, dim: usize) -> Vec<f32> {
 worldstate::sim_matrix — fn pub fn sim_matrix(vecs: &[Vec<f32>]) -> Vec<Vec<f32>> {
-worldstate::structural_descriptor — fn pub fn structural_descriptor(sim: &[Vec<f32>], adj: &[Vec<usize>], profile: usize) -> Vec<Vec<f32>> {
+worldstate::structural_descriptor — fn pub fn structural_descriptor( sim: &[Vec<f32>], adj: &[Vec<usize>], profile: usize, ) -> Vec<Vec<f32>> {
 worldstate::vocabulary — fn pub fn vocabulary(texts: &[&str], min_len: usize) -> Vec<String> {
 worldstate::word_table_count — fn pub fn word_table_count(texts: &[&str], dim: usize, window: usize) -> HashMap<String, Vec<f32>> {
