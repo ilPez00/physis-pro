@@ -401,6 +401,181 @@ fn valid_text_key(key: &str) -> bool {
         && key.chars().any(|c| c.is_ascii_alphabetic())
 }
 
+/// The result of a specific-fact question. `Ambiguous` is a first-class answer:
+/// when two candidates are equally new and disagree, the textbox says so rather
+/// than guessing.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FactAnswer {
+    /// Exactly one newest fact.
+    One(FactView),
+    /// Equally-new candidates that disagree (different value or subject).
+    Ambiguous(Vec<FactView>),
+    /// No fact matched; retrieval/agent fallback may continue.
+    NotFound,
+}
+
+impl FactAnswer {
+    /// Value-first lines for the textbox: the reading on line one, provenance
+    /// on line two. Never a paragraph.
+    pub fn render(&self) -> Vec<String> {
+        match self {
+            FactAnswer::One(f) => vec![f.value.clone(), provenance_line(f)],
+            FactAnswer::Ambiguous(facts) => {
+                let mut lines = vec![format!("ambiguous — {} candidates", facts.len())];
+                for f in facts.iter().take(5) {
+                    lines.push(format!("{} = {}", f.display_key, f.value));
+                }
+                lines
+            }
+            FactAnswer::NotFound => vec!["no fact for that key".to_string()],
+        }
+    }
+}
+
+/// `key · subject · time · source · route=deterministic` — the why line.
+pub fn provenance_line(f: &FactView) -> String {
+    let mut parts = vec![f.display_key.clone()];
+    if let Some(s) = &f.subject {
+        parts.push(s.clone());
+    }
+    if let Some(t) = f.observed_at {
+        parts.push(t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    }
+    if let Some(src) = &f.source {
+        parts.push(src.clone());
+    }
+    parts.push(format!("route=deterministic/{}", f.origin.route()));
+    parts.join(" · ")
+}
+
+/// Parse `what is / what's / show / get <field> [for|on <subject>]`.
+///
+/// Returns the field phrase and an optional subject. A leading possessive
+/// ("my heart rate") is folded away so it does not become part of the key.
+pub fn parse_fact_question(question: &str) -> Option<(String, Option<String>)> {
+    let q = question.trim().trim_end_matches('?').trim();
+    let prefixes = [
+        "what is", "what's", "whats", "what was", "show me", "show", "get", "value of",
+    ];
+    let lower = q.to_ascii_lowercase();
+    let prefix = prefixes.iter().find(|p| {
+        let Some(tail) = lower.strip_prefix(**p) else {
+            return false;
+        };
+        tail.is_empty() || tail.chars().next().is_some_and(char::is_whitespace)
+    })?;
+    let rest = q[prefix.len()..].trim();
+    let rest = strip_possessive(rest);
+    if rest.is_empty() {
+        return None;
+    }
+    for sep in [" for ", " on "] {
+        if let Some(i) = find_ci(&rest, sep) {
+            let field = strip_possessive(rest[..i].trim());
+            let subject = rest[i + sep.len()..].trim();
+            if !field.is_empty() && !subject.is_empty() {
+                return Some((field, Some(subject.to_string())));
+            }
+        }
+    }
+    Some((rest, None))
+}
+
+fn strip_possessive(s: &str) -> String {
+    let lower = s.to_ascii_lowercase();
+    for p in ["my ", "our ", "the ", "a ", "an "] {
+        if lower.starts_with(p) {
+            return s[p.len()..].trim().to_string();
+        }
+    }
+    s.to_string()
+}
+
+fn find_ci(haystack: &str, needle: &str) -> Option<usize> {
+    haystack
+        .to_ascii_lowercase()
+        .find(&needle.to_ascii_lowercase())
+}
+
+/// Select the facts matching a field phrase and optional subject constraint.
+/// Matching is structural: exact normalized key, or every query token present
+/// as a whole token of the fact's key. No alias is invented — a source that
+/// wants `hr` to mean `heart_rate` must say so in its own key.
+pub fn select_facts(field: &str, subject: Option<&str>, facts: &[FactView]) -> Vec<FactView> {
+    let key = normalize_key(field);
+    if key.is_empty() {
+        return Vec::new();
+    }
+    let tokens: Vec<&str> = key.split('_').filter(|t| !t.is_empty()).collect();
+    let subject = subject.map(normalize_key);
+    facts
+        .iter()
+        .filter(|f| key_matches(&key, &tokens, f) && subject_matches(subject.as_deref(), f))
+        .cloned()
+        .collect()
+}
+
+fn key_matches(key: &str, tokens: &[&str], f: &FactView) -> bool {
+    if f.key == key || normalize_key(&f.display_key) == key {
+        return true;
+    }
+    let fact_tokens: Vec<&str> = f.key.split('_').filter(|t| !t.is_empty()).collect();
+    tokens.iter().all(|t| fact_tokens.contains(t))
+}
+
+fn subject_matches(query: Option<&str>, f: &FactView) -> bool {
+    let Some(q) = query else {
+        return true;
+    };
+    let Some(s) = &f.subject else {
+        return false;
+    };
+    let s = normalize_key(s);
+    !s.is_empty() && (q == s || s.contains(q) || q.contains(&s))
+}
+
+/// Answer a specific-fact question deterministically over the given facts.
+/// Pure: no model, no network, no store. The newest observation wins; equally
+/// new candidates that disagree return [`FactAnswer::Ambiguous`]; no match
+/// returns [`FactAnswer::NotFound`] so normal retrieval or an agent can take
+/// over.
+pub fn answer_fact(question: &str, facts: &[FactView]) -> FactAnswer {
+    let Some((field, subject)) = parse_fact_question(question) else {
+        return FactAnswer::NotFound;
+    };
+    resolve(&select_facts(&field, subject.as_deref(), facts))
+}
+
+/// Pick the newest candidate. When the newest timestamp holds more than one
+/// distinct `(subject, source, value)` the question is genuinely ambiguous —
+/// two sensors, or two sources, said different things at the same time — and
+/// the caller is told rather than shown one of them as if it were the answer.
+/// The source is part of the identity so two equally-named, equally-valued
+/// readings from different files stay visible instead of silently collapsing.
+fn resolve(matches: &[FactView]) -> FactAnswer {
+    if matches.is_empty() {
+        return FactAnswer::NotFound;
+    }
+    let newest_at = matches.iter().filter_map(|f| f.observed_at).max();
+    let newest: Vec<FactView> = match newest_at {
+        Some(t) => matches
+            .iter()
+            .filter(|f| f.observed_at == Some(t))
+            .cloned()
+            .collect(),
+        None => matches.to_vec(),
+    };
+    let mut distinct = HashSet::new();
+    for f in &newest {
+        distinct.insert((f.subject.clone(), f.source.clone(), f.value.clone()));
+    }
+    if distinct.len() > 1 {
+        FactAnswer::Ambiguous(newest)
+    } else {
+        FactAnswer::One(newest[0].clone())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -549,5 +724,111 @@ mod tests {
         assert_eq!(normalize_key("CPU temperature"), "cpu_temperature");
         assert_eq!(normalize_key("temp (°C)"), "temp_c");
         assert_eq!(normalize_key("  cpu_temp  "), "cpu_temp");
+    }
+
+    fn fact(key: &str, value: &str, subject: &str, at: DateTime<Utc>) -> FactView {
+        let (number, unit) = parse_scalar(value);
+        FactView {
+            key: normalize_key(key),
+            display_key: key.to_string(),
+            value: value.to_string(),
+            number,
+            unit,
+            observed_at: Some(at),
+            subject: Some(subject.to_string()),
+            source: Some("/sys/fake/temp1_input".to_string()),
+            origin: FactOrigin::Property {
+                key: key.to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn latest_of_two_cpu_temperature_readings_wins() {
+        let facts = vec![
+            fact("CPU temperature", "60.0 °C", "pansa", at(9, 0)),
+            fact("CPU temperature", "78.5 °C", "pansa", at(12, 0)),
+        ];
+        match answer_fact("what is CPU temperature?", &facts) {
+            FactAnswer::One(f) => assert_eq!(f.value, "78.5 °C"),
+            other => panic!("expected newest, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn subject_constraint_selects_the_requested_object() {
+        let facts = vec![
+            fact("CPU temperature", "60.0 °C", "pansa", at(12, 0)),
+            fact("CPU temperature", "82.0 °C", "omo", at(12, 0)),
+        ];
+        match answer_fact("what is CPU temperature for omo?", &facts) {
+            FactAnswer::One(f) => assert_eq!(f.subject.as_deref(), Some("omo")),
+            other => panic!("expected omo, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn equally_new_disagreeing_candidates_are_ambiguous() {
+        let facts = vec![
+            fact("temperature", "60.0 °C", "sensor-a", at(12, 0)),
+            fact("temperature", "82.0 °C", "sensor-b", at(12, 0)),
+        ];
+        match answer_fact("what is temperature?", &facts) {
+            FactAnswer::Ambiguous(fs) => assert_eq!(fs.len(), 2),
+            other => panic!("expected ambiguity, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unknown_key_is_not_found_so_retrieval_can_continue() {
+        let facts = vec![fact("CPU temperature", "60.0 °C", "pansa", at(12, 0))];
+        assert_eq!(
+            answer_fact("what is fan speed?", &facts),
+            FactAnswer::NotFound
+        );
+        assert_eq!(answer_fact("hello there", &facts), FactAnswer::NotFound);
+    }
+
+    #[test]
+    fn parse_folds_possessives_and_splits_the_subject() {
+        assert_eq!(
+            parse_fact_question("what is my heart rate?"),
+            Some(("heart rate".to_string(), None))
+        );
+        assert_eq!(
+            parse_fact_question("what was CPU temperature on pansa?"),
+            Some(("CPU temperature".to_string(), Some("pansa".to_string())))
+        );
+        assert_eq!(parse_fact_question("hello"), None);
+    }
+
+    #[test]
+    fn equally_new_same_value_from_different_sources_is_ambiguous() {
+        let mut a = fact("temperature", "72.4 °C", "pansa", at(12, 0));
+        a.source = Some("/sys/a".into());
+        let mut b = fact("temperature", "72.4 °C", "pansa", at(12, 0));
+        b.source = Some("/sys/b".into());
+        match answer_fact("what is temperature?", &[a, b]) {
+            FactAnswer::Ambiguous(fs) => assert_eq!(fs.len(), 2),
+            other => panic!("expected source ambiguity, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn fact_prefix_requires_a_word_boundary() {
+        let facts = vec![fact("otope", "14", "chemistry", at(12, 0))];
+        assert_eq!(
+            answer_fact("what isotope is carbon-14?", &facts),
+            FactAnswer::NotFound
+        );
+    }
+
+    #[test]
+    fn render_is_value_first_then_provenance() {
+        let facts = vec![fact("CPU temperature", "72.4 °C", "pansa", at(12, 0))];
+        let lines = answer_fact("what is CPU temperature?", &facts).render();
+        assert_eq!(lines[0], "72.4 °C");
+        assert!(lines[1].contains("CPU temperature"), "{lines:?}");
+        assert!(lines[1].contains("route=deterministic"), "{lines:?}");
     }
 }
