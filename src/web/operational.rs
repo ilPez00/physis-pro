@@ -192,12 +192,14 @@ async fn register_node(
     ev: &OperationalEvent,
 ) -> String {
     let label = format!("{} — {:?} [{:?}]", ev.subject, ev.kind, ev.status);
+    // Text-only (image=None) so the image-slot 503 is unreachable here.
     let embedding = crate::web::wiki_semiotic::embed_input(
         state.shared.clone(),
         label.clone(),
         None,
     )
-    .await;
+    .await
+    .unwrap_or_default();
     let uid = user_key(headers);
     state.with_user(&uid, |s| {
         let id = s.core.register_node_vec_labeled(embedding, Some(label));

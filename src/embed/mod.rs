@@ -79,6 +79,12 @@ pub trait VectorEmbed: Send + Sync {
     fn embed_image(&self, _bytes: &[u8]) -> Option<Vec<f32>> {
         None
     }
+    /// Whether this embedder can embed images at all (PH-008). Default false;
+    /// vision embedders override to true. Lets callers report an honest 503
+    /// instead of calling `embed_image` and silently falling back to text.
+    fn handles_images(&self) -> bool {
+        false
+    }
     /// Embed multiple texts in batch. Default impl calls `embed` for each.
     fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
         texts.iter().map(|t| self.embed(t)).collect()

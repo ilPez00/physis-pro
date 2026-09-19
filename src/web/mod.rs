@@ -31,6 +31,7 @@ use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]
 #[cfg(feature = "image-embed")]
 use crate::embed::clip::ClipEmbedder;
+use crate::embed::registry::EmbedderRegistry;
 #[cfg(feature = "embed-onnx")]
 #[cfg(feature = "image-embed")]
 use crate::embed::jina::JinaEmbedder;
@@ -154,6 +155,18 @@ pub struct SharedCtx {
     /// Shared embedder health state — single source of truth for degraded/semantic/self_test
     /// across all surfaces (CLI, MCP, HTTP, UI). Read-only after init.
     pub(crate) embedder_health: EmbedderHealth,
+    /// Image-slot embedder from the registry (PH-008). The text embedder above
+    /// is built by the server's own cascade and left untouched; this slot is
+    /// the ONLY image path. None when no vision model is available locally
+    /// (bge-base/RP have no image capability) — image endpoints then 503.
+    pub(crate) image_embedder: Option<Box<dyn VectorEmbed>>,
+    /// Kind label of the image slot ("clip", "jina-clip-v2"); falls back to
+    /// the text kind when the text model itself handles images (joint model
+    /// like jina serving the text slot); "none" when nothing can.
+    pub(crate) image_embedder_kind: &'static str,
+    /// Whether ANY image path exists: registry slot OR text embedder's own
+    /// `embed_image` (mirrors `embed_input` resolution order). False → 503.
+    pub(crate) image_capable: bool,
     /// Holarchy ingest ring (the onnx/rachmaninov holons are driven by the
     /// background tasks via their own Arc clones, not through this struct).
     pub(crate) ingest: Arc<IngestRing>,
@@ -961,6 +974,12 @@ async fn require_auth(
 // ── Handlers ──────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
+struct ImageEmbedderHealth {
+    kind: &'static str,
+    degraded: bool,
+}
+
+#[derive(Serialize)]
 struct HealthResponse {
     status: &'static str,
     version: &'static str,
@@ -974,7 +993,9 @@ struct HealthResponse {
     /// random-projection offline mode (reproducible but non-semantic).
     semantic: bool,
     self_test: bool,
-    embedder_health: EmbedderHealth,
+    /// Image slot from the registry (PH-008): kind + whether it can embed
+    /// images. degraded=true with kind "none" when no vision model is loaded.
+    image_embedder: ImageEmbedderHealth,
     tenants: usize,
     db: bool,
 }
@@ -1010,7 +1031,10 @@ async fn health(State(state): State<SharedState>) -> Json<HealthResponse> {
         degraded: state.shared.degraded,
         semantic: state.shared.semantic,
         self_test: state.shared.self_test,
-        embedder_health: state.shared.embedder_health.clone(),
+        image_embedder: ImageEmbedderHealth {
+            kind: state.shared.image_embedder_kind,
+            degraded: !state.shared.image_capable,
+        },
         tenants: tenant_count,
         db: db_ok,
     })
@@ -2603,6 +2627,27 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
         crate::wiki::ensure_wiki_indexed(&wiki_path);
     }
 
+    // Image slot from the registry (PH-008). The text `embedder` above comes
+    // from the server's own cascade and is left untouched; only the image
+    // slot is taken from the registry. With bge-base/RP active the slot is
+    // None (no vision model locally) and image endpoints answer 503.
+    // is_available() checks local sessions only — never downloads.
+    // Resolution order (mirrored in `embed_input`): slot first, then the text
+    // embedder's own capability (joint model like jina serving the text slot).
+    let img_reg = EmbedderRegistry::from_config(&config.embedders, &config.onnx);
+    let text_handles_images = embedder.handles_images();
+    let image_capable = img_reg.image.is_some() || text_handles_images;
+    let image_embedder_kind = img_reg
+        .image_kind
+        .or(if text_handles_images {
+            Some(embedder_kind)
+        } else {
+            None
+        })
+        .unwrap_or("none");
+    let image_embedder = img_reg.image;
+    log::info!("image embedder slot: {image_embedder_kind} (capable={image_capable})");
+
     let shared = Arc::new(SharedCtx {
         config,
         cascade: cascade.clone(),
@@ -2619,6 +2664,9 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             semantic: !explicit_rp_override && self_test_ok && !degraded,
             self_test: self_test_ok,
         },
+        image_embedder,
+        image_embedder_kind,
+        image_capable,
         ingest: ingest.clone(),
         dev_mode,
         tokens,

@@ -5761,6 +5761,67 @@ async fn air_gapped_path_degrades_honestly_without_weights_or_network() {
     }
 }
 
+// ── PH-008: image endpoints use the registry slot, degrade honestly ─────────
+#[tokio::test]
+async fn image_endpoints_503_without_vision_model_but_text_works() {
+    // Suite runs under random-projection (text-only): the registry image slot
+    // is empty and RP cannot embed images. Image input must 503 with a
+    // machine-readable reason — never a silent text fallback. Text paths and
+    // /health stay honest alongside.
+    let (router, _dir, _env) = app().await;
+    // 1x1 PNG, base64.
+    let tiny_png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    // /embed with image → 503 + reason.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/embed",
+            "air",
+            json!({"text": "a red press", "image": tiny_png}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "image without vision model 503s: {body}");
+    let reason = body["error"].as_str().unwrap_or("");
+    assert!(reason.contains("image embedding unavailable"), "machine-readable reason: {body}");
+    assert!(reason.contains("none"), "reason names the empty slot: {body}");
+
+    // /classify with image → 503 + reason.
+    let (status, body) = send(
+        &router,
+        post(
+            "/api/v1/classify",
+            "air",
+            json!({"text": "a red press", "image": tiny_png}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "classify image without vision model 503s: {body}");
+    assert!(body["error"].as_str().unwrap_or("").contains("image embedding unavailable"), "{body}");
+
+    // Text paths unaffected.
+    let (status, body) = send(
+        &router,
+        post("/api/v1/embed", "air", json!({"text": "hello"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "text embed still 200: {body}");
+    assert!(body["dim"].as_u64().unwrap_or(0) > 0, "{body}");
+    let (status, _) = send(
+        &router,
+        post("/api/v1/classify", "air", json!({"text": "hello"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "text classify still 200");
+
+    // /health mirrors the slot: kind none, degraded true.
+    let (status, body) = send(&router, get("/health", "air")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["image_embedder"]["kind"], "none", "{body}");
+    assert_eq!(body["image_embedder"]["degraded"], true, "{body}");
+}
+
 // ── Phase 18 T5: marketing-page smoke (public pages, air-gap rule) ──────────
 #[tokio::test]
 async fn marketing_pages_serve_expected_copy_without_external_assets() {

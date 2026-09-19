@@ -227,6 +227,10 @@ impl VectorEmbed for JinaEmbedder {
         Some(pooled)
     }
 
+    fn handles_images(&self) -> bool {
+        self.is_available()
+    }
+
     fn dimension(&self) -> usize {
         self.dim
     }
