@@ -27,6 +27,7 @@ pub mod embed;
 #[cfg(feature = "empedocles")]
 pub mod empedocles;
 pub mod extract;
+pub mod fact;
 pub mod gantt;
 pub mod graph;
 pub mod indexer;
