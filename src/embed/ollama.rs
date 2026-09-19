@@ -20,7 +20,12 @@ pub struct OllamaEmbedder {
     base_url: String,
     model: String,
     dim: usize,
-    client: reqwest::blocking::Client,
+    /// Built on first use, never in the constructor. `reqwest::blocking::Client`
+    /// owns a background tokio runtime, and dropping one from inside an async
+    /// context panics — which is what happened when `build_app` constructed
+    /// this embedder while selecting a fallback. Building it lazily means it is
+    /// created on the blocking thread that first embeds.
+    client: once_cell::sync::OnceCell<reqwest::blocking::Client>,
 }
 
 impl OllamaEmbedder {
@@ -31,11 +36,17 @@ impl OllamaEmbedder {
             base_url: base_url.trim_end_matches('/').to_string(),
             model: model.to_string(),
             dim: 0,
-            client: reqwest::blocking::Client::builder()
+            client: once_cell::sync::OnceCell::new(),
+        }
+    }
+
+    fn client(&self) -> &reqwest::blocking::Client {
+        self.client.get_or_init(|| {
+            reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
-                .unwrap_or_else(|_| reqwest::blocking::Client::new()),
-        }
+                .unwrap_or_else(|_| reqwest::blocking::Client::new())
+        })
     }
 
     /// Build from environment: `PHYSIS_OLLAMA_EMBED_URL` (default
@@ -58,7 +69,7 @@ impl OllamaEmbedder {
     fn embed_raw(&self, texts: &[&str]) -> Option<Vec<Vec<f32>>> {
         let url = format!("{}/api/embed", self.base_url);
         let body = serde_json::json!({ "model": self.model, "input": texts });
-        let resp = self.client.post(&url).json(&body).send().ok()?;
+        let resp = self.client().post(&url).json(&body).send().ok()?;
         if !resp.status().is_success() {
             return None;
         }

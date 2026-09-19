@@ -152,6 +152,18 @@ pub enum Commands {
         #[command(subcommand)]
         command: IntentCommand,
     },
+    /// Decision-native classification: ask a Jev-compatible endpoint for the
+    /// cell and read the probabilities, instead of generating a label.
+    Decide {
+        /// The state to classify
+        state: String,
+        /// Classify into the semiotic grid (domain × mode)
+        #[arg(long)]
+        classify: bool,
+        /// Accept the cell without review at or above this confidence
+        #[arg(long, default_value_t = 0.5)]
+        threshold: f64,
+    },
     /// Draw everything as text: agents, actions, tasks, routes and settings
     Draw {
         /// Workspace root (default: current directory)
@@ -1542,6 +1554,15 @@ fn main() -> anyhow::Result<()> {
         return cmd_intent(command);
     }
 
+    if let Commands::Decide {
+        state,
+        classify,
+        threshold,
+    } = &cli.command
+    {
+        return cmd_decide(state, *classify, *threshold);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1558,6 +1579,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Settings { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Draw { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Intent { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Decide { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2581,6 +2603,47 @@ fn read_observations(
         eprintln!("[physis] skipped {bad} unparseable observation line(s)");
     }
     Ok(out)
+}
+
+/// `decide`: decision-native classification. The grid is a coordinate system,
+/// so the cell is a decision with a fixed option set — read from the endpoint's
+/// probabilities, never generated and parsed back.
+fn cmd_decide(state: &str, classify: bool, threshold: f64) -> anyhow::Result<()> {
+    use physis_pro::agents::decision::DecisionClient;
+    let client = DecisionClient::from_settings().ok_or_else(|| {
+        anyhow::anyhow!(
+            "no decision endpoint configured. Point one at a Jev-compatible server:\n  \
+             physis-pro settings set providers.jev.endpoint http://127.0.0.1:8080\n  \
+             physis-pro settings set providers.jev.key_env MY_KEY   # if it needs auth\n\
+             (OpenJev/SemIf speak POST /v1/systemone; nothing is called until an endpoint is set)"
+        )
+    })?;
+    eprintln!(
+        "[physis] decision endpoint {} model {}",
+        client.endpoint(),
+        client.model()
+    );
+    if !classify {
+        anyhow::bail!("nothing asked: pass --classify");
+    }
+    let domains = physis_pro::semiotic_grid::domains();
+    let modes: Vec<String> = physis_pro::semiotic_grid::MODES
+        .iter()
+        .map(|m| m.to_string())
+        .collect();
+    let cell = client
+        .classify_cell(state, &domains, &modes)
+        .map_err(|e| anyhow::anyhow!(e))?;
+    println!("{}", cell.render());
+    println!(
+        "{} (threshold {threshold})",
+        if cell.accepted(threshold) {
+            "accepted"
+        } else {
+            "low confidence — route to review"
+        }
+    );
+    Ok(())
 }
 
 /// `intent`: the operator's statement of what the workspace is for, with the

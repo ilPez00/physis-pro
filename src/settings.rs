@@ -58,6 +58,10 @@ pub struct ProviderSpec {
     /// Name of the environment variable holding the key. Never the key.
     #[serde(default)]
     pub key_env: Option<String>,
+    /// Base URL of a Jev-compatible decision endpoint (SemIf/OpenJev/Codiv).
+    /// Unset means decision-native calls stay off.
+    #[serde(default)]
+    pub endpoint: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -152,6 +156,9 @@ impl Settings {
             if spec.key_env.is_some() {
                 entry.key_env = spec.key_env;
             }
+            if spec.endpoint.is_some() {
+                entry.endpoint = spec.endpoint;
+            }
         }
     }
 
@@ -195,6 +202,7 @@ impl Settings {
                     "bin" => p.bin.clone(),
                     "transport" => p.transport.clone(),
                     "key_env" => p.key_env.clone(),
+                    "endpoint" => p.endpoint.clone(),
                     _ => None,
                 }
             }
@@ -215,6 +223,7 @@ impl Settings {
                     "bin" => p.bin = Some(value.to_string()),
                     "transport" => p.transport = Some(value.to_string()),
                     "key_env" => p.key_env = Some(value.to_string()),
+                    "endpoint" => p.endpoint = Some(value.to_string()),
                     other => return Err(format!("unknown provider field `{other}`")),
                 }
                 Ok(())
@@ -262,6 +271,9 @@ impl Settings {
                 p.transport.as_deref().unwrap_or("-"),
                 p.key_env.as_deref().unwrap_or("-"),
             ));
+            if let Some(e) = &p.endpoint {
+                out.push_str(&format!("              endpoint={e}\n"));
+            }
         }
         out
     }

@@ -828,7 +828,17 @@ pub(crate) fn err_response(status: StatusCode, msg: &str) -> (StatusCode, Json<E
 /// clearly higher cosine than an unrelated pair, and all vectors must be finite
 /// and non-empty. Random-projection and broken-inference fallbacks fail this.
 pub(crate) fn embedder_self_test(e: &dyn VectorEmbed) -> bool {
-    crate::embed::semantic_self_test(e)
+    // The probe embeds real text, and the ollama backend builds a
+    // `reqwest::blocking` client whose internal runtime panics if it is
+    // constructed or dropped from an async context — which is where `build_app`
+    // runs. `block_in_place` moves this call off the async worker, which is what
+    // makes that client legal here. Without it the server refuses to boot
+    // whenever the ollama leg is reachable.
+    if tokio::runtime::Handle::try_current().is_ok() {
+        tokio::task::block_in_place(|| crate::embed::semantic_self_test(e))
+    } else {
+        crate::embed::semantic_self_test(e)
+    }
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────
@@ -2477,6 +2487,8 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // bag-of-words embedder passes the old token-overlapping pair, so the
     // disjoint probe is the gate. If it fails, the embedder is non-semantic
     // regardless of which kind "loaded" (PLAN.md H2).
+    // The probe performs a real embedding; `embedder_self_test` moves it off the
+    // async worker so a backend with a blocking HTTP client can be constructed.
     let self_test_ok = embedder_self_test(embedder.as_ref());
     // Explicit operator override (PHYSIS_EMBEDDER=random-projection / rp): the
     // fast-start path at the top of this function. This selects the deterministic,
