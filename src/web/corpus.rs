@@ -183,11 +183,7 @@ pub async fn global_ask_handler(
 mod tests {
     use super::*;
 
-    fn facts(
-        label: &str,
-        cell: Option<(&str, &str)>,
-        verdict: Option<f32>,
-    ) -> corpus::MemberFacts {
+    fn facts(label: &str, cell: Option<(&str, &str)>, verdict: Option<f32>) -> corpus::MemberFacts {
         corpus::MemberFacts {
             label: label.to_string(),
             cell: cell.map(|(d, m)| (d.to_string(), m.to_string())),

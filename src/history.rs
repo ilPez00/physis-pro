@@ -47,9 +47,7 @@ pub(crate) fn looks_like_claude_session_hint(name: &str) -> bool {
     let stem = name.trim_end_matches(".jsonl").trim_end_matches(".JSONL");
     stem.len() == 36
         && stem.bytes().filter(|&b| b == b'-').count() == 4
-        && stem
-            .bytes()
-            .all(|b| b.is_ascii_hexdigit() || b == b'-')
+        && stem.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
 }
 
 /// Netscape bookmark file: `<!DOCTYPE NETSCAPE-Bookmark-file-1>` — the export
@@ -265,8 +263,8 @@ pub fn parse_shell_history(input: &str) -> Vec<VaultDoc> {
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut current = String::new();
     let flush = |cmd: &mut String,
-                     order: &mut Vec<String>,
-                     counts: &mut std::collections::HashMap<String, usize>| {
+                 order: &mut Vec<String>,
+                 counts: &mut std::collections::HashMap<String, usize>| {
         let c = cmd.trim().to_string();
         cmd.clear();
         if c.len() < 3 {
@@ -335,8 +333,12 @@ fn strip_zsh_prefix(line: &str) -> Option<&str> {
     // Head must look like `<digits>:<digits>` — otherwise the `;` belongs to
     // the command itself (e.g. `a; b`) and this is a plain bash line.
     let mut parts = head.split(':');
-    let ts_ok = parts.next().is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
-    let dur_ok = parts.next().is_some_and(|p| p.bytes().all(|b| b.is_ascii_digit()));
+    let ts_ok = parts
+        .next()
+        .is_some_and(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()));
+    let dur_ok = parts
+        .next()
+        .is_some_and(|p| p.bytes().all(|b| b.is_ascii_digit()));
     if ts_ok && dur_ok && parts.next().is_none() {
         Some(cmd[1..].trim())
     } else if ts_ok && head.contains(':') {
@@ -400,11 +402,13 @@ pub fn parse_claude_session(input: &str) -> Vec<VaultDoc> {
 fn message_text(v: &serde_json::Value) -> String {
     let content = match v.get("message").and_then(|m| m.get("content")) {
         Some(c) => c,
-        None => return v
-            .get("content")
-            .and_then(|c| c.as_str())
-            .unwrap_or_default()
-            .to_string(),
+        None => {
+            return v
+                .get("content")
+                .and_then(|c| c.as_str())
+                .unwrap_or_default()
+                .to_string()
+        }
     };
     if let Some(s) = content.as_str() {
         return s.to_string();
@@ -472,13 +476,12 @@ pub fn agent_turn_docs(agent: &str, session: &str, rows: &[(String, String)]) ->
 /// Read-only open; returns empty when the store is missing/unreadable.
 #[cfg(feature = "sql")]
 pub fn read_opencode_turns(db: &Path, max_sessions: usize) -> Vec<(String, Vec<(String, String)>)> {
-    let conn = match rusqlite::Connection::open_with_flags(
-        db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    ) {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
-    };
+    let conn =
+        match rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
     let ids: Vec<String> = conn
         .prepare("SELECT id FROM session ORDER BY time_updated DESC LIMIT ?1")
         .and_then(|mut q| {
@@ -531,13 +534,12 @@ pub fn read_opencode_turns(db: &Path, max_sessions: usize) -> Vec<(String, Vec<(
 /// Read-only open; returns empty when the store is missing/unreadable.
 #[cfg(feature = "sql")]
 pub fn read_codex_turns(db: &Path, max_threads: usize) -> Vec<(String, Vec<(String, String)>)> {
-    let conn = match rusqlite::Connection::open_with_flags(
-        db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    ) {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
-    };
+    let conn =
+        match rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
     let ids: Vec<String> = conn
         .prepare(
             "SELECT thread_id FROM thread_items \
@@ -612,13 +614,12 @@ pub fn read_codex_turns(db: &Path, max_threads: usize) -> Vec<(String, Vec<(Stri
 #[cfg(feature = "sql")]
 pub fn read_memories(db: &Path) -> Vec<VaultDoc> {
     const CAP: usize = 2000;
-    let conn = match rusqlite::Connection::open_with_flags(
-        db,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    ) {
-        Ok(c) => c,
-        Err(_) => return Vec::new(),
-    };
+    let conn =
+        match rusqlite::Connection::open_with_flags(db, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
     let rows: Vec<(String, String, String, String, f64)> = conn
         .prepare("SELECT kind, host, title, body, ts FROM mem WHERE deleted = 0 ORDER BY ts DESC LIMIT ?1")
         .and_then(|mut q| {
@@ -774,7 +775,11 @@ mod tests {
         let docs = parse_shell_history(input);
         // apt line deduped with count, `ls`/`cd` dropped (<3 chars), blank dropped.
         assert_eq!(docs.len(), 2);
-        assert!(docs[0].body.contains("ran 2×"), "repetition kept: {}", docs[0].body);
+        assert!(
+            docs[0].body.contains("ran 2×"),
+            "repetition kept: {}",
+            docs[0].body
+        );
         assert!(docs[0].body.starts_with("shell: "), "shell prefix");
         assert_eq!(docs[1].title, "cargo test --lib pack");
         assert!(docs[1].body.starts_with("shell: cargo test"));
@@ -799,7 +804,11 @@ mod tests {
         );
         let docs = parse_claude_session(jsonl);
         assert_eq!(docs.len(), 2);
-        assert!(docs[0].title.starts_with("[prompt]"), "kind tag: {}", docs[0].title);
+        assert!(
+            docs[0].title.starts_with("[prompt]"),
+            "kind tag: {}",
+            docs[0].title
+        );
         assert!(docs[0].body.contains("security vulnerabilities"));
         assert!(docs[1].title.starts_with("[answer]"), "{}", docs[1].title);
         assert!(!docs[1].body.contains("tool_use"), "no tool blobs");
@@ -815,15 +824,30 @@ mod tests {
     }
 
     #[test]
-    fn test_agent_turn_docs_tags_and_skips_stubs() {        let rows = vec![
-            ("user".to_string(), "how do I tune the spindle PID loop".to_string()),
+    fn test_agent_turn_docs_tags_and_skips_stubs() {
+        let rows = vec![
+            (
+                "user".to_string(),
+                "how do I tune the spindle PID loop".to_string(),
+            ),
             ("assistant".to_string(), "ok".to_string()),
-            ("assistant".to_string(), "Set P first, then I, then D with small steps".to_string()),
+            (
+                "assistant".to_string(),
+                "Set P first, then I, then D with small steps".to_string(),
+            ),
         ];
         let docs = agent_turn_docs("opencode", "ses1", &rows);
         assert_eq!(docs.len(), 2);
-        assert!(docs[0].title.starts_with("[opencode/user]"), "{}", docs[0].title);
-        assert!(docs[1].title.starts_with("[opencode/assistant]"), "{}", docs[1].title);
+        assert!(
+            docs[0].title.starts_with("[opencode/user]"),
+            "{}",
+            docs[0].title
+        );
+        assert!(
+            docs[1].title.starts_with("[opencode/assistant]"),
+            "{}",
+            docs[1].title
+        );
         assert!(docs[0].source.contains("ses1 turn 0"));
     }
 
@@ -892,7 +916,15 @@ mod tests {
         );
         let docs = read_memories(&db);
         assert_eq!(docs.len(), 1);
-        assert!(docs[0].title.starts_with("[mem/trap@omo]"), "{}", docs[0].title);
-        assert!(docs[0].body.contains("2026-08-25"), "date folded in: {}", docs[0].body);
+        assert!(
+            docs[0].title.starts_with("[mem/trap@omo]"),
+            "{}",
+            docs[0].title
+        );
+        assert!(
+            docs[0].body.contains("2026-08-25"),
+            "date folded in: {}",
+            docs[0].body
+        );
     }
 }

@@ -134,10 +134,10 @@ pub fn parse_blocks(id: &str, revision: u64, raw: &str) -> Document {
     }
 
     let push = |blocks: &mut Vec<Block>,
-                    kind: BlockKind,
-                    span: (usize, usize),
-                    occurrence: &mut BTreeMap<(BlockKind, u64), u32>,
-                    locked: bool| {
+                kind: BlockKind,
+                span: (usize, usize),
+                occurrence: &mut BTreeMap<(BlockKind, u64), u32>,
+                locked: bool| {
         let text = &bytes[span.0..span.1];
         let hash = fnv1a(text);
         let n = occurrence.entry((kind, hash)).or_insert(0);
@@ -178,10 +178,22 @@ pub fn parse_blocks(id: &str, revision: u64, raw: &str) -> Document {
                 }
                 j = le;
             }
-            push(&mut blocks, BlockKind::Code, (i, end), &mut occurrence, false);
+            push(
+                &mut blocks,
+                BlockKind::Code,
+                (i, end),
+                &mut occurrence,
+                false,
+            );
             i = j;
         } else if line.starts_with('#') {
-            push(&mut blocks, BlockKind::Heading, (i, line_content_end), &mut occurrence, false);
+            push(
+                &mut blocks,
+                BlockKind::Heading,
+                (i, line_content_end),
+                &mut occurrence,
+                false,
+            );
             i = line_end;
         } else {
             // Paragraph: consume lines until a blank line, heading, or fence.
@@ -197,7 +209,13 @@ pub fn parse_blocks(id: &str, revision: u64, raw: &str) -> Document {
                 j = le;
             }
             let locked = raw[i..end].contains("<!-- locked -->");
-            push(&mut blocks, BlockKind::Paragraph, (i, end), &mut occurrence, locked);
+            push(
+                &mut blocks,
+                BlockKind::Paragraph,
+                (i, end),
+                &mut occurrence,
+                locked,
+            );
             i = j;
         }
     }
@@ -492,7 +510,10 @@ mod tests {
     fn splice_preserves_outside_bytes_and_shifts_spans() {
         let doc = parse_blocks("d", 0, SAMPLE);
         let target = doc.blocks[1].id.clone();
-        assert_eq!(doc.block(&target).unwrap().text(SAMPLE), "We need 18 units of bolts.");
+        assert_eq!(
+            doc.block(&target).unwrap().text(SAMPLE),
+            "We need 18 units of bolts."
+        );
         let (next, _) = doc
             .splice_block(&target, "We need 3 units of bolts.")
             .unwrap();

@@ -43,9 +43,11 @@ pub async fn embed_input(
             log::warn!("base64 decode failed; falling back to text");
         }
     }
-    Ok(tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
-        .await
-        .unwrap_or_default())
+    Ok(
+        tokio::task::spawn_blocking(move || shared.embedder.embed(&text))
+            .await
+            .unwrap_or_default(),
+    )
 }
 
 pub async fn ontology_list_handler(State(state): State<SharedState>) -> Json<Vec<OntologyListing>> {

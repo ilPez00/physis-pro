@@ -36,17 +36,19 @@ pub fn score(record: &RunRecord) -> PhysisSignals {
 
     let topical = topic_jaccard(&in_text, &out_text);
 
-    PhysisSignals { semantic, structural, topical }
+    PhysisSignals {
+        semantic,
+        structural,
+        topical,
+    }
 }
 
 fn struct_distance(a: &[(String, String)], b: &[(String, String)]) -> f32 {
     if a.is_empty() && b.is_empty() {
         return 0.0;
     }
-    let a_keys: std::collections::HashSet<&str> =
-        a.iter().map(|(p, _)| p.as_str()).collect();
-    let b_keys: std::collections::HashSet<&str> =
-        b.iter().map(|(p, _)| p.as_str()).collect();
+    let a_keys: std::collections::HashSet<&str> = a.iter().map(|(p, _)| p.as_str()).collect();
+    let b_keys: std::collections::HashSet<&str> = b.iter().map(|(p, _)| p.as_str()).collect();
     let union: usize = a_keys.union(&b_keys).count();
     if union == 0 {
         return 0.0;
@@ -96,7 +98,12 @@ mod tests {
     use super::*;
     use crate::capture::*;
 
-    fn rec(prompt: &str, files_in: &[(&str, &str)], text: &str, files_out: &[(&str, &str)]) -> RunRecord {
+    fn rec(
+        prompt: &str,
+        files_in: &[(&str, &str)],
+        text: &str,
+        files_out: &[(&str, &str)],
+    ) -> RunRecord {
         RunRecord {
             run_id: None,
             model: "test".into(),
@@ -106,14 +113,20 @@ mod tests {
                 prompt: prompt.into(),
                 rag_files: files_in
                     .iter()
-                    .map(|(p, b)| RagFile { path: (*p).into(), body: (*b).into() })
+                    .map(|(p, b)| RagFile {
+                        path: (*p).into(),
+                        body: (*b).into(),
+                    })
                     .collect(),
             },
             output: OutputSide {
                 text: text.into(),
                 edited_files: files_out
                     .iter()
-                    .map(|(p, b)| EditedFile { path: (*p).into(), body: (*b).into() })
+                    .map(|(p, b)| EditedFile {
+                        path: (*p).into(),
+                        body: (*b).into(),
+                    })
                     .collect(),
                 deleted_files: vec![],
             },
@@ -148,7 +161,11 @@ mod tests {
             "photosynthesis uses sunlight water and co2 to make glucose",
             &[("notes.md", "plants use sunlight water co2")],
         ));
-        assert!(s.semantic > clean.semantic, "unrelated={} clean={}", s.semantic, clean.semantic);
+        assert!(
+            s.semantic > clean.semantic,
+            "unrelated={} clean={}",
+            s.semantic,
+            clean.semantic
+        );
     }
 }
-

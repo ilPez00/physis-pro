@@ -110,7 +110,10 @@ pub async fn content_search_handler(
         // confidently and wrongly, so the surface says so rather than letting
         // the operator infer meaning from noise.
         obj.insert("semantic_index".into(), serde_json::json!(index.semantic));
-        obj.insert("degraded".into(), serde_json::json!(state.shared.embedder_health.degraded));
+        obj.insert(
+            "degraded".into(),
+            serde_json::json!(state.shared.embedder_health.degraded),
+        );
         obj.insert(
             "requested_mode".into(),
             serde_json::json!(opts.mode.as_str()),

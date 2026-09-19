@@ -248,7 +248,10 @@ impl World {
         if !linked.is_empty() {
             return (linked, "entity-link");
         }
-        (self.string_match(term), "string-match (FALLBACK — the structural layer missed this)")
+        (
+            self.string_match(term),
+            "string-match (FALLBACK — the structural layer missed this)",
+        )
     }
 
     fn line(&self, i: usize) -> String {
@@ -282,8 +285,7 @@ impl World {
     fn linked(&self, p: usize, top: usize) -> Vec<usize> {
         let mut idx: Vec<usize> = (0..p)
             .filter(|&q| {
-                self.dup_of[q].is_none()
-                    && self.ents[q].iter().any(|e| self.ents[p].contains(e))
+                self.dup_of[q].is_none() && self.ents[q].iter().any(|e| self.ents[p].contains(e))
             })
             .collect();
         idx.sort_by(|&a, &b| self.sim[p][b].partial_cmp(&self.sim[p][a]).unwrap());
@@ -330,7 +332,9 @@ impl World {
         if std::env::var("PHYSIS_WORLD_QUERY").as_deref() == Ok("model") {
             let (e, _) = physis_core::embed::select(768);
             let qv = e.embed(q);
-            let mut idx: Vec<usize> = (0..self.n()).filter(|&i| self.dup_of[i].is_none()).collect();
+            let mut idx: Vec<usize> = (0..self.n())
+                .filter(|&i| self.dup_of[i].is_none())
+                .collect();
             idx.sort_by(|&a, &b| {
                 ws::cosine(&qv, &self.vecs[b])
                     .partial_cmp(&ws::cosine(&qv, &self.vecs[a]))
@@ -488,7 +492,11 @@ fn main() -> anyhow::Result<()> {
     let arg = |i: usize| args.get(i).cloned().unwrap_or_default();
 
     if verb == "observe" {
-        let root = if arg(1) == "--root" { arg(2) } else { ".".into() };
+        let root = if arg(1) == "--root" {
+            arg(2)
+        } else {
+            ".".into()
+        };
         let max_files = args
             .iter()
             .position(|a| a == "--max")
@@ -528,7 +536,11 @@ fn main() -> anyhow::Result<()> {
             let edges: usize = w.adj.iter().map(|a| a.len()).sum::<usize>() / 2;
             let parts = ws::components(&w.adj);
             let ncomp = parts.iter().max().map(|m| m + 1).unwrap_or(0);
-            println!("world: {} observations, representation {}", w.n(), w.embedder);
+            println!(
+                "world: {} observations, representation {}",
+                w.n(),
+                w.embedder
+            );
             let mut srcs: Vec<_> = by_source.into_iter().collect();
             srcs.sort();
             for (s, c) in srcs {
@@ -570,11 +582,17 @@ fn main() -> anyhow::Result<()> {
                     .filter(|&i| w.texts[i].to_lowercase().contains(&needle))
                     .collect();
                 if raw.is_empty() {
-                    println!("'{term}': no extracted link and no string match in {} observations.", w.n());
+                    println!(
+                        "'{term}': no extracted link and no string match in {} observations.",
+                        w.n()
+                    );
                     println!("  that is a statement about this log, not about your disk. Widen it with `observe --root <dir> --max <n>`.");
                     return Ok(());
                 }
-                println!("'{term}': no extracted link — FALLING BACK TO STRING MATCH ({} hits).", raw.len());
+                println!(
+                    "'{term}': no extracted link — FALLING BACK TO STRING MATCH ({} hits).",
+                    raw.len()
+                );
                 println!("  the structural layer missed this; what follows is plain text search, not navigation.");
                 for &i in raw.iter().take(10) {
                     println!("{}", w.line(i));
@@ -599,7 +617,10 @@ fn main() -> anyhow::Result<()> {
             let term = arg(1);
             let (hits, how) = w.resolve(&term);
             let Some(&p) = hits.first() else {
-                println!("'{term}': no link and no string match in {} observations.", w.n());
+                println!(
+                    "'{term}': no link and no string match in {} observations.",
+                    w.n()
+                );
                 return Ok(());
             };
             println!("resolved by {how}");
@@ -617,13 +638,22 @@ fn main() -> anyhow::Result<()> {
             let (hits, how) = w.resolve(&term);
             let t = w.transitions();
             if hits.is_empty() {
-                println!("'{term}': no link and no string match in {} observations.", w.n());
+                println!(
+                    "'{term}': no link and no string match in {} observations.",
+                    w.n()
+                );
                 return Ok(());
             }
             println!("resolved by {how}");
-            println!("'{term}' through the log (position = the temporal coordinate, no clock used)");
+            println!(
+                "'{term}' through the log (position = the temporal coordinate, no clock used)"
+            );
             for &i in &hits {
-                println!("  pos {i:>5}  {:<10} {}", t[i], w.texts[i].chars().take(80).collect::<String>());
+                println!(
+                    "  pos {i:>5}  {:<10} {}",
+                    t[i],
+                    w.texts[i].chars().take(80).collect::<String>()
+                );
             }
         }
         "changed" => {
@@ -634,9 +664,16 @@ fn main() -> anyhow::Result<()> {
                 .into_iter()
                 .filter(|&i| t[i] != "persist" && t[i] != "none")
                 .collect();
-            println!("'{term}' — {} positions where the derived transition is not persistence", hits.len());
+            println!(
+                "'{term}' — {} positions where the derived transition is not persistence",
+                hits.len()
+            );
             for i in hits.iter().take(15) {
-                println!("  pos {i:>5}  {:<10} {}", t[*i], w.texts[*i].chars().take(80).collect::<String>());
+                println!(
+                    "  pos {i:>5}  {:<10} {}",
+                    t[*i],
+                    w.texts[*i].chars().take(80).collect::<String>()
+                );
             }
             println!("  derivations, not facts: `disappear` rests on a six-word cue list, `recur` on an unswept gap (E56).");
         }
@@ -653,22 +690,38 @@ fn main() -> anyhow::Result<()> {
             println!("  similarity            {:.3}", w.sim[ia][ib]);
             println!("  shared links          {shared:?}");
             let na: Vec<usize> = w.adj[ia].clone();
-            let shared_nb: Vec<usize> = na.iter().copied().filter(|j| w.adj[ib].contains(j)).collect();
+            let shared_nb: Vec<usize> = na
+                .iter()
+                .copied()
+                .filter(|j| w.adj[ib].contains(j))
+                .collect();
             println!("  shared neighbours     {shared_nb:?}");
             println!("{}", w.chain(ia, "compare"));
         }
         "trace" => {
             let p: usize = arg(1).parse().unwrap_or(0);
             if p >= w.n() {
-                println!("position {p} is past the end of the log ({} observations).", w.n());
+                println!(
+                    "position {p} is past the end of the log ({} observations).",
+                    w.n()
+                );
                 return Ok(());
             }
             let o = &w.obs[p];
             println!("position {p}");
-            println!("  observation  seq {} · {} · {} · by {}", o.seq, o.source, o.at, o.produced_by.clone().unwrap_or_else(|| "-".into()));
+            println!(
+                "  observation  seq {} · {} · {} · by {}",
+                o.seq,
+                o.source,
+                o.at,
+                o.produced_by.clone().unwrap_or_else(|| "-".into())
+            );
             println!("  subject      {}", o.subject);
             if !o.body.is_empty() {
-                println!("  body         {}", o.body.chars().take(200).collect::<String>());
+                println!(
+                    "  body         {}",
+                    o.body.chars().take(200).collect::<String>()
+                );
             }
             println!("  representation {} ({} dims)", w.embedder, w.vecs[p].len());
             println!("  extracted links {:?}", w.ents[p]);
@@ -682,7 +735,7 @@ fn main() -> anyhow::Result<()> {
                 println!("position {p} is past the end of the log.");
                 return Ok(());
             }
-            println!("what position {p} follows from", );
+            println!("what position {p} follows from",);
             println!("{}", w.line(p));
             println!(
                 "\n  linked arm (entity link + earlier position + similarity){}:",
@@ -721,7 +774,10 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             let hits = w.nearest_to_query(&q, 5);
-            println!("query: {q}\n\n  nearest positions (representation {}):", w.embedder);
+            println!(
+                "query: {q}\n\n  nearest positions (representation {}):",
+                w.embedder
+            );
             for &i in &hits {
                 println!("{}", w.line(i));
             }
@@ -751,7 +807,10 @@ fn main() -> anyhow::Result<()> {
                     println!("'{target}': nothing to copy — no link and no string match.");
                     return Ok(());
                 };
-                println!("resolved by {how} ({} positions, copying the first)", hits.len());
+                println!(
+                    "resolved by {how} ({} positions, copying the first)",
+                    hits.len()
+                );
                 first
             };
             let o = &w.obs[p];
@@ -768,13 +827,19 @@ fn main() -> anyhow::Result<()> {
             let sink = clipboard_write(&envelope);
             println!("copied position {p} → {sink}");
             println!("{}", w.line(p));
-            println!("  carries: seq {} · source {} · links {:?}", o.seq, o.source, w.ents[p]);
+            println!(
+                "  carries: seq {} · source {} · links {:?}",
+                o.seq, o.source, w.ents[p]
+            );
             // The copy is itself an observation. A world that records what it
             // was asked about but not what it handed over would have a hole in
             // exactly the place a user later asks "where did this come from".
-            let mut ev = vec![physis_core::observe::Observation::new("clipboard", o.subject.clone())
-                .with_body(format!("copied from seq {} ({})", o.seq, o.source))
-                .by("physis-world copy")];
+            let mut ev =
+                vec![
+                    physis_core::observe::Observation::new("clipboard", o.subject.clone())
+                        .with_body(format!("copied from seq {} ({})", o.seq, o.source))
+                        .by("physis-world copy"),
+                ];
             let _ = physis_core::observe::append(&physis_core::observe::log_path(), &mut ev);
         }
         "paste" => {
@@ -786,7 +851,10 @@ fn main() -> anyhow::Result<()> {
             let (text, prov) = match &clip {
                 Some(c) => (
                     c.text.clone(),
-                    format!("seq {} · {} · {} · links {:?}", c.seq, c.source, c.at, c.links),
+                    format!(
+                        "seq {} · {} · {} · links {:?}",
+                        c.seq, c.source, c.at, c.links
+                    ),
                 ),
                 None => (body.clone(), "no physis envelope — plain text".to_string()),
             };
@@ -808,10 +876,14 @@ fn main() -> anyhow::Result<()> {
                     writeln!(f, "<!-- physis: {prov} -->")?;
                     println!("appended to {path} (from {from})");
                     println!("  {prov}");
-                    let mut ev = vec![physis_core::observe::Observation::new("clipboard", path.clone())
-                        .with_body(format!("pasted: {prov}"))
-                        .by("physis-world paste")];
-                    let _ = physis_core::observe::append(&physis_core::observe::log_path(), &mut ev);
+                    let mut ev =
+                        vec![
+                            physis_core::observe::Observation::new("clipboard", path.clone())
+                                .with_body(format!("pasted: {prov}"))
+                                .by("physis-world paste"),
+                        ];
+                    let _ =
+                        physis_core::observe::append(&physis_core::observe::log_path(), &mut ev);
                 }
                 None => {
                     println!("from {from} — {prov}\n");

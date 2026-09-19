@@ -45,7 +45,10 @@ fn inventory() -> BTreeSet<String> {
             // foo/mod → foo (mod.rs files live in their parent dir).
             let parts: Vec<&str> = rel.split("::").collect();
             if parts.last() == Some(&"mod") {
-                parts[..parts.len() - 1].iter().map(|s| s.to_string()).collect()
+                parts[..parts.len() - 1]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect()
             } else {
                 parts.iter().map(|s| s.to_string()).collect()
             }
@@ -145,7 +148,8 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
         let in_enum = stack.last().is_some_and(|(_, _, c)| *c == Ctx::Enum);
         let in_trait = stack.last().is_some_and(|(_, _, c)| *c == Ctx::Trait);
         // Struct fields: `pub name: Ty,` inside a struct body.
-        if in_struct && t.starts_with("pub ") && !t.starts_with("pub(") && !t.starts_with("pub fn") {
+        if in_struct && t.starts_with("pub ") && !t.starts_with("pub(") && !t.starts_with("pub fn")
+        {
             let field = t.trim_end_matches(',').trim().to_string();
             let mut path = cur_path(base, &stack);
             let fname: String = field
@@ -156,8 +160,15 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
                 .unwrap_or("?")
                 .to_string();
             path.push(fname);
-            let attr = pending_attr.take().map(|a| format!(" [{a}]")).unwrap_or_default();
-            items.insert(format!("{} — field{attr} {}", path.join("::"), normalize(&field)));
+            let attr = pending_attr
+                .take()
+                .map(|a| format!(" [{a}]"))
+                .unwrap_or_default();
+            items.insert(format!(
+                "{} — field{attr} {}",
+                path.join("::"),
+                normalize(&field)
+            ));
             depth = (depth + count_braces_signed(t)).max(0);
             i += 1;
             continue;
@@ -173,7 +184,11 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
             && !t.starts_with("const ")
         {
             let vline = t.trim_end_matches(',').trim().to_string();
-            if !vline.is_empty() && !vline.starts_with('{') && !vline.starts_with('}') && !vline.ends_with('{') {
+            if !vline.is_empty()
+                && !vline.starts_with('{')
+                && !vline.starts_with('}')
+                && !vline.ends_with('{')
+            {
                 let vname: String = vline
                     .chars()
                     .take_while(|c| c.is_alphanumeric() || *c == '_')
@@ -181,8 +196,15 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
                 if !vname.is_empty() && vname.chars().next().is_some_and(|c| c.is_uppercase()) {
                     let mut path = cur_path(base, &stack);
                     path.push(vname);
-                    let attr = pending_attr.take().map(|a| format!(" [{a}]")).unwrap_or_default();
-                    items.insert(format!("{} — variant{attr} {}", path.join("::"), normalize(&vline)));
+                    let attr = pending_attr
+                        .take()
+                        .map(|a| format!(" [{a}]"))
+                        .unwrap_or_default();
+                    items.insert(format!(
+                        "{} — variant{attr} {}",
+                        path.join("::"),
+                        normalize(&vline)
+                    ));
                     // A struct-like variant body `{ .. }` spans lines — skip the
                     // opener but keep brace tracking so depth stays honest.
                     depth = (depth + count_braces_signed(t)).max(0);
@@ -204,8 +226,15 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
             let mut path = cur_path(base, &stack);
             let name = item_name(&format!("pub {sig}")).unwrap_or_else(|| "?".to_string());
             path.push(name);
-            let attr = pending_attr.take().map(|a| format!(" [{a}]")).unwrap_or_default();
-            items.insert(format!("{} — method{attr} {}", path.join("::"), normalize(&sig)));
+            let attr = pending_attr
+                .take()
+                .map(|a| format!(" [{a}]"))
+                .unwrap_or_default();
+            items.insert(format!(
+                "{} — method{attr} {}",
+                path.join("::"),
+                normalize(&sig)
+            ));
             continue;
         }
         // `impl [..] Type [..] [for Trait] {` — track the type for methods.
@@ -224,7 +253,10 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
             }
             let mut path = cur_path(base, &stack);
             path.push(name.clone());
-            let attr = pending_attr.take().map(|a| format!(" [{a}]")).unwrap_or_default();
+            let attr = pending_attr
+                .take()
+                .map(|a| format!(" [{a}]"))
+                .unwrap_or_default();
             items.insert(format!("{} — mod{attr}", path.join("::")));
             depth = (depth + count_braces_signed(t)).max(0);
             i += 1;
@@ -240,8 +272,8 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
             // A `{`-terminated struct/enum/trait opens member context;
             // functions end at their body brace (no push — body skipped by
             // join_signature stopping at the opening `{`).
-            let opens_members = sig.trim_end().ends_with('{')
-                && matches!(kind, "struct" | "enum" | "trait");
+            let opens_members =
+                sig.trim_end().ends_with('{') && matches!(kind, "struct" | "enum" | "trait");
             if opens_members {
                 let ctx = match kind {
                     "struct" => Ctx::Struct,
@@ -255,8 +287,15 @@ fn scan_file(text: &str, base: &[String], items: &mut BTreeSet<String>) {
             if !opens_members {
                 path.push(name);
             }
-            let attr = pending_attr.take().map(|a| format!(" [{a}]")).unwrap_or_default();
-            items.insert(format!("{} — {kind}{attr} {}", path.join("::"), normalize(&sig)));
+            let attr = pending_attr
+                .take()
+                .map(|a| format!(" [{a}]"))
+                .unwrap_or_default();
+            items.insert(format!(
+                "{} — {kind}{attr} {}",
+                path.join("::"),
+                normalize(&sig)
+            ));
             continue;
         }
         pending_attr = None;
@@ -298,7 +337,11 @@ fn parse_impl_type(t: &str) -> Option<String> {
         .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == ':')
         .collect();
     let name = name.split("::").last().unwrap_or("").to_string();
-    if name.is_empty() { None } else { Some(name) }
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 /// `pub mod name;` or `pub mod name {` → Some(name).
@@ -308,12 +351,18 @@ fn parse_pub_mod(t: &str) -> Option<String> {
         .chars()
         .take_while(|c| c.is_alphanumeric() || *c == '_')
         .collect();
-    if name.is_empty() { None } else { Some(name) }
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
 }
 
 fn item_kind(sig: &str) -> &'static str {
     let s = sig.strip_prefix("pub ").unwrap_or(sig);
-    for kind in ["fn", "struct", "enum", "trait", "mod", "const", "static", "type", "use", "impl", "macro"] {
+    for kind in [
+        "fn", "struct", "enum", "trait", "mod", "const", "static", "type", "use", "impl", "macro",
+    ] {
         if s == kind || s.starts_with(&format!("{kind} ")) || s.starts_with(&format!("{kind}<")) {
             return kind;
         }
@@ -333,7 +382,10 @@ fn item_name(sig: &str) -> Option<String> {
             return if name.is_empty() { None } else { Some(name) };
         }
     }
-    if let Some(r) = s.strip_prefix("const ").or_else(|| s.strip_prefix("static ")) {
+    if let Some(r) = s
+        .strip_prefix("const ")
+        .or_else(|| s.strip_prefix("static "))
+    {
         // `const NAME: Ty` — name before `:`.
         return r.split(':').next().map(|n| n.trim().to_string());
     }
@@ -404,12 +456,15 @@ fn core_public_api_matches_snapshot() {
         eprintln!("blessed {} public items to {SNAPSHOT}", items.len());
         return;
     }
-    let expected = std::fs::read_to_string(SNAPSHOT)
-        .unwrap_or_else(|_| panic!("missing {SNAPSHOT}: run BLESS=1 once to create it (human only)"));
+    let expected = std::fs::read_to_string(SNAPSHOT).unwrap_or_else(|_| {
+        panic!("missing {SNAPSHOT}: run BLESS=1 once to create it (human only)")
+    });
     if rendered != expected {
         let exp: BTreeSet<&str> = expected.lines().collect();
         let got: BTreeSet<&str> = rendered.lines().collect();
-        let mut diff = String::from("public API drift (run BLESS=1 only to bless a deliberate, human-approved change):\n");
+        let mut diff = String::from(
+            "public API drift (run BLESS=1 only to bless a deliberate, human-approved change):\n",
+        );
         for line in exp.difference(&got) {
             diff.push_str(&format!("- {line}\n"));
         }

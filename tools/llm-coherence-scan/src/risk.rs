@@ -19,8 +19,7 @@ const W_STR: f32 = 0.3;
 const W_TOP: f32 = 0.2;
 
 pub fn coherence_risk(s: &PhysisSignals) -> RiskScore {
-    let total = (W_SEM * s.semantic + W_STR * s.structural + W_TOP * s.topical)
-        .clamp(0.0, 1.0);
+    let total = (W_SEM * s.semantic + W_STR * s.structural + W_TOP * s.topical).clamp(0.0, 1.0);
     RiskScore {
         total,
         breakdown: RiskBreakdown {
@@ -42,7 +41,11 @@ mod tests {
 
     #[test]
     fn breakdown_is_bounded() {
-        let s = PhysisSignals { semantic: 0.3, structural: 0.2, topical: 0.1 };
+        let s = PhysisSignals {
+            semantic: 0.3,
+            structural: 0.2,
+            topical: 0.1,
+        };
         let r = coherence_risk(&s);
         assert!((0.0..=1.0).contains(&r.total));
     }

@@ -61,7 +61,12 @@ pub async fn workflow_scan_handler(
     let root = canonical.clone();
     let docs = tokio::task::spawn_blocking(move || crate::workflow::scan_workflow(&root, None))
         .await
-        .map_err(|e| err_response(axum::http::StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+        .map_err(|e| {
+            err_response(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                &e.to_string(),
+            )
+        })?;
     let report = crate::workflow::report(&canonical, docs);
     let events = crate::workflow::to_op_events(&report.docs);
     let events_recorded = events.len();

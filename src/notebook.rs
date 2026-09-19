@@ -777,7 +777,10 @@ mod tests {
         );
         // And imports are rebuilt against the registry rather than filtered,
         // so a field the format does not describe cannot survive the trip.
-        assert!(page.contains("function sanitizeImported("), "import must be sanitized");
+        assert!(
+            page.contains("function sanitizeImported("),
+            "import must be sanitized"
+        );
     }
 
     #[test]

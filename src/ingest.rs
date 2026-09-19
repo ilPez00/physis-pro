@@ -74,11 +74,16 @@ pub fn classify_file(path: &Path) -> DocKind {
         Some("eml") | Some("msg") => DocKind::Email,
         Some("xlsx") | Some("xls") | Some("csv") => DocKind::Spreadsheet,
         // Audio files — transcribed via Whisper API
-        Some("mp3") | Some("wav") | Some("flac") | Some("ogg") | Some("m4a") => DocKind::VoiceTranscript,
+        Some("mp3") | Some("wav") | Some("flac") | Some("ogg") | Some("m4a") => {
+            DocKind::VoiceTranscript
+        }
         // Image files — handled via CLIP/Jina embedder
-        Some("png") | Some("jpg") | Some("jpeg") | Some("webp") | Some("bmp") | Some("tiff") | Some("gif") => DocKind::Image,
+        Some("png") | Some("jpg") | Some("jpeg") | Some("webp") | Some("bmp") | Some("tiff")
+        | Some("gif") => DocKind::Image,
         // Video files — handled via ffmpeg frame sampling
-        Some("mp4") | Some("avi") | Some("mov") | Some("mkv") | Some("webm") | Some("wmv") => DocKind::Video,
+        Some("mp4") | Some("avi") | Some("mov") | Some("mkv") | Some("webm") | Some("wmv") => {
+            DocKind::Video
+        }
         Some("txt") | Some("md") => {
             let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             // Token equality, not substring: "invoices" contains "voice" and a
@@ -163,35 +168,31 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
                 // metadata (PLAN 11).
                 let template = match &kind {
                     #[cfg(feature = "pdf")]
-                    DocKind::Invoice if meta.vendor.is_some() || meta.date.is_some() => {
-                        Some(crate::models::DocumentTemplate::Invoice(
-                            crate::models::InvoiceTemplate {
-                                vendor: meta.vendor.clone(),
-                                doc_number: meta.doc_number.clone(),
-                                date: meta.date.clone(),
-                                total_amount: None,
-                                currency: None,
-                                line_items: vec![],
-                                fragment: body.lines().next().map(|l| l.trim().to_string()),
-                            }
-                        ))
-                    }
+                    DocKind::Invoice if meta.vendor.is_some() || meta.date.is_some() => Some(
+                        crate::models::DocumentTemplate::Invoice(crate::models::InvoiceTemplate {
+                            vendor: meta.vendor.clone(),
+                            doc_number: meta.doc_number.clone(),
+                            date: meta.date.clone(),
+                            total_amount: None,
+                            currency: None,
+                            line_items: vec![],
+                            fragment: body.lines().next().map(|l| l.trim().to_string()),
+                        }),
+                    ),
                     #[cfg(feature = "email")]
-                    DocKind::Email if meta.from.is_some() || meta.subject.is_some() => {
-                        Some(crate::models::DocumentTemplate::Email(
-                            crate::models::EmailTemplate {
-                                from: meta.from.clone(),
-                                to: None,
-                                cc: None,
-                                subject: meta.subject.clone().unwrap_or_default(),
-                                thread_id: meta.thread_id.clone().unwrap_or_default(),
-                                body_plain: body.clone(),
-                                body_html: None,
-                                attachments: vec![],
-                                fragment: body.lines().next().map(|l| l.trim().to_string()),
-                            }
-                        ))
-                    }
+                    DocKind::Email if meta.from.is_some() || meta.subject.is_some() => Some(
+                        crate::models::DocumentTemplate::Email(crate::models::EmailTemplate {
+                            from: meta.from.clone(),
+                            to: None,
+                            cc: None,
+                            subject: meta.subject.clone().unwrap_or_default(),
+                            thread_id: meta.thread_id.clone().unwrap_or_default(),
+                            body_plain: body.clone(),
+                            body_html: None,
+                            attachments: vec![],
+                            fragment: body.lines().next().map(|l| l.trim().to_string()),
+                        }),
+                    ),
                     _ => None,
                 };
                 docs.push(IngestedDoc {
@@ -241,21 +242,17 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
         #[cfg(not(feature = "email"))]
         DocKind::Email => (String::new(), DocMeta::default()),
         #[cfg(feature = "ocr")]
-        DocKind::OcrDocument => {
-            match extract_ocr(path) {
-                Ok((text, meta)) => (text, meta),
-                Err(_) => (String::new(), DocMeta::default()),
-            }
-        }
+        DocKind::OcrDocument => match extract_ocr(path) {
+            Ok((text, meta)) => (text, meta),
+            Err(_) => (String::new(), DocMeta::default()),
+        },
         #[cfg(not(feature = "ocr"))]
         DocKind::OcrDocument => (String::new(), DocMeta::default()),
         #[cfg(feature = "audio")]
-        DocKind::VoiceTranscript => {
-            match extract_audio_transcript(path) {
-                Ok((text, _meta)) => (text, DocMeta::default()),
-                Err(_) => (String::new(), DocMeta::default()),
-            }
-        }
+        DocKind::VoiceTranscript => match extract_audio_transcript(path) {
+            Ok((text, _meta)) => (text, DocMeta::default()),
+            Err(_) => (String::new(), DocMeta::default()),
+        },
         #[cfg(not(feature = "audio"))]
         DocKind::VoiceTranscript => {
             // Audio transcription requires Whisper API. Without the `audio`
@@ -263,19 +260,18 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
             (String::new(), DocMeta::default())
         }
         #[cfg(feature = "ingest")]
-        DocKind::Spreadsheet => {
-            match extract_spreadsheet(path) {
-                Ok((text, meta)) => (text, meta),
-                Err(_) => (String::new(), DocMeta::default()),
-            }
-        }
+        DocKind::Spreadsheet => match extract_spreadsheet(path) {
+            Ok((text, meta)) => (text, meta),
+            Err(_) => (String::new(), DocMeta::default()),
+        },
         #[cfg(not(feature = "ingest"))]
         DocKind::Spreadsheet => (String::new(), DocMeta::default()),
         DocKind::Image => {
             // Images are embedded directly; text extraction uses OCR when available.
             #[cfg(feature = "ocr")]
             {
-                extract_ocr(path).map(|(t, _)| (t, DocMeta::default()))
+                extract_ocr(path)
+                    .map(|(t, _)| (t, DocMeta::default()))
                     .unwrap_or((String::new(), DocMeta::default()))
             }
             #[cfg(not(feature = "ocr"))]
@@ -490,13 +486,16 @@ fn extract_spreadsheet(path: &Path) -> anyhow::Result<(String, DocMeta)> {
     use calamine::{open_workbook_auto, Reader};
 
     let mut wb = open_workbook_auto(path)?;
-    let sheet_name = wb.sheet_names().get(0)
+    let sheet_name = wb
+        .sheet_names()
+        .get(0)
         .cloned()
         .unwrap_or_else(|| "Sheet1".to_string());
 
     // calamine 0.24: worksheet_range returns a plain Result<Range<Data>, _>
     // — Range is neither Option nor Result, so no .ok_or_else on it.
-    let range = wb.worksheet_range(&sheet_name)
+    let range = wb
+        .worksheet_range(&sheet_name)
         .map_err(|e| anyhow::anyhow!("worksheet error: {e}"))?;
     if range.is_empty() {
         anyhow::bail!("no data in sheet");
@@ -514,9 +513,15 @@ fn extract_spreadsheet(path: &Path) -> anyhow::Result<(String, DocMeta)> {
     }
 
     // Detect kind based on header content
-    let detected_kind = if headers.iter().any(|h| h.to_lowercase().contains("invoice") || h.to_lowercase().contains("amount")) {
+    let detected_kind = if headers
+        .iter()
+        .any(|h| h.to_lowercase().contains("invoice") || h.to_lowercase().contains("amount"))
+    {
         "finance".to_string()
-    } else if headers.iter().any(|h| h.to_lowercase().contains("name") || h.to_lowercase().contains("email")) {
+    } else if headers
+        .iter()
+        .any(|h| h.to_lowercase().contains("name") || h.to_lowercase().contains("email"))
+    {
         "procurement".to_string()
     } else {
         "generic".to_string()
@@ -558,7 +563,9 @@ fn extract_audio_transcript(path: &Path) -> anyhow::Result<(String, DocMeta)> {
     // transcribe. For now, return empty — the audio feature is wired but needs
     // an active provider configuration.
     let _ = path;
-    Err(anyhow::anyhow!("audio transcription requires PHYSIS_API_TOKEN with Whisper access"))
+    Err(anyhow::anyhow!(
+        "audio transcription requires PHYSIS_API_TOKEN with Whisper access"
+    ))
 }
 
 /// Extract basic metadata from a video file without full processing.
@@ -568,9 +575,17 @@ fn extract_video_metadata(path: &Path) -> DocMeta {
 
     // Try ffprobe for metadata if available
     let output = std::process::Command::new("ffprobe")
-        .args(["-v", "error", "-select_streams", "v:0", "-show_entries",
-               "stream=width,height,r_frame_rate,duration", "-of", "default=noprint_wrappers=1",
-               path.to_str().unwrap_or("")])
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,r_frame_rate,duration",
+            "-of",
+            "default=noprint_wrappers=1",
+            path.to_str().unwrap_or(""),
+        ])
         .output();
 
     if let Ok(out) = output {

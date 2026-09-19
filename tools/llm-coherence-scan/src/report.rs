@@ -1,8 +1,8 @@
 use crate::capture::RunRecord;
 use crate::drift::DriftScore;
+use crate::overlay::OverlayEntry;
 use crate::refine::{DiscoveryProposal, DreamReport};
 use crate::risk::RiskScore;
-use crate::overlay::OverlayEntry;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

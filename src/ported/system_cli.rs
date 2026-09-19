@@ -226,7 +226,9 @@ impl DelegationCommand {
                 base_ref,
                 expect_fingerprint,
             } => {
-                let base = baseline.canonicalize().context("baseline directory not found")?;
+                let base = baseline
+                    .canonicalize()
+                    .context("baseline directory not found")?;
                 let mut baselines: Vec<(String, String)> = Vec::new();
                 for entry in walkdir::WalkDir::new(&base)
                     .into_iter()
@@ -265,13 +267,13 @@ impl DelegationCommand {
                     if hunks.iter().any(|h| h.is_change()) {
                         changes += 1;
                     }
-                    let (adds, dels) = hunks
-                        .iter()
-                        .filter(|h| h.is_change())
-                        .fold((0usize, 0usize), |(a, d), h| {
+                    let (adds, dels) = hunks.iter().filter(|h| h.is_change()).fold(
+                        (0usize, 0usize),
+                        |(a, d), h| {
                             let (ha, hd) = h.tally();
                             (a + ha, d + hd)
-                        });
+                        },
+                    );
                     files.push(json!({
                         "path": rel,
                         "hunks": hunks.len(),
@@ -811,9 +813,14 @@ mod tests {
         assert_eq!(out["total_files"].as_u64(), Some(1));
         assert!(out["files"][0]["adds"].as_u64().unwrap_or(0) >= 1);
         assert!(out["files"][0]["dels"].as_u64().unwrap_or(0) >= 1);
-        assert!(out.get("stale_base").is_none(), "no --base-ref supplied → no stale check");
         assert!(
-            out["source_fingerprint"].as_str().is_some_and(|s| !s.is_empty()),
+            out.get("stale_base").is_none(),
+            "no --base-ref supplied → no stale check"
+        );
+        assert!(
+            out["source_fingerprint"]
+                .as_str()
+                .is_some_and(|s| !s.is_empty()),
             "review seam must record a source fingerprint, got: {out}"
         );
 
@@ -861,7 +868,10 @@ mod tests {
         std::fs::create_dir_all(root.join("src")).unwrap();
         let file = root.join("src/a.txt");
         std::fs::write(&file, "line one\nline two\n").unwrap();
-        if !git(&root, &["init", "-q"]) || !git(&root, &["add", "-A"]) || !git(&root, &["commit", "-q", "-m", "init"]) {
+        if !git(&root, &["init", "-q"])
+            || !git(&root, &["add", "-A"])
+            || !git(&root, &["commit", "-q", "-m", "init"])
+        {
             eprintln!("git unavailable — skipping stale_base HEAD-move test");
             return;
         }

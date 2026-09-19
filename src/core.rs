@@ -1004,15 +1004,12 @@ impl PhysisCore {
             Some(n) => n,
             None => return Vec::new(),
         };
-        let target_cell = target
-            .cell_pin
-            .clone()
-            .or_else(|| {
-                classifier
-                    .classify(&target.embedding)
-                    .first()
-                    .map(|c| (c.domain.clone(), c.mode.clone()))
-            });
+        let target_cell = target.cell_pin.clone().or_else(|| {
+            classifier
+                .classify(&target.embedding)
+                .first()
+                .map(|c| (c.domain.clone(), c.mode.clone()))
+        });
 
         let mut results: Vec<crate::models::ConceptualInstance> = self
             .nodes
@@ -1020,11 +1017,17 @@ impl PhysisCore {
             .filter(|n| n.id != target_id)
             .filter_map(|n| {
                 let label = n.label.as_ref()?;
-                let sim: f32 = target.embedding.iter().zip(&n.embedding).map(|(a, b)| a * b).sum();
+                let sim: f32 = target
+                    .embedding
+                    .iter()
+                    .zip(&n.embedding)
+                    .map(|(a, b)| a * b)
+                    .sum();
 
                 // Determine this node's cell
                 let node_cell = n.cell_pin.clone().or_else(|| {
-                    classifier.classify(&n.embedding)
+                    classifier
+                        .classify(&n.embedding)
                         .first()
                         .map(|c| (c.domain.clone(), c.mode.clone()))
                 });
@@ -1032,9 +1035,9 @@ impl PhysisCore {
                 // Same cell with a minimum similarity floor to avoid hash-based noise.
                 // The floor is higher than the typical collision rate (~0.20 for
                 // 32-dim random projection with shared tokens).
-                let same_cell = target_cell.as_ref().is_some_and(|tc| {
-                    node_cell.as_ref().map(|nc| nc == tc).unwrap_or(false)
-                });
+                let same_cell = target_cell
+                    .as_ref()
+                    .is_some_and(|tc| node_cell.as_ref().map(|nc| nc == tc).unwrap_or(false));
 
                 // Include if cosine similarity exceeds threshold OR they share
                 // a cell (with a minimum similarity floor to avoid hash-based noise).
@@ -1044,9 +1047,11 @@ impl PhysisCore {
                 }
 
                 // Determine origin path from label if it looks like a file path
-                let origin = if label.contains('/') || label.contains('\\') ||
-                             label.starts_with("http") ||
-                             std::path::PathBuf::from(label).exists() {
+                let origin = if label.contains('/')
+                    || label.contains('\\')
+                    || label.starts_with("http")
+                    || std::path::PathBuf::from(label).exists()
+                {
                     Some(label.clone())
                 } else {
                     None
@@ -1064,7 +1069,9 @@ impl PhysisCore {
             .collect();
 
         results.sort_by(|a, b| {
-            b.score.unwrap_or(0.0).partial_cmp(&a.score.unwrap_or(0.0))
+            b.score
+                .unwrap_or(0.0)
+                .partial_cmp(&a.score.unwrap_or(0.0))
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         results.truncate(limit);
@@ -2050,7 +2057,10 @@ mod tests {
         assert_eq!(restored.load_edges(&db, "tenant-a"), (1, 0));
         let e = restored.edges.iter().find(|e| e.id == eid).expect("edge");
         assert_eq!(e.relation_type, RelationType::Causes);
-        assert_eq!((e.source_id.as_str(), e.target_id.as_str()), (a.as_str(), b.as_str()));
+        assert_eq!(
+            (e.source_id.as_str(), e.target_id.as_str()),
+            (a.as_str(), b.as_str())
+        );
         assert_eq!(e.provenance.as_deref(), Some("human"));
         assert_eq!(e.evidence.as_deref(), Some("ledger:3"));
 
@@ -2121,7 +2131,10 @@ mod tests {
         // Register several related nodes
         let a = g.register_node_from_text("machine bearing check alignment procedure", &emb);
         let b = g.register_node_from_text("bearing alignment calibration routine procedure", &emb);
-        let totally_unrelated = g.register_node_from_text("recipe for chocolate cake with butter and sugar flour eggs", &emb);
+        let totally_unrelated = g.register_node_from_text(
+            "recipe for chocolate cake with butter and sugar flour eggs",
+            &emb,
+        );
         let d = g.register_node_from_text("bearing inspection protocol document standard", &emb);
 
         // With a threshold high enough, unrelated nodes are excluded.
@@ -2134,23 +2147,43 @@ mod tests {
         assert!(instances_low.iter().any(|i| i.id == totally_unrelated));
 
         // Related instances should rank higher than unrelated
-        let b_score = instances_low.iter().find(|i| i.id == b).map(|i| i.score.unwrap_or(0.0));
-        let u_score = instances_low.iter().find(|i| i.id == totally_unrelated).map(|i| i.score.unwrap_or(0.0));
-        assert!(b_score.is_some() && u_score.is_some(), "both should be found at threshold 0");
-        assert!(b_score.unwrap() >= u_score.unwrap(),
+        let b_score = instances_low
+            .iter()
+            .find(|i| i.id == b)
+            .map(|i| i.score.unwrap_or(0.0));
+        let u_score = instances_low
+            .iter()
+            .find(|i| i.id == totally_unrelated)
+            .map(|i| i.score.unwrap_or(0.0));
+        assert!(
+            b_score.is_some() && u_score.is_some(),
+            "both should be found at threshold 0"
+        );
+        assert!(
+            b_score.unwrap() >= u_score.unwrap(),
             "related score should exceed unrelated: related={}, unrelated={}",
-            b_score.unwrap(), u_score.unwrap());
+            b_score.unwrap(),
+            u_score.unwrap()
+        );
 
         // With a sufficient threshold, the unrelated node is filtered
         let threshold = b_score.unwrap().min(0.95);
         let instances_high = g.find_conceptual_instances(&a, &classifier, threshold, 100);
-        assert!(instances_high.iter().any(|i| i.id == b), "b should still be found at threshold {}", threshold);
+        assert!(
+            instances_high.iter().any(|i| i.id == b),
+            "b should still be found at threshold {}",
+            threshold
+        );
         // The unrelated node may or may not be found depending on cosine,
         // but we verify the ranking is stable:
         if let Some(u) = instances_high.iter().find(|i| i.id == totally_unrelated) {
             if let Some(b) = instances_high.iter().find(|i| i.id == b) {
-                assert!(b.score.unwrap() >= u.score.unwrap(),
-                    "ranking must be stable: b={}, u={}", b.score.unwrap(), u.score.unwrap());
+                assert!(
+                    b.score.unwrap() >= u.score.unwrap(),
+                    "ranking must be stable: b={}, u={}",
+                    b.score.unwrap(),
+                    u.score.unwrap()
+                );
             }
         }
 
@@ -2165,19 +2198,28 @@ mod tests {
         assert!(empty.is_empty(), "non-existent node should return empty");
 
         // Verify cell info is populated for instances
-        assert!(instances_low.iter().any(|i| i.cell.is_some()), "instances should have cell info");
+        assert!(
+            instances_low.iter().any(|i| i.cell.is_some()),
+            "instances should have cell info"
+        );
     }
 
     #[test]
     fn test_node_fragment_extraction() {
         let emb = fixture_embedder();
         let mut g = PhysisCore::new();
-        let id = g.register_node_from_text("Hydraulic press tonnage drift when cold. Check calibration.", &emb);
+        let id = g.register_node_from_text(
+            "Hydraulic press tonnage drift when cold. Check calibration.",
+            &emb,
+        );
         let node = &g.nodes[&id];
         let fragment = node.extract_fragment();
         assert!(fragment.is_some(), "should extract a fragment");
         let f = fragment.unwrap();
-        assert!(f.contains("Hydraulic press") || f.contains("drift"), "fragment should contain key text");
+        assert!(
+            f.contains("Hydraulic press") || f.contains("drift"),
+            "fragment should contain key text"
+        );
         assert!(f.len() <= 120, "fragment should be bounded in length");
     }
 }

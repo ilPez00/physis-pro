@@ -416,13 +416,18 @@ impl<'a> DreamContract<'a> {
                 let s = cosine_sim(embedding, e);
                 if best.as_ref().map(|(_, _, b)| s > *b).unwrap_or(true) {
                     if let Some(name) = cell.entries.get(i) {
-                        best = Some((name.clone(), format!("{}\u{d7}{}", cell.domain, cell.mode), s));
+                        best = Some((
+                            name.clone(),
+                            format!("{}\u{d7}{}", cell.domain, cell.mode),
+                            s,
+                        ));
                     }
                 }
             }
         }
-        let (best_entry, best_cell, cosine) =
-            best.map(|(n, c, s)| (Some(n), Some(c), s)).unwrap_or((None, None, 0.0));
+        let (best_entry, best_cell, cosine) = best
+            .map(|(n, c, s)| (Some(n), Some(c), s))
+            .unwrap_or((None, None, 0.0));
         DreamReview {
             accepted: cosine >= self.min_cosine,
             best_entry,
@@ -465,9 +470,8 @@ impl DreamEngine {
             // The engine extended its parallel pool with this batch; copy the
             // fresh contexts out (never split them off — the pool's dream and
             // context vectors must stay aligned, rejected dreams included).
-            let fresh: Vec<DreamContext> = self.dream_contexts
-                [self.dream_contexts.len().saturating_sub(batch_len)..]
-                .to_vec();
+            let fresh: Vec<DreamContext> =
+                self.dream_contexts[self.dream_contexts.len().saturating_sub(batch_len)..].to_vec();
             for (mut dream, context) in batch.into_iter().zip(fresh) {
                 let verdict = contract.review(&dream.embedding);
                 if verdict.accepted {
@@ -653,7 +657,9 @@ mod tests {
                 domain.to_string(),
                 mode.to_string(),
                 entries.clone(),
-                (0..entries.len()).map(|i| format!("{domain}-{mode}-{i}")).collect(),
+                (0..entries.len())
+                    .map(|i| format!("{domain}-{mode}-{i}"))
+                    .collect(),
                 vec![Facets::default(); entries.len()],
             )
         };
@@ -795,4 +801,3 @@ mod tests {
         assert_eq!(review.cosine, 0.9);
     }
 }
-

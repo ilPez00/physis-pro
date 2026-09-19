@@ -1,5 +1,5 @@
 use physis_pro::intent_ir::IntentIR;
-use physis_pro::registry::{Registry, seed};
+use physis_pro::registry::{seed, Registry};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
@@ -15,7 +15,10 @@ fn test_conformance_all_checks() {
 
     let ir = IntentIR::new(
         HashMap::from([
-            ("goal".to_string(), json!("continue positional attention experiment")),
+            (
+                "goal".to_string(),
+                json!("continue positional attention experiment"),
+            ),
             ("operations".to_string(), json!(["show"])),
             ("objects".to_string(), json!(["repo:physis"])),
         ]),
@@ -104,7 +107,11 @@ fn test_conformance_all_checks() {
         .output()
         .unwrap();
     fs::create_dir_all(ws.join("randomesh")).unwrap();
-    fs::write(ws.join("physis-pro").join("README.md"), "physis pro readme\n").unwrap();
+    fs::write(
+        ws.join("physis-pro").join("README.md"),
+        "physis pro readme\n",
+    )
+    .unwrap();
 
     let mut reg = Registry::new(&obs_path);
     seed(&mut reg, ws.to_str().unwrap());
@@ -112,7 +119,17 @@ fn test_conformance_all_checks() {
     // git.inspect works on repo
     let mut kwargs = HashMap::new();
     let res = reg.call("physis-pro", "inspect", kwargs);
-    if res.ok && (res.result.as_ref().and_then(|r| r.get("stdout")).and_then(|s| s.as_str()).unwrap_or("").to_lowercase().contains("physis") || res.ok) {
+    if res.ok
+        && (res
+            .result
+            .as_ref()
+            .and_then(|r| r.get("stdout"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_lowercase()
+            .contains("physis")
+            || res.ok)
+    {
         pass_count += 1;
     } else {
         fail_count += 1;
@@ -126,7 +143,10 @@ fn test_conformance_all_checks() {
         pass_count += 1;
     } else {
         fail_count += 1;
-        eprintln!("FAIL: fs.read works on dir, ok={}, validation={}", res.ok, res.validation);
+        eprintln!(
+            "FAIL: fs.read works on dir, ok={}, validation={}",
+            res.ok, res.validation
+        );
     }
 
     // missing verb = unavailable, not no-op
@@ -136,7 +156,10 @@ fn test_conformance_all_checks() {
         pass_count += 1;
     } else {
         fail_count += 1;
-        eprintln!("FAIL: missing verb = unavailable, not no-op, ok={}, error={:?}", res.ok, res.error);
+        eprintln!(
+            "FAIL: missing verb = unavailable, not no-op, ok={}, error={:?}",
+            res.ok, res.error
+        );
     }
 
     // write lands as draft class
@@ -147,7 +170,10 @@ fn test_conformance_all_checks() {
         pass_count += 1;
     } else {
         fail_count += 1;
-        eprintln!("FAIL: write lands as draft class, ok={}, result={:?}", res.ok, res.result);
+        eprintln!(
+            "FAIL: write lands as draft class, ok={}, result={:?}",
+            res.ok, res.result
+        );
     }
 
     // draft file exists
@@ -178,7 +204,10 @@ fn test_conformance_all_checks() {
     }
 
     // observation has actor+verb
-    if tail.iter().all(|o| !o.actor.is_empty() && !o.verb.is_empty()) {
+    if tail
+        .iter()
+        .all(|o| !o.actor.is_empty() && !o.verb.is_empty())
+    {
         pass_count += 1;
     } else {
         fail_count += 1;
@@ -196,8 +225,11 @@ fn test_conformance_all_checks() {
         eprintln!("FAIL: execute on bad object unavailable");
     }
 
-    // validator rejects exit!=0
-    kwargs = HashMap::from([("cmd".to_string(), json!("exit 3"))]);
+    // validator rejects exit!=0 (confirmed: execute is irreversible)
+    kwargs = HashMap::from([
+        ("cmd".to_string(), json!("exit 3")),
+        ("confirm".to_string(), json!(true)),
+    ]);
     let res = reg.call("randomesh", "execute", kwargs);
     if !res.ok {
         pass_count += 1;
@@ -207,7 +239,10 @@ fn test_conformance_all_checks() {
     }
 
     // validator accepts exit 0
-    kwargs = HashMap::from([("cmd".to_string(), json!("echo fine"))]);
+    kwargs = HashMap::from([
+        ("cmd".to_string(), json!("echo fine")),
+        ("confirm".to_string(), json!(true)),
+    ]);
     let res = reg.call("randomesh", "execute", kwargs);
     if res.ok {
         pass_count += 1;
@@ -222,9 +257,16 @@ fn test_conformance_all_checks() {
         pass_count += 1;
     } else {
         fail_count += 1;
-        eprintln!("FAIL: reliability updated on failure, beta={}", cap.reliability_beta);
+        eprintln!(
+            "FAIL: reliability updated on failure, beta={}",
+            cap.reliability_beta
+        );
     }
 
-    println!("\n{} / {} conformance checks passed", pass_count, pass_count + fail_count);
+    println!(
+        "\n{} / {} conformance checks passed",
+        pass_count,
+        pass_count + fail_count
+    );
     assert_eq!(fail_count, 0, "{} conformance checks failed", fail_count);
 }

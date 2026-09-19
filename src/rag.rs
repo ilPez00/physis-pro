@@ -201,8 +201,10 @@ impl TokenFixedRetriever {
         // already selected). The discount is updated incrementally against the
         // one new selection per round, so this is O(top_k * n) cosines rather
         // than the O(n^2) per candidate the first version paid.
-        let mut remaining: Vec<(usize, f32, f32)> =
-            scored.into_iter().map(|(id, base)| (id, base, 0.0)).collect();
+        let mut remaining: Vec<(usize, f32, f32)> = scored
+            .into_iter()
+            .map(|(id, base)| (id, base, 0.0))
+            .collect();
         let mut selected: Vec<RetrievedChunk> = Vec::new();
         let mut used = 0usize;
 

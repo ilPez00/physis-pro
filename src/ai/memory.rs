@@ -255,7 +255,10 @@ mod tests {
             extra: HashMap::new(),
         };
         mem.db
-            .insert(format!("mem:{}", old.id).as_bytes(), serde_json::to_vec(&old).unwrap())
+            .insert(
+                format!("mem:{}", old.id).as_bytes(),
+                serde_json::to_vec(&old).unwrap(),
+            )
             .unwrap();
         mem.db.flush().unwrap();
         assert_eq!(mem.count().unwrap(), 2);

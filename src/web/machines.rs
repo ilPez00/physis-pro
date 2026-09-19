@@ -922,8 +922,12 @@ pub async fn machines_chronos_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ChronosRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid chronos request: {e}")))?;
+    let req: ChronosRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid chronos request: {e}"),
+        )
+    })?;
     let Json(result) = machines_chronos_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "chronos", body, result).await)
 }
@@ -934,8 +938,12 @@ pub async fn machines_harmony_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: HarmonyRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid harmony request: {e}")))?;
+    let req: HarmonyRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid harmony request: {e}"),
+        )
+    })?;
     let Json(result) = machines_harmony_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "harmony", body, result).await)
 }
@@ -946,8 +954,12 @@ pub async fn machines_polis_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: PolisRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid polis request: {e}")))?;
+    let req: PolisRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid polis request: {e}"),
+        )
+    })?;
     let Json(result) = machines_polis_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "polis", body, result).await)
 }
@@ -958,8 +970,12 @@ pub async fn machines_soma_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: SomaRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid soma request: {e}")))?;
+    let req: SomaRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid soma request: {e}"),
+        )
+    })?;
     let Json(result) = machines_soma_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "soma", body, result).await)
 }
@@ -970,8 +986,12 @@ pub async fn machines_topos_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ToposRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid topos request: {e}")))?;
+    let req: ToposRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid topos request: {e}"),
+        )
+    })?;
     let Json(result) = machines_topos_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "topos", body, result).await)
 }
@@ -982,8 +1002,12 @@ pub async fn machines_elenchus_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ElenchusRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid elenchus request: {e}")))?;
+    let req: ElenchusRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid elenchus request: {e}"),
+        )
+    })?;
     let Json(result) = machines_elenchus_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "elenchus", body, result).await)
 }
@@ -994,8 +1018,12 @@ pub async fn machines_lex_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: LexRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid lex request: {e}")))?;
+    let req: LexRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid lex request: {e}"),
+        )
+    })?;
     let Json(result) = machines_lex_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "lex", body, result).await)
 }
@@ -1006,8 +1034,12 @@ pub async fn machines_empedocles_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: EmpedoclesRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid empedocles request: {e}")))?;
+    let req: EmpedoclesRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid empedocles request: {e}"),
+        )
+    })?;
     let Json(result) = machines_empedocles_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "empedocles", body, result).await)
 }
@@ -1018,8 +1050,12 @@ pub async fn machines_erosp_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ErospRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid erosp request: {e}")))?;
+    let req: ErospRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid erosp request: {e}"),
+        )
+    })?;
     let Json(result) = machines_erosp_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "erosp", body, result).await)
 }
@@ -1030,8 +1066,12 @@ pub async fn machines_erosa_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ErosaRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid erosa request: {e}")))?;
+    let req: ErosaRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid erosa request: {e}"),
+        )
+    })?;
     let Json(result) = machines_erosa_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "erosa", body, result).await)
 }
@@ -1042,8 +1082,12 @@ pub async fn machines_techne_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: TechneRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid techne request: {e}")))?;
+    let req: TechneRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid techne request: {e}"),
+        )
+    })?;
     let Json(result) = machines_techne_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "techne", body, result).await)
 }
@@ -1054,8 +1098,12 @@ pub async fn machines_euclid_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: EuclidRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid euclid request: {e}")))?;
+    let req: EuclidRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid euclid request: {e}"),
+        )
+    })?;
     let Json(result) = machines_euclid_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "euclid", body, result).await)
 }
@@ -1066,8 +1114,12 @@ pub async fn machines_plutos_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: PlutosRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid plutos request: {e}")))?;
+    let req: PlutosRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid plutos request: {e}"),
+        )
+    })?;
     let Json(result) = machines_plutos_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "plutos", body, result).await)
 }
@@ -1078,8 +1130,12 @@ pub async fn machines_krisis_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: KrisisRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid krisis request: {e}")))?;
+    let req: KrisisRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid krisis request: {e}"),
+        )
+    })?;
     let Json(result) = machines_krisis_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "krisis", body, result).await)
 }
@@ -1090,8 +1146,12 @@ pub async fn machines_pathos_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: PathosRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid pathos request: {e}")))?;
+    let req: PathosRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid pathos request: {e}"),
+        )
+    })?;
     let Json(result) = machines_pathos_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "pathos", body, result).await)
 }
@@ -1102,8 +1162,12 @@ pub async fn machines_chroma_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ChromaRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid chroma request: {e}")))?;
+    let req: ChromaRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid chroma request: {e}"),
+        )
+    })?;
     let Json(result) = machines_chroma_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "chroma", body, result).await)
 }
@@ -1114,8 +1178,12 @@ pub async fn machines_kinesis_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: KinesisRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid kinesis request: {e}")))?;
+    let req: KinesisRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid kinesis request: {e}"),
+        )
+    })?;
     let Json(result) = machines_kinesis_handler(Json(req)).await;
     Ok(register_machine_result(state, headers, "kinesis", body, result).await)
 }
@@ -1128,8 +1196,12 @@ pub async fn machines_apodeixis_register_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    let req: ApodeixisRequest = serde_json::from_value(body.clone())
-        .map_err(|e| err_response(StatusCode::BAD_REQUEST, &format!("invalid apodeixis request: {e}")))?;
+    let req: ApodeixisRequest = serde_json::from_value(body.clone()).map_err(|e| {
+        err_response(
+            StatusCode::BAD_REQUEST,
+            &format!("invalid apodeixis request: {e}"),
+        )
+    })?;
     let Json(result) =
         machines_apodeixis_handler(State(state.clone()), headers.clone(), Json(req)).await;
     Ok(register_machine_result(state, headers, "apodeixis", body, result).await)

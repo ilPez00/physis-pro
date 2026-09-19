@@ -25,8 +25,7 @@ pub fn open_db(path: &Path) -> Result<Db> {
 pub fn record(db: &Db, rec: &RunRecord) -> Result<()> {
     let in_text = combine(
         &rec.input.prompt,
-        &rec
-            .input
+        &rec.input
             .rag_files
             .iter()
             .map(|f| (f.path.clone(), f.body.clone()))
@@ -34,8 +33,7 @@ pub fn record(db: &Db, rec: &RunRecord) -> Result<()> {
     );
     let out_text = combine(
         &rec.output.text,
-        &rec
-            .output
+        &rec.output
             .edited_files
             .iter()
             .map(|f| (f.path.clone(), f.body.clone()))
@@ -52,7 +50,12 @@ pub fn record(db: &Db, rec: &RunRecord) -> Result<()> {
         embedding: emb,
         prompt_hash,
     };
-    let key = format!("{}::{}::{}", entry.task, entry.model, entry.created_at.timestamp_millis());
+    let key = format!(
+        "{}::{}::{}",
+        entry.task,
+        entry.model,
+        entry.created_at.timestamp_millis()
+    );
     let bytes = serde_json::to_vec(&entry)?;
     db.insert(key.as_str(), bytes)?;
     db.flush()?;

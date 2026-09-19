@@ -73,7 +73,8 @@ pub async fn post_events_handler(
                 .clone()
                 .unwrap_or_else(|| ev.provenance.connector.clone());
             let input = ev.target.clone().or_else(|| ev.machine_id.clone());
-            s.ledger.record_at(mechanism, &actor, ev.subject.clone(), input, ev.observed_at);
+            s.ledger
+                .record_at(mechanism, &actor, ev.subject.clone(), input, ev.observed_at);
             push_capped(&mut s.op_events, ev.clone());
             accepted.push(ev);
         }
@@ -156,9 +157,7 @@ fn reading_from_event(ev: &OperationalEvent) -> Option<crate::industrial::Machin
     }
     let f = |k: &str| ev.properties.get(k).and_then(|v| v.parse::<f32>().ok());
     let status = match ev.status {
-        crate::operational::OperationalStatus::Warning => {
-            crate::industrial::MachineStatus::Warning
-        }
+        crate::operational::OperationalStatus::Warning => crate::industrial::MachineStatus::Warning,
         crate::operational::OperationalStatus::Failure => {
             crate::industrial::MachineStatus::Critical
         }
@@ -186,20 +185,13 @@ fn reading_from_event(ev: &OperationalEvent) -> Option<crate::industrial::Machin
 /// typed-ontology axis from the event (Phase 16 I5): kind = the event's source
 /// family, properties = the event's scalar properties. Best-effort: a graph
 /// write failing must not fail the event ingest.
-async fn register_node(
-    state: &SharedState,
-    headers: &HeaderMap,
-    ev: &OperationalEvent,
-) -> String {
+async fn register_node(state: &SharedState, headers: &HeaderMap, ev: &OperationalEvent) -> String {
     let label = format!("{} — {:?} [{:?}]", ev.subject, ev.kind, ev.status);
     // Text-only (image=None) so the image-slot 503 is unreachable here.
-    let embedding = crate::web::wiki_semiotic::embed_input(
-        state.shared.clone(),
-        label.clone(),
-        None,
-    )
-    .await
-    .unwrap_or_default();
+    let embedding =
+        crate::web::wiki_semiotic::embed_input(state.shared.clone(), label.clone(), None)
+            .await
+            .unwrap_or_default();
     let uid = user_key(headers);
     state.with_user(&uid, |s| {
         let id = s.core.register_node_vec_labeled(embedding, Some(label));

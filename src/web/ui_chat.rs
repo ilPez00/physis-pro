@@ -364,7 +364,11 @@ pub async fn settings_handler(State(state): State<SharedState>) -> Json<serde_js
                 .iter()
                 .map(|(k, o)| (k.clone(), o.to_string()))
                 .collect();
-            (v, serde_json::to_value(o).unwrap_or(serde_json::Value::Null), None)
+            (
+                v,
+                serde_json::to_value(o).unwrap_or(serde_json::Value::Null),
+                None,
+            )
         }
         Err(e) => (
             serde_json::to_value(&s.config).unwrap_or(serde_json::Value::Null),

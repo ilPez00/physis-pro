@@ -821,7 +821,11 @@ mod tests {
         thresholds.insert("pressure_max".to_string(), 20.0);
 
         let anomalies = detect_anomalies("cnc-01", std::slice::from_ref(&reading), &thresholds);
-        assert_eq!(anomalies.len(), 2, "two breaches, two anomalies: {anomalies:?}");
+        assert_eq!(
+            anomalies.len(),
+            2,
+            "two breaches, two anomalies: {anomalies:?}"
+        );
     }
 
     /// A raw key that does *not* collide is still measured — the filter must
@@ -840,9 +844,16 @@ mod tests {
             status: MachineStatus::Online,
             raw,
         };
-        let metrics: Vec<String> = reading.measurements().into_iter().map(|m| m.metric).collect();
+        let metrics: Vec<String> = reading
+            .measurements()
+            .into_iter()
+            .map(|m| m.metric)
+            .collect();
         assert!(metrics.contains(&"humidity".to_string()), "got {metrics:?}");
-        assert!(metrics.contains(&"temperature".to_string()), "got {metrics:?}");
+        assert!(
+            metrics.contains(&"temperature".to_string()),
+            "got {metrics:?}"
+        );
     }
 
     fn sample_readings() -> Vec<MachineReading> {

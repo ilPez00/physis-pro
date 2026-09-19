@@ -42,17 +42,19 @@ impl SalienceStore {
                 .with_context(|| format!("mkdir for salience {}", path.display()))?;
         }
         let raw = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, raw)
-            .with_context(|| format!("write salience {}", path.display()))?;
+        std::fs::write(path, raw).with_context(|| format!("write salience {}", path.display()))?;
         Ok(())
     }
 
     pub fn bump(&mut self, cell: &str, delta: f32, now: chrono::DateTime<chrono::Utc>) {
-        let entry = self.entries.entry(cell.to_string()).or_insert(SalienceEntry {
-            cell: cell.to_string(),
-            raw_score: 0.0,
-            updated_at: now,
-        });
+        let entry = self
+            .entries
+            .entry(cell.to_string())
+            .or_insert(SalienceEntry {
+                cell: cell.to_string(),
+                raw_score: 0.0,
+                updated_at: now,
+            });
         entry.raw_score += delta;
         entry.updated_at = now;
     }
@@ -141,7 +143,12 @@ pub fn run_dream_pass(
         .iter()
         .map(|f| format!("rag::{}", f.path))
         .collect::<Vec<_>>();
-    all.extend(rec.output.edited_files.iter().map(|f| format!("edit::{}", f.path)));
+    all.extend(
+        rec.output
+            .edited_files
+            .iter()
+            .map(|f| format!("edit::{}", f.path)),
+    );
     DreamReport {
         silent_failures: silent,
         asserted_failures: asserted_failures.to_vec(),

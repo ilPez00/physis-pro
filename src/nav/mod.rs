@@ -251,25 +251,32 @@ impl NavIndex {
                     let Some(hash) = crate::indexer::compute_file_hash(entry.path()) else {
                         continue;
                     };
-                    let changed = self
-                        .files
-                        .get(&rel)
-                        .map(|p| p.hash != hash)
-                        .unwrap_or(true);
+                    let changed = self.files.get(&rel).map(|p| p.hash != hash).unwrap_or(true);
                     if changed {
                         report.changed += 1;
                     }
-                    current.insert(rel, FileRecord { size: meta.len(), mtime, hash });
+                    current.insert(
+                        rel,
+                        FileRecord {
+                            size: meta.len(),
+                            mtime,
+                            hash,
+                        },
+                    );
                 }
             }
         }
 
         // Drop records for deleted files + their objects.
-        let gone: Vec<String> = self.files.keys().filter(|p| !current.contains_key(*p)).cloned().collect();
+        let gone: Vec<String> = self
+            .files
+            .keys()
+            .filter(|p| !current.contains_key(*p))
+            .cloned()
+            .collect();
         for p in &gone {
-            self.objects.retain(|_, o| {
-                o.source.as_ref().map(|s| &s.path != p).unwrap_or(true)
-            });
+            self.objects
+                .retain(|_, o| o.source.as_ref().map(|s| &s.path != p).unwrap_or(true));
             self.files.remove(p);
             report.deleted += 1;
         }
@@ -288,7 +295,11 @@ impl NavIndex {
         let file_hash = crate::indexer::compute_file_hash(&path).unwrap_or_default();
         self.files.insert(
             rel.to_string(),
-            FileRecord { size: contents.len() as u64, mtime, hash: file_hash.clone() },
+            FileRecord {
+                size: contents.len() as u64,
+                mtime,
+                hash: file_hash.clone(),
+            },
         );
 
         // Drop previous objects from this file (chunk boundaries may have moved).
@@ -309,7 +320,11 @@ impl NavIndex {
                 id: file_id,
                 kind,
                 label: label.clone(),
-                source: Some(SourceRef { path: rel.to_string(), start_line: None, end_line: None }),
+                source: Some(SourceRef {
+                    path: rel.to_string(),
+                    start_line: None,
+                    end_line: None,
+                }),
                 mtime,
                 hash: file_hash.clone(),
                 text: format!("{rel} {label}"),
@@ -400,7 +415,6 @@ impl NavIndex {
         }
         dropped
     }
-
 }
 
 /// Counts from one [`NavIndex::update`] pass.
@@ -461,7 +475,13 @@ pub struct NavWeights {
 
 impl Default for NavWeights {
     fn default() -> Self {
-        Self { semantic: 0.6, lexical: 0.3, recency: 0.08, pin: 0.25, context: 0.15 }
+        Self {
+            semantic: 0.6,
+            lexical: 0.3,
+            recency: 0.08,
+            pin: 0.25,
+            context: 0.15,
+        }
     }
 }
 
@@ -517,7 +537,9 @@ fn recency_score(now: f64, mtime: f64) -> f32 {
 
 /// Query terms: lowercase word tokens, len ≥ 3, minus a tiny stopword set.
 fn query_terms(query: &str) -> Vec<String> {
-    const STOP: [&str; 8] = ["the", "and", "that", "with", "about", "where", "what", "when"];
+    const STOP: [&str; 8] = [
+        "the", "and", "that", "with", "about", "where", "what", "when",
+    ];
     query
         .split(|c: char| !c.is_alphanumeric())
         .map(|w| w.to_lowercase())
@@ -570,11 +592,7 @@ pub fn query(
     // attached to the query call via `EmbedCache` at the CLI layer; here we
     // compute cosine against a per-call embedding map passed in.
     let mut hits: Vec<NavHit> = Vec::new();
-    let context_dir = context_path
-        .rsplit('/')
-        .next()
-        .unwrap_or("")
-        .to_string();
+    let context_dir = context_path.rsplit('/').next().unwrap_or("").to_string();
 
     for obj in index.objects.values() {
         let mut score = RetrievalScore::default();
@@ -631,10 +649,18 @@ pub fn query(
         if score.total <= 0.01 {
             continue;
         }
-        hits.push(NavHit { object: obj.clone(), score });
+        hits.push(NavHit {
+            object: obj.clone(),
+            score,
+        });
     }
 
-    hits.sort_by(|a, b| b.score.total.partial_cmp(&a.score.total).unwrap_or(std::cmp::Ordering::Equal));
+    hits.sort_by(|a, b| {
+        b.score
+            .total
+            .partial_cmp(&a.score.total)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     hits.truncate(limit);
     hits
 }
@@ -666,7 +692,13 @@ impl Group {
 }
 
 pub fn group_hits(hits: &[NavHit]) -> Vec<(Group, Vec<&NavHit>)> {
-    let mut order = [Group::Notes, Group::Files, Group::Passages, Group::Concepts, Group::Other];
+    let mut order = [
+        Group::Notes,
+        Group::Files,
+        Group::Passages,
+        Group::Concepts,
+        Group::Other,
+    ];
     let mut groups: BTreeMap<Group, Vec<&NavHit>> = Default::default();
     for h in hits {
         let g = match h.object.kind {
@@ -859,7 +891,9 @@ mod tests {
             if !path.exists() || !crate::scanner::is_text_file(&path) {
                 continue;
             }
-            let (Ok(contents), Ok(meta)) = (std::fs::read_to_string(&path), std::fs::metadata(&path)) else {
+            let (Ok(contents), Ok(meta)) =
+                (std::fs::read_to_string(&path), std::fs::metadata(&path))
+            else {
                 continue;
             };
             let mtime = meta
@@ -883,7 +917,12 @@ mod tests {
         );
         let idx = build_index(dir.path());
         // 1 file object + 1 passage (3 lines fit one window).
-        assert_eq!(idx.objects.len(), 2, "{:?}", idx.objects.keys().collect::<Vec<_>>());
+        assert_eq!(
+            idx.objects.len(),
+            2,
+            "{:?}",
+            idx.objects.keys().collect::<Vec<_>>()
+        );
         let kinds: Vec<ObjectKind> = idx.objects.values().map(|o| o.kind).collect();
         assert!(kinds.contains(&ObjectKind::Note));
         assert!(kinds.contains(&ObjectKind::Passage));
@@ -932,9 +971,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         seed(dir.path(), "docs/order.md", "the order signal held\n");
         let idx = build_index(dir.path());
-        let hits = query(&idx, "order signal", None, &NavWeights::default(), "", &[], 10);
+        let hits = query(
+            &idx,
+            "order signal",
+            None,
+            &NavWeights::default(),
+            "",
+            &[],
+            10,
+        );
         assert!(!hits.is_empty(), "lexical path must stand alone");
-        assert!(hits.iter().all(|h| !h.score.components.contains_key("semantic")));
+        assert!(hits
+            .iter()
+            .all(|h| !h.score.components.contains_key("semantic")));
     }
 
     /// Pins drag the pinned partner up when only the partner matches.
@@ -942,7 +991,11 @@ mod tests {
     fn pin_bridge_surfaces_unrelated_object() {
         let dir = tempfile::tempdir().unwrap();
         seed(dir.path(), "docs/order.md", "order signal experiment\n");
-        seed(dir.path(), "src/unrelated.rs", "totally different words here\n");
+        seed(
+            dir.path(),
+            "src/unrelated.rs",
+            "totally different words here\n",
+        );
         let mut idx = build_index(dir.path());
 
         let e = RandomProjectionEmbedder::new(64);
@@ -959,7 +1012,12 @@ mod tests {
         let other_id = idx
             .objects
             .values()
-            .find(|o| o.source.as_ref().map(|s| s.path == "src/unrelated.rs").unwrap_or(false))
+            .find(|o| {
+                o.source
+                    .as_ref()
+                    .map(|s| s.path == "src/unrelated.rs")
+                    .unwrap_or(false)
+            })
             .unwrap()
             .id
             .clone();
@@ -980,9 +1038,23 @@ mod tests {
         );
         let unrelated = hits
             .iter()
-            .find(|h| h.object.source.as_ref().map(|s| s.path == "src/unrelated.rs").unwrap_or(false))
+            .find(|h| {
+                h.object
+                    .source
+                    .as_ref()
+                    .map(|s| s.path == "src/unrelated.rs")
+                    .unwrap_or(false)
+            })
             .expect("pinned partner must appear");
-        assert!(unrelated.score.components.get("pin").copied().unwrap_or(0.0) >= 1.0);
+        assert!(
+            unrelated
+                .score
+                .components
+                .get("pin")
+                .copied()
+                .unwrap_or(0.0)
+                >= 1.0
+        );
     }
 
     #[test]
@@ -1010,11 +1082,17 @@ mod tests {
     #[test]
     fn pins_are_idempotent_and_reversible() {
         let dir = tempfile::tempdir().unwrap();
-        let db = sled::Config::new().path(dir.path().join("s")).open().unwrap();
+        let db = sled::Config::new()
+            .path(dir.path().join("s"))
+            .open()
+            .unwrap();
         let a = ObjectId::new("fs", "aaa");
         let b = ObjectId::new("fs", "bbb");
         assert!(add_pin(&db, a.clone(), b.clone(), "relates").unwrap());
-        assert!(!add_pin(&db, b.clone(), a.clone(), "relates").unwrap(), "dup suppressed");
+        assert!(
+            !add_pin(&db, b.clone(), a.clone(), "relates").unwrap(),
+            "dup suppressed"
+        );
         assert_eq!(load_pins(&db).len(), 1);
         assert_eq!(remove_pin(&db, a, b).unwrap(), 1);
         assert!(load_pins(&db).is_empty());
@@ -1023,12 +1101,26 @@ mod tests {
     #[test]
     fn trail_round_trips() {
         let dir = tempfile::tempdir().unwrap();
-        let db = sled::Config::new().path(dir.path().join("s")).open().unwrap();
+        let db = sled::Config::new()
+            .path(dir.path().join("s"))
+            .open()
+            .unwrap();
         push_trail(
             &db,
-            NavStep { kind: "query".into(), focus: "order signal".into(), at: "t".into() },
+            NavStep {
+                kind: "query".into(),
+                focus: "order signal".into(),
+                at: "t".into(),
+            },
         );
-        push_trail(&db, NavStep { kind: "enter".into(), focus: "fs:abc".into(), at: "t".into() });
+        push_trail(
+            &db,
+            NavStep {
+                kind: "enter".into(),
+                focus: "fs:abc".into(),
+                at: "t".into(),
+            },
+        );
         let trail = load_trail(&db);
         assert_eq!(trail.len(), 2);
         assert_eq!(trail[0].focus, "order signal");
@@ -1075,11 +1167,23 @@ mod tests {
         );
         let alpha = hits
             .iter()
-            .position(|h| h.object.source.as_ref().map(|s| s.path.starts_with("alpha")).unwrap_or(false))
+            .position(|h| {
+                h.object
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.starts_with("alpha"))
+                    .unwrap_or(false)
+            })
             .unwrap();
         let beta = hits
             .iter()
-            .position(|h| h.object.source.as_ref().map(|s| s.path.starts_with("beta")).unwrap_or(false))
+            .position(|h| {
+                h.object
+                    .source
+                    .as_ref()
+                    .map(|s| s.path.starts_with("beta"))
+                    .unwrap_or(false)
+            })
             .unwrap();
         assert!(alpha < beta, "context must outrank");
     }
@@ -1183,9 +1287,9 @@ pub fn add_relation(
     origin: RelationOrigin,
 ) -> anyhow::Result<bool> {
     let mut rels = load_relations(db);
-    let dup = rels.iter().any(|r| {
-        (r.a == a && r.b == b || r.a == b && r.b == a) && r.kind == kind
-    });
+    let dup = rels
+        .iter()
+        .any(|r| (r.a == a && r.b == b || r.a == b && r.b == a) && r.kind == kind);
     if dup {
         return Ok(false);
     }
@@ -1255,7 +1359,10 @@ pub fn infer_same_source_relations(index: &NavIndex, db: &sled::Db) -> anyhow::R
     let mut by_path: BTreeMap<String, Vec<ObjectId>> = BTreeMap::new();
     for o in index.objects.values() {
         if let Some(s) = &o.source {
-            by_path.entry(s.path.clone()).or_default().push(o.id.clone());
+            by_path
+                .entry(s.path.clone())
+                .or_default()
+                .push(o.id.clone());
         }
     }
     let mut added = 0usize;
@@ -1286,7 +1393,11 @@ pub fn infer_same_source_relations(index: &NavIndex, db: &sled::Db) -> anyhow::R
 pub fn semantic_parents(obj: &PhysisObject) -> Vec<(String, String)> {
     let mut out = Vec::new();
     if let Some(src) = &obj.source {
-        if let Some(dir) = src.path.rsplit_once('.').and_then(|_| src.path.rsplit('/').next()) {
+        if let Some(dir) = src
+            .path
+            .rsplit_once('.')
+            .and_then(|_| src.path.rsplit('/').next())
+        {
             let _ = dir; // path handled below
         }
         if let Some((dir, _file)) = src.path.rsplit_once('/') {
@@ -1359,21 +1470,34 @@ pub fn query_with_relations(
 
 #[cfg(test)]
 mod relation_tests {
-    use super::*;
     use super::tests::{build_index, seed};
+    use super::*;
     use crate::embed::RandomProjectionEmbedder;
 
     #[test]
     fn relations_idempotent_and_reversible() {
         let dir = tempfile::tempdir().unwrap();
-        let db = sled::Config::new().path(dir.path().join("s")).open().unwrap();
+        let db = sled::Config::new()
+            .path(dir.path().join("s"))
+            .open()
+            .unwrap();
         let a = ObjectId::new("fs", "aaa");
         let b = ObjectId::new("fs", "bbb");
         assert!(add_relation(&db, a.clone(), b.clone(), "same", "", RelationOrigin::User).unwrap());
         // Reversed pair, same kind: still a dup.
-        assert!(!add_relation(&db, b.clone(), a.clone(), "same", "", RelationOrigin::User).unwrap());
+        assert!(
+            !add_relation(&db, b.clone(), a.clone(), "same", "", RelationOrigin::User).unwrap()
+        );
         // Different kind: allowed.
-        assert!(add_relation(&db, a.clone(), b.clone(), "different", "", RelationOrigin::User).unwrap());
+        assert!(add_relation(
+            &db,
+            a.clone(),
+            b.clone(),
+            "different",
+            "",
+            RelationOrigin::User
+        )
+        .unwrap());
         assert_eq!(load_relations(&db).len(), 2);
         assert_eq!(relations_of(&db, &a).len(), 2);
         assert_eq!(remove_relation(&db, &a, &b, Some("same")).unwrap(), 1);
@@ -1398,7 +1522,10 @@ mod relation_tests {
     fn relation_ids_are_canonical_across_endpoint_order() {
         let a = ObjectId::new("fs", "aaa");
         let b = ObjectId::new("fs", "bbb");
-        assert_eq!(relation_id(&a, "extends", &b), relation_id(&b, "extends", &a));
+        assert_eq!(
+            relation_id(&a, "extends", &b),
+            relation_id(&b, "extends", &a)
+        );
         assert_ne!(
             relation_id(&a, "extends", &b),
             relation_id(&a, "supports", &b)
@@ -1408,13 +1535,18 @@ mod relation_tests {
     #[test]
     fn same_source_inference_is_deterministic_and_scoped() {
         let dir = tempfile::tempdir().unwrap();
-        let db = sled::Config::new().path(dir.path().join("s")).open().unwrap();
+        let db = sled::Config::new()
+            .path(dir.path().join("s"))
+            .open()
+            .unwrap();
         seed(dir.path(), "a.md", "one\ntwo\nthree\nfour\nfive\nsix\n");
         let idx = build_index(dir.path());
         let n = infer_same_source_relations(&idx, &db).unwrap();
         assert!(n > 0);
         let rels = load_relations(&db);
-        assert!(rels.iter().all(|r| r.origin == RelationOrigin::Deterministic));
+        assert!(rels
+            .iter()
+            .all(|r| r.origin == RelationOrigin::Deterministic));
         // Idempotent: a second pass adds nothing.
         let n2 = infer_same_source_relations(&idx, &db).unwrap();
         assert_eq!(n2, 0);
@@ -1463,12 +1595,25 @@ mod relation_tests {
         let other_id = idx
             .objects
             .values()
-            .find(|o| o.source.as_ref().map(|s| s.path == "src/plain.rs").unwrap_or(false))
+            .find(|o| {
+                o.source
+                    .as_ref()
+                    .map(|s| s.path == "src/plain.rs")
+                    .unwrap_or(false)
+            })
             .unwrap()
             .id
             .clone();
         let db = db_temp();
-        add_relation(&db, order_id, other_id, "relates to", "", RelationOrigin::User).unwrap();
+        add_relation(
+            &db,
+            order_id,
+            other_id,
+            "relates to",
+            "",
+            RelationOrigin::User,
+        )
+        .unwrap();
         let rels = load_relations(&db);
         let hits = query_with_relations(
             &idx,

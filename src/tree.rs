@@ -79,7 +79,12 @@ impl DirTree {
             .collect();
         let mut files: Vec<(PathBuf, FileMeta)> = Vec::new();
         walk(root, root, &exclude, &mut files);
-        let mut tree = DirTree { root: DirNode { name: "<root>".into(), ..Default::default() } };
+        let mut tree = DirTree {
+            root: DirNode {
+                name: "<root>".into(),
+                ..Default::default()
+            },
+        };
         for (rel, meta) in files {
             insert(&mut tree.root, &rel, meta);
         }
@@ -103,7 +108,9 @@ impl DirTree {
     /// A doc's stored content hash, if any (for the changed-but-same-content
     /// downgrade).
     pub fn stored_hash(&self, rel: &Path) -> Option<&str> {
-        node_at(&self.root, rel).and_then(|n| n.file.as_ref()).and_then(|f| f.content_hash.as_deref())
+        node_at(&self.root, rel)
+            .and_then(|n| n.file.as_ref())
+            .and_then(|f| f.content_hash.as_deref())
     }
 
     /// Mutable node at a relative path (to stamp content hash + labels).
@@ -159,7 +166,9 @@ pub struct TreeDiff {
 }
 
 fn walk(dir: &Path, root: &Path, exclude: &HashSet<String>, out: &mut Vec<(PathBuf, FileMeta)>) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let p = entry.path();
         let Ok(ft) = entry.file_type() else { continue };
@@ -170,8 +179,12 @@ fn walk(dir: &Path, root: &Path, exclude: &HashSet<String>, out: &mut Vec<(PathB
             }
             walk(&p, root, exclude, out);
         } else if ft.is_file() {
-            let Ok(rel) = p.strip_prefix(root) else { continue };
-            let Ok(meta) = std::fs::metadata(&p) else { continue };
+            let Ok(rel) = p.strip_prefix(root) else {
+                continue;
+            };
+            let Ok(meta) = std::fs::metadata(&p) else {
+                continue;
+            };
             let included = crate::scanner::should_include_file(&p, exclude, root);
             out.push((
                 rel.to_path_buf(),
@@ -193,16 +206,28 @@ fn walk(dir: &Path, root: &Path, exclude: &HashSet<String>, out: &mut Vec<(PathB
 }
 
 fn insert(node: &mut DirNode, rel: &Path, meta: FileMeta) {
-    let Some(first) = rel.components().next() else { return };
+    let Some(first) = rel.components().next() else {
+        return;
+    };
     let name = first.as_os_str().to_string_lossy().to_string();
     if rel.components().count() == 1 {
         let name2 = name.clone();
-        node.children.insert(name, DirNode { name: name2, file: Some(meta), ..Default::default() });
+        node.children.insert(
+            name,
+            DirNode {
+                name: name2,
+                file: Some(meta),
+                ..Default::default()
+            },
+        );
     } else {
         let child = node
             .children
             .entry(name.clone())
-            .or_insert_with(|| DirNode { name, ..Default::default() });
+            .or_insert_with(|| DirNode {
+                name,
+                ..Default::default()
+            });
         let rest: PathBuf = rel.components().skip(1).collect();
         insert(child, &rest, meta);
     }
@@ -217,7 +242,12 @@ fn node_at<'a>(node: &'a DirNode, rel: &Path) -> Option<&'a DirNode> {
     Some(cur)
 }
 
-fn collect_file_infos(node: &DirNode, root: &Path, prefix: &str, out: &mut Vec<crate::scanner::FileInfo>) {
+fn collect_file_infos(
+    node: &DirNode,
+    root: &Path,
+    prefix: &str,
+    out: &mut Vec<crate::scanner::FileInfo>,
+) {
     for (name, child) in &node.children {
         let rel = if prefix.is_empty() {
             name.clone()
@@ -312,12 +342,7 @@ fn diff_dir(prev: &DirNode, curr: &DirNode, path: &Path, out: &mut TreeDiff) {
                 }
             }
         } else {
-            diff_dir(
-                pchild.unwrap_or(&EMPTY_DIR),
-                child,
-                &child_path,
-                out,
-            );
+            diff_dir(pchild.unwrap_or(&EMPTY_DIR), child, &child_path, out);
         }
     }
     for name in prev.children.keys() {
@@ -418,7 +443,11 @@ impl DirTree {
                 was_new,
             });
         }
-        ScanRun { current, diff, docs }
+        ScanRun {
+            current,
+            diff,
+            docs,
+        }
     }
 }
 
@@ -452,7 +481,13 @@ mod tests {
         assert!(tree.root.children.contains_key("notes.md"));
         // .git is excluded — not in the tree.
         assert!(!tree.root.children.contains_key(".git"));
-        assert!(tree.root.children["notes.md"].file.as_ref().unwrap().included);
+        assert!(
+            tree.root.children["notes.md"]
+                .file
+                .as_ref()
+                .unwrap()
+                .included
+        );
         // A binary (non-included) file still appears but flagged.
         std::fs::write(root.join("img.png"), [0u8]).unwrap();
         let t2 = DirTree::meta_walk(&root);
@@ -469,20 +504,27 @@ mod tests {
         let mut t1 = DirTree::meta_walk(&root);
         let fp1 = t1.fingerprint();
         let mut t2 = DirTree::meta_walk(&root);
-        assert_eq!(t2.fingerprint(), fp1, "identical tree, identical fingerprint");
+        assert_eq!(
+            t2.fingerprint(),
+            fp1,
+            "identical tree, identical fingerprint"
+        );
 
         // Touching a file changes its subtree fingerprint.
         std::thread::sleep(std::time::Duration::from_millis(20));
         touch(&root, "a.txt", "one-two");
         let mut t3 = DirTree::meta_walk(&root);
-        assert_ne!(t3.fingerprint(), fp1, "content change surfaces in fingerprint");
+        assert_ne!(
+            t3.fingerprint(),
+            fp1,
+            "content change surfaces in fingerprint"
+        );
 
         // A subtree untouched keeps its fingerprint.
         let mut t4 = DirTree::meta_walk(&root);
         t4.fingerprint();
         assert_eq!(
-            t4.root.children["sub"].fingerprint,
-            t1.root.children["sub"].fingerprint,
+            t4.root.children["sub"].fingerprint, t1.root.children["sub"].fingerprint,
             "unchanged subtree fingerprint stable"
         );
     }
@@ -508,7 +550,9 @@ mod tests {
         // The untouched `stable` subtree kept its fingerprint → diff skips it.
         assert_eq!(curr.root.children["stable"].fingerprint, stable_fp_prev);
         let diff = prev.diff(&curr);
-        assert!(diff.changed_files.contains(&PathBuf::from("changing/b.txt")));
+        assert!(diff
+            .changed_files
+            .contains(&PathBuf::from("changing/b.txt")));
         assert!(diff.new_files.contains(&PathBuf::from("changing/new.txt")));
         assert!(diff.skipped_subtrees >= 1, "stable subtree skipped");
     }
@@ -537,7 +581,12 @@ mod tests {
         let data = root.join(".physis");
         let mut tree = DirTree::meta_walk(&root);
         // Simulate a hashed file.
-        if let Some(f) = tree.root.children.get_mut("doc.txt").and_then(|n| n.file.as_mut()) {
+        if let Some(f) = tree
+            .root
+            .children
+            .get_mut("doc.txt")
+            .and_then(|n| n.file.as_mut())
+        {
             f.content_hash = Some("abc".into());
             f.labels = vec!["hello".into()];
         }

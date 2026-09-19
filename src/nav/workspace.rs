@@ -19,8 +19,8 @@ use std::path::{Path, PathBuf};
 
 use crate::embed::VectorEmbed;
 use crate::nav::{
-    self, NavHit, NavIndex, NavStep, NavWeights, ObjectKind, PhysisObject, RetrievalMode,
-    Relation, RelationOrigin, RetrievalScore,
+    self, NavHit, NavIndex, NavStep, NavWeights, ObjectKind, PhysisObject, Relation,
+    RelationOrigin, RetrievalMode, RetrievalScore,
 };
 
 /// One navigation workspace: a root, its index, its store, its embedder.
@@ -187,7 +187,9 @@ impl NavWorkspace {
         let hits = nav::query_with_relations(
             &self.index,
             q,
-            slot.as_ref().and_then(|s| s.as_ref()).map(|(e, _)| e.as_ref()),
+            slot.as_ref()
+                .and_then(|s| s.as_ref())
+                .map(|(e, _)| e.as_ref()),
             weights,
             &context,
             &pins,
@@ -196,7 +198,9 @@ impl NavWorkspace {
         );
         self.embedder = slot;
         let mode = RetrievalMode {
-            semantic: hits.iter().any(|h| h.score.components.contains_key("semantic")),
+            semantic: hits
+                .iter()
+                .any(|h| h.score.components.contains_key("semantic")),
             embedder: kind,
             indexed_objects: self.index.objects.len(),
         };
@@ -211,9 +215,8 @@ impl NavWorkspace {
     /// Records an `open` trail step on success, matching the HUD's open path.
     pub fn resolve(&self, target: &str) -> anyhow::Result<PhysisObject> {
         let norm = target.trim_start_matches("./");
-        let by_path = |o: &&PhysisObject| {
-            o.source.as_ref().map(|s| s.path == norm).unwrap_or(false)
-        };
+        let by_path =
+            |o: &&PhysisObject| o.source.as_ref().map(|s| s.path == norm).unwrap_or(false);
         if let Some(obj) = self
             .index
             .objects
@@ -374,7 +377,9 @@ mod tests {
         let mut ws = NavWorkspace::open(&root).unwrap();
         let summary = ws.update(true).unwrap();
         assert!(summary.contains("semantic: true"), "{summary}");
-        let (hits, mode) = ws.query("order signal", false, &Default::default(), 10).unwrap();
+        let (hits, mode) = ws
+            .query("order signal", false, &Default::default(), 10)
+            .unwrap();
         assert!(!hits.is_empty());
         assert!(mode.semantic);
         // query records its own trail step through the seam

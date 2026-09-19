@@ -57,7 +57,13 @@ fn fixture() -> Fixture {
         },
     ];
     doc.graph_revision = 1;
-    Fixture { doc, source, budget, review, locked }
+    Fixture {
+        doc,
+        source,
+        budget,
+        review,
+        locked,
+    }
 }
 
 fn assert_err<T>(result: Result<T, ApplyError>, expected: ApplyError) {
@@ -97,7 +103,10 @@ fn ad02_source_edit_records_one_transition() {
     let (next, change) = edit_source(&f, "We ordered 3 units of bolts.");
     assert_eq!(change.before_revision, 0);
     assert_eq!(change.after_revision, 1);
-    assert_eq!(change.before_hash, f.doc.block(&f.source).unwrap().content_hash);
+    assert_eq!(
+        change.before_hash,
+        f.doc.block(&f.source).unwrap().content_hash
+    );
     let edited = next.block(&f.source).unwrap();
     assert_eq!(change.after_hash, edited.content_hash);
     assert_eq!(edited.text(&next.raw), "We ordered 3 units of bolts.");
@@ -173,11 +182,17 @@ fn ad05_outside_bytes_preserved_and_conflicts_rejected() {
     let mut overlap = patch.clone();
     overlap.replacements.push(overlap.replacements[0].clone());
     overlap.status = PatchStatus::Proposed;
-    assert_err(apply_patch(&next, &overlap, "gio", 2, 1002), ApplyError::OverlappingRanges);
+    assert_err(
+        apply_patch(&next, &overlap, "gio", 2, 1002),
+        ApplyError::OverlappingRanges,
+    );
     // Conflict: expected old bytes no longer match.
     let mut conflict = patch.clone();
     conflict.replacements[0].expected_old_bytes = "Budget is 99 euros.".into();
-    assert_err(apply_patch(&next, &conflict, "gio", 2, 1002), ApplyError::ContentMismatch);
+    assert_err(
+        apply_patch(&next, &conflict, "gio", 2, 1002),
+        ApplyError::ContentMismatch,
+    );
 }
 
 /// AD06: locked content cannot be changed through any document mutation
@@ -201,7 +216,10 @@ fn ad06_locked_blocks_never_change() {
         new_bytes: "Fixed clause: 3 units.".into(),
         reasons: vec!["l-locked".into()],
     });
-    assert_err(apply_patch(&next, &direct, "gio", 2, 1002), ApplyError::ContentMismatch);
+    assert_err(
+        apply_patch(&next, &direct, "gio", 2, 1002),
+        ApplyError::ContentMismatch,
+    );
     // And the human edit route: splice_block of a locked block.
     assert!(next.splice_block(&f.locked, "Changed.").is_some());
     let (mutated, _) = next.splice_block(&f.locked, "Changed.").unwrap();
@@ -224,15 +242,24 @@ fn ad07_stale_revisions_conflict_before_application() {
     // Stale document revision.
     let mut stale = patch.clone();
     stale.expected_document_revision = 999;
-    assert_err(apply_patch(&next, &stale, "gio", 2, 1002), ApplyError::StaleDocumentRevision);
+    assert_err(
+        apply_patch(&next, &stale, "gio", 2, 1002),
+        ApplyError::StaleDocumentRevision,
+    );
     // Stale graph revision.
     let mut stale_graph = patch.clone();
     stale_graph.expected_graph_revision = 42;
-    assert_err(apply_patch(&next, &stale_graph, "gio", 2, 1002), ApplyError::StaleGraphRevision);
+    assert_err(
+        apply_patch(&next, &stale_graph, "gio", 2, 1002),
+        ApplyError::StaleGraphRevision,
+    );
     // Missing block (block removed between proposal and application).
     let mut missing = patch.clone();
     missing.replacements[0].block_id = "paragraph-does-not-exist-0".into();
-    assert_err(apply_patch(&next, &missing, "gio", 2, 1002), ApplyError::MissingBlock);
+    assert_err(
+        apply_patch(&next, &missing, "gio", 2, 1002),
+        ApplyError::MissingBlock,
+    );
 }
 
 /// AD08: repeating an idempotency key applies once and returns the recorded
@@ -259,9 +286,15 @@ fn ad08_idempotency_key_applies_once() {
     assert_eq!(recorded.status, PatchStatus::Applied);
     assert_eq!(recorded.applied_revision, Some(produced));
     // Re-applying a non-proposed patch is refused, not duplicated.
-    assert_err(apply_patch(&next, recorded, "gio", 3, 1003), ApplyError::NotProposed);
+    assert_err(
+        apply_patch(&next, recorded, "gio", 3, 1003),
+        ApplyError::NotProposed,
+    );
     let final_doc = store.load_document().unwrap().unwrap();
-    assert_eq!(final_doc.revision, produced, "document revision unchanged by retry");
+    assert_eq!(
+        final_doc.revision, produced,
+        "document revision unchanged by retry"
+    );
 }
 
 /// AD09: rejection changes proposal history and zero document bytes.
@@ -324,7 +357,9 @@ fn ad11_restart_rebuilds_state_and_reports_loss() {
     let store = Store::open(dir.path());
     store.save_document(&next).unwrap();
     store.append_event(&change).unwrap();
-    let book = Patches { patches: vec![patch.clone()] };
+    let book = Patches {
+        patches: vec![patch.clone()],
+    };
     store.save_patches(&book).unwrap();
 
     // Reload in a fresh "process".
@@ -346,7 +381,10 @@ fn ad11_restart_rebuilds_state_and_reports_loss() {
         ..change.clone()
     };
     let patch2 = propose_after_source_edit(&doc2, &change2, "p1");
-    assert_eq!(patch2.replacements[0].new_bytes, patch.replacements[0].new_bytes);
+    assert_eq!(
+        patch2.replacements[0].new_bytes,
+        patch.replacements[0].new_bytes
+    );
 
     // Lost/corrupt raw blob is reported.
     std::fs::write(dir.path().join("document.json"), b"{corrupt").unwrap();
@@ -372,7 +410,10 @@ fn ad12_interrupted_writes_are_reported() {
         log.write_all(b"{\"event_id\":\"torn").unwrap();
     }
     let result = store.load_events();
-    assert!(result.is_err(), "torn event line must be reported, not dropped");
+    assert!(
+        result.is_err(),
+        "torn event line must be reported, not dropped"
+    );
 
     // A complete apply records success explicitly.
     let patch = propose_after_source_edit(&next, &change, "p1");
@@ -410,15 +451,23 @@ fn ad13_cycles_require_review_and_caps_report_incompleteness() {
         active: true,
     });
     cyclic.graph_revision += 1;
-    let (next, change) =
-        apply_source_edit(&cyclic, &f.source, "We ordered 3 units of bolts.", "gio", 1, 1000)
-            .unwrap();
+    let (next, change) = apply_source_edit(
+        &cyclic,
+        &f.source,
+        "We ordered 3 units of bolts.",
+        "gio",
+        1,
+        1000,
+    )
+    .unwrap();
     let patch = propose_after_source_edit(&next, &change, "p-cycle");
-    assert!(patch
-        .review_only
-        .iter()
-        .any(|n| n.reason == "cyclic calculation"),
-        "cycle members must require review");
+    assert!(
+        patch
+            .review_only
+            .iter()
+            .any(|n| n.reason == "cyclic calculation"),
+        "cycle members must require review"
+    );
     // Traversal cap: tiny cap marks incompleteness.
     let (affected, truncated) = f.doc.reachable_dependents(&f.source, 2);
     assert!(truncated, "cap must report incompleteness");

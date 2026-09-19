@@ -37,11 +37,7 @@ fn retrieval_change_propagates_to_agent_context_and_readme() {
         "symbol extraction lost the fixture's only symbol: {syms:?}"
     );
     let deps = physis_pro::mvp::affected_dependents(&root, &changed, &syms);
-    for d in [
-        "src/agent.rs",
-        "src/context.rs",
-        "README.md",
-    ] {
+    for d in ["src/agent.rs", "src/context.rs", "README.md"] {
         assert!(deps.contains(&d.to_string()), "missing {d}, got {deps:?}");
     }
     assert_eq!(

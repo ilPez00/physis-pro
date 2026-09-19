@@ -148,7 +148,11 @@ pub fn read(
                 .iter()
                 .filter(|e| !e.source.starts_with("obs:"))
                 .count(),
-            open_predictions: h.predictions.iter().filter(|p| p.observed_at.is_none()).count(),
+            open_predictions: h
+                .predictions
+                .iter()
+                .filter(|p| p.observed_at.is_none())
+                .count(),
             grounded_in: physis_core::observe::cited_by(h, observations)
                 .iter()
                 .map(|o| format!("#{} {} {}", o.seq, o.source, o.subject))
@@ -159,18 +163,35 @@ pub fn read(
     // same way for whoever opens it.
     claims.sort_by(|a, b| {
         let (ra, rb) = (
-            core.hypotheses.values().find(|h| h.id.starts_with(&a.id)).map(|h| rank(&h.status)).unwrap_or(9),
-            core.hypotheses.values().find(|h| h.id.starts_with(&b.id)).map(|h| rank(&h.status)).unwrap_or(9),
+            core.hypotheses
+                .values()
+                .find(|h| h.id.starts_with(&a.id))
+                .map(|h| rank(&h.status))
+                .unwrap_or(9),
+            core.hypotheses
+                .values()
+                .find(|h| h.id.starts_with(&b.id))
+                .map(|h| rank(&h.status))
+                .unwrap_or(9),
         );
         ra.cmp(&rb)
-            .then(b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .then(
+                b.fitness
+                    .partial_cmp(&a.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
             .then(a.id.cmp(&b.id))
     });
 
     let disagreements = core
         .contradictions
         .iter()
-        .filter(|c| matches!(c.resolution, physis_core::contradiction::ResolutionStatus::Open))
+        .filter(|c| {
+            matches!(
+                c.resolution,
+                physis_core::contradiction::ResolutionStatus::Open
+            )
+        })
         .map(|c| OpenDisagreement {
             id: c.id.chars().take(8).collect(),
             claim_a: c.claim_a.claim.clone(),
@@ -192,7 +213,11 @@ pub fn read(
         }
     }
     // Oldest first: the longer a promise goes unscored, the more it matters.
-    unscored.sort_by(|a, b| b.days_open.cmp(&a.days_open).then(a.claim_id.cmp(&b.claim_id)));
+    unscored.sort_by(|a, b| {
+        b.days_open
+            .cmp(&a.days_open)
+            .then(a.claim_id.cmp(&b.claim_id))
+    });
 
     Ground {
         claims,
@@ -220,7 +245,11 @@ impl Ground {
             for c in &self.claims {
                 o.push_str(&format!(
                     "  [{}] {:<13} fit {:.3}   +{} / -{}{}\n      {}\n",
-                    c.id, c.status, c.fitness, c.for_count, c.against_count,
+                    c.id,
+                    c.status,
+                    c.fitness,
+                    c.for_count,
+                    c.against_count,
                     if c.open_predictions > 0 {
                         format!("   {} unscored", c.open_predictions)
                     } else {
@@ -229,7 +258,10 @@ impl Ground {
                     c.statement.chars().take(92).collect::<String>()
                 ));
                 for g in &c.grounded_in {
-                    o.push_str(&format!("      ↳ grounded in {}\n", g.chars().take(86).collect::<String>()));
+                    o.push_str(&format!(
+                        "      ↳ grounded in {}\n",
+                        g.chars().take(86).collect::<String>()
+                    ));
                 }
             }
             o.push('\n');
@@ -304,7 +336,9 @@ mod tests {
     fn an_open_prediction_is_surfaced_with_its_age() {
         let mut core = PhysisCore::new();
         let mut h = Hypothesis::new("predicts things", vec![]);
-        h.add_prediction(physis_core::hypothesis::Prediction::new("the gate will pass"));
+        h.add_prediction(physis_core::hypothesis::Prediction::new(
+            "the gate will pass",
+        ));
         core.hypotheses.insert(h.id.clone(), h);
         let g = read(&core, &[], now() + chrono::Duration::days(9));
         assert_eq!(g.unscored.len(), 1);
@@ -318,7 +352,8 @@ mod tests {
     /// which is how `promote` and `cited_by` shipped with zero call sites.
     #[test]
     fn a_claim_shows_the_observation_it_rests_on() {
-        let mut o = physis_core::observe::Observation::new("git", "abc123").with_body("fix the null");
+        let mut o =
+            physis_core::observe::Observation::new("git", "abc123").with_body("fix the null");
         o.seq = 7;
         let h = physis_core::observe::promote(&o, "the null was invalid", vec![0.1]);
 
@@ -328,7 +363,10 @@ mod tests {
         let g = read(&core, std::slice::from_ref(&o), now());
         assert_eq!(g.claims[0].grounded_in.len(), 1);
         assert!(g.claims[0].grounded_in[0].contains("#7"));
-        assert!(g.render().contains("grounded in"), "it must reach the output");
+        assert!(
+            g.render().contains("grounded in"),
+            "it must reach the output"
+        );
 
         // And a claim resting on nothing in the log says so by absence, not by
         // a fabricated citation.
@@ -351,9 +389,16 @@ mod tests {
 
         let g = read(&core, std::slice::from_ref(&o), now());
         assert_eq!(g.claims[0].status, "Candidate");
-        assert_eq!(g.claims[0].for_count, 0, "provenance must not count as support");
+        assert_eq!(
+            g.claims[0].for_count, 0,
+            "provenance must not count as support"
+        );
         assert_eq!(g.claims[0].against_count, 0);
-        assert_eq!(g.claims[0].grounded_in.len(), 1, "but it must still be shown");
+        assert_eq!(
+            g.claims[0].grounded_in.len(),
+            1,
+            "but it must still be shown"
+        );
         let r = g.render();
         assert!(r.contains("+0 / -0"));
         assert!(r.contains("grounded in"));

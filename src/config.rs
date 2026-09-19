@@ -710,12 +710,15 @@ impl PhysisConfig {
         let mut cfg = builtin;
         let mut file_keys: Vec<String> = Vec::new();
         let path = data_dir.join("config.json");
-        if let Some(raw) = std::fs::read_to_string(&path).ok().filter(|s| !s.trim().is_empty()) {
+        if let Some(raw) = std::fs::read_to_string(&path)
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+        {
             let v: serde_json::Value = serde_json::from_str(&raw)
                 .map_err(|e| anyhow::anyhow!("{}: invalid JSON: {e}", path.display()))?;
-            let obj = v
-                .as_object()
-                .ok_or_else(|| anyhow::anyhow!("{}: top level must be an object", path.display()))?;
+            let obj = v.as_object().ok_or_else(|| {
+                anyhow::anyhow!("{}: top level must be an object", path.display())
+            })?;
             let keys: Vec<String> = obj.keys().cloned().collect();
             for k in &keys {
                 if !KNOWN_TOP_LEVEL.contains(&k.as_str()) {
@@ -731,8 +734,12 @@ impl PhysisConfig {
             let merged: PhysisConfig = serde_json::from_str(&raw)
                 .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
             for k in keys {
-                let file_val = serde_json::to_value(&merged).ok().and_then(|c| c.get(&k).cloned());
-                let base_val = serde_json::to_value(&cfg).ok().and_then(|c| c.get(&k).cloned());
+                let file_val = serde_json::to_value(&merged)
+                    .ok()
+                    .and_then(|c| c.get(&k).cloned());
+                let base_val = serde_json::to_value(&cfg)
+                    .ok()
+                    .and_then(|c| c.get(&k).cloned());
                 if file_val != base_val {
                     file_keys.push(k);
                 }
@@ -792,10 +799,9 @@ fn apply_jev_env(
         touch("agent");
     }
     if let Some(raw) = get_env("JEV_MAX_TOKENS").filter(|s| !s.trim().is_empty()) {
-        cfg.agent.jev_max_tokens = raw
-            .trim()
-            .parse::<u32>()
-            .map_err(|_| anyhow::anyhow!("env JEV_MAX_TOKENS: want an integer >= 1, got {raw:?}"))?;
+        cfg.agent.jev_max_tokens = raw.trim().parse::<u32>().map_err(|_| {
+            anyhow::anyhow!("env JEV_MAX_TOKENS: want an integer >= 1, got {raw:?}")
+        })?;
         touch("agent");
     }
     if let Some(raw) = get_env("JEV_TIMEOUT_SECS").filter(|s| !s.trim().is_empty()) {
@@ -875,7 +881,10 @@ impl PhysisConfig {
         get_env: &dyn Fn(&str) -> Option<String>,
     ) -> anyhow::Result<Vec<String>> {
         let mut touched = Vec::new();
-        let mut get = |var: &str, key: &str, set: &mut dyn FnMut(String) -> anyhow::Result<()>| -> anyhow::Result<()> {
+        let mut get = |var: &str,
+                       key: &str,
+                       set: &mut dyn FnMut(String) -> anyhow::Result<()>|
+         -> anyhow::Result<()> {
             if let Some(raw) = get_env(var).filter(|s| !s.trim().is_empty()) {
                 set(raw).map_err(|e| anyhow::anyhow!("env {var}: {e}"))?;
                 if !touched.contains(&key.to_string()) {
@@ -884,13 +893,17 @@ impl PhysisConfig {
             }
             Ok(())
         };
-        get("PHYSIS_SCAN_INTERVAL", "network_scan_interval_secs", &mut |raw| {
-            self.network_scan_interval_secs = raw
-                .trim()
-                .parse::<u64>()
-                .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
-            Ok(())
-        })?;
+        get(
+            "PHYSIS_SCAN_INTERVAL",
+            "network_scan_interval_secs",
+            &mut |raw| {
+                self.network_scan_interval_secs = raw
+                    .trim()
+                    .parse::<u64>()
+                    .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
+                Ok(())
+            },
+        )?;
         get("PHYSIS_DREAM_BATCH", "dream_batch_size", &mut |raw| {
             self.dream_batch_size = raw
                 .trim()
@@ -898,13 +911,17 @@ impl PhysisConfig {
                 .map_err(|_| anyhow::anyhow!("want an integer >= 1, got {raw:?}"))?;
             Ok(())
         })?;
-        get("PHYSIS_PDCA_THRESHOLD", "pdca_stagnant_threshold", &mut |raw| {
-            self.pdca_stagnant_threshold = raw
-                .trim()
-                .parse::<f32>()
-                .map_err(|_| anyhow::anyhow!("want a float in [0,1], got {raw:?}"))?;
-            Ok(())
-        })?;
+        get(
+            "PHYSIS_PDCA_THRESHOLD",
+            "pdca_stagnant_threshold",
+            &mut |raw| {
+                self.pdca_stagnant_threshold = raw
+                    .trim()
+                    .parse::<f32>()
+                    .map_err(|_| anyhow::anyhow!("want a float in [0,1], got {raw:?}"))?;
+                Ok(())
+            },
+        )?;
         get("PHYSIS_PDCA_WINDOW", "pdca_stagnant_window", &mut |raw| {
             self.pdca_stagnant_window = raw
                 .trim()
@@ -1383,11 +1400,7 @@ mod tests {
         let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
         assert!(e.to_string().contains("unknown field"), "{e}");
         // data_dir inside the file moves nothing.
-        std::fs::write(
-            data_dir.join("config.json"),
-            r#"{"data_dir": "/tmp/x"}"#,
-        )
-        .unwrap();
+        std::fs::write(data_dir.join("config.json"), r#"{"data_dir": "/tmp/x"}"#).unwrap();
         let e = PhysisConfig::load_effective_with(no_env).unwrap_err();
         assert!(e.to_string().contains("data_dir"), "{e}");
         // Out of bounds.
@@ -1491,7 +1504,10 @@ mod tests {
             (512, PoolingStrategy::Mean)
         );
         // Unlisted transformer exports default to 384-d mean.
-        assert_eq!(st_layout("models/some-new-export"), (384, PoolingStrategy::Mean));
+        assert_eq!(
+            st_layout("models/some-new-export"),
+            (384, PoolingStrategy::Mean)
+        );
     }
 
     #[test]

@@ -1,3 +1,6 @@
+use anyhow::{Context, Result};
+use chrono::Utc;
+use clap::{Parser, Subcommand};
 use llm_coherence_scan::baseline;
 use llm_coherence_scan::capture::RunRecord;
 use llm_coherence_scan::drift::{self, ReferenceCorpus};
@@ -8,9 +11,6 @@ use llm_coherence_scan::refine;
 use llm_coherence_scan::report;
 use llm_coherence_scan::risk;
 use llm_coherence_scan::workflow;
-use anyhow::{Context, Result};
-use chrono::Utc;
-use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -87,7 +87,13 @@ fn main() -> Result<()> {
     std::fs::create_dir_all(&cli.data_dir).context("create data dir")?;
     let db = baseline::open_db(&cli.data_dir.join("history"))?;
     match cli.cmd {
-        Cmd::Run { in_, out, no_tui: _no_tui, ref_corpus, asserted_failures } => {
+        Cmd::Run {
+            in_,
+            out,
+            no_tui: _no_tui,
+            ref_corpus,
+            asserted_failures,
+        } => {
             let rec = RunRecord::load(&in_)?;
             let signals = engine::score(&rec);
             let risk = risk::coherence_risk(&signals);
@@ -138,7 +144,10 @@ fn main() -> Result<()> {
                 let mut corpus: ReferenceCorpus = std::fs::read_to_string(&to)
                     .ok()
                     .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or(ReferenceCorpus { name: name.clone(), entries: vec![] });
+                    .unwrap_or(ReferenceCorpus {
+                        name: name.clone(),
+                        entries: vec![],
+                    });
                 corpus.name = name.clone();
                 for f in files {
                     let r = RunRecord::load(&f)?;
@@ -168,7 +177,8 @@ fn main() -> Result<()> {
                 println!("wrote {} entries to {}", corpus.entries.len(), to.display());
             }
             BaselineCmd::List { from } => {
-                let corpus: ReferenceCorpus = serde_json::from_str(&std::fs::read_to_string(&from)?)?;
+                let corpus: ReferenceCorpus =
+                    serde_json::from_str(&std::fs::read_to_string(&from)?)?;
                 for e in corpus.entries {
                     println!("{}", e.label);
                 }

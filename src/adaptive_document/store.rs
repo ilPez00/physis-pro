@@ -29,7 +29,9 @@ impl Store {
     /// Open (not create) a store rooted at `root`; nothing touches disk
     /// until the first write.
     pub fn open(root: &Path) -> Store {
-        Store { root: root.to_path_buf() }
+        Store {
+            root: root.to_path_buf(),
+        }
     }
 
     pub fn load_document(&self) -> io::Result<Option<Document>> {
@@ -38,9 +40,9 @@ impl Store {
             return Ok(None);
         }
         let bytes = std::fs::read(&path)?;
-        serde_json::from_slice(&bytes).map(Some).map_err(|e| {
-            io::Error::new(io::ErrorKind::InvalidData, format!("document.json: {e}"))
-        })
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("document.json: {e}")))
     }
 
     /// Load the patch bookkeeping; a missing file is an empty book.
@@ -221,7 +223,8 @@ mod tests {
     }
 
     #[test]
-    fn patches_round_trip_and_lookup_by_id() {        let dir = tempfile::tempdir().unwrap();
+    fn patches_round_trip_and_lookup_by_id() {
+        let dir = tempfile::tempdir().unwrap();
         let s = Store::open(dir.path());
         let book = Patches {
             patches: vec![Patch {

@@ -162,12 +162,12 @@ impl OperationalEvent {
     /// why-made chain so provenance survives into lineage and purposes.
     pub fn ledger_mechanism(&self) -> crate::address::Mechanism {
         match self.kind {
-            OperationalKind::Machine
-            | OperationalKind::Email
-            | OperationalKind::Document => crate::address::Mechanism::Received,
-            OperationalKind::Workflow
-            | OperationalKind::System
-            | OperationalKind::Verdict => crate::address::Mechanism::Generated,
+            OperationalKind::Machine | OperationalKind::Email | OperationalKind::Document => {
+                crate::address::Mechanism::Received
+            }
+            OperationalKind::Workflow | OperationalKind::System | OperationalKind::Verdict => {
+                crate::address::Mechanism::Generated
+            }
         }
     }
 
@@ -249,7 +249,8 @@ impl From<&MachineReading> for OperationalEvent {
     }
 }
 
-impl From<&IngestedDoc> for OperationalEvent {    fn from(doc: &IngestedDoc) -> Self {
+impl From<&IngestedDoc> for OperationalEvent {
+    fn from(doc: &IngestedDoc) -> Self {
         let (kind, status) = match doc.kind {
             DocKind::Email => (OperationalKind::Email, OperationalStatus::Info),
             DocKind::VoiceTranscript
@@ -375,7 +376,7 @@ mod tests {
             timestamp: DateTime::parse_from_rfc3339("2026-08-12T09:30:00Z")
                 .unwrap()
                 .with_timezone(&Utc),
-             ontology_tags: vec!["workshop".to_string()],
+            ontology_tags: vec!["workshop".to_string()],
             meta: DocMeta {
                 vendor: None,
                 from: Some("supplier@example.com".to_string()),
@@ -418,11 +419,21 @@ mod tests {
         }
         assert_eq!(events.len(), MAX_STORED_EVENTS);
         assert_eq!(
-            events.first().unwrap().properties.get("i").map(String::as_str),
+            events
+                .first()
+                .unwrap()
+                .properties
+                .get("i")
+                .map(String::as_str),
             Some("5")
         );
         assert_eq!(
-            events.last().unwrap().properties.get("i").map(String::as_str),
+            events
+                .last()
+                .unwrap()
+                .properties
+                .get("i")
+                .map(String::as_str),
             Some((MAX_STORED_EVENTS + 4).to_string()).as_deref()
         );
     }

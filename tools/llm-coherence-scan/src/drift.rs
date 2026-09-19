@@ -70,8 +70,7 @@ pub fn model_drift(
 ) -> Result<DriftScore> {
     let in_text = combine(
         &rec.input.prompt,
-        &rec
-            .input
+        &rec.input
             .rag_files
             .iter()
             .map(|f| (f.path.clone(), f.body.clone()))
@@ -79,8 +78,7 @@ pub fn model_drift(
     );
     let out_text = combine(
         &rec.output.text,
-        &rec
-            .output
+        &rec.output
             .edited_files
             .iter()
             .map(|f| (f.path.clone(), f.body.clone()))
@@ -128,12 +126,7 @@ fn ref_drift(cur: &[f32], corpus: &ReferenceCorpus) -> Option<f32> {
     Some(d)
 }
 
-fn cross_model_drift(
-    cur: &[f32],
-    db: &Db,
-    model: &str,
-    prompt_hash: &str,
-) -> Result<Option<f32>> {
+fn cross_model_drift(cur: &[f32], db: &Db, model: &str, prompt_hash: &str) -> Result<Option<f32>> {
     let other = baseline::latest_other_model_for_prompt(db, model, prompt_hash)?;
     let Some(other) = other else { return Ok(None) };
     let d = (1.0 - cosine(cur, &other.embedding)).clamp(0.0, 1.0);
@@ -176,7 +169,9 @@ pub fn dump_history_summary(db: &Db) -> Result<BTreeMap<String, usize>> {
     let mut by_task: BTreeMap<String, usize> = BTreeMap::new();
     for item in db.iter().filter_map(|r| r.ok()) {
         if let Ok(e) = serde_json::from_slice::<HistoryEntry>(&item.1) {
-            *by_task.entry(format!("{}::{}", e.task, e.model)).or_insert(0) += 1;
+            *by_task
+                .entry(format!("{}::{}", e.task, e.model))
+                .or_insert(0) += 1;
         }
     }
     Ok(by_task)

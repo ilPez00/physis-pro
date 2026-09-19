@@ -31,7 +31,8 @@ type BuiltEmbedders = (
 
 impl EmbedderRegistry {
     /// Build registry from config. Falls back through: configured → ONNX MiniLM → RP.
-    pub fn from_config(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> Self {        let (text, image, image_kind) = Self::build_embedders(config, onnx_cfg);
+    pub fn from_config(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> Self {
+        let (text, image, image_kind) = Self::build_embedders(config, onnx_cfg);
         let text_dim = text.dimension();
         Self {
             text,
@@ -50,7 +51,8 @@ impl EmbedderRegistry {
                     {
                         let jina = JinaEmbedder::with_model_dir(&ec.model_dir);
                         if jina.is_available() {
-                            (Box::new(jina) as Box<dyn VectorEmbed>, None, None) // Jina handles text+image via one model
+                            (Box::new(jina) as Box<dyn VectorEmbed>, None, None)
+                        // Jina handles text+image via one model
                         } else {
                             Self::fallback_onnx(onnx_cfg)
                         }
@@ -100,8 +102,7 @@ impl EmbedderRegistry {
                     {
                         let clip = ClipEmbedder::with_config(onnx_cfg);
                         if clip.is_available() {
-                            let vision_available =
-                                clip.vision_session.lock().unwrap().is_some();
+                            let vision_available = clip.vision_session.lock().unwrap().is_some();
                             let img: Option<Box<dyn VectorEmbed>> = if vision_available {
                                 Some(Box::new(ClipEmbedder::with_config(onnx_cfg)))
                             } else {
@@ -183,7 +184,10 @@ impl EmbedderRegistry {
                 {
                     let jina = JinaEmbedder::with_model_dir(&ec.model_dir);
                     if jina.is_available() {
-                        (Some(Box::new(jina) as Box<dyn VectorEmbed>), Some("jina-clip-v2"))
+                        (
+                            Some(Box::new(jina) as Box<dyn VectorEmbed>),
+                            Some("jina-clip-v2"),
+                        )
                     } else {
                         (None, None)
                     }

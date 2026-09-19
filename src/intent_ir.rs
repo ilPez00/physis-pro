@@ -45,8 +45,7 @@ impl IntentIR {
 
         for s in SLOTS {
             let v = raw.get(s);
-            let nil = v.is_none()
-                || v.is_some_and(|val| val.is_null() || val.as_str() == Some(""));
+            let nil = v.is_none() || v.is_some_and(|val| val.is_null() || val.as_str() == Some(""));
             if nil {
                 slots.insert(s.to_string(), None);
                 nil_slots.push(s.to_string());
@@ -87,11 +86,7 @@ impl IntentIR {
             .get("operations")
             .and_then(|v| v.as_ref())
             .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str())
-                    .collect::<Vec<_>>()
-            })
+            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
             .unwrap_or_default();
 
         ops.iter().all(|o| READ_ONLY_OPS.contains(o))
@@ -152,7 +147,10 @@ mod tests {
     fn test_ir_version_recorded() {
         let ir = IntentIR::new(
             HashMap::from([
-                ("goal".to_string(), serde_json::json!("continue positional attention experiment")),
+                (
+                    "goal".to_string(),
+                    serde_json::json!("continue positional attention experiment"),
+                ),
                 ("operations".to_string(), serde_json::json!(["show"])),
                 ("objects".to_string(), serde_json::json!(["repo:physis"])),
             ]),
@@ -167,7 +165,10 @@ mod tests {
     fn test_ir_nil_slots_detected() {
         let ir = IntentIR::new(
             HashMap::from([
-                ("goal".to_string(), serde_json::json!("continue positional attention experiment")),
+                (
+                    "goal".to_string(),
+                    serde_json::json!("continue positional attention experiment"),
+                ),
                 ("operations".to_string(), serde_json::json!(["show"])),
                 ("objects".to_string(), serde_json::json!(["repo:physis"])),
             ]),
@@ -183,7 +184,10 @@ mod tests {
     fn test_ir_read_only_for_show() {
         let ir = IntentIR::new(
             HashMap::from([
-                ("goal".to_string(), serde_json::json!("continue positional attention experiment")),
+                (
+                    "goal".to_string(),
+                    serde_json::json!("continue positional attention experiment"),
+                ),
                 ("operations".to_string(), serde_json::json!(["show"])),
                 ("objects".to_string(), serde_json::json!(["repo:physis"])),
             ]),
@@ -198,7 +202,10 @@ mod tests {
     fn test_ir_bind_tasks_count() {
         let ir = IntentIR::new(
             HashMap::from([
-                ("goal".to_string(), serde_json::json!("continue positional attention experiment")),
+                (
+                    "goal".to_string(),
+                    serde_json::json!("continue positional attention experiment"),
+                ),
                 ("operations".to_string(), serde_json::json!(["show"])),
                 ("objects".to_string(), serde_json::json!(["repo:physis"])),
             ]),
@@ -213,7 +220,10 @@ mod tests {
     fn test_ir_provenance_compiled_by() {
         let ir = IntentIR::new(
             HashMap::from([
-                ("goal".to_string(), serde_json::json!("continue positional attention experiment")),
+                (
+                    "goal".to_string(),
+                    serde_json::json!("continue positional attention experiment"),
+                ),
                 ("operations".to_string(), serde_json::json!(["show"])),
                 ("objects".to_string(), serde_json::json!(["repo:physis"])),
             ]),
@@ -230,7 +240,10 @@ mod tests {
             HashMap::from([
                 ("goal".to_string(), serde_json::json!("build")),
                 ("operations".to_string(), serde_json::json!(["execute"])),
-                ("success_condition".to_string(), serde_json::json!("exit zero")),
+                (
+                    "success_condition".to_string(),
+                    serde_json::json!("exit zero"),
+                ),
             ]),
             "build physis".to_string(),
             "gio".to_string(),
@@ -245,7 +258,10 @@ mod tests {
             HashMap::from([
                 ("goal".to_string(), serde_json::json!("build")),
                 ("operations".to_string(), serde_json::json!(["execute"])),
-                ("success_condition".to_string(), serde_json::json!("exit zero")),
+                (
+                    "success_condition".to_string(),
+                    serde_json::json!("exit zero"),
+                ),
             ]),
             "build physis".to_string(),
             "gio".to_string(),

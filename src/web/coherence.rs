@@ -61,8 +61,18 @@ pub async fn coherence_edges_handler(
         };
         Json(NodeEdgesResponse {
             node_id: q.node_id.clone(),
-            outgoing: s.core.edges_from(&q.node_id).into_iter().map(project).collect(),
-            incoming: s.core.edges_to(&q.node_id).into_iter().map(project).collect(),
+            outgoing: s
+                .core
+                .edges_from(&q.node_id)
+                .into_iter()
+                .map(project)
+                .collect(),
+            incoming: s
+                .core
+                .edges_to(&q.node_id)
+                .into_iter()
+                .map(project)
+                .collect(),
         })
     })
 }
@@ -272,15 +282,12 @@ pub fn query_coherence_nodes(
             if let Some((d, m)) = &cell {
                 // A pin outranks the classifier: the node occupies `cell_pin`
                 // when set, else the classifier's top hit.
-                let occupied = n
-                    .cell_pin
-                    .clone()
-                    .or_else(|| {
-                        classifier
-                            .classify(&n.embedding)
-                            .first()
-                            .map(|c| (c.domain.clone(), c.mode.clone()))
-                    });
+                let occupied = n.cell_pin.clone().or_else(|| {
+                    classifier
+                        .classify(&n.embedding)
+                        .first()
+                        .map(|c| (c.domain.clone(), c.mode.clone()))
+                });
                 if occupied.as_ref() != Some(&(d.clone(), m.clone())) {
                     return false;
                 }
@@ -309,7 +316,12 @@ pub fn query_coherence_nodes(
         .into_iter()
         .take(limit)
         .map(|n| {
-            let mut view = n.observable(classifier.classify(&n.embedding).first().map(|c| (c.domain.clone(), c.mode.clone())));
+            let mut view = n.observable(
+                classifier
+                    .classify(&n.embedding)
+                    .first()
+                    .map(|c| (c.domain.clone(), c.mode.clone())),
+            );
             if view.fragment.is_none() {
                 view.fragment = n.extract_fragment();
             }
@@ -454,7 +466,10 @@ pub async fn coherence_node_instances_handler(
         // Check if the node exists at all
         let exists = state.with_user(&uid, |s| s.core.nodes.contains_key(&node_id));
         if !exists {
-            return Err(err_response(StatusCode::NOT_FOUND, &format!("node {} not found", node_id)));
+            return Err(err_response(
+                StatusCode::NOT_FOUND,
+                &format!("node {} not found", node_id),
+            ));
         }
     }
 
@@ -476,8 +491,12 @@ pub struct InstanceParams {
     limit: Option<usize>,
 }
 
-fn default_threshold() -> Option<f32> { Some(0.3) }
-fn default_limit() -> Option<usize> { Some(100) }
+fn default_threshold() -> Option<f32> {
+    Some(0.3)
+}
+fn default_limit() -> Option<usize> {
+    Some(100)
+}
 
 #[derive(Serialize)]
 pub struct InstanceResponse {
@@ -658,10 +677,13 @@ pub async fn coherence_edit_handler(
             s.audit.record(
                 "edit",
                 &o.node_id,
-                s.core
-                    .nodes
-                    .get(&o.node_id)
-                    .and_then(|n| if n.kind.is_empty() { None } else { Some(n.kind.clone()) }),
+                s.core.nodes.get(&o.node_id).and_then(|n| {
+                    if n.kind.is_empty() {
+                        None
+                    } else {
+                        Some(n.kind.clone())
+                    }
+                }),
                 &uid,
                 format!("label → {}", req.label),
             );
@@ -797,7 +819,8 @@ pub async fn coherence_delete_handler(
         let ok = s.core.delete_node(&req.id);
         if ok {
             // Audit the deletion before the node is gone (Phase 16 I9).
-            s.audit.record("delete", &req.id, None, &uid, "node deleted");
+            s.audit
+                .record("delete", &req.id, None, &uid, "node deleted");
             if let Some(db) = state.db() {
                 let _ = s.audit.save(db, &uid);
                 let key = crate::core::PhysisCore::node_key(&uid, &req.id);
@@ -820,6 +843,7 @@ pub async fn coherence_delete_handler(
 
 // ── Epistemic Evolution & GUI Web Handlers ───────────────────────────
 
+use crate::ported::quality::FitnessContext;
 use physis_core::coherence_query::{EpistemicQuery, EpistemicQueryResult};
 use physis_core::contradiction::{Contradiction, ContradictionParty, ResolutionStatus};
 use physis_core::epistemic::EpistemicEvent;
@@ -827,7 +851,6 @@ use physis_core::explanation::ExplanationReport;
 use physis_core::hypothesis::{
     Evidence, EvidencePolarity, Hypothesis, HypothesisStatus, Prediction,
 };
-use crate::ported::quality::FitnessContext;
 
 #[derive(Debug, Deserialize)]
 pub struct HypothesesQueryParams {

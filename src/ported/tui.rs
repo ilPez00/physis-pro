@@ -242,9 +242,9 @@ impl App {
             None => (2000, rest),
         };
         anyhow::ensure!(!query.is_empty(), "pack needs a query");
-        let data = self
-            .workspace
-            .pack_with(query, budget, 3, PackStrategy::FilesThenWindows, true)?;
+        let data =
+            self.workspace
+                .pack_with(query, budget, 3, PackStrategy::FilesThenWindows, true)?;
         let chunks = data["chunks"].as_array().cloned().unwrap_or_default();
         let mut text = String::new();
         let rows: Vec<Row> = chunks
@@ -271,7 +271,10 @@ impl App {
             .collect();
         self.banner = format!(
             "pack '{query}' · {} of {} tokens · {} windows ranked · {} bridged",
-            data["used_tokens"], data["budget_tokens"], data["windows_ranked"], data["windows_bridged"]
+            data["used_tokens"],
+            data["budget_tokens"],
+            data["windows_ranked"],
+            data["windows_bridged"]
         );
         self.status = "the bundle is in the viewer; Enter re-reads one region".into();
         self.set_rows(rows);
@@ -479,7 +482,11 @@ fn draw(frame: &mut ratatui::Frame, app: &mut App) {
         panes[1],
     );
 
-    let cursor = if app.focus == Focus::Command { "█" } else { "" };
+    let cursor = if app.focus == Focus::Command {
+        "█"
+    } else {
+        ""
+    };
     frame.render_widget(
         Paragraph::new(format!("> {}{cursor}", app.command)).block(
             Block::default()
@@ -616,7 +623,9 @@ fn on_key(app: &mut App, key: KeyEvent) {
         },
         KeyCode::Char('g') => match app.focus {
             Focus::Viewer => app.viewer_scroll = 0,
-            _ => app.state.select(if app.rows.is_empty() { None } else { Some(0) }),
+            _ => app
+                .state
+                .select(if app.rows.is_empty() { None } else { Some(0) }),
         },
         KeyCode::Char('G') => match app.focus {
             Focus::Viewer => app.scroll_viewer(app.viewer.len() as isize),

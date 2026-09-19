@@ -818,7 +818,9 @@ impl PhysisApp {
                 continue;
             }
             match crate::history::import_file(&p) {
-                Ok((docs, _)) => lines.push(self.register_docs(&docs, &format!("shell[{}]", p.display()))),
+                Ok((docs, _)) => {
+                    lines.push(self.register_docs(&docs, &format!("shell[{}]", p.display())))
+                }
                 Err(e) => lines.push(format!("shell[{}]: {e}", p.display())),
             }
         }
@@ -829,7 +831,9 @@ impl PhysisApp {
         if projects.is_dir() {
             let mut stack = vec![projects];
             while let Some(dir) = stack.pop() {
-                let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+                let Ok(rd) = std::fs::read_dir(&dir) else {
+                    continue;
+                };
                 for entry in rd.filter_map(|e| e.ok()) {
                     let p = entry.path();
                     if p.is_dir() {
@@ -840,7 +844,10 @@ impl PhysisApp {
                             .is_some_and(crate::history::looks_like_claude_session_hint)
                     {
                         // Only session-shaped stems; chat logs go via `history`.
-                        let mtime = entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                        let mtime = entry
+                            .metadata()
+                            .and_then(|m| m.modified())
+                            .unwrap_or(std::time::UNIX_EPOCH);
                         sessions.push((mtime, p));
                     }
                 }
@@ -855,7 +862,10 @@ impl PhysisApp {
             match crate::history::import_file(p) {
                 Ok((docs, _)) => lines.push(self.register_docs(
                     &docs,
-                    &format!("session[{}]", p.file_stem().and_then(|s| s.to_str()).unwrap_or("?")),
+                    &format!(
+                        "session[{}]",
+                        p.file_stem().and_then(|s| s.to_str()).unwrap_or("?")
+                    ),
                 )),
                 Err(e) => lines.push(format!("session[{}]: {e}", p.display())),
             }
@@ -906,7 +916,9 @@ impl PhysisApp {
                 if n_sess == 0 {
                     lines.push("opencode: store present, no turns found".to_string());
                 } else {
-                    lines.push(format!("opencode: {n_sess} sessions → {n_docs} turn docs (see lines above)"));
+                    lines.push(format!(
+                        "opencode: {n_sess} sessions → {n_docs} turn docs (see lines above)"
+                    ));
                 }
             } else {
                 lines.push("opencode: no store, skipped".to_string());
@@ -927,7 +939,9 @@ impl PhysisApp {
                 if n_threads == 0 {
                     lines.push("codex: store present, no turns found".to_string());
                 } else {
-                    lines.push(format!("codex: {n_threads} threads → {n_docs} turn docs (see lines above)"));
+                    lines.push(format!(
+                        "codex: {n_threads} threads → {n_docs} turn docs (see lines above)"
+                    ));
                 }
             } else {
                 lines.push("codex: no store, skipped".to_string());

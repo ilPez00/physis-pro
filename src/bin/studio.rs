@@ -1474,12 +1474,8 @@ fn run(
                     KeyCode::Char(c) => Some(c),
                     _ => None,
                 };
-                let action = action_for_asking(
-                    app.tab,
-                    app.notebook.typing,
-                    app.notebook.asking,
-                    key.code,
-                );
+                let action =
+                    action_for_asking(app.tab, app.notebook.typing, app.notebook.asking, key.code);
                 if action == Action::Quit {
                     return Ok(());
                 }

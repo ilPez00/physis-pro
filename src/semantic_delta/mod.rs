@@ -102,7 +102,10 @@ impl SemanticDelta {
         } else {
             LexicalDiff {
                 char_change_count: new_text.len().max(old_text.len()),
-                word_change_count: new_text.split_whitespace().count().max(old_text.split_whitespace().count()),
+                word_change_count: new_text
+                    .split_whitespace()
+                    .count()
+                    .max(old_text.split_whitespace().count()),
                 is_formatting_only: Self::is_formatting_only_change(old_text, new_text),
                 new_words: vec![],
                 removed_words: vec![],
@@ -132,15 +135,24 @@ impl SemanticDelta {
         let old_words: Vec<&str> = old_text.split_whitespace().collect();
         let new_words: Vec<&str> = new_text.split_whitespace().collect();
 
-        let same_words: bool = old_words
-            .iter()
-            .all(|w| new_words.iter().any(|nw| nw.trim().to_lowercase() == w.trim().to_lowercase()))
-            && new_words.iter().all(|w| old_words.iter().any(|ow| ow.trim().to_lowercase() == w.trim().to_lowercase()));
+        let same_words: bool = old_words.iter().all(|w| {
+            new_words
+                .iter()
+                .any(|nw| nw.trim().to_lowercase() == w.trim().to_lowercase())
+        }) && new_words.iter().all(|w| {
+            old_words
+                .iter()
+                .any(|ow| ow.trim().to_lowercase() == w.trim().to_lowercase())
+        });
 
         same_words && old_text.chars().count() == new_text.chars().count()
     }
 
-    pub fn compute_semantic_distance<E: Embedder>(embedder: &E, old_text: &str, new_text: &str) -> f32 {
+    pub fn compute_semantic_distance<E: Embedder>(
+        embedder: &E,
+        old_text: &str,
+        new_text: &str,
+    ) -> f32 {
         let old_emb = embedder.embed(old_text);
         let new_emb = embedder.embed(new_text);
         1.0 - cosine_sim(&old_emb, &new_emb).clamp(0.0, 1.0)
@@ -228,7 +240,10 @@ pub fn cosine_sim(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Extract a semantic representation from text.
-pub fn extract_semantic_representation(text: &str, embedder: &dyn Embedder) -> SemanticRepresentation {
+pub fn extract_semantic_representation(
+    text: &str,
+    embedder: &dyn Embedder,
+) -> SemanticRepresentation {
     let embedding = embedder.embed(text);
 
     let propositions: Vec<String> = text
@@ -238,9 +253,16 @@ pub fn extract_semantic_representation(text: &str, embedder: &dyn Embedder) -> S
         .collect();
 
     let entities: Vec<String> = text
-        .split(|c: char| c.is_whitespace() || matches!(c, '.' | ',' | ';' | ':' | '!' | '?' | '-' | '_'))
+        .split(|c: char| {
+            c.is_whitespace() || matches!(c, '.' | ',' | ';' | ':' | '!' | '?' | '-' | '_')
+        })
         .filter(|s| !s.is_empty())
-        .filter(|s| s.chars().next().map(|c: char| c.is_uppercase()).unwrap_or(false))
+        .filter(|s| {
+            s.chars()
+                .next()
+                .map(|c: char| c.is_uppercase())
+                .unwrap_or(false)
+        })
         .map(|s| s.trim().to_string())
         .collect();
 
@@ -308,14 +330,19 @@ pub fn extract_semantic_representation(text: &str, embedder: &dyn Embedder) -> S
 fn extract_quantities(text: &str) -> Vec<QuantityInfo> {
     let mut results = vec![];
     for word in text.split_whitespace() {
-        let num_str: String = word.chars().take_while(|c| *c == '.' || c.is_ascii_digit()).collect();
+        let num_str: String = word
+            .chars()
+            .take_while(|c| *c == '.' || c.is_ascii_digit())
+            .collect();
         if !num_str.is_empty() {
             if let Ok(num) = num_str.parse::<f32>() {
                 let unit = if word.contains('%') {
                     Some("percentage".to_string())
                 } else {
                     let after_num = &word[num_str.len()..];
-                    if !after_num.is_empty() && after_num.chars().all(|c| c.is_alphabetic() || c == '_') {
+                    if !after_num.is_empty()
+                        && after_num.chars().all(|c| c.is_alphabetic() || c == '_')
+                    {
                         Some(after_num.to_string())
                     } else {
                         None

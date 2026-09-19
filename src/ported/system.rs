@@ -446,12 +446,16 @@ impl Workspace {
     /// workspace — missing or untracked paths surface as an error, never a
     /// silent skip, because a patch over a file that does not exist in the
     /// working tree is a stale-base condition the caller must resolve.
-    pub fn stage_diff(&self, baselines: &[(String, String)]) -> Result<Vec<(String, Vec<crate::diff::Hunk>)>> {
+    pub fn stage_diff(
+        &self,
+        baselines: &[(String, String)],
+    ) -> Result<Vec<(String, Vec<crate::diff::Hunk>)>> {
         let mut out = Vec::new();
         for (rel, base) in baselines {
             let here = self.root.join(rel);
-            let current = std::fs::read_to_string(&here)
-                .with_context(|| format!("stale-base: {rel} not found in workspace; re-baseline against HEAD"))?;
+            let current = std::fs::read_to_string(&here).with_context(|| {
+                format!("stale-base: {rel} not found in workspace; re-baseline against HEAD")
+            })?;
             let hunks = crate::diff::diff_lines(base, &current);
             out.push((rel.clone(), hunks));
         }
@@ -487,8 +491,9 @@ impl Workspace {
         let mut hasher = Sha256::new();
         for rel in sorted {
             let here = self.root.join(rel);
-            let bytes = std::fs::read(&here)
-                .with_context(|| format!("stale-base: {rel} not found in workspace; re-baseline"))?;
+            let bytes = std::fs::read(&here).with_context(|| {
+                format!("stale-base: {rel} not found in workspace; re-baseline")
+            })?;
             hasher.update(rel.as_bytes());
             hasher.update([0]);
             hasher.update(&bytes);
@@ -1306,7 +1311,10 @@ mod tests {
         let baseline_same = vec![("src/a.txt".to_string(), "line one\nline two\n".to_string())];
         let preview = ws.stage_diff(&baseline_same).unwrap();
         assert_eq!(preview.len(), 1);
-        assert!(preview[0].1.is_empty(), "no diff against identical baseline");
+        assert!(
+            preview[0].1.is_empty(),
+            "no diff against identical baseline"
+        );
 
         // Changed → hunks reconstruct to the new text.
         let baseline_new = vec![("src/a.txt".to_string(), "line one\nline TWO\n".to_string())];
@@ -1315,7 +1323,10 @@ mod tests {
         assert!(!hunks.is_empty(), "changed baseline must produce hunks");
         let rebuilt = crate::diff::apply_hunks(&baseline_new[0].1, hunks);
         let current = std::fs::read_to_string(&file).unwrap();
-        assert_eq!(rebuilt, current, "hunks must reconstruct the working-tree file");
+        assert_eq!(
+            rebuilt, current,
+            "hunks must reconstruct the working-tree file"
+        );
 
         // Stale base: file removed from the working tree → error, not silent skip.
         std::fs::remove_file(&file).unwrap();

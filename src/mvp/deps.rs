@@ -9,7 +9,15 @@ use crate::nav::{NavHit, NavWeights};
 /// command and the HUD `H` view so both surfaces report the same past.
 pub fn history_text(root: &Path) -> String {
     let out = std::process::Command::new("git")
-        .args(["-C", &root.to_string_lossy(), "log", "--oneline", "-15", "--", "."])
+        .args([
+            "-C",
+            &root.to_string_lossy(),
+            "log",
+            "--oneline",
+            "-15",
+            "--",
+            ".",
+        ])
         .output();
     let mut o = String::new();
     match out {
@@ -123,7 +131,9 @@ pub fn bench_text(
         files.len()
     ));
     o.push_str(&format!("objects indexed: {}\n", ws.index().objects.len()));
-    o.push_str(&format!("index size on disk: {index_bytes} bytes ({data_dir})\n"));
+    o.push_str(&format!(
+        "index size on disk: {index_bytes} bytes ({data_dir})\n"
+    ));
     o.push_str(&format!("query latency (nav, 20 hits): {query_ms} ms\n"));
     o.push_str(&format!(
         "propagation latency (3-file dependents): {prop_ms} ms, {} affected\n",
@@ -132,7 +142,10 @@ pub fn bench_text(
     o.push_str(&format!(
         "slice in force: {cand} → {fin} tokens ({excluded:.1}% excluded)\n"
     ));
-    o.push_str(&format!("embedder: {provider} · generator: {}\n", generator_state()));
+    o.push_str(&format!(
+        "embedder: {provider} · generator: {}\n",
+        generator_state()
+    ));
     o.push_str("network: OFFLINE (no cloud, no telemetry, no downloads)\n");
     o
 }
@@ -167,12 +180,18 @@ pub fn contradictions_text(docs: &[(String, String)]) -> String {
     let e = physis_core::embed::RandomProjectionEmbedder::new(128);
     match physis_core::map::build_map(docs, &e, None) {
         Ok(m) => {
-            o.push_str(&format!("differences (slice map): {}\n", m.differences.len()));
+            o.push_str(&format!(
+                "differences (slice map): {}\n",
+                m.differences.len()
+            ));
             if m.contradictions.is_empty() {
                 o.push_str("no contradiction candidates in the current slice\n");
             }
             for c in &m.contradictions {
-                o.push_str(&format!("  {}  ~  {}  [{}]\n", c.a.path, c.b.path, c.cluster));
+                o.push_str(&format!(
+                    "  {}  ~  {}  [{}]\n",
+                    c.a.path, c.b.path, c.cluster
+                ));
             }
         }
         Err(e) => o.push_str(&format!("(map failed: {e})\n")),

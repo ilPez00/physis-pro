@@ -5,8 +5,8 @@
 //! evaluated in dependency order, not arbitrary BFS order.
 
 use super::{
-    ApplyError, BlockId, Change, Document, Link, LinkBehavior, LinkProvenance, Patch, PatchStatus,
-    Replacement, ReviewNote, fnv1a,
+    fnv1a, ApplyError, BlockId, Change, Document, Link, LinkBehavior, LinkProvenance, Patch,
+    PatchStatus, Replacement, ReviewNote,
 };
 use std::collections::BTreeMap;
 
@@ -83,7 +83,11 @@ pub fn propose_after_source_edit(doc: &Document, change: &Change, patch_id: &str
                 });
             }
             // Non-cyclic members keep their order; cycle members review-only.
-            affected.iter().filter(|id| !cycle.contains(id)).cloned().collect()
+            affected
+                .iter()
+                .filter(|id| !cycle.contains(id))
+                .cloned()
+                .collect()
         }
     };
 
@@ -94,7 +98,10 @@ pub fn propose_after_source_edit(doc: &Document, change: &Change, patch_id: &str
             && link.provenance == LinkProvenance::HumanConfirmed
             && matches!(link.behavior, LinkBehavior::Copy | LinkBehavior::Calculate)
         {
-            inbound.entry(&link.dependent_block_id).or_default().push(link);
+            inbound
+                .entry(&link.dependent_block_id)
+                .or_default()
+                .push(link);
         }
     }
 
@@ -137,7 +144,11 @@ pub fn propose_after_source_edit(doc: &Document, change: &Change, patch_id: &str
             };
             // `copy` transforms consume the source bytes directly; calculation
             // transforms rewrite the dependent text from its own bytes.
-            let input = if link.behavior == LinkBehavior::Copy { source } else { &current };
+            let input = if link.behavior == LinkBehavior::Copy {
+                source
+            } else {
+                &current
+            };
             match super::apply_transform(t, source, input) {
                 Some(next_bytes) => computed = Some(next_bytes),
                 None => {

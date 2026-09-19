@@ -49,7 +49,10 @@ impl Default for RunConfig {
             query: "the pump".into(),
             budget: 400,
             model: None,
-            ngram: NgramSel { registry_id: None, order: 5 },
+            ngram: NgramSel {
+                registry_id: None,
+                order: 5,
+            },
         }
     }
 }
@@ -75,7 +78,10 @@ mod tests {
         let cfg = RunConfig::default();
         let bytes = serde_json::to_vec_pretty(&cfg)?;
         let back: RunConfig = serde_json::from_slice(&bytes)?;
-        assert_eq!(back.corpus.display().to_string(), cfg.corpus.display().to_string());
+        assert_eq!(
+            back.corpus.display().to_string(),
+            cfg.corpus.display().to_string()
+        );
         assert_eq!(back.budget, 400);
         assert_eq!(back.ngram.order, 5);
         assert!(back.model.is_none());

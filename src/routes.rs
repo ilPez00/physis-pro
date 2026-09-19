@@ -60,10 +60,7 @@ impl RouteTable {
             errs.push("cell must not be empty".into());
         } else {
             let halves: Vec<&str> = cell.split('/').collect();
-            if halves.len() != 2
-                || halves[0].trim().is_empty()
-                || halves[1].trim().is_empty()
-            {
+            if halves.len() != 2 || halves[0].trim().is_empty() || halves[1].trim().is_empty() {
                 errs.push("cell must be DOMAIN/MODE, both halves non-empty".into());
             }
         }
@@ -119,8 +116,7 @@ impl RouteTable {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let bytes = serde_json::to_vec_pretty(&self.routes)
-            .map_err(io::Error::other)?;
+        let bytes = serde_json::to_vec_pretty(&self.routes).map_err(io::Error::other)?;
         let mut f = std::fs::File::create(path)?;
         f.write_all(&bytes)
     }

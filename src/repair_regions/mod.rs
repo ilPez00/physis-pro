@@ -40,16 +40,8 @@ impl RepairRegion {
         }
 
         // Find min and max positions
-        let min_pos: usize = positions
-            .values()
-            .map(|(s, _)| *s)
-            .min()
-            .unwrap_or(0);
-        let max_pos: usize = positions
-            .values()
-            .map(|(_, e)| *e)
-            .max()
-            .unwrap_or(0);
+        let min_pos: usize = positions.values().map(|(s, _)| *s).min().unwrap_or(0);
+        let max_pos: usize = positions.values().map(|(_, e)| *e).max().unwrap_or(0);
 
         // Get left anchor (text before min position)
         let left_anchor = if min_pos > 0 {
@@ -85,7 +77,7 @@ impl RepairRegion {
 }
 
 /// Select minimal repair regions from affected nodes.
-/// 
+///
 /// Groups stale nodes into regions based on their textual proximity
 /// and returns the minimal set of regions needed.
 pub fn select_repair_regions(
@@ -184,10 +176,8 @@ mod tests {
         positions.insert("s1".to_string(), (0, 100));
         positions.insert("s2".to_string(), (100, 200));
 
-        let region = RepairRegion::from_stale_nodes(
-            &["s1".to_string(), "s2".to_string()],
-            &positions,
-        );
+        let region =
+            RepairRegion::from_stale_nodes(&["s1".to_string(), "s2".to_string()], &positions);
 
         assert!(region.covers("s1"));
         assert!(region.covers("s2"));

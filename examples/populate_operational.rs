@@ -87,7 +87,9 @@ fn paragraphs(text: &str) -> Vec<(String, String)> {
         out.push((heading, buf.join(" ")));
     }
     // A one-line fragment is not a context worth calling an encounter.
-    out.into_iter().filter(|(_, b)| b.split_whitespace().count() >= 12).collect()
+    out.into_iter()
+        .filter(|(_, b)| b.split_whitespace().count() >= 12)
+        .collect()
 }
 
 fn collect_docs(roots: &[&str], out: &mut Vec<OperationalEvent>) {
@@ -102,7 +104,9 @@ fn collect_docs(roots: &[&str], out: &mut Vec<OperationalEvent>) {
     }
     files.sort();
     for f in files {
-        let Ok(text) = std::fs::read_to_string(&f) else { continue };
+        let Ok(text) = std::fs::read_to_string(&f) else {
+            continue;
+        };
         let when = mtime(&f);
         for (i, (heading, body)) in paragraphs(&text).into_iter().enumerate() {
             let mut prov = OperationalProvenance::new("ingest", "document");
@@ -127,7 +131,9 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
     if depth > 3 {
         return;
     }
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let p = e.path();
         let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("");
@@ -144,11 +150,19 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
 
 /// randomesh timer telemetry: `[2026-09-07T09:26:37Z] physis: up to date`.
 fn collect_machine(log: &Path, out: &mut Vec<OperationalEvent>) {
-    let Ok(text) = std::fs::read_to_string(log) else { return };
+    let Ok(text) = std::fs::read_to_string(log) else {
+        return;
+    };
     for line in text.lines() {
-        let Some(rest) = line.strip_prefix('[') else { continue };
-        let Some((ts, msg)) = rest.split_once("] ") else { continue };
-        let Ok(when) = DateTime::parse_from_rfc3339(ts) else { continue };
+        let Some(rest) = line.strip_prefix('[') else {
+            continue;
+        };
+        let Some((ts, msg)) = rest.split_once("] ") else {
+            continue;
+        };
+        let Ok(when) = DateTime::parse_from_rfc3339(ts) else {
+            continue;
+        };
         let msg = msg.trim();
         if msg.is_empty() {
             continue;
@@ -197,7 +211,9 @@ fn collect_commits(repo: &str, label: &str, out: &mut Vec<OperationalEvent>) {
         if f.len() < 4 || f[0].is_empty() {
             continue;
         }
-        let Ok(secs) = f[1].parse::<i64>() else { continue };
+        let Ok(secs) = f[1].parse::<i64>() else {
+            continue;
+        };
         let when = Utc.timestamp_opt(secs, 0).single().unwrap_or_else(Utc::now);
         let mut prov = OperationalProvenance::new("git", "workflow");
         prov.source_id = Some(f[0].to_string());
@@ -242,12 +258,17 @@ fn main() {
         }
         println!("round-trip OK: {} events deserialized", events.len());
         println!("unique event_key: {}", keys.len());
-        println!("content hash reproduces on rekey: {rekeyed_ok}/{}", events.len());
+        println!(
+            "content hash reproduces on rekey: {rekeyed_ok}/{}",
+            events.len()
+        );
         let ledger: std::collections::HashMap<_, usize> =
-            events.iter().fold(std::collections::HashMap::new(), |mut m, e| {
-                *m.entry(format!("{:?}", e.ledger_mechanism())).or_default() += 1;
-                m
-            });
+            events
+                .iter()
+                .fold(std::collections::HashMap::new(), |mut m, e| {
+                    *m.entry(format!("{:?}", e.ledger_mechanism())).or_default() += 1;
+                    m
+                });
         let mut l: Vec<_> = ledger.into_iter().collect();
         l.sort();
         println!("causal-ledger mechanism split: {l:?}");
@@ -305,7 +326,12 @@ fn main() {
     }
     let words: usize = events
         .iter()
-        .map(|e| e.evidence.iter().map(|s| s.split_whitespace().count()).sum::<usize>())
+        .map(|e| {
+            e.evidence
+                .iter()
+                .map(|s| s.split_whitespace().count())
+                .sum::<usize>()
+        })
         .sum();
 
     println!("collected  document={docs}  machine={machine}  workflow={workflow}");

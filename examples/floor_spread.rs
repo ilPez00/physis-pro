@@ -29,5 +29,8 @@ fn main() {
     println!("commands WITH a refutation in the ledger:");
     show("with", &physis_pro::ported::act_recall::pair_commands());
     println!("commands with NOTHING to warn about:");
-    show("without", &physis_pro::ported::act_recall::unrelated_commands());
+    show(
+        "without",
+        &physis_pro::ported::act_recall::unrelated_commands(),
+    );
 }

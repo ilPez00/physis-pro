@@ -148,7 +148,11 @@ mod tests {
         // The default pack is 5 x 14. The point of the assertion is that the
         // DEFAULT is stable, not that 70 is a property of the world.
         assert_eq!(DEFAULT_DOMAINS.len() * MODES.len(), 70);
-        assert_eq!(cell_count(), 70, "no PHYSIS_DOMAINS set, so the default holds");
+        assert_eq!(
+            cell_count(),
+            70,
+            "no PHYSIS_DOMAINS set, so the default holds"
+        );
     }
 
     #[test]

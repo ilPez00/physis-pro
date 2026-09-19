@@ -31,12 +31,12 @@ use crate::dream::DreamEngine;
 #[cfg(feature = "embed-onnx")]
 #[cfg(feature = "image-embed")]
 use crate::embed::clip::ClipEmbedder;
-use crate::embed::registry::EmbedderRegistry;
 #[cfg(feature = "embed-onnx")]
 #[cfg(feature = "image-embed")]
 use crate::embed::jina::JinaEmbedder;
 #[cfg(feature = "embed-onnx")]
 use crate::embed::onnx::OnnxEmbedder;
+use crate::embed::registry::EmbedderRegistry;
 use crate::embed::RandomProjectionEmbedder;
 use crate::embed::VectorEmbed;
 use crate::linguistic::{LinguisticLense, LinguisticRouter};
@@ -2276,72 +2276,72 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
     // and on /api/v1/embedder so a silent fall-through to random projection
     // (P0 in PREMORTEM.md) can never masquerade as a working model.
     let (embedder, embedder_kind): (Box<dyn VectorEmbed>, &'static str) =
-        if crate::embed::wants_random_projection(
-            std::env::var("PHYSIS_EMBEDDER").ok().as_deref(),
-        ) {
-        // Fast-start override: skip the ONNX embedder cascade entirely. Comparable
-        // vectors are enough for coherence/machine recall, and loading ONNX models
-        // off slow storage stalls cold starts. Default path (below) is unchanged:
-        // the real embedder cascade with random-projection only as last resort.
-        log::info!("PHYSIS_EMBEDDER=random-projection: fast-start, ONNX cascade skipped.");
-        (
-            Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
-            "random-projection",
-        )
-    } else {
-        // Ollama embedding backend (nomic-embed-text, 137M, CPU-friendly):
-        // tried before the ONNX legs, self-test gated. Opt out with
-        // PHYSIS_OLLAMA_EMBED_OFF=1.
-        let try_ollama = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-            if std::env::var("PHYSIS_OLLAMA_EMBED_OFF").ok().as_deref() == Some("1") {
-                return None;
-            }
-            let o = crate::embed::ollama::OllamaEmbedder::from_env();
-            if embedder_self_test(&o) {
-                Some((Box::new(o), "ollama-embed"))
-            } else {
-                log::warn!("ollama embedder failed the semantic self-test — skipping to ONNX cascade.");
-                None
-            }
-        };
-        #[cfg(feature = "embed-onnx")]
-        {
-            // BGE-base-en-v1.5 (768-d). Loads `onnx/model.onnx` + tokenizer from
-            // models/bge-base-en-v1.5. Strong text-only fallback when Jina's quant
-            // won't load under the current ort.
-            let make_bge = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-                let cfg = crate::config::OnnxConfig {
-                    enabled: true,
-                    model_dir: Some("models/bge-base-en-v1.5".to_string()),
-                    dim: 768,
-                    max_length: 512,
-                    pooling: crate::config::PoolingStrategy::Mean,
-                };
-                let b = OnnxEmbedder::with_config(&cfg);
-                b.is_available()
-                    .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
+        if crate::embed::wants_random_projection(std::env::var("PHYSIS_EMBEDDER").ok().as_deref()) {
+            // Fast-start override: skip the ONNX embedder cascade entirely. Comparable
+            // vectors are enough for coherence/machine recall, and loading ONNX models
+            // off slow storage stalls cold starts. Default path (below) is unchanged:
+            // the real embedder cascade with random-projection only as last resort.
+            log::info!("PHYSIS_EMBEDDER=random-projection: fast-start, ONNX cascade skipped.");
+            (
+                Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                "random-projection",
+            )
+        } else {
+            // Ollama embedding backend (nomic-embed-text, 137M, CPU-friendly):
+            // tried before the ONNX legs, self-test gated. Opt out with
+            // PHYSIS_OLLAMA_EMBED_OFF=1.
+            let try_ollama = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                if std::env::var("PHYSIS_OLLAMA_EMBED_OFF").ok().as_deref() == Some("1") {
+                    return None;
+                }
+                let o = crate::embed::ollama::OllamaEmbedder::from_env();
+                if embedder_self_test(&o) {
+                    Some((Box::new(o), "ollama-embed"))
+                } else {
+                    log::warn!(
+                        "ollama embedder failed the semantic self-test — skipping to ONNX cascade."
+                    );
+                    None
+                }
             };
-            // BGE-M3 (1024-d, XLM-R, 100+ languages). Preferred over BGE-base when
-            // its weights are present: Italian/multilingual industrial input is why.
-            let make_bge_m3 = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-                let cfg = crate::config::OnnxConfig {
-                    enabled: true,
-                    model_dir: Some("models/bge-m3".to_string()),
-                    dim: 1024,
-                    max_length: 512,
-                    pooling: crate::config::PoolingStrategy::Cls,
+            #[cfg(feature = "embed-onnx")]
+            {
+                // BGE-base-en-v1.5 (768-d). Loads `onnx/model.onnx` + tokenizer from
+                // models/bge-base-en-v1.5. Strong text-only fallback when Jina's quant
+                // won't load under the current ort.
+                let make_bge = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some("models/bge-base-en-v1.5".to_string()),
+                        dim: 768,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Mean,
+                    };
+                    let b = OnnxEmbedder::with_config(&cfg);
+                    b.is_available()
+                        .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-base"))
                 };
-                let b = OnnxEmbedder::with_config(&cfg);
-                b.is_available()
-                    .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
-            };
-            // Self-test gate: accept a candidate only if it loads AND produces
-            // semantic vectors. A model that loads but emits garbage (e.g. Jina
-            // fp16, whose float16 outputs the f32 extractor can't read → random
-            // fallback) is skipped so the next working candidate wins instead of
-            // the engine silently running on noise. PREMORTEM.md P4.
-            let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
-                opt.and_then(|(e, k)| {
+                // BGE-M3 (1024-d, XLM-R, 100+ languages). Preferred over BGE-base when
+                // its weights are present: Italian/multilingual industrial input is why.
+                let make_bge_m3 = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                    let cfg = crate::config::OnnxConfig {
+                        enabled: true,
+                        model_dir: Some("models/bge-m3".to_string()),
+                        dim: 1024,
+                        max_length: 512,
+                        pooling: crate::config::PoolingStrategy::Cls,
+                    };
+                    let b = OnnxEmbedder::with_config(&cfg);
+                    b.is_available()
+                        .then(|| (Box::new(b) as Box<dyn VectorEmbed>, "bge-m3"))
+                };
+                // Self-test gate: accept a candidate only if it loads AND produces
+                // semantic vectors. A model that loads but emits garbage (e.g. Jina
+                // fp16, whose float16 outputs the f32 extractor can't read → random
+                // fallback) is skipped so the next working candidate wins instead of
+                // the engine silently running on noise. PREMORTEM.md P4.
+                let gate = |opt: Option<(Box<dyn VectorEmbed>, &'static str)>| {
+                    opt.and_then(|(e, k)| {
                     if embedder_self_test(e.as_ref()) {
                         Some((e, k))
                     } else {
@@ -2349,124 +2349,125 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                         None
                     }
                 })
-            };
-            // Try the ollama backend, then the configured primary embedder,
-            // then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
-            let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
-                let ec = config.embedders.primary.as_ref()?;
-                if !ec.enabled {
-                    return None;
-                }
-                match ec.kind {
-                    EmbedderKindConfig::JinaV2 => {
+                };
+                // Try the ollama backend, then the configured primary embedder,
+                // then fall through Jina → BGE → BGE-M3 → CLIP → MiniLM → RP
+                let try_primary = || -> Option<(Box<dyn VectorEmbed>, &'static str)> {
+                    let ec = config.embedders.primary.as_ref()?;
+                    if !ec.enabled {
+                        return None;
+                    }
+                    match ec.kind {
+                        EmbedderKindConfig::JinaV2 => {
+                            #[cfg(feature = "image-embed")]
+                            {
+                                let j = JinaEmbedder::with_model_dir(&ec.model_dir);
+                                j.is_available()
+                                    .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                            }
+                            #[cfg(not(feature = "image-embed"))]
+                            {
+                                None // vision model needs the image-embed feature
+                            }
+                        }
+                        EmbedderKindConfig::Clip => {
+                            #[cfg(feature = "image-embed")]
+                            {
+                                let c = ClipEmbedder::with_config(&config.onnx);
+                                c.is_available()
+                                    .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                            }
+                            #[cfg(not(feature = "image-embed"))]
+                            {
+                                None // vision model needs the image-embed feature
+                            }
+                        }
+                        EmbedderKindConfig::MiniLM => {
+                            let m = OnnxEmbedder::with_config(&config.onnx);
+                            m.is_available()
+                                .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                        }
+                        EmbedderKindConfig::BgeBase => make_bge(),
+                        EmbedderKindConfig::BgeM3 => make_bge_m3(),
+                        EmbedderKindConfig::SentenceTransformers => {
+                            let (dim, pooling) = crate::config::st_layout(&ec.model_dir);
+                            let cfg = crate::config::OnnxConfig {
+                                enabled: true,
+                                model_dir: Some(ec.model_dir.clone()),
+                                dim,
+                                max_length: 512,
+                                pooling,
+                            };
+                            let s = OnnxEmbedder::with_config(&cfg);
+                            s.is_available().then(|| {
+                                (Box::new(s) as Box<dyn VectorEmbed>, "sentence-transformers")
+                            })
+                        }
+                        EmbedderKindConfig::RandomProjection => Some((
+                            Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                            "random-projection",
+                        )),
+                    }
+                };
+                gate(try_primary())
+                    .or_else(try_ollama)
+                    .or_else(|| {
                         #[cfg(feature = "image-embed")]
                         {
-                            let j = JinaEmbedder::with_model_dir(&ec.model_dir);
-                            j.is_available()
-                                .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                            gate({
+                                let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
+                                j.is_available()
+                                    .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
+                            })
                         }
                         #[cfg(not(feature = "image-embed"))]
                         {
-                            None // vision model needs the image-embed feature
+                            None
                         }
-                    }
-                    EmbedderKindConfig::Clip => {
-                        #[cfg(feature = "image-embed")]
-                        {
-                            let c = ClipEmbedder::with_config(&config.onnx);
-                            c.is_available()
-                                .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                        }
-                        #[cfg(not(feature = "image-embed"))]
-                        {
-                            None // vision model needs the image-embed feature
-                        }
-                    }
-                    EmbedderKindConfig::MiniLM => {
-                        let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available()
-                            .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
-                    }
-                    EmbedderKindConfig::BgeBase => make_bge(),
-                    EmbedderKindConfig::BgeM3 => make_bge_m3(),
-                    EmbedderKindConfig::SentenceTransformers => {
-                        let (dim, pooling) = crate::config::st_layout(&ec.model_dir);
-                        let cfg = crate::config::OnnxConfig {
-                            enabled: true,
-                            model_dir: Some(ec.model_dir.clone()),
-                            dim,
-                            max_length: 512,
-                            pooling,
-                        };
-                        let s = OnnxEmbedder::with_config(&cfg);
-                        s.is_available()
-                            .then(|| (Box::new(s) as Box<dyn VectorEmbed>, "sentence-transformers"))
-                    }
-                    EmbedderKindConfig::RandomProjection => Some((
-                        Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
-                        "random-projection",
-                    )),
-                }
-            };
-            gate(try_primary())
-                .or_else(try_ollama)
-                .or_else(|| {
-                    #[cfg(feature = "image-embed")]
-                    {
-                        gate({
-                            let j = JinaEmbedder::with_model_dir("models/jina-clip-v2");
-                            j.is_available()
-                                .then(|| (Box::new(j) as Box<dyn VectorEmbed>, "jina-v2"))
-                        })
-                    }
-                    #[cfg(not(feature = "image-embed"))]
-                    {
-                        None
-                    }
-                })
-                .or_else(|| gate(make_bge()))
-                // BGE-M3 sits BELOW bge-base: measured 2026-06-12, M3 CORE
-                // 0.923/0.769 vs bge-base 1.000/0.949; Italian only ties (0.733
-                // domain). Explicit `embedders.primary = bge-m3` still selects it.
-                .or_else(|| gate(make_bge_m3()))
-                .or_else(|| {
-                    #[cfg(feature = "image-embed")]
-                    {
-                        gate({
-                            let c = ClipEmbedder::with_config(&config.onnx);
-                            c.is_available()
-                                .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
-                        })
-                    }
-                    #[cfg(not(feature = "image-embed"))]
-                    {
-                        None
-                    }
-                })
-                .or_else(|| {
-                    gate({
-                        let m = OnnxEmbedder::with_config(&config.onnx);
-                        m.is_available()
-                            .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
                     })
-                })
-                .unwrap_or_else(|| {
+                    .or_else(|| gate(make_bge()))
+                    // BGE-M3 sits BELOW bge-base: measured 2026-06-12, M3 CORE
+                    // 0.923/0.769 vs bge-base 1.000/0.949; Italian only ties (0.733
+                    // domain). Explicit `embedders.primary = bge-m3` still selects it.
+                    .or_else(|| gate(make_bge_m3()))
+                    .or_else(|| {
+                        #[cfg(feature = "image-embed")]
+                        {
+                            gate({
+                                let c = ClipEmbedder::with_config(&config.onnx);
+                                c.is_available()
+                                    .then(|| (Box::new(c) as Box<dyn VectorEmbed>, "clip"))
+                            })
+                        }
+                        #[cfg(not(feature = "image-embed"))]
+                        {
+                            None
+                        }
+                    })
+                    .or_else(|| {
+                        gate({
+                            let m = OnnxEmbedder::with_config(&config.onnx);
+                            m.is_available()
+                                .then(|| (Box::new(m) as Box<dyn VectorEmbed>, "minilm"))
+                        })
+                    })
+                    .unwrap_or_else(|| {
+                        (
+                            Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
+                            "random-projection",
+                        )
+                    })
+            }
+            #[cfg(not(feature = "embed-onnx"))]
+            {
+                try_ollama().unwrap_or_else(|| {
                     (
                         Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
                         "random-projection",
                     )
                 })
-        }
-        #[cfg(not(feature = "embed-onnx"))]
-        {
-            try_ollama().unwrap_or_else(|| {
-                (
-                    Box::new(RandomProjectionEmbedder::new(config.embed_dim)),
-                    "random-projection",
-                )
-            })
-        }
-    };
+            }
+        };
     let embed_dim = embedder.dimension();
 
     // Semantic self-test (PREMORTEM.md P4): a model can load but silently emit
@@ -2897,13 +2898,12 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
                             let prefix = rel.to_string_lossy().replace('/', " → ");
                             for id in s.core.delete_nodes_by_label_prefix(&prefix) {
                                 if let Some(db) = watch_state.db() {
-                                    let _ = db.remove(
-                                        crate::core::PhysisCore::node_key("_default", &id),
-                                    );
+                                    let _ = db
+                                        .remove(crate::core::PhysisCore::node_key("_default", &id));
                                     for eid in s.core.delete_edges_for_node(&id) {
-                                        let _ = db.remove(
-                                            crate::core::PhysisCore::edge_key("_default", &eid),
-                                        );
+                                        let _ = db.remove(crate::core::PhysisCore::edge_key(
+                                            "_default", &eid,
+                                        ));
                                     }
                                 }
                             }
@@ -3057,7 +3057,10 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             get(dream::dream_replay_csv_handler),
         )
         // Outbound typed-action delivery (Phase 16 I11): the act half.
-        .route("/api/v1/actions/dispatch", post(dream::dispatch_actions_handler))
+        .route(
+            "/api/v1/actions/dispatch",
+            post(dream::dispatch_actions_handler),
+        )
         .route(
             "/api/v1/coherence/snapshot",
             get(coherence::coherence_snapshot_handler),
@@ -3076,10 +3079,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             get(coherence::coherence_facet_query_handler),
         )
         .route("/api/v1/quality", get(coherence::quality_handler))
-        .route(
-            "/api/v1/quality/trace",
-            get(trace_handler),
-        )
+        .route("/api/v1/quality/trace", get(trace_handler))
         .route(
             "/api/v1/coherence/register",
             post(coherence::coherence_register_handler),
@@ -3441,7 +3441,7 @@ pub async fn build_app() -> Result<(SharedState, Router), String> {
             "/api/v1/semiotic/heatmap",
             get(wiki_semiotic::heatmap_handler),
         )
-                .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
+        .route("/api/v1/classify", post(wiki_semiotic::classify_handler))
         // Normalized event stream (Phase 16 I3/I4): the single ingestion path —
         // dedupe + ledger + ring store (+ optional graph nodes), and read-back.
         .route("/api/v1/events", post(operational::post_events_handler))
@@ -4217,7 +4217,13 @@ struct TraceFailure {
 
 #[derive(serde::Serialize)]
 enum TraceEvent {
-    Ledger { seq: u64, at: String, mechanism: String, actor: String, object: String },
+    Ledger {
+        seq: u64,
+        at: String,
+        mechanism: String,
+        actor: String,
+        object: String,
+    },
     // Watch diff events can be added when watch state is globally indexed.
 }
 

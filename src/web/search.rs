@@ -75,18 +75,18 @@ pub async fn rag_retrieve_handler(
         },
     )
     .await
-        .map_err(|e| {
-            err_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("rag failed: {e}"),
-            )
-        })?
-        .map_err(|e| {
-            err_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("rag failed: {e}"),
-            )
-        })?;
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("rag failed: {e}"),
+        )
+    })?
+    .map_err(|e| {
+        err_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &format!("rag failed: {e}"),
+        )
+    })?;
 
     Ok(Json(serde_json::json!({
         "unit": if by_section { "section" } else { "chunk" },
@@ -159,9 +159,7 @@ pub(crate) async fn retrieve_nodes(
     // nothing browsable to return.
     let candidates: Vec<ScoredCandidate> = state.with_user(uid, |s| {
         let mut out: Vec<ScoredCandidate> = Vec::new();
-        let score = |emb: &[f32]| {
-            q_emb.iter().zip(emb).map(|(a, b)| a * b).sum::<f32>()
-        };
+        let score = |emb: &[f32]| q_emb.iter().zip(emb).map(|(a, b)| a * b).sum::<f32>();
         for n in s.core.nodes.values() {
             if let Some(label) = n.label.as_deref() {
                 if !label.trim().is_empty() {
@@ -190,7 +188,11 @@ pub(crate) async fn retrieve_nodes(
                 asserted: None,
             });
         }
-        out.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        out.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let keep = top_k.saturating_mul(4).max(32);
         out.truncate(keep);
         out
@@ -240,7 +242,13 @@ pub(crate) async fn retrieve_nodes(
         })
         .collect();
 
-    (result.budget, result.total_tokens, result.truncated, hits, failures)
+    (
+        result.budget,
+        result.total_tokens,
+        result.truncated,
+        hits,
+        failures,
+    )
 }
 
 /// GET /api/v1/concepts/search — PLAN 11C conceptual search.
@@ -455,7 +463,13 @@ fn ask_prompt(question: &str, hits: &[SearchNodeHit], warn_failures: bool) -> St
             Some(_) => " [INERT]",
             None => "",
         };
-        p.push_str(&format!("[{}] ({}) {}{}\n", i + 1, h.kind, h.label, verdict));
+        p.push_str(&format!(
+            "[{}] ({}) {}{}\n",
+            i + 1,
+            h.kind,
+            h.label,
+            verdict
+        ));
     }
     p
 }
@@ -518,8 +532,14 @@ mod tests {
         let p = ask_prompt("how should I embed the corpus?", &hits, true);
         // Failure warning emitted, and the failed entry is tagged [FAILED].
         assert!(p.contains("RECORDED FAILURES"), "{p}");
-        assert!(p.contains("[1] (node) switch to OOM-prone batch size [FAILED]"), "{p}");
-        assert!(p.contains("[2] (node) stream the corpus in chunks [WORKED]"), "{p}");
+        assert!(
+            p.contains("[1] (node) switch to OOM-prone batch size [FAILED]"),
+            "{p}"
+        );
+        assert!(
+            p.contains("[2] (node) stream the corpus in chunks [WORKED]"),
+            "{p}"
+        );
     }
 
     #[test]

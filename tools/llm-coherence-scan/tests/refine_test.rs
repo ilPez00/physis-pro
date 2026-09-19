@@ -22,8 +22,15 @@ fn repeated_edit_grows_salience() {
     store.save(&path).unwrap();
     let loaded = refine::SalienceStore::load(&path).unwrap();
     let cell = refine::cell_for(&rec.output.edited_files[0].path);
-    let score = loaded.entries.get(&cell).map(|e| e.raw_score).unwrap_or(0.0);
-    assert!(score >= 3.0, "salience should grow with repeated edits, got {score}");
+    let score = loaded
+        .entries
+        .get(&cell)
+        .map(|e| e.raw_score)
+        .unwrap_or(0.0);
+    assert!(
+        score >= 3.0,
+        "salience should grow with repeated edits, got {score}"
+    );
 }
 
 #[test]
@@ -40,8 +47,15 @@ fn edit_then_delete_offsets_salience() {
     store.save(&path).unwrap();
     let loaded = refine::SalienceStore::load(&path).unwrap();
     let cell = refine::cell_for(&rec.output.deleted_files[0]);
-    let score = loaded.entries.get(&cell).map(|e| e.raw_score).unwrap_or(0.0);
-    assert!((score - 0.0).abs() < 1e-3, "edit+delete should cancel, got {score}");
+    let score = loaded
+        .entries
+        .get(&cell)
+        .map(|e| e.raw_score)
+        .unwrap_or(0.0);
+    assert!(
+        (score - 0.0).abs() < 1e-3,
+        "edit+delete should cancel, got {score}"
+    );
 }
 
 #[test]

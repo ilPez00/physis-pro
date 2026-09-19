@@ -352,9 +352,11 @@ impl CoherenceNode {
             embedder: embedder.clone(),
             dimension: embedding.len(),
             created_at: *created_at,
-            fragment: template.as_ref().and_then(|t| t.as_fragment())
+            fragment: template
+                .as_ref()
+                .and_then(|t| t.as_fragment())
                 .or_else(|| self.extract_fragment()),
-            instances: Vec::new(),  // Populated by the server when serving nodes
+            instances: Vec::new(), // Populated by the server when serving nodes
             kind: kind.clone(),
             properties: properties.clone(),
         }
@@ -676,9 +678,7 @@ impl DocumentTemplate {
     pub fn as_fragment(&self) -> Option<String> {
         match self {
             DocumentTemplate::Invoice(t) => t.fragment.clone(),
-            DocumentTemplate::Email(t) => {
-                t.fragment.clone().or_else(|| Some(t.subject.clone()))
-            }
+            DocumentTemplate::Email(t) => t.fragment.clone().or_else(|| Some(t.subject.clone())),
             DocumentTemplate::Spreadsheet(t) => t.fragment.clone(),
             DocumentTemplate::Transcript(t) => t.fragment.clone(),
             DocumentTemplate::Image(t) => t.fragment.clone(),
@@ -1503,16 +1503,26 @@ pub fn typed_action_for(
         (ActionKind::Acknowledge, "acknowledge", "the resolved item")
     } else {
         match node_kind {
-            "machine" | "asset" => {
-                (ActionKind::ScheduleMaintenance, "schedule maintenance for", "the machine")
-            }
-            "work_order" => (ActionKind::OpenWorkOrder, "open a work order for", "the work order"),
-            "sensor_reading" => {
-                (ActionKind::OpenWorkOrder, "investigate the reading from", "the sensor")
-            }
-            "maintenance_record" | "inspection" => {
-                (ActionKind::UpdateRecord, "update the record for", "the record")
-            }
+            "machine" | "asset" => (
+                ActionKind::ScheduleMaintenance,
+                "schedule maintenance for",
+                "the machine",
+            ),
+            "work_order" => (
+                ActionKind::OpenWorkOrder,
+                "open a work order for",
+                "the work order",
+            ),
+            "sensor_reading" => (
+                ActionKind::OpenWorkOrder,
+                "investigate the reading from",
+                "the sensor",
+            ),
+            "maintenance_record" | "inspection" => (
+                ActionKind::UpdateRecord,
+                "update the record for",
+                "the record",
+            ),
             "document" | "knowledge" | "note" => {
                 (ActionKind::ReviewDocument, "review", "the document")
             }
@@ -1521,7 +1531,9 @@ pub fn typed_action_for(
             _ => (ActionKind::Acknowledge, "acknowledge", "the item"),
         }
     };
-    let target = object_id.clone().unwrap_or_else(|| fallback_target.to_string());
+    let target = object_id
+        .clone()
+        .unwrap_or_else(|| fallback_target.to_string());
     TypedAction {
         kind,
         object_id,
@@ -1608,8 +1620,9 @@ mod tests {
         // Every one of the 5×14 cells resolves to a known object type.
         for d in HumanDomain::all() {
             for m in HumanMode::all() {
-                let t = object_type_for(d.as_str(), m.as_str())
-                    .unwrap_or_else(|| panic!("no object type for {} / {}", d.as_str(), m.as_str()));
+                let t = object_type_for(d.as_str(), m.as_str()).unwrap_or_else(|| {
+                    panic!("no object type for {} / {}", d.as_str(), m.as_str())
+                });
                 assert!(
                     OBJECT_TYPES.contains(&t),
                     "{}/{} resolved to {} which is not in the vocabulary",
@@ -1628,7 +1641,10 @@ mod tests {
     #[test]
     fn object_type_refinements_beat_domain_defaults() {
         assert_eq!(object_type_for("FABRICATE", "WORK"), Some("machine"));
-        assert_eq!(object_type_for("FABRICATE", "SENSE"), Some("sensor_reading"));
+        assert_eq!(
+            object_type_for("FABRICATE", "SENSE"),
+            Some("sensor_reading")
+        );
         assert_eq!(object_type_for("FABRICATE", "PLAN"), Some("work_order"));
         assert_eq!(object_type_for("CONSTRUCT", "WORK"), Some("asset"));
         assert_eq!(object_type_for("CONSTRUCT", "SENSE"), Some("inspection"));
@@ -1638,7 +1654,10 @@ mod tests {
         assert_eq!(object_type_for("STUDY", "LEARN"), Some("knowledge"));
         assert_eq!(object_type_for("STUDY", "BRAINSTORM"), Some("note"));
         // Case-insensitive.
-        assert_eq!(object_type_for("fabricate", "sense"), Some("sensor_reading"));
+        assert_eq!(
+            object_type_for("fabricate", "sense"),
+            Some("sensor_reading")
+        );
     }
 
     #[test]
@@ -1991,7 +2010,10 @@ mod tests {
         });
         assert_eq!(template.display_name(), "Invoice");
         let frag = template.as_fragment();
-        assert_eq!(frag.as_deref(), Some("Bearing assembly for CNC spindle repair"));
+        assert_eq!(
+            frag.as_deref(),
+            Some("Bearing assembly for CNC spindle repair")
+        );
     }
 
     #[test]

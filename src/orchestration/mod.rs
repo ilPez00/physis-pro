@@ -2,9 +2,9 @@
 // only `RepairResult`/`RepairRegion` types are consumed today. Reuse or
 // delete when the repair worker lands.
 #![allow(dead_code)]
-use crate::semantic_delta::SemanticDelta;
-use crate::dependency::{PropagationTrace};
+use crate::dependency::PropagationTrace;
 use crate::repair_regions::RepairRegion;
+use crate::semantic_delta::SemanticDelta;
 use serde::{Deserialize, Serialize};
 
 /// Worker capability profile.

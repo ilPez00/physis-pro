@@ -120,7 +120,9 @@ impl Tier {
     /// Feature slugs each tier grants. Order matters for `from_features`.
     pub fn features(self) -> &'static [&'static str] {
         match self {
-            Tier::Core => &["classify", "scan", "workflow", "query", "wiki", "vault", "history"],
+            Tier::Core => &[
+                "classify", "scan", "workflow", "query", "wiki", "vault", "history",
+            ],
             Tier::Industrial => &[
                 "classify",
                 "scan",
@@ -222,7 +224,8 @@ pub const ENTITLEMENTS: [Entitlement; 3] = [
         sku: "INDUSTRIAL",
         tier: Tier::Industrial,
         label: "Industriale",
-        blurb: "Core + machines/OEE, shifts, maintenance, inventory, reconciliation — the plant floor",
+        blurb:
+            "Core + machines/OEE, shifts, maintenance, inventory, reconciliation — the plant floor",
     },
     Entitlement {
         sku: "ENTERPRISE",
@@ -907,11 +910,14 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.subsec_nanos())
             .unwrap_or(0) as u64;
-        (std::process::id() as u64).wrapping_mul(1_000_003).wrapping_add(nanos)
+        (std::process::id() as u64)
+            .wrapping_mul(1_000_003)
+            .wrapping_add(nanos)
     }
 
     #[test]
-    fn check_revoked_refuses_listed_id_and_allows_others() {        // Unique per test: parallel threads share the same pid, so a bare
+    fn check_revoked_refuses_listed_id_and_allows_others() {
+        // Unique per test: parallel threads share the same pid, so a bare
         // `{pid}` dir would collide with other temp-dir tests.
         let tag: u64 = randish_tag();
         let dir = std::env::temp_dir().join(format!("physis_revoc_{tag}"));
@@ -945,9 +951,22 @@ mod tests {
     fn entitlement_matrix_enables_exactly_its_bundle() {
         // The full set of feature slugs that can appear in a signed list.
         let all: Vec<&str> = vec![
-            "classify", "scan", "query", "wiki", "vault", "history", "industrial",
-            "shifts", "maintenance", "inventory", "reconcile", "mcp", "rag",
-            "spanner", "agent", "*",
+            "classify",
+            "scan",
+            "query",
+            "wiki",
+            "vault",
+            "history",
+            "industrial",
+            "shifts",
+            "maintenance",
+            "inventory",
+            "reconcile",
+            "mcp",
+            "rag",
+            "spanner",
+            "agent",
+            "*",
         ];
         for tier in Tier::ALL {
             let features = tier.features().to_vec();

@@ -71,10 +71,7 @@ pub fn propagate_delta(
             let scope_overlap = compute_scope_overlap(delta, target, source, graph);
 
             // Compute resulting affectedness score
-            let score = incoming_score
-                * edge.strength
-                * relation_relevance
-                * scope_overlap;
+            let score = incoming_score * edge.strength * relation_relevance * scope_overlap;
 
             // Decay for next level
             let decayed_score = score * 0.7; // 30% attenuation per hop
@@ -111,9 +108,7 @@ pub fn propagate_delta(
     // Build result: (node_id, affectedness_score, trace)
     let result: Vec<(String, f32, PropagationTrace)> = traces
         .into_iter()
-        .filter(|trace| {
-            affected.contains_key(&trace.target)
-        })
+        .filter(|trace| affected.contains_key(&trace.target))
         .map(|trace| {
             let final_score = affected.get(&trace.target).copied().unwrap_or(0.0);
             let target = trace.target.clone();
@@ -130,7 +125,9 @@ fn delta_edge_relevance(delta: &SemanticDelta, relation: &RelationType) -> f32 {
 
     match relation {
         // Quantity changes affect everything that depends on support
-        RelationType::Supports | RelationType::DerivedFrom if delta.quantity_change.is_some() => 0.9,
+        RelationType::Supports | RelationType::DerivedFrom if delta.quantity_change.is_some() => {
+            0.9
+        }
         // Scope changes propagate through derivations
         RelationType::DerivedFrom if delta.scope_change.is_some() => 0.8,
         // Polarity/reversal changes have very high relevance
@@ -147,7 +144,12 @@ fn delta_edge_relevance(delta: &SemanticDelta, relation: &RelationType) -> f32 {
 }
 
 /// Compute scope overlap between delta and target node's content.
-fn compute_scope_overlap(delta: &SemanticDelta, target_id: &str, source: &str, graph: &DependencyGraph) -> f32 {
+fn compute_scope_overlap(
+    delta: &SemanticDelta,
+    target_id: &str,
+    source: &str,
+    graph: &DependencyGraph,
+) -> f32 {
     // Get the target node's claims
     let target_claims = graph.target_claims(target_id);
 
@@ -253,12 +255,18 @@ impl DependencyGraph {
 
     /// Get outgoing edges from a node.
     pub fn outgoing_edges(&self, node_id: &str) -> &[DependencyEdge] {
-        self.outgoing.get(node_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.outgoing
+            .get(node_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Get incoming edges to a node.
     pub fn incoming_edges(&self, node_id: &str) -> &[DependencyEdge] {
-        self.incoming.get(node_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.incoming
+            .get(node_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Check if target depends on source.
@@ -271,7 +279,10 @@ impl DependencyGraph {
 
     /// Get claims associated with a node.
     pub fn target_claims(&self, node_id: &str) -> &[String] {
-        self.claims.get(node_id).map(|v| v.as_slice()).unwrap_or(&[])
+        self.claims
+            .get(node_id)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Get all node IDs in the graph.
@@ -324,23 +335,30 @@ impl StalenessState {
         // Check if this is a cheap repair candidate
         if affectedness < 0.70
             && delta.entity_changes.is_empty()
-                && delta.quantity_change.as_ref().is_none_or(|q| {
-                    matches!(q.direction, QuantityDirection::Unknown)
-                })
-                && delta.scope_change.as_ref().is_none_or(|s| matches!(s, ScopeDelta::Unchanged))
-            {
-                return StalenessState::RepairableCheap;
-            }
+            && delta
+                .quantity_change
+                .as_ref()
+                .is_none_or(|q| matches!(q.direction, QuantityDirection::Unknown))
+            && delta
+                .scope_change
+                .as_ref()
+                .is_none_or(|s| matches!(s, ScopeDelta::Unchanged))
+        {
+            return StalenessState::RepairableCheap;
+        }
 
         // Check for human anchor conflicts
         if affectedness >= 0.70
             && delta.entity_changes.iter().any(|e| {
                 let privileged_prefixes = ["The ", "A ", "An ", "The", "A", "An"];
-                privileged_prefixes.iter().any(|p| e.old_value.starts_with(p))
+                privileged_prefixes
+                    .iter()
+                    .any(|p| e.old_value.starts_with(p))
                     && e.change_type == semantic_delta::EntityChangeType::Substitution
-            }) {
-                return StalenessState::RequiresHumanReview;
-            }
+            })
+        {
+            return StalenessState::RequiresHumanReview;
+        }
 
         // Default: requires strong model repair
         StalenessState::RequiresStrongModel
@@ -364,8 +382,7 @@ pub fn classify_affected_nodes(
             .unwrap_or("machine");
         let locked = node_locked.get(node_id).copied().unwrap_or(false);
 
-        let state =
-            StalenessClassifier::classify(*affectedness, provenance, locked, delta);
+        let state = StalenessClassifier::classify(*affectedness, provenance, locked, delta);
 
         results.insert(node_id.clone(), state);
     }
@@ -383,7 +400,10 @@ pub fn explain_staleness(
 ) -> String {
     match state {
         StalenessState::Unaffected => {
-            format!("Node {} is UNAFFECTED by the edit (affectedness: {:.2})", node_id, affectedness)
+            format!(
+                "Node {} is UNAFFECTED by the edit (affectedness: {:.2})",
+                node_id, affectedness
+            )
         }
         StalenessState::VerifyOnly => {
             format!(
@@ -499,31 +519,46 @@ mod tests {
     fn test_staleness_classification() {
         // Low affectedness → Unaffected
         assert_eq!(
-            StalenessState::classify(0.1, "machine", false, &semantic_delta::SemanticDelta::no_semantic_change(
-                "s1".to_string(),
-                "old text",
-                "old text"
-            )),
+            StalenessState::classify(
+                0.1,
+                "machine",
+                false,
+                &semantic_delta::SemanticDelta::no_semantic_change(
+                    "s1".to_string(),
+                    "old text",
+                    "old text"
+                )
+            ),
             StalenessState::Unaffected
         );
 
         // Human + locked → LockedConflict
         assert_eq!(
-            StalenessState::classify(0.8, "human", true, &semantic_delta::SemanticDelta::no_semantic_change(
-                "s1".to_string(),
-                "old text",
-                "new text"
-            )),
+            StalenessState::classify(
+                0.8,
+                "human",
+                true,
+                &semantic_delta::SemanticDelta::no_semantic_change(
+                    "s1".to_string(),
+                    "old text",
+                    "new text"
+                )
+            ),
             StalenessState::LockedConflict
         );
 
         // Moderate affectedness → VerifyOnly
         assert_eq!(
-            StalenessState::classify(0.3, "machine", false, &semantic_delta::SemanticDelta::no_semantic_change(
-                "s1".to_string(),
-                "old text",
-                "old text"
-            )),
+            StalenessState::classify(
+                0.3,
+                "machine",
+                false,
+                &semantic_delta::SemanticDelta::no_semantic_change(
+                    "s1".to_string(),
+                    "old text",
+                    "old text"
+                )
+            ),
             StalenessState::VerifyOnly
         );
     }

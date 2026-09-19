@@ -701,7 +701,14 @@ impl Session {
             shell_quote(&self.root.to_string_lossy())
         );
         let acted = crate::ported::act::run(&cmd, vec![], &physis_core::observe::log_path())?;
-        let obs = self.observe(&before_snap, objects_before, &acted.command, acted.exit_code, acted.duration_ms as u128, &acted.stdout_tail)?;
+        let obs = self.observe(
+            &before_snap,
+            objects_before,
+            &acted.command,
+            acted.exit_code,
+            acted.duration_ms as u128,
+            &acted.stdout_tail,
+        )?;
         o.push('\n');
         o.push_str(&obs.delta.render());
         o.push('\n');
@@ -760,7 +767,10 @@ impl Session {
             test_results.push(format!("  {line}"));
         }
         let delta = SemanticDelta {
-            changed_artifacts: { changed_all.extend(added.iter().cloned()); changed_all.clone() },
+            changed_artifacts: {
+                changed_all.extend(added.iter().cloned());
+                changed_all.clone()
+            },
             added_relations: vec![],
             removed_relations: removed.clone(),
             affected_dependents: affected.clone(),
@@ -801,10 +811,27 @@ impl Session {
         let before = self.state_ref();
         let before_snap = self.before_files.clone();
         let objects_before = self.ws.index().objects.len();
-        let obs = self.observe(&before_snap, objects_before, "(no command: external/manual edit)", None, 0, "")?;
+        let obs = self.observe(
+            &before_snap,
+            objects_before,
+            "(no command: external/manual edit)",
+            None,
+            0,
+            "",
+        )?;
         let after = self.state_ref();
         let text = obs.delta.render();
-        self.record(intent, "rescan", obs.compact, obs.validation, obs.outcome, obs.affected, before, after, 0.1);
+        self.record(
+            intent,
+            "rescan",
+            obs.compact,
+            obs.validation,
+            obs.outcome,
+            obs.affected,
+            before,
+            after,
+            0.1,
+        );
         self.say(intent, &text);
         Ok(text)
     }
@@ -866,9 +893,12 @@ impl Session {
         let pinned: std::collections::BTreeSet<String> = pins
             .iter()
             .flat_map(|p| {
-                [serde_json::to_string(&p.a).ok(), serde_json::to_string(&p.b).ok()]
-                    .into_iter()
-                    .flatten()
+                [
+                    serde_json::to_string(&p.a).ok(),
+                    serde_json::to_string(&p.b).ok(),
+                ]
+                .into_iter()
+                .flatten()
             })
             .collect();
         let key_of = |h: &NavHit| serde_json::to_string(&h.object.id).unwrap_or_default();
@@ -885,9 +915,9 @@ impl Session {
                 .map(|s| s.path.clone())
                 .unwrap_or_else(|| h.object.label.clone());
             let row = format!("{:.2}  {path}", h.score.total);
-        // Rank-position bands over this scope's own 60-hit tail (top-20
-        // shown, rest demotable) — visible in the map output, never a claim
-        // about the whole repository.
+            // Rank-position bands over this scope's own 60-hit tail (top-20
+            // shown, rest demotable) — visible in the map output, never a claim
+            // about the whole repository.
             if pinned.contains(&key_of(h)) {
                 hot.push(format!("{row}  [pinned]"));
             } else if i < 3 {
@@ -914,8 +944,33 @@ impl Session {
         if cold.len() > 8 {
             o.push_str(&format!("  … and {} more\n", cold.len() - 8));
         }
-        o.push_str(&format!("pinned objects never demote ({} pins)\n", pins.len()));
-        self.record(&query, "focus", CompactDelta { no_change: true, ..Default::default() }, vec![], format!("{} hits banded", hits.len()), hits.iter().take(8).map(|h| h.object.source.as_ref().map(|s| s.path.clone()).unwrap_or_else(|| h.object.label.clone())).collect(), before, after, 0.2);
+        o.push_str(&format!(
+            "pinned objects never demote ({} pins)\n",
+            pins.len()
+        ));
+        self.record(
+            &query,
+            "focus",
+            CompactDelta {
+                no_change: true,
+                ..Default::default()
+            },
+            vec![],
+            format!("{} hits banded", hits.len()),
+            hits.iter()
+                .take(8)
+                .map(|h| {
+                    h.object
+                        .source
+                        .as_ref()
+                        .map(|s| s.path.clone())
+                        .unwrap_or_else(|| h.object.label.clone())
+                })
+                .collect(),
+            before,
+            after,
+            0.2,
+        );
         self.say(&format!("focus: {query}"), &o);
         Ok(o)
     }
@@ -936,49 +991,103 @@ impl Session {
         }
         let targets: Vec<String> = paths.iter().take(8).cloned().collect();
         // Dependents of the targets, same precision-first rule the Δ uses.
-        let affected = affected_dependents(&self.root, &targets, &changed_symbols(&self.root, &targets));
+        let affected =
+            affected_dependents(&self.root, &targets, &changed_symbols(&self.root, &targets));
         // Workspace denominator: same token counter as the packer, over the
         // same chunk shape — a measured total, never an estimate.
         let mut ws_tokens = 0usize;
         let mut ws_chunks = 0usize;
         for f in crate::scanner::scan_project(&self.root, None) {
-            let Ok(text) = std::fs::read_to_string(self.root.join(&f.path)) else { continue };
-            for w in text.lines().collect::<Vec<_>>().chunks(crate::pack::CHUNK_LINES) {
+            let Ok(text) = std::fs::read_to_string(self.root.join(&f.path)) else {
+                continue;
+            };
+            for w in text
+                .lines()
+                .collect::<Vec<_>>()
+                .chunks(crate::pack::CHUNK_LINES)
+            {
                 let t = w.join("\n");
-                if t.trim().is_empty() { continue }
+                if t.trim().is_empty() {
+                    continue;
+                }
                 ws_chunks += 1;
                 ws_tokens += crate::pack::tokens_of(&t);
             }
         }
-        let excluded = if ws_tokens > 0 { 100.0 * (ws_tokens.saturating_sub(slice.final_tokens)) as f64 / ws_tokens as f64 } else { 0.0 };
+        let excluded = if ws_tokens > 0 {
+            100.0 * (ws_tokens.saturating_sub(slice.final_tokens)) as f64 / ws_tokens as f64
+        } else {
+            0.0
+        };
         let mut o = String::new();
         o.push_str("── CONTEXT PACKET ──\n\nINTENT\n");
         o.push_str(&format!("{}\n", slice.intent));
         o.push_str("\nTARGETS\n");
-        for t in &targets { o.push_str(&format!("- {t}\n")); }
-        if targets.is_empty() { o.push_str("(none)\n"); }
+        for t in &targets {
+            o.push_str(&format!("- {t}\n"));
+        }
+        if targets.is_empty() {
+            o.push_str("(none)\n");
+        }
         o.push_str("\nDEPENDENCIES\n");
-        for d in affected.iter().take(12) { o.push_str(&format!("- {d}\n")); }
-        if affected.is_empty() { o.push_str("(none found)\n"); }
+        for d in affected.iter().take(12) {
+            o.push_str(&format!("- {d}\n"));
+        }
+        if affected.is_empty() {
+            o.push_str("(none found)\n");
+        }
         o.push_str("\nCONSTRAINTS\n");
         o.push_str("- public interfaces of TARGETS, as consumed by DEPENDENCIES\n");
         o.push_str("- file-type shapes hold (rs/md/json/toml — see invariants)\n");
         o.push_str("\nRECENT DELTA\n");
-        let recent: Vec<String> = self.log.read_all().iter().rev().take(3).filter(|t| !t.delta.no_change).flat_map(|t| t.delta.changed.clone()).collect();
-        if recent.is_empty() { o.push_str("(no recorded changes this session)\n"); }
-        for r in recent.iter().take(6) { o.push_str(&format!("- {r}\n")); }
+        let recent: Vec<String> = self
+            .log
+            .read_all()
+            .iter()
+            .rev()
+            .take(3)
+            .filter(|t| !t.delta.no_change)
+            .flat_map(|t| t.delta.changed.clone())
+            .collect();
+        if recent.is_empty() {
+            o.push_str("(no recorded changes this session)\n");
+        }
+        for r in recent.iter().take(6) {
+            o.push_str(&format!("- {r}\n"));
+        }
         o.push_str("\nRELEVANT SOURCE\n");
         for c in slice.chunks.iter().take(8) {
-            o.push_str(&format!("--- {}:{}-{} ({} tokens, score {:.3}) ---\n", c.path, c.start_line, c.end_line, c.tokens, c.score));
-            for line in c.text.lines().take(20) { o.push_str(line); o.push('\n'); }
+            o.push_str(&format!(
+                "--- {}:{}-{} ({} tokens, score {:.3}) ---\n",
+                c.path, c.start_line, c.end_line, c.tokens, c.score
+            ));
+            for line in c.text.lines().take(20) {
+                o.push_str(line);
+                o.push('\n');
+            }
         }
         o.push_str("\nEXCLUDED\n");
         o.push_str(&format!("{excluded:.1}% of indexed workspace ({} of {ws_tokens} tokens, {} chunks, {} objects considered)\n", slice.final_tokens, ws_chunks, slice.objects_considered));
         o.push_str(&format!("workspace source: {ws_tokens} tokens · selected context: {} tokens · excluded: {excluded:.1}%\n", slice.final_tokens));
         let gen = super::deps::generator_state();
-        o.push_str(&format!("generator: {gen} — packet is complete without it\n"));
+        o.push_str(&format!(
+            "generator: {gen} — packet is complete without it\n"
+        ));
         let after = self.state_ref();
-        self.record(&slice.intent, "context", CompactDelta { no_change: true, ..Default::default() }, vec![], format!("packet {} tokens", slice.final_tokens), targets, before, after, 0.1);
+        self.record(
+            &slice.intent,
+            "context",
+            CompactDelta {
+                no_change: true,
+                ..Default::default()
+            },
+            vec![],
+            format!("packet {} tokens", slice.final_tokens),
+            targets,
+            before,
+            after,
+            0.1,
+        );
         self.say("context", &o);
         Ok(o)
     }
@@ -996,7 +1105,8 @@ impl Session {
             .last_slice
             .as_ref()
             .map(|s| (s.candidate_tokens, s.final_tokens));
-        let o = super::deps::bench_text(&mut self.ws, &self.root, &self.provider, &q, slice_summary);
+        let o =
+            super::deps::bench_text(&mut self.ws, &self.root, &self.provider, &q, slice_summary);
         self.say("bench", &o);
         o
     }

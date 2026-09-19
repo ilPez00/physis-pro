@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use physis_core::embed::RandomProjectionEmbedder;
-use physis_pro::ported::quality::QualityTracker;
 use physis_pro::industrial_benchmark::secom::*;
+use physis_pro::ported::quality::QualityTracker;
 
 #[test]
 fn parse_secom_csv_counts_rows_and_features() {

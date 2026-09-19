@@ -1,6 +1,6 @@
-use crate::semantic_delta::SemanticDelta;
 use crate::dependency::PropagationTrace;
 use crate::repair_regions::RepairRegion;
+use crate::semantic_delta::SemanticDelta;
 use serde::{Deserialize, Serialize};
 
 /// Per-edit metrics collected during the incremental recomputation pipeline.
@@ -48,10 +48,13 @@ impl EditMetrics {
         repair_results: &[crate::orchestration::RepairResult],
         _delta: &SemanticDelta,
     ) -> Self {
-        let regenerated: usize = repair_results.iter().map(|r| {
-            // Rough estimate: length of repaired text
-            r.repaired_text.split_whitespace().count()
-        }).sum();
+        let regenerated: usize = repair_results
+            .iter()
+            .map(|r| {
+                // Rough estimate: length of repaired text
+                r.repaired_text.split_whitespace().count()
+            })
+            .sum();
 
         let stale = affected
             .iter()
@@ -292,26 +295,34 @@ mod tests {
         };
 
         let affected = vec![
-            ("s2".to_string(), 0.75, PropagationTrace {
-                source: "s1".to_string(),
-                target: "s2".to_string(),
-                relation: physis_core::relation::RelationType::DependsOn,
-                incoming_score: 1.0,
-                relation_relevance: 0.8,
-                scope_overlap: 0.6,
-                resulting_score: 0.75,
-                decayed_score: 0.525,
-            }),
-            ("s3".to_string(), 0.45, PropagationTrace {
-                source: "s1".to_string(),
-                target: "s3".to_string(),
-                relation: physis_core::relation::RelationType::Supports,
-                incoming_score: 0.7,
-                relation_relevance: 0.5,
-                scope_overlap: 0.4,
-                resulting_score: 0.45,
-                decayed_score: 0.315,
-            }),
+            (
+                "s2".to_string(),
+                0.75,
+                PropagationTrace {
+                    source: "s1".to_string(),
+                    target: "s2".to_string(),
+                    relation: physis_core::relation::RelationType::DependsOn,
+                    incoming_score: 1.0,
+                    relation_relevance: 0.8,
+                    scope_overlap: 0.6,
+                    resulting_score: 0.75,
+                    decayed_score: 0.525,
+                },
+            ),
+            (
+                "s3".to_string(),
+                0.45,
+                PropagationTrace {
+                    source: "s1".to_string(),
+                    target: "s3".to_string(),
+                    relation: physis_core::relation::RelationType::Supports,
+                    incoming_score: 0.7,
+                    relation_relevance: 0.5,
+                    scope_overlap: 0.4,
+                    resulting_score: 0.45,
+                    decayed_score: 0.315,
+                },
+            ),
         ];
 
         let regions = vec![];
@@ -319,7 +330,7 @@ mod tests {
         let repair_results = vec![];
 
         let metrics = EditMetrics::from_edit(
-            11, // human edit tokens
+            11,   // human edit tokens
             8420, // total document tokens
             &affected,
             &regions,
@@ -354,14 +365,8 @@ mod tests {
         let regions = vec![];
         let repair_results = vec![];
 
-        let metrics = EditMetrics::from_edit(
-            11,
-            8420,
-            &affected,
-            &regions,
-            &repair_results,
-            &delta,
-        );
+        let metrics =
+            EditMetrics::from_edit(11, 8420, &affected, &regions, &repair_results, &delta);
 
         let display = metrics.display();
         assert!(display.contains("tokens"));

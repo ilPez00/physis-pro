@@ -35,7 +35,10 @@ pub async fn extract_slots(
         },
     };
 
-    match cascade.complete(&messages, Some(&[tool]), &hint, Some(256)).await {
+    match cascade
+        .complete(&messages, Some(&[tool]), &hint, Some(256))
+        .await
+    {
         Ok((resp, provider)) => {
             if let Some(calls) = resp.tool_calls {
                 if let Some(call) = calls.first() {

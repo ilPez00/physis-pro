@@ -16,8 +16,6 @@
 
 use physis_pro::nav::{NavIndex, NavWeights, RetrievalScore};
 
-
-
 #[test]
 fn default_weights_have_support_1_38_not_1_0() {
     let w = NavWeights::default();
@@ -27,7 +25,10 @@ fn default_weights_have_support_1_38_not_1_0() {
         "weights changed — update this contract and every threshold copy: {support}"
     );
     // The claim this test exists to make explicit:
-    assert!(support > 1.0, "support must exceed 1.0 to catch probability misreads");
+    assert!(
+        support > 1.0,
+        "support must exceed 1.0 to catch probability misreads"
+    );
 }
 
 #[test]
@@ -58,9 +59,18 @@ fn same_corpus_same_query_is_deterministic_top_k() {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path();
     for (name, body) in [
-        ("a_retrieval.rs", "the retrieval budget selects context windows"),
-        ("b_retrieval.rs", "retrieval budget feeds the context packer"),
-        ("c_unrelated.rs", "cargo build scripts for the firmware image"),
+        (
+            "a_retrieval.rs",
+            "the retrieval budget selects context windows",
+        ),
+        (
+            "b_retrieval.rs",
+            "retrieval budget feeds the context packer",
+        ),
+        (
+            "c_unrelated.rs",
+            "cargo build scripts for the firmware image",
+        ),
     ] {
         std::fs::write(root.join(name), body).unwrap();
     }
@@ -106,7 +116,10 @@ fn same_corpus_same_query_is_deterministic_top_k() {
     };
     let first = run(&idx);
     let second = run(&idx);
-    assert_eq!(first, second, "same query must be byte-identical, got {first:?} vs {second:?}");
+    assert_eq!(
+        first, second,
+        "same query must be byte-identical, got {first:?} vs {second:?}"
+    );
     assert!(!first.is_empty());
     // The lexical core must rank the two on-topic files above the off-topic
     // one regardless of tie-breaks.

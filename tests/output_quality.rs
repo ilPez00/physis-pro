@@ -18,7 +18,6 @@
 //! check — it should only ever build where the model path is available.
 
 #![cfg(feature = "embed-onnx")]
-
 #![allow(dead_code)]
 
 use serde_json::Value;

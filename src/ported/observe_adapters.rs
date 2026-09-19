@@ -31,7 +31,9 @@ pub fn watch_fs(root: &Path, known: &[Observation], max_files: usize) -> Vec<Obs
     let mut stack = vec![root.to_path_buf()];
     let mut seen = 0usize;
     while let Some(dir) = stack.pop() {
-        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for e in rd.flatten() {
             if seen >= max_files {
                 return out;
@@ -51,7 +53,9 @@ pub fn watch_fs(root: &Path, known: &[Observation], max_files: usize) -> Vec<Obs
             if meta.len() > 2_000_000 {
                 continue;
             }
-            let Ok(body) = std::fs::read_to_string(&p) else { continue };
+            let Ok(body) = std::fs::read_to_string(&p) else {
+                continue;
+            };
             seen += 1;
             let hash = format!("{:x}", Sha256::digest(body.as_bytes()));
             let subject = p.to_string_lossy().to_string();
@@ -64,7 +68,11 @@ pub fn watch_fs(root: &Path, known: &[Observation], max_files: usize) -> Vec<Obs
             if unchanged {
                 continue;
             }
-            out.push(Observation::new("fs", subject).with_body(hash).by("watch_fs"));
+            out.push(
+                Observation::new("fs", subject)
+                    .with_body(hash)
+                    .by("watch_fs"),
+            );
         }
     }
     out
@@ -90,8 +98,12 @@ pub fn watch_git(repo: &Path, limit: usize) -> Vec<Observation> {
     let mut rows: Vec<(String, chrono::DateTime<chrono::Utc>, String)> = Vec::new();
     for line in text.lines() {
         let mut f = line.split('\u{1f}');
-        let (Some(h), Some(t), Some(s)) = (f.next(), f.next(), f.next()) else { continue };
-        let Ok(at) = chrono::DateTime::parse_from_rfc3339(t) else { continue };
+        let (Some(h), Some(t), Some(s)) = (f.next(), f.next(), f.next()) else {
+            continue;
+        };
+        let Ok(at) = chrono::DateTime::parse_from_rfc3339(t) else {
+            continue;
+        };
         rows.push((h.to_string(), at.with_timezone(&chrono::Utc), s.to_string()));
     }
     // `git log` is newest-first; the gap to the NEXT row is the previous commit.
@@ -130,7 +142,9 @@ pub fn watch_shell(hist: &Path, known: &[Observation], limit: usize) -> Vec<Obse
     // "nothing changed". Silent emptiness from a source that plainly has
     // content is the worst failure shape available to a watcher, and it is what
     // shipped: the unit test used clean ASCII and never hit it.
-    let Ok(bytes) = std::fs::read(hist) else { return Vec::new() };
+    let Ok(bytes) = std::fs::read(hist) else {
+        return Vec::new();
+    };
     let text = String::from_utf8_lossy(&bytes);
     let seen: std::collections::HashSet<&str> = known
         .iter()
@@ -158,9 +172,15 @@ pub fn watch_shell(hist: &Path, known: &[Observation], limit: usize) -> Vec<Obse
         let line = line.as_str();
         let (at, elapsed, cmd) = match line.strip_prefix(": ") {
             Some(rest) => {
-                let Some((meta, cmd)) = rest.split_once(';') else { continue };
-                let Some((ts, el)) = meta.split_once(':') else { continue };
-                let Ok(ts) = ts.trim().parse::<i64>() else { continue };
+                let Some((meta, cmd)) = rest.split_once(';') else {
+                    continue;
+                };
+                let Some((ts, el)) = meta.split_once(':') else {
+                    continue;
+                };
+                let Ok(ts) = ts.trim().parse::<i64>() else {
+                    continue;
+                };
                 (
                     chrono::DateTime::from_timestamp(ts, 0),
                     el.trim().parse::<u64>().ok(),
@@ -173,7 +193,10 @@ pub fn watch_shell(hist: &Path, known: &[Observation], limit: usize) -> Vec<Obse
         let cmd = cmd.trim();
         // A command line is its own identity here; re-running the watcher must
         // not re-append what is already recorded.
-        if cmd.is_empty() || seen.contains(cmd) || out.iter().any(|o: &Observation| o.subject == cmd) {
+        if cmd.is_empty()
+            || seen.contains(cmd)
+            || out.iter().any(|o: &Observation| o.subject == cmd)
+        {
             continue;
         }
         let mut o = Observation::new("terminal", cmd).by("watch_shell");
@@ -211,7 +234,9 @@ pub fn watch_agent(dir: &Path, known: &[Observation], limit: usize) -> Vec<Obser
     let mut files: Vec<PathBuf> = Vec::new();
     let mut stack = vec![dir.to_path_buf()];
     while let Some(d) = stack.pop() {
-        let Ok(rd) = std::fs::read_dir(&d) else { continue };
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
         for e in rd.flatten() {
             let p = e.path();
             if p.is_dir() {
@@ -222,28 +247,30 @@ pub fn watch_agent(dir: &Path, known: &[Observation], limit: usize) -> Vec<Obser
         }
     }
     // Newest sessions first: the recent ones are the ones worth observing.
-    files.sort_by_key(|p| {
-        std::cmp::Reverse(
-            p.metadata().and_then(|m| m.modified()).ok(),
-        )
-    });
+    files.sort_by_key(|p| std::cmp::Reverse(p.metadata().and_then(|m| m.modified()).ok()));
 
     let mut out = Vec::new();
     for f in files {
-        let Ok(text) = std::fs::read_to_string(&f) else { continue };
+        let Ok(text) = std::fs::read_to_string(&f) else {
+            continue;
+        };
         for line in text.lines() {
             if out.len() >= limit {
                 out.reverse();
                 return out;
             }
-            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
             let (Some(ts), Some(sid)) = (
                 v.get("timestamp").and_then(|x| x.as_str()),
                 v.get("sessionId").and_then(|x| x.as_str()),
             ) else {
                 continue;
             };
-            let Ok(at) = chrono::DateTime::parse_from_rfc3339(ts) else { continue };
+            let Ok(at) = chrono::DateTime::parse_from_rfc3339(ts) else {
+                continue;
+            };
             // Subject is session+timestamp: stable, and unique per turn.
             let subject = format!("{}@{}", &sid[..8.min(sid.len())], ts);
             if seen.contains(subject.as_str()) {
@@ -280,8 +307,14 @@ pub fn watch_agent(dir: &Path, known: &[Observation], limit: usize) -> Vec<Obser
 /// nothing. Short-lived processes are noise; a build that has been running for
 /// four minutes is a fact about what the machine is doing.
 pub fn watch_proc(known: &[Observation], min_age_s: u64, limit: usize) -> Vec<Observation> {
-    let Ok(uptime) = std::fs::read_to_string("/proc/uptime") else { return Vec::new() };
-    let Some(up) = uptime.split_whitespace().next().and_then(|x| x.parse::<f64>().ok()) else {
+    let Ok(uptime) = std::fs::read_to_string("/proc/uptime") else {
+        return Vec::new();
+    };
+    let Some(up) = uptime
+        .split_whitespace()
+        .next()
+        .and_then(|x| x.parse::<f64>().ok())
+    else {
         return Vec::new();
     };
     let now = chrono::Utc::now();
@@ -297,23 +330,30 @@ pub fn watch_proc(known: &[Observation], min_age_s: u64, limit: usize) -> Vec<Ob
         .map(|o| o.subject.as_str())
         .collect();
 
-    let Ok(rd) = std::fs::read_dir("/proc") else { return Vec::new() };
+    let Ok(rd) = std::fs::read_dir("/proc") else {
+        return Vec::new();
+    };
     let mut out = Vec::new();
     for e in rd.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
-        let Ok(pid) = name.parse::<u32>() else { continue };
-        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else { continue };
+        let Ok(pid) = name.parse::<u32>() else {
+            continue;
+        };
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+            continue;
+        };
         // comm is parenthesised and may itself contain spaces, so split after
         // the closing paren rather than on whitespace from the start.
-        let Some(close) = stat.rfind(')') else { continue };
+        let Some(close) = stat.rfind(')') else {
+            continue;
+        };
         let comm = stat[stat.find('(').map(|i| i + 1).unwrap_or(0)..close].to_string();
         let fields: Vec<&str> = stat[close + 1..].split_whitespace().collect();
         let Some(start_ticks) = fields.get(19).and_then(|x| x.parse::<f64>().ok()) else {
             continue;
         };
-        let started = boot + chrono::Duration::milliseconds(
-            (start_ticks / TICKS_PER_SEC * 1000.0) as i64,
-        );
+        let started =
+            boot + chrono::Duration::milliseconds((start_ticks / TICKS_PER_SEC * 1000.0) as i64);
         let age_ms = (now - started).num_milliseconds().max(0) as u64;
         if age_ms < min_age_s * 1000 {
             continue;
@@ -391,9 +431,15 @@ pub fn watch_browser(db: &Path, known: &[Observation], limit: usize) -> Vec<Obse
         if url.is_empty() || seen.contains(url) {
             continue;
         }
-        let Ok(ts) = ts.trim().parse::<i64>() else { continue };
-        let Some(at) = chrono::DateTime::from_timestamp(ts, 0) else { continue };
-        let mut o = Observation::new("browser", url).with_body(title).by("watch_browser");
+        let Ok(ts) = ts.trim().parse::<i64>() else {
+            continue;
+        };
+        let Some(at) = chrono::DateTime::from_timestamp(ts, 0) else {
+            continue;
+        };
+        let mut o = Observation::new("browser", url)
+            .with_body(title)
+            .by("watch_browser");
         o.at = at;
         obs.push(o);
     }
@@ -406,7 +452,10 @@ mod tests {
     use super::*;
 
     fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("physis-pro-obs-adapters-{name}-{}", std::process::id()));
+        let d = std::env::temp_dir().join(format!(
+            "physis-pro-obs-adapters-{name}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
@@ -422,7 +471,10 @@ mod tests {
         let first = watch_fs(&d, &[], 100);
         assert_eq!(first.len(), 1);
         let second = watch_fs(&d, &first, 100);
-        assert!(second.is_empty(), "unchanged tree must produce no observations");
+        assert!(
+            second.is_empty(),
+            "unchanged tree must produce no observations"
+        );
 
         std::fs::write(d.join("a.txt"), "changed").unwrap();
         let third = watch_fs(&d, &first, 100);
@@ -467,9 +519,20 @@ mod tests {
         )
         .unwrap();
         let obs = watch_shell(&h, &[], 10);
-        assert_eq!(obs.len(), 2, "one joined command plus ls, not four fragments");
-        let built = obs.iter().find(|o| o.subject.starts_with("cargo build")).unwrap();
-        assert!(built.subject.contains("--release"), "got {:?}", built.subject);
+        assert_eq!(
+            obs.len(),
+            2,
+            "one joined command plus ls, not four fragments"
+        );
+        let built = obs
+            .iter()
+            .find(|o| o.subject.starts_with("cargo build"))
+            .unwrap();
+        assert!(
+            built.subject.contains("--release"),
+            "got {:?}",
+            built.subject
+        );
         assert!(built.subject.contains("--features cli"));
         assert_eq!(built.duration_ms, Some(2_000));
     }
@@ -487,10 +550,17 @@ mod tests {
         f.write_all(&[0xE9, 0x83]).unwrap(); // metafied bytes, invalid UTF-8
         f.write_all(b"\n: 1700000100:0;ls\n").unwrap();
         drop(f);
-        assert!(std::fs::read_to_string(&h).is_err(), "the fixture must be invalid UTF-8");
+        assert!(
+            std::fs::read_to_string(&h).is_err(),
+            "the fixture must be invalid UTF-8"
+        );
 
         let obs = watch_shell(&h, &[], 10);
-        assert_eq!(obs.len(), 2, "both commands must be read despite the bad bytes");
+        assert_eq!(
+            obs.len(),
+            2,
+            "both commands must be read despite the bad bytes"
+        );
         assert!(obs.iter().any(|o| o.subject == "ls"));
     }
 
@@ -506,7 +576,10 @@ mod tests {
         assert_eq!(obs.len(), 2, "two good turns, one partial line skipped");
         assert!(obs.iter().all(|o| o.source == "agent"));
         assert!(obs[0].body.contains("[user]") || obs[1].body.contains("[user]"));
-        assert!(watch_agent(&d, &obs, 10).is_empty(), "must dedupe on re-run");
+        assert!(
+            watch_agent(&d, &obs, 10).is_empty(),
+            "must dedupe on re-run"
+        );
     }
 
     /// Short-lived processes are noise; a build running for minutes is a fact.
@@ -523,7 +596,11 @@ mod tests {
         for o in &short {
             assert_eq!(o.source, "process");
             assert!(o.duration_ms.is_some(), "a process age is a real interval");
-            assert!(o.subject.contains('#'), "pid must be in the identity: {}", o.subject);
+            assert!(
+                o.subject.contains('#'),
+                "pid must be in the identity: {}",
+                o.subject
+            );
         }
     }
 
@@ -533,10 +610,16 @@ mod tests {
     fn process_identity_includes_start_time() {
         let obs = watch_proc(&[], 0, 5);
         if let Some(o) = obs.first() {
-            assert!(o.subject.contains('@'), "identity needs a start stamp: {}", o.subject);
+            assert!(
+                o.subject.contains('@'),
+                "identity needs a start stamp: {}",
+                o.subject
+            );
             // Re-running with these known must produce nothing for them.
             let again = watch_proc(&obs, 0, 5);
-            assert!(again.iter().all(|n| !obs.iter().any(|k| k.subject == n.subject)));
+            assert!(again
+                .iter()
+                .all(|n| !obs.iter().any(|k| k.subject == n.subject)));
         }
     }
 

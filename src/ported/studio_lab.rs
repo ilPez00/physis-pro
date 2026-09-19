@@ -14,8 +14,8 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 
-use physis_core::models::CoherenceNode;
 use crate::ported::studio::StudioState;
+use physis_core::models::CoherenceNode;
 
 type Shared = Arc<RwLock<StudioState>>;
 
@@ -532,7 +532,8 @@ async fn coherence_check(
             if ev.embedding.is_empty() {
                 continue;
             }
-            worst_claim_sim = worst_claim_sim.max(physis_core::models::cosine_sim(&q, &ev.embedding));
+            worst_claim_sim =
+                worst_claim_sim.max(physis_core::models::cosine_sim(&q, &ev.embedding));
         }
     }
     // Trained models keep unrelated sentences in a high similarity band
@@ -609,9 +610,15 @@ async fn coherence_check(
     };
 
     let profile = physis_core::coherence_dimensions::CoherenceProfile {
-        semantic: physis_core::coherence_dimensions::CoherenceDimension::new("semantic", semantic, 1.0),
-        logical: physis_core::coherence_dimensions::CoherenceDimension::new("logical", logical, 1.2),
-        temporal: physis_core::coherence_dimensions::CoherenceDimension::new("temporal", temporal, 0.8),
+        semantic: physis_core::coherence_dimensions::CoherenceDimension::new(
+            "semantic", semantic, 1.0,
+        ),
+        logical: physis_core::coherence_dimensions::CoherenceDimension::new(
+            "logical", logical, 1.2,
+        ),
+        temporal: physis_core::coherence_dimensions::CoherenceDimension::new(
+            "temporal", temporal, 0.8,
+        ),
         causal: physis_core::coherence_dimensions::CoherenceDimension::neutral("causal"),
         procedural: physis_core::coherence_dimensions::CoherenceDimension::new(
             "procedural",

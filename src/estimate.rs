@@ -1,9 +1,9 @@
-use crate::scanner::scan_project;
-use crate::pack::{pack_cached, EmbedCache};
 use crate::embed::RandomProjectionEmbedder;
+use crate::pack::{pack_cached, EmbedCache};
+use crate::scanner::scan_project;
+use anyhow::Result;
 use std::path::Path;
 use std::time::Instant;
-use anyhow::Result;
 
 /// Result returned by the estimate command.
 #[derive(Debug, Clone)]

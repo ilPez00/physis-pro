@@ -1040,7 +1040,12 @@ mod mcp_impl {
                         .filter_map(|n| {
                             let label = n.label.as_deref()?;
                             (!label.trim().is_empty()).then(|| {
-                                (label.to_string(), n.id.clone(), n.embedding.clone(), n.asserted)
+                                (
+                                    label.to_string(),
+                                    n.id.clone(),
+                                    n.embedding.clone(),
+                                    n.asserted,
+                                )
                             })
                         })
                         .chain(ctx.goals.iter().filter_map(|g| {
@@ -1212,13 +1217,10 @@ mod mcp_impl {
                             "summaries": [],
                         }))?]));
                     }
-                    let (facts, edges) =
-                        crate::corpus::gather_facts(&ctx.core, &ctx.ledger);
+                    let (facts, edges) = crate::corpus::gather_facts(&ctx.core, &ctx.ledger);
                     let summaries = crate::corpus::build_summaries(&facts, &edges);
-                    let visible: Vec<&crate::corpus::CommunitySummary> = summaries
-                        .iter()
-                        .filter(|s| s.size >= min_size)
-                        .collect();
+                    let visible: Vec<&crate::corpus::CommunitySummary> =
+                        summaries.iter().filter(|s| s.size >= min_size).collect();
                     Ok(CallToolResult::success(vec![json_content(&json!({
                         "communities": summaries.len(),
                         "nodes": facts.len(),

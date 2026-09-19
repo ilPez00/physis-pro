@@ -16,11 +16,7 @@ use tower::ServiceExt;
 
 static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-async fn app() -> (
-    axum::Router,
-    tempfile::TempDir,
-    MutexGuard<'static, ()>,
-) {
+async fn app() -> (axum::Router, tempfile::TempDir, MutexGuard<'static, ()>) {
     let env = ENV_LOCK.lock().await;
     let dir = tempfile::tempdir().expect("temp data dir");
     std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
@@ -44,7 +40,10 @@ async fn send(router: &axum::Router, mut req: Request<Body>) -> (StatusCode, Val
     let resp = router.clone().oneshot(req).await.expect("router responds");
     let status = resp.status();
     let bytes = resp.into_body().collect().await.expect("body").to_bytes();
-    (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
 }
 
 fn post(path: &str, user: &str, body: Value) -> Request<Body> {
@@ -81,9 +80,21 @@ async fn full_vocab_accepts_and_unknown_rejects() {
     let a = register(&router, "t", "w1 vocab source node").await;
     let b = register(&router, "t", "w1 vocab target node").await;
     for rel in [
-        "Supports", "Contradicts", "Causes", "Influences", "Precedes", "Follows",
-        "DependsOn", "Requires", "Produces", "Measures", "Observes", "Explains",
-        "Predicts", "Invalidates", "DerivedFrom",
+        "Supports",
+        "Contradicts",
+        "Causes",
+        "Influences",
+        "Precedes",
+        "Follows",
+        "DependsOn",
+        "Requires",
+        "Produces",
+        "Measures",
+        "Observes",
+        "Explains",
+        "Predicts",
+        "Invalidates",
+        "DerivedFrom",
     ] {
         let (status, body) = send(
             &router,
@@ -165,7 +176,10 @@ async fn delete_cascades_edges_and_atlas_carries_edge_ids() {
     .await;
     let edges = body["edges"].as_array().expect("edges");
     let typed = edges.iter().find(|e| e["id"] == eid);
-    assert!(typed.is_some(), "typed edge id survives into atlas: {edges:?}");
+    assert!(
+        typed.is_some(),
+        "typed edge id survives into atlas: {edges:?}"
+    );
     assert_eq!(typed.unwrap()["relation"], "Causes");
 
     // Deleting the source drops the edge from the projection.

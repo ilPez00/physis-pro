@@ -525,7 +525,10 @@ pub fn demo_ledger(embedder: &dyn VectorEmbed) -> PhysisCore {
 /// nothing else in the ledger is a contradiction of anything.
 pub fn twin_pairs_corpus(
     embedder: &dyn VectorEmbed,
-) -> (physis_core::claim_identity::ScoredClaims, physis_core::claim_identity::TruthPairs) {
+) -> (
+    physis_core::claim_identity::ScoredClaims,
+    physis_core::claim_identity::TruthPairs,
+) {
     let (_, mut index) = build_ledger(embedder, true);
     // The agreeing restatements go in as negatives. Without them the eight
     // contradiction pairs are also the eight most similar pairs and any
@@ -729,11 +732,17 @@ impl RecallRun {
         o.push_str(
             "\n── HYBRID: alpha * cosine + (1-alpha) * BM25 ──\nalpha 1.00 is cosine only (the control) · polarity null 0.500\n\n",
         );
-        o.push_str("  policy         recall(para)  recall(lex)  polarity(lex)  polarity(para)  combined\n");
+        o.push_str(
+            "  policy         recall(para)  recall(lex)  polarity(lex)  polarity(para)  combined\n",
+        );
         let best = self
             .hybrid
             .iter()
-            .max_by(|a, b| a.combined.partial_cmp(&b.combined).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.combined
+                    .partial_cmp(&b.combined)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|h| h.policy.clone())
             .unwrap_or_default();
         for h in &self.hybrid {
@@ -745,7 +754,11 @@ impl RecallRun {
                 h.polarity_lexical,
                 h.polarity_paraphrase,
                 h.combined,
-                if h.policy == best { "  <-- best combined" } else { "" }
+                if h.policy == best {
+                    "  <-- best combined"
+                } else {
+                    ""
+                }
             ));
         }
         o.push_str("\n  misses, most instructive first:\n");
@@ -774,12 +787,18 @@ impl RecallRun {
 /// recall numbers already recorded stay comparable — the polarity arm asks a
 /// different question on a different ledger, and mixing the two would change
 /// both.
-fn build_ledger(embedder: &dyn VectorEmbed, with_twins: bool) -> (PhysisCore, Vec<(String, String)>) {
+fn build_ledger(
+    embedder: &dyn VectorEmbed,
+    with_twins: bool,
+) -> (PhysisCore, Vec<(String, String)>) {
     let mut core = PhysisCore::new();
     // (id, statement) in insertion order, for the nulls to draw from.
     let mut index: Vec<(String, String)> = Vec::new();
 
-    let insert = |core: &mut PhysisCore, index: &mut Vec<(String, String)>, text: &str, contradicted: bool| {
+    let insert = |core: &mut PhysisCore,
+                  index: &mut Vec<(String, String)>,
+                  text: &str,
+                  contradicted: bool| {
         let mut h = Hypothesis::new(text, embedder.embed(text));
         if contradicted {
             h.add_contradicting_evidence(Evidence::contradicts("benchmark", "measured to fail"));
@@ -871,7 +890,10 @@ pub fn run_arm(
             target: p.claim.to_string(),
             rank: within.map(|i| i + 1),
             target_relevance,
-            top_statement: full.first().map(|b| b.statement.clone()).unwrap_or_default(),
+            top_statement: full
+                .first()
+                .map(|b| b.statement.clone())
+                .unwrap_or_default(),
         });
     }
 
@@ -1071,7 +1093,8 @@ pub fn run_selection(
     let mut reassured = 0usize;
     let mut target_in_top = 0usize;
     for (i, p) in PAIRS.iter().enumerate() {
-        let shown = crate::ported::act::bearing_on_with(core, arm.command(p), embedder, top, selection);
+        let shown =
+            crate::ported::act::bearing_on_with(core, arm.command(p), embedder, top, selection);
         let t = shown.iter().any(|b| b.statement == p.claim);
         let w = shown.iter().any(|b| b.statement == AFFIRMED_TWINS[i]);
         if t {
@@ -1167,7 +1190,10 @@ pub fn run_hybrid_sweep(
     embedder: &dyn VectorEmbed,
 ) -> Vec<HybridPoint> {
     let mut out = Vec::new();
-    let recall_at = |core: &PhysisCore, index: &[(String, String)], arm: Arm, sel: crate::ported::act::Selection| {
+    let recall_at = |core: &PhysisCore,
+                     index: &[(String, String)],
+                     arm: Arm,
+                     sel: crate::ported::act::Selection| {
         let hits = PAIRS
             .iter()
             .filter(|p| {
@@ -1184,8 +1210,13 @@ pub fn run_hybrid_sweep(
             .iter()
             .enumerate()
             .filter(|(i, p)| {
-                let full =
-                    crate::ported::act::bearing_on_with(twin, arm.command(p), embedder, twin_index.len(), sel);
+                let full = crate::ported::act::bearing_on_with(
+                    twin,
+                    arm.command(p),
+                    embedder,
+                    twin_index.len(),
+                    sel,
+                );
                 let tr = full.iter().position(|b| b.statement == p.claim);
                 let wr = full.iter().position(|b| b.statement == AFFIRMED_TWINS[*i]);
                 match (tr, wr) {
@@ -1200,13 +1231,21 @@ pub fn run_hybrid_sweep(
 
     let mut policies: Vec<(String, crate::ported::act::Selection)> = ALPHAS
         .iter()
-        .map(|a| (format!("hybrid@{a:.2}"), crate::ported::act::Selection::Hybrid { alpha: *a }))
+        .map(|a| {
+            (
+                format!("hybrid@{a:.2}"),
+                crate::ported::act::Selection::Hybrid { alpha: *a },
+            )
+        })
         .collect();
     // The crate's own hybrid, which has existed in rag.rs since G5 and which
     // the ledger has never called. Included so the sweep says whether the
     // weight is worth having at all, or whether the shipped rank fusion
     // already gets there.
-    policies.push(("rrf@60".to_string(), crate::ported::act::Selection::HybridRrf { k: 60.0 }));
+    policies.push((
+        "rrf@60".to_string(),
+        crate::ported::act::Selection::HybridRrf { k: 60.0 },
+    ));
     // The cascade: cosine retrieves the pool, BM25 ranks it. Pools swept
     // because the pool size is the knob that trades the two stages, the way
     // alpha was supposed to and did not.
@@ -1257,7 +1296,14 @@ pub fn run(top: usize, embedder: &dyn VectorEmbed, embedder_kind: &str, seed: u6
     // the cut the CLI defaults to.
     let mut selection = Vec::new();
     for t in [1usize, top] {
-        let base = run_selection(&tcore, Arm::Lexical, t, embedder, crate::ported::act::Selection::Relevance, None);
+        let base = run_selection(
+            &tcore,
+            Arm::Lexical,
+            t,
+            embedder,
+            crate::ported::act::Selection::Relevance,
+            None,
+        );
         let baseline = base.reassured;
         selection.push(base);
         for f in FLOORS {
@@ -1328,8 +1374,16 @@ mod tests {
     fn the_ledger_is_the_shape_the_nulls_assume() {
         let e = RandomProjectionEmbedder::new(128);
         let (core, index) = build_ledger(&e, false);
-        assert_eq!(index.len(), LEDGER_SIZE, "ledger size is quoted in the results");
-        assert_eq!(core.hypotheses.len(), LEDGER_SIZE, "no statement collided into one id");
+        assert_eq!(
+            index.len(),
+            LEDGER_SIZE,
+            "ledger size is quoted in the results"
+        );
+        assert_eq!(
+            core.hypotheses.len(),
+            LEDGER_SIZE,
+            "no statement collided into one id"
+        );
         let contradicted = core
             .hypotheses
             .values()
@@ -1359,7 +1413,14 @@ mod tests {
         let e = RandomProjectionEmbedder::new(128);
         let (core, _) = build_ledger(&e, true);
         for arm in [Arm::Lexical, Arm::Paraphrase] {
-            let base = run_selection(&core, arm, 5, &e, crate::ported::act::Selection::Relevance, None);
+            let base = run_selection(
+                &core,
+                arm,
+                5,
+                &e,
+                crate::ported::act::Selection::Relevance,
+                None,
+            );
             let ceiling = run_selection(
                 &core,
                 arm,
@@ -1490,7 +1551,8 @@ mod tests {
             }
         }
         let (core, index) = build_ledger(&Blind, true);
-        let shown = crate::ported::act::bearing_on(&core, "cargo build --release", &Blind, index.len());
+        let shown =
+            crate::ported::act::bearing_on(&core, "cargo build --release", &Blind, index.len());
         let first = shown[0].relevance;
         assert!(
             shown.iter().all(|b| (b.relevance - first).abs() < 1e-6),
@@ -1498,7 +1560,8 @@ mod tests {
         );
         // And the order it produces must at least be the same twice, or no
         // number measured on it means anything.
-        let again = crate::ported::act::bearing_on(&core, "cargo build --release", &Blind, index.len());
+        let again =
+            crate::ported::act::bearing_on(&core, "cargo build --release", &Blind, index.len());
         assert_eq!(
             shown.iter().map(|b| &b.statement).collect::<Vec<_>>(),
             again.iter().map(|b| &b.statement).collect::<Vec<_>>(),
@@ -1549,7 +1612,11 @@ mod tests {
                 .split(|c: char| !c.is_ascii_alphanumeric())
                 .filter(|w| w.len() > 2)
                 .any(|w| claim.contains(w));
-            assert!(shared, "lexical arm shares nothing with its claim: {}", p.lexical);
+            assert!(
+                shared,
+                "lexical arm shares nothing with its claim: {}",
+                p.lexical
+            );
         }
     }
 
@@ -1598,7 +1665,11 @@ mod tests {
         }
         let r = run(5, &Blind, "blind", 7);
         for a in &r.arms {
-            assert_ne!(a.verdict, "HOLDS", "a blind ranker scored HOLDS on {}", a.arm);
+            assert_ne!(
+                a.verdict, "HOLDS",
+                "a blind ranker scored HOLDS on {}",
+                a.arm
+            );
         }
     }
 
@@ -1622,7 +1693,11 @@ mod tests {
         let e = RandomProjectionEmbedder::new(128);
         let r = run(5, &e, "random-projection", 7);
         for a in &r.arms {
-            assert_eq!(a.hits, a.warned, "{}: hit and warning counts must agree", a.arm);
+            assert_eq!(
+                a.hits, a.warned,
+                "{}: hit and warning counts must agree",
+                a.arm
+            );
         }
     }
 }

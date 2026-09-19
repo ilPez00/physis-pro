@@ -148,7 +148,9 @@ fn main() {
 
     let now = *times.last().unwrap_or(&Utc::now());
     let (mut correct, mut scored_n) = (0usize, 0usize);
-    println!("  term          n   distinct   trajectory   runs z   | rhythm: period  conf   slipping");
+    println!(
+        "  term          n   distinct   trajectory   runs z   | rhythm: period  conf   slipping"
+    );
     for (label, terms) in cases {
         println!("\n  --- {label} ---");
         for t in terms {
@@ -161,7 +163,10 @@ fn main() {
             let tev: Vec<TimedEvent> = labels
                 .iter()
                 .zip(&when)
-                .map(|(l, w)| TimedEvent { label: l.clone(), at: *w })
+                .map(|(l, w)| TimedEvent {
+                    label: l.clone(),
+                    at: *w,
+                })
                 .collect();
             let rhythms = detect_rhythms(&tev);
             let slip = slipping(&rhythms, now, 0.5).len();
@@ -194,8 +199,10 @@ fn main() {
                 distinct,
                 v.trajectory,
                 v.runs_z,
-                lead.map(|r| format!("{:.1}d", r.period_days)).unwrap_or_else(|| "-".into()),
-                lead.map(|r| format!("{:.2}", r.confidence)).unwrap_or_else(|| "-".into()),
+                lead.map(|r| format!("{:.1}d", r.period_days))
+                    .unwrap_or_else(|| "-".into()),
+                lead.map(|r| format!("{:.2}", r.confidence))
+                    .unwrap_or_else(|| "-".into()),
                 slip,
                 rhythms.len(),
                 if v.trajectory == Trajectory::TooFew {

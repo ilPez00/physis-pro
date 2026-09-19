@@ -15,10 +15,10 @@ use std::path::PathBuf;
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 use serde::{Deserialize, Serialize};
 
-use physis_core::classify::{CellClassifier, CellScore, EntrySeed};
-use physis_core::ontology::OntologyLoader;
 use crate::embed::{RandomProjectionEmbedder, VectorEmbed};
 use crate::quality::QualityTracker;
+use physis_core::classify::{CellClassifier, CellScore, EntrySeed};
+use physis_core::ontology::OntologyLoader;
 
 // ── Types ──────────────────────────────────────────────────────────
 

@@ -243,12 +243,60 @@ const CUES: &[(&str, Intent, i32)] = &[
 /// how a term extractor turns `why did the build break` into `build break`
 /// and then into nothing.
 const STOP: &[&str] = &[
-    "a", "an", "the", "is", "are", "was", "were", "do", "does", "did", "i",
-    "me", "my", "we", "you", "it", "this", "that", "these", "those", "of",
-    "to", "in", "on", "at", "for", "with", "and", "or", "but", "what",
-    "which", "who", "whom", "how", "show", "tell", "give", "please", "all",
-    "any", "about", "from", "between", "since", "then", "now", "here",
-    "there", "thing", "things", "stuff", "everything", "something",
+    "a",
+    "an",
+    "the",
+    "is",
+    "are",
+    "was",
+    "were",
+    "do",
+    "does",
+    "did",
+    "i",
+    "me",
+    "my",
+    "we",
+    "you",
+    "it",
+    "this",
+    "that",
+    "these",
+    "those",
+    "of",
+    "to",
+    "in",
+    "on",
+    "at",
+    "for",
+    "with",
+    "and",
+    "or",
+    "but",
+    "what",
+    "which",
+    "who",
+    "whom",
+    "how",
+    "show",
+    "tell",
+    "give",
+    "please",
+    "all",
+    "any",
+    "about",
+    "from",
+    "between",
+    "since",
+    "then",
+    "now",
+    "here",
+    "there",
+    "thing",
+    "things",
+    "stuff",
+    "everything",
+    "something",
 ];
 
 /// Parse one question into a proposal. Never runs anything.
@@ -264,7 +312,11 @@ pub fn parse(question: &str) -> Proposal {
 
     for &(phrase, cue_intent, weight) in CUES {
         if q.contains(phrase) {
-            evidence.push(Cue { phrase: phrase.to_string(), intent: cue_intent, weight });
+            evidence.push(Cue {
+                phrase: phrase.to_string(),
+                intent: cue_intent,
+                weight,
+            });
             if let Some(slot) = scores.iter_mut().find(|(i, _)| *i == cue_intent) {
                 slot.1 += weight;
             }
@@ -287,14 +339,23 @@ pub fn parse(question: &str) -> Proposal {
     // `"locate.rs versus retrieve.rs"` to `Locate` over `Compare` at 3–3, so
     // the fold below keeps the first instead.
     let first_max = |xs: &[(Intent, i32)]| -> (Intent, i32) {
-        xs.iter().copied().fold((Intent::Retrieve, -1), |best, cur| {
-            if cur.1 > best.1 { cur } else { best }
-        })
+        xs.iter()
+            .copied()
+            .fold((Intent::Retrieve, -1), |best, cur| {
+                if cur.1 > best.1 {
+                    cur
+                } else {
+                    best
+                }
+            })
     };
     let (intent, score) = first_max(&scores);
 
-    let others: Vec<(Intent, i32)> =
-        scores.iter().copied().filter(|(i, _)| *i != intent).collect();
+    let others: Vec<(Intent, i32)> = scores
+        .iter()
+        .copied()
+        .filter(|(i, _)| *i != intent)
+        .collect();
     let runner_up = Some(first_max(&others)).filter(|(_, s)| *s > 0);
 
     let fallback = score == 0;
@@ -302,9 +363,9 @@ pub fn parse(question: &str) -> Proposal {
 
     let term = match intent {
         Intent::Inspect => String::new(),
-        Intent::Trace | Intent::Why => {
-            extract_position(&q).map(|p| p.to_string()).unwrap_or_else(|| extract_term(&q))
-        }
+        Intent::Trace | Intent::Why => extract_position(&q)
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| extract_term(&q)),
         _ => extract_term(&q),
     };
 
@@ -427,9 +488,15 @@ mod tests {
         ("what goes with provenance.rs", Intent::Neighbors),
         // Compare
         ("compare observe.rs and act.rs", Intent::Compare),
-        ("difference between physis-core and physis-pro", Intent::Compare),
+        (
+            "difference between physis-core and physis-pro",
+            Intent::Compare,
+        ),
         ("locate.rs versus retrieve.rs", Intent::Compare),
-        ("how does direction.rs differ from transform.rs", Intent::Compare),
+        (
+            "how does direction.rs differ from transform.rs",
+            Intent::Compare,
+        ),
         // Trace
         ("trace position 41", Intent::Trace),
         ("show the chain behind 128", Intent::Trace),
@@ -447,12 +514,21 @@ mod tests {
         ("inspect the log", Intent::Inspect),
         ("what does this world contain", Intent::Inspect),
         // Retrieve  (B: "Find the sources supporting this proposition.")
-        ("find the sources supporting the null control", Intent::Retrieve),
+        (
+            "find the sources supporting the null control",
+            Intent::Retrieve,
+        ),
         ("search for the ed25519 gate", Intent::Retrieve),
         ("look up the benchmark results", Intent::Retrieve),
-        ("show me everything about the semiotic grid", Intent::Retrieve),
+        (
+            "show me everything about the semiotic grid",
+            Intent::Retrieve,
+        ),
         ("anything about token fixed rag", Intent::Retrieve),
-        ("find the version where i solved the filing problem", Intent::Retrieve),
+        (
+            "find the version where i solved the filing problem",
+            Intent::Retrieve,
+        ),
         ("cargo test failures", Intent::Retrieve),
     ];
 
@@ -487,15 +563,24 @@ mod tests {
     /// self-consistency check, not a result.
     const HELD_OUT: &[(&str, Intent)] = &[
         ("point me at the ontology file", Intent::Locate),
-        ("in which observation does Cargo.toml appear", Intent::Locate),
-        ("what did the log look like before i touched act.rs", Intent::History),
+        (
+            "in which observation does Cargo.toml appear",
+            Intent::Locate,
+        ),
+        (
+            "what did the log look like before i touched act.rs",
+            Intent::History,
+        ),
         ("walk me through act.rs from the beginning", Intent::History),
         ("which files stopped being the same", Intent::Changed),
         ("anything not stable in physis-core", Intent::Changed),
         ("what clusters with embed.rs", Intent::Neighbors),
         ("what else looks like hypothesis.rs", Intent::Neighbors),
         ("put observe.rs and act.rs side by side", Intent::Compare),
-        ("is direction.rs anything like transform.rs", Intent::Compare),
+        (
+            "is direction.rs anything like transform.rs",
+            Intent::Compare,
+        ),
         ("unpack observation 41 for me", Intent::Trace),
         ("what produced 128", Intent::Trace),
         ("on what grounds is 77 in the log", Intent::Why),
@@ -533,7 +618,10 @@ mod tests {
     #[test]
     fn held_out_is_the_number_that_can_move() {
         let maj = majority();
-        let hit = HELD_OUT.iter().filter(|(q, g)| parse(q).intent == *g).count();
+        let hit = HELD_OUT
+            .iter()
+            .filter(|(q, g)| parse(q).intent == *g)
+            .count();
         let null_hit = HELD_OUT
             .iter()
             .filter(|(q, g)| null_majority(q, maj).intent == *g)
@@ -547,15 +635,24 @@ mod tests {
         for (q, g) in HELD_OUT {
             let p = parse(q);
             if p.intent != *g {
-                eprintln!("  HELD-OUT MISS {:?} != {:?}  «{q}»  score {}", p.intent, g, p.score);
+                eprintln!(
+                    "  HELD-OUT MISS {:?} != {:?}  «{q}»  score {}",
+                    p.intent, g, p.score
+                );
             }
         }
         // The recorded refutation, asserted in both directions so that it
         // cannot drift unnoticed: 1/16 for the parser, 2/16 for a null that
         // ignores the words. If either moves, the module docs are wrong and
         // this test says so before anyone quotes them.
-        assert_eq!(hit, 1, "held-out accuracy moved; update the table in the module docs");
-        assert_eq!(null_hit, 2, "the null moved; the held-out set or `majority()` changed");
+        assert_eq!(
+            hit, 1,
+            "held-out accuracy moved; update the table in the module docs"
+        );
+        assert_eq!(
+            null_hit, 2,
+            "the null moved; the held-out set or `majority()` changed"
+        );
         assert!(
             hit < null_hit,
             "the cue parser is recorded as LOSING to the null here — if it now wins, \
@@ -566,7 +663,10 @@ mod tests {
             .filter(|(q, g)| parse(q).intent != *g)
             .map(|(q, _)| *q)
             .collect();
-        assert_eq!(declared, HELD_OUT_MISSES, "the declared failure list is out of date");
+        assert_eq!(
+            declared, HELD_OUT_MISSES,
+            "the declared failure list is out of date"
+        );
     }
 
     #[test]
@@ -596,15 +696,25 @@ mod tests {
         // it is asserted exactly, as a tripwire on the docs rather than as
         // evidence of anything. `held_out_is_the_number_that_can_move` is the
         // test that carries the real claim.
-        assert_eq!(hit, SET.len(), "self-consistency set moved; the docs quote 1.000");
-        assert!(acc > null_acc, "even the self-consistent set must beat its null");
+        assert_eq!(
+            hit,
+            SET.len(),
+            "self-consistency set moved; the docs quote 1.000"
+        );
+        assert!(
+            acc > null_acc,
+            "even the self-consistent set must beat its null"
+        );
     }
 
     #[test]
     fn nothing_is_executed_and_fallback_is_visible() {
         let p = parse("qwertyuiop");
         assert_eq!(p.intent, Intent::Retrieve);
-        assert!(p.fallback, "an unparseable question must be flagged, not silently searched");
+        assert!(
+            p.fallback,
+            "an unparseable question must be flagged, not silently searched"
+        );
         assert_eq!(p.score, 0);
     }
 
@@ -643,13 +753,19 @@ mod tests {
     fn command_is_runnable_text_not_an_intention() {
         let p = parse("what changed since yesterday");
         assert!(p.command().starts_with("physis-world changed"));
-        assert_eq!(parse("what is in this world").command(), "physis-world inspect");
+        assert_eq!(
+            parse("what is in this world").command(),
+            "physis-world inspect"
+        );
     }
 
     #[test]
     fn failing_cases_are_declared() {
         for f in FAILING.iter().filter(|f| !f.is_empty()) {
-            assert!(SET.iter().any(|(q, _)| q == f), "declared failure «{f}» is not in the set");
+            assert!(
+                SET.iter().any(|(q, _)| q == f),
+                "declared failure «{f}» is not in the set"
+            );
         }
     }
 }

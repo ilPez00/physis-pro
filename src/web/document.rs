@@ -18,7 +18,7 @@ use crate::adaptive_document::proposal::{
 };
 use crate::adaptive_document::store::{Patches, Store};
 use crate::adaptive_document::{
-    ApplyError, Block, Change, Document, Link, LinkBehavior, LinkProvenance, parse_blocks,
+    parse_blocks, ApplyError, Block, Change, Document, Link, LinkBehavior, LinkProvenance,
 };
 
 /// Default document id. The page opens on this without asking for one; an
@@ -453,15 +453,9 @@ mod tests {
         doc.links = links;
         doc.graph_revision = 1;
         let source = doc.blocks[1].id.clone();
-        let (next, change) = apply_source_edit(
-            &doc,
-            &source,
-            "We ordered 3 units of bolts.",
-            "test",
-            0,
-            1,
-        )
-        .expect("the edit changes bytes");
+        let (next, change) =
+            apply_source_edit(&doc, &source, "We ordered 3 units of bolts.", "test", 0, 1)
+                .expect("the edit changes bytes");
         let patch = propose_after_source_edit(&next, &change, "p-test");
 
         let mut by_block: std::collections::BTreeMap<String, String> = Default::default();
@@ -506,8 +500,7 @@ mod tests {
         doc.graph_revision = 1;
         let source = doc.blocks[1].id.clone();
         let (next, change) =
-            apply_source_edit(&doc, &source, "We ordered 3 units of bolts.", "test", 0, 1)
-                .unwrap();
+            apply_source_edit(&doc, &source, "We ordered 3 units of bolts.", "test", 0, 1).unwrap();
         let patch = propose_after_source_edit(&next, &change, "p-test");
         let (applied_doc, _, applied_patch) = apply_patch(&next, &patch, "test", 1, 2).unwrap();
         assert!(applied_doc.raw.contains("Budget is 6 euros."));

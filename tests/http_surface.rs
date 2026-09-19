@@ -402,11 +402,7 @@ async fn settings_reports_effective_config_with_origins() {
     );
 
     // A file value lands with origin=file.
-    std::fs::write(
-        dir.path().join("config.json"),
-        r#"{"dream_batch_size": 9}"#,
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("config.json"), r#"{"dream_batch_size": 9}"#).unwrap();
     let (status, body) = send(&router, get("/api/v1/settings", "_default")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["effective_config"]["dream_batch_size"], 9);
@@ -743,10 +739,16 @@ async fn coherence_nodes_all_respects_as_of_point_in_time() {
 
     let (_, past) = send(
         &router,
-        get("/api/v1/coherence/nodes/all?limit=10&as_of=1970-01-01T00:00:00Z", "carol"),
+        get(
+            "/api/v1/coherence/nodes/all?limit=10&as_of=1970-01-01T00:00:00Z",
+            "carol",
+        ),
     )
     .await;
-    assert_eq!(past["count"], 0, "cutoff before registration hides the node");
+    assert_eq!(
+        past["count"], 0,
+        "cutoff before registration hides the node"
+    );
     assert_eq!(
         past["as_of"].as_str(),
         Some("1970-01-01T00:00:00Z"),
@@ -755,22 +757,35 @@ async fn coherence_nodes_all_respects_as_of_point_in_time() {
 
     let (_, future) = send(
         &router,
-        get("/api/v1/coherence/nodes/all?limit=10&as_of=2099-01-01T00:00:00Z", "carol"),
+        get(
+            "/api/v1/coherence/nodes/all?limit=10&as_of=2099-01-01T00:00:00Z",
+            "carol",
+        ),
     )
     .await;
-    assert_eq!(future["count"], 1, "cutoff after registration keeps the node");
+    assert_eq!(
+        future["count"], 1,
+        "cutoff after registration keeps the node"
+    );
 
     let (_, live) = send(
         &router,
         get("/api/v1/coherence/nodes/all?limit=10", "carol"),
     )
     .await;
-    assert_eq!(live["as_of"], serde_json::Value::Null, "no cutoff when omitted");
+    assert_eq!(
+        live["as_of"],
+        serde_json::Value::Null,
+        "no cutoff when omitted"
+    );
 
     // A malformed cutoff must not 500 — it degrades to the live view.
     let (_, bad) = send(
         &router,
-        get("/api/v1/coherence/nodes/all?limit=10&as_of=not-a-date", "carol"),
+        get(
+            "/api/v1/coherence/nodes/all?limit=10&as_of=not-a-date",
+            "carol",
+        ),
     )
     .await;
     assert_eq!(bad["count"], 1, "unparseable cutoff is ignored, shows all");
@@ -827,22 +842,24 @@ async fn coherence_query_filters_by_verdict_and_label() {
     )
     .await;
     assert_eq!(inv["count"], 1, "substring match is case-insensitive");
-    assert!(inv["results"][0]["label"].as_str().unwrap().contains("invoice"));
+    assert!(inv["results"][0]["label"]
+        .as_str()
+        .unwrap()
+        .contains("invoice"));
 
     // Combined verdict=success + q=procure → the +1 procurement node.
     let (_, combo) = send(
         &router,
-        get("/api/v1/coherence/facet?verdict=success&q=procure&limit=10", "dave"),
+        get(
+            "/api/v1/coherence/facet?verdict=success&q=procure&limit=10",
+            "dave",
+        ),
     )
     .await;
     assert_eq!(combo["count"], 1, "verdict + label filters compose");
 
     // No filter → all three.
-    let (_, all) = send(
-        &router,
-        get("/api/v1/coherence/facet?limit=10", "dave"),
-    )
-    .await;
+    let (_, all) = send(&router, get("/api/v1/coherence/facet?limit=10", "dave")).await;
     assert_eq!(all["count"], 3, "no filter returns the whole store");
 }
 
@@ -941,7 +958,10 @@ async fn outcome_memory_surfaces_recorded_failures_on_recall() {
         .unwrap()
         .iter()
         .any(|f| f["label"].as_str().unwrap_or("").contains("firmware"));
-    assert!(in_failures, "recorded failure surfaced in `failures`: {search}");
+    assert!(
+        in_failures,
+        "recorded failure surfaced in `failures`: {search}"
+    );
 
     // A node judged as success (+1) is recalled with its verdict but is NOT a
     // failure — proving the failures list is verdict-gated, not "everything".
@@ -4120,7 +4140,10 @@ async fn rag_retrieve_section_unit_carries_heading_context() {
         sources.len(),
         "every hit reports its provenance: {sectioned}"
     );
-    assert!(chunks.len() > 1, "one document split into sections: {sectioned}");
+    assert!(
+        chunks.len() > 1,
+        "one document split into sections: {sectioned}"
+    );
 
     // A section's text carries its ancestors, and its source names the path.
     let preload = chunks
@@ -4212,7 +4235,10 @@ async fn content_search_finds_sections_cites_them_and_reuses_its_index() {
     assert_eq!(status, StatusCode::OK, "{r}");
 
     let hits = r["hits"].as_array().expect("hits array");
-    assert!(!hits.is_empty(), "the section that says E4412 is found: {r}");
+    assert!(
+        !hits.is_empty(),
+        "the section that says E4412 is found: {r}"
+    );
     let top = &hits[0];
     assert!(
         top["path"].as_str().unwrap().ends_with("maintenance.md"),
@@ -4221,7 +4247,10 @@ async fn content_search_finds_sections_cites_them_and_reuses_its_index() {
     // The citation is the heading chain, not a byte offset: "Bearing preload"
     // is what makes a hit legible.
     assert!(
-        top["citation"].as_str().unwrap().contains("Bearing preload"),
+        top["citation"]
+            .as_str()
+            .unwrap()
+            .contains("Bearing preload"),
         "{top}"
     );
 
@@ -4428,11 +4457,17 @@ async fn search_and_atlas_pages_are_served_self_contained() {
 
     let (status, html) = send_text(&router, get("/search", "u")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("/api/v1/search/content"), "search page is wired");
+    assert!(
+        html.contains("/api/v1/search/content"),
+        "search page is wired"
+    );
 
     let (status, html) = send_text(&router, get("/atlas", "u")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("/organic.js"), "atlas loads the local renderer");
+    assert!(
+        html.contains("/organic.js"),
+        "atlas loads the local renderer"
+    );
     assert!(
         !html.contains("unpkg.com") && !html.contains("cdn."),
         "no external script host may appear on an air-gapped surface"
@@ -4441,16 +4476,25 @@ async fn search_and_atlas_pages_are_served_self_contained() {
     // The renderer is public: a <script src> carries no Bearer header.
     let (status, js) = send_text(&router, get("/organic.js", "u")).await;
     assert_eq!(status, StatusCode::OK);
-    assert!(js.contains("window.Organic"), "renderer exports its entry point");
+    assert!(
+        js.contains("window.Organic"),
+        "renderer exports its entry point"
+    );
 
     // Pinning lives in the shared shell, so a page written later gets it for
     // free — and both surfaces that can name a query actually offer it. A
     // notebook nobody can add to from where they work is a notebook nobody
     // keeps.
     let (_, shell) = send_text(&router, get("/ui-shell.js", "u")).await;
-    assert!(shell.contains("function addToNotebook("), "the shell exposes pinning");
+    assert!(
+        shell.contains("function addToNotebook("),
+        "the shell exposes pinning"
+    );
     let (_, search) = send_text(&router, get("/search", "u")).await;
-    assert!(search.contains("addToNotebook('search.content'"), "Search can pin its query");
+    assert!(
+        search.contains("addToNotebook('search.content'"),
+        "Search can pin its query"
+    );
     let (_, atlas) = send_text(&router, get("/atlas", "u")).await;
     assert!(atlas.contains("addToNotebook("), "Atlas can pin an entity");
 }
@@ -4516,7 +4560,10 @@ async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
 
     let (status, read) = send(
         &router,
-        get("/api/v1/ontology/packs/read?name=logistics-demo", "studio-user"),
+        get(
+            "/api/v1/ontology/packs/read?name=logistics-demo",
+            "studio-user",
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -4592,7 +4639,11 @@ async fn machine_reduce_registers_bridges_and_persists_per_tenant() {
 
     let (status, r) = send(
         &router,
-        post("/api/v1/machines/chronos/reduce", "machine-user", events.clone()),
+        post(
+            "/api/v1/machines/chronos/reduce",
+            "machine-user",
+            events.clone(),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{r}");
@@ -4702,7 +4753,11 @@ async fn machine_register_routes_stamp_a_typed_kind() {
     for (machine, body) in cases {
         let (status, r) = send(
             &router,
-            post(&format!("/api/v1/machines/{machine}/register"), "machine-user", body),
+            post(
+                &format!("/api/v1/machines/{machine}/register"),
+                "machine-user",
+                body,
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{machine}: {r}");
@@ -4826,7 +4881,10 @@ async fn space_time_cause_survives_a_real_scan_end_to_end() {
         post("/api/v1/files/query", "ops", json!({"during": now_period})),
     )
     .await;
-    assert!(this_month["total"].as_u64().unwrap_or(0) >= 1, "{this_month}");
+    assert!(
+        this_month["total"].as_u64().unwrap_or(0) >= 1,
+        "{this_month}"
+    );
     let (_, long_ago) = send(
         &router,
         post("/api/v1/files/query", "ops", json!({"during": "1999-01"})),
@@ -4846,7 +4904,10 @@ async fn space_time_cause_survives_a_real_scan_end_to_end() {
     .await;
     assert_eq!(status, StatusCode::OK, "{goal}");
     let (_, goals) = send(&router, get("/api/v1/goals/list", "ops")).await;
-    let goal_id = goals["goals"][0]["id"].as_str().expect("a goal id").to_string();
+    let goal_id = goals["goals"][0]["id"]
+        .as_str()
+        .expect("a goal id")
+        .to_string();
 
     let (status, served) = send(
         &router,
@@ -4935,7 +4996,10 @@ async fn notebooks_are_validated_stored_per_tenant_and_never_hold_markup() {
     let (status, saved) = send(&router, post("/api/v1/notebooks/ops", "ops", doc)).await;
     assert_eq!(status, StatusCode::OK, "{saved}");
     assert_eq!(saved["cells"], 2, "{saved}");
-    assert!(saved["updated_at"].as_str().unwrap().contains('T'), "{saved}");
+    assert!(
+        saved["updated_at"].as_str().unwrap().contains('T'),
+        "{saved}"
+    );
 
     let (_, listed) = send(&router, get("/api/v1/notebooks", "ops")).await;
     let ids: Vec<&str> = listed["notebooks"]
@@ -5053,7 +5117,11 @@ async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
         ]
     });
 
-    let (status, r) = send(&router, post("/api/v1/monitor/ingest", "phone-owner", batch)).await;
+    let (status, r) = send(
+        &router,
+        post("/api/v1/monitor/ingest", "phone-owner", batch),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK, "{r}");
     assert_eq!(r["device"], "pixel-8");
 
@@ -5099,7 +5167,11 @@ async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
     // Why these nodes exist: a device reported them.
     let (_, causes) = send(
         &router,
-        post("/api/v1/files/query", "phone-owner", json!({"cause": "monitor"})),
+        post(
+            "/api/v1/files/query",
+            "phone-owner",
+            json!({"cause": "monitor"}),
+        ),
     )
     .await;
     let matches = causes["matches"].as_array().unwrap();
@@ -5128,12 +5200,19 @@ async fn monitor_ingest_turns_sensor_samples_into_graph_nodes() {
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(quiet["registered"], 0, "{quiet}");
-    assert!(quiet["note"].as_str().unwrap().contains("collector"), "{quiet}");
+    assert!(
+        quiet["note"].as_str().unwrap().contains("collector"),
+        "{quiet}"
+    );
 
     // An unnamed device is refused: two phones are two witnesses.
     let (status, _) = send(
         &router,
-        post("/api/v1/monitor/ingest", "phone-owner", json!({"device": "", "samples": []})),
+        post(
+            "/api/v1/monitor/ingest",
+            "phone-owner",
+            json!({"device": "", "samples": []}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -5320,7 +5399,10 @@ async fn register_stamps_kind_and_properties_into_the_node() {
     let (status, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
     assert_eq!(status, StatusCode::OK);
     let nodes = body["results"].as_array().expect("results");
-    let node = nodes.iter().find(|n| n["id"] == node_id).expect("registered node");
+    let node = nodes
+        .iter()
+        .find(|n| n["id"] == node_id)
+        .expect("registered node");
     assert_eq!(node["kind"], "machine");
     assert_eq!(node["properties"]["oee"], 0.82);
     assert_eq!(node["properties"]["down_min"], 14);
@@ -5351,12 +5433,20 @@ async fn typed_edges_expose_outgoing_and_inverse_traversal() {
     // Two nodes: a work order and the failure it causes.
     let (_, b1) = send(
         &router,
-        post("/api/v1/coherence/register", "tenant-a", json!({"input": "work-order-41"})),
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "work-order-41"}),
+        ),
     )
     .await;
     let (_, b2) = send(
         &router,
-        post("/api/v1/coherence/register", "tenant-a", json!({"input": "press seized"})),
+        post(
+            "/api/v1/coherence/register",
+            "tenant-a",
+            json!({"input": "press seized"}),
+        ),
     )
     .await;
     let wo = b1["node_id"].as_str().unwrap().to_string();
@@ -5383,7 +5473,10 @@ async fn typed_edges_expose_outgoing_and_inverse_traversal() {
     // Forward traversal from the source.
     let (status, body) = send(
         &router,
-        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-a"),
+        get(
+            &format!("/api/v1/coherence/edges?node_id={wo}", wo = wo),
+            "tenant-a",
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
@@ -5396,7 +5489,13 @@ async fn typed_edges_expose_outgoing_and_inverse_traversal() {
     // Inverse traversal: the target sees the same link as incoming.
     let (_, body) = send(
         &router,
-        get(&format!("/api/v1/coherence/edges?node_id={failure}", failure = failure), "tenant-a"),
+        get(
+            &format!(
+                "/api/v1/coherence/edges?node_id={failure}",
+                failure = failure
+            ),
+            "tenant-a",
+        ),
     )
     .await;
     let inc = body["incoming"].as_array().expect("incoming");
@@ -5407,7 +5506,10 @@ async fn typed_edges_expose_outgoing_and_inverse_traversal() {
     // Tenant isolation: the other tenant sees no edges for this node.
     let (_, body) = send(
         &router,
-        get(&format!("/api/v1/coherence/edges?node_id={wo}", wo = wo), "tenant-b"),
+        get(
+            &format!("/api/v1/coherence/edges?node_id={wo}", wo = wo),
+            "tenant-b",
+        ),
     )
     .await;
     assert_eq!(body["outgoing"].as_array().unwrap().len(), 0);
@@ -5423,12 +5525,19 @@ async fn classify_reports_object_type_and_register_auto_stamps_kind() {
     // of the known vocabulary whenever classification fires.
     let (status, body) = send(
         &router,
-        post("/api/v1/classify", "tenant-a", json!({"text": "CNC press cycle time drift"})),
+        post(
+            "/api/v1/classify",
+            "tenant-a",
+            json!({"text": "CNC press cycle time drift"}),
+        ),
     )
     .await;
     assert_eq!(status, StatusCode::OK);
     let ot = body["object_type"].as_str();
-    assert!(ot.is_none() || !ot.unwrap().is_empty(), "object_type present or absent: {body}");
+    assert!(
+        ot.is_none() || !ot.unwrap().is_empty(),
+        "object_type present or absent: {body}"
+    );
 
     // Registering WITHOUT a kind auto-stamps it from the winning cell, so the
     // node becomes a typed object with no extra round-trip.
@@ -5455,8 +5564,14 @@ async fn classify_reports_object_type_and_register_auto_stamps_kind() {
     let kind = node["kind"].as_str().unwrap();
     if !kind.is_empty() {
         assert!(
-            ["machine", "sensor_reading", "work_order", "asset", "document"]
-                .contains(&kind),
+            [
+                "machine",
+                "sensor_reading",
+                "work_order",
+                "asset",
+                "document"
+            ]
+            .contains(&kind),
             "auto-kind '{kind}' is a sensible object type"
         );
     }
@@ -5560,7 +5675,10 @@ async fn audit_log_records_mutations_and_filters_by_subject() {
     assert_eq!(status, StatusCode::OK);
     let entries = body["entries"].as_array().expect("entries");
     assert!(entries.len() >= 4);
-    let ops: Vec<String> = entries.iter().map(|e| e["op"].as_str().unwrap().to_string()).collect();
+    let ops: Vec<String> = entries
+        .iter()
+        .map(|e| e["op"].as_str().unwrap().to_string())
+        .collect();
     assert!(ops.contains(&"register".to_string()));
     assert!(ops.contains(&"assert".to_string()));
     assert!(ops.contains(&"edit".to_string()));
@@ -5569,7 +5687,10 @@ async fn audit_log_records_mutations_and_filters_by_subject() {
     // Per-subject history: the pump's own change trail.
     let (_, body) = send(
         &router,
-        get(&format!("/api/v1/audit?node_id={node_id}", node_id = node_id), "tenant-a"),
+        get(
+            &format!("/api/v1/audit?node_id={node_id}", node_id = node_id),
+            "tenant-a",
+        ),
     )
     .await;
     let hist = body["entries"].as_array().expect("history");
@@ -5583,8 +5704,14 @@ async fn audit_log_records_mutations_and_filters_by_subject() {
     )
     .await;
     let all = body["entries"].as_array().expect("all");
-    assert_eq!(all.len(), entries.len(), "as_of in the future sees everything");
-    assert!(all.iter().all(|e| e["seq"].is_number() && e["at"].is_string()));
+    assert_eq!(
+        all.len(),
+        entries.len(),
+        "as_of in the future sees everything"
+    );
+    assert!(all
+        .iter()
+        .all(|e| e["seq"].is_number() && e["at"].is_string()));
 
     // Tenant isolation: the other tenant's log is empty.
     let (_, body) = send(&router, get("/api/v1/audit", "tenant-b")).await;
@@ -5616,7 +5743,10 @@ async fn actions_dispatch_is_honest_when_no_webhook_configured() {
     assert_eq!(body["skipped"], 1);
     assert_eq!(body["delivered"], 0);
     let note = body["note"].as_str().unwrap();
-    assert!(note.contains("PHYSIS_ACTIONS_WEBHOOK"), "honest note: {note}");
+    assert!(
+        note.contains("PHYSIS_ACTIONS_WEBHOOK"),
+        "honest note: {note}"
+    );
 }
 
 #[tokio::test]
@@ -5675,7 +5805,10 @@ async fn actions_dispatch_attempts_delivery_and_reports_failure() {
     assert_eq!(body["delivered"], 0);
     let results = body["results"].as_array().unwrap();
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0]["ok"], false, "dead port delivery fails loudly: {body}");
+    assert_eq!(
+        results[0]["ok"], false,
+        "dead port delivery fails loudly: {body}"
+    );
     std::env::remove_var("PHYSIS_ACTIONS_WEBHOOK");
 }
 
@@ -5705,7 +5838,10 @@ async fn shift_report_metadata_carries_evidence_grade_identity() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body["accepted"].as_u64().unwrap_or(0) >= 1, "shift imported: {body}");
+    assert!(
+        body["accepted"].as_u64().unwrap_or(0) >= 1,
+        "shift imported: {body}"
+    );
 
     // The markdown report is evidence-grade: it names whose plant, which host,
     // and which build produced it — never a blank identity line.
@@ -5720,9 +5856,18 @@ async fn shift_report_metadata_carries_evidence_grade_identity() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(text.contains("Acciaierie Nord"), "plant identity in report: {text}");
-    assert!(text.contains("unlicensed"), "customer identity in report: {text}");
-    assert!(text.contains(env!("CARGO_PKG_VERSION")), "build version in report: {text}");
+    assert!(
+        text.contains("Acciaierie Nord"),
+        "plant identity in report: {text}"
+    );
+    assert!(
+        text.contains("unlicensed"),
+        "customer identity in report: {text}"
+    );
+    assert!(
+        text.contains(env!("CARGO_PKG_VERSION")),
+        "build version in report: {text}"
+    );
     assert!(text.contains("host "), "host identity in report: {text}");
     std::env::remove_var("PHYSIS_PLANT");
 }
@@ -5754,7 +5899,10 @@ async fn air_gapped_path_degrades_honestly_without_weights_or_network() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body["dim"].as_u64().unwrap_or(0) > 0, "embedding has a dimension: {body}");
+    assert!(
+        body["dim"].as_u64().unwrap_or(0) > 0,
+        "embedding has a dimension: {body}"
+    );
 
     // extract — never 500: either a provider extracts slots, or an explicit
     // note says why not (never a fabricated object, never a silent failure).
@@ -5796,10 +5944,20 @@ async fn image_endpoints_503_without_vision_model_but_text_works() {
         ),
     )
     .await;
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "image without vision model 503s: {body}");
+    assert_eq!(
+        status,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "image without vision model 503s: {body}"
+    );
     let reason = body["error"].as_str().unwrap_or("");
-    assert!(reason.contains("image embedding unavailable"), "machine-readable reason: {body}");
-    assert!(reason.contains("none"), "reason names the empty slot: {body}");
+    assert!(
+        reason.contains("image embedding unavailable"),
+        "machine-readable reason: {body}"
+    );
+    assert!(
+        reason.contains("none"),
+        "reason names the empty slot: {body}"
+    );
 
     // /classify with image → 503 + reason.
     let (status, body) = send(
@@ -5811,8 +5969,18 @@ async fn image_endpoints_503_without_vision_model_but_text_works() {
         ),
     )
     .await;
-    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "classify image without vision model 503s: {body}");
-    assert!(body["error"].as_str().unwrap_or("").contains("image embedding unavailable"), "{body}");
+    assert_eq!(
+        status,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "classify image without vision model 503s: {body}"
+    );
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("image embedding unavailable"),
+        "{body}"
+    );
 
     // Text paths unaffected.
     let (status, body) = send(
@@ -5852,14 +6020,27 @@ async fn marketing_pages_serve_expected_copy_without_external_assets() {
     ] {
         let (status, html) = send_text(
             &router,
-            Request::builder().method("GET").uri(path).body(Body::empty()).unwrap(),
+            Request::builder()
+                .method("GET")
+                .uri(path)
+                .body(Body::empty())
+                .unwrap(),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{path} serves 200");
         assert!(html.contains(needle), "{path} carries expected copy");
-        assert!(!html.contains("<link rel=\"stylesheet\" href=\"http"), "{path}: no external CSS");
-        assert!(!html.contains("<script src=\"http"), "{path}: no external JS");
-        assert!(html.contains("/physis.css"), "{path} loads the shared design system");
+        assert!(
+            !html.contains("<link rel=\"stylesheet\" href=\"http"),
+            "{path}: no external CSS"
+        );
+        assert!(
+            !html.contains("<script src=\"http"),
+            "{path}: no external JS"
+        );
+        assert!(
+            html.contains("/physis.css"),
+            "{path} loads the shared design system"
+        );
     }
 
     // The settings page is protected (dev mode passes) and carries its own copy.
@@ -5874,7 +6055,10 @@ async fn marketing_pages_serve_expected_copy_without_external_assets() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("install health"), "/settings carries its copy");
+    assert!(
+        html.contains("install health"),
+        "/settings carries its copy"
+    );
 }
 
 // ── Phase 18 T2: adapter-contract — a machine event inherits anomaly
@@ -5915,7 +6099,10 @@ async fn machine_event_inherits_anomaly_detection() {
     });
     assert_eq!(anomalies.len(), 1, "hot reading flagged: {body}");
     assert_eq!(anomalies[0]["machine_id"], "cnc-01");
-    assert!(anomalies[0]["reason"].as_str().unwrap().contains("temperature"));
+    assert!(anomalies[0]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("temperature"));
 
     // The anomaly is sealed in the audit log too.
     let (_, audit) = send(&router, get("/api/v1/audit", "tenant-a")).await;
@@ -5953,7 +6140,10 @@ async fn machine_event_inherits_anomaly_detection() {
     .await;
     assert_eq!(body["accepted"], 1);
     assert!(
-        body["anomalies"].as_array().map(|a| a.is_empty()).unwrap_or(true),
+        body["anomalies"]
+            .as_array()
+            .map(|a| a.is_empty())
+            .unwrap_or(true),
         "cool reading not flagged"
     );
 }
@@ -5969,7 +6159,11 @@ async fn funnel_scan_report_quality_dream_where_lineage_is_tenant_isolated() {
 
     // 1. SCAN — a document in the scan root becomes a labeled graph node and a
     //    causal-ledger "generated" event.
-    std::fs::write(root.join("shift_note.txt"), "CNC press seized bearing this shift").unwrap();
+    std::fs::write(
+        root.join("shift_note.txt"),
+        "CNC press seized bearing this shift",
+    )
+    .unwrap();
     let (status, body) = send(
         &router,
         post("/api/v1/scan", "tenant-a", json!({"dir": root})),
@@ -6000,7 +6194,10 @@ async fn funnel_scan_report_quality_dream_where_lineage_is_tenant_isolated() {
         ),
     )
     .await;
-    assert!(body["accepted"].as_u64().unwrap_or(0) >= 1, "shift imported: {body}");
+    assert!(
+        body["accepted"].as_u64().unwrap_or(0) >= 1,
+        "shift imported: {body}"
+    );
     let (_, md) = send_text(
         &router,
         Request::builder()
@@ -6127,7 +6324,10 @@ async fn scan_is_idempotent_and_produces_one_node_per_document() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body["new"].as_u64().unwrap_or(0) >= 1, "first scan new: {body}");
+    assert!(
+        body["new"].as_u64().unwrap_or(0) >= 1,
+        "first scan new: {body}"
+    );
 
     // ONE node per document — its structural path — not one per structural line.
     let (_, body) = send(&router, get("/api/v1/coherence/nodes/all", "tenant-a")).await;
@@ -6142,7 +6342,11 @@ async fn scan_is_idempotent_and_produces_one_node_per_document() {
                 .unwrap_or(false)
         })
         .collect();
-    assert_eq!(doc_nodes.len(), 1, "one node per document, not per line: {body}");
+    assert_eq!(
+        doc_nodes.len(),
+        1,
+        "one node per document, not per line: {body}"
+    );
 
     // Second scan, nothing changed → idempotent: nothing new/changed, and the
     // whole tree is reported unchanged (subtree fingerprint skip).
@@ -6151,8 +6355,16 @@ async fn scan_is_idempotent_and_produces_one_node_per_document() {
         post("/api/v1/scan", "tenant-a", json!({"dir": docs})),
     )
     .await;
-    assert_eq!(body["new"].as_u64().unwrap_or(0), 0, "no new on re-scan: {body}");
-    assert_eq!(body["changed"].as_u64().unwrap_or(0), 0, "no changed on re-scan: {body}");
+    assert_eq!(
+        body["new"].as_u64().unwrap_or(0),
+        0,
+        "no new on re-scan: {body}"
+    );
+    assert_eq!(
+        body["changed"].as_u64().unwrap_or(0),
+        0,
+        "no changed on re-scan: {body}"
+    );
     assert!(
         body["unchanged"].as_u64().unwrap_or(0) >= 1,
         "unchanged reported: {body}"
@@ -6232,7 +6444,9 @@ async fn adaptive_document_round_trips_and_isolates_tenants() {
     // Exactly the confirmed copy and the confirmed calculation, with the exact
     // fixture values 3 and 6 (AD04).
     assert!(
-        replacements.iter().any(|(_, n)| *n == "We ordered 3 units of bolts."),
+        replacements
+            .iter()
+            .any(|(_, n)| *n == "We ordered 3 units of bolts."),
         "copy dependent: {patch}"
     );
     assert!(
@@ -6252,7 +6466,10 @@ async fn adaptive_document_round_trips_and_isolates_tenants() {
     // The document bytes are still untouched until a decision is made.
     let (_, unchanged) = send(&router, get("/api/v1/document", "alice")).await;
     assert_eq!(unchanged["revision"], 1, "{unchanged}");
-    assert!(unchanged["raw"].as_str().unwrap().contains("36 euros"), "{unchanged}");
+    assert!(
+        unchanged["raw"].as_str().unwrap().contains("36 euros"),
+        "{unchanged}"
+    );
 
     // A second tenant never sees the first tenant's document (AD14): same
     // document id, different store root.
@@ -6290,14 +6507,30 @@ async fn adaptive_document_round_trips_and_isolates_tenants() {
     let raw = applied["snapshot"]["raw"].as_str().unwrap();
     assert!(raw.contains("Budget is 6 euros."), "{applied}");
     assert!(raw.contains("We ordered 3 units of bolts."), "{applied}");
-    assert!(raw.contains("Do not change this line."), "locked bytes survive: {applied}");
+    assert!(
+        raw.contains("Do not change this line."),
+        "locked bytes survive: {applied}"
+    );
 
     // Readback from a fresh request is the persisted state, not an in-memory
     // success (AD11's read half).
     let (_, readback) = send(&router, get("/api/v1/document", "alice")).await;
-    assert_eq!(readback["revision"], applied["snapshot"]["revision"], "{readback}");
-    assert!(readback["raw"].as_str().unwrap().contains("Budget is 6 euros."), "{readback}");
-    assert_eq!(readback["events"].as_array().unwrap().len(), 2, "source edit + apply: {readback}");
+    assert_eq!(
+        readback["revision"], applied["snapshot"]["revision"],
+        "{readback}"
+    );
+    assert!(
+        readback["raw"]
+            .as_str()
+            .unwrap()
+            .contains("Budget is 6 euros."),
+        "{readback}"
+    );
+    assert_eq!(
+        readback["events"].as_array().unwrap().len(),
+        2,
+        "source edit + apply: {readback}"
+    );
 
     // Undo is a compensating patch: the repair reverts, the human edit stays.
     let (status, undone) = send(
@@ -6312,7 +6545,10 @@ async fn adaptive_document_round_trips_and_isolates_tenants() {
     assert_eq!(status, StatusCode::OK, "{undone}");
     let raw = undone["snapshot"]["raw"].as_str().unwrap();
     assert!(raw.contains("Budget is 36 euros."), "{undone}");
-    assert!(raw.contains("We ordered 3 units of bolts."), "source edit survives: {undone}");
+    assert!(
+        raw.contains("We ordered 3 units of bolts."),
+        "source edit survives: {undone}"
+    );
     assert_eq!(undone["patch"]["status"], "reverted", "{undone}");
 }
 

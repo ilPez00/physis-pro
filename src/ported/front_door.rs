@@ -70,9 +70,15 @@ const CORE_COMMANDS: &[(&str, &str)] = &[
 /// Subcommands served by `physis-pro`. Abridged on purpose: the full list is
 /// `physis-pro --help`, and repeating forty entries here would rot.
 const PRO_COMMANDS: &[(&str, &str)] = &[
-    ("system", "Shared workspace: inspect, find, read, remember, run, export"),
+    (
+        "system",
+        "Shared workspace: inspect, find, read, remember, run, export",
+    ),
     ("quality", "Quality feedback loop"),
-    ("studio", "Ontology Studio: ingest, map, and emit a self-contained HTML report"),
+    (
+        "studio",
+        "Ontology Studio: ingest, map, and emit a self-contained HTML report",
+    ),
     ("doctor", "Diagnose config, data dir, embedder and licence"),
     (
         "timeline",

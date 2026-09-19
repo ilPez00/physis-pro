@@ -257,10 +257,22 @@ fn context_focus_rescan_bench_are_model_free() {
     std::env::remove_var("OPENROUTER_API_KEY");
     std::env::remove_var("GROQ_API_KEY");
     let mut s = open(repo.path());
-    s.handle("where is retrieval implemented?").unwrap().unwrap();
+    s.handle("where is retrieval implemented?")
+        .unwrap()
+        .unwrap();
 
     let packet = s.handle("context").unwrap().unwrap();
-    for needle in ["INTENT", "TARGETS", "DEPENDENCIES", "CONSTRAINTS", "RECENT DELTA", "RELEVANT SOURCE", "EXCLUDED", "workspace source:", "generator: none"] {
+    for needle in [
+        "INTENT",
+        "TARGETS",
+        "DEPENDENCIES",
+        "CONSTRAINTS",
+        "RECENT DELTA",
+        "RELEVANT SOURCE",
+        "EXCLUDED",
+        "workspace source:",
+        "generator: none",
+    ] {
         assert!(packet.contains(needle), "missing {needle} in:\n{packet}");
     }
 
@@ -279,12 +291,25 @@ fn context_focus_rescan_bench_are_model_free() {
     )
     .unwrap();
     let delta = s.handle("rescan").unwrap().unwrap();
-    for needle in ["CHANGED", "AFFECTED", "STRUCTURE", "VALIDATION", "MAP", "src/lib.rs"] {
+    for needle in [
+        "CHANGED",
+        "AFFECTED",
+        "STRUCTURE",
+        "VALIDATION",
+        "MAP",
+        "src/lib.rs",
+    ] {
         assert!(delta.contains(needle), "missing {needle} in:\n{delta}");
     }
 
     let bench = s.handle("bench").unwrap().unwrap();
-    for needle in ["measured", "objects indexed", "query latency", "generator: none", "network: OFFLINE"] {
+    for needle in [
+        "measured",
+        "objects indexed",
+        "query latency",
+        "generator: none",
+        "network: OFFLINE",
+    ] {
         assert!(bench.contains(needle), "missing {needle} in:\n{bench}");
     }
     std::env::remove_var("PHYSIS_MODEL");
@@ -296,24 +321,41 @@ fn context_focus_rescan_bench_are_model_free() {
 /// no model, no second graph.
 #[test]
 fn hud_projections_are_pure_and_honest() {
-    use physis_pro::nav::{NavHit, NavWeights, ObjectKind, ObjectId, PhysisObject, RetrievalScore, SourceRef};
+    use physis_pro::nav::{
+        NavHit, NavWeights, ObjectId, ObjectKind, PhysisObject, RetrievalScore, SourceRef,
+    };
     let _guard = env_lock();
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir_all(dir.path().join("src")).unwrap();
-    std::fs::write(dir.path().join("src/index.rs"), "pub fn update_index() {}\n").unwrap();
-    std::fs::write(dir.path().join("src/query.rs"), "fn search() { update_index(); }\n").unwrap();
+    std::fs::write(
+        dir.path().join("src/index.rs"),
+        "pub fn update_index() {}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("src/query.rs"),
+        "fn search() { update_index(); }\n",
+    )
+    .unwrap();
     let mk = |path: &str, label: &str, score: f32| NavHit {
         object: PhysisObject {
             id: ObjectId::new("fs", &format!("{label}-hash-0123456789abcdef")),
             kind: ObjectKind::Passage,
             label: label.to_string(),
-            source: Some(SourceRef { path: path.to_string(), start_line: Some(1), end_line: Some(1) }),
+            source: Some(SourceRef {
+                path: path.to_string(),
+                start_line: Some(1),
+                end_line: Some(1),
+            }),
             mtime: 0.0,
             hash: format!("{label}-hash"),
             text: label.to_string(),
             embedding: vec![],
         },
-        score: RetrievalScore { total: score, components: Default::default() },
+        score: RetrievalScore {
+            total: score,
+            components: Default::default(),
+        },
     };
     let hits = [
         mk("src/index.rs", "src/index.rs:1-1", 0.9),
@@ -326,7 +368,8 @@ fn hud_projections_are_pure_and_honest() {
     // the shared dependents rule must link them.
     let syms = physis_pro::mvp::changed_symbols(dir.path(), &["src/index.rs".to_string()]);
     assert!(syms.contains(&"update_index".to_string()), "got {syms:?}");
-    let deps = physis_pro::mvp::affected_dependents(dir.path(), &["src/index.rs".to_string()], &syms);
+    let deps =
+        physis_pro::mvp::affected_dependents(dir.path(), &["src/index.rs".to_string()], &syms);
     assert!(deps.contains(&"src/query.rs".to_string()), "got {deps:?}");
     // Token math: same counter both sides, labels per Phase 32.
     let est = physis_pro::estimate::calculate_estimate(1000, 80);

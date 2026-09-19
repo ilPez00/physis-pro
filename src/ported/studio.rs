@@ -16,13 +16,13 @@ use axum::{
     Json, Router,
 };
 
+use crate::ported::quality::QualityTracker;
 use physis_core::classify::CellClassifier;
 use physis_core::core::PhysisCore;
 use physis_core::discovery::{self, DiscoveryConfig, DiscoveryReport};
 use physis_core::embed::{RandomProjectionEmbedder, VectorEmbed};
 use physis_core::models::*;
 use physis_core::ontology::OntologyLoader;
-use crate::ported::quality::QualityTracker;
 use physis_core::store;
 
 const APP_HTML: &str = include_str!("studio_assets/app.html");
@@ -129,12 +129,13 @@ fn build_embedder(model_dir: Option<String>) -> (Box<dyn VectorEmbed>, String, b
                 // away half its signal — read the native width when exported
                 // alongside a transformers config.json.
                 let dim = physis_core::embed_onnx::native_dim(&dir).unwrap_or(384);
-                let onnx =
-                    physis_core::embed_onnx::OnnxEmbedder::with_config(&physis_core::embed_onnx::OnnxConfig {
+                let onnx = physis_core::embed_onnx::OnnxEmbedder::with_config(
+                    &physis_core::embed_onnx::OnnxConfig {
                         dim,
                         model_dir: Some(dir.clone()),
                         ..physis_core::embed_onnx::OnnxConfig::default()
-                    });
+                    },
+                );
                 if onnx.is_available() {
                     eprintln!(
                         "Ontology Studio embedder: ONNX ({dir}, {} dims)",
@@ -756,23 +757,18 @@ async fn structural_map(State(state): State<Shared>, Json(req): Json<MapReq>) ->
     let docs = match physis_core::map::load_corpus(&dir) {
         Ok(d) => d,
         Err(e) => {
-            return (StatusCode::BAD_REQUEST, format!("corpus load: {e}"))
-                .into_response();
+            return (StatusCode::BAD_REQUEST, format!("corpus load: {e}")).into_response();
         }
     };
     let report = match physis_core::map::build_map(&docs, s.embedder.as_ref(), None) {
         Ok(r) => r,
         Err(e) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("map: {e}"))
-                .into_response();
+            return (StatusCode::INTERNAL_SERVER_ERROR, format!("map: {e}")).into_response();
         }
     };
     match serde_json::to_string(&report) {
         Ok(body) => ([("content-type", "application/json")], body).into_response(),
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("serialize: {e}"))
-                .into_response()
-        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("serialize: {e}")).into_response(),
     }
 }
 
@@ -787,16 +783,8 @@ async fn infra_status(State(state): State<Shared>) -> Response {
     let mreg = physis_core::model_provider::ModelRegistry::new(
         physis_core::model_provider::ModelRegistry::default_root(),
     );
-    let tables: Vec<String> = nreg
-        .list()
-        .iter()
-        .map(|(id, _)| id.clone())
-        .collect();
-    let models: Vec<String> = mreg
-        .list()
-        .iter()
-        .map(|m| m.record.id.clone())
-        .collect();
+    let tables: Vec<String> = nreg.list().iter().map(|(id, _)| id.clone()).collect();
+    let models: Vec<String> = mreg.list().iter().map(|m| m.record.id.clone()).collect();
     let body = serde_json::json!({
         "embedder": s.embedder_kind,
         "semantic": s.semantic,
@@ -806,10 +794,7 @@ async fn infra_status(State(state): State<Shared>) -> Response {
     });
     match serde_json::to_string(&body) {
         Ok(b) => ([("content-type", "application/json")], b).into_response(),
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("serialize: {e}"))
-                .into_response()
-        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("serialize: {e}")).into_response(),
     }
 }
 
@@ -1616,7 +1601,9 @@ async fn api_hypothesis_evidence(
         .to_lowercase()
         .as_str()
     {
-        "contradicting" | "contra" | "refuting" => physis_core::hypothesis::EvidencePolarity::Contradicts,
+        "contradicting" | "contra" | "refuting" => {
+            physis_core::hypothesis::EvidencePolarity::Contradicts
+        }
         _ => physis_core::hypothesis::EvidencePolarity::Supports,
     };
     let mut ev = physis_core::hypothesis::Evidence::new(req.claim, req.source);

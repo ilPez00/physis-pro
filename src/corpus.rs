@@ -305,10 +305,7 @@ pub fn summarize(communities: &[(u32, f32, Vec<MemberFacts>)]) -> Vec<CommunityS
 /// handlers and the `physis-pro themes` CLI so both summarize the same data
 /// under the same rules. The read-only invariant holds: nothing here mutates the
 /// core or the ledger.
-pub fn gather_facts(
-    core: &PhysisCore,
-    ledger: &CausalLedger,
-) -> (Vec<MemberFacts>, EdgeList) {
+pub fn gather_facts(core: &PhysisCore, ledger: &CausalLedger) -> (Vec<MemberFacts>, EdgeList) {
     // Latest mechanism per artifact. The ledger is append-only and ordered by
     // seq, so a later event simply overwrites an earlier one here.
     let mut mechanism_of: std::collections::HashMap<String, String> =
@@ -368,10 +365,7 @@ pub fn gather_facts(
 /// gathered into one singleton community at full cohesion — the same convention
 /// the communities rollup uses, so a node is never invisible to corpus-level
 /// questions just because nothing links to it.
-pub fn build_summaries(
-    facts: &[MemberFacts],
-    edges: &EdgeList,
-) -> Vec<CommunitySummary> {
+pub fn build_summaries(facts: &[MemberFacts], edges: &EdgeList) -> Vec<CommunitySummary> {
     let report = communities::detect_communities(edges, 16);
     let by_label: std::collections::HashMap<&str, &MemberFacts> =
         facts.iter().map(|f| (f.label.as_str(), f)).collect();

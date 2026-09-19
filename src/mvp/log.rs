@@ -99,9 +99,7 @@ pub fn hash_canonical(v: &impl Serialize) -> String {
 pub fn since_last_session_notice(log: &TransitionLog, fresh_hash: &str) -> Option<String> {
     let all = log.read_all();
     let last = all.last()?;
-    if last.state_after.content_hash.is_empty()
-        || last.state_after.content_hash == fresh_hash
-    {
+    if last.state_after.content_hash.is_empty() || last.state_after.content_hash == fresh_hash {
         return None;
     }
     Some(format!(

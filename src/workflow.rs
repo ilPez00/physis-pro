@@ -217,10 +217,12 @@ pub fn classify_audience_with_root(rel: &Path, root_harness: Option<&str>) -> Do
     // outside harness dirs.
     let in_doc_dir = rel
         .parent()
-        .map(|p| p.components().any(|c| {
-            let s = c.as_os_str().to_string_lossy().to_lowercase();
-            HUMAN_DOC_DIRS.contains(&s.as_str())
-        }))
+        .map(|p| {
+            p.components().any(|c| {
+                let s = c.as_os_str().to_string_lossy().to_lowercase();
+                HUMAN_DOC_DIRS.contains(&s.as_str())
+            })
+        })
         .unwrap_or(false);
     let human = HUMAN_DOC_NAMES.contains(&name.as_str())
         || BOTH_DOC_NAMES.contains(&name.as_str())
@@ -426,10 +428,11 @@ pub fn git_attribution(root: &Path) -> HashMap<String, (String, DateTime<Utc>)> 
 
 /// Walk a tree (including harness dirs) into audited docs. `extra_exclude`
 /// augments [`WORKFLOW_EXCLUDE_DIRS`]; git attribution is best-effort.
-pub fn scan_workflow(root: &Path, extra_exclude: Option<&std::collections::HashSet<String>>) -> Vec<WorkflowDoc> {
-    let root = root
-        .canonicalize()
-        .unwrap_or_else(|_| root.to_path_buf());
+pub fn scan_workflow(
+    root: &Path,
+    extra_exclude: Option<&std::collections::HashSet<String>>,
+) -> Vec<WorkflowDoc> {
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     if !root.is_dir() {
         return vec![];
     }
@@ -490,7 +493,9 @@ pub fn scan_workflow(root: &Path, extra_exclude: Option<&std::collections::HashS
                 ctime,
                 hash: file_hash(path).unwrap_or_default(),
                 audience: classify_audience_with_root(rel, root_harness.as_deref()),
-                harness: harness_of(rel).map(String::from).or_else(|| root_harness.clone()),
+                harness: harness_of(rel)
+                    .map(String::from)
+                    .or_else(|| root_harness.clone()),
                 author: has_author.then_some(author),
                 authored_at: has_author.then_some(authored_at),
                 dir,
@@ -525,7 +530,8 @@ pub fn to_op_events(docs: &[WorkflowDoc]) -> Vec<OperationalEvent> {
             );
             ev.actor = d.author.clone().or_else(|| d.harness.clone());
             ev.project = Some(d.dir.clone());
-            ev.properties.insert("audience".to_string(), d.audience.as_str().to_string());
+            ev.properties
+                .insert("audience".to_string(), d.audience.as_str().to_string());
             if let Some(h) = &d.harness {
                 ev.properties.insert("harness".to_string(), h.clone());
             }
@@ -543,9 +549,18 @@ mod tests {
 
     #[test]
     fn harness_detection_matches_any_component() {
-        assert_eq!(harness_of(Path::new(".claude/settings.json")), Some("claude"));
-        assert_eq!(harness_of(Path::new("a/.opencode/opencode.json")), Some("opencode"));
-        assert_eq!(harness_of(Path::new("src/.hermes/config.yaml")), Some("hermes"));
+        assert_eq!(
+            harness_of(Path::new(".claude/settings.json")),
+            Some("claude")
+        );
+        assert_eq!(
+            harness_of(Path::new("a/.opencode/opencode.json")),
+            Some("opencode")
+        );
+        assert_eq!(
+            harness_of(Path::new("src/.hermes/config.yaml")),
+            Some("hermes")
+        );
         assert_eq!(harness_of(Path::new("README.md")), None);
         assert_eq!(harness_of(Path::new(".git/config")), None);
     }
@@ -584,10 +599,7 @@ mod tests {
 
     #[test]
     fn audience_both_and_other() {
-        assert_eq!(
-            classify_audience(Path::new("llms.txt")),
-            DocAudience::Both
-        );
+        assert_eq!(classify_audience(Path::new("llms.txt")), DocAudience::Both);
         assert_eq!(
             classify_audience(Path::new("src/main.rs")),
             DocAudience::Other
@@ -650,8 +662,14 @@ mod tests {
             .iter()
             .map(|t| (t.key.clone(), t.count))
             .collect();
-        assert!(by_audience.contains(&("agent".to_string(), 2)), "{by_audience:?}");
-        assert!(by_audience.contains(&("human".to_string(), 2)), "{by_audience:?}");
+        assert!(
+            by_audience.contains(&("agent".to_string(), 2)),
+            "{by_audience:?}"
+        );
+        assert!(
+            by_audience.contains(&("human".to_string(), 2)),
+            "{by_audience:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

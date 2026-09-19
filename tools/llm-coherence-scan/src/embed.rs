@@ -10,8 +10,8 @@ pub fn hash_embed(text: &str) -> [f32; EMBED_DIM] {
             if chunk.len() < 4 {
                 break;
             }
-            let idx = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]) as usize
-                % EMBED_DIM;
+            let idx =
+                u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]) as usize % EMBED_DIM;
             let sign = if chunk[0] & 1 == 0 { 1.0 } else { -1.0 };
             out[idx] += sign;
         }
@@ -27,7 +27,11 @@ pub fn hash_embed(text: &str) -> [f32; EMBED_DIM] {
 
 pub fn cosine(a: &[f32], b: &[f32]) -> f32 {
     let n = a.len().min(b.len());
-    a.iter().take(n).zip(b.iter().take(n)).map(|(x, y)| x * y).sum::<f32>()
+    a.iter()
+        .take(n)
+        .zip(b.iter().take(n))
+        .map(|(x, y)| x * y)
+        .sum::<f32>()
 }
 
 pub fn combine(input: &str, files: &[(String, String)]) -> String {

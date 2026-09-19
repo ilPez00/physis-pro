@@ -91,7 +91,11 @@ pub struct Answer {
 impl Answer {
     pub fn render(&self) -> String {
         let mut out = String::new();
-        out.push_str(&format!("── ANSWER · {} ──\n\n{}\n\n", self.tier.label(), self.text.trim()));
+        out.push_str(&format!(
+            "── ANSWER · {} ──\n\n{}\n\n",
+            self.tier.label(),
+            self.text.trim()
+        ));
         if let Some(why) = &self.degraded {
             out.push_str(&format!("!! DEGRADED: {why}\n\n"));
         }
@@ -100,7 +104,13 @@ impl Answer {
             out.push_str("  (none — the retrieval returned nothing)\n");
         }
         for (i, s) in self.sources.iter().enumerate() {
-            out.push_str(&format!("  [{}] {} ({:.3})\n      {}\n", i + 1, s.name, s.score, s.excerpt));
+            out.push_str(&format!(
+                "  [{}] {} ({:.3})\n      {}\n",
+                i + 1,
+                s.name,
+                s.score,
+                s.excerpt
+            ));
         }
         out.push_str(&format!(
             "\n{} documents · context {} tokens (conventional retrieval {}) · {:.0} ms\n",
@@ -150,7 +160,11 @@ pub fn answer(
 
     // Selection. The generous arm is the honest denominator for the budgeted one.
     let (baseline, _) = physis_core::rag::retrieve_from_texts(
-        &texts, query, embedder, usize::MAX / 2, docs.len().min(12),
+        &texts,
+        query,
+        embedder,
+        usize::MAX / 2,
+        docs.len().min(12),
     );
     let top_k = docs.len().clamp(3, 8);
     let (result, _) =
@@ -164,9 +178,21 @@ pub fn answer(
             .get(c.id)
             .map(|(n, _)| n.clone())
             .unwrap_or_else(|| format!("chunk {}", c.id));
-        let excerpt: String = c.text.lines().find(|l| !l.trim().is_empty()).unwrap_or("").trim().chars().take(140).collect();
+        let excerpt: String = c
+            .text
+            .lines()
+            .find(|l| !l.trim().is_empty())
+            .unwrap_or("")
+            .trim()
+            .chars()
+            .take(140)
+            .collect();
         numbered.push_str(&format!("[{}] {}\n{}\n\n", i + 1, name, c.text.trim()));
-        sources.push(Source { name, score: c.score, excerpt });
+        sources.push(Source {
+            name,
+            score: c.score,
+            excerpt,
+        });
     }
 
     let common = |tier, text: String, degraded| Answer {
@@ -277,7 +303,11 @@ impl Draft {
             return 0.0;
         }
         let total = self.drafted_tokens + self.gaps;
-        if total == 0 { 0.0 } else { self.drafted_tokens as f32 / total as f32 }
+        if total == 0 {
+            0.0
+        } else {
+            self.drafted_tokens as f32 / total as f32
+        }
     }
 }
 
@@ -299,11 +329,16 @@ pub fn draft(
     max_tokens: usize,
     confidence: f32,
 ) -> anyhow::Result<Draft> {
-    use physis_core::ngram_table::{TableBuilder, TableConfig, TableKind, NGramTable};
+    use physis_core::ngram_table::{NGramTable, TableBuilder, TableConfig, TableKind};
     use physis_core::tokenizer::{Tokenizer, WhitespaceTokenizer};
 
     let tok = WhitespaceTokenizer::new(0);
-    let cfg = TableConfig { kind: TableKind::Lexical, max_order: 5, min_count: 1, ..Default::default() };
+    let cfg = TableConfig {
+        kind: TableKind::Lexical,
+        max_order: 5,
+        min_count: 1,
+        ..Default::default()
+    };
     let mut b = TableBuilder::new(cfg);
     for c in &result.chunks {
         b.push_text(&tok, &c.text);
@@ -388,7 +423,13 @@ pub fn draft(
 fn extractive(result: &physis_core::rag::RetrievalResult) -> String {
     let mut out = String::new();
     for (i, c) in result.chunks.iter().take(3).enumerate() {
-        let line: String = c.text.lines().filter(|l| !l.trim().is_empty()).take(2).collect::<Vec<_>>().join(" ");
+        let line: String = c
+            .text
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .take(2)
+            .collect::<Vec<_>>()
+            .join(" ");
         out.push_str(&format!("{} [{}]\n", line.trim(), i + 1));
     }
     if out.is_empty() {
@@ -404,9 +445,18 @@ mod tests {
 
     fn corpus() -> Vec<(String, String)> {
         vec![
-            ("valve.md".into(), "The relief valve opens at 2.6 bar. Above 4.2 bar the machine must stop.".into()),
-            ("pump.md".into(), "Pump maintenance: replace the seal on line 1 every 400 hours.".into()),
-            ("invoice.md".into(), "Payment terms are net thirty days from invoice date.".into()),
+            (
+                "valve.md".into(),
+                "The relief valve opens at 2.6 bar. Above 4.2 bar the machine must stop.".into(),
+            ),
+            (
+                "pump.md".into(),
+                "Pump maintenance: replace the seal on line 1 every 400 hours.".into(),
+            ),
+            (
+                "invoice.md".into(),
+                "Payment terms are net thirty days from invoice date.".into(),
+            ),
         ]
     }
 
@@ -421,13 +471,28 @@ mod tests {
         unsafe { std::env::remove_var("OPENROUTER_API_KEY") };
         unsafe { std::env::remove_var("GROQ_API_KEY") };
 
-        let a = answer(&corpus(), "what pressure does the valve open at", &e, 200, "random-projection (test fixture)").unwrap();
+        let a = answer(
+            &corpus(),
+            "what pressure does the valve open at",
+            &e,
+            200,
+            "random-projection (test fixture)",
+        )
+        .unwrap();
         assert_eq!(a.tier, Tier::Extractive);
         let why = a.degraded.clone().expect("a downgrade must be recorded");
-        assert!(why.contains("ollama"), "the message must say how to fix it: {why}");
-        assert!(a.render().contains("EXTRACTIVE"), "the tier must reach the output");
+        assert!(
+            why.contains("ollama"),
+            "the message must say how to fix it: {why}"
+        );
+        assert!(
+            a.render().contains("EXTRACTIVE"),
+            "the tier must reach the output"
+        );
 
-        if let Some(p) = prev { unsafe { std::env::set_var("PHYSIS_ORACLE_KEY", p) } }
+        if let Some(p) = prev {
+            unsafe { std::env::set_var("PHYSIS_ORACLE_KEY", p) }
+        }
     }
 
     /// Citations are looked up from retrieval indices, so every source names a
@@ -436,10 +501,21 @@ mod tests {
     fn every_source_is_a_real_document() {
         let e = RandomProjectionEmbedder::new(64);
         let docs = corpus();
-        let a = answer(&docs, "seal replacement interval", &e, 200, "random-projection (test fixture)").unwrap();
+        let a = answer(
+            &docs,
+            "seal replacement interval",
+            &e,
+            200,
+            "random-projection (test fixture)",
+        )
+        .unwrap();
         assert!(!a.sources.is_empty());
         for s in &a.sources {
-            assert!(docs.iter().any(|(n, _)| *n == s.name), "invented source: {}", s.name);
+            assert!(
+                docs.iter().any(|(n, _)| *n == s.name),
+                "invented source: {}",
+                s.name
+            );
         }
     }
 
@@ -448,8 +524,20 @@ mod tests {
     #[test]
     fn budgeted_context_never_exceeds_the_baseline() {
         let e = RandomProjectionEmbedder::new(64);
-        let a = answer(&corpus(), "valve", &e, 100, "random-projection (test fixture)").unwrap();
-        assert!(a.context_tokens <= a.baseline_tokens, "{} > {}", a.context_tokens, a.baseline_tokens);
+        let a = answer(
+            &corpus(),
+            "valve",
+            &e,
+            100,
+            "random-projection (test fixture)",
+        )
+        .unwrap();
+        assert!(
+            a.context_tokens <= a.baseline_tokens,
+            "{} > {}",
+            a.context_tokens,
+            a.baseline_tokens
+        );
     }
 
     /// The property that actually holds, and the one that matters: every token
@@ -469,7 +557,10 @@ mod tests {
         let texts: Vec<String> = docs.iter().map(|(_, b)| b.clone()).collect();
         let (result, _) = physis_core::rag::retrieve_from_texts(&texts, "relief valve", &e, 400, 3);
         let d = draft(&result, "The relief valve", 20, 0.0).unwrap();
-        assert!(d.drafted_tokens > 0, "the table must draft something it observed");
+        assert!(
+            d.drafted_tokens > 0,
+            "the table must draft something it observed"
+        );
         // Honest invariant: share is positive exactly when the draft did not
         // cycle. Either state is a valid outcome; misreporting one as the
         // other is not.
@@ -484,11 +575,19 @@ mod tests {
         // Lowercased: the whitespace tokenizer normalises case, so a literal
         // comparison would fail on "Above" vs "above" and look like a
         // grounding violation when it is a casing difference.
-        let ctx: String = result.chunks.iter().map(|c| c.text.to_lowercase()).collect::<Vec<_>>().join(" ");
+        let ctx: String = result
+            .chunks
+            .iter()
+            .map(|c| c.text.to_lowercase())
+            .collect::<Vec<_>>()
+            .join(" ");
         for sp in &d.spans {
             if let Span::Grounded(t) = sp {
                 for w in t.split_whitespace() {
-                    assert!(ctx.contains(&w.to_lowercase()), "drafted {w:?} is not in the retrieved context");
+                    assert!(
+                        ctx.contains(&w.to_lowercase()),
+                        "drafted {w:?} is not in the retrieved context"
+                    );
                 }
             }
         }
@@ -505,9 +604,16 @@ mod tests {
         let (result, _) = physis_core::rag::retrieve_from_texts(&texts, "valve", &e, 400, 3);
         // Confidence floor of 1.1 is unreachable, so nothing can be asserted.
         let d = draft(&result, "orbital mechanics of", 10, 1.1).unwrap();
-        assert_eq!(d.drafted_tokens, 0, "nothing should be drafted at an unreachable floor");
+        assert_eq!(
+            d.drafted_tokens, 0,
+            "nothing should be drafted at an unreachable floor"
+        );
         assert_eq!(d.gaps, 1);
-        assert_eq!(d.table_share(), 0.0, "table_share 0 says: this is not a job for the table");
+        assert_eq!(
+            d.table_share(),
+            0.0,
+            "table_share 0 says: this is not a job for the table"
+        );
         assert!(d.render_with_gaps().contains("⟨FILL⟩"));
     }
 
@@ -528,7 +634,11 @@ mod tests {
         let (result, _) = physis_core::rag::retrieve_from_texts(&texts, "the machine", &e, 400, 3);
         let d = draft(&result, "the machine", 40, 0.0).unwrap();
         if d.looped {
-            assert_eq!(d.table_share(), 0.0, "a looped draft must not score above 0");
+            assert_eq!(
+                d.table_share(),
+                0.0,
+                "a looped draft must not score above 0"
+            );
             assert!(d.gaps >= 1, "a loop must open a gap, not end silently");
         }
     }
