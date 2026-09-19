@@ -127,6 +127,17 @@ pub enum Commands {
         #[command(subcommand)]
         command: SettingsCommand,
     },
+    /// Draw everything as text: agents, actions, tasks, routes and settings
+    Draw {
+        /// Workspace root (default: current directory)
+        root: Option<PathBuf>,
+        /// Observation log for the task graph
+        #[arg(long)]
+        log: Option<PathBuf>,
+        /// Line width
+        #[arg(long, default_value_t = 100)]
+        width: usize,
+    },
     /// Generate stochastic dreams
     Dream {
         #[arg(short, long, default_value = "5")]
@@ -1490,6 +1501,10 @@ fn main() -> anyhow::Result<()> {
         return cmd_settings(command);
     }
 
+    if let Commands::Draw { root, log, width } = &cli.command {
+        return cmd_draw(root.as_deref(), log.as_deref(), *width);
+    }
+
     let config = PhysisProConfig::default();
     let mut app = PhysisApp::new(config.physis.clone());
 
@@ -1504,6 +1519,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Action { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Agent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Settings { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Draw { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Dashboard { .. }
         | Commands::Chat { .. }
         | Commands::Embed { .. }
@@ -2527,6 +2543,86 @@ fn read_observations(
         eprintln!("[physis] skipped {bad} unparseable observation line(s)");
     }
     Ok(out)
+}
+
+/// `draw`: everything the HUD shows, as text. Every section is produced by the
+/// same renderer the TUI calls, so the two frontends cannot drift.
+fn cmd_draw(
+    root: Option<&std::path::Path>,
+    log: Option<&std::path::Path>,
+    width: usize,
+) -> anyhow::Result<()> {
+    use physis_pro::agents::{self, tasks::TaskGraph, view};
+    use physis_pro::draw::{render, Section};
+    use physis_pro::settings::Settings;
+
+    let root = root
+        .map(|p| p.to_path_buf())
+        .unwrap_or(std::env::current_dir()?);
+    let roster = agents::default_roster();
+
+    // AGENTS: the same strip the HUD draws, plus one line per agent.
+    let mut agents_body = view::render_strip(&roster);
+    agents_body.push('\n');
+    for a in &roster.agents {
+        let s = agents::status(a);
+        let dot = if s.available { "●" } else { "○" };
+        agents_body.push_str(&format!(
+            "  {dot} {:<10} {:<8} {:<28} {}\n",
+            a.id,
+            a.state.label(),
+            s.transport,
+            s.reason.as_deref().unwrap_or("")
+        ));
+    }
+
+    // ACTIONS: capabilities and registered objects from the nav index.
+    let actions_body = match physis_pro::registry::Registry::from_workspace(&root) {
+        Ok(reg) => physis_pro::action::render_list(&reg),
+        Err(e) => format!("registry unavailable: {e}"),
+    };
+
+    // TASKS: the graph folded from the observation log.
+    let log_path = log.map(|p| p.to_path_buf()).unwrap_or_else(|| {
+        root.join(
+            std::env::var("PHYSIS_OBSERVATIONS")
+                .unwrap_or_else(|_| ".physis/observations.jsonl".into()),
+        )
+    });
+    let tasks_body = match read_observations(&log_path) {
+        Ok(obs) => {
+            let g = TaskGraph::fold(&obs);
+            format!(
+                "{} observations → {} tasks\n{}",
+                obs.len(),
+                g.tasks.len(),
+                g.render()
+            )
+        }
+        Err(e) => format!("no task log at {}: {e}", log_path.display()),
+    };
+
+    // ROUTES: the persisted table, if any.
+    let routes_path = root.join(".physis/routes.json");
+    let routes = physis_pro::routes::RouteTable::load(&routes_path);
+    let mut routes_body = String::new();
+    for r in routes.all() {
+        routes_body.push_str(&format!(
+            "  {:<20} {:<18} -> {}\n",
+            r.name, r.cell, r.action
+        ));
+    }
+
+    let sections = vec![
+        Section::new("agents", agents_body),
+        Section::new("actions", actions_body),
+        Section::new("tasks", tasks_body),
+        Section::new("routes", routes_body),
+        Section::new("settings", Settings::load().render()),
+    ];
+    let title = format!("physis — {}", root.display());
+    print!("{}", render(&title, &sections, width));
+    Ok(())
 }
 
 fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
