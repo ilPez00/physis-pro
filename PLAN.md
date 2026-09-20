@@ -3540,6 +3540,18 @@ not automatic permission to modify production.
 > a set sorted by `node_id` and floats to epsilon 1e-6, because the DFS wave's
 > neighbour order is HashSet-derived and unspecified (`delta_engine.rs:297`).
 > MS-004–MS-008 stay blocked behind their dependencies as listed.
+>
+> **Updated again 2026-09-20 (later).** MS-002 was reviewed independently and is
+> `done`: citations re-checked at both `ed8dc29` and `54b8a8d`, A1 confirmed
+> binding, zero-production-caller and zero-instrumentation claims confirmed.
+> The runnable mutation matrix it left undelivered is carried by new packet
+> **`MS-002-harness`** (`todo`). MS-003 was reviewed and **returned to `todo`**:
+> its report describes the acceptance gate wrongly (it names
+> Counterfactual/Substitution/Analogical; `transform.rs:633-639` sets
+> logical/empirical/temporal/causal/procedural and hard-requires only logical
+> and empirical) and misquotes PH-051 ("0/5 cleared transfer" against PH-051's
+> own 4/5 transfer, 0/5 arithmetic-specific). MS-004 and MS-005 stay blocked:
+> MS-003's report is the prerequisite for MS-005's relation-family baseline.
 
 The user's second E65–E70 sequence maps to MS-002/MS-004/MS-006 (critical
 structure), MS-003 (linguistic scales and relation families), MS-005 (spine and
@@ -4013,7 +4025,7 @@ evidence until reviewer verifies content + ownership.
 | group | paths | standing |
 |---|---|---|
 | orchestration harness (opt-in, human-supervised) | `.opencode/commands/orchestrate.md`, `.opencode/orchestration.json`, `.opencode/plugins/orchestration.js`, `.opencode/skills/physis-inspect/SKILL.md`, `clients/opencode-orchestration/` (README, roles/router/router.test/smoke), `logs/auto_update.log` | headers only; Astra advertised-but-rejected, live runs bounded; out of all slice gates |
-| MS packets | `packets/MS-002`…`MS-008` | MS-001 **done** (reviewed 2026-09-20, amendment A1); MS-002/003 `todo` and released in parallel; MS-004–008 blocked behind their dependencies. No worker launched by this document |
+| MS packets | `packets/MS-002`…`MS-008` | MS-001 **done** (reviewed 2026-09-20, amendment A1); MS-002 **done** (reviewed 2026-09-20, report-only accepted); `MS-002-harness` `todo` carries the runnable oracle MS-002 deferred; MS-003 **returned to `todo`** (two wrong claims in its report); MS-004–008 blocked behind their dependencies. No worker launched by this document |
 | research | `research/E91_ARCHAEOLOGY.md`, `research/E91_CONCEPT_MAP.md`, `research/QUANTITATIVE_EVENT_STREAMS.md` (Q1–Q8 PROPOSED/NOT MEASURED), `research/criticality/run.py` + `results.json` (invalid draft, never baseline) | E91-A/B citable as audits; QES authorizes nothing; criticality draft is non-evidence |
 | nav/HUD slice (W2-owned) | `src/nav/mod.rs`, `src/nav/workspace.rs`, `src/bin/hud.rs`, `tests/world_edges.rs`, `docs/SEMANTIC_NAVIGATION.md`, `scripts/physis-update.sh` | W2.1 (`relation_id`, `relation_kind_to_core` + 2 tests) + W2.2 (`relate_selection`, `s`/`d`/`R`) present per grep; targeted tests not yet run |
 

@@ -23,6 +23,22 @@ Those errors are gone, so both gates now pass *in full*. A report that
 honestly records a caveat still needs the caveat re-measured later; the
 caveat is a fact with a date on it.
 
+### 1b. What the follow-up pass changed (later 2026-09-20)
+
+| packet | before | after | evidence |
+|---|---|---|---|
+| PH-004 semantic self-test | `claimed`, gate filter matched **zero** tests and exited 0 | **`review`** — filter now matches two; real-weights skip asserts its own precondition; CLI exit code pinned | `packets/reports/PH-004.md`; commit `5e074ce` |
+| MS-002 mutation replay | `review` | **`done`** — accepted report-only; citations re-checked at `ed8dc29` and `54b8a8d` | `packets/reports/MS-002.md` §Verification note; commit `59f50d7` |
+| MS-003 relation survival | `review` | **`todo`** — returned: gate described wrongly, PH-051 misquoted | `packets/reports/MS-003.md` §Verification note; commit `d893d3d` |
+| MS-002-harness | did not exist | **`todo`** — new packet carrying the runnable oracle MS-002 deferred | `packets/MS-002-harness.md` |
+
+The MS-003 return is the pass that earned its keep: a survey's line citations
+had drifted by one or two lines in three places (harmless), but its headline
+acceptance-gate claim named three dimensions that do not exist in
+`Transform::apply` and said all five must be `1.0`, when the code hard-requires
+two. A successor building a relation-survival metric on that sentence would
+have gated on the wrong thing.
+
 ## 2. The one amendment that binds future work
 
 **A1 (MS-001).** The report called `evaluate_mutation` "deterministic given
@@ -39,19 +55,23 @@ and floats to epsilon 1e-6, never positionally or bit-exact. Sorting the wave
 is a **core source change** and needs its own packet — it is not an amendment
 to a report-only packet, and no packet currently owns it.
 
-## 3. Eligible now, in order
+## 3. Eligible now, in order (re-measured after §1b)
 
-1. **MS-002** — mutation replay and incremental correctness. Heaviest, and the
-   one every later MS packet's credibility rests on. Own packet report plus
-   `research/multiscale/MS-002/` only; no production changes.
-2. **MS-003** — linguistic scales and relation survival. Independent of
-   MS-002, same contract, can run in parallel in an isolated workspace.
+1. **MS-002-harness** — the runnable mutation matrix MS-002 deferred:
+   `physis-core/tests/replay_contract.rs`, six arms, properties P1–P5, and the
+   oracle-semantics decision (the wave's depth/impact cutoffs make a full
+   recompute a superset, so equality is the wrong oracle). MS-004–MS-008 rest
+   on it.
+2. **MS-003 corrections** — four citation fixes to the existing report; no
+   re-execution. Then MS-003 can go to `review` again, which unblocks MS-005.
 3. **PH-023** — local NLI cross-encoder as the contradiction discriminator.
    Deps met. Gate is a measurement, not a build: precision ≥ 0.90 **and**
    recall > 0.50 on the 86-pair set, and the incumbent rule is precision
    1.000 / recall 0.50, so precision is the binding constraint.
-4. **PH-013** — tenant isolation and authz threat model + enforcement matrix.
-   Rung 3 (design doc first), 181 routes to audit.
+4. **The review backlog** — PH-CORE-A4 / CLASSIFY / CLEANUP / DOCS /
+   RETIREMENT, PH-ORCH-ROUTER, PH-013, PH-015, PH-001 are all `review` and
+   each needs an independent re-run before it can be `done`. PH-CORE-RETIREMENT
+   is a human decision and cannot be closed by a reviewer.
 5. **PH-011 (recurring)** — the monthly docs staleness sweep. This document is
    itself an input to it.
 
@@ -60,11 +80,12 @@ to a report-only packet, and no packet currently owns it.
 | packet | blocked by |
 |---|---|
 | PH-006 pro-tier gating | the **human** features decision. The analysis it was waiting for now exists (`packets/reports/PH-001.md` §Item 3): keep `mcp` out of `default`, recommended on measured cost (+35.9 MiB, +31 s). Nothing executes it automatically. |
-| MS-004, MS-005 | MS-002 / MS-003 reports reviewed |
+| MS-004 | MS-002-harness (the oracle its credibility rests on) |
+| MS-005 | MS-003 returned to `todo` — its report is the relation-family baseline |
 | MS-006 | MS-005; observational only |
 | MS-007 | real task outcomes — none banked |
 | MS-008 | conditional review, not a permission |
-| PH-004 | `claimed` since 2026-09-12 (see §6) |
+| PH-CORE-RETIREMENT | **human** decision: correct the retirement docs or move the engine to a successor |
 
 ## 5. Standing hazards for whoever picks these up
 

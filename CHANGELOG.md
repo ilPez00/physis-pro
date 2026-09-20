@@ -19,7 +19,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   misclassification into a wrong-*kind* bug instead of a silent-loss bug.
   Test: `ingest::tests::misclassified_text_file_keeps_its_body_ph015`.
 
+### Fixed
+- The semantic self-test gate can now fail loudly (PH-004). The probe and the
+  `selftest` subcommand were already committed, but the packet's own gate
+  `cargo test semantic_self_test` matched **zero** tests and exited 0. Two
+  tests now carry that name: the unit test runs the random-projection arm
+  unconditionally and asserts its own precondition before skipping the
+  real-weights arm, and a child-process test runs the built binary with
+  `PHYSIS_EMBEDDER=random-projection` and no licence file, requiring exit 1
+  with a `FAIL` verdict. `packets/reports/PH-004.md`.
+
 ### Changed
+- **MS-002 is `done`** after independent review: citations re-checked at both
+  `ed8dc29` and `54b8a8d`, amendment A1 confirmed binding, the
+  zero-production-caller and zero-instrumentation claims confirmed. Its
+  runnable mutation matrix was deferred by the report and is now carried by a
+  new packet, **`MS-002-harness`** (`todo`), which names the oracle semantics,
+  six mutation arms and properties P1–P5.
+- **MS-003 returned to `todo`** after independent review. Its report describes
+  the `Transform::apply` acceptance gate wrongly (it names
+  Counterfactual/Substitution/Analogical and says all five dimensions must be
+  `1.0`; the code sets logical/empirical/temporal/causal/procedural and
+  hard-requires only logical and empirical, `transform.rs:633-639`) and
+  misquotes PH-051 ("0/5 cleared cross-representation transfer" against
+  PH-051's own 4/5 transfer, 0/5 arithmetic-specific, 0/5 held-out). Four
+  citation fixes required; no re-execution.
 - `.env.example` documents `PHYSIS_LOG` — the only log-level variable any code
   reads. It had been absent since the tracked `.env` was purged, so a fresh
   deployer could not discover it (PH-001).
@@ -43,6 +67,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `packets/README.md`, `PLAN.md`, `AGENTS.md` — packet board state re-measured
   2026-09-20; MS-001 done, MS-002/003 released, PH-023 released, PH-015 and
   PH-001 in review.
+- `packets/reports/PH-004.md`, `MS-002.md` §"Verification note",
+  `MS-003.md` §"Verification note" — the PH-004 report and two independent
+  reviewer passes.
+- `packets/MS-002-harness.md` — new packet carrying MS-002's undelivered
+  runnable oracle.
+- `PLAN.md`, `packets/README.md`,
+  `docs/plans/2026-09-20-queue-after-reviews.md` §1b/§3/§4 — board state
+  reconciled after the follow-up pass: PH-004 `review`, MS-002 `done`,
+  MS-003 `todo`, MS-004 blocked on MS-002-harness, MS-005 on MS-003.
 
 ## [0.1.21] - 2026-09-19
 

@@ -22,10 +22,15 @@ Suggested order = phase, then id. Phase meanings: 0 = now, 1 = next quarter,
 ## Multiscale structure research
 
 See [PLAN.md Phase 27](../PLAN.md#phase-27--measured-structure-of-change-2026-09-17).
-Standing as of **2026-09-20**: MS-001 is **done** (independently reviewed
-2026-09-20, accepted with **amendment A1** — see below). MS-002 and MS-003 are
-released to `todo` and may now run in parallel in isolated workspaces; MS-004
-through MS-008 remain dependency-blocked. Packets are prepared, not dispatched.
+Standing as of **2026-09-20 (later the same day)**: MS-001 is **done**
+(independently reviewed, accepted with **amendment A1** — see below). MS-002 is
+**done** (independently reviewed, report-only accepted; its runnable mutation
+matrix is carried by the new **`MS-002-harness`** packet, `todo`). MS-003 was
+reviewed and **returned to `todo`**: its report describes the `Transform::apply`
+acceptance gate wrongly and misquotes PH-051 (see
+[`reports/MS-003.md`](reports/MS-003.md) §"Verification note"). MS-004 through
+MS-008 remain dependency-blocked, and MS-005 additionally waits on MS-003's
+corrected relation-family baseline. Packets are prepared, not dispatched.
 Existing operational correctness work takes priority.
 
 **A1 — binding on MS-002/MS-003.** The MS-001 report called
