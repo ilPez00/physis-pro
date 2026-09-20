@@ -1654,21 +1654,18 @@ mod tests {
     #[test]
     fn test_space_time_have_valid_grid_cells() {
         let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
+        // The nine-mode axis (reworked 2026-09-19). The ontology packs were
+        // migrated with it; a mode outside this list is a pack that was missed.
         let valid_modes = [
-            "WORK",
-            "WALK",
-            "LEARN",
-            "CREATE",
+            "COMMUNICATION",
+            "COGNITION",
+            "MOTION",
             "REST",
-            "LIFT",
-            "DESTROY",
-            "SENSE",
-            "GUIDE",
-            "PLAY",
-            "BRAINSTORM",
             "MAINTAIN",
-            "MOVE",
-            "PLAN",
+            "SOCIAL",
+            "CREATE",
+            "POSSESS",
+            "STATIVE",
         ];
         for (axis, name_const) in [
             ("place", SPACE_ONTOLOGY_NAME),
@@ -1770,21 +1767,18 @@ mod tests {
     fn test_office_domains_have_valid_grid_cells() {
         let map = OntologyLoader::load_builtin(OFFICE_ONTOLOGY_NAME).unwrap();
         let valid_domains = ["STUDY", "HEAL", "FABRICATE", "CONSTRUCT", "BOND"];
+        // The nine-mode axis (reworked 2026-09-19). The ontology packs were
+        // migrated with it; a mode outside this list is a pack that was missed.
         let valid_modes = [
-            "WORK",
-            "WALK",
-            "LEARN",
-            "CREATE",
+            "COMMUNICATION",
+            "COGNITION",
+            "MOTION",
             "REST",
-            "LIFT",
-            "DESTROY",
-            "SENSE",
-            "GUIDE",
-            "PLAY",
-            "BRAINSTORM",
             "MAINTAIN",
-            "MOVE",
-            "PLAN",
+            "SOCIAL",
+            "CREATE",
+            "POSSESS",
+            "STATIVE",
         ];
         for (name, def) in &map {
             let d = def.domain.as_deref().unwrap_or("");
