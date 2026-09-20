@@ -9,6 +9,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `physis-hud` is the one front door: every surface is a named view (PH-024).
+  `world · graph · notebook · tasks · agents · settings · setup · help`, opened
+  by `Tab`/`BackTab`, by their commands (`:settings`, `tasks`, `agents`, …), or
+  by key — `g` `N` `T` `A` `S` `W` `?` — and `Esc` always returns to the world.
+  Before this, `tasks`, `agents` and `settings` all wrote into the 35 %-high
+  reading pane, so the task graph, the settings dump and a file read were
+  indistinguishable and the next query destroyed whichever it was.
+- Settings are editable inside the HUD: rows over the runtime knobs and over
+  every provider and command, `+`/`-` to step (knobs clamp on the shared
+  table, `transport` cycles a closed set, command rows toggle), `Enter`/`e` to
+  type a value through the command box, `s` to save, `r` to reload, `d` to
+  revert a row. Only the keys the operator changed are written to
+  `~/.physis/settings.json`, so a save cannot freeze today's shipped defaults
+  into the user's file; `config.json` is written only when a knob moved.
+  Secrets stay env-var **names** (`key_env`), never values.
+- `physis-hud --setup` prints what is configured, what is missing and the
+  command that closes each gap (root, index, embedder, config/settings paths,
+  roster reachability, checklist), exits 0, and needs no prescan. `--view
+  <name>` opens a view directly, so `--snapshot=100x30 --view settings` is a
+  CI-renderable frame.
+- The five config knobs are now one table, `config::CONFIG_KNOBS` (floor,
+  ceiling, step, precision, formatting). `physis-pro-tui`, Studio CONFIG and
+  the HUD all render it; the three private copies that could drift are gone.
+  Test: `config::tests::config_knobs_step_their_own_field_and_hold_their_bounds`.
+- Plan: `docs/plans/2026-09-20-physis-hud.md` (the HUD programme: reuse map,
+  gaps, phases P0–P7, rules carried into every packet).
+
 ### Fixed
 - Ingest no longer loses a text file's body to a misclassification (PH-015).
   `office/invoices.md` matched the voice-file heuristic on the substring

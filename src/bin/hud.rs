@@ -51,8 +51,10 @@ use ratatui::{
     Terminal,
 };
 
+use physis_pro::config::PhysisConfig;
 use physis_pro::mvp::log::{hash_canonical, CompactDelta, StateRef, Transition, TransitionLog};
 use physis_pro::nav::{self, NavHit, NavWeights, ObjectKind};
+use physis_pro::settings::Settings;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -60,13 +62,31 @@ fn main() -> anyhow::Result<()> {
     let mut prescan_only = false;
     let mut snapshot: Option<(u16, u16)> = None;
     let mut root: Option<PathBuf> = None;
-    for a in args.iter().skip(1) {
+    let mut setup = false;
+    let mut view_name: Option<String> = None;
+    // `--view` takes a value, so pull it (and `--view=NAME`) out before the
+    // positional loop — otherwise the value would be eaten as the root path.
+    let mut plain: Vec<&String> = Vec::new();
+    let mut it = args.iter().skip(1).peekable();
+    while let Some(a) = it.next() {
+        if a == "--view" {
+            view_name = it.next().cloned();
+        } else if let Some(name) = a.strip_prefix("--view=") {
+            view_name = Some(name.to_string());
+        } else {
+            plain.push(a);
+        }
+    }
+    for a in plain {
         match a.as_str() {
             "--prescan-only" => {
                 prescan_only = true;
             }
             "--no-prescan" => {
                 prescan = false;
+            }
+            "--setup" => {
+                setup = true;
             }
             "--snapshot" => {
                 snapshot = Some((100, 30));
@@ -78,13 +98,15 @@ fn main() -> anyhow::Result<()> {
                 })?);
             }
             "-h" | "--help" => {
-                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--snapshot[=WxH]]");
+                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--setup] [--view <name>] [--snapshot[=WxH]]");
                 eprintln!("  default: prescan index + embedding cache, then open the HUD");
                 eprintln!("  --prescan-only: warm the index + caches and exit (no TUI)");
                 eprintln!("  --no-prescan: open on the persisted index as-is (fast restart)");
-                eprintln!(
-                    "  --snapshot[=WxH]: render one frame to stdout and exit (default 100x30)"
-                );
+                eprintln!("  --setup: print what is configured, what is missing, and the");
+                eprintln!("           command that closes each gap; exit 0");
+                eprintln!("  --view <name>: open a view directly (one of: {});", View::ALL.iter().map(|v| v.label()).collect::<Vec<_>>().join(", "));
+                eprintln!("           combines with --snapshot for a CI-renderable frame");
+                eprintln!("  --snapshot[=WxH]: render one frame to stdout and exit (default 100x30)");
                 return Ok(());
             }
             _ => {
@@ -104,14 +126,42 @@ fn main() -> anyhow::Result<()> {
     if prescan_only {
         return prescan_only_run(&root);
     }
-    if let Some((w, h)) = snapshot {
-        return snapshot_run(&root, w, h);
+    if setup {
+        // No prescan: SETUP is a read of what is already on disk, so it stays
+        // cheap even on a cold checkout — an empty index is exactly the gap it
+        // should report.
+        let app = App::new(root, false)?;
+        println!("{}", setup_report(&app.setup_facts()));
+        return Ok(());
     }
-    let app = App::new(root, prescan)?;
+    if let Some((w, h)) = snapshot {
+        return snapshot_run(&root, w, h, view_name.as_deref());
+    }
+    let mut app = App::new(root, prescan)?;
+    open_named_view(&mut app, view_name.as_deref())?;
     let terminal = enter_tui()?;
     let result = run(terminal, app);
     leave_tui()?;
     result
+}
+
+/// Open a `--view <name>` view, naming the valid ones when the name is wrong.
+fn open_named_view(app: &mut App, name: Option<&str>) -> anyhow::Result<()> {
+    let Some(name) = name else {
+        return Ok(());
+    };
+    let Some(view) = View::from_name(name) else {
+        return Err(anyhow::anyhow!(
+            "unknown view {name:?} (one of: {})",
+            View::ALL
+                .iter()
+                .map(|v| v.label())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    };
+    app.open_view(view);
+    Ok(())
 }
 
 /// Parse a `WxH` snapshot size, e.g. `80x24`.
@@ -128,9 +178,10 @@ fn parse_size(spec: &str) -> Option<(u16, u16)> {
 /// Render one frame through the same `draw` path to a `TestBackend` and print
 /// it. A golden frame in CI cannot drift from what a person sees, because there
 /// is no second renderer. No TTY required.
-fn snapshot_run(root: &Path, w: u16, h: u16) -> anyhow::Result<()> {
+fn snapshot_run(root: &Path, w: u16, h: u16, view: Option<&str>) -> anyhow::Result<()> {
     use ratatui::backend::TestBackend;
-    let app = App::new(root.to_path_buf(), false)?;
+    let mut app = App::new(root.to_path_buf(), false)?;
+    open_named_view(&mut app, view)?;
     let backend = TestBackend::new(w, h);
     let mut terminal = ratatui::Terminal::new(backend)?;
     terminal.draw(|f| draw(f, &app))?;
@@ -321,6 +372,515 @@ fn intent_paths(hits: &[NavHit]) -> (BTreeSet<String>, BTreeSet<String>) {
     (hot, warm)
 }
 
+/// Every surface the HUD owns, as a named view.
+///
+/// The world (navigation, reading, why/context/delta/history) is one view among
+/// several, not the only one. Typing `tasks`, `agents` or `settings` now
+/// switches view instead of overwriting the reading pane — before this, the
+/// task graph, the settings dump and a notebook answer all landed in the same
+/// 35 %-high box, and the next query destroyed whichever it was.
+///
+/// A view is a projection of state that already exists. None of them is a
+/// second store, and none of them reaches a model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum View {
+    World,
+    Graph,
+    Notebook,
+    Tasks,
+    Agents,
+    Settings,
+    Setup,
+    Help,
+}
+
+impl View {
+    /// Tab order, and the order the footer names them.
+    const ALL: [View; 8] = [
+        View::World,
+        View::Graph,
+        View::Notebook,
+        View::Tasks,
+        View::Agents,
+        View::Settings,
+        View::Setup,
+        View::Help,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            View::World => "world",
+            View::Graph => "graph",
+            View::Notebook => "notebook",
+            View::Tasks => "tasks",
+            View::Agents => "agents",
+            View::Settings => "settings",
+            View::Setup => "setup",
+            View::Help => "help",
+        }
+    }
+
+    /// The world key that opens this view. Upper case wherever the lower-case
+    /// letter is already a world action (`s`/`d`/`R` relate, `n` selects for the
+    /// notebook, `g` graphs the cursor), so no key loses its old meaning.
+    fn key(self) -> Option<char> {
+        match self {
+            View::Graph => Some('g'),
+            View::Notebook => Some('N'),
+            View::Tasks => Some('T'),
+            View::Agents => Some('A'),
+            View::Settings => Some('S'),
+            View::Setup => Some('W'),
+            View::Help => Some('?'),
+            View::World => None,
+        }
+    }
+
+    fn from_name(name: &str) -> Option<View> {
+        let n = name.trim().to_ascii_lowercase();
+        View::ALL.into_iter().find(|v| v.label() == n)
+    }
+
+    fn from_key(key: char) -> Option<View> {
+        View::ALL.into_iter().find(|v| v.key() == Some(key))
+    }
+
+    /// Next view in tab order, wrapping — `Tab` never dead-ends.
+    fn next(self) -> View {
+        let i = View::ALL.iter().position(|v| *v == self).unwrap_or(0);
+        View::ALL[(i + 1) % View::ALL.len()]
+    }
+
+    /// Previous view in tab order, wrapping.
+    fn prev(self) -> View {
+        let i = View::ALL.iter().position(|v| *v == self).unwrap_or(0);
+        View::ALL[(i + View::ALL.len() - 1) % View::ALL.len()]
+    }
+
+    /// What the keys do here. The title says it, so nobody has to guess whether
+    /// `+` steps a value or scrolls the pane.
+    fn keys(self) -> &'static str {
+        match self {
+            View::World => {
+                "e edit · g graph · N notebook · T tasks · A agents · S settings · W setup · ? help"
+            }
+            View::Settings => {
+                "↑↓ row · +/- step · Enter/e edit · s save · r reload · d revert row · Esc world"
+            }
+            View::Setup => "r re-detect · s selftest · Esc world",
+            _ => "↑↓ scroll · Tab next view · Esc world",
+        }
+    }
+}
+
+/// The provider fields an operator sets, in the order they are set up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProviderField {
+    Transport,
+    Bin,
+    Model,
+    KeyEnv,
+    Endpoint,
+}
+
+impl ProviderField {
+    const ALL: [ProviderField; 5] = [
+        ProviderField::Transport,
+        ProviderField::Bin,
+        ProviderField::Model,
+        ProviderField::KeyEnv,
+        ProviderField::Endpoint,
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            ProviderField::Transport => "transport",
+            ProviderField::Bin => "bin",
+            ProviderField::Model => "model",
+            ProviderField::KeyEnv => "key_env",
+            ProviderField::Endpoint => "endpoint",
+        }
+    }
+
+    /// What the value is for, printed beside it: a settings screen that shows
+    /// five dotted keys and no explanation is a config file with extra steps.
+    fn hint(self) -> &'static str {
+        match self {
+            ProviderField::Transport => "how the agent is reached (zen | cli | http)",
+            ProviderField::Bin => "executable on PATH, when the transport spawns one",
+            ProviderField::Model => "model id handed to the transport",
+            ProviderField::KeyEnv => "NAME of the env var holding the key — never the key",
+            ProviderField::Endpoint => "base URL of a Jev-compatible decision endpoint",
+        }
+    }
+}
+
+/// One row of the SETTINGS view. Rows address the two live documents by key;
+/// the view keeps no copy of a value, so it cannot show something the engine
+/// does not have.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SettingRow {
+    Section(&'static str),
+    /// `config::CONFIG_KNOBS[index]` — the same table `physis-pro-tui` and
+    /// Studio CONFIG edit.
+    Knob(usize),
+    /// `providers.<agent>.<field>` in the user settings file.
+    Provider {
+        agent: String,
+        field: ProviderField,
+    },
+    /// `commands.<name>.enabled`.
+    CommandEnabled { name: String },
+    /// `commands.<name>.aliases`.
+    CommandAliases { name: String },
+}
+
+impl SettingRow {
+    /// The dotted settings key this row writes, or the `config.json` field name
+    /// for a knob. `None` only for section headers.
+    fn key(&self) -> Option<String> {
+        match self {
+            SettingRow::Section(_) => None,
+            SettingRow::Knob(i) => physis_pro::config::CONFIG_KNOBS
+                .get(*i)
+                .map(|k| k.key.to_string()),
+            SettingRow::Provider { agent, field } => {
+                Some(format!("providers.{agent}.{}", field.name()))
+            }
+            SettingRow::CommandEnabled { name } => Some(format!("commands.{name}.enabled")),
+            SettingRow::CommandAliases { name } => Some(format!("commands.{name}.aliases")),
+        }
+    }
+
+    /// Typed rows open the command box; stepped rows change on `+`/`-`.
+    /// `key_env` is typed on purpose: its value is the *name* of a variable,
+    /// and hiding it would hide the one thing an operator needs to check.
+    fn is_text(&self) -> bool {
+        match self {
+            SettingRow::Section(_)
+            | SettingRow::Knob(_)
+            | SettingRow::CommandEnabled { .. } => false,
+            SettingRow::Provider { field, .. } => !matches!(field, ProviderField::Transport),
+            SettingRow::CommandAliases { .. } => true,
+        }
+    }
+}
+
+/// Build the settings rows: runtime knobs, then every provider, then every
+/// command. Providers and commands follow their own `BTreeMap` order, so the
+/// list a person scrolls is the same on any machine with the same file.
+///
+/// Pure: no file read, no terminal, no state of its own.
+fn settings_rows(s: &Settings) -> Vec<SettingRow> {
+    let mut rows = vec![SettingRow::Section("runtime knobs (config.json)")];
+    for i in 0..physis_pro::config::CONFIG_KNOBS.len() {
+        rows.push(SettingRow::Knob(i));
+    }
+    rows.push(SettingRow::Section("providers (settings.json)"));
+    for agent in s.providers.keys() {
+        for field in ProviderField::ALL {
+            rows.push(SettingRow::Provider {
+                agent: agent.clone(),
+                field,
+            });
+        }
+    }
+    rows.push(SettingRow::Section("commands (settings.json)"));
+    for name in s.commands.keys() {
+        rows.push(SettingRow::CommandEnabled { name: name.clone() });
+        rows.push(SettingRow::CommandAliases { name: name.clone() });
+    }
+    rows
+}
+
+/// The value as the row prints it. An unset text field prints `-` rather than an
+/// empty gap, so "not configured" is visibly different from "set to nothing".
+fn setting_value(row: &SettingRow, s: &Settings, cfg: &PhysisConfig) -> String {
+    match row {
+        SettingRow::Knob(i) => physis_pro::config::CONFIG_KNOBS
+            .get(*i)
+            .map(|k| k.display(cfg))
+            .unwrap_or_default(),
+        SettingRow::Provider { agent, field } => s
+            .provider(agent)
+            .and_then(|p| match field {
+                ProviderField::Transport => p.transport.as_deref(),
+                ProviderField::Bin => p.bin.as_deref(),
+                ProviderField::Model => p.model.as_deref(),
+                ProviderField::KeyEnv => p.key_env.as_deref(),
+                ProviderField::Endpoint => p.endpoint.as_deref(),
+            })
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "-".to_string()),
+        SettingRow::CommandEnabled { name } => s
+            .commands
+            .get(name)
+            .map(|c| if c.enabled { "on" } else { "off" }.to_string())
+            .unwrap_or_else(|| "-".to_string()),
+        SettingRow::CommandAliases { name } => s
+            .commands
+            .get(name)
+            .map(|c| {
+                if c.aliases.is_empty() {
+                    "-".to_string()
+                } else {
+                    c.aliases.join(",")
+                }
+            })
+            .unwrap_or_else(|| "-".to_string()),
+        SettingRow::Section(_) => String::new(),
+    }
+}
+
+/// One applied settings change: the key, the value to record, and which document
+/// it belongs to. Recording only what the operator changed is what keeps a save
+/// from freezing today's shipped defaults into their settings file.
+struct Change {
+    key: String,
+    value: String,
+    /// `true` = a `config.json` knob; `false` = a settings-file override.
+    is_knob: bool,
+}
+
+/// Step a row one notch. `Ok(None)` means "this row is typed, open the box",
+/// `Ok(Some(change))` means the caller must record it, `Err` means the row
+/// cannot be stepped at all.
+fn step_setting(
+    row: &SettingRow,
+    s: &Settings,
+    cfg: &mut PhysisConfig,
+    up: bool,
+) -> Result<Option<Change>, String> {
+    match row {
+        SettingRow::Section(_) => Ok(None),
+        SettingRow::Knob(i) => {
+            let knob = physis_pro::config::CONFIG_KNOBS
+                .get(*i)
+                .ok_or_else(|| format!("no knob at index {i}"))?;
+            let now = knob.bump(cfg, up);
+            Ok(Some(Change {
+                key: knob.key.to_string(),
+                value: format!("{now}"),
+                is_knob: true,
+            }))
+        }
+        SettingRow::Provider { agent, field } => {
+            if !matches!(field, ProviderField::Transport) {
+                return Ok(None); // typed row
+            }
+            let current = s
+                .provider(agent)
+                .and_then(|p| p.transport.clone())
+                .unwrap_or_default();
+            // transport is a closed set, so `+`/`-` cycles it: an operator
+            // cannot invent a transport the adapter does not implement.
+            // `local` is in the set because the shipped file uses it.
+            const TRANSPORTS: [&str; 4] = ["zen", "cli", "http", "local"];
+            let idx = TRANSPORTS.iter().position(|t| *t == current).unwrap_or(0);
+            let next = if up {
+                TRANSPORTS[(idx + 1) % TRANSPORTS.len()]
+            } else {
+                TRANSPORTS[(idx + TRANSPORTS.len() - 1) % TRANSPORTS.len()]
+            };
+            Ok(Some(Change {
+                key: format!("providers.{agent}.transport"),
+                value: next.to_string(),
+                is_knob: false,
+            }))
+        }
+        SettingRow::CommandEnabled { name } => {
+            let now = s
+                .commands
+                .get(name)
+                .map(|c| c.enabled)
+                .ok_or_else(|| format!("unknown command `{name}`"))?;
+            Ok(Some(Change {
+                key: format!("commands.{name}.enabled"),
+                value: (!now).to_string(),
+                is_knob: false,
+            }))
+        }
+        SettingRow::CommandAliases { .. } => Ok(None),
+    }
+}
+
+/// Apply a typed value. Knob keys are clamped by the shared knob table; every
+/// other key is validated by `Settings::set` on a scratch document, so a typo is
+/// refused by the same validator the CLI uses instead of being written through.
+/// The recorded value is what the operator typed: the view always re-renders it
+/// from the merged document, so the normalised form (`a, b ,` → `a,b`) is what
+/// they see, and `Settings::set` writes the same form.
+fn set_setting_text(
+    s: &Settings,
+    cfg: &mut PhysisConfig,
+    key: &str,
+    value: &str,
+) -> Result<Change, String> {
+    if let Some(knob) = physis_pro::config::CONFIG_KNOBS
+        .iter()
+        .find(|k| k.key == key)
+    {
+        let raw: f64 = value
+            .trim()
+            .parse()
+            .map_err(|_| format!("{key} expects a number, got `{value}`"))?;
+        let now = knob.set(cfg, raw);
+        return Ok(Change {
+            key: key.to_string(),
+            value: format!("{now}"),
+            is_knob: true,
+        });
+    }
+    let mut scratch = s.clone();
+    scratch.set(key, value)?;
+    Ok(Change {
+        key: key.to_string(),
+        value: value.to_string(),
+        is_knob: false,
+    })
+}
+
+/// What the selected row is for. A settings screen that shows dotted keys and no
+/// explanation is a config file with extra steps.
+fn row_hint(row: &SettingRow) -> &'static str {
+    match row {
+        SettingRow::Section(_) => "",
+        SettingRow::Knob(_) => "runtime knob — written to config.json",
+        SettingRow::Provider { field, .. } => field.hint(),
+        SettingRow::CommandEnabled { .. } => "on: the command word routes · off: it is disabled",
+        SettingRow::CommandAliases { .. } => "comma-separated words that route to this command",
+    }
+}
+
+/// Move the selection to the next non-header row in `rows`, wrapping. Headers
+/// are labels, not stops — landing on one would look like a stuck cursor.
+fn next_setting_row(rows: &[SettingRow], from: usize, down: bool) -> usize {
+    if rows.is_empty() {
+        return 0;
+    }
+    let n = rows.len();
+    let mut i = from.min(n - 1);
+    for _ in 0..n {
+        i = if down { (i + 1) % n } else { (i + n - 1) % n };
+        if !matches!(rows[i], SettingRow::Section(_)) {
+            return i;
+        }
+    }
+    from.min(n - 1)
+}
+
+/// What SETUP detected, as data. The checklist below is a pure function of this
+/// struct, so it is testable without a terminal, a workspace, or a machine that
+/// happens to have an agent on PATH.
+struct SetupFacts {
+    root: PathBuf,
+    files: usize,
+    objects: usize,
+    workspace_tokens: usize,
+    embedder: String,
+    semantic: bool,
+    data_dir: PathBuf,
+    config_path: PathBuf,
+    settings_path: PathBuf,
+    settings_exists: bool,
+    observations_path: PathBuf,
+    /// (id, transport, reachable) per roster agent.
+    agents: Vec<(String, String, bool)>,
+}
+
+/// The SETUP screen: what is here, what is missing, and the exact command that
+/// closes each gap. Every line is a fact read from `SetupFacts` or a command
+/// that exists in this build — no advice, no invented flags, no model.
+fn setup_report(f: &SetupFacts) -> String {
+    let mut o = String::new();
+    o.push_str("PHYSIS SETUP — offline by default; nothing here needs a network\n\n");
+
+    o.push_str("WORKSPACE\n");
+    o.push_str(&format!("  root            {}\n", f.root.display()));
+    o.push_str(&format!(
+        "  index           {} files · {} objects · {} tok\n",
+        f.files, f.objects, f.workspace_tokens
+    ));
+    o.push_str(&format!(
+        "  semantic        {}\n",
+        if f.semantic {
+            format!("on ({})", f.embedder)
+        } else {
+            format!("OFF — lexical/structural only ({})", f.embedder)
+        }
+    ));
+    if !f.semantic {
+        o.push_str("                  next: physis-pro selftest (names the probe that fails)\n");
+    }
+
+    o.push_str("\nFILES\n");
+    o.push_str(&format!("  data dir        {}\n", f.data_dir.display()));
+    o.push_str(&format!(
+        "  config.json     {}{}\n",
+        f.config_path.display(),
+        if f.config_path.exists() {
+            ""
+        } else {
+            "   (absent — built-in defaults are in use)"
+        }
+    ));
+    o.push_str(&format!(
+        "  settings.json   {}{}\n",
+        f.settings_path.display(),
+        if f.settings_exists {
+            ""
+        } else {
+            "   (absent — shipped defaults are in use)"
+        }
+    ));
+    o.push_str(&format!(
+        "  observations    {}\n",
+        f.observations_path.display()
+    ));
+    o.push_str("                  the settings view (S) writes both files with `s`\n");
+
+    o.push_str("\nAGENTS\n");
+    if f.agents.is_empty() {
+        o.push_str("  (roster is empty — no agent adapters in this build)\n");
+    }
+    for (id, transport, ok) in &f.agents {
+        o.push_str(&format!(
+            "  {} {:<10} {}{}\n",
+            if *ok { "●" } else { "○" },
+            id,
+            transport,
+            if *ok { "" } else { "   (unavailable)" }
+        ));
+    }
+    let reachable = f.agents.iter().filter(|(_, _, ok)| *ok).count();
+    if reachable == 0 {
+        o.push_str("                  next: A lists the roster; @agent needs one reachable\n");
+    }
+
+    o.push_str("\nCHECKLIST\n");
+    let check = |ok: bool| if ok { "[x]" } else { "[ ]" };
+    o.push_str(&format!(
+        "  {} workspace indexed\n",
+        check(f.files > 0 && f.objects > 0)
+    ));
+    o.push_str(&format!("  {} semantic retrieval\n", check(f.semantic)));
+    o.push_str(&format!(
+        "  {} agent transport for @agent\n",
+        check(reachable > 0)
+    ));
+    o.push_str(&format!(
+        "  {} settings file written ({})\n",
+        check(f.settings_exists),
+        f.settings_path.display()
+    ));
+
+    o.push_str("\nNEXT\n");
+    o.push_str("  1. change a value here, then press `s` — writes config.json + settings.json\n");
+    o.push_str("  2. tour: g graph · N notebook · T tasks · A agents · ? help\n");
+    o.push_str("  3. outside the HUD: physis-pro doctor · selftest · settings show\n");
+    o
+}
+
 /// Deterministic HUD commands. This is a small closed vocabulary over the
 /// existing helpers — not a language, router, or agent framework.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -358,6 +918,11 @@ enum HudCommand {
     Agents,
     /// Show the effective settings.
     Settings,
+    /// Show what is configured, what is missing, and the command that closes
+    /// each gap.
+    Setup,
+    /// Return to the world view from any other view.
+    World,
     Quit,
 }
 
@@ -448,6 +1013,8 @@ fn parse_named_command(text: &str) -> HudInput {
         "intent" if arg.is_none() => HudInput::Command(HudCommand::Intent),
         "agents" if arg.is_none() => HudInput::Command(HudCommand::Agents),
         "settings" if arg.is_none() => HudInput::Command(HudCommand::Settings),
+        "setup" | "install" if arg.is_none() => HudInput::Command(HudCommand::Setup),
+        "world" | "back" | "home" if arg.is_none() => HudInput::Command(HudCommand::World),
         "notebook" if arg.is_none() => HudInput::Command(HudCommand::Notebook),
         "related" if arg.is_none() => HudInput::Command(HudCommand::Related),
         "pin" if arg.is_none() => HudInput::Command(HudCommand::Pin),
@@ -578,7 +1145,7 @@ fn parse_hud_input(raw: &str) -> HudInput {
         "help" | "history" | "bench" | "context" | "delta" | "why" | "contradictions"
         | "rescan" | "graph" | "notebook" | "related" | "pin" | "clear" | "clear-focus"
         | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks" | "intent" | "agents"
-        | "settings"
+        | "settings" | "setup" | "install" | "world" | "back"
             if rest.is_empty() =>
         {
             parse_named_command(text)
@@ -1397,6 +1964,28 @@ struct App {
     agent_tx: Option<std::sync::mpsc::Sender<AgentReply>>,
     /// The agent being asked right now, if a background call is in flight.
     agent_pending: Option<String>,
+
+    /// Which surface is open (world/graph/notebook/tasks/agents/settings/
+    /// setup/help). A view renders over the world panes; `Esc` returns.
+    view: View,
+    /// The SETTINGS view's live documents. `settings` is always
+    /// `shipped defaults + user file + this session's changes`; `cfg` holds the
+    /// runtime knobs. Neither is a second store — both are the same documents
+    /// the CLI reads and writes.
+    settings: Settings,
+    cfg: PhysisConfig,
+    settings_view_rows: Vec<SettingRow>,
+    settings_sel: usize,
+    /// Overrides changed this session, dotted key → normalised value. Only
+    /// these are written on save, so a save never freezes today's shipped
+    /// defaults into the user's file.
+    settings_dirty: BTreeMap<String, String>,
+    /// `true` when a runtime knob moved; config.json is written only then.
+    config_dirty: bool,
+    /// Set while the command box edits a settings value: the dotted key.
+    settings_edit: Option<String>,
+    /// Last settings-view note (saved/failed/refused), shown in the body.
+    settings_msg: String,
 }
 
 impl App {
@@ -1499,6 +2088,15 @@ impl App {
             ws_tokens,
             agent_tx: None,
             agent_pending: None,
+            view: View::World,
+            settings: Settings::load(),
+            cfg: load_hud_config(),
+            settings_view_rows: Vec::new(),
+            settings_sel: 0,
+            settings_dirty: Default::default(),
+            config_dirty: false,
+            settings_edit: None,
+            settings_msg: String::new(),
         })
     }
 
@@ -2193,6 +2791,7 @@ impl App {
             HudCommand::Help => {
                 self.reading = Some(("commands".into(), hud_command_help()));
                 self.status = "command box: deterministic dispatch, no model".into();
+                self.open_view(View::Help);
             }
             HudCommand::Tasks => {
                 let path = std::path::PathBuf::from(
@@ -2221,6 +2820,7 @@ impl App {
                 };
                 self.status = format!("tasks: folded from {}", path.display());
                 self.reading = Some(("tasks".into(), text));
+                self.open_view(View::Tasks);
             }
             HudCommand::Intent => {
                 let store = physis_pro::intent::IntentStore::load(&self.ws.root);
@@ -2252,13 +2852,17 @@ impl App {
                 }
                 self.status = format!("agents: {} in the roster", roster.agents.len());
                 self.reading = Some(("agents".into(), body));
+                self.open_view(View::Agents);
             }
             HudCommand::Settings => {
-                self.status = "settings: shipped defaults layered with yours".into();
-                self.reading = Some((
-                    "settings".into(),
-                    physis_pro::settings::Settings::load().render(),
-                ));
+                self.open_view(View::Settings);
+            }
+            HudCommand::Setup => {
+                self.open_view(View::Setup);
+            }
+            HudCommand::World => {
+                self.view = View::World;
+                self.status = "world: navigation, reading, tabs".into();
             }
             HudCommand::Action(line) => {
                 let mut reg =
@@ -2311,8 +2915,14 @@ impl App {
             }
             HudCommand::Contradictions => self.show_contradictions(),
             HudCommand::Rescan => self.rescan_now(),
-            HudCommand::Graph => self.graph_view(),
-            HudCommand::Notebook => self.show_notebook(),
+            HudCommand::Graph => {
+                self.graph_view();
+                self.open_view(View::Graph);
+            }
+            HudCommand::Notebook => {
+                self.show_notebook();
+                self.open_view(View::Notebook);
+            }
             HudCommand::Related => self.related(),
             HudCommand::Pin => self.pin_selection(),
             HudCommand::Relate(kind) => self.relate_selection(&kind),
@@ -2529,6 +3139,308 @@ impl App {
         self.context_tab = ContextTab::Why;
         self.update_explain();
         self.status = "why: shared scorer components and relations".into();
+    }
+
+    /// Switch to a view and render it once. Views paint from state that
+    /// already exists; nothing here is a second store and nothing calls a model.
+    /// Opening SETTINGS reloads both documents from disk, so the view shows the
+    /// merged truth (shipped defaults + user file + this session's changes).
+    fn open_view(&mut self, view: View) {
+        self.view = view;
+        if view == View::Settings {
+            self.settings = Settings::load();
+            self.cfg = load_hud_config();
+            self.rebuild_settings();
+            self.settings_sel = next_setting_row(&self.settings_view_rows, 0, true);
+        }
+        self.refresh_view();
+    }
+
+    /// Open a view the way its command does. Graph and Notebook render from the
+    /// command's output, so the view is opened with its text — never as an
+    /// empty frame.
+    fn open_view_via_command(&mut self, view: View) {
+        match view {
+            View::World => self.view = View::World,
+            View::Graph => {
+                self.graph_view();
+                self.open_view(View::Graph);
+            }
+            View::Notebook => {
+                self.show_notebook();
+                self.open_view(View::Notebook);
+            }
+            View::Help => self.show_help(),
+            View::Tasks => {
+                self.run_hud_command(HudCommand::Tasks);
+            }
+            View::Agents => {
+                self.run_hud_command(HudCommand::Agents);
+            }
+            View::Settings => {
+                self.run_hud_command(HudCommand::Settings);
+            }
+            View::Setup => {
+                self.run_hud_command(HudCommand::Setup);
+            }
+        }
+    }
+
+    /// Re-render the open view's body from live state (`r` in SETUP re-detects;
+    /// SETTINGS and the reading-backed views rebuild on every draw anyway).
+    fn refresh_view(&mut self) {
+        if self.view == View::Setup {
+            self.reading = Some(("setup".into(), setup_report(&self.setup_facts())));
+        }
+    }
+
+    /// (title, body) of the open view. Reading-backed views (graph, notebook,
+    /// tasks, agents, help) render the text the command that opened them
+    /// produced — the view frame is what changed, not a second copy of the text.
+    fn view_content(&self) -> (String, String) {
+        match self.view {
+            View::World => (String::new(), String::new()),
+            View::Settings => (
+                format!("settings — {}", View::Settings.keys()),
+                self.settings_body(),
+            ),
+            View::Setup => (
+                format!("setup — {}", View::Setup.keys()),
+                setup_report(&self.setup_facts()),
+            ),
+            other => {
+                let (title, body) = self.reading.clone().unwrap_or_else(|| {
+                    (
+                        other.label().to_string(),
+                        "(nothing rendered yet — run the command again)".to_string(),
+                    )
+                });
+                (format!("{title} — {}", other.keys()), body)
+            }
+        }
+    }
+
+    /// The live settings document: shipped defaults + the user's file + what
+    /// this session changed. Rebuilt after every change, so the view can never
+    /// show a value the engine would not resolve.
+    fn rebuild_settings(&mut self) {
+        let mut s = Settings::defaults();
+        if let Ok(text) = std::fs::read_to_string(Settings::user_path()) {
+            match Settings::parse(&text) {
+                Ok(user) => s.merge(user),
+                Err(e) => self.settings_msg = format!("settings file: {e}; using shipped defaults"),
+            }
+        }
+        for (k, v) in &self.settings_dirty {
+            if let Err(e) = s.set(k, v) {
+                self.settings_msg = format!("settings: {e}");
+            }
+        }
+        self.settings = s;
+        self.settings_view_rows = settings_rows(&self.settings);
+    }
+
+    /// One change recorded: a knob marks config.json dirty; anything else
+    /// becomes a settings override. Only overrides are ever written on save.
+    fn record_change(&mut self, change: Change) {
+        if change.is_knob {
+            self.config_dirty = true;
+            self.settings_msg = format!(
+                "{} = {} — press s to write config.json",
+                change.key, change.value
+            );
+        } else {
+            self.settings_dirty
+                .insert(change.key.clone(), change.value.clone());
+            self.rebuild_settings();
+            self.settings_msg = format!(
+                "{} = {} — press s to write settings.json",
+                change.key, change.value
+            );
+        }
+    }
+
+    /// Step the selected row (`+`/`-`). A typed row opens the command box
+    /// instead, prefilled with its current value.
+    fn step_selected(&mut self, up: bool) {
+        let Some(row) = self.settings_view_rows.get(self.settings_sel) else {
+            return;
+        };
+        let key = row.key();
+        match step_setting(row, &self.settings, &mut self.cfg, up) {
+            Ok(Some(change)) => self.record_change(change),
+            Ok(None) => {
+                if row.is_text() {
+                    if let Some(k) = key {
+                        let current = setting_value(row, &self.settings, &self.cfg);
+                        self.settings_edit = Some(k);
+                        self.query = if current == "-" { String::new() } else { current };
+                        self.typing = true;
+                    }
+                } else {
+                    self.settings_msg = "this row is not stepped — Enter types the value".into();
+                }
+            }
+            Err(e) => self.settings_msg = format!("refused: {e}"),
+        }
+    }
+
+    /// Apply a typed value from the command box.
+    fn apply_settings_edit(&mut self, key: &str, value: &str) {
+        match set_setting_text(&self.settings, &mut self.cfg, key, value) {
+            Ok(change) => self.record_change(change),
+            Err(e) => self.settings_msg = format!("refused: {e}"),
+        }
+    }
+
+    /// Revert the selected row: this session's change, and the saved override
+    /// with it — the merged truth is rebuilt either way.
+    fn reset_selected(&mut self) {
+        let reverted = self
+            .settings_view_rows
+            .get(self.settings_sel)
+            .and_then(|row| row.key())
+            .map(|k| self.settings_dirty.remove(&k).is_some())
+            .unwrap_or(false);
+        if reverted {
+            self.rebuild_settings();
+            self.settings_msg = "reverted to the saved value".into();
+        } else {
+            self.settings_msg = "nothing to revert on this row".into();
+        }
+    }
+
+    /// Reload both documents from disk and drop this session's changes.
+    fn reload_settings(&mut self) {
+        self.settings_dirty.clear();
+        self.config_dirty = false;
+        self.settings_edit = None;
+        self.cfg = load_hud_config();
+        self.rebuild_settings();
+        self.settings_msg = "reloaded from disk".into();
+    }
+
+    /// Write the session's changes. Only dirty keys go to settings.json, so a
+    /// save can never freeze today's shipped defaults into the user's file;
+    /// config.json is rewritten whole (it is a whole-file document) and only
+    /// when a knob actually moved.
+    fn save_settings(&mut self) {
+        let mut user = Settings::default();
+        for (k, v) in &self.settings_dirty {
+            if let Err(e) = user.set(k, v) {
+                self.settings_msg = format!("save refused: {e}");
+                return;
+            }
+        }
+        let path = Settings::user_path();
+        let mut note = if self.settings_dirty.is_empty() {
+            "settings: nothing new to write".to_string()
+        } else {
+            match user.save(&path) {
+                Ok(()) => format!(
+                    "settings: wrote {} key(s) to {}",
+                    self.settings_dirty.len(),
+                    path.display()
+                ),
+                Err(e) => {
+                    self.settings_msg = format!("settings: {e}");
+                    return;
+                }
+            }
+        };
+        if self.config_dirty {
+            match save_hud_config(&self.cfg) {
+                Ok(()) => note.push_str(&format!(
+                    " · config.json written ({})",
+                    self.cfg.data_dir.join("config.json").display()
+                )),
+                Err(e) => {
+                    self.settings_msg = format!("config: {e}");
+                    return;
+                }
+            }
+        }
+        self.config_dirty = false;
+        self.settings_msg = note;
+    }
+
+    /// The SETTINGS view body: file paths first (so an operator knows what `s`
+    /// writes), then every row with its value; the selected row carries its
+    /// hint line and dirty rows carry the `*` that says "changed, unsaved".
+    fn settings_body(&self) -> String {
+        let mut o = String::new();
+        o.push_str(&format!(
+            "settings file  {}\n",
+            Settings::user_path().display()
+        ));
+        o.push_str(&format!(
+            "config file    {}\n",
+            self.cfg.data_dir.join("config.json").display()
+        ));
+        o.push_str(&format!(
+            "changed here   {} key(s) · config.json {}\n\n",
+            self.settings_dirty.len(),
+            if self.config_dirty { "dirty" } else { "clean" }
+        ));
+        for (i, row) in self.settings_view_rows.iter().enumerate() {
+            match row {
+                SettingRow::Section(name) => o.push_str(&format!("\n── {name} ──\n")),
+                _ => {
+                    let sel = if i == self.settings_sel { "▶" } else { " " };
+                    let key = row.key().unwrap_or_default();
+                    let dirty = if self.settings_dirty.contains_key(&key)
+                        || (matches!(row, SettingRow::Knob(_)) && self.config_dirty)
+                    {
+                        "*"
+                    } else {
+                        " "
+                    };
+                    o.push_str(&format!(
+                        "{sel} {dirty} {key:<44} {}\n",
+                        setting_value(row, &self.settings, &self.cfg)
+                    ));
+                    if i == self.settings_sel {
+                        o.push_str(&format!("        {}\n", row_hint(row)));
+                    }
+                }
+            }
+        }
+        o.push_str("\n+/- step · Enter/e edit value · s save · r reload · d revert row\n");
+        o.push_str(&self.settings_msg);
+        o
+    }
+
+    /// The live SETUP facts. Reads only what is already loaded plus paths; the
+    /// agent line is the cached roster probe, never a fresh PATH walk.
+    fn setup_facts(&self) -> SetupFacts {
+        let cfg = load_hud_config();
+        let settings_path = Settings::user_path();
+        let observations_path = std::path::PathBuf::from(
+            std::env::var("PHYSIS_OBSERVATIONS")
+                .unwrap_or_else(|_| ".physis/observations.jsonl".into()),
+        );
+        let agents = physis_pro::agents::default_roster()
+            .agents
+            .iter()
+            .map(|a| {
+                let s = physis_pro::agents::status(a);
+                (a.id.clone(), s.transport, s.available)
+            })
+            .collect();
+        SetupFacts {
+            root: self.ws.root.clone(),
+            files: self.ws.index().files.len(),
+            objects: self.ws.index().objects.len(),
+            workspace_tokens: self.ws_tokens,
+            embedder: self.embedder_kind.clone(),
+            semantic: self.semantic_on,
+            data_dir: cfg.data_dir.clone(),
+            config_path: cfg.data_dir.join("config.json"),
+            settings_path: settings_path.clone(),
+            settings_exists: settings_path.exists(),
+            observations_path,
+            agents,
+        }
     }
 
     fn show_notebook(&mut self) {
@@ -3219,8 +4131,10 @@ impl App {
     fn show_help(&mut self) {
         let mut o = hud_command_help();
         o.push_str("\nkeys: / search · Enter zoom · Esc back · Space select · e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f/F focus · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · q quit · Ctrl+C quit");
+        o.push_str("\nviews: Tab next · Esc world · g graph · N notebook · T tasks · A agents · S settings · W setup");
         self.reading = Some(("commands".into(), o));
         self.status = "commands: deterministic dispatch, no model".into();
+        self.open_view(View::Help);
     }
     /// Measured machine numbers (`B`): same shared helper the REPL `bench`
     /// command reports — scan cost, index size, live query + propagation
@@ -3316,6 +4230,23 @@ impl App {
 /// Function 2 handoff: grounded extractive answer over the given docs. Uses
 /// the same embedder cascade; no cloud, no LLM (extractive tier when no
 /// oracle is configured). Returns the rendered answer text.
+/// The HUD's runtime-knob document: `data_dir/config.json` when present,
+/// built-in defaults otherwise — the same file Studio CONFIG and
+/// `physis-pro-tui` write, so all three panels stay one truth.
+fn load_hud_config() -> PhysisConfig {
+    let def = PhysisConfig::default();
+    match std::fs::read_to_string(def.data_dir.join("config.json")) {
+        Ok(text) => serde_json::from_str(&text).unwrap_or(def),
+        Err(_) => def,
+    }
+}
+
+fn save_hud_config(cfg: &PhysisConfig) -> std::io::Result<()> {
+    std::fs::create_dir_all(&cfg.data_dir)?;
+    let text = serde_json::to_string_pretty(cfg).map_err(std::io::Error::other)?;
+    std::fs::write(cfg.data_dir.join("config.json"), text)
+}
+
 fn run_notebook(app: &App, docs: &[(String, String)]) -> anyhow::Result<String> {
     let (embedder, kind) = {
         let config = physis_pro::config::PhysisProConfig::default();
@@ -3566,6 +4497,18 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
     f.render_stateful_widget(list, chunks[1], &mut list_state_for(app));
 
+    // A view paints over the neighborhood pane: the world stays underneath
+    // (reading pane + tabs), the view owns the main pane until `Esc` or `Tab`.
+    if app.view != View::World {
+        let (vtitle, vbody) = app.view_content();
+        f.render_widget(
+            Paragraph::new(vbody)
+                .block(Block::default().borders(Borders::ALL).title(vtitle))
+                .wrap(Wrap { trim: false }),
+            chunks[1],
+        );
+    }
+
     // Reading / explanation split.
     let reading_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -3628,22 +4571,36 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     // grammar so state never rides on colour alone). The mode word is the
     // contract; colour only decorates it.
     let mut prompt_spans = Vec::new();
-    for (kind, text) in prompt_parts(&app.query, app.editor.is_some()) {
-        let style = match kind {
-            PromptPart::Prefix => Style::default()
-                .fg(Color::Cyan)
+    if let Some(key) = app.settings_edit.clone() {
+        prompt_spans.push(Span::styled(
+            format!("[SET {key}] > "),
+            Style::default()
+                .fg(Color::Magenta)
                 .add_modifier(Modifier::BOLD),
-            PromptPart::Word => Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-            PromptPart::Text => Style::default(),
-        };
-        prompt_spans.push(Span::styled(text, style));
+        ));
+        prompt_spans.push(Span::raw(app.query.clone()));
+    } else {
+        for (kind, text) in prompt_parts(&app.query, app.editor.is_some()) {
+            let style = match kind {
+                PromptPart::Prefix => Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+                PromptPart::Word => Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+                PromptPart::Text => Style::default(),
+            };
+            prompt_spans.push(Span::styled(text, style));
+        }
     }
     let keys = if app.editor.is_some() {
-        "type · ←/→/↑/↓/Home/End move · Enter newline · Backspace/Delete · Ctrl+S save · Esc/Ctrl+C cancel"
+        "type · ←/→/↑/↓/Home/End move · Enter newline · Backspace/Delete · Ctrl+S save · Esc/Ctrl+C cancel".to_string()
+    } else if app.settings_edit.is_some() {
+        "Enter applies the value · Esc cancels".to_string()
+    } else if app.view != View::World {
+        format!("view {} · {}", app.view.label(), app.view.keys())
     } else {
-        "e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · space select · ? help · q quit"
+        "e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · space select · ? help · q quit".to_string()
     };
     let lines = vec![
         Line::from(prompt_spans),
@@ -3832,11 +4789,75 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                                 KeyCode::Enter => {
                                     let line = std::mem::take(&mut app.query);
                                     app.typing = false;
-                                    quit = app.submit_command_line(&line);
+                                    if let Some(key) = app.settings_edit.take() {
+                                        app.apply_settings_edit(&key, &line);
+                                    } else {
+                                        quit = app.submit_command_line(&line);
+                                    }
                                 }
-                                KeyCode::Esc => app.query.clear(),
+                                KeyCode::Esc => {
+                                    if app.settings_edit.take().is_some() {
+                                        app.settings_msg = "edit cancelled".into();
+                                    }
+                                    app.query.clear();
+                                }
                                 _ => {}
                             }
+                        }
+                    } else if app.view != View::World {
+                        // A view owns the keyboard for its own keys; `Esc`
+                        // always returns to the world and `Tab` always cycles,
+                        // so nobody gets stranded in a view.
+                        match key.code {
+                            KeyCode::Esc => app.view = View::World,
+                            KeyCode::Tab => {
+                                let next = app.view.next();
+                                app.open_view(next);
+                            }
+                            KeyCode::BackTab => {
+                                let prev = app.view.prev();
+                                app.open_view(prev);
+                            }
+                            KeyCode::Up | KeyCode::Char('k') if app.view == View::Settings => {
+                                app.settings_sel =
+                                    next_setting_row(&app.settings_view_rows, app.settings_sel, false);
+                            }
+                            KeyCode::Down | KeyCode::Char('j') if app.view == View::Settings => {
+                                app.settings_sel =
+                                    next_setting_row(&app.settings_view_rows, app.settings_sel, true);
+                            }
+                            KeyCode::Char('+') | KeyCode::Char('=')
+                                if app.view == View::Settings =>
+                            {
+                                app.step_selected(true);
+                            }
+                            KeyCode::Char('-') | KeyCode::Char('_')
+                                if app.view == View::Settings =>
+                            {
+                                app.step_selected(false);
+                            }
+                            KeyCode::Enter | KeyCode::Char('e') if app.view == View::Settings => {
+                                app.step_selected(true);
+                            }
+                            KeyCode::Char('s') if app.view == View::Settings => {
+                                app.save_settings();
+                            }
+                            KeyCode::Char('r') if app.view == View::Settings => {
+                                app.reload_settings();
+                            }
+                            KeyCode::Char('d') if app.view == View::Settings => {
+                                app.reset_selected();
+                            }
+                            KeyCode::Char('r') if app.view == View::Setup => app.refresh_view(),
+                            KeyCode::Char('s') if app.view == View::Setup => app.save_settings(),
+                            // Any view key opens its surface the same way its
+                            // command does — the view frame is never empty.
+                            KeyCode::Char(c) => {
+                                if let Some(view) = View::from_key(c) {
+                                    app.open_view_via_command(view);
+                                }
+                            }
+                            _ => {}
                         }
                     } else {
                         match key.code {
@@ -3883,7 +4904,10 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('R') => app.relate_selection("relates to"),
                             KeyCode::Char('n') => app.show_notebook(),
                             KeyCode::Char('r') => app.related(),
-                            KeyCode::Char('g') => app.graph_view(),
+                            KeyCode::Char('g') => {
+                                app.graph_view();
+                                app.open_view(View::Graph);
+                            }
                             KeyCode::Char('t') => app.cycle_edge_filter(),
                             KeyCode::Char('H') => app.show_history(),
                             KeyCode::Char('B') => app.show_bench(),
@@ -3899,7 +4923,24 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('3') => app.switch_context_tab(ContextTab::Delta),
                             KeyCode::Char('4') => app.switch_context_tab(ContextTab::History),
                             KeyCode::Char('?') => app.show_help(),
+                            // View keys: upper case where the lower-case
+                            // letter is already a world action (s/d/R relate,
+                            // n selects, g graphs) — each opens the surface
+                            // its command produces, never an empty frame.
                             KeyCode::Char('q') => quit = true,
+                            KeyCode::Char(c) => {
+                                if let Some(view) = View::from_key(c) {
+                                    app.open_view_via_command(view);
+                                }
+                            }
+                            KeyCode::Tab => {
+                                let next = app.view.next();
+                                app.open_view(next);
+                            }
+                            KeyCode::BackTab => {
+                                let prev = app.view.prev();
+                                app.open_view(prev);
+                            }
                             _ => {}
                         }
                     }
@@ -4791,5 +5832,213 @@ mod tests {
         let groups = sibling_groups("src/retrieval.rs", &[bare], &center.object.id);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].0, ".");
+    }
+
+    // ── PH-024: one front door (views) + editable settings ────────────────
+
+    #[test]
+    fn view_table_is_complete_wraps_and_round_trips() {
+        let labels: Vec<&str> = View::ALL.iter().map(|v| v.label()).collect();
+        let unique: BTreeSet<&str> = labels.iter().copied().collect();
+        assert_eq!(unique.len(), View::ALL.len(), "labels must be unique: {labels:?}");
+        for v in View::ALL {
+            assert_eq!(View::from_name(v.label()), Some(v));
+            if let Some(k) = v.key() {
+                assert_eq!(View::from_key(k), Some(v));
+            }
+            // Tab never dead-ends and never sticks on one view.
+            assert_ne!(v.next(), v);
+            assert_eq!(v.next().prev(), v);
+        }
+        assert_eq!(
+            View::from_name("SETTINGS"),
+            Some(View::Settings),
+            "names are case-insensitive"
+        );
+        assert_eq!(View::from_key('g'), Some(View::Graph));
+        assert_eq!(View::from_key('q'), None, "q must keep meaning quit");
+    }
+
+    #[test]
+    fn settings_rows_cover_knobs_providers_and_commands_in_stable_order() {
+        let s = Settings::defaults();
+        let rows = settings_rows(&s);
+        let keys: Vec<String> = rows.iter().filter_map(|r| r.key()).collect();
+        // One row per knob, in table order.
+        for knob in physis_pro::config::CONFIG_KNOBS.iter() {
+            assert!(keys.contains(&knob.key.to_string()), "{} missing", knob.key);
+        }
+        // Every provider × every field, and every command's enabled + aliases.
+        for agent in s.providers.keys() {
+            for field in ProviderField::ALL {
+                assert!(
+                    keys.contains(&format!("providers.{agent}.{}", field.name())),
+                    "providers.{agent}.{} missing",
+                    field.name()
+                );
+            }
+        }
+        for name in s.commands.keys() {
+            assert!(keys.contains(&format!("commands.{name}.enabled")));
+            assert!(keys.contains(&format!("commands.{name}.aliases")));
+        }
+        // Same input, same order — a list a person scrolls must not reshuffle.
+        assert_eq!(rows, settings_rows(&Settings::defaults()));
+    }
+
+    #[test]
+    fn setting_value_prints_dash_when_unset_and_the_env_name_for_the_key_field() {
+        let mut s = Settings::defaults();
+        let cfg = PhysisConfig::default();
+        // `key_env` prints the NAME of the variable, never a secret — that is
+        // the whole point of storing keys as env names.
+        let key_row = SettingRow::Provider {
+            agent: "jev".into(),
+            field: ProviderField::KeyEnv,
+        };
+        assert_eq!(setting_value(&key_row, &s, &cfg), "JEV_API_KEY");
+        s.set("providers.jev.key_env", "MY_JEV_KEY").unwrap();
+        assert_eq!(setting_value(&key_row, &s, &cfg), "MY_JEV_KEY");
+        // An unset field prints `-`, so "not configured" is visible and is not
+        // the same as "configured empty".
+        let endpoint = SettingRow::Provider {
+            agent: "jev".into(),
+            field: ProviderField::Endpoint,
+        };
+        assert_eq!(setting_value(&endpoint, &s, &cfg), "-");
+    }
+
+    #[test]
+    fn step_setting_cycles_transport_and_toggles_commands() {
+        let mut s = Settings::defaults();
+        let mut cfg = PhysisConfig::default();
+        let row = SettingRow::Provider {
+            agent: "jev".into(),
+            field: ProviderField::Transport,
+        };
+        let first = step_setting(&row, &s, &mut cfg, true).unwrap().unwrap();
+        s.set(&first.key, &first.value).unwrap();
+        assert_eq!(first.value, "cli", "cycles zen → cli, never invents one");
+        // Round the closed set (zen · cli · http · local) back to the start.
+        let mut last = first.value.clone();
+        for _ in 0..3 {
+            let next = step_setting(&row, &s, &mut cfg, true).unwrap().unwrap();
+            s.set(&next.key, &next.value).unwrap();
+            last = next.value;
+        }
+        assert_eq!(last, "zen");
+        // Command toggle: recorded as the string the file stores.
+        let cmd = SettingRow::CommandEnabled { name: "graph".into() };
+        let was = s.commands.get("graph").unwrap().enabled;
+        let change = step_setting(&cmd, &s, &mut cfg, true).unwrap().unwrap();
+        assert_eq!(change.value, if was { "false" } else { "true" });
+        // Typed rows never step; the caller opens the box instead.
+        let aliases = SettingRow::CommandAliases { name: "graph".into() };
+        assert!(step_setting(&aliases, &s, &mut cfg, true).unwrap().is_none());
+    }
+
+    #[test]
+    fn set_setting_text_clamps_knobs_and_rejects_unknown_keys() {
+        let s = Settings::defaults();
+        let cfg_unused = PhysisConfig::default();
+        let mut cfg = PhysisConfig::default();
+        let change = set_setting_text(&s, &mut cfg, "embed_dim", "1").unwrap();
+        assert!(change.is_knob);
+        assert_eq!(cfg.embed_dim, 64, "knob floors hold when typed too");
+        // A typed alias list is validated here and shown normalised by the view,
+        // which always reads the merged document.
+        let change =
+            set_setting_text(&s, &mut cfg, "commands.ask.aliases", " q , ask-again ").unwrap();
+        assert!(!change.is_knob);
+        let mut merged = s.clone();
+        merged.set(&change.key, &change.value).unwrap();
+        let row = SettingRow::CommandAliases { name: "ask".into() };
+        assert_eq!(setting_value(&row, &merged, &cfg_unused), "q,ask-again");
+        assert!(set_setting_text(&s, &mut cfg, "providers.jev.nonsense", "x").is_err());
+        assert!(set_setting_text(&s, &mut cfg, "embed_dim", "big").is_err());
+    }
+
+    #[test]
+    fn next_setting_row_skips_section_headers_and_wraps() {
+        let s = Settings::defaults();
+        let rows = settings_rows(&s);
+        assert!(matches!(rows[0], SettingRow::Section(_)));
+        let first = next_setting_row(&rows, 0, true);
+        assert!(!matches!(rows[first], SettingRow::Section(_)));
+        // One step up from the first row lands on a real row at the end.
+        let last = next_setting_row(&rows, first, false);
+        assert!(!matches!(rows[last], SettingRow::Section(_)));
+        assert_ne!(first, last, "wraps around, does not stick");
+    }
+
+    #[test]
+    fn setup_report_names_the_gap_and_the_command_that_closes_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let facts = SetupFacts {
+            root: dir.path().to_path_buf(),
+            files: 0,
+            objects: 0,
+            workspace_tokens: 0,
+            embedder: "random-projection".into(),
+            semantic: false,
+            data_dir: dir.path().join(".physis"),
+            config_path: dir.path().join(".physis/config.json"),
+            settings_path: dir.path().join("settings.json"),
+            settings_exists: false,
+            observations_path: dir.path().join(".physis/observations.jsonl"),
+            agents: vec![("jev".into(), "zen:oczen/x-free".into(), false)],
+        };
+        let text = setup_report(&facts);
+        assert!(text.contains("OFF — lexical/structural only"), "{text}");
+        assert!(
+            text.contains("physis-pro selftest"),
+            "next command for the semantic gap"
+        );
+        assert!(
+            text.contains("(absent — shipped defaults are in use)"),
+            "an absent file is named as one"
+        );
+        assert!(text.contains("[ ] workspace indexed"));
+        assert!(text.contains("[ ] agent transport"));
+        assert!(text.contains("(unavailable)"));
+
+        // Happy path: boxes tick, and no next-command noise is printed.
+        let ok = SetupFacts {
+            files: 3,
+            objects: 9,
+            workspace_tokens: 40,
+            semantic: true,
+            embedder: "bge-base".into(),
+            settings_exists: true,
+            agents: vec![("jev".into(), "zen:oczen/x-free".into(), true)],
+            ..facts
+        };
+        let text = setup_report(&ok);
+        assert!(text.contains("[x] workspace indexed"));
+        assert!(text.contains("[x] semantic retrieval"));
+        assert!(text.contains("[x] agent transport"));
+        assert!(
+            !text.contains("next: physis-pro selftest"),
+            "no next-command noise when nothing is missing"
+        );
+    }
+
+    #[test]
+    fn setup_and_world_parse_as_commands() {
+        assert_eq!(
+            parse_hud_input("setup"),
+            HudInput::Command(HudCommand::Setup)
+        );
+        assert_eq!(
+            parse_hud_input(":world"),
+            HudInput::Command(HudCommand::World)
+        );
+        // `settings set <key> <value>` still belongs to the CLI, not the box:
+        // it needs an argument, so the box must not silently treat it as one of
+        // its own commands.
+        assert!(matches!(
+            parse_hud_input("settings set providers.jev.model x"),
+            HudInput::SemanticQuery(_)
+        ));
     }
 }
