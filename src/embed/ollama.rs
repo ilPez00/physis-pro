@@ -64,26 +64,47 @@ impl OllamaEmbedder {
         Self::new(&base_url, &model)
     }
 
+    /// Run `f` off the async worker when one is present: `reqwest::blocking`
+    /// owns a tokio runtime, and constructing or dropping one from inside an
+    /// async context panics — which is what happened when `build_app` probed
+    /// `dimension()` while selecting a fallback (the b00eda5 boot fix moved the
+    /// client to lazy construction, but the first *use* was still inside the
+    /// async task). `block_in_place` is only legal on the multi-threaded
+    /// runtime — the real server; `#[tokio::test]` builds a current-thread one
+    /// and takes the direct path, where the client is never constructed.
+    fn in_blocking<T>(f: impl FnOnce() -> T) -> T {
+        let multi_thread = tokio::runtime::Handle::try_current()
+            .map(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread)
+            .unwrap_or(false);
+        if multi_thread {
+            tokio::task::block_in_place(f)
+        } else {
+            f()
+        }
+    }
+
     /// Raw batch call. `None` on transport error, non-2xx, or bad payload —
     /// the caller falls back to random projection per text.
     fn embed_raw(&self, texts: &[&str]) -> Option<Vec<Vec<f32>>> {
         let url = format!("{}/api/embed", self.base_url);
         let body = serde_json::json!({ "model": self.model, "input": texts });
-        let resp = self.client().post(&url).json(&body).send().ok()?;
-        if !resp.status().is_success() {
-            return None;
-        }
-        let v: serde_json::Value = resp.json().ok()?;
-        let arr = v.get("embeddings")?.as_array()?;
-        let out: Vec<Vec<f32>> = arr
-            .iter()
-            .map(|e| {
-                e.as_array()
-                    .map(|a| a.iter().map(|x| x.as_f64().unwrap_or(0.0) as f32).collect())
-                    .unwrap_or_default()
-            })
-            .collect();
-        (out.len() == texts.len()).then_some(out)
+        Self::in_blocking(|| {
+            let resp = self.client().post(&url).json(&body).send().ok()?;
+            if !resp.status().is_success() {
+                return None;
+            }
+            let v: serde_json::Value = resp.json().ok()?;
+            let arr = v.get("embeddings")?.as_array()?;
+            let out: Vec<Vec<f32>> = arr
+                .iter()
+                .map(|e| {
+                    e.as_array()
+                        .map(|a| a.iter().map(|x| x.as_f64().unwrap_or(0.0) as f32).collect())
+                        .unwrap_or_default()
+                })
+                .collect();
+            (out.len() == texts.len()).then_some(out)
+        })
     }
 
     /// L2-normalize in place. The trait contract requires unit vectors; the
