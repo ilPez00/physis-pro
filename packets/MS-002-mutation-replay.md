@@ -2,12 +2,12 @@
 id: MS-002
 track: multiscale-structure
 phase: 1
-status: todo
+status: claimed
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-002.md"
-claimed_by:
-claimed_at:
+claimed_by: agent/MS-002
+claimed_at: 2026-09-20
 ---
 
 > **Released 2026-09-20** by the MS-001 reviewer pass (MS-001 now `done`).
