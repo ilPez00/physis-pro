@@ -1,0 +1,37 @@
+{
+  "title": "Singular-series fit (2C2) — quantitative H-L check",
+  "context": "E52 direction+stable; E60 value vs 2C2=1.32032 at N=1e6",
+  "n_max": 1000000,
+  "kmax": 40,
+  "seed": 20260912,
+  "d_disc": 1.2575170557068507,
+  "d_hold": 1.3210333944221393,
+  "r2_disc": 1.427761546800135,
+  "r2_hold": 1.422028307873236,
+  "nulls": [
+    0.03612780476521906,
+    0.05282101798443556
+  ],
+  "fit_disc": 1.4701501691364305,
+  "fit_hold": 1.4865567864996678,
+  "ci_disc": [
+    1.2794239547918946,
+    1.66044024856666
+  ],
+  "ci_hold": [
+    1.3412305098190687,
+    1.7051088056474284
+  ],
+  "eff_disc": 2.4678743498269173,
+  "g1": true,
+  "g2": true,
+  "g3": false,
+  "survives": false,
+  "rel_half": "no 1/2 in gen/score; fit 1.470/1.487; D 1.258/1.321",
+  "verdict": "PARTIAL — G3 miss: 1.470/1.487 vs 1.32032±0.15. No quantitative claim at N=1e6.",
+  "artifacts": [
+    "physis-core/examples/experiment60_singular_series.rs",
+    "physis-core/research/impossible_machine/experiments/experiment60_results.json",
+    "physis-core/research/impossible_machine/EXPERIMENT60_RESULTS.md"
+  ]
+}
