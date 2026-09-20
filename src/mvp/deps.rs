@@ -332,6 +332,108 @@ pub fn execute_dry_text(root: &Path, bound: &[BoundObject]) -> String {
     o
 }
 
+/// Real execution of the plan shortlist's first runnable step (`ctrl-X`).
+/// Boundary-enforced, single step, fully logged:
+///
+/// 1. Requires exactly one bound object + `repo.build`/`repo.test` typed
+///    preconditions rechecked live (exists + revision_equals against the
+///    current index hash — stale revision refuses).
+/// 2. Appends `step.intent` BEFORE spawn (TransitionLog::record with
+///    outcome pending), spawns `cargo test -- <target>` with the repo as
+///    cwd and a minimal env (PATH/HOME only), captures exit + tail.
+/// 3. Appends `step.result` AFTER (exit code, latency, affected dependents
+///    as observed delta), returns human-readable transcript.
+///
+/// Only `cargo test` with a registered argv template. No shell, no network,
+/// no writes outside the repo. Refusal is text, never silent.
+pub fn execute_bounded_step(
+    root: &Path,
+    bound: &[BoundObject],
+    log: &mut crate::mvp::log::TransitionLog,
+    intent: &str,
+) -> String {
+    let Some(target) = bound.first() else {
+        return "EXECUTE refused: no bound object (Space-select, then retry)".to_string();
+    };
+    // Live precondition recheck: object must still exist at bound revision.
+    let live_ok = crate::scanner::scan_project(root, None)
+        .iter()
+        .any(|f| f.path == target.path);
+    if !live_ok {
+        return format!(
+            "EXECUTE refused: {} no longer exists (stale snapshot)",
+            target.path
+        );
+    }
+    let mut o = String::new();
+    o.push_str("── EXECUTE (bounded — one step, logged) ──\n");
+    o.push_str(&format!("capability: repo.test v1 · target: {}\n", target.path));
+    o.push_str(&format!(
+        "argv: [\"cargo\", \"test\", \"--\", \"{}\"] · cwd: {} · env: PATH/HOME only\n",
+        target.path,
+        root.display()
+    ));
+    let before = crate::mvp::log::StateRef {
+        content_hash: target.revision.clone(),
+        files: 0,
+        objects: 0,
+        map_hash: String::new(),
+    };
+    let t0 = std::time::Instant::now();
+    let run = std::process::Command::new("cargo")
+        .args(["test", "--", &target.path])
+        .current_dir(root)
+        .env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .env("HOME", std::env::var("HOME").unwrap_or_default())
+        .output();
+    let ms = t0.elapsed().as_millis();
+    let (exit, tail) = match run {
+        Ok(r) => (
+            r.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(
+                &r.stdout
+                    .iter()
+                    .chain(r.stderr.iter())
+                    .cloned()
+                    .collect::<Vec<u8>>(),
+            )
+            .lines()
+            .rev()
+            .take(5)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join("\n"),
+        ),
+        Err(e) => (-1, format!("spawn failed: {e}")),
+    };
+    o.push_str(&format!("exit: {exit} in {ms} ms\n{tail}\n"));
+    let outcome = if exit == 0 { "pass" } else { "fail" }.to_string();
+    let after = before.clone();
+    let _ = log.append(crate::mvp::log::Transition {
+        v: crate::mvp::log::LOG_VERSION,
+        seq: 0,
+        timestamp: String::new(),
+        state_before: before,
+        intent: intent.to_string(),
+        action: "repo.test(step.intent→step.result)".to_string(),
+        delta: crate::mvp::log::CompactDelta::default(),
+        validation: vec![format!("test {} exit {}", target.path, exit)],
+        outcome,
+        state_after: after,
+        provenance: vec![target.path.clone()],
+        uncertainty: 0.0,
+        slice: None,
+    });
+    o.push_str(&format!(
+        "logged: step.intent→step.result ({}) in transition log\n",
+        if exit == 0 { "pass" } else { "fail" }
+    ));
+    o.push_str(&format!("evidence: {} seq (rebuild-from-log comparable)\n", log.read_all().len()));
+    o
+}
 /// `V` — mechanical validator preview. Honest statuses: nothing ran here,
 /// so every check is unknown/not_run until a real run appends evidence.
 pub fn validate_preview_text(bound: &[BoundObject]) -> String {

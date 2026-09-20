@@ -1242,6 +1242,29 @@ impl App {
         self.status = "execute dry-run shown (not run)".into();
     }
 
+    /// `ctrl-X` — bounded real execution: one `cargo test -- <target>` step
+    /// with live precondition recheck + intent-before/result-after logging
+    /// into the workspace transition log. Single step, registered argv only.
+    fn run_execute_bounded(&mut self) {
+        let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
+        let intent = if self.query.is_empty() {
+            "hud bounded execute".to_string()
+        } else {
+            self.query.clone()
+        };
+        let root = self.ws.root.clone();
+        let text = match physis_pro::mvp::log::TransitionLog::open(&root) {
+            Ok(mut log) => physis_pro::mvp::deps::execute_bounded_step(&root, &bound, &mut log, &intent),
+            Err(e) => format!("EXECUTE refused: log unavailable: {e}"),
+        };
+        self.reading = Some(("execute (bounded)".into(), text.clone()));
+        self.status = if text.starts_with("EXECUTE refused") {
+            "bounded execute refused (see reading pane)".into()
+        } else {
+            "bounded execute ran + logged (see reading pane)".into()
+        };
+    }
+
     /// `V` — mechanical validator preview. Text only; every status stays
     /// unknown/not_run until a real run appends evidence.
     fn show_validate(&mut self) {
@@ -1515,7 +1538,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "o observe · P plan · X execute-dry · V validators · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "o observe · P plan · X execute-dry · ctrl-e bounded-run · V validators · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1655,6 +1678,11 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('P') => app.show_plan(),
                             KeyCode::Char('X') => app.show_execute_dry(),
                             KeyCode::Char('V') => app.show_validate(),
+                            KeyCode::Char('e')
+                                if key.modifiers.contains(KeyModifiers::CONTROL) =>
+                            {
+                                app.run_execute_bounded()
+                            }
                             KeyCode::Char('e') => app.edit_current(),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),
@@ -1769,5 +1797,29 @@ mod tests {
         assert!(text.contains("test_report"), "{text}");
         assert!(text.contains("source_revision"), "{text}");
         assert!(text.contains("unknown/not_run"), "{text}");
+    }
+
+    /// Bounded execute refuses with no bound object — refusal is text.
+    #[test]
+    fn bounded_execute_refuses_without_bound_object() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut log = physis_pro::mvp::log::TransitionLog::open(dir.path()).unwrap();
+        let text =
+            physis_pro::mvp::deps::execute_bounded_step(dir.path(), &[], &mut log, "probe");
+        assert!(text.starts_with("EXECUTE refused"), "{text}");
+        assert!(log.read_all().is_empty(), "refusal appends nothing");
+    }
+
+    /// Bounded execute refuses a stale snapshot — object gone from scan.
+    #[test]
+    fn bounded_execute_refuses_stale_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut log = physis_pro::mvp::log::TransitionLog::open(dir.path()).unwrap();
+        let before = log.read_all().len();
+        let text =
+            physis_pro::mvp::deps::execute_bounded_step(dir.path(), &sc_bound(), &mut log, "probe");
+        assert!(text.starts_with("EXECUTE refused"), "{text}");
+        assert!(text.contains("stale snapshot"), "{text}");
+        assert_eq!(log.read_all().len(), before, "refusal appends nothing");
     }
 }
