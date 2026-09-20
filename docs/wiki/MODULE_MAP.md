@@ -5,136 +5,136 @@ module's own `//!` header. **Read this before grepping.**
 
 See `docs/WHAT_PHYSIS_IS.md` §3 for which of the six operations each serves.
 
-## physis-core — 65 modules, 37739 lines, Apache-2.0
+## physis-core — 44 modules, 24542 lines, Apache-2.0
 
 | module | lines | what it does |
 |---|---:|---|
-| `act.rs` | 603 | Acting, recorded — and checked against what is already believed. |
-| `act_recall.rs` | 1626 | Does `act` actually find the contradiction it exists to surface? |
 | `becoming.rs` | 507 | Becoming — did a term's meaning *change*, or does one name cover two things? |
-| `bench.rs` | 490 | Phase 5 — behavioral compression & structure benchmark (Directives 1 + 2). |
-| `bin/physis.rs` | 264 | `physis` — the single front door to whichever Physis edition is installed. |
-| `bin/system_tui.rs` | 687 | `physis-system-tui` — navigate the workspace interface with a mouse and keys. |
-| `bin/world.rs` | 820 | `physis-world` — the navigational substrate, over the machine's own log. |
-| `chain.rs` | 560 | The chain — every measured mechanism in this crate, composed, with its null. |
-| `claim_identity.rs` | 528 | Is a claim its sentence, or is it a structure? |
-| `classify.rs` | 817 | Semiotic-grid classification: embed text, score against ontology entries, |
+| `bench.rs` | 534 | Phase 5 — behavioral compression & structure benchmark (Directives 1 + 2). |
+| `chain.rs` | 622 | The chain — every measured mechanism in this crate, composed, with its null. |
+| `claim_identity.rs` | 599 | Is a claim its sentence, or is it a structure? |
+| `classify.rs` | 842 | Semiotic-grid classification: embed text, score against ontology entries, |
 | `coherence_dimensions.rs` | 135 | Multi-dimensional coherence model. |
 | `coherence_query.rs` | 94 | Coherence Query API — first-class query interface for epistemic questions. |
-| `config_run.rs` | 88 | Directive 2 §16 — one configuration mechanism for the run pipeline. |
+| `config_run.rs` | 94 | Directive 2 §16 — one configuration mechanism for the run pipeline. |
 | `contradiction.rs` | 115 | Contradiction handling — explicit representation of conflicting claims. |
-| `core.rs` | 1464 | Central engine state — coherence nodes, certified/isolated branches, |
-| `coverage.rs` | 442 | Coverage impact — which candidate cells would let the ontology place |
-| `delta_engine.rs` | 1069 | Dynamic Ontology Delta & Propagation Reasoning Engine. |
-| `direction.rs` | 635 | Did the transformation go the way it was asked to? |
+| `core.rs` | 1476 | Central engine state — coherence nodes, certified/isolated branches, |
+| `coverage.rs` | 479 | Coverage impact — which candidate cells would let the ontology place |
+| `delta_engine.rs` | 1065 | Dynamic Ontology Delta & Propagation Reasoning Engine. |
+| `direction.rs` | 670 | Did the transformation go the way it was asked to? |
 | `discovery.rs` | 429 | Discovery — which corpus texts does the current ontology fail to cover, and |
-| `dream.rs` | 200 | Temporal dream — retrospective proposals over the time machine. |
-| `edition.rs` | 194 | Which Physis edition is installed on this machine, and where. |
-| `embed.rs` | 416 | Deterministic, dependency-light embedding. The `VectorEmbed` trait is the |
-| `embed_ngram.rs` | 46 | Small synthetic n-gram lookup table (test/integration scaffold). |
-| `embed_onnx.rs` | 484 | ONNX MiniLM embedder — production-grade semantic embeddings via the `ort` |
-| `epistemic.rs` | 317 | Epistemic Audit Trail — replayable timeline of beliefs, observations, and revisions. |
-| `experiments.rs` | 62 | Experiments module for Physis hierarchy level measurement |
+| `dream.rs` | 203 | Temporal dream — retrospective proposals over the time machine. |
+| `embed_ngram.rs` | 55 | Small synthetic n-gram lookup table (test/integration scaffold). |
+| `embed_onnx.rs` | 487 | ONNX MiniLM embedder — production-grade semantic embeddings via the `ort` |
+| `embed.rs` | 439 | Deterministic, dependency-light embedding. The `VectorEmbed` trait is the |
+| `epistemic.rs` | 673 | Epistemic Audit Trail — replayable timeline of beliefs, observations, and revisions. |
 | `explanation.rs` | 195 | Structured explanation model for accountable AI interpretations. |
-| `grid_fitness.rs` | 436 | D4 — does a cell of the grid carve anything, or is it just full? |
-| `ground.rs` | 371 | Common ground — the conceptual state a human and a machine both work on. |
-| `history.rs` | 314 | Personal-history importers — browser bookmarks/history, RSS / |
-| `hypothesis.rs` | 943 | First-class hypothesis model. |
-| `linkage.rs` | 291 | Cell linkage — which `(domain, mode)` cells does real data bridge, and |
-| `machines.rs` | 320 | Structural machines — a stance toward a world, and what it saw. |
-| `map.rs` | 682 | The Difference/Repetition structural map — Demo A ("the corpus becoming |
-| `model_provider.rs` | 446 | Model provider infrastructure — Physis never hardcodes a model. |
-| `models.rs` | 971 | Core data models: coherence nodes, ontology entries, the semiotic grid, |
-| `ngram_table.rs` | 1049 | N-gram table infrastructure — interchangeable, versioned, provenance-stamped. |
-| `nlq.rs` | 653 | Natural-language front door to the world layer — and the measurement that |
-| `notebook.rs` | 531 | Notebook — grounded answers over a local corpus, with citations. |
-| `observe.rs` | 1007 | The observation log — what the machine saw, append-only, forever. |
-| `ontology.rs` | 551 | Ontology loading — built-in JSON files (compiled in), file paths, or raw |
-| `oracle.rs` | 161 | Big-model oracle leg (Directive 1 §4, Directive 2 §21). |
-| `praxis.rs` | 355 | Praxis backfill — seed coherence from the real life-log. |
-| `process.rs` | 334 | Process semantics for industrial, operational, and reasoning workflows. |
-| `propose.rs` | 320 | Filing proposal — narrow the grid to a shortlist a person chooses from. |
-| `provenance.rs` | 94 | Provenance tracking — traceable chains of evidence and reasoning. |
-| `quality.rs` | 831 | Ontology-driven feedback loop — when the user says "this is bad/wrong", |
-| `rag.rs` | 734 | Token-fixed RAG — retrieve chunks subject to a hard token budget. |
+| `grid_fitness.rs` | 450 | D4 — does a cell of the grid carve anything, or is it just full? |
+| `hypothesis.rs` | 946 | First-class hypothesis model. |
+| `linkage.rs` | 298 | Cell linkage — which `(domain, mode)` cells does real data bridge, and |
+| `machines.rs` | 322 | Structural machines — a stance toward a world, and what it saw. |
+| `map.rs` | 710 | The Difference/Repetition structural map — Demo A ("the corpus becoming |
+| `model_provider.rs` | 463 | Model provider infrastructure — Physis never hardcodes a model. |
+| `models.rs` | 961 | Core data models: coherence nodes, ontology entries, the semiotic grid, |
+| `ngram_table.rs` | 1097 | N-gram table infrastructure — interchangeable, versioned, provenance-stamped. |
+| `observe.rs` | 571 | The observation log — what the machine saw, append-only, forever. |
+| `ontology.rs` | 653 | Ontology loading — built-in JSON files (compiled in), file paths, or raw |
+| `oracle.rs` | 166 | Big-model oracle **types and deterministic comparison** (Directive 1 §4). |
+| `process.rs` | 337 | Process semantics for industrial, operational, and reasoning workflows. |
+| `propose.rs` | 325 | Filing proposal — narrow the grid to a shortlist a person chooses from. |
+| `provenance.rs` | 174 | Provenance tracking — traceable chains of evidence and reasoning. |
+| `rag.rs` | 796 | Token-fixed RAG — retrieve chunks subject to a hard token budget. |
 | `relation.rs` | 171 | Rich typed graph relations for epistemic, causal, and procedural structures. |
 | `store.rs` | 103 | Simple JSON-file persistence under `~/.physis-core/`. |
-| `studio.rs` | 2194 | Ontology Studio — a self-contained web GUI (axum + embedded single-page app) |
-| `studio_communities.rs` | 238 | Phase 9.4b — community rollup endpoint (PLAN 9.4 follow-up). |
-| `studio_lab.rs` | 744 | Studio extension surfaces: the Flow inspector, the Semiotics Lab map, |
-| `system.rs` | 1122 | Shared workspace interface for people, agents, and folder projections. |
-| `system_cli.rs` | 664 | Human and JSON presentations of the same workspace service. |
-| `system_delegation.rs` | 676 | Delegation planning and unstarted worktree reservations over workspace observations. |
-| `system_mcp.rs` | 205 | MCP stdio adapter for the shared workspace service, with no licence or model. |
-| `temporal.rs` | 259 | Temporal validity — when is a statement true? |
+| `temporal.rs` | 290 | Temporal validity — when is a statement true? |
 | `tokenizer.rs` | 161 | Tokenizer abstraction (infrastructure layer). |
-| `transform.rs` | 759 | Symbolic token-level homomorphism engine. |
-| `transplant.rs` | 787 | Structural transplant — port the shape of one project onto another. |
-| `vault.rs` | 290 | Vault importers — Obsidian/markdown notes, plain text, and `git log`. |
-| `worldstate.rs` | 1677 | E55 — structure before mapping. |
+| `transform.rs` | 750 | Symbolic token-level homomorphism engine. |
+| `transplant.rs` | 799 | Structural transplant — port the shape of one project onto another. |
+| `worldstate.rs` | 1687 | E55 — structure before mapping. |
 
-## physis_pro — 173 modules, 80886 lines, proprietary
+## physis_pro — 235 modules, 122584 lines, proprietary
 
 | module | lines | what it does |
 |---|---:|---|
+| `action.rs` | 161 | The action surface: one parser and one renderer shared by the CLI and the |
 | `actor.rs` | 353 | — |
+| `adaptive_document/mod.rs` | 540 | Phase 26 adaptive document: blocks with exact byte spans, confirmed |
+| `adaptive_document/proposal.rs` | 322 | Proposal and application logic for adaptive documents (Phase 26 §26.5). |
+| `adaptive_document/store.rs` | 293 | Durable persistence for adaptive documents (Phase 26 §26.6–§26.7). |
 | `address.rs` | 222 | File addressing (PLAN Phase 10) — where a file lives in space, when it |
 | `admin.rs` | 105 | Stateless administration-review primitives. |
+| `agents/adapter.rs` | 638 | Agent adapters (plan S2). One trait, one job: reach the agent and bring back |
+| `agents/attention.rs` | 187 | Attention (plan S8): the terms that decide what the system looks at, and a |
+| `agents/decision.rs` | 520 | Decision-native agent calls (the Jev pattern). |
+| `agents/mod.rs` | 418 | Agents as first-class objects (plan S1). An agent is data: a roster entry in |
+| `agents/parse.rs` | 242 | The `@` grammar (plan S5). |
+| `agents/routing.rs` | 474 | Routing ladder (plan S3). One function decides which agent answers a |
+| `agents/similar.rs` | 163 | Similarity (plan S8): two legs, and a claim that names which one matched. |
+| `agents/tasks.rs` | 482 | Task graph (plan S4). |
+| `agents/view.rs` | 149 | Pure render strings for the agent surface. The HUD prints these; it does not |
 | `ai/agent.rs` | 400 | Tool-using agent loop that orchestrates LLM calls with tool execution. |
 | `ai/harness.rs` | 680 | Physis Epistemic Coherence Harness & Final Arbiter for LLMs. |
-| `ai/memory.rs` | 296 | — |
+| `ai/memory.rs` | 299 | — |
 | `ai/mod.rs` | 51 | AI provider cascade, agent loop, tool registry, and episodic memory. |
 | `ai/onnx_worker.rs` | 154 | — |
-| `ai/orchestration/agent_registry.rs` | 26 | — |
-| `ai/orchestration/mod.rs` | 28 | — |
-| `ai/provider.rs` | 1250 | LLM provider abstraction with failover cascade. |
+| `ai/provider.rs` | 1341 | LLM provider abstraction with failover cascade. |
 | `ai/session.rs` | 350 | — |
 | `ai/tools.rs` | 511 | Tool registry and builtin tool implementations. |
 | `atomic.rs` | 170 | Durable file replacement. |
-| `audit.rs` | 203 | Append-only mutation log (Phase 16 I9/I10) — the audit/trust layer. |
+| `audit.rs` | 204 | Append-only mutation log (Phase 16 I9/I10) — the audit/trust layer. |
 | `axes.rs` | 699 | Dynamic axis expansion (ONTOLOGY_EXPANSION_PLAN Phase 6) — the axis tier of |
 | `batch_csv.rs` | 205 | Phase 6.2 — CSV batch import with validation + reviewed export (PLAN 6.2). |
+| `bin/hud.rs` | 4795 | physis-hud — the Semantic Navigation HUD (Function 3 MVP). |
 | `bin/license_tool.rs` | 340 | Vendor-side licence tooling: generate a signing keypair, mint licences, |
 | `bin/physis-interest-daemon.rs` | 381 | physis-interest-daemon — local observer that watches what you work on and |
+| `bin/physis.rs` | 12 | Thin binary shim for the shared `physis` front door. |
+| `bin/studio.rs` | 1914 | physis-studio — one demo product for the engine, in one TUI. |
 | `bin/tui.rs` | 1775 | physis-pro-tui — control panel for the physis engine. |
 | `bin/voice.rs` | 184 | — |
 | `bin/web_server.rs` | 17 | physis-pro-web — thin entry point. |
 | `bin/wiki.rs` | 577 | physis-pro-wiki — interactive TUI to browse the UberWiki by **content**. |
 | `brain.rs` | 560 | Phase 10 — the offline document brain ("brain multiplier" demo wedge). |
-| `classify.rs` | 582 | Semiotic-grid classification: embed text/image, score against ontology |
-| `cli.rs` | 2232 | CLI application orchestrator — parses subcommands via clap and dispatches |
+| `capability.rs` | 251 | — |
+| `classify.rs` | 639 | Semiotic-grid classification: embed text/image, score against ontology |
+| `cli.rs` | 2626 | CLI application orchestrator — parses subcommands via clap and dispatches |
 | `communities.rs` | 284 | Phase 9.4 — holarchy community detection (clean-room adaptation, |
-| `config.rs` | 1266 | Configuration loading — builds PhysisConfig and loads ontologies from |
+| `config.rs` | 1899 | Configuration loading — builds PhysisConfig and loads ontologies from |
 | `content.rs` | 1142 | Search by content — retrieval over what documents *say*. |
 | `context.rs` | 551 | Context-scoped ontology overlays: what an item means *here*. |
-| `core.rs` | 2049 | Central engine state — coherence graph nodes, certified/isolated branches, |
-| `corpus.rs` | 851 | Phase 11 — corpus-level comprehension: community summaries + global query. |
+| `core.rs` | 2225 | Central engine state — coherence graph nodes, certified/isolated branches, |
+| `corpus.rs` | 845 | Phase 11 — corpus-level comprehension: community summaries + global query. |
 | `decisions.rs` | 365 | Phase 9.3 — decision mining from transcript episodes (clean-room |
 | `demo_corpus.rs` | 127 | Bundled sample corpus for the Ontology Studio one-command demo (`studio --demo`). |
+| `dependency/mod.rs` | 599 | — |
+| `diff.rs` | 561 | diff — line and word diff for the Studio reviewer. |
 | `discovery.rs` | 667 | Ontology discovery mode (PLAN 1D): scan a new environment's texts and |
 | `doctree.rs` | 473 | Phase 11 — hierarchical document index (PageIndex-shaped, deterministic). |
-| `dream.rs` | 798 | — |
-| `embed/clip.rs` | 211 | — |
-| `embed/jina.rs` | 248 | — |
-| `embed/mod.rs` | 602 | — |
+| `draw.rs` | 94 | Text dashboard: the same content the HUD shows, rendered for a terminal. |
+| `dream.rs` | 803 | — |
+| `embed/clip.rs` | 215 | — |
+| `embed/jina.rs` | 252 | — |
+| `embed/mod.rs` | 775 | — |
+| `embed/ollama.rs` | 162 | Ollama embedding backend — semantic vectors from a local ollama server. |
 | `embed/onnx.rs` | 475 | ONNX MiniLM embedder — production-grade semantic embeddings via the `ort` |
-| `embed/registry.rs` | 120 | — |
+| `embed/registry.rs` | 280 | — |
 | `empedocles.rs` | 624 | The Empedoclean dyad as a dynamical node field (see `docs/EMPEDOCLES_DYAD.md`). |
-| `estimate.rs` | 103 | — |
-| `extract.rs` | 153 | Structured output / slot extraction (Phase 19, B2). |
+| `estimate.rs` | 104 | — |
+| `extract.rs` | 157 | Structured output / slot extraction (Phase 19, B2). |
 | `gantt.rs` | 880 | — |
 | `graph.rs` | 810 | — |
 | `grounding.rs` | 147 | Phase 9.2 — anti-hallucination grounding gate (clean-room pattern |
-| `history.rs` | 328 | Personal-history importers (Phase 7B) — browser bookmarks/history, RSS / |
+| `history.rs` | 930 | Personal-history importers (Phase 7B) — browser bookmarks/history, RSS / |
 | `indexer.rs` | 338 | Disk indexer (PLAN 1.3): a fast-path file catalog with `--watch`. |
-| `industrial.rs` | 1043 | Industrial protocol adapters — MQTT, Modbus, and machine health monitoring. |
 | `industrial_benchmark/mod.rs` | 4 | Industrial benchmark module — reproducible datasets, feedback experiments, |
-| `industrial_benchmark/secom.rs` | 889 | SECOM (Semiconductor Manufacturing) benchmark. |
-| `ingest.rs` | 786 | Document ingestion pipeline — watches directories, sorts files by type, |
+| `industrial_benchmark/secom.rs` | 891 | SECOM (Semiconductor Manufacturing) benchmark. |
+| `industrial.rs` | 1054 | Industrial protocol adapters — MQTT, Modbus, and machine health monitoring. |
+| `ingest.rs` | 848 | Document ingestion pipeline — watches directories, sorts files by type, |
+| `intent_ir.rs` | 274 | — |
+| `intent.rs` | 250 | Editable intent (plan S7). |
 | `interest.rs` | 638 | Interest engine — observing what a user actually works on and distilling |
 | `inventory.rs` | 396 | Inventory tracking, demand forecasting, and human-in-loop ordering. |
-| `ledger.rs` | 379 | Causal ledger (PLAN Phase 10 D3) — the append-only record of *why every |
-| `license.rs` | 981 | Offline licence verification. |
+| `ledger.rs` | 505 | Causal ledger (PLAN Phase 10 D3) — the append-only record of *why every |
+| `license.rs` | 1000 | Offline licence verification. |
 | `life_os/mod.rs` | 1 | — |
 | `life_os/tracker.rs` | 636 | LifeOS — native goal/habit tracking layer. |
 | `linguistic/mod.rs` | 239 | Linguistic lenses — Wenyan (kanji compression), Piraha (filler-stripping), Sanskrit (poetic expansion). |
@@ -144,6 +144,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the six operations each serves.
 | `machines/apodeixis.rs` | 405 | apodeixis — the demonstrative-proof machine. (Aristotelian *apódeixis* — |
 | `machines/chroma.rs` | 200 | chroma — the color machine. |
 | `machines/chronos.rs` | 273 | chronos — the temporal machine. |
+| `machines/demos.rs` | 276 | Sample runs for the philosophical machines — one demonstrative input each. |
 | `machines/elenchus.rs` | 160 | elenchus — the dialogue / dialectic machine. (Socratic cross-examination — |
 | `machines/empedocles.rs` | 259 | empedocles — the physical-machine machine. |
 | `machines/erosa.rs` | 193 | erosa — the relational machine, **mythic** genealogy: Eros the child of |
@@ -153,7 +154,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the six operations each serves.
 | `machines/kinesis.rs` | 195 | kinesis — the motion machine. |
 | `machines/krisis.rs` | 188 | krisis — the machine of taste / judgement. |
 | `machines/lex.rs` | 131 | lex — the legal / contract machine. |
-| `machines/mod.rs` | 48 | Philosophical machines — thin reducers over the physis core. |
+| `machines/mod.rs` | 49 | Philosophical machines — thin reducers over the physis core. |
 | `machines/pathos.rs` | 143 | pathos — the affective machine. |
 | `machines/plutos.rs` | 209 | plutos — the economic machine. |
 | `machines/polis.rs` | 145 | polis — the social-graph machine. |
@@ -161,52 +162,91 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the six operations each serves.
 | `machines/soma.rs` | 135 | soma — the body machine. |
 | `machines/techne.rs` | 265 | techne — the codebase machine. |
 | `machines/topos.rs` | 193 | topos — the spatial machine. (Aristotle's *topos*, place; the method of loci.) |
-| `mails.rs` | 222 | Mailbox import (PLAN Phase 10 D7) — the space·time·cause treatment for |
+| `mails.rs` | 226 | Mailbox import (PLAN Phase 10 D7) — the space·time·cause treatment for |
 | `maintenance.rs` | 619 | Statistical health baselines + predictive maintenance for machine telemetry. |
 | `management_pack.rs` | 205 | Phase 6.4 — weekly management pack (PLAN 6.4). |
 | `mapper.rs` | 271 | Maps filesystem trees into ontological trie structures with vector embeddings. |
-| `mcp.rs` | 1453 | MCP (Model Context Protocol) server — expose Physis as an |
-| `models.rs` | 1964 | — |
+| `mcp.rs` | 1455 | MCP (Model Context Protocol) server — expose Physis as an |
+| `metrics/mod.rs` | 374 | — |
+| `models.rs` | 2087 | — |
 | `monitor.rs` | 495 | Monitor mode — a phone's sensors, translated into what the engine already |
-| `moonraker.rs` | 318 | Moonraker adapter for Klipper printers. |
 | `moonraker_connect.rs` | 270 | Driver for the Moonraker adapter — the piece that turns |
+| `moonraker.rs` | 318 | Moonraker adapter for Klipper printers. |
+| `mvp/deps.rs` | 516 | — |
+| `mvp/log.rs` | 289 | Append-only transition log for the MVP loop. |
+| `mvp/model.rs` | 328 | MVP world model: artifact view + scoped slice + loop delta. |
+| `mvp/mod.rs` | 18 | MVP: repository as world — thin wiring over existing slices. |
+| `mvp/repl.rs` | 1239 | MVP interactive loop: one command box over the nav index. |
+| `mvp/slice.rs` | 129 | — |
+| `nav/mod.rs` | 1646 | Semantic Navigation (MVP Function 3): meaning-first navigation over |
+| `nav/workspace.rs` | 441 | Hot-swap seam for the navigation feature (Function 3). |
 | `network.rs` | 232 | Filesystem watching and network scanning — hash-cache-based change detection. |
-| `notebook.rs` | 805 | Notebooks — dashboards the user composes (PLAN Phase 13). |
+| `notebook.rs` | 808 | Notebooks — dashboards the user composes (PLAN Phase 13). |
 | `oee.rs` | 597 | OEE (Overall Equipment Effectiveness) — the canonical lean / Industry-4.0 KPI. |
-| `ontology.rs` | 79 | — |
 | `ontology_graph.rs` | 551 | Typed ontology graph — the "Palantir-like" layer. |
 | `ontology_nonhuman.rs` | 153 | — |
-| `operational.rs` | 477 | Normalized operational events. |
+| `ontology.rs` | 79 | — |
 | `operational_report.rs` | 336 | Timeline and incident views over normalized operational events. |
+| `operational.rs` | 488 | Normalized operational events. |
+| `orchestration/mod.rs` | 326 | — |
 | `output.rs` | 558 | Output formatters — Wiki-style reports, JSON graph, Mermaid mindmap/flowchart, domain reports, |
-| `pack.rs` | 689 | File-aware token-fixed context packing. |
+| `pack.rs` | 1000 | File-aware token-fixed context packing. |
 | `planner.rs` | 302 | Counterfactual decision planning. |
+| `ported/act_recall.rs` | 1703 | Does `act` actually find the contradiction it exists to surface? |
+| `ported/act.rs` | 684 | Acting, recorded — and checked against what is already believed. |
+| `ported/config_run.rs` | 96 | Directive 2 §16 — one configuration mechanism for the run pipeline. |
+| `ported/edition.rs` | 196 | Which Physis edition is installed on this machine, and where. |
+| `ported/front_door.rs` | 278 | `physis` — the single front door to whichever Physis edition is installed. |
+| `ported/ground.rs` | 418 | Common ground — the conceptual state a human and a machine both work on. |
+| `ported/history.rs` | 316 | Personal-history importers — browser bookmarks/history, RSS / |
+| `ported/mod.rs` | 42 | Product surfaces moved out of `physis-core` (2026-09-14). |
+| `ported/nlq.rs` | 771 | Natural-language front door to the world layer — and the measurement that |
+| `ported/notebook.rs` | 663 | Notebook — grounded answers over a local corpus, with citations. |
+| `ported/observe_adapters.rs` | 633 | Collection adapters for the observation log. |
+| `ported/oracle.rs` | 68 | Big-model oracle leg — the provider transport. |
+| `ported/praxis.rs` | 357 | Praxis backfill — seed coherence from the real life-log. |
+| `ported/quality.rs` | 928 | Ontology-driven feedback loop — when the user says "this is bad/wrong", |
+| `ported/studio_communities.rs` | 240 | Phase 9.4b — community rollup endpoint (PLAN 9.4 follow-up). |
+| `ported/studio_lab.rs` | 753 | Studio extension surfaces: the Flow inspector, the Semiotics Lab map, |
+| `ported/studio.rs` | 2183 | Ontology Studio — a self-contained web GUI (axum + embedded single-page app) |
+| `ported/system_cli.rs` | 932 | Human and JSON presentations of the same workspace service. |
+| `ported/system_delegation.rs` | 678 | Delegation planning and unstarted worktree reservations over workspace observations. |
+| `ported/system_mcp.rs` | 274 | MCP stdio adapter for the shared workspace service, with no licence or model. |
+| `ported/system.rs` | 1339 | Shared workspace interface for people, agents, and folder projections. |
+| `ported/tui.rs` | 701 | `physis-system-tui` — navigate the workspace interface with a mouse and keys. |
+| `ported/vault.rs` | 292 | Vault importers — Obsidian/markdown notes, plain text, and `git log`. |
+| `ported/world.rs` | 898 | `physis-world` — the navigational substrate, over the machine's own log. |
 | `postgres.rs` | 423 | PostgreSQL row-delta ingestion. |
 | `praxis.rs` | 365 | Praxis backfill (Phase 7B) — seed coherence from the real life-log. |
-| `quality.rs` | 152 | Ontology-driven feedback loop — when user says "this is bad/wrong", |
+| `quality.rs` | 138 | Ontology-driven feedback loop — when user says "this is bad/wrong", |
 | `quantize.rs` | 252 | Product quantizer for compressed vector storage — f32 → byte codes. |
 | `rachmaninov.rs` | 127 | — |
-| `rag.rs` | 411 | Token-fixed RAG — retrieve chunks subject to a hard token budget. |
+| `rag.rs` | 413 | Token-fixed RAG — retrieve chunks subject to a hard token budget. |
 | `rbac.rs` | 149 | Minimal role-based access control for the web API. |
 | `reconcile.rs` | 444 | Phase 6.3 — Invoice / PO / delivery-note reconciliation (PLAN 6.3). |
 | `reconstruct.rs` | 308 | Vector-space nearest-neighbor reconstruction and LLM-assisted interpretation. |
+| `registry.rs` | 628 | — |
+| `repair_regions/mod.rs` | 186 | — |
 | `report.rs` | 640 | Shift report — the sellable artifact of the industrial vertical |
 | `review_desk.rs` | 234 | Phase 6.1 — Admin Review Desk flow (PLAN 6.1). |
-| `routes.rs` | 223 | Declarative agent route table (Phase 19, B1). |
+| `routes.rs` | 297 | Declarative agent route table (Phase 19, B1). |
 | `salience.rs` | 504 | Accumulated interpretant evidence: which signs actually earned their keep. |
-| `scanner.rs` | 793 | — |
-| `semiotic_grid.rs` | 163 | The coordinate system for Physis classification. |
+| `scanner.rs` | 798 | — |
+| `semantic_delta/mod.rs` | 380 | — |
+| `semiotic_grid.rs` | 295 | The coordinate system for Physis classification. |
 | `sensory.rs` | 134 | — |
 | `sessions.rs` | 307 | Phase 9.1 — session-transcript adapters (clean-room pattern adaptation |
-| `shifts.rs` | 798 | Shift history — CSV/JSON import with row-level validation, durable |
+| `settings.rs` | 355 | User-editable settings: command syntax and provider configuration. |
+| `shifts.rs` | 810 | Shift history — CSV/JSON import with row-level validation, durable |
 | `social/algorithm.rs` | 22 | — |
 | `social/mod.rs` | 1 | — |
 | `spanner.rs` | 1004 | Spanner Graph sink (Phase 7C) — **SCAFFOLD, UNTESTED against a live instance.** |
 | `sql.rs` | 513 | Read-only SQL ingestion with row-level incremental diffs. |
+| `staleness/mod.rs` | 65 | — |
 | `storage.rs` | 104 | — |
 | `structsim.rs` | 507 | Structural similarity — compare data structures (JSON, DB schemas, class |
 | `study.rs` | 456 | study — the learning / teaching layer. A Study Log records what a student |
-| `tree.rs` | 581 | Directory-hierarchy + document-metadata tree (scan v2). |
+| `tree.rs` | 631 | Directory-hierarchy + document-metadata tree (scan v2). |
 | `trie.rs` | 828 | — |
 | `vault.rs` | 309 | Vault importers (Phase 7B) — Obsidian/markdown notes, plain text, and `git log`. |
 | `vfs/mod.rs` | 16 | Virtual File System (VFS) orchestration — maintains a read-only view |
@@ -216,35 +256,36 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the six operations each serves.
 | `web/admin_datawork.rs` | 157 | Phase 6.1b/6.2b/6.4b — HTTP surface for the Phase-6 administration cores. |
 | `web/admin_study.rs` | 171 | — |
 | `web/agent.rs` | 1034 | Agent orchestration surface: the `/agent` dashboard backend. |
-| `web/atlas.rs` | 474 | Atlas — one call that returns a drawable graph of the tenant's knowledge. |
+| `web/atlas.rs` | 554 | Atlas — one call that returns a drawable graph of the tenant's knowledge. |
 | `web/axes.rs` | 202 | — |
 | `web/brain.rs` | 224 | HTTP surface of the offline document brain (`/brain` demo page + API). |
-| `web/coherence.rs` | 1551 | — |
-| `web/content.rs` | 319 | HTTP surface for search-by-content. |
+| `web/coherence.rs` | 1612 | — |
+| `web/content.rs` | 321 | HTTP surface for search-by-content. |
 | `web/context.rs` | 265 | — |
-| `web/corpus.rs` | 255 | Phase 11 surface — corpus-level comprehension over the tenant graph. |
+| `web/corpus.rs` | 251 | Phase 11 surface — corpus-level comprehension over the tenant graph. |
+| `web/document.rs` | 515 | Adaptive-document service (PLAN.md Phase 26 §26.7). |
 | `web/dream.rs` | 330 | — |
-| `web/extract.rs` | 33 | HTTP surface for structured-output extraction (Phase 19, B2). |
+| `web/extract.rs` | 34 | HTTP surface for structured-output extraction (Phase 19, B2). |
 | `web/holarchy.rs` | 129 | — |
-| `web/industrial.rs` | 209 | — |
+| `web/industrial.rs` | 211 | — |
 | `web/ingest.rs` | 1698 | — |
-| `web/machines.rs` | 1136 | — |
+| `web/machines.rs` | 1208 | — |
 | `web/mcp.rs` | 112 | — |
-| `web/mod.rs` | 4050 | — |
+| `web/mod.rs` | 4356 | — |
 | `web/monitor.rs` | 168 | Monitor ingest — one endpoint a phone can sync a morning into. |
 | `web/notebook.rs` | 188 | Notebook CRUD — per-tenant, validated, stored in sled. |
-| `web/ontology_studio.rs` | 476 | Ontology studio — the write half of the dictionary. |
-| `web/operational.rs` | 259 | HTTP surface for the normalized event stream (Phase 16, I3/I4). |
+| `web/ontology_studio.rs` | 479 | Ontology studio — the write half of the dictionary. |
+| `web/operational.rs` | 254 | HTTP surface for the normalized event stream (Phase 16, I3/I4). |
 | `web/pdca.rs` | 340 | — |
-| `web/routes.rs` | 112 | HTTP surface for the declarative route table (Phase 19, B1). |
+| `web/routes.rs` | 116 | HTTP surface for the declarative route table (Phase 19, B1). |
 | `web/scenarios.rs` | 410 | Scenario persistence for the decision planner (PLAN 7.3 + 7.4). |
-| `web/search.rs` | 418 | — |
+| `web/search.rs` | 551 | — |
 | `web/shifts.rs` | 201 | — |
 | `web/spanner.rs` | 144 | — |
-| `web/ui_chat.rs` | 368 | — |
+| `web/ui_chat.rs` | 521 | — |
 | `web/wiki_generate.rs` | 201 | Phase 9.6 — `/api/v1/wiki/generate`: wiki-gen over the live tenant holarchy |
-| `web/wiki_semiotic.rs` | 589 | — |
-| `web/workflow.rs` | 115 | HTTP surface for the workflow scanner (the "who did what where" audit). |
-| `wiki.rs` | 464 | llmwiki/uberwiki bridge — searches the project wiki for context. |
+| `web/wiki_semiotic.rs` | 634 | — |
+| `web/workflow.rs` | 121 | HTTP surface for the workflow scanner (the "who did what where" audit). |
 | `wiki_gen.rs` | 530 | Phase 9.5 — wiki generation over the holarchy: deterministic outline core |
-| `workflow.rs` | 672 | workflow — the workflow scanner. The audit layer that answers "who did what |
+| `wiki.rs` | 464 | llmwiki/uberwiki bridge — searches the project wiki for context. |
+| `workflow.rs` | 691 | workflow — the workflow scanner. The audit layer that answers "who did what |
