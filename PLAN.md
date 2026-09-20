@@ -963,6 +963,17 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > A1, **MS-002/MS-003 released**. Still blocked: PH-006 (waits the human
 > features decision), MS-004–MS-008. Still claimed: PH-004. Next eligible:
 > MS-002 / MS-003 / PH-023, then PH-013, then the recurring PH-011 sweep.
+>
+> Re-measured 2026-09-20 (later the same day; the notes above are history, not
+> rewritten): **PH-004 review** — the claim is now discharged, not stale. The
+> discriminating probe, the `selftest` subcommand and the `/health` pins were
+> already committed; what was missing was a test carrying `semantic_self_test`
+> in its name (`cargo test semantic_self_test` matched **zero** tests and
+> exited 0), the real-weights arm's silent skip, and the CLI exit-code
+> contract. All three added; full gate green. Report:
+> `packets/reports/PH-004.md`. An abandoned, non-compiling `src/web/mod.rs`
+> WIP from an earlier session was preserved to `/tmp` and reverted — it
+> duplicated logic HEAD already had.
 
 ## Plan Index & Reconciled Status
 

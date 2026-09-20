@@ -729,3 +729,34 @@ fn a_borrowed_prior_is_used_only_when_its_coverage_earns_it() {
     );
     assert!(!missing.status.success());
 }
+
+/// PH-004: `selftest` is the instrument, and its exit code is the reading. The
+/// operator-selected embedder is what gets judged, so forcing the non-semantic
+/// offline embedder must exit 1 — a guard that cannot fail is not a guard, and
+/// a warning printed next to exit 0 is exactly how `/health` reported
+/// `semantic: true` for a feature-hashing engine (PLAN.md H2). Runs with no
+/// licence file: the packet gate invokes it on CI before any licence exists.
+#[test]
+fn semantic_self_test_cli_exits_nonzero_for_the_offline_embedder() {
+    let out = Command::new(env!("CARGO_BIN_EXE_physis-pro"))
+        .arg("selftest")
+        .env("PHYSIS_EMBEDDER", "random-projection")
+        .env_remove("PHYSIS_LICENSE_FILE")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "forced offline embedder must fail the selftest\nstdout: {stdout}\nstderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        stdout.contains("random-projection"),
+        "the report must name the embedder it judged: {stdout}"
+    );
+    assert!(
+        stdout.contains("FAIL"),
+        "the per-probe verdict must be FAIL, not a silent zero: {stdout}"
+    );
+}

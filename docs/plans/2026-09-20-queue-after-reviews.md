@@ -93,3 +93,12 @@ had before this session. Per `PROTOCOL.md` §7, a claim older than seven days
 with no commits reverts to `todo`; the cheap correct action is a status pass,
 not a re-execution: read the design, re-measure its claims against the current
 tree, and either finish or revert the claim.
+
+**Resolved 2026-09-20 (later).** The claim was re-made at `497b91c` and is now
+discharged: PH-004 is `review` with `packets/reports/PH-004.md`. The design's
+three holes are closed — the gate filter `cargo test semantic_self_test` went
+from matching zero tests to two, the real-weights arm's skip asserts its own
+precondition instead of printing into the void, and the CLI exit code is
+pinned by a child-process test. The design's claim that `models/model.onnx`
+exists was stale; the flat export is absent, so the conditional arm is the
+live one. Full gate green (`clippy -D warnings`, suite 0 failed).

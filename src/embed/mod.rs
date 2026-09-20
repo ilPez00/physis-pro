@@ -730,4 +730,46 @@ mod tests {
             "random projection must not pass the semantic self-test"
         );
     }
+
+    /// PH-004's unit gate, both arms. Arm (a) is always checkable. Arm (b)
+    /// needs a trained model on disk, so the skip has to be *proved* rather
+    /// than announced: the absence is asserted, which means dropping a flat
+    /// MiniLM export at `models/model.onnx` turns this into the arm that
+    /// exercises the probe against real weights instead of quietly staying
+    /// green. A skip nobody can falsify is the failure mode PH-004 exists for.
+    #[test]
+    fn semantic_self_test_rejects_lexical_and_gates_real_weights() {
+        // (a) non-semantic feature hashing → must fail
+        assert!(
+            !semantic_self_test(&RandomProjectionEmbedder::new(384)),
+            "random projection must not pass the semantic self-test"
+        );
+
+        // (b) the flat MiniLM export the cascade calls "minilm" → must pass
+        let flat = std::path::Path::new("models/model.onnx");
+        #[cfg(feature = "embed-onnx")]
+        {
+            if flat.exists() {
+                let e = OnnxEmbedder::new("models");
+                assert!(
+                    semantic_self_test(&e),
+                    "{} exists but fails the semantic self-test — the probe or the \
+                     export is broken",
+                    flat.display()
+                );
+            } else {
+                eprintln!(
+                    "SKIP semantic_self_test[real weights]: {} is absent — only the \
+                     random-projection arm ran",
+                    flat.display()
+                );
+                assert!(
+                    !flat.exists(),
+                    "the skip arm ran even though the weights are present"
+                );
+            }
+        }
+        #[cfg(not(feature = "embed-onnx"))]
+        eprintln!("SKIP semantic_self_test[real weights]: built without `embed-onnx`");
+    }
 }
