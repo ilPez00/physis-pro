@@ -6669,3 +6669,125 @@ async fn impossible_page_and_workspace_endpoint_render() {
     assert!(body["task_graph"]["tasks"].is_array());
     assert!(body["root"].is_string());
 }
+
+// ── PH-013: Authorization matrix ────────────────────────────────────────────
+//
+// These tests form the per-route authz matrix required by PH-013.
+// Every protected endpoint must honour X-Physis-User as the tenant
+// selector; a caller must never see, write, or list another tenant's
+// data. Run with `cargo test --test http_surface authz`.
+
+#[tokio::test]
+async fn authz_cross_tenant_read_denied() {
+    // Register a node as alice, then try to read it as bob.
+    // bob must see zero nodes, not alice's node.
+    let (router, _dir, _env) = app().await;
+
+    let (status, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "alice private data"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "alice register: {reg}");
+    assert!(reg["node_id"].is_string(), "node_id present: {reg}");
+
+    let (_, bob) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "bob")).await;
+    assert_eq!(bob["count"], 0, "cross-tenant read denied: bob sees alice's node");
+}
+
+#[tokio::test]
+async fn authz_cross_tenant_write_denied() {
+    // Register a node as alice, then bob tries to delete it.
+    // bob's delete must 404 because the node isn't in bob's tenant.
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "alice secret"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/delete", "bob", json!({"id": id})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "cross-tenant write denied: bob deleted alice's node");
+}
+
+#[tokio::test]
+async fn authz_cross_tenant_list_filtered() {
+    // Alice registers two nodes; bob's list must be empty.
+    let (router, _dir, _env) = app().await;
+
+    send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "alice first"})),
+    )
+    .await;
+    send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "alice second"})),
+    )
+    .await;
+
+    let (_, alice) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "alice")).await;
+    assert_eq!(alice["count"], 2, "alice sees her 2 nodes");
+
+    let (_, bob) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "bob")).await;
+    assert_eq!(bob["count"], 0, "cross-tenant LIST filtered: bob sees alice's nodes");
+}
+
+#[tokio::test]
+async fn authz_spoof_header_denied() {
+    // In production, X-Physis-User is set by the auth middleware from
+    // the bearer token, not the client. In dev mode the header IS the
+    // uid (no tokens configured). This test proves the header is the
+    // tenant selector: a caller presenting a different uid sees THAT
+    // tenant's data (empty if nothing was registered there), never
+    // their own. The security invariant is: in production the header
+    // is server-set, so a client cannot forge it.
+    let (router, _dir, _env) = app().await;
+
+    let (_, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "alice only"})),
+    )
+    .await;
+    let id = reg["node_id"].as_str().unwrap().to_string();
+
+    // alice reads her own node — present
+    let (_, alice) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "alice")).await;
+assert!(alice["count"].as_u64().unwrap_or(0) >= 1, "alice sees her node");
+
+    // alice sends bob's uid — sees bob's (empty) tenant, NOT alice's node
+    let (_, spoof) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "bob")).await;
+    assert_eq!(spoof["count"], 0, "auth spoof via header denied: alice-as-bob sees alice's data");
+
+    // bob cannot delete alice's node (not in bob's tenant)
+    let (status, _) = send(
+        &router,
+        post("/api/v1/coherence/delete", "bob", json!({"id": id})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "auth spoof via header denied: bob cannot delete alice's node");
+}
+
+#[tokio::test]
+async fn authz_same_tenant_positive_control() {
+    // Alice registers a node and reads it back under the same uid.
+    // This is the positive control proving the authz matrix works.
+    let (router, _dir, _env) = app().await;
+
+    let (status, reg) = send(
+        &router,
+        post("/api/v1/coherence/register", "alice", json!({"input": "positive control data"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "register: {reg}");
+    assert!(reg["node_id"].is_string(), "node_id present: {reg}");
+
+    let (_, list) = send(&router, get("/api/v1/coherence/nodes/all?limit=10", "alice")).await;
+assert!(list["count"].as_u64().unwrap_or(0) >= 1, "same-tenant positive: alice sees her node");
+}
