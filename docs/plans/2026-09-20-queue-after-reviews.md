@@ -151,3 +151,18 @@ precondition instead of printing into the void, and the CLI exit code is
 pinned by a child-process test. The design's claim that `models/model.onnx`
 exists was stale; the flat export is absent, so the conditional arm is the
 live one. Full gate green (`clippy -D warnings`, suite 0 failed).
+
+## 7. After this pass — two packets executed (2026-09-20, same day)
+
+This document's queue predates them; recorded here so the next reader does not
+treat it as the newest state.
+
+| packet | branch | what landed | gate |
+|---|---|---|---|
+| PH-024 | `agent/PH-024` (`a563498`, `a8213d5`) | `physis-hud` one front door: named views, editable settings (only changed keys written), `--setup`, `--view`/`--snapshot`; one knob table (`config::CONFIG_KNOBS`) shared by HUD, `physis-pro-tui` and Studio | clippy 0 · `physis-hud` 36 passed · `--setup` 0 · `--snapshot --view settings` 0 (`packets/reports/PH-024.md`) |
+| PH-025 | `agent/PH-025` (`b435d61`) | guided execution Phase A: `src/guided/` compiles the world into the model's allowed language; `physis-pro guided "<intent>"`; exact facts bypass the model | clippy 0 · `guided::` 8 passed · `physis-hud` 36 passed (`packets/reports/PH-025.md`) |
+
+Both are `status: review` — a reviewer re-runs each gate to move them to `done`.
+Sequencing authority for the programme they belong to:
+`docs/plans/2026-09-20-physis-hud.md`; contract for the guided subsystem:
+`docs/GUIDED_EXECUTION.md`.

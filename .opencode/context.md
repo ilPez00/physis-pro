@@ -1,6 +1,10 @@
 # Project Context
 
-> Current programme (2026-09-19): `docs/plans/2026-09-19-impossible-computer.md`.
+> Current programme (2026-09-20): `docs/plans/2026-09-20-physis-hud.md` — the HUD
+> programme (one world, many projections), which composes
+> `docs/plans/2026-09-19-impossible-computer.md`. Two steps shipped on branches,
+> awaiting review: PH-024 (`physis-hud` views / editable settings / `--setup`) and
+> PH-025 (guided execution Phase A, `src/guided/`, `physis-pro guided`).
 > The status notes below are historical (2026-09-11) and may be stale.
 
 ## Current Status

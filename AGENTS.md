@@ -6,7 +6,10 @@
 > Three attempts in one session compressed these 190 modules to a single noun and
 > all three were wrong. The grid is **tables with subtables** (45 cells under
 the default 5x9 pack since the 2026-09-19 mode rework), the operations
-> are **six**, and `propose` is not `judge`. That file carries the rules.
+> are **seven** (a `constrain` operation joined 2026-09-20 — see
+> `docs/GUIDED_EXECUTION.md`), and `propose` is not `judge`. That file carries
+> the rules. Source-file count is measured, not remembered:
+> `find src -name '*.rs' | wc -l` → 242 on 2026-09-20.
 
 
 ## Overview
@@ -19,14 +22,18 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 
 ## Development Workflow
 
-Current product sequencing: `docs/plans/2026-09-20-queue-after-reviews.md`
-(packet-queue state after the 2026-09-20 review pass). Scope: agent-native
+Current product sequencing: `docs/plans/2026-09-20-physis-hud.md` (the HUD
+programme: one world, many projections — it composes
+`docs/plans/2026-09-19-impossible-computer.md`, which keeps its S0–S12 agent
+work and its market/packaging notes). Shipped on branches, awaiting review:
+**PH-024** (`physis-hud` views · editable settings · `--setup`) and **PH-025**
+(guided execution Phase A, `src/guided/` + `physis-pro guided`). Packet queue
+state after the 2026-09-20 review pass:
+`docs/plans/2026-09-20-queue-after-reviews.md`. Scope: agent-native
 semantic world — agents as first-class objects, `@agent`
 calls from the magic textbox, visible task graphs, crystallization of agent
-output, semantic zoom, offline-first operation. This supersedes the sequencing
-and UI-expansion priority of `docs/plans/2026-09-18-agentic-workspace.md`, which
-retains its market, packaging, Settings memory/primitives editor and P0–P5
-gates. Same-day Studio and crystallization plans retain historical designs.
+output, semantic zoom, offline-first operation. Same-day Studio and
+crystallization plans retain historical designs.
 Planned acceptance gates are not shipped capabilities.
 
 **Work packets:** the board is `packets/` — `PROTOCOL.md` is how to execute one
@@ -131,6 +138,8 @@ falls back to binary/grep. HTTP: `POST /api/v1/wiki/search` + `/api/v1/wiki/inde
 | Inventory | `inventory.rs` | `InventoryTracker` — SMA-30 forecast, sled persistence, order cooldown. 13 tests |
 | Semiotic editing | `core.rs` + `web.rs` | **Exchange-parts edit**: `PhysisCore::edit_node()`/`delete_node()` swap node content while preserving structure (id/verdict/edges/provenance); `CoherenceNode.cell_pin` hybrid-pin semantics. API: `POST /api/v1/coherence/edit` + `/delete`. CLI: `node-edit`/`node-delete`. See `docs/SEMIOTIC_EDITING.md` |
 | Semantic navigation | `nav/` + `bin/hud.rs` | **Function 3 MVP**: meaning-first navigation over content-hashed objects (file/passage/note) with hybrid ranking (semantic+lexical+recency+context+pin/relation), per-component `why:` explanations, pins + SAME/DIFFERENT/RELATED relations with provenance (`User`/`Deterministic`/`Inferred` — never collapsed), plural semantic parents, nav trail, graph dual view (`g` in HUD). Frontends program against `nav::workspace::NavWorkspace` (hot-swap seam: index+sled+lazy embedder behind one façade). HUD `physis-hud` (`--features tui`) is the shipped frontend; `physis-pro nav …` is the P2 target CLI surface (no `nav` subcommand in the 2026-09-18 binary — see `docs/SEMANTIC_NAVIGATION.md` status note). Index = per-root JSON file (NOT sled — blob-growth measured: 5 GB of unreclaimed blobs); embeddings via shared `pack::EmbedCache`. Degraded lexical-only mode reported, never silent. Local updates: `just update` (`scripts/physis-update.sh`, smoke+backup+rollback). See `docs/SEMANTIC_NAVIGATION.md` |
+| HUD one front door | `bin/hud.rs` | **Views (PH-024, review)**: `world · graph · notebook · tasks · agents · settings · setup · help` each own the main pane (`Tab`/`BackTab` cycle, `g N T A S W ?`, `Esc` returns), instead of dumping into the 35 %-high reading pane. **Editable settings**: rows over the runtime knobs (`config::CONFIG_KNOBS`, one table for HUD/tui/Studio) and over every provider and command — `+`/`-` step, `Enter`/`e` type a value through the command box, `s` save (only *changed* keys, so a save cannot freeze today's defaults into the user's file), `r` reload, `d` revert a row; `key_env` shows the env var **name**, never a secret. **Setup**: `physis-hud --setup` prints workspace/files/agents/checklist with the command that closes each gap; `--view <name>` plus `--snapshot=WxH` renders any view for CI |
+| Guided execution | `guided/` (`--features`-free) | **Constrain operation (PH-025, review)**: the world compiles into the model's allowed language before a model is asked anything. `WorldView::from_registry` derives typed affordances from the existing capability table; `ConstraintCompiler` emits a `Constraint` IR (`Choice`/`ObjectSet`/`FreeText`/`Sequence`) that renders to JSON Schema *and* grammar; targets are `ObjectHandle` values a caller cannot invent; `Access::ReadOnly` removes mutating verbs **before** compilation; `start`/`stop`/`restart` are gated on the object's own `state` meta; `resolve_exact` answers exact facts with **zero model calls**; outcomes append to `registry_observations.jsonl` with actor `guided`. Surfaces: `physis-pro guided "<intent>" [--focus --write --execute --show]`, HUD `guided <intent>`. See `docs/GUIDED_EXECUTION.md` |
 | Physis Studio (demo TUI) | `bin/studio.rs` + `diff.rs` + `machines/demos.rs` | **One demo product, offline-first**: STATUS · GRAPH (category→theme→files→related, off `theme_graph.json`) · NOTEBOOK (cited answers over the graph's corpus via `ported::notebook::answer`; tier/`degraded`/backend always shown) · DIFF (line + word hunks from the in-repo `diff` engine; review-only until S3 wires `edit_node`/quality) · MACHINES (`machines::demos::run`, now library code instead of a third private copy) · CONFIG (same five knobs + file as `physis-pro-tui`). `--snapshot [TAB]` renders a real frame through the same `draw()` path (TestBackend) for CI/docs; `--left/--right` open on DIFF. Plan: `docs/plans/2026-09-18-studio-tui-demo.md` |
 | Fixed-token search | `web.rs` + `rag.rs` | `POST /api/v1/search/nodes` + CLI `node-search` — budget-bounded similarity search over coherence + goal nodes (`total_tokens ≤ token_budget`), reusing `rag::TokenFixedRetriever` + `count_tokens` |
 | Watch mode | `network.rs` + `web.rs` + `cli.rs` | **Auto-ingest**: `PHYSIS_WATCH_DIR` background thread, `POST /api/v1/watch` on-demand sweep, CLI `physis-pro watch [--once]` — register new/changed files as labeled core nodes (shared embedder), drop nodes for removed files. Shared `FileInfo::labels()` + `PhysisCore::delete_nodes_by_label_prefix` |

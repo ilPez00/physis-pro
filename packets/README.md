@@ -19,6 +19,16 @@ Read PROTOCOL.md first. Then the repo rules that override everything:
 Suggested order = phase, then id. Phase meanings: 0 = now, 1 = next quarter,
 2 = this year, 3 = later, D = discovery (writes future packets).
 
+## Shipped since the last sweep (2026-09-20)
+
+| packet | status | what it landed |
+|---|---|---|
+| `PH-024` | review | `physis-hud` one front door: views, editable settings (only changed keys are written), `--setup`, one knob table (`config::CONFIG_KNOBS`) shared with `physis-pro-tui` and Studio |
+| `PH-025` | review | guided execution Phase A: `src/guided/` compiles the world into the model's allowed language; `physis-pro guided "<intent>"`; 8 tests cover the spec cases |
+
+Both gates are in `packets/reports/PH-024.md` and `PH-025.md`. Reviewers re-run
+them; nothing is `done` until that happens.
+
 ## Multiscale structure research
 
 See [PLAN.md Phase 27](../PLAN.md#phase-27--measured-structure-of-change-2026-09-17).

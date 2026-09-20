@@ -6,6 +6,46 @@ If a number is here, it was produced by running the thing; nothing is projected.
 
 ---
 
+## 0. Added 2026-09-20 — the HUD front door and guided execution
+
+Both on branches, awaiting review (`PH-024`, `PH-025`); gates in
+`packets/reports/`. Commands below were run on this checkout.
+
+```bash
+cargo clippy --all-targets -- -D warnings          # exit 0
+cargo test --features tui --bin physis-hud         # 36 passed; 0 failed
+cargo test --lib guided::                          # 8 passed; 0 failed
+
+physis-hud . --setup                               # exit 0
+# PHYSIS SETUP: WORKSPACE (root, index counts, semantic on/off) · FILES
+# (data dir, config.json, settings.json, observations) · AGENTS (roster +
+# reachability) · CHECKLIST · NEXT — each gap names the command that closes it.
+
+physis-hud . --snapshot=100x30 --view settings      # exit 0, 31 lines
+# the settings rows, the selection marker, the per-row hint, the `*` dirty
+# column, and the two file paths that `s` writes
+
+physis-pro guided "read the retrieval notes" --focus src/retrieval.rs
+# VALID TRANSITIONS read → 6 target(s) · CONSTRAINT (<Verb> := "read")
+# (<Target> := "fs:0e4bfb603e53" | …) (<limit> := <text:12>) · SCHEMA (json enum
+# of real handles) · ENTROPY fixed 6 · choice 2 fields (7 candidates, 2.58 bits)
+# · free 1 · CHOSEN read fs:0e4bfb603e53 (route: model)
+
+physis-pro guided "main"                            # one object in the slice
+# CHOSEN read intent:main (route: exact) · model calls 0 · bypasses 1 (100%)
+```
+
+Limits, stated rather than implied: guided execution's only backend is the
+deterministic mock, so **no token-saving claim is made** (`Constraint::token_classes`
+reports the constraint side only); provider adapters, CFG composition and
+consolidation are not built (`docs/GUIDED_EXECUTION.md` lists what unblocks
+each); the bypass rate depends on index granularity, because a file and its
+passage share a path — to be measured, not assumed. `physis-hud` needs the
+`tui` feature; `physis-pro guided` sits behind the same licence gate as every
+other `physis-pro` subcommand (`PHYSIS_ALLOW_DEV_LICENCE=1` for local dev).
+
+---
+
 ## 1. One executable entry
 
 ```bash

@@ -3,12 +3,14 @@
 **Read this before summarising Physis to anyone, including yourself.**
 
 This file exists because three separate attempts in one session compressed a
-190-module, ~113k-line system into a single noun, and all three were wrong:
+190-module, ~113k-line system into a single noun, and all three were wrong
+(the count is from that session; measured 2026-09-20 it is 242 `.rs` files,
+`find src -name '*.rs' | wc -l`):
 
 | attempt | claim | why it was wrong |
 |---|---|---|
-| 1 | "Physis is a context compiler." | Context compiling is one operation out of six. MIT alternatives beat it on token reduction. |
-| 2 | "No — an epistemic ledger." | The ledger is a second operation out of six. |
+| 1 | "Physis is a context compiler." | Context compiling is one operation out of seven. MIT alternatives beat it on token reduction. |
+| 2 | "No — an epistemic ledger." | The ledger is a second operation out of seven. |
 | 3 | "70-symbol vocabulary, one n-gram table." | It is **tables with subtables** — 45 under the default pack. See §2. |
 
 Each attempt sounded sharper than the last and was equally wrong. **The system
@@ -131,7 +133,7 @@ describe it as if it were.
 
 ---
 
-## 3. The six operations
+## 3. The seven operations
 
 Every module is one of these. When asked "what does physis do", answer with this
 table, not with one row of it.
@@ -144,6 +146,15 @@ table, not with one row of it.
 | detect **drift** vs. name collision | `becoming` |
 | **record** assignments over time, and whether they held | `hypothesis` · `contradiction` · `epistemic` · `provenance` · `temporal` · `relation` · `explanation` · `delta_engine` · `ledger` |
 | **select** which coordinates to read next | `rag` · `pack` · `map` · `system` |
+| **constrain** which transitions the current world permits at all | `guided` (affordance · constraint · compile · action · model · observe) · `registry` · `capability` |
+
+**Revised 2026-09-20: a seventh operation.** Guided Execution (PH-025) compiles
+the world — objects, capabilities, permissions, object state — into the language
+a model is allowed to speak, so an invalid action is not a rejected one but an
+absent sentence. It is not `assign` (nothing is classified), not `select` (it
+chooses among transitions, not coordinates) and not `record` (its evidence goes
+into `registry`'s existing log, actor `guided`). `docs/GUIDED_EXECUTION.md`
+carries the contract; the counting is explicit in `Constraint::token_classes`.
 
 Applications of the operations to a domain: 22 philosophical machines ·
 industrial (`oee` `maintenance` `secom` `moonraker` `shifts` `report`) ·
@@ -305,3 +316,12 @@ the copy of record for `~/.claude/skills/physis/SKILL.md`. Mechanical checks:
 | does it discriminate? | `python3 benchmarks/retrieval/run.py --arms rp,semantic` |
 | which module does X? | `docs/wiki/MODULE_MAP.md` (regen: `./scripts/gen-wiki.sh`) |
 | already tried and failed? | `just recall "<task>"` |
+
+Which document answers which question:
+
+| question | document |
+|---|---|
+| what is Physis, structurally? | this file |
+| how may a model be allowed to act? | `docs/GUIDED_EXECUTION.md` |
+| what should be built next, and in what order? | `docs/plans/2026-09-20-physis-hud.md` |
+| what actually runs today, with commands? | `MVP_STATUS.md`, `packets/reports/*.md` |

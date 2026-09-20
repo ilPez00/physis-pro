@@ -1,14 +1,17 @@
 # Physis Pro
 
-Current development direction: [Physis as the impossible computer — agent-native
-semantic world](docs/plans/2026-09-19-impossible-computer.md). This proposed
-programme makes agents first-class objects inside the HUD, callable from the
-magic textbox (`@jev`, `@hermes`, `@opencode`, `@verifier`), visible as task
-graphs, and crystallizable into deterministic structure. It supersedes the
-sequencing of [Physis Workspace — agentic work with durable
-meaning](docs/plans/2026-09-18-agentic-workspace.md), which retains its market,
-packaging and Settings gates. Its gates distinguish current code from planned
-capabilities.
+Current development direction: [PHYSIS HUD — one world, many
+projections](docs/plans/2026-09-20-physis-hud.md) (2026-09-20), the HUD
+programme, which composes and extends [Physis as the impossible computer —
+agent-native semantic world](docs/plans/2026-09-19-impossible-computer.md).
+Two steps are **shipped on branches, awaiting review**: PH-024 (every surface a
+named view inside `physis-hud`, editable settings, `--setup`) and PH-025
+(`src/guided/` — the world compiles into the model's allowed language before a
+model is asked anything; `physis-pro guided "<intent>"`). Everything else in
+those plans is planned, not shipped; the gates distinguish the two.
+[Physis Workspace — agentic work with durable
+meaning](docs/plans/2026-09-18-agentic-workspace.md) retains its market,
+packaging and Settings gates.
 
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
 
@@ -32,7 +35,15 @@ It runs as:
 - an **HTTP server** (`physis-pro-web`, default `127.0.0.1:19876`) that Praxis and
   Aura clients call,
 - an **MCP server** (feature `mcp`) for agent tool-use,
-- a **TUI** and a **voice** binary for live ontological mapping.
+- the **HUD** (`physis-hud`, feature `tui`) — the one front door: every surface
+  is a named view (`world · graph · notebook · tasks · agents · settings · setup ·
+  help`), settings are editable in place, and `--setup` answers "what is
+  configured, what is missing, what do I run next",
+- **guided execution** (`physis-pro guided "<intent>"`) — the world compiles into
+  the model's allowed language and the model chooses inside it; exact facts
+  bypass generation entirely. See [`docs/GUIDED_EXECUTION.md`](docs/GUIDED_EXECUTION.md),
+- a **TUI** (`physis-pro-tui`), a **voice** binary (`physis-pro-voice`) and a demo
+  product (`physis-studio`) for live ontological mapping.
 
 > Crate version/features: see `Cargo.toml` · edition 2021 · the Praxis backend talks to it through
 > `src/lib/physisProClient.ts`.

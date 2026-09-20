@@ -99,7 +99,7 @@ otherwise.**
 ## 3. Do not compress a system to one noun
 
 Three attempts in one session reduced physis to a single noun. All three wrong:
-"context compiler" (one operation of six), "epistemic ledger" (a second of six),
+"context compiler" (one operation of seven), "epistemic ledger" (a second of seven),
 "70-symbol vocabulary" (it is **70 tables with subtables**).
 
 Each sounded sharper than the last. Sharpness is not correctness.

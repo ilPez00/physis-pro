@@ -1,6 +1,9 @@
 # Mission Status
 
-> Current programme (2026-09-19): `docs/plans/2026-09-19-impossible-computer.md`.
+> Current programme (2026-09-20): `docs/plans/2026-09-20-physis-hud.md` (HUD
+> programme; composes `docs/plans/2026-09-19-impossible-computer.md`). Shipped on
+> branches, awaiting review: PH-024 (HUD views, editable settings, `--setup`) and
+> PH-025 (guided execution Phase A — `src/guided/`, `physis-pro guided`).
 > The mission log below is historical (2026-09-11).
 
 ## Progress
