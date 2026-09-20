@@ -2060,6 +2060,14 @@ pub struct ClassifyResponse {
     assessment: ClassificationAssessment,
     #[serde(skip_serializing_if = "Option::is_none")]
     discovery: Option<crate::discovery::DiscoverySuggestion>,
+    /// Decision-native second opinion (the SemIf/OpenJev pattern): when the
+    /// vector classify is not decisive (`review`/`unmapped`) and a `jev`
+    /// provider is configured, the cell is also asked as a typed decision and
+    /// read from the endpoint's probabilities. `None` when no endpoint is set
+    /// or the endpoint failed — reported on stderr, never a silent fallback,
+    /// and the caller can threshold `confidence` itself.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    decision: Option<crate::agents::decision::CellDecision>,
     /// Object type the winning cell denotes (Phase 16 I7) — the typed-ontology
     /// axis resolved from domain × mode, e.g. `machine`, `sensor_reading`.
     object_type: Option<&'static str>,
@@ -2219,17 +2227,18 @@ async fn embed_text(shared: Arc<SharedCtx>, text: String) -> Vec<f32> {
 
 /// Embed scan labels through the persistent content-addressed cache. The
 /// cache key includes the active embedder and dimension, so a model change
-/// invalidates old vectors automatically.
+/// invalidates old vectors automatically. Resident cache: loaded once per
+/// process, saved back (merged with the on-disk file) here.
 async fn embed_scan_labels_cached(
     shared: Arc<SharedCtx>,
     texts: Vec<String>,
 ) -> (Vec<Vec<f32>>, usize, usize) {
     tokio::task::spawn_blocking(move || {
-        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
-        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
-        let (hits, misses) = cache.stats();
-        cache.save(&shared.config.data_dir);
-        (embeddings, hits, misses)
+        crate::pack::EmbedCache::with_shared(&shared.config.data_dir, |cache| {
+            let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
+            let (hits, misses) = cache.stats();
+            (embeddings, hits, misses)
+        })
     })
     .await
     .unwrap_or_default()
@@ -2242,11 +2251,11 @@ async fn embed_texts_cached(
     texts: Vec<String>,
 ) -> (Vec<Vec<f32>>, usize, usize) {
     tokio::task::spawn_blocking(move || {
-        let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
-        let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
-        let (hits, misses) = cache.stats();
-        cache.save(&shared.config.data_dir);
-        (embeddings, hits, misses)
+        crate::pack::EmbedCache::with_shared(&shared.config.data_dir, |cache| {
+            let embeddings = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
+            let (hits, misses) = cache.stats();
+            (embeddings, hits, misses)
+        })
     })
     .await
     .unwrap_or_default()

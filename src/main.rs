@@ -1230,30 +1230,34 @@ fn main() -> anyhow::Result<()> {
         eprintln!("[physis] pack embedder: {kind}");
 
         // Cache persists across runs: the first pack of a tree pays for the
-        // whole corpus, later packs pay only for what changed.
-        let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+        // whole corpus, later packs pay only for what changed. Resident for
+        // the process lifetime — one JSON parse per process, saved back.
+        let cache = physis_pro::pack::EmbedCache::shared(&config.physis.data_dir);
         let limit = if *max_files == 0 {
             None
         } else {
             Some(*max_files)
         };
-        let result = physis_pro::pack::pack_cached_limited(
-            &root,
-            query,
-            *budget,
-            *top_k,
-            *diversity,
-            embedder.as_ref(),
-            kind,
-            &mut cache,
-            limit,
-        );
+        let result = {
+            let mut guard = cache.write().unwrap_or_else(|p| p.into_inner());
+            physis_pro::pack::pack_cached_limited(
+                &root,
+                query,
+                *budget,
+                *top_k,
+                *diversity,
+                embedder.as_ref(),
+                kind,
+                &mut guard,
+                limit,
+            )
+        };
         let mut result = result;
         // A packet that does not say what it was for cannot be audited against
         // it, so the intent id travels with the pack.
         result.intent = intent.clone();
-        cache.save(&config.physis.data_dir);
-        let (hits, misses) = cache.stats();
+        let (hits, misses) = cache.read().unwrap_or_else(|p| p.into_inner()).stats();
+        cache.read().unwrap_or_else(|p| p.into_inner()).save(&config.physis.data_dir);
         eprintln!("[physis] embed cache: {hits} hits, {misses} misses");
         print!("{}", physis_pro::pack::summarize(&result));
         if *show_context {
@@ -1282,16 +1286,19 @@ fn main() -> anyhow::Result<()> {
         let (embedder, kind) = physis_pro::embed::select_embedder(&config.physis);
         eprintln!("[physis] warm embedder: {kind}");
 
-        let mut cache = physis_pro::pack::EmbedCache::load(&config.physis.data_dir);
+        let cache = physis_pro::pack::EmbedCache::shared(&config.physis.data_dir);
         let ontology = physis_pro::config::OntologyLoader::load_all(&config.physis);
         let started = std::time::Instant::now();
-        let classifier = physis_pro::classify::CellClassifier::build_cached(
-            &ontology,
-            embedder.as_ref(),
-            kind,
-            &mut cache,
-        );
-        let (hits, misses) = cache.stats();
+        let classifier = {
+            let mut guard = cache.write().unwrap_or_else(|p| p.into_inner());
+            physis_pro::classify::CellClassifier::build_cached(
+                &ontology,
+                embedder.as_ref(),
+                kind,
+                &mut guard,
+            )
+        };
+        let (hits, misses) = cache.read().unwrap_or_else(|p| p.into_inner()).stats();
         println!(
             "ontology: {} cells, {hits} cached, {misses} computed in {:.1}s",
             classifier.cell_count(),
@@ -1303,17 +1310,20 @@ fn main() -> anyhow::Result<()> {
             let started = std::time::Instant::now();
             // A pack over the tree is what populates the chunk embeddings; the
             // result is discarded, the cache it fills is the point.
-            let result = physis_pro::pack::pack_cached(
-                &root,
-                "warm",
-                1,
-                1,
-                0.0,
-                embedder.as_ref(),
-                kind,
-                &mut cache,
-            );
-            let (hits, misses) = cache.stats();
+            let result = {
+                let mut guard = cache.write().unwrap_or_else(|p| p.into_inner());
+                physis_pro::pack::pack_cached(
+                    &root,
+                    "warm",
+                    1,
+                    1,
+                    0.0,
+                    embedder.as_ref(),
+                    kind,
+                    &mut guard,
+                )
+            };
+            let (hits, misses) = cache.read().unwrap_or_else(|p| p.into_inner()).stats();
             println!(
                 "{}: {} files, {} chunks, {hits} cached, {misses} computed in {:.1}s",
                 root.display(),
@@ -1323,7 +1333,7 @@ fn main() -> anyhow::Result<()> {
             );
         }
 
-        cache.save(&config.physis.data_dir);
+        cache.read().unwrap_or_else(|p| p.into_inner()).save(&config.physis.data_dir);
         println!("cache written to {}", config.physis.data_dir.display());
         return Ok(());
     }

@@ -264,12 +264,45 @@ impl DecisionClient {
 }
 
 /// A cell assigned by a decision endpoint, with the confidence of each leg.
-#[derive(Debug, Clone, PartialEq)]
+/// `Serialize` because it travels in the `/classify` response.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CellDecision {
     pub domain: String,
     pub domain_confidence: f64,
     pub mode: String,
     pub mode_confidence: f64,
+}
+
+/// A decision-native second opinion on a cell the vector classify could not
+/// decide (`review`/`unmapped` verdicts). `None` when no `jev` endpoint is
+/// configured — the default — or the endpoint failed; both are reported on
+/// stderr, never silent: a caller that gets `None` keeps its vector result and
+/// knows no decision was made. `Some` carries the endpoint's typed answer with
+/// per-leg confidences a caller can threshold on.
+///
+/// Call it from a blocking context (`reqwest::blocking`, see
+/// [`DecisionClient::decide`]).
+pub fn second_opinion(
+    text: &str,
+    domains: &[String],
+    modes: &[String],
+) -> Option<CellDecision> {
+    let Some(client) = DecisionClient::from_settings() else {
+        eprintln!(
+            "physis: no jev endpoint configured — no decision-native second opinion \
+             (set providers.jev.endpoint; OpenJev/SemIf speak POST /v1/systemone)"
+        );
+        return None;
+    };
+    eprintln!(
+        "physis: asking decision endpoint {} model {} for a second opinion",
+        client.endpoint(),
+        client.model()
+    );
+    client
+        .classify_cell(text, domains, modes)
+        .map_err(|e| eprintln!("physis: decision endpoint declined ({e}); keeping vector result"))
+        .ok()
 }
 
 impl CellDecision {
@@ -446,5 +479,42 @@ mod tests {
             .classify_cell("x", &["A".to_string()], &["B".to_string()])
             .unwrap_err();
         assert!(err.contains("no domain choice"), "{err}");
+    }
+
+    #[test]
+    fn second_opinion_answers_through_the_configured_endpoint() {
+        let body = r#"{"answers":{
+            "domain":{"choice":"FABRICATE","confidence":0.93},
+            "mode":{"choice":"WORK","confidence":0.42}}}"#;
+        let (base, handle) = fixture_server("200 OK", body);
+        // Fixture settings naming the fixture server — never the operator's
+        // real ~/.physis/settings.json, and never a live network call.
+        let dir = tempfile::tempdir().unwrap();
+        let settings_path = dir.path().join("settings.json");
+        std::fs::write(
+            &settings_path,
+            format!(
+                r#"{{"version":1,"providers":{{"jev":{{"endpoint":"{base}","model":"m"}}}}}}"#
+            ),
+        )
+        .unwrap();
+        std::env::set_var("PHYSIS_SETTINGS", &settings_path);
+
+        let cell = second_opinion(
+            "press seized at the CNC",
+            &["HEAL".to_string(), "FABRICATE".to_string()],
+            &["REST".to_string(), "WORK".to_string()],
+        )
+        .expect("a configured endpoint answers");
+        assert_eq!(cell.cell(), "FABRICATE/WORK");
+        assert_eq!(cell.confidence(), 0.42);
+        assert!(cell.accepted(0.4));
+        assert!(!cell.accepted(0.5));
+        handle.join().unwrap();
+
+        // Settings naming no jev provider → None, never a guessed cell.
+        std::fs::write(&settings_path, r#"{"version":1,"providers":{}}"#).unwrap();
+        assert!(second_opinion("x", &["A".to_string()], &["B".to_string()]).is_none());
+        std::env::remove_var("PHYSIS_SETTINGS");
     }
 }

@@ -498,12 +498,32 @@ pub async fn classify_handler(
     } else {
         None
     };
+    // Decision-native second opinion (the SemIf/OpenJev pattern): only when the
+    // vector classify was not decisive AND a `jev` endpoint is configured. The
+    // client is `reqwest::blocking`, so it runs off-thread — never inside this
+    // async task.
+    let decision = if assessment.verdict == "review" || assessment.verdict == "unmapped" {
+        let text = req.text.clone();
+        let domains = crate::semiotic_grid::domains();
+        let modes: Vec<String> = crate::semiotic_grid::MODES
+            .iter()
+            .map(|m| m.to_string())
+            .collect();
+        tokio::task::spawn_blocking(move || {
+            crate::agents::decision::second_opinion(&text, &domains, &modes)
+        })
+        .await
+        .unwrap_or(None)
+    } else {
+        None
+    };
     let object_type = crate::models::object_type_for(&top.domain, &top.mode);
     Ok(Json(ClassifyResponse {
         results,
         top,
         assessment,
         discovery,
+        decision,
         // Object type the winning cell denotes (Phase 16 I7).
         object_type,
         context: ctx.label(),
