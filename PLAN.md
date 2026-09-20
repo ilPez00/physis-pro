@@ -2628,7 +2628,7 @@ require every learned component to beat cheaper alternatives. This section is
 the worker packet; do not create another architecture-document hierarchy.
 
 This phase adds a bounded Pro application to the current two-project development
-cycle. It does not replace Physis's coordinate system, six operations, historical
+cycle. It does not replace Physis's coordinate system, seven operations, historical
 experiments, or the Core/Pro boundary. The Phase 25 position-only experiments
 remain position-only; operational event sequence and observed timestamps below
 are additional fields for this new experiment. The new encoder comparisons are
@@ -4302,3 +4302,30 @@ each needs its own plan entry + reviewer release + frozen
 manifest/splits/seeds/controls/tolerances before holdout. A negative
 completes a research packet; it never promotes. No worker, merge, deploy,
 or promotion follows from a thesis/evaluation section.
+
+
+## Phase 33 — Physis Cortex: hardware-transparent semantic layer (2026-09-20)
+
+Docs-only proposal; no code committed. Plans: `docs/plans/2026-09-20-cortex-pro.md`
+and `physis-core/docs/plans/2026-09-20-cortex-core.md`. Packet: `packets/PH-101`.
+
+The neural models are NOT the world model. Physis owns objects, graph, relations,
+schemas, invariants, files, services, processes, sensors, devices, actions,
+provenance, temporal state, history, notebooks, editors, capability validation,
+execution, deterministic retrieval, dependency propagation, semantic deltas and
+stable configurations. Neural components are sensors: encoder = perception,
+embedder = associative recall, ColBERT = fine reranking, small decoder =
+ambiguity -> typed IR, larger model = escalation only.
+
+**Hardware transparency.** CPU / AMD ROCm / NVIDIA CUDA must be first-class
+interchangeable backends behind one `ComputeBackend` trait, with no
+`#[cfg(rocm)]`/`#[cfg(cuda)]` scattered through semantic logic. The existing ROCm
+path is preserved, not forked. Note the measured constraint: ONNX Runtime's ROCm
+execution provider is a documented dead end (`packets/README.md`), so ROCm for
+inference runs through the colibri/llama.cpp HIP stack on omo; `ort` supplies CPU
+and CUDA. `PHYSIS_BACKEND=auto|cpu|rocm|cuda` plus per-model TOML overrides.
+
+Priority per the standing order (P0 demo + slice integrity first, then P1-P4):
+this is **P4** — it waits on its own plan entry, reviewer release and a frozen
+manifest before any holdout. It does not touch the demo slice, the HUD surface,
+the agent-native programme or the industrial pilot path.
