@@ -375,7 +375,6 @@ impl NavIndex {
     /// return means the embedder declined (semantic off) — the caller reports
     /// the reduced mode.
     pub fn embed_objects(&mut self, embedder: &dyn VectorEmbed, embedder_kind: &str) -> usize {
-        let mut cache = crate::pack::EmbedCache::load(&self.embed_cache_dir);
         let keys: Vec<String> = self.objects.keys().cloned().collect();
         let mut embedded = 0usize;
         // Batch per collect: gather texts missing embeddings first.
@@ -389,7 +388,10 @@ impl NavIndex {
         if texts.is_empty() {
             return 0;
         }
-        let vectors = cache.embed_texts(&texts, embedder, embedder_kind);
+        // Resident cache: loaded once per process, saved back here.
+        let vectors = crate::pack::EmbedCache::with_shared(&self.embed_cache_dir, |cache| {
+            cache.embed_texts(&texts, embedder, embedder_kind)
+        });
         let mut vi = 0usize;
         for k in &keys {
             let o = self.objects.get_mut(k).unwrap();
@@ -399,7 +401,6 @@ impl NavIndex {
                 embedded += 1;
             }
         }
-        cache.save(&self.embed_cache_dir);
         embedded
     }
 

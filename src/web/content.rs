@@ -295,10 +295,9 @@ async fn ensure_index(
         let embeddings = if !shared.semantic || texts.is_empty() {
             Vec::new()
         } else {
-            let mut cache = crate::pack::EmbedCache::load(&shared.config.data_dir);
-            let out = cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind);
-            cache.save(&shared.config.data_dir);
-            out
+            crate::pack::EmbedCache::with_shared(&shared.config.data_dir, |cache| {
+                cache.embed_texts(&texts, shared.embedder.as_ref(), shared.embedder_kind)
+            })
         };
         ContentIndex::build(&build_root, &docs, &addresses, embeddings)
     })

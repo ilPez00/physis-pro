@@ -36,6 +36,18 @@ pub struct CauseEvent {
 pub struct CausalLedger {
     events: Vec<CauseEvent>,
     next_seq: u64,
+    /// object → indices into `events`. Rebuilt on [`Self::load`], appended on
+    /// [`Self::record_at`]; every event has an object, so an empty index over
+    /// non-empty events can only mean the indexes were skipped (a serde
+    /// round-trip) — the walks then fall back to a scan, which is a
+    /// performance loss, never a correctness one.
+    /// ponytail: two HashMaps, O(V+E) walks; replaced the O(n·depth) lineage
+    /// scan and the O(n²) descendants fixpoint.
+    #[serde(skip)]
+    by_object: std::collections::HashMap<String, Vec<usize>>,
+    /// input → indices into `events` — the forward-walk leg.
+    #[serde(skip)]
+    by_input: std::collections::HashMap<String, Vec<usize>>,
 }
 
 impl CausalLedger {
@@ -88,7 +100,58 @@ impl CausalLedger {
             object: object.into(),
             input,
         });
+        self.events.last().expect("just pushed");
+        self.append_index(self.events.len() - 1);
         self.events.last().expect("just pushed")
+    }
+
+    /// Add one event to the indexes by position. Append-only: O(1) per record,
+    /// never a rebuild (bulk imports record in loops, and a rebuild per record
+    /// would be O(n²) on exactly the loads the index exists to speed up).
+    fn append_index(&mut self, i: usize) {
+        let ev = &self.events[i];
+        self.by_object.entry(ev.object.clone()).or_default().push(i);
+        if let Some(input) = &ev.input {
+            self.by_input.entry(input.clone()).or_default().push(i);
+        }
+    }
+
+    /// Rebuild both indexes from `events`. Called by [`Self::load`], the only
+    /// path events enter by other means than recording.
+    fn build_index(&mut self) {
+        self.by_object.clear();
+        self.by_input.clear();
+        for i in 0..self.events.len() {
+            self.append_index(i);
+        }
+    }
+
+    /// Events naming `obj` as their object, by index when fresh, by scan when
+    /// the indexes were skipped. Callers still apply their own mechanism and
+    /// seq filters, so the index changes nothing but lookup cost.
+    fn events_with_object(&self, obj: &str) -> Vec<&CauseEvent> {
+        if let Some(idxs) = self.by_object.get(obj) {
+            return idxs.iter().map(|&i| &self.events[i]).collect();
+        }
+        if self.by_object.is_empty() && !self.events.is_empty() {
+            return self.events.iter().filter(|e| e.object == obj).collect();
+        }
+        Vec::new()
+    }
+
+    /// Events deriving *from* `obj` (its `input` is `obj`).
+    fn events_with_input(&self, obj: &str) -> Vec<&CauseEvent> {
+        if let Some(idxs) = self.by_input.get(obj) {
+            return idxs.iter().map(|&i| &self.events[i]).collect();
+        }
+        if self.by_input.is_empty() && !self.events.is_empty() {
+            return self
+                .events
+                .iter()
+                .filter(|e| e.input.as_deref() == Some(obj))
+                .collect();
+        }
+        Vec::new()
     }
 
     /// Upstream chain: the event that produced `object`, then whatever produced
@@ -104,10 +167,9 @@ impl CausalLedger {
                 break;
             }
             let Some(ev) = self
-                .events
-                .iter()
+                .events_with_object(&obj)
+                .into_iter()
                 .filter(|e| e.mechanism != Mechanism::Serves)
-                .filter(|e| e.object == obj)
                 .max_by_key(|e| e.seq)
             else {
                 break;
@@ -119,25 +181,21 @@ impl CausalLedger {
     }
 
     /// Downstream: everything produced *from* `object` (directly or transitively).
+    /// Breadth-first over the input index — O(V+E), not the O(n²) fixpoint.
     pub fn descendants(&self, object: &str) -> Vec<&CauseEvent> {
         let mut out = Vec::new();
         let mut seen = std::collections::HashSet::from([object.to_string()]);
-        loop {
-            let mut grew = false;
-            for ev in &self.events {
-                if seen.contains(&ev.object) {
-                    continue;
-                }
-                if ev.input.as_ref().is_some_and(|i| seen.contains(i))
-                    && ev.mechanism != Mechanism::Serves
-                {
-                    seen.insert(ev.object.clone());
+        let mut queue = vec![object.to_string()];
+        while let Some(obj) = queue.pop() {
+            for ev in self
+                .events_with_input(&obj)
+                .into_iter()
+                .filter(|e| e.mechanism != Mechanism::Serves)
+            {
+                if seen.insert(ev.object.clone()) {
                     out.push(ev);
-                    grew = true;
+                    queue.push(ev.object.clone());
                 }
-            }
-            if !grew {
-                break;
             }
         }
         out.sort_by_key(|e| e.seq);
@@ -224,7 +282,14 @@ impl CausalLedger {
         }
         events.sort_by_key(|e| e.seq);
         let next_seq = events.last().map_or(0, |e| e.seq + 1);
-        Ok(Self { events, next_seq })
+        let mut ledger = Self {
+            events,
+            next_seq,
+            by_object: Default::default(),
+            by_input: Default::default(),
+        };
+        ledger.build_index();
+        Ok(ledger)
     }
 }
 
@@ -375,5 +440,66 @@ mod tests {
         // save() twice does not duplicate rows.
         alice.save(&db, "alice").unwrap();
         assert_eq!(CausalLedger::load(&db, "alice").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn walks_agree_over_index_and_fallback_scan() {
+        let mut l = CausalLedger::new();
+        l.record(Mechanism::Received, "vault", "note.md", None);
+        l.record(Mechanism::Generated, "watch", "scan.json", None);
+        l.record(
+            Mechanism::Derived,
+            "pack",
+            "weekly-pack.md",
+            Some("note.md".into()),
+        );
+        l.record(
+            Mechanism::Derived,
+            "export",
+            "bundle.zip",
+            Some("weekly-pack.md".into()),
+        );
+        l.record(
+            Mechanism::Serves,
+            "planner",
+            "bundle.zip",
+            Some("goal-9".into()),
+        );
+
+        let indexed = |l: &CausalLedger| {
+            (
+                l.lineage("bundle.zip")
+                    .iter()
+                    .map(|e| (e.seq, e.object.clone()))
+                    .collect::<Vec<_>>(),
+                l.descendants("note.md")
+                    .iter()
+                    .map(|e| (e.seq, e.object.clone()))
+                    .collect::<Vec<_>>(),
+                l.purposes("bundle.zip").len(),
+            )
+        };
+
+        // Index is fresh here.
+        let fresh = indexed(&l);
+        assert_eq!(
+            fresh.0,
+            [
+                (3, "bundle.zip".into()),
+                (2, "weekly-pack.md".into()),
+                (0, "note.md".into())
+            ],
+            "lineage walks upstream from the object, serves excluded"
+        );
+        assert_eq!(
+            fresh.1,
+            [(2, "weekly-pack.md".into()), (3, "bundle.zip".into())]
+        );
+
+        // A serde round-trip drops the skip-ed indexes; the fallback scan must
+        // return the identical chains.
+        let json = serde_json::to_vec(&l).unwrap();
+        let restored: CausalLedger = serde_json::from_slice(&json).unwrap();
+        assert_eq!(indexed(&restored), fresh, "fallback scan matches the index");
     }
 }

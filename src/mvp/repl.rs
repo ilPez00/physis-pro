@@ -358,18 +358,18 @@ impl Session {
             .filter(|p| !p.is_empty())
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| std::path::Path::new(".physis").to_path_buf());
-        let mut cache = crate::pack::EmbedCache::load(&data_dir);
-        let pack = crate::pack::pack_cached(
-            &self.root,
-            &query,
-            2000,
-            8,
-            0.3,
-            embedder.as_ref(),
-            kind,
-            &mut cache,
-        );
-        cache.save(&data_dir);
+        let pack = crate::pack::EmbedCache::with_shared(&data_dir, |cache| {
+            crate::pack::pack_cached(
+                &self.root,
+                &query,
+                2000,
+                8,
+                0.3,
+                embedder.as_ref(),
+                kind,
+                cache,
+            )
+        });
         let objects_considered = mode.indexed_objects;
         let slice = WorldSlice {
             intent: raw_intent.to_string(),

@@ -2,7 +2,7 @@
 id: PH-023
 track: physis-core
 phase: 1
-status: claimed
+status: blocked
 rung: 3
 depends: [PH-021]
 gate: "cd ~/dev/computer-remake-research/experiments/nli && NLI_URL=<local> NLI_MODEL=<cross-encoder> python3 gate.py  # ships only at precision >= 0.90 AND recall > 0.50 on the 86-pair candidate set"

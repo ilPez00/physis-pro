@@ -91,10 +91,15 @@ struct Candidate {
 /// Split one file's contents into line-window candidates.
 ///
 /// Chunks that are entirely whitespace are dropped: they embed to noise and
-/// waste budget.
+/// waste budget. A trailing partial window below the floor merges into the
+/// previous window instead of shipping alone: measured 2026-09-13, the top
+/// four pack hits at a 3000-token budget were 1-2 token fragments (`}`) scoring
+/// 0.87-0.88 — `CHUNK_LINES` windows split mid-item, and a retriever whose best
+/// match for a real question is a closing brace is reporting the chunker, not
+/// the corpus. Single-window files keep their only window.
 fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
     let lines: Vec<&str> = contents.lines().collect();
-    let mut out = Vec::new();
+    let mut out: Vec<Candidate> = Vec::new();
 
     for (idx, window) in lines.chunks(CHUNK_LINES).enumerate() {
         let text = window.join("\n");
@@ -102,6 +107,20 @@ fn chunk_file(rel_path: &str, contents: &str) -> Vec<Candidate> {
             continue;
         }
         let start_line = idx * CHUNK_LINES + 1;
+        if idx > 0 && window.len() < CHUNK_LINES / 4 {
+            if let Some(prev) = out.last_mut() {
+                // Merge only when the previous chunk is the *adjacent* window:
+                // a whitespace-only window was skipped above, and bridging a
+                // gap would forge provenance (lines that were never in one
+                // chunk).
+                if prev.end_line == start_line - 1 {
+                    prev.text.push('\n');
+                    prev.text.push_str(&text);
+                    prev.end_line = start_line + window.len() - 1;
+                    continue;
+                }
+            }
+        }
         out.push(Candidate {
             path: rel_path.to_string(),
             start_line,
@@ -212,6 +231,11 @@ fn collect_candidates_limited(root: &Path, max_files: Option<usize>) -> (Vec<Can
 pub struct EmbedCache {
     /// Hex sha256 (namespaced by embedder) → embedding.
     entries: std::collections::HashMap<String, Vec<f32>>,
+    /// mtime of the on-disk cache file at load time. A save whose stat
+    /// disagrees re-reads the file and merges, so one process's save-back
+    /// never drops another process's entries.
+    #[serde(skip)]
+    disk_mtime: Option<std::time::SystemTime>,
     #[serde(skip)]
     hits: usize,
     #[serde(skip)]
@@ -224,10 +248,60 @@ impl EmbedCache {
     /// is discarded silently rather than failing the pack.
     pub fn load(data_dir: &Path) -> Self {
         let path = Self::path(data_dir);
-        std::fs::read(&path)
+        let disk_mtime = std::fs::metadata(&path)
             .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default()
+            .and_then(|m| m.modified().ok());
+        let mut cache = std::fs::read(&path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<EmbedCache>(&b).ok())
+            .unwrap_or_default();
+        cache.disk_mtime = disk_mtime;
+        cache
+    }
+
+    /// The process-lifetime resident cache for `data_dir`, loaded from disk
+    /// once per process and shared by reference.
+    ///
+    /// Loading the JSON cache is itself seconds on a warmed store — measured
+    /// 2026-09-19: the warm-pack benchmark's 65–105 s was cache load and query
+    /// embedding, not corpus embedding — and a caller that packs several times
+    /// a session (the MCP tool, the REPL, a web request) re-parsed the same
+    /// file every call. One process, one parse; PH-009 precedent
+    /// (`CellClassifier::build_shared`). Keyed by the canonicalized data dir,
+    /// so callers pointing at different stores never share vectors.
+    pub fn shared(data_dir: &Path) -> std::sync::Arc<std::sync::RwLock<EmbedCache>> {
+        fn resident() -> &'static std::sync::Mutex<
+            std::collections::HashMap<PathBuf, std::sync::Arc<std::sync::RwLock<EmbedCache>>>,
+        > {
+            static CACHES: std::sync::OnceLock<
+                std::sync::Mutex<
+                    std::collections::HashMap<
+                        PathBuf,
+                        std::sync::Arc<std::sync::RwLock<EmbedCache>>,
+                    >,
+                >,
+            > = std::sync::OnceLock::new();
+            CACHES.get_or_init(Default::default)
+        }
+        let key = data_dir
+            .canonicalize()
+            .unwrap_or_else(|_| data_dir.to_path_buf());
+        let mut map = resident().lock().unwrap_or_else(|p| p.into_inner());
+        map.entry(key)
+            .or_insert_with(|| std::sync::Arc::new(std::sync::RwLock::new(Self::load(data_dir))))
+            .clone()
+    }
+
+    /// Run `f` against the resident cache for `data_dir`, saving it back
+    /// afterwards. The write guard is held across `f`, so two threads packing
+    /// the same store serialize — correct for a content-addressed cache, and
+    /// the hits/misses each caller reads stay its own.
+    pub fn with_shared<T>(data_dir: &Path, f: impl FnOnce(&mut EmbedCache) -> T) -> T {
+        let cache = Self::shared(data_dir);
+        let mut guard = cache.write().unwrap_or_else(|p| p.into_inner());
+        let out = f(&mut guard);
+        guard.save(data_dir);
+        out
     }
 
     fn path(data_dir: &Path) -> PathBuf {
@@ -259,11 +333,36 @@ impl EmbedCache {
     }
 
     fn try_save(&self, data_dir: &Path) -> std::io::Result<()> {
-        let bytes = serde_json::to_vec(self)
+        // Merge with the on-disk file, not overwrite it. A resident copy is
+        // loaded once per process, and the CLI, the MCP server and the web
+        // server share one data dir as separate processes — a plain write
+        // would replace the file with this process's stale view and lose the
+        // other processes' entries until they are re-embedded. Keys are
+        // content hashes, so a union cannot mix incompatible vectors: same
+        // key = same embedding. ponytail: mtime guard keeps the merge off the
+        // unchanged path; the stat-to-read window is a named ceiling — a write
+        // landing in it costs a re-embed, never correctness.
+        let mut merged = self.entries.clone();
+        let path = Self::path(data_dir);
+        let current_mtime = std::fs::metadata(&path)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        if current_mtime != self.disk_mtime {
+            for (k, v) in Self::load(data_dir).entries {
+                merged.entry(k).or_insert(v);
+            }
+        }
+        let cache = EmbedCache {
+            entries: merged,
+            disk_mtime: current_mtime,
+            hits: 0,
+            misses: 0,
+        };
+        let bytes = serde_json::to_vec(&cache)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         // A lost rename only costs a rebuild here, so the cheaper variant is
         // the right trade for a cache.
-        crate::atomic::write_atomic(&Self::path(data_dir), &bytes)
+        crate::atomic::write_atomic(&path, &bytes)
     }
 
     /// Cache hits and misses from the last [`Self::embed_texts`] call.
@@ -686,10 +785,117 @@ mod tests {
         let body: String = (1..=90).map(|i| format!("line {i}\n")).collect();
         let chunks = chunk_file("a.txt", &body);
 
-        assert_eq!(chunks.len(), 3); // 40 + 40 + 10
+        assert_eq!(chunks.len(), 3); // 40 + 40 + 10 — trailing 10 is at the floor, not below it
         assert_eq!((chunks[0].start_line, chunks[0].end_line), (1, 40));
         assert_eq!((chunks[1].start_line, chunks[1].end_line), (41, 80));
         assert_eq!((chunks[2].start_line, chunks[2].end_line), (81, 90));
+    }
+
+    #[test]
+    fn trailing_fragment_below_the_floor_merges_into_the_previous_window() {
+        // 45 lines: 40 + a 5-line trailing fragment. The fragment merges, so
+        // the pack never sees a 5-token `}` as its best match.
+        let body: String = (1..=45).map(|i| format!("line {i}\n")).collect();
+        let chunks = chunk_file("a.txt", &body);
+        assert_eq!(
+            chunks.len(),
+            1,
+            "trailing 5 lines merge into the first window"
+        );
+        assert_eq!((chunks[0].start_line, chunks[0].end_line), (1, 45));
+        assert!(
+            chunks[0].text.ends_with("line 45"),
+            "merged text keeps order"
+        );
+    }
+
+    #[test]
+    fn fragment_after_a_whitespace_gap_does_not_bridge() {
+        // Window 2 is whitespace-only (skipped); window 3 is a tiny fragment.
+        // Merging would forge provenance across the gap, so the fragment
+        // ships alone.
+        let mut lines: Vec<String> = (1..=40).map(|i| format!("line {i}\n")).collect();
+        lines.extend(std::iter::repeat_n("\n".to_string(), 40));
+        lines.extend((81..=83).map(|i| format!("line {i}\n")));
+        let body = lines.concat();
+        let chunks = chunk_file("a.txt", &body);
+        assert_eq!(chunks.len(), 2, "gap not bridged");
+        assert_eq!((chunks[0].start_line, chunks[0].end_line), (1, 40));
+        assert_eq!((chunks[1].start_line, chunks[1].end_line), (81, 83));
+    }
+
+    #[test]
+    fn resident_cache_is_one_instance_per_dir_and_persists_across_calls() {
+        let dir = tempfile::tempdir().unwrap();
+        let other = tempfile::tempdir().unwrap();
+
+        // Same dir twice = one resident instance, so the second call's text is
+        // a cache hit, not a second embed.
+        let a = EmbedCache::shared(dir.path());
+        let b = EmbedCache::shared(dir.path());
+        assert!(
+            std::sync::Arc::ptr_eq(&a, &b),
+            "same data dir must share one resident cache"
+        );
+
+        // Different dirs never share vectors.
+        let c = EmbedCache::shared(other.path());
+        assert!(!std::sync::Arc::ptr_eq(&a, &c));
+
+        let (hits, misses) = EmbedCache::with_shared(dir.path(), |cache| {
+            cache.embed_texts(&["alpha".into()], &embedder(), "test");
+            cache.stats()
+        });
+        assert_eq!((hits, misses), (0, 1), "first call embeds");
+
+        let (hits2, misses2) = EmbedCache::with_shared(dir.path(), |cache| {
+            cache.embed_texts(&["alpha".into()], &embedder(), "test");
+            cache.stats()
+        });
+        assert_eq!(
+            (hits2, misses2),
+            (1, 0),
+            "second with_shared call must hit the resident cache, got {hits2} hits {misses2} misses"
+        );
+
+        // with_shared saved back, so a fresh load sees the entry.
+        let reloaded = EmbedCache::load(dir.path());
+        assert_eq!(reloaded.entries.len(), 1);
+    }
+
+    #[test]
+    fn save_back_merges_entries_written_by_another_process() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // The resident copy loads before the other process writes anything.
+        let resident = EmbedCache::shared(dir.path());
+
+        // Another process (the CLI while the MCP server runs) embeds a chunk
+        // and saves the file.
+        let mut other = EmbedCache::default();
+        other
+            .entries
+            .insert("other:2:def".to_string(), vec![3.0, 4.0]);
+        other.save(dir.path());
+
+        // The resident copy packs and saves back. A plain overwrite would
+        // replace the file with its stale view; the merge must keep the other
+        // process's entry.
+        EmbedCache::with_shared(dir.path(), |cache| {
+            cache.embed_texts(&["alpha".into()], &embedder(), "test");
+        });
+        drop(resident);
+
+        let reloaded = EmbedCache::load(dir.path());
+        assert!(
+            reloaded.entries.contains_key("other:2:def"),
+            "save-back dropped another process's entry: {:?}",
+            reloaded.entries.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            reloaded.entries.keys().any(|k| k.starts_with("test:")),
+            "save-back lost its own entry"
+        );
     }
 
     #[test]

@@ -2041,10 +2041,9 @@ No other text."#.into(),
         // is left out entirely rather than ranked on confidently.
         let semantic = self.embedder_kind != "random-projection";
         let embeddings = if semantic {
-            let mut cache = crate::pack::EmbedCache::load(&self.config.data_dir);
-            let out = cache.embed_texts(&texts, self.embedder.as_ref(), self.embedder_kind);
-            cache.save(&self.config.data_dir);
-            out
+            crate::pack::EmbedCache::with_shared(&self.config.data_dir, |cache| {
+                cache.embed_texts(&texts, self.embedder.as_ref(), self.embedder_kind)
+            })
         } else {
             Vec::new()
         };
