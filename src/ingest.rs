@@ -222,6 +222,11 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
 /// `ingest` feature (calamine) is on — kept simple here; the backoffice layer
 /// handles XLSX semantics separately.
 fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
+    // A text file misclassified into a binary/feature-gated kind silently
+    // loses its body (PH-015: `invoices.md` matched "voice" and ingested as
+    // empty). Guard the gate: a real UTF-8 text file is never an empty body,
+    // whatever the kind claims. Only genuine binary extensions (no valid UTF-8
+    // text on disk) may return empty.
     match kind {
         #[cfg(feature = "pdf")]
         DocKind::Invoice => {
@@ -256,8 +261,19 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
         #[cfg(not(feature = "audio"))]
         DocKind::VoiceTranscript => {
             // Audio transcription requires Whisper API. Without the `audio`
-            // feature, we fall back to an empty body (no crash).
-            (String::new(), DocMeta::default())
+            // feature, we fall back to an empty body (no crash) — but only
+            // for real audio files. A text file that arrived here is
+            // misclassified (PH-015); its bytes ARE the body. The extension
+            // check is the whole discriminator: audio kinds never hold text.
+            match path.extension().and_then(|e| e.to_str()) {
+                Some("mp3" | "wav" | "flac" | "ogg" | "m4a") => {
+                    (String::new(), DocMeta::default())
+                }
+                _ => {
+                    let raw = std::fs::read_to_string(path).unwrap_or_default();
+                    (raw, DocMeta::default())
+                }
+            }
         }
         #[cfg(feature = "ingest")]
         DocKind::Spreadsheet => match extract_spreadsheet(path) {
@@ -670,6 +686,37 @@ mod tests {
             classify_file(Path::new("call-notes.txt")),
             DocKind::VoiceTranscript
         ));
+    }
+
+    #[test]
+    fn misclassified_text_file_keeps_its_body_ph015() {
+        // PH-015 guard: even if a text file is misclassified into a
+        // feature-gated kind, its bytes must survive. Write `invoices.md`
+        // (the original victim) and force VoiceTranscript; the body must come
+        // back verbatim. A real audio file keeps the empty-body path.
+        // NOTE: `tempfile` is dev-only, so this unit test stages files under
+        // the system temp dir with a pid-unique name instead.
+        let stage = std::env::temp_dir().join(format!(
+            "physis-ph015-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&stage).expect("stage dir");
+        let victim = stage.join("invoices.md");
+        std::fs::write(&victim, "# Invoices\n\nAcme invoice 8871 paid.\n").unwrap();
+        let (body, _) = extract_doc(&victim, DocKind::VoiceTranscript);
+        let audio = stage.join("note.mp3");
+        std::fs::write(&audio, b"not really audio").unwrap();
+        let (empty, _) = extract_doc(&audio, DocKind::VoiceTranscript);
+        std::fs::remove_dir_all(&stage).ok();
+        assert!(
+            body.contains("Acme invoice 8871"),
+            "misclassified text lost its body: {body:?}"
+        );
+        assert!(empty.is_empty(), "real audio must stay empty: {empty:?}");
     }
 
     #[test]
