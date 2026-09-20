@@ -1,12 +1,31 @@
 # Physis Pro
 
+Current development direction: [Physis as the impossible computer — agent-native
+semantic world](docs/plans/2026-09-19-impossible-computer.md). This proposed
+programme makes agents first-class objects inside the HUD, callable from the
+magic textbox (`@jev`, `@hermes`, `@opencode`, `@verifier`), visible as task
+graphs, and crystallizable into deterministic structure. It supersedes the
+sequencing of [Physis Workspace — agentic work with durable
+meaning](docs/plans/2026-09-18-agentic-workspace.md), which retains its market,
+packaging and Settings gates. Its gates distinguish current code from planned
+capabilities.
+
 **A Rust runtime engine for ontological classification, coherence tracking, and predictive ("dream") planning.**
+
+> **What Physis *is* lives in [`docs/WHAT_PHYSIS_IS.md`](docs/WHAT_PHYSIS_IS.md).**
+> That file is canonical, and it exists because three attempts in one session to
+> compress this system into a single noun were all wrong. The paragraph below is
+> an *orientation* for a new reader, not a definition — if the two ever
+> disagree, the canonical file wins and this one is the bug.
 
 Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
 text, image, video, audio, a code log, a human action — to a vector in one shared
-embedding space, classifies it against a 70-cell semiotic grid, and tracks each
+embedding space, classifies it against a domain × 14-mode grid (70 default cells), and tracks each
 thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
-the failures to propose corrective actions.
+the failures to propose corrective actions. Beyond meaning, every ingested file
+carries a **space·time·cause address** — where it lives, when it matters, why it
+exists — recorded in an append-only causal ledger you query in plain facets
+(`physis-pro where …`, `POST /api/v1/files/query`).
 
 It runs as:
 - a **CLI** (`physis-pro`) for scanning, querying, and one-off dreams,
@@ -15,8 +34,50 @@ It runs as:
 - an **MCP server** (feature `mcp`) for agent tool-use,
 - a **TUI** and a **voice** binary for live ontological mapping.
 
-> Crate: `physis_pro` v0.1.0 · edition 2021 · the Praxis backend talks to it through
+> Crate version/features: see `Cargo.toml` · edition 2021 · the Praxis backend talks to it through
 > `src/lib/physisProClient.ts`.
+
+## License
+
+The checked-in [Core manifest](physis-core/Cargo.toml) declares **Apache-2.0**.
+The [Pro manifest](Cargo.toml) declares `license-file = "LICENSE.txt"`, the
+[proprietary EULA](LICENSE.txt). The previous MIT/dual-licence description did
+not match these manifests. Consult the licence text accompanying a specific
+release for its terms; package availability does not imply a different licence.
+
+# I AM NOT AN AI/ML RESEARCHER. I KNOW MICROCONTROLLERS, MILLS, LIFTING AND "PHILOSOPHER"
+---
+
+## Repository layout — one repo per project
+
+This repository is the current checkout for the workspace programme. Other
+checkouts exist; verify root, branch and revision before using their evidence.
+
+| Piece | Where |
+|---|---|
+| Engine, CLI, HTTP/MCP surface, licence gate | this repository |
+| `physis-core` (Apache-2.0 primitives) | git submodule at `physis-core/`, repo [`physis-core`](https://github.com/ilPez00/physis-core) |
+
+**Do not clone this repo per deployment node.** Three such clones existed on omo
+(`~/dev/air-ts`, `~/dev/pansa-ts`, `~/dev/physis-global`), named after the machines
+they were meant to run on. They drifted three development phases apart, they read
+as separate projects in any directory listing, and `pansa-ts` accumulated two
+commits that were reachable from no remote branch and were nearly lost — they are
+now on `node/pansa-deploy`. The `physis-global` repository is archived upstream.
+
+If you genuinely need a second checkout, use a worktree rather than a clone, so
+there is one object store and one set of refs:
+
+```bash
+git worktree add ../physis-<node> <branch>
+```
+
+**`.physis-vendor/` must never be committed.** It holds the Ed25519 licence
+signing key. A copy is currently tracked in this repository's history (introduced
+by `745a3d5`) and byte-identical material had propagated into the `air-ts` clone;
+removing it needs `git filter-repo --path .physis-vendor --invert-paths`, a
+force-push, and a re-clone of every working copy. The ignore rule is in
+`node/pansa-deploy`.
 
 ---
 
@@ -125,6 +186,8 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/embed` | — | Raw embedding vector + dimension (text or image) |
 | POST | `/api/v1/embed/video` | — | ffmpeg-sampled clip vector → `{embedding, dim, frames}` |
 | GET  | `/api/v1/ontology/list` | — | Domain counts per loaded ontology |
+| GET  | `/api/v1/ontology/studio` | — | Every authored entry with its source, cell, hints, facets, and whether classification can reach it |
+| GET  | `/api/v1/ontology/meaning` | — | Loaded overlays, contested names, and ranked salience; `?name=X` returns what `X` means in every context that defines it |
 | GET  | `/api/v1/semiotic/grid` | — | 70-cell DOMAIN×MODE grid with entries |
 | GET  | `/api/v1/semiotic/triangle` | — | Peircean triangle (Mermaid) |
 | GET  | `/api/v1/semiotic/square` | — | Greimas square (Mermaid) |
@@ -135,6 +198,10 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/coherence/edit` | ✓ | **Exchange-parts edit** `{id, label, cell?}` — swap content while preserving structure (id, verdict, edges); `cell: {domain, mode}` pins the semiotic cell (auto re-derivation otherwise). Returns `before_cell`/`auto_cell`/`pinned_cell` |
 | POST | `/api/v1/coherence/delete` | ✓ | Delete a node + every reference (dedupe index, holarchy node/edges, sled row) `{id}` |
 | POST | `/api/v1/search/nodes` | ✓ | **Fixed-token search** over coherence + goal nodes `{query, token_budget?, top_k?}` — response `total_tokens ≤ token_budget` (same contract as `/rag/retrieve`) |
+| POST | `/api/v1/ask` | ✓ | **Plain-English graph query**: question → embedder-consistent retrieval (token-packed) → grounded synthesis via the LLM cascade with `[n]` citations. Never errors for lack of a provider — degrades to ranked matches + a `note` |
+| GET  | `/api/v1/concepts/search` | ✓ | **Conceptual search** `?query=&threshold=&limit=`: cosine-ranked coherence labels, re-ranked by quality `cell_standing` (`score` + `adjusted` both ship), grouped by effective cell |
+| GET  | `/api/v1/quality` | global | **Quality feedback ledger**: learned per-cell penalties/boosts + per-failure records (newest first, embeddings stripped) with open/resolved counts and mean severity |
+| GET  | `/api/v1/communities` | ✓ | Label-propagation communities over the tenant's labelled coherence graph, largest first |
 | GET  | `/api/v1/pdca/plan` | ✓ | Current Plan-Do-Check-Act plan |
 | POST | `/api/v1/pdca/act` | ✓ | Apply an action `{action, goal_id?}` |
 | GET  | `/api/v1/pdca/stats` | ✓ | PDCA cycle stats |
@@ -158,7 +225,22 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 | POST | `/api/v1/reconstruct` | ✓ | Nearest-neighbour reconstruction + LLM interpretation |
 | POST | `/api/v1/translate` | ✓ | Linguistic routing (Wenyan / Pirahã / Sanskrit) |
 | GET  | `/api/v1/query` | ✓ | Query the trie |
-| POST | `/api/v1/scan` | ✓ | Scan a dir (confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/scan` | ✓ | Incremental scan of a dir; response reports changed/reused work (confined to `PHYSIS_SCAN_ROOT`) |
+| GET  | `/api/v1/sql/schema` | ✓ | Discover SQLite tables and columns (read-only, confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/sql/scan` | ✓ | Read-only SQLite table ingestion with stable keys, row-level diffs, and incremental embeddings |
+| POST | `/api/v1/sql/postgres/schema` | postgres | Discover PostgreSQL public tables and columns. DSN goes in the body, never a query string — it embeds the password |
+| POST | `/api/v1/sql/postgres/scan` | postgres | Incremental PostgreSQL table ingestion using the shared row-delta contract |
+| POST | `/api/v1/watch` | ✓ | **Watch-mode auto-ingest**: one incremental sweep over a dir (confined to `PHYSIS_SCAN_ROOT`) — registers new/changed files as labeled core nodes, drops nodes for removed files, and folds edits/deletions into salience → `{new, changed, deleted, registered, removed, total_nodes, observed}` |
+| POST | `/api/v1/vault/import` | ✓ | **Vault import**: reduce a markdown/notes dir (+ optional `git` commits) to labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{docs, notes, commits, registered, deduped}` |
+| POST | `/api/v1/history/import` | ✓ | **Personal-history import**: browser bookmarks/history, OPML feeds, chat JSONL → labeled core nodes (confined to `PHYSIS_SCAN_ROOT`) → `{file, items, registered, deduped}` |
+| POST | `/api/v1/praxis/backfill` | ✓ | **Praxis backfill**: notebook entries + trackers → labeled behavioural nodes with asserted success/inert/failure verdicts (confined to `PHYSIS_SCAN_ROOT`) → `{items, successes, inert, failures, registered, deduped}` |
+| POST | `/api/v1/mail/import` | ✓ | **Mailbox import**: a dir of `.eml` files + RFC-4155 `.mbox` bundles → one labeled node per message (`mail:<subject> — <from>`, native Date parsed); records `received(mailbox)` per source file (confined to `PHYSIS_SCAN_ROOT`) |
+| POST | `/api/v1/files/query` | ✓ | **Space·Time·Cause query** over the tenant's causal ledger: facets `query`/`place`(path prefix)/`cause`(mechanism or actor)/`within_days`/`during YYYY-MM` → newest-first matches + `by_place`/`by_period`/`by_mechanism` rollups |
+| POST | `/api/v1/files/serve` | ✓ | **Purpose link**: `{object, goal_id}` records a `serves` event — the final cause of an artifact, validated against the tenant's goals (404 otherwise) |
+| GET  | `/api/v1/files/lineage` | ✓ | Why-made chain for one artifact `?path=`: upstream lineage, descendants, and purposes (serves links never enter derivation chains) |
+| GET  | `/api/v1/goals/list` | ✓ | Every tenant goal `{id, label, progress}` — the purpose-link picker |
+| POST | `/api/v1/spanner/sync` | spanner | **Spanner Graph sink**: mirror the tenant's coherence graph up (upsert + optional `mirror` orphan-delete); `ledger:true` also mirrors causal history as `cause:`-namespaced artifact nodes + directed cause edges (no orphan sweep — the ledger is append-only) |
+| POST | `/api/v1/spanner/hydrate` | spanner | **Spanner hydrate**: pull durable rows, re-embed under the live embedder, persist into the tenant core → `{pulled, re_embedded}` |
 | POST | `/api/v1/holarchy/ingest` | global | Push a node/edge into the holarchy graph |
 | POST | `/api/v1/holarchy/edge` | ✓ | Assert a relation between two coherence nodes `{source, target, weight?, semantic_type?}` (bridges both) |
 | GET  | `/api/v1/holarchy/snapshot` | ✓ | Holarchy node/edge counts for the tenant |
@@ -174,13 +256,34 @@ Stateless routes (classify, embed, semiotic, ontology) ignore the header.
 curl -X POST http://127.0.0.1:19876/api/v1/classify \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
-  -d '{"text":"a serene landscape painting with soft brush strokes"}'
-# → top: FABRICATE×CREATE (0.89) — Visual Arts, Storytelling, Music & Performance
+  -d '{"text":"OEE dropped due to unplanned downtime on the CNC press"}'
+# → top: FABRICATE×WORK (0.85) — OEE Metrics, Manufacturing Processes
+#   (exemplar entries are ranked by their own similarity to the query)
+```
+
+### Example — ask (plain-English graph query)
+
+```bash
+curl -X POST http://127.0.0.1:19876/api/v1/ask \
+  -H "Content-Type: application/json" \
+  -H "X-Physis-User: plant-1" \
+  -d '{"question":"what do I know about the hydraulic press?"}'
+# → {"answer":"The hydraulic press on line 2 drifts above its nominal
+#    tonnage when it is cold. [1]","provider":"groq", ...}
+# Without a configured provider the same call returns the ranked matches
+# plus a note — it never errors.
 ```
 
 At startup every ontology entry (name + hints) is embedded and averaged per
 DOMAIN×MODE cell. At query time the same embedder scores the input against all
 centroids; each cell's score is the **max cosine to any member entry**.
+
+**Embedder matters.** With real weights (BGE-base via
+`scripts/download_models.sh`) top-1 DOMAIN accuracy on the curated core set is
+0.891 and scores discriminate. The deterministic random-projection fallback is
+wiring-plumbing only: it is **non-semantic** — scores compress into a flat
+~0.88–1.00 band and top cells are often wrong. The CLI prints a warning when it
+is active; don't demo or gate on RP output.
 
 ### Auth
 
@@ -191,6 +294,46 @@ compared).
 - **Token unset** + non-loopback bind → the server **refuses to start** (it would
   publish an unauthenticated API that also proxies paid LLM providers — an open
   relay). Set the token or bind `127.0.0.1`.
+
+### Contextual meaning — overlays, interpretants, salience
+
+An ontology entry is a sign: `hints` are its signifier, its embedding centroid
+the signified. The third leg, the **interpretant**, is declared per ontology
+file — what counts *in that universe of discourse* as one of its signs having
+meant something:
+
+```json
+{ "kind": "machine",
+  "interpretant": { "confirms": ["success","inert"], "refutes": ["failure"],
+                    "half_life_days": 0, "weight": 1.0,
+                    "note": "an inspection that found nothing still confirms the routine" } }
+```
+
+`machine` and `software_dev` read `inert` in opposite directions, which no
+single global rule can express.
+
+**Overlays** scope what an item *means* to a sector, client, or project.
+Resolution runs `project → client → sector → global`, narrowest wins, and an
+overlay shadows only the names it mentions:
+
+```bash
+# ~/.physis/ontologies/{sector,client,project}/<id>.json
+export PHYSIS_CONTEXT="sector:manufacturing,client:evotec"
+curl "localhost:19876/api/v1/ontology/meaning?name=Release"
+# → manufacturing: FABRICATE×MOVE (release to production)
+#   evotec:        HEAL×GUIDE     (batch release, QP sign-off)
+#   publisher:     CONSTRUCT×CREATE (publication date)
+```
+
+**Salience** records what an entry has been worth. `/watch` folds file events
+into it — editing a classified file confirms its entry, deleting it refutes —
+and the accumulated evidence biases classification within a bounded budget
+(0.05 cosine, `tanh`-saturated), so it reorders close calls but cannot overturn
+a clear semantic win. Salience is keyed by context, so one client's evidence
+never biases another's.
+
+Full detail, including the measurements that motivated all of it:
+[`docs/CONTEXTUAL_MEANING.md`](docs/CONTEXTUAL_MEANING.md).
 
 ### Semiotic node editing ("exchange parts") & fixed-token search
 
@@ -216,6 +359,34 @@ curl -X POST http://127.0.0.1:19876/api/v1/search/nodes \
 See [docs/SEMIOTIC_EDITING.md](docs/SEMIOTIC_EDITING.md) for the invariant, the
 hybrid pin semantics, and the full API contract.
 
+### Vendor license generator
+
+The vendor-only Ed25519 key and license generator is available through the
+wrapper below. It requires the `vendor` feature and must run on an offline
+vendor machine; never copy `signing.key` to pansa or a customer host.
+
+```bash
+scripts/generate-physis-license.sh keygen ~/.physis-vendor
+scripts/generate-physis-license.sh issue \
+  --key ~/.physis-vendor/signing.key \
+  --org "Customer Name" --seats 5 --features web,rag \
+  --exp 2027-12-31 --out customer.license.key
+```
+
+The customer host receives only `customer.license.key`, normally at
+`~/.physis/license.key` with mode `600`. See
+[`docs/business/DEPLOY.md`](docs/business/DEPLOY.md) for the pansa deployment
+and renewal procedure.
+
+## Docs
+
+- [`docs/CONTEXTUAL_MEANING.md`](docs/CONTEXTUAL_MEANING.md) — interpretants, per-client/sector/project ontology overlays, salience feedback
+- [`docs/SEMIOTIC_EDITING.md`](docs/SEMIOTIC_EDITING.md) — exchange-parts node editing + fixed-token search
+- [`docs/UMBRELLAPEDIA_GUIDE.md`](docs/UMBRELLAPEDIA_GUIDE.md) — wiring physis to the Umbrellapedia wiki surface
+- [`docs/PIPELINE_DIAGRAMS.md`](docs/PIPELINE_DIAGRAMS.md) — ingestion→recall pipeline + live engine phases
+- [`docs/PUBLIC_ARCHITECTURE.md`](docs/PUBLIC_ARCHITECTURE.md) — cross-repo public deployment
+- [`docs/plans/2026-08-26-space-time-cause-datawork.md`](docs/plans/2026-08-26-space-time-cause-datawork.md) — the datawork design: file addresses (space/time/cause), the causal ledger, place/period ontologies
+
 ---
 
 ## Run
@@ -235,6 +406,36 @@ cargo run --bin physis-pro -- node-edit <id> "welding robot joint recalibration"
     --domain FABRICATE --mode MAINTAIN     # optional pin; auto cell without it
 cargo run --bin physis-pro -- node-delete <id>
 cargo run --bin physis-pro -- node-search "spindle bearing" --budget 600 --top 12
+
+# Watch-mode auto-ingest: register new/changed files as labeled core nodes
+cargo run --bin physis-pro -- watch <dir>            # loop (re-scan on interval)
+cargo run --bin physis-pro -- watch <dir> --once     # single sweep (cron/smoke)
+
+# Vault import: Obsidian/markdown notes (+ git log) → labeled core nodes
+cargo run --bin physis-pro -- vault <dir>            # notes only
+cargo run --bin physis-pro -- vault <dir> --git 50   # notes + last 50 commits
+
+# Personal-history import: browser bookmarks/history, OPML feeds, chat JSONL
+cargo run --bin physis-pro -- history bookmarks.html
+cargo run --bin physis-pro -- history history.json
+cargo run --bin physis-pro -- history feeds.opml
+
+# Praxis backfill: seed coherence from the real life-log
+cargo run --bin physis-pro -- praxis export.json   # notebook + trackers → verdicts
+
+# Space·Time·Cause: ask where/when/why about ingested artifacts (causal ledger)
+cargo run --bin physis-pro -- where "press"                    # everything mentioning press
+cargo run --bin physis-pro -- where --cause mailbox --within 30 # mail that arrived in 30 days
+cargo run --bin physis-pro -- where --place ~/plant --during 2026-08            # place + period
+
+# Industry ontology packs (4.2): drop JSON ontology files, no rebuild
+mkdir -p ~/.physis/packs && cp docs/examples/logistics_pack.json ~/.physis/packs/
+# → entries join classification keyed "logistics_pack:<name>" at next start
+
+# Spanner Graph sink (Phase 7C): durable, cross-device memory mirror
+cargo run --bin physis-pro --features spanner -- spanner sync --mirror   # upsert + delete orphans (+ causal ledger)
+cargo run --bin physis-pro --features spanner -- spanner hydrate         # pull + re-embed
+# env: SPANNER_PROJECT/INSTANCE/DATABASE + GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_OAUTH_TOKEN
 
 # Experiment — Empedoclean dyad criticality (research; see docs/EMPEDOCLES_DYAD.md)
 cargo run --release --example empedocles_criticality
@@ -257,6 +458,8 @@ cargo run --bin physis-pro-tui
 | `PHYSIS_HOST` | `127.0.0.1` | Bind host (non-loopback requires a token) |
 | `PHYSIS_API_TOKEN` | — | Bearer token for protected routes |
 | `PHYSIS_SCAN_ROOT` | data dir | Confines `/api/v1/scan` (path-traversal guard) |
+| `PHYSIS_WATCH_DIR` | — | Watch-mode auto-ingest: poll this dir (inside scan root) and register file changes as labeled core nodes |
+| `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Poll interval for `PHYSIS_WATCH_DIR` |
 | `PHYSIS_WATCH_DIR` | — | Poll this dir (within scan root) and auto-register new/changed files as labeled nodes |
 | `PHYSIS_WATCH_INTERVAL_SECS` | `30` | Watch-mode poll interval |
 | `PHYSIS_RERANK` | unset | Enable LLM re-rank on `/classify` for ambiguous cells (Gemma/provider cascade); needs provider keys |
@@ -279,21 +482,33 @@ stored. Lets each user bring (and pay for) their own model.
 }
 ```
 
-Default ontologies live in `config/` (`praxis_ontology.json`, human;
-`machine_ontology.json`, machine; plus the semiotic set below).
+Default ontologies live in **`physis-core/config/`** (`praxis_ontology.json`,
+human; `machine_ontology.json`, machine; plus the semiotic set below) and are
+baked into the binary at compile time. That directory is the single home for the
+corpus: Pro reaches it through `physis_core::ontology::ONTOLOGY_SOURCES` rather
+than keeping a second copy, so `config/` here holds no ontology JSON.
 
 ---
 
 ## Semiotic grid & ontologies
 
-Every entry maps to one of **70 cells** — **5 domains** (HEAL, CONSTRUCT,
-FABRICATE, BOND, STUDY) × **14 modes** (LIFT, REST, WALK, WORK, CREATE, LEARN,
-DESTROY, SENSE, GUIDE, PLAY, BRAINSTORM, MAINTAIN, MOVE, PLAN). The last eight
-extend the original activity-energy axis: DESTROY completes the Greimas opposition
-with CREATE, SENSE is perception/measurement, GUIDE is leading/mentoring others
-(vs LEARN, self-study), PLAY is low-stakes generative, BRAINSTORM is divergent
-ideation, MAINTAIN is upkeep/repair/preserve, MOVE is relocate/transport/logistics,
-PLAN is convergent sequencing/organizing (the converge to BRAINSTORM's diverge).
+Every entry maps to one of **45 cells** — **5 domains** (HEAL, CONSTRUCT,
+FABRICATE, BOND, STUDY) × **9 modes** (COMMUNICATION, COGNITION, MOTION, REST,
+MAINTAIN, SOCIAL, CREATE, POSSESS, STATIVE).
+
+The mode axis was **reworked 2026-09-19** from fourteen modes. Each mode is named
+for the WordNet verb supersense it owns (D2a): six modes did not clear their own
+permutation null and were retired (LIFT, SENSE, WALK, BRAINSTORM, DESTROY, and the
+old CREATE, whose dominant supersense was `verb.contact` rather than creation);
+three pairs sharing one dominant supersense were merged (LEARN+PLAN → COGNITION,
+GUIDE+WORK → COMMUNICATION, MOVE+PLAY → MOTION); and four heavy unowned
+supersenses were given owners (SOCIAL 12.2% of verb mass, CREATE 7.9%, POSSESS
+5.6%, STATIVE 5.3%). `MODE_OWNERS` in `src/semiotic_grid.rs` carries the
+measurement per mode.
+
+**Claim boundary:** the 0.416 / 0.585 / 0.472 self-recovery numbers were measured
+on the **pre-rework** fourteen-mode axis. They are the evidence for this rework,
+not a measurement of it — the nine-mode axis is not yet measured.
 
 Ships **10 ontologies** (~630 entries):
 
@@ -410,7 +625,7 @@ downloaded at boot from `MODEL_BASE_URL` unless baked in at build time via S3.
 | `life_os` | `LifeOSTracker` — goal/habit tracking layer |
 | `social` | `SocialAlgorithm` — engagement metrics × coherence scoring |
 | `quality` | `QualityTracker` — classify-failure feedback loop, persisted |
-| `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection (feature `industrial`) |
+| `industrial` | Machine adapters (MQTT / Modbus / serial / REST) + anomaly detection — always built, no feature needed |
 | `ingest` | Document classification/ingest pipeline (feature `ingest`) |
 | `inventory` | Stock tracker — SMA-30 forecast + human-in-loop reorder |
 | `oee` | Overall Equipment Effectiveness — `OeeShift`/`OeeBoard`, A×P×Q, six-big-losses Pareto, plant rollup |
@@ -466,7 +681,7 @@ cargo build
 # Feature matrix
 cargo build --features mcp        # + MCP server
 cargo build --features network    # + directory watching
-cargo build --features full       # everything (industrial, ingest, pdf, email)
+cargo build --features full       # everything (ingest, pdf, email, ocr, mcp)
 
 # One-shot dependency installer (probes + installs rust, lean, voice deps, models)
 ./scripts/setup-physis.sh --full
@@ -483,12 +698,195 @@ cargo build --features full       # everything (industrial, ingest, pdf, email)
 
 ### Features
 
-`cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `industrial`
-· `ingest` · `spanner` · `wiki-embedded` · `full`. Default = `cli, voice, web, tui, embed-onnx`.
+`cli` · `mcp` · `network` · `voice` · `web` · `tui` · `embed-onnx` · `ingest` ·
+`spanner` · `wiki-embedded` · `full`. Default =
+`cli, voice, web, tui, sql, postgres, email, embed-onnx`.
+
+The industrial stack (MQTT/Modbus adapters, OEE, maintenance) is **not** a
+feature — it is always compiled. `industrial` survives as a no-op alias so
+existing invocations keep working.
 
 ### Binaries
 
 `physis-pro` (CLI) · `physis-pro-web` (HTTP) · `physis-pro-tui` · `physis-pro-voice`.
+
+---
+
+## Practical Examples
+
+### Industrial Monitoring — CNC Press OEE
+
+```bash
+# 1. Register the machine (once)
+curl -X POST http://127.0.0.1:19876/api/v1/oee/machine \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"machine_id":"cnc-press-01","shift_length_secs":28800,"ideal_cycle_time_secs":45}'
+
+# 2. Record production events (every shift)
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"start_shift","machine_id":"cnc-press-01"}'
+
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"production","machine_id":"cnc-press-01","good":480,"scrap":12}'
+
+curl -X POST http://127.0.0.1:19876/api/v1/oee/event \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"kind":"stop","machine_id":"cnc-press-01","reason":"unplanned","duration_secs":1800,"note":"tool change"}'
+
+# 3. Get OEE report
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/oee/cnc-press-01"
+
+# 4. Generate Italian shift report (Markdown or HTML)
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/report/shift?format=html"
+```
+
+### Document Ingestion & Knowledge Graph
+
+```bash
+# Ingest a vault of markdown notes + git history
+cargo run --bin physis-pro -- vault ~/my-notes --git 100
+
+# Import browser bookmarks
+cargo run --bin physis-pro -- history ~/bookmarks.html
+
+# Import OPML feed subscriptions
+cargo run --bin physis-pro -- history ~/feeds.opml
+
+# Query the resulting knowledge graph
+cargo run --bin physis-pro -- query "machine maintenance"
+cargo run --bin physis-pro -- where "hydraulic" --cause mailbox --within 30
+```
+
+### Quality Feedback Loop
+
+```bash
+# Classify a failure report
+curl -X POST http://127.0.0.1:19876/api/v1/classify \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"text":"Spindle bearing overheating on CNC lathe line 3"}'
+
+# Report the outcome (failure) — teaches the engine
+curl -X POST http://127.0.0.1:19876/api/v1/coherence/register \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  -d '{"input":"Spindle bearing overheating on CNC lathe line 3","coherence_score":-1.0}'
+
+# View learned penalties
+curl -H "Authorization: Bearer $PHYSIS_API_TOKEN" \
+  "http://127.0.0.1:19876/api/v1/quality"
+```
+
+### Rust API — Build a Custom Agent
+
+```rust
+use physis_pro::{
+    core::PhysisCore,
+    models::{CoherenceRating, CoherenceNode},
+    classify::OntologyLoader,
+    config::PhysisProConfig,
+    embed::{VectorEmbed, RandomProjectionEmbedder},
+};
+
+fn main() -> anyhow::Result<()> {
+    // Load ontologies + config
+    let config = PhysisProConfig::default();
+    let ontology = OntologyLoader::load_all(&config);
+    
+    // Use deterministic embedder for reproducibility (no model files needed)
+    let embedder = RandomProjectionEmbedder::new(64);
+    
+    let mut core = PhysisCore::new();
+    core.set_embedder_id("random-projection");
+
+    // Register a production incident
+    let id = core.register_node_from_text(
+        "Hydraulic press drift: tonnage +12% when cold",
+        &embedder,
+    )?;
+
+    // Assert the outcome — this is the "ground truth" signal
+    core.assert_coherence(&id, CoherenceRating::Failure.weight());
+
+    // Run a dream cycle to propose countermeasures
+    let dreams = core.dream();
+    for dream in dreams {
+        println!("Proposal: {}", dream.proposal);
+        println!("Grade: {:.2}", dream.grade);
+    }
+
+    // Fixed-token search (bounded context for LLM)
+    let results = core.search_nodes("hydraulic press", 500, 10)?;
+    for r in results {
+        println!("[{:.2}] {}", r.score, r.label);
+    }
+
+    // Persist to Sled (survives restart)
+    let db = sled::open("~/.physis/mydb")?;
+    core.persist_node(&db, "plant-1", &id)?;
+    
+    Ok(())
+}
+```
+
+### Multi-Tenant Web Deployment
+
+```bash
+# Start server (binds 127.0.0.1:19876 by default)
+cargo run --bin physis-pro-web
+
+# Client A (tenant "plant-1")
+curl -H "X-Physis-User: plant-1" -H "Authorization: Bearer $TOKEN" \
+  -X POST http://127.0.0.1:19876/api/v1/goals \
+  -d '{"prompt":"Reduce unplanned downtime on line 2"}'
+
+# Client B (tenant "plant-2") — completely isolated state
+curl -H "X-Physis-User: plant-2" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST http://127.0.0.1:19876/api/v1/classify \
+  -d '{"text":"Conveyor belt misalignment"}'
+
+# Shared holarchy (global knowledge graph)
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:19876/api/v1/holarchy/snapshot"
+```
+
+### Spanner Graph — Durable Cross-Device Memory
+
+```bash
+# Set up service account credentials
+export SPANNER_PROJECT=my-project
+export SPANNER_INSTANCE=physis
+export SPANNER_DATABASE=core
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json
+
+# Sync tenant graph to Spanner (upsert + mirror orphans)
+cargo run --bin physis-pro --features spanner -- spanner sync --mirror
+
+# Hydrate from Spanner (pull + re-embed under live embedder)
+cargo run --bin physis-pro --features spanner -- spanner hydrate
+```
+
+### Docker Production Deploy
+
+```bash
+# Build (downloads models at build time via MODEL_BASE_URL)
+docker build --build-arg MODEL_BASE_URL=https://my-s3-bucket/models -t physis-pro .
+
+# Run (auto-downloads models from MODEL_BASE_URL if not baked)
+docker run -d \
+  -p 19876:19876 \
+  -e PHYSIS_API_TOKEN=your-secure-token \
+  -e PHYSIS_HOST=0.0.0.0 \
+  -e PHYSIS_SCAN_ROOT=/data \
+  -v /host/data:/data \
+  physis-pro
+
+# With Lean 4 (for apodeixis machine proofs)
+docker build --build-arg WITH_LEAN=1 --build-arg MODEL_BASE_URL=... -t physis-pro:lean .
+```
 
 ---
 
@@ -499,3 +897,7 @@ cargo build --features full       # everything (industrial, ingest, pdf, email)
 - `PREMORTEM.md` — risk register (P4 ONNX pin, P6 open-relay gate)
 - `MANUAL_CONFIG.md` — deploy/config steps
 - CI: `.github/workflows/ci.yml` (builds on every push/PR)
+
+
+## Scope note: what Physis does not claim
+Physis does not determine metaphysical truth (it maintains operational validity). It does not replace domain experts (humans dispose). It does not establish that embeddings encode ontology. It does not prove general self-organised criticality (one attraction--repulsion phase-transition experiment; statistics pending). It does not establish superiority over LLMs on general reasoning. It does not guarantee correct contradiction resolution. It does not infer the correctness of human verdicts. Current evidence establishes architectural behaviour and selected empirical properties, not general industrial efficacy.
