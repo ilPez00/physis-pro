@@ -974,6 +974,14 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > `packets/reports/PH-004.md`. An abandoned, non-compiling `src/web/mod.rs`
 > WIP from an earlier session was preserved to `/tmp` and reverted — it
 > duplicated logic HEAD already had.
+>
+> Also 2026-09-20: **MS-002 done** — independently reviewed (citations re-checked
+> at both `ed8dc29` and `54b8a8d`, A1 confirmed binding, zero-production-caller
+> and zero-instrumentation claims confirmed). The report's deferral of the
+> runnable mutation matrix is accepted under §Checks' report-only clause, and
+> the criterion is carried by new packet **`MS-002-harness`** (`todo`), which
+> names the oracle semantics, the six arms and the P1–P5 properties. MS-003 is
+> still `review`.
 
 ## Plan Index & Reconciled Status
 
