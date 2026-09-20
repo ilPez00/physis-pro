@@ -1,11 +1,13 @@
 ---
 id: PH-CORE-DOCS
 title: physis-core documentation drift sweep after the Core/Pro split
-status: review
+status: done
 phase: 1
 depends: []
 claimed_by: opencode
 claimed_at: 2026-09-20
+reviewed_by: opencode
+reviewed_at: 2026-09-20
 ---
 
 # PH-CORE-DOCS — physis-core documentation drift sweep

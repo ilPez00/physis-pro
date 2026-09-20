@@ -80,3 +80,65 @@ header comment that states the capability moved, which is the intended record.
    table to match `docs/GRID_AXES.md`.
 3. `physis-core` is a retired-public repo with live product work; see
    `PH-CORE-RETIREMENT` node.
+
+---
+
+## Verification note (2026-09-20, independent reviewer) — ACCEPTED
+
+Reviewer: opencode. Verdict: **accept** (`status: done`). Gate passes in full;
+docs-only confirmed.
+
+### Revisions
+
+| | report time | review time |
+|---|---|---|
+| `physis-core` | `4d18293` | `5728a32` (descends from `4d18293`) |
+
+### Reproduction (all rerun)
+
+```
+grep -cE 'physis-core (studio|notebook)' README.md                              -> 0
+grep -cE 'physis_core::(studio|vault|history|praxis|quality|notebook)' README.md -> 0
+grep -cE '^\| `studio`' README.md                                                -> 0
+grep -nE 'PhysisConfig|physis-core studio|PHYSIS_STUDIO_HOST' README.md CHANGELOG.md .physis-capabilities -> none
+grep -nE 'physis-system-tui|physis-world|physis system' CHANGELOG.md             -> none
+git show --stat 4d18293   -> 3 files changed, 70 insertions(+), 193 deletions(-)
+git show --name-only 4d18293 | grep -c '\.rs$'  -> 0
+```
+
+### Claims confirmed
+
+- **Docs only.** The commit touches `README.md`, `CHANGELOG.md` and
+  `.physis-capabilities`; zero Rust files.
+- **No doctest exists, so the snippets could not have been caught.** `lib.rs`
+  contains no `include_str!` and the README is not a doctest target. The
+  report's own explanation for how the snippets rotted is correct.
+- **The two acknowledged stale spots are real.** `src/store.rs:26` still reads
+  ``// An empty value is treated as unset: `PHYSIS_CORE_DIR= physis-core studio` ``
+  — a command that no longer exists. `.physis-capabilities:11` is indeed the
+  only surviving "workspace interface" match, and it is the header comment
+  stating the capability moved, i.e. the intended record.
+- **The corrected call is right.** `OntologyLoader::load_all()` takes no
+  arguments (`ontology.rs:373`), matching the README's correction.
+
+### Follow-up #2 pointed at a stale source
+
+The report says the grid prose should be fixed "to match `docs/GRID_AXES.md`".
+That file states "**5 domains × 14 modes = 70 cells**" as the current contract,
+so following the follow-up as written would have propagated the stale claim.
+The authoritative source is `docs/WHAT_PHYSIS_IS.md` §2, revised 2026-09-19:
+*"the mode axis was reworked from fourteen modes to nine … the default pack is
+now 5 × 9 = 45 cells"*, with `AGENTS.md` saying the same.
+
+Fixed as part of this pass, in the submodule:
+
+- `README.md`: the capability row now reads `Semiotic Grid (5×9)` / 45 axes, the
+  Core-vs-Pro ontology row says 45 cells (5 Domains × 9 Modes, default pack),
+  and both occurrences in the pipeline diagram — the box title and the axis
+  label — were corrected, preserving the box widths.
+- `docs/GRID_AXES.md`: a historical banner was added. The **domain** axis in
+  that file was not reworked and remains current; only the fourteen-mode
+  framing is historical.
+
+`src/store.rs:26` was left alone: it needs a source edit, it is not wrong in
+any load-bearing way, and it is the report's own follow-up.
