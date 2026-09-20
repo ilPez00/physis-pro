@@ -2,7 +2,7 @@ use super::*;
 use crate::web::SharedState;
 use axum::{
     extract::{Json, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
 };
 
 /// Register a machine / set its shift parameters.
@@ -118,6 +118,7 @@ pub async fn maintenance_observe_handler(
 /// Score a live reading; on anomaly, register it as a coherence node.
 pub async fn maintenance_check_handler(
     State(state): State<SharedState>,
+    headers: HeaderMap,
     Json(req): Json<ReadingRequest>,
 ) -> Result<Json<MaintenanceCheckResponse>, StatusCode> {
     let reading = req.to_reading();
@@ -146,7 +147,8 @@ pub async fn maintenance_check_handler(
         let mut s = state.lock();
         let id = s.core.register_node_vec_labeled(embedding, Some(text));
         if let Some(db) = state.db() {
-            let _ = s.core.persist_node(db, "_default", &id);
+            let uid = user_key(&headers);
+            let _ = s.core.persist_node(db, &uid, &id);
         }
         Some(id)
     } else {
