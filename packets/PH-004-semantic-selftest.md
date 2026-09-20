@@ -2,7 +2,9 @@
 id: PH-004
 track: physis
 phase: 0
-status: todo
+status: claimed
+claimed_by: opencode
+claimed_at: 2026-09-20
 rung: 3
 depends: [PH-000]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test semantic_self_test && cargo run --bin physis-pro -- selftest 2>/dev/null; test $? -eq 0"
