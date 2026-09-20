@@ -51,9 +51,29 @@ swap helps; it does not solve the cold-pack problem** — the bound (`--max-file
 and the saved pack remain the real fix, and this measurement does not change
 that.
 
-Still missing for E1's full verdict: `hit@5` on the same corpus with both
-encoders (`benchmarks/retrieval/`). A faster encoder that retrieves worse is not
-an improvement, and the number is not in yet.
+**Retrieval measured 2026-09-20 (E1 closed).** `benchmarks/retrieval/run.py
+--arms semantic,bge-small` over the 7 ground-truthed cases, root
+`physis-core/src`, release binary:
+
+| arm | hit@5 | wall-clock |
+|---|---|---|
+| semantic (cascade, 768-d) | 4/7 = **0.57** | 132 s |
+| bge-small (384-d) | 5/7 = **0.71** | 85 s |
+
+**bge-small won on both axes here** — 1.55× faster and one case better. The two
+arms ranked differently (different `top1` on 4 of 7), so the gain is not a
+timing artefact.
+
+**Two caveats, because a 7-case benchmark cannot carry a decision.** With n=7,
+one case is 0.14 of the score: 0.71 against 0.57 is a single case, which is
+inside the noise this harness can resolve. And the `semantic` arm does not name
+the embedder the cascade chose; the comparison is "bge-small vs whatever the
+cascade picked", not "bge-small vs bge-base" with both named.
+
+So E1's verdict is: **the distilled encoder is a credible replacement and should
+be the default pending a larger benchmark** — not "it is proven better". The
+honest next measurement is the same harness with more cases, and the `semantic`
+arm pinned to bge-base so both arms name their model.
 
 **How to judge it, not argue it:** the pack has a timing harness and the
 retrieval layer has `hit@5` (currently 0.57 semantic vs 0.14 lexical,
@@ -150,8 +170,11 @@ synthesis and open judgement.
 
 ## 5. What to do first
 
-1. **E1, because it is measurable today.** Same corpus, two encoders, pack
-   wall-clock and `hit@5`. No new concept, no new contract.
+1. ~~**E1**~~ — **measured.** bge-small is 1.67× faster per cold chunk and
+   scored 0.71 against the cascade's 0.57 on the 7-case retrieval benchmark, both
+   axes in its favour. Not proven better: n=7 is one case wide, and the cascade
+   arm does not name its embedder. Credible as a default; needs a larger
+   benchmark and a pinned bge-base arm to be decided.
 2. **E2 together with C1.** The grid needs measuring; a classifier head is both
    the measurement and the replacement. One harness, two answers.
 3. **E3 before S9/S12**, because the acceptance gate currently cannot be
