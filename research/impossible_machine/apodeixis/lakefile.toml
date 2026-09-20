@@ -3,7 +3,7 @@ version = "0.1.0"
 defaultTargets = ["apodeixis"]
 
 [[lean_lib]]
-name = "Apodeixis"
+name = "ImpossApodeixis"
 
 [[lean_exe]]
 name = "apodeixis"

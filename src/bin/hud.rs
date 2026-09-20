@@ -15,7 +15,7 @@
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
 //! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
+//! o observe-draft · P plan · X execute-dry · V validators · u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
 //! f/F intent focus/clear · z zoom rollup · 1/2/3 why/context/delta tabs. No mouse required.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
@@ -1184,6 +1184,73 @@ impl App {
         self.status = "contradictions: slice-map pairs over the selection".into();
     }
 
+    /// Bound objects for the semantic-computer projections: selection first,
+    /// else the cursor hit, else empty. Nothing is forced — the draft names
+    /// what is missing instead of borrowing an unrelated object.
+    fn projection_base(&self) -> Vec<NavHit> {
+        if !self.selected.is_empty() {
+            return self.selected.clone();
+        }
+        self.current_hit().cloned().into_iter().collect()
+    }
+
+    /// Workspace revision for the projections: content hash of the canonical
+    /// file→hash catalog — the same `snapshot_hashes` the slice layer uses
+    /// for pre/post comparison, measured here in-process from the scan.
+    fn projection_revision(&self) -> String {
+        let snap: std::collections::BTreeMap<String, String> = self
+            .ws
+            .index()
+            .files
+            .iter()
+            .map(|(p, r)| (p.clone(), r.hash.clone()))
+            .collect();
+        physis_pro::mvp::log::hash_canonical(&snap)
+    }
+
+    /// `o` — observe draft into the reading pane. Pure projection of the
+    /// current query + bound objects + frozen weights; appends nothing.
+    fn show_observe(&mut self) {
+        let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
+        let recorded_at = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S%:z").to_string();
+        let text = physis_pro::mvp::deps::observe_draft_text(
+            &self.query,
+            &bound,
+            &self.weights,
+            &recorded_at,
+        );
+        self.reading = Some(("observe (draft)".into(), text));
+        self.status = "observe draft shown (read-only, not appended)".into();
+    }
+
+    /// `P` — deterministic capability shortlist into the reading pane.
+    /// Read-only text.
+    fn show_plan(&mut self) {
+        let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
+        let rev = self.projection_revision();
+        let text = physis_pro::mvp::deps::plan_shortlist_text(&self.query, &bound, &rev);
+        self.reading = Some(("plan (shortlist)".into(), text));
+        self.status = "plan shortlist shown (read-only)".into();
+    }
+
+    /// `X` — shell argv template preview for the bound repo. Text only —
+    /// no process is spawned.
+    fn show_execute_dry(&mut self) {
+        let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
+        let text = physis_pro::mvp::deps::execute_dry_text(&self.ws.root, &bound);
+        self.reading = Some(("execute (dry)".into(), text));
+        self.status = "execute dry-run shown (not run)".into();
+    }
+
+    /// `V` — mechanical validator preview. Text only; every status stays
+    /// unknown/not_run until a real run appends evidence.
+    fn show_validate(&mut self) {
+        let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
+        let text = physis_pro::mvp::deps::validate_preview_text(&bound);
+        self.reading = Some(("validate (preview)".into(), text));
+        self.status = "validators previewed (not run)".into();
+    }
+
     /// Hand the current selection (or the highlighted object) to Function 2:
     /// docs = (title, exact source text) for the Notebook scope. Canonical
     /// objects — the Notebook borrows, never copies, the content.
@@ -1448,7 +1515,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "o observe · P plan · X execute-dry · V validators · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1584,6 +1651,10 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('B') => app.show_bench(),
                             KeyCode::Char('D') => app.show_dependents(),
                             KeyCode::Char('C') => app.show_contradictions(),
+                            KeyCode::Char('o') => app.show_observe(),
+                            KeyCode::Char('P') => app.show_plan(),
+                            KeyCode::Char('X') => app.show_execute_dry(),
+                            KeyCode::Char('V') => app.show_validate(),
                             KeyCode::Char('e') => app.edit_current(),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),
@@ -1637,5 +1708,66 @@ mod tests {
         std::fs::write(dir.path().join("a.md"), "# hello\n\nsmall test file\n").unwrap();
         assert!(workspace_tokens(dir.path()) > 0);
         assert_eq!(workspace_tokens(&dir.path().join("missing")), 0);
+    }
+
+    fn sc_bound() -> Vec<physis_pro::mvp::deps::BoundObject> {
+        vec![physis_pro::mvp::deps::BoundObject {
+            object_id: "fs:abc123".into(),
+            path: "src/rag.rs".into(),
+            revision: "h1".into(),
+        }]
+    }
+
+    /// Observe is an append-shaped draft: placeholders, not ids — and the
+    /// occurrence time is never fabricated.
+    #[test]
+    fn observe_draft_names_placeholders_not_appends() {
+        let w = physis_pro::nav::NavWeights::default();
+        let text =
+            physis_pro::mvp::deps::observe_draft_text("thesis diagrams", &sc_bound(), &w, "2026-09-20T00:00:00+00:00");
+        assert!(text.contains("physis.event.v1"), "{text}");
+        assert!(text.contains("event_id: <pending>"), "{text}");
+        assert!(text.contains("run_id: <pending>"), "{text}");
+        assert!(text.contains("plan_id: <pending>"), "{text}");
+        assert!(text.contains("occurred_at: unknown"), "{text}");
+        assert!(text.contains("src/rag.rs"), "{text}");
+        assert!(text.contains("not appended"), "{text}");
+    }
+
+    /// Plan shortlist is deterministic: stable capability-ID order with typed
+    /// schema predicates on every row.
+    #[test]
+    fn plan_shortlist_is_stable_id_ordered_with_typed_preconditions() {
+        let text = physis_pro::mvp::deps::plan_shortlist_text("build it", &sc_bound(), "rev9");
+        let fo = text.find("file.open").expect("file.open row");
+        let rb = text.find("repo.build").expect("repo.build row");
+        let rt = text.find("repo.test").expect("repo.test row");
+        assert!(fo < rb && rb < rt, "{text}");
+        assert!(text.contains("exists(object_id)"), "{text}");
+        assert!(text.contains("revision_equals"), "{text}");
+        assert!(text.contains("authorized"), "{text}");
+        assert!(text.contains("not executed"), "{text}");
+    }
+
+    /// Execute dry-run previews the registered argv template — no process.
+    #[test]
+    fn execute_dry_shows_argv_template_without_running() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = physis_pro::mvp::deps::execute_dry_text(dir.path(), &sc_bound());
+        assert!(text.contains("cargo"), "{text}");
+        assert!(text.contains("src/rag.rs"), "{text}");
+        assert!(text.contains("dry_run"), "{text}");
+        assert!(text.contains("no process spawned"), "{text}");
+    }
+
+    /// Validator preview stays honest: nothing ran, so every check is
+    /// unknown/not_run with the mechanical condition named.
+    #[test]
+    fn validate_preview_reports_unknown_not_run_honestly() {
+        let text = physis_pro::mvp::deps::validate_preview_text(&sc_bound());
+        assert!(text.contains("build_exit"), "{text}");
+        assert!(text.contains("test_report"), "{text}");
+        assert!(text.contains("source_revision"), "{text}");
+        assert!(text.contains("unknown/not_run"), "{text}");
     }
 }

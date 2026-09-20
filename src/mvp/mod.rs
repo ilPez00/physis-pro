@@ -9,8 +9,9 @@ pub mod repl;
 pub mod slice;
 
 pub use deps::{
-    affected_dependents, bench_text, changed_symbols, classify_intent, contradictions_text,
-    dependents_text, generator_state, history_text,
+    BoundObject, affected_dependents, bench_text, bound_objects, changed_symbols,
+    classify_intent, contradictions_text, dependents_text, execute_dry_text, generator_state,
+    history_text, observe_draft_text, plan_shortlist_text, validate_preview_text, weights_line,
 };
 pub use log::{since_last_session_notice, TransitionLog};
 pub use model::{artifacts_of, Artifact, SemanticDelta};

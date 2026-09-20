@@ -180,6 +180,178 @@ pub fn contradictions_text(docs: &[(String, String)]) -> String {
     o
 }
 
+/// Semantic-computer v1 first-slice projections (read-only).
+///
+/// Pure text builders over already-measured HUD state — same bargain as
+/// `history_text`/`bench_text`. None appends, executes, validates, or opens
+/// a store: the HUD renders their output into the reading pane and records
+/// no transition. Bound objects = selection, else cursor, else empty.
+
+/// One bound object: stable id, path, revision (chunk content hash).
+#[derive(Debug, Clone)]
+pub struct BoundObject {
+    pub object_id: String,
+    pub path: String,
+    pub revision: String,
+}
+
+/// Project `NavHit`s onto bound objects. Revision is the chunk content hash
+/// the index already carries — the same revision a plan step would freeze.
+pub fn bound_objects(hits: &[NavHit]) -> Vec<BoundObject> {
+    hits.iter()
+        .map(|h| BoundObject {
+            object_id: h.object.id.short(),
+            path: h
+                .object
+                .source
+                .as_ref()
+                .map(|s| s.path.clone())
+                .unwrap_or_else(|| h.object.label.clone()),
+            revision: h.object.hash.clone(),
+        })
+        .collect()
+}
+
+pub fn weights_line(w: &NavWeights) -> String {
+    format!(
+        "weights semantic={:.2} lexical={:.2} recency={:.2} pin={:.2} context={:.2}",
+        w.semantic, w.lexical, w.recency, w.pin, w.context
+    )
+}
+
+/// `o` — append-shaped observe draft. Field names follow the v1 event
+/// envelope (`physis.event.v1`); ids are placeholders, never appended.
+pub fn observe_draft_text(
+    query: &str,
+    bound: &[BoundObject],
+    weights: &NavWeights,
+    recorded_at: &str,
+) -> String {
+    let mut o = String::new();
+    o.push_str("── OBSERVE (draft — not appended) ──\n");
+    o.push_str("schema: physis.event.v1\n");
+    o.push_str("event_id: <pending> · run_id: <pending> · plan_id: <pending> · step_id: n/a (observation)\n");
+    o.push_str(&format!(
+        "recorded_at: {recorded_at} · occurred_at: unknown (never fabricated)\n"
+    ));
+    o.push_str("source: physis-hud · actor: operator · operation: observe\n");
+    o.push_str(&format!(
+        "intent: {}\n",
+        if query.is_empty() { "(no query)" } else { query }
+    ));
+    o.push_str(&format!("{}\n", weights_line(weights)));
+    o.push_str(&format!("objects: {}\n", bound.len()));
+    for b in bound.iter().take(8) {
+        o.push_str(&format!(
+            "  object_id: {} · path: {} · revision: {}\n",
+            b.object_id,
+            b.path,
+            if b.revision.is_empty() { "(none)" } else { &b.revision },
+        ));
+    }
+    if bound.is_empty() {
+        o.push_str("  (no bound objects — run a query, Space-select, then retry)\n");
+    }
+    o.push_str("state_before: <workspace revision> · state_after: null (observation changes nothing)\n");
+    o
+}
+
+struct CapabilityRow {
+    id: &'static str,
+    version: &'static str,
+    preconditions: &'static [&'static str],
+}
+
+fn capability_rows() -> Vec<CapabilityRow> {
+    let mut rows = vec![
+        CapabilityRow {
+            id: "file.open",
+            version: "1",
+            preconditions: &["exists(object_id)"],
+        },
+        CapabilityRow {
+            id: "repo.build",
+            version: "1",
+            preconditions: &["exists(object_id)", "revision_equals(object_id, state_revision)"],
+        },
+        CapabilityRow {
+            id: "repo.test",
+            version: "1",
+            preconditions: &[
+                "exists(object_id)",
+                "revision_equals(object_id, state_revision)",
+                "authorized(repo, test)",
+            ],
+        },
+    ];
+    rows.sort_by(|a, b| a.id.cmp(b.id));
+    rows
+}
+
+/// `P` — deterministic capability shortlist, stable-ID tie-break, typed
+/// schema predicates. Read-only text.
+pub fn plan_shortlist_text(query: &str, bound: &[BoundObject], revision: &str) -> String {
+    let mut o = String::new();
+    o.push_str("── PLAN (shortlist — not executed) ──\n");
+    o.push_str(&format!(
+        "intent: {}\n",
+        if query.is_empty() { "(no query)" } else { query }
+    ));
+    o.push_str(&format!(
+        "snapshot_revision: {}\n",
+        if revision.is_empty() { "(unknown)" } else { revision }
+    ));
+    let target = bound.first().map(|b| b.path.as_str()).unwrap_or("(no bound object)");
+    o.push_str(&format!("bound: {target}\n"));
+    o.push_str("ranked by stable capability ID (contract tie-break):\n");
+    for (i, row) in capability_rows().iter().enumerate() {
+        o.push_str(&format!(
+            "  {}. {} v{} · pre: {}\n",
+            i + 1,
+            row.id,
+            row.version,
+            row.preconditions.join(" + "),
+        ));
+    }
+    if bound.is_empty() {
+        o.push_str("(no bound objects — preconditions shown unbound)\n");
+    }
+    o
+}
+
+/// `X` — shell argv template preview for the bound repo. Registered template
+/// only, env policy noted, never executed.
+pub fn execute_dry_text(root: &Path, bound: &[BoundObject]) -> String {
+    let mut o = String::new();
+    o.push_str("── EXECUTE (dry — not run) ──\n");
+    o.push_str(&format!("repo: {}\n", root.display()));
+    let target = bound.first().map(|b| b.path.as_str()).unwrap_or(".");
+    o.push_str(&format!("argv: [\"cargo\", \"test\", \"--\", \"{target}\"]\n"));
+    o.push_str("env policy: inherit PATH/HOME only; no network; no writes outside repo\n");
+    o.push_str("mode: dry_run — no process spawned, no log appended\n");
+    o
+}
+
+/// `V` — mechanical validator preview. Honest statuses: nothing ran here,
+/// so every check is unknown/not_run until a real run appends evidence.
+pub fn validate_preview_text(bound: &[BoundObject]) -> String {
+    let mut o = String::new();
+    o.push_str("── VALIDATE (preview — not run) ──\n");
+    let target = bound.first().map(|b| b.path.as_str()).unwrap_or("(no bound object)");
+    o.push_str(&format!("target: {target}\n"));
+    o.push_str("  build_exit: unknown/not_run (validator: build_exit == 0)\n");
+    o.push_str("  test_report: unknown/not_run (validator: failures == 0, evidence event required)\n");
+    o.push_str(&format!(
+        "  source_revision: {} (validator: revision_equals at execute time)\n",
+        bound
+            .first()
+            .map(|b| if b.revision.is_empty() { "(none)" } else { b.revision.as_str() })
+            .unwrap_or("(none)")
+    ));
+    o.push_str("overall: unknown/not_run — a task succeeds only when validators pass\n");
+    o
+}
+
 /// Dependents of `changed`: files that *reference* the changed symbols or module.
 ///
 /// The rule is deliberately precision-first, and it was measured before it was

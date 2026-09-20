@@ -71,7 +71,7 @@ axiom mobius_is_convolution_inverse : ∀ n : Nat, divisorSum n mobius = if n = 
 
 /-- 1/zeta(s) = sum mu(n) n^(-s) for Re(s) > 1 (Dirichlet series of the inverse).
     Status: classical (derived from mobius_is_convolution_inverse). --/
-axiom inv_zeta_dirichlet : ∀ s : C, True
+axiom inv_zeta_dirichlet : ∀ _s : C, True
 
 /-- The functional equation: zeta(s) = chi(s) zeta(1 - s_bar).
     Status: classical (Riemann 1859). The explicit factor chi(s) is not
