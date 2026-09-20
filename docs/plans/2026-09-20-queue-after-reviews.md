@@ -107,6 +107,25 @@ to a report-only packet, and no packet currently owns it.
 - **A dead condition is not dead code.** PH-022's `number_clash` compiled,
   was called, and could never be true. `physis-check`-style "is it called?"
   checks cannot see this; a test that asserts the branch fires can.
+- **Two orphan artifacts in the `physis-core` worktree, resolved 2026-09-20.**
+  They were not the same kind of thing:
+  - `examples/embed_probe.rs` — untracked since 2026-09-17, produced by opencode
+    session `ses_f4f7141e6ffeaA6cC437wL6cce` (three patches, 21:02–21:04; the
+    session's last message is *"Files changed: none"*). It is a one-off probe of
+    the ONNX embedder written without the `#[cfg(feature = "embed-onnx")]` gate
+    every sibling example uses, so it failed `cargo test` for every
+    default-feature build of `physis-core` (`unresolved import
+    physis_core::embed_onnx`). Its question is now answered by `physis-pro
+    selftest` (PH-004), which is tracked and tested. A copy is preserved at
+    `/tmp/opencode/embed_probe.rs` and the file is out of the tree;
+    `cargo test` in `physis-core` compiles and passes again.
+  - `benchmarks/results/worldstate-e66-axes.json` — **not** stale work. It is
+    the regenerated E66 axis measurement produced by session
+    `ses_f46d47fc6ffexok2YoTLMJsHSI` at 2026-09-20 01:54Z and left uncommitted
+    when that session pushed `ed8dc29`. It is the artifact
+    `docs/WHAT_PHYSIS_IS.md` §2 cites (706 entries, 0 of 9 modes failing, 1 of
+    45 cells), while the tracked copy was the pre-rework run (70 cells, 14
+    modes, 8 failing). Now tracked at `1cbb31b`, with the regeneration command.
 - **Two sessions can share one branch.** On 2026-09-20 the review of PH-004
   landed (`4fe970e`, 17:13:37) *between* two commits of the session that wrote
   the PH-004 implementation (`5e074ce`, then `e4b5d12`), because both were
