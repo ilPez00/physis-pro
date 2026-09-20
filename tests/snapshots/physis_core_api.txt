@@ -152,7 +152,7 @@ classify::CellClassifier::cells — field pub cells: Vec<Cell>
 classify::CellClassifier::classify — fn pub fn classify(&self, embedding: &[f32]) -> Vec<CellScore> {
 classify::CellClassifier::classify_filtered — fn pub fn classify_filtered(&self, embedding: &[f32], filter: &FacetFilter) -> Vec<CellScore> {
 classify::CellClassifier::classify_text — fn pub fn classify_text(&self, text: &str, embedder: &dyn VectorEmbed) -> Vec<CellScore> {
-classify::CellClassifier::classify_with_metadata — fn pub fn classify_with_metadata( &self, embedding: &[f32], metadata: &ClassificationMetadata, filter: &MetadataFilter, ) -> Option<ClassifiedSentence> {
+classify::CellClassifier::classify_with_metadata — fn pub fn classify_with_metadata( &self, text: &str, embedding: &[f32], metadata: &ClassificationMetadata, filter: &MetadataFilter, ) -> Option<ClassifiedSentence> {
 classify::CellClassifier::classify_with_topk — fn pub fn classify_with_topk(&self, embedding: &[f32], strat: TopKStrategy) -> Vec<CellScore> {
 classify::CellClassifier::from_cells — fn pub fn from_cells(cells: Vec<Cell>) -> Self {
 classify::CellClassifier::hint_weighted_embed — fn pub fn hint_weighted_embed(name_embed: &[f32], hints_embed: &[f32]) -> Vec<f32> {
@@ -1371,23 +1371,31 @@ propose::Proposer::propose — fn pub fn propose(&self, embedding: &[f32], k: us
 propose::blend_hint_weight — fn pub fn blend_hint_weight(name_vec: &[f32], name_hints_vec: &[f32], alpha: f32) -> Vec<f32> {
 propose::embed_entry — fn pub fn embed_entry( name: &str, hints: &[String], embedder: &dyn VectorEmbed, alpha: f32, ) -> Vec<f32> {
 provenance — mod
+provenance::ChainIntegrity — enum pub enum ChainIntegrity {
+provenance::ChainIntegrity::Broken — variant Broken { first: usize }
+provenance::ChainIntegrity::Sealed — variant Sealed
+provenance::ChainIntegrity::Unsealed — variant Unsealed { first: usize }
 provenance::ProvenanceChain — struct pub struct ProvenanceChain {
-provenance::ProvenanceChain::add_link — fn pub fn add_link(&mut self, link: ProvenanceLink) {
+provenance::ProvenanceChain::add_link — fn pub fn add_link(&mut self, mut link: ProvenanceLink) {
 provenance::ProvenanceChain::cited_intake_ids — fn pub fn cited_intake_ids(&self) -> Vec<String> {
 provenance::ProvenanceChain::links — field pub links: Vec<ProvenanceLink>
 provenance::ProvenanceChain::new — fn pub fn new() -> Self {
+provenance::ProvenanceChain::seal — fn pub fn seal(&mut self) {
 provenance::ProvenanceChain::summary — fn pub fn summary(&self) -> String {
+provenance::ProvenanceChain::verify — fn pub fn verify(&self) -> ChainIntegrity {
 provenance::ProvenanceLink — struct pub struct ProvenanceLink {
 provenance::ProvenanceLink::claim — field pub claim: String
 provenance::ProvenanceLink::confidence — field pub confidence: Score
+provenance::ProvenanceLink::content_hash — field pub content_hash: Option<String>
 provenance::ProvenanceLink::intake_id — field pub intake_id: Option<String>
 provenance::ProvenanceLink::method — field pub method: Option<String>
 provenance::ProvenanceLink::new — fn pub fn new(claim: impl Into<String>, source: impl Into<String>) -> Self {
+provenance::ProvenanceLink::prev_hash — field pub prev_hash: Option<String>
 provenance::ProvenanceLink::raw_reference — field pub raw_reference: Option<String>
 provenance::ProvenanceLink::source — field pub source: String
 provenance::ProvenanceLink::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
 provenance::ProvenanceLink::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
-provenance::{ProvenanceChain, ProvenanceLink} — use pub use provenance::{ProvenanceChain, ProvenanceLink};
+provenance::{ChainIntegrity, ProvenanceChain, ProvenanceLink} — use pub use provenance::{ChainIntegrity, ProvenanceChain, ProvenanceLink};
 rag — mod
 rag::Bm25Index — struct pub struct Bm25Index {
 rag::Bm25Index::avg_dl — field pub avg_dl: f32

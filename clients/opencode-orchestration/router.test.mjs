@@ -12,7 +12,8 @@ function setup(t, behavior = async(o)=>({data:{info:{tokens:{input:10,output:2}}
   const p = structuredClone(policy), calls=[];
   const transcripts = new Map();
   const extra = [];
-  const client = {provider:{list:async()=>({data:{all:[{id:"commandcode",models:Object.fromEntries(Object.keys(p.families).map(k=>[k.slice(12),{}]))}]}})},session:{create:async o=>{const id=`child_${calls.length}`;transcripts.set(id,[]);return {data:{id,parentID:o.body.parentID}};},prompt:async o=>{calls.push(o);const result=await behavior(o,calls.length);const texts=(result.data?.parts||[]).filter(part=>part?.type==="text").map(part=>part.text).join("\n");transcripts.set(o.path.id,[...(transcripts.get(o.path.id)||[]),{info:{role:"assistant"},parts:[{type:"text",text:texts}]}]);return result;},messages:async o=>({data:[...(transcripts.get(o.path.id)||[]),...extra]}),get:async()=>({data:{parentID:"run"}}),abort:async()=>({data:true})}};
+  const catalogProviders = [...new Set(Object.keys(p.families).map(k=>k.slice(0,k.indexOf("/"))))].map(id=>({id,models:Object.fromEntries(Object.keys(p.families).filter(k=>k.startsWith(id+"/")).map(k=>[k.slice(id.length+1),{}]))}));
+  const client = {provider:{list:async()=>({data:{all:catalogProviders}})},session:{create:async o=>{const id=`child_${calls.length}`;transcripts.set(id,[]);return {data:{id,parentID:o.body.parentID}};},prompt:async o=>{calls.push(o);const result=await behavior(o,calls.length);const texts=(result.data?.parts||[]).filter(part=>part?.type==="text").map(part=>part.text).join("\n");transcripts.set(o.path.id,[...(transcripts.get(o.path.id)||[]),{info:{role:"assistant"},parts:[{type:"text",text:texts}]}]);return result;},messages:async o=>({data:[...(transcripts.get(o.path.id)||[]),...extra]}),get:async()=>({data:{parentID:"run"}}),abort:async()=>({data:true})}};
   return {runner:new Runner(client,p,store,"/tmp"),store,p,calls,client,transcripts,extra};
 }
 async function ready(f) {
@@ -69,6 +70,11 @@ test("failed test -> bounded worker repair; no endless loop",async t=>{
 });
 test("explicit unavailable worker falls back with zero tool side effects",async t=>{
   const f=setup(t,async(o,n)=> n===2?{data:{info:{error:{message:"unsupported_model"}},parts:[]}}:{data:{info:{},parts:[{type:"text",text:"ok"}]}});await ready(f);
+  const result=await f.runner.delegate("run","worker","T1","implement");
+  assert.equal(result.status,"completed");assert.equal(result.model,policy.models.worker[1]);
+});
+test("rate-limited candidate falls back before any tool use",async t=>{
+  const f=setup(t,async(o,n)=> n===2?{data:{info:{error:{message:"Command Code API error 429: You've reached your weekly usage limit. RATE_LIMITED: rate_limit_error"}},parts:[]}}:{data:{info:{},parts:[{type:"text",text:"ok"}]}});await ready(f);
   const result=await f.runner.delegate("run","worker","T1","implement");
   assert.equal(result.status,"completed");assert.equal(result.model,policy.models.worker[1]);
 });

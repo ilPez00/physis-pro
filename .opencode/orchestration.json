@@ -1,24 +1,24 @@
 {
   "profile": "E",
   "models": {
-    "orchestrator": ["commandcode/deepseek/deepseek-v4-flash"],
-    "scout": ["commandcode/deepseek/deepseek-v4-flash"],
-    "planner": ["commandcode/meta/muse-spark-1.3", "commandcode/deepseek/deepseek-v4-flash"],
-    "critic": ["commandcode/deepseek/deepseek-v4-flash", "commandcode/z-ai/glm-5.3-flash"],
-    "worker": ["commandcode/deepseek/deepseek-v4-flash", "commandcode/meta/muse-spark-1.3"],
-    "reviewer": ["commandcode/meta/muse-spark-1.3", "commandcode/z-ai/glm-5.3-flash"],
-    "architect": ["commandcode/gpt-6-astra"],
-    "physis-inspector": ["commandcode/deepseek/deepseek-v4-flash"]
+    "orchestrator": ["deepseek/deepseek-v4-flash"],
+    "scout": ["deepseek/deepseek-v4-flash", "mistral/codestral-latest"],
+    "planner": ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-pro"],
+    "critic": ["mistral/codestral-latest", "kilo/cohere/north-mini-code:free"],
+    "worker": ["deepseek/deepseek-v4-flash", "mistral/codestral-latest"],
+    "reviewer": ["kilo/cohere/north-mini-code:free", "mistral/codestral-latest"],
+    "architect": ["deepseek/deepseek-v4-pro"],
+    "physis-inspector": ["deepseek/deepseek-v4-flash"]
   },
   "families": {
-    "commandcode/deepseek/deepseek-v4-flash": "deepseek",
-    "commandcode/meta/muse-spark-1.3": "muse",
-    "commandcode/z-ai/glm-5.3-flash": "glm",
-    "commandcode/gpt-6-astra": "astra"
+    "deepseek/deepseek-v4-flash": "deepseek",
+    "deepseek/deepseek-v4-pro": "deepseek",
+    "mistral/codestral-latest": "mistral",
+    "kilo/cohere/north-mini-code:free": "kilo"
   },
   "limits": {"nodes": 8, "delegations": 24, "worker_repairs": 2, "critic_repairs": 1, "astra_calls": 1, "timeout_ms": 180000, "packet_chars": 12000},
   "risk": {"threshold": 0.7, "weights": {"dependency_conflict": 2, "structural_coupling": 1, "novelty": 1, "semantic_delta": 1, "planner_uncertainty": 1, "critic_disagreement": 2, "normalized_failures": 2}},
-  "worker_bash_allow": [],
+  "worker_bash_allow": ["cargo *", "rg *", "grep *", "git status*", "git diff*", "git log*", "git add *", "git commit *", "git branch*", "test *", "ls *", "cat *", "head *", "tail *", "wc *", "find *", "sed *", "node --test*", "python3 *", "mkdir *", "cp *", "jq *", "rm -f physis-core/*"],
   "astra": true,
   "physis": true
 }

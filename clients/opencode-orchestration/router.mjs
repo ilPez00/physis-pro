@@ -80,7 +80,13 @@ export function unavailable(error) {
   for (let e = error, depth = 0; e && depth < 4; e = e.cause, depth++) {
     parts.push(e.message, e.data?.message, e.code, e.name);
   }
-  return /unsupported_model|model_not_found|model[^\n]{0,120}(not available|not found|does not exist)/i.test(parts.filter(Boolean).join(" "));
+  const text = parts.filter(Boolean).join(" ");
+  // A candidate is skipped only when the provider refused it before any tool
+  // use. That covers an unknown model AND a provider that is temporarily
+  // unwilling to serve it — rate limit, quota, overload, or an unpaid plan.
+  // Treating a 429 as a hard provider error used to leave the run pending for
+  // a human even though the next configured model was callable.
+  return /unsupported_model|model_not_found|model[^\n]{0,120}(not available|not found|does not exist)|rate[_ ]?limit|\b429\b|quota|usage limit|too many requests|overloaded|payment required/i.test(text);
 }
 export function candidates(role, policy, catalog, used = {}) {
   let list = policy.models[role] || [];
