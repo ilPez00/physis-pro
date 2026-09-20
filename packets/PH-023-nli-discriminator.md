@@ -2,13 +2,13 @@
 id: PH-023
 track: physis-core
 phase: 1
-status: todo
+status: claimed
 rung: 3
 depends: [PH-021]
 gate: "cd ~/dev/computer-remake-research/experiments/nli && NLI_URL=<local> NLI_MODEL=<cross-encoder> python3 gate.py  # ships only at precision >= 0.90 AND recall > 0.50 on the 86-pair candidate set"
 commit: "branch agent/PH-023; conventional commits; per PROTOCOL §6"
-claimed_by:
-claimed_at:
+claimed_by: agent/PH-023
+claimed_at: 2026-09-20
 ---
 
 # Replace the contradiction discriminator with a local NLI cross-encoder
