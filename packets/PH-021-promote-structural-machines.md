@@ -2,13 +2,15 @@
 id: PH-021
 track: physis-core
 phase: 1
-status: review
+status: done
 rung: 2
 depends: []
 gate: "cd ~/dev/physis-pro/physis-core && cargo test --lib machines:: && cargo build --example impossible_machine_experiment --features embed-onnx && cargo build --example experiment48_exponent_necessity && cargo clippy --lib --tests -- -D warnings"
 commit: "branch agent/PH-021; conventional commits; per PROTOCOL §6"
 claimed_by: claude-pansa-2026-09-13
 claimed_at: 2026-09-13
+reviewed_by: cline-2026-09-20
+reviewed_at: 2026-09-20
 ---
 
 # The structural-machine primitives are trapped in an example
