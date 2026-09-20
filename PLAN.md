@@ -965,7 +965,9 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > MS-002 / MS-003 / PH-023, then PH-013, then the recurring PH-011 sweep.
 >
 > Re-measured 2026-09-20 (later the same day; the notes above are history, not
-> rewritten): **PH-004 review** — the claim is now discharged, not stale. The
+> rewritten): **PH-004 done** — the claim is discharged and independently
+> reviewed (a second session re-ran the full gate on a fresh build; the
+> implementation files are byte-identical `5e074ce`..`e4b5d12`). The
 > discriminating probe, the `selftest` subcommand and the `/health` pins were
 > already committed; what was missing was a test carrying `semantic_self_test`
 > in its name (`cargo test semantic_self_test` matched **zero** tests and

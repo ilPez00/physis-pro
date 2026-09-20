@@ -74,7 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   runnable oracle.
 - `PLAN.md`, `packets/README.md`,
   `docs/plans/2026-09-20-queue-after-reviews.md` §1b/§3/§4 — board state
-  reconciled after the follow-up pass: PH-004 `review`, MS-002 `done`,
+  reconciled after the follow-up pass: PH-004 `done`, MS-002 `done`,
   MS-003 `todo`, MS-004 blocked on MS-002-harness, MS-005 on MS-003.
 
 ## [0.1.21] - 2026-09-19

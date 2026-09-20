@@ -27,7 +27,7 @@ caveat is a fact with a date on it.
 
 | packet | before | after | evidence |
 |---|---|---|---|
-| PH-004 semantic self-test | `claimed`, gate filter matched **zero** tests and exited 0 | **`review`** — filter now matches two; real-weights skip asserts its own precondition; CLI exit code pinned | `packets/reports/PH-004.md`; commit `5e074ce` |
+| PH-004 semantic self-test | `claimed`, gate filter matched **zero** tests and exited 0 | **`done`** — filter now matches two; real-weights skip asserts its own precondition; CLI exit code pinned; independently re-run | `packets/reports/PH-004.md`; commits `5e074ce`, `4fe970e` |
 | MS-002 mutation replay | `review` | **`done`** — accepted report-only; citations re-checked at `ed8dc29` and `54b8a8d` | `packets/reports/MS-002.md` §Verification note; commit `59f50d7` |
 | MS-003 relation survival | `review` | **`todo`** — returned: gate described wrongly, PH-051 misquoted | `packets/reports/MS-003.md` §Verification note; commit `d893d3d` |
 | MS-002-harness | did not exist | **`review`** — built the same day: 7 arms green, gate run twice, negative arm proven to fail | `packets/reports/MS-002-harness.md` |
@@ -107,6 +107,13 @@ to a report-only packet, and no packet currently owns it.
 - **A dead condition is not dead code.** PH-022's `number_clash` compiled,
   was called, and could never be true. `physis-check`-style "is it called?"
   checks cannot see this; a test that asserts the branch fires can.
+- **Two sessions can share one branch.** On 2026-09-20 the review of PH-004
+  landed (`4fe970e`, 17:13:37) *between* two commits of the session that wrote
+  the PH-004 implementation (`5e074ce`, then `e4b5d12`), because both were
+  committing from the same checkout with HEAD on the same branch. Nothing was
+  lost, but branch-per-packet is not enough on its own when HEAD itself is
+  shared: re-read `git log --oneline -5` and `git status` immediately before
+  every commit, and never `git add -A`.
 
 ## 6. Next hygiene step
 
@@ -118,7 +125,7 @@ not a re-execution: read the design, re-measure its claims against the current
 tree, and either finish or revert the claim.
 
 **Resolved 2026-09-20 (later).** The claim was re-made at `497b91c` and is now
-discharged: PH-004 is `review` with `packets/reports/PH-004.md`. The design's
+discharged: PH-004 is `done` with `packets/reports/PH-004.md`. The design's
 three holes are closed — the gate filter `cargo test semantic_self_test` went
 from matching zero tests to two, the real-weights arm's skip asserts its own
 precondition instead of printing into the void, and the CLI exit code is
