@@ -2,13 +2,24 @@
 id: MS-002
 track: multiscale-structure
 phase: 1
-status: blocked
+status: todo
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-002.md"
 claimed_by:
 claimed_at:
 ---
+
+> **Released 2026-09-20** by the MS-001 reviewer pass (MS-001 now `done`).
+> **Read amendment A1 first** (`packets/reports/MS-001.md` §Verification note
+> 2026-09-20): the oracle's "deterministic" attribute is false for ORDER.
+> `find_neighbors` (`physis-core/src/delta_engine.rs:252-298`) returns
+> HashSet-iteration order with no sort, so `OntologyDeltaReport.node_deltas`
+> order is unspecified and `net_coherence_delta` is order-dependent float
+> summation. Compare `node_deltas` as a set sorted by `node_id`, and
+> `net_coherence_delta` to epsilon 1e-6 — never as a positional vector and
+> never bit-exact. Sorting the wave is a core source change and belongs in
+> its own packet, not here.
 
 # MS-002 — Actual mutation replay and incremental correctness
 

@@ -2,13 +2,23 @@
 id: MS-001
 track: multiscale-structure
 phase: 0
-status: todo
+status: done
 rung: 2
 depends: []
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-001.md"
 claimed_by: muse-spark
 claimed_at: 2026-09-17
+reviewed_by: cline-2026-09-20
+reviewed_at: 2026-09-20
 ---
+
+> **Reviewer verdict (2026-09-20): accepted, with amendment A1 to the frozen
+> measurement contract.** Citations and commands re-verified at main `e466d4e`
+> / core `ed8dc29`; the oracle claim's "deterministic" attribute was false as
+> written (the DFS wave's neighbor order is HashSet-derived and unspecified).
+> See `packets/reports/MS-001.md` §"Verification note (2026-09-20)". **MS-002
+> and MS-003 must consume A1: compare `node_deltas` as a set sorted by
+> `node_id`, and `net_coherence_delta` to epsilon 1e-6, never bit-exact.**
 
 # MS-001 — Archaeology and measurement contract
 

@@ -2,13 +2,19 @@
 id: MS-003
 track: multiscale-structure
 phase: 1
-status: blocked
+status: todo
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-003.md"
 claimed_by:
 claimed_at:
 ---
+
+> **Released 2026-09-20** by the MS-001 reviewer pass (MS-001 now `done`).
+> Amendment A1 (`packets/reports/MS-001.md` §Verification note 2026-09-20)
+> applies to any comparison you build on the delta engine: compare
+> order-unspecified collections as sorted sets, floats to epsilon 1e-6.
+
 
 # MS-003 — Linguistic scales and relation survival
 
