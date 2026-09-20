@@ -25,8 +25,9 @@ See [PLAN.md Phase 27](../PLAN.md#phase-27--measured-structure-of-change-2026-09
 Standing as of **2026-09-20 (later the same day)**: MS-001 is **done**
 (independently reviewed, accepted with **amendment A1** — see below). MS-002 is
 **done** (independently reviewed, report-only accepted; its runnable mutation
-matrix is carried by the new **`MS-002-harness`** packet, `todo`). MS-003 was
-reviewed and **returned to `todo`**: its report describes the `Transform::apply`
+matrix is carried by the new **`MS-002-harness`** packet, now `review` with 7
+arms green). MS-003 was reviewed and **returned to `todo`**: its report
+describes the `Transform::apply`
 acceptance gate wrongly and misquotes PH-051 (see
 [`reports/MS-003.md`](reports/MS-003.md) §"Verification note"). MS-004 through
 MS-008 remain dependency-blocked, and MS-005 additionally waits on MS-003's

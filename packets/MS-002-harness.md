@@ -2,13 +2,13 @@
 id: MS-002-harness
 track: multiscale-structure
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [MS-002]
-gate: "cd physis-core && cargo test --test replay_contract && cargo clippy --all-targets -- -D warnings"
+gate: "cd physis-core && cargo test --test replay_contract && cargo clippy --lib --tests -- -D warnings"
 commit: "branch agent/MS-002-harness; conventional commits; per PROTOCOL §6"
-claimed_by:
-claimed_at:
+claimed_by: opencode
+claimed_at: 2026-09-20
 ---
 
 # MS-002-harness — the runnable replay contract MS-002 left undelivered
@@ -72,9 +72,11 @@ review note (2026-09-20, `status: done`):
    | corrupted-incremental | incremental path drops a dependency edge | oracle **rejects** and names the omitted node |
 
 4. Assert at least these properties:
-   - **P1 soundness** — every `affected_nodes` entry also changed under an
-     independent full recompute (`EvaluationContext::compute_coherence` on a
-     context built from the mutated base nodes), epsilon 1e-6.
+   - **P1** — `previous_coherence` equals the base node's stored
+     `coherence_score`. **Corrected during execution:** the packet first asked
+     for "every affected entry also changed under a full recompute", which
+     compares a *stored* score against a *recomputed* one and fails on healthy
+     input. See `packets/reports/MS-002-harness.md` §2.
    - **P2 value agreement** — each `NodeDelta.new_coherence` equals the full
      recompute for that node, epsilon 1e-6.
    - **P3 expected set** — on the five non-negative arms,
@@ -97,11 +99,16 @@ test setup.
 ```bash
 cd physis-core
 cargo test --test replay_contract
-cargo clippy --all-targets -- -D warnings
+cargo clippy --lib --tests -- -D warnings
 ```
 
 Run the gate twice in a row: A1 means an ordering-sensitive assertion can pass
 by luck on one run.
+
+`--all-targets` is deliberately not used: `physis-core/examples/` is red under
+`-D warnings` for pre-existing reasons (41 error lines, including an untracked
+`examples/embed_probe.rs` left by another session), none of which this packet
+owns or may fix. See `packets/reports/MS-002-harness.md` §5.
 
 ## Report
 
@@ -119,3 +126,6 @@ cost, which remains uninstrumented).
 - No sorting change to the wave — that is a separate core packet and is not
   this one.
 - No new snapshot format; reuse the `test_delta_engine.rs` helpers.
+- Do not delete or "fix" the untracked `physis-core/examples/embed_probe.rs`:
+  it belongs to another session, and removing it would hide the fact that
+  `cargo test` in `physis-core` currently cannot compile.

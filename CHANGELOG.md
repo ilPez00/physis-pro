@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ed8dc29` and `54b8a8d`, amendment A1 confirmed binding, the
   zero-production-caller and zero-instrumentation claims confirmed. Its
   runnable mutation matrix was deferred by the report and is now carried by a
-  new packet, **`MS-002-harness`** (`todo`), which names the oracle semantics,
+  new packet, **`MS-002-harness`** (`review`), which names the oracle semantics,
   six mutation arms and properties P1–P5.
 - **MS-003 returned to `todo`** after independent review. Its report describes
   the `Transform::apply` acceptance gate wrongly (it names

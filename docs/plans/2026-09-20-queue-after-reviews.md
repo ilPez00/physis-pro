@@ -30,7 +30,7 @@ caveat is a fact with a date on it.
 | PH-004 semantic self-test | `claimed`, gate filter matched **zero** tests and exited 0 | **`review`** — filter now matches two; real-weights skip asserts its own precondition; CLI exit code pinned | `packets/reports/PH-004.md`; commit `5e074ce` |
 | MS-002 mutation replay | `review` | **`done`** — accepted report-only; citations re-checked at `ed8dc29` and `54b8a8d` | `packets/reports/MS-002.md` §Verification note; commit `59f50d7` |
 | MS-003 relation survival | `review` | **`todo`** — returned: gate described wrongly, PH-051 misquoted | `packets/reports/MS-003.md` §Verification note; commit `d893d3d` |
-| MS-002-harness | did not exist | **`todo`** — new packet carrying the runnable oracle MS-002 deferred | `packets/MS-002-harness.md` |
+| MS-002-harness | did not exist | **`review`** — built the same day: 7 arms green, gate run twice, negative arm proven to fail | `packets/reports/MS-002-harness.md` |
 
 The MS-003 return is the pass that earned its keep: a survey's line citations
 had drifted by one or two lines in three places (harmless), but its headline
@@ -57,11 +57,13 @@ to a report-only packet, and no packet currently owns it.
 
 ## 3. Eligible now, in order (re-measured after §1b)
 
-1. **MS-002-harness** — the runnable mutation matrix MS-002 deferred:
-   `physis-core/tests/replay_contract.rs`, six arms, properties P1–P5, and the
-   oracle-semantics decision (the wave's depth/impact cutoffs make a full
-   recompute a superset, so equality is the wrong oracle). MS-004–MS-008 rest
-   on it.
+1. **MS-002-harness review** — built (`physis-core/tests/replay_contract.rs`,
+   7 arms green, gate run twice, the negative arm proven to fail). Needs an
+   independent re-run before it can be `done`. Two corrections came out of the
+   build: the oracle cannot be "affected == changed" (the wave's cutoffs and
+   `compute_coherence`'s global scan make a full recompute a superset), and the
+   packet's P1 compared a stored score against a recomputed one. MS-004–MS-008
+   rest on this oracle.
 2. **MS-003 corrections** — four citation fixes to the existing report; no
    re-execution. Then MS-003 can go to `review` again, which unblocks MS-005.
 3. **PH-023** — local NLI cross-encoder as the contradiction discriminator.

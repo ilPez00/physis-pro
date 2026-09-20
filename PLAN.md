@@ -979,8 +979,9 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > at both `ed8dc29` and `54b8a8d`, A1 confirmed binding, zero-production-caller
 > and zero-instrumentation claims confirmed). The report's deferral of the
 > runnable mutation matrix is accepted under §Checks' report-only clause, and
-> the criterion is carried by new packet **`MS-002-harness`** (`todo`), which
-> names the oracle semantics, the six arms and the P1–P5 properties.
+> the criterion is carried by new packet **`MS-002-harness`** — built the same
+> day and now `review`: `physis-core/tests/replay_contract.rs`, 7 arms green,
+> gate run twice, the negative arm proven to fail.
 > **MS-003 returned to `todo`** — its report's acceptance-gate claim (wrong
 > dimension names, only two hard-required) and its PH-051 citation (4/5
 > transferred, not 0/5) are wrong; four citation fixes required, no
@@ -3545,7 +3546,8 @@ not automatic permission to modify production.
 > `done`: citations re-checked at both `ed8dc29` and `54b8a8d`, A1 confirmed
 > binding, zero-production-caller and zero-instrumentation claims confirmed.
 > The runnable mutation matrix it left undelivered is carried by new packet
-> **`MS-002-harness`** (`todo`). MS-003 was reviewed and **returned to `todo`**:
+> **`MS-002-harness`** (`review` — built, 7 arms green, gate run twice). MS-003
+> was reviewed and **returned to `todo`**:
 > its report describes the acceptance gate wrongly (it names
 > Counterfactual/Substitution/Analogical; `transform.rs:633-639` sets
 > logical/empirical/temporal/causal/procedural and hard-requires only logical
@@ -4025,7 +4027,7 @@ evidence until reviewer verifies content + ownership.
 | group | paths | standing |
 |---|---|---|
 | orchestration harness (opt-in, human-supervised) | `.opencode/commands/orchestrate.md`, `.opencode/orchestration.json`, `.opencode/plugins/orchestration.js`, `.opencode/skills/physis-inspect/SKILL.md`, `clients/opencode-orchestration/` (README, roles/router/router.test/smoke), `logs/auto_update.log` | headers only; Astra advertised-but-rejected, live runs bounded; out of all slice gates |
-| MS packets | `packets/MS-002`…`MS-008` | MS-001 **done** (reviewed 2026-09-20, amendment A1); MS-002 **done** (reviewed 2026-09-20, report-only accepted); `MS-002-harness` `todo` carries the runnable oracle MS-002 deferred; MS-003 **returned to `todo`** (two wrong claims in its report); MS-004–008 blocked behind their dependencies. No worker launched by this document |
+| MS packets | `packets/MS-002`…`MS-008` | MS-001 **done** (reviewed 2026-09-20, amendment A1); MS-002 **done** (reviewed 2026-09-20, report-only accepted); `MS-002-harness` **`review`** (7 arms green) carries the runnable oracle MS-002 deferred; MS-003 **returned to `todo`** (two wrong claims in its report); MS-004–008 blocked behind their dependencies. No worker launched by this document |
 | research | `research/E91_ARCHAEOLOGY.md`, `research/E91_CONCEPT_MAP.md`, `research/QUANTITATIVE_EVENT_STREAMS.md` (Q1–Q8 PROPOSED/NOT MEASURED), `research/criticality/run.py` + `results.json` (invalid draft, never baseline) | E91-A/B citable as audits; QES authorizes nothing; criticality draft is non-evidence |
 | nav/HUD slice (W2-owned) | `src/nav/mod.rs`, `src/nav/workspace.rs`, `src/bin/hud.rs`, `tests/world_edges.rs`, `docs/SEMANTIC_NAVIGATION.md`, `scripts/physis-update.sh` | W2.1 (`relation_id`, `relation_kind_to_core` + 2 tests) + W2.2 (`relate_selection`, `s`/`d`/`R`) present per grep; targeted tests not yet run |
 
