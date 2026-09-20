@@ -2,7 +2,7 @@
 id: PH-004
 track: physis
 phase: 0
-status: review
+status: done
 claimed_by: opencode
 claimed_at: 2026-09-20
 rung: 3
