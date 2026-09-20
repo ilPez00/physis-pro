@@ -66,11 +66,28 @@ convention.
 
 **Claim boundary — that table is the PRE-REWORK axis.** Every number in it was
 measured on the fourteen-mode axis that existed on 2026-09-14. It is the
-*evidence for* the rework below, not a measurement of it. The nine-mode axis is
-**not yet measured**: its self-recovery, its per-class nulls and its cell
-disputes are all unknown until the same 731 entries are put through the same
-permutation null again. Do not quote 0.416 / 0.585 / 0.472 as properties of the
-current grid.
+*evidence for* the rework below, not a measurement of it. Do not quote
+0.416 / 0.585 / 0.472 as properties of the current grid.
+
+**The reworked axis, measured 2026-09-20** (`experiment66_axis_fitness`,
+bge-base-en-v1.5, 706 ontology entries, 200 permutations):
+
+| axis | classes | fitness | null | normalised | was (pre-rework) |
+|---|---|---|---|---|---|
+| DOMAIN/MODE | 45 | 0.476 | 0.064 | **0.440** | 0.416 at 70 classes |
+| DOMAIN only | 5 | 0.639 | 0.210 | **0.543** | 0.585 |
+| MODE only | 9 | 0.613 | 0.218 | **0.505** | 0.472 at 14 classes |
+
+**The rework improved both axes it touched and the joint cell:** mode 0.472 →
+**0.505**, cell 0.416 → **0.440**, and the failing-class count collapsed — **0 of
+9 modes fail** their own null where 6 of 14 did, and 1 of 45 cells where 8 of 70
+did. That was the rework's whole claim (a mode that owns nothing is a word the
+corpus has no use for) and it now holds by measurement.
+
+Domain reads 0.543 against the earlier 0.585. That is a **different entry set**
+(706 against 731, after 607 entries were relabelled), so the two are not strictly
+comparable; the domain axis was not reworked and its 5-of-5 clearance is
+unchanged. Re-running the pre-rework axis on today's entries would settle it.
 
 **The rework (2026-09-19), from that evidence.** D2a measured every mode against
 WordNet's verb supersenses. Acting on it, the mode axis is nine modes:
