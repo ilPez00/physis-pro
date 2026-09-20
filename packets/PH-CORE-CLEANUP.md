@@ -1,11 +1,13 @@
 ---
 id: PH-CORE-CLEANUP
 title: delete dead artifacts named by PLANNING 2c
-status: review
+status: done
 phase: 1
 depends: [PH-CORE-DOCS]
 claimed_by: opencode
 claimed_at: 2026-09-20
+reviewed_by: opencode
+reviewed_at: 2026-09-20
 ---
 
 # PH-CORE-CLEANUP
