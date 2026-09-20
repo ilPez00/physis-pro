@@ -19,14 +19,22 @@ Physis Pro extends the core engine with **industrial backoffice intelligence**:
 
 ## Development Workflow
 
-Current product sequencing: `docs/plans/2026-09-19-impossible-computer.md`.
-Scope: agent-native semantic world — agents as first-class objects, `@agent`
+Current product sequencing: `docs/plans/2026-09-20-queue-after-reviews.md`
+(packet-queue state after the 2026-09-20 review pass). Scope: agent-native
+semantic world — agents as first-class objects, `@agent`
 calls from the magic textbox, visible task graphs, crystallization of agent
 output, semantic zoom, offline-first operation. This supersedes the sequencing
 and UI-expansion priority of `docs/plans/2026-09-18-agentic-workspace.md`, which
 retains its market, packaging, Settings memory/primitives editor and P0–P5
 gates. Same-day Studio and crystallization plans retain historical designs.
 Planned acceptance gates are not shipped capabilities.
+
+**Work packets:** the board is `packets/` — `PROTOCOL.md` is how to execute one
+(claim → gate → report → commit), `README.md` holds the repo red lines, and
+each `packets/*.md` frontmatter is that packet's authoritative status
+(`grep -rH '^status:' packets/*.md`). Board-level status is re-measured
+periodically in `PLAN.md` (search "Status was re-measured"); the newest dated
+note there wins over any older prose in any document.
 All development happens via randomesh ssh connection on machine pansa (192.168.1.15).
 Use `ssh pansa-ts` to connect. All code changes, builds, and tests are performed
 on the pansa machine through the randomesh framework.
@@ -303,6 +311,16 @@ Dev note: rebuilding with a custom vendor key needs
 - New extractor functions: `extract_ocr()` (Tesseract), `extract_spreadsheet()` (calamine), `extract_video_metadata()` (ffprobe)
 - Feature gates: `ocr` (tesseract), `audio` (Whisper API), `ingest` (calamine for spreadsheets)
 - `extract_doc()` dispatches to the correct extractor based on `DocKind`
+- **A text file is never ingested with an empty body.** `classify_file` decides
+  `DocKind` from the filename; when it is wrong, the kinded extractor used to
+  return `""` silently. That is how `office/invoices.md` (substring "voice")
+  vanished from the content index and made a one-file search look like a
+  concurrency flake (PH-015). Two rules now hold: the voice heuristic matches
+  whole tokens (`f383789`), and the feature-gated `VoiceTranscript` arm returns
+  empty **only** for real audio extensions — any other path gets its bytes
+  back. Test: `ingest::tests::misclassified_text_file_keeps_its_body_ph015`.
+  When adding a kind, keep the same property: a wrong `DocKind` may cost
+  metadata, never the document's text.
 
 ### Fragment Citation & Instance Listing
 - `CoherenceNode` now carries an optional `template: Option<DocumentTemplate>` field

@@ -22,5 +22,18 @@ Suggested order = phase, then id. Phase meanings: 0 = now, 1 = next quarter,
 ## Multiscale structure research
 
 See [PLAN.md Phase 27](../PLAN.md#phase-27--measured-structure-of-change-2026-09-17).
-MS-001 is the only initially eligible packet; MS-002–MS-008 are dependency-blocked.
-Packets are prepared, not dispatched. Existing operational correctness work takes priority.
+Standing as of **2026-09-20**: MS-001 is **done** (independently reviewed
+2026-09-20, accepted with **amendment A1** — see below). MS-002 and MS-003 are
+released to `todo` and may now run in parallel in isolated workspaces; MS-004
+through MS-008 remain dependency-blocked. Packets are prepared, not dispatched.
+Existing operational correctness work takes priority.
+
+**A1 — binding on MS-002/MS-003.** The MS-001 report called
+`evaluate_mutation` "deterministic given base nodes/hypotheses/edges +
+mutation". Values yes, order no: `EvaluationContext::find_neighbors`
+(`physis-core/src/delta_engine.rs:252-298`) returns HashSet iteration order with
+no sort, so the DFS wave's `OntologyDeltaReport.node_deltas` order — and
+`net_coherence_delta`'s float summation order — is unspecified. Compare
+`node_deltas` as a set sorted by `node_id`, and floats to epsilon 1e-6, never
+bit-exact or positionally. Evidence in
+[`reports/MS-001.md`](reports/MS-001.md) §"Verification note (2026-09-20)".

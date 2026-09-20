@@ -7,6 +7,43 @@ push tag. Every merge to main stays releasable; tags never move.
 All notable changes to physis-pro are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+- Ingest no longer loses a text file's body to a misclassification (PH-015).
+  `office/invoices.md` matched the voice-file heuristic on the substring
+  "voice", was routed to the audio-transcript stub, and ingested with an
+  **empty body** — so a `bearing` search matched one file instead of two. The
+  heuristic has matched whole tokens since `f383789`; the extractor now also
+  refuses to return an empty body for a non-audio path, which turns any future
+  misclassification into a wrong-*kind* bug instead of a silent-loss bug.
+  Test: `ingest::tests::misclassified_text_file_keeps_its_body_ph015`.
+
+### Changed
+- `.env.example` documents `PHYSIS_LOG` — the only log-level variable any code
+  reads. It had been absent since the tracked `.env` was purged, so a fresh
+  deployer could not discover it (PH-001).
+- `default` features: **no change made**, but the `mcp` question is now
+  measured rather than assumed — +35.9 MiB (486,490,640 → 524,115,912 B) and
+  +31 s per incremental build, gating only the legacy `serve` listener while
+  the MCP surface in use (`system serve`) ships in the default build.
+  Recommendation on record in `packets/reports/PH-001.md`; the decision is
+  PH-006's input and stays human.
+
+### Documentation
+- `packets/reports/PH-001.md` — the PH-001 report, written nine days after the
+  claim (the packet had been left `claimed` with its work committed).
+- `packets/reports/MS-001.md` §"Verification note (2026-09-20)" — reviewer
+  pass with **amendment A1**: `OntologyDeltaReport.node_deltas` order and
+  `net_coherence_delta`'s float summation order are unspecified, because
+  `find_neighbors` returns HashSet iteration order. Compare as a sorted set,
+  floats to epsilon 1e-6.
+- `packets/reports/PH-021.md`, `PH-022.md` — reviewer passes; both gates hold
+  in full (the two `notebook.rs` clippy errors they cited are gone).
+- `packets/README.md`, `PLAN.md`, `AGENTS.md` — packet board state re-measured
+  2026-09-20; MS-001 done, MS-002/003 released, PH-023 released, PH-015 and
+  PH-001 in review.
+
 ## [0.1.21] - 2026-09-19
 
 ### Added
@@ -43,7 +80,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Decimal-number dead branch (PH-022, verified by gate recheck).
-- `PHICS_LOG_LEVEL` typo → `PHYSIS_LOG_LEVEL` (PH-001).
+- Log level was unconfigurable: the server reads `PHYSIS_LOG` (EnvFilter), and
+  the repo named neither that variable nor the right one — the deployment docs
+  said `PHYSIS_LOG_LEVEL` and `.env` had a `PHICS_LOG_LEVEL` typo, so setting
+  the level did nothing. Both docs now name `PHYSIS_LOG` (PH-001).
 - Shell history import tolerates non-UTF-8 bytes (lossy read).
 - UTF-8-safe truncation in all history parsers (byte-slice panic).
 

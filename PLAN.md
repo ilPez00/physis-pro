@@ -942,6 +942,7 @@ Status was re-measured 2026-09-11 on `research/perspective-invention`:
 
 Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 (eats the known test flake that otherwise poisons every full gate).
+*(Superseded — all four have moved since; see the dated notes below.)*
 
 > Re-measured 2026-09-19 (PH-011 sweep; the 2026-09-11 rows above are history,
 > not rewritten): PH-002 done, PH-003 done, PH-005 done, PH-006 blocked
@@ -950,6 +951,18 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > progress, PH-014 done, PH-016 done, PH-017–PH-020 done, PH-021 review,
 > PH-022 review, PH-023 todo (gate unmet, no local NLI server). Next in
 > queue: PH-011 → PH-012 → PH-013 → PH-015.
+>
+> Re-measured 2026-09-20 (the 2026-09-11 table and the 2026-09-19 note above are
+> history, not rewritten): **PH-001 review** (report written — it had sat
+> `claimed` nine days with the work committed and unreported), **PH-015
+> review** (root-caused: not a flake — a misclassified `invoices.md` ingested
+> with an empty body, fixed in `f383789`, guarded and tested 2026-09-20),
+> **PH-021 done**, **PH-022 done** (both gates hold in full; the two
+> `notebook.rs` clippy errors they cited are gone), **PH-023 released**
+> (depends PH-021), **MS-001 done** after independent review with amendment
+> A1, **MS-002/MS-003 released**. Still blocked: PH-006 (waits the human
+> features decision), MS-004–MS-008. Still claimed: PH-004. Next eligible:
+> MS-002 / MS-003 / PH-023, then PH-013, then the recurring PH-011 sweep.
 
 ## Plan Index & Reconciled Status
 
@@ -1176,11 +1189,21 @@ Re-measured 2026-09-11 (packet PH-001); all three items below have moved:
   `PHYSIS_LOG_LEVEL` — the web server reads `PHYSIS_LOG` (EnvFilter syntax).
   `.env` (had the `PHICS_LOG_LEVEL` typo) and `DEPLOYMENT_OMO_PANSA.md` now
   both name `PHYSIS_LOG`; the filter contract is pinned by unit tests
-  (`log_filter_from_env`). Note `.env` is untracked, so only the docs change
-  is committed.
-- ⬜ Features: premise is stale — `embed-onnx` **is** in `default` now
-  (Cargo.toml); only `mcp` remains excluded. Consequence report and the
-  decision live in `packets/reports/PH-001.md` (feeds PH-006).
+  (`log_filter_from_env`). The old `.env` was later purged (it had been
+  committed with a live key) and is gitignored, which left the variable
+  undocumented for a fresh deployer; **closed 2026-09-20** — `.env.example`
+  now carries `PHYSIS_LOG=info` with the trap named, and the comment there
+  deliberately does not reproduce the typo token, because PH-001's own gate
+  is `! grep -rn 'PHICS_LOG_LEVEL' .env*`.
+- ⬜ Features — **measured 2026-09-20, decision still open (rung 5)**: the
+  premise is stale — `embed-onnx` **is** in `default`; only `mcp` is out.
+  Adding `mcp` costs +37,625,272 B on the debug binary (486,490,640 →
+  524,115,912; +35.9 MiB, +7.7%) and +31 s on an incremental build, and what
+  it gates is the legacy `serve` listener plus five web sites — the MCP
+  surface this fleet actually uses, `system serve`, ships in the default
+  build and answers an `initialize` handshake. Recommendation: keep `mcp` out
+  of `default`. Analysis and commands in `packets/reports/PH-001.md`; this is
+  PH-006's blocked input and only a human marks it decided.
 
 ### H11 — Scope discipline
 
@@ -3488,6 +3511,14 @@ MS-006 is observational, not a prerequisite for the scientific usefulness of
 MS-005. MS-007 requires real task outcomes. MS-008 is a conditional review,
 not automatic permission to modify production.
 
+> **Updated 2026-09-20.** MS-001 was reviewed independently and is `done`
+> (`packets/reports/MS-001.md`, §"Verification note (2026-09-20)"; main
+> `e466d4e`, core `ed8dc29`). MS-002 and MS-003 are released to `todo` with
+> **amendment A1** attached to both packets: `node_deltas` must be compared as
+> a set sorted by `node_id` and floats to epsilon 1e-6, because the DFS wave's
+> neighbour order is HashSet-derived and unspecified (`delta_engine.rs:297`).
+> MS-004–MS-008 stay blocked behind their dependencies as listed.
+
 The user's second E65–E70 sequence maps to MS-002/MS-004/MS-006 (critical
 structure), MS-003 (linguistic scales and relation families), MS-005 (spine and
 incremental avalanches), and MS-007 (routing). Existing E65–E70 research IDs
@@ -3960,7 +3991,7 @@ evidence until reviewer verifies content + ownership.
 | group | paths | standing |
 |---|---|---|
 | orchestration harness (opt-in, human-supervised) | `.opencode/commands/orchestrate.md`, `.opencode/orchestration.json`, `.opencode/plugins/orchestration.js`, `.opencode/skills/physis-inspect/SKILL.md`, `clients/opencode-orchestration/` (README, roles/router/router.test/smoke), `logs/auto_update.log` | headers only; Astra advertised-but-rejected, live runs bounded; out of all slice gates |
-| MS packets (prepared, blocked) | `packets/MS-002`…`MS-008` | prepared-only; MS-002/003 wait MS-001 review, rest chained; no worker launched |
+| MS packets | `packets/MS-002`…`MS-008` | MS-001 **done** (reviewed 2026-09-20, amendment A1); MS-002/003 `todo` and released in parallel; MS-004–008 blocked behind their dependencies. No worker launched by this document |
 | research | `research/E91_ARCHAEOLOGY.md`, `research/E91_CONCEPT_MAP.md`, `research/QUANTITATIVE_EVENT_STREAMS.md` (Q1–Q8 PROPOSED/NOT MEASURED), `research/criticality/run.py` + `results.json` (invalid draft, never baseline) | E91-A/B citable as audits; QES authorizes nothing; criticality draft is non-evidence |
 | nav/HUD slice (W2-owned) | `src/nav/mod.rs`, `src/nav/workspace.rs`, `src/bin/hud.rs`, `tests/world_edges.rs`, `docs/SEMANTIC_NAVIGATION.md`, `scripts/physis-update.sh` | W2.1 (`relation_id`, `relation_kind_to_core` + 2 tests) + W2.2 (`relate_selection`, `s`/`d`/`R`) present per grep; targeted tests not yet run |
 
@@ -4218,4 +4249,3 @@ each needs its own plan entry + reviewer release + frozen
 manifest/splits/seeds/controls/tolerances before holdout. A negative
 completes a research packet; it never promotes. No worker, merge, deploy,
 or promotion follows from a thesis/evaluation section.
-
