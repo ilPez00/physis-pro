@@ -36,6 +36,11 @@ ARMS = {
     # code token quoted inside a snippet cannot count as a retrieval hit.
     "lexical": {"PHYSIS_EMBEDDER": "random-projection", "FIND_MODE": "lexical"},
     "hybrid": {"PHYSIS_EMBEDDER": "", "FIND_MODE": "hybrid"},
+    # E1 (docs/plans/2026-09-19-small-encoders.md): the distilled encoder, so
+    # its hit@5 can be read beside bge-base's. A faster encoder that retrieves
+    # worse is not an improvement, which is why this arm exists before the swap
+    # is believed. Run: python3 benchmarks/retrieval/run.py --arms semantic,bge-small
+    "bge-small": {"PHYSIS_EMBEDDER": "bge-small"},
 }
 
 
