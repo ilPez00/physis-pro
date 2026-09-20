@@ -2,7 +2,7 @@
 id: PH-013
 track: physis
 phase: 2
-status: claimed
+status: review
 claimed_by: agent/PH-013
 claimed_at: 2026-09-20
 rung: 3
