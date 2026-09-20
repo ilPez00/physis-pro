@@ -1,11 +1,13 @@
 ---
 id: PH-CORE-CLASSIFY
 title: ClassifiedSentence.text carries the classified input
-status: review
+status: done
 phase: 1
 depends: [PH-CORE-CLEANUP]
 claimed_by: opencode
 claimed_at: 2026-09-20
+reviewed_by: opencode
+reviewed_at: 2026-09-20
 ---
 
 # PH-CORE-CLASSIFY

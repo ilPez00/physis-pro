@@ -56,3 +56,62 @@ snapshot edit (uncommitted — parent is on another agent's branch `agent/PH-004
   added because there is no cheap way to bind text to a vector.
 - **No downstream caller exists yet**, so the value of the field is only proven
   by the unit test, not by an integration path.
+
+---
+
+## Verification note (2026-09-20, independent reviewer) — ACCEPTED
+
+Reviewer: opencode. Verdict: **accept** (`status: done`). Every claim in this
+report was re-measured at the current submodule revision.
+
+### Revisions
+
+| | report time | review time |
+|---|---|---|
+| `physis-core` | `30cde1a` | `5728a32` (descends from `30cde1a`) |
+| parent | `7840593` | `d46ffb4` |
+
+### Reproduction (all rerun)
+
+```
+cargo test --lib classify
+  test result: ok. 10 passed; 0 failed
+  (metadata_classification_keeps_the_input_text among them)
+
+cargo test --lib
+  test result: ok. 233 passed; 0 failed
+
+cargo clippy --lib -- -D warnings
+  Finished — clean
+
+cargo test --test api_stability          (parent)
+  test core_public_api_matches_snapshot ... ok
+```
+
+### Claims confirmed
+
+- **The constant is gone.** `classify.rs:488` now stores
+  `text: text.to_string()`; the `// TODO` the report cites is not present.
+- **The signature is the blessed one.** `classify.rs:468-474` is
+  `classify_with_metadata(&self, text: &str, embedding, metadata, filter)`, and
+  `tests/snapshots/physis_core_api.txt:155` matches it exactly. The snapshot
+  edit the report left uncommitted is committed (`7840593`), so the parent tree
+  is consistent.
+- **The test asserts both halves.** `metadata_classification_keeps_the_input_text`
+  checks `sentence.text == "spindle bearing seizure"` *and* that the cell is
+  still the top match `("A", "X")` — so a future change that fixes `text` by
+  breaking classification fails here.
+- **No production caller was broken.** `grep -rn classify_with_metadata` over
+  `src/`, `tests/`, `examples/` and the parent tree finds the definition, the
+  snapshot line, and one call — the new inline test at `classify.rs:730`.
+  The report's "zero callers" reads as "zero callers before this change"; that
+  is true, and the one caller that exists now is the test this packet added.
+
+### On the report's own caveat
+
+The report flags that `text` is not validated against `embedding`. Agreed and
+correctly left alone: binding text to a vector is not checkable cheaply, every
+other `embedding: &[f32]` entry point in this crate has the same contract, and
+adding a check here would invent an invariant the rest of the crate does not
+hold. The field is now honest for callers that respect the contract, which is
+strictly better than a constant that lied to all of them.
