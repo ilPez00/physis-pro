@@ -1242,8 +1242,8 @@ impl App {
         self.status = "execute dry-run shown (not run)".into();
     }
 
-    /// `ctrl-X` — bounded real execution: one `cargo test -- <target>` step
-    /// with live precondition recheck + intent-before/result-after logging
+    /// `ctrl-X` — bounded real execution: one `cargo test` step with live
+    /// precondition recheck + intent-before/result-after logging
     /// into the workspace transition log. Single step, registered argv only.
     fn run_execute_bounded(&mut self) {
         let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());

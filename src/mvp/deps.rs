@@ -325,9 +325,11 @@ pub fn execute_dry_text(root: &Path, bound: &[BoundObject]) -> String {
     let mut o = String::new();
     o.push_str("── EXECUTE (dry — not run) ──\n");
     o.push_str(&format!("repo: {}\n", root.display()));
-    let target = bound.first().map(|b| b.path.as_str()).unwrap_or(".");
-    o.push_str(&format!("argv: [\"cargo\", \"test\", \"--\", \"{target}\"]\n"));
-    o.push_str("env policy: inherit PATH/HOME only; no network; no writes outside repo\n");
+    let target = bound.first().map(|b| b.path.as_str()).unwrap_or("(none)");
+    o.push_str(&format!(
+        "capability: repo.test v1 · bound: {target}\n"
+    ));
+    o.push_str("argv: [\"cargo\", \"test\"] · cwd: repo root · env: PATH/HOME only\n");
     o.push_str("mode: dry_run — no process spawned, no log appended\n");
     o
 }
@@ -338,13 +340,14 @@ pub fn execute_dry_text(root: &Path, bound: &[BoundObject]) -> String {
 /// 1. Requires exactly one bound object + `repo.build`/`repo.test` typed
 ///    preconditions rechecked live (exists + revision_equals against the
 ///    current index hash — stale revision refuses).
-/// 2. Appends `step.intent` BEFORE spawn (TransitionLog::record with
-///    outcome pending), spawns `cargo test -- <target>` with the repo as
+/// 2. Appends `step.intent` BEFORE spawn, spawns `cargo test` with the repo as
 ///    cwd and a minimal env (PATH/HOME only), captures exit + tail.
 /// 3. Appends `step.result` AFTER (exit code, latency, affected dependents
 ///    as observed delta), returns human-readable transcript.
 ///
-/// Only `cargo test` with a registered argv template. No shell, no network,
+/// Registered argv only: `cargo test` — the bound path is a capability
+/// binding, never a test-name filter (`cargo test -- path` would treat
+/// `path` as a filter string, not a target). No shell, no network,
 /// no writes outside the repo. Refusal is text, never silent.
 pub fn execute_bounded_step(
     root: &Path,
@@ -367,11 +370,9 @@ pub fn execute_bounded_step(
     }
     let mut o = String::new();
     o.push_str("── EXECUTE (bounded — one step, logged) ──\n");
-    o.push_str(&format!("capability: repo.test v1 · target: {}\n", target.path));
     o.push_str(&format!(
-        "argv: [\"cargo\", \"test\", \"--\", \"{}\"] · cwd: {} · env: PATH/HOME only\n",
-        target.path,
-        root.display()
+        "capability: repo.test v1 · bound: {} · argv: [\"cargo\", \"test\"] · cwd: {} · env: PATH/HOME only\n",
+        target.path, root.display()
     ));
     let before = crate::mvp::log::StateRef {
         content_hash: target.revision.clone(),
