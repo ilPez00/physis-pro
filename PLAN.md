@@ -980,8 +980,11 @@ Next up after PH-001: **PH-002 → PH-003 → PH-004** (phase 0), then PH-015
 > and zero-instrumentation claims confirmed). The report's deferral of the
 > runnable mutation matrix is accepted under §Checks' report-only clause, and
 > the criterion is carried by new packet **`MS-002-harness`** (`todo`), which
-> names the oracle semantics, the six arms and the P1–P5 properties. MS-003 is
-> still `review`.
+> names the oracle semantics, the six arms and the P1–P5 properties.
+> **MS-003 returned to `todo`** — its report's acceptance-gate claim (wrong
+> dimension names, only two hard-required) and its PH-051 citation (4/5
+> transferred, not 0/5) are wrong; four citation fixes required, no
+> re-execution.
 
 ## Plan Index & Reconciled Status
 

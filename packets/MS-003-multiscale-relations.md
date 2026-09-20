@@ -2,13 +2,20 @@
 id: MS-003
 track: multiscale-structure
 phase: 1
-status: review
+status: todo
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-003.md"
 claimed_by: agent/MS-003
 claimed_at: 2026-09-20
+reviewed_by: opencode
+reviewed_at: 2026-09-20
 ---
+
+> **Reviewer note 2026-09-20:** returned to `todo`. The report's gate claim and
+> its PH-051 citation are wrong (see `packets/reports/MS-003.md` §Verification
+> note). Four citation corrections are required; no re-execution needed.
+
 
 > **Released 2026-09-20** by the MS-001 reviewer pass (MS-001 now `done`).
 > Amendment A1 (`packets/reports/MS-001.md` §Verification note 2026-09-20)
