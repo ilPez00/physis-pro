@@ -1338,6 +1338,108 @@ impl OntologyLoader {
     }
 }
 
+/// One editable knob in the TUI panels.
+///
+/// `physis-pro-tui`, Studio's CONFIG tab and `physis-hud` all render this same
+/// table. Before it existed the same five knobs were spelled out three times
+/// (once in `bin/tui.rs`, once in `bin/studio.rs`, and the HUD would have been
+/// the third), which is exactly how one panel starts disagreeing with the CLI
+/// about what "the config" is. The floor/ceiling and the step live here too, so
+/// a knob cannot be stepped below its floor by one front end and not another.
+pub struct ConfigKnob {
+    /// The field name as it appears in `config.json`.
+    pub key: &'static str,
+    /// Decimal places in the display form (0 = integer knob).
+    decimals: usize,
+    /// Smallest value the knob may hold.
+    min: f64,
+    /// Largest value the knob may hold.
+    max: f64,
+    /// How far one `+`/`-` moves it.
+    step: f64,
+    value: fn(&PhysisConfig) -> f64,
+    store: fn(&mut PhysisConfig, f64),
+}
+
+impl ConfigKnob {
+    /// The knob's current value, read from the config it belongs to.
+    pub fn value(&self, cfg: &PhysisConfig) -> f64 {
+        (self.value)(cfg)
+    }
+
+    /// Clamp into `[min, max]`, round to the knob's own precision, store, and
+    /// return what was stored — the number a panel must print.
+    pub fn set(&self, cfg: &mut PhysisConfig, raw: f64) -> f64 {
+        let scale = 10f64.powi(self.decimals as i32);
+        let rounded = (raw.clamp(self.min, self.max) * scale).round() / scale;
+        (self.store)(cfg, rounded);
+        rounded
+    }
+
+    /// One `+`/`-` press. Returns the value that is now stored.
+    pub fn bump(&self, cfg: &mut PhysisConfig, up: bool) -> f64 {
+        let delta = if up { self.step } else { -self.step };
+        self.set(cfg, self.value(cfg) + delta)
+    }
+
+    /// The panel form, at the knob's own precision (`0.20`, not `0.200000002`).
+    pub fn display(&self, cfg: &PhysisConfig) -> String {
+        match self.decimals {
+            0 => format!("{}", self.value(cfg) as i64),
+            n => format!("{:.*}", n, self.value(cfg)),
+        }
+    }
+}
+
+/// The five knobs, in panel order. Keys match `config.json` verbatim.
+pub const CONFIG_KNOBS: [ConfigKnob; 5] = [
+    ConfigKnob {
+        key: "network_scan_interval_secs",
+        decimals: 0,
+        min: 1.0,
+        max: f64::INFINITY,
+        step: 5.0,
+        value: |c| c.network_scan_interval_secs as f64,
+        store: |c, v| c.network_scan_interval_secs = v as u64,
+    },
+    ConfigKnob {
+        key: "dream_batch_size",
+        decimals: 0,
+        min: 1.0,
+        max: f64::INFINITY,
+        step: 1.0,
+        value: |c| c.dream_batch_size as f64,
+        store: |c, v| c.dream_batch_size = v as usize,
+    },
+    ConfigKnob {
+        key: "pdca_stagnant_threshold",
+        decimals: 2,
+        min: 0.0,
+        max: 1.0,
+        step: 0.05,
+        value: |c| c.pdca_stagnant_threshold as f64,
+        store: |c, v| c.pdca_stagnant_threshold = v as f32,
+    },
+    ConfigKnob {
+        key: "pdca_stagnant_window",
+        decimals: 0,
+        min: 1.0,
+        max: f64::INFINITY,
+        step: 1.0,
+        value: |c| c.pdca_stagnant_window as f64,
+        store: |c, v| c.pdca_stagnant_window = v as usize,
+    },
+    ConfigKnob {
+        key: "embed_dim",
+        decimals: 0,
+        min: 64.0,
+        max: f64::INFINITY,
+        step: 64.0,
+        value: |c| c.embed_dim as f64,
+        store: |c, v| c.embed_dim = v as usize,
+    },
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1894,6 +1996,69 @@ mod tests {
             "config/ has a second copy of registry ontologies: {dupes:?} — the \
              corpus lives in physis-core/config and is reached through \
              ONTOLOGY_SOURCES",
+        );
+    }
+
+    /// The panels render this one table, so a step must move the knob it names,
+    /// respect that knob's floor/ceiling, and leave every neighbour alone.
+    #[test]
+    fn config_knobs_step_their_own_field_and_hold_their_bounds() {
+        let mut cfg = PhysisConfig::default();
+
+        let scan = cfg.network_scan_interval_secs;
+        assert_eq!(CONFIG_KNOBS[0].bump(&mut cfg, true), scan as f64 + 5.0);
+        assert_eq!(cfg.network_scan_interval_secs, scan + 5);
+        // Floor: one step down from 5 lands on 1, never 0 or negative.
+        let mut floor_cfg = PhysisConfig {
+            network_scan_interval_secs: 5,
+            ..PhysisConfig::default()
+        };
+        assert_eq!(CONFIG_KNOBS[0].bump(&mut floor_cfg, false), 1.0);
+        assert_eq!(floor_cfg.network_scan_interval_secs, 1);
+
+        // Ceiling: the PDCA threshold is a ratio and stops at 1.00.
+        let mut ratio = PhysisConfig::default();
+        CONFIG_KNOBS[2].set(&mut ratio, 0.99);
+        assert_eq!(CONFIG_KNOBS[2].bump(&mut ratio, true), 1.0);
+        assert_eq!(CONFIG_KNOBS[2].display(&ratio), "1.00");
+        CONFIG_KNOBS[2].set(&mut ratio, -3.0);
+        assert_eq!(ratio.pdca_stagnant_threshold, 0.0);
+
+        // Precision: the threshold prints two places, the counters none.
+        assert_eq!(CONFIG_KNOBS[1].display(&cfg), cfg.dream_batch_size.to_string());
+        assert_eq!(CONFIG_KNOBS[3].display(&cfg), cfg.pdca_stagnant_window.to_string());
+
+        // Isolation: stepping embed_dim (floor 64, step 64) touches nothing else.
+        let before = (
+            cfg.network_scan_interval_secs,
+            cfg.dream_batch_size,
+            cfg.pdca_stagnant_window,
+        );
+        let dim = cfg.embed_dim;
+        assert_eq!(CONFIG_KNOBS[4].bump(&mut cfg, true), dim as f64 + 64.0);
+        assert_eq!(
+            (
+                cfg.network_scan_interval_secs,
+                cfg.dream_batch_size,
+                cfg.pdca_stagnant_window
+            ),
+            before
+        );
+        cfg.embed_dim = 64;
+        assert_eq!(CONFIG_KNOBS[4].bump(&mut cfg, false), 64.0);
+
+        // The keys are the config.json field names verbatim — a panel that
+        // prints a knob is printing something `load_effective` understands.
+        let names: Vec<&str> = CONFIG_KNOBS.iter().map(|k| k.key).collect();
+        assert_eq!(
+            names,
+            vec![
+                "network_scan_interval_secs",
+                "dream_batch_size",
+                "pdca_stagnant_threshold",
+                "pdca_stagnant_window",
+                "embed_dim",
+            ]
         );
     }
 }

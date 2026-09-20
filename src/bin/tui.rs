@@ -35,7 +35,7 @@ use ratatui::{
 };
 
 use chrono::{Duration as ChronoDuration, Utc};
-use physis_pro::config::PhysisConfig;
+use physis_pro::config::{PhysisConfig, CONFIG_KNOBS};
 use physis_pro::machines::{chronos, elenchus, harmony, lex, polis, soma, techne};
 
 const TABS: [&str; 4] = ["STATUS", "MACHINES", "CONFIG", "WIKI"];
@@ -49,13 +49,9 @@ const MACHINES: [(&str, &str); 7] = [
     ("harmony", "music — intervals + motifs"),
     ("polis", "social — ties, reciprocity, fading"),
 ];
-const CFG_FIELDS: [&str; 5] = [
-    "network_scan_interval_secs",
-    "dream_batch_size",
-    "pdca_stagnant_threshold",
-    "pdca_stagnant_window",
-    "embed_dim",
-];
+// The editable knobs are `physis_pro::config::CONFIG_KNOBS` — one table for
+// `physis-pro-tui`, Studio CONFIG and physis-hud. The panel-local copy this
+// replaced is how two front ends start disagreeing about "the config".
 
 #[derive(Default)]
 struct EngineStatus {
@@ -245,33 +241,19 @@ fn save_config(cfg: &PhysisConfig) -> std::io::Result<()> {
     std::fs::write(cfg_path(cfg), s)
 }
 
-/// Apply +/- to the selected config field.
+/// Apply +/- to the selected config field — the shared knob table does the
+/// arithmetic and the clamping, so this panel and the HUD cannot drift.
 fn edit_field(cfg: &mut PhysisConfig, field: usize, up: bool) {
-    let s = if up { 1.0 } else { -1.0 };
-    match field {
-        0 => {
-            cfg.network_scan_interval_secs =
-                (cfg.network_scan_interval_secs as i64 + (s * 5.0) as i64).max(1) as u64
-        }
-        1 => cfg.dream_batch_size = (cfg.dream_batch_size as i64 + s as i64).max(1) as usize,
-        2 => cfg.pdca_stagnant_threshold = (cfg.pdca_stagnant_threshold + s * 0.05).clamp(0.0, 1.0),
-        3 => {
-            cfg.pdca_stagnant_window = (cfg.pdca_stagnant_window as i64 + s as i64).max(1) as usize
-        }
-        4 => cfg.embed_dim = (cfg.embed_dim as i64 + (s * 64.0) as i64).max(64) as usize,
-        _ => {}
+    if let Some(knob) = CONFIG_KNOBS.get(field) {
+        knob.bump(cfg, up);
     }
 }
 
 fn cfg_value(cfg: &PhysisConfig, field: usize) -> String {
-    match field {
-        0 => cfg.network_scan_interval_secs.to_string(),
-        1 => cfg.dream_batch_size.to_string(),
-        2 => format!("{:.2}", cfg.pdca_stagnant_threshold),
-        3 => cfg.pdca_stagnant_window.to_string(),
-        4 => cfg.embed_dim.to_string(),
-        _ => String::new(),
-    }
+    CONFIG_KNOBS
+        .get(field)
+        .map(|k| k.display(cfg))
+        .unwrap_or_default()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -918,7 +900,7 @@ fn run<B: ratatui::backend::Backend>(
             KeyCode::BackTab => app.tab = (app.tab + TABS.len() - 1) % TABS.len(),
             KeyCode::Down | KeyCode::Char('j') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + 1) % MACHINES.len(),
-                2 => app.cfg_sel = (app.cfg_sel + 1) % CFG_FIELDS.len(),
+                2 => app.cfg_sel = (app.cfg_sel + 1) % CONFIG_KNOBS.len(),
                 TAB_WIKI if app.wiki_map_focus => {
                     let n = app.wiki_domains.len().max(1);
                     app.wiki_cell_row = (app.wiki_cell_row + 1) % n;
@@ -931,7 +913,7 @@ fn run<B: ratatui::backend::Backend>(
             },
             KeyCode::Up | KeyCode::Char('k') => match app.tab {
                 1 => app.machine_sel = (app.machine_sel + MACHINES.len() - 1) % MACHINES.len(),
-                2 => app.cfg_sel = (app.cfg_sel + CFG_FIELDS.len() - 1) % CFG_FIELDS.len(),
+                2 => app.cfg_sel = (app.cfg_sel + CONFIG_KNOBS.len() - 1) % CONFIG_KNOBS.len(),
                 TAB_WIKI if app.wiki_map_focus => {
                     let n = app.wiki_domains.len().max(1);
                     app.wiki_cell_row = (app.wiki_cell_row + n - 1) % n;
@@ -1373,7 +1355,7 @@ fn draw_config(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
         )),
         Line::from(""),
     ];
-    for (i, name) in CFG_FIELDS.iter().enumerate() {
+    for (i, knob) in CONFIG_KNOBS.iter().enumerate() {
         let sel = i == app.cfg_sel;
         lines.push(Line::from(vec![
             Span::styled(
@@ -1381,7 +1363,7 @@ fn draw_config(f: &mut ratatui::Frame, area: ratatui::layout::Rect, app: &App) {
                 Style::default().fg(Color::Cyan),
             ),
             Span::styled(
-                format!("{name:<30}"),
+                format!("{:<30}", knob.key),
                 Style::default()
                     .fg(if sel { Color::White } else { Color::Gray })
                     .add_modifier(if sel {

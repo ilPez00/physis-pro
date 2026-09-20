@@ -68,13 +68,8 @@ const MACHINES: [(&str, &str); 7] = [
     ("harmony", "music — intervals + motifs"),
     ("polis", "social — ties, reciprocity, fading"),
 ];
-const CFG_FIELDS: [&str; 5] = [
-    "network_scan_interval_secs",
-    "dream_batch_size",
-    "pdca_stagnant_threshold",
-    "pdca_stagnant_window",
-    "embed_dim",
-];
+// Editable knobs come from `physis_pro::config::CONFIG_KNOBS` — one table for
+// this panel, `physis-pro-tui` and `physis-hud`.
 /// Files bigger than this are shown truncated, with the marker in the header.
 const MAX_DIFF_BYTES: usize = 2 * 1024 * 1024;
 /// Corpus cap for one notebook question: enough for a demo, bounded by design.
@@ -205,33 +200,12 @@ fn save_config(cfg: &physis_pro::config::PhysisConfig) -> std::io::Result<()> {
     std::fs::write(cfg_path(cfg), s)
 }
 
-/// Apply +/- to the selected config field. Same five knobs as `physis-pro-tui`,
-/// so the two panels cannot disagree about what "the config" is.
+/// Apply +/- to the selected config field. Same table as `physis-pro-tui` and
+/// `physis-hud` (`config::CONFIG_KNOBS`), so the three panels cannot disagree
+/// about what "the config" is, how far a step moves, or where a knob floors.
 fn edit_field(cfg: &mut physis_pro::config::PhysisConfig, field: usize, up: bool) {
-    let s = if up { 1.0 } else { -1.0 };
-    match field {
-        0 => {
-            cfg.network_scan_interval_secs =
-                (cfg.network_scan_interval_secs as i64 + (s * 5.0) as i64).max(1) as u64
-        }
-        1 => cfg.dream_batch_size = (cfg.dream_batch_size as i64 + s as i64).max(1) as usize,
-        2 => cfg.pdca_stagnant_threshold = (cfg.pdca_stagnant_threshold + s * 0.05).clamp(0.0, 1.0),
-        3 => {
-            cfg.pdca_stagnant_window = (cfg.pdca_stagnant_window as i64 + s as i64).max(1) as usize
-        }
-        4 => cfg.embed_dim = (cfg.embed_dim as i64 + (s * 64.0) as i64).max(64) as usize,
-        _ => {}
-    }
-}
-
-fn cfg_value(cfg: &physis_pro::config::PhysisConfig, field: usize) -> String {
-    match field {
-        0 => cfg.network_scan_interval_secs.to_string(),
-        1 => cfg.dream_batch_size.to_string(),
-        2 => format!("{:.2}", cfg.pdca_stagnant_threshold),
-        3 => cfg.pdca_stagnant_window.to_string(),
-        4 => cfg.embed_dim.to_string(),
-        _ => String::new(),
+    if let Some(knob) = physis_pro::config::CONFIG_KNOBS.get(field) {
+        knob.bump(cfg, up);
     }
 }
 
@@ -1040,20 +1014,20 @@ fn draw_machines(f: &mut ratatui::Frame, area: Rect, app: &App) {
 }
 
 fn draw_config(f: &mut ratatui::Frame, area: Rect, app: &App) {
-    let items: Vec<ListItem> = CFG_FIELDS
+    let items: Vec<ListItem> = physis_pro::config::CONFIG_KNOBS
         .iter()
         .enumerate()
-        .map(|(i, name)| {
+        .map(|(i, knob)| {
             let mark = if i == app.cfg_sel { "▶" } else { " " };
             ListItem::new(Line::from(format!(
                 "{mark} {:<32} {}",
-                name,
-                cfg_value(&app.cfg, i)
+                knob.key,
+                knob.display(&app.cfg)
             )))
         })
         .collect();
     let mut st = ListState::default();
-    st.select(Some(app.cfg_sel.min(CFG_FIELDS.len() - 1)));
+    st.select(Some(app.cfg_sel.min(physis_pro::config::CONFIG_KNOBS.len() - 1)));
     f.render_stateful_widget(
         List::new(items)
             .block(panel(format!(
@@ -1210,7 +1184,9 @@ fn apply(app: &mut App, action: Action, ch: Option<char>) {
                 app.notebook.sel = (app.notebook.sel + 1).min(n.saturating_sub(1));
             }
             TAB_MACHINES => app.machine_sel = (app.machine_sel + 1).min(MACHINES.len() - 1),
-            TAB_CONFIG => app.cfg_sel = (app.cfg_sel + 1).min(CFG_FIELDS.len() - 1),
+            TAB_CONFIG => {
+                app.cfg_sel = (app.cfg_sel + 1).min(physis_pro::config::CONFIG_KNOBS.len() - 1)
+            }
             TAB_DIFF => {
                 let n = app.diff.hunks.len();
                 app.diff.sel = (app.diff.sel + 1).min(n.saturating_sub(1));
