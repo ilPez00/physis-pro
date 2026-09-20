@@ -137,6 +137,23 @@ pub enum Commands {
         #[command(subcommand)]
         command: ActionCommand,
     },
+    /// Guided execution: compile the world into a constraint and choose inside it
+    Guided {
+        /// What the operator wants, in words
+        intent: String,
+        /// Focus object (handle or path) — the world slice scales to it
+        #[arg(long)]
+        focus: Option<String>,
+        /// Admit mutating verbs into the generated language (default: read-only)
+        #[arg(long)]
+        write: bool,
+        /// Execute the chosen action through the action surface
+        #[arg(long)]
+        execute: bool,
+        /// Print the constraint card only, without choosing
+        #[arg(long)]
+        show: bool,
+    },
     /// Agent roster, adapters and routing ladder
     Agent {
         #[command(subcommand)]
@@ -1550,6 +1567,20 @@ fn main() -> anyhow::Result<()> {
         return cmd_action(command);
     }
 
+    // Guided execution runs before the engine loads: it reads the registry (the
+    // same objects `action list` prints), compiles the world into a constraint,
+    // and only then asks a model — which for Phase A is the deterministic mock.
+    if let Commands::Guided {
+        intent,
+        focus,
+        write,
+        execute,
+        show,
+    } = &cli.command
+    {
+        return cmd_guided(intent, focus.as_deref(), *write, *execute, *show);
+    }
+
     if let Commands::Agent { command } = &cli.command {
         return cmd_agent(command);
     }
@@ -1599,6 +1630,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Notebook { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Act { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Action { .. } => unreachable!("dispatched before PhysisApp::new"),
+        Commands::Guided { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Agent { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Settings { .. } => unreachable!("dispatched before PhysisApp::new"),
         Commands::Draw { .. } => unreachable!("dispatched before PhysisApp::new"),
@@ -2966,6 +2998,49 @@ fn cmd_agent(command: &AgentCommand) -> anyhow::Result<()> {
             }
             println!("{}", routing::choose(&roster, &caps, &table, &req).render());
         }
+    }
+    Ok(())
+}
+
+/// `guided <intent>`: world → constraint → choice, with the model consulted only
+/// where the constraint leaves something to choose.
+fn cmd_guided(
+    intent: &str,
+    focus: Option<&str>,
+    write: bool,
+    execute: bool,
+    show: bool,
+) -> anyhow::Result<()> {
+    use physis_pro::guided::{Access, GuidedExecution, MockGuidedModel, Route};
+
+    let root = std::env::current_dir()?;
+    let mut reg = physis_pro::registry::Registry::from_workspace(&root)?;
+    let access = if write {
+        Access::ReadWrite
+    } else {
+        Access::ReadOnly
+    };
+    let mut exec = GuidedExecution::with_access(access);
+    let (step, outcome) = match exec.step(&mut reg, focus, intent, &MockGuidedModel, execute) {
+        Ok(pair) => pair,
+        Err(e) => {
+            eprintln!("guided: {e}");
+            std::process::exit(1);
+        }
+    };
+    if show {
+        println!("{}", step.context.render());
+        return Ok(());
+    }
+    println!("{}", step.render(&exec.metrics));
+    if step.route == Route::Exact {
+        println!("
+(exact: no model was asked — the constraint already had the answer)");
+    }
+    if let Some(rendered) = outcome {
+        println!("
+OUTCOME
+{rendered}");
     }
     Ok(())
 }

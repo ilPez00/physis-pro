@@ -921,6 +921,9 @@ enum HudCommand {
     /// Show what is configured, what is missing, and the command that closes
     /// each gap.
     Setup,
+    /// Guided execution: compile the world into a constraint and choose inside
+    /// it, showing the card (no execution, no write reach).
+    Guided(String),
     /// Return to the world view from any other view.
     World,
     Quit,
@@ -1014,6 +1017,7 @@ fn parse_named_command(text: &str) -> HudInput {
         "agents" if arg.is_none() => HudInput::Command(HudCommand::Agents),
         "settings" if arg.is_none() => HudInput::Command(HudCommand::Settings),
         "setup" | "install" if arg.is_none() => HudInput::Command(HudCommand::Setup),
+        "guided" | "guide" | "plan" => HudInput::Command(HudCommand::Guided(rest)),
         "world" | "back" | "home" if arg.is_none() => HudInput::Command(HudCommand::World),
         "notebook" if arg.is_none() => HudInput::Command(HudCommand::Notebook),
         "related" if arg.is_none() => HudInput::Command(HudCommand::Related),
@@ -1151,7 +1155,7 @@ fn parse_hud_input(raw: &str) -> HudInput {
             parse_named_command(text)
         }
         "dependencies" | "focus" | "relate" | "tab" | "sem" | "shell" | "search" | "query"
-        | "external" | "action" => parse_named_command(text),
+        | "external" | "action" | "guided" | "guide" | "plan" => parse_named_command(text),
         _ => HudInput::SemanticQuery(text.to_string()),
     }
 }
@@ -2860,6 +2864,7 @@ impl App {
             HudCommand::Setup => {
                 self.open_view(View::Setup);
             }
+            HudCommand::Guided(intent) => self.show_guided(&intent),
             HudCommand::World => {
                 self.view = View::World;
                 self.status = "world: navigation, reading, tabs".into();
@@ -3440,6 +3445,48 @@ impl App {
             settings_exists: settings_path.exists(),
             observations_path,
             agents,
+        }
+    }
+
+    /// `guided <intent>`: compile the world the HUD already holds into a
+    /// constraint and choose inside it. Read-only, no execution: this is the
+    /// inspectable half — the operator reads the card and then decides, and the
+    /// `runnable as:` line is the exact command that would do it.
+    fn show_guided(&mut self, intent: &str) {
+        let intent = if intent.trim().is_empty() {
+            self.query.trim().to_string()
+        } else {
+            intent.trim().to_string()
+        };
+        if intent.is_empty() {
+            self.status = "usage: guided <intent>".into();
+            return;
+        }
+        let focus = self.current_hit().cloned();
+        let focus_arg = focus.as_ref().map(|h| h.object.label.clone());
+        let mut reg =
+            physis_pro::registry::Registry::new(physis_pro::registry::default_obs_path());
+        reg.register_workspace(&self.ws);
+        let mut exec =
+            physis_pro::guided::GuidedExecution::with_access(physis_pro::guided::Access::ReadOnly);
+        match exec.step(
+            &mut reg,
+            focus_arg.as_deref(),
+            &intent,
+            &physis_pro::guided::MockGuidedModel,
+            false,
+        ) {
+            Ok((step, _)) => {
+                self.status = format!(
+                    "guided: {} route from {} legal transition(s) · {} free field(s)",
+                    step.action.action_line(),
+                    step.context.provenance.affordances,
+                    step.context.constraint.token_classes().free_fields
+                );
+                self.reading = Some(("guided".into(), step.render(&exec.metrics)));
+                self.open_view(View::World);
+            }
+            Err(e) => self.status = format!("guided: {e}"),
         }
     }
 
@@ -4132,6 +4179,7 @@ impl App {
         let mut o = hud_command_help();
         o.push_str("\nkeys: / search · Enter zoom · Esc back · Space select · e inline edit · :external editor · u rescan · g graph · t edges · H history · B bench · D dependents · C contradictions · f/F focus · z zoom · 1/2/3/4 tabs · n notebook · p pin · s/d/R relate · q quit · Ctrl+C quit");
         o.push_str("\nviews: Tab next · Esc world · g graph · N notebook · T tasks · A agents · S settings · W setup");
+        o.push_str("\nguided <intent>: compile the world into a constraint and choose inside it (read-only, no execution)");
         self.reading = Some(("commands".into(), o));
         self.status = "commands: deterministic dispatch, no model".into();
         self.open_view(View::Help);
@@ -6020,6 +6068,24 @@ mod tests {
         assert!(
             !text.contains("next: physis-pro selftest"),
             "no next-command noise when nothing is missing"
+        );
+    }
+
+    /// `guided`/`plan`/`guide` reach the guided-execution card; a bare word
+    /// with no argument uses whatever is in the query box.
+    #[test]
+    fn guided_parses_with_and_without_an_intent() {
+        assert_eq!(
+            parse_hud_input("guided restart the praxis service"),
+            HudInput::Command(HudCommand::Guided("restart the praxis service".into()))
+        );
+        assert_eq!(
+            parse_hud_input(":guide"),
+            HudInput::Command(HudCommand::Guided(String::new()))
+        );
+        assert_eq!(
+            parse_hud_input("plan read this"),
+            HudInput::Command(HudCommand::Guided("read this".into()))
         );
     }
 

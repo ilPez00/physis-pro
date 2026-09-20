@@ -46,15 +46,16 @@ hermes adapter, agent-session objects, shell observations, background rescan →
 
 | Phase | Packet | Content |
 |---|---|---|
-| 0 | `PH-024` (claimed) | views (world/graph/notebook/tasks/agents/settings/setup/help), editable settings (`Settings`+`CONFIG_KNOBS`), `--setup` screen, shared knob table (`tui.rs`/`studio.rs` delegate) |
-| P0 | `PH-025` | `src/hud/{mod,event,keys,config,palette}.rs` — `HudEvent` reducer (headless-tested), `hud.toml` layering (builtin < `~/.config/physis/hud.toml` < `.physis/hud.toml` < flags), palette over Registry, `intent_ir` wired into the textbox chain |
-| P1 | `PH-026` | lens trait + project/semantic/schema/content/object/dependency; hotkeys 1–6 from keymap; snapshot per lens |
-| P2 | `PH-027` | revive `ported/world.rs` (caller+test), temporal+activity lenses, background rescan → delta → Δ badge, draw-before-scan startup |
-| P3 | `PH-028` | multi-buffer editor (undo/search/goto/save→rescan→affected highlight), offline notebook + object links + provenance stamps |
-| P4 | `PH-029` | shell observations, adaptive-document proposal preview→apply, palette mutations gated by `risk` |
-| P5 | `PH-030` | hermes adapter, JEV MCP in OpenCode, agent-session WorldObjects, bounded Physis-selected context |
-| P6 | `PH-031` | fleet lens over machines/industrial/moonraker, stale-tolerant remote state |
-| P7 | `PH-032` | themes, mouse, session persistence, crash recovery, packaging (PH-010 ties in; Windows measured separately) |
+| 0 | `PH-024` (review) | views (world/graph/notebook/tasks/agents/settings/setup/help), editable settings (`Settings`+`CONFIG_KNOBS`), `--setup` screen, shared knob table |
+| P0a | `PH-025` (review) | **Guided execution Phase A** — affordances from the registry, constraint IR (+JSON Schema/grammar), world→constraint compiler, deterministic mock model, exact-fact bypass, validation, outcome evidence, CLI `guided` + HUD `guided`. See `docs/GUIDED_EXECUTION.md` |
+| P0 | `PH-026` | `src/hud/{mod,event,keys,config,palette}.rs` — `HudEvent` reducer (headless-tested), `hud.toml` layering (builtin < `~/.config/physis/hud.toml` < `.physis/hud.toml` < flags), palette over Registry, `intent_ir` wired into the textbox chain |
+| P1 | `PH-027` | lens trait + project/semantic/schema/content/object/dependency; hotkeys 1–6 from keymap; snapshot per lens |
+| P2 | `PH-028` | revive `ported/world.rs` (caller+test), temporal+activity lenses, background rescan → delta → Δ badge, draw-before-scan startup |
+| P3 | `PH-029` | multi-buffer editor (undo/search/goto/save→rescan→affected highlight), offline notebook + object links + provenance stamps |
+| P4 | `PH-030` | shell observations, adaptive-document proposal preview→apply, palette mutations gated by `risk` |
+| P5 | `PH-031` | hermes adapter, JEV MCP in OpenCode, agent-session WorldObjects, bounded Physis-selected context |
+| P6 | `PH-032` | fleet lens over machines/industrial/moonraker, stale-tolerant remote state |
+| P7 | `PH-033` | themes, mouse, session persistence, crash recovery, packaging (PH-010 ties in; Windows measured separately) |
 
 ## Rules carried into every packet
 

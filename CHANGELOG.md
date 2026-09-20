@@ -10,6 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Guided execution Phase A (PH-025): the world compiles into the model's allowed
+  language before a model is asked anything. `src/guided/` derives typed
+  affordances from the registry's capability table (the same table
+  `physis-pro action` uses), compiles them into a constraint IR (`Choice`,
+  `ObjectSet`, `FreeText`, `Sequence`) that renders to both JSON Schema and a
+  grammar, and validates what comes back against the context it came from. A
+  target is an `ObjectHandle` with a private field, so an object that is not in
+  the world cannot be typed into existence; `Access::ReadOnly` removals happen
+  before compilation, so a write is not a rejected action but an absent sentence;
+  `start`/`stop`/`restart` are gated on the object's own `state` meta. Exact
+  facts bypass generation entirely: one named object plus one read verb means
+  zero model calls (`resolve_exact`), counted in `Metrics` alongside model calls
+  and rejections. Every step appends outcome evidence to the log the action
+  surface already writes, actor `guided`. Surfaces: `physis-pro guided "<intent>"
+  [--focus --write --execute --show]` and HUD `guided <intent>`. Doc:
+  `docs/GUIDED_EXECUTION.md`; 8 tests in `src/guided/mod.rs` cover each spec case.
 - `physis-hud` is the one front door: every surface is a named view (PH-024).
   `world · graph · notebook · tasks · agents · settings · setup · help`, opened
   by `Tab`/`BackTab`, by their commands (`:settings`, `tasks`, `agents`, …), or

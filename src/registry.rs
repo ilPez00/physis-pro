@@ -615,6 +615,13 @@ impl Registry {
             .collect()
     }
 
+    /// One registered object, by the handle `list_objects` reports. Guided
+    /// Execution reads the `label` meta through this rather than keeping a
+    /// parallel object table.
+    pub fn object(&self, oid: &str) -> Option<&RegistryObject> {
+        self.objects.get(oid)
+    }
+
     /// Registered objects as `(oid, kind, path)`, for `action list`.
     pub fn list_objects(&self) -> Vec<(String, String, String)> {
         let mut out: Vec<(String, String, String)> = self
