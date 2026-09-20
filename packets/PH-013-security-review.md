@@ -2,7 +2,9 @@
 id: PH-013
 track: physis
 phase: 2
-status: todo
+status: claimed
+claimed_by: agent/PH-013
+claimed_at: 2026-09-20
 rung: 3
 depends: [PH-005]
 gate: "cargo test --test http_surface authz && test -f packets/reports/PH-013-threat-model.md"
