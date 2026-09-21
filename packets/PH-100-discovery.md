@@ -2,7 +2,9 @@
 id: PH-100
 track: physis
 phase: D
-status: todo
+status: claimed
+claimed_by: kiro
+claimed_at: "2026-09-21T14:50:00+02:00"
 rung: 3
 depends: [PH-000]
 gate: "test -f packets/PH-1xx-proposals.md && test $(grep -c '^## PH-' packets/PH-1xx-proposals.md) -ge 3"
