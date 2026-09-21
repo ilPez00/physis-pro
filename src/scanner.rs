@@ -257,13 +257,80 @@ fn build_extractors() -> Vec<(String, Vec<(Regex, String)>)> {
         (
             ".rs",
             vec![
+                // Functions: all qualifier combinations this repo actually uses.
+                // Anchored at ^ after trimming, so comment-interior lines (which
+                // start with `//` or `*` after trim) never match.
+                // Order: most-qualified first so the longest prefix is captured.
+                (
+                    r"^pub\s*\(crate\)\s+async\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^pub\s*\(crate\)\s+unsafe\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^pub\s*\(crate\)\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^pub\s+async\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^pub\s+unsafe\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r#"^pub\s+extern\s+"C"\s+fn\s+(\w+)"#,
+                    "fn {name}",
+                ),
+                (
+                    r"^pub\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^async\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r"^unsafe\s+fn\s+(\w+)",
+                    "fn {name}",
+                ),
+                (
+                    r#"^extern\s+"C"\s+fn\s+(\w+)"#,
+                    "fn {name}",
+                ),
                 (r"^fn\s+(\w+)", "fn {name}"),
+                // Structs, enums, traits.
+                (r"^pub\s*\([^)]+\)\s+struct\s+(\w+)", "struct {name}"),
+                (r"^pub\s+struct\s+(\w+)", "struct {name}"),
                 (r"^struct\s+(\w+)", "struct {name}"),
+                (r"^pub\s*\([^)]+\)\s+enum\s+(\w+)", "enum {name}"),
+                (r"^pub\s+enum\s+(\w+)", "enum {name}"),
                 (r"^enum\s+(\w+)", "enum {name}"),
+                (r"^pub\s*\([^)]+\)\s+trait\s+(\w+)", "trait {name}"),
+                (r"^pub\s+trait\s+(\w+)", "trait {name}"),
                 (r"^trait\s+(\w+)", "trait {name}"),
-                (r"^impl(?:\s*<[^>]*>)?\s+(\w+)", "impl {name}"),
+                // impl blocks: capture the implementing type name (after optional
+                // generics and optional `Trait for`).
+                (
+                    r"^impl(?:\s*<[^>]*>)?\s+\w+\s+for\s+(\w+)",
+                    "impl {name}",
+                ),
+                (
+                    r"^impl(?:\s*<[^>]*>)?\s+(\w+)",
+                    "impl {name}",
+                ),
+                // Modules, type aliases, constants.
+                (r"^pub\s*\([^)]+\)\s+mod\s+(\w+)", "mod {name}"),
+                (r"^pub\s+mod\s+(\w+)", "mod {name}"),
                 (r"^mod\s+(\w+)", "mod {name}"),
+                (r"^pub\s*\([^)]+\)\s+type\s+(\w+)", "type {name}"),
+                (r"^pub\s+type\s+(\w+)", "type {name}"),
                 (r"^type\s+(\w+)", "type {name}"),
+                (r"^pub\s*\([^)]+\)\s+const\s+(\w+)", "const {name}"),
+                (r"^pub\s+const\s+(\w+)", "const {name}"),
                 (r"^const\s+(\w+)", "const {name}"),
             ],
         ),
@@ -721,6 +788,163 @@ mod tests {
         assert!(lines.contains(&"fn hello".to_string()));
         assert!(lines.contains(&"struct World".to_string()));
         assert!(lines.contains(&"fn another".to_string()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// All qualifier shapes measured in this repository: pub fn, pub async fn,
+    /// pub(crate) fn, async fn, unsafe fn, pub struct, pub enum, pub trait,
+    /// impl, impl Trait for Type. These must all produce structural lines.
+    #[test]
+    fn rust_qualified_declarations_are_extracted() {
+        let dir = std::env::temp_dir().join("physis_test_scan_qualified");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("qualified.rs");
+        std::fs::write(
+            &file_path,
+            concat!(
+                "pub fn public_fn() {}\n",
+                "pub async fn public_async_fn() {}\n",
+                "pub(crate) fn crate_fn() {}\n",
+                "pub(crate) async fn crate_async_fn() {}\n",
+                "async fn bare_async_fn() {}\n",
+                "unsafe fn bare_unsafe_fn() {}\n",
+                "pub unsafe fn public_unsafe_fn() {}\n",
+                "pub struct PublicStruct;\n",
+                "pub enum PublicEnum {}\n",
+                "pub trait PublicTrait {}\n",
+                "pub mod pub_mod {}\n",
+                "pub type PubType = u32;\n",
+                "pub const PUB_CONST: u32 = 0;\n",
+                "impl Engine {}\n",
+                "impl<T> Container<T> {}\n",
+                "impl Runnable for Engine {}\n",
+            ),
+        )
+        .unwrap();
+        let lines = extract_structural_lines(&file_path, ".rs");
+        assert!(
+            lines.contains(&"fn public_fn".to_string()),
+            "pub fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn public_async_fn".to_string()),
+            "pub async fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn crate_fn".to_string()),
+            "pub(crate) fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn crate_async_fn".to_string()),
+            "pub(crate) async fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn bare_async_fn".to_string()),
+            "async fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn bare_unsafe_fn".to_string()),
+            "unsafe fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn public_unsafe_fn".to_string()),
+            "pub unsafe fn not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"struct PublicStruct".to_string()),
+            "pub struct not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"enum PublicEnum".to_string()),
+            "pub enum not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"trait PublicTrait".to_string()),
+            "pub trait not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"mod pub_mod".to_string()),
+            "pub mod not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"type PubType".to_string()),
+            "pub type not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"const PUB_CONST".to_string()),
+            "pub const not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"impl Engine".to_string()),
+            "impl not found in {lines:?}"
+        );
+        assert!(
+            lines.contains(&"impl Container".to_string()),
+            "impl<T> not found in {lines:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Comment and string content must never become structural symbols.
+    /// These are the exact false-positive forms the packet specifies.
+    #[test]
+    fn comments_and_strings_do_not_become_symbols() {
+        let dir = std::env::temp_dir().join("physis_test_scan_negatives");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("negatives.rs");
+        // The content has real declarations (so the extractor runs) and then
+        // several comment/string forms that must not appear as symbols.
+        // Note: string literal contents are on *indented* lines after trim,
+        // but the content itself doesn't start with a valid qualifier prefix —
+        // the surrounding `let _x = "..."` is what appears at top level.
+        // We test the actual trimmed-line behaviour the extractor uses.
+        std::fs::write(
+            &file_path,
+            concat!(
+                "// pub fn fake_comment() {}\n",
+                "/* pub struct FakeBlock; */\n",
+                "pub fn real_fn() {}\n",
+                "fn body() {\n",
+                "    let _x = \"pub fn string_fn() {}\";\n",
+                "    let _y = \"pub struct StringStruct;\";\n",
+                "}\n",
+            ),
+        )
+        .unwrap();
+        let lines = extract_structural_lines(&file_path, ".rs");
+        // Real declarations must appear.
+        assert!(
+            lines.contains(&"fn real_fn".to_string()),
+            "real fn missing from {lines:?}"
+        );
+        assert!(
+            lines.contains(&"fn body".to_string()),
+            "real body fn missing from {lines:?}"
+        );
+        // Comment forms must NOT appear.
+        // Line comment: `// pub fn fake_comment()` — after trim starts with `//`
+        // so `^pub` does not match.
+        assert!(
+            !lines.contains(&"fn fake_comment".to_string()),
+            "line-comment fn leaked into {lines:?}"
+        );
+        // Block comment opener: `/* pub struct FakeBlock; */` — starts with `/*`
+        // so `^pub` does not match.
+        assert!(
+            !lines.contains(&"struct FakeBlock".to_string()),
+            "block-comment struct leaked into {lines:?}"
+        );
+        // String literals are on indented lines; after trim the content of the
+        // string does NOT become a line in isolation — the outer `let` is the
+        // line. The extractor never sees `pub fn string_fn()` as a bare line.
+        assert!(
+            !lines.contains(&"fn string_fn".to_string()),
+            "string-literal fn leaked into {lines:?}"
+        );
+        assert!(
+            !lines.contains(&"struct StringStruct".to_string()),
+            "string-literal struct leaked into {lines:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

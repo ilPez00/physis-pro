@@ -2770,6 +2770,16 @@ impl App {
             HudEffect::Status(s) => self.status = s,
             HudEffect::Reading { title, body } => self.reading = Some((title, body)),
             HudEffect::ClearPending => self.agent_pending = None,
+            HudEffect::SetCursor { row } => {
+                let clamped = if self.rows.is_empty() {
+                    0
+                } else {
+                    row.min(self.rows.len() - 1)
+                };
+                self.focus_state.cursor = physis_pro::hud::world::Cursor::new(clamped);
+                self.sel = clamped;
+                self.sync_list_state();
+            }
         }
     }
 
@@ -3925,6 +3935,63 @@ impl App {
         self.list_state.select(Some(self.sel));
     }
 
+    /// The single dispatch boundary for navigation events (PH-029).
+    ///
+    /// ```text
+    /// keyboard / mouse / command / test
+    ///       ↓
+    ///   HudEvent
+    ///       ↓
+    ///   reduce(&mut self.focus_state, &event)
+    ///       ↓
+    ///   apply_hud_effects(effects)
+    ///       ↓
+    ///   canonical navigation state
+    /// ```
+    ///
+    /// Every navigation mutation must go through here. Direct writes to
+    /// `self.sel` or `self.focus_state` outside of `apply_hud_effects` are
+    /// dual mutation paths and are the bug class PH-027 found.
+    fn dispatch(&mut self, event: physis_pro::hud::event::HudEvent) {
+        let effects = physis_pro::hud::event::reduce(&mut self.focus_state, &event);
+        self.apply_hud_effects(effects);
+    }
+
+    /// Apply the effects the reducer returned. This is the only function
+    /// allowed to write `self.sel` from a navigation event. It is intentionally
+    /// not `pub` — the path is `dispatch → reduce → apply_hud_effects`, not
+    /// a public mutation surface.
+    fn apply_hud_effects(&mut self, effects: Vec<physis_pro::hud::event::HudEffect>) {
+        use physis_pro::hud::event::HudEffect;
+        for effect in effects {
+            match effect {
+                HudEffect::SetCursor { row } => {
+                    // Clamp to actual row count; the reducer does not know it.
+                    let clamped = if self.rows.is_empty() {
+                        0
+                    } else {
+                        row.min(self.rows.len() - 1)
+                    };
+                    // Sync to FocusState so the two stay in agreement.
+                    self.focus_state.cursor =
+                        physis_pro::hud::world::Cursor::new(clamped);
+                    self.sel = clamped;
+                    self.sync_list_state();
+                    self.update_explain();
+                }
+                HudEffect::Status(s) => {
+                    self.status = s;
+                }
+                HudEffect::Reading { title, body } => {
+                    self.reading = Some((title, body));
+                }
+                HudEffect::ClearPending => {
+                    self.agent_pending = None;
+                }
+            }
+        }
+    }
+
     fn update_explain(&mut self) {
         self.explain.clear();
         if let Some(Row::Dir(dir, n)) = self.rows.get(self.sel) {
@@ -4138,23 +4205,26 @@ impl App {
         let children = self.children_of(&hit.object);
         if !children.is_empty() {
             let container = hit.object.id.clone();
-            self.query = format!("inside: {}", hit.object.label);
+            let label = hit.object.label.clone();
+            self.query = format!("inside: {}", label);
             self.set_results(children);
-            self.sel = 0;
-            self.sync_list_state();
-            self.update_explain();
-            self.focus_state.focus.refocus(Some(container));
+            // Descend through the canonical path: FocusState owns focus + trail.
+            self.dispatch(physis_pro::hud::event::HudEvent::Descend {
+                scope: label.clone(),
+                crumb: label.clone(),
+                id: container,
+            });
             self.reading = Some((
-                format!("inside: {}", hit.object.label),
+                format!("inside: {}", label),
                 format!(
                     "{} object(s) inside {} — Enter descends again, Esc/Backspace climbs out",
                     self.hits.len(),
-                    hit.object.label
+                    label
                 ),
             ));
             self.status = format!(
                 "descended into {} ({} objects) — Esc climbs out, projection unchanged",
-                hit.object.label,
+                label,
                 self.hits.len()
             );
             self.ws.push_trail("enter", &hit.object.id.short());
@@ -4172,7 +4242,10 @@ impl App {
             }
             _ => {}
         }
-        // Related objects become the new neighborhood.
+        // Leaf: focus through the canonical path, then re-query neighbourhood.
+        self.dispatch(physis_pro::hud::event::HudEvent::FocusObject {
+            id: hit.object.id.clone(),
+        });
         if let Ok((hits, _)) = self.ws.query(&hit.object.text, true, &self.weights, 20) {
             self.query = format!("inside: {}", hit.object.label);
             self.set_results(hits);
@@ -4189,27 +4262,34 @@ impl App {
             self.reading = None;
             self.sync_list_state();
             self.update_explain();
-            // Climbing out restores the focus of the level you climbed back to,
-            // so a descent and an ascent round-trip the same identity.
+            // Capture the focused id from the restored rows/sel *before*
+            // dispatching Ascend: the Ascend effect resets the cursor to 0,
+            // which would shift current_hit() to a header row and return None.
             let focused = self.current_hit().map(|h| h.object.id.clone());
+            // Pop the trail through the canonical path.
+            self.dispatch(physis_pro::hud::event::HudEvent::Ascend);
+            // Restore focus to the object we climbed back to.
             self.focus_state.focus.refocus(focused);
         }
         self.crumbs.pop();
     }
 
-    fn toggle_select(&mut self) {
-        if let Some(hit) = self.current_hit().cloned() {
-            if let Some(pos) = self
-                .selected
-                .iter()
-                .position(|s| s.object.id == hit.object.id)
-            {
-                self.selected.remove(pos);
-            } else {
-                self.selected.push(hit);
-            }
-            self.update_explain();
-        }
+    /// Adapter: rebuild the legacy `Vec<NavHit>` from the canonical
+    /// `FocusState.selection`. Called after any `Select` / `ClearSelection`
+    /// event so the legacy code that reads `self.selected` (pin, relate,
+    /// notebook handoff) sees the right objects.
+    ///
+    /// This exists because `selected` carries full `NavHit` objects (which
+    /// include score data) while `FocusState.selection` carries only `ObjectId`.
+    /// Until `selected` is fully replaced, this bridge keeps them consistent.
+    fn sync_selected_from_focus_state(&mut self) {
+        let ids = self.focus_state.selection.ids.clone();
+        self.selected = self
+            .hits
+            .iter()
+            .filter(|h| ids.contains(&h.object.id))
+            .cloned()
+            .collect();
     }
 
     fn pin_selection(&mut self) {
@@ -5378,24 +5458,33 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             }
                             KeyCode::Char('/') => app.typing = true,
                             KeyCode::Up | KeyCode::Char('k') => {
+                                // Compute the next row, skipping headers, then
+                                // dispatch through the reducer so FocusState.cursor
+                                // is the canonical owner.
                                 if app.sel > 0 {
-                                    app.sel -= 1;
-                                    // Skip headers.
-                                    while matches!(app.rows.get(app.sel), Some(Row::Header(..))) {
-                                        app.sel = app.sel.saturating_sub(1);
+                                    let mut next = app.sel - 1;
+                                    while matches!(app.rows.get(next), Some(Row::Header(..))) {
+                                        if next == 0 {
+                                            break;
+                                        }
+                                        next = next.saturating_sub(1);
                                     }
-                                    app.sync_list_state();
-                                    app.update_explain();
+                                    let delta = next as i32 - app.sel as i32;
+                                    app.dispatch(physis_pro::hud::event::HudEvent::MoveCursor {
+                                        delta,
+                                    });
                                 }
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
                                 if app.sel + 1 < app.rows.len() {
-                                    app.sel += 1;
-                                    while matches!(app.rows.get(app.sel), Some(Row::Header(..))) {
-                                        app.sel = (app.sel + 1).min(app.rows.len() - 1);
+                                    let mut next = app.sel + 1;
+                                    while matches!(app.rows.get(next), Some(Row::Header(..))) {
+                                        next = (next + 1).min(app.rows.len() - 1);
                                     }
-                                    app.sync_list_state();
-                                    app.update_explain();
+                                    let delta = next as i32 - app.sel as i32;
+                                    app.dispatch(physis_pro::hud::event::HudEvent::MoveCursor {
+                                        delta,
+                                    });
                                 }
                             }
                             KeyCode::Enter => {
@@ -5407,7 +5496,21 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                                 }
                             }
                             KeyCode::Esc => app.back(),
-                            KeyCode::Char(' ') => app.toggle_select(),
+                            KeyCode::Char(' ') => {
+                                // Toggle selection through the canonical path so
+                                // FocusState.selection is the single owner.
+                                if let Some(id) =
+                                    app.current_hit().map(|h| h.object.id.clone())
+                                {
+                                    app.dispatch(
+                                        physis_pro::hud::event::HudEvent::Select { id },
+                                    );
+                                    // Sync legacy Vec<NavHit> adapter until it is
+                                    // replaced outright by FocusState.selection.
+                                    app.sync_selected_from_focus_state();
+                                    app.update_explain();
+                                }
+                            }
                             KeyCode::Char('p') => app.pin_selection(),
                             KeyCode::Char('s') => app.relate_selection("same"),
                             KeyCode::Char('d') => app.relate_selection("different"),
@@ -5426,7 +5529,13 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('e') => app.start_inline_edit(None),
                             KeyCode::Char('u') => app.rescan_now(),
                             KeyCode::Char('f') => app.apply_focus(),
-                            KeyCode::Char('F') => app.clear_focus(),
+                            KeyCode::Char('F') => {
+                                // ClearSelection through the canonical path +
+                                // clear the HOT/WARM focus bands.
+                                app.dispatch(physis_pro::hud::event::HudEvent::ClearSelection);
+                                app.selected.clear();
+                                app.clear_focus();
+                            }
                             KeyCode::Char('z') => app.toggle_zoom(),
                             KeyCode::Char('1') => app.switch_context_tab(ContextTab::Why),
                             KeyCode::Char('2') => app.switch_context_tab(ContextTab::Context),
