@@ -34,3 +34,4 @@ pub mod palette;
 pub mod config;
 pub mod intent;
 pub mod lens_object;
+pub mod bridge;

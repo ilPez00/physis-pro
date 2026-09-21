@@ -1972,6 +1972,11 @@ struct App {
     /// Which surface is open (world/graph/notebook/tasks/agents/settings/
     /// setup/help). A view renders over the world panes; `Esc` returns.
     view: View,
+    /// Library focus mirror: the same projection switch the bin performs,
+    /// tracked through the invariant (focus/selection survive, cursor resets).
+    /// The bin still owns rows and hits; this mirror is the seam the reducer
+    /// owns outright in the next slice.
+    focus_state: physis_pro::hud::world::FocusState,
     /// The SETTINGS view's live documents. `settings` is always
     /// `shipped defaults + user file + this session's changes`; `cfg` holds the
     /// runtime knobs. Neither is a second store — both are the same documents
@@ -2101,6 +2106,7 @@ impl App {
             config_dirty: false,
             settings_edit: None,
             settings_msg: String::new(),
+            focus_state: physis_pro::hud::world::FocusState::new(),
         })
     }
 
@@ -3151,6 +3157,23 @@ impl App {
     /// Opening SETTINGS reloads both documents from disk, so the view shows the
     /// merged truth (shipped defaults + user file + this session's changes).
     fn open_view(&mut self, view: View) {
+        use physis_pro::hud::bridge::switch_to;
+        // The library FocusState mirrors the bin's view so projection
+        // switches go through the invariant: focus and selection survive,
+        // cursor resets. The bin still owns rows/hits; the mirror is the
+        // seam the reducer will own outright.
+        switch_to(&mut self.focus_state, view.label());
+        let (focused, selection) = match self.current_hit() {
+            Some(hit) => (
+                Some(hit.object.id.clone()),
+                physis_pro::hud::bridge::selection_of(Some(hit)),
+            ),
+            None => (None, physis_pro::hud::world::Selection::empty()),
+        };
+        if focused.is_some() {
+            self.focus_state.focus.refocus(focused);
+            self.focus_state.selection = selection;
+        }
         self.view = view;
         if view == View::Settings {
             self.settings = Settings::load();
@@ -6106,6 +6129,46 @@ mod tests {
             parse_hud_input("settings set providers.jev.model x"),
             HudInput::SemanticQuery(_)
         ));
+    }
+
+    #[test]
+    fn opening_a_view_keeps_the_focused_object_and_selection() {
+        // The vertical slice's invariant, tested through the bin's own
+        // open_view: graph -> tasks -> world must not move the operator off
+        // the object they were looking at.
+        let dir = std::env::temp_dir().join("physis-hud-focus-slice");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).ok();
+        std::fs::write(dir.join("a.rs"), "fn alpha() { let x = 1; }\n").ok();
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+
+        let mut app = App::new(dir.clone(), true).expect("app opens on a temp workspace");
+        app.run_query();
+        assert!(
+            !app.hits.is_empty(),
+            "precondition: the temp workspace indexes a.rs, so there is a focus to prove"
+        );
+        let object = app.current_hit().expect("cursor has an object").object.id.clone();
+
+        app.open_view(View::Graph);
+        assert_eq!(app.focus_state.projection.name(), "graph");
+        assert_eq!(app.focus_state.focus.object, Some(object.clone()));
+        assert!(app.focus_state.selection.contains(&object));
+
+        app.open_view(View::Tasks);
+        assert_eq!(app.focus_state.projection.name(), "tasks");
+        assert_eq!(
+            app.focus_state.focus.object,
+            Some(object.clone()),
+            "the focused object survives a projection switch"
+        );
+
+        app.open_view(View::World);
+        assert_eq!(app.focus_state.projection.name(), "world");
+        assert_eq!(app.focus_state.focus.object, Some(object));
+
+        std::env::remove_var("PHYSIS_DATA_DIR");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
