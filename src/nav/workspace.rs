@@ -137,7 +137,10 @@ impl NavWorkspace {
                 None => 0,
             };
             self.embedder = slot;
-            (n, true, kind)
+            // `sem` is the *kind*'s verdict, not "we embedded something": the
+            // lexical hash embeds too, and reporting that as semantic is the
+            // substitution the acceptance step forbids.
+            (n, crate::nav::is_semantic_kind(&kind), kind)
         } else {
             (0, false, "off".to_string())
         };
@@ -198,9 +201,10 @@ impl NavWorkspace {
         );
         self.embedder = slot;
         let mode = RetrievalMode {
-            semantic: hits
-                .iter()
-                .any(|h| h.score.components.contains_key("semantic")),
+            semantic: crate::nav::is_semantic_kind(&kind)
+                && hits
+                    .iter()
+                    .any(|h| h.score.components.contains_key("semantic")),
             embedder: kind,
             indexed_objects: self.index.objects.len(),
         };
@@ -367,6 +371,57 @@ mod tests {
     /// it, so tests that set it must not interleave.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    /// Restores one env var when the guard drops, so a forced-lexical test
+    /// cannot leak its setting into the next test in this process.
+    struct RestoreEnv {
+        key: &'static str,
+        old: Option<std::ffi::OsString>,
+    }
+
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            match &self.old {
+                Some(v) => std::env::set_var(self.key, v),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
+    /// The lexical fallback must announce itself as lexical. This is the client
+    /// condition (a box with no embedding model: `docs/FEATHER.md`) and it used
+    /// to be reported as `semantic: true` by both the index summary and the
+    /// retrieval mode.
+    #[test]
+    fn a_lexical_embedder_is_never_reported_as_semantic() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("PHYSIS_DATA_DIR", dir.path().join("state"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        seed(dir.path(), "docs/order.md", "order signal experiment\n");
+        let root = dir.path().to_path_buf();
+        let mut ws = NavWorkspace::open(&root).unwrap();
+        assert_eq!(
+            ws.embedder_kind(true),
+            "random-projection",
+            "precondition: the env var must actually select the fallback, or this test proves nothing"
+        );
+        let summary = ws.update(true).unwrap();
+        assert!(
+            summary.contains("semantic: false"),
+            "a lexical run must not claim semantic retrieval: {summary}"
+        );
+        let (hits, mode) = ws
+            .query("order signal", false, &Default::default(), 10)
+            .unwrap();
+        assert!(!hits.is_empty(), "lexical retrieval still returns hits");
+        assert!(!mode.semantic, "mode: {mode:?}");
+        assert_eq!(mode.embedder, "random-projection");
+    }
+
     #[test]
     fn workspace_end_to_end() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
@@ -376,12 +431,24 @@ mod tests {
         let root = dir.path().to_path_buf();
         let mut ws = NavWorkspace::open(&root).unwrap();
         let summary = ws.update(true).unwrap();
-        assert!(summary.contains("semantic: true"), "{summary}");
+        // The summary's semantic flag must agree with the embedder it names.
+        // This used to assert a bare `semantic: true`, which pinned a claim
+        // that was false whenever the selected embedder was the lexical hash
+        // (the summary said `semantic: true (embedder: random-projection)`).
+        let kind = ws.embedder_kind(true);
+        let expected = format!("semantic: {}", crate::nav::is_semantic_kind(&kind));
+        assert!(summary.contains(&expected), "{summary}");
         let (hits, mode) = ws
             .query("order signal", false, &Default::default(), 10)
             .unwrap();
         assert!(!hits.is_empty());
-        assert!(mode.semantic);
+        assert_eq!(
+            mode.semantic,
+            crate::nav::is_semantic_kind(&mode.embedder),
+            "mode claims semantic={} for embedder {}",
+            mode.semantic,
+            mode.embedder
+        );
         // query records its own trail step through the seam
         assert!(ws.trail().iter().any(|s| s.kind == "query"));
 

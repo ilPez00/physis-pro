@@ -548,6 +548,23 @@ fn query_terms(query: &str) -> Vec<String> {
         .collect()
 }
 
+/// Is this embedder kind *semantic*, or a lexical stand-in wearing an
+/// embedder's interface?
+///
+/// One predicate, because three places used to answer this question three
+/// different ways and two of them answered it wrong: `update()` hardcoded
+/// `semantic: true` whenever it embedded anything, `RetrievalMode::semantic`
+/// asked whether any hit carried a `semantic` score *component* (which the
+/// lexical hash also produces), and the HUD compared the label itself. The
+/// result was a header reading `[semantic+lexical] embedder:
+/// random-projection` — retrieval by string match, announced as meaning. It
+/// bites hardest on the client whose only embedder *is* the fallback.
+///
+/// The kind is the truth; the component set is not.
+pub fn is_semantic_kind(kind: &str) -> bool {
+    !matches!(kind, "off" | "random-projection")
+}
+
 /// What retrieval was able to use. Printed in the HUD header — a reduced mode
 /// must be reported, never silent (acceptance step 22).
 #[derive(Debug, Clone, Serialize, Deserialize)]
