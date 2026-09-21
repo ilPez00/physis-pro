@@ -48,8 +48,21 @@ hermes adapter, agent-session objects, shell observations, background rescan →
 |---|---|---|
 | 0 | `PH-024` (review) | views (world/graph/notebook/tasks/agents/settings/setup/help), editable settings (`Settings`+`CONFIG_KNOBS`), `--setup` screen, shared knob table |
 | P0a | `PH-025` (review) | **Guided execution Phase A** — affordances from the registry, constraint IR (+JSON Schema/grammar), world→constraint compiler, deterministic mock model, exact-fact bypass, validation, outcome evidence, CLI `guided` + HUD `guided`. See `docs/GUIDED_EXECUTION.md` |
-| P0 | `PH-026` | `src/hud/{mod,event,keys,config,palette}.rs` — `HudEvent` reducer (headless-tested), `hud.toml` layering (builtin < `~/.config/physis/hud.toml` < `.physis/hud.toml` < flags), palette over Registry, `intent_ir` wired into the textbox chain |
+| P0 | `PH-026` (review) | **the world surface** — object reconciliation (`WorldObject` as a read-only view over `nav::ObjectId`, `Relation.origin` for edge provenance), `src/hud/{world,config,intent,lens_object,palette,bridge}.rs`, the focus-preserving projection switch (`FocusState`), capability-derived palette over `guided::WorldView`, `--query` + command-backed `--view` for headless frames. See `packets/reports/PH-026.md` |
 | P1 | `PH-027` | lens trait + project/semantic/schema/content/object/dependency; hotkeys 1–6 from keymap; snapshot per lens |
+
+### Reconciliation measured 2026-09-21 (before PH-026 was written)
+
+`git rev-list --count HEAD..main` is **0** on `agent/PH-025`: nothing is missing
+from `main`, and `src/world_object.rs` never existed there. The WorldObject
+prototype is an unmerged line on **`local-main-import`** (`468eba6`, `e3de500`,
+`304300e`, `f777492`, `9e01f94`, `ee7bae7`, `4c138c5`, plus `sensors.rs` and
+`fact.rs`). PH-026 therefore ported the view type — not merged `main` — and
+resolved the object question as: `nav::ObjectId` is the navigable identity,
+`WorldObject` is a read-only projection whose identity is that id written as
+`origin:key`, and the three kind vocabularies stay separate by scope with one
+explicit mapping per crossing. `sensors.rs`/`fact.rs` stay unported until a
+caller and a test arrive with them.
 | P2 | `PH-028` | revive `ported/world.rs` (caller+test), temporal+activity lenses, background rescan → delta → Δ badge, draw-before-scan startup |
 | P3 | `PH-029` | multi-buffer editor (undo/search/goto/save→rescan→affected highlight), offline notebook + object links + provenance stamps |
 | P4 | `PH-030` | shell observations, adaptive-document proposal preview→apply, palette mutations gated by `risk` |

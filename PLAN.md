@@ -917,19 +917,27 @@ the repo red lines. `/home/gio/plans-staging/physis-pro/packets` is the
 2026-09-01 deployment snapshot from feather and is **superseded** by this
 directory — it lacks PH-014..PH-016 and carries a pre-claim PH-000.
 
-Status was re-measured 2026-09-20 (newest dated note wins; the 2026-09-11 table
-below is the earlier measurement) — two new packets, both `review`, both with a
-reproducible gate in their report:
+Status was re-measured 2026-09-21 (newest dated note wins; the 2026-09-20 and
+2026-09-11 tables below are earlier measurements) — three new packets, all
+`review`, all with a reproducible gate in their report:
 
 | id | phase | status | one-line |
 |---|---|---|---|
 | PH-024 | 0 | review | `physis-hud` is the one front door: views (world/graph/notebook/tasks/agents/settings/setup/help), editable settings that write only changed keys, `physis-hud --setup`, one knob table for all three TUI panels |
 | PH-025 | 0 | review | guided execution Phase A: `src/guided/` compiles the world (capabilities, permissions, object state) into the model's allowed language; `physis-pro guided "<intent>"`; exact facts bypass the model with zero calls |
+| PH-026 | 0 | review | the world surface: `WorldObject` ported as a read-only view over `nav::ObjectId` (edges carry `Relation.origin`), `src/hud/` library surface, projection switches that cannot move the focus, capability-derived palette, `--query` for headless slice frames |
 
-Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`
+Reconciliation note (2026-09-21): `HEAD..main` is **0** commits on
+`agent/PH-025`, and `src/world_object.rs` does not exist on `main` — the
+WorldObject prototype lives on the unmerged `local-main-import` branch. PH-026
+ported the view type instead of merging `main`.
+
+Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`,
+`packets/reports/PH-026.md`
 (`cargo clippy --all-targets -- -D warnings`; `cargo test --features tui --bin
-physis-hud` 36 passed; `cargo test --lib guided::` 8 passed; `--setup` exit 0;
-`--snapshot --view settings` exit 0). Sequencing authority for the HUD
+physis-hud` 38 passed; `cargo test --lib hud::` 17 passed; `cargo test --lib
+world_object::` 12 passed; `cargo test --lib guided::` 8 passed; `--setup`
+exit 0; `--snapshot --view settings` exit 0). Sequencing authority for the HUD
 programme: `docs/plans/2026-09-20-physis-hud.md`.
 
 Status was re-measured 2026-09-11 on `research/perspective-invention`:

@@ -10,6 +10,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The HUD is a world renderer, not a set of pages (PH-026). `src/world_object.rs`
+  is ported as a **read-only view** over the nav index rather than a second
+  object model: its identity is `nav::ObjectId` written as `origin:key`
+  (`parse_object_id` parses it back), so content-derived identity and rename
+  survival are inherited, not re-implemented. View edges now carry
+  `nav::RelationOrigin`: a directory scan or a symbol extraction is
+  `Deterministic`, a similarity row is `Inferred`, and a bare `relate()` never
+  borrows the grammar of a recorded edge.
+- `src/hud/` is the library surface the bin was missing: `world` (cursor,
+  selection, focus, trail, projection ids, `FocusState`), `config` (layer merge
+  with per-key layer provenance, so a save writes each key back to the layer it
+  came from), `intent` (the deterministic bare-text chain and the `IntentIR`
+  compile, with NIL slots becoming explicit bind tasks), `lens_object` (the
+  object projection over recorded relations plus retrieval neighbours),
+  `palette` (action rows derived from `guided::WorldView`, so an unknown target
+  offers nothing and high-risk rows ask first), and `bridge` (bin↔library
+  adapters). `--features tui` gates it.
+- **Projection switches no longer move the operator.** `FocusState::switch_projection`
+  changes how the world is shown and resets only the cursor; focus, explicit
+  selection and the trail survive. `App::open_view` routes every view change
+  through it, so `g`, `N`, `T`, `A`, `S`, `W`, `?` and `Tab` all inherit the
+  invariant, and a test drives it through the bin's own `open_view`.
+- `physis-hud --query <text>` runs a query before rendering, and `--view graph|
+  tasks|agents|help` now opens through the command path, so a headless frame
+  carries a focus instead of an empty pane:
+  `--snapshot=100x28 --query=retrieval --view=world|graph` shows the same
+  object id in both projections.
 - Guided execution Phase A (PH-025): the world compiles into the model's allowed
   language before a model is asked anything. `src/guided/` derives typed
   affordances from the registry's capability table (the same table

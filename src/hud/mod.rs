@@ -28,10 +28,20 @@
 //! state; [`crate::registry::Registry`] stays the authoritative action source;
 //! [`crate::world_object::WorldObject`] is the unified read-only projection
 //! over both. Nothing here is a second store.
+//!
+//! | module | owns |
+//! |---|---|
+//! | [`world`] | `Cursor`, `Selection`, `Focus`, `Trail`, `ProjectionId`, `FocusState` — the lens state that travels with the operator, including the invariant that a projection switch never moves the focus |
+//! | [`config`] | four-layer configuration merge (builtin < user < workspace < flags) with per-key layer provenance, so a save writes each key back to the layer it came from |
+//! | [`intent`] | the deterministic bare-text chain and the `IntentIR` compile; every resolution names its route, so no routing is hidden |
+//! | [`lens_object`] | the object projection: recorded relations (with their origin) plus retrieval neighbours, which are always `Inferred` |
+//! | [`palette`] | action rows derived from the guided world view — never a hand-written menu |
+//! | [`bridge`] | the pure adapters between the bin's `App` and the contract above |
 
-pub mod world;
-pub mod palette;
+pub mod bridge;
 pub mod config;
 pub mod intent;
 pub mod lens_object;
-pub mod bridge;
+pub mod palette;
+pub mod world;
+
