@@ -6107,4 +6107,62 @@ mod tests {
             HudInput::SemanticQuery(_)
         ));
     }
+
+    #[test]
+    fn object_lens_renders_recorded_edges_in_graph_grammar() {
+        use physis_pro::hud::lens_object::ObjectLens;
+        use std::path::PathBuf;
+
+        // Headless vertical slice: a temp workspace with two related files.
+        // No embedder, no network — the lens reads recorded relations only.
+        let dir = std::env::temp_dir().join("physis-lens-object-test");
+        std::fs::create_dir_all(&dir).ok();
+        std::fs::write(dir.join("a.rs"), "fn alpha() {}\n").ok();
+        std::fs::write(dir.join("b.rs"), "fn beta() {}\n").ok();
+        // Isolate the sled store so the test never touches the real index.
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let mut ws = physis_pro::nav::workspace::NavWorkspace::open(&dir).unwrap();
+        // Open is stat-only: ingest the two files so objects exist. No
+        // embedder (lexical only) — the lens reads relations, not vectors.
+        let _ = ws.update(false);
+        let objects: Vec<physis_pro::nav::PhysisObject> = ws.index().objects.values().cloned().collect();
+        assert!(!objects.is_empty(), "workspace indexes the two files");
+        let center = NavHit {
+            object: objects[0].clone(),
+            score: physis_pro::nav::RetrievalScore { total: 1.0, components: Default::default() },
+        };
+        let others: Vec<NavHit> = objects[1..].iter().map(|o| NavHit {
+            object: o.clone(),
+            score: physis_pro::nav::RetrievalScore { total: 0.5, components: Default::default() },
+        }).collect();
+
+        // Record one user edge so the lens has a solid line to render.
+        if others.is_empty() {
+            std::env::remove_var("PHYSIS_DATA_DIR");
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
+        ws.add_relation(&center.object, &others[0].object, "relates to", "").ok();
+
+        let lens = ObjectLens::project(&ws, &center, &others);
+        // The same object the world projection listed is the lens center.
+        assert_eq!(lens.center.content, center.object.label);
+        // The recorded edge renders solid (user origin).
+        assert!(
+            lens.edges.iter().any(|e| e.glyph == "───"),
+            "user edge renders solid: {:?}",
+            lens.edges
+        );
+        // Near rows are dashed and Inferred — similarity never borrows proof.
+        for n in &lens.near {
+            assert_eq!(n.glyph, "- -");
+            assert_eq!(n.origin, physis_pro::nav::RelationOrigin::Inferred);
+        }
+        let text = lens.render().join("\n");
+        assert!(text.contains("solid = user"), "{text}");
+
+        std::env::remove_var("PHYSIS_DATA_DIR");
+        std::fs::remove_dir_all(&dir).ok();
+        let _ = PathBuf::from(".");
+    }
 }
