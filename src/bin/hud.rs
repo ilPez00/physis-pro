@@ -15,7 +15,7 @@
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
 //! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! o observe-draft · P plan · X execute-dry · V validators · M impossible-machine · u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
+//! o observe-draft · P plan · X execute-dry · V validators · M impossible-machine · [ ] scroll reading · u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
 //! f/F intent focus/clear · z zoom rollup · 1/2/3 why/context/delta tabs. No mouse required.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
@@ -255,6 +255,8 @@ struct App {
     selected: Vec<NavHit>,
     /// Reading pane: (title, exact source text).
     reading: Option<(String, String)>,
+    /// Reading-pane scroll offset in lines ([ up / ] down).
+    reading_scroll: u16,
     /// Right pane: explanation of the selected object.
     explain: String,
     /// Zoom stack of (query, hits, rows, sel) so Esc climbs out with the
@@ -354,6 +356,7 @@ impl App {
             list_state: ListState::default(),
             selected: Vec::new(),
             reading: Some(("startup".into(), startup)),
+            reading_scroll: 0,
             explain: String::new(),
             stack: Vec::new(),
             crumbs: Vec::new(),
@@ -930,7 +933,7 @@ impl App {
             ObjectKind::Passage | ObjectKind::Note | ObjectKind::File => {
                 match self.ws.read(&hit.object) {
                     Ok(text) => {
-                        self.reading = Some((hit.object.label.clone(), text));
+                        self.set_reading((hit.object.label.clone(), text));
                     }
                     Err(e) => self.status = format!("cannot read: {e}"),
                 }
@@ -952,6 +955,7 @@ impl App {
             self.rows = rows;
             self.sel = sel;
             self.reading = None;
+            self.reading_scroll = 0;
             self.sync_list_state();
             self.update_explain();
         }
@@ -1094,7 +1098,7 @@ impl App {
         lines.push("solid = user · double = deterministic · dashed = inferred/near".into());
         lines.push("edge ids: rel:<a>:<kind>:<b> (canonical order)".into());
         lines.push("★ selected · ◆ human-pinned · ● changed · ◐ affected · ▲ intent · · ordinary".into());
-        self.reading = Some((format!("graph: {}", center.object.label), lines.join("\n")));
+        self.set_reading((format!("graph: {}", center.object.label), lines.join("\n")));
     }
 
     fn related(&mut self) {
@@ -1119,7 +1123,7 @@ impl App {
     /// pane; read-only, no transition recorded.
     fn show_history(&mut self) {
         let text = physis_pro::mvp::history_text(&self.ws.root);
-        self.reading = Some(("history".into(), text));
+        self.set_reading(("history".into(), text));
         self.status = "history: git log, or filesystem order without git".into();
     }
     /// Measured machine numbers (`B`): same shared helper the REPL `bench`
@@ -1145,7 +1149,7 @@ impl App {
             &intent,
             Some((self.ws_tokens, sel_tokens)),
         );
-        self.reading = Some(("bench".into(), text));
+        self.set_reading(("bench".into(), text));
         self.status = "bench: measured here, offline — same numbers as REPL `bench`".into();
     }
     /// Dependents of the cursor object (`D`): stem/symbol scan over its path —
@@ -1162,7 +1166,7 @@ impl App {
             .map(|s| s.path.clone())
             .unwrap_or_else(|| hit.object.label.clone());
         let text = physis_pro::mvp::dependents_text(&self.ws.root, &path);
-        self.reading = Some((format!("dependents: {path}"), text));
+        self.set_reading((format!("dependents: {path}"), text));
         self.status = "dependents: code-shaped references to the cursor path".into();
     }
 
@@ -1180,7 +1184,7 @@ impl App {
             return;
         };
         let text = physis_pro::mvp::contradictions_text(&docs);
-        self.reading = Some(("contradictions".into(), text));
+        self.set_reading(("contradictions".into(), text));
         self.status = "contradictions: slice-map pairs over the selection".into();
     }
 
@@ -1219,7 +1223,7 @@ impl App {
             &self.weights,
             &recorded_at,
         );
-        self.reading = Some(("observe (draft)".into(), text));
+        self.set_reading(("observe (draft)".into(), text));
         self.status = "observe draft shown (read-only, not appended)".into();
     }
 
@@ -1229,7 +1233,7 @@ impl App {
         let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
         let rev = self.projection_revision();
         let text = physis_pro::mvp::deps::plan_shortlist_text(&self.query, &bound, &rev);
-        self.reading = Some(("plan (shortlist)".into(), text));
+        self.set_reading(("plan (shortlist)".into(), text));
         self.status = "plan shortlist shown (read-only)".into();
     }
 
@@ -1238,7 +1242,7 @@ impl App {
     fn show_execute_dry(&mut self) {
         let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
         let text = physis_pro::mvp::deps::execute_dry_text(&self.ws.root, &bound);
-        self.reading = Some(("execute (dry)".into(), text));
+        self.set_reading(("execute (dry)".into(), text));
         self.status = "execute dry-run shown (not run)".into();
     }
 
@@ -1257,7 +1261,7 @@ impl App {
             Ok(mut log) => physis_pro::mvp::deps::execute_bounded_step(&root, &bound, &mut log, &intent),
             Err(e) => format!("EXECUTE refused: log unavailable: {e}"),
         };
-        self.reading = Some(("execute (bounded)".into(), text.clone()));
+        self.set_reading(("execute (bounded)".into(), text.clone()));
         self.status = if text.starts_with("EXECUTE refused") {
             "bounded execute refused (see reading pane)".into()
         } else {
@@ -1270,15 +1274,27 @@ impl App {
     fn show_validate(&mut self) {
         let bound = physis_pro::mvp::deps::bound_objects(&self.projection_base());
         let text = physis_pro::mvp::deps::validate_preview_text(&bound);
-        self.reading = Some(("validate (preview)".into(), text));
+        self.set_reading(("validate (preview)".into(), text));
         self.status = "validators previewed (not run)".into();
+    }
+
+    /// Set the reading pane and rewind its scroll: a stale offset would
+    /// blank a new short text (the M view runs ~60 lines, most views do not).
+    fn set_reading(&mut self, r: (String, String)) {
+        self.reading = Some(r);
+        self.reading_scroll = 0;
+    }
+
+    /// Scroll the reading pane by `delta` lines (`[` up / `]` down).
+    fn scroll_reading(&mut self, delta: i16) {
+        self.reading_scroll = self.reading_scroll.saturating_add_signed(delta);
     }
 
     /// `M` — Impossible Machine chain (E52→E65) into the reading pane.
     /// Closed record plus live artifact overlay; read-only, nothing runs.
     fn show_impossible(&mut self) {
         let text = physis_pro::mvp::impossible_text(&self.ws.root);
-        self.reading = Some(("impossible machine".into(), text));
+        self.set_reading(("impossible machine".into(), text));
         self.status = "impossible machine: closed chain + live artifacts (read-only)".into();
     }
 
@@ -1506,6 +1522,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     };
     let reader = Paragraph::new(body)
         .block(Block::default().borders(Borders::ALL).title(format!(" {title} ")))
+        .scroll((app.reading_scroll, 0))
         .wrap(Wrap { trim: false });
     f.render_widget(reader, reading_chunks[0]);
 
@@ -1546,7 +1563,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "o observe · P plan · X execute-dry · ctrl-e bounded-run · V validators · M impossible-machine · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "o observe · P plan · X execute-dry · ctrl-e bounded-run · V validators · M impossible-machine · [ ] scroll reading · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1687,6 +1704,8 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('X') => app.show_execute_dry(),
                             KeyCode::Char('V') => app.show_validate(),
                             KeyCode::Char('M') => app.show_impossible(),
+                            KeyCode::Char('[') => app.scroll_reading(-10),
+                            KeyCode::Char(']') => app.scroll_reading(10),
                             KeyCode::Char('e')
                                 if key.modifiers.contains(KeyModifiers::CONTROL) =>
                             {
@@ -1830,5 +1849,23 @@ mod tests {
         assert!(text.starts_with("EXECUTE refused"), "{text}");
         assert!(text.contains("stale snapshot"), "{text}");
         assert_eq!(log.read_all().len(), before, "refusal appends nothing");
+    }
+
+    /// Reading scroll moves in lines, never below zero, and a new view
+    /// rewinds — otherwise a stale offset blanks a short text.
+    #[test]
+    fn reading_scroll_moves_and_rewinds_on_new_view() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = App::new(dir.path().to_path_buf(), false).unwrap();
+        app.set_reading(("long".into(), "line\n".repeat(100)));
+        app.scroll_reading(10);
+        assert_eq!(app.reading_scroll, 10);
+        app.scroll_reading(-4);
+        assert_eq!(app.reading_scroll, 6);
+        app.scroll_reading(-100);
+        assert_eq!(app.reading_scroll, 0, "scroll never goes below zero");
+        app.scroll_reading(10);
+        app.set_reading(("short".into(), "one".into()));
+        assert_eq!(app.reading_scroll, 0, "a new view rewinds");
     }
 }
