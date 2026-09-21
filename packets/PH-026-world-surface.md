@@ -58,6 +58,15 @@ WorldObject work lives on `local-main-import` (`468eba6`, `e3de500`,
 4. Headless slice: `--query <text>` gives the frame a focus, and
    `--view graph|tasks|agents|help` opens through the command path so the frame
    is the real body.
+5. **The reducer boundary** (`src/hud/event.rs`): `HudEvent`
+   (`AgentReply`/`AgentStarted`/`SourceDiff`/`ProjectionChanged`) plus
+   `reduce(&mut FocusState, &HudEvent) -> Vec<HudEffect>`. The bin's run loop no
+   longer handles a reply inline: it builds the event, reduces, and applies the
+   effects through `App::apply_hud_effect`. `HudEffect` has no executable
+   variant, so a model's output can reach the status line and the reading pane
+   and nothing else — asserted twice (library: `a_reply_can_only_annotate_not_execute`;
+   bin: `agent_reply_enters_through_the_reducer_and_only_annotates`, which also
+   asserts the operator's query is untouched by a reply).
 
 ## Tests added
 
@@ -74,8 +83,13 @@ WorldObject work lives on `local-main-import` (`468eba6`, `e3de500`,
   no rows; high risk asks first.
 - `src/hud/bridge.rs` (3): selection names the hit id; view switch through the
   bridge keeps focus; cursor clamps.
-- `src/bin/hud.rs` (2): `opening_a_view_keeps_the_focused_object_and_selection`
+- `src/hud/event.rs` (6): a reply carries its route; a reply can only annotate,
+  never execute; a failed reply says so; a projection event keeps focus and
+  selection; a source diff is reported with both counts; only `AgentReply`
+  claims a model route.
+- `src/bin/hud.rs` (3): `opening_a_view_keeps_the_focused_object_and_selection`
   (through `App::open_view`, non-vacuous precondition asserted);
+  `agent_reply_enters_through_the_reducer_and_only_annotates`;
   `object_lens_renders_recorded_edges_in_graph_grammar`.
 
 ## No symbol is renamed or removed

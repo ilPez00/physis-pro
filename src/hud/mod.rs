@@ -36,6 +36,7 @@
 //! | [`intent`] | the deterministic bare-text chain and the `IntentIR` compile; every resolution names its route, so no routing is hidden |
 //! | [`lens_object`] | the object projection: recorded relations (with their origin) plus retrieval neighbours, which are always `Inferred` |
 //! | [`palette`] | action rows derived from the guided world view — never a hand-written menu |
+//! | [`event`] | `HudEvent` and the pure `reduce`: the one place an event becomes a change, and the reason model output can only annotate |
 //! | [`bridge`] | the pure adapters between the bin's `App` and the contract above |
 
 pub mod bridge;

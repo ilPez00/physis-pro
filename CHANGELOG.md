@@ -32,6 +32,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   selection and the trail survive. `App::open_view` routes every view change
   through it, so `g`, `N`, `T`, `A`, `S`, `W`, `?` and `Tab` all inherit the
   invariant, and a test drives it through the bin's own `open_view`.
+- **Model output cannot become a command.** Agent replies now arrive as a
+  `HudEvent` and pass through a pure reducer (`hud::event::reduce`). The effect
+  set is `Status | Reading | ClearPending` — no executable variant exists, so
+  "a reply may only annotate" is a property of the type rather than a rule
+  someone has to remember, and the status wording for success and failure is
+  tested without a terminal.
 - `physis-hud --query <text>` runs a query before rendering, and `--view graph|
   tasks|agents|help` now opens through the command path, so a headless frame
   carries a focus instead of an empty pane:
