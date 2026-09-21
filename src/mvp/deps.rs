@@ -455,6 +455,125 @@ pub fn validate_preview_text(bound: &[BoundObject]) -> String {
     o
 }
 
+/// Shorten a claim for a single HUD line: characters, never bytes, so a
+/// Σ or Λ is not cut in half.
+fn short_claim(s: &str, max: usize) -> String {
+    let mut out: String = s.chars().take(max).collect();
+    if s.chars().count() > max {
+        out.push('…');
+    }
+    out
+}
+
+/// `M` — the Impossible Machine chain (E52→E65 singular-series fit).
+/// Read-only text: the baked-in rows are the CLOSED series verdict from
+/// `physis-core/research/impossible_machine/SERIES_SUMMARY.md` (settled
+/// numbers, never re-estimated here); when the workspace carries live
+/// `experiment{61,62,63,64,65}_results.json` artifacts their fits are
+/// shown alongside. Values grade by gates G1/G2/G3 — a fit without its
+/// gates is prose, and Heuristic never certifies (machines.rs rule).
+pub fn impossible_text(root: &Path) -> String {
+    let mut o = String::new();
+    o.push_str("── IMPOSSIBLE MACHINE (read-only — not run) ──\n");
+    o.push_str("question: does the small-gap prime deviation carry 2C2 = 1.32032?\n");
+    o.push_str("layers: EXACT certifies · NUMERICAL certifies (error-bounded) · HEURISTIC never certifies · CONJECTURAL never certifies\n");
+    o.push_str("chain (estimator · fit disc/hold · G1 G2 G3):\n");
+    o.push_str("  E52 N=2e5   kmax=40 direction-only            —           ✓ ✓ —\n");
+    o.push_str("  E60 N=1e6   kmax=40 unweighted mean           1.470/1.487 ✓ ✓ ✗\n");
+    o.push_str("  E61 N=1e7   kmax=40 unweighted mean           1.498/1.509 ✓ ✓ ✗ (diverges with N — estimator, not data)\n");
+    o.push_str("  E62 N=1e6   kmax=40 median                    1.395/1.451 ✓ ✓ ✓\n");
+    o.push_str("  E63 N=1e7   kmax=40 median                    1.459/1.470 ✓ ✓ ✓\n");
+    o.push_str("  E64 N=1e6   kmax=80 median, all bins          0.933/1.075 ✓ ✓ ✗\n");
+    o.push_str("  E65 N=1e6   kmax=80 median, N(k)>0            0.934/1.075 ✓ ✓ ✗ (zero counts falsified as cause)\n");
+    o.push_str("verdict: AGREEMENT in direction (D≈1.26–1.34 vs nulls ≤0.053), stability (halves agree), value (E62/E63 in 1.32032±0.15). Boundary: kmax=40 — wider adds model error. No 1/2 anywhere in generation/scoring/gates.\n");
+    // Live overlay: experiment JSONs next to the workspace, when present.
+    let mut candidates = vec![
+        root.join("physis-core/research/impossible_machine/experiments"),
+        root.join("research/impossible_machine/experiments"),
+    ];
+    candidates.sort();
+    candidates.dedup();
+    let mut live = 0usize;
+    for dir in &candidates {
+        for exp in ["61", "62", "63", "64", "65"] {
+            let p = dir.join(format!("experiment{exp}_results.json"));
+            let Ok(bytes) = std::fs::read(&p) else {
+                continue;
+            };
+            let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+                continue;
+            };
+            live += 1;
+            let fit = match (v.get("fit_disc"), v.get("fit_hold")) {
+                (Some(a), Some(b)) => format!("{a}/{b}"),
+                _ => "(no fit)".to_string(),
+            };
+            let g3 = v.get("g3").map(|g| g.to_string()).unwrap_or("?".into());
+            let verdict = v
+                .get("verdict")
+                .and_then(|s| s.as_str())
+                .unwrap_or("(no verdict)");
+            let short: String = verdict.chars().take(100).collect();
+            o.push_str(&format!("  live E{exp}: fit={fit} g3={g3} · {short}\n"));
+        }
+        let r = dir.join("results.json");
+        if let Ok(rep) = physis_core::machines::ImpossibleReport::load(&r) {
+            live += 1;
+            let names: Vec<&str> = rep.machines.iter().map(|m| m.name.as_str()).collect();
+            o.push_str(&format!(
+                "  live machines ({} reports): {}\n",
+                rep.machines.len(),
+                names.join(", ")
+            ));
+            for m in &rep.machines {
+                o.push_str(&format!("    {} — {}\n", m.name, short_claim(&m.operation, 90)));
+                for ob in &m.observations {
+                    o.push_str(&format!(
+                        "      [{:?}] {} — {}\n",
+                        ob.status,
+                        ob.target,
+                        short_claim(&ob.claim, 110)
+                    ));
+                }
+                if !m.failure_mode.is_empty() {
+                    o.push_str(&format!(
+                        "      fails as: {}\n",
+                        short_claim(&m.failure_mode, 110)
+                    ));
+                }
+            }
+            if !rep.propositions.is_empty() {
+                o.push_str(&format!("  live propositions ({}):\n", rep.propositions.len()));
+                for p in &rep.propositions {
+                    o.push_str(&format!(
+                        "    [{:?}] {} — {}\n",
+                        p.status,
+                        p.id,
+                        short_claim(&p.claim, 100)
+                    ));
+                }
+            }
+            for d in &rep.disagreements {
+                o.push_str(&format!(
+                    "  live disagreement: {} vs {} on {}: {} / {}\n",
+                    d.a,
+                    d.b,
+                    d.subject,
+                    short_claim(&d.a_claim, 60),
+                    short_claim(&d.b_claim, 60)
+                ));
+            }
+            if !rep.verdict.is_empty() {
+                o.push_str(&format!("  live verdict: {}\n", short_claim(&rep.verdict, 160)));
+            }
+        }
+    }
+    if live == 0 {
+        o.push_str("(no live experiment JSONs under this workspace — chain above is the closed record)\n");
+    }
+    o
+}
+
 /// Dependents of `changed`: files that *reference* the changed symbols or module.
 ///
 /// The rule is deliberately precision-first, and it was measured before it was
@@ -768,5 +887,76 @@ mod tests {
         let o = dependents_text(dir.path(), "solo.rs");
         assert!(o.contains("dependencies of solo.rs"), "{o}");
         assert!(o.contains("(none found)"), "{o}");
+    }
+
+    /// The closed chain renders without live artifacts: verdict, boundary,
+    /// and the HEURISTIC rule are all present.
+    #[test]
+    fn impossible_without_artifacts_shows_the_closed_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let o = impossible_text(dir.path());
+        assert!(o.contains("2C2 = 1.32032"), "{o}");
+        assert!(o.contains("E62"), "{o}");
+        assert!(o.contains("kmax=40"), "{o}");
+        assert!(o.contains("HEURISTIC never certifies"), "{o}");
+        assert!(o.contains("no live experiment JSONs"), "{o}");
+    }
+
+    /// A live E62 artifact is overlaid, never replacing the closed rows.
+    #[test]
+    fn impossible_with_artifact_overlays_live_fit() {
+        let dir = tempfile::tempdir().unwrap();
+        let exp = dir.path().join("research/impossible_machine/experiments");
+        std::fs::create_dir_all(&exp).unwrap();
+        std::fs::write(
+            exp.join("experiment62_results.json"),
+            r#"{"fit_disc": 1.395, "fit_hold": 1.451, "g3": true, "verdict": "AGREEMENT — test"}"#,
+        )
+        .unwrap();
+        let o = impossible_text(dir.path());
+        assert!(o.contains("E62"), "{o}");
+        assert!(o.contains("live E62"), "{o}");
+        assert!(o.contains("1.395"), "{o}");
+    }
+
+    /// A live run artifact renders graded machines, propositions,
+    /// disagreements and the verdict — grades attached, nothing invented.
+    #[test]
+    fn impossible_with_report_renders_grades() {
+        let dir = tempfile::tempdir().unwrap();
+        let exp = dir.path().join("research/impossible_machine/experiments");
+        std::fs::create_dir_all(&exp).unwrap();
+        std::fs::write(
+            exp.join("results.json"),
+            r#"{
+                "machine_reports": [{
+                    "name": "euclid", "operation": "sieve",
+                    "failure_mode": "RH invisible", "physis_equivalent": "EXACT",
+                    "observations": [
+                        {"machine": "euclid", "target": "psi-exact",
+                         "claim": "ψ constructed exactly", "quantity": 0.0,
+                         "status": "EstablishedFinite"}
+                    ]
+                }],
+                "propositions": [
+                    {"id": "P9", "machines": ["empedocles"],
+                     "claim": "|M(x)| < √x", "status": "Contradicted",
+                     "witness": "Odlyzko–te Riele", "quarantined": false}
+                ],
+                "disagreements": [
+                    {"a": "euclid", "b": "nous", "subject": "visibility",
+                     "a_claim": "invisible", "b_claim": "visible"}
+                ],
+                "verdict": "RH REDUCED TO A NEW EXPLICIT PROBLEM",
+                "verdict_witness": "seven stances"
+            }"#,
+        )
+        .unwrap();
+        let o = impossible_text(dir.path());
+        assert!(o.contains("live machines (1 reports): euclid"), "{o}");
+        assert!(o.contains("[EstablishedFinite] psi-exact"), "{o}");
+        assert!(o.contains("[Contradicted] P9"), "{o}");
+        assert!(o.contains("euclid vs nous on visibility"), "{o}");
+        assert!(o.contains("RH REDUCED"), "{o}");
     }
 }

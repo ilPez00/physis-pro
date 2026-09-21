@@ -15,7 +15,7 @@
 //! Keyboard-first (§22): `/` focus search · ↑↓ move · Enter zoom in ·
 //! Esc zoom out (trail preserved) · Space select · s/d/R same/different/relates
 //! · n notebook selection · p pin · r related · e edit ($EDITOR + rescan) ·
-//! o observe-draft · P plan · X execute-dry · V validators · u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
+//! o observe-draft · P plan · X execute-dry · V validators · M impossible-machine · u rescan · g graph view · H history · B bench · D dependents · C contradictions ·
 //! f/F intent focus/clear · z zoom rollup · 1/2/3 why/context/delta tabs. No mouse required.
 //!
 //! No LLM anywhere: retrieval is the shared hybrid scorer; when no embedder
@@ -1274,6 +1274,14 @@ impl App {
         self.status = "validators previewed (not run)".into();
     }
 
+    /// `M` — Impossible Machine chain (E52→E65) into the reading pane.
+    /// Closed record plus live artifact overlay; read-only, nothing runs.
+    fn show_impossible(&mut self) {
+        let text = physis_pro::mvp::impossible_text(&self.ws.root);
+        self.reading = Some(("impossible machine".into(), text));
+        self.status = "impossible machine: closed chain + live artifacts (read-only)".into();
+    }
+
     /// Hand the current selection (or the highlighted object) to Function 2:
     /// docs = (title, exact source text) for the Notebook scope. Canonical
     /// objects — the Notebook borrows, never copies, the content.
@@ -1538,7 +1546,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
-            "o observe · P plan · X execute-dry · ctrl-e bounded-run · V validators · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
+            "o observe · P plan · X execute-dry · ctrl-e bounded-run · V validators · M impossible-machine · e edit · u rescan · g graph · H history · B bench · D dependents · C contradictions · f focus · F clear · z zoom · 1/2/3 why/context/delta · n notebook · p pin · s/d/R relate · space select · q quit",
             Style::default().fg(Color::DarkGray),
         )),
         Line::from(Span::styled(
@@ -1678,6 +1686,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             KeyCode::Char('P') => app.show_plan(),
                             KeyCode::Char('X') => app.show_execute_dry(),
                             KeyCode::Char('V') => app.show_validate(),
+                            KeyCode::Char('M') => app.show_impossible(),
                             KeyCode::Char('e')
                                 if key.modifiers.contains(KeyModifiers::CONTROL) =>
                             {

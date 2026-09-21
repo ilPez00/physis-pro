@@ -290,6 +290,20 @@ fn context_focus_rescan_bench_are_model_free() {
     std::env::remove_var("PHYSIS_MODEL");
 }
 
+/// The REPL `impossible` command reports the same closed chain the HUD `M`
+/// shows: settled numbers with gates attached, and an honest note when the
+/// workspace carries no live artifacts.
+#[test]
+fn impossible_reports_the_closed_chain_without_artifacts() {
+    let _guard = env_lock();
+    let repo = seed_repo();
+    let mut s = open(repo.path());
+    let out = s.handle("impossible").unwrap().unwrap();
+    for needle in ["2C2 = 1.32032", "E62", "kmax=40", "HEURISTIC never certifies", "no live experiment JSONs"] {
+        assert!(out.contains(needle), "missing {needle} in:\n{out}");
+    }
+}
+
 /// Phase 32 HUD projections: state markers, dir rollup, intent bands,
 /// why-affected paths. Pure functions over the ranked list — no TUI needed,
 ///

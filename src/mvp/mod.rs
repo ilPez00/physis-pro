@@ -11,7 +11,7 @@ pub mod slice;
 pub use deps::{
     BoundObject, affected_dependents, bench_text, bound_objects, changed_symbols,
     classify_intent, contradictions_text, dependents_text, execute_bounded_step,
-    execute_dry_text, generator_state, history_text, observe_draft_text,
+    execute_dry_text, generator_state, history_text, impossible_text, observe_draft_text,
     plan_shortlist_text, validate_preview_text, weights_line,
 };
 pub use log::{since_last_session_notice, TransitionLog};

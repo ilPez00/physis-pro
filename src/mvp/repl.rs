@@ -662,6 +662,30 @@ impl Session {
         self.say("contradictions", &o);
         Ok(o)
     }
+    /// Impossible machine: the closed E52→E65 chain plus live artifact
+    /// overlay, by the shared `impossible_text` helper (same view the HUD
+    /// `M` reports); the session recording stays here.
+    pub fn impossible(&mut self) -> anyhow::Result<String> {
+        let before = self.state_ref();
+        let o = super::deps::impossible_text(&self.root);
+        let after = self.state_ref();
+        self.record(
+            "impossible",
+            "impossible",
+            CompactDelta {
+                no_change: true,
+                ..Default::default()
+            },
+            vec![],
+            "listed impossible-machine chain".into(),
+            vec![],
+            before,
+            after,
+            0.1,
+        );
+        self.say("impossible", &o);
+        Ok(o)
+    }
     /// Bounded modification: plan, approve, validate, observe Δ, remap.
     pub fn act_flow(&mut self, raw: &str, auto: bool) -> anyhow::Result<String> {
         let before = self.state_ref();
@@ -1019,7 +1043,7 @@ impl Session {
             return Ok(Some("__quit__".into()));
         }
         if lower == "help" {
-            return Ok(Some("zoom/open <t> · back · search <q> · focus [q] · related · dependencies [t] · differences · contradictions · history · inspect [t] · context · edit [path] · rescan · bench · improve ... · act ... --yes · quit".into()));
+            return Ok(Some("zoom/open <t> · back · search <q> · focus [q] · related · dependencies [t] · differences · contradictions · history · impossible · inspect [t] · context · edit [path] · rescan · bench · improve ... · act ... --yes · quit".into()));
         }
         if lower == "back" {
             self.trail.pop();
@@ -1067,6 +1091,9 @@ impl Session {
         }
         if t == "contradictions" || lower == "what contradicts this?" {
             return Ok(Some(self.contradictions()?));
+        }
+        if lower == "impossible" {
+            return Ok(Some(self.impossible()?));
         }
         if t == "related" {
             if let Some(f) = self.focus.clone() {
