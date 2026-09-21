@@ -4,12 +4,44 @@ You are on **feather** (weak client, disk ~94% full, glibc 2.41, ollama has
 `qwen2.5-coder:3b` + `qwen3:4b`, **no** `nomic-embed-text`). Never build here:
 no disk, no toolchain margin. Pansa builds for you; you install + smoke-test.
 
-Last push: **2026-09-18 13:24** from pansa
-(`rust:1-trixie` release build, features `cli,network,voice,web,tui,embed-onnx,
-industrial,pdf,email,audio,sql,postgres,mcp,repair-pipeline`). New in this
-push: `physis-studio` (the one-TUI demo product — STATUS/GRAPH/NOTEBOOK/DIFF/
-MACHINES/CONFIG, `--snapshot` renders a frame without a TTY); all other
-binaries refreshed from the same build.
+Last push: **2026-09-21 06:11** from pansa (`rust:1-trixie` release build,
+`--no-default-features --features cli,tui`, **`physis-hud` only**: 14.9 MB,
+requires at most `GLIBC_2.39` ≤ your 2.41). The lean feature set is possible
+since the crate finally builds without `embed-onnx` (it used to fail with
+`E0433`); the onnx runtime is no use on a box with no embedding model anyway.
+Everything else in `~/.local/bin` is still the 2026-09-18 full-feature build.
+
+Branch delivered: **`agent/PH-026`** on origin (the world surface: lens-driven
+graph view, projection switches that keep the focused object, lens rows that
+carry object identity). The HUD now labels a lexical index `LEXICAL ONLY` and
+prints `semantic: false` in the index summary. The previous binary
+(2026-09-18) was built from `agent/MS-005-q6`, whose `src/nav/workspace.rs` held
+`(n, true, kind)` at line 140 and the component-presence test at line 201 — the
+same two lines this push fixes — so that build reported `semantic: true` and
+`[semantic+lexical]` on this box while running the identical string-matching
+fallback. (Source-level verification, not a re-run of the old binary: the push
+replaced it.)
+
+## 0. Reaching the fleet (measured 2026-09-21)
+
+`feather` (100.122.202.38) is **offline**; the live node is **`feather-1`**
+(100.94.69.0 / LAN 192.168.1.14) and the `feather` alias points at it. Tailscale
+SSH answers with `# Tailscale SSH requires an additional check` plus a browser
+URL, so an unattended `ssh feather …` **cannot** be approved by an agent. The
+LAN path uses the normal key auth and works:
+
+```bash
+ssh gio@192.168.1.14                      # works with keys, no browser step
+```
+
+Pushing from pansa therefore needs the LAN host:
+
+```bash
+PHYSIS_FEATHER_HOST=gio@192.168.1.14 \
+PHYSIS_TARGET_DIR=target-trixie-mine/release \
+  scripts/push-feather.sh physis-hud
+```
+
 
 Current version: branch **`agent/MS-005-q6`** on origin (7 commits over
 `ac51db6`: HUD edge toggle, adaptive-doc export, Q6 rerun, HUD polish,
@@ -43,6 +75,24 @@ ls -la ~/.local/bin/physis-pro ~/.local/bin/physis-hud ~/.local/bin/physis-studi
 physis-hud --help | head -3   # must print flags, not a GLIBC error
 physis-studio --snapshot STATUS | head -5   # one real frame, no TTY needed
 ```
+
+The HUD snapshot matrix — the check every HUD packet must re-run here:
+
+```bash
+export PHYSIS_ALLOW_DEV_LICENCE=1 PHYSIS_EMBEDDER=random-projection
+export PHYSIS_DATA_DIR=/tmp/hud-feather-test/.physis
+mkdir -p /tmp/hud-feather-test
+printf '# notes\n\nretrieval and packing\n' > /tmp/hud-feather-test/notes.md
+printf 'fn retrieval_notes() -> usize { 3 }\n' > /tmp/hud-feather-test/retrieval.rs
+physis-hud /tmp/hud-feather-test --prescan-only     # "semantic: false"
+for s in 60x18 100x30 160x50; do for v in world graph; do
+  physis-hud /tmp/hud-feather-test --snapshot=$s --query=retrieval --view=$v | head -1
+done; done
+# every frame must print: PHYSIS NAVIGATOR  [LEXICAL ONLY] embedder: random-projection
+```
+
+Use a throwaway `PHYSIS_DATA_DIR` like the above: `~/dev/physis-pro` is a real
+clone another session may be indexing, and the index is single-writer.
 
 Installed set: `physis` (front door), `physis-pro`, `physis-pro-web`,
 `physis-pro-tui`, `physis-pro-wiki`, `physis-studio`, `physis-hud`.
