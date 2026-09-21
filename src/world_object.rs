@@ -58,6 +58,18 @@ pub fn parse_object_id(id: &str) -> ObjectId {
 /// [`parse_object_id`], and a projection that minted its ids that way could not
 /// prove it was showing the same object as the list. Display keeps using
 /// `short()`; identity uses this.
+///
+/// Both forms have a real job, and neither should be turned into the other:
+///
+/// * the **identity** (this function) is what a projection carries, because it
+///   parses back to the exact `nav::ObjectId`;
+/// * the **short form** is what `nav` and `registry` address objects by
+///   (`NavWorkspace::resolve` prefix-matches it, `Registry` keys objects by
+///   it), so an action taken on a focused object still passes a handle the
+///   registry knows.
+///
+/// The display form is a prefix of the identity for any key longer than the
+/// truncation, so an operator can match the two by eye.
 pub fn spell_object_id(id: &ObjectId) -> WorldObjectId {
     format!("{}:{}", id.origin, id.key)
 }
@@ -624,6 +636,10 @@ mod tests {
             id.short(),
             spelled,
             "short() is a display form and must not be used as identity"
+        );
+        assert!(
+            spelled.starts_with(&id.short()),
+            "the display form stays a visible prefix of the identity: {spelled}"
         );
     }
 

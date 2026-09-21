@@ -443,17 +443,43 @@ impl View {
         View::Help,
     ];
 
-    fn label(self) -> &'static str {
+    /// The library projection this view is. The one mapping between the bin's
+    /// enum and the projection contract; both directions are total matches, so
+    /// adding a view without its projection fails to compile.
+    fn projection(self) -> physis_pro::hud::world::ProjectionId {
+        use physis_pro::hud::world::ProjectionId;
         match self {
-            View::World => "world",
-            View::Graph => "graph",
-            View::Notebook => "notebook",
-            View::Tasks => "tasks",
-            View::Agents => "agents",
-            View::Settings => "settings",
-            View::Setup => "setup",
-            View::Help => "help",
+            View::World => ProjectionId::World,
+            View::Graph => ProjectionId::ObjectGraph,
+            View::Notebook => ProjectionId::Notebook,
+            View::Tasks => ProjectionId::Tasks,
+            View::Agents => ProjectionId::Agents,
+            View::Settings => ProjectionId::Settings,
+            View::Setup => ProjectionId::Setup,
+            View::Help => ProjectionId::Help,
         }
+    }
+
+    /// The reverse of [`Self::projection`].
+    fn from_projection(projection: physis_pro::hud::world::ProjectionId) -> View {
+        use physis_pro::hud::world::ProjectionId as P;
+        match projection {
+            P::World => View::World,
+            P::ObjectGraph => View::Graph,
+            P::Notebook => View::Notebook,
+            P::Tasks => View::Tasks,
+            P::Agents => View::Agents,
+            P::Settings => View::Settings,
+            P::Setup => View::Setup,
+            P::Help => View::Help,
+        }
+    }
+
+    /// The operator-facing name. Delegates to the library table rather than
+    /// repeating it: two lists of the same eight strings used to live here and
+    /// in `ProjectionId::name`, with nothing but a test keeping them in step.
+    fn label(self) -> &'static str {
+        self.projection().name()
     }
 
     /// The world key that opens this view. Upper case wherever the lower-case
@@ -473,8 +499,10 @@ impl View {
     }
 
     fn from_name(name: &str) -> Option<View> {
-        let n = name.trim().to_ascii_lowercase();
-        View::ALL.into_iter().find(|v| v.label() == n)
+        // One parse, in the library: the same table `--view` is validated
+        // against, so the bin cannot accept a name the projection contract
+        // does not know.
+        physis_pro::hud::world::ProjectionId::from_name(name).map(View::from_projection)
     }
 
     fn from_key(key: char) -> Option<View> {
@@ -5650,6 +5678,20 @@ mod tests {
         }
     }
 
+    /// Serialises every test that points the process-global `PHYSIS_DATA_DIR`
+    /// at its own temp store. Cargo runs the tests in parallel threads of one
+    /// process, so without this the store a test opens is whichever thread
+    /// wrote the variable last — a schedule-dependent failure, not a slow
+    /// machine. (`packets/reports/PH-015.md` is the same failure class.)
+    static DATA_DIR_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Take the data-dir lock, ignoring poisoning: one failing test must not
+    /// turn every later test into a poison panic, which would hide the real
+    /// failure behind a cascade.
+    fn lock_data_dir() -> std::sync::MutexGuard<'static, ()> {
+        DATA_DIR_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Inline edit → atomic save → existing rescan/Δ machinery → markers and
     /// one `edit-save` transition, followed by a recorded shell command.
     #[test]
@@ -5696,6 +5738,7 @@ mod tests {
             key: "PHYSIS_DATA_DIR",
             old: std::env::var_os("PHYSIS_DATA_DIR"),
         };
+        let _data_dir_lock = lock_data_dir();
         std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
         std::env::set_var("PHYSIS_DATA_DIR", root.join(".physis"));
 
@@ -6178,24 +6221,27 @@ mod tests {
 
     #[test]
     fn view_names_and_projection_ids_cannot_drift() {
-        // Two tables name the same eight projections: the bin's `View` (what
-        // the operator types and `--view` accepts) and the library's
-        // `ProjectionId` (what a lens registers against). A test inside the
-        // library can only compare ProjectionId with a literal; this is the
-        // comparison that actually catches a rename on either side.
-        use physis_pro::hud::bridge::projection_of;
+        // The bin's `View` now derives its label from the library's
+        // `ProjectionId` and parses names through it, so drift is a compile
+        // error rather than a test failure. What this test still guards is the
+        // part a compiler cannot see: the *order* of the two tables (Tab order
+        // and the footer read `View::ALL`; snapshots and lenses read
+        // `ProjectionId::all`), and that the round trip holds for every name.
         use physis_pro::hud::world::ProjectionId;
 
+        let bin_order: Vec<ProjectionId> = View::ALL.iter().map(|v| v.projection()).collect();
+        assert_eq!(
+            bin_order,
+            ProjectionId::all().to_vec(),
+            "tab order drifted from projection order"
+        );
         let bin_names: Vec<&str> = View::ALL.iter().map(|v| v.label()).collect();
-        let lib_names: Vec<&str> = ProjectionId::all().iter().map(|p| p.name()).collect();
-        assert_eq!(bin_names, lib_names, "view labels drifted from projection names");
+        assert_eq!(bin_names, ProjectionId::all().iter().map(|p| p.name()).collect::<Vec<_>>());
         for view in View::ALL {
-            assert_eq!(
-                projection_of(view.label()).name(),
-                view.label(),
-                "the bridge must round-trip every view name"
-            );
+            assert_eq!(View::from_name(view.label()), Some(view));
+            assert_eq!(View::from_projection(view.projection()), view);
         }
+        assert_eq!(View::from_name("nope"), None, "an unknown view is refused");
     }
 
     #[test]
@@ -6207,6 +6253,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).ok();
         std::fs::write(dir.join("a.rs"), "fn alpha() { let x = 1; }\n").ok();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
 
         let mut app = App::new(dir.clone(), true).expect("app opens on a temp workspace");
@@ -6234,7 +6285,6 @@ mod tests {
         assert_eq!(app.focus_state.projection.name(), "world");
         assert_eq!(app.focus_state.focus.object, Some(object));
 
-        std::env::remove_var("PHYSIS_DATA_DIR");
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -6248,6 +6298,11 @@ mod tests {
         let dir = std::env::temp_dir().join("physis-hud-reducer-test");
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).ok();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
         let mut app = App::new(dir.clone(), false).expect("app opens on a temp workspace");
 
@@ -6277,7 +6332,6 @@ mod tests {
         assert_eq!(body, "$ rm -rf / --no-preserve-root");
         assert_eq!(app.query, before_query, "a reply cannot rewrite the operator's query");
 
-        std::env::remove_var("PHYSIS_DATA_DIR");
         std::fs::remove_dir_all(&dir).ok();
     }
 
@@ -6293,6 +6347,11 @@ mod tests {
         std::fs::write(dir.join("a.rs"), "fn alpha() {}\n").ok();
         std::fs::write(dir.join("b.rs"), "fn beta() {}\n").ok();
         // Isolate the sled store so the test never touches the real index.
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
         let mut ws = physis_pro::nav::workspace::NavWorkspace::open(&dir).unwrap();
         // Open is stat-only: ingest the two files so objects exist. No
@@ -6310,11 +6369,10 @@ mod tests {
         }).collect();
 
         // Record one user edge so the lens has a solid line to render.
-        if others.is_empty() {
-            std::env::remove_var("PHYSIS_DATA_DIR");
-            std::fs::remove_dir_all(&dir).ok();
-            return;
-        }
+        assert!(
+            !others.is_empty(),
+            "precondition: two files index to at least two objects"
+        );
         ws.add_relation(&center.object, &others[0].object, "relates to", "").ok();
 
         let lens = ObjectLens::project(&ws, &center, &others);
@@ -6332,7 +6390,7 @@ mod tests {
             "user edge renders solid: {:?}",
             lens.edges
         );
-        // Near rows are dashed and Inferred — similarity never borrows proof.
+        // Near rows are dashed and Inferred - similarity never borrows proof.
         for n in &lens.near {
             assert_eq!(n.glyph, "- -");
             assert_eq!(n.origin, physis_pro::nav::RelationOrigin::Inferred);
@@ -6340,7 +6398,6 @@ mod tests {
         let text = lens.render().join("\n");
         assert!(text.contains("solid = user"), "{text}");
 
-        std::env::remove_var("PHYSIS_DATA_DIR");
         std::fs::remove_dir_all(&dir).ok();
         let _ = PathBuf::from(".");
     }

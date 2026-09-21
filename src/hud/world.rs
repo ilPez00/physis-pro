@@ -152,7 +152,10 @@ pub enum ProjectionId {
 
 impl ProjectionId {
     /// The operator-facing name - the same strings `--view` accepts today, so
-    /// snapshots and muscle memory keep working while views become data.
+    /// snapshots and muscle memory keep working while views become data. This
+    /// is the **single source** of the names: the bin's `View::label` delegates
+    /// here rather than repeating the eight strings, so a rename cannot leave
+    /// the two tables disagreeing.
     pub fn name(self) -> &'static str {
         match self {
             ProjectionId::World => "world",
@@ -164,6 +167,14 @@ impl ProjectionId {
             ProjectionId::Setup => "setup",
             ProjectionId::Help => "help",
         }
+    }
+
+    /// Parse an operator-facing name (case-insensitive, trimmed) back to the
+    /// projection. `None` for an unknown name, so a caller can list the valid
+    /// ones instead of silently opening the wrong surface.
+    pub fn from_name(name: &str) -> Option<ProjectionId> {
+        let n = name.trim().to_ascii_lowercase();
+        ProjectionId::all().into_iter().find(|p| p.name() == n)
     }
 
     pub fn all() -> [ProjectionId; 8] {
@@ -287,5 +298,17 @@ mod tests {
             names,
             vec!["world", "graph", "notebook", "tasks", "agents", "settings", "setup", "help"]
         );
+    }
+
+    #[test]
+    fn names_round_trip_and_an_unknown_name_is_refused() {
+        // The bin's `View::from_name` delegates here, so this is the parse the
+        // operator's `--view` value goes through.
+        for p in ProjectionId::all() {
+            assert_eq!(ProjectionId::from_name(p.name()), Some(p), "{p:?}");
+            assert_eq!(ProjectionId::from_name(&p.name().to_uppercase()), Some(p));
+        }
+        assert_eq!(ProjectionId::from_name("nope"), None);
+        assert_eq!(ProjectionId::from_name(""), None);
     }
 }

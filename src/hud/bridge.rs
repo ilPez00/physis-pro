@@ -25,19 +25,11 @@ pub fn cursor_for(sel: usize, rows: usize) -> Cursor {
     Cursor::new(sel.min(rows.saturating_sub(1)))
 }
 
-/// Translate the bin's `View` into the library `ProjectionId`. Total: every
-/// shipped view maps, so the wiring cannot drop a surface.
+/// Translate the bin's view name into the library `ProjectionId` through the
+/// one name table (`ProjectionId::from_name`). Exhaustive names match; anything
+/// else is the world, which is where `Esc` already returns.
 pub fn projection_of(view: &str) -> ProjectionId {
-    match view {
-        "graph" => ProjectionId::ObjectGraph,
-        "notebook" => ProjectionId::Notebook,
-        "tasks" => ProjectionId::Tasks,
-        "agents" => ProjectionId::Agents,
-        "settings" => ProjectionId::Settings,
-        "setup" => ProjectionId::Setup,
-        "help" => ProjectionId::Help,
-        _ => ProjectionId::World,
-    }
+    ProjectionId::from_name(view).unwrap_or(ProjectionId::World)
 }
 
 /// Apply a bin view change to a `FocusState` through the invariant-preserving
