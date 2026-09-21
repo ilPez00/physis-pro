@@ -31,3 +31,4 @@
 
 pub mod world;
 pub mod palette;
+pub mod config;
