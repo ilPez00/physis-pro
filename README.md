@@ -15,12 +15,13 @@ structured `ProjectionRow`/`Projection`, honest score names, `--no-semantic`,
 `affordances_for_identity`, descend/ascend, `:actions`), PH-029 (reducer
 owns navigation: `MoveCursor`/`Select`/`ClearSelection`/`FocusObject`/`Descend`/
 `Ascend` through `dispatch()→reduce()`; qualified Rust symbol extraction;
-`back()` ordering bug fixed), and PH-028 (prepopulate the world: 16 750-object
+`back()` ordering bug fixed), and PH-028 (prepopulate the world: 16 775-object
 index built on pansa; `NavIndex.embedder_stamp`; Option A re-tag store;
 Option B portable bundle with embedder-stamp refusal; Option C
 `PHYSIS_REMOTE_EMBED` with `+remote:<host>` label; CLI `nav export/import`).
-Everything else in those plans is planned, not shipped; the gates distinguish
-the two.
+PH-100 (7 next-quarter proposals) and PH-101 (Physis Cortex plan docs) are
+also `review`. Everything else in those plans is planned, not shipped; the
+gates distinguish the two.
 [Physis Workspace — agentic work with durable
 meaning](docs/plans/2026-09-18-agentic-workspace.md) retains its market,
 packaging and Settings gates.
