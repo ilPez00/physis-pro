@@ -4,16 +4,25 @@ You are on **feather** (weak client, disk ~94% full, glibc 2.41, ollama has
 `qwen2.5-coder:3b` + `qwen3:4b`, **no** `nomic-embed-text`). Never build here:
 no disk, no toolchain margin. Pansa builds for you; you install + smoke-test.
 
-Last push: **2026-09-21 06:11** from pansa (`rust:1-trixie` release build,
-`--no-default-features --features cli,tui`, **`physis-hud` only**: 14.9 MB,
-requires at most `GLIBC_2.39` ≤ your 2.41). The lean feature set is possible
-since the crate finally builds without `embed-onnx` (it used to fail with
-`E0433`); the onnx runtime is no use on a box with no embedding model anyway.
-Everything else in `~/.local/bin` is still the 2026-09-18 full-feature build.
+Last push: **2026-09-21 ~13:37** from pansa — **ROLLED BACK the same hour**.
+The `cli,tui,web,embed-onnx` rebuild (glibc 2.43 host) produced binaries feather
+(2.41) refuses to start (`GLIBC_2.43 not found`, both `physis-hud` and `physis-pro`).
+A `rust:1-bookworm` container rebuild was attempted for the older glibc but fails
+at link time: bookworm's `libstdc++` lacks `_M_replace_cold` + `__isoc23_strtol`
+symbols the vendored `ort_sys` needs. Feather's `~/.local/bin` therefore still
+holds the **2026-09-18 full-feature build** (`physis-pro` 59 MB, no `nav`
+subcommand — `error: unrecognized subcommand 'nav'`). The PH-028 `nav
+export/import/retag-store/stamp` surface has **never** run on feather. (An older
+line here claimed a 06:11 lean push of a 14.9 MB binary — no such binary was
+ever confirmed on the client; treat it as stale.)
 
-Branch delivered: **`agent/PH-026`** on origin (the world surface: lens-driven
-graph view, projection switches that keep the focused object, lens rows that
-carry object identity). The HUD now labels a lexical index `LEXICAL ONLY` and
+Branch delivered: **`agent/PH-028`** on origin (this branch — PH-028 nav
+portability: `nav export/import/retag-store/stamp`, embedder stamp, remote-embed
+label; built on PH-029's reducer + qualified symbol extraction). **Source only**:
+feather fetched `origin/agent/PH-028` @ `f85d278` but no PH-028 binary runs there
+yet (see "Last push" above). Feather's own checkout (`~/dev/physis-pro`) sits on
+`main` + local wip — PH-028 code reaches it only via `git fetch origin` +
+checkout, never via its `~/.local/bin`. The HUD now labels a lexical index `LEXICAL ONLY` and
 prints `semantic: false` in the index summary. The previous binary
 (2026-09-18) was built from `agent/MS-005-q6`, whose `src/nav/workspace.rs` held
 `(n, true, kind)` at line 140 and the component-presence test at line 201 — the
