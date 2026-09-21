@@ -926,6 +926,7 @@ Status was re-measured 2026-09-21 (newest dated note wins; the 2026-09-20 and
 | PH-024 | 0 | review | `physis-hud` is the one front door: views (world/graph/notebook/tasks/agents/settings/setup/help), editable settings that write only changed keys, `physis-hud --setup`, one knob table for all three TUI panels |
 | PH-025 | 0 | review | guided execution Phase A: `src/guided/` compiles the world (capabilities, permissions, object state) into the model's allowed language; `physis-pro guided "<intent>"`; exact facts bypass the model with zero calls |
 | PH-026 | 0 | review | the world surface: `WorldObject` ported as a read-only view over `nav::ObjectId` (edges carry `Relation.origin`), `src/hud/` library surface, projection switches that cannot move the focus, capability-derived palette, `--query` for headless slice frames |
+| PH-027 | 0 | review | the world surface becomes operational: bare text resolves through the intent chain with its route on the status line, five producer-less routes deleted, `SemanticLens` + structured projection rows shared by two lenses, honest score-leg names (`vector`), `--no-semantic`, `affordances_for_identity`; deferred work is PH-029 (reducer ownership for navigation, structural symbols) and PH-028 (prepopulating the world) |
 
 Reconciliation note (2026-09-21): `HEAD..main` is **0** commits on
 `agent/PH-025`, and `src/world_object.rs` does not exist on `main` — the

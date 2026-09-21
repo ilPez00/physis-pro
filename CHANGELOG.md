@@ -10,6 +10,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The world surface is operational (PH-027). Bare text in the magic textbox now
+  resolves through `hud::intent` — which PH-026 shipped with tests and no caller —
+  and the status line carries the route: `route=exact-object object=fs:<hash>`
+  when the line *is* one object's path (the world's own resolver, file over
+  passage), `route=intent-ir objects=N nil=[…]` otherwise. Five
+  `ResolutionRoute` variants that nothing produced were deleted; the deferred
+  legs stay prose until each has a caller.
+- `SemanticLens`: a second projection over the **same** ranked list (no second
+  ranking), with rows split into the categories the data justifies — `strong` by
+  threshold, `bridge` by a tested two-hop cosine over persisted vectors,
+  `sibling` by shared directory. `--view semantic` / `M` render it, and one
+  object keeps its identity through world → graph → semantic.
+- `ProjectionRow`/`ProjectionGroup`/`Projection`: lenses now hand the renderer
+  structured rows carrying full canonical identity instead of rendered strings,
+  so navigation, selection and the palette act on the same object rather than
+  re-parsing text. A similarity row is `Inferred` by construction.
+- `hud::palette::affordances_for_identity`: "what may I do to *this* object?"
+  answered from the registry for a projection row, across the two id spellings.
+- `physis-hud --no-semantic` ranks without the vector leg for one run (weight to
+  zero, store untouched), so the degraded label is provable on a machine that
+  *has* a model instead of only on one that does not.
+
+### Changed
+- **Score legs are named for the computation, not for a guess.** The component
+  and weight are `vector` (was `semantic`), so a lexical hash no longer prints
+  `semantic 0.79` in the readout and the pane is titled for what it shows.
+  Semantic retrieval is now reported only when the embedder is not a lexical
+  stand-in **and** the vector leg carries weight **and** a vector component
+  contributed.
+
+### Added
 - The HUD is a world renderer, not a set of pages (PH-026). `src/world_object.rs`
   is ported as a **read-only view** over the nav index rather than a second
   object model: its identity is `nav::ObjectId` written as `origin:key`

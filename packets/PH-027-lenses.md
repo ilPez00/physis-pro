@@ -2,7 +2,7 @@
 id: PH-027
 track: physis-pro
 phase: 0
-status: claimed
+status: review
 rung: 3
 depends: [PH-026]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test --lib --features tui hud:: && cargo test --lib world_object:: && cargo test --features tui --bin physis-hud && cargo build --features tui --bin physis-hud"

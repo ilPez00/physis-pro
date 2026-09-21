@@ -52,7 +52,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `transplant.rs` | 799 | Structural transplant — port the shape of one project onto another. |
 | `worldstate.rs` | 1687 | E55 — structure before mapping. |
 
-## physis_pro — 251 modules, 128350 lines, proprietary
+## physis_pro — 253 modules, 129437 lines, proprietary
 
 | module | lines | what it does |
 |---|---:|---|
@@ -64,7 +64,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `address.rs` | 222 | File addressing (PLAN Phase 10) — where a file lives in space, when it |
 | `admin.rs` | 105 | Stateless administration-review primitives. |
 | `agents/adapter.rs` | 638 | Agent adapters (plan S2). One trait, one job: reach the agent and bring back |
-| `agents/attention.rs` | 187 | Attention (plan S8): the terms that decide what the system looks at, and a |
+| `agents/attention.rs` | 189 | Attention (plan S8): the terms that decide what the system looks at, and a |
 | `agents/decision.rs` | 520 | Decision-native agent calls (the Jev pattern). |
 | `agents/mod.rs` | 418 | Agents as first-class objects (plan S1). An agent is data: a roster entry in |
 | `agents/parse.rs` | 242 | The `@` grammar (plan S5). |
@@ -84,7 +84,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `audit.rs` | 204 | Append-only mutation log (Phase 16 I9/I10) — the audit/trust layer. |
 | `axes.rs` | 699 | Dynamic axis expansion (ONTOLOGY_EXPANSION_PLAN Phase 6) — the axis tier of |
 | `batch_csv.rs` | 205 | Phase 6.2 — CSV batch import with validation + reviewed export (PLAN 6.2). |
-| `bin/hud.rs` | 6486 | physis-hud — the Semantic Navigation HUD (Function 3 MVP). |
+| `bin/hud.rs` | 6841 | physis-hud — the Semantic Navigation HUD (Function 3 MVP). |
 | `bin/license_tool.rs` | 340 | Vendor-side licence tooling: generate a signing keypair, mint licences, |
 | `bin/physis-interest-daemon.rs` | 381 | physis-interest-daemon — local observer that watches what you work on and |
 | `bin/physis.rs` | 12 | Thin binary shim for the shared `physis` front door. |
@@ -134,11 +134,13 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `hud/bridge.rs` | 95 | App-to-library bridge: the narrow seam where the bin meets `src/hud/`. |
 | `hud/config.rs` | 200 | Layered HUD configuration: builtin < user < workspace < flags. |
 | `hud/event.rs` | 229 | The event boundary: everything expensive reports here, and `reduce` is the |
-| `hud/intent.rs` | 146 | Bare-text intent resolution: the deterministic chain before any model. |
+| `hud/intent.rs` | 185 | Bare-text intent resolution: the deterministic chain before any model. |
 | `hud/lens_object.rs` | 169 | Object lens data: one focused object and its surrounding relations. |
-| `hud/mod.rs` | 49 | `physis-hud` as a world renderer: one world, many projections. |
-| `hud/palette.rs` | 108 | The command palette as a projection of actions, not a menu. |
-| `hud/world.rs` | 314 | The HUD's world slice: live state plus the focus it is rendered around. |
+| `hud/lens_semantic.rs` | 281 | The semantic lens: the focused object's meaning-neighbourhood as rows. |
+| `hud/mod.rs` | 51 | `physis-hud` as a world renderer: one world, many projections. |
+| `hud/palette.rs` | 174 | The command palette as a projection of actions, not a menu. |
+| `hud/row.rs` | 261 | Projection rows: what a lens hands the renderer, before any string exists. |
+| `hud/world.rs` | 321 | The HUD's world slice: live state plus the focus it is rendered around. |
 | `indexer.rs` | 338 | Disk indexer (PLAN 1.3): a fast-path file catalog with `--watch`. |
 | `industrial_benchmark/mod.rs` | 4 | Industrial benchmark module — reproducible datasets, feedback experiments, |
 | `industrial_benchmark/secom.rs` | 891 | SECOM (Semiconductor Manufacturing) benchmark. |
@@ -193,8 +195,8 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `mvp/mod.rs` | 18 | MVP: repository as world — thin wiring over existing slices. |
 | `mvp/repl.rs` | 1239 | MVP interactive loop: one command box over the nav index. |
 | `mvp/slice.rs` | 129 | — |
-| `nav/mod.rs` | 1663 | Semantic Navigation (MVP Function 3): meaning-first navigation over |
-| `nav/workspace.rs` | 508 | Hot-swap seam for the navigation feature (Function 3). |
+| `nav/mod.rs` | 1668 | Semantic Navigation (MVP Function 3): meaning-first navigation over |
+| `nav/workspace.rs` | 577 | Hot-swap seam for the navigation feature (Function 3). |
 | `network.rs` | 232 | Filesystem watching and network scanning — hash-cache-based change detection. |
 | `notebook.rs` | 808 | Notebooks — dashboards the user composes (PLAN Phase 13). |
 | `oee.rs` | 597 | OEE (Overall Equipment Effectiveness) — the canonical lean / Industry-4.0 KPI. |
