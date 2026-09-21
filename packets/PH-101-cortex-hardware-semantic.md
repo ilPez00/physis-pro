@@ -3,13 +3,9 @@ id: PH-101
 title: Physis Cortex: common CPU/ROCm/CUDA backend + LFM semantic layer
 track: physis
 phase: 1
-status: todo
-rung: 1
-depends: [PH-024]
-gate: "test -f physis-core/docs/plans/2026-09-20-cortex-core.md && test -f docs/plans/2026-09-20-cortex-pro.md"
-commit: "branch agent/PH-101; plans commit (docs only)"
-claimed_by:
-claimed_at:
+status: review
+claimed_by: kiro
+claimed_at: "2026-09-21T14:48:00+02:00"
 ---
 
 # PH-101 — Physis Cortex
