@@ -36,6 +36,7 @@ pub mod extract;
 pub mod gantt;
 pub mod graph;
 pub mod guided;
+pub mod impossible;
 pub mod indexer;
 pub mod industrial;
 pub mod industrial_benchmark;

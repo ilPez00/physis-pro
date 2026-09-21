@@ -389,6 +389,7 @@ enum View {
     Notebook,
     Tasks,
     Agents,
+    Machine,
     Settings,
     Setup,
     Help,
@@ -396,12 +397,13 @@ enum View {
 
 impl View {
     /// Tab order, and the order the footer names them.
-    const ALL: [View; 8] = [
+    const ALL: [View; 9] = [
         View::World,
         View::Graph,
         View::Notebook,
         View::Tasks,
         View::Agents,
+        View::Machine,
         View::Settings,
         View::Setup,
         View::Help,
@@ -414,6 +416,7 @@ impl View {
             View::Notebook => "notebook",
             View::Tasks => "tasks",
             View::Agents => "agents",
+            View::Machine => "machine",
             View::Settings => "settings",
             View::Setup => "setup",
             View::Help => "help",
@@ -429,6 +432,7 @@ impl View {
             View::Notebook => Some('N'),
             View::Tasks => Some('T'),
             View::Agents => Some('A'),
+            View::Machine => Some('M'),
             View::Settings => Some('S'),
             View::Setup => Some('W'),
             View::Help => Some('?'),
@@ -462,7 +466,7 @@ impl View {
     fn keys(self) -> &'static str {
         match self {
             View::World => {
-                "e edit · g graph · N notebook · T tasks · A agents · S settings · W setup · ? help"
+                "e edit · g graph · N notebook · T tasks · A agents · M machine · S settings · W setup · ? help"
             }
             View::Settings => {
                 "↑↓ row · +/- step · Enter/e edit · s save · r reload · d revert row · Esc world"
@@ -916,6 +920,8 @@ enum HudCommand {
     Intent,
     /// Show the agent roster and live availability.
     Agents,
+    /// Show the impossible-machine run report (read-only).
+    Machine,
     /// Show the effective settings.
     Settings,
     /// Show what is configured, what is missing, and the command that closes
@@ -1015,6 +1021,7 @@ fn parse_named_command(text: &str) -> HudInput {
         "tasks" | "task" if arg.is_none() => HudInput::Command(HudCommand::Tasks),
         "intent" if arg.is_none() => HudInput::Command(HudCommand::Intent),
         "agents" if arg.is_none() => HudInput::Command(HudCommand::Agents),
+        "machine" if arg.is_none() => HudInput::Command(HudCommand::Machine),
         "settings" if arg.is_none() => HudInput::Command(HudCommand::Settings),
         "setup" | "install" if arg.is_none() => HudInput::Command(HudCommand::Setup),
         "guided" | "guide" | "plan" => HudInput::Command(HudCommand::Guided(rest)),
@@ -1374,7 +1381,7 @@ fn hud_command_help() -> String {
     [
         "command box: plain text searches · /text searches globally",
         "$ <command> runs a shell command in the workspace root",
-        ":name runs a Physis command; bare history/bench/context/dependencies/contradictions/action/rescan/graph/notebook/related/pin/focus/clear/zoom/edges/why/delta/trail/pins/help also work",
+        ":name runs a Physis command; bare history/bench/context/dependencies/contradictions/action/rescan/graph/machine/notebook/related/pin/focus/clear/zoom/edges/why/delta/trail/pins/help also work",
         "open <path-or-object> reads exact source · edit [path] edits inline · cd <dir> changes workspace root",
         "action <verb> <object> [key=value ...] calls the object/action registry and shows the recorded observation",
         "relate same|different|relates · tab why|context|delta|history · unpin removes the selected pin · sem off|on toggles embeddings · :external [path] uses $EDITOR · :quit quits",
@@ -2858,6 +2865,12 @@ impl App {
                 self.reading = Some(("agents".into(), body));
                 self.open_view(View::Agents);
             }
+            HudCommand::Machine => {
+                let text = physis_pro::impossible::report_text(&self.ws.root);
+                self.status = "machine: impossible-machine run report (read-only)".into();
+                self.reading = Some(("machine".into(), text));
+                self.open_view(View::Machine);
+            }
             HudCommand::Settings => {
                 self.open_view(View::Settings);
             }
@@ -3181,6 +3194,9 @@ impl App {
             }
             View::Agents => {
                 self.run_hud_command(HudCommand::Agents);
+            }
+            View::Machine => {
+                self.run_hud_command(HudCommand::Machine);
             }
             View::Settings => {
                 self.run_hud_command(HudCommand::Settings);
