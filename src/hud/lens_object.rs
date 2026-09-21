@@ -4,11 +4,15 @@ use std::collections::BTreeSet;
 
 use crate::nav::{NavHit, ObjectId, RelationOrigin};
 use crate::nav::workspace::NavWorkspace;
-use crate::world_object::{RelationKind, WorldObject};
+use crate::world_object::{spell_object_id, RelationKind, WorldObject, WorldObjectId};
 
-/// One rendered edge in the graph grammar.
+/// One rendered edge in the graph grammar. Carries the target's **identity**
+/// (the full `origin:key` spelling), not just its label: a row that only knows
+/// a display string cannot be acted on, selected or compared against the list,
+/// which is how a projection silently becomes a second, weaker view.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LensEdge {
+    pub id: WorldObjectId,
     pub direction: String,
     pub glyph: String,
     pub kind: String,
@@ -70,8 +74,15 @@ impl ObjectLens {
                 .unwrap_or_default()
         };
 
+        // Dedup by *identity*, never by label. Labels are display strings and
+        // nothing guarantees they are unique across producers; identity is.
+        // (Measured: not reachable through the fs index today — a file and its
+        // passage carry distinct labels with spans — so this is a guarantee
+        // held in advance, not a bug that was seen. The check below is what
+        // makes that guarantee testable.)
+        let center_id = spell_object_id(&center.object.id);
         let mut edges = Vec::new();
-        let mut seen = BTreeSet::new();
+        let mut seen: BTreeSet<WorldObjectId> = BTreeSet::new();
         for r in ws.relations_of(&center.object) {
             let (other, kind, dir) = if r.a == center.object.id {
                 (&r.b, r.kind.clone(), "→")
@@ -79,10 +90,12 @@ impl ObjectLens {
                 (&r.a, r.kind.clone(), "←")
             };
             let name = label_of(other);
-            if name == label || !seen.insert(name.clone()) {
+            let target_id = spell_object_id(other);
+            if target_id == center_id || !seen.insert(target_id.clone()) {
                 continue;
             }
             edges.push(LensEdge {
+                id: target_id,
                 direction: dir.to_string(),
                 glyph: Self::edge_glyph(r.origin).to_string(),
                 kind,
@@ -95,7 +108,8 @@ impl ObjectLens {
 
         let mut near = Vec::new();
         for h in hits.iter().take(6) {
-            if h.object.id == center.object.id || !seen.insert(h.object.label.clone()) {
+            let target_id = spell_object_id(&h.object.id);
+            if target_id == center_id || !seen.insert(target_id.clone()) {
                 continue;
             }
             let p = h
@@ -105,6 +119,7 @@ impl ObjectLens {
                 .map(|s| s.path.clone())
                 .unwrap_or_else(|| h.object.label.clone());
             near.push(LensEdge {
+                id: target_id,
                 direction: "·".to_string(),
                 glyph: Self::edge_glyph(RelationOrigin::Inferred).to_string(),
                 kind: format!("near {:.2}", h.score.total),

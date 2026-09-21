@@ -2086,7 +2086,9 @@ impl App {
         let kind = ws.embedder_kind(true);
         // An embedder that is the lexical hash is still *a* retriever, but the
         // header must not call it semantic. The kind label carries the truth.
-        let semantic_on = kind != "random-projection";
+        // The kind decides whether semantic retrieval exists: a lexical hash is
+        // a retriever, not meaning. One predicate, shared with the nav layer.
+        let semantic_on = physis_pro::nav::is_semantic_kind(&kind);
         // Warm-up embed to keep the first query responsive.
         if semantic_on {
             let _ = ws.embedder(true).map(|e| e.embed("warm"));
@@ -3123,7 +3125,7 @@ impl App {
                 self.typing = false;
                 self.ws_tokens = workspace_tokens(&new_root);
                 self.embedder_kind = self.ws.embedder_kind(true);
-                self.semantic_on = self.embedder_kind != "random-projection";
+                self.semantic_on = physis_pro::nav::is_semantic_kind(&self.embedder_kind);
                 self.reading = Some((
                     "workspace".into(),
                     format!(
@@ -4000,68 +4002,22 @@ impl App {
             self.status = "select an object to graph".into();
             return;
         };
-        let label_of = |id: &nav::ObjectId| {
-            self.ws
-                .index()
-                .objects
-                .get(&serde_json::to_string(id).unwrap())
-                .map(|o| o.label.clone())
-                .unwrap_or_else(|| id.short())
-        };
-        // Every graph edge names the file it points at, so the graph is a way
-        // to a file and not a wall of labels: the path shown is the one
-        // `open`/`edit` accept.
-        let path_of = |id: &nav::ObjectId| {
-            self.ws
-                .index()
-                .objects
-                .get(&serde_json::to_string(id).unwrap())
-                .and_then(|o| o.source.as_ref())
-                .map(|s| s.path.clone())
-                .unwrap_or_default()
-        };
-        let mut lines = Vec::new();
-        lines.push(format!("● {}", center.object.label));
-        lines.push(format!(
-            "edges: {}",
-            Self::edge_filter_name(self.edge_filter)
-        ));
-        // Related objects from relations touching the center, deduped.
-        let mut seen = std::collections::BTreeSet::new();
-        for r in self.ws.relations_of(&center.object) {
-            if !Self::edge_shown(true, self.edge_filter) {
-                continue;
-            }
-            let (other, rel, dir) = if r.a == center.object.id {
-                (&r.b, r.kind.clone(), "→")
-            } else {
-                (&r.a, r.kind.clone(), "←")
-            };
-            let name = label_of(other);
-            if name == center.object.label || !seen.insert(name.clone()) {
-                continue;
-            }
-            let origin = match r.origin {
-                nav::RelationOrigin::User => "───",
-                nav::RelationOrigin::Deterministic => "═══",
-                nav::RelationOrigin::Inferred => "- -",
-            };
-            let other_path = path_of(other);
-            lines.push(format!(
-                "  {dir} {origin} [{rel}] {name} {origin}→  {other_path}"
-            ));
-        }
-        // Nearest neighbours by retrieval score — dashed as inferred.
-        // State-aware: the center and each neighbour carry their world
-        // state marker, so the graph reacts to edits and intent visibly.
-        let pinned = self.pinned_paths();
-        let intent = self.intent_paths();
         let center_path = center
             .object
             .source
             .as_ref()
             .map(|s| s.path.clone())
             .unwrap_or_else(|| center.object.label.clone());
+
+        // The projection is the library's (`ObjectLens`), the state markers are
+        // the App's. Before this, the graph re-derived the two edge legs inline
+        // and the lens was reachable only from its own test — the repo's
+        // named defect shape. A lens row now carries the target's identity, so
+        // a graph row and a list row can be compared and acted on.
+        let lens =
+            physis_pro::hud::lens_object::ObjectLens::project(&self.ws, &center, &self.hits);
+        let pinned = self.pinned_paths();
+        let intent = self.intent_paths();
         let center_mark = state_of(
             &center_path,
             &self.changed,
@@ -4071,7 +4027,23 @@ impl App {
             &self.selected,
             &center.object,
         );
-        lines[0] = format!("{center_mark} {}", center.object.label);
+
+        let mut lines = Vec::new();
+        lines.push(format!("{center_mark} {}", lens.center.content));
+        lines.push(format!("edges: {}", Self::edge_filter_name(self.edge_filter)));
+
+        // Recorded relations (solid/double by origin): a way to a file, not a
+        // wall of labels — every row names the path `open`/`edit` accept.
+        if Self::edge_shown(true, self.edge_filter) {
+            for e in &lens.edges {
+                let m = self.marker_for_identity(&e.id, &e.path, &pinned, &intent);
+                lines.push(format!(
+                    "  {m} {} {} [{}] {} {}→  {}",
+                    e.direction, e.glyph, e.kind, e.label, e.glyph, e.path
+                ));
+            }
+        }
+
         let why = self.why_affected(&center_path);
         if !why.is_empty() {
             lines.push(String::new());
@@ -4082,33 +4054,19 @@ impl App {
                 }
             }
         }
-        for h in self.hits.iter().take(6) {
-            if !Self::edge_shown(false, self.edge_filter) {
-                continue;
+
+        // Near neighbours: dashed, and `Inferred` by construction — the lens
+        // never lets a similarity row borrow the grammar of a recorded edge.
+        if Self::edge_shown(false, self.edge_filter) {
+            for n in &lens.near {
+                let m = self.marker_for_identity(&n.id, &n.path, &pinned, &intent);
+                lines.push(format!(
+                    "  {m}  {} [{}] {} {}  {}",
+                    n.glyph, n.kind, n.label, n.glyph, n.path
+                ));
             }
-            if h.object.id == center.object.id || !seen.insert(h.object.label.clone()) {
-                continue;
-            }
-            let p = h
-                .object
-                .source
-                .as_ref()
-                .map(|s| s.path.clone())
-                .unwrap_or_else(|| h.object.label.clone());
-            let m = state_of(
-                &p,
-                &self.changed,
-                &self.affected,
-                &pinned,
-                &intent,
-                &self.selected,
-                &h.object,
-            );
-            lines.push(format!(
-                "  {m}  - - [near {:.2}] {} - -  {p}",
-                h.score.total, h.object.label
-            ));
         }
+
         // SIBLINGS: content-similar files in *other* directories — the
         // "branched differently across directories" projection. Same
         // semantic query `related()` uses (the center's own text), no new
@@ -4124,9 +4082,7 @@ impl App {
                 if !siblings.is_empty() {
                     lines.push(String::new());
                     lines.push(format!(
-                        "SIBLINGS — similar content, other directories ({total} files, {}/{} shown; similarity, not proven relation)",
-                        siblings.len(),
-                        siblings.len()
+                        "SIBLINGS — similar content, other directories ({total} files; similarity, not proven relation)"
                     ));
                     for (dir, paths) in siblings.iter().take(6) {
                         lines.push(format!("  ▸ {dir} ({})", paths.len()));
@@ -4146,6 +4102,7 @@ impl App {
                 }
             }
         }
+
         lines.push(String::new());
         lines.push("solid = user · double = deterministic · dashed = inferred/near".into());
         lines.push("edge ids: rel:<a>:<kind>:<b> (canonical order)".into());
@@ -4156,9 +4113,38 @@ impl App {
             "every edge above names its file — `open <path>` / `edit <path>` accepts it".into(),
         );
         self.reading = Some((
-            format!("graph: {} — {}", center.object.label, center_path),
-            lines.join("\n"),
+            format!("graph: {} — {}", lens.center.content, center_path),
+            lines.join("
+"),
         ));
+    }
+
+    /// The list's state marker for a row that arrived from a projection.
+    /// Resolves the row's identity back to the object the list would show, so
+    /// the graph cannot mark a row differently from the list. Falls back to
+    /// `·` (ordinary) when the identity is not in the index — an honest
+    /// "unknown", never a borrowed marker.
+    fn marker_for_identity(
+        &self,
+        identity: &str,
+        path: &str,
+        pinned: &BTreeSet<String>,
+        intent: &BTreeSet<String>,
+    ) -> char {
+        let oid = physis_pro::world_object::parse_object_id(identity);
+        let key = serde_json::to_string(&oid).unwrap_or_default();
+        match self.ws.index().objects.get(&key) {
+            Some(obj) => state_of(
+                path,
+                &self.changed,
+                &self.affected,
+                pinned,
+                intent,
+                &self.selected,
+                obj,
+            ),
+            None => '·',
+        }
     }
 
     fn related(&mut self) {
@@ -4264,7 +4250,7 @@ impl App {
             }
         };
         self.embedder_kind = self.ws.embedder_kind(true);
-        self.semantic_on = self.embedder_kind != "random-projection";
+        self.semantic_on = physis_pro::nav::is_semantic_kind(&self.embedder_kind);
         if !self.query.is_empty() {
             self.run_query();
         }
@@ -6247,6 +6233,99 @@ mod tests {
             assert_eq!(View::from_projection(view.projection()), view);
         }
         assert_eq!(View::from_name("nope"), None, "an unknown view is refused");
+    }
+
+    #[test]
+    fn the_graph_view_renders_from_the_lens_not_a_second_projection() {
+        // The wiring gate: `graph_view` must draw the lens's rows. If it went
+        // back to deriving its own edge list, the recorded relation below would
+        // still appear — but the *identity* column would not, so the check that
+        // catches drift is that every rendered row parses back to a real object.
+        use physis_pro::hud::lens_object::ObjectLens;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        std::fs::write(dir.join("alpha.rs"), "fn alpha_budget() -> usize { 1 }\n").ok();
+        std::fs::write(dir.join("beta.rs"), "use alpha_budget;\nfn beta() {}\n").ok();
+
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        app.query = "alpha budget".to_string();
+        app.run_query();
+        assert!(app.hits.len() >= 2, "precondition: two objects to relate");
+        // Relate the cursor object to one from a *different* file, the way an
+        // operator would, and also to another object in the cursor's own file:
+        // two recorded relations, both of which the projection must show.
+        // The graph centres on the *cursor*, not on hits[0]: `run_query` moves
+        // the selection, and a test that related hits[0] would be asserting
+        // about an object the graph is not showing.
+        let a = app
+            .current_hit()
+            .expect("cursor has an object")
+            .object
+            .clone();
+        let a_path = a.source.as_ref().map(|s| s.path.clone()).unwrap_or_default();
+        let b = app
+            .hits
+            .iter()
+            .find(|h| h.object.source.as_ref().map(|s| s.path.clone()).unwrap_or_default() != a_path)
+            .map(|h| h.object.clone())
+            .expect("a second file is indexed");
+        let same_label = app
+            .hits
+            .iter()
+            .find(|h| {
+                h.object.id != a.id
+                    && h.object.source.as_ref().map(|s| s.path.clone()).unwrap_or_default() == a_path
+            })
+            .map(|h| h.object.clone());
+        app.ws.add_relation(&a, &b, "relates to", "").expect("relation");
+        if let Some(p) = &same_label {
+            app.ws
+                .add_relation(&a, p, "relates to", "")
+                .expect("passage relation");
+        }
+
+        app.graph_view();
+        let (title, body) = app.reading.clone().expect("graph renders into the pane");
+        assert!(title.starts_with("graph: "), "{title}");
+        assert!(body.contains("solid = user"), "legend: {body}");
+        assert!(
+            body.contains("───"),
+            "the recorded user relation renders solid: {body}"
+        );
+
+        // The same object the list holds is the graph's centre, by identity.
+        let center_hit = app.current_hit().expect("cursor has an object").clone();
+        let lens = ObjectLens::project(&app.ws, &center_hit, &app.hits);
+        assert_eq!(
+            physis_pro::world_object::parse_object_id(&lens.center.identity),
+            center_hit.object.id
+        );
+        assert_eq!(
+            lens.edges.len(),
+            if same_label.is_some() { 2 } else { 1 },
+            "every recorded relation renders: {:?}",
+            lens.edges.iter().map(|e| &e.id).collect::<Vec<_>>()
+        );
+        // Dedup is by identity: a row set never repeats an object.
+        let ids: std::collections::BTreeSet<&String> =
+            lens.edges.iter().map(|e| &e.id).collect();
+        assert_eq!(ids.len(), lens.edges.len(), "no duplicate identities");
+        for e in lens.edges.iter().chain(lens.near.iter()) {
+            let oid = physis_pro::world_object::parse_object_id(&e.id);
+            let key = serde_json::to_string(&oid).unwrap_or_default();
+            assert!(
+                app.ws.index().objects.contains_key(&key),
+                "every lens row resolves to an object in the world: {}",
+                e.id
+            );
+        }
     }
 
     #[test]
