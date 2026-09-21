@@ -2,7 +2,9 @@
 id: PH-028
 track: physis-pro
 phase: 0
-status: todo
+status: claimed
+claimed_by: kiro
+claimed_at: "2026-09-21T09:42:00+02:00"
 rung: 3
 depends: [PH-026]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test --lib nav:: && cargo test --features tui --bin physis-hud && physis-hud <fixture> --snapshot=100x30 --view=world  # plus the offline arm: import with PHYSIS_REMOTE unset must index and navigate with no network"
