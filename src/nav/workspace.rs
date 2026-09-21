@@ -217,6 +217,34 @@ impl NavWorkspace {
     /// Resolve a CLI target (path, id prefix) to an object. Prefers the
     /// file-level object when a path matches both a file and its passages.
     /// Records an `open` trail step on success, matching the HUD's open path.
+    /// Resolve a target that is *exactly* one object's source path.
+    ///
+    /// The exact leg of [`Self::resolve`], separated because the two legs are
+    /// different claims: this one says "the world already answered" (the textbox
+    /// chain's `route=exact-object`), while the prefix leg below says "one object
+    /// starts with this" — a weaker, ambiguity-resolved lookup. It also has no
+    /// side effects (no trail step), because it runs on every keystroke the
+    /// operator types, and a lookup must not write history.
+    ///
+    /// A path names both a file and its passages, so the file wins: same rule as
+    /// `resolve`, so the two cannot disagree about which object a path is.
+    pub fn resolve_exact(&self, target: &str) -> Option<PhysisObject> {
+        let norm = target.trim_start_matches("./");
+        if norm.is_empty() {
+            return None;
+        }
+        let by_path =
+            |o: &&PhysisObject| o.source.as_ref().map(|s| s.path == norm).unwrap_or(false);
+        let file = self
+            .index
+            .objects
+            .values()
+            .filter(|o| o.kind != ObjectKind::Passage)
+            .find(by_path);
+        file.or_else(|| self.index.objects.values().find(by_path))
+            .cloned()
+    }
+
     pub fn resolve(&self, target: &str) -> anyhow::Result<PhysisObject> {
         let norm = target.trim_start_matches("./");
         let by_path =

@@ -2041,6 +2041,10 @@ struct App {
     /// The bin still owns rows and hits; this mirror is the seam the reducer
     /// owns outright in the next slice.
     focus_state: physis_pro::hud::world::FocusState,
+    /// What the last bare line compiled to (`hud::intent::IntentResolution`).
+    /// `None` until the operator types plain text; `:intent` shows it, and the
+    /// status line carries its provenance at the moment it happens.
+    last_intent: Option<physis_pro::hud::intent::IntentResolution>,
     /// The SETTINGS view's live documents. `settings` is always
     /// `shipped defaults + user file + this session's changes`; `cfg` holds the
     /// runtime knobs. Neither is a second store — both are the same documents
@@ -2173,6 +2177,7 @@ impl App {
             settings_edit: None,
             settings_msg: String::new(),
             focus_state: physis_pro::hud::world::FocusState::new(),
+            last_intent: None,
         })
     }
 
@@ -2734,6 +2739,66 @@ impl App {
         }
     }
 
+    /// Resolve the bare line the operator just typed into an intent, and say so.
+    ///
+    /// The exact-match rule is deliberately literal: a line is an *exact object*
+    /// only when it equals one object's path, label or identity spelling. Anything
+    /// else is a hypothesis over the ranked matches, and the status line says
+    /// which of the two happened — the operator can always tell an answer from a
+    /// guess.
+    fn resolve_bare_intent(&mut self) {
+        use physis_pro::hud::intent;
+        use physis_pro::world_object::spell_object_id;
+
+        let utterance = self.query.trim_start_matches('/').trim().to_string();
+        if utterance.is_empty() {
+            return;
+        }
+
+        let spelling = |h: &NavHit| spell_object_id(&h.object.id);
+
+        // Exact means exact: the line *is* one object's path, resolved by the
+        // world's own rule (with its file-over-passage preference). A label
+        // match, a prefix match and a ranked hit are all weaker claims, and they
+        // stay on the intent route where the provenance says `intent-ir`.
+        let exact: Option<String> = self.ws.resolve_exact(&utterance).map(|o| spell_object_id(&o.id));
+        let matches: Vec<String> = self.hits.iter().take(5).map(spelling).collect();
+        let resolution = intent::resolve_bare(&utterance, "operator", exact.as_deref(), &matches);
+
+        if !self.semantic_on {
+            // Keep the degradation notice: the resolution explains the line, the
+            // mode explains the retrieval. Both belong on the status line, and
+            // neither may displace the other.
+            self.status
+                .push_str(&format!(" · {}", resolution.provenance_line()));
+        } else {
+            self.status = resolution.provenance_line();
+        }
+        self.last_intent = Some(resolution);
+    }
+
+    /// The IR of the last bare line, or a note saying there is none. This is the
+    /// `:intent` surface's second half: the stored operator intent plus what the
+    /// textbox actually compiled.
+    fn last_intent_text(&self) -> String {
+        match &self.last_intent {
+            Some(r) => {
+                let ir = r
+                    .ir
+                    .as_ref()
+                    .map(|ir| ir.render())
+                    .unwrap_or_else(|| "(no IR)".to_string());
+                format!(
+                    "last bare line: {}\n{}\n\n{}\n",
+                    r.utterance,
+                    r.provenance_line(),
+                    ir
+                )
+            }
+            None => "(no bare line resolved yet — type one, or `open <path>`)\n".to_string(),
+        }
+    }
+
     fn submit_command_line(&mut self, raw: &str) -> bool {
         match parse_hud_input(raw) {
             HudInput::Empty => false,
@@ -2766,6 +2831,11 @@ impl App {
             HudInput::SemanticQuery(query) => {
                 self.query = query;
                 self.run_query();
+                // The chain runs only for bare text: the exact parser above owns
+                // `$`/`:`/`@`/`/`/`open`/`edit`/`cd`, so reaching here means the
+                // line has no deterministic owner yet. This is the leg PH-026
+                // shipped without a caller.
+                self.resolve_bare_intent();
                 false
             }
             HudInput::AgentCall { agent, host, rest } => {
@@ -2919,8 +2989,14 @@ impl App {
                 } else {
                     store.render()
                 };
+                // The textbox's own resolution sits first: the stored intent says
+                // what the workspace is for, this says what the line you just
+                // typed compiled to, with the route it took.
                 self.status = "intent: the operator's statement, with provenance".into();
-                self.reading = Some(("intent".into(), body));
+                self.reading = Some((
+                    "intent".into(),
+                    format!("{}\n{body}", self.last_intent_text()),
+                ));
             }
             HudCommand::Agents => {
                 let roster = physis_pro::agents::default_roster();
@@ -6233,6 +6309,83 @@ mod tests {
             assert_eq!(View::from_projection(view.projection()), view);
         }
         assert_eq!(View::from_name("nope"), None, "an unknown view is refused");
+    }
+
+    #[test]
+    fn a_bare_line_goes_through_the_intent_chain_and_says_which_route_it_took() {
+        // The gate for PH-027's first step: bare text must reach
+        // `hud::intent::resolve_bare` from `submit_command_line`. Before this,
+        // the chain existed and was tested but nothing called it.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        // Embedder-agnostic assertions: force the lexical fallback so the test
+        // neither needs a model nor waits on an HTTP embedder (31 s vs 3 s, and
+        // it must not fail because a machine's model server is busy).
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        std::fs::write(dir.join("retrieval.rs"), "fn retrieval_budget() -> usize { 3 }\n").ok();
+        std::fs::write(dir.join("other.rs"), "fn other() {}\n").ok();
+
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+
+        // 1. Bare text with no exact owner: an intent over the ranked matches.
+        app.submit_command_line("retrieval");
+        let r = app
+            .last_intent
+            .clone()
+            .expect("bare text resolves through the chain");
+        assert_eq!(r.route, physis_pro::hud::intent::ResolutionRoute::Intent);
+        assert_eq!(r.utterance, "retrieval");
+        assert!(!r.objects.is_empty(), "matched objects are carried: {r:?}");
+        assert!(
+            r.provenance_line().starts_with("route=intent-ir objects="),
+            "{}",
+            r.provenance_line()
+        );
+        assert!(
+            app.status.contains(&r.provenance_line()),
+            "the route is visible: {}",
+            app.status
+        );
+        assert!(
+            app.status.contains("semantic: off"),
+            "and the degradation notice is not displaced by it: {}",
+            app.status
+        );
+
+        // 2. A line that *is* one object's path: the world already answered.
+        app.submit_command_line("retrieval.rs");
+        let exact = app.last_intent.clone().expect("exact line resolves too");
+        assert_eq!(
+            exact.route,
+            physis_pro::hud::intent::ResolutionRoute::ExactObject,
+            "one exact path match is an answer, not a hypothesis: {exact:?}"
+        );
+        assert_eq!(exact.objects.len(), 1);
+        assert!(
+            exact.provenance_line().starts_with("route=exact-object object="),
+            "{}",
+            exact.provenance_line()
+        );
+
+        // 3. The IR is reachable from the `:intent` surface, not just stored.
+        app.submit_command_line(":intent");
+        let (title, body) = app.reading.clone().expect("intent renders");
+        assert_eq!(title, "intent");
+        assert!(
+            body.contains("last bare line: retrieval.rs"),
+            "the last resolution is shown: {body}"
+        );
+        assert!(body.contains("route=exact-object"), "{body}");
     }
 
     #[test]
