@@ -1,4 +1,3 @@
-#[cfg(feature = "embed-onnx")]
 use crate::config::EmbedderKindConfig;
 use crate::config::PhysisConfig;
 #[cfg(all(feature = "embed-onnx", feature = "image-embed"))]
