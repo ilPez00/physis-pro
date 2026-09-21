@@ -5680,9 +5680,14 @@ mod tests {
 
     /// Serialises every test that points the process-global `PHYSIS_DATA_DIR`
     /// at its own temp store. Cargo runs the tests in parallel threads of one
-    /// process, so without this the store a test opens is whichever thread
+    /// process, so without this the store a *test* opens is whichever thread
     /// wrote the variable last — a schedule-dependent failure, not a slow
     /// machine. (`packets/reports/PH-015.md` is the same failure class.)
+    ///
+    /// This covers the in-process race only. The other half is the temp
+    /// directory itself: cargo runs the lib and bin test binaries as separate
+    /// processes, so tests here use `tempfile::tempdir()` and never a fixed
+    /// path — a per-process lock cannot serialise two processes.
     static DATA_DIR_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     /// Take the data-dir lock, ignoring poisoning: one failing test must not
@@ -6249,9 +6254,11 @@ mod tests {
         // The vertical slice's invariant, tested through the bin's own
         // open_view: graph -> tasks -> world must not move the operator off
         // the object they were looking at.
-        let dir = std::env::temp_dir().join("physis-hud-focus-slice");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).ok();
+        // Unique per process and self-cleaning: the lib and bin test binaries
+        // run as separate processes, so a fixed /tmp path would let them
+        // collide even with the in-process lock held.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
         std::fs::write(dir.join("a.rs"), "fn alpha() { let x = 1; }\n").ok();
         let _data_dir_lock = lock_data_dir();
         let _data_dir = RestoreEnv {
@@ -6260,7 +6267,7 @@ mod tests {
         };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
 
-        let mut app = App::new(dir.clone(), true).expect("app opens on a temp workspace");
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens on a temp workspace");
         app.run_query();
         assert!(
             !app.hits.is_empty(),
@@ -6285,7 +6292,6 @@ mod tests {
         assert_eq!(app.focus_state.projection.name(), "world");
         assert_eq!(app.focus_state.focus.object, Some(object));
 
-        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -6295,16 +6301,15 @@ mod tests {
         // nothing else in App moves — no query rewrite, no action queued.
         use physis_pro::hud::event::{reduce, HudEffect, HudEvent};
 
-        let dir = std::env::temp_dir().join("physis-hud-reducer-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).ok();
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
         let _data_dir_lock = lock_data_dir();
         let _data_dir = RestoreEnv {
             key: "PHYSIS_DATA_DIR",
             old: std::env::var_os("PHYSIS_DATA_DIR"),
         };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
-        let mut app = App::new(dir.clone(), false).expect("app opens on a temp workspace");
+        let mut app = App::new(dir.to_path_buf(), false).expect("app opens on a temp workspace");
 
         app.agent_pending = Some("jev".into());
         app.query = "retrieval".into();
@@ -6332,7 +6337,6 @@ mod tests {
         assert_eq!(body, "$ rm -rf / --no-preserve-root");
         assert_eq!(app.query, before_query, "a reply cannot rewrite the operator's query");
 
-        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
@@ -6342,8 +6346,8 @@ mod tests {
 
         // Headless vertical slice: a temp workspace with two related files.
         // No embedder, no network — the lens reads recorded relations only.
-        let dir = std::env::temp_dir().join("physis-lens-object-test");
-        std::fs::create_dir_all(&dir).ok();
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
         std::fs::write(dir.join("a.rs"), "fn alpha() {}\n").ok();
         std::fs::write(dir.join("b.rs"), "fn beta() {}\n").ok();
         // Isolate the sled store so the test never touches the real index.
@@ -6353,7 +6357,7 @@ mod tests {
             old: std::env::var_os("PHYSIS_DATA_DIR"),
         };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
-        let mut ws = physis_pro::nav::workspace::NavWorkspace::open(&dir).unwrap();
+        let mut ws = physis_pro::nav::workspace::NavWorkspace::open(dir).unwrap();
         // Open is stat-only: ingest the two files so objects exist. No
         // embedder (lexical only) — the lens reads relations, not vectors.
         let _ = ws.update(false);
@@ -6398,7 +6402,6 @@ mod tests {
         let text = lens.render().join("\n");
         assert!(text.contains("solid = user"), "{text}");
 
-        std::fs::remove_dir_all(&dir).ok();
         let _ = PathBuf::from(".");
     }
 }
