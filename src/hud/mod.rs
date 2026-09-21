@@ -40,6 +40,7 @@
 
 pub mod bridge;
 pub mod config;
+pub mod event;
 pub mod intent;
 pub mod lens_object;
 pub mod palette;

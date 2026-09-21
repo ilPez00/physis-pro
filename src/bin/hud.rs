@@ -2693,6 +2693,17 @@ impl App {
         }
     }
 
+    /// Apply one reducer effect. The only place an effect becomes App state,
+    /// and the reason the reducer can be tested without a terminal.
+    fn apply_hud_effect(&mut self, effect: physis_pro::hud::event::HudEffect) {
+        use physis_pro::hud::event::HudEffect;
+        match effect {
+            HudEffect::Status(s) => self.status = s,
+            HudEffect::Reading { title, body } => self.reading = Some((title, body)),
+            HudEffect::ClearPending => self.agent_pending = None,
+        }
+    }
+
     fn submit_command_line(&mut self, raw: &str) -> bool {
         match parse_hud_input(raw) {
             HudInput::Empty => false,
@@ -4763,24 +4774,22 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
 
     loop {
         // Deliver any completed agent turn before drawing, so the reply appears
-        // the moment it lands instead of on the next keystroke.
+        // the moment it lands instead of on the next keystroke. The decision of
+        // what a reply means lives in the reducer (`hud::event::reduce`), not
+        // here: this loop only translates a channel message into an event and
+        // applies the effects. A model's text therefore cannot reach anything
+        // but the status line and the reading pane.
         while let Ok(reply) = agent_rx.try_recv() {
             let mut app = app.lock().unwrap();
-            app.agent_pending = None;
-            app.status = if reply.ok {
-                format!(
-                    "@{} replied ({} chars) — reading pane shows the reply",
-                    reply.agent,
-                    reply.text.len()
-                )
-            } else {
-                format!(
-                    "@{} failed: {}",
-                    reply.agent,
-                    reply.text.lines().next().unwrap_or("no detail")
-                )
+            let event = physis_pro::hud::event::HudEvent::AgentReply {
+                agent: reply.agent.clone(),
+                ok: reply.ok,
+                text: reply.text.clone(),
             };
-            app.reading = Some((format!("@{} reply", reply.agent), reply.text));
+            let effects = physis_pro::hud::event::reduce(&mut app.focus_state, &event);
+            for effect in effects {
+                app.apply_hud_effect(effect);
+            }
         }
 
         {
@@ -6202,6 +6211,49 @@ mod tests {
         app.open_view(View::World);
         assert_eq!(app.focus_state.projection.name(), "world");
         assert_eq!(app.focus_state.focus.object, Some(object));
+
+        std::env::remove_var("PHYSIS_DATA_DIR");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn agent_reply_enters_through_the_reducer_and_only_annotates() {
+        // The bin's half of the authority gate: a model reply arriving on the
+        // worker channel fills the status line and the reading pane, and
+        // nothing else in App moves — no query rewrite, no action queued.
+        use physis_pro::hud::event::{reduce, HudEffect, HudEvent};
+
+        let dir = std::env::temp_dir().join("physis-hud-reducer-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).ok();
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let mut app = App::new(dir.clone(), false).expect("app opens on a temp workspace");
+
+        app.agent_pending = Some("jev".into());
+        app.query = "retrieval".into();
+        let before_query = app.query.clone();
+        let event = HudEvent::AgentReply {
+            agent: "jev".into(),
+            ok: true,
+            text: "$ rm -rf / --no-preserve-root".into(),
+        };
+        for effect in reduce(&mut app.focus_state, &event) {
+            assert!(
+                matches!(
+                    effect,
+                    HudEffect::Status(_) | HudEffect::Reading { .. } | HudEffect::ClearPending
+                ),
+                "a reply may only annotate: {effect:?}"
+            );
+            app.apply_hud_effect(effect);
+        }
+
+        assert!(app.agent_pending.is_none(), "the call is no longer in flight");
+        assert!(app.status.contains("replied"), "{}", app.status);
+        let (title, body) = app.reading.clone().expect("reading pane filled");
+        assert!(title.contains("route: model"), "{title}");
+        assert_eq!(body, "$ rm -rf / --no-preserve-root");
+        assert_eq!(app.query, before_query, "a reply cannot rewrite the operator's query");
 
         std::env::remove_var("PHYSIS_DATA_DIR");
         std::fs::remove_dir_all(&dir).ok();
