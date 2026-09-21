@@ -70,10 +70,10 @@ WorldObject work lives on `local-main-import` (`468eba6`, `e3de500`,
 
 ## Tests added
 
-- `src/world_object.rs` (12): identity round-trip to `nav::ObjectId`;
+- `src/world_object.rs` (13): identity round-trip to `nav::ObjectId`;
   scanned/symbol edges `Deterministic` vs `relate()` `Inferred`; provenance
   chain; unknown kind round-trip; node projection; agent run is `Model`.
-- `src/hud/world.rs` (4): projection switch keeps focus/selection/trail;
+- `src/hud/world.rs` (5): projection switch keeps focus/selection/trail;
   descend/ascend; selection toggle; projection names equal `--view` names.
 - `src/hud/config.rs` (4): layer precedence; effective merge; per-key save
   layer; malformed layer named and ignored.
@@ -81,13 +81,13 @@ WorldObject work lives on `local-main-import` (`468eba6`, `e3de500`,
   object = exact-object route; every route has a label.
 - `src/hud/palette.rs` (3): rows trace to real affordances; unknown target =
   no rows; high risk asks first.
-- `src/hud/bridge.rs` (3): selection names the hit id; view switch through the
+- `src/hud/bridge.rs` (3, plus one name-table delegation through the library): selection names the hit id; view switch through the
   bridge keeps focus; cursor clamps.
 - `src/hud/event.rs` (6): a reply carries its route; a reply can only annotate,
   never execute; a failed reply says so; a projection event keeps focus and
   selection; a source diff is reported with both counts; only `AgentReply`
   claims a model route.
-- `src/bin/hud.rs` (3): `opening_a_view_keeps_the_focused_object_and_selection`
+- `src/bin/hud.rs` (4): `opening_a_view_keeps_the_focused_object_and_selection`
   (through `App::open_view`, non-vacuous precondition asserted);
   `agent_reply_enters_through_the_reducer_and_only_annotates`;
   `object_lens_renders_recorded_edges_in_graph_grammar`.

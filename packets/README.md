@@ -25,7 +25,7 @@ Suggested order = phase, then id. Phase meanings: 0 = now, 1 = next quarter,
 |---|---|---|
 | `PH-024` | review | `physis-hud` one front door: views, editable settings (only changed keys are written), `--setup`, one knob table (`config::CONFIG_KNOBS`) shared with `physis-pro-tui` and Studio |
 | `PH-025` | review | guided execution Phase A: `src/guided/` compiles the world into the model's allowed language; `physis-pro guided "<intent>"`; 8 tests cover the spec cases |
-| `PH-026` | review | the world surface: `src/world_object.rs` as a read-only view over `nav::ObjectId` (edges carry `Relation.origin`), `src/hud/` library surface (`world`/`config`/`intent`/`lens_object`/`palette`/`bridge`/`event`), the focus-preserving projection switch wired into `App::open_view`, a reducer whose effect set has no executable variant, capability-derived palette, `--query` + command-backed `--view` for headless slices. Gate: clippy 0; lib `hud::` 23 + `world_object::` 12; `physis-hud` 39 |
+| `PH-026` | review | the world surface: `src/world_object.rs` as a read-only view over `nav::ObjectId` (edges carry `Relation.origin`), `src/hud/` library surface (`world`/`config`/`intent`/`lens_object`/`palette`/`bridge`/`event`), the focus-preserving projection switch wired into `App::open_view`, a reducer whose effect set has no executable variant, capability-derived palette, `--query` + command-backed `--view` for headless slices. Gate: clippy 0; lib `hud::` 24 + `world_object::` 13; `physis-hud` 40 (stable over 5 consecutive runs) |
 
 Both gates are in `packets/reports/PH-024.md` and `PH-025.md`. Reviewers re-run
 them; nothing is `done` until that happens.

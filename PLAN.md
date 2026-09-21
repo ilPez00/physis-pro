@@ -935,7 +935,7 @@ ported the view type instead of merging `main`.
 Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`,
 `packets/reports/PH-026.md`
 (`cargo clippy --all-targets -- -D warnings`; `cargo test --features tui --bin
-physis-hud` 39 passed; `cargo test --lib hud::` 23 passed; `cargo test --lib
+physis-hud` 40 passed (stable over five consecutive runs); `cargo test --lib hud::` 24 passed; `cargo test --lib
 world_object::` 12 passed; `cargo test --lib guided::` 8 passed; `--setup`
 exit 0; `--snapshot --view settings` exit 0). Sequencing authority for the HUD
 programme: `docs/plans/2026-09-20-physis-hud.md`.
