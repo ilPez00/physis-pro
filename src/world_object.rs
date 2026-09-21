@@ -1,4 +1,4 @@
-//! `WorldObject` — the one object the whole system navigates (P04).
+//! `WorldObject` — the read-only view every projection renders (P04).
 //!
 //! Every surface in the mission is a view over the same thing: a file, a
 //! concept, a project, a module, a symbol, a person, a command, a process, a

@@ -4,8 +4,9 @@
 
 This file exists because three separate attempts in one session compressed a
 190-module, ~113k-line system into a single noun, and all three were wrong
-(the count is from that session; measured 2026-09-20 it is 242 `.rs` files,
-`find src -name '*.rs' | wc -l`):
+(the 190 is from that session; measured 2026-09-21 it is **251 `.rs` files**,
+`find src -name '*.rs' | wc -l` — 242 on 2026-09-20, so re-measure rather than
+quote):
 
 | attempt | claim | why it was wrong |
 |---|---|---|

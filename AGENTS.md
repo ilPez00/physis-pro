@@ -9,7 +9,7 @@ the default 5x9 pack since the 2026-09-19 mode rework), the operations
 > are **seven** (a `constrain` operation joined 2026-09-20 — see
 > `docs/GUIDED_EXECUTION.md`), and `propose` is not `judge`. That file carries
 > the rules. Source-file count is measured, not remembered:
-> `find src -name '*.rs' | wc -l` → 242 on 2026-09-20.
+> `find src -name '*.rs' | wc -l` → 251 on 2026-09-21 (242 on 2026-09-20).
 
 
 ## Overview

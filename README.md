@@ -4,11 +4,14 @@ Current development direction: [PHYSIS HUD — one world, many
 projections](docs/plans/2026-09-20-physis-hud.md) (2026-09-20), the HUD
 programme, which composes and extends [Physis as the impossible computer —
 agent-native semantic world](docs/plans/2026-09-19-impossible-computer.md).
-Two steps are **shipped on branches, awaiting review**: PH-024 (every surface a
-named view inside `physis-hud`, editable settings, `--setup`) and PH-025
+Three steps are **shipped on branches, awaiting review**: PH-024 (every surface a
+named view inside `physis-hud`, editable settings, `--setup`), PH-025
 (`src/guided/` — the world compiles into the model's allowed language before a
-model is asked anything; `physis-pro guided "<intent>"`). Everything else in
-those plans is planned, not shipped; the gates distinguish the two.
+model is asked anything; `physis-pro guided "<intent>"`), and PH-026 (the world
+surface: `WorldObject` as a read-only view over `nav::ObjectId`, the
+projection/focus invariant in `src/hud/`, the graph drawn from the object lens).
+Everything else in those plans is planned, not shipped; the gates distinguish
+the two.
 [Physis Workspace — agentic work with durable
 meaning](docs/plans/2026-09-18-agentic-workspace.md) retains its market,
 packaging and Settings gates.
@@ -23,7 +26,9 @@ packaging and Settings gates.
 
 Physis is the reasoning core of the Ayu / Praxis ecosystem. It reduces any input —
 text, image, video, audio, a code log, a human action — to a vector in one shared
-embedding space, classifies it against a domain × 14-mode grid (70 default cells), and tracks each
+embedding space, classifies it against a **domain × 9-mode grid (45 cells under
+the default pack; both axes are a convention, and the counts are re-measured, not
+quoted — see [`docs/WHAT_PHYSIS_IS.md`](docs/WHAT_PHYSIS_IS.md) §2)**, and tracks each
 thing's *coherence* (does it work? +1 / 0 / −1). A background "dream" loop replays
 the failures to propose corrective actions. Beyond meaning, every ingested file
 carries a **space·time·cause address** — where it lives, when it matters, why it
@@ -38,7 +43,10 @@ It runs as:
 - the **HUD** (`physis-hud`, feature `tui`) — the one front door: every surface
   is a named view (`world · graph · notebook · tasks · agents · settings · setup ·
   help`), settings are editable in place, and `--setup` answers "what is
-  configured, what is missing, what do I run next",
+  configured, what is missing, what do I run next". Since PH-026 the projection
+  switch is an invariant in `src/hud/` (a view change never moves the focused
+  object), the graph is drawn from `hud::lens_object::ObjectLens`, and the header
+  labels a lexical index `LEXICAL ONLY` rather than claiming semantic retrieval,
 - **guided execution** (`physis-pro guided "<intent>"`) — the world compiles into
   the model's allowed language and the model chooses inside it; exact facts
   bypass generation entirely. See [`docs/GUIDED_EXECUTION.md`](docs/GUIDED_EXECUTION.md),

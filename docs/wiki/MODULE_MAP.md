@@ -52,7 +52,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `transplant.rs` | 799 | Structural transplant — port the shape of one project onto another. |
 | `worldstate.rs` | 1687 | E55 — structure before mapping. |
 
-## physis_pro — 242 modules, 125811 lines, proprietary
+## physis_pro — 251 modules, 128350 lines, proprietary
 
 | module | lines | what it does |
 |---|---:|---|
@@ -84,7 +84,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `audit.rs` | 204 | Append-only mutation log (Phase 16 I9/I10) — the audit/trust layer. |
 | `axes.rs` | 699 | Dynamic axis expansion (ONTOLOGY_EXPANSION_PLAN Phase 6) — the axis tier of |
 | `batch_csv.rs` | 205 | Phase 6.2 — CSV batch import with validation + reviewed export (PLAN 6.2). |
-| `bin/hud.rs` | 6110 | physis-hud — the Semantic Navigation HUD (Function 3 MVP). |
+| `bin/hud.rs` | 6486 | physis-hud — the Semantic Navigation HUD (Function 3 MVP). |
 | `bin/license_tool.rs` | 340 | Vendor-side licence tooling: generate a signing keypair, mint licences, |
 | `bin/physis-interest-daemon.rs` | 381 | physis-interest-daemon — local observer that watches what you work on and |
 | `bin/physis.rs` | 12 | Thin binary shim for the shared `physis` front door. |
@@ -113,7 +113,7 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `dream.rs` | 803 | — |
 | `embed/clip.rs` | 215 | — |
 | `embed/jina.rs` | 252 | — |
-| `embed/mod.rs` | 775 | — |
+| `embed/mod.rs` | 774 | — |
 | `embed/ollama.rs` | 162 | Ollama embedding backend — semantic vectors from a local ollama server. |
 | `embed/onnx.rs` | 475 | ONNX MiniLM embedder — production-grade semantic embeddings via the `ort` |
 | `embed/registry.rs` | 280 | — |
@@ -131,6 +131,14 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `guided/mod.rs` | 446 | Guided Execution — Physis-native constrained generation. |
 | `guided/observe.rs` | 101 | Outcome evidence: every guided step leaves a record. |
 | `history.rs` | 930 | Personal-history importers (Phase 7B) — browser bookmarks/history, RSS / |
+| `hud/bridge.rs` | 95 | App-to-library bridge: the narrow seam where the bin meets `src/hud/`. |
+| `hud/config.rs` | 200 | Layered HUD configuration: builtin < user < workspace < flags. |
+| `hud/event.rs` | 229 | The event boundary: everything expensive reports here, and `reduce` is the |
+| `hud/intent.rs` | 146 | Bare-text intent resolution: the deterministic chain before any model. |
+| `hud/lens_object.rs` | 169 | Object lens data: one focused object and its surrounding relations. |
+| `hud/mod.rs` | 49 | `physis-hud` as a world renderer: one world, many projections. |
+| `hud/palette.rs` | 108 | The command palette as a projection of actions, not a menu. |
+| `hud/world.rs` | 314 | The HUD's world slice: live state plus the focus it is rendered around. |
 | `indexer.rs` | 338 | Disk indexer (PLAN 1.3): a fast-path file catalog with `--watch`. |
 | `industrial_benchmark/mod.rs` | 4 | Industrial benchmark module — reproducible datasets, feedback experiments, |
 | `industrial_benchmark/secom.rs` | 891 | SECOM (Semiconductor Manufacturing) benchmark. |
@@ -185,8 +193,8 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `mvp/mod.rs` | 18 | MVP: repository as world — thin wiring over existing slices. |
 | `mvp/repl.rs` | 1239 | MVP interactive loop: one command box over the nav index. |
 | `mvp/slice.rs` | 129 | — |
-| `nav/mod.rs` | 1646 | Semantic Navigation (MVP Function 3): meaning-first navigation over |
-| `nav/workspace.rs` | 441 | Hot-swap seam for the navigation feature (Function 3). |
+| `nav/mod.rs` | 1663 | Semantic Navigation (MVP Function 3): meaning-first navigation over |
+| `nav/workspace.rs` | 508 | Hot-swap seam for the navigation feature (Function 3). |
 | `network.rs` | 232 | Filesystem watching and network scanning — hash-cache-based change detection. |
 | `notebook.rs` | 808 | Notebooks — dashboards the user composes (PLAN Phase 13). |
 | `oee.rs` | 597 | OEE (Overall Equipment Effectiveness) — the canonical lean / Industry-4.0 KPI. |
@@ -296,3 +304,4 @@ See `docs/WHAT_PHYSIS_IS.md` §3 for which of the seven operations each serves.
 | `wiki_gen.rs` | 530 | Phase 9.5 — wiki generation over the holarchy: deterministic outline core |
 | `wiki.rs` | 464 | llmwiki/uberwiki bridge — searches the project wiki for context. |
 | `workflow.rs` | 691 | workflow — the workflow scanner. The audit layer that answers "who did what |
+| `world_object.rs` | 767 | `WorldObject` — the read-only view every projection renders (P04). |

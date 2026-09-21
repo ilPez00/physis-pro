@@ -89,9 +89,17 @@ The MCP server path must be portable. Strategies:
 
 ## Data Model
 
-### Semiotic Grid (70 cells)
+### Semiotic Grid
 
-5 HumanDomains × 14 HumanModes:
+> **Corrected 2026-09-21.** This section described the **pre-rework** axis
+> (5 domains × 14 modes = 70 cells). The mode axis was reworked on 2026-09-19 to
+> **9 modes**, each owning one WordNet verb supersense, so the default pack is
+> **5 × 9 = 45 cells** — and `PHYSIS_DOMAINS` replaces the domain list per
+> deployment. `docs/WHAT_PHYSIS_IS.md` §2 is canonical; the unchanged mode list
+> below is retained only as the historical record of this integration's
+> assumptions.
+
+5 HumanDomains × 14 HumanModes (pre-rework):
 
 | Domain | Modes |
 |--------|-------|
