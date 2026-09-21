@@ -165,7 +165,7 @@ pub struct NavRoot {
 /// Persisted index: objects keyed by `ObjectId`, plus a map from source paths
 /// to the objects that came from them (the invalidation unit for incremental
 /// updates). Stored as one sled blob per root, like [`crate::indexer::FileIndex`].
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct NavIndex {
     pub root: PathBuf,
     /// stat fast-path catalog: path → (size, mtime, hash). Unchanged file =
@@ -173,6 +173,13 @@ pub struct NavIndex {
     pub files: BTreeMap<String, FileRecord>,
     pub objects: BTreeMap<String, PhysisObject>,
     pub total_walked: usize,
+    /// Embedder that produced the stored vectors: `kind:dim` (e.g.
+    /// `bge-small:384`). `None` when the index was built without an embedder
+    /// or predates the stamp. An import must refuse to merge a bundle whose
+    /// stamp differs from the live embedder — silent vector-space mismatch is
+    /// the failure mode `packets/README.md` guards against for jina-clip-v2.
+    #[serde(default)]
+    pub embedder_stamp: Option<String>,
     /// Where the shared content-addressed embed cache lives (set at load).
     #[serde(skip)]
     pub embed_cache_dir: PathBuf,
@@ -399,6 +406,19 @@ impl NavIndex {
                 o.embedding = vectors[vi].clone();
                 vi += 1;
                 embedded += 1;
+            }
+        }
+        // Record the stamp so bundles and exports can refuse a mismatched space.
+        // Derive dim from the first non-empty embedding so the stamp is measured.
+        if embedded > 0 || self.embedder_stamp.is_none() {
+            let dim = self
+                .objects
+                .values()
+                .find(|o| !o.embedding.is_empty())
+                .map(|o| o.embedding.len())
+                .unwrap_or(0);
+            if dim > 0 {
+                self.embedder_stamp = Some(format!("{embedder_kind}:{dim}"));
             }
         }
         embedded

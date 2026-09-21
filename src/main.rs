@@ -482,6 +482,13 @@ pub enum Commands {
         #[arg(long, default_value_t = 50)]
         git: usize,
     },
+    /// Navigation index portability: export/import bundles and re-tag stores
+    /// across machines (PH-028). Option A: re-tag the store file for a client
+    /// root. Option B: export/import a portable bundle with an embedder stamp.
+    Nav {
+        #[command(subcommand)]
+        action: NavAction,
+    },
     /// Import a personal-history export (browser bookmarks/history, OPML feed
     /// list, chat JSONL, shell history, Claude session JSONL) into the shared
     /// store as labeled core nodes
@@ -927,6 +934,55 @@ pub enum ConnectSource {
         /// Temperature anomaly threshold (passed to detect_anomalies as temp_max)
         #[arg(long)]
         temp_max: Option<f32>,
+    },
+}
+
+/// Actions for the `nav` command (PH-028 world portability).
+#[derive(Subcommand)]
+pub enum NavAction {
+    /// Export the nav index as a self-contained bundle (Option B).
+    ///
+    /// The bundle carries objects, relations, pins and an embedder stamp.
+    /// Import it on another machine with `nav import`. The importer refuses
+    /// when the live embedder's stamp differs — never silent vector mismatch.
+    Export {
+        /// Workspace root to export from (default: current directory)
+        #[arg(long)]
+        root: Option<PathBuf>,
+        /// Output bundle file
+        out: PathBuf,
+    },
+    /// Import a bundle into this workspace (Option B).
+    ///
+    /// Refuses when the bundle's embedder stamp differs from the live
+    /// embedder and the local index already has vectors.
+    Import {
+        /// Bundle file produced by `nav export`
+        bundle: PathBuf,
+        /// Workspace root to import into (default: current directory)
+        #[arg(long)]
+        root: Option<PathBuf>,
+    },
+    /// Re-tag the index file for a different client root (Option A).
+    ///
+    /// Reads the index from `--src` (the pansa store's index file) and writes
+    /// a copy tagged for `--client-root` into `--dest-dir`. The client can
+    /// then open with a plain `physis-hud <client-root>` — no alias needed.
+    RetagStore {
+        /// Source index file (e.g. pansa's nav-index_home_gio_physis_pro.json)
+        #[arg(long)]
+        src: PathBuf,
+        /// Client root path (the path where the clone lives on the client)
+        #[arg(long)]
+        client_root: PathBuf,
+        /// Directory to write the re-tagged index into (default: current .physis/)
+        #[arg(long)]
+        dest_dir: Option<PathBuf>,
+    },
+    /// Print the embedder stamp of an index or bundle file.
+    Stamp {
+        /// Index or bundle file to inspect
+        file: PathBuf,
     },
 }
 
@@ -1969,6 +2025,72 @@ print(json.dumps({{
         }
         Commands::Vault { dir, git } => {
             println!("{}", app.run_vault_import(&dir, git)?);
+        }
+        Commands::Nav { action } => {
+            use physis_pro::nav::workspace::NavWorkspace;
+            let cwd = std::env::current_dir()?;
+            match action {
+                NavAction::Export { root, out } => {
+                    let root = root.as_deref().unwrap_or(&cwd);
+                    let ws = NavWorkspace::open(root)?;
+                    let meta = ws.export_bundle(&out)?;
+                    println!(
+                        "nav export: {} objects, {} relations, {} pins → {} ({} bytes)",
+                        meta.objects,
+                        meta.relations,
+                        meta.pins,
+                        out.display(),
+                        meta.bytes
+                    );
+                    if let Some(stamp) = meta.embedder_stamp {
+                        println!("embedder stamp: {stamp}");
+                    } else {
+                        println!("embedder stamp: (none — index was built without an embedder)");
+                    }
+                }
+                NavAction::Import { bundle, root } => {
+                    let root = root.as_deref().unwrap_or(&cwd);
+                    let mut ws = NavWorkspace::open(root)?;
+                    let report = ws.import_bundle(&bundle)?;
+                    println!(
+                        "nav import: +{} objects ({} skipped), {} relations, {} pins",
+                        report.added, report.skipped, report.relations, report.pins
+                    );
+                }
+                NavAction::RetagStore {
+                    src,
+                    client_root,
+                    dest_dir,
+                } => {
+                    let dest = dest_dir
+                        .as_deref()
+                        .map(std::path::Path::to_path_buf)
+                        .unwrap_or_else(|| cwd.join(".physis"));
+                    let ws = NavWorkspace::open_aliased(&client_root, &src)?;
+                    let written = ws.export_store(&dest, &client_root)?;
+                    println!("nav retag-store: wrote {}", written.display());
+                    if let Some(stamp) = &ws.index().embedder_stamp {
+                        println!("embedder stamp: {stamp}");
+                    }
+                }
+                NavAction::Stamp { file } => {
+                    // Accept both index files and bundle files.
+                    let raw = std::fs::read(&file)?;
+                    let val: serde_json::Value = serde_json::from_slice(&raw)?;
+                    let stamp = val
+                        .get("embedder_stamp")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("(none)");
+                    let objects = val
+                        .get("objects")
+                        .and_then(|v| v.as_object().map(|o| o.len()))
+                        .or_else(|| val.get("objects").and_then(|v| v.as_array().map(|a| a.len())))
+                        .unwrap_or(0);
+                    println!("file: {}", file.display());
+                    println!("embedder_stamp: {stamp}");
+                    println!("objects: {objects}");
+                }
+            }
         }
         Commands::History { file } => {
             println!("{}", app.run_history_import(&file)?);

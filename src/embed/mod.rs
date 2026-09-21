@@ -310,8 +310,72 @@ pub fn wants_random_projection(requested: Option<&str>) -> bool {
     matches!(requested, Some("random-projection") | Some("rp"))
 }
 
-/// Pick the best available embedder, self-test gated.
+// Pick the best available embedder, self-test gated.
+
+// ---------------------------------------------------------------------------
+// Option C: remote embed offload (PH-028)
+// ---------------------------------------------------------------------------
+
+/// Wraps a local embedder with a remote HTTP fallback.
 ///
+/// When `PHYSIS_REMOTE_EMBED=<url>` is set the HUD annotates the embedder kind
+/// as `<local-kind>+remote:<host>` in the header — the label is mandatory and
+/// never silent. The remote is tried first for new content; on any network
+/// failure the local embedder is used and the label stays showing the
+/// configured intent so the operator knows something degraded.
+///
+/// The remote endpoint is pansa's `POST /api/v1/embed` with an optional
+/// `Authorization: Bearer <PHYSIS_API_TOKEN>` header. The response is the
+/// standard `{"embedding":[…],"dim":N}` shape. Vectors are returned directly
+/// without further normalisation — the remote and local must use the same
+/// model (same stamp) or the portability rules in PH-028 apply.
+pub struct RemoteEmbedder {
+    /// Local fallback for when the remote is unreachable.
+    local: Box<dyn VectorEmbed>,
+    /// Base URL of the remote Physis instance, e.g. `http://100.65.59.18:19876`.
+    url: String,
+    /// Optional bearer token.
+    token: Option<String>,
+}
+
+impl RemoteEmbedder {
+    pub fn new(local: Box<dyn VectorEmbed>, url: String, token: Option<String>) -> Self {
+        Self { local, url, token }
+    }
+
+    fn try_remote(&self, text: &str) -> Option<Vec<f32>> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .ok()?;
+        let mut req = client
+            .post(format!("{}/api/v1/embed", self.url))
+            .json(&serde_json::json!({ "text": text }));
+        if let Some(token) = &self.token {
+            req = req.header("Authorization", format!("Bearer {token}"));
+        }
+        let resp: serde_json::Value = req.send().ok()?.json().ok()?;
+        let embedding = resp["embedding"]
+            .as_array()?
+            .iter()
+            .filter_map(|v| v.as_f64().map(|f| f as f32))
+            .collect::<Vec<f32>>();
+        if embedding.is_empty() { None } else { Some(embedding) }
+    }
+}
+
+impl VectorEmbed for RemoteEmbedder {
+    fn embed(&self, text: &str) -> Vec<f32> {
+        self.try_remote(text).unwrap_or_else(|| self.local.embed(text))
+    }
+    fn embed_batch(&self, texts: &[&str]) -> Vec<Vec<f32>> {
+        texts.iter().map(|t| self.embed(t)).collect()
+    }
+    fn dimension(&self) -> usize {
+        self.local.dimension()
+    }
+}
+
 /// Extracted so every entry point resolves the embedder the same way. The MCP
 /// server previously hard-coded [`RandomProjectionEmbedder`], which meant every
 /// tool it served — classification, packing, similarity — answered from random
