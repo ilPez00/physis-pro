@@ -64,8 +64,12 @@ fn main() -> anyhow::Result<()> {
     let mut root: Option<PathBuf> = None;
     let mut setup = false;
     let mut view_name: Option<String> = None;
+    let mut query: Option<String> = None;
     // `--view` takes a value, so pull it (and `--view=NAME`) out before the
     // positional loop — otherwise the value would be eaten as the root path.
+    // `--query` does the same: it is the headless way to give the world
+    // projection a focus, so a `--snapshot --view graph` frame has an object
+    // to project instead of an empty pane.
     let mut plain: Vec<&String> = Vec::new();
     let mut it = args.iter().skip(1).peekable();
     while let Some(a) = it.next() {
@@ -73,6 +77,10 @@ fn main() -> anyhow::Result<()> {
             view_name = it.next().cloned();
         } else if let Some(name) = a.strip_prefix("--view=") {
             view_name = Some(name.to_string());
+        } else if a == "--query" {
+            query = it.next().cloned();
+        } else if let Some(q) = a.strip_prefix("--query=") {
+            query = Some(q.to_string());
         } else {
             plain.push(a);
         }
@@ -98,7 +106,7 @@ fn main() -> anyhow::Result<()> {
                 })?);
             }
             "-h" | "--help" => {
-                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--setup] [--view <name>] [--snapshot[=WxH]]");
+                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--setup] [--view <name>] [--query <text>] [--snapshot[=WxH]]");
                 eprintln!("  default: prescan index + embedding cache, then open the HUD");
                 eprintln!("  --prescan-only: warm the index + caches and exit (no TUI)");
                 eprintln!("  --no-prescan: open on the persisted index as-is (fast restart)");
@@ -106,6 +114,8 @@ fn main() -> anyhow::Result<()> {
                 eprintln!("           command that closes each gap; exit 0");
                 eprintln!("  --view <name>: open a view directly (one of: {});", View::ALL.iter().map(|v| v.label()).collect::<Vec<_>>().join(", "));
                 eprintln!("           combines with --snapshot for a CI-renderable frame");
+                eprintln!("  --query <text>: run this query before rendering, so the frame has a");
+                eprintln!("           focused object (the headless vertical slice)");
                 eprintln!("  --snapshot[=WxH]: render one frame to stdout and exit (default 100x30)");
                 return Ok(());
             }
@@ -135,9 +145,13 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     if let Some((w, h)) = snapshot {
-        return snapshot_run(&root, w, h, view_name.as_deref());
+        return snapshot_run(&root, w, h, view_name.as_deref(), query.as_deref());
     }
     let mut app = App::new(root, prescan)?;
+    if let Some(q) = &query {
+        app.query = q.clone();
+        app.run_query();
+    }
     open_named_view(&mut app, view_name.as_deref())?;
     let terminal = enter_tui()?;
     let result = run(terminal, app);
@@ -160,7 +174,16 @@ fn open_named_view(app: &mut App, name: Option<&str>) -> anyhow::Result<()> {
                 .join(", ")
         ));
     };
-    app.open_view(view);
+    // Views whose body a command produces (graph, tasks, agents, help) are
+    // opened the way their key opens them, so a `--view graph` frame shows the
+    // graph rather than an empty pane. The others (world, settings, setup,
+    // notebook) render from live state and open directly.
+    match view {
+        View::Graph | View::Tasks | View::Agents | View::Help => {
+            app.open_view_via_command(view)
+        }
+        _ => app.open_view(view),
+    }
     Ok(())
 }
 
@@ -178,9 +201,22 @@ fn parse_size(spec: &str) -> Option<(u16, u16)> {
 /// Render one frame through the same `draw` path to a `TestBackend` and print
 /// it. A golden frame in CI cannot drift from what a person sees, because there
 /// is no second renderer. No TTY required.
-fn snapshot_run(root: &Path, w: u16, h: u16, view: Option<&str>) -> anyhow::Result<()> {
+fn snapshot_run(
+    root: &Path,
+    w: u16,
+    h: u16,
+    view: Option<&str>,
+    query: Option<&str>,
+) -> anyhow::Result<()> {
     use ratatui::backend::TestBackend;
     let mut app = App::new(root.to_path_buf(), false)?;
+    // The query gives the projection a focus before the view renders, so a
+    // `--view graph` frame shows the same object the world projection lists
+    // rather than an empty pane.
+    if let Some(q) = query {
+        app.query = q.to_string();
+        app.run_query();
+    }
     open_named_view(&mut app, view)?;
     let backend = TestBackend::new(w, h);
     let mut terminal = ratatui::Terminal::new(backend)?;

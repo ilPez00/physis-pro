@@ -68,6 +68,44 @@ pub struct IntentResolution {
     pub provenance: String,
 }
 
+/// Compile a bare-text line into the nine-slot IntentIR without a model: the
+/// goal is the utterance, objects/constraints/context carry what the caller
+/// resolved, everything else is NIL with an explicit bind task. Deterministic
+/// and total: every line compiles, and `render()` shows what is still empty.
+pub fn compile_bare(utterance: &str, user: &str, objects: Vec<String>) -> IntentResolution {
+    let mut raw: HashMap<String, serde_json::Value> = HashMap::new();
+    raw.insert("goal".to_string(), serde_json::Value::String(utterance.to_string()));
+    if !objects.is_empty() {
+        raw.insert(
+            "objects".to_string(),
+            serde_json::Value::Array(
+                objects.iter().map(|o| serde_json::Value::String(o.clone())).collect(),
+            ),
+        );
+    }
+    let ir = crate::intent_ir::IntentIR::new(raw, utterance.to_string(), user.to_string(), None);
+    let bind_tasks = ir.bind_tasks().iter().map(|b| b.slot.clone()).collect::<Vec<_>>();
+    let route = if objects.len() == 1 {
+        ResolutionRoute::ExactObject
+    } else {
+        ResolutionRoute::Intent
+    };
+    let provenance = format!(
+        "route={} objects={} nil=[{}] (deterministic compile, no model)",
+        route.label(),
+        objects.len(),
+        bind_tasks.join(","),
+    );
+    IntentResolution {
+        route,
+        utterance: utterance.to_string(),
+        ir: Some(ir),
+        objects,
+        bind_tasks,
+        provenance,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -105,35 +143,4 @@ mod tests {
             assert!(!route.label().is_empty());
         }
     }
-}
-
-/// Compile a bare-text line into the nine-slot IntentIR without a model: the
-/// goal is the utterance, objects/constraints/context carry what the caller
-/// resolved, everything else is NIL with an explicit bind task. Deterministic
-/// and total: every line compiles, and `render()` shows what is still empty.
-pub fn compile_bare(utterance: &str, user: &str, objects: Vec<String>) -> IntentResolution {
-    let mut raw: HashMap<String, serde_json::Value> = HashMap::new();
-    raw.insert("goal".to_string(), serde_json::Value::String(utterance.to_string()));
-    if !objects.is_empty() {
-        raw.insert(
-            "objects".to_string(),
-            serde_json::Value::Array(
-                objects.iter().map(|o| serde_json::Value::String(o.clone())).collect(),
-            ),
-        );
-    }
-    let ir = crate::intent_ir::IntentIR::new(raw, utterance.to_string(), user.to_string(), None);
-    let bind_tasks = ir.bind_tasks().iter().map(|b| b.slot.clone()).collect::<Vec<_>>();
-    let route = if objects.len() == 1 {
-        ResolutionRoute::ExactObject
-    } else {
-        ResolutionRoute::Intent
-    };
-    let provenance = format!(
-        "route={} objects={} nil=[{}] (deterministic compile, no model)",
-        route.label(),
-        objects.len(),
-        bind_tasks.join(","),
-    );
-    IntentResolution { route, utterance: utterance.to_string(), ir: Some(ir), objects, bind_tasks, provenance }
 }
