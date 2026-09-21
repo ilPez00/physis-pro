@@ -39,6 +39,10 @@ pub const DEFAULT_EXCLUDE_DIRS: &[&str] = &[
     // our own bookkeeping as repository content and makes every diff see the
     // log entry the last command just wrote.
     ".physis",
+    // ONNX model weights and tokenizer files — binary, multi-GB, not source.
+    // workspace_tokens reads every file it finds; without this exclusion the
+    // 2.3 GB nli-deberta model alone costs ~20 seconds on every HUD open.
+    "models",
 ];
 
 pub const BINARY_EXTENSIONS: &[&str] = &[

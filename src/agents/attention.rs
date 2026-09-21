@@ -17,7 +17,7 @@ use crate::nav::{NavWeights, RetrievalScore};
 /// the workspace's editable intent — what the work is for is a reason to look at
 /// something, not decoration.
 pub const ATTENTION_TERMS: [&str; 7] = [
-    "intent", "pin", "context", "relation", "semantic", "lexical", "recency",
+    "intent", "pin", "context", "relation", "vector", "lexical", "recency",
 ];
 
 /// One term's contribution to a score.

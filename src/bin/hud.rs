@@ -150,7 +150,7 @@ fn main() -> anyhow::Result<()> {
         // No prescan: SETUP is a read of what is already on disk, so it stays
         // cheap even on a cold checkout — an empty index is exactly the gap it
         // should report.
-        let app = App::new(root, false)?;
+        let app = App::new(root, false, true)?;
         println!("{}", setup_report(&app.setup_facts()));
         return Ok(());
     }
@@ -164,7 +164,7 @@ fn main() -> anyhow::Result<()> {
             no_semantic,
         );
     }
-    let mut app = App::new(root, prescan)?;
+    let mut app = App::new(root, prescan, false)?;
     if no_semantic {
         app.disable_vector_leg();
     }
@@ -230,7 +230,7 @@ fn snapshot_run(
     no_semantic: bool,
 ) -> anyhow::Result<()> {
     use ratatui::backend::TestBackend;
-    let mut app = App::new(root.to_path_buf(), false)?;
+    let mut app = App::new(root.to_path_buf(), false, true)?;
     // The flag and the query reach the same state the interactive path builds:
     // one code path, so a snapshot cannot prove something the TUI would not do.
     if no_semantic {
@@ -2100,12 +2100,20 @@ struct App {
 }
 
 impl App {
-    fn new(root: PathBuf, prescan: bool) -> anyhow::Result<Self> {
+    fn new(root: PathBuf, prescan: bool, headless: bool) -> anyhow::Result<Self> {
         let root = root.canonicalize().unwrap_or_else(|_| root.clone());
         anchor_data_dir(&root);
         let timing = std::env::var("PHYSIS_MVP_TIMING").ok().as_deref() == Some("1");
         let t0 = std::time::Instant::now();
-        let mut ws = physis_pro::nav::workspace::NavWorkspace::open(&root)?;
+        // Headless (snapshot/setup): open a temporary sled so the snapshot
+        // never contends with a running interactive physis-hud holding the
+        // exclusive write lock on index.sled. Trail and pin reads return empty
+        // results, which is fine for single-frame rendering.
+        let mut ws = if headless {
+            physis_pro::nav::workspace::NavWorkspace::open_for_snapshot(&root)?
+        } else {
+            physis_pro::nav::workspace::NavWorkspace::open(&root)?
+        };
         if prescan {
             if ws.index().objects.is_empty() {
                 eprintln!(
@@ -2120,28 +2128,79 @@ impl App {
                 eprintln!("physis-hud prescan: {summary}");
             }
         }
-        let ws_tokens = workspace_tokens(&root);
+        let ws_tokens = if headless {
+            // Snapshot/setup mode: workspace_tokens reads every file for token
+            // counting (display-only metric). Skip it — reading ONNX model
+            // files at startup would cost ~20 s even with models/ excluded from
+            // the scanner, and the token count is not shown in headless output.
+            0
+        } else {
+            workspace_tokens(&root)
+        };
         let kind = ws.embedder_kind(true);
         // An embedder that is the lexical hash is still *a* retriever, but the
         // header must not call it semantic. The kind label carries the truth.
         // The kind decides whether semantic retrieval exists: a lexical hash is
         // a retriever, not meaning. One predicate, shared with the nav layer.
         let semantic_on = physis_pro::nav::is_semantic_kind(&kind);
-        // Warm-up embed to keep the first query responsive.
-        if semantic_on {
+        // Warm-up embed to keep the first query responsive. Skip in headless
+        // mode (snapshot/setup): the warm-up loads the ONNX runtime and costs
+        // ~21 s when BGE-base is the active embedder, with no benefit when
+        // there is no interactive query to follow.
+        if semantic_on && !headless {
             let _ = ws.embedder(true).map(|e| e.embed("warm"));
         }
         // Startup summary, same facts as the REPL banner: file/object counts
         // from the post-prescan index, the cached sample map, and the
         // absorbed-at-open notice when the workspace moved while closed.
-        let (map_r, map_d, map_c) = physis_pro::mvp::map_counts(&root);
-        let snap = physis_pro::mvp::slice::snapshot_hashes(&physis_pro::scanner::scan_project(
-            &root, None,
-        ));
-        let fresh = physis_pro::mvp::log::hash_canonical(&snap);
-        let notice = physis_pro::mvp::TransitionLog::open(&root)
-            .ok()
-            .and_then(|log| physis_pro::mvp::since_last_session_notice(&log, &fresh));
+        // Skip all of this in headless mode: map_counts and snapshot_hashes
+        // each call scan_project (full tree walk) and are display-only.
+        let (map_r, map_d, map_c, startup, resume) = if headless {
+            // Headless: skip the expensive tree walks; use index counts only.
+            let status_counts = (0usize, 0usize, 0usize);
+            let card = format!(
+                "PHYSIS HUD — snapshot mode\nroot: {}\nfiles: {} · objects: {}",
+                root.display(),
+                ws.index().files.len(),
+                ws.index().objects.len(),
+            );
+            (
+                status_counts.0,
+                status_counts.1,
+                status_counts.2,
+                card,
+                None::<physis_pro::nav::NavStep>,
+            )
+        } else {
+            let (r, d, c) = physis_pro::mvp::map_counts(&root);
+            let snap = physis_pro::mvp::slice::snapshot_hashes(
+                &physis_pro::scanner::scan_project(&root, None),
+            );
+            let fresh = physis_pro::mvp::log::hash_canonical(&snap);
+            let notice = physis_pro::mvp::TransitionLog::open(&root)
+                .ok()
+                .and_then(|log| physis_pro::mvp::since_last_session_notice(&log, &fresh));
+            let mut card = world_card(
+                &root,
+                ws.index().files.len(),
+                ws.index().objects.len(),
+                ws_tokens,
+                &kind,
+                &physis_pro::mvp::generator_state(),
+                (r, d, c),
+            );
+            if let Some(n) = notice {
+                card.push_str(&format!("\n{n}\n"));
+            }
+            let resume = ws.last_intent();
+            if let Some(step) = &resume {
+                card.push_str(&format!(
+                    "\nresume: last intent \"{}\" ({}) — Enter to run\n",
+                    step.focus, step.at
+                ));
+            }
+            (r, d, c, card, resume)
+        };
         let status = format!(
             "files {} · objects {} · sample map repeats {} / differences {} / contradictions {}",
             ws.index().files.len(),
@@ -2150,28 +2209,6 @@ impl App {
             map_d,
             map_c,
         );
-        let mut startup = world_card(
-            &root,
-            ws.index().files.len(),
-            ws.index().objects.len(),
-            ws_tokens,
-            &kind,
-            &physis_pro::mvp::generator_state(),
-            (map_r, map_d, map_c),
-        );
-        if let Some(n) = notice {
-            startup.push_str(&format!("\n{n}\n"));
-        }
-        // Retained intent (P2): the last query this workspace was asked is in
-        // the trail, so a reopen resumes instead of starting blank. Prefill
-        // the box so Enter re-runs it; the card says what will run.
-        let resume = ws.last_intent();
-        if let Some(step) = &resume {
-            startup.push_str(&format!(
-                "\nresume: last intent \"{}\" ({}) — Enter to run\n",
-                step.focus, step.at
-            ));
-        }
         Ok(Self {
             ws,
             weights: NavWeights::default(),
@@ -3270,8 +3307,7 @@ impl App {
                 .iter()
                 .position(|row| matches!(row, Row::Hit(h) if h.object.id == id))
             {
-                self.sel = pos;
-                self.sync_list_state();
+                self.set_sel(pos);
             }
             self.ws.push_trail("open", &id.short());
         } else {
@@ -3301,6 +3337,7 @@ impl App {
                 self.query.clear();
                 self.hits.clear();
                 self.rows.clear();
+                self.focus_state.cursor = physis_pro::hud::world::Cursor::new(0);
                 self.sel = 0;
                 self.selected.clear();
                 self.stack.clear();
@@ -3899,12 +3936,12 @@ impl App {
             }
         }
         self.hits = hits;
-        self.sel = self
-            .rows
-            .iter()
-            .position(|r| matches!(r, Row::Hit(_)))
-            .unwrap_or(0);
-        self.sync_list_state();
+        self.set_sel(
+            self.rows
+                .iter()
+                .position(|r| matches!(r, Row::Hit(_)))
+                .unwrap_or(0),
+        );
         self.update_explain();
     }
 
@@ -3990,6 +4027,24 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Set the cursor to an absolute row, clamping to actual row count and
+    /// keeping `self.sel` and `focus_state.cursor` in sync. Use this instead
+    /// of writing `self.sel` directly whenever the new position is already
+    /// computed (e.g. after rebuilding rows) and routing through `MoveCursor`
+    /// would require an awkward delta calculation.
+    ///
+    /// This is the same logic as `apply_hud_effects`'s `SetCursor` arm.
+    fn set_sel(&mut self, row: usize) {
+        let clamped = if self.rows.is_empty() {
+            0
+        } else {
+            row.min(self.rows.len() - 1)
+        };
+        self.focus_state.cursor = physis_pro::hud::world::Cursor::new(clamped);
+        self.sel = clamped;
+        self.sync_list_state();
     }
 
     fn update_explain(&mut self) {
@@ -4105,12 +4160,12 @@ impl App {
             }
         }
         self.rows = rows;
-        self.sel = self
-            .rows
-            .iter()
-            .position(|r| matches!(r, Row::Hit(_)))
-            .unwrap_or(0);
-        self.sync_list_state();
+        self.set_sel(
+            self.rows
+                .iter()
+                .position(|r| matches!(r, Row::Hit(_)))
+                .unwrap_or(0),
+        );
         self.update_explain();
     }
 
@@ -4258,9 +4313,10 @@ impl App {
             self.query = q;
             self.hits = hits;
             self.rows = rows;
-            self.sel = sel;
             self.reading = None;
-            self.sync_list_state();
+            // Restore the visual cursor to the saved position. set_sel also
+            // syncs focus_state.cursor so the two never diverge here.
+            self.set_sel(sel);
             self.update_explain();
             // Capture the focused id from the restored rows/sel *before*
             // dispatching Ascend: the Ascend effect resets the cursor to 0,
@@ -4268,6 +4324,10 @@ impl App {
             let focused = self.current_hit().map(|h| h.object.id.clone());
             // Pop the trail through the canonical path.
             self.dispatch(physis_pro::hud::event::HudEvent::Ascend);
+            // Re-sync the cursor: Ascend resets focus_state.cursor to 0 via
+            // the reducer; restore it to the saved row so the visual position
+            // matches what the operator sees.
+            self.set_sel(sel);
             // Restore focus to the object we climbed back to.
             self.focus_state.focus.refocus(focused);
         }
@@ -6225,7 +6285,7 @@ mod tests {
         // Prescan so the save's rescan sees a baseline: without it every
         // file would read as added and the dependents rule would exclude
         // them all (changed files are never their own dependents).
-        let mut app = App::new(root.to_path_buf(), true).unwrap();
+        let mut app = App::new(root.to_path_buf(), true, false).unwrap();
         app.query = "retrieval budget".to_string();
         app.run_query();
         app.start_inline_edit(Some("src/retrieval.rs"));
@@ -6750,7 +6810,7 @@ mod tests {
             .collect();
         std::fs::write(dir.join("long.rs"), body).ok();
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "chunk".to_string();
         app.run_query();
         assert!(
@@ -6829,7 +6889,7 @@ mod tests {
         )
         .ok();
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "retrieval".to_string();
         app.run_query();
         assert!(!app.hits.is_empty(), "precondition: the query found the file");
@@ -6881,7 +6941,7 @@ mod tests {
         std::fs::write(dir.join("alpha.rs"), "fn alpha_budget() -> usize { 1 }\n").ok();
         std::fs::write(dir.join("beta.rs"), "fn beta_budget() -> usize { 2 }\n").ok();
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "budget".to_string();
         app.run_query();
         assert!(
@@ -6947,7 +7007,7 @@ mod tests {
         std::fs::write(dir.join("retrieval.rs"), "fn retrieval_budget() -> usize { 3 }\n").ok();
         std::fs::write(dir.join("other.rs"), "fn other() {}\n").ok();
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
 
         // 1. Bare text with no exact owner: an intent over the ranked matches.
         app.submit_command_line("retrieval");
@@ -7019,7 +7079,7 @@ mod tests {
         std::fs::write(dir.join("alpha.rs"), "fn alpha_budget() -> usize { 1 }\n").ok();
         std::fs::write(dir.join("beta.rs"), "use alpha_budget;\nfn beta() {}\n").ok();
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "alpha budget".to_string();
         app.run_query();
         assert!(app.hits.len() >= 2, "precondition: two objects to relate");
@@ -7111,7 +7171,7 @@ mod tests {
         };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
 
-        let mut app = App::new(dir.to_path_buf(), true).expect("app opens on a temp workspace");
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens on a temp workspace");
         app.run_query();
         assert!(
             !app.hits.is_empty(),
@@ -7153,7 +7213,7 @@ mod tests {
             old: std::env::var_os("PHYSIS_DATA_DIR"),
         };
         std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
-        let mut app = App::new(dir.to_path_buf(), false).expect("app opens on a temp workspace");
+        let mut app = App::new(dir.to_path_buf(), false, false).expect("app opens on a temp workspace");
 
         app.agent_pending = Some("jev".into());
         app.query = "retrieval".into();

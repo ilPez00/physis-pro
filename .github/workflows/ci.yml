@@ -191,3 +191,35 @@ jobs:
           SPANNER_INSTANCE: test-instance
           SPANNER_DATABASE: test-db
         run: cargo test --lib --features spanner -- --ignored --nocapture spanner_emulator_roundtrip
+
+  # HUD snapshot matrix: render one frame per view and assert rc=0.
+  # PHYSIS_EMBEDDER=random-projection guarantees sub-second completion:
+  #   - no ONNX/ollama model load (warm-up embed is gated on !headless anyway)
+  #   - workspace_tokens is skipped (headless=true in snapshot_run)
+  #   - open_for_snapshot opens a temporary sled (no lock contention)
+  # PHYSIS_OLLAMA_EMBED_OFF=1 is belt-and-suspenders in case the env var
+  # ordering ever lets the ollama probe run before RP is selected.
+  hud-snapshots:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      PHYSIS_EMBEDDER: random-projection
+      PHYSIS_OLLAMA_EMBED_OFF: "1"
+    strategy:
+      matrix:
+        view: [world, graph, settings, notebook, tasks, agents, help]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: build physis-hud
+        run: cargo build --features tui --bin physis-hud
+      - name: snapshot ${{ matrix.view }}
+        run: |
+          ./target/debug/physis-hud . --no-prescan \
+            --snapshot=100x30 --view=${{ matrix.view }} \
+            > /tmp/snap-${{ matrix.view }}.txt
+          echo "=== ${{ matrix.view }} ==="
+          cat /tmp/snap-${{ matrix.view }}.txt

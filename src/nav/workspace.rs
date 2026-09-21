@@ -108,6 +108,44 @@ impl NavWorkspace {
         })
     }
 
+    /// Open the workspace in snapshot/read-only mode: load the JSON index from
+    /// disk and open a temporary in-memory sled store (deleted on drop).
+    ///
+    /// This avoids contending with the exclusive write lock that a running
+    /// interactive `physis-hud` holds on `index.sled`. The temporary db means
+    /// trail and pin reads return empty results, which is acceptable for
+    /// single-frame rendering — the snapshot does not write history.
+    ///
+    /// Use this from `snapshot_run` and `--setup` so that headless invocations
+    /// never block on a live process.
+    pub fn open_for_snapshot(root: &Path) -> anyhow::Result<Self> {
+        // A temporary sled store lives in memory (Linux /dev/shm) and is
+        // deleted when the Db is dropped — zero interaction with the real store.
+        let db = sled::Config::new().temporary(true).open()?;
+        let mut index = nav::load_index(&db, root);
+        index.embed_cache_dir = Self::data_dir();
+        let remote_embed_suffix = std::env::var("PHYSIS_REMOTE_EMBED")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(|url| {
+                let host = url
+                    .trim_start_matches("http://")
+                    .trim_start_matches("https://")
+                    .split('/')
+                    .next()
+                    .unwrap_or("remote")
+                    .to_string();
+                format!("+remote:{host}")
+            });
+        Ok(Self {
+            root: root.to_path_buf(),
+            index,
+            db,
+            embedder: None,
+            remote_embed_suffix,
+        })
+    }
+
     fn data_dir() -> PathBuf {
         std::env::var("PHYSIS_DATA_DIR")
             .ok()
