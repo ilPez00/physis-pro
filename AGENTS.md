@@ -34,7 +34,11 @@ chain wired, `SemanticLens`, structured `ProjectionRow`/`Projection`, honest sco
 names, `--no-semantic`, `affordances_for_identity`, descend/ascend, `:actions`),
 and **PH-029** (reducer owns navigation: `MoveCursor`/`Select`/`ClearSelection`/
 `FocusObject`/`Descend`/`Ascend` through `dispatch()→reduce()`; qualified Rust
-symbol extraction; `back()` ordering bug fixed). Packet queue state after the
+symbol extraction; `back()` ordering bug fixed), and **PH-028** (prepopulate
+the world: 16 750-object index built on pansa; `NavIndex.embedder_stamp`;
+Option A re-tag store; Option B portable bundle with embedder-stamp refusal;
+Option C `PHYSIS_REMOTE_EMBED` with `+remote:<host>` label; CLI
+`nav export/import`). Packet queue state after the
 2026-09-20 review pass:
 `docs/plans/2026-09-20-queue-after-reviews.md`. Scope: agent-native
 semantic world — agents as first-class objects, `@agent`

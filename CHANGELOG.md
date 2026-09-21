@@ -10,6 +10,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Prepopulate the world (PH-028). First-indexed the repo on pansa: 16 750
+  objects (14 219 passages, 2 140 files, 391 notes), 111 MB index.
+  `NavIndex.embedder_stamp` records `kind:dim` after each embed pass
+  (serde-defaulted so existing indices load without error).
+  Option A: `NavWorkspace::open_aliased` + `export_store` re-tag a pansa
+  index for a different client root — deliver the 111 MB world to feather
+  once over the LAN, open with zero embedding cost.
+  Option B: `export_bundle`/`import_bundle` portable JSON bundle with
+  embedder-stamp refusal: import errors when the bundle's stamp differs from
+  the live index's stamp and the local index already has vectors — never a
+  silent vector-space mismatch.
+  Option C: `PHYSIS_REMOTE_EMBED=<url>` wraps the local embedder in
+  `RemoteEmbedder` (5 s timeout, local fallback); `embedder_kind` appends
+  `+remote:<host>` so the HUD header always shows the configured intent.
+  CLI: `physis-pro nav export/import/retag-store/stamp`.
+
+### Added
 - Navigation has one mutation path (PH-029). `MoveCursor`, `Select`,
   `ClearSelection`, `FocusObject`, `Descend`, `Ascend` are added to `HudEvent`;
   each has exactly one producer in the key loop and one reducer branch. The key

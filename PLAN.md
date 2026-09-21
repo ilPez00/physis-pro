@@ -928,6 +928,7 @@ Status was re-measured 2026-09-21 (newest dated note wins; the 2026-09-20 and
 | PH-026 | 0 | review | the world surface: `WorldObject` ported as a read-only view over `nav::ObjectId` (edges carry `Relation.origin`), `src/hud/` library surface, projection switches that cannot move the focus, capability-derived palette, `--query` for headless slice frames |
 | PH-027 | 0 | review | the world surface becomes operational: bare text resolves through the intent chain with its route on the status line, five producer-less routes deleted, `SemanticLens` + structured projection rows shared by two lenses, honest score-leg names (`vector`), `--no-semantic`, `affordances_for_identity`, descend/ascend over repository objects, `:actions`; deferred work is PH-029 (reducer ownership for navigation, structural symbols) and PH-028 (prepopulating the world) |
 | PH-029 | 0 | review | reducer owns navigation, symbols become real objects: `MoveCursor`/`Select`/`ClearSelection`/`FocusObject`/`Descend`/`Ascend` routed through `dispatch()→reduce()→apply_hud_effects()`; key loop no longer writes `sel` directly; Rust qualified-symbol extraction (`pub fn`/`pub(crate)`/`async`/`unsafe`/`impl<T>`/`impl Trait for Type`) with negative fixtures; `back()` ordering bug found and fixed (capture focused before `Ascend` emits `SetCursor{0}`); remaining duplicate state documented as `selected`/`FocusState.selection` bridge |
+| PH-028 | 0 | review | prepopulate the world: first-indexed the repo on pansa (16 750 objects, 469 s, 111 MB); `NavIndex.embedder_stamp` (`kind:dim`, serde-defaulted); Option A re-tag (`open_aliased`/`export_store`); Option B portable bundle (`export_bundle`/`import_bundle`) with embedder-stamp refusal; Option C remote embed offload (`PHYSIS_REMOTE_EMBED`, `RemoteEmbedder`, `+remote:<host>` label always shown); CLI `physis-pro nav export/import/retag-store/stamp` |
 
 Reconciliation note (2026-09-21): `HEAD..main` is **0** commits on
 `agent/PH-025`, and `src/world_object.rs` does not exist on `main` — the
@@ -936,10 +937,10 @@ ported the view type instead of merging `main`.
 
 Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`,
 `packets/reports/PH-026.md`, `packets/reports/PH-027.md`,
-`packets/reports/PH-029.md`
+`packets/reports/PH-028.md`, `packets/reports/PH-029.md`
 (`cargo clippy --all-targets -- -D warnings`; `cargo test --features tui --bin
 physis-hud` 45 passed; `cargo test --lib hud::` 43 passed; `cargo test --lib
-nav::` 20 passed; `cargo test --lib world_object::` 13 passed; `cargo test --lib
+nav::` 25 passed; `cargo test --lib world_object::` 13 passed; `cargo test --lib
 scanner` 6 passed; headless matrix 9/9 rc=0 LEXICAL ONLY).
 Sequencing authority for the HUD programme:
 `docs/plans/2026-09-20-physis-hud.md`.

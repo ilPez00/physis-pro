@@ -2,7 +2,7 @@
 id: PH-028
 track: physis-pro
 phase: 0
-status: claimed
+status: review
 claimed_by: kiro
 claimed_at: "2026-09-21T09:42:00+02:00"
 rung: 3

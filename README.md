@@ -12,10 +12,13 @@ surface: `WorldObject` as a read-only view over `nav::ObjectId`, the
 projection/focus invariant in `src/hud/`, the graph drawn from the object lens),
 PH-027 (the world surface operational: intent chain wired, `SemanticLens`,
 structured `ProjectionRow`/`Projection`, honest score names, `--no-semantic`,
-`affordances_for_identity`, descend/ascend, `:actions`), and PH-029 (reducer
+`affordances_for_identity`, descend/ascend, `:actions`), PH-029 (reducer
 owns navigation: `MoveCursor`/`Select`/`ClearSelection`/`FocusObject`/`Descend`/
 `Ascend` through `dispatch()→reduce()`; qualified Rust symbol extraction;
-`back()` ordering bug fixed).
+`back()` ordering bug fixed), and PH-028 (prepopulate the world: 16 750-object
+index built on pansa; `NavIndex.embedder_stamp`; Option A re-tag store;
+Option B portable bundle with embedder-stamp refusal; Option C
+`PHYSIS_REMOTE_EMBED` with `+remote:<host>` label; CLI `nav export/import`).
 Everything else in those plans is planned, not shipped; the gates distinguish
 the two.
 [Physis Workspace — agentic work with durable
