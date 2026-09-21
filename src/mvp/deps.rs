@@ -508,13 +508,22 @@ pub fn impossible_text(root: &Path) -> String {
                 (Some(a), Some(b)) => format!("{a}/{b}"),
                 _ => "(no fit)".to_string(),
             };
-            let g3 = v.get("g3").map(|g| g.to_string()).unwrap_or("?".into());
+            // Full gate triple: a fit without its gates is prose. Missing
+            // gates render —, never a guess.
+            let gates: String = ["g1", "g2", "g3"]
+                .iter()
+                .map(|g| match v.get(g).and_then(|b| b.as_bool()) {
+                    Some(true) => '✓',
+                    Some(false) => '✗',
+                    None => '—',
+                })
+                .collect();
             let verdict = v
                 .get("verdict")
                 .and_then(|s| s.as_str())
                 .unwrap_or("(no verdict)");
             let short: String = verdict.chars().take(100).collect();
-            o.push_str(&format!("  live E{exp}: fit={fit} g3={g3} · {short}\n"));
+            o.push_str(&format!("  live E{exp}: fit={fit} gates={gates} · {short}\n"));
         }
         let r = dir.join("results.json");
         if let Ok(rep) = physis_core::machines::ImpossibleReport::load(&r) {
@@ -910,13 +919,14 @@ mod tests {
         std::fs::create_dir_all(&exp).unwrap();
         std::fs::write(
             exp.join("experiment62_results.json"),
-            r#"{"fit_disc": 1.395, "fit_hold": 1.451, "g3": true, "verdict": "AGREEMENT — test"}"#,
+            r#"{"fit_disc": 1.395, "fit_hold": 1.451, "g1": true, "g2": true, "g3": true, "verdict": "AGREEMENT — test"}"#,
         )
         .unwrap();
         let o = impossible_text(dir.path());
         assert!(o.contains("E62"), "{o}");
         assert!(o.contains("live E62"), "{o}");
         assert!(o.contains("1.395"), "{o}");
+        assert!(o.contains("gates=✓✓✓"), "{o}");
     }
 
     /// A live run artifact renders graded machines, propositions,
