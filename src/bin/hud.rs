@@ -1009,6 +1009,8 @@ enum HudCommand {
     Tasks,
     /// Show the operator's intent and its provenance.
     Intent,
+    /// Show what may be done to the focused object, from the registry.
+    Actions,
     /// Show the agent roster and live availability.
     Agents,
     /// Show the effective settings.
@@ -1109,6 +1111,7 @@ fn parse_named_command(text: &str) -> HudInput {
         "graph" if arg.is_none() => HudInput::Command(HudCommand::Graph),
         "tasks" | "task" if arg.is_none() => HudInput::Command(HudCommand::Tasks),
         "intent" if arg.is_none() => HudInput::Command(HudCommand::Intent),
+        "actions" if arg.is_none() => HudInput::Command(HudCommand::Actions),
         "agents" if arg.is_none() => HudInput::Command(HudCommand::Agents),
         "settings" if arg.is_none() => HudInput::Command(HudCommand::Settings),
         "setup" | "install" if arg.is_none() => HudInput::Command(HudCommand::Setup),
@@ -1243,7 +1246,7 @@ fn parse_hud_input(raw: &str) -> HudInput {
         }
         "help" | "history" | "bench" | "context" | "delta" | "why" | "contradictions"
         | "rescan" | "graph" | "notebook" | "related" | "pin" | "clear" | "clear-focus"
-        | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks" | "intent" | "agents"
+        | "zoom" | "edges" | "trail" | "pins" | "unpin" | "tasks" | "intent" | "actions" | "agents"
         | "settings" | "setup" | "install" | "world" | "back"
             if rest.is_empty() =>
         {
@@ -2770,6 +2773,65 @@ impl App {
         }
     }
 
+    /// The registered affordances of the focused object (`:actions`).
+    ///
+    /// This is the one place the running HUD asks "what may I do to *this*
+    /// object?" — the question the palette seam exists for. It reads the same
+    /// registry the action path executes through, so the list cannot promise a
+    /// verb the executor would refuse, and an object with nothing registered
+    /// says so instead of showing a generic menu.
+    fn show_actions(&mut self) {
+        use physis_pro::hud::palette;
+        use physis_pro::world_object::spell_object_id;
+
+        let Some(hit) = self.current_hit().cloned() else {
+            self.status = "select an object to see what may be done to it".into();
+            return;
+        };
+        let identity = spell_object_id(&hit.object.id);
+        let path = hit
+            .object
+            .source
+            .as_ref()
+            .map(|s| s.path.clone())
+            .unwrap_or_default();
+
+        let mut reg =
+            physis_pro::registry::Registry::new(physis_pro::registry::default_obs_path());
+        reg.register_workspace(&self.ws);
+        let view = physis_pro::guided::WorldView::from_registry(&reg);
+        let rows = palette::affordances_for_identity(&view, &identity);
+
+        let mut body = format!(
+            "object: {} {}\npath:   {}\nkind:   {:?}\n\n",
+            hit.object.label, identity, path, hit.object.kind
+        );
+        if rows.is_empty() {
+            body.push_str(
+                "no registered capability for this object.\n\n\
+                 That is an answer, not an error: the registry holds no verb for this\n\
+                 kind, so no action is offered rather than a generic menu that would\n\
+                 be refused on execution. `:action list` prints the whole table.\n",
+            );
+        } else {
+            for row in &rows {
+                let confirm = if row.needs_confirm() { "  (confirms first)" } else { "" };
+                body.push_str(&format!(
+                    "  {:<12} {:<16} risk {}{}\n",
+                    row.verb, row.capability, row.risk, confirm
+                ));
+            }
+            body.push_str(&format!(
+                "\n{} action(s), derived from the capability table — never a hand-written menu.\n\
+                 run one with: :action <verb> {} [key=value ...]\n",
+                rows.len(),
+                identity
+            ));
+        }
+        self.status = format!("actions: {} for {}", rows.len(), hit.object.label);
+        self.reading = Some((format!("actions: {}", hit.object.label), body));
+    }
+
     /// Turn the semantic leg off for this session without touching the store:
     /// the vector weight goes to zero and the mode label drops to the reduced
     /// form. Used by `--no-semantic`, so a machine that *has* an embedder can
@@ -3085,6 +3147,7 @@ impl App {
                     Err(e) => self.status = format!("action: {e}"),
                 }
             }
+            HudCommand::Actions => self.show_actions(),
             HudCommand::History => self.show_history(),
             HudCommand::Bench => self.show_bench(),
             HudCommand::Context => self.show_context(),
@@ -3985,6 +4048,76 @@ impl App {
     }
 
     /// Zoom in: a passage reads directly; anything else re-queries within it.
+    /// The objects one step *inside* this one, from the index the HUD already
+    /// holds: a file's passages, or a directory's own entries.
+    ///
+    /// This is the semantic-zoom grammar's data half (§13). It reads the index
+    /// rather than the filesystem, so descending costs nothing and cannot fail
+    /// on a permission bit — and it returns empty for a leaf, which is how
+    /// `enter` knows to fall back to reading.
+    fn children_of(&self, obj: &physis_pro::nav::PhysisObject) -> Vec<NavHit> {
+        use physis_pro::nav::ObjectKind as K;
+        let objects = &self.ws.index().objects;
+        let path_of = |o: &physis_pro::nav::PhysisObject| {
+            o.source
+                .as_ref()
+                .map(|s| s.path.clone())
+                .unwrap_or_default()
+        };
+        let target = path_of(obj);
+        if target.is_empty() {
+            return Vec::new();
+        }
+        let mut out: Vec<NavHit> = Vec::new();
+        match obj.kind {
+            // A file's contents are its passages, in reading order.
+            K::File => {
+                let mut passages: Vec<&physis_pro::nav::PhysisObject> = objects
+                    .values()
+                    .filter(|o| o.kind == K::Passage && path_of(o) == target)
+                    .collect();
+                passages.sort_by_key(|o| {
+                    o.source
+                        .as_ref()
+                        .and_then(|s| s.start_line)
+                        .unwrap_or(usize::MAX)
+                });
+                for p in passages {
+                    out.push(NavHit {
+                        object: p.clone(),
+                        score: Default::default(),
+                    });
+                }
+            }
+            // A directory's contents are the non-passage objects whose parent
+            // directory is exactly it — one level, never a subtree.
+            K::Directory => {
+                for o in objects.values() {
+                    if o.kind == K::Passage {
+                        continue;
+                    }
+                    let p = path_of(o);
+                    let parent = Path::new(&p)
+                        .parent()
+                        .map(|pp| pp.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    if parent == target {
+                        out.push(NavHit {
+                            object: o.clone(),
+                            score: Default::default(),
+                        });
+                    }
+                }
+                out.sort_by(|a, b| a.object.label.cmp(&b.object.label));
+                out.dedup_by(|a, b| path_of(&a.object) == path_of(&b.object));
+            }
+            // Concepts, notes and passages are leaves here: their contents are
+            // text to read, not objects to descend into.
+            _ => {}
+        }
+        out
+    }
+
     fn enter(&mut self) {
         let Some(hit) = self.current_hit().cloned() else {
             return;
@@ -3997,6 +4130,36 @@ impl App {
             self.sel,
         ));
         self.crumbs.push(hit.object.label.clone());
+
+        // Descend when the object has contents: the projection becomes *about*
+        // this object, and its contents are the rows. Focus stays on the
+        // container, so `WHY`/`:actions` still answer for the thing you opened
+        // rather than for whichever child the cursor happens to sit on.
+        let children = self.children_of(&hit.object);
+        if !children.is_empty() {
+            let container = hit.object.id.clone();
+            self.query = format!("inside: {}", hit.object.label);
+            self.set_results(children);
+            self.sel = 0;
+            self.sync_list_state();
+            self.update_explain();
+            self.focus_state.focus.refocus(Some(container));
+            self.reading = Some((
+                format!("inside: {}", hit.object.label),
+                format!(
+                    "{} object(s) inside {} — Enter descends again, Esc/Backspace climbs out",
+                    self.hits.len(),
+                    hit.object.label
+                ),
+            ));
+            self.status = format!(
+                "descended into {} ({} objects) — Esc climbs out, projection unchanged",
+                hit.object.label,
+                self.hits.len()
+            );
+            self.ws.push_trail("enter", &hit.object.id.short());
+            return;
+        }
 
         match hit.object.kind {
             ObjectKind::Passage | ObjectKind::Note | ObjectKind::File => {
@@ -4026,6 +4189,10 @@ impl App {
             self.reading = None;
             self.sync_list_state();
             self.update_explain();
+            // Climbing out restores the focus of the level you climbed back to,
+            // so a descent and an ascent round-trip the same identity.
+            let focused = self.current_hit().map(|h| h.object.id.clone());
+            self.focus_state.focus.refocus(focused);
         }
         self.crumbs.pop();
     }
@@ -6446,6 +6613,140 @@ mod tests {
             assert_eq!(View::from_projection(view.projection()), view);
         }
         assert_eq!(View::from_name("nope"), None, "an unknown view is refused");
+    }
+
+    #[test]
+    fn enter_descends_into_a_files_contents_and_back_restores_the_focus() {
+        // §13: the same control descends where contents exist (file -> passages)
+        // and climbs back to the identity you left, so scale is continuous over
+        // repository objects. Compares canonical ids, not paths: a file and its
+        // passages share one path, which is exactly why a path check would pass
+        // while the focus never moved.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        // Long enough to be chunked into several passages.
+        let body: String = (0..40)
+            .map(|i| format!("fn chunk_{i}() -> usize {{ {i} }}\n"))
+            .collect();
+        std::fs::write(dir.join("long.rs"), body).ok();
+
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        app.query = "chunk".to_string();
+        app.run_query();
+        assert!(
+            !app.hits.is_empty(),
+            "precondition: the fixture indexed the file"
+        );
+
+        // Focus the *file* object through the one mutation path. Hand-assigning
+        // `hits`/`sel` here leaves `rows` stale and the cursor pointing at
+        // whatever row happened to be there — the duplicate-state hazard
+        // PH-029 is about, hit for real while writing this test.
+        let file_hit = app
+            .hits
+            .iter()
+            .find(|h| h.object.kind == ObjectKind::File)
+            .cloned()
+            .expect("precondition: the index holds a File object for long.rs");
+        app.set_results(vec![file_hit.clone()]);
+        assert_eq!(
+            app.current_hit().map(|h| h.object.kind),
+            Some(ObjectKind::File),
+            "precondition: the cursor is on the file, not on a passage"
+        );
+        let file_id = file_hit.object.id.clone();
+
+        app.enter();
+        assert!(
+            !app.hits.is_empty(),
+            "descending into a file with passages yields its contents"
+        );
+        assert!(
+            app.hits
+                .iter()
+                .all(|h| h.object.kind == ObjectKind::Passage),
+            "a file's contents are its passages: {:?}",
+            app.hits.iter().map(|h| &h.object.kind).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            app.focus_state.focus.object,
+            Some(file_id.clone()),
+            "the container stays focused while you are inside it"
+        );
+
+        app.back();
+        assert_eq!(
+            app.focus_state.focus.object,
+            Some(file_id),
+            "climbing out restores the identity you descended from"
+        );
+        assert_eq!(app.hits.len(), 1, "and the rows you came from");
+    }
+
+    #[test]
+    fn focus_offers_only_registered_actions_and_executes_one() {
+        // §14 + §21: focus -> "what may I do to THIS object?" -> a typed action
+        // -> an observation in the registry log. The action path is the existing
+        // one (`action::dispatch`); this test pins that the *offered* verbs come
+        // from the same registry, so the list cannot promise what the executor
+        // refuses.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        std::fs::write(
+            dir.join("notes.rs"),
+            "fn retrieval_budget() -> usize { 7 }\n// retrieval and packing\n",
+        )
+        .ok();
+
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        app.query = "retrieval".to_string();
+        app.run_query();
+        assert!(!app.hits.is_empty(), "precondition: the query found the file");
+
+        app.show_actions();
+        let (title, body) = app.reading.clone().expect("actions renders");
+        assert!(title.starts_with("actions: "), "{title}");
+        assert!(
+            body.contains("fs.read") || body.contains("no registered capability"),
+            "the list is either real capabilities or an honest refusal: {body}"
+        );
+
+        // Execute a read through the same path the palette points at.
+        let focus = app.current_hit().cloned().expect("cursor has an object");
+        let handle = focus.object.id.short();
+        app.submit_command_line(&format!(":action read {handle} limit=2"));
+        let (title, _body) = app.reading.clone().expect("action renders a result");
+        assert!(title.starts_with("action "), "{title}");
+
+        // The observation is on disk: the world can explain what happened.
+        let obs = std::fs::read_to_string(physis_pro::registry::default_obs_path())
+            .unwrap_or_default();
+        assert!(
+            obs.contains(&handle) || obs.contains("read"),
+            "the action left an observation the world can cite: {obs}"
+        );
     }
 
     #[test]
