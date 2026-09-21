@@ -39,7 +39,14 @@ impl ObjectLens {
     /// world projection shows — never re-ranks — so graph and list agree.
     pub fn project(ws: &NavWorkspace, center: &NavHit, hits: &[NavHit]) -> Self {
         let label = center.object.label.clone();
-        let mut obj = WorldObject::new(center.object.id.short(), kind_of(center), label.clone());
+        // Identity is the *full* spelling of the nav id, so the lens's centre
+        // parses back to the exact object the list showed. `short()` stays for
+        // the row labels below, where it is a display form, not an identity.
+        let mut obj = WorldObject::new(
+            crate::world_object::spell_object_id(&center.object.id),
+            kind_of(center),
+            label.clone(),
+        );
         obj.containment = center
             .object
             .source

@@ -6177,6 +6177,28 @@ mod tests {
     }
 
     #[test]
+    fn view_names_and_projection_ids_cannot_drift() {
+        // Two tables name the same eight projections: the bin's `View` (what
+        // the operator types and `--view` accepts) and the library's
+        // `ProjectionId` (what a lens registers against). A test inside the
+        // library can only compare ProjectionId with a literal; this is the
+        // comparison that actually catches a rename on either side.
+        use physis_pro::hud::bridge::projection_of;
+        use physis_pro::hud::world::ProjectionId;
+
+        let bin_names: Vec<&str> = View::ALL.iter().map(|v| v.label()).collect();
+        let lib_names: Vec<&str> = ProjectionId::all().iter().map(|p| p.name()).collect();
+        assert_eq!(bin_names, lib_names, "view labels drifted from projection names");
+        for view in View::ALL {
+            assert_eq!(
+                projection_of(view.label()).name(),
+                view.label(),
+                "the bridge must round-trip every view name"
+            );
+        }
+    }
+
+    #[test]
     fn opening_a_view_keeps_the_focused_object_and_selection() {
         // The vertical slice's invariant, tested through the bin's own
         // open_view: graph -> tasks -> world must not move the operator off
@@ -6296,7 +6318,13 @@ mod tests {
         ws.add_relation(&center.object, &others[0].object, "relates to", "").ok();
 
         let lens = ObjectLens::project(&ws, &center, &others);
-        // The same object the world projection listed is the lens center.
+        // The identity gate: the projected object IS the list's object, and it
+        // parses back to the exact canonical id (`short()` would truncate the
+        // content hash and lose that proof).
+        assert_eq!(
+            physis_pro::world_object::parse_object_id(&lens.center.identity),
+            center.object.id
+        );
         assert_eq!(lens.center.content, center.object.label);
         // The recorded edge renders solid (user origin).
         assert!(

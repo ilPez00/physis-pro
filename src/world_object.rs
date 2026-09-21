@@ -41,11 +41,25 @@ pub type WorldObjectId = String;
 /// this view mints is written in `origin:key` form, so the round trip holds.
 /// Pre-existing `fs:` identities use the whole path as the key (`fs` origin);
 /// pass an explicit origin/key form for those when the content hash is known.
+/// Parse a view identity back into the canonical navigable id. Every value
+/// this view mints is written in `origin:key` form, so the round trip holds.
+/// Pre-existing `fs:` identities use the whole path as the key (`fs` origin);
+/// pass an explicit origin/key form for those when the content hash is known.
 pub fn parse_object_id(id: &str) -> ObjectId {
     match id.split_once(':') {
         Some((origin, key)) => ObjectId::new(origin, key),
         None => ObjectId::new("unknown", id),
     }
+}
+
+/// Write a canonical id as the view's identity string. The **full** key, never
+/// `ObjectId::short()`: `short()` truncates the key to 12 characters for
+/// display, so an identity built from it cannot round-trip through
+/// [`parse_object_id`], and a projection that minted its ids that way could not
+/// prove it was showing the same object as the list. Display keeps using
+/// `short()`; identity uses this.
+pub fn spell_object_id(id: &ObjectId) -> WorldObjectId {
+    format!("{}:{}", id.origin, id.key)
 }
 
 /// What kind of thing this is. Drives the graph's iconography and the
@@ -595,6 +609,22 @@ mod tests {
             assert_eq!(oid.origin, origin, "{id}");
             assert_eq!(oid.key, key, "{id}");
         }
+    }
+
+    #[test]
+    fn the_identity_spelling_round_trips_a_long_content_hash() {
+        // The defect this pins: `ObjectId::short()` truncates the key to 12
+        // characters, so a projection that built its identity from `short()`
+        // could not prove it was showing the list's object. Identity uses the
+        // full spelling; display still uses `short()`.
+        let id = ObjectId::new("fs", "0e4bfb603e53a1b2c3d4e5f60718293a4b5c6d7e");
+        let spelled = spell_object_id(&id);
+        assert_eq!(parse_object_id(&spelled), id, "{spelled}");
+        assert_ne!(
+            id.short(),
+            spelled,
+            "short() is a display form and must not be used as identity"
+        );
     }
 
     #[test]
