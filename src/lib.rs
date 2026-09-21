@@ -36,6 +36,8 @@ pub mod extract;
 pub mod gantt;
 pub mod graph;
 pub mod guided;
+#[cfg(feature = "tui")]
+pub mod hud;
 pub mod indexer;
 pub mod industrial;
 pub mod industrial_benchmark;
@@ -98,6 +100,7 @@ pub mod video;
 pub mod web;
 pub mod wiki;
 pub mod wiki_gen;
+pub mod world_object;
 pub mod workflow;
 
 #[cfg(feature = "spanner")]
