@@ -2,7 +2,7 @@
 id: PH-100
 track: physis
 phase: D
-status: claimed
+status: review
 claimed_by: kiro
 claimed_at: "2026-09-21T14:50:00+02:00"
 rung: 3
