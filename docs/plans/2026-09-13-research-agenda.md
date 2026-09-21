@@ -509,6 +509,24 @@ sign the framing is right.
 - **Problem 4 — capability sweep.** `physis-check capabilities` ships, with the
   manifest at `physis-core/.physis-capabilities`. 12 of 13 pass. The red row is
   a genuine finding, not a broken check.
+- **The Hardy-Littlewood twin-constant value.** CLOSED 2026-09-20, series
+  E52–E65 in `physis-core/research/impossible_machine/`. The small-gap prime
+  deviation is real and arithmetic-specific (D ≈ 1.26–1.34 against nulls ≤
+  0.053, at both N=1e6 and N=1e7) and **stable across halves** — but the
+  *value* only closed once the estimator was changed. The unweighted mean of
+  R(k)/S_unit(k) over 20 fixed k-bins **diverges from 2C2 with N**
+  (1.470 → 1.498, Δ-to-target +0.028 further away) because it is dominated by
+  the erratic multiples-of-6 bins (R(6)=3.34, R(12)=3.21 vs R(2)=1.43),
+  whose bias does not average out with N since the bin count is fixed. The
+  **median** of R(k)/S_unit(k) discards that by construction and recovers
+  2C2 = 1.32032: 1.395/1.451 at N=1e6 and 1.459/1.470 at N=1e7, both inside
+  the pre-registered ±0.15 band. E64/E65 show the estimator is **kmax-bounded
+  at 40** — widening to 80 collapses the median to 0.933, and E65 falsified the
+  zero-count hypothesis (39/40 bins have N(k)>0), so R(k)/S_unit(k) is
+  systematically low for k=42..80. The estimator must not be widened. Full
+  chain table and verdict at
+  `physis-core/research/impossible_machine/SERIES_SUMMARY.md`. No 1/2 appears
+  anywhere in generation, scoring, ranking, or the gates.
 
 ---
 
