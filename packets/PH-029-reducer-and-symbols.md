@@ -2,7 +2,9 @@
 id: PH-029
 track: physis-pro
 phase: 0
-status: todo
+status: claimed
+claimed_by: kiro
+claimed_at: "2026-09-21T07:36:26+02:00"
 rung: 3
 depends: [PH-027]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test --lib --features tui hud:: && cargo test --features tui --bin physis-hud"
