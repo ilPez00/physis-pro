@@ -10,6 +10,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Navigation has one mutation path (PH-029). `MoveCursor`, `Select`,
+  `ClearSelection`, `FocusObject`, `Descend`, `Ascend` are added to `HudEvent`;
+  each has exactly one producer in the key loop and one reducer branch. The key
+  loop no longer writes `self.sel` directly: every cursor move goes through
+  `dispatch(MoveCursor { delta }) → reduce → apply_hud_effects → SetCursor`.
+  `toggle_select()` is replaced by the `Select` event and a
+  `sync_selected_from_focus_state()` bridge that keeps the legacy `Vec<NavHit>`
+  consistent with `FocusState.selection`. `FocusState` is now the canonical
+  owner of cursor, focus, selection and trail; `self.sel` is a derived Ratatui
+  adapter written only by `apply_hud_effects`.
+- Qualified Rust symbol extraction (PH-029). `build_extractors()` now matches
+  every qualifier combination in use: `pub fn`, `pub async fn`, `pub(crate) fn`,
+  `pub(crate) async fn`, `pub unsafe fn`, `pub extern "C" fn`, `async fn`,
+  `unsafe fn`; `pub struct`/`enum`/`trait`/`mod`/`type`/`const` and their
+  `pub(crate)` forms; `impl<T> Type<T>`, `impl Trait for Type`. Comment-interior
+  and string-literal forms are negative-fixture tested and never extracted.
+  `world_object::` tests confirm file objects list symbol children as navigable
+  `ObjectId` rows and that Enter descends from directory → file → symbol.
+
+### Fixed
+- `back()` ordering bug (PH-029). The `Ascend` reducer emits `SetCursor{0}`,
+  which reset `self.sel` before `current_hit()` was called, causing focus to
+  clear on every Esc. Fix: capture the focused `ObjectId` from the restored
+  stack rows/sel *before* dispatching `Ascend`. Regression test
+  `enter_descends_into_a_files_contents_and_back_restores_the_focus` pins this.
+
+### Added
 - The world surface is operational (PH-027). Bare text in the magic textbox now
   resolves through `hud::intent` — which PH-026 shipped with tests and no caller —
   and the status line carries the route: `route=exact-object object=fs:<hash>`

@@ -9,7 +9,7 @@ the default 5x9 pack since the 2026-09-19 mode rework), the operations
 > are **seven** (a `constrain` operation joined 2026-09-20 — see
 > `docs/GUIDED_EXECUTION.md`), and `propose` is not `judge`. That file carries
 > the rules. Source-file count is measured, not remembered:
-> `find src -name '*.rs' | wc -l` → 251 on 2026-09-21 (242 on 2026-09-20).
+> `find src -name '*.rs' | wc -l` → 253 on 2026-09-21 (251 before PH-029, 242 on 2026-09-20).
 
 
 ## Overview
@@ -26,9 +26,16 @@ Current product sequencing: `docs/plans/2026-09-20-physis-hud.md` (the HUD
 programme: one world, many projections — it composes
 `docs/plans/2026-09-19-impossible-computer.md`, which keeps its S0–S12 agent
 work and its market/packaging notes). Shipped on branches, awaiting review:
-**PH-024** (`physis-hud` views · editable settings · `--setup`) and **PH-025**
-(guided execution Phase A, `src/guided/` + `physis-pro guided`). Packet queue
-state after the 2026-09-20 review pass:
+**PH-024** (`physis-hud` views · editable settings · `--setup`), **PH-025**
+(guided execution Phase A, `src/guided/` + `physis-pro guided`), **PH-026**
+(world surface: `WorldObject` read-only view over `nav::ObjectId`, projection/focus
+invariant, graph from object lens), **PH-027** (world surface operational: intent
+chain wired, `SemanticLens`, structured `ProjectionRow`/`Projection`, honest score
+names, `--no-semantic`, `affordances_for_identity`, descend/ascend, `:actions`),
+and **PH-029** (reducer owns navigation: `MoveCursor`/`Select`/`ClearSelection`/
+`FocusObject`/`Descend`/`Ascend` through `dispatch()→reduce()`; qualified Rust
+symbol extraction; `back()` ordering bug fixed). Packet queue state after the
+2026-09-20 review pass:
 `docs/plans/2026-09-20-queue-after-reviews.md`. Scope: agent-native
 semantic world — agents as first-class objects, `@agent`
 calls from the magic textbox, visible task graphs, crystallization of agent

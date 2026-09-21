@@ -4,12 +4,18 @@ Current development direction: [PHYSIS HUD — one world, many
 projections](docs/plans/2026-09-20-physis-hud.md) (2026-09-20), the HUD
 programme, which composes and extends [Physis as the impossible computer —
 agent-native semantic world](docs/plans/2026-09-19-impossible-computer.md).
-Three steps are **shipped on branches, awaiting review**: PH-024 (every surface a
+Five steps are **shipped on branches, awaiting review**: PH-024 (every surface a
 named view inside `physis-hud`, editable settings, `--setup`), PH-025
 (`src/guided/` — the world compiles into the model's allowed language before a
-model is asked anything; `physis-pro guided "<intent>"`), and PH-026 (the world
+model is asked anything; `physis-pro guided "<intent>"`), PH-026 (the world
 surface: `WorldObject` as a read-only view over `nav::ObjectId`, the
-projection/focus invariant in `src/hud/`, the graph drawn from the object lens).
+projection/focus invariant in `src/hud/`, the graph drawn from the object lens),
+PH-027 (the world surface operational: intent chain wired, `SemanticLens`,
+structured `ProjectionRow`/`Projection`, honest score names, `--no-semantic`,
+`affordances_for_identity`, descend/ascend, `:actions`), and PH-029 (reducer
+owns navigation: `MoveCursor`/`Select`/`ClearSelection`/`FocusObject`/`Descend`/
+`Ascend` through `dispatch()→reduce()`; qualified Rust symbol extraction;
+`back()` ordering bug fixed).
 Everything else in those plans is planned, not shipped; the gates distinguish
 the two.
 [Physis Workspace — agentic work with durable
