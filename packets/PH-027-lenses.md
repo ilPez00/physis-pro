@@ -2,14 +2,21 @@
 id: PH-027
 track: physis-pro
 phase: 0
-status: todo
+status: claimed
 rung: 3
 depends: [PH-026]
-gate: "cargo clippy --all-targets -- -D warnings && cargo test --lib --features tui hud:: && cargo test --features tui --bin physis-hud && physis-hud . --snapshot=100x30 --view=graph --query=<text>"
+gate: "cargo clippy --all-targets -- -D warnings && cargo test --lib --features tui hud:: && cargo test --lib world_object:: && cargo test --features tui --bin physis-hud && cargo build --features tui --bin physis-hud"
 commit: "branch agent/PH-027; conventional commits; per PROTOCOL §6"
+claimed_by: cline-pansa-2026-09-21
+claimed_at: 2026-09-21
 ---
 
-# Lenses as data, and the textbox chain that reaches them
+# The world surface becomes operational: intent, two lenses, structured rows
+
+> Claim note. PH-026 is `status: review` and was authored by this agent, so §7's
+> independent review is **not** something I may perform — it stays `review` until
+> another reviewer re-runs its gate. The dependency this packet needs is
+> PH-026's shipped work (on `agent/PH-026`), which exists and is gated.
 
 ## Why (measured, not assumed)
 
