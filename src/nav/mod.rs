@@ -465,8 +465,13 @@ pub struct NavStep {
 /// a hidden constant — the CLI exposes `--semantic/--lexical/--recency` to
 /// move them.
 #[derive(Debug, Clone)]
+/// Ranked legs. `vector` is the leg computed over embeddings — named for the
+/// computation, never for a guessed source: a lexical hash produces vectors too,
+/// and [`is_semantic_kind`] is the one place that decides whether those vectors
+/// mean meaning. Calling the leg "semantic" made every renderer that printed the
+/// component claim more than the number carries.
 pub struct NavWeights {
-    pub semantic: f32,
+    pub vector: f32,
     pub lexical: f32,
     pub recency: f32,
     pub pin: f32,
@@ -477,7 +482,7 @@ pub struct NavWeights {
 impl Default for NavWeights {
     fn default() -> Self {
         Self {
-            semantic: 0.6,
+            vector: 0.6,
             lexical: 0.3,
             recency: 0.08,
             pin: 0.25,
@@ -499,7 +504,7 @@ pub fn explain_hit(hit: &NavHit, weights: &NavWeights) -> String {
     let c = &hit.score.components;
     for (name, raw) in c {
         let w = match name.as_str() {
-            "semantic" => weights.semantic,
+            "vector" => weights.vector,
             "lexical" => weights.lexical,
             "recency" => weights.recency,
             "pin" => weights.pin,
@@ -621,7 +626,7 @@ pub fn query(
         if let (Some(qe), emb) = (&q_emb, &obj.embedding) {
             if !emb.is_empty() {
                 let cos = physis_core::models::cosine_sim(qe, emb).clamp(0.0, 1.0);
-                score.add("semantic", weights.semantic, cos);
+                score.add("vector", weights.vector, cos);
             }
         }
 
@@ -978,7 +983,7 @@ mod tests {
         assert!(!hits.is_empty());
         let best = &hits[0];
         assert!(best.score.components.contains_key("lexical"));
-        assert!(best.score.components.contains_key("semantic"));
+        assert!(best.score.components.contains_key("vector"));
         assert!(best.score.total > 0.0);
     }
 
@@ -1001,7 +1006,7 @@ mod tests {
         assert!(!hits.is_empty(), "lexical path must stand alone");
         assert!(hits
             .iter()
-            .all(|h| !h.score.components.contains_key("semantic")));
+            .all(|h| !h.score.components.contains_key("vector")));
     }
 
     /// Pins drag the pinned partner up when only the partner matches.

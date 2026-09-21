@@ -53,7 +53,9 @@ impl TermReadout {
 /// no weight — it is not silently weighted zero.
 pub fn weight_of(weights: &NavWeights, term: &str) -> Option<f32> {
     match term {
-        "semantic" => Some(weights.semantic),
+        // The component is named for the computation. Whether the vectors mean
+        // meaning is `nav::is_semantic_kind`'s question, not this table's.
+        "vector" => Some(weights.vector),
         "lexical" => Some(weights.lexical),
         "recency" => Some(weights.recency),
         "pin" => Some(weights.pin),
@@ -126,24 +128,24 @@ mod tests {
 
     #[test]
     fn the_readout_matches_the_score_it_reads() {
-        let s = score_with(&[("lexical", 0.4), ("semantic", 0.9), ("pin", 1.0)]);
+        let s = score_with(&[("lexical", 0.4), ("vector", 0.9), ("pin", 1.0)]);
         let w = NavWeights::default();
         let r = readout(&s, &w);
         // Every present term reports exactly the raw value the store holds.
         for t in &r {
             assert_eq!(t.raw, s.components.get(t.term).copied(), "{}", t.term);
         }
-        let sem = r.iter().find(|t| t.term == "semantic").unwrap();
+        let sem = r.iter().find(|t| t.term == "vector").unwrap();
         assert_eq!(sem.raw, Some(0.9));
-        assert_eq!(sem.weight, Some(w.semantic));
-        assert_eq!(sem.contribution, 0.9 * w.semantic);
+        assert_eq!(sem.weight, Some(w.vector));
+        assert_eq!(sem.contribution, 0.9 * w.vector);
     }
 
     #[test]
     fn an_absent_term_is_absent_not_zero_with_a_weight() {
         let s = score_with(&[("lexical", 0.5)]);
         let r = readout(&s, &NavWeights::default());
-        let sem = r.iter().find(|t| t.term == "semantic").unwrap();
+        let sem = r.iter().find(|t| t.term == "vector").unwrap();
         assert!(!sem.present());
         assert_eq!(sem.raw, None);
         assert_eq!(

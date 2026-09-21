@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! ┌──────────────────────────────────────────────┐
-//! │  semantic neighborhood (grouped results)     │
+//! │  ranked neighbourhood (grouped results)      │
 //! ├──────────────────────────────────────────────┤
 //! │  reading pane (exact source, no summary)     │
 //! ├──────────────────────────────────────────────┤
@@ -65,6 +65,11 @@ fn main() -> anyhow::Result<()> {
     let mut setup = false;
     let mut view_name: Option<String> = None;
     let mut query: Option<String> = None;
+    // `--no-semantic`: zero the vector leg's weight for this run, so the degraded
+    // mode is provable on a machine that *has* a model instead of only on one
+    // that does not. It weights the leg to zero rather than dropping persisted
+    // vectors: a flag must not edit the store.
+    let mut no_semantic = false;
     // `--view` takes a value, so pull it (and `--view=NAME`) out before the
     // positional loop — otherwise the value would be eaten as the root path.
     // `--query` does the same: it is the headless way to give the world
@@ -96,6 +101,9 @@ fn main() -> anyhow::Result<()> {
             "--setup" => {
                 setup = true;
             }
+            "--no-semantic" => {
+                no_semantic = true;
+            }
             "--snapshot" => {
                 snapshot = Some((100, 30));
             }
@@ -106,7 +114,7 @@ fn main() -> anyhow::Result<()> {
                 })?);
             }
             "-h" | "--help" => {
-                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--setup] [--view <name>] [--query <text>] [--snapshot[=WxH]]");
+                eprintln!("physis-hud [root] [--prescan-only] [--no-prescan] [--setup] [--view <name>] [--query <text>] [--no-semantic] [--snapshot[=WxH]]");
                 eprintln!("  default: prescan index + embedding cache, then open the HUD");
                 eprintln!("  --prescan-only: warm the index + caches and exit (no TUI)");
                 eprintln!("  --no-prescan: open on the persisted index as-is (fast restart)");
@@ -116,6 +124,8 @@ fn main() -> anyhow::Result<()> {
                 eprintln!("           combines with --snapshot for a CI-renderable frame");
                 eprintln!("  --query <text>: run this query before rendering, so the frame has a");
                 eprintln!("           focused object (the headless vertical slice)");
+                eprintln!("  --no-semantic: rank without the vector leg for this run, so the frame");
+                eprintln!("           proves the degraded label on a machine that has a model");
                 eprintln!("  --snapshot[=WxH]: render one frame to stdout and exit (default 100x30)");
                 return Ok(());
             }
@@ -145,9 +155,19 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     if let Some((w, h)) = snapshot {
-        return snapshot_run(&root, w, h, view_name.as_deref(), query.as_deref());
+        return snapshot_run(
+            &root,
+            w,
+            h,
+            view_name.as_deref(),
+            query.as_deref(),
+            no_semantic,
+        );
     }
     let mut app = App::new(root, prescan)?;
+    if no_semantic {
+        app.disable_vector_leg();
+    }
     if let Some(q) = &query {
         app.query = q.clone();
         app.run_query();
@@ -179,7 +199,7 @@ fn open_named_view(app: &mut App, name: Option<&str>) -> anyhow::Result<()> {
     // graph rather than an empty pane. The others (world, settings, setup,
     // notebook) render from live state and open directly.
     match view {
-        View::Graph | View::Tasks | View::Agents | View::Help => {
+        View::Graph | View::Semantic | View::Tasks | View::Agents | View::Help => {
             app.open_view_via_command(view)
         }
         _ => app.open_view(view),
@@ -207,9 +227,15 @@ fn snapshot_run(
     h: u16,
     view: Option<&str>,
     query: Option<&str>,
+    no_semantic: bool,
 ) -> anyhow::Result<()> {
     use ratatui::backend::TestBackend;
     let mut app = App::new(root.to_path_buf(), false)?;
+    // The flag and the query reach the same state the interactive path builds:
+    // one code path, so a snapshot cannot prove something the TUI would not do.
+    if no_semantic {
+        app.disable_vector_leg();
+    }
     // The query gives the projection a focus before the view renders, so a
     // `--view graph` frame shows the same object the world projection lists
     // rather than an empty pane.
@@ -422,6 +448,7 @@ fn intent_paths(hits: &[NavHit]) -> (BTreeSet<String>, BTreeSet<String>) {
 enum View {
     World,
     Graph,
+    Semantic,
     Notebook,
     Tasks,
     Agents,
@@ -432,9 +459,10 @@ enum View {
 
 impl View {
     /// Tab order, and the order the footer names them.
-    const ALL: [View; 8] = [
+    const ALL: [View; 9] = [
         View::World,
         View::Graph,
+        View::Semantic,
         View::Notebook,
         View::Tasks,
         View::Agents,
@@ -451,6 +479,7 @@ impl View {
         match self {
             View::World => ProjectionId::World,
             View::Graph => ProjectionId::ObjectGraph,
+            View::Semantic => ProjectionId::Semantic,
             View::Notebook => ProjectionId::Notebook,
             View::Tasks => ProjectionId::Tasks,
             View::Agents => ProjectionId::Agents,
@@ -466,6 +495,7 @@ impl View {
         match projection {
             P::World => View::World,
             P::ObjectGraph => View::Graph,
+            P::Semantic => View::Semantic,
             P::Notebook => View::Notebook,
             P::Tasks => View::Tasks,
             P::Agents => View::Agents,
@@ -488,6 +518,7 @@ impl View {
     fn key(self) -> Option<char> {
         match self {
             View::Graph => Some('g'),
+            View::Semantic => Some('M'),
             View::Notebook => Some('N'),
             View::Tasks => Some('T'),
             View::Agents => Some('A'),
@@ -2739,6 +2770,16 @@ impl App {
         }
     }
 
+    /// Turn the semantic leg off for this session without touching the store:
+    /// the vector weight goes to zero and the mode label drops to the reduced
+    /// form. Used by `--no-semantic`, so a machine that *has* an embedder can
+    /// still prove the degraded path (the alternative is depending on a client
+    /// that happens to lack one).
+    fn disable_vector_leg(&mut self) {
+        self.weights.vector = 0.0;
+        self.semantic_on = false;
+    }
+
     /// Resolve the bare line the operator just typed into an intent, and say so.
     ///
     /// The exact-match rule is deliberately literal: a line is an *exact object*
@@ -3346,6 +3387,10 @@ impl App {
             View::Graph => {
                 self.graph_view();
                 self.open_view(View::Graph);
+            }
+            View::Semantic => {
+                self.semantic_view();
+                self.open_view(View::Semantic);
             }
             View::Notebook => {
                 self.show_notebook();
@@ -4195,6 +4240,98 @@ impl App {
         ));
     }
 
+    /// Semantic projection (`M`, `--view semantic`): the focused object's
+    /// meaning-neighbourhood, drawn from `hud::lens_semantic` — the same ranked
+    /// list the world view shows, projected differently. No second ranking, no
+    /// model, and every edge says `Inferred` because similarity is not a claim
+    /// anyone made.
+    fn semantic_view(&mut self) {
+        use physis_pro::hud::lens_semantic;
+        use physis_pro::hud::row::ProjectionRow;
+
+        let Some(center) = self.current_hit().cloned() else {
+            self.status = "select an object to project semantically".into();
+            return;
+        };
+        let projection = lens_semantic::project_rows(&center, &self.hits);
+        let center_path = projection
+            .center
+            .as_ref()
+            .map(|c| c.path.clone())
+            .unwrap_or_else(|| center.object.label.clone());
+
+        let pinned = self.pinned_paths();
+        let intent = self.intent_paths();
+        let mut lines = Vec::new();
+        let center_mark = state_of(
+            &center_path,
+            &self.changed,
+            &self.affected,
+            &pinned,
+            &intent,
+            &self.selected,
+            &center.object,
+        );
+        lines.push(format!(
+            "{center_mark} {}",
+            projection
+                .center
+                .as_ref()
+                .map(|c| c.label.clone())
+                .unwrap_or_default()
+        ));
+
+        // The lens's categories, named by the lens. A category the data did not
+        // justify is simply absent rather than rendered empty.
+        let names: Vec<String> = projection
+            .groups
+            .iter()
+            .filter(|g| !g.object_ids.is_empty())
+            .map(|g| format!("{} {}", g.name, g.object_ids.len()))
+            .collect();
+        if !names.is_empty() {
+            lines.push(format!("categories: {}", names.join(" · ")));
+        }
+
+        let row_line = |row: &ProjectionRow, mark: char| {
+            let badge = projection
+                .groups
+                .iter()
+                .find(|g| g.contains(&row.object_id))
+                .map(|g| format!("<{}> ", g.name))
+                .unwrap_or_default();
+            let score = match row.score {
+                Some(s) if row.is_similarity() => format!("{s:.2} "),
+                _ => String::new(),
+            };
+            format!(
+                "  {mark} - - [{badge}{score}{}] {}  {}",
+                row.relation.label(),
+                row.label,
+                row.path
+            )
+        };
+
+        for row in &projection.rows {
+            let mark = self.marker_for_identity(&row.object_id, &row.path, &pinned, &intent);
+            lines.push(row_line(row, mark));
+        }
+
+        lines.push(String::new());
+        lines.push(
+            "similarity only: every row above is Inferred <inferred>, never asserted".into(),
+        );
+        lines.push(
+            "categories are the lens's measurement (score threshold, two-hop bridge, shared directory)"
+                .into(),
+        );
+        lines.push("g switches to the recorded-relation projection; Esc returns to the world".into());
+        self.reading = Some((
+            format!("semantic: {} — {}", center.object.label, center_path),
+            lines.join("\n"),
+        ));
+    }
+
     /// The list's state marker for a row that arrived from a projection.
     /// Resolves the row's identity back to the object the list would show, so
     /// the graph cannot mark a row differently from the list. Falls back to
@@ -4700,7 +4837,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" semantic neighborhood "),
+                .title(" ranked neighbourhood "),
         )
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
     f.render_stateful_widget(list, chunks[1], &mut list_state_for(app));
@@ -6309,6 +6446,71 @@ mod tests {
             assert_eq!(View::from_projection(view.projection()), view);
         }
         assert_eq!(View::from_name("nope"), None, "an unknown view is refused");
+    }
+
+    #[test]
+    fn one_object_survives_the_world_graph_and_semantic_projections() {
+        // The acceptance loop's spine (§21): focus an object, change the
+        // projection twice, and the identity is unchanged each time. Compares
+        // canonical `ObjectId`s, never paths — a file and its passage can share
+        // one path, which is how a path comparison would pass while the focus
+        // actually moved.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        std::fs::write(dir.join("alpha.rs"), "fn alpha_budget() -> usize { 1 }\n").ok();
+        std::fs::write(dir.join("beta.rs"), "fn beta_budget() -> usize { 2 }\n").ok();
+
+        let mut app = App::new(dir.to_path_buf(), true).expect("app opens");
+        app.query = "budget".to_string();
+        app.run_query();
+        assert!(
+            app.hits.len() >= 2,
+            "precondition: the fixture indexes two objects to project"
+        );
+        let focused = app
+            .current_hit()
+            .expect("the query focuses an object")
+            .object
+            .id
+            .clone();
+
+        // World -> graph.
+        app.open_view_via_command(View::Graph);
+        assert_eq!(app.focus_state.projection.name(), "graph");
+        assert_eq!(app.focus_state.focus.object, Some(focused.clone()));
+        let (_, graph_body) = app.reading.clone().expect("graph renders");
+        assert!(graph_body.starts_with('●') || graph_body.contains("edges:"), "{graph_body}");
+
+        // Graph -> semantic: a different projection of the same world.
+        app.open_view_via_command(View::Semantic);
+        assert_eq!(app.focus_state.projection.name(), "semantic");
+        assert_eq!(
+            app.focus_state.focus.object,
+            Some(focused.clone()),
+            "the semantic projection keeps the focused object"
+        );
+        let (title, body) = app.reading.clone().expect("semantic renders");
+        assert!(title.starts_with("semantic: "), "{title}");
+        assert!(
+            body.contains("every row above is Inferred"),
+            "the projection states its epistemic status: {body}"
+        );
+
+        // And back to the world: the identity still has not moved.
+        app.open_view(View::World);
+        assert_eq!(app.focus_state.projection.name(), "world");
+        assert_eq!(app.focus_state.focus.object, Some(focused));
     }
 
     #[test]

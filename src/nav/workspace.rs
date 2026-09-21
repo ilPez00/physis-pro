@@ -201,10 +201,16 @@ impl NavWorkspace {
         );
         self.embedder = slot;
         let mode = RetrievalMode {
+            // Semantic retrieval is in play only when all three hold: the
+            // embedder is not a lexical stand-in, the vector leg carries weight,
+            // and a vector component actually contributed. Any one of them
+            // missing means the honest label is the reduced mode — a zero
+            // weight is not "semantic retrieval that happened to score 0".
             semantic: crate::nav::is_semantic_kind(&kind)
+                && weights.vector > 0.0
                 && hits
                     .iter()
-                    .any(|h| h.score.components.contains_key("semantic")),
+                    .any(|h| h.score.components.contains_key("vector")),
             embedder: kind,
             indexed_objects: self.index.objects.len(),
         };
@@ -448,6 +454,41 @@ mod tests {
         assert!(!hits.is_empty(), "lexical retrieval still returns hits");
         assert!(!mode.semantic, "mode: {mode:?}");
         assert_eq!(mode.embedder, "random-projection");
+    }
+
+    /// A zero-weighted vector leg is not semantic retrieval, even on a machine
+    /// whose embedder is semantic. `--no-semantic` zeroes the weight (it must not
+    /// edit the store), so the mode label has to notice.
+    #[test]
+    fn a_zero_weighted_vector_leg_is_not_reported_as_semantic() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::env::set_var("PHYSIS_DATA_DIR", dir.path().join("state"));
+        seed(dir.path(), "docs/order.md", "order signal experiment\n");
+        let root = dir.path().to_path_buf();
+        let mut ws = NavWorkspace::open(&root).unwrap();
+        let _ = ws.update(true);
+
+        let lexical_only = NavWeights {
+            vector: 0.0,
+            ..Default::default()
+        };
+        let (hits, mode) = ws
+            .query("order signal", false, &lexical_only, 10)
+            .unwrap();
+        assert!(!hits.is_empty(), "lexical ranking still answers");
+        assert!(
+            !mode.semantic,
+            "a zero-weighted leg must not be labelled semantic: {mode:?}"
+        );
+        // The raw component stays visible and `explain_hit` prints it with the
+        // zero weight: "considered and weighted zero" is not the same claim as
+        // "absent", and the readout must not conflate them.
+        let explained = crate::nav::explain_hit(&hits[0], &lexical_only);
+        assert!(
+            explained.contains("× 0.00") || !explained.contains("vector"),
+            "a zero weight is shown as a zero weight: {explained}"
+        );
     }
 
     #[test]

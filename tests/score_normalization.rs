@@ -19,7 +19,7 @@ use physis_pro::nav::{NavIndex, NavWeights, RetrievalScore};
 #[test]
 fn default_weights_have_support_1_38_not_1_0() {
     let w = NavWeights::default();
-    let support = w.semantic + w.lexical + w.recency + w.pin + w.context;
+    let support = w.vector + w.lexical + w.recency + w.pin + w.context;
     assert!(
         (support - 1.38).abs() < 1e-6,
         "weights changed — update this contract and every threshold copy: {support}"
@@ -37,7 +37,7 @@ fn total_cannot_exceed_enabled_weight_sum() {
     // its weight. No hit may exceed it — if one does, the score is not a
     // weighted sum of unit components and the ranking contract is broken.
     let w = NavWeights::default();
-    let support = w.semantic + w.lexical + w.recency + w.pin + w.context;
+    let support = w.vector + w.lexical + w.recency + w.pin + w.context;
     let worst = RetrievalScore {
         total: support,
         components: [

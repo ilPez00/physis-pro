@@ -136,6 +136,8 @@ pub enum ProjectionId {
     World,
     /// The focused object and its surrounding relations (graph view).
     ObjectGraph,
+    /// The focused object's meaning-neighbourhood (semantic view).
+    Semantic,
     /// Cited answers over the world (notebook view).
     Notebook,
     /// The task graph folded from observations (tasks view).
@@ -160,6 +162,7 @@ impl ProjectionId {
         match self {
             ProjectionId::World => "world",
             ProjectionId::ObjectGraph => "graph",
+            ProjectionId::Semantic => "semantic",
             ProjectionId::Notebook => "notebook",
             ProjectionId::Tasks => "tasks",
             ProjectionId::Agents => "agents",
@@ -177,10 +180,11 @@ impl ProjectionId {
         ProjectionId::all().into_iter().find(|p| p.name() == n)
     }
 
-    pub fn all() -> [ProjectionId; 8] {
+    pub fn all() -> [ProjectionId; 9] {
         [
             ProjectionId::World,
             ProjectionId::ObjectGraph,
+            ProjectionId::Semantic,
             ProjectionId::Notebook,
             ProjectionId::Tasks,
             ProjectionId::Agents,
@@ -296,7 +300,10 @@ mod tests {
         let names: Vec<&str> = ProjectionId::all().iter().map(|p| p.name()).collect();
         assert_eq!(
             names,
-            vec!["world", "graph", "notebook", "tasks", "agents", "settings", "setup", "help"]
+            vec![
+                "world", "graph", "semantic", "notebook", "tasks", "agents", "settings",
+                "setup", "help"
+            ]
         );
     }
 

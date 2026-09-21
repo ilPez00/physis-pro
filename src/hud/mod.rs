@@ -44,6 +44,8 @@ pub mod config;
 pub mod event;
 pub mod intent;
 pub mod lens_object;
+pub mod lens_semantic;
+pub mod row;
 pub mod palette;
 pub mod world;
 
