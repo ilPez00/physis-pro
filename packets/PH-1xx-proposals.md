@@ -17,11 +17,12 @@ silently overwrites.
 id: PH-102
 track: physis
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [PH-000, PH-015]
 gate: "cargo test --lib ingest:: && cargo clippy --lib --tests -- -D warnings"
-commit: "branch agent/PH-102; guard + tests commit"
+commit: "branch agent/PH-102-generic-extract-guard; commit aaab6c4 — guard + tests"
+shipped: aaab6c4
 ---
 
 # Generic misclassification guard for `extract_doc`
