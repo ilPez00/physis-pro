@@ -2,7 +2,7 @@
 id: MS-003
 track: multiscale-structure
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-003.md"
@@ -10,6 +10,8 @@ claimed_by: cline
 claimed_at: 2026-09-22
 reviewed_by: opencode
 reviewed_at: 2026-09-20
+corrected_by: cline
+corrected_at: 2026-09-22
 ---
 
 > **Reviewer note 2026-09-20:** returned to `todo`. The report's gate claim and
