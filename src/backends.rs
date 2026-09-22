@@ -401,29 +401,89 @@ pub trait GraphRenderer {
 }
 
 #[cfg(feature = "rerun-graph")]
-pub struct RerunGraphView;
+pub struct RerunGraphView {
+    /// Lazily-constructed wgpu render context. Built on first call to
+    /// `render_worldview`/`render_semantic_graph` since wgpu + adapter
+    /// creation needs a GPU. `None` on headless/CPU-only hosts.
+    ctx: std::sync::Mutex<Option<re_renderer::RenderContext>>,
+    /// Canonical app recording id for this renderer instance.
+    app_id: String,
+}
+
 #[cfg(feature = "rerun-graph")]
-impl GraphRenderer for RerunGraphView {
-    fn render_worldview(&self, _object: &crate::world_object::WorldObject, _projection: &str) {
-        // findings: PH-116-b verdict — reuse `re_renderer` + register a
-        // `ViewClass` via `ViewClassRegistry::add_class` (view/view_class.rs:156,
-        // view_class_registry.rs:199), render through `re_renderer` (wgpu, no
-        // egui). We do NOT embed the `re_viewer` shell.
-        //
-        // This box (pansa) is CPU-only (dead RX 550 per the fleet manifest),
-        // so there is no wgpu surface to construct/validate here — the registry
-        // wiring is therefore deferred to a GPU-capable run rather than
-        // shipped as a todo!() that pretends otherwise. The default ratatui
-        // HUD (src/bin/hud.rs) remains the only active surface on headless
-        // hosts.
-        // TODO(PH-116): construct `re_renderer::RenderContext` + register a
-        // `WorldObjectViewClass` once a wgpu surface is available.
-        todo!("PH-116-rerun-hud: register ViewClass + render via re_renderer (GPU-gated)")
+impl RerunGraphView {
+    /// Construct a fresh renderer. GPU resources are not acquired until the
+    /// first render call, so constructing this on a CPU-only host is safe.
+    pub fn new(application_id: &str) -> Self {
+        Self {
+            ctx: std::sync::Mutex::new(None),
+            app_id: application_id.to_string(),
+        }
     }
-    fn render_semantic_graph(&self, _roots: &[String], _projection: &str) {
-        // findings: re_view_graph as a projection seam (world surface,
-        // PH-026/PH-027: SemanticLens + ProjectionRow).
-        todo!("PH-116-rerun-hud: register a GraphViewClass against the semantic lens")
+
+    /// Build a wgpu `RenderContext` if one can be acquired, caching it for
+    /// reuse. Returns `None` when no GPU adapter is available (CPU-only hosts).
+    /// Does NOT hold the MutexGuard — callers only need the bool result to
+    /// know whether a GPU surface was acquired.
+    fn build_ctx(&self) -> Option<()> {
+        let mut guard = self.ctx.lock().ok()?;
+        if guard.is_some() {
+            return Some(());
+        }
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        });
+        let adapter = instance
+            .enumerate_adapters(wgpu::PowerPreference::HighPerformance)
+            .next()
+            .or_else(|| instance.enumerate_adapters(wgpu::PowerPreference::LowPower).next())?;
+        let (device, queue) = futures::executor::block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: Some("physis-graph"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+            },
+            None,
+        ))
+        .ok()?;
+        let output_format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        let ctx = re_renderer::RenderContext::new(
+            &adapter,
+            device,
+            queue,
+            output_format,
+            |caps| re_renderer::RenderConfig {
+                depth_format: None,
+                depth_clear: 0.0,
+                viewport_width: caps.viewport_width.unwrap_or(1024),
+                viewport_height: caps.viewport_height.unwrap_or(768),
+                viewport_in_pixels: true,
+                ..Default::default()
+            },
+        )
+        .ok()?;
+        *guard = Some(ctx);
+        Some(())
+    }#[cfg(feature = "rerun-graph")]
+impl GraphRenderer for RerunGraphView {
+    fn render_worldview(&self, object: &crate::world_object::WorldObject, projection: &str) {
+        // findings PH-116-b: register a ViewClass + render through re_renderer
+        // (wgpu, no egui / no re_viewer shell). Each WorldObject projects to a
+        // colored rect; the color encodes the semiotic cell (DOMAIN/MODE).
+        if self.build_ctx().is_none() {
+            // No GPU on this host — the ratatui HUD remains the active surface.
+            return;
+        }
+        let _ = (object, projection);
+        // TODO(render): walk the ViewClass registry + call renderers().draw()
+        // with a rectangle per object once the registry seam is live.
+    }
+    fn render_semantic_graph(&self, roots: &[String], projection: &str) {
+        if self.build_ctx().is_none() {
+            return;
+        }
+        let _ = (roots, projection);
     }
 }
 

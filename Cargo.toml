@@ -139,12 +139,13 @@ re_chunk = { path = "/home/gio/dev/rerun/crates/store/re_chunk", version = "=0.3
 re_chunk_store = { path = "/home/gio/dev/rerun/crates/store/re_chunk_store", version = "=0.39.0-alpha.1", default-features = false, optional = true }
 re_query = { path = "/home/gio/dev/rerun/crates/store_app/re_query", version = "=0.39.0-alpha.1", default-features = false, optional = true }
 re_log_types = { path = "/home/gio/dev/rerun/crates/store/re_log_types", version = "=0.39.0-alpha.1", default-features = false, optional = true }
-# NOTE: rerun-graph (PH-116) is intentionally NOT wired to a rerun dependency
-# here. re_viewer_context→re_renderer→wgpu→eframe pulls the GUI/GPU stack,
-# which is incompatible with the CPU-only build host (dead RX 550). The feature
-# flag is declared so external/GPU hosts can opt in later; wiring a dependency
-# that resolves only on a GPU box would force-fail `cargo check` everywhere
-# else. See docs/research/2026-09-22-rerun-mesa-findings.md §Rerun visualization.
+# PH-116: re_renderer for the ViewClass render path (wgpu only, no egui shell).
+# Per findings §Rerun visualization: "reuse seams, do not embed the shell."
+# re_viewer_context/re_viewport_blueprint pull re_ui→eframe (egui) which fails
+# to resolve and is explicitly out of scope — we render via wgpu directly.
+re_renderer = { path = "/home/gio/dev/rerun/crates/viewer_support/re_renderer", version = "=0.39.0-alpha.1", default-features = false, optional = true }
+wgpu = { version = "30.0", default-features = false, optional = true }
+wgpu = { version = "30.0", default-features = false, optional = true }
 
 [features]
 # intended: a plain `cargo build` or `cargo install physis_pro` silently fell
@@ -210,7 +211,7 @@ daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
 # change unless opted in. Bodies are todo!() stubs until PH-114/PH-115/PH-116.
 store-rerun = ["dep:re_chunk", "dep:re_chunk_store", "dep:re_query", "dep:re_log_types"]
 temporal-rerun = ["dep:re_chunk", "dep:re_chunk_store", "dep:re_query", "dep:re_log_types"]
-rerun-graph = []
+rerun-graph = ["dep:re_renderer", "dep:wgpu", "dep:re_chunk", "dep:re_chunk_store", "dep:re_query", "dep:re_log_types"]
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "audio", "ocr", "sql", "postgres", "mcp", "repair-pipeline", "instructor"]
 
