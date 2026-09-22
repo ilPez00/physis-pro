@@ -406,13 +406,13 @@ pub struct RerunGraphView {
     /// `render_worldview`/`render_semantic_graph` since wgpu + adapter
     /// creation needs a GPU. `None` on headless/CPU-only hosts.
     ctx: std::sync::Mutex<Option<re_renderer::RenderContext>>,
-    /// Canonical app recording id for this renderer instance.
+    /// Canonical app recording id for this renderer instance. Surfaced in
+    /// recording metadata once the ViewClass registry wires recording scope.
     app_id: String,
 }
 
 #[cfg(feature = "rerun-graph")]
 impl RerunGraphView {
-    /// Construct a fresh renderer. GPU resources are not acquired until the
     /// first render call, so constructing this on a CPU-only host is safe.
     pub fn new(application_id: &str) -> Self {
         Self {
@@ -426,46 +426,39 @@ impl RerunGraphView {
     /// Does NOT hold the MutexGuard — callers only need the bool result to
     /// know whether a GPU surface was acquired.
     fn build_ctx(&self) -> Option<()> {
+        let _app = &self.app_id;
         let mut guard = self.ctx.lock().ok()?;
         if guard.is_some() {
             return Some(());
         }
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
-        let adapter = instance
-            .enumerate_adapters(wgpu::PowerPreference::HighPerformance)
-            .next()
-            .or_else(|| instance.enumerate_adapters(wgpu::PowerPreference::LowPower).next())?;
+        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
+        desc.backends = wgpu::Backends::all();
+        let instance = wgpu::Instance::new(desc);
+        let adapters = futures::executor::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+        let adapter = adapters.into_iter().next()?;
         let (device, queue) = futures::executor::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("physis-graph"),
                 required_features: wgpu::Features::empty(),
                 required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+                ..Default::default()
             },
-            None,
         ))
         .ok()?;
-        let output_format = wgpu::TextureFormat::Rgba8UnormSrgb;
         let ctx = re_renderer::RenderContext::new(
             &adapter,
             device,
             queue,
-            output_format,
-            |caps| re_renderer::RenderConfig {
-                depth_format: None,
-                depth_clear: 0.0,
-                viewport_width: caps.viewport_width.unwrap_or(1024),
-                viewport_height: caps.viewport_height.unwrap_or(768),
-                viewport_in_pixels: true,
-                ..Default::default()
-            },
+            wgpu::TextureFormat::Rgba8UnormSrgb,
+            re_renderer::RenderConfig::best_for_device_caps,
         )
         .ok()?;
         *guard = Some(ctx);
         Some(())
-    }#[cfg(feature = "rerun-graph")]
+    }
+}
+
+#[cfg(feature = "rerun-graph")]
 impl GraphRenderer for RerunGraphView {
     fn render_worldview(&self, object: &crate::world_object::WorldObject, projection: &str) {
         // findings PH-116-b: register a ViewClass + render through re_renderer

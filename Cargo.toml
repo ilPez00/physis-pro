@@ -145,7 +145,6 @@ re_log_types = { path = "/home/gio/dev/rerun/crates/store/re_log_types", version
 # to resolve and is explicitly out of scope — we render via wgpu directly.
 re_renderer = { path = "/home/gio/dev/rerun/crates/viewer_support/re_renderer", version = "=0.39.0-alpha.1", default-features = false, optional = true }
 wgpu = { version = "30.0", default-features = false, optional = true }
-wgpu = { version = "30.0", default-features = false, optional = true }
 
 [features]
 # intended: a plain `cargo build` or `cargo install physis_pro` silently fell
