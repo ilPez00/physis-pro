@@ -2,9 +2,10 @@
 id: PH-106
 track: physis
 phase: 0
-status: claimed
+status: review
 claimed_by: opencode
 claimed_at: 2026-09-22
+completed_at: 2026-09-22
 rung: 2
 depends: [PH-027]
 gate: "cargo test --lib agents::attention && cargo clippy --lib --tests -- -D warnings"
