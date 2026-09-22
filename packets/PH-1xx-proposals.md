@@ -71,11 +71,12 @@ cargo clippy --lib --tests -- -D warnings
 id: PH-103
 track: physis
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [PH-000, PH-020]
 gate: "cargo test --lib && cargo clippy --all-targets -- -D warnings"
-commit: "branch agent/PH-103; snapshot + test commit"
+commit: "PH-103: cache PHYSIS_DATA_DIR + PHYSIS_MODEL env vars behind mvp::env::Lazy (repl scope + deps::generator_state hot paths)"
+shipped: on agent/PH-102-generic-extract-guard
 ---
 
 # Environment reads off per-call paths

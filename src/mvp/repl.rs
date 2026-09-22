@@ -353,10 +353,12 @@ impl Session {
         // a wait on a real repository.
         let (embedder, kind) =
             crate::embed::select_embedder(&crate::config::PhysisProConfig::default().physis);
-        let data_dir = std::env::var("PHYSIS_DATA_DIR")
-            .ok()
-            .filter(|p| !p.is_empty())
-            .map(std::path::PathBuf::from)
+        // PH-103: cached env read — `scope` is the per-query hot path, so
+        // `PHYSIS_DATA_DIR` is read once via `mvp::env::PHYSIS_DATA_DIR`
+        // (initialized after `open` sets the default).
+        let data_dir = crate::mvp::env::PHYSIS_DATA_DIR
+            .as_ref()
+            .cloned()
             .unwrap_or_else(|| std::path::Path::new(".physis").to_path_buf());
         let pack = crate::pack::EmbedCache::with_shared(&data_dir, |cache| {
             crate::pack::pack_cached(

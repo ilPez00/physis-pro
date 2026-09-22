@@ -44,8 +44,9 @@ pub fn history_text(root: &Path) -> String {
 /// The loop is coherent with `none` (extractive/manual path); `local` needs
 /// `PHYSIS_ORACLE_*` pointed at localhost or it degrades the same way.
 pub fn generator_state() -> String {
-    match std::env::var("PHYSIS_MODEL").ok().as_deref().map(str::trim) {
-        Some("none") | None | Some("") => {
+    // PH-103: cached env read — `generator_state` is called per-query.
+    match crate::mvp::env::PHYSIS_MODEL.as_deref() {
+        Some("none") | None => {
             if crate::ported::oracle::configured().is_some() {
                 "local (oracle configured)".to_string()
             } else {

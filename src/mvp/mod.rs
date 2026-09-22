@@ -3,6 +3,7 @@
 //! Reuses scanner + nav + pack + act + core map. No new stores.
 
 pub mod deps;
+pub mod env;
 pub mod log;
 pub mod model;
 pub mod repl;
