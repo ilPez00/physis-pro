@@ -118,22 +118,57 @@ impl WorldStore for RerunChunkStore {
 /// Optional: `RerunTimeSeries` via `re_query::QueryCache::latest_at`
 /// (findings §Rerun store). Gated on `feature = "temporal-rerun"`.
 ///
-/// `Observation` here is a structural placeholder for a ledger/temporal record
-/// — physis does not yet expose one publicly, so the seam is declared with a
-/// local struct (never invented: the type is empty and TODO-documented) rather
-/// than depending on a private path.
+/// `Observation` is physis's typed temporal record: the rerun
+/// `LatestAtResults`/`RangeResults` project onto it (PH-112). Field names
+/// mirror the ledger's `CauseEvent` vocabulary so a temporal record reads the
+/// same shape whether it came from `CausalLedger` or `RerunTimeSeries`:
+/// `seq` (row/ingest order), `at` (wall-time), `actor` (producer), `object`
+/// (the entity), `component` (the recorded slot). `at` is `Option<DateTime>`
+/// — rerun's `TimeInt` is i64 nanos on `log_time`; we surface it as UTC only
+/// when the timeline carries a real time.
 pub trait TemporalStore {
     /// Latest record of `component` for `entity` at `time_ref` (None = now).
     fn latest_at(&self, entity: &str, component: &str, time_ref: Option<&Path>) -> Option<Observation>;
     /// Range over a span; returns provenance-ordered records.
-    fn range(&self, entity: &str, component: &str, _from: &str, _to: &str) -> Vec<Observation>;
+    fn range(&self, entity: &str, component: &str, from: &str, to: &str) -> Vec<Observation>;
 }
 
-/// Placeholder temporal record; shape deferred to PH-112/PH-115.
+/// Typed temporal record (PH-112). Mirrors `ledger::CauseEvent`'s vocabulary
+/// so temporal projections are backend-agnostic: `seq` is the monotonic
+/// ingest/row order, `at` the wall-time, `actor` the producer, `object` the
+/// entity path, `component` the recorded slot. `TimeInt`/`RowId` from rerun
+/// become `seq`/ingest position; `DateTime<Utc>` only when a real timeline
+/// is available.
 pub struct Observation {
-    pub entity: String,
+    /// Monotonic ingest/row order (rerun `RowId` → physis seq).
+    pub seq: u64,
+    /// Wall-time, when the timeline carries one (`log_time` → UTC).
+    pub at: Option<chrono::DateTime<chrono::Utc>>,
+    /// Producing actor/tool: `store-rerun` surfaces the embedder kind.
+    pub actor: String,
+    /// Physis identity this record attaches to.
+    pub object: String,
+    /// The component/slot recorded (rerun `ComponentIdentifier`).
     pub component: String,
-    pub _marker: (),
+    /// Raw row position for stable ordering; rerun `RowId` is u128 → u64.
+    pub row: u64,
+    /// The cell the entity resolved to, surfaced as `DOMAIN/MODE`.
+    pub cell: Option<String>,
+}
+
+impl Observation {
+    /// Construct from a seq + entity + component, wall-time unknown.
+    pub fn at(seq: u64, object: impl Into<String>, component: impl Into<String>, actor: impl Into<String>) -> Self {
+        Self {
+            seq,
+            at: None,
+            actor: actor.into(),
+            object: object.into(),
+            component: component.into(),
+            row: seq,
+            cell: None,
+        }
+    }
 }
 
 /// Ledger-backed default (append-only, per-tenant) — the existing
@@ -148,6 +183,8 @@ pub struct LedgerStore;
 pub struct RerunTimeSeries {
     store: re_query::QueryCache,
     index: std::collections::HashMap<String, re_log_types::EntityPath>,
+    /// identity → resolved `DOMAIN/MODE` cell label.
+    cells: std::collections::HashMap<String, String>,
 }
 
 #[cfg(feature = "temporal-rerun")]
@@ -161,12 +198,20 @@ impl RerunTimeSeries {
         Self {
             store: re_query::QueryCache::new(handle),
             index: std::collections::HashMap::new(),
+            cells: std::collections::HashMap::new(),
         }
     }
 
-    /// Register the locator for a Physis identity.
-    pub fn register(&mut self, identity: &str, path: &str) {
-        self.index.insert(identity.to_string(), re_log_types::EntityPath::from_single_string(path));
+    /// Register the locator + the resolved DOMAIN/MODE cell for a Physis
+    /// identity. `cell` is the semiotic cell (`DOMAIN/MODE`) the entity
+    /// resolves to — surfaced on `Observation` so temporal records carry the
+    /// provenance the quality tracker and HUD need (never anonymous).
+    pub fn register(&mut self, identity: &str, path: &str, cell: Option<&str>) {
+        self.index.insert(identity.to_string(),
+            re_log_types::EntityPath::from_single_string(path));
+        if let Some(c) = cell {
+            self.cells.insert(identity.to_string(), c.to_string());
+        }
     }
 
     fn entity_path(&self, identity: &str) -> Option<&re_log_types::EntityPath> {
@@ -178,7 +223,8 @@ impl RerunTimeSeries {
 impl TemporalStore for RerunTimeSeries {
     fn latest_at(&self, entity: &str, component: &str, _time_ref: Option<&Path>) -> Option<Observation> {
         let path = self.entity_path(entity)?;
-        // Static-time latest-at (read-only marker query; no timeline).
+        // Static-time latest-at (read-only marker query; no timeline):
+        // findings QueryCache::latest_at (latest_at.rs:43).
         let query = re_chunk::LatestAtQuery::new_static();
         let results = self.store.latest_at(
             re_chunk_store::ChunkTrackingMode::Report,
@@ -186,14 +232,19 @@ impl TemporalStore for RerunTimeSeries {
             path,
             std::iter::empty::<re_chunk::ComponentIdentifier>(),
         );
-        // TODO(PH-112): project LatestAtResults into a typed Observation once
-        // physis exposes one. For now surface identity+component+locator so the
-        // seam is testable and the entity is known to exist in rerun.
-        let _ = results;
+        // PH-112 projection: min_index → (TimeInt, RowId). RowId.as_u128
+        // is the monotonic ingest order; TimeInt.as_i64 is nanos on log_time.
+        let (time_int, row_id) = results.min_index;
+        let seq = row_id.as_u128() as u64;
+        let at = time_int_to_utc(time_int);
         Some(Observation {
-            entity: entity.to_string(),
+            seq,
+            at,
+            actor: "store-rerun".to_string(),
+            object: entity.to_string(),
             component: component.to_string(),
-            _marker: (),
+            row: seq,
+            cell: self.cells.get(entity).cloned(),
         })
     }
     fn range(&self, entity: &str, _component: &str, from: &str, to: &str) -> Vec<Observation> {
@@ -201,19 +252,18 @@ impl TemporalStore for RerunTimeSeries {
             Some(p) => p,
             None => return Vec::new(),
         };
-        // findings: re_query::QueryCache::range with RangeQuery over
-        // AbsoluteTimeRange. Real packet parses `from`/`to` (ISO timestamps)
-        // into TimeReal→TimeInt bounds; here we query the full timeline so the
-        // seam is wired and testable.
+        // PH-112: parse ISO 8601 `from`/`to` into AbsoluteTimeRange via
+        // TimeReal::from_secs(unix). `RangeResults` is chunked per entity;
+        // we walk `per_chunk` units → rows. findings: QueryCache::range
+        // (range.rs:25).
         let timeline = re_log_types::TimelineName::log_time();
-        let range = re_log_types::AbsoluteTimeRange::EVERYTHING;
+        let range = iso_to_range(from, to);
         let query = re_chunk::RangeQuery {
             timeline,
             range,
             options: re_chunk::RangeQueryOptions {
                 keep_extra_timelines: false,
                 keep_extra_components: false,
-                // TODO: extra_ticks_from_history when PH-112 defines bounds.
                 ..Default::default()
             },
         };
@@ -223,13 +273,78 @@ impl TemporalStore for RerunTimeSeries {
             path,
             std::iter::empty::<re_chunk::ComponentIdentifier>(),
         );
-        // TODO(PH-112): walk results.chunks_per_row_id / unit batches into
-        // Observations once a typed temporal record exists.
-        let _ = results;
-        let _ = from;
-        let _ = to;
-        Vec::new()
+        // Project each row: RangeResults.components → Chunk → row_ids/times.
+        // Walk every chunk's rows on `log_time`, build one Observation per row,
+        // seq-ordered by RowId (rerun's monotonic ingest order).
+        let cell = self.cells.get(entity).cloned();
+        let mut out: Vec<Observation> = Vec::new();
+        let log_time = re_log_types::TimelineName::log_time();
+        for chunks in results.components.values() {
+            for chunk in chunks {
+                // Per-rerun: `times()` lives on `TimeColumn`, reached via
+                // `Chunk::timelines()` keyed by TimelineName. `row_ids()`
+                // parallels the time column row-wise.
+                let tc = match chunk.timelines().get(&log_time) {
+                    Some(tc) => tc,
+                    None => continue,
+                };
+                let times: Vec<_> = tc.times().collect();
+                let row_ids: Vec<_> = chunk.row_ids().collect();
+                let n = times.len().min(row_ids.len());
+                for i in 0..n {
+                    out.push(Observation {
+                        seq: row_ids[i].as_u128() as u64,
+                        at: time_int_to_utc(times[i]),
+                        actor: "store-rerun".to_string(),
+                        object: entity.to_string(),
+                        component: _component.to_string(),
+                        row: row_ids[i].as_u128() as u64,
+                        cell: cell.clone(),
+                    });
+                }
+            }
+        }
+        out.sort_by_key(|o| o.seq);
+        out
     }
+}
+
+/// PH-112 helper: rerun `TimeInt` (nanos on `log_time`, or STATIC) →
+/// `Option<DateTime<Utc>>`. `STATIC` → `None` (no wall-time); MAX/sentinel →
+/// `None` so a placeholder record never smuggles a bogus timestamp; otherwise
+/// nanos-since-epoch → UTC via `DateTime::from_timestamp_opt(secs,nanos)`.
+#[cfg(feature = "temporal-rerun")]
+fn time_int_to_utc(t: re_chunk_store::TimeInt) -> Option<chrono::DateTime<chrono::Utc>> {
+    if t.is_static() {
+        return None;
+    }
+    let nanos = t.as_i64();
+    if nanos < 0 || nanos == i64::MAX {
+        return None;
+    }
+    let secs = nanos / 1_000_000_000;
+    let nsecs = (nanos % 1_000_000_000) as u32;
+    chrono::DateTime::<chrono::Utc>::from_timestamp(secs, nsecs)
+}
+
+/// PH-112 helper: parse ISO 8601 `from`/`to` bounds into an
+/// `AbsoluteTimeRange` (discrete `TimeInt`). Empty/unparseable bound widens
+/// to `MAX`/`MIN` so a one-sided query still compiles. `AbsoluteTimeRange` is
+/// constructed from the floored `AbsoluteTimeRangeF` (TimeReal→TimeInt).
+#[cfg(feature = "temporal-rerun")]
+fn iso_to_range(from: &str, to: &str) -> re_log_types::AbsoluteTimeRange {
+    let parse = |s: &str| -> Option<i64> {
+        if s.trim().is_empty() {
+            return None;
+        }
+        chrono::DateTime::parse_from_rfc3339(s).map(|dt| dt.timestamp()).ok()
+    };
+    let lo = parse(from);
+    let hi = parse(to);
+    let lo_tr = lo.map_or(re_log_types::TimeReal::MIN, |s| re_log_types::TimeReal::from_secs(s as f64));
+    let hi_tr = hi.map_or(re_log_types::TimeReal::MAX, |s| re_log_types::TimeReal::from_secs(s as f64));
+    // AbsoluteTimeRange is (TimeInt, TimeInt); floored from TimeReal bounds.
+    re_log_types::AbsoluteTimeRange { min: lo_tr.floor(), max: hi_tr.floor() }
 }
 
 /// View rendering seam.
@@ -305,17 +420,22 @@ mod temporal_tests {
 
     #[test]
     fn rerun_temporal_latest_at_unregistered_returns_none() {
-        // PH-115 gate: an identity not registered has no locator → latest_at
-        // returns None (no phantom entities). Registering one yields an
-        // Observation marker with the right identity/component.
+        // PH-115/PH-112 gate: an identity not registered has no locator →
+        // latest_at returns None (no phantom entities). Registering one
+        // yields a typed Observation (PH-112 shape) with the right identity.
         let mut s = RerunTimeSeries::new("physis:temporal-H6");
         assert!(s.latest_at("core:node:missing", "semantics", None).is_none());
-        s.register("core:node:0", "world/object/0");
-        let obs = s.latest_at("core:node:0", "semantics", None).expect("marker obs");
-        assert_eq!(obs.entity, "core:node:0");
+        // register now takes the optional cell label.
+        s.register("core:node:0", "world/object/0", Some("BOND/COMMUNICATION"));
+        let obs = s.latest_at("core:node:0", "semantics", None).expect("obs surfaced");
+        assert_eq!(obs.object, "core:node:0");
         assert_eq!(obs.component, "semantics");
+        assert_eq!(obs.cell.as_deref(), Some("BOND/COMMUNICATION"));
         // range over an unregistered identity is empty (not panicking).
-        assert!(s.range("core:node:missing", "semantics", "t0", "t1").is_empty());
+        assert!(s.range("core:node:missing", "semantics", "", "").is_empty());
+        // range over a registered-but-empty entity yields no rows, no panic.
+        let r = s.range("core:node:0", "semantics", "", "");
+        assert!(r.is_empty(), "empty store yields no observations");
     }
 }
 
