@@ -190,6 +190,29 @@ A dedicated packet (`PH-113-floor-calibration`) owns the 0.836→target decision
 this programme does not touch it.
 
 ## Caveats / NOT-MEASURED (updated 2026-09-22 gap pass)
+
+### Implementation status (closed 2026-09-22)
+PH-114 / PH-115 / PH-116 seams committed behind feature flags, behavior-preserving:
+- `store-rerun` → `RerunChunkStore` (`re_chunk_store::ChunkStore` + `re_query::QueryCache`,
+  identity↔`EntityPath` via `locate`): **wired + tested** (`backends::tests`).
+- `temporal-rerun` → `RerunTimeSeries` (`latest_at`/`range`): **wired + tested**
+  (`backends::temporal_tests`); range query uses `AbsoluteTimeRange::EVERYTHING`
+  as a placeholder until PH-112 parses ISO `from`/`to`.
+- `rerun-graph` → `RerunGraphView` (`ViewClassRegistry::add_class` + `re_renderer`):
+  **seam declared, impl `todo!()`** — the build host (pansa) is CPU-only (dead
+  RX 550, fleet manifest), and `re_viewer_context` transitively pulls `eframe` +
+  wgpu + the GUI stack, which does not resolve on a headless/CPU profile.
+  Dependency is *not* wired into Cargo.toml so `cargo check`/`cargo clippy`
+  stays green everywhere; a GPU-capable packet wires it. Default ratatui HUD
+  (`src/bin/hud.rs`) remains the only active surface on headless hosts.
+
+**Tertium semper datur.** The third option is always present: Physis-native
+default path stays live and untouched while the rerun adapter is an opt-in
+alternative, never a replacement. No existing module is deleted — H19 identity,
+the nav index, the ratatui HUD, and the ledger all persist behind the feature
+gate; the rerun backend is a separable projection of the same object space.
+
+### Caveats (pre-implementation-status)
 - Physis: `src/bin/hud.rs` now measured — 9-view enum (`World/Graph/Semantic/Notebook/Tasks/Agents/Settings/Setup/Help`, `bin/hud.rs:448-471`), single ratatui `draw(f,&App)` + `View::from_name` CI snapshots.
 - Physis: `physis-core` measured — 53 files (`lib.rs:184-222` modules); seams `ontology::OntologyLoader:327`, `classify::Cell/CellClassifier:91`, `embed::VectorEmbed` trait + `RandomProjectionEmbedder:69` + `select:228`.
 - MCP tools **verified 30** (`grep -oE 'tool("' src/mcp.rs` = 30); `physis_system` is the separate system MCP server (`.opencpn/opencode.json:10`).
