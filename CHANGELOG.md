@@ -27,15 +27,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   CLI: `physis-pro nav export/import/retag-store/stamp`.
 
 ### Added
-- Rerun/Mesa integration seams (`docs/research/2026-09-22-rerun-mesa-findings.md`).
-  Additive module `src/backends.rs` with three behaviour-preserving traits —
-  `WorldStore`, `TemporalStore`, `GraphRenderer` — each defaulting to the
-  existing Physis-native path (nav index/ledger/ratatui HUD); optional Rerun
-  adapter stubs (ChunkStore store, QueryCache latest-at, ViewClass registration
-  via re_renderer) gated on features `store-rerun`, `temporal-rerun`,
-  `rerun-graph` (all off by default). No existing module deleted; no behaviour
-  change unless a feature is enabled. Mesa is cloud-only/archived, so it is
-  represented as borrowed contract shapes only, not a dependency.
+- Rerun `ChunkStore` world-store adapter via `physis-pro` `store-rerun`
+  feature (PH-114). `RerunChunkStore` wraps `re_chunk_store::ChunkStore` +
+  `re_query::QueryCache`, mapping Physis identity → Rerun `EntityPath` on
+  `locate` (H19: identity stays canonical). `get_object` round-trips latest-at
+  into a marker `WorldObject`; append path left for a follow-up packet.
+  Dependency is a path dep on `/home/gio/dev/rerun`, optional +
+  `default-features=false`, so default builds never pull rerun. Test-gated on
+  the feature. Rerun/Mesa/Mesa: no existing module deleted.
+
   `ClearSelection`, `FocusObject`, `Descend`, `Ascend` are added to `HudEvent`;
   each has exactly one producer in the key loop and one reducer branch. The key
   loop no longer writes `self.sel` directly: every cursor move goes through

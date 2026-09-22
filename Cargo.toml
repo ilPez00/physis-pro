@@ -130,14 +130,23 @@ tesseract = { version = "0.14", optional = true }
 
 # ONNX embedder is ON by default. It was opt-in to avoid deploying without model
 # weights, but the weights have shipped since 2026-08-13 (models/model.onnx,
-# BGE-base-en-v1.5, 86MB) and the opt-in had the opposite effect to the one
+# BGE-base-en-v1.5, 86MB) and the opt-in had the opposite effect to the one intended — dropping
+# the model silently — so it is default now.
+# PH-114: Rerun backend deps. Path deps to the canonical rerun tree on the build
+# host (/home/gio/dev/rerun). Optional + default-features=false so the standard
+# build never pulls rerun. See docs/research/2026-09-22-rerun-mesa-findings.md §Rerun store.
+re_chunk = { path = "/home/gio/dev/rerun/crates/store/re_chunk", version = "=0.39.0-alpha.1", default-features = false, optional = true }
+re_chunk_store = { path = "/home/gio/dev/rerun/crates/store/re_chunk_store", version = "=0.39.0-alpha.1", default-features = false, optional = true }
+re_query = { path = "/home/gio/dev/rerun/crates/store_app/re_query", version = "=0.39.0-alpha.1", default-features = false, optional = true }
+re_log_types = { path = "/home/gio/dev/rerun/crates/store/re_log_types", version = "=0.39.0-alpha.1", default-features = false, optional = true }
+
+[features]
 # intended: a plain `cargo build` or `cargo install physis_pro` silently fell
 # back to RandomProjectionEmbedder (see src/embed/registry.rs), which the
 # project's own QA verdict calls non-semantic. Every default build shipped an
 # engine whose classification output was noise. If you genuinely want the
 # model-free path, ask for it: `--no-default-features` plus the features you
 # want, or select the random embedder explicitly at runtime.
-[features]
 default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers", "physis-core/embed-onnx"]
 cli = ["dep:clap"]
@@ -193,7 +202,7 @@ daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
 # Optional backend seams from docs/research/2026-09-22-rerun-mesa-findings.md
 # (P0-P3 integration). All default-OFF: no existing module deleted, no behaviour
 # change unless opted in. Bodies are todo!() stubs until PH-114/PH-115/PH-116.
-store-rerun = []
+store-rerun = ["dep:re_chunk", "dep:re_chunk_store", "dep:re_query", "dep:re_log_types"]
 temporal-rerun = []
 rerun-graph = []
 
