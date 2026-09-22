@@ -930,10 +930,14 @@ Status was re-measured 2026-09-21 (newest dated note wins; the 2026-09-20 and
 | PH-029 | 0 | review | reducer owns navigation, symbols become real objects: `MoveCursor`/`Select`/`ClearSelection`/`FocusObject`/`Descend`/`Ascend` routed through `dispatch()→reduce()→apply_hud_effects()`; key loop no longer writes `sel` directly; Rust qualified-symbol extraction (`pub fn`/`pub(crate)`/`async`/`unsafe`/`impl<T>`/`impl Trait for Type`) with negative fixtures; `back()` ordering bug found and fixed (capture focused before `Ascend` emits `SetCursor{0}`); remaining duplicate state documented as `selected`/`FocusState.selection` bridge |
 | PH-028 | 0 | review | prepopulate the world: first-indexed the repo on pansa (16 750 objects, 469 s, 111 MB); `NavIndex.embedder_stamp` (`kind:dim`, serde-defaulted); Option A re-tag (`open_aliased`/`export_store`); Option B portable bundle (`export_bundle`/`import_bundle`) with embedder-stamp refusal; Option C remote embed offload (`PHYSIS_REMOTE_EMBED`, `RemoteEmbedder`, `+remote:<host>` label always shown); CLI `physis-pro nav export/import/retag-store/stamp` |
 
-Reconciliation note (2026-09-21): `HEAD..main` is **0** commits on
-`agent/PH-025`, and `src/world_object.rs` does not exist on `main` — the
-WorldObject prototype lives on the unmerged `local-main-import` branch. PH-026
-ported the view type instead of merging `main`.
+Reconciliation note (2026-09-22): `HEAD..main` is **0** commits on
+`agent/PH-025`, and `src/world_object.rs` **does** exist on `origin/main`
+(`e3de500 feat(world): project an engine CoherenceNode into a WorldObject` in
+this checkout) — the 2026-09-21 note is stale relative to the pansa clone.
+PH-026 shipped as the read-only-view-port rather than a branch merge;
+`WorldObject` is now the live view type and the ratatui HUD projects it at
+`src/bin/hud.rs:2787-2900` (identity via `spell_object_id`/`parse_object_id`,
+lens `WorldView::from_registry`).
 
 Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`,
 `packets/reports/PH-026.md`, `packets/reports/PH-027.md`,

@@ -214,8 +214,11 @@ gate; the rerun backend is a separable projection of the same object space.
 
 ### Caveats (pre-implementation-status)
 - Physis: `src/bin/hud.rs` now measured — 9-view enum (`World/Graph/Semantic/Notebook/Tasks/Agents/Settings/Setup/Help`, `bin/hud.rs:448-471`), single ratatui `draw(f,&App)` + `View::from_name` CI snapshots.
-- Physis: `physis-core` measured — 53 files (`lib.rs:184-222` modules); seams `ontology::OntologyLoader:327`, `classify::Cell/CellClassifier:91`, `embed::VectorEmbed` trait + `RandomProjectionEmbedder:69` + `select:228`.
-- MCP tools **verified 30** (`grep -oE 'tool("' src/mcp.rs` = 30); `physis_system` is the separate system MCP server (`.opencpn/opencode.json:10`).
-- Rerun: `ViewClass` trait `viewer_support/re_viewer_context/src/view/view_class.rs:156`; `ViewClassRegistry` `view_class_registry.rs:199`/`new_context_collection:471` — now backed.
+- Physis: `physis-core` measured at **56 files** (`physis-core/src` glob, 2026-09-22); seams `ontology::OntologyLoader:327`, `classify::Cell/CellClassifier:91`, `embed::VectorEmbed` trait + `RandomProjectionEmbedder:69` + `select:228`. (Findings prior line said 53 — corrected; file count grew with Phase 10 address/ledger/mail additions.)
+- MCP tools **verified 30** (`grep -cE 'tool("' src/mcp.rs` = 30: `physis_causes`…`physis_workflow`, full list in `src/mcp.rs:264`); `physis_system` is the separate system MCP server (`.opencpn/opencode.json:10`/docs/PHYSIS_DEV_LOOP.md).
+- Rerun: `ViewClass` trait `viewer_support/re_viewer_context/src/view/view_class.rs:156`; `ViewClassRegistry::add_class` `view_class_registry.rs:199` + `new_context_collection:471`; `re_renderer` (wgpu, no egui). All three backed by local rerun tree `@ 35143bce37`.
 - Rerun blueprint Arrow coupling is `FromArrow` (`re_viewport_blueprint/src/view_contents.rs:18`), not `ArrowWriteable` — corrected.
-- Remaining NOT-MEASURED: cross-repo dependency weights (no rerun build); exact `WorldObject`→`WorldObjectId` identity-mapping lines beyond `world_object.rs` (confirmed present, used by HUD lenses); `nav_old/` still-referenced check.
+- `WorldObject`→`WorldObjectId` identity mapping: confirmed live in `src/world_object.rs:33-73` (`WorldObjectId = String`, `spell_object_id`, `parse_object_id`) and consumed by HUD lenses at `src/bin/hud.rs:2795,2801,2787,2871,4594,7072` — H19 holds in production, not just prototype.
+- `nav_old/` **confirmed uncompiled**: `rg -l "nav_old" src/ tests/ physis-core/src/` → empty; absent from `Cargo.toml`/`lib.rs`. Dirt only → no gate needed (findings NOT-MEASURED resolved).
+- Cross-repo rerun build: confirmed at `/home/gio/dev/rerun/Cargo.toml` (workspace `@ 35143bce37`); `ChunkStore::new(StoreId, ChunkStoreConfig)` (store.rs:816), `QueryCache::latest_at`/`range` (latest_at.rs:43, range.rs:25), `EntityPath::from_single_string` (entity_path.rs:180) all backed for the `store-rerun`/`temporal-rerun` impls.
+- Remaining OPEN: wgpu/`eframe`-dependent `rerun-graph` render path cannot validate on this CPU-only host (dead RX 550, fleet manifest) — deferred to a GPU packet as documented in §Implementation status.
