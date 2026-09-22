@@ -58,7 +58,7 @@ Execution hot path (checked 2026-09-17, evidence in `src/web/search.rs`,
    tenant lock (dot product, same contract as `concepts_search_handler`) and
    keeps only the top `4×top_k` (floor 32) before the MMR token packer — the
    full-store id/label/384-dim-embedding clone per request is gone. Serves
-   `/api/v1/search/nodes` + `/api/v1/ask`. Verified: 1033/1033 lib tests,
+   `/api/v1/search/nodes` + `/api/v1/ask`. Re-measured 2026-09-22: 1213 lib tests pass (+1 ignored),
    `http_surface` search (5) + ask (3) suites green.
 7. Already-fast, leave alone: per-query `embed_text` (spawn_blocking, no cache —
    one model call, fine); `EmbedCache` load/save per batch (scan/pack path only,
@@ -931,6 +931,8 @@ Status was re-measured 2026-09-21 (newest dated note wins; the 2026-09-20 and
 | PH-028 | 0 | review | prepopulate the world: first-indexed the repo on pansa (16 750 objects, 469 s, 111 MB → 16 775 bge-base:768, 188 MB); `NavIndex.embedder_stamp` (`kind:dim`, serde-defaulted); Option A re-tag (`open_aliased`/`export_store`); Option B portable bundle (`export_bundle`/`import_bundle`) with embedder-stamp refusal; Option C remote embed offload (`PHYSIS_REMOTE_EMBED`, `RemoteEmbedder`, `+remote:<host>` label always shown); CLI `physis-pro nav export/import/retag-store/stamp`; fleet nodes (feather-1, air, omo) live-indexing via remote embed |
 | PH-100 | D | review | discovery: 7 next-quarter proposals — PH-030 (ResultState), PH-031 (fleet world merge), PH-032 (LensRegistry), PH-033 (nav clear-embeddings), PH-034 (guided Phase B), PH-035 (ExactFact wire), PH-036 (PHYSIS_OLLAMA_EMBED_OFF doc) |
 | PH-101 | 1 | review | Physis Cortex plan docs: `cortex-core.md` + `cortex-pro.md` — ComputeBackend/BackendKind, device discovery, encoder/latent/retrieval/router modules, HUD provenance overlay; gate (both files present) passes |
+| PH-030 | 0 | review | ResultState owns hits/rows/sel in `physis-hud`: one atomic struct, debug sel invariant (+`restore` path), `with_rows` for `enter_dir`, both mandatory tests; report `packets/reports/PH-030.md` |
+| MS-003 | 1 | review | four reviewer citation corrections applied and re-measured (gate description, `invert()` mapping, PH-051 4/5-transfer record, line citations); report-only, no re-execution |
 
 Reconciliation note (2026-09-21): `HEAD..main` is **0** commits on
 `agent/PH-025`, and `src/world_object.rs` does not exist on `main` — the
@@ -941,7 +943,7 @@ Gate evidence: `packets/reports/PH-024.md`, `packets/reports/PH-025.md`,
 `packets/reports/PH-026.md`, `packets/reports/PH-027.md`,
 `packets/reports/PH-028.md`, `packets/reports/PH-029.md`
 (`cargo clippy --all-targets -- -D warnings`; `cargo test --features tui --bin
-physis-hud` 45 passed; `cargo test --lib hud::` 43 passed; `cargo test --lib
+physis-hud` 47 passed as of 2026-09-22 (45 at review time); `cargo test --lib hud::` 43 passed; `cargo test --lib
 nav::` 25 passed; `cargo test --lib world_object::` 13 passed; `cargo test --lib
 scanner` 6 passed; headless matrix 9/9 rc=0 LEXICAL ONLY).
 Sequencing authority for the HUD programme:
