@@ -6,8 +6,8 @@ status: todo
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-003.md"
-claimed_by: agent/MS-003
-claimed_at: 2026-09-20
+claimed_by: cline
+claimed_at: 2026-09-22
 reviewed_by: opencode
 reviewed_at: 2026-09-20
 ---
