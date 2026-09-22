@@ -284,6 +284,21 @@ pub fn choose(
     }
 }
 
+/// Hardware-aware routing (PH-101 Task 11): route the request's verb through
+/// the core compute ladder (capable → preferred → scan-best → CPU) using a
+/// live device scan. Companion to [`choose`], which routes the *agent*;
+/// this routes the *compute*. Callers surface `rationale` next to the agent
+/// decision so placement is cited, not assumed.
+pub fn route_hardware(req: &RouteRequest) -> physis_core::cortex::router::RoutingDecision {
+    use physis_core::cortex::router::{route, RoutingContext};
+    use physis_core::devices::HardwareDiscovery;
+    route(&RoutingContext {
+        verb: req.verb.to_string(),
+        preferred: physis_core::backend::BackendKind::from_env(),
+        devices: HardwareDiscovery::scan(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -470,5 +485,17 @@ mod tests {
         );
         assert_eq!(d.agent.as_deref(), Some("verifier"), "{}", d.render());
         assert!(d.reason.contains("domain"), "{}", d.reason);
+    }
+
+    #[test]
+    fn hardware_routing_cites_its_ladder() {
+        let d = route_hardware(&RouteRequest::new("embed", "file"));
+        assert_eq!(
+            d.backend,
+            physis_core::backend::BackendKind::Cpu,
+            "no device backend wired yet: {:?}",
+            d.rationale
+        );
+        assert!(!d.rationale.is_empty(), "placement must show its work");
     }
 }

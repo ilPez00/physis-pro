@@ -2369,6 +2369,7 @@ mod tests {
                     kind: crate::config::EmbedderKindConfig::RandomProjection,
                     model_dir: String::new(),
                     enabled: true,
+                    backend: None,
                 }),
                 image: None,
             },

@@ -4209,6 +4209,7 @@ mod tests {
             kind: physis_pro::config::EmbedderKindConfig::RandomProjection,
             model_dir: String::new(),
             enabled: true,
+            backend: None,
         });
         physis_pro::cli::PhysisApp::new(cfg.physis.clone())
     }

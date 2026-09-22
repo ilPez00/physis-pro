@@ -20,6 +20,11 @@ pub struct EmbedderRegistry {
     pub image_kind: Option<&'static str>,
     /// Dimension of the text embedder
     pub text_dim: usize,
+    /// Resolved compute backend for the text slot (slot override →
+    /// `PHYSIS_BACKEND` → scan-best → CPU).
+    pub backend: physis_core::backend::BackendKind,
+    /// Set when the resolved backend is not what was asked for.
+    pub backend_note: Option<String>,
 }
 
 /// Built embedders: (text embedder, image slot, image-slot kind label).
@@ -34,12 +39,36 @@ impl EmbedderRegistry {
     pub fn from_config(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> Self {
         let (text, image, image_kind) = Self::build_embedders(config, onnx_cfg);
         let text_dim = text.dimension();
+        let (backend, backend_note) = Self::resolve_backend(config);
         Self {
             text,
             image,
             image_kind,
             text_dim,
+            backend,
+            backend_note,
         }
+    }
+
+    /// Slot `backend` override beats `PHYSIS_BACKEND`, which beats the
+    /// scan-best hardware, which beats CPU. Unknown names fall back loudly.
+    fn resolve_backend(
+        config: &EmbeddersConfig,
+    ) -> (physis_core::backend::BackendKind, Option<String>) {
+        use physis_core::backend::{select_backend, BackendKind};
+        use physis_core::devices::HardwareDiscovery;
+        let slot = config
+            .primary
+            .as_ref()
+            .and_then(|c| c.backend.as_deref())
+            .and_then(|b| BackendKind::parse(b).ok());
+        let devices = HardwareDiscovery::scan();
+        let resolved = select_backend(
+            slot
+                .or_else(BackendKind::from_env)
+                .or(Some(HardwareDiscovery::best_kind(&devices))),
+        );
+        (resolved.backend.kind(), resolved.fallback_note)
     }
 
     fn build_embedders(config: &EmbeddersConfig, onnx_cfg: &OnnxConfig) -> BuiltEmbedders {
@@ -248,6 +277,7 @@ mod tests {
                     kind: EmbedderKindConfig::RandomProjection,
                     model_dir: String::new(),
                     enabled: true,
+                    backend: None,
                 }),
                 image: None,
             },
@@ -272,9 +302,24 @@ mod tests {
             kind: EmbedderKindConfig::BgeBase, // text-only kind: no vision slot
             model_dir: String::new(),
             enabled: true,
+            backend: None,
         });
         let reg = EmbedderRegistry::from_config(&ec, &oc);
         assert!(reg.image_embedder().is_none());
         assert_eq!(reg.image_kind, None);
+    }
+
+    #[test]
+    fn backend_resolution_prefers_slot_then_falls_back_loudly() {
+        let (mut ec, oc) = rp_config();
+        // Unknown slot name: parse fails → env/scan path, still resolves.
+        ec.primary.as_mut().unwrap().backend = Some("tpu".to_string());
+        let reg = EmbedderRegistry::from_config(&ec, &oc);
+        assert_eq!(reg.backend, physis_core::backend::BackendKind::Cpu);
+        // Explicit unwired slot backend: resolves CPU with a note, not silence.
+        ec.primary.as_mut().unwrap().backend = Some("cuda".to_string());
+        let reg = EmbedderRegistry::from_config(&ec, &oc);
+        assert_eq!(reg.backend, physis_core::backend::BackendKind::Cpu);
+        assert!(reg.backend_note.is_some());
     }
 }

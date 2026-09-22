@@ -334,6 +334,11 @@ pub struct EmbedderConfig {
     /// Whether this embedder is enabled.
     #[serde(default = "return_true")]
     pub enabled: bool,
+    /// Compute backend override for this slot (`cpu`|`rocm`|`cuda`).
+    /// Slot value beats `PHYSIS_BACKEND`, which beats scan-best, which beats
+    /// CPU. Absent or unknown backends fall back loudly, never silently.
+    #[serde(default)]
+    pub backend: Option<String>,
 }
 
 fn return_true() -> bool {

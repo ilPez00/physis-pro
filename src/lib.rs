@@ -24,6 +24,7 @@ pub mod content;
 pub mod context;
 pub mod core;
 pub mod corpus;
+pub mod cortex;
 pub mod demo_corpus;
 pub mod diff;
 pub mod discovery;
