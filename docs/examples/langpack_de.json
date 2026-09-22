@@ -1,0 +1,11 @@
+{
+  "kind": "de_plant",
+  "language": "de",
+  "domains": [
+    {"name":"Schichtbericht","category":"Werk","domain":"STUDY","mode":"COMMUNICATION","axis_kind":"de_plant","axis_name":"schicht","unit":"berichte","hints":["Schicht","Schichtbericht","Übergabe","Schichtbuch","Tagesbericht"]},
+    {"name":"Maschinenstillstand","category":"Werk","domain":"HEAL","mode":"REST","axis_kind":"de_plant","axis_name":"stoerung","unit":"stunden","hints":["Stillstand","Ausfall","Störung","Maschinenstopp","Anlagenstillstand"]},
+    {"name":"Wartungsplan","category":"Werk","domain":"CONSTRUCT","mode":"MAINTAIN","axis_kind":"de_plant","axis_name":"instandhaltung","unit":"plaene","hints":["Wartung","Instandhaltung","Wartungsintervall","Inspektion","Schmierplan"]},
+    {"name":"Rüsten","category":"Werk","domain":"CONSTRUCT","mode":"MOTION","axis_kind":"de_plant","axis_name":"umstellung","unit":"vorgange","hints":["Rüsten","Umrüsten","Werkzeugwechsel","Formatwechsel","Rüstzeit"]},
+    {"name":"Ausschuss","category":"Werk","domain":"FABRICATE","mode":"POSSESS","axis_kind":"de_plant","axis_name":"qualitaet","unit":"teile","hints":["Ausschuss","Nacharbeit","Fehlerteil","Qualitätsmangel","Reklamation"]}
+  ]
+}

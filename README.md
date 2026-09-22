@@ -460,6 +460,14 @@ cargo run --bin physis-pro -- where --place ~/plant --during 2026-08            
 mkdir -p ~/.physis/packs && cp docs/examples/logistics_pack.json ~/.physis/packs/
 # → entries join classification keyed "logistics_pack:<name>" at next start
 
+# Language packs (H6, user-defined, human or code languages): a pack file with a
+# top-level "language" code (see docs/examples/langpack_rust.json + langpack_de.json)
+# loads only when selected — config `languages` or env:
+cp docs/examples/langpack_rust.json ~/.physis/packs/
+echo "borrow checker lifetime error" > /tmp/rust_q.txt
+PHYSIS_LANGUAGES="rust" cargo run --bin physis-pro -- classify /tmp/rust_q.txt
+# → unselected language packs are skipped; packs with no language always load
+
 # Spanner Graph sink (Phase 7C): durable, cross-device memory mirror
 cargo run --bin physis-pro --features spanner -- spanner sync --mirror   # upsert + delete orphans (+ causal ledger)
 cargo run --bin physis-pro --features spanner -- spanner hydrate         # pull + re-embed

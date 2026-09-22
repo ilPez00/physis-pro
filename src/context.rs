@@ -216,7 +216,7 @@ impl Overlays {
                     continue;
                 };
                 match OntologyLoader::load_file(&path) {
-                    Ok((interpretant, domains)) => {
+                    Ok((interpretant, _language, domains)) => {
                         overlays.push(Overlay {
                             scope,
                             id,

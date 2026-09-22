@@ -395,6 +395,14 @@ pub struct PhysisConfig {
     /// Directories to watch for file changes.
     #[serde(default)]
     pub watch_dirs: Vec<PathBuf>,
+    /// Language-pack codes activated from `{data_dir}/packs/` (H6). A pack
+    /// file declares its language in a top-level `"language"` field
+    /// (`docs/examples/langpack_rust.json`); when this list is non-empty,
+    /// packs naming another language are skipped, while packs with no
+    /// language (e.g. industry packs) always load. Empty = load all packs.
+    /// Env override: `PHYSIS_LANGUAGES="it,rust"`.
+    #[serde(default)]
+    pub languages: Vec<String>,
     /// Linguistic lense toggles (Wenyan, Piraha, Sanskrit).
     #[serde(default)]
     pub linguistic: LinguisticConfig,
@@ -681,6 +689,7 @@ fn defaults_for(data_dir: PathBuf, apply_env: bool) -> PhysisConfig {
         pdca_stagnant_threshold: 0.2,
         pdca_stagnant_window: 5,
         watch_dirs: vec![],
+        languages: vec![],
         linguistic: LinguisticConfig::default(),
         onnx: OnnxConfig::default(),
         embed_dim: 384,
@@ -956,6 +965,14 @@ impl PhysisConfig {
             self.linguistic.sanskrit_enabled = parse_bool_env("PHYSIS_SANSKRIT", &raw)?;
             Ok(())
         })?;
+        get("PHYSIS_LANGUAGES", "languages", &mut |raw| {
+            self.languages = raw
+                .split(',')
+                .map(|s| s.trim().to_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect();
+            Ok(())
+        })?;
         apply_jev_env(self, get_env, &mut touched)?;
         Ok(touched)
     }
@@ -965,6 +982,15 @@ impl PhysisConfig {
 ///
 /// Maintains three separate domain maps (human, machine, custom) populated
 /// by `load_all` based on `PhysisConfig.ontologies`.
+/// What loading one ontology file yields: its interpretant, its
+/// language-pack code (`None` = language-neutral, always loads), and its
+/// entries. A named alias because the bare 3-tuple trips `type_complexity`.
+pub type OntologyLoad = (
+    Option<crate::models::Interpretant>,
+    Option<String>,
+    HashMap<String, DomainDef>,
+);
+
 #[derive(Debug, Clone)]
 pub struct OntologyLoader {
     /// Human domain definitions (praxis ontology).
@@ -1043,37 +1069,27 @@ impl OntologyLoader {
 
     /// Load domain definitions from a JSON file on disk.
     pub fn load_from_path(path: &Path) -> anyhow::Result<HashMap<String, DomainDef>> {
-        Ok(Self::load_file(path)?.1)
+        Ok(Self::load_file(path)?.2)
     }
 
-    /// Load an ontology file, returning its declared interpretant alongside its
-    /// entries. An invalid interpretant is reported and replaced with the
-    /// default rather than failing the load: a bad feedback rule should not
-    /// cost the user the 900 entries in the same file.
-    pub fn load_file(
-        path: &Path,
-    ) -> anyhow::Result<(
-        Option<crate::models::Interpretant>,
-        HashMap<String, DomainDef>,
-    )> {
+    /// Load an ontology file, returning its declared interpretant and language
+    /// alongside its entries. An invalid interpretant is reported and replaced
+    /// with the default rather than failing the load: a bad feedback rule
+    /// should not cost the user the 900 entries in the same file.
+    pub fn load_file(path: &Path) -> anyhow::Result<OntologyLoad> {
         let contents = std::fs::read_to_string(path)?;
         Self::load_str(&contents, &path.display().to_string())
     }
 
     /// Parse domain definitions from a raw JSON string.
     pub fn load_from_str(json: &str) -> anyhow::Result<HashMap<String, DomainDef>> {
-        Ok(Self::load_str(json, "<embedded>")?.1)
+        Ok(Self::load_str(json, "<embedded>")?.2)
     }
 
-    /// Parse an ontology from JSON, returning its interpretant with its
-    /// entries. `label` only names the source in warnings.
-    pub fn load_str(
-        json: &str,
-        label: &str,
-    ) -> anyhow::Result<(
-        Option<crate::models::Interpretant>,
-        HashMap<String, DomainDef>,
-    )> {
+    /// Parse an ontology from JSON, returning its interpretant and language
+    /// with its entries. `label` only names the source in warnings. The
+    /// language code is normalised (trimmed, lowercased); empty means `None`.
+    pub fn load_str(json: &str, label: &str) -> anyhow::Result<OntologyLoad> {
         let config: OntologyConfig = serde_json::from_str(json)?;
         let interpretant = config.interpretant.and_then(|i| match i.validate() {
             Ok(()) => Some(i),
@@ -1084,16 +1100,20 @@ impl OntologyLoader {
                 None
             }
         });
-        Ok((interpretant, Self::entries_to_map(&config.domains)))
+        let language = config
+            .language
+            .map(|l| l.trim().to_lowercase())
+            .filter(|l| !l.is_empty());
+        Ok((
+            interpretant,
+            language,
+            Self::entries_to_map(&config.domains),
+        ))
     }
 
-    /// Load a built-in ontology with its interpretant.
-    pub fn load_builtin_full(
-        name: &str,
-    ) -> Option<(
-        Option<crate::models::Interpretant>,
-        HashMap<String, DomainDef>,
-    )> {
+    /// Load a built-in ontology with its interpretant (and language, always
+    /// `None` for built-ins — they are language-neutral).
+    pub fn load_builtin_full(name: &str) -> Option<OntologyLoad> {
         let (_, json) = BUILTIN_ONTOLOGIES.iter().find(|(n, _)| *n == name)?;
         Self::load_str(json, name).ok()
     }
@@ -1131,7 +1151,7 @@ impl OntologyLoader {
             let map = if let Some(ref path) = source.path {
                 if path.exists() {
                     match Self::load_file(path) {
-                        Ok((interpretant, map)) => {
+                        Ok((interpretant, _language, map)) => {
                             // Keyed by kind, so several files sharing a kind
                             // agree on how their signs are judged. Last one
                             // wins, matching how the domain maps merge.
@@ -1156,7 +1176,7 @@ impl OntologyLoader {
                 }
             } else {
                 match Self::load_builtin_full(&source.name) {
-                    Some((interpretant, map)) => {
+                    Some((interpretant, _language, map)) => {
                         if let Some(i) = interpretant {
                             loader.interpretants.insert(source.kind.clone(), i);
                         }
@@ -1215,7 +1235,7 @@ impl OntologyLoader {
         // Keyed by "kind:name" so identical entry names across files don't collide.
         for (kind, json) in EXTRA_ONTOLOGIES.iter() {
             match Self::load_str(json, kind) {
-                Ok((interpretant, map)) => {
+                Ok((interpretant, _language, map)) => {
                     // Keyed by the extra ontology's own name, not by the
                     // `custom` bucket it lands in: all 20 share that bucket,
                     // but each judges its signs differently — that difference
@@ -1236,6 +1256,11 @@ impl OntologyLoader {
         // way as baked extras — keyed "kind:name", interpretant honored. No
         // code change, no rebuild: an industry pack is data, and packs a
         // customer hasn't installed must not silently classify their files.
+        //
+        // Language packs (H6): a pack file may declare a top-level
+        // `"language"` code (`docs/examples/langpack_rust.json`). When
+        // `config.languages` is non-empty, a pack naming an unlisted
+        // language is skipped; packs with no language always load.
         let packs_dir = config.data_dir.join("packs");
         if let Ok(entries) = std::fs::read_dir(&packs_dir) {
             let mut paths: Vec<PathBuf> = entries
@@ -1246,7 +1271,20 @@ impl OntologyLoader {
             paths.sort(); // deterministic order across machines
             for path in paths {
                 match Self::load_file(&path) {
-                    Ok((interpretant, map)) => {
+                    Ok((interpretant, language, map)) => {
+                        if let Some(lang) = language {
+                            if !config.languages.is_empty()
+                                && !config.languages.iter().any(|l| {
+                                    l.trim().to_lowercase() == lang
+                                })
+                            {
+                                eprintln!(
+                                    "[physis] skipping pack '{}' (language '{lang}' not in `languages`)",
+                                    path.display()
+                                );
+                                continue;
+                            }
+                        }
                         // Pack identity = file stem, so interpretants and
                         // domains stay attributable to the pack that shipped them.
                         let kind = path
@@ -1842,6 +1880,63 @@ mod tests {
         assert!(loader
             .classification_domains()
             .any(|d| d.name == "Freight Booking"));
+    }
+
+    #[test]
+    fn test_language_packs_filter_by_config_languages() {
+        // H6: user-defined language packs — `languages` selects, empty loads
+        // everything (backward compatible with unmarked industry packs).
+        let dir = tempfile::tempdir().unwrap();
+        let packs = dir.path().join("packs");
+        std::fs::create_dir_all(&packs).unwrap();
+        for ex in [
+            "logistics_pack.json",
+            "langpack_rust.json",
+            "langpack_de.json",
+        ] {
+            std::fs::copy(
+                format!("{}/docs/examples/{ex}", env!("CARGO_MANIFEST_DIR")),
+                packs.join(ex),
+            )
+            .unwrap();
+        }
+        let with = |languages: Vec<String>| {
+            OntologyLoader::load_all(&PhysisConfig {
+                data_dir: dir.path().to_path_buf(),
+                languages,
+                ..Default::default()
+            })
+        };
+
+        let open = with(vec![]);
+        assert!(open
+            .custom_domains
+            .contains_key("langpack_rust:Borrow Checker"));
+        assert!(open
+            .custom_domains
+            .contains_key("langpack_de:Schichtbericht"));
+
+        let rust_only = with(vec!["rust".to_string()]);
+        assert!(rust_only
+            .custom_domains
+            .contains_key("langpack_rust:Borrow Checker"));
+        assert!(
+            !rust_only
+                .custom_domains
+                .keys()
+                .any(|k| k.starts_with("langpack_de:")),
+            "unselected language pack must not load"
+        );
+        // Packs with no language always load, even under a selection.
+        assert!(rust_only
+            .custom_domains
+            .contains_key("logistics_pack:Freight Booking"));
+
+        // Selection is case-insensitive: file config and env agree.
+        let upper = with(vec!["RUST".to_string()]);
+        assert!(upper
+            .custom_domains
+            .contains_key("langpack_rust:Borrow Checker"));
     }
 
     #[test]

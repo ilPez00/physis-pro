@@ -415,7 +415,7 @@ mod tests {
         // Round-trips through the real loader — the only proof that what the
         // studio writes is what the engine can read.
         let json = serde_json::to_string(&doc).unwrap();
-        let (_, map) = crate::config::OntologyLoader::load_str(&json, "logistics").unwrap();
+        let (_, _, map) = crate::config::OntologyLoader::load_str(&json, "logistics").unwrap();
         assert_eq!(map.len(), 1);
     }
 

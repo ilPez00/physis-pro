@@ -4543,7 +4543,7 @@ async fn ontology_packs_can_be_authored_listed_read_and_deleted() {
     let path = dir.path().join("packs/logistics-demo.json");
     assert!(path.exists(), "pack written to {}", path.display());
     let on_disk = std::fs::read_to_string(&path).unwrap();
-    let (_, loaded) = physis_pro::config::OntologyLoader::load_str(&on_disk, "logistics-demo")
+    let (_, _, loaded) = physis_pro::config::OntologyLoader::load_str(&on_disk, "logistics-demo")
         .expect("the engine's own loader reads what the studio wrote");
     assert_eq!(loaded.len(), 2);
 

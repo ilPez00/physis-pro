@@ -947,6 +947,12 @@ pub struct OntologyConfig {
     /// that only works if absence survives deserialisation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub interpretant: Option<Interpretant>,
+    /// Language-pack code (H6, e.g. `"it"`, `"rust"`). `None` (the default,
+    /// and every built-in file) means the entries are language-neutral and
+    /// always load; `Some` restricts a `{data_dir}/packs/` file to configs
+    /// whose `languages` list names it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
     pub domains: Vec<OntologyEntry>,
 }
 

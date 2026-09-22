@@ -5,10 +5,13 @@
 //!    embedder. It does NOT assert semantic accuracy (RP is non-semantic) — it
 //!    guards the wiring: every cell scored, sorted, finite, deterministic,
 //!    non-empty. This catches regressions like "classify returns []".
-//!  - `accuracy_floor` is `#[ignore]` because it needs the real Jina model on
-//!    disk. Run locally with `cargo test --features full -- --ignored`. It
-//!    asserts top-1 DOMAIN accuracy on a curated fixture set stays above a
-//!    floor, which also surfaces P0 (a degraded model scores ~random ≈ 0.2).
+//!  - `accuracy_floor` is `#[ignore]` because it needs a real model on disk.
+//!    Run locally with `cargo test --features full -- --ignored`. It asserts
+//!    top-1 DOMAIN accuracy on a curated fixture set stays above a floor,
+//!    which also surfaces P0 (a degraded model scores ~random ≈ 0.2). H6: it
+//!    FAILS (not skips) with no model on disk, so a missing download can
+//!    never read as green — `predeploy.sh` runs it only when a model file
+//!    exists, with `SKIP_ACCURACY=1` as the explicit opt-out.
 
 use physis_pro::classify::CellClassifier;
 use physis_pro::config::{OntologyLoader, PhysisConfig};
@@ -172,10 +175,12 @@ fn real_embedder() -> Option<(Box<dyn VectorEmbed>, &'static str)> {
 fn accuracy_floor() {
     let (embedder, model_kind) = match real_embedder() {
         Some((e, k)) => (e, k),
-        None => {
-            eprintln!("SKIP accuracy_floor: no real model on disk (jina/minilm)");
-            return;
-        }
+        // H6: a missing model is a hard failure, never a silent pass — an
+        // accuracy gate that skips is decoration, and predeploy.sh already
+        // guards the no-model case with SKIP_ACCURACY=1.
+        None => panic!(
+            "FAIL accuracy_floor: no real model on disk (checked models/jina-clip-v2, models/bge-base-en-v1.5, models/bge-m3, models/model.onnx)"
+        ),
     };
     // Only multilingual models are held to the Italian floor — an
     // English-only encoder was never expected to carry cross-lingual queries

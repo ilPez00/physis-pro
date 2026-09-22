@@ -1,0 +1,12 @@
+{
+  "kind": "rust",
+  "language": "rust",
+  "domains": [
+    {"name":"Borrow Checker","category":"Rust","domain":"STUDY","mode":"COGNITION","axis_kind":"rust","axis_name":"ownership","unit":"errors","hints":["borrow checker","borrowck","lifetime","mutable borrow","shared borrow","dangling reference"]},
+    {"name":"Cargo Build","category":"Rust","domain":"CONSTRUCT","mode":"CREATE","axis_kind":"rust","axis_name":"tooling","unit":"builds","hints":["cargo build","cargo test","cargo clippy","compilation","crate graph","feature flags"]},
+    {"name":"Async Runtime","category":"Rust","domain":"CONSTRUCT","mode":"MOTION","axis_kind":"rust","axis_name":"concurrency","unit":"tasks","hints":["tokio","async await","spawn task","future","executor","channel send"]},
+    {"name":"Error Handling","category":"Rust","domain":"HEAL","mode":"MAINTAIN","axis_kind":"rust","axis_name":"correctness","unit":"sites","hints":["Result type","anyhow","thiserror","panic","unwrap","question mark operator"]},
+    {"name":"Macro Expansion","category":"Rust","domain":"FABRICATE","mode":"CREATE","axis_kind":"rust","axis_name":"metaprogramming","unit":"macros","hints":["macro_rules","derive macro","proc macro","code generation","attribute macro"]},
+    {"name":"Trait System","category":"Rust","domain":"BOND","mode":"COGNITION","axis_kind":"rust","axis_name":"abstraction","unit":"impls","hints":["trait bound","trait object","dyn Trait","orphan rule","associated type","impl block"]}
+  ]
+}

@@ -48,7 +48,7 @@ pub async fn planner_simulate_handler(
     }
     let shared = state.shared.clone();
     let result = tokio::task::spawn_blocking(move || -> anyhow::Result<PlannerSimulation> {
-        let (_, candidate_domains) = OntologyLoader::load_str(
+        let (_, _, candidate_domains) = OntologyLoader::load_str(
             &req.candidate_ontology,
             &format!("planner:{}", req.scenario_id),
         )?;
