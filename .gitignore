@@ -52,3 +52,4 @@ benchmarks/behaviour/sessions.json
 target-*/
 # machine-generated run logs
 logs/
+.aider*

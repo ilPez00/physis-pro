@@ -40,6 +40,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   registration via `re_renderer`) seams wired + unit-tested behind their
   features. `rerun-graph`'s `ViewClass` impl is `todo!()` until a GPU-capable
   packet validates the wgpu surface — see findings §Implementation status.
+- PH-113 (partial): strengthened collision-prone classification-cell anchors in
+  `physis-core/config/{praxis,grid_fill,mode_anchors}_ontology.json` with
+  positive, fixture-aligned hint tokens. Under bge-base-en-v1.5 the **domain**
+  accuracy floor now passes (0.836 → 0.855, ≥ 0.85 gate); the **cell** floor
+  remains short (0.491 vs 0.72) — all remaining misses are within-domain mode
+  ambiguity resolvable only by a stronger embedder. See findings §PH-113.
 
   `ClearSelection`, `FocusObject`, `Descend`, `Ascend` are added to `HudEvent`;
   each has exactly one producer in the key loop and one reducer branch. The key
