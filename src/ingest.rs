@@ -221,12 +221,21 @@ fn walk_and_ingest(dir: &Path, docs: &mut Vec<IngestedDoc>) -> std::io::Result<(
 /// (txt/md/csv/log) is a plain UTF-8 read. Spreadsheets stay raw unless the
 /// `ingest` feature (calamine) is on — kept simple here; the backoffice layer
 /// handles XLSX semantics separately.
+///
+/// PH-015 + PH-102: a text file misclassified into a binary/feature-gated
+/// kind must never return an empty body. The guard is an extension check:
+/// only the genuine binary extension for a kind is allowed to return empty
+/// (when its feature is off). Any other extension means the file is really
+/// UTF-8 text whose bytes ARE the body — route it through `read_to_string`.
 fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
-    // A text file misclassified into a binary/feature-gated kind silently
-    // loses its body (PH-015: `invoices.md` matched "voice" and ingested as
-    // empty). Guard the gate: a real UTF-8 text file is never an empty body,
-    // whatever the kind claims. Only genuine binary extensions (no valid UTF-8
-    // text on disk) may return empty.
+    // PH-015/PH-102: genuine binary extension per kind — only these may be
+    // empty when the feature is off. A text file that landed here by a
+    // misclassification keeps its body.
+    let is_binary_ext = |p: &Path, exts: &[&str]| {
+        p.extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|ext| exts.contains(&ext))
+    };
     match kind {
         #[cfg(feature = "pdf")]
         DocKind::Invoice => {
@@ -238,21 +247,47 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
             }
         }
         #[cfg(not(feature = "pdf"))]
-        DocKind::Invoice => (String::new(), DocMeta::default()),
+        DocKind::Invoice => {
+            // PH-102: .pdf is the only genuine binary ext for Invoice. Anything
+            // else (e.g. invoices.md misclassified) keeps its UTF-8 bytes.
+            if is_binary_ext(path, &["pdf"]) {
+                (String::new(), DocMeta::default())
+            } else {
+                let raw = std::fs::read_to_string(path).unwrap_or_default();
+                (raw, DocMeta::default())
+            }
+        }
         #[cfg(feature = "email")]
         DocKind::Email => match extract_email(path) {
             Ok((text, meta)) => (text, meta),
             Err(_) => (String::new(), DocMeta::default()),
         },
         #[cfg(not(feature = "email"))]
-        DocKind::Email => (String::new(), DocMeta::default()),
+        DocKind::Email => {
+            // PH-102: .eml/.msg are the genuine binary exts; otherwise text survives.
+            if is_binary_ext(path, &["eml", "msg"]) {
+                (String::new(), DocMeta::default())
+            } else {
+                let raw = std::fs::read_to_string(path).unwrap_or_default();
+                (raw, DocMeta::default())
+            }
+        }
         #[cfg(feature = "ocr")]
         DocKind::OcrDocument => match extract_ocr(path) {
             Ok((text, meta)) => (text, meta),
             Err(_) => (String::new(), DocMeta::default()),
         },
         #[cfg(not(feature = "ocr"))]
-        DocKind::OcrDocument => (String::new(), DocMeta::default()),
+        DocKind::OcrDocument => {
+            // PH-102: .png/.jpg/.jpeg/.tiff/.pdf are genuine scanned-document exts;
+            // a .md forced here keeps its body.
+            if is_binary_ext(path, &["png", "jpg", "jpeg", "tiff", "pdf"]) {
+                (String::new(), DocMeta::default())
+            } else {
+                let raw = std::fs::read_to_string(path).unwrap_or_default();
+                (raw, DocMeta::default())
+            }
+        }
         #[cfg(feature = "audio")]
         DocKind::VoiceTranscript => match extract_audio_transcript(path) {
             Ok((text, _meta)) => (text, DocMeta::default()),
@@ -281,25 +316,51 @@ fn extract_doc(path: &Path, kind: DocKind) -> (String, DocMeta) {
             Err(_) => (String::new(), DocMeta::default()),
         },
         #[cfg(not(feature = "ingest"))]
-        DocKind::Spreadsheet => (String::new(), DocMeta::default()),
+        DocKind::Spreadsheet => {
+            // PH-102: .xlsx/.xls/.csv are genuine binary exts; otherwise text survives.
+            if is_binary_ext(path, &["xlsx", "xls", "csv"]) {
+                (String::new(), DocMeta::default())
+            } else {
+                let raw = std::fs::read_to_string(path).unwrap_or_default();
+                (raw, DocMeta::default())
+            }
+        }
         DocKind::Image => {
             // Images are embedded directly; text extraction uses OCR when available.
+            // PH-102: even with `ocr` off, a non-image extension routed here
+            // (misclassified text) keeps its body — only genuine image exts are empty.
             #[cfg(feature = "ocr")]
             {
-                extract_ocr(path)
-                    .map(|(t, _)| (t, DocMeta::default()))
-                    .unwrap_or((String::new(), DocMeta::default()))
+                if is_binary_ext(path, &["png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif"]) {
+                    extract_ocr(path)
+                        .map(|(t, _)| (t, DocMeta::default()))
+                        .unwrap_or((String::new(), DocMeta::default()))
+                } else {
+                    let raw = std::fs::read_to_string(path).unwrap_or_default();
+                    (raw, DocMeta::default())
+                }
             }
             #[cfg(not(feature = "ocr"))]
             {
-                (String::new(), DocMeta::default())
+                if is_binary_ext(path, &["png", "jpg", "jpeg", "webp", "bmp", "tiff", "gif"]) {
+                    (String::new(), DocMeta::default())
+                } else {
+                    let raw = std::fs::read_to_string(path).unwrap_or_default();
+                    (raw, DocMeta::default())
+                }
             }
         }
         DocKind::Video => {
             // Video is embedded directly via ffmpeg frames. We extract minimal
             // metadata but rely on the video embedding module for vectors.
-            let meta = extract_video_metadata(path);
-            (String::new(), meta)
+            // PH-102: a non-video extension forced to Video keeps its body.
+            if is_binary_ext(path, &["mp4", "avi", "mov", "mkv", "webm", "wmv"]) {
+                let meta = extract_video_metadata(path);
+                (String::new(), meta)
+            } else {
+                let raw = std::fs::read_to_string(path).unwrap_or_default();
+                (raw, DocMeta::default())
+            }
         }
         _ => {
             // Plain text-like files: best-effort UTF-8.
@@ -844,5 +905,76 @@ mod tests {
         assert_eq!(meta.vendor.as_deref(), Some("ACME INDUSTRIES S.P.A."));
         assert_eq!(meta.doc_number.as_deref(), Some("2026-088"));
         assert_eq!(meta.date.as_deref(), Some("2026-05-10"));
+    }
+
+    // PH-102: a UTF-8 text file forced into a binary/feature-gated kind must
+    // never ingest an empty body. Each test forces a `.md` path into the kind
+    // and asserts the body survives — these fail before the guard, pass after.
+    // Genuine binaries (real exts) remain empty when their feature is off.
+
+    fn text_body_for(kind: DocKind, content: &str) -> String {
+        let tmp = std::env::temp_dir().join(format!("physis_ph102_{kind:?}.md"));
+        std::fs::write(&tmp, content).unwrap();
+        let (body, _meta) = extract_doc(&tmp, kind);
+        let _ = std::fs::remove_file(&tmp);
+        body
+    }
+
+    #[test]
+    fn misclassified_text_body_survives_invoice_ph102() {
+        let body = text_body_for(DocKind::Invoice, "invoices are contracts");
+        assert_eq!(body, "invoices are contracts", "Invoice on a .md keeps its body");
+    }
+
+    #[test]
+    #[cfg(not(feature = "email"))]
+    fn misclassified_text_body_survives_email_ph102() {
+        let body = text_body_for(DocKind::Email, "email is just text");
+        assert_eq!(body, "email is just text", "Email on a .md keeps its body");
+    }
+
+    #[test]
+    #[cfg(not(feature = "email"))]
+    fn genuine_email_binary_stays_empty_ph102() {
+        let mut tmp = std::env::temp_dir().join("physis_ph102_real.eml");
+        std::fs::write(&tmp, [0u8]).unwrap();
+        let (body, _) = extract_doc(&tmp, DocKind::Email);
+        let _ = std::fs::remove_file(&tmp);
+        assert!(body.is_empty());
+    }
+
+    #[test]
+    fn misclassified_text_body_survives_ocr_document_ph102() {
+        let body = text_body_for(DocKind::OcrDocument, "ocr fallback text");
+        assert_eq!(body, "ocr fallback text", "OcrDocument on a .md keeps its body");
+    }
+
+    #[test]
+    fn misclassified_text_body_survives_spreadsheet_ph102() {
+        let body = text_body_for(DocKind::Spreadsheet, "sheets are text too");
+        assert_eq!(body, "sheets are text too", "Spreadsheet on a .md keeps its body");
+    }
+
+    #[test]
+    fn misclassified_text_body_survives_image_ph102() {
+        let body = text_body_for(DocKind::Image, "image is a label");
+        assert_eq!(body, "image is a label", "Image on a .md keeps its body");
+    }
+
+    #[test]
+    fn misclassified_text_body_survives_video_ph102() {
+        let body = text_body_for(DocKind::Video, "video is text too");
+        assert_eq!(body, "video is text too", "Video on a .md keeps its body");
+    }
+
+    #[test]
+    fn genuine_binary_extensions_stay_empty_ph102() {
+        // A real .pdf (binary) routes through Invoice → empty when pdf feature off.
+        // We only assert the guard did not read a bogus UTF-8 body.
+        let tmp = std::env::temp_dir().join("physis_ph102_binary.pdf");
+        std::fs::write(&tmp, [0xFFu8, 0xD8, 0xFF]).unwrap();
+        let (body, _meta) = extract_doc(&tmp, DocKind::Invoice);
+        let _ = std::fs::remove_file(&tmp);
+        assert!(body.is_empty(), "genuine .pdf stays empty without pdf feature");
     }
 }
