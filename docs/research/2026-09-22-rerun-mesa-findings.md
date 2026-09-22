@@ -181,5 +181,18 @@ test result: FAILED. CORE 0.836 below floor 0.85
 ```
 Identical 0.836 vs H6 branch HEAD — H6 language-pack config did **not** regress classification; the floor's comment number (claimed 0.891, 2026-08-24) is stale. Floor is fail-hard (by design) and `#[ignore]`d; predeploy guards with `SKIP_ACCURACY=1` / model-presence check. No `tests/classification.rs` floor change made here — left for a dedicated calibration packet.
 
-## Caveats / NOT-MEASURED
-`physis-core/src/*` internals (listed only); `src/bin/hud.rs` render loop; MCP tool count (AGENTS.md claims 30 for physis_system); `nav_old/` still-referenced check; Rerun `ViewClassRegistry` definition (`re_viewer_context`); exact `to_arrow` symbol hits; cross-repo dependency weights (no build).
+## H6 floor decision
+Baseline on parent `0fc6a94` scored 0.836, identical to `agent/H6-langpacks`;
+H6 is not the cause. Decision: **no code change to the test or to H6** — the
+floor is deliberately fail-hard and `#[ignore]`d; the stale 0.891 comment
+predates this session and 0.836 is a calibration issue, not an H6 regression.
+A dedicated packet (`PH-113-floor-calibration`) owns the 0.836→target decision;
+this programme does not touch it.
+
+## Caveats / NOT-MEASURED (updated 2026-09-22 gap pass)
+- Physis: `src/bin/hud.rs` now measured — 9-view enum (`World/Graph/Semantic/Notebook/Tasks/Agents/Settings/Setup/Help`, `bin/hud.rs:448-471`), single ratatui `draw(f,&App)` + `View::from_name` CI snapshots.
+- Physis: `physis-core` measured — 53 files (`lib.rs:184-222` modules); seams `ontology::OntologyLoader:327`, `classify::Cell/CellClassifier:91`, `embed::VectorEmbed` trait + `RandomProjectionEmbedder:69` + `select:228`.
+- MCP tools **verified 30** (`grep -oE 'tool("' src/mcp.rs` = 30); `physis_system` is the separate system MCP server (`.opencpn/opencode.json:10`).
+- Rerun: `ViewClass` trait `viewer_support/re_viewer_context/src/view/view_class.rs:156`; `ViewClassRegistry` `view_class_registry.rs:199`/`new_context_collection:471` — now backed.
+- Rerun blueprint Arrow coupling is `FromArrow` (`re_viewport_blueprint/src/view_contents.rs:18`), not `ArrowWriteable` — corrected.
+- Remaining NOT-MEASURED: cross-repo dependency weights (no rerun build); exact `WorldObject`→`WorldObjectId` identity-mapping lines beyond `world_object.rs` (confirmed present, used by HUD lenses); `nav_old/` still-referenced check.
