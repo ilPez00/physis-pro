@@ -945,6 +945,16 @@ scanner` 6 passed; headless matrix 9/9 rc=0 LEXICAL ONLY).
 Sequencing authority for the HUD programme:
 `docs/plans/2026-09-20-physis-hud.md`.
 
+Status was re-measured 2026-09-22 (newest dated note wins; the 2026-09-21 and
+earlier tables are history) — frontmatter over `packets/*.md`, template
+excluded: 16 `review` (PH-001, PH-013, PH-015, PH-024–PH-029, PH-100, PH-101,
+PH-CORE-A4, PH-CORE-RETIREMENT, PH-ORCH-ROUTER, MS-002-harness, MS-003),
+2 `todo` (PH-011-2026-10, PH-011-2026-12 claimed this sweep),
+7 `blocked` (PH-006, PH-023, MS-004–MS-008), rest `done`.
+Board deltas since 2026-09-21: PH-028 re-measured 16 775 bge-base:768 objects
+(188 MB); PH-030 + MS-003 in `review`; PH-100 7 proposals delivered;
+`physis-hud` bin 47 passed (was 45); lib 1213 passed +1 ignored.
+
 Status was re-measured 2026-09-11 on `research/perspective-invention`:
 
 | id | phase | status | one-line |
