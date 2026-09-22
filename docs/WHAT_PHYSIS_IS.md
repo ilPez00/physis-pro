@@ -4,8 +4,9 @@
 
 This file exists because three separate attempts in one session compressed a
 190-module, ~113k-line system into a single noun, and all three were wrong
-(the 190 is from that session; measured 2026-09-21 it is **251 `.rs` files**,
-`find src -name '*.rs' | wc -l` — 242 on 2026-09-20, so re-measure rather than
+(the 190 is from that session; measured 2026-09-22 it is **255 `.rs` files**,
+`find src -name '*.rs' | wc -l` — 253 on 2026-09-21, 251 before PH-029, 242 on
+2026-09-20, so re-measure rather than
 quote):
 
 | attempt | claim | why it was wrong |
@@ -176,8 +177,8 @@ rather than a pointer to it. Measured against the shell an agent would otherwise
 run, that is 6051 tokens at 5/5 answers-in-context against 14179 at 5/5 for
 `grep … | head` then `cat`.
 
-Counts: **physis-core 46 modules / 22.7k lines (Apache-2.0)** ·
-**physis_pro 140+ modules / ~90k lines (proprietary)**.
+Counts (measured 2026-09-22): **physis-core 50 modules / ~27.8k lines (Apache-2.0)** ·
+**physis_pro 140+ modules / ~131k lines (proprietary)**.
 
 ---
 

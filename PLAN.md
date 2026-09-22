@@ -4320,7 +4320,8 @@ or promotion follows from a thesis/evaluation section.
 ## Phase 33 — Physis Cortex: hardware-transparent semantic layer (2026-09-20)
 
 Docs-only proposal; no code committed. Plans: `docs/plans/2026-09-20-cortex-pro.md`
-and `physis-core/docs/plans/2026-09-20-cortex-core.md`. Packet: `packets/PH-101`.
+and `physis-core/docs/plans/2026-09-20-cortex-core.md`. Packet: `packets/PH-101`
+(`review`).
 
 The neural models are NOT the world model. Physis owns objects, graph, relations,
 schemas, invariants, files, services, processes, sensors, devices, actions,
@@ -4342,3 +4343,13 @@ Priority per the standing order (P0 demo + slice integrity first, then P1-P4):
 this is **P4** — it waits on its own plan entry, reviewer release and a frozen
 manifest before any holdout. It does not touch the demo slice, the HUD surface,
 the agent-native programme or the industrial pilot path.
+
+**Progress 2026-09-22 (branch `agent/PH-101`).** Code now exists for Tasks 1–7
+(core: `backend` `devices` `cortex/{encoder,latent,retrieval,router}`,
+`bench::run_backend_table`, `physis-core hardware` CLI, `tests/cortex_contract.rs`
+9 tests) and Tasks 9–11 (pro: `EmbedderConfig.backend` override + registry
+resolution, `src/cortex/` provenance-tagged IR with validator→adapter,
+`agents::routing::route_hardware`). Remaining: Tasks 12–15 (compile,
+HUD overlay, training signals, `benchmarks/` tables) and the packet's
+`--features embed-onnx` contract run (skipped: `ort_sys` link fails on this
+box per repo history). Report: `packets/reports/PH-101.md`.
