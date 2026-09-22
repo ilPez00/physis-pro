@@ -58,8 +58,8 @@ Execution hot path (checked 2026-09-17, evidence in `src/web/search.rs`,
    tenant lock (dot product, same contract as `concepts_search_handler`) and
    keeps only the top `4×top_k` (floor 32) before the MMR token packer — the
    full-store id/label/384-dim-embedding clone per request is gone. Serves
-   `/api/v1/search/nodes` + `/api/v1/ask`. Verified: 1033/1033 lib tests,
-   `http_surface` search (5) + ask (3) suites green.
+   `/api/v1/search/nodes` + `/api/v1/ask`. Re-measured 2026-09-22: 1222 lib tests listed
+   (`--list`), `http_surface` search (5) + ask (3) suites green.
 7. Already-fast, leave alone: per-query `embed_text` (spawn_blocking, no cache —
    one model call, fine); `EmbedCache` load/save per batch (scan/pack path only,
    not per-request); token trie per-invocation (CLI only).

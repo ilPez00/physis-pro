@@ -178,7 +178,7 @@ run, that is 6051 tokens at 5/5 answers-in-context against 14179 at 5/5 for
 `grep … | head` then `cat`.
 
 Counts (measured 2026-09-22): **physis-core 50 modules / ~27.8k lines (Apache-2.0)** ·
-**physis_pro 140+ modules / ~131k lines (proprietary)**.
+**physis_pro 116 modules / ~131k lines (proprietary)**.
 
 ---
 
