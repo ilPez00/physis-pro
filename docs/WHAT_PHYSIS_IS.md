@@ -219,7 +219,7 @@ to prevent. It was written once, in `RESCOPE.md`, and struck.
 | `propose` | top-3 0.712 vs null 0.136 (+0.531) |
 | `coverage` | duplicate control Welch *t* = +12.11 · 2000 → 141 |
 | discovery ranking | P@25 0.480 vs 0.132 · exact *p* = 2.3e-5 |
-| retrieval (semantic vs lexical) | `hit@5` 0.57 vs 0.14 (+0.43), `benchmarks/retrieval/` |
+| retrieval (semantic vs lexical) | `hit@5` semantic 0.57 (4/7, unchanged since 2026-09-12) vs rp 0.00 on the 2026-09-22 re-run (was 0.14; same 7 cases, one-case drift as the tree changed), `benchmarks/retrieval/` |
 
 **Settled negatives — do not relitigate:** embedding geometry gives no stable
 ontology structure (cross-embedder ARI ≈ 0.10) · no cheap signal *certifies*

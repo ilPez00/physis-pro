@@ -58,7 +58,7 @@ Execution hot path (checked 2026-09-17, evidence in `src/web/search.rs`,
    tenant lock (dot product, same contract as `concepts_search_handler`) and
    keeps only the top `4×top_k` (floor 32) before the MMR token packer — the
    full-store id/label/384-dim-embedding clone per request is gone. Serves
-   `/api/v1/search/nodes` + `/api/v1/ask`. Re-measured 2026-09-22: 1222 lib tests listed
+   `/api/v1/search/nodes` + `/api/v1/ask`. Re-measured 2026-09-22: 1220 lib tests listed
    (`--list`), `http_surface` search (5) + ask (3) suites green.
 7. Already-fast, leave alone: per-query `embed_text` (spawn_blocking, no cache —
    one model call, fine); `EmbedCache` load/save per batch (scan/pack path only,
@@ -954,6 +954,21 @@ PH-CORE-A4, PH-CORE-RETIREMENT, PH-ORCH-ROUTER, MS-002-harness, MS-003),
 Board deltas since 2026-09-21: PH-028 re-measured 16 775 bge-base:768 objects
 (188 MB); PH-030 + MS-003 in `review`; PH-100 7 proposals delivered;
 `physis-hud` bin 47 passed (was 45); lib 1213 passed +1 ignored.
+
+Status was re-measured 2026-09-22, PH-011-2027-01 sweep (newest dated note
+wins; all notes above are history, not rewritten) — frontmatter over
+`packets/*.md`, template excluded: 17 `review` (PH-001, PH-011-2026-11,
+PH-011-2026-12, PH-013, PH-015, PH-024–PH-029, PH-101, PH-CORE-A4,
+PH-CORE-RETIREMENT, PH-ORCH-ROUTER, MS-002-harness, MS-003), 1 `claimed`
+(PH-011-2027-01, this sweep), 1 `todo` (PH-100-discovery), 7 `blocked`
+(PH-006, PH-023, MS-004–MS-008), 27 `done`. Clarifications to the December
+note above, which stands: its `review` list names PH-100, but
+`packets/PH-100-discovery.md` frontmatter is and was `todo` — the 7 proposals
+(PH-030…PH-036) were delivered on branches `agent/PH-100` + `agent/PH-030-pre`
+(commit `759817f`, `packets/PH-1xx-proposals.md`, 307 lines) and are not on
+this tree; likewise no `packets/PH-030*.md` file exists here, so "PH-030 in
+`review`" holds only on that branch. Evidence: `packets/reports/PH-011.md`
+§January sweep.
 
 Status was re-measured 2026-09-11 on `research/perspective-invention`:
 
