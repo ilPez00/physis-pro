@@ -2,7 +2,7 @@
 id: MS-003
 track: multiscale-structure
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [MS-001]
 gate: "Independent reviewer verifies the acceptance criteria below and reproduction commands in packets/reports/MS-003.md"
