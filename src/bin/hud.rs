@@ -349,6 +349,94 @@ enum Row {
     Hit(NavHit),
 }
 
+/// The three fields that form one atomic result: the ranked list of nav hits,
+/// their Ratatui projection (rows), and the cursor into that projection.
+///
+/// All three are constructed together in `ResultState::new` so they can never
+/// be independently mutated into an inconsistent state. The `App` owns one
+/// `ResultState` and writes it only through `set_results()` (which calls
+/// `ResultState::new`) or `back()` (which restores a saved snapshot).
+///
+/// In `debug` builds the constructor asserts the invariant: `sel` points at a
+/// `Row::Hit`, or the hits list is empty.
+#[derive(Default)]
+struct ResultState {
+    hits: Vec<NavHit>,
+    rows: Vec<Row>,
+    /// Index of the currently highlighted row in `rows`. Always points at a
+    /// `Row::Hit` when `hits` is non-empty.
+    sel: usize,
+}
+
+impl ResultState {
+    /// Build all three fields atomically. `zoomed_out` controls whether the
+    /// rows include a directory-rollup prefix (phase 32 aggregate view).
+    fn new(hits: Vec<NavHit>, zoomed_out: bool) -> Self {
+        let mut rows: Vec<Row> = Vec::new();
+        if zoomed_out {
+            for (dir, n) in aggregate_dirs(&hits, 60) {
+                rows.push(Row::Dir(dir, n));
+            }
+            for (group, group_hits) in nav::group_hits(&hits) {
+                rows.push(Row::Header(group.label().to_string(), group_hits.len()));
+                for h in group_hits.iter().take(20) {
+                    rows.push(Row::Hit((*h).clone()));
+                }
+            }
+        } else {
+            for (group, group_hits) in nav::group_hits(&hits) {
+                rows.push(Row::Header(group.label().to_string(), group_hits.len()));
+                for h in group_hits {
+                    rows.push(Row::Hit(h.clone()));
+                }
+            }
+        }
+        let sel = rows
+            .iter()
+            .position(|r| matches!(r, Row::Hit(_)))
+            .unwrap_or(0);
+        #[cfg(debug_assertions)]
+        if !hits.is_empty() {
+            assert!(
+                matches!(rows.get(sel), Some(Row::Hit(_))),
+                "ResultState invariant: sel={sel} must point at Row::Hit when hits is non-empty \
+                 (rows={:?})",
+                rows.iter()
+                    .map(|r| match r {
+                        Row::Hit(_) => "Hit",
+                        Row::Header(_, _) => "Header",
+                        Row::Dir(_, _) => "Dir",
+                    })
+                    .collect::<Vec<_>>()
+            );
+        }
+        Self { hits, rows, sel }
+    }
+
+    /// Restore a previously saved snapshot (used by `back()`).
+    fn restore(hits: Vec<NavHit>, rows: Vec<Row>, sel: usize) -> Self {
+        #[cfg(debug_assertions)]
+        if !hits.is_empty() {
+            assert!(
+                matches!(rows.get(sel), Some(Row::Hit(_))),
+                "ResultState invariant: restored sel={sel} must point at Row::Hit"
+            );
+        }
+        Self { hits, rows, sel }
+    }
+
+    /// Re-project the same hits into caller-built rows (used by `enter_dir`,
+    /// which filters rows to one directory). `sel` is recomputed to the first
+    /// hit row so the triple stays atomic; same debug invariant as `new`.
+    fn with_rows(hits: Vec<NavHit>, rows: Vec<Row>) -> Self {
+        let sel = rows
+            .iter()
+            .position(|r| matches!(r, Row::Hit(_)))
+            .unwrap_or(0);
+        Self::restore(hits, rows, sel)
+    }
+}
+
 /// World contexts the demo pane shows on demand. Kept in the App (not the
 /// world) because they are projections of existing state — never new stores.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2017,9 +2105,10 @@ struct App {
     query: String,
     typing: bool,
     editor: Option<EditBuffer>,
-    hits: Vec<NavHit>,
-    rows: Vec<Row>,
-    sel: usize,
+    /// Atomic result state: the ranked hits, their row projection, and the
+    /// cursor. Always written through `set_results()` or `back()`; never
+    /// mutated field-by-field.
+    rs: ResultState,
     list_state: ListState,
 
     selected: Vec<NavHit>,
@@ -2027,9 +2116,9 @@ struct App {
     reading: Option<(String, String)>,
     /// Right pane: explanation of the selected object.
     explain: String,
-    /// Zoom stack of (query, hits, rows, sel) so Esc climbs out with the
+    /// Zoom stack of (query, ResultState) so Esc climbs out with the
     /// trail intact (§8, §12).
-    stack: Vec<(String, Vec<NavHit>, Vec<Row>, usize)>,
+    stack: Vec<(String, ResultState)>,
     crumbs: Vec<String>,
     /// Status line (pins, notebook handoff, degraded mode notices).
     status: String,
@@ -2215,9 +2304,7 @@ impl App {
             query: resume.map(|s| s.focus).unwrap_or_default(),
             typing: true,
             editor: None,
-            hits: Vec::new(),
-            rows: Vec::new(),
-            sel: 0,
+            rs: ResultState::default(),
             list_state: ListState::default(),
             selected: Vec::new(),
             reading: Some(("startup".into(), startup)),
@@ -2264,7 +2351,7 @@ impl App {
             .into_iter()
             .flatten()
             {
-                for h in &self.hits {
+                for h in &self.rs.hits {
                     if serde_json::to_string(&h.object.id).ok().as_ref() == Some(&key) {
                         let path = h
                             .object
@@ -2320,7 +2407,7 @@ impl App {
             }
         ));
         o.push_str("\nPRIMARY\n");
-        for h in self.hits.iter().take(3) {
+        for h in self.rs.hits.iter().take(3) {
             let path = h
                 .object
                 .source
@@ -2329,12 +2416,12 @@ impl App {
                 .unwrap_or_else(|| h.object.label.clone());
             o.push_str(&format!("  {:.2}  {path}\n", h.score.total));
         }
-        if self.hits.is_empty() {
+        if self.rs.hits.is_empty() {
             o.push_str("  (none)\n");
         }
         o.push_str("\nDEPENDENCIES\n");
         let targets: Vec<String> = self
-            .hits
+            .rs.hits
             .iter()
             .take(3)
             .map(|h| {
@@ -2383,7 +2470,7 @@ impl App {
             _ => o.push_str("  (no recorded changes this session)\n"),
         }
         o.push_str("\nWHY INCLUDED\n");
-        for h in self.hits.iter().take(3) {
+        for h in self.rs.hits.iter().take(3) {
             let path = h
                 .object
                 .source
@@ -2396,7 +2483,7 @@ impl App {
             ));
         }
         o.push_str("\nSOURCE (bounded)\n");
-        for h in self.hits.iter().take(2) {
+        for h in self.rs.hits.iter().take(2) {
             let title = h
                 .object
                 .source
@@ -2415,7 +2502,7 @@ impl App {
         // at startup/rescan; only the selection is counted live (≤8 reads).
         let ws_tokens = self.ws_tokens;
         let mut sel_tokens = 0usize;
-        for h in self.hits.iter().take(8) {
+        for h in self.rs.hits.iter().take(8) {
             let text = self.ws.read(&h.object).unwrap_or_default();
             sel_tokens += physis_pro::pack::tokens_of(&text);
         }
@@ -2808,13 +2895,13 @@ impl App {
             HudEffect::Reading { title, body } => self.reading = Some((title, body)),
             HudEffect::ClearPending => self.agent_pending = None,
             HudEffect::SetCursor { row } => {
-                let clamped = if self.rows.is_empty() {
+                let clamped = if self.rs.rows.is_empty() {
                     0
                 } else {
-                    row.min(self.rows.len() - 1)
+                    row.min(self.rs.rows.len() - 1)
                 };
                 self.focus_state.cursor = physis_pro::hud::world::Cursor::new(clamped);
-                self.sel = clamped;
+                self.rs.sel = clamped;
                 self.sync_list_state();
             }
         }
@@ -2912,7 +2999,7 @@ impl App {
         // match, a prefix match and a ranked hit are all weaker claims, and they
         // stay on the intent route where the provenance says `intent-ir`.
         let exact: Option<String> = self.ws.resolve_exact(&utterance).map(|o| spell_object_id(&o.id));
-        let matches: Vec<String> = self.hits.iter().take(5).map(spelling).collect();
+        let matches: Vec<String> = self.rs.hits.iter().take(5).map(spelling).collect();
         let resolution = intent::resolve_bare(&utterance, "operator", exact.as_deref(), &matches);
 
         if !self.semantic_on {
@@ -3303,7 +3390,7 @@ impl App {
         if let Some(obj) = obj {
             let id = obj.id.clone();
             if let Some(pos) = self
-                .rows
+                .rs.rows
                 .iter()
                 .position(|row| matches!(row, Row::Hit(h) if h.object.id == id))
             {
@@ -3335,10 +3422,8 @@ impl App {
             Ok(ws) => {
                 self.ws = ws;
                 self.query.clear();
-                self.hits.clear();
-                self.rows.clear();
+                self.rs = ResultState::default();
                 self.focus_state.cursor = physis_pro::hud::world::Cursor::new(0);
-                self.sel = 0;
                 self.selected.clear();
                 self.stack.clear();
                 self.crumbs.clear();
@@ -3846,7 +3931,7 @@ impl App {
 
     fn toggle_zoom(&mut self) {
         self.zoomed_out = !self.zoomed_out;
-        let hits = self.hits.clone();
+        let hits = self.rs.hits.clone();
         self.set_results(hits);
         self.status = if self.zoomed_out {
             "zoomed out: directory rollup (z toggles, Enter drills in)".into()
@@ -3911,65 +3996,43 @@ impl App {
     }
 
     fn set_results(&mut self, hits: Vec<NavHit>) {
-        self.rows = Vec::new();
-        if self.zoomed_out {
-            // Zoomed-out rollup: one row per directory, capped — never
-            // renders thousands of nodes because they exist.
-            for (dir, n) in aggregate_dirs(&hits, 60) {
-                self.rows.push(Row::Dir(dir, n));
-            }
-            // Keep object rows for selection/reading, after the rollup.
-            for (group, group_hits) in nav::group_hits(&hits) {
-                self.rows
-                    .push(Row::Header(group.label().to_string(), group_hits.len()));
-                for h in group_hits.iter().take(20) {
-                    self.rows.push(Row::Hit((*h).clone()));
-                }
-            }
-        } else {
-            for (group, group_hits) in nav::group_hits(&hits) {
-                self.rows
-                    .push(Row::Header(group.label().to_string(), group_hits.len()));
-                for h in group_hits {
-                    self.rows.push(Row::Hit(h.clone()));
-                }
-            }
-        }
-        self.hits = hits;
-        self.set_sel(
-            self.rows
-                .iter()
-                .position(|r| matches!(r, Row::Hit(_)))
-                .unwrap_or(0),
-        );
+        let sel = {
+            let next = ResultState::new(hits, self.zoomed_out);
+            let sel = next.sel;
+            self.rs = next;
+            sel
+        };
+        // Sync focus_state.cursor with the new sel (ResultState::new computes
+        // sel from rows; set_sel keeps focus_state in agreement).
+        self.set_sel(sel);
         self.update_explain();
     }
 
     /// Intent focus: band the current ranked hits HOT/WARM/COLD (Phase 32).
     /// Projection only — no second ranking, no model. Pins never demote.
     fn apply_focus(&mut self) {
-        let (hot, warm) = intent_paths(&self.hits);
+        let (hot, warm) = intent_paths(&self.rs.hits);
         self.intent_hot = hot;
         self.intent_warm = warm;
         self.zoomed_out = false;
-        self.set_results(self.hits.clone());
+        self.set_results(self.rs.hits.clone());
         self.status = format!(
             "attention: {} hot · {} warm · {} cold (F clears)",
             self.intent_hot.len(),
             self.intent_warm.len(),
-            self.hits.len().saturating_sub(8),
+            self.rs.hits.len().saturating_sub(8),
         );
     }
 
     fn clear_focus(&mut self) {
         self.intent_hot.clear();
         self.intent_warm.clear();
-        self.set_results(self.hits.clone());
+        self.set_results(self.rs.hits.clone());
         self.status = "attention cleared".into();
     }
 
     fn sync_list_state(&mut self) {
-        self.list_state.select(Some(self.sel));
+        self.list_state.select(Some(self.rs.sel));
     }
 
     /// The single dispatch boundary for navigation events (PH-029).
@@ -3987,7 +4050,7 @@ impl App {
     /// ```
     ///
     /// Every navigation mutation must go through here. Direct writes to
-    /// `self.sel` or `self.focus_state` outside of `apply_hud_effects` are
+    /// `self.rs.sel` or `self.focus_state` outside of `apply_hud_effects` are
     /// dual mutation paths and are the bug class PH-027 found.
     fn dispatch(&mut self, event: physis_pro::hud::event::HudEvent) {
         let effects = physis_pro::hud::event::reduce(&mut self.focus_state, &event);
@@ -3995,7 +4058,7 @@ impl App {
     }
 
     /// Apply the effects the reducer returned. This is the only function
-    /// allowed to write `self.sel` from a navigation event. It is intentionally
+    /// allowed to write `self.rs.sel` from a navigation event. It is intentionally
     /// not `pub` — the path is `dispatch → reduce → apply_hud_effects`, not
     /// a public mutation surface.
     fn apply_hud_effects(&mut self, effects: Vec<physis_pro::hud::event::HudEffect>) {
@@ -4004,15 +4067,15 @@ impl App {
             match effect {
                 HudEffect::SetCursor { row } => {
                     // Clamp to actual row count; the reducer does not know it.
-                    let clamped = if self.rows.is_empty() {
+                    let clamped = if self.rs.rows.is_empty() {
                         0
                     } else {
-                        row.min(self.rows.len() - 1)
+                        row.min(self.rs.rows.len() - 1)
                     };
                     // Sync to FocusState so the two stay in agreement.
                     self.focus_state.cursor =
                         physis_pro::hud::world::Cursor::new(clamped);
-                    self.sel = clamped;
+                    self.rs.sel = clamped;
                     self.sync_list_state();
                     self.update_explain();
                 }
@@ -4030,32 +4093,32 @@ impl App {
     }
 
     /// Set the cursor to an absolute row, clamping to actual row count and
-    /// keeping `self.sel` and `focus_state.cursor` in sync. Use this instead
-    /// of writing `self.sel` directly whenever the new position is already
+    /// keeping `self.rs.sel` and `focus_state.cursor` in sync. Use this instead
+    /// of writing `self.rs.sel` directly whenever the new position is already
     /// computed (e.g. after rebuilding rows) and routing through `MoveCursor`
     /// would require an awkward delta calculation.
     ///
     /// This is the same logic as `apply_hud_effects`'s `SetCursor` arm.
     fn set_sel(&mut self, row: usize) {
-        let clamped = if self.rows.is_empty() {
+        let clamped = if self.rs.rows.is_empty() {
             0
         } else {
-            row.min(self.rows.len() - 1)
+            row.min(self.rs.rows.len() - 1)
         };
         self.focus_state.cursor = physis_pro::hud::world::Cursor::new(clamped);
-        self.sel = clamped;
+        self.rs.sel = clamped;
         self.sync_list_state();
     }
 
     fn update_explain(&mut self) {
         self.explain.clear();
-        if let Some(Row::Dir(dir, n)) = self.rows.get(self.sel) {
+        if let Some(Row::Dir(dir, n)) = self.rs.rows.get(self.rs.sel) {
             // Directory rollup: expand into it on Enter.
             self.explain
                 .push_str(&format!("DIR {dir} ({n} hits)\nEnter drills in.\n"));
             return;
         }
-        if let Some(Row::Hit(h)) = self.rows.get(self.sel) {
+        if let Some(Row::Hit(h)) = self.rs.rows.get(self.rs.sel) {
             // State marker first — Phase 32 grammar, one marker per object:
             // ★ selected · ◆ human-pinned · ● changed · ◐ affected ·
             // ▲ intent-relevant · · ordinary. Human pins stay distinct from
@@ -4117,7 +4180,7 @@ impl App {
     }
 
     fn current_hit(&self) -> Option<&NavHit> {
-        match self.rows.get(self.sel) {
+        match self.rs.rows.get(self.rs.sel) {
             Some(Row::Hit(h)) => Some(h),
             _ => None,
         }
@@ -4128,13 +4191,14 @@ impl App {
     fn enter_dir(&mut self, dir: &str) {
         self.stack.push((
             self.query.clone(),
-            self.hits.clone(),
-            self.rows.clone(),
-            self.sel,
+            ResultState::restore(
+                self.rs.hits.clone(),
+                self.rs.rows.clone(),
+                self.rs.sel,
+            ),
         ));
         self.crumbs.push(dir.to_string());
-        let mut rows = vec![Row::Dir(dir.to_string(), 0)];
-        for (group, group_hits) in nav::group_hits(&self.hits) {
+        let mut rows = vec![Row::Dir(dir.to_string(), 0)];        for (group, group_hits) in nav::group_hits(&self.rs.hits) {
             let mut in_dir: Vec<&NavHit> = group_hits
                 .into_iter()
                 .filter(|h| {
@@ -4159,13 +4223,8 @@ impl App {
                 rows.push(Row::Hit(h.clone()));
             }
         }
-        self.rows = rows;
-        self.set_sel(
-            self.rows
-                .iter()
-                .position(|r| matches!(r, Row::Hit(_)))
-                .unwrap_or(0),
-        );
+        self.rs = ResultState::with_rows(self.rs.hits.clone(), rows);
+        self.set_sel(self.rs.sel);
         self.update_explain();
     }
 
@@ -4247,9 +4306,11 @@ impl App {
         // Push current state for Esc.
         self.stack.push((
             self.query.clone(),
-            self.hits.clone(),
-            self.rows.clone(),
-            self.sel,
+            ResultState::restore(
+                self.rs.hits.clone(),
+                self.rs.rows.clone(),
+                self.rs.sel,
+            ),
         ));
         self.crumbs.push(hit.object.label.clone());
 
@@ -4273,14 +4334,14 @@ impl App {
                 format!("inside: {}", label),
                 format!(
                     "{} object(s) inside {} — Enter descends again, Esc/Backspace climbs out",
-                    self.hits.len(),
+                    self.rs.hits.len(),
                     label
                 ),
             ));
             self.status = format!(
                 "descended into {} ({} objects) — Esc climbs out, projection unchanged",
                 label,
-                self.hits.len()
+                self.rs.hits.len()
             );
             self.ws.push_trail("enter", &hit.object.id.short());
             return;
@@ -4309,10 +4370,10 @@ impl App {
     }
 
     fn back(&mut self) {
-        if let Some((q, hits, rows, sel)) = self.stack.pop() {
+        if let Some((q, saved_rs)) = self.stack.pop() {
+            let sel = saved_rs.sel;
             self.query = q;
-            self.hits = hits;
-            self.rows = rows;
+            self.rs = saved_rs;
             self.reading = None;
             // Restore the visual cursor to the saved position. set_sel also
             // syncs focus_state.cursor so the two never diverge here.
@@ -4345,7 +4406,7 @@ impl App {
     fn sync_selected_from_focus_state(&mut self) {
         let ids = self.focus_state.selection.ids.clone();
         self.selected = self
-            .hits
+            .rs.hits
             .iter()
             .filter(|h| ids.contains(&h.object.id))
             .cloned()
@@ -4443,7 +4504,7 @@ impl App {
         // named defect shape. A lens row now carries the target's identity, so
         // a graph row and a list row can be compared and acted on.
         let lens =
-            physis_pro::hud::lens_object::ObjectLens::project(&self.ws, &center, &self.hits);
+            physis_pro::hud::lens_object::ObjectLens::project(&self.ws, &center, &self.rs.hits);
         let pinned = self.pinned_paths();
         let intent = self.intent_paths();
         let center_mark = state_of(
@@ -4560,7 +4621,7 @@ impl App {
             self.status = "select an object to project semantically".into();
             return;
         };
-        let projection = lens_semantic::project_rows(&center, &self.hits);
+        let projection = lens_semantic::project_rows(&center, &self.rs.hits);
         let center_path = projection
             .center
             .as_ref()
@@ -4673,9 +4734,11 @@ impl App {
             if let Ok((hits, _)) = self.ws.query(&hit.object.text, true, &self.weights, 20) {
                 self.stack.push((
                     self.query.clone(),
-                    self.hits.clone(),
-                    self.rows.clone(),
-                    self.sel,
+                    ResultState::restore(
+                        self.rs.hits.clone(),
+                        self.rs.rows.clone(),
+                        self.rs.sel,
+                    ),
                 ));
                 self.crumbs.push(format!("related: {}", hit.object.label));
                 self.query = format!("related: {}", hit.object.label);
@@ -4794,7 +4857,7 @@ impl App {
     /// Read-only, no transition recorded.
     fn show_bench(&mut self) {
         let mut sel_tokens = 0usize;
-        for h in self.hits.iter().take(8) {
+        for h in self.rs.hits.iter().take(8) {
             sel_tokens += physis_pro::pack::tokens_of(&self.ws.read(&h.object).unwrap_or_default());
         }
         let intent = if self.query.is_empty() {
@@ -4967,14 +5030,14 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
         ),
         None => "Δ —".to_string(),
     };
-    let ctx_txt = if app.hits.is_empty() {
+    let ctx_txt = if app.rs.hits.is_empty() {
         String::new()
     } else {
         // Cached denominator — the header draws every frame, so it must
         // never re-walk the tree. Selection is ≤8 cached reads.
         let ws_tokens = app.ws_tokens;
         let mut sel_tokens = 0usize;
-        for h in app.hits.iter().take(8) {
+        for h in app.rs.hits.iter().take(8) {
             sel_tokens += physis_pro::pack::tokens_of(&app.ws.read(&h.object).unwrap_or_default());
         }
         let pct = if ws_tokens > 0 {
@@ -5047,12 +5110,12 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
     // Ranking bars are positional: each bar is scaled to this list's own
     // max, so a full bar means "top here", never a probability.
     let max_score = app
-        .hits
+        .rs.hits
         .iter()
         .map(|h| h.score.total)
         .fold(0.0_f32, f32::max);
     let items: Vec<ListItem> = app
-        .rows
+        .rs.rows
         .iter()
         .enumerate()
         .map(|(i, row)| match row {
@@ -5063,7 +5126,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                     .fg(Color::White),
             ))),
             Row::Dir(dir, n) => ListItem::new(Line::from(vec![
-                Span::raw(if i == app.sel { "▶ " } else { "  " }),
+                Span::raw(if i == app.rs.sel { "▶ " } else { "  " }),
                 Span::styled(
                     format!("▸ {dir} ({n})"),
                     Style::default()
@@ -5131,7 +5194,7 @@ fn draw(f: &mut ratatui::Frame, app: &App) {
                         },
                     ),
                 ];
-                if i == app.sel {
+                if i == app.rs.sel {
                     spans.insert(0, Span::raw("▶ "));
                 } else {
                     spans.insert(0, Span::raw("  "));
@@ -5295,7 +5358,7 @@ static AGENTS_STRIP: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(
 /// ratatui needs `&mut ListState`; the app keeps its own copy in sync.
 fn list_state_for(app: &App) -> ListState {
     let mut s = app.list_state.clone();
-    s.select(Some(app.sel));
+    s.select(Some(app.rs.sel));
     s
 }
 
@@ -5521,27 +5584,27 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                                 // Compute the next row, skipping headers, then
                                 // dispatch through the reducer so FocusState.cursor
                                 // is the canonical owner.
-                                if app.sel > 0 {
-                                    let mut next = app.sel - 1;
-                                    while matches!(app.rows.get(next), Some(Row::Header(..))) {
+                                if app.rs.sel > 0 {
+                                    let mut next = app.rs.sel - 1;
+                                    while matches!(app.rs.rows.get(next), Some(Row::Header(..))) {
                                         if next == 0 {
                                             break;
                                         }
                                         next = next.saturating_sub(1);
                                     }
-                                    let delta = next as i32 - app.sel as i32;
+                                    let delta = next as i32 - app.rs.sel as i32;
                                     app.dispatch(physis_pro::hud::event::HudEvent::MoveCursor {
                                         delta,
                                     });
                                 }
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
-                                if app.sel + 1 < app.rows.len() {
-                                    let mut next = app.sel + 1;
-                                    while matches!(app.rows.get(next), Some(Row::Header(..))) {
-                                        next = (next + 1).min(app.rows.len() - 1);
+                                if app.rs.sel + 1 < app.rs.rows.len() {
+                                    let mut next = app.rs.sel + 1;
+                                    while matches!(app.rs.rows.get(next), Some(Row::Header(..))) {
+                                        next = (next + 1).min(app.rs.rows.len() - 1);
                                     }
-                                    let delta = next as i32 - app.sel as i32;
+                                    let delta = next as i32 - app.rs.sel as i32;
                                     app.dispatch(physis_pro::hud::event::HudEvent::MoveCursor {
                                         delta,
                                     });
@@ -5549,7 +5612,7 @@ fn run(mut terminal: Terminal<CrosstermBackend<std::io::Stdout>>, app: App) -> a
                             }
                             KeyCode::Enter => {
                                 // Directory rollup drills in; objects zoom as before.
-                                if let Some(Row::Dir(dir, _)) = app.rows.get(app.sel).cloned() {
+                                if let Some(Row::Dir(dir, _)) = app.rs.rows.get(app.rs.sel).cloned() {
                                     app.enter_dir(&dir);
                                 } else {
                                     app.enter();
@@ -6814,7 +6877,7 @@ mod tests {
         app.query = "chunk".to_string();
         app.run_query();
         assert!(
-            !app.hits.is_empty(),
+            !app.rs.hits.is_empty(),
             "precondition: the fixture indexed the file"
         );
 
@@ -6823,6 +6886,7 @@ mod tests {
         // whatever row happened to be there — the duplicate-state hazard
         // PH-029 is about, hit for real while writing this test.
         let file_hit = app
+            .rs
             .hits
             .iter()
             .find(|h| h.object.kind == ObjectKind::File)
@@ -6838,15 +6902,15 @@ mod tests {
 
         app.enter();
         assert!(
-            !app.hits.is_empty(),
+            !app.rs.hits.is_empty(),
             "descending into a file with passages yields its contents"
         );
         assert!(
-            app.hits
+            app.rs.hits
                 .iter()
                 .all(|h| h.object.kind == ObjectKind::Passage),
             "a file's contents are its passages: {:?}",
-            app.hits.iter().map(|h| &h.object.kind).collect::<Vec<_>>()
+            app.rs.hits.iter().map(|h| &h.object.kind).collect::<Vec<_>>()
         );
         assert_eq!(
             app.focus_state.focus.object,
@@ -6860,7 +6924,92 @@ mod tests {
             Some(file_id),
             "climbing out restores the identity you descended from"
         );
-        assert_eq!(app.hits.len(), 1, "and the rows you came from");
+        assert_eq!(app.rs.hits.len(), 1, "and the rows you came from");
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "ResultState invariant")]
+    fn result_state_sel_invariant() {
+        // PH-030: a snapshot whose cursor points at a header row instead of a
+        // hit row must fail loudly in debug, not render a highlight on a
+        // header. Restoring sel=0 over [Header, Hit] trips the invariant.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        std::fs::write(dir.join("one.rs"), "fn one() -> usize { 1 }\n").ok();
+
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
+        app.query = "one".to_string();
+        app.run_query();
+        let hit = app.rs.hits.first().cloned().expect("fixture hit");
+        let rows = vec![Row::Header("g".to_string(), 1), Row::Hit(hit.clone())];
+        let _ = ResultState::restore(vec![hit], rows, 0);
+    }
+
+    #[test]
+    fn back_round_trip_restores_focus() {
+        // PH-030: push state, pop via back(), assert the focused object and
+        // the full result triple (hits/rows/sel) come back intact.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let dir = dir.path();
+        let _data_dir_lock = lock_data_dir();
+        let _data_dir = RestoreEnv {
+            key: "PHYSIS_DATA_DIR",
+            old: std::env::var_os("PHYSIS_DATA_DIR"),
+        };
+        std::env::set_var("PHYSIS_DATA_DIR", dir.join(".physis"));
+        let _embedder = RestoreEnv {
+            key: "PHYSIS_EMBEDDER",
+            old: std::env::var_os("PHYSIS_EMBEDDER"),
+        };
+        std::env::set_var("PHYSIS_EMBEDDER", "random-projection");
+        let body: String = (0..40)
+            .map(|i| format!("fn chunk_{i}() -> usize {{ {i} }}\n"))
+            .collect();
+        std::fs::write(dir.join("long.rs"), body).ok();
+
+        let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
+        app.query = "chunk".to_string();
+        app.run_query();
+        let file_hit = app
+            .rs
+            .hits
+            .iter()
+            .find(|h| h.object.kind == ObjectKind::File)
+            .cloned()
+            .expect("precondition: File object indexed");
+        app.set_results(vec![file_hit.clone()]);
+        let file_id = file_hit.object.id.clone();
+        let (hits_len, rows_len, sel) =
+            (app.rs.hits.len(), app.rs.rows.len(), app.rs.sel);
+
+        app.enter();
+        assert!(!app.rs.hits.is_empty(), "enter descends into passages");
+
+        app.back();
+        assert_eq!(
+            app.focus_state.focus.object,
+            Some(file_id),
+            "back restores the focused object"
+        );
+        assert_eq!(app.rs.hits.len(), hits_len, "hits restored");
+        assert_eq!(app.rs.rows.len(), rows_len, "rows restored");
+        assert_eq!(app.rs.sel, sel, "cursor restored");
+        assert!(
+            matches!(app.rs.rows.get(app.rs.sel), Some(Row::Hit(_))),
+            "restored cursor points at a hit row"
+        );
     }
 
     #[test]
@@ -6892,7 +7041,7 @@ mod tests {
         let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "retrieval".to_string();
         app.run_query();
-        assert!(!app.hits.is_empty(), "precondition: the query found the file");
+        assert!(!app.rs.hits.is_empty(), "precondition: the query found the file");
 
         app.show_actions();
         let (title, body) = app.reading.clone().expect("actions renders");
@@ -6945,7 +7094,7 @@ mod tests {
         app.query = "budget".to_string();
         app.run_query();
         assert!(
-            app.hits.len() >= 2,
+            app.rs.hits.len() >= 2,
             "precondition: the fixture indexes two objects to project"
         );
         let focused = app
@@ -7082,7 +7231,7 @@ mod tests {
         let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens");
         app.query = "alpha budget".to_string();
         app.run_query();
-        assert!(app.hits.len() >= 2, "precondition: two objects to relate");
+        assert!(app.rs.hits.len() >= 2, "precondition: two objects to relate");
         // Relate the cursor object to one from a *different* file, the way an
         // operator would, and also to another object in the cursor's own file:
         // two recorded relations, both of which the projection must show.
@@ -7096,12 +7245,14 @@ mod tests {
             .clone();
         let a_path = a.source.as_ref().map(|s| s.path.clone()).unwrap_or_default();
         let b = app
+            .rs
             .hits
             .iter()
             .find(|h| h.object.source.as_ref().map(|s| s.path.clone()).unwrap_or_default() != a_path)
             .map(|h| h.object.clone())
             .expect("a second file is indexed");
         let same_label = app
+            .rs
             .hits
             .iter()
             .find(|h| {
@@ -7127,7 +7278,7 @@ mod tests {
 
         // The same object the list holds is the graph's centre, by identity.
         let center_hit = app.current_hit().expect("cursor has an object").clone();
-        let lens = ObjectLens::project(&app.ws, &center_hit, &app.hits);
+        let lens = ObjectLens::project(&app.ws, &center_hit, &app.rs.hits);
         assert_eq!(
             physis_pro::world_object::parse_object_id(&lens.center.identity),
             center_hit.object.id
@@ -7174,7 +7325,7 @@ mod tests {
         let mut app = App::new(dir.to_path_buf(), true, false).expect("app opens on a temp workspace");
         app.run_query();
         assert!(
-            !app.hits.is_empty(),
+            !app.rs.hits.is_empty(),
             "precondition: the temp workspace indexes a.rs, so there is a focus to prove"
         );
         let object = app.current_hit().expect("cursor has an object").object.id.clone();
