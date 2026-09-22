@@ -2095,8 +2095,14 @@ struct App {
     config_dirty: bool,
     /// Set while the command box edits a settings value: the dotted key.
     settings_edit: Option<String>,
-    /// Last settings-view note (saved/failed/refused), shown in the body.
+     /// Last settings-view note (saved/failed/refused), shown in the body.
     settings_msg: String,
+    /// Temporal write seam for lens projections (PH-027 bridge). Defaults to
+    /// `PhysisNativeStore` (in-memory ordered log); swapped to `RerunTimeSeries`
+    /// when `feature = "temporal-rerun"` is on. The lens never writes state
+    /// directly — it flows through this trait object so the store layer owns
+    /// persistence.
+    temporal: Box<dyn physis_pro::backends::TemporalStore + Send + Sync>,
 }
 
 impl App {
@@ -2212,6 +2218,7 @@ impl App {
             settings_msg: String::new(),
             focus_state: physis_pro::hud::world::FocusState::new(),
             last_intent: None,
+            temporal: Box::new(physis_pro::backends::PhysisNativeStore::new()),
         })
     }
 
@@ -4501,6 +4508,20 @@ impl App {
             return;
         };
         let projection = lens_semantic::project_rows(&center, &self.hits);
+
+        // PH-027 bridge: register every projected row as a typed `Observation`
+        // through the temporal store seam so the lens is also a temporal write.
+        // The center object is excluded (it is the focus, not a neighbour).
+        let center_id = physis_pro::world_object::spell_object_id(&center.object.id);
+        physis_pro::hud::lens_semantic::register_projection(
+            &center_id,
+            &projection.rows,
+            &mut *self.temporal,
+            "semantics",
+            "hud",
+            None,
+        );
+
         let center_path = projection
             .center
             .as_ref()

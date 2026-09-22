@@ -20,6 +20,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::backends::{Observation, TemporalStore};
 use crate::hud::row::{Projection, ProjectionGroup, ProjectionRow};
 use crate::nav::NavHit;
 use crate::world_object::spell_object_id;
@@ -174,6 +175,42 @@ pub fn project_rows(center: &NavHit, ranked: &[NavHit]) -> Projection {
     ])
 }
 
+/// Register each ranked row as a typed `Observation` on the `TemporalStore`,
+/// so the lens projection is also a temporal write. Only non-center rows are
+/// emitted (the center is the focus, not a neighbour record). `seq` follows
+/// the render order so the store sees the projection's sort, then score desc.
+///
+/// `cell` is the `DOMAIN/MODE` label resolved by the caller (the HUD owns the
+/// OntologicalMap and classifier); pass `None` when the cell is not yet known
+/// — `Observation.cell` stays `Option`, never fabricated.
+pub fn register_projection(
+    center_object_id: &str,
+    rows: &[crate::hud::row::ProjectionRow],
+    store: &mut dyn TemporalStore,
+    component: &str,
+    actor: &str,
+    cell: Option<&str>,
+) {
+    for (seq, row) in rows.iter().enumerate() {
+        if row.object_id == center_object_id {
+            continue;
+        }
+        store.register(
+            &row.object_id,
+            component,
+            Observation {
+                seq: seq as u64,
+                at: None,
+                actor: actor.to_string(),
+                object: row.object_id.clone(),
+                component: component.to_string(),
+                row: seq as u64,
+                cell: cell.map(str::to_string),
+            },
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +314,39 @@ mod tests {
         assert_eq!(cosine(&[1.0, 0.0], &[1.0, 0.0, 0.0]), 0.0);
         assert_eq!(cosine(&[], &[]), 0.0);
         assert!(bridges(&[1.0, 0.0], &[], &[("x".to_string(), vec![1.0, 0.0, 0.0])], 0.5).is_empty());
+    }
+
+    #[test]
+    fn register_projection_writes_observations_excluding_center() {
+        use crate::hud::row::ProjectionRow;
+
+        // Build rows by hand: center + two neighbours.
+        let rows: Vec<ProjectionRow> = vec![
+            ProjectionRow::center("core:node:0", "center", "/src/a.rs"),
+            ProjectionRow::near("core:node:1", "neighbor-1", "/src/b.rs", 0.9),
+            ProjectionRow::near("core:node:2", "neighbor-2", "/doc/c.rs", 0.4),
+        ];
+
+        // Use the native store as a witness: register_projection should write
+        // exactly one Observation per non-center row, ordered by seq.
+        let mut store = crate::backends::PhysisNativeStore::new();
+        register_projection(
+            "core:node:0",
+            &rows,
+            &mut store,
+            "semantics",
+            "hud",
+            None,
+        );
+
+        // Center excluded → 2 observations, one per neighbor.
+        assert_eq!(store.range("core:node:1", "semantics", "", "").len(), 1, "neighbor-1 registered");
+        assert_eq!(store.range("core:node:2", "semantics", "", "").len(), 1, "neighbor-2 registered");
+        assert_eq!(store.range("core:node:0", "semantics", "", "").len(), 0, "center excluded");
+        assert_eq!(
+            store.latest_at("core:node:1", "semantics", None).map(|o| o.actor),
+            Some("hud".to_string()),
+            "actor propagated from the projection"
+        );
     }
 }

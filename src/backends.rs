@@ -38,7 +38,38 @@ pub trait WorldStore {
 
 /// Physis-native default backed by the live `nav` index + `ledger`.
 /// Constructed through the public facade; no behavior change vs today.
-pub struct PhysisNativeStore;
+#[derive(Default)]
+pub struct PhysisNativeStore {
+    /// Ordered observations by entity, used by `latest_at` and `range`.
+    records: std::collections::BTreeMap<String, Vec<Observation>>,
+}
+
+impl PhysisNativeStore {
+    /// Construct a fresh in-memory temporal store.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl TemporalStore for PhysisNativeStore {
+    fn latest_at(&self, entity: &str, component: &str, _time_ref: Option<&Path>) -> Option<Observation> {
+        self.records
+            .get(entity)?
+            .iter()
+            .rev()
+            .find(|o| o.component == component)
+            .cloned()
+    }
+    fn range(&self, entity: &str, component: &str, _from: &str, _to: &str) -> Vec<Observation> {
+        self.records
+            .get(entity)
+            .map(|v| v.iter().filter(|o| o.component == component).cloned().collect())
+            .unwrap_or_default()
+    }
+    fn register(&mut self, entity: &str, _component: &str, obs: Observation) {
+        self.records.entry(entity.to_string()).or_default().push(obs);
+    }
+}
 
 /// Rerun adapter skeleton. Gated so the `re_chunk_store` dependency is never
 /// required unless someone opts in. Body is a `todo!()` — the findings commit
@@ -131,6 +162,13 @@ pub trait TemporalStore {
     fn latest_at(&self, entity: &str, component: &str, time_ref: Option<&Path>) -> Option<Observation>;
     /// Range over a span; returns provenance-ordered records.
     fn range(&self, entity: &str, component: &str, from: &str, to: &str) -> Vec<Observation>;
+    /// Append a typed `Observation` for `entity`, stamped with `seq`
+    /// (monotonic ingest order). This is the write seam used by the lens and
+    /// HUD: every ranked `ProjectionRow` flows through here so the temporal
+    /// store sees exactly the projection the renderer shows. Default impl is
+    /// a no-op (read-only backends); `PhysisNativeStore` and `RerunTimeSeries`
+    /// override.
+    fn register(&mut self, _entity: &str, _component: &str, _obs: Observation) {}
 }
 
 /// Typed temporal record (PH-112). Mirrors `ledger::CauseEvent`'s vocabulary
@@ -139,7 +177,9 @@ pub trait TemporalStore {
 /// entity path, `component` the recorded slot. `TimeInt`/`RowId` from rerun
 /// become `seq`/ingest position; `DateTime<Utc>` only when a real timeline
 /// is available.
+#[derive(Clone)]
 pub struct Observation {
+
     /// Monotonic ingest/row order (rerun `RowId` → physis seq).
     pub seq: u64,
     /// Wall-time, when the timeline carries one (`log_time` → UTC).
