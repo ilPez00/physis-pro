@@ -190,6 +190,12 @@ spanner = ["dep:jsonwebtoken"]
 vendor = ["dep:clap"]
 # Local interest daemon: clipboard + watched-dir observation → interest profile.
 daemon = ["dep:arboard", "dep:zip", "dep:notify", "dep:axum"]
+# Optional backend seams from docs/research/2026-09-22-rerun-mesa-findings.md
+# (P0-P3 integration). All default-OFF: no existing module deleted, no behaviour
+# change unless opted in. Bodies are todo!() stubs until PH-114/PH-115/PH-116.
+store-rerun = []
+temporal-rerun = []
+rerun-graph = []
 
 full = ["cli", "network", "voice", "web", "tui", "embed-onnx", "industrial", "ingest", "pdf", "email", "audio", "ocr", "sql", "postgres", "mcp", "repair-pipeline", "instructor"]
 

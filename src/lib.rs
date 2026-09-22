@@ -10,9 +10,13 @@ pub mod settings;
 // split (see physis-core/MOVED_TO_PRODUCT.md).
 pub mod address;
 pub mod admin;
-pub mod ai;
-pub mod atomic;
-pub mod audit;
+ pub mod ai;
+ pub mod atomic;
+ /// Backend seams (WorldStore/TemporalStore/GraphRenderer) — additive,
+ /// behaviour-preserving. See docs/research/2026-09-22-rerun-mesa-findings.md.
+ /// No existing module deleted.
+ pub mod backends;
+ pub mod audit;
 pub mod axes;
 #[cfg(feature = "ingest")]
 pub mod batch_csv;
