@@ -306,8 +306,8 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "world", "graph", "semantic", "notebook", "tasks", "agents", "settings",
-                "setup", "help"
+                 "world", "graph", "semantic", "notebook", "tasks", "agents", "settings",
+                 "setup", "help", "neural"
             ]
         );
     }

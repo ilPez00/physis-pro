@@ -136,7 +136,7 @@ knob, not biological fidelity.
 
 ## 11. HUD/demo status
 
-**Not implemented.** The substrate-selection HUD (`SUBSTRATE → [ ] [ ]` menu + three-pane graph/activation/decoded view) is P11 and scaffolded only in this doc. The `neural_invariance` example prints the equivalent text pipeline. A `physis-neural` subcommand stub exists but returns "not wired" without the `neural` feature.
+**Implemented (PH-108).** The substrate-invariance scenario renders as a `Neural` view in `physis-hud`, selectable via `--view neural` or the `n` tab. Three-pane layout (semantic graph state · activation · decoded + delta). Feature-gated on `neural`; default builds render a "rebuild with --features neural" notice. The text pipeline is in `examples/neural_invariance.rs`; a `physis-neural` subcommand stub is out of scope (the HUD view is the surface).
 
 ## 12. Bugs/debt
 
@@ -170,9 +170,9 @@ The `neural` feature (`cargo build -p physis-core --lib --features neural`) gate
 
 ## 14. Three highest-value next experiments
 
-1. **Adaptive delta threshold per substrate** (P5 follow-up): the 0.42 reservoir delta-recall is bottlenecked by a fixed `MUTATION_THRESHOLD`; learn it from the deterministic↔reservoir paired runs. Expected: +0.12 delta-recall on reservoir.
-2. **FlyWire connectome read-out once `data/fly/` is present** (P9): wire the real edge-list CSV, then run the invariance benchmark through `FlyConnectomeBackend`. Hypothesis: topology prior gives dynamics the random reservoir lacks — expect Δ-recall > 0.5.
-3. **`Hypothesis`-level confidence fusion** (P3→P6 bridge): instead of decoding to `CoherenceNode` embeddings, decode each substrate state to a `Hypothesis` score distribution and feed its `coherence_profile`/`fitness_breakdown` into `delta_engine::evaluate_mutation` as evidence weight. Expected: sharper repair on the spiking/weak-decoder case.
+1. **Adaptive delta threshold per substrate** (P5 follow-up): the reservoir weak-decoder fails (0.00) under σ=0.25 noise while the delta-signal survives; an adaptive `MUTATION_THRESHOLD` tuned from the deterministic↔reservoir paired runs may sharpen the weak-decoder case. Expected: weak-decoder accuracy lift on reservoir.
+2. **FlyWire connectome read-out once `data/fly/` is present** (P9): wire the real edge-list CSV, then run the invariance benchmark through `FlyConnectomeBackend`. Hypothesis: topology prior gives dynamics the random reservoir lacks.
+3. **`Hypothesis`-level confidence fusion** (P3→P6 bridge): decode each substrate state to a `Hypothesis` score distribution and feed its `coherence_profile`/`fitness_breakdown` into `delta_engine::evaluate_mutation` as evidence weight. Expected: sharper repair on the spiking/weak-decoder case.
 
 ## 15. Strict classification of claims
 
