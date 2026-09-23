@@ -150,6 +150,9 @@ pub enum ProjectionId {
     Setup,
     /// Command help (help view).
     Help,
+    /// PH-037: substrate-invariant semantic layer (deterministic · reservoir ·
+    /// spiking), gated behind `--features neural`.
+    Neural,
 }
 
 impl ProjectionId {
@@ -169,6 +172,7 @@ impl ProjectionId {
             ProjectionId::Settings => "settings",
             ProjectionId::Setup => "setup",
             ProjectionId::Help => "help",
+            ProjectionId::Neural => "neural",
         }
     }
 
@@ -180,7 +184,7 @@ impl ProjectionId {
         ProjectionId::all().into_iter().find(|p| p.name() == n)
     }
 
-    pub fn all() -> [ProjectionId; 9] {
+    pub fn all() -> [ProjectionId; 10] {
         [
             ProjectionId::World,
             ProjectionId::ObjectGraph,
@@ -191,6 +195,7 @@ impl ProjectionId {
             ProjectionId::Settings,
             ProjectionId::Setup,
             ProjectionId::Help,
+            ProjectionId::Neural,
         ]
     }
 }

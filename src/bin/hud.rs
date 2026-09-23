@@ -498,7 +498,7 @@ fn intent_paths(hits: &[NavHit]) -> (BTreeSet<String>, BTreeSet<String>) {
 /// A view is a projection of state that already exists. None of them is a
 /// second store, and none of them reaches a model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum View {
+    enum View {
     World,
     Graph,
     Semantic,
@@ -508,11 +508,12 @@ enum View {
     Settings,
     Setup,
     Help,
+    Neural,
 }
 
 impl View {
     /// Tab order, and the order the footer names them.
-    const ALL: [View; 9] = [
+    const ALL: [View; 10] = [
         View::World,
         View::Graph,
         View::Semantic,
@@ -522,6 +523,7 @@ impl View {
         View::Settings,
         View::Setup,
         View::Help,
+        View::Neural,
     ];
 
     /// The library projection this view is. The one mapping between the bin's
@@ -539,6 +541,7 @@ impl View {
             View::Settings => ProjectionId::Settings,
             View::Setup => ProjectionId::Setup,
             View::Help => ProjectionId::Help,
+            View::Neural => ProjectionId::Neural,
         }
     }
 
@@ -555,6 +558,7 @@ impl View {
             P::Settings => View::Settings,
             P::Setup => View::Setup,
             P::Help => View::Help,
+            P::Neural => View::Neural,
         }
     }
 
@@ -578,6 +582,7 @@ impl View {
             View::Settings => Some('S'),
             View::Setup => Some('W'),
             View::Help => Some('?'),
+            View::Neural => Some('n'),
             View::World => None,
         }
     }
@@ -3541,6 +3546,10 @@ impl App {
             View::Setup => {
                 self.run_hud_command(HudCommand::Setup);
             }
+            View::Neural => {
+                self.neural_view();
+                self.open_view(View::Neural);
+            }
         }
     }
 
@@ -4637,11 +4646,123 @@ impl App {
                 .into(),
         );
         lines.push("g switches to the recorded-relation projection; Esc returns to the world".into());
-        self.reading = Some((
+         self.reading = Some((
             format!("semantic: {} — {}", center.object.label, center_path),
             lines.join("\n"),
         ));
     }
+
+    /// PH-037: render the substrate-invariance scenario. Runs the three
+    /// reference backends on the axis-flip task and shows the three panes
+    /// (semantic graph state · activation · decoded state + delta). Feature-gated
+    /// on `neural` so the tui builds without biological deps.
+    fn neural_view(&mut self) {
+        #[cfg(feature = "neural")]
+        {
+            use physis_core::neural::substrate::{
+                DeterministicBackend, NeuralSubstrate, ObservationWindow, StimulusPattern,
+                SubstrateConfig, SubstrateKind,
+            };
+            use physis_core::neural::backends::{ArtificialSpikingBackend, RandomReservoirBackend};
+            use physis_core::neural::delta::{build_delta_report, decode_semantic_delta};
+            use physis_core::neural::substrate::PopulationState;
+
+            const DIM: usize = 4;
+            let mut unit = vec![0.0_f32; DIM]; unit[0] = 1.0; // state(t): concept A
+            let stimulus = vec![-1.0_f32, 0.0, 0.0, 0.0];     // → concept B
+            let threshold = 0.01_f32;
+            let prev_state = PopulationState { values: unit.clone(), trace: vec![] };
+
+            let mut lines: Vec<String> = Vec::new();
+            lines.push("PH-037 · substrate-invariant semantic layer".into());
+            lines.push("LEFT: semantic graph  ·  CENTER: activation  ·  RIGHT: decoded + delta".into());
+            lines.push(String::new());
+            lines.push(format!("task: [1,0,0,0] → [-1,0,0,0] (axis flip) | threshold={threshold:.3}"));
+            lines.push(String::new());
+
+            let backends: Vec<(&str, Box<dyn NeuralSubstrate>)> = vec![
+                ("deterministic", Box::new({
+                    let mut b = DeterministicBackend::new(DIM);
+                    b.configure(SubstrateConfig::default()).unwrap();
+                    b
+                })),
+                ("reservoir", Box::new({
+                    let mut b = RandomReservoirBackend::new(DIM, DIM, 7);
+                    b.configure(SubstrateConfig {
+                        kind: SubstrateKind::RandomReservoir,
+                        population_size: DIM,
+                        ..Default::default()
+                    }).unwrap();
+                    b
+                })),
+                ("spiking", Box::new({
+                    let mut b = ArtificialSpikingBackend::new(DIM);
+                    b.configure(SubstrateConfig::default()).unwrap();
+                    b
+                })),
+            ];
+
+            for (name, mut b) in backends {
+                b.reset().unwrap();
+                b.stimulate(StimulusPattern {
+                    channels: vec![],
+                    dense: stimulus.clone(),
+                    hint: None,
+                }).unwrap();
+                let obs = b.observe(ObservationWindow::default()).unwrap();
+                let readout = obs.populations.get("readout").map(|p| p.values.clone()).unwrap_or_default();
+                let delta = decode_semantic_delta(&unit, &obs, "cup", threshold);
+                let report = build_delta_report(
+                    &prev_state,
+                    &PopulationState { values: readout.clone(), trace: vec![] },
+                    threshold,
+                );
+                let bar = Self::activation_bar(&readout);
+                lines.push(format!("── {name} ──"));
+                lines.push(format!("  state(t):   [{}]", unit.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")));
+                lines.push(format!("  activation: {} {}", bar, Self::format_vec(&readout)));
+                lines.push(format!(
+                    "  delta fired: {} | invariant: {}",
+                    if delta.is_some() { "yes" } else { "no" },
+                    if report.changed_activation { "yes" } else { "no" },
+                ));
+                if let Some(m) = delta {
+                    lines.push(format!("  decoded:    {}", match m.operation {
+                        physis_core::delta_engine::MutationOp::EmbeddingShift { .. } => "EmbeddingShift (state changed)",
+                        physis_core::delta_engine::MutationOp::PropertySet { .. } => "PropertySet",
+                        physis_core::delta_engine::MutationOp::RelationCreated { .. } => "RelationCreated",
+                        physis_core::delta_engine::MutationOp::RelationSevered { .. } => "RelationSevered",
+                    }));
+                }
+                lines.push(String::new());
+            }
+            lines.push("legend: each backend receives the SAME stimulus; the delta-signal must survive the swap".into());
+            self.reading = Some(("neural — substrate invariance".into(), lines.join("\n")));
+        }
+        #[cfg(not(feature = "neural"))]
+        {
+            self.reading = Some((
+                "neural (unavailable)".into(),
+                "Rebuild physis-pro with --features neural to run the substrate-invariance view.".into(),
+            ));
+        }
+    }
+
+    #[cfg(feature = "neural")]
+    /// One-line ascii bar for a population read-out (range [-1, 1]).
+    fn activation_bar(values: &[f32]) -> String {
+        values.iter().map(|v| {
+            let s = if *v >= 0.0 { "+" } else { "-" };
+            let n = ((*v).abs().min(1.0) * 10.0).round() as usize;
+            format!("{s}{}", "#".repeat(n))
+        }).collect::<Vec<_>>().join(" ")
+    }
+
+    #[cfg(feature = "neural")]
+    fn format_vec(values: &[f32]) -> String {
+        format!("[{}]", values.iter().map(|v| format!("{:.2}", v)).collect::<Vec<_>>().join(","))
+    }
+
 
     /// The list's state marker for a row that arrived from a projection.
     /// Resolves the row's identity back to the object the list would show, so

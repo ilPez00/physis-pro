@@ -636,3 +636,27 @@ No biological data — this is a synthetic fixture so the reader path is proven.
 ## Never
 
 - Treat the sample as real neural data.
+
+## PH-108-hud-neural-view
+
+P11 of the PH-037 spec: wire the substrate-invariance scenario into `physis-hud`
+as a `Neural` view, selectable via `--view neural` or the `n` tab.
+
+**Goal:** the HUD shows the three-pane surface (semantic graph state ·
+activation · decoded + delta) without a disconnected second app. Reuses the
+existing `View` / `ProjectionId` table mechanism.
+
+**Scope:**
+- `src/hud/world.rs`: add `ProjectionId::Neural` + `name()`/`all()` entries.
+- `src/bin/hud.rs`: add `View::Neural` + `ALL`/`projection`/`from_projection`
+  + tab icon `n`; add `neural_view()` that runs the 3 backends on the axis-flip
+  task and renders the three panes (feature-gated on `neural`); helper fns
+  `activation_bar`/`format_vec` gated `#[cfg(feature = "neural")]`.
+- `Cargo.toml`: forward `neural = ["physis-core/neural"]` (done in PH-107).
+
+**Never:** claim the spiking view reflects real neuron dynamics — the toy LIF
+(DECAY=0.1, THRESHOLD=0.3) is documented and labeled as simulation.
+
+**Gate:** `cargo check --features tui,neural --bin physis-hud` +
+`cargo check --features tui --bin physis-hud` (default builds, neural gated)
++ `cargo test --features tui --bin physis-hud` (45 passed).
