@@ -185,7 +185,7 @@ rung: 3
 depends: [PH-000]
 gate: "test -f research/mapper/rerank_scores.json && python3 scripts/score_rerank.py --help"
 commit: "branch agent/PH-105; scores + labels commit (docs/data only)"
-blocked_on: "models/wordnet + MiniLM/BGE embedders absent on pansa; human must label 75-item worklist"
+blocked_on: "assets absent on fleet — models/wordnet/data.noun not found on pansa or omo-ts; MiniLM/BGE embedder models not on omo-ts model hub either. Example builds with --features embed-onnx but aborts at runtime (missing data.noun). Human must label 75-item worklist (rung 3) + supply assets."
 ---
 
 # Run the built human-reranker worklist
@@ -602,3 +602,17 @@ DeterministicBackend only.
 - Bundle FAFB/FlyWire data (multi-GB).
 - Implement tissue-culture procedures.
 - Delete or restructure existing Physis semantic modules to make room.
+
+## PH-106-spiking-threshold-fix
+
+A follow-up to PH-105-blocked. The PH-037 spiking backend (`ArtificialSpikingBackend`, toy LIF: `DECAY=0.1`, `THRESHOLD=1.0`) does **not** fire on the 4-dim axis-flip task used in the invariance harness — the stimulus magnitude (1.0) is below `THRESHOLD`. This makes the invariance table show spiking as `0.00 / false`, which the README correctly qualifies as a dynamics-tuning gap (not an architecture failure).
+
+**Goal:** tune the toy LIF so it fires on the reference task, so the invariance harness can report a 3rd backend crossing the delta-signal invariant (PH-037 §5 / RESULT line 3). This is a spiking-dynamics calibration step (§17 of the PH-037 spec: "leave the calibration knob").
+
+**Scope:** `physis-core/src/neural/backends/spiking.rs`. Lower `THRESHOLD` (default `0.3`) and/or scale input injection. Add a test asserting `stimulate` with a 1.0-magnitude dense stimulus produces at least one `fired[i] == true`. No biological claims — the module doc already says "toy dynamics."
+
+**Gate:** `cargo test --features neural --lib neural::backends::spiking` + `cargo run --example neural_invariance --features neural` showing spiking invariant = yes.
+
+## Never
+
+- Call this a "biological spike." It is a threshold-crossing on a toy integrator.

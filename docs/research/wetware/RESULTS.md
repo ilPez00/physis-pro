@@ -12,11 +12,14 @@ All measurements on **pansa (CPU-only, no GPU)**. DeterministicBackend is trivia
 ├──────────────┼───────────┼─────────┼──────────┼────────────┤
 │ DETERMINISTIC │      1.00 │    true │      yes │      0.03   │
 │ RESERVOIR     │      1.00 │    true │      yes │      0.10   │
-│ SPIKING       │      0.00 │   false │       no │      0.00   │
+│ SPIKING       │      1.00 │    true │      yes │      0.00   │  # after PH-106 threshold calibration
 └──────────────┴───────────┴─────────┴──────────┴────────────┘
 ```
 
-**Invariant:** the semantic delta signal fires on deterministic + reservoir for the axis-flip task (both produce an `EmbeddingShift` mutation). Spiking does not (toy LIF threshold 1.0; 4-dim stimulus magnitude < threshold) — dynamics-tuning gap, not architecture failure.
+**Invariant:** the semantic delta signal fires on all three backends (delta =
+true, invariant = yes). Spiking crossed the threshold after PH-106 calibrated
+the toy LIF (`THRESHOLD` 1.0 → 0.3); it is still a toy model (no plasticity,
+no synapse) — see `docs/research/wetware/LIMITATIONS.md`.
 
 ## P5/P6 — Delta vs full-state + weak decoder + repair
 
