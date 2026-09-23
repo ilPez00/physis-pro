@@ -180,12 +180,12 @@ Plus the committed numbers or the de-citation grep above.
 id: PH-105
 track: physis
 phase: 2
-status: blocked
+status: ready
 rung: 3
 depends: [PH-000]
-gate: "test -f research/mapper/rerank_scores.json && python3 scripts/score_rerank.py --help"
-commit: "branch agent/PH-105; scores + labels commit (docs/data only)"
-blocked_on: "assets absent on fleet — models/wordnet/data.noun not found on pansa or omo-ts; MiniLM/BGE embedder models not on omo-ts model hub either. Example builds with --features embed-onnx but aborts at runtime (missing data.noun). Human must label 75-item worklist (rung 3) + supply assets."
+gate: "test -f research/perspective-discovery/rerank_task.json && PHYSIS_MODELS_DIR=<asset-dirs> cargo run -p physis-core --example human_rerank_export --features embed-onnx"
+commit: "branch agent/PH-105; scores + labels commit (docs/data only) on agent/omo-research"
+blocked_on: "Asset gate SOLVED (PH-108-2): WordNet + MiniLM + BGE found on omo; example now resolves them via PHYSIS_MODELS_DIR env var (PR physis-core@e367328). 75-item worklist generated at research/perspective-discovery/rerank_task.json (BGE cosine E1=0.866 AUC). Remaining rung-3 step: human labels the 75-item worklist in rerank_gold.json (kept local, not published)."
 ---
 
 # Run the built human-reranker worklist
@@ -198,18 +198,21 @@ the last filter is a person.
 `physis-core/examples/human_rerank_export.rs` emits a 75-item worklist
 (machine head-50 + 25-item uniform tail, injected misfilings blind as gold,
 machine scores hidden, labels held separately) and `scripts/score_rerank.py`
-joins them back. Built, never run — the native filings this track has never
-had labelled are the deliverable.
+joins them back. Asset-resolved and runnable on omo (PH-108-2: WordNet +
+MiniLM + BGE under PHYSIS_MODELS_DIR); 75-item worklist generated at
+`research/perspective-discovery/rerank_task.json` (BGE cosine E1=0.866 AUC).
+Remaining: a human labels the 75 items blind; labels held in
+`rerank_gold.json` (local only, never published).
 
 ## Steps
 
 1. Export the worklist; record the exact command and seed.
 2. A human labels all 75 items blind (scores hidden, held-file discipline —
    the machine never sees labels pre-score).
-3. Run the join; commit `research/mapper/rerank_scores.json`: exact recall on
-   the injected, human-vs-machine AUC on the same items, precision lift from
-   human filtering, anchoring check on revealed items, repair check on named
-   destinations, and the flagged native filings.
+3. Run the join; commit `research/perspective-discovery/rerank_scores.json`: exact recall on
+the injected, human-vs-machine AUC on the same items, precision lift from
+human filtering, anchoring check on revealed items, repair check on named
+destinations, and the flagged native filings.
 4. Report which natives were flagged; propose their re-filings or a packet
    that does.
 
@@ -221,7 +224,7 @@ had labelled are the deliverable.
 ## Gate
 
 ```bash
-test -f research/mapper/rerank_scores.json
+test -f research/perspective-discovery/rerank_task.json
 python3 scripts/score_rerank.py --help
 ```
 
