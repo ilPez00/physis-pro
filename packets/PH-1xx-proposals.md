@@ -124,11 +124,12 @@ Report must list every residual `env::var` with its keep justification.
 id: PH-104
 track: physis
 phase: 1
-status: todo
+status: review
 rung: 2
 depends: [PH-000]
-gate: "cargo test --features industrial_benchmark 2>&1 | tail -1"
-commit: "branch agent/PH-104; numbers-or-decites commit"
+gate: "cargo test --lib && cargo clippy --all-targets -- -D warnings"
+commit: "PH-104: SECOM marked research-only; de-cited PLAN.md/ARCHITECTURAL_REPORT.md; verdict in docs/research/PH-104-secom-verdict.md"
+shipped: on agent/PH-102-generic-extract-guard
 ---
 
 # H5: wire the SECOM benchmark to full data or stop citing it

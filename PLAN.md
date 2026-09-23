@@ -1184,9 +1184,10 @@ instead of refusing; `PHYSIS_MODEL_DIR` is spelled `PHYSIS_MODELS` here.
 `QualityTracker::adjust_score` computes `raw × (1 − penalty + boost)` clamped
 to `[0,1]`. Boosts are per-cell and input-independent, so a boosted cell is
 promoted for every subsequent input; the clamp then destroys ordering once
-several cells saturate at 1.0. The SECOM run with the ONNX embedder shows the
-effect exactly: mean adjusted score rises 0.523 → 0.939 while accuracy stays
-at 0.700 and `top1_changed` is 0.
+several cells saturate at 1.0. The SECOM sample run (21 obs, random embedder) shows the
+effect's shape: mean adjusted score rises while accuracy stays flat and `top1_changed`
+is 0. *(The 0.523→0.939 / 0.700 figures were sample-only — PH-104 marked the
+benchmark research-only; full-data ONNX run infeasible: lept missing.)*
 
 In an industrial QA setting this is the worst possible failure shape — the
 system becomes more confident and no more correct. Fix: cap `cell_standing` so
@@ -1194,13 +1195,21 @@ boosts cannot saturate (for example bound the multiplier to `[0.5, 1.2]`),
 and report raw and adjusted scores separately everywhere so a boost is visible
 as a boost rather than as evidence.
 
-### H5 — Replace the SECOM benchmark or stop citing it
+### H5 — Replace the SECOM benchmark or stop citing it  *(PH-104 resolved: research-only)*
 
 The embedded sample is 21 observations with 10 features (real UCI SECOM is
 1567 × 590). The default run splits to a 10-row test set: 60% accuracy with the
 random embedder, 70% with ONNX, against a 61.9% majority-class baseline. At
 that size the number carries no information, and the report's own
 "Interpretation" section says feedback had no measurable effect.
+
+**PH-104 verdict:** full-data run is infeasible — no download seam is wired
+in `src/industrial_benchmark/secom.rs` (hardcoded `SECOM_SAMPLE`), and
+`cargo test --features full` fails at `leptonica-sys` (`lept.pc` missing),
+which gates the ONNX embedder that produced the 0.70 figure. The benchmark is
+marked **research-only** in the module doc comment; PLAN.md no longer quotes the
+0.523→0.939 / 0.700 figures as engine QA evidence. Customer-facing claims
+defer to the H6 domain-accuracy gate instead.
 
 Fix: either wire `--dataset <path>` to the full UCI CSV and report accuracy,
 precision/recall on the rare FAIL class, and a majority-class baseline

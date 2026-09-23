@@ -153,11 +153,11 @@
 
 ### Claim 5: Context-dependent fitness outperforms global penalties
 
-**Test**: SECOM benchmark with context tags (process step, machine, time).
+**Test**: SECOM benchmark with context tags (process step, machine, time). *(research-only — embedded 21-row sample, no full-data seam; see PH-104)*
 - Compare global QualityTracker vs ContextualQualityTracker.
 - Measure accuracy, false positives, and context-specific performance.
 
-**Status**: `ContextualQualityTracker` implemented. Needs benchmark integration.
+**Status**: `ContextualQualityTracker` implemented. Needs benchmark integration. *(SECOM cited as research-only, not engine QA — PH-104)*
 
 ### Claim 6: Explanation API returns structured, inspectable output
 

@@ -1,5 +1,14 @@
 //! SECOM (Semiconductor Manufacturing) benchmark.
 //!
+//! **Research-only.** The embedded sample is 21 observations / 10 features
+//! (real UCI SECOM is 1567 × 590). Full-data validation requires a download
+//! seam that is not wired, and `cargo test --features full` fails at
+//! `leptonica-sys` (missing system `lept.pc`) which gates the ONNX embedder
+//! that produced the previously-cited 0.70 accuracy. Per PH-104/H5, this module
+//! is no longer cited in customer-facing claims — see
+//! `docs/research/PH-104-secom-verdict.md`. The CLI surface (`physis benchmark
+//! secom`) remains but produces sample-only numbers.
+//!
 //! Implements the full benchmark pipeline:
 //! 1. Load SECOM dataset (embedded sample + optional download)
 //! 2. Deterministic text representation (raw + normalized)
@@ -888,4 +897,39 @@ fn render_report(run: &BenchmarkRun) -> String {
 
 pub fn load_semiconductor_ontology() -> OntologyLoader {
     OntologyLoader::load_all()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_sample_reproduces_documented_numbers() {
+        // PH-104 pin: the documented embedded-sample numbers (PH-104 diagnosis
+        // reproduced on pansa, 2026-09-22). This locks the sample-only result so
+        // a regression in parse_secom_csv or the split cannot silently move the
+        // cited accuracy. Full-data numbers are research-only (see verdict).
+        let all = parse_secom_csv(SECOM_SAMPLE, None);
+        assert_eq!(all.len(), 21, "embedded sample has 21 observations");
+        // 50% train split → 10 test rows (seed 42); majority baseline 61.9%,
+        // random-embedder accuracy 60%.
+        let run = run_benchmark(BenchmarkConfig {
+            seed: 42,
+            train_ratio: 0.5,
+            max_observations: None,
+            embed_dim: 128,
+            output_dir: "<test>".into(),
+            no_feedback: true,
+            embedder: "random".into(),
+        })
+        .expect("sample benchmark runs");
+        assert!(run.metrics_after.total > 0, "test split non-empty");
+        // Accuracy on the 10-row test set is 60% (6/10); assert a ±2% band so
+        // the lock survives float-ordering churn but catches regressions.
+        assert!(
+            (run.metrics_after.accuracy - 0.60).abs() < 0.02,
+            "sample accuracy drifted: got {:.3}",
+            run.metrics_after.accuracy,
+        );
+    }
 }
