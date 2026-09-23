@@ -1,3 +1,24 @@
+backend — mod
+backend::BackendKind — enum pub enum BackendKind {
+backend::BackendKind::Cpu — variant Cpu
+backend::BackendKind::Cuda — variant Cuda
+backend::BackendKind::Rocm — variant Rocm
+backend::BackendKind::as_str — fn pub fn as_str(&self) -> &'static str {
+backend::BackendKind::from_env — fn pub fn from_env() -> Option<Self> {
+backend::BackendKind::parse — fn pub fn parse(name: &str) -> anyhow::Result<Self> {
+backend::ComputeBackend — trait pub trait ComputeBackend: Send + Sync {
+backend::ComputeBackend::capabilities — method fn capabilities(&self) -> Vec<Capability>;
+backend::ComputeBackend::embed_text — method fn embed_text(&self, text: &str) -> Option<Vec<f32>>;
+backend::ComputeBackend::is_available — method fn is_available(&self) -> bool;
+backend::ComputeBackend::kind — method fn kind(&self) -> BackendKind;
+backend::ComputeBackend::label — method fn label(&self) -> String;
+backend::CpuBackend — struct pub struct CpuBackend {
+backend::CpuBackend::new — fn pub fn new(dim: usize) -> Self {
+backend::ResolvedBackend — struct pub struct ResolvedBackend {
+backend::ResolvedBackend::backend — field pub backend: Box<dyn ComputeBackend>
+backend::ResolvedBackend::fallback_note — field pub fallback_note: Option<String>
+backend::select_backend — fn pub fn select_backend(preferred: Option<BackendKind>) -> ResolvedBackend {
+backend::{BackendKind, ComputeBackend, CpuBackend, ResolvedBackend, select_backend} — use pub use backend::{BackendKind, ComputeBackend, CpuBackend, ResolvedBackend, select_backend};
 becoming — mod
 becoming::Deviation — enum pub enum Deviation {
 becoming::Deviation::Mistake — variant Mistake
@@ -21,6 +42,14 @@ becoming::classify_labeled — fn pub fn classify_labeled(labels: &[&str]) -> Ve
 becoming::deviations — fn pub fn deviations(occs: &[Occurrence]) -> Vec<Option<Deviation>> {
 becoming::runs_z — fn pub fn runs_z(seq: &[bool]) -> f64 {
 bench — mod
+bench::BackendBenchRow — struct pub struct BackendBenchRow {
+bench::BackendBenchRow::elapsed_ms — field pub elapsed_ms: f64
+bench::BackendBenchRow::embedding_dim — field pub embedding_dim: usize
+bench::BackendBenchRow::fallback_note — field pub fallback_note: Option<String>
+bench::BackendBenchRow::requested — field pub requested: String
+bench::BackendBenchRow::resolved_label — field pub resolved_label: String
+bench::BackendBenchRow::texts — field pub texts: usize
+bench::BackendBenchRow::texts_per_sec — field pub texts_per_sec: f64
 bench::BenchConfig — struct pub struct BenchConfig {
 bench::BenchConfig::big_model — field pub big_model: Option<String>
 bench::BenchConfig::context_budget — field pub context_budget: usize
@@ -72,6 +101,7 @@ bench::git_head — fn pub fn git_head() -> String {
 bench::ground_truth — fn pub fn ground_truth() -> (Vec<Doc>, Truth) {
 bench::materialise_ground_truth — fn pub fn materialise_ground_truth(root: &PathBuf) -> anyhow::Result<Vec<(String, String)>> {
 bench::run — fn pub fn run(cfg: BenchConfig, embedder: &dyn crate::embed::VectorEmbed) -> anyhow::Result<BenchOut> {
+bench::run_backend_table — fn pub fn run_backend_table( kinds: &[crate::backend::BackendKind], texts: &[&str], ) -> Vec<BackendBenchRow> {
 chain — mod
 chain::ChainReport — struct pub struct ChainReport {
 chain::ChainReport::baseline_tokens — field pub baseline_tokens: usize
@@ -342,6 +372,88 @@ core::PhysisCore::set_embedder_id — fn pub fn set_embedder_id(&mut self, id: i
 core::PhysisCore::snapshot — fn pub fn snapshot(&self) -> CoherenceSnapshot {
 core::PhysisCore::to_json — fn pub fn to_json(&self) -> anyhow::Result<String> {
 core::PhysisCore::transition_hypothesis — fn pub fn transition_hypothesis( &mut self, id: &str, new_status: HypothesisStatus, description: impl Into<String>, trigger: Option<String>, ) -> bool {
+cortex — mod
+cortex::encoder — mod
+cortex::encoder::CortexOutput — struct pub struct CortexOutput {
+cortex::encoder::CortexOutput::backend — field pub backend: String
+cortex::encoder::CortexOutput::embedding — field pub embedding: Vec<f32>
+cortex::encoder::CortexOutput::role — field pub role: NeuralRole
+cortex::encoder::NeuralRole — enum pub enum NeuralRole {
+cortex::encoder::NeuralRole::Entity — variant Entity
+cortex::encoder::NeuralRole::Intent — variant Intent
+cortex::encoder::NeuralRole::Relation — variant Relation
+cortex::encoder::ProbeHead — struct pub struct ProbeHead {
+cortex::encoder::ProbeHead::exemplars — field pub exemplars: Vec<Vec<f32>>
+cortex::encoder::ProbeHead::label — field pub label: String
+cortex::encoder::ProbeHead::role — field pub role: NeuralRole
+cortex::encoder::SharedEncoder — struct pub struct SharedEncoder {
+cortex::encoder::SharedEncoder::auto — fn pub fn auto() -> Self {
+cortex::encoder::SharedEncoder::backend_label — fn pub fn backend_label(&self) -> String {
+cortex::encoder::SharedEncoder::cpu — fn pub fn cpu(dim: usize) -> Self {
+cortex::encoder::SharedEncoder::encode — fn pub fn encode(&self, text: &str, role: NeuralRole) -> CortexOutput {
+cortex::encoder::SharedEncoder::probe — fn pub fn probe(&self, output: &CortexOutput, heads: &[ProbeHead]) -> Vec<(String, Score)> {
+cortex::encoder::SharedEncoder::probe_head — fn pub fn probe_head(&self, role: NeuralRole, label: &str, exemplars: &[&str]) -> ProbeHead {
+cortex::encoder::{CortexOutput, NeuralRole, ProbeHead, SharedEncoder} — use pub use cortex::encoder::{CortexOutput, NeuralRole, ProbeHead, SharedEncoder};
+cortex::latent — mod
+cortex::latent::LatentProjections — struct pub struct LatentProjections {
+cortex::latent::LatentProjections::decode — fn pub fn decode(&self, latent: &PhysisLatent) -> Vec<f32> {
+cortex::latent::LatentProjections::encode — fn pub fn encode(&self, input: &[f32]) -> PhysisLatent {
+cortex::latent::LatentProjections::gate — fn pub fn gate(&self, latent: &PhysisLatent) -> PhysisLatent {
+cortex::latent::LatentProjections::seeded — fn pub fn seeded(encoder_dim: usize, latent_dim: usize, seed: u64) -> Self {
+cortex::latent::LatentProjections::w_c — field pub w_c: Projection
+cortex::latent::LatentProjections::w_d — field pub w_d: Projection
+cortex::latent::LatentProjections::w_e — field pub w_e: Projection
+cortex::latent::LatentProjections::w_g — field pub w_g: Projection
+cortex::latent::PhysisLatent — struct pub struct PhysisLatent {
+cortex::latent::PhysisLatent::dim — field pub dim: usize
+cortex::latent::PhysisLatent::new — fn pub fn new(vec: Vec<f32>) -> Self {
+cortex::latent::PhysisLatent::vec — field pub vec: Vec<f32>
+cortex::latent::Projection — struct pub struct Projection {
+cortex::latent::Projection::apply — fn pub fn apply(&self, input: &[f32]) -> Vec<f32> {
+cortex::latent::Projection::cols — field pub cols: usize
+cortex::latent::Projection::kind — field pub kind: ProjectionKind
+cortex::latent::Projection::new — fn pub fn new(kind: ProjectionKind, rows: usize, cols: usize, seed: u64) -> Self {
+cortex::latent::Projection::rows — field pub rows: usize
+cortex::latent::Projection::seed — field pub seed: u64
+cortex::latent::ProjectionKind — enum pub enum ProjectionKind {
+cortex::latent::ProjectionKind::Identity — variant Identity
+cortex::latent::ProjectionKind::Linear — variant Linear
+cortex::latent::ProjectionKind::Mlp — variant Mlp { hidden: usize }
+cortex::latent::{LatentProjections, PhysisLatent, Projection, ProjectionKind} — use pub use cortex::latent::{LatentProjections, PhysisLatent, Projection, ProjectionKind};
+cortex::retrieval — mod
+cortex::retrieval::RefinedResult — struct pub struct RefinedResult {
+cortex::retrieval::RefinedResult::stages — field pub stages: Vec<StageHits>
+cortex::retrieval::RefinedResult::triples — field pub triples: Vec<Triple>
+cortex::retrieval::RefinementLadder — struct pub struct RefinementLadder<'a> {
+cortex::retrieval::StageHits — struct pub struct StageHits {
+cortex::retrieval::StageHits::note — field pub note: String
+cortex::retrieval::StageHits::stage — field pub stage: String
+cortex::retrieval::StageHits::strategy — field pub strategy: Option<RetrievalStrategy>
+cortex::retrieval::StageHits::triples — field pub triples: Vec<Triple>
+cortex::retrieval::new — fn pub fn new(planner: &'a QueryPlanner, max_results: usize) -> Self {
+cortex::retrieval::search — fn pub fn search(&self, pattern: Option<TriplePattern>, text: &str) -> RefinedResult {
+cortex::retrieval::{RefinedResult, RefinementLadder, StageHits} — use pub use cortex::retrieval::{RefinedResult, RefinementLadder, StageHits};
+cortex::router — mod
+cortex::router::Intent — enum pub enum Intent {
+cortex::router::Intent::Embed — variant Embed
+cortex::router::Intent::Execute — variant Execute
+cortex::router::Intent::Inspect — variant Inspect
+cortex::router::Intent::Plan — variant Plan
+cortex::router::Intent::Unknown — variant Unknown
+cortex::router::Intent::parse — fn pub fn parse(verb: &str) -> Self {
+cortex::router::Intent::requires — fn pub fn requires(&self) -> Option<Capability> {
+cortex::router::RoutingContext — struct pub struct RoutingContext {
+cortex::router::RoutingContext::devices — field pub devices: Vec<DeviceInfo>
+cortex::router::RoutingContext::preferred — field pub preferred: Option<BackendKind>
+cortex::router::RoutingContext::verb — field pub verb: String
+cortex::router::RoutingDecision — struct pub struct RoutingDecision {
+cortex::router::RoutingDecision::backend — field pub backend: BackendKind
+cortex::router::RoutingDecision::backend_label — field pub backend_label: String
+cortex::router::RoutingDecision::fallback_note — field pub fallback_note: Option<String>
+cortex::router::RoutingDecision::intent — field pub intent: Intent
+cortex::router::RoutingDecision::rationale — field pub rationale: Vec<String>
+cortex::router::route — fn pub fn route(ctx: &RoutingContext) -> RoutingDecision {
+cortex::router::{route, Intent, RoutingContext, RoutingDecision} — use pub use cortex::router::{route, Intent, RoutingContext, RoutingDecision};
 coverage — mod
 coverage::CandidateGain — struct pub struct CandidateGain {
 coverage::CandidateGain::count — fn pub fn count(&self) -> usize {
@@ -436,6 +548,22 @@ delta_engine::from_base — fn pub fn from_base( base_nodes: &'a [CoherenceNode]
 delta_engine::retract_evidence_with_cascade — fn pub fn retract_evidence_with_cascade( ctx: &mut EvaluationContext, hypothesis_id: &str, source: &str, ) -> Option<RetractionCascadeReport> {
 delta_engine::route_transition — fn pub fn route_transition( prev_status: HypothesisStatus, coherence_delta: Score, ) -> AdjudicationRoute {
 delta_engine::{ — use pub use delta_engine::{
+devices — mod
+devices::DeviceInfo — struct pub struct DeviceInfo {
+devices::DeviceInfo::detail — field pub detail: Option<String>
+devices::DeviceInfo::kind — field pub kind: BackendKind
+devices::DeviceInfo::memory_bytes — field pub memory_bytes: Option<u64>
+devices::DeviceInfo::name — field pub name: String
+devices::DeviceInfo::source — field pub source: String
+devices::HardwareDiscovery — struct pub struct HardwareDiscovery;
+devices::HardwareDiscovery::best_kind — fn pub fn best_kind(devices: &[DeviceInfo]) -> BackendKind {
+devices::HardwareDiscovery::scan — fn pub fn scan() -> Vec<DeviceInfo> {
+devices::parse_nvidia_smi_csv — fn pub fn parse_nvidia_smi_csv(output: &str) -> Vec<DeviceInfo> {
+devices::{DeviceInfo, HardwareDiscovery, parse_nvidia_smi_csv} — use pub use devices::{DeviceInfo, HardwareDiscovery, parse_nvidia_smi_csv};
+diffusion — mod
+diffusion::diffuse — fn pub fn diffuse( graph: &WorldGraph, seeds: &HashMap<String, f32>, steps: usize, decay: f32, ) -> HashMap<String, f32> {
+diffusion::ranked — fn pub fn ranked(scores: &HashMap<String, f32>) -> Vec<(String, f32)> {
+diffusion::{diffuse, ranked} — use pub use diffusion::{diffuse, ranked};
 direction — mod
 direction::Direction — enum pub enum Direction {
 direction::Direction::Longer — variant Longer
@@ -597,6 +725,24 @@ epistemic::StateAt::status — field pub status: Option<HypothesisStatus>
 epistemic::StateAt::supporting_event_ids — field pub supporting_event_ids: Vec<String>
 epistemic::StateAt::unknown_time — field pub unknown_time: Vec<String>
 epistemic::{ — use pub use epistemic::{
+experience — mod
+experience::Experience — struct pub struct Experience {
+experience::Experience::action — field pub action: Action
+experience::Experience::committed — field pub committed: bool
+experience::Experience::comparison — field pub comparison: ComparisonResult
+experience::Experience::confidence — field pub confidence: Score
+experience::Experience::cost — field pub cost: f64
+experience::Experience::goal — field pub goal: String
+experience::Experience::recorded_at — field pub recorded_at: chrono::DateTime<chrono::Utc>
+experience::Experience::source_id — field pub source_id: String
+experience::ExperienceStore — struct pub struct ExperienceStore {
+experience::ExperienceStore::new — fn pub fn new() -> Self {
+experience::ExperienceStore::recall_exact — fn pub fn recall_exact(&self, goal: &str, action: &Action, limit: usize) -> Vec<Experience> {
+experience::ExperienceStore::recall_kind — fn pub fn recall_kind(&self, goal: &str, action: &Action, limit: usize) -> Vec<Experience> {
+experience::ExperienceStore::record — fn pub fn record(&mut self, executed: &ExecutedTransition) -> Experience {
+experience::ExperienceStore::success_rate — fn pub fn success_rate(experiences: &[Experience]) -> Option<f64> {
+experience::action_kind — fn pub fn action_kind(action: &Action) -> &'static str {
+experience::{Experience, ExperienceStore, action_kind} — use pub use experience::{Experience, ExperienceStore, action_kind};
 explanation — mod
 explanation::ExplanationReport — struct pub struct ExplanationReport {
 explanation::ExplanationReport::ascii_summary — fn pub fn ascii_summary(&self) -> String {
@@ -755,6 +901,17 @@ hypothesis::Revision::trigger — field pub trigger: Option<String>
 hypothesis::current_hypotheses — fn pub fn current_hypotheses( hyps: &std::collections::HashMap<String, Hypothesis>, ) -> Vec<&Hypothesis> {
 hypothesis::hypotheses_including_history — fn pub fn hypotheses_including_history( hyps: &std::collections::HashMap<String, Hypothesis>, ) -> Vec<&Hypothesis> {
 hypothesis::{ — use pub use hypothesis::{
+intuition — mod
+intuition::Intuition — trait pub trait Intuition: Send + Sync {
+intuition::Intuition::propose — method fn propose(&self, world: &WorldState, goal: &str, limit: usize) -> Vec<Proposal>;
+intuition::Proposal — struct pub struct Proposal {
+intuition::Proposal::action — field pub action: Action
+intuition::Proposal::as_unevaluated_transition — fn pub fn as_unevaluated_transition(&self, id: impl Into<String>) -> Transition {
+intuition::Proposal::confidence — field pub confidence: Score
+intuition::Proposal::cost — field pub cost: f64
+intuition::Proposal::goal — field pub goal: String
+intuition::Proposal::rationale — field pub rationale: String
+intuition::{Intuition, Proposal} — use pub use intuition::{Intuition, Proposal};
 linkage — mod
 linkage::CellKey — type pub type CellKey = (String, String);
 linkage::CellLink — struct pub struct CellLink {
@@ -1112,6 +1269,107 @@ models::SemioticGrid::new — fn pub fn new() -> Self {
 models::SemioticGrid::reset_activations — fn pub fn reset_activations(&mut self) {
 models::cosine_dist — fn pub fn cosine_dist(a: &[f32], b: &[f32]) -> f32 {
 models::cosine_sim — fn pub fn cosine_sim(a: &[f32], b: &[f32]) -> f32 {
+neural — mod
+neural::backends — mod
+neural::backends::cortical — mod
+neural::backends::cortical::CorticalSimulatorBackend — struct pub struct CorticalSimulatorBackend {
+neural::backends::cortical::CorticalSimulatorBackend — use pub use cortical::CorticalSimulatorBackend;
+neural::backends::cortical::CorticalSimulatorBackend::new — fn pub fn new() -> Self {
+neural::backends::fly — mod
+neural::backends::fly::FlyConnectomeBackend — struct pub struct FlyConnectomeBackend {
+neural::backends::fly::FlyConnectomeBackend — use pub use fly::FlyConnectomeBackend;
+neural::backends::fly::FlyConnectomeBackend::load_csv — fn pub fn load_csv(path: &str) -> Result<Self, SubstrateError> {
+neural::backends::fly::FlyConnectomeBackend::new — fn pub fn new() -> Self {
+neural::backends::recorded — mod
+neural::backends::recorded::RecordedNeuralBackend — struct pub struct RecordedNeuralBackend {
+neural::backends::recorded::RecordedNeuralBackend — use pub use recorded::RecordedNeuralBackend;
+neural::backends::recorded::RecordedNeuralBackend::load_csv — fn pub fn load_csv(path: &str) -> SubstrateResult<Self> {
+neural::backends::recorded::RecordedNeuralBackend::new — fn pub fn new() -> Self {
+neural::backends::reservoir — mod
+neural::backends::reservoir::RandomReservoirBackend — struct pub struct RandomReservoirBackend {
+neural::backends::reservoir::RandomReservoirBackend — use pub use reservoir::RandomReservoirBackend;
+neural::backends::reservoir::RandomReservoirBackend::new — fn pub fn new(population_size: usize, input_size: usize, seed: u64) -> Self {
+neural::backends::spiking — mod
+neural::backends::spiking::ArtificialSpikingBackend — struct pub struct ArtificialSpikingBackend {
+neural::backends::spiking::ArtificialSpikingBackend — use pub use spiking::ArtificialSpikingBackend;
+neural::backends::spiking::ArtificialSpikingBackend::new — fn pub fn new(population_size: usize) -> Self {
+neural::codec — mod
+neural::codec::Decoder — trait pub trait Decoder {
+neural::codec::Decoder::decode — method fn decode(&self, obs: &crate::neural::substrate::NeuralObservation) -> (Vec<f32>, crate::neural::substrate::Confidence);
+neural::codec::Encoder — trait pub trait Encoder {
+neural::codec::Encoder::encode — method fn encode(&self, embedding: &[f32]) -> StimulusPattern;
+neural::codec::IdentityEncoder — struct pub struct IdentityEncoder;
+neural::codec::ProjectionEncoder — struct pub struct ProjectionEncoder {
+neural::codec::ProjectionEncoder::new — fn pub fn new(dim_in: usize, dim_out: usize, seed: u64) -> Self {
+neural::delta — mod
+neural::delta::SemanticDelta — struct pub struct SemanticDelta {
+neural::delta::SemanticDelta::added_relations — field pub added_relations: Vec<(String, String, String)>
+neural::delta::SemanticDelta::changed_activation — field pub changed_activation: bool
+neural::delta::SemanticDelta::changed_properties — field pub changed_properties: Vec<String>
+neural::delta::SemanticDelta::removed_relations — field pub removed_relations: Vec<(String, String, String)>
+neural::delta::build_delta_report — fn pub fn build_delta_report(prev: &PopulationState, cur: &PopulationState, threshold: f32) -> SemanticDelta {
+neural::delta::decode_semantic_delta — fn pub fn decode_semantic_delta( prev: &[f32], obs: &NeuralObservation, target_node_id: &str, threshold: f32, ) -> Option<OntologyMutation> {
+neural::substrate — mod
+neural::substrate::ChannelId — type pub type ChannelId = usize;
+neural::substrate::Confidence — struct pub struct Confidence {
+neural::substrate::Confidence::entropy — field pub entropy: f32
+neural::substrate::Confidence::score — field pub score: Score
+neural::substrate::Confidence::uncertainty — field pub uncertainty: f32
+neural::substrate::DeterministicBackend — struct pub struct DeterministicBackend {
+neural::substrate::DeterministicBackend::new — fn pub fn new(population_size: usize) -> Self {
+neural::substrate::NeuralObservation — struct pub struct NeuralObservation {
+neural::substrate::NeuralObservation::populations — field pub populations: HashMap<String, PopulationState>
+neural::substrate::NeuralObservation::t — field pub t: usize
+neural::substrate::NeuralObservation::window — field pub window: ObservationWindow
+neural::substrate::NeuralSubstrate — trait pub trait NeuralSubstrate {
+neural::substrate::NeuralSubstrate::capabilities — method fn capabilities(&self) -> SubstrateCapabilities;
+neural::substrate::NeuralSubstrate::configure — method fn configure(&mut self, config: SubstrateConfig) -> SubstrateResult<()>;
+neural::substrate::NeuralSubstrate::health — method fn health(&self) -> SubstrateHealth;
+neural::substrate::NeuralSubstrate::observe — method fn observe(&mut self, window: ObservationWindow) -> SubstrateResult<NeuralObservation>;
+neural::substrate::NeuralSubstrate::reset — method fn reset(&mut self) -> SubstrateResult<()>;
+neural::substrate::NeuralSubstrate::stimulate — method fn stimulate(&mut self, input: StimulusPattern) -> SubstrateResult<()>;
+neural::substrate::ObservationWindow — struct pub struct ObservationWindow {
+neural::substrate::ObservationWindow::from_t — field pub from_t: usize
+neural::substrate::ObservationWindow::steps — field pub steps: usize
+neural::substrate::ObservationWindow::to_t — field pub to_t: usize
+neural::substrate::PopulationState — struct pub struct PopulationState {
+neural::substrate::PopulationState::trace — field pub trace: Vec<Vec<f32>>
+neural::substrate::PopulationState::values — field pub values: Vec<f32>
+neural::substrate::StimulusPattern — struct pub struct StimulusPattern {
+neural::substrate::StimulusPattern::channels — field pub channels: Vec<(ChannelId, f32)>
+neural::substrate::StimulusPattern::dense — field pub dense: Vec<f32>
+neural::substrate::StimulusPattern::hint — field pub hint: Option<(String, String)>
+neural::substrate::SubstrateCapabilities — struct pub struct SubstrateCapabilities {
+neural::substrate::SubstrateCapabilities::latency_ms — field pub latency_ms: f32
+neural::substrate::SubstrateCapabilities::notes — field pub notes: Vec<String>
+neural::substrate::SubstrateCapabilities::population_size — field pub population_size: usize
+neural::substrate::SubstrateCapabilities::supports_observation — field pub supports_observation: bool
+neural::substrate::SubstrateCapabilities::supports_reset — field pub supports_reset: bool
+neural::substrate::SubstrateCapabilities::supports_stimulation — field pub supports_stimulation: bool
+neural::substrate::SubstrateConfig — struct pub struct SubstrateConfig {
+neural::substrate::SubstrateConfig::dt — field pub dt: f32
+neural::substrate::SubstrateConfig::extra — field pub extra: HashMap<String, String>
+neural::substrate::SubstrateConfig::kind — field pub kind: SubstrateKind
+neural::substrate::SubstrateConfig::noise — field pub noise: f32
+neural::substrate::SubstrateConfig::population_size — field pub population_size: usize
+neural::substrate::SubstrateConfig::seed — field pub seed: u64
+neural::substrate::SubstrateError — enum pub enum SubstrateError {
+neural::substrate::SubstrateError::Backend — variant Backend(String)
+neural::substrate::SubstrateError::LiveHardwareUnavailable — variant LiveHardwareUnavailable
+neural::substrate::SubstrateHealth — struct pub struct SubstrateHealth {
+neural::substrate::SubstrateHealth::error — field pub error: Option<String>
+neural::substrate::SubstrateHealth::occupancy — field pub occupancy: f32
+neural::substrate::SubstrateHealth::online — field pub online: bool
+neural::substrate::SubstrateKind — enum pub enum SubstrateKind {
+neural::substrate::SubstrateKind::ArtificialSpiking — variant ArtificialSpiking
+neural::substrate::SubstrateKind::CorticalSimulator — variant CorticalSimulator
+neural::substrate::SubstrateKind::Deterministic — variant Deterministic
+neural::substrate::SubstrateKind::FlyConnectome — variant FlyConnectome
+neural::substrate::SubstrateKind::FutureWetware — variant FutureWetware
+neural::substrate::SubstrateKind::RandomReservoir — variant RandomReservoir
+neural::substrate::SubstrateKind::RecordedNeural — variant RecordedNeural
+neural::substrate::SubstrateResult — type pub type SubstrateResult<T> = std::result::Result<T, SubstrateError>;
+neural::substrate::{ — use pub use substrate::{
 ngram_table — mod
 ngram_table::BackoffTable — struct pub struct BackoffTable {
 ngram_table::BackoffTable::from_counts — fn pub fn from_counts( manifest: TableManifest, counts: Counts, ) -> Result<Self, crate::tokenizer::Incompatible> {
@@ -1396,6 +1654,63 @@ provenance::ProvenanceLink::source — field pub source: String
 provenance::ProvenanceLink::timestamp — field pub timestamp: chrono::DateTime<chrono::Utc>
 provenance::ProvenanceLink::with_intake_id — fn pub fn with_intake_id(mut self, intake_id: impl Into<String>) -> Self {
 provenance::{ChainIntegrity, ProvenanceChain, ProvenanceLink} — use pub use provenance::{ChainIntegrity, ProvenanceChain, ProvenanceLink};
+query — mod
+query::AtomicFact — struct pub struct AtomicFact {
+query::AtomicFact::confidence — field pub confidence: Score
+query::AtomicFact::extracted_at — field pub extracted_at: chrono::DateTime<chrono::Utc>
+query::AtomicFact::method — field pub method: String
+query::AtomicFact::obs_seq — field pub obs_seq: u64
+query::AtomicFact::source — field pub source: String
+query::AtomicFact::triple — field pub triple: Triple
+query::Bm25Index — struct pub struct Bm25Index {
+query::Bm25Index::new — fn pub fn new(docs: Vec<String>) -> Self {
+query::Bm25Index::search — fn pub fn search(&self, query: &str, k: usize) -> Vec<(usize, f32)> {
+query::CausalDirection — enum pub enum CausalDirection {
+query::CausalDirection::Backward — variant Backward, // Effects -> Causes
+query::CausalDirection::Both — variant Both
+query::CausalDirection::Forward — variant Forward, // Causes -> Effects
+query::QueryPlan — struct pub struct QueryPlan {
+query::QueryPlan::causal_direction — field pub causal_direction: Option<CausalDirection>
+query::QueryPlan::max_results — field pub max_results: usize
+query::QueryPlan::min_confidence — field pub min_confidence: Score
+query::QueryPlan::pattern — field pub pattern: Option<TriplePattern>
+query::QueryPlan::strategy — field pub strategy: RetrievalStrategy
+query::QueryPlan::temporal_window — field pub temporal_window: Option<TemporalWindow>
+query::QueryPlan::text_query — field pub text_query: Option<String>
+query::QueryPlanner — struct pub struct QueryPlanner {
+query::QueryPlanner::auto_plan — fn pub fn auto_plan(&self, query: &str, pattern: Option<TriplePattern>, max_results: usize) -> QueryPlan {
+query::QueryPlanner::execute — fn pub fn execute(&self, plan: &QueryPlan) -> anyhow::Result<QueryResult> {
+query::QueryPlanner::new — fn pub fn new(graph: WorldGraph) -> Self {
+query::QueryPlanner::with_bm25 — fn pub fn with_bm25(mut self, index: Bm25Index) -> Self {
+query::QueryPlanner::with_embedder — fn pub fn with_embedder(mut self, embedder: Box<dyn VectorEmbed>) -> Self {
+query::QueryResult — struct pub struct QueryResult {
+query::QueryResult::explanation — field pub explanation: String
+query::QueryResult::facts — field pub facts: Vec<AtomicFact>
+query::QueryResult::score — field pub score: Score
+query::QueryResult::strategy_used — field pub strategy_used: RetrievalStrategy
+query::QueryResult::triples — field pub triples: Vec<Triple>
+query::RetrievalStrategy — enum pub enum RetrievalStrategy {
+query::RetrievalStrategy::BM25 — variant BM25
+query::RetrievalStrategy::Causal — variant Causal
+query::RetrievalStrategy::Embedding — variant Embedding
+query::RetrievalStrategy::Exact — variant Exact
+query::RetrievalStrategy::Structured — variant Structured
+query::RetrievalStrategy::Temporal — variant Temporal
+query::TemporalWindow — struct pub struct TemporalWindow {
+query::TemporalWindow::end — field pub end: chrono::DateTime<chrono::Utc>
+query::TemporalWindow::start — field pub start: chrono::DateTime<chrono::Utc>
+query::WorldGraph — struct pub struct WorldGraph {
+query::WorldGraph::bfs_paths — fn pub fn bfs_paths(&self, start: &str, max_depth: usize) -> Vec<Vec<(String, Predicate, String)>> {
+query::WorldGraph::edges — field pub edges: HashMap<String, HashMap<Predicate, HashSet<String>>>
+query::WorldGraph::facts — field pub facts: Vec<AtomicFact>
+query::WorldGraph::from_world — fn pub fn from_world(world: &WorldState, facts: &[AtomicFact]) -> Self {
+query::WorldGraph::incoming — fn pub fn incoming(&self, node: &str) -> Option<&HashMap<Predicate, HashSet<String>>> {
+query::WorldGraph::neighbors — fn pub fn neighbors(&self, node: &str) -> HashSet<String> {
+query::WorldGraph::nodes — field pub nodes: HashSet<String>
+query::WorldGraph::outgoing — fn pub fn outgoing(&self, node: &str) -> Option<&HashMap<Predicate, HashSet<String>>> {
+query::WorldGraph::rev_edges — field pub rev_edges: HashMap<String, HashMap<Predicate, HashSet<String>>>
+query::observations_to_facts — fn pub fn observations_to_facts(observations: &[Observation]) -> Vec<AtomicFact> {
+query::{ — use pub use query::{
 rag — mod
 rag::Bm25Index — struct pub struct Bm25Index {
 rag::Bm25Index::avg_dl — field pub avg_dl: f32
@@ -1601,6 +1916,95 @@ transform::WorldState::without_relation — fn pub fn without_relation(&self, pr
 transform::apply — fn pub fn apply(world: &WorldState, op: &Transform) -> (WorldState, TraceStep) {
 transform::find_homomorphisms — fn pub fn find_homomorphisms( patterns: &[TriplePattern], facts: &[Triple], ) -> Vec<HashMap<String, String>> {
 transform::{ — use pub use transform::{
+transition — mod
+transition::Action — enum pub enum Action {
+transition::Action::AgentCall — variant AgentCall { agent: String, request: String, context_tokens: usize }
+transition::Action::Custom — variant Custom { fields: HashMap<String, String> }
+transition::Action::Edit — variant Edit { path: String, old_body: String, new_body: String }
+transition::Action::Fs — variant Fs { kind: FsAction, path: String }
+transition::Action::Graph — variant Graph { kind: GraphAction, target: String }
+transition::Action::MpcCall — variant MpcCall { endpoint: String, payload: String }
+transition::Action::Notebook — variant Notebook { kind: NoteAction, entry_id: String }
+transition::Action::Praxis — variant Praxis { kind: PraxisAction, goal_id: String }
+transition::Action::Shell — variant Shell { cmd: String, cwd: String }
+transition::Action::Telemetry — variant Telemetry { kind: TelemetryAction, device: String }
+transition::ComparisonResult — enum pub enum ComparisonResult {
+transition::ComparisonResult::Conflict — variant Conflict
+transition::ComparisonResult::ExactMatch — variant ExactMatch
+transition::ComparisonResult::NoMatch — variant NoMatch
+transition::ComparisonResult::PartialMatch — variant PartialMatch
+transition::EvidenceRequirement — struct pub struct EvidenceRequirement {
+transition::EvidenceRequirement::mechanism — field pub mechanism: String
+transition::EvidenceRequirement::min_confidence — field pub min_confidence: Score
+transition::EvidenceRequirement::pattern — field pub pattern: String
+transition::ExecutedTrace — struct pub struct ExecutedTrace {
+transition::ExecutedTrace::action — field pub action: Action
+transition::ExecutedTrace::after — field pub after: WorldState
+transition::ExecutedTrace::before — field pub before: WorldState
+transition::ExecutedTrace::errors — field pub errors: Vec<String>
+transition::ExecutedTrace::observations — field pub observations: Vec<ObservedRecord>
+transition::ExecutedTrace::predicted_vs_observed — field pub predicted_vs_observed: (StateDelta, StateDelta)
+transition::ExecutedTrace::verdict — field pub verdict: ComparisonResult
+transition::ExecutedTransition — struct pub struct ExecutedTransition {
+transition::ExecutedTransition::committed — field pub committed: bool
+transition::ExecutedTransition::comparison — field pub comparison: ComparisonResult
+transition::ExecutedTransition::observed_delta — field pub observed_delta: StateDelta
+transition::ExecutedTransition::postconditions_met — field pub postconditions_met: bool
+transition::ExecutedTransition::preconditions_met — field pub preconditions_met: bool
+transition::ExecutedTransition::trace — field pub trace: ExecutedTrace
+transition::ExecutedTransition::transition — field pub transition: Transition
+transition::FsAction — enum pub enum FsAction {
+transition::FsAction::CreateFile — variant CreateFile
+transition::FsAction::DeleteDir — variant DeleteDir
+transition::FsAction::DeleteFile — variant DeleteFile
+transition::FsAction::MakeDir — variant MakeDir
+transition::FsAction::RenameFile — variant RenameFile
+transition::FsAction::WriteFile — variant WriteFile
+transition::GraphAction — enum pub enum GraphAction {
+transition::GraphAction::AddEdge — variant AddEdge
+transition::GraphAction::AddPin — variant AddPin
+transition::GraphAction::RemoveEdge — variant RemoveEdge
+transition::GraphAction::RemovePin — variant RemovePin
+transition::GraphAction::SetNodeFocus — variant SetNodeFocus
+transition::NoteAction — enum pub enum NoteAction {
+transition::NoteAction::AddEntry — variant AddEntry
+transition::NoteAction::AddRelation — variant AddRelation
+transition::NoteAction::EditEntry — variant EditEntry
+transition::NoteAction::RemoveEntry — variant RemoveEntry
+transition::NoteAction::RemoveRelation — variant RemoveRelation
+transition::ObservedRecord — struct pub struct ObservedRecord {
+transition::ObservedRecord::body — field pub body: String
+transition::ObservedRecord::source — field pub source: String
+transition::ObservedRecord::subject — field pub subject: String
+transition::ObservedRecord::timestamp — field pub timestamp: String
+transition::PraxisAction — enum pub enum PraxisAction {
+transition::PraxisAction::AddGoal — variant AddGoal
+transition::PraxisAction::CompleteGoal — variant CompleteGoal
+transition::PraxisAction::RemoveGoal — variant RemoveGoal
+transition::PraxisAction::UpdateGoal — variant UpdateGoal
+transition::StateDelta — struct pub struct StateDelta {
+transition::StateDelta::added — field pub added: Vec<Triple>
+transition::StateDelta::confidence_per_triple — field pub confidence_per_triple: HashMap<String, f32>
+transition::StateDelta::metadata — field pub metadata: HashMap<String, String>
+transition::StateDelta::removed — field pub removed: Vec<Triple>
+transition::TelemetryAction — enum pub enum TelemetryAction {
+transition::TelemetryAction::Calibrate — variant Calibrate
+transition::TelemetryAction::QueryState — variant QueryState
+transition::TelemetryAction::RecordReading — variant RecordReading
+transition::Transition — struct pub struct Transition {
+transition::Transition::action — field pub action: Action
+transition::Transition::confidence — field pub confidence: Score
+transition::Transition::cost — field pub cost: f64
+transition::Transition::ensures — field pub ensures: Vec<Predicate>
+transition::Transition::evidence_requirements — field pub evidence_requirements: Vec<EvidenceRequirement>
+transition::Transition::goal — field pub goal: String
+transition::Transition::id — field pub id: String
+transition::Transition::predicts — field pub predicts: StateDelta
+transition::Transition::requires — field pub requires: Vec<Predicate>
+transition::execute_transition — fn pub fn execute_transition( transition: Transition, _world: &mut WorldState, ) -> anyhow::Result<ExecutedTransition> {
+transition::predict_delta — fn pub fn predict_delta( _world: &WorldState, transition: &Transition, ) -> StateDelta {
+transition::verify_preconditions — fn pub fn verify_preconditions( world: &WorldState, transition: &Transition, ) -> bool {
+transition::{ — use pub use transition::{
 transplant — mod
 transplant::CorrespondenceProposal — struct pub struct CorrespondenceProposal {
 transplant::CorrespondenceProposal::contradictions — field pub contradictions: Vec<String>
