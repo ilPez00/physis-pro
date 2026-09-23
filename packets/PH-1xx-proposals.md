@@ -180,11 +180,12 @@ Plus the committed numbers or the de-citation grep above.
 id: PH-105
 track: physis
 phase: 2
-status: todo
+status: blocked
 rung: 3
 depends: [PH-000]
 gate: "test -f research/mapper/rerank_scores.json && python3 scripts/score_rerank.py --help"
 commit: "branch agent/PH-105; scores + labels commit (docs/data only)"
+blocked_on: "models/wordnet + MiniLM/BGE embedders absent on pansa; human must label 75-item worklist"
 ---
 
 # Run the built human-reranker worklist
@@ -250,10 +251,12 @@ Seven proposals PH-030…PH-036, verified 2026-09-22 during merge: cited symbols
 id: PH-030
 track: physis-pro
 phase: 0
-status: todo
+status: shipped
 rung: 2
 depends: [PH-029]
 gate: "cargo clippy --all-targets -- -D warnings && cargo test --features tui --bin physis-hud"
+shipped_on: agent/PH-030-result-state (commit d30d764)
+measurement: grep -c 'self\.hits\s*=' src/bin/hud.rs = 0 (was 2; the stale-hits hazard is structurally blocked; remaining self.sel= lives inside ResultState::set_sel)
 ```
 
 ### Why
