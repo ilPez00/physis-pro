@@ -616,3 +616,23 @@ A follow-up to PH-105-blocked. The PH-037 spiking backend (`ArtificialSpikingBac
 ## Never
 
 - Call this a "biological spike." It is a threshold-crossing on a toy integrator.
+
+## PH-107-recorded-backend-test
+
+A follow-up to PH-106. P8 calls for `RecordedNeuralBackend` to be exercised in
+CI, but it had no test fixture — without a recording the reader path was
+untested. This ships a tiny sample CSV and asserts parse/replay/reset semantics.
+
+**Goal:** ship `data/neural/sample.csv` (4 timesteps × 4 channels) + 4 unit
+tests (`load_csv_parses_sample`, `observe_replays_in_order`,
+`reset_loops_back_to_first_frame`, `missing_file_errors`) so the recorded-
+playback backend is covered by `cargo test --features neural`.
+
+**Scope:** `physis-core/src/neural/backends/recorded.rs` + `data/neural/sample.csv`.
+No biological data — this is a synthetic fixture so the reader path is proven.
+
+**Gate:** `cargo test --features neural --lib neural::backends::recorded` (4 passed).
+
+## Never
+
+- Treat the sample as real neural data.
