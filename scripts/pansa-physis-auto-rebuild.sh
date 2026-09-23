@@ -28,6 +28,8 @@ MODEL_DIR="${PHYSIS_MODEL_DIR:-/home/gio/physis-models}"
 # Same reasoning for the licence: the service unit exports it, but the updater
 # must not depend on being launched by systemd to find it.
 LICENSE_FILE="${PHYSIS_LICENSE_FILE:-/home/gio/.physis/license.key}"
+# Service unit name varies per host (pansa: physis-engine; omo: physis-omo).
+ENGINE_SERVICE="${PHYSIS_ENGINE_SERVICE:-physis-engine.service}"
 
 # Where the throwaway worktree and the throwaway CARGO_HOME live. Both used to
 # be `mktemp -d /tmp/...`, and /tmp on pansa is a 7.8 GB tmpfs — the registry
@@ -97,6 +99,20 @@ if ! docker run --rm --user "$(id -u):$(id -g)" \
   log "Build failed; running binary remains untouched."
   exit 1
 fi
+# docker is unavailable on some hosts (omo-ts: desktop.sock absent, no dockerd).
+# Fall back to a native cargo build so the engine still updates without a
+# container runtime. Mirrors praxis auto_update.sh, which dropped docker for the
+# same failure mode.
+if [[ ! -x "$candidate" ]]; then
+  if docker info >/dev/null 2>&1; then
+    log "Build produced no executable (docker path)."; exit 1
+  fi
+  log "docker unavailable — building natively with cargo instead."
+  export PHYSIS_BUILD_FEATURES="${PHYSIS_BUILD_FEATURES:-$FEATURES}"
+  ( cd "$worktree" && PHYSIS_LICENSE_PUBKEY="$(cat /home/gio/.physis-vendor/verifying.key 2>/dev/null || true)" \
+      cargo build --release --no-default-features --features "$FEATURES" --bin physis-pro-web ) >>"$LOG_FILE" 2>&1 \
+    || { log "Native build failed; running binary remains untouched."; exit 1; }
+fi
 [[ -x "$candidate" ]] || { log "Build produced no executable."; exit 1; }
 
 # A web binary is licence-gated before it binds. Run it on an ephemeral port;
@@ -126,7 +142,7 @@ fi
 live="$RUNTIME_DIR/physis-pro-web"
 backup="$RUNTIME_DIR/physis-pro-web.previous"
 if [[ ! -e "$live" ]]; then
-  service_exec=$(systemctl --user show physis-engine.service -p ExecStart --value | sed -n 's/.*path=\([^ ;]*\).*/\1/p')
+  service_exec=$(systemctl --user show $ENGINE_SERVICE -p ExecStart --value | sed -n 's/.*path=\([^ ;]*\).*/\1/p')
   [[ -n "$service_exec" && -x "$service_exec" ]] || { log "No existing binary to seed runtime."; exit 1; }
   cp "$service_exec" "$live"
 fi
@@ -135,10 +151,10 @@ install -m 755 "$candidate" "$live.next"
 mv -f "$live.next" "$live"
 
 log "Restarting physis-engine"
-if ! systemctl --user restart physis-engine.service; then
+if ! systemctl --user restart $ENGINE_SERVICE; then
   log "Restart failed; restoring previous binary."
   mv -f "$backup" "$live"
-  systemctl --user restart physis-engine.service || true
+  systemctl --user restart $ENGINE_SERVICE || true
   exit 1
 fi
 
@@ -150,7 +166,7 @@ done
 if [[ "$healthy" != true ]]; then
   log "Health check failed; restoring previous binary."
   mv -f "$backup" "$live"
-  systemctl --user restart physis-engine.service || true
+  systemctl --user restart $ENGINE_SERVICE || true
   exit 1
 fi
 
