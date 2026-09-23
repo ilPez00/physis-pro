@@ -155,6 +155,9 @@ wgpu = { version = "30.0", default-features = false, optional = true }
 # want, or select the random embedder explicitly at runtime.
 default = ["cli", "voice", "web", "tui", "sql", "postgres", "email", "embed-onnx"]
 embed-onnx = ["dep:ort", "dep:ndarray", "dep:tokenizers", "physis-core/embed-onnx"]
+# PH-037 substrate research: forwards to physis-core. Off by default so the
+# default monolith build stays free of the neural research layer.
+neural = ["physis-core/neural"]
 cli = ["dep:clap"]
 mcp = ["dep:rmcp"]
 network = ["dep:notify"]

@@ -457,8 +457,10 @@ pub fn build_embedder(config: &BenchmarkConfig) -> EmbedFn {
 
 // ── Benchmark execution ───────────────────────────────────────────
 
-pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
-    std::fs::create_dir_all(&config.output_dir)?;
+ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
+    if !config.output_dir.as_os_str().is_empty() {
+        std::fs::create_dir_all(&config.output_dir)?;
+    }
 
     let raw_text = SECOM_SAMPLE;
     let all_obs = parse_secom_csv(raw_text, config.max_observations);
@@ -651,11 +653,12 @@ pub fn run_benchmark(config: BenchmarkConfig) -> anyhow::Result<BenchmarkRun> {
     };
 
     // Save results
-    let json_path = config.output_dir.join("latest.json");
-    std::fs::write(&json_path, serde_json::to_string_pretty(&run)?)?;
-
-    let md_path = config.output_dir.join("latest.md");
-    std::fs::write(&md_path, render_report(&run))?;
+    if !config.output_dir.as_os_str().is_empty() {
+        let json_path = config.output_dir.join("latest.json");
+        std::fs::write(&json_path, serde_json::to_string_pretty(&run)?)?;
+        let md_path = config.output_dir.join("latest.md");
+        std::fs::write(&md_path, render_report(&run))?;
+    }
 
     Ok(run)
 }
@@ -918,7 +921,7 @@ mod tests {
             train_ratio: 0.5,
             max_observations: None,
             embed_dim: 128,
-            output_dir: "<test>".into(),
+            output_dir: "".into(),
             no_feedback: true,
             embedder: "random".into(),
         })
