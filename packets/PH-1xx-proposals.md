@@ -17,7 +17,7 @@ silently overwrites.
 id: PH-102
 track: physis
 phase: 1
-status: review
+status: shipped
 rung: 2
 depends: [PH-000, PH-015]
 gate: "cargo test --lib ingest:: && cargo clippy --lib --tests -- -D warnings"
@@ -71,7 +71,7 @@ cargo clippy --lib --tests -- -D warnings
 id: PH-103
 track: physis
 phase: 1
-status: review
+status: shipped
 rung: 2
 depends: [PH-000, PH-020]
 gate: "cargo test --lib && cargo clippy --all-targets -- -D warnings"
@@ -124,7 +124,7 @@ Report must list every residual `env::var` with its keep justification.
 id: PH-104
 track: physis
 phase: 1
-status: review
+status: shipped
 rung: 2
 depends: [PH-000]
 gate: "cargo test --lib && cargo clippy --all-targets -- -D warnings"
@@ -550,7 +550,7 @@ in no user-facing doc.
 id: PH-037
 track: physis
 phase: 2
-status: review
+status: shipped
 rung: 2
 depends: [PH-029]
 gate: "cargo clippy --lib --features neural -- -D warnings && cargo test --test neural_invariance --features neural"
