@@ -1312,6 +1312,10 @@ freeze everything outside it. Rename the reducers on every customer-facing
 surface to what they compute (`chronos` → "recurring-event detector"). Keep the
 Greek names internally if they help; they cost sales externally.
 
+### H12 — Keep experimental neural work research-scoped *(PH-037 tracking)*
+
+The PH-037 neural-substrate layer (`src/neural/`, gated behind the `neural` feature) is an architecture probe — a second, parallel substrate path for `decode_semantic_delta`, not a replacement for the sled-backed ontology. It ships no customer-facing accuracy claim. P1-P8 are implemented and gated; P9-P13 are scaffolded or documented-only in `docs/research/wetware/`. The HUD view (P11) is wired via `--view neural` behind `neural` feature (PH-108). All numerical claims live in the research packet (`packets/PH-037-physis-neural-substrate.md`, `docs/research/wetware/RESULTS.md` with PROVEN/SUPPORTED/PLAUSIBLE/SPECULATIVE classification).
+
 ### What the evaluation confirmed works
 
 Recorded so the backlog above is not mistaken for a verdict on the whole system.
