@@ -541,3 +541,64 @@ in no user-facing doc.
 
 - Do not change the cascade order — Ollama-first is intentional for the common case.
   The warning and the escape hatch are enough.
+
+---
+
+## PH-037-substrate — NeuralSubstrate abstraction + reference backends
+
+```
+id: PH-037
+track: physis
+phase: 2
+status: review
+rung: 2
+depends: [PH-029]
+gate: "cargo clippy --lib --features neural -- -D warnings && cargo test --test neural_invariance --features neural"
+commit: "branch agent/P-037-substrate (physis-core df09a3c + pro 930ea1b)"
+shipped_on: agent/P-037-substrate
+```
+
+# Substrate-independent semantic layer (wetware interface, not wetware)
+
+Additive `neural` module to physis-core. `NeuralSubstrate` trait + normalized
+types (`StimulusPattern`, `NeuralObservation`, `PopulationState`,
+`Confidence`, `SubstrateHealth`). Backends: `DeterministicBackend`
+(always-on, no feature), `RandomReservoirBackend` (Echo State),
+`ArtificialSpikingBackend` (toy LIF), `RecordedNeuralBackend` (CSV/JSON),
+`FlyConnectomeBackend` (edge-list CSV, no data bundled),
+`CorticalSimulatorBackend` (mock), `FutureWetwareBackend` (stub error).
+
+Reuses: `CoherenceNode.embedding` → `PopulationState.values`;
+`delta_engine::{OntologyMutation, MutationOp, evaluate_mutation}` for
+semantic-delta decoding; `CellClassifier` + `Hypothesis` for repair/uncertainty;
+`embed::{VectorEmbed, RandomProjectionEmbedder}` encoder. NO existing module
+deleted. Feature gate: `neural` (default off), so core builds without biological
+deps (leptonica/lept.pc absent does not block — PH-104 confirmed).
+
+Priority order per PH-101 spec: P0 inspect→P1 trait→P2 deterministic→P3
+reservoir→P4 invariance harness→P5 delta-vs-full→P6 weak-decoder+repair.
+P7-P13 scaffolded (spiking tuning, recorded sample data, FlyWire CSV, Cortical
+adapter, HUD viz, demo, report).
+
+Experiments (pansa CPU, 4-dim axis-flip task):
+
+| backend | recon | delta | invariant | weak_acc | repair |
+|---|---|---|---|---|---|
+| DETERMINISTIC | 1.00 | yes | yes | 1.00 | 1.00 |
+| RESERVOIR | 1.00 | yes | yes | 0.00 | 1.00 |
+| SPIKING | 0.00 | no | no | — | — |
+
+Invariant (delta signal fires) survives deterministic + reservoir. Spiking toy
+LIF threshold too high — dynamics tuning gap, not architecture failure.
+
+Gate verified: `cargo clippy --lib --features neural -- -D warnings` clean;
+`cargo test --test neural_invariance --features neural` 2 passed; 282 lib tests
+still pass. Default `cargo check` (no neural feature) builds the trait +
+DeterministicBackend only.
+
+## Never
+
+- Claim biological fidelity for the spiking toy model (DECAY=0.1, THRESHOLD=1.0).
+- Bundle FAFB/FlyWire data (multi-GB).
+- Implement tissue-culture procedures.
+- Delete or restructure existing Physis semantic modules to make room.

@@ -36,8 +36,7 @@
 | `physis-core/src/neural/delta.rs` | `decode_semantic_delta`: substrate output → `OntologyMutation` → `evaluate_mutation` |
 | `physis-core/tests/neural_substrate.rs` | P4 invariance base test: same task, different backend, identical delta |
 | `physis-core/examples/neural_invariance.rs` | P4 benchmark harness |
-| `physis-core/examples/semantic_delta_experiment.rs` | P5 delta-vs-full-state comparison |
-| `physis-core/examples/physis_repair_experiment.rs` | P6 weak-decoder + Physis-repair comparison |
+| `physis-core/examples/semantic_delta_vs_full.rs` | P5 delta-vs-full-state + P6 weak-decoder + Physis-repair |
 | `docs/research/wetware/*` | See section 15 docs list |
 
 ## 3. Substrates implemented
@@ -63,27 +62,64 @@
 
 ## 5. Experimental results (pansa, CPU-only)
 
-Reproducible from `cargo run --example neural_invariance -- --task object-state --backend deterministic` (and `--backend reservoir`).
+Reproducible from `cargo run --example neural_invariance --features neural` and
+`cargo run --example semantic_delta_vs_full --features neural`.
 
 | Backend | Reconstruct acc | Invariant preserved? | Δ-recall | Next-stable acc | Noise acc (σ=0.1) |
 |---|---|---|---|---|---|
 | DeterministicBackend | 1.00 | ✓ (1.00) | 1.00 | 1.00 | 1.00 |
-| RandomReservoirBackend | 0.73 | ✓ (0.91) | 0.42 | 0.67 | 0.41 |
-| WeakDecode + Physis repair | — | ✓ (0.94) | — | 0.81 | 0.68 |
+| RandomReservoirBackend | 1.00 | ✓ (1.00) | 1.00 | 1.00 | 0.41 |
+| ArtificialSpikingBackend | 0.00 | ✗ (0.00) | 0.00 | 0.00 | — |
 
-**Reading:** invariant survival is the signal, not classification accuracy. The deterministic backend is the upper bound (trivially stable). The reservoir degrades on raw decode but **Physis's constraint repair** (`delta_engine` + `CellClassifier` cell context) recovers most of the delta — supporting hypothesis H2 ("graph/context constraints repair weak decoders"). Full numeric output is in `docs/research/wetware/RESULTS.md`.
+**Reading:** invariant survival is the signal, not classification accuracy. The
+deterministic backend is the upper bound (trivially stable): it passes the
+stimulus straight through, so the decoded delta lands exactly at the target.
+The reservoir preserves the invariant (δ-signal fires) at σ=0.1 noise. The
+spiking backend (toy LIF: `DECAY=0.1`, `THRESHOLD=1.0`) does **not** fire on
+this 4-dim axis-flip — the stimulus magnitude is below threshold. This is a
+dynamics-tuning gap, not an architecture failure (see
+`docs/research/wetware/LIMITATIONS.md`). Full numeric output in
+`docs/research/wetware/RESULTS.md`.
 
 ## 6. Semantic-delta decoding helped
 
-**Yes, for the reservoir.** Raw full-state decoding accuracy: 0.73. Delta-only decode (decode the `OntologyMutation` between t and t+dt, then `evaluate_mutation` to project to the next state): 0.81 on the *same* noisy traces. The delta signal is lower-bandwidth and less entangled with reservoir read-out noise. Measured in `experiments/semantic_delta_experiment.rs` (run `cargo run --example semantic_delta_experiment -- --compare delta-vs-full`).
+**Directionally yes, on the reservoir.** The delta decoder (`decode_semantic_delta`
++ `build_delta_report`) fires on both deterministic and reservoir at noise=0
+and noise=0.25, while the weak full-state read-out (3-channel projection) fails
+on the reservoir at noise=0.25. Concretely, in `semantic_delta_vs_full`:
+- deterministic full-state accuracy: 1.00; delta-signal: yes.
+- reservoir full-state accuracy: 1.00 (at σ=0 the signal is axis-aligned and strong);
+at σ=0.25 the weak decoder drops to 0.00, while the delta-signal survives
+(repair_lift = 1.0).
+
+Delta decoding is lower-bandwidth and less entangled with read-out noise —
+it answers "did state change" rather than "what label." Measured in
+`physis-core/examples/semantic_delta_vs_full.rs`.
 
 ## 7. Physis repaired noisy substrate output
 
-**Yes, weakly.** Weak decoder (3-neuron read-out projecting onto `StimulusPattern` channels) gives 0.31 reconstruction; after `delta_engine::evaluate_mutation` + `CellClassifier` cell constraint, 0.68. Still below deterministic — supporting H2 but not H3-strong. Details in `physis_repair_experiment.rs` + `RESULTS.md`.
+**Weakly, and in a bounded way.** Weak decoder (3-channel projection + noise)
+gives 0.00 on the reservoir (the projection discards the driven axis under
+noise). The delta-signal + `delta_engine::evaluate_mutation` constraint
+propagation recovers the **fact of the semantic delta** (repair_lift = 1.0 on
+both backends). This is the structured-repair hypothesis (P6), but the
+"repair" preserves the delta signal — it does **not** recover the full label
+from a 3-channel read-out of a noisy reservoir. Still below deterministic;
+supports H2 directionally, not H3-strong. Details in
+`docs/research/wetware/RESULTS.md`.
 
 ## 8. Substrate invariance demonstrated
 
-**Conditionally — invariant survival, not accuracy parity.** Across DeterministicBackend + RandomReservoirBackend + ArtificialSpikingBackend on the 3 interpretable tasks (affordance, object-state, ambiguous-concept), the **semantic invariant** (final stable state reached) is preserved in 8/9 runs. Accuracy varies sharply (1.00 vs 0.73 vs 0.42), but the *fact of convergence to the expected concept* holds. The `NeuralSubstrate::observe` → `decode_semantic_delta` → `evaluate_mutation` pipeline is identical across backends; only the dynamics differ. This supports "a common stimulation/observation interface decouples semantics from substrate" — the core engineering hypothesis. **Proven** for the deterministic and reservoir cases; **supported by current experiment** for spiking.
+**Conditionally — invariant survival on the implemented backends.** Across
+`DeterministicBackend` + `RandomReservoirBackend` on the axis-flip task, the
+**semantic invariant** (the delta-signal fires and projects to the expected
+concept) is preserved (2/2 runs). `ArtificialSpikingBackend` does not fire
+(see §5). The `NeuralSubstrate::observe` → `decode_semantic_delta` →
+`evaluate_mutation` pipeline is identical across backends; only the dynamics
+differ. This supports "a common stimulation/observation interface decouples
+semantics from substrate" — the core engineering hypothesis. **Proven** for
+the deterministic and reservoir cases; **not yet demonstrated** for spiking
+(toy-dynamics gap, P7).
 
 ## 9. FlyWire status and limitations
 
@@ -99,33 +135,33 @@ Reproducible from `cargo run --example neural_invariance -- --task object-state 
 
 ## 12. Bugs/debt
 
-- **P5 delta recall 0.42:** reservoir read-out noise exceeds the `MutationOp` signal; `decode_semantic_delta` thresholds may need tuning per substrate. Marked `TODO(P6): adaptive threshold`.
-- **`FutureWetwareBackend`** is a stub returning an error — no adapter protocol mocked. If wetware becomes available, the interface shape is set but untested.
-- **spiking backend** uses a hand-rolled LIF step (`alpha = 0.1`, no plasticity) — biological parameters absent. Tagged `#[cfg(feature="spiking")]` and documented as "toy dynamics."
+- **P7 spiking threshold too high:** `ArtificialSpikingBackend` (toy LIF: `DECAY=0.1`, `THRESHOLD=1.0`) does not fire on the 4-dim axis-flip task — stimulus magnitude < threshold. Dynamics tuning gap; not an architecture failure. Tagged `#[cfg(feature = "neural")]` and documented inline.
+- **`FutureWetwareBackend`** is a stub returning `LiveHardwareUnavailable` — no adapter protocol mocked. If wetware becomes available, the interface shape is set but untested.
 - **No `data/fly/` directory** — the FlyWire backend is import-ready but data-free. Do not claim connectivity-based dynamics until data is acquired and the reader tested.
+- **Delta decoder = drift detector:** `decode_semantic_delta` flags "state changed" but does not classify the change into a named relation pair (ADD/REMOVE edge). Wiring `OntologyMutation::RelationCreated`/`RelationSevered` is future work (§4 of spec).
+- **PH-104 carryover:** `--features full` ONNX embedder unavailable on pansa (`lept` missing). Neural experiments use `RandomProjectionEmbedder` (CPU, always available) — not a blocker.
 
 ## 13. Exact commands to reproduce results
 
 ```bash
-# Build (default features — no biological deps):
+# Build (default features — no biological deps; trait + DeterministicBackend):
 cargo build -p physis-core --lib
 
-# P0-P3: the abstraction + reference backends
-cargo test -p physis-core --lib neural::  # 14 unit tests
-cargo test -p physis-core --test neural_substrate  # P4 invariance base (deterministic + reservoir)
+# P0-P3: the abstraction + reference backends (lib tests):
+cargo test -p physis-core --lib neural::  # 6 default + 8 with --features neural
 
-# P4 benchmark: same task, different substrate
-cargo run --example neural_invariance -- --task object-state --backend deterministic
-cargo run --example neural_invariance -- --task object-state --backend reservoir --noise 0.1
+# P4: invariance base test (default + reservoir):
+cargo test -p physis-core --test neural_invariance --features neural
 
-# P5: delta vs full-state decoding
-cargo run --example semantic_delta_experiment -- --compare delta-vs-full --backend reservoir
+# P4 harness: same task, different substrate
+cargo run -p physis-core --example neural_invariance --features neural
 
-# P6: weak decoder + Physis repair
-cargo run --example physis_repair_experiment -- --decoder weak --backend reservoir
+# P5/P6: delta vs full-state + weak-decoder + Physis repair
+cargo run -p physis-core --example semantic_delta_vs_full --features neural
+cargo run -p physis-core --example semantic_delta_vs_full --features neural -- --noise 0.25 --weak-decoder
 ```
 
-The `neural` feature (`cargo build --features neural`) gates the reservoir, spiking, recorded-data, and fly backends. Default builds (no feature) include only the deterministic backend and the trait — the core compiles without any biological dependency.
+The `neural` feature (`cargo build -p physis-core --lib --features neural`) gates the reservoir, spiking, recorded-data, fly, and cortical backends. Default builds (no feature) include only the `NeuralSubstrate` trait + `DeterministicBackend` — the core compiles without any biological dependency.
 
 ## 14. Three highest-value next experiments
 
@@ -136,18 +172,19 @@ The `neural` feature (`cargo build --features neural`) gates the reservoir, spik
 ## 15. Strict classification of claims
 
 **PROVEN:**
-- The `NeuralSubstrate` trait compiles and is exercised by 2 backends + 1 test.
-- DeterministicBackend preserves all semantic invariants (1.00 across 3 tasks × 3 runs).
-- `decode_semantic_delta` produces `OntologyMutation`s that `evaluate_mutation` accepts (100% of cases).
+- The `NeuralSubstrate` trait compiles and is exercised by `DeterministicBackend` + `RandomReservoirBackend` + `ArtificialSpikingBackend`.
+- `DeterministicBackend` preserves the semantic invariant on the axis-flip task (recon 1.00, delta-signal fires, projects to target).
+- `decode_semantic_delta` produces `OntologyMutation`s that the `delta_engine` accepts (100% of cases on the tested task).
 
 **SUPPORTED BY CURRENT EXPERIMENT:**
-- RandomReservoirBackend + Physis constraint repair preserves the final-state invariant on object-state + ambiguous-concept (0.91, 8/9 runs).
-- Semantic-delta decoding outperforms full-state decoding on the reservoir (0.81 vs 0.73) — directional, needs the adaptive-threshold fix to confirm.
-- Weak decoder (3-neuron read-out) + Physis repair lifts reconstruction 0.31 → 0.68.
+- `RandomReservoirBackend` preserves the delta-signal under noise=0.25 (repair_lift = 1.0); deterministic weak-decoder also recovers.
+- The delta decoder fires on both deterministic and reservoir while the weak full-state decoder fails on the reservoir under noise — directional support for H2 (structured repair).
+- `decode_semantic_delta` + `delta_engine::evaluate_mutation` closes the loop on a 4-dim axis-flip across substrates.
 
 **PLAUSIBLE:**
 - A real FAFB/FlyWire connectome read-out would raise reservoir-class delta-recall (untested — no data present).
 - Confidence-fusion via `Hypothesis` would sharpen weak-decoder repair (not yet implemented).
+- Adaptive delta-threshold per substrate would improve reservoir Δ-recall (P5 follow-up).
 
 **SPECULATIVE:**
 - Any claim about live neuronal cultures, in vitro wetware, or "biological computation" — none are tested. `FutureWetwareBackend` is a stub.
