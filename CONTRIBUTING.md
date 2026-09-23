@@ -10,6 +10,16 @@ review conventions so contributions land cleanly.
 - `cargo-watch` (optional, for `cargo watch`)
 - `just` (optional, see `justfile`)
 
+## GitHub CLI
+
+Account: `ilPez00`  
+Scopes: `gist`, `read:org`, `repo`, `workflow`  
+Protocol: HTTPS  
+
+```bash
+gh auth status  # verify before repo operations
+```
+
 ## Quick Start
 
 ```bash
