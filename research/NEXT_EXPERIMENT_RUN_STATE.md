@@ -200,7 +200,30 @@ other direction.
 | local ollama generation | **unusable** — times out (280s on a trivial prompt; 8.5B and 2.6B alike). Embeddings work; generation does not. |
 | nvidia endpoint | **works, unreliable as a rater** — 54s/call; the model is a reasoning model that spends its budget on a trace. At max_tokens=512 it never reached an answer (degenerate output, `"Hereellsellsells..."`). At 2048 the parse rate rose to ~50% (one item returned a clean `ANSWER: BOND/GUIDE`, two were truncated mid-trace). |
 | kilo `~` free tier | **blocked on sign-in** — every `~`-prefixed model returns "You need to sign in to use this model." |
-| kilo `openrouter/free`, `z-ai/glm-5.2:free`, `qwen/qwen3.8-27b:free` | **blocked** — server errors (`UnknownError`), or "Model not found" for the exact name it suggested. |
+| kilo free tier (post-auth retest, 2026-09-24) | **blocked at the account level** — see below |
+
+Retested after the operator ran `kilo auth login`. Result: kilo is now
+authenticated (Kilo Gateway oauth + 15 credentials incl. Groq, Cohere, OpenCode
+Zen; Z.AI and Cerebras via environment), and `kilo models` lists 1031 entries
+with many `:free` ones. None is usable:
+
+- every `:free` model -> `ProviderModelNotFoundError`, surfaced confusingly as
+  "Model not found: X. Did you mean: X?" (same string both sides). Debug logs
+  show `providerID=kilo hasToken=true`, so it is not an auth problem: the
+  catalog lists models this account cannot route to.
+- paid models -> `Error: Upstream request failed: Insufficient account funds`.
+- Cohere models ARE reachable (`cohere/command-r-08-2024`,
+  `cohere/command-r-plus-08-2024` both load) but `kilo run` then fails with a
+  kilo-side schema bug: `Error: property reply_to must have a type`.
+
+So the model catalog is not a statement about what the account can reach.
+Two things would unblock it: funds/plan on the kilo gateway, or fixing the
+`reply_to` schema bug on the Cohere path (which is otherwise reachable).
+
+Model-id mechanics learned, for whoever tries next: `--model` takes
+`provider/model`; a leading `kilo/` is stripped; the `:free` suffix is a display
+marker and must be dropped; and a wrong id for a model that genuinely cannot be
+reached returns a self-referential suggestion that looks like a typo but is not.
 
 kilo is installed (`~/.local/bin/kilo`, v7.7.5) and authenticated for Google,
 DeepSeek, Z.AI, ZenMux, Meta, OrcaRouter, TokenRouter, SiliconFlow and Venice;
