@@ -33,6 +33,7 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
 import urllib.error
 import urllib.request
@@ -88,9 +89,36 @@ def load_corpus(max_files_per_repo=None):
 
 # ------------------------------------------------------- representations
 
-def embed_nomic(texts, batch=32, workers=2):
-    """Embed via ollama. Returns (n,768) L2-normalised."""
-    batches = [texts[i:i + batch] for i in range(0, len(texts), batch)]
+def _chunk_dir():
+    d = os.path.join(OUT, "emb_chunks_nomic")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def embed_nomic(texts, batch=32, workers=1):
+    """Embed via ollama, RESUMABLY.
+
+    The first version accumulated everything in memory and wrote one npz at the
+    end. The process was OOM-killed partway through 11k revisions and every
+    embedding was lost, so the job could not be restarted without redoing all
+    of it -- on a box where swap is already exhausted and kills are expected,
+    not exceptional. Each completed batch is now flushed to its own .npy and
+    progress is recovered on the next run.
+    """
+    d = _chunk_dir()
+    done = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
+    n_done = 0
+    for f in done:
+        try:
+            n_done += len(np.load(os.path.join(d, f)))
+        except (ValueError, OSError):
+            break
+    n_done = min(n_done, len(texts))
+    pending = texts[n_done:]
+    if n_done:
+        print(f"  resuming: {n_done}/{len(texts)} already embedded", flush=True)
+
+    batches = [pending[k:k + batch] for k in range(0, len(pending), batch)]
 
     def one(b):
         req = urllib.request.Request(
@@ -98,21 +126,24 @@ def embed_nomic(texts, batch=32, workers=2):
             headers={"Content-Type": "application/json"})
         for attempt in range(3):
             try:
-                d = json.load(urllib.request.urlopen(req, timeout=300))
-                return d["embeddings"]
+                return json.load(urllib.request.urlopen(req, timeout=300))["embeddings"]
             except (urllib.error.URLError, TimeoutError, KeyError, OSError):
                 if attempt == 2:
                     raise
         return []
 
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        out = []
-        for part in ex.map(one, batches):
-            out.extend(part)
-    a = np.asarray(out, dtype=np.float32)
-    n = np.linalg.norm(a, axis=1, keepdims=True)
-    n[n == 0] = 1.0
-    return a / n
+    n0 = len(done)
+    for k, b in enumerate(batches):
+        vecs = one(b)
+        arr = np.asarray(vecs, dtype=np.float32)
+        arr /= np.maximum(np.linalg.norm(arr, axis=1, keepdims=True), 1e-12)
+        np.save(os.path.join(d, f"chunk_{n0 + k:06d}.npy"), arr)
+        if (k + 1) % 20 == 0:
+            print(f"    {n_done + (k + 1) * batch}/{len(texts)}", flush=True)
+
+    files = sorted(f for f in os.listdir(d) if f.endswith(".npy"))
+    A = np.concatenate([np.load(os.path.join(d, f)) for f in files], axis=0)
+    return A[:len(texts)]
 
 
 def tok_jaccard(a, b):
@@ -216,10 +247,9 @@ def summarize(vals):
 # ------------------------------------------------------------- tasks
 
 def ensure_embeddings(trajs, force=False):
-    """Embed all revisions once; cache to npz keyed by trajectory index."""
-    if os.path.exists(EMB_CACHE) and not force:
-        z = np.load(EMB_CACHE, allow_pickle=True)
-        return list(z["embs"])
+    """Embed all revisions, resumably (see embed_nomic)."""
+    if force:
+        shutil.rmtree(_chunk_dir(), ignore_errors=True)
     flat, owner = [], []
     for i, t in enumerate(trajs):
         for txt in t["texts"]:
@@ -227,11 +257,9 @@ def ensure_embeddings(trajs, force=False):
             owner.append(i)
     print(f"  embedding {len(flat)} revisions via {EMB_MODEL} ...", flush=True)
     E = embed_nomic(flat)
-    embs = [None] * len(trajs)
+    embs = []
     for i, t in enumerate(trajs):
-        embs[i] = E[[j for j, o in enumerate(owner) if o == i]]
-    np.savez_compressed(EMB_CACHE,
-                        embs=np.array([e.astype(np.float32) for e in embs], dtype=object))
+        embs.append(E[[j for j, o in enumerate(owner) if o == i]])
     return embs
 
 
