@@ -100,6 +100,12 @@ def est_scores(kind, lc, sr, g, lam=None):
             out[k] = ps
         elif kind == "shrinkage":
             out[k] = (f + lam * ps) / (t + lam)
+        elif kind == "shrinkage_global":
+            # the decisive control: shrink toward the TARGET's own global rate
+            # instead of toward the source. Same form, same lambda-tuning
+            # protocol -- so any difference is attributable to the source
+            # prior and not to shrinkage as such.
+            out[k] = (f + lam * g) / (t + lam)
         elif kind == "pooled":
             ts, fs = SRC_COUNTS.get(k, (0, 0))
             out[k] = ((f + fs) / (t + ts)) if (t + ts) else g
@@ -149,13 +155,27 @@ def main():
                     ll = logloss(sc_t, lb_t)
                     if ll < best_ll:
                         best, best_ll = lam, ll
+                # the control gets its OWN tuned lambda, so the comparison is
+                # between two equally-tuned estimators and not between a tuned
+                # and an untuned one
+                best_g, best_gll = LAMBDAS[0], float("inf")
+                for lam in LAMBDAS:
+                    sc_t, lb_t, _ = score_actions(
+                        tune, est_scores("shrinkage_global", ft_counts, sr, g_fit, lam),
+                        g_fit)
+                    if len(set(lb_t)) < 2:
+                        continue
+                    ll = logloss(sc_t, lb_t)
+                    if ll < best_gll:
+                        best_g, best_gll = lam, ll
                 lam_choices[(target, str(best))] += 1
 
                 row = {"target": target, "source": src, "partition": r, "N": N,
-                       "lambda_selected": best}
+                       "lambda_selected": best, "lambda_selected_global": best_g}
                 for kind, lam in (("local", None), ("laplace", None), ("global", None),
                                   ("borrowed", None), ("pooled", None),
-                                  ("shrinkage", best)):
+                                  ("shrinkage", best),
+                                  ("shrinkage_global", best_g)):
                     sd = est_scores(kind, lc, sr, g_tune, lam)
                     # global is constant -> AUC undefined; keep its log loss
                     sc, lb, _ = score_actions(test, sd, g_tune)
@@ -170,6 +190,11 @@ def main():
                     row["auc_shrinkage"] - row["auc_laplace"]
                     if row["auc_shrinkage"] is not None and row["auc_laplace"] is not None
                     else None)
+                # THE decisive contrast: source-shrinkage vs global-shrinkage
+                row["diff_shrink_minus_global"] = (
+                    row["auc_shrinkage"] - row["auc_shrinkage_global"]
+                    if row["auc_shrinkage"] is not None
+                    and row["auc_shrinkage_global"] is not None else None)
                 rows.append(row)
 
     def col(kind, N=None):
@@ -181,10 +206,11 @@ def main():
     for N in N_LIST:
         sub = [r for r in rows if r["N"] == N]
         e = {}
-        for kind in ("local", "laplace", "borrowed", "shrinkage"):
+        for kind in ("local", "laplace", "borrowed", "shrinkage", "shrinkage_global"):
             a = np.array([r[f"auc_{kind}"] for r in sub if r[f"auc_{kind}"] is not None])
             e[f"auc_{kind}_median"] = float(np.median(a)) if len(a) else None
-        for key in ("diff_shrink_minus_local", "diff_shrink_minus_laplace"):
+        for key in ("diff_shrink_minus_local", "diff_shrink_minus_laplace",
+                    "diff_shrink_minus_global"):
             d = np.array([r[key] for r in sub if r[key] is not None])
             e[key] = {
                 "median": float(np.median(d)) if len(d) else None,
@@ -210,13 +236,28 @@ def main():
         "shrinkage_beats_laplace_at_every_N": bool(all(
             summary[str(N)]["diff_shrink_minus_laplace"]["median"] > 0
             for N in N_LIST)),
+        # DECISIVE: source-shrinkage vs global-shrinkage, equally tuned. If the
+        # source version does not beat the target's own global rate, the source
+        # prior carries no signal that ordinary target-level shrinkage lacks.
+        "source_shrinkage_beats_global_shrinkage_at_every_N": bool(all(
+            summary[str(N)]["diff_shrink_minus_global"]["median"] > 0
+            for N in N_LIST)),
+        "source_shrinkage_beats_global_shrinkage_in_majority_of_splits": bool(all(
+            summary[str(N)]["diff_shrink_minus_global"]["frac_positive"] > 0.5
+            for N in N_LIST)),
+        "source_minus_global_median_by_N": {
+            str(N): summary[str(N)]["diff_shrink_minus_global"]["median"]
+            for N in N_LIST},
+        "source_minus_global_frac_positive_by_N": {
+            str(N): summary[str(N)]["diff_shrink_minus_global"]["frac_positive"]
+            for N in N_LIST},
         "lambda_selected_most_often": lam_top,
         "interpretation_rule": (
-            "If shrinkage does not beat laplace smoothing, then the source "
-            "prior adds nothing beyond ordinary regularisation, and the strong "
-            "claim ('no usable cross-agent signal') survives. If it does beat "
-            "laplace, cross-agent information carries signal even though naive "
-            "transfer fails."),
+            "source-vs-global is the test that matters. Beating LAPLACE only "
+            "shows the source prior beats shrinking toward 0.5, which the "
+            "target's own base rate also does. Beating GLOBAL-SHRINKAGE, with "
+            "its own tuned lambda, is what shows the source carries signal the "
+            "target cannot supply about itself."),
     }
 
     json.dump({
@@ -230,15 +271,17 @@ def main():
 
     print(f"=== AUC medians (targets={TARGETS}, {R} partitions each) ===")
     print(f"{'N':>3s} {'local':>7s} {'laplace':>8s} {'borrow':>7s} {'shrink':>7s} "
-          f"{'shrink-local':>13s} {'frac>0':>7s} {'shrink-laplace':>15s} {'frac>0':>7s}")
+          f"{'sh_glob':>8s} {'s-local':>8s} {'s-lapl':>7s} {'s-glob':>7s} {'frac>0':>7s}")
     for N in N_LIST:
         s = summary[str(N)]
         dl = s["diff_shrink_minus_local"]
         dp = s["diff_shrink_minus_laplace"]
+        dg = s["diff_shrink_minus_global"]
         print(f"{N:>3d} {s['auc_local_median']:>7.3f} {s['auc_laplace_median']:>8.3f} "
               f"{s['auc_borrowed_median']:>7.3f} {s['auc_shrinkage_median']:>7.3f} "
-              f"{dl['median']:>+13.3f} {dl['frac_positive']:>7.3f} "
-              f"{dp['median']:>+15.3f} {dp['frac_positive']:>7.3f}")
+              f"{s['auc_shrinkage_global_median']:>8.3f} "
+              f"{dl['median']:>+8.3f} {dp['median']:>+7.3f} {dg['median']:>+7.3f} "
+              f"{dg['frac_positive']:>7.3f}")
     print()
     for k, v in verdict.items():
         print(f"  {k}: {v}")

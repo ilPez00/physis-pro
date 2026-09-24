@@ -164,7 +164,7 @@ def main():
     for k, v in sorted(pair_summary.items()):
         last = tensor[k]["30"]
         print(f"{k:26s} {last['auc_local_median']:>7.3f} {last['auc_borrow_median']:>7.3f} "
-              f"{last['auc_mixed_median']:>7.3f} {last['min_frac_local_beats_borrow']:>9.3f} "
+              f"{last['auc_mixed_median']:>7.3f} {v['min_frac_local_beats_borrow']:>9.3f} "
               f"{v['max_frac_borrow_above_chance']:>10.3f} {v['max_frac_mixed_beats_local']:>8.3f}")
     print()
     for k, v in verdict.items():
